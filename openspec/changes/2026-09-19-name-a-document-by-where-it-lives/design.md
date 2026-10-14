@@ -1163,6 +1163,37 @@ to the first, or past the run to the next line when it came from the first. So t
 bar all see the end of the declaration the developer sees. This is measured headlessly before it is relied on,
 as 3.14 did for the header.
 
+*Settled while building 4.3*, from AvaloniaEdit 12.0.0 measured headlessly (`MidLineFoldBehaviourTests`):
+- *The margin's marker on a procedure's row is the procedure's*, as the paragraph above says: one marker per row,
+  for the first fold starting at or after the row's start, expanded or not. A run has a marker of its own only with
+  no other fold on its row: no server, or a variable's run. Its box opens it when clicked, read in the library's
+  source.
+- *"When it came from the first" means by a Right key*, not from wherever the caret was. End, and a click past the
+  end of the row, land on the stop after the box from the anchor exactly as Right does; End marks the position
+  `IsAtEndOfLine` and a click does not, so nothing in the position tells a click from a step. Read as written, End
+  or a click at the end of a declaration would have thrown the caret onto the next line. So the window notes the
+  caret's offset as a Right key goes down, with any modifiers, and only a move that key makes from the anchor goes
+  past the run; every other landing after the box goes to the anchor. Ctrl+Right is such a step: the stop after the
+  box is a word start, which the first reading of the library's word rule missed, and Ctrl+Left from the next line
+  stops there too and is taken to the anchor, as Left is. A run that ends the file has no line past it, so there
+  Right stays at the anchor.
+- *A run's fold made new while the caret is inside it or at its end is made expanded.* A run typed by hand
+  describes its procedure from its first `.` (above), so its fold is made at that keystroke, with the caret at its
+  end, and folded the line being typed would vanish into a box under the caret. The library already unfolds a fold
+  the caret moves into, and this is recorded as the developer's expansion as that is.
+- *A section the manager paired keeps its state because pairing is by start alone*, measured again for a fold
+  starting mid-line. Which run a section is the fold of is read from where it stands, against the runs as the text
+  now is, at every `Changing`, before every application and as the view detaches, so the remembered state follows a
+  rename or an ordinal shift that does not move the fold. Keeping the live state is what matters in the one case
+  that reading cannot cover: one edit group that grows a run and renames its member, where no moment in between
+  finds the grown run under its new key. A key no run carries is kept, so Undo brings a deleted run back as it was
+  left. And a run added above another of the same member takes that one's ordinal, and with it the state remembered
+  for it: a property's Let gaining a run above its Get's opens as the Get's did. That is the key's nature, and not
+  handled.
+- *`ReadOnlyRegionRedraw` is redundant while the window folds.* Creating, removing or resizing a fold redraws the
+  lines it spans, and every change to a run's region changes its fold, so 4.1's redraw tests pass with the redraw
+  switched off. It is kept for an editor that installs no folds.
+
 **Renames (4.4).** A procedure's run follows its procedure by position, so no rename separates them. What a rename
 leaves behind is the qualifiers, and VB6 rewrites those **at every save**: to the procedure's name as declared,
 in its declared casing, after a name retyped on the declaration, after Replace All, after the whole declaration

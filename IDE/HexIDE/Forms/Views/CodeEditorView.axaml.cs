@@ -21,6 +21,7 @@ using HexIDE.Controls;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.Editor;
+using HexIDE.Runtime.Serialization;
 using HexIDE.Themes;
 using HexIDE.Utils;
 using R3;
@@ -256,9 +257,10 @@ public partial class CodeEditorView : UserControl
             TextEditor.TextArea.TextView.BackgroundRenderers.Insert(0, _highlightRenderer);
             TextEditor.TextArea.Caret.PositionChanged += OnCaretMovedForHighlight;
 
-            // Code folding. The header's fold is the window's own and is in place before anything is drawn; a
-            // server's folds join it when the server answers, if one ever does.
+            // Code folding. The header's fold and each member's attribute run's are the window's own and are in
+            // place before anything is drawn; a server's folds join them when the server answers, if one ever does.
             _foldingManager = FoldingManager.Install(TextEditor.TextArea);
+            TextEditor.TextArea.Caret.PositionChanged += KeepCaretOffFoldedRunsEnd;
             ApplyFolds(vm, []);
             _ = RequestFoldingsAsync(vm, CancellationToken.None);
 
@@ -438,9 +440,10 @@ public partial class CodeEditorView : UserControl
 
         if (_foldingManager is not null)
         {
-            // The view model outlives this view across a dock move, and the fold comes back the way it is now.
+            // The view model outlives this view across a dock move, and the folds come back the way they are now.
             if (DataContext is CodeEditorViewModel foldOwner)
-                ObserveHeaderFold(foldOwner);
+                ObserveOwnFolds(foldOwner);
+            TextEditor.TextArea.Caret.PositionChanged -= KeepCaretOffFoldedRunsEnd;
             FoldingManager.Uninstall(_foldingManager);
             _foldingManager = null;
         }
@@ -524,8 +527,9 @@ public partial class CodeEditorView : UserControl
     {
         if (DataContext is not CodeEditorViewModel vm) return;
         // Not left to the debounced request below: a reload removes every fold, and the header would show
-        // expanded for half a second, or for good were the request to fail.
-        if (!HeaderFoldIsCurrent(vm))
+        // expanded for half a second, or for good were the request to fail. A member's run is the same, and one
+        // an edit turns into an orphan has to lose its fold now rather than when a server next answers (task 4.3).
+        if (!OwnFoldsAreCurrent(vm))
             ApplyFolds(vm, null);
         ScheduleFolding(vm);
     }
@@ -544,9 +548,20 @@ public partial class CodeEditorView : UserControl
     /// <summary>Marks the folding section that is the header's, among the ones a server's answer creates.</summary>
     private static readonly object HeaderFoldTag = new();
 
+    /// <summary>Marks a folding section as a member's attribute run's (#273 task 4.3).</summary>
+    /// <remarks>
+    /// It carries no key. Which run a section is the fold of is read from where it is, against the runs as the text
+    /// stands, because an edit to the declaration a run describes can change its key without moving its fold: a name
+    /// retyped on the line, or a property's other accessor gaining a run above it. A key kept on the tag would only
+    /// ever be read where the offsets no longer match, just after a change or part-way through an edit group, and by
+    /// then the state has been recorded at an earlier change, under the key the run had then.
+    /// </remarks>
+    private static readonly object RunFoldTag = new();
+
     /// <summary>
     /// Applies the window's own folds and a server's together: the header's fold, folded unless the developer
-    /// expanded it in this window (#273 task 3.14).
+    /// expanded it in this window (#273 task 3.14), and the fold of each member's attribute run, folded unless the
+    /// developer expanded that run (task 4.3).
     /// </summary>
     /// <param name="server">The server's folds, or null to keep the ones shown.</param>
     /// <remarks>
@@ -566,41 +581,91 @@ public partial class CodeEditorView : UserControl
     /// the folded header, is read as the developer's too, which is why nothing the IDE does on its own may put
     /// the caret there.
     /// </para>
+    /// <para>
+    /// <b>A run's section the manager paired keeps its live state</b>; only one it made new takes the state
+    /// remembered for the run's key. Pairing is by start alone (MidLineFoldBehaviourTests), and a section paired is
+    /// the very fold the developer is looking at, whose key an edit to the declaration may just have changed. A new
+    /// section is also made expanded when the caret is inside it or at its end, as it is when a developer types a
+    /// run in under its declaration: folded, the line being typed would vanish under the caret.
+    /// </para>
+    /// <para>
+    /// <b>None of the window's own folds is carried forward as a server's.</b> When no server answer is given, the
+    /// server's folds already shown are kept, which are the sections not tagged as the window's. A run that has
+    /// stopped describing its member keeps its tag until this application drops it, so its fold goes with it.
+    /// </para>
     /// </remarks>
     private void ApplyFolds(CodeEditorViewModel vm, IReadOnlyList<NewFolding>? server)
     {
         if (_foldingManager is not { } manager) return;
-        ObserveHeaderFold(vm);
+        ObserveOwnFolds(vm);
 
         var shown = new List<NewFolding>();
-        if (server is null)
+        var runSections = new HashSet<FoldingSection>();
+        foreach (var section in manager.AllFoldings)
         {
-            foreach (var section in manager.AllFoldings)
-            {
-                if (!ReferenceEquals(section.Tag, HeaderFoldTag))
-                    shown.Add(new NewFolding(section.StartOffset, section.EndOffset) { Name = section.Title });
-            }
+            if (ReferenceEquals(section.Tag, RunFoldTag))
+                runSections.Add(section);
+            else if (server is null && !ReferenceEquals(section.Tag, HeaderFoldTag))
+                shown.Add(new NewFolding(section.StartOffset, section.EndOffset) { Name = section.Title });
         }
 
         var header = Vb6FoldingAdapter.Header(vm.Document, vm.ReadOnlyRegionsNow);
-        manager.UpdateFoldings(Vb6FoldingAdapter.Merge(header is null ? [] : [header], server ?? shown), -1);
+        var runs = vm.MemberRunsNow;
+        var own = Vb6FoldingAdapter.MemberRuns(runs);
+        if (header is not null)
+            own.Insert(0, header);
+        manager.UpdateFoldings(Vb6FoldingAdapter.Merge(own, server ?? shown), -1);
 
         // The header's section is the one at its offsets. The manager kept the old one if it still starts at the
         // top of the file, and nothing else can have taken it: the merge drops any other fold starting there.
-        if (header is null) return;
-        foreach (var section in manager.GetFoldingsAt(header.StartOffset))
+        if (header is not null)
         {
-            if (section.EndOffset != header.EndOffset) continue;
-            section.Tag = HeaderFoldTag;
-            section.IsFolded = !vm.HeaderFoldExpanded;
+            foreach (var section in manager.GetFoldingsAt(header.StartOffset))
+            {
+                if (section.EndOffset != header.EndOffset) continue;
+                section.Tag = HeaderFoldTag;
+                section.IsFolded = !vm.HeaderFoldExpanded;
+            }
+        }
+
+        var caret = TextEditor.TextArea.Caret.Offset;
+        foreach (var run in runs)
+        {
+            if (run.Key is not { } key || RunSection(run) is not { } section) continue;
+            if (!runSections.Contains(section))
+            {
+                var caretInside = section.StartOffset < caret && caret <= section.EndOffset;
+                section.IsFolded = !caretInside && !vm.ExpandedMemberRuns.Contains(key);
+            }
+            section.Tag = RunFoldTag;
         }
     }
 
-    /// <summary>Records on the view model whether the header's fold is expanded, while it is still shown.</summary>
-    private void ObserveHeaderFold(CodeEditorViewModel vm)
+    /// <summary>
+    /// Records on the view model whether the header's fold and each run's are expanded, while they are still shown.
+    /// </summary>
+    /// <remarks>
+    /// A run's state is recorded under the key of the run whose fold the section is where it now stands. One that
+    /// matches no run is passed over. That happens only after a change that moved the run and not yet its fold, as
+    /// the window re-makes its folds after it or part-way through an edit group, and an earlier <c>Changing</c>, the
+    /// group's first at the latest, recorded the state while the section still matched. Nothing the developer does
+    /// can change it in between.
+    /// </remarks>
+    private void ObserveOwnFolds(CodeEditorViewModel vm)
     {
-        if (HeaderSection() is { } section)
-            vm.HeaderFoldExpanded = !section.IsFolded;
+        if (HeaderSection() is { } header)
+            vm.HeaderFoldExpanded = !header.IsFolded;
+        if (_foldingManager is null) return;
+
+        var runs = vm.MemberRunsNow;
+        foreach (var section in _foldingManager.AllFoldings)
+        {
+            if (!ReferenceEquals(section.Tag, RunFoldTag) || RunOf(runs, section)?.Key is not { } key) continue;
+            if (section.IsFolded)
+                vm.ExpandedMemberRuns.Remove(key);
+            else
+                vm.ExpandedMemberRuns.Add(key);
+        }
     }
 
     /// <summary>The header's folding section, or null when none is shown.</summary>
@@ -615,25 +680,126 @@ public partial class CodeEditorView : UserControl
         return null;
     }
 
-    /// <summary>True when the header's fold is shown where the header is, or neither exists.</summary>
-    private bool HeaderFoldIsCurrent(CodeEditorViewModel vm)
+    /// <summary>The folding section at <paramref name="run"/>'s fold's offsets, whoever made it, or null.</summary>
+    private FoldingSection? RunSection(MemberRun run)
     {
-        if (_foldingManager is null) return true;
-        var header = Vb6FoldingAdapter.Header(vm.Document, vm.ReadOnlyRegionsNow);
-        var section = HeaderSection();
-        return header is null
-            ? section is null
-            : section is not null && section.StartOffset == header.StartOffset && section.EndOffset == header.EndOffset;
+        if (_foldingManager is null) return null;
+        foreach (var section in _foldingManager.GetFoldingsAt(run.Anchor))
+        {
+            if (section.EndOffset == run.LastContentEnd)
+                return section;
+        }
+        return null;
+    }
+
+    /// <summary>The run describing a member whose fold is at <paramref name="section"/>'s offsets, or null.</summary>
+    private static MemberRun? RunOf(IReadOnlyList<MemberRun> runs, FoldingSection section)
+    {
+        foreach (var run in runs)
+        {
+            if (run.DescribesMember && run.Anchor == section.StartOffset && run.LastContentEnd == section.EndOffset)
+                return run;
+        }
+        return null;
     }
 
     /// <summary>
-    /// Records the header fold's state before a change that may remove it: a whole-document assignment
-    /// removes every fold, and the folding manager unfolds each one it removes.
+    /// True when every fold of the window's own is shown where it belongs, and no other: the header's, and one for
+    /// each run that describes a member.
+    /// </summary>
+    private bool OwnFoldsAreCurrent(CodeEditorViewModel vm)
+    {
+        if (_foldingManager is null) return true;
+        var header = Vb6FoldingAdapter.Header(vm.Document, vm.ReadOnlyRegionsNow);
+        var headerSection = HeaderSection();
+        var headerIsCurrent = header is null
+            ? headerSection is null
+            : headerSection is not null && headerSection.StartOffset == header.StartOffset
+              && headerSection.EndOffset == header.EndOffset;
+        if (!headerIsCurrent) return false;
+
+        var runs = vm.MemberRunsNow;
+        var shown = 0;
+        foreach (var section in _foldingManager.AllFoldings)
+        {
+            if (!ReferenceEquals(section.Tag, RunFoldTag)) continue;
+            if (RunOf(runs, section) is null) return false;
+            shown++;
+        }
+        var wanted = 0;
+        foreach (var run in runs)
+        {
+            if (run.DescribesMember) wanted++;
+        }
+        return shown == wanted;
+    }
+
+    /// <summary>
+    /// Records the state of the window's own folds before a change that may remove them: a whole-document
+    /// assignment removes every fold, and the folding manager unfolds each one it removes.
     /// </summary>
     private void OnDocumentChangingForFolding(object? sender, DocumentChangeEventArgs e)
     {
         if (DataContext is CodeEditorViewModel vm)
-            ObserveHeaderFold(vm);
+            ObserveOwnFolds(vm);
+    }
+
+    /// <summary>
+    /// The caret's offset when a Right key was pressed, until the caret next moves, or -1 (#273 task 4.3). Set by
+    /// <see cref="OnEditorKeyDown"/>, ahead of the key's own handling.
+    /// </summary>
+    private int _stepRightFrom = -1;
+
+    /// <summary>True while <see cref="KeepCaretOffFoldedRunsEnd"/> is placing the caret itself.</summary>
+    private bool _placingCaret;
+
+    /// <summary>
+    /// Keeps the caret off the stop after a collapsed run's box, which is inside the run (#273 task 4.3): it goes to
+    /// the box's other side, the end of the declaration, or past the run to the next line when a Right key moved it
+    /// there from the declaration's end.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A collapsed run gives its row two caret stops</b>, before the box and after it, and the second is the end
+    /// of the run's last line (MidLineFoldBehaviourTests): where End, a click past the row's end, Up from a longer
+    /// line below, Left and Ctrl+Left from the line after the run, and Right and Ctrl+Right from the declaration's end
+    /// all put it. There, typing and Enter would be refused for no reason the developer can see, and F9 and the
+    /// status bar would name the run's last line, which is not on screen. Moved to the box's first side, every
+    /// one of them sees the end of the declaration the developer sees.
+    /// </para>
+    /// <para>
+    /// <b>Except a step to the right from that end</b>, which would otherwise never get past the run: moved back to
+    /// where it came from, Right would do nothing at all. The step is told apart by its key and not by where the
+    /// caret came from, because End and a click land from the declaration's end exactly as Right does, and the
+    /// position carries nothing to tell a click from a step. Runs from the caret's own <c>PositionChanged</c>, which
+    /// AvaloniaEdit raises while it moves the caret and before it makes a selection from it, so Shift+Right selects to
+    /// where the caret is put here.
+    /// </para>
+    /// </remarks>
+    private void KeepCaretOffFoldedRunsEnd(object? sender, EventArgs e)
+    {
+        var stepFrom = _stepRightFrom;
+        _stepRightFrom = -1;
+        if (_placingCaret || _foldingManager is null || DataContext is not CodeEditorViewModel vm) return;
+
+        var caret = TextEditor.TextArea.Caret.Offset;
+        foreach (var section in _foldingManager.GetFoldingsContaining(caret))
+        {
+            if (!ReferenceEquals(section.Tag, RunFoldTag) || !section.IsFolded || section.EndOffset != caret) continue;
+            var target = section.StartOffset;
+            if (stepFrom == section.StartOffset && RunOf(vm.MemberRunsNow, section) is { } run && run.Region.End > caret)
+                target = run.Region.End;
+            _placingCaret = true;
+            try
+            {
+                TextEditor.TextArea.Caret.Offset = target;
+            }
+            finally
+            {
+                _placingCaret = false;
+            }
+            return;
+        }
     }
 
     /// <summary>
@@ -1027,6 +1193,11 @@ public partial class CodeEditorView : UserControl
 
     private void OnEditorKeyDown(object? sender, KeyEventArgs e)
     {
+        // Ahead of AvaloniaEdit's own handling, which moves the caret: a step to the right from the end of a
+        // declaration whose run is folded goes past the run, where End or a click landing on the same stop do not
+        // (KeepCaretOffFoldedRunsEnd, #273 task 4.3). Every key sets it, so none outlives the key that set it.
+        _stepRightFrom = e.Key == Key.Right ? TextEditor.CaretOffset : -1;
+
         // Editing while the project is running/paused → VB6 reset prompt (see ArmResetPrompt). Covers the
         // non-printable edit keys that reach the text area (Backspace, Enter, Tab); printable chars go via
         // OnTextEntering, and Delete, Ctrl+V and Ctrl+X via the commands their keys are bound to.

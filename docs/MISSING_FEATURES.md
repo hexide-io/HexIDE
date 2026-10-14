@@ -238,7 +238,7 @@
 | Line numbers | Done | `ShowLineNumbers="True"` on `TextEditor`; rendered by AvaloniaEdit's built-in margin |
 | Breakpoint margin | Done | Red gutter dots (click-to-toggle) via `BreakpointMargin`; native interpreter debugger, Phase 1 |
 | Current-line indicator | Done | Amber full-width "current statement" bar via `CurrentLineRenderer`, driven by the debugger's Stopped event; native interpreter debugger, Phase 1 |
-| Code folding | Done | `FoldingManager` installed; the bundled server's `VbFoldingProvider` over LSP, merged with the folds the code window makes itself: the file's header, folded when the window opens and present with no server attached (#273) |
+| Code folding | Done | `FoldingManager` installed; the bundled server's `VbFoldingProvider` over LSP, merged with the folds the code window makes itself: the file's header, folded when the window opens and present with no server attached, and each member's `Attribute` run, folded into the end of the line it describes (#273) |
 | Quick Info on hover | Done | 400 ms delay hover → LSP `textDocument/hover` → tooltip; Ctrl+I triggers immediately. In **break mode** the same pipeline branches to a **Data Tip** — the hovered variable's live value (native debugger P6c) |
 | Bookmarks | Done | `IBookmarkService` + `BookmarkMargin` gutter (cyan circles); toggle/navigate/clear-all keybindings; persisted in the `.user.hexproj` sidecar |
 | Procedure View / Full Module View toggle | Missing | Won't implement — closed by the Evolution catalog's Remove table; code folding / sticky scroll / outline are the modern replacements |

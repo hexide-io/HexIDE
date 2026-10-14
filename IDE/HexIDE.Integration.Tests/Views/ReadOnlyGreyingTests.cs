@@ -177,6 +177,24 @@ public class ReadOnlyGreyingTests : IDisposable
         return view.FindControl<TextEditor>("TextEditor")!;
     }
 
+    /// <summary>
+    /// Has each named member's attribute run expanded in <paramref name="vm"/>'s window, as though the developer had
+    /// opened it there, a run an edit only makes later included.
+    /// </summary>
+    /// <remarks>
+    /// These tests read how a run's own lines are drawn, and since #273 task 4.3 a run is folded by default, its lines
+    /// drawn as one box after the declaration. Expanded through the view model before the window opens rather than
+    /// through the folds afterwards, so the test does nothing between an edit and its assertion that redraws the run.
+    /// The window's own re-made folds still redraw it, which since 4.3 is a second reason a changed run is redrawn
+    /// besides <see cref="ReadOnlyRegionRedraw"/>. How a folded run is drawn is
+    /// <see cref="AFoldedRunIsDrawnAsABoxInTheReadOnlyColourAndAnExpandedOneIsGreyedLineByLine"/>.
+    /// </remarks>
+    private static void ExpandRuns(CodeEditorViewModel vm, params string[] members)
+    {
+        foreach (var member in members)
+            vm.ExpandedMemberRuns.Add(new MemberRunKey(member.ToUpperInvariant(), 0));
+    }
+
     private static void ExpandHeader(TextEditor editor)
     {
         var folding = (FoldingManager)editor.TextArea.TextView.GetService(typeof(FoldingManager))!;
@@ -259,13 +277,49 @@ public class ReadOnlyGreyingTests : IDisposable
         // Phase 4's attribute runs are read-only already, and are greyed by the same colour as the header.
         var themes = new ThemeService();
         using var _ = TheIdesThemes(themes);
-        var editor = Show(OpenModule(ModuleKind.ClassModule, "Order",
-            "Option Explicit\r\n\r\nPublic Sub Go()\r\nAttribute Go.VB_Description = \"Goes\"\r\n    Debug.Print 1\r\nEnd Sub\r\n"));
+        var vm = OpenModule(ModuleKind.ClassModule, "Order",
+            "Option Explicit\r\n\r\nPublic Sub Go()\r\nAttribute Go.VB_Description = \"Goes\"\r\n    Debug.Print 1\r\nEnd Sub\r\n");
+        ExpandRuns(vm, "Go");
+        var editor = Show(vm);
 
         var attribute = LineOf(editor, "Attribute Go.VB_Description");
         ColoursOn(editor, attribute).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey);
         ColoursOn(editor, attribute - 1).Should().NotContain(ClassicGrey, "the declaration is code");
         ColoursOn(editor, attribute + 1).Should().NotContain(ClassicGrey, "so is the body");
+    }
+
+    [AvaloniaFact]
+    public void AFoldedRunIsDrawnAsABoxInTheReadOnlyColourAndAnExpandedOneIsGreyedLineByLine()
+    {
+        // #273 task 4.2's greying half, once 4.3 folds the runs. Folded, all that is drawn of a run is the library's box
+        // after the declaration, whose text and border take the fold-label brush the window sets from the theme's
+        // read-only colour; expanded, every line of it is greyed as before, and the declaration is code either way.
+        var themes = new ThemeService();
+        using var _ = TheIdesThemes(themes);
+        var vm = OpenModule(ModuleKind.ClassModule, "Order",
+            "Option Explicit\r\n\r\nPublic Sub Go()\r\n" +
+            "Attribute Go.VB_Description = \"Goes\"\r\n" +
+            "Attribute Go.VB_UserMemId = 0\r\n" +
+            "    Debug.Print 1\r\nEnd Sub\r\n");
+        var editor = Show(vm);
+        var declaration = LineOf(editor, "Public Sub Go()");
+        var folding = (FoldingManager)editor.TextArea.TextView.GetService(typeof(FoldingManager))!;
+        var run = folding.GetFoldingsAt(editor.Document.GetLineByNumber(declaration).EndOffset).Single();
+        run.IsFolded.Should().BeTrue("the premise: the run opens folded");
+
+        var row = editor.TextArea.TextView.GetOrConstructVisualLine(editor.Document.GetLineByNumber(declaration));
+        row.LastDocumentLine.LineNumber.Should().Be(declaration + 2, "folded, the run is drawn on the declaration's row");
+        row.Elements.Last().GetType().Name.Should().Be("FoldingLineElement", "as the library's box, at the row's end");
+        FoldLabelColour.Should().Be(ClassicGrey, "which is drawn in the theme's read-only colour");
+        ColoursOn(editor, declaration).SkipLast(1).Should().NotBeEmpty().And.NotContain(ClassicGrey,
+            "and the declaration before it is code");
+
+        run.IsFolded = false;
+        Dispatcher.UIThread.RunJobs();
+        ColoursOn(editor, declaration).Should().NotContain(ClassicGrey, "expanded, the declaration is code");
+        ColoursOn(editor, declaration + 1).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey, "and each run line grey");
+        ColoursOn(editor, declaration + 2).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey);
+        ColoursOn(editor, declaration + 3).Should().NotContain(ClassicGrey, "and the body code again");
     }
 
     [AvaloniaFact]
@@ -288,6 +342,7 @@ public class ReadOnlyGreyingTests : IDisposable
             "Attribute Go.VB_Description = \"Goes\"\r\n" +
             "End Sub\r\n");
         var vm = MakeViewModel().Initialize(module);
+        ExpandRuns(vm, "Halt");
         var editor = Show(vm);
         editor.TextArea.Focus();
         Dispatcher.UIThread.RunJobs();
@@ -330,6 +385,7 @@ public class ReadOnlyGreyingTests : IDisposable
             "Public Sub Halt()\r\n" +
             "Attribute Halt.VB_Description = \"Stops at https://example.com/halt\"\r\n" +
             "End Sub\r\n");
+        ExpandRuns(vm, "Halt", "Alarm");
         var editor = Show(vm);
         editor.TextArea.Focus();
         Dispatcher.UIThread.RunJobs();
@@ -383,6 +439,7 @@ public class ReadOnlyGreyingTests : IDisposable
             "'Public Sub Go()\r\n" +
             "Attribute Go.VB_Description = \"Goes\"\r\n" +
             "End Sub\r\n");
+        ExpandRuns(vm, "Halt", "Go");
         var editor = Show(vm);
         var halt = LineOf(editor, "Attribute Halt");
         var go = LineOf(editor, "Attribute Go");
@@ -414,6 +471,7 @@ public class ReadOnlyGreyingTests : IDisposable
             "Attribute Go.VB_Description = \"Goes\"\r\n" +
             "Attribute Go.VB_HelpID = 7\r\n" +
             "End Sub\r\n");
+        ExpandRuns(vm, "Go");
         var editor = Show(vm);
         var first = LineOf(editor, "Attribute Go.VB_Description");
         var second = LineOf(editor, "Attribute Go.VB_HelpID");
@@ -443,6 +501,7 @@ public class ReadOnlyGreyingTests : IDisposable
             "Attribute Go.VB_HelpID = 7\r\n" +
             "Attribute Go.VB_UserMemId = 0\r\n" +
             "End Sub\r\n");
+        ExpandRuns(vm, "Go");
         var editor = Show(vm);
         ColoursOn(editor, LineOf(editor, "Attribute Go.VB_UserMemId")).Should().NotBeEmpty().And.NotContain(ClassicGrey,
             "the premise: the orphan is drawn as code");
@@ -475,6 +534,7 @@ public class ReadOnlyGreyingTests : IDisposable
             "Public Sub Other()\r\n" +
             "    Debug.Print 1\r\n" +
             "End Sub\r\n");
+        ExpandRuns(vm, "Tally");
         var editor = Show(vm);
         var run = LineOf(editor, "Attribute Count");
         ColoursOn(editor, run).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey, "the premise: the run is Tally's, renamed");
@@ -547,10 +607,12 @@ public class ReadOnlyGreyingTests : IDisposable
         // leave an address in a member's description blue and underlined.
         var themes = new ThemeService();
         using var _ = TheIdesThemes(themes);
-        var editor = Show(OpenModule(ModuleKind.ClassModule, "Order",
+        var vm = OpenModule(ModuleKind.ClassModule, "Order",
             "Option Explicit\r\n\r\nPublic Sub Go()\r\n" +
             "Attribute Go.VB_Description = \"See https://example.com/orders or ask help@example.com\"\r\n" +
-            "    ' https://example.com/orders\r\nEnd Sub\r\n"));
+            "    ' https://example.com/orders\r\nEnd Sub\r\n");
+        ExpandRuns(vm, "Go");
+        var editor = Show(vm);
 
         var attribute = LineOf(editor, "Attribute Go.VB_Description");
         ColoursOn(editor, attribute).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey);

@@ -1802,11 +1802,74 @@
   — **Left.** `CodeWindowReadOnlySections` still reads the physical line above a run as the described line when it
   decides whether a deletion takes the run, rather than `DescribedStart`; whether deleting part of a continued
   declaration takes its run is 4.5a's to decide. No test here shows it disagreeing with `Of`.
-- [ ] 4.2 Read-only and greyed, through the same provider and colour as the header.
+- [x] 4.2 Read-only and greyed, through the same provider and colour as the header.
   — **Both halves exist already:** the runs have been read-only since 3.7, and 3.15 greys every read-only
   region, these included. What is left is checking both once 4.3 folds the runs.
-- [ ] 4.3 Folds from the end of the described line, built with character offsets and nested inside a server's
+  — **Checked, folded and expanded.** `MemberRunFoldTests.AFoldedRunAndAnExpandedOneAreBothReadOnly` asks the
+  section provider and `IsReadOnlyRegion` both ways: the declaration's end takes text, the run's first character,
+  its last line's end and the line break it hangs from do not, and typing, Backspace and Delete in the expanded run
+  change nothing. `ReadOnlyGreyingTests.AFoldedRunIsDrawnAsABoxInTheReadOnlyColourAndAnExpandedOneIsGreyedLineByLine`:
+  folded, all that is drawn of the run is the library's box at the end of the declaration's row, in the fold-label
+  brush 3.15 sets from the theme's read-only colour, with the declaration in syntax colours before it; expanded,
+  each run line is grey and the declaration and body are not. Nothing needed changing. The greying tests that read a
+  run's own lines now open those runs through the view model before the window shows, since a run is folded by
+  default, rather than through the fold afterwards, which would redraw the lines between an edit and its assertion.
+- [x] 4.3 Folds from the end of the described line, built with character offsets and nested inside a server's
   procedure fold.
+  — **Measured first, headlessly, on AvaloniaEdit 12.0.0 (2026-10-14)**, and read in its decompiled source, which
+  agrees on every point; `MidLineFoldBehaviourTests` (17) keeps each measurement the code relies on. A folded run
+  joins the declaration's row and the line after it keeps its own; a fold with no title is the library's `...`
+  box, one caret stop wide. The margin draws one marker per row, for the first fold starting at or after the row's
+  start, so beside a server's procedure fold the marker is the procedure's, expanded or not, and the run has one of
+  its own only with no other fold on its row. The row has two caret stops at the box: before it, the anchor, and
+  after it, the end of the run's last line, inside the run. Right, Ctrl+Right, End, a click past the row's end, Up
+  from a longer line and Left and Ctrl+Left from the line after the run all land on the second; End marks it
+  `IsAtEndOfLine` and a click does not, so the position cannot tell a click from a step. The first reading of the
+  word-start rule, that a word step skips the box, was wrong both ways. Home from after the box goes to the row's
+  start. Shift+Right makes its selection from the caret as it stands after the caret's own synchronous
+  `PositionChanged`, so a caret moved there is where the selection ends. `GetFoldingsContaining` counts both ends
+  of a fold as inside it, while the caret unfolds one only from strictly inside. Text inserted at a fold's start
+  moves the fold along, so typing at the anchor lands before the box. An update pairs by start alone, keeping the
+  section, its state and its tag; one left out is removed and unfolded, and a new one starts expanded.
+  — **Built.** `Vb6FoldingAdapter.MemberRuns` gives each run that describes a member a fold from its anchor to its
+  last line's content end, with no title, and `Merge` nests it in a server's procedure fold and drops one crossing
+  it, as for the header. `CodeEditorViewModel.MemberRunsNow` caches `ReadOnlyRegions.MemberRuns` as
+  `ReadOnlyRegionsNow` caches `Of`, a second whole-buffer scan per version, and `ExpandedMemberRuns` holds the keys
+  the developer expanded in this window. The view's `ApplyFolds` makes the header's fold and every run's in each
+  application; tags run sections as its own, so no fold of its own is carried forward among a server's; keeps a
+  section the manager paired at its live state; and folds a new one unless its key was expanded or the caret is in
+  it or at its end. Expansion is read from the folds at each `Changing`, before each application and as the view
+  detaches, matching each section to the run where it now stands. `OwnFoldsAreCurrent` replaces
+  `HeaderFoldIsCurrent`, so a run that appears, grows, moves or turns into an orphan has its fold re-made on the
+  change. `KeepCaretOffFoldedRunsEnd` moves a caret landing after a collapsed run's box to the anchor, or past the
+  run to the next line when a Right key moved it there from the anchor (design.md, "Settled while building 4.3").
+  — **Tests.** `MemberRunFoldTests` (28), against a rendered editor: the delta's scenario `AProcedureWithADescription`,
+  the fold before any server answers and nested in the server's procedure fold, a server answer keeping both states,
+  a reload, a format and a dock move with one run of a property expanded and the other folded, the Get's expanded
+  run kept by its ordinal, the last choice kept, a new window opening folded, a run turning into an orphan and back
+  with no server, a run growing, a run pasted and a run typed in, a section paired through one edit group that grows
+  the run and renames its member, Undo bringing a deleted run back as it was, and the caret: End from the row's
+  start and from the anchor, Right and Ctrl+Right past the run, Shift+Right, a run ending the file, Left and
+  Ctrl+Left from the line after, Up from a longer line, a click past the row's end from either side, typing at the
+  end of the declaration, F9's line and the status bar, an expanded run and a folded header left alone.
+  `Vb6FoldingAdapterTests` gains six: a procedure's, a variable's and a property's two runs, an orphan's none, a
+  continued declaration, and the merge with a procedure fold and a crossing one.
+  — **Mutation: 19 run, one at a time, 15 caught.** The caret-inside rule, the paired branch, a run's section kept
+  as a server's, the Right key's origin dropped or not consulted, the end-of-file guard, the rule applied to the
+  header's fold or to an expanded run, the count and the offsets in the currency check, the observation at
+  `Changing` and at detach, the runs cache never going stale, and in the adapter orphans folded and a fold to the
+  region's end. Survived, and equivalent: the tag carrying a key and the currency check comparing it, and the
+  observation falling back to it, which only ever applied part-way through an edit group, after the group's first
+  `Changing` had recorded the state; both were removed, so the tag is a marker. `ReadOnlyRegionRedraw` switched off,
+  which no greying test now notices: creating, removing or resizing a fold redraws the lines it spans, so in the
+  code window every change to a run's region already redraws it; it is kept for an editor that folds nothing. And
+  the runs cache's prefix check, which mirrors `ReadOnlyRegionsNow`'s and matters only for a reload that moves the
+  split without changing the text, which no test makes.
+  — **Left.** The margin's one marker per row is to be filed: a run expanded beside a server's procedure fold has
+  no marker to fold it again with, so only closing and reopening the window does. A reload whose body changed can
+  still put the caret's old offset inside a run, which opens it as the caret moving there does, the run's version of
+  what 3.14 fixed for the header. 4.5 owns Enter at the anchor and 4.5a a deletion of the described line; 4.8
+  checks the folds in the running IDE.
 - [ ] 4.4 A member's rename rewrites its own attribute qualifiers — a procedure, property or module-level
   variable alike, since VB6 writes `VB_Var*` lines after a declaration. A server rename's edits to them are
   permitted; its edits to the header are not.

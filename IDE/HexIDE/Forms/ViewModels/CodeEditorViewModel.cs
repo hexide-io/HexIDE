@@ -468,6 +468,17 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     internal bool HeaderFoldExpanded { get; set; }
 
     /// <summary>
+    /// The member attribute runs the developer has expanded in this window, by key (#273 task 4.3).
+    /// </summary>
+    /// <remarks>
+    /// For the reason <see cref="HeaderFoldExpanded"/> is held here, and by key rather than by offset, because what
+    /// it has to outlive is the fold itself: a reload, a format that rewrites a run's surroundings, or a dock move
+    /// removes the fold, and the run's fold made again afterwards is folded unless its key is in this set. A key the
+    /// window no longer shows is kept, so a run deleted and brought back by Undo comes back as it was left.
+    /// </remarks>
+    internal HashSet<MemberRunKey> ExpandedMemberRuns { get; } = [];
+
+    /// <summary>
     /// Toggles a breakpoint on the 1-based <paramref name="line"/>, unless it would set one on a read-only line.
     /// </summary>
     /// <returns>False when nothing changed because the line is read-only; the status bar then says why.</returns>
@@ -1172,6 +1183,34 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     private IReadOnlyList<TextRegion>? regionsCache;
     private ITextSourceVersion? regionsCacheVersion;
     private int regionsCachePrefixLength;
+
+    /// <summary>
+    /// Every run of attribute lines below this buffer's header as it stands, those describing a member and the
+    /// orphans alike (<see cref="ReadOnlyRegions.MemberRuns"/>).
+    /// </summary>
+    /// <remarks>
+    /// Cached as <see cref="ReadOnlyRegionsNow"/> is. The view reads it on every change, to keep a fold on each run
+    /// that describes a member (#273 task 4.3), and on every caret move that lands at the end of one.
+    /// </remarks>
+    internal IReadOnlyList<MemberRun> MemberRunsNow
+    {
+        get
+        {
+            var version = Document.Version;
+            if (runsCache is null || !ReferenceEquals(runsCacheVersion, version)
+                || runsCachePrefixLength != bufferPrefix.Length)
+            {
+                runsCache = ReadOnlyRegions.MemberRuns(Document.Text, bufferPrefix.Length);
+                runsCacheVersion = version;
+                runsCachePrefixLength = bufferPrefix.Length;
+            }
+            return runsCache;
+        }
+    }
+
+    private IReadOnlyList<MemberRun>? runsCache;
+    private ITextSourceVersion? runsCacheVersion;
+    private int runsCachePrefixLength;
 
     /// <summary>
     /// The section provider the view installs on its text area (task 3.7): the regions above plus the

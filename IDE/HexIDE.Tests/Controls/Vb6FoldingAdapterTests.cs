@@ -107,6 +107,75 @@ public class Vb6FoldingAdapterTests
         fold!.EndOffset.Should().Be(text.Length);
     }
 
+    // ── A member's attribute run (task 4.3) ─────────────────────────────────────────────────────────────
+
+    private static List<NewFolding> RunFoldsOf(string text) => Vb6FoldingAdapter.MemberRuns(ReadOnlyRegions.MemberRuns(text, 0));
+
+    private static int EndOf(string text, string line) => text.IndexOf(line, StringComparison.Ordinal) + line.Length;
+
+    [Fact]
+    public void ARunsFoldRunsFromTheEndOfTheLineItDescribesToTheEndOfItsLastLine()
+    {
+        var text = "Option Explicit\r\nPublic Sub Go()\r\nAttribute Go.VB_Description = \"Goes\"\r\n" +
+                   "Attribute Go.VB_UserMemId = 0\r\n    Debug.Print 1\r\nEnd Sub\r\n";
+
+        var fold = RunFoldsOf(text).Should().ContainSingle().Subject;
+
+        fold.StartOffset.Should().Be(EndOf(text, "Public Sub Go()"), "it starts part-way along the declaration's line, at its end");
+        fold.EndOffset.Should().Be(EndOf(text, "Attribute Go.VB_UserMemId = 0"), "and ends before the run's last line break");
+        fold.Name.Should().BeNull("no title: the library draws its own box, and the run's text is what is being hidden");
+    }
+
+    [Fact]
+    public void AnOrphanHasNoFold()
+    {
+        // Under a statement VB6 gives the run to nothing, so it is free text, shown as code.
+        RunFoldsOf("Option Explicit\r\nPublic Sub Go()\r\n    Debug.Print 1\r\nAttribute Go.VB_Description = \"Goes\"\r\nEnd Sub\r\n")
+            .Should().BeEmpty();
+    }
+
+    [Fact]
+    public void EachRunOfAPropertyHasItsOwnFold()
+    {
+        var text = "Public Property Get Total() As Long\r\nAttribute Total.VB_Description = \"The total\"\r\nEnd Property\r\n" +
+                   "Public Property Let Total(ByVal Value As Long)\r\nAttribute Total.VB_Description = \"Sets it\"\r\nEnd Property\r\n";
+
+        RunFoldsOf(text).Select(f => (f.StartOffset, f.EndOffset)).Should().Equal(
+            (EndOf(text, "Get Total() As Long"), EndOf(text, "\"The total\"")),
+            (EndOf(text, "(ByVal Value As Long)"), EndOf(text, "\"Sets it\"")));
+    }
+
+    [Fact]
+    public void AVariablesRunFoldsFromTheEndOfItsDeclaration()
+    {
+        var text = "Option Explicit\r\nPublic Total As Long\r\nAttribute Total.VB_VarDescription = \"The total\"\r\n";
+
+        RunFoldsOf(text).Select(f => (f.StartOffset, f.EndOffset)).Should().Equal(
+            (EndOf(text, "Public Total As Long"), EndOf(text, "\"The total\"")));
+    }
+
+    [Fact]
+    public void ARunUnderAContinuedDeclarationFoldsFromTheEndOfTheDeclarationsLastPhysicalLine()
+    {
+        // The line directly above the run, which is the one the fold's marker sits at the end of.
+        var text = "Option Explicit\r\nPublic Function Total( _\r\n    ByVal Rate As Double) As Double\r\n" +
+                   "Attribute Total.VB_Description = \"The total\"\r\nEnd Function\r\n";
+
+        RunFoldsOf(text).Select(f => f.StartOffset).Should().Equal(EndOf(text, "ByVal Rate As Double) As Double"));
+    }
+
+    [Fact]
+    public void ARunsFoldNestsInsideAServersFoldOfTheProcedureAndOneCrossingItIsDropped()
+    {
+        var text = "Option Explicit\r\nPublic Sub Go()\r\nAttribute Go.VB_Description = \"Goes\"\r\n    Debug.Print 1\r\nEnd Sub\r\n";
+        var document = new TextDocument(text);
+        var run = RunFoldsOf(text).Single();
+        var procedure = Vb6FoldingAdapter.FromServer(document, [new FoldingRange(1, 4)]).Single();
+        var crossing = Vb6FoldingAdapter.FromServer(document, [new FoldingRange(2, 3)]).Single();
+
+        Vb6FoldingAdapter.Merge([run], [procedure, crossing]).Should().Equal(procedure, run);
+    }
+
     // ── A server's folds ──────────────────────────────────────────────────────────────────────────────
 
     [Fact]
