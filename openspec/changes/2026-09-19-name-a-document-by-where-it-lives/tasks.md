@@ -1816,11 +1816,59 @@
   it along. An orphaned run, however it arises, is preserved as inert text. 3.7 already covers a selection
   spanning the line and its run. What is left is the line on its own, which the provider cannot widen to
   (AvaloniaEdit refuses segments outside the requested span), so it needs a guarded write.
-- [ ] 4.5b Whole replacements refuse a change to a member's attribute run: add-in `TrySetContent` and
+- [x] 4.5b Whole replacements refuse a change to a member's attribute run: add-in `TrySetContent` and
   `SetContent`, and automation `set_file_content`, as the code-editor requirement "Only the IDE SHALL change a
   read-only region" requires. Until then `GuardedContent.Replace` compares the header alone (design.md, "A whole
   replacement checks the header"), and the add-in contract's doc comments say a replacement that changes a run is
   applied. Close both, and refuse with a reason that names the member.
+  — **Built.** `GuardedContent.Replace` checks the header as before, then compares the runs that describe a member
+  in the document with those in the text it would leave, so add-in `TrySetContent` and `SetContent`, automation
+  `set_file_content` and AI Chat's `apply_edit` and Apply button, which all reach it, refuse alike, open window or
+  not. A run is matched by the declaration it hangs from, its member's name and a property's accessor, which a new
+  additive `ReadOnlyRegions.MemberDeclarations` lists with every declaration a run could describe; a run finds its
+  own there by offset, and nothing the server reads changed. Its lines are read with terminators normalised and
+  without a qualifier that stands for its own member. Runs of one declaration are matched by their lines in any
+  order; what is left is paired as a rename where a declaration went and another came; a run left in the document
+  may go while its member is declared fewer times than before, one for each declaration gone, and is otherwise lost;
+  a run left in the replacement is added; a member that lost one and gained one is reported as changed. The refusal
+  names each member, a property with its accessor and a comma list's run by every variable its lines name.
+  `ApplyEdits` names the members whose runs an edit reaches, through `GuardedContent.MemberNamedBy`, and the header
+  as before when it reaches that. `IEditorAccess` and `AddinDocument.Content` say what is refused and what is not;
+  `set_file_content`'s description says it, with what to send moved into its `content` parameter's description to
+  stay inside the 2048 characters a client delivers; AI Chat's `apply_edit` and its system prompt say it too. The
+  code-editor delta gains the requirement's paragraph and the scenario "An add-in replaces a document's content,
+  changing a member's attribute lines", and the addin-system delta's requirement says the same. What the design
+  left open, and the two places its wording did not hold, are "Settled while building 4.5b" in design.md: matching by
+  `MemberRunKey`'s ordinal, and reading a variable's run with its qualifiers, each failed a case the rule allows.
+  — **Tests.** `GuardedContentMemberRunTests`, 38 cases: what passes (code edits, line endings, a continued
+  attribute line's, a procedure moved, deleted, commented out, renamed with or without its qualifier, its qualifier
+  changed alone, retyped to a `Function` or a `Property Get`, a variable renamed both ways and with its qualifier in
+  another case, orphans changed or removed, a property's accessors swapped, its first accessor deleted with its
+  run, both renamed); what is refused and how it is named (a description changed, a run removed or separated from
+  a declaration that stays, a variable's run pointed at another variable, a rename that also changes the run, a run
+  moved onto a member already declared or onto a new one while its own stays, a pasted line under a bare
+  declaration, an orphan promoted, a property's run moved from Get to Let and one added to its Let, every member
+  named at once, a comma list's run, the whole file, a form's code); declarations counted on text declaring a name
+  twice (three); and `MemberNamedBy`. `MemberDeclarationsTests` (5). The scenario's own test is
+  `AddinWholeFileTests.AnAddinReplacesADocumentsContentChangingAMembersAttributeLines`, through the add-in's surface,
+  beside a rename that carries its run and an edit refused naming its member. `GuardedWritersTests` gains a
+  replacement refused naming the member, an edit across the anchor and one across the header and a run, and its
+  edit-in-a-run row now reads the member's name. `DocumentContentTests` the no-window branch. The tool description
+  is checked headlessly, `SetFileContentDescriptionTests` reading it from the declaration, because a session that
+  loaded a tool keeps the description it loaded (#815). `AIChatWholeFileTests` reads the prompt and `apply_edit`'s
+  description.
+  — **Mutation: 32 on `GuardedContent`, `MemberDeclarations` and `ApplyEdits`' refusal, one at a time.** Each
+  reddened a test except four. Three spent a declaration budget twice, which only a name declared twice can reach,
+  and VB6 refuses that text; the three tests on such text were written for them, and each now reddens its own. The
+  fourth, the composed text read with no prefix instead of the document's, is equivalent on every buffer whose prefix
+  agrees with the header read from its text, and no other shape was found. Not run, as equivalent: the early return
+  when every run matched, which the passes after it reach anyway, and `MemberNamedBy` asking whether a run describes a
+  member, since an orphan's region is never one `Of` returns.
+  — **Left.** A range edit may still add a run: `TryApplyEdits` can insert an attribute line under a bare
+  declaration, or delete the blank line above an orphan, since neither touches a region as the document stands, so
+  an add-in can do in two range edits what a replacement refuses. A replacement that changes the header and a run
+  is told about the header alone. Reordering a property's accessors passes, each run with its accessor, although
+  VB6 reads the description from whichever is first (p14d); the code window allows the same move.
 - [ ] 4.6 Corpus lane: files carrying member-level attributes round-trip, which no lane covers today.
 - [ ] 4.7 Tests, one per scenario in this phase's delta, plus a deletion case for a described procedure.
 - [ ] 4.8 Verify in the running IDE, through the automation tools: a procedure's attributes folded into its

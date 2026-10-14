@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 
 namespace HexIDE.Runtime.Serialization;
 
@@ -13,9 +14,9 @@ namespace HexIDE.Runtime.Serialization;
 public readonly record struct ContentReplacement(string? NewText, string? Refusal, bool HeaderKept);
 
 /// <summary>
-/// Replacing a whole document's content without letting the replacement change its header: the rule the
+/// Replacing a whole document's content without letting the replacement change a read-only region: the rule the
 /// add-in <c>SetContent</c> and automation <c>set_file_content</c> rows of the design record share
-/// (hexide-io/HexIDE#273 task 3.9).
+/// (hexide-io/HexIDE#273 tasks 3.9 and 4.5b).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -28,7 +29,15 @@ public readonly record struct ContentReplacement(string? NewText, string? Refusa
 /// <para>
 /// <b>"Unchanged" compares line text, not terminators.</b> A caller that sends <c>\n</c> for a
 /// <c>\r\n</c> document has not changed its header, and the header written back is the document's own, byte
-/// for byte.
+/// for byte. A member's attribute lines are compared the same way.
+/// </para>
+/// <para>
+/// <b>A member's attribute run is the other read-only region, and it is checked once the header passes</b>
+/// (task 4.5b; design.md, "Whole replacements"). The runs that describe a member in the document are compared
+/// with those in the text the replacement would leave. A run may move with its member, be renamed with it, and go
+/// with its declaration; any other change, any run added and any run lost while its declaration stays is refused,
+/// with a reason naming each member. A run that describes nothing is inert text, not a region, and is free. See
+/// <see cref="MemberRunRefusal"/>.
 /// </para>
 /// </remarks>
 public static class GuardedContent
@@ -44,23 +53,272 @@ public static class GuardedContent
     {
         var header = current[..ReadOnlyRegions.HeaderEnd(current, prefixLength)];
         var incomingHeaderEnd = ReadOnlyRegions.HeaderEnd(incoming, 0);
+        string composed;
+        bool headerKept;
         if (incomingHeaderEnd == 0)
-            return new ContentReplacement(header + incoming, null, HeaderKept: header.Length > 0);
+        {
+            composed = header + incoming;
+            headerKept = header.Length > 0;
+        }
+        else
+        {
+            // Blank lines in front of the incoming header are the caller's formatting, not a header line.
+            var theirs = LinesOf(incoming[..incomingHeaderEnd]);
+            while (theirs.Count > 0 && theirs[0].Trim().Length == 0)
+                theirs.RemoveAt(0);
+            var ours = LinesOf(header);
+            if (theirs.Count > ours.Count || !EndsWith(ours, theirs))
+                return new ContentReplacement(null,
+                    "The content would change the document's header (its designer block, class header or leading "
+                    + "Attribute lines), which only the IDE changes. Send the code alone, or the whole file with its "
+                    + "header exactly as the document has it.",
+                    HeaderKept: false);
+            composed = header + incoming[incomingHeaderEnd..];
+            headerKept = theirs.Count < ours.Count;
+        }
 
-        // Blank lines in front of the incoming header are the caller's formatting, not a header line.
-        var theirs = LinesOf(incoming[..incomingHeaderEnd]);
-        while (theirs.Count > 0 && theirs[0].Trim().Length == 0)
-            theirs.RemoveAt(0);
-        var ours = LinesOf(header);
-        if (theirs.Count > ours.Count || !EndsWith(ours, theirs))
-            return new ContentReplacement(null,
-                "The content would change the document's header (its designer block, class header or leading "
-                + "Attribute lines), which only the IDE changes. Send the code alone, or the whole file with its "
-                + "header exactly as the document has it.",
-                HeaderKept: false);
+        // The composed text opens with the document's own header, byte for byte, so the document's prefix length
+        // is the composed text's too.
+        return MemberRunRefusal(current, composed, prefixLength) is { } refusal
+            ? new ContentReplacement(null, refusal, HeaderKept: false)
+            : new ContentReplacement(composed, null, headerKept);
+    }
 
-        return new ContentReplacement(header + incoming[incomingHeaderEnd..], null,
-            HeaderKept: theirs.Count < ours.Count);
+    /// <summary>
+    /// How a refusal names the member the run occupying <paramref name="region"/> of <paramref name="text"/>
+    /// describes, or null when no run that describes a member occupies it: the header, say.
+    /// </summary>
+    /// <remarks>
+    /// For the range writers' refusal (the code window's <c>ApplyEdits</c>), so that a refused edit and a refused
+    /// replacement name a member the same way: by its name as declared, a property's accessor with it, and a
+    /// variable's run by every variable its lines name.
+    /// </remarks>
+    public static string? MemberNamedBy(string text, int prefixLength, TextRegion region)
+    {
+        var declarations = ReadOnlyRegions.MemberDeclarations(text, prefixLength);
+        foreach (var run in ReadOnlyRegions.MemberRuns(text, prefixLength))
+        {
+            if (run.DescribesMember && run.Region == region)
+                return Who(run, AccessorOf(run, declarations));
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Why replacing <paramref name="before"/> with <paramref name="after"/> would change a member's attribute run,
+    /// or null when it would not.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>A run is matched by the declaration it hangs from: the member's name, and for a property the accessor.</b>
+    /// Not by <see cref="MemberRunKey"/>'s ordinal, which is file order: deleting a property's first accessor, or
+    /// putting its Let above its Get, renumbers the runs of the accessors that remain, and the ordinal would then
+    /// compare one accessor's run with another's (settled while building 4.5b). The accessor and not the name alone,
+    /// because VB6 reads a property's description from its first accessor in the file alone (oracle probes p14d and
+    /// p14e), so a replacement that moves a property's one run from its Get to its Let changes what VB6 compiles
+    /// while the name keeps the run.
+    /// </para>
+    /// <para>
+    /// <b>A run's lines are read without a qualifier that stands for the run's own member</b>: every qualifier of a
+    /// procedure's run and of a renamed variable's, which VB6 does not consult and the save writes the member's name
+    /// over (task 4.4), and a variable's where it names the variable the run is keyed by. That is what lets a run
+    /// be renamed with its member, by a replacement that re-qualifies it or one that leaves the old name for the
+    /// save. Every other qualifier is read as written, because a variable attribute names the declarator it binds
+    /// to, and line terminators are not read, as the header's are not.
+    /// </para>
+    /// <para>
+    /// <b>Three passes.</b> Runs of one declaration are matched first, as many to as many by their lines, so
+    /// runs that only moved, or a property's Get and Let swapped with a run each, pass. What is left in the
+    /// replacement is paired with what is left in the document as a rename, where a declaration went and another
+    /// came: the run's lines unchanged, under a member declared fewer times than before, now under one declared
+    /// more. What is left after that in the document is a run gone with its declaration, while that member is
+    /// declared fewer times than before, and otherwise a run lost while its declaration stays; what is left in the
+    /// replacement is added. A member with both is a run changed.
+    /// </para>
+    /// <para>
+    /// <b>An orphan turned into a run is an addition</b>, a pasted line under a declaration included, though in the
+    /// code window such a line is a run at once (task 4.5a). A replacement cannot be told from text its caller
+    /// wrote, and an orphan is free text, so a caller that could promote one could add any run in two calls. The
+    /// developer repairs an orphan in the code window.
+    /// </para>
+    /// </remarks>
+    private static string? MemberRunRefusal(string before, string after, int prefixLength)
+    {
+        var was = DescribedRuns(before, prefixLength, out var declaredBefore);
+        var now = DescribedRuns(after, prefixLength, out var declaredAfter);
+
+        // Runs of one declaration, matched by their lines, in any order.
+        var leftBefore = new List<Described>();
+        var leftAfter = new List<Described>(now);
+        foreach (var run in was)
+        {
+            var match = leftAfter.FindIndex(n => n.Member == run.Member && n.Lines == run.Lines);
+            if (match >= 0)
+                leftAfter.RemoveAt(match);
+            else
+                leftBefore.Add(run);
+        }
+        if (leftBefore.Count == 0 && leftAfter.Count == 0)
+            return null;
+
+        // How many declarations of each member went, and how many came.
+        var went = new Dictionary<Member, int>();
+        var came = new Dictionary<Member, int>();
+        foreach (var (member, count) in declaredBefore)
+            went[member] = count - declaredAfter.GetValueOrDefault(member);
+        foreach (var (member, count) in declaredAfter)
+            came[member] = count - declaredBefore.GetValueOrDefault(member);
+
+        // A rename: a declaration went, another came, and the run's lines came with it unchanged.
+        var added = new List<Described>();
+        foreach (var run in leftAfter)
+        {
+            var from = came.GetValueOrDefault(run.Member) > 0
+                ? leftBefore.FindIndex(b => went.GetValueOrDefault(b.Member) > 0 && b.Lines == run.Lines)
+                : -1;
+            if (from < 0)
+            {
+                added.Add(run);
+                continue;
+            }
+            went[leftBefore[from].Member]--;
+            came[run.Member]--;
+            leftBefore.RemoveAt(from);
+        }
+
+        // A run gone with its declaration; otherwise lost while its declaration stays.
+        var lost = new List<Described>();
+        foreach (var run in leftBefore)
+        {
+            if (went.GetValueOrDefault(run.Member) > 0)
+                went[run.Member]--;
+            else
+                lost.Add(run);
+        }
+        if (lost.Count == 0 && added.Count == 0)
+            return null;
+
+        // A member that lost a run and gained one had a run changed, which is how its caller will think of it.
+        var findings = new List<string>();
+        foreach (var run in lost)
+        {
+            var changed = added.FindIndex(a => a.Member == run.Member);
+            if (changed >= 0)
+            {
+                findings.Add($"the Attribute lines describing {added[changed].Who} are changed");
+                added.RemoveAt(changed);
+            }
+            else
+                findings.Add($"the Attribute lines describing {run.Who} are removed, though its declaration stays");
+        }
+        foreach (var run in added)
+            findings.Add($"Attribute lines describing {run.Who} are added");
+
+        return "The content would change the Attribute lines that describe a member, which only the IDE changes: "
+               + string.Join("; ", findings) + ". A member's Attribute lines may move with it, be renamed with it, "
+               + "and go when its declaration goes, and may not otherwise change: send them exactly as the document "
+               + "has them. Renaming a member and changing its Attribute lines in one replacement reads as lines added "
+               + "to the new name. Nothing was changed.";
+    }
+
+    /// <summary>The declaration a run hangs from, as two texts can share it: its name without case, and a property's accessor.</summary>
+    private readonly record struct Member(string Name, PropertyAccessor? Accessor);
+
+    /// <summary>A run that describes a member, with what the comparison reads of it and how a refusal names it.</summary>
+    /// <param name="Lines">Its lines as compared: terminators normalised, and every qualifier that stands for the member removed.</param>
+    private sealed record Described(Member Member, string Lines, string Who);
+
+    /// <summary>
+    /// Every run of <paramref name="text"/> that describes a member, read for comparison, and how many times the text
+    /// declares each member a run could describe.
+    /// </summary>
+    private static List<Described> DescribedRuns(string text, int prefixLength, out Dictionary<Member, int> declared)
+    {
+        var declarations = ReadOnlyRegions.MemberDeclarations(text, prefixLength);
+        declared = new Dictionary<Member, int>();
+        foreach (var declaration in declarations)
+        {
+            var member = new Member(declaration.Name.Name.ToUpperInvariant(), declaration.Accessor);
+            declared[member] = declared.GetValueOrDefault(member) + 1;
+        }
+
+        var runs = new List<Described>();
+        foreach (var run in ReadOnlyRegions.MemberRuns(text, prefixLength))
+        {
+            if (run is not { DescribesMember: true, Member: { } described })
+                continue;
+            var accessor = AccessorOf(run, declarations);
+            runs.Add(new Described(new Member(described.Name.ToUpperInvariant(), accessor), ComparedLines(text, run), Who(run, accessor)));
+        }
+        return runs;
+    }
+
+    /// <summary>
+    /// The accessor of the property <paramref name="run"/> describes, found by the offset its declaration shares with
+    /// <paramref name="declarations"/>; null when it describes no property.
+    /// </summary>
+    private static PropertyAccessor? AccessorOf(MemberRun run, IReadOnlyList<MemberDeclaration> declarations)
+    {
+        foreach (var declaration in declarations)
+        {
+            if (declaration.Name == run.Member)
+                return declaration.Accessor;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// <paramref name="run"/>'s lines as the comparison reads them: each line's text, its terminators as <c>\n</c>,
+    /// without a qualifier that stands for the run's own member.
+    /// </summary>
+    private static string ComparedLines(string text, MemberRun run)
+    {
+        var lines = new StringBuilder();
+        foreach (var line in run.Lines)
+        {
+            var standsForMember = run.Kind != MemberRunKind.Variable
+                                  || string.Equals(line.Qualifier, run.Member!.Value.Name, StringComparison.OrdinalIgnoreCase);
+            if (standsForMember && line.Qualifier is { } qualifier)
+            {
+                lines.Append(text, line.Start, line.QualifierOffset - line.Start);
+                lines.Append(text, line.QualifierOffset + qualifier.Length, line.End - line.QualifierOffset - qualifier.Length);
+            }
+            else
+                lines.Append(text, line.Start, line.End - line.Start);
+            lines.Append('\n');
+        }
+        return lines.Replace("\r\n", "\n").ToString();
+    }
+
+    /// <summary>
+    /// The member a run describes, as a refusal names it: its name as declared, with its accessor for a property, and
+    /// for a variable's run every variable its lines name, since one run may describe several declarators of a line.
+    /// </summary>
+    private static string Who(MemberRun run, PropertyAccessor? accessor)
+    {
+        var member = run.Member!.Value;
+        if (accessor is { } which)
+            return $"Property {which} {member.Name}";
+        if (run.Kind != MemberRunKind.Variable)
+            return member.Name;
+
+        var names = new List<string>();
+        foreach (var line in run.Lines)
+        {
+            foreach (var declared in run.Declared)
+            {
+                if (declared.Kind != DeclarationKind.Procedure
+                    && string.Equals(declared.Name, line.Qualifier, StringComparison.OrdinalIgnoreCase)
+                    && !names.Contains(declared.Name))
+                    names.Add(declared.Name);
+            }
+        }
+        return names.Count switch
+        {
+            0 => member.Name,
+            1 => names[0],
+            _ => string.Join(", ", names.GetRange(0, names.Count - 1)) + " and " + names[^1],
+        };
     }
 
     private static List<string> LinesOf(string text)

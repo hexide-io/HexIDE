@@ -483,6 +483,18 @@ public class AIChatWholeFileTests : IDisposable
     }
 
     [Fact]
+    public void ThePromptSaysAMembersAttributeLinesAreReadOnlyAndWhatMayHappenToThem()
+    {
+        // #273 task 4.5b: apply_edit refuses content that changes them, so a model told nothing would re-type them.
+        var prompt = new ChatViewModel(host, settingsDir).BuildSystemPrompt();
+
+        prompt.Should().Contain("A member's Attribute lines")
+            .And.Contain("are read-only too")
+            .And.Contain("refuses content that changes, adds or drops them, naming the member")
+            .And.Contain("Do not write new Attribute lines");
+    }
+
+    [Fact]
     public void TheToolDescriptionsSayContentIsTheWholeFile()
     {
         var descriptions = IdeToolExecutor.ToolDefinitions
@@ -491,7 +503,8 @@ public class AIChatWholeFileTests : IDisposable
 
         descriptions["get_active_file"].Should().Contain("WHOLE file");
         descriptions["get_file_content"].Should().Contain("WHOLE file");
-        descriptions["apply_edit"].Should().Contain("cannot be changed here").And.Contain("or the code alone");
+        descriptions["apply_edit"].Should().Contain("cannot be changed here").And.Contain("or the code alone")
+            .And.Contain("A member's Attribute lines").And.Contain("names the member");
         descriptions["navigate_to"].Should().Contain("top of the file");
         descriptions["get_diagnostics"].Should().Contain("top of the file");
     }

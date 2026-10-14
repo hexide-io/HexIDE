@@ -354,6 +354,25 @@ public class DocumentContentTests : IDisposable
         form.DesignerText.Should().Be(designer);
     }
 
+    [Fact]
+    public void AClosedModulesMemberAttributeLinesAreTheGuardsWithNoWindowOpen()
+    {
+        // The model's composition is held to the same rule as an open buffer (#273 task 4.5b): a changed run is
+        // refused naming its member, and nothing reaches the model; a rename that carries the run is written.
+        var module = TestHelpers.CreateModule(name: "Order", kind: ModuleKind.ClassModule);
+        module.UpdateCode(ClassCode.Replace("Currency\r\n", "Currency\r\nAttribute Total.VB_Description = \"The order total\"\r\n"));
+        var document = DocumentIdentity.For(module);
+        var code = module.Code;
+
+        var changed = DocumentContent.Write(document, editor: null, code.Replace("The order total", "The total"));
+
+        changed.Refusal.Should().Contain("the Attribute lines describing Total are changed");
+        module.Code.Should().Be(code);
+
+        DocumentContent.Write(document, editor: null, code.Replace("Total", "Amount")).Refusal.Should().BeNull();
+        module.Code.Should().Be(code.Replace("Total", "Amount"));
+    }
+
     [AvaloniaFact]
     public void AWholeFormWithADifferentHeaderIsRefusedInAnOpenWindowToo()
     {

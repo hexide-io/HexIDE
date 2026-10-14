@@ -111,9 +111,10 @@ public sealed class AddinEditorService(
             if (Open(document) is not { } editor)
                 return Refusal(nameof(TrySetContent), document.Display, NoWindow(document));
 
-            // Through the guarded path (#273 tasks 3.9 and 3.19), which automation's set_file_content shares: the
-            // whole file with its header unchanged, or the code alone, and the document's own header in front
-            // either way. A header that differs is refused, and the add-in is told so.
+            // Through the guarded path (#273 tasks 3.9, 3.19 and 4.5b), which automation's set_file_content shares:
+            // the whole file with its header unchanged, or the code alone, and the document's own header in front
+            // either way. A header that differs is refused, and so is a change to a member's attribute lines, and
+            // the add-in is told so, with the member named.
             var result = editor.ReplaceContent(content);
             return result.Refusal is { } refusal
                 ? Refusal(nameof(TrySetContent), document.Display, refusal)

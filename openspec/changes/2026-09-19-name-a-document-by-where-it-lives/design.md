@@ -784,7 +784,7 @@ as one and names add-in and automation commands among the edits that may not cha
 whole replacement (add-in `TrySetContent` and `SetContent`, automation `set_file_content`) that rewrites or
 drops a member's run is applied, and that requirement is not met for it. Task 4.5b owns closing it, once 4.1
 can say which run belongs to which line. The add-in contract's doc comments say so, rather than implying a
-refusal (3.19 review).
+refusal (3.19 review). Closed by 4.5b: see "Whole replacements" under "Settled before building phase 4".
 
 **The read-only banner gets a new key rather than new words under the old one.** Shipped-pack parity checks
 only that a key is present, so rewording under the same key would leave every translation saying the old
@@ -1224,6 +1224,56 @@ re-writes (a procedure's, and a one-name variable's) without them:
 Any other change, addition or loss is refused, with a reason naming each member. Orphans are inert text and
 free. The add-in contract, `set_file_content`'s description and AI Chat's prompt say so, and `ApplyEdits` names
 the member in its refusal too.
+
+*Settled while building 4.5b.* The rule above, built, needed four things it left open, and two of its words
+turned out wrong:
+- *A run is matched by the declaration it hangs from, its member's name and a property's accessor, and not by
+  `MemberRunKey`.* "Keyed by member" first meant the key, and the key's ordinal is file order: deleting a
+  property's Get with its run, or putting the Let above the Get, renumbers the runs that remain, and the
+  comparison then sets one accessor's run against the other's and refuses an edit every rule allows. The name
+  alone is not enough either. VB6 reads a property's description from its first accessor in the file and nothing
+  else (oracle probes p14d, p14e), so a replacement that moves a property's one run from its Get to its Let changes
+  what VB6 compiles while the property's name still carries the run, and matching by name would let it through.
+  So `ReadOnlyRegions.MemberDeclarations` (new, additive, and the IDE's alone: nothing the server reads changed)
+  lists every declaration a run could describe with its accessor, and a run finds its own there by offset. The key
+  stays what 4.3 keys fold state by, where it serves.
+- *"Go with its declaration" is counted.* A run may be lost when its member is declared fewer times than before,
+  one run for each declaration gone. Asking whether the member is still declared at all would refuse deleting a
+  property's Get with its run while its Let, and the Let's run, stay.
+- *"Renamed with it" is a run whose lines, as read, are unchanged, under a member declared more times than before,
+  in place of one declared fewer.* Text cannot tell a rename from a deletion beside a new member, and nothing
+  needs it to, since both readings leave the same text. What follows: a rename onto a name the document already
+  declares (Halt deleted, its run put under the existing Pause) is an addition to Pause, refused; and a rename that
+  also changes the run is an allowed loss under the old name and a refused addition under the new, so the refusal
+  names the new name alone and says that a rename and a change in one replacement read that way. A property's Get
+  and Let renamed together pair accessor to accessor, and an accessor retyped, Get to Let or Get to `Function`,
+  pairs as a rename does, which is V3's reading of `Function` to `Sub` carried over.
+- *"Reading the lines of a run whose qualifiers the save re-writes without them" was not enough for a variable.*
+  Under that reading a variable's run is read with its qualifiers, and renaming the variable by replacement
+  leaves a run read with a new qualifier, or a renamed one read with none, so neither ever matched the old run
+  and "a rename by replacement passes" failed for every variable. So a line is read without a qualifier that
+  stands for the run's own member: every qualifier of a procedure's run and of a renamed variable's, and a
+  variable's line naming the variable the run is keyed by, without case, as the reader matched it. A qualifier
+  naming another declarator of the line is read as written, because a `VB_Var…` line binds to the declarator it
+  names. The cost, accepted: a variable run's own qualifier changed only in case passes, and so does one changed
+  to a name declared nowhere, which the save writes back (4.4).
+- *An orphan turned into a run is an addition, and refused*, a pasted line under a declaration included, though in
+  the code window such a line is a run at once (4.5a), and though VB6 binds a `VB_Var…` orphan below its variable
+  already. A replacement cannot be told from text its caller wrote, and an orphan is free text, so a caller allowed
+  to promote one could add any run in two calls. The developer repairs an orphan in the code window. A range edit
+  is not held to this: an add-in's `TryApplyEdits` may insert an attribute line under a bare declaration, or delete
+  the blank line above an orphan, because neither touches a region as the document stands. That gap is recorded,
+  not closed here.
+- *A run separated from a declaration that stays is a loss*, a comment or a blank line put between them included,
+  so it is refused as deleting it would be. A declaration commented out takes its run with it, as an orphan that
+  keeps its text.
+- *A comma list's run is named by every variable its lines name*, and is matched under the first, its key's, so
+  renaming a later declarator of a described line by replacement is refused whether its line is re-qualified or
+  not. VB6 drops such a declarator's attributes at the edit (V2); the code window leaves an orphan.
+- *The header is checked first*, and a replacement that changes both is told about the header alone, as before.
+- *`set_file_content`'s description had 158 characters left under the 2048 a client delivers*
+  (`ToolDescriptionLengthTests`), so what to send moved into the `content` parameter's own description, which
+  travels in the input schema, and the description says what is refused.
 
 **The corpus (4.6).** The fixtures carrying member attributes are written by the VB6 IDE on the oracle guest,
 through Tools > Procedure Attributes, so the shapes the lanes check are VB6's own: procedure, property, event and

@@ -314,8 +314,41 @@ public class GuardedWritersTests : IDisposable
         var before = vm.Document.Text;
         var description = vm.Document.Text.IndexOf("The order total", StringComparison.Ordinal);
 
-        vm.ApplyEdits([new TextChange(description, 3, "A")]).Should().NotBeNull();
+        vm.ApplyEdits([new TextChange(description, 3, "A")]).Should()
+            .Contain("would change the Attribute lines describing Total", "the refusal names the member (#273 task 4.5b)");
 
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public void AnEditJoiningAMembersAttributeLineOntoItsDeclarationIsRefusedNamingTheMember()
+    {
+        // The line break the run hangs from is outside it, and joining across it is a change to the run (task 3.11).
+        var vm = OpenClass();
+        var anchor = vm.Document.Text.IndexOf("Currency\r\nAttribute", StringComparison.Ordinal) + "Currency".Length;
+
+        vm.ApplyEdits([new TextChange(anchor, 2, " ")]).Should().Contain("the Attribute lines describing Total");
+    }
+
+    [AvaloniaFact]
+    public void AnEditReachingTheHeaderAndAMembersRunIsRefusedForTheHeader()
+    {
+        var vm = OpenClass();
+        var description = vm.Document.Text.IndexOf("The order total", StringComparison.Ordinal);
+
+        vm.ApplyEdits([new TextChange(2, description - 2, "")]).Should().Contain("would change the document's header")
+            .And.NotContain("describing Total");
+    }
+
+    [AvaloniaFact]
+    public void AWholeReplacementChangingAMembersAttributeLineIsRefusedNamingTheMember()
+    {
+        var vm = OpenClass();
+        var before = vm.Document.Text;
+
+        var result = vm.ReplaceContent(before.Replace("The order total", "The total"));
+
+        result.Refusal.Should().Contain("the Attribute lines describing Total are changed");
         vm.Document.Text.Should().Be(before);
     }
 

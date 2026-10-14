@@ -51,13 +51,17 @@ public sealed class IdeToolExecutor(IHexIdeHost host)
             + "block, the class header and those Attribute lines) belongs to the IDE and cannot be changed here; "
             + "controls and their properties are changed in the form designer. So send either the whole file with "
             + "its header exactly as get_active_file or get_file_content returned it, or the code alone, and the "
-            + "file keeps its own header either way. Content whose header differs is refused, nothing changes, and "
-            + "the reply says why.",
+            + "file keeps its own header either way. A member's Attribute lines, the run directly under a "
+            + "procedure's or variable's declaration that gives it a description or dispatch id, belong to the IDE "
+            + "too: keep them as they are, moving or renaming them with their member, or deleting them with its "
+            + "declaration. Content whose header differs, or that changes, adds or drops a member's Attribute lines, "
+            + "is refused, nothing changes, and the reply says why and names the member.",
             Params(new JsonObject
             {
                 ["file_name"] = Described("string", "The file to edit"),
                 ["content"]   = Described("string",
-                    "The new content: the whole file with its header unchanged, or the code alone"),
+                    "The new content: the whole file with its header and members' Attribute lines unchanged, or the "
+                    + "code alone"),
                 ["project"]   = Described("string", ProjectNote),
             }, ["file_name", "content"])),
         Tool("navigate_to",
