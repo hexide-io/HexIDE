@@ -8893,7 +8893,12 @@ of them shows it.
 Form2's own timer reports on Form1, then unloads (6a) or hides (6b) Form2 at its fifth tick.
 - **Form1's Timer keeps ticking while Form2 is modal,** in native code, in p-code and in the IDE. This is the
   measurement the design waited on. The obvious guess, that the IDE holds other forms' Timers behind a modal form, is
-  wrong here; whether it holds for a `MsgBox` is a separate question, not run.
+  wrong here. **It is right for a `MsgBox`**, measured straight after:
+  - **in the IDE**, no tick came in the 5 s a MsgBox was up, from a Timer2 on the same form;
+  - **compiled**, Form1's Timer ticked under it for the whole 29 s.
+
+  Both runs were in session 0. So a modal form lets other events run in either build, and a MsgBox holds them, but
+  only in the IDE.
 - **Form1 is disabled while Form2 is modal.** On the console, `Form1.Enabled` reads False and so does
   `IsWindowEnabled(Form1.hWnd)`, and both read True again once the modal form has gone. In session 0 both read True
   throughout, the one place that session misled.
