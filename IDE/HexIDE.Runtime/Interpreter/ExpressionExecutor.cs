@@ -42,7 +42,39 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     public async Task<Vb6Value?> EvaluateFunction(string name, List<Vb6Value> args)
     {
-        return await interpreter.BuiltIns.EvaluateBuiltInFunction(name, args);
+        return await interpreter.BuiltIns.EvaluateBuiltInFunction(name, args) is { } result ? IntrinsicAsRead(name, args, result) : (Vb6Value?)null;
+    }
+
+    // Which intrinsics VB6 types and which return a Variant, measured one by one (#987, native and p-code: a Select Case
+    // on each result against `Case Is < N.4`, or `Case Is > 9` for text, and its product past an Integer's or a Long's
+    // ceiling). A name not listed was not run and reads as it always has.
+    private static readonly HashSet<string> TypedIntrinsics = new(StringComparer.OrdinalIgnoreCase)
+        { "Sgn", "Asc", "CInt", "CLng", "CByte", "CStr", "UBound", "LBound", "Replace", "StrReverse" };
+
+    private static readonly HashSet<string> VariantIntrinsics = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Hour", "Minute", "Second", "Day", "Month", "Year", "Weekday", "IIf", "Choose", "Switch",
+        "Mid", "Left", "Right", "Trim", "LTrim", "LCase", "UCase", "Hex", "Oct", "String", "Format", "Chr",
+    };
+
+    // Typed when given typed arguments, and a Variant's when given a Variant (measured: `Len(v)`, `InStr(v, "5")` and
+    // `Abs(v)` widen, `Len("abcde")`, `Abs(n)` and `InStr("abcd5", "5")` overflow). `Int` and `Fix` of a typed Integer
+    // are typed too; of a Variant they were not run.
+    private static readonly HashSet<string> ArgumentTypedIntrinsics = new(StringComparer.OrdinalIgnoreCase) { "Len", "InStr", "Abs" };
+    private static readonly HashSet<string> TypedArgumentIntrinsics = new(StringComparer.OrdinalIgnoreCase) { "Int", "Fix" };
+
+    private static Vb6Value IntrinsicAsRead(string name, List<Vb6Value> args, Vb6Value result)
+    {
+        if (TypedIntrinsics.Contains(name))
+            return result.AsFixedType();
+        if (VariantIntrinsics.Contains(name))
+            return result.AsVariant();
+        var argumentTyped = ArgumentTypedIntrinsics.Contains(name);
+        if (!argumentTyped && !TypedArgumentIntrinsics.Contains(name) || args.Count == 0)
+            return result;
+        if (args.Exists(a => a.HeldAsVariant))
+            return argumentTyped ? result.AsVariant() : result;
+        return args.TrueForAll(a => a.HasFixedType) ? result.AsFixedType() : result;
     }
 
     public async Task<(Vb6Value, Vb6Value)> GetTwoValues(VB6Parser.ValueStmtContext[] context)
@@ -613,7 +645,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             var indices = await EvaluateCallArgs(argsCtx);
             try
             {
-                return array.GetValue(Subscripts(indices));
+                return ElementAsRead(variable, array, array.GetValue(Subscripts(indices)));
             }
             catch (IndexOutOfRangeException)
             {
@@ -722,7 +754,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         {
             if (current.Value is VbUdt)
                 return (Vb6Value)GetUdtField(current, members[i..], ctx)!;
+            // A member reached through a Variant is late-bound, and its result is a Variant's whatever the member is
+            // declared as (measured, #987: `vo.P * 7000` with `Property Get P() As Integer` returning 5 is 35000 through
+            // `Dim vo`, and 6 through `Dim o As Foo`; `With vo: .P` is the same).
+            var lateBound = current.HeldAsVariant;
             current = await ResolveOneMember(current, members[i], ctx);
+            if (lateBound)
+                current = current.AsVariant();
         }
         return current;
     }
@@ -876,6 +914,18 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
         throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
     }
+
+    /// <summary>
+    /// An array element as it reads (#987, measured): a Variant's when the array holds Variants (`Dim v(1)`, Array()) or
+    /// was reached through a Variant (`va(0)`, with `va = a` and `a` an Integer array), and typed when a declared
+    /// scalar-element array is read through its own name. The element's stored flag does not decide it: a Variant
+    /// element holding the literal 5 is a Variant (`w(0) * 7000` is 35000), and so is anything else a Variant array holds.
+    /// An element of an object or UDT array is left as it is.
+    /// </summary>
+    private static Vb6Value ElementAsRead(Vb6Value holder, VBArray array, Vb6Value element) =>
+        holder.HeldAsVariant || array.ElementType is not { } type || type == Vb6Value.ValueType.EmptyVariant ? element.AsVariant()
+        : VbNumeric.IsDeclarableScalar(type) ? element.AsFixedType()
+        : element;
 
     // Read a UDT field chain (`e.City`, `e.Address.City`) — navigate owned bags, returning the final field's
     // value (a nested-UDT field returns the live reference; the immediate consumer, a Let/ByVal, deep-copies it).

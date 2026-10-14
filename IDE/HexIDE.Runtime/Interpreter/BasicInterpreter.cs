@@ -156,8 +156,14 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (depth > 64)
             throw new VBCompileErrorException("Recursive Type definition: " + typeName);
         var fields = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
+        var typedFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var variantFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in def.Fields)
         {
+            if (f.ScalarType is { } declared && VbNumeric.IsDeclarableScalar(declared))
+                typedFields.Add(f.Name);
+            else if (f.UdtTypeName is null && (f.ScalarType is null || f.ScalarType == Vb6Value.ValueType.EmptyVariant))
+                variantFields.Add(f.Name);
             if (f.ScalarType is { } scalar)
                 fields[f.Name] = new Vb6Value(scalar);
             else if (f.UdtTypeName is { } nested)
@@ -167,7 +173,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             else
                 fields[f.Name] = Vb6Value.Variant;
         }
-        return new VbUdt(typeName, fields);
+        return new VbUdt(typeName, fields, typedFields, variantFields);
     }
 
     /// <summary>
@@ -857,6 +863,13 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     // Coerce the function's value to its declared return type (banker's round + range-check).
                     ? (proc.Body is { } body && VbNumeric.IsCoreNumeric(proc.ReturnType) ? VbNumeric.Narrow(rv, proc.ReturnType, body) : rv)
                     : SeedReturnValue(proc);
+            // A Function or Property Get declared as a scalar returns a typed value, and an untyped or Variant one a
+            // Variant's (measured, #987: `F() * 7000` with `F` As Integer returning 5 is 6, and `FV() * 7000` is 35000).
+            // An array, object or UDT return is left as it is.
+            if (ret is { } returned && proc.ReturnUdtTypeName is null)
+                ret = VbNumeric.IsDeclarableScalar(proc.ReturnType) ? returned.AsFixedType()
+                    : proc.ReturnType == Vb6Value.ValueType.EmptyVariant ? returned.AsVariant()
+                    : returned;
             completed = true;
         }
         finally
