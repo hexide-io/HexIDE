@@ -50,12 +50,22 @@ public class ConstStoreTests : BaseVBTestFixture
     {
         // Measured (#1007's review): Module1's `Const X = 1` is Private, so Module2's `X = 5` makes a new variable there,
         // and both print what they hold. The refusal must not reach across modules: if it did, a valid program would stop.
-        // A `Public Const X = 1` is refused in VB6 ("Assignment to constant not permitted"), but HexIDE does not yet see
-        // another module's Public names unqualified at all (#880), so that row is not pinned.
+        // A Public Const is refused, below.
         await RunModules("Const X = 1\nRun\nDebug.Print \"Module1's X = \" & X\n",
             ("Module2", "Sub Run()\n    X = 5\n    Debug.Print \"Module2's X = \" & X & \", \" & TypeName(X)\nEnd Sub\n"));
 
         AssertDebugLog([new Vb6Value("Module2's X = 5, Integer"), new Vb6Value("Module1's X = 1")]);
+    }
+
+    [Fact]
+    public async Task Another_modules_Public_Const_is_refused_as_a_store()
+    {
+        // Measured: Module2's `Public Const M = 3` makes Module1's `M = 5` "Assignment to constant not permitted". HexIDE
+        // made a new variable and printed 5, not seeing another module's Public names bare (#880).
+        var act = async () => await RunModules("M = 5\nDebug.Print M\n", ("Module2", "Public Const M = 3\n"));
+
+        (await act.Should().ThrowAsync<VBCompileErrorException>()).Which.Message.Should().Contain(AssignmentToConstant);
+        debug.Should().BeEmpty();
     }
 
     [Fact]

@@ -22,6 +22,18 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A module's Public variables and Consts are visible bare from every other module** (#880), as VB6 makes them,
+  measured on vb6.exe:
+  - **What changed:** `Debug.Print M`, where Module2 has `Public Const M = 3`, is 3, and `G = 7` stores into Module2's
+    `Public G`, from a module, a class or a form. Before, both made a new variable of their own: a read gave Empty,
+    `For i = 1 To M` ran no times, and under Option Explicit both were "Variable not defined".
+  - **Order:** the module's own names come first, a procedure's local shadows them, and in a form the form's members
+    come first too. They are found before a built-in constant of the same name.
+  - **Clashes:** a name two modules export is "Ambiguous name detected" where it is used bare, and so is one module's
+    variable beside another module's Public Sub or Function of that name.
+  - **Private:** a Private variable, a module-level `Dim` and a `Private Const` stay invisible from other modules.
+  - **Consts:** a module-level Const or array bound reads another module's Public Const bare, where it was refused, and
+    a store into one is "Assignment to constant not permitted".
 - **A bare name in a form's code is the form's member** (#995), as VB6 resolves it, measured on vb6.exe:
   - **The common case:** `Caption = "Ready"` sets the form's caption, and `If Width > 3000` reads its width. Before,
     the first made a new variable and the second read Empty, or both were "Variable not defined" under Option
@@ -161,9 +173,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **A module-level `Const` is checked as VB6 checks it** (#760). Its value may read only other constants: a Const
   declared below it or the Const itself, a variable, a user function and any function call are VB6's "Constant
-  expression required", where they ran from whatever HexIDE made of them. Another module's Public Const is read
-  qualified once that module's declarations have run, and refused unqualified (#880) or before (#893), rather than
-  read as Empty. A module naming itself is "Circular dependencies between modules".
+  expression required", where they ran from whatever HexIDE made of them. Another module's Public Const is read, bare
+  (#880) or qualified, once that module's declarations have run, and refused before (#893), rather than read as
+  Empty. A module naming itself is "Circular dependencies between modules".
 - **A `Const` holds its value as its `As` type** (#873), at module and procedure level: `Const C As Integer = 2.5` is
   2, and `Const HALF As Long = GRID / 2` rounds as a store into a Long does. A value the type can't hold is VB6's
   compile error: `Const C As Byte = 300` is "Overflow", `Const C As Integer = "x"` "Type mismatch", and
@@ -176,7 +188,7 @@ there isn't one yet. Anything may change between 0.x releases.
   "Constant expression required". A constant qualified by its library, container, module, Enum or the project is read
   (`VBA.vbCrLf`, `KeyCodeConstants.vbKeyA`, `Module2.Cols.colMax`), and `Len` sizes only from a String: of a number
   it is VB6's "Variable required". A dimension with no values, such as `Dim d(-1)` or `Dim d(5 To 2)`, is VB6's
-  "Range has no values", in a module, a class or a procedure, where it built an empty array or raised 9. Another module's Public Const unqualified (#880), or qualified before that module has run
+  "Range has no values", in a module, a class or a procedure, where it built an empty array or raised 9. Another module's Public Const before that module has run
   (#893), and its Enum member read unqualified (#889) are refused, rather than sized from Empty. A form's run refuses
   such an array, naming it, because it does not run the module's declarations yet (#256). A procedure's `Const`s are declared before its `Dim`s, so
   `Dim a(P)` inside a procedure sees `P` too.

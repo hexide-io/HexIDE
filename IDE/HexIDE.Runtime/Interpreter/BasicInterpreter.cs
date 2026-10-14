@@ -456,6 +456,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         SeedProgramGlobal("Debug", () => new Vb6Value(new DebugProxy(stdLib)));
         SeedProgramGlobal("Err", () => new Vb6Value(Err));
         SeedProgramGlobal("App", () => new Vb6Value(App));
+
+        // Each module sees the other standard modules' Public variables and Consts unqualified, behind its own names
+        // (#880). Set after every module's pre-pass, which is what lists them.
+        foreach (var m in Modules.All)
+            m.ModuleEnv.ProjectNames = ProjectNames.For(m, Modules.All);
     }
 
     /// <summary>The program-global <c>App</c> object, describing the project this program came from.</summary>
