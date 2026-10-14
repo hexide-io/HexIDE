@@ -278,14 +278,15 @@ public class SingleViewFormsTests
         run.Click();
         Pump();
 
-        run.Shown!.IsEnabled.Should().BeFalse();
-        run.Beside["Form2"].IsEnabled.Should().BeTrue();
+        ((IFormView)run.Shown!).HeldBy.Should().NotBeNull();
+        run.Shown!.IsEnabled.Should().BeTrue("held, not disabled");
+        ((IFormView)run.Beside["Form2"]).HeldBy.Should().BeNull();
 
         Run.Click(run.Beside["Form2"]);
         Pump();
 
         run.Failed.Should().BeEmpty();
         run.Printed.Should().Equal("f2 initialize", "f2 load", "f2 click", "after the modal, enabled True");
-        run.Shown.IsEnabled.Should().BeTrue();
+        ((IFormView)run.Shown).HeldBy.Should().BeNull();
     }
 }

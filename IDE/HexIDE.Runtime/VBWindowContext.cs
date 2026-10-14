@@ -314,12 +314,20 @@ public class VBWindowContext : IModuleExecutionRoot
 
     /// <summary>
     /// The window's close box, pressed: true when the program now decides, through QueryUnload with UnloadMode 0 and then
-    /// Unload, raised as any event is, so the window must stay open until it has. False when there is no program to ask.
+    /// Unload, raised as any event is, so the window must stay open until it has, or when a modal form holds this one and the
+    /// press is refused. False when there is no program to ask.
     /// </summary>
     public bool UnloadFromCloseBox()
     {
         if (interpreter is null || RunIsOver() || instance is null)
             return false;
+        // Held by a modal form, the close box is refused, as VB6's disabled window ignores a click on it: nothing is
+        // raised, the window stays, and the modal form comes forward (#822).
+        if (Window is IFormView { HeldBy: { } modal })
+        {
+            modal.ActivateForm();
+            return true;
+        }
         // Unloading, or unloaded with Terminate still to come: the window stays until that has run, and goes then. Closed
         // now, the run would end before Terminate (#1046 review).
         if (unloading || instance.FormUnloaded)

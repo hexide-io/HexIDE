@@ -25,6 +25,16 @@ public interface IFormView
     /// <summary>Whether the window is showing: false once it has been hidden, made invisible or closed.</summary>
     bool IsShown { get; }
 
+    /// <summary>
+    /// The modal form holding this one, or null (#822). A held form is drawn as it was and takes no input: no pointer, no
+    /// key, and its close box is refused, as VB6's disabled window ignores a click on it. Its <c>Enabled</c> reads False
+    /// (measured). It is not disabled, which would grey every control VB6 leaves as drawn.
+    /// </summary>
+    IFormView? HeldBy { get; set; }
+
+    /// <summary>Bring the window to the front with the focus, as activating a form beneath a modal one brings the modal form.</summary>
+    void ActivateForm();
+
     /// <summary>Hide the window. The form stays loaded.</summary>
     void HideForm();
 
@@ -45,8 +55,8 @@ public sealed class VBProgram : IFormProgram
     private readonly Dictionary<VbObject, VBWindowContext> contexts = new(ReferenceEqualityComparer.Instance);
     private readonly List<VbObject> created = [];
     private readonly HashSet<VbObject> loaded = new(ReferenceEqualityComparer.Instance);
-    // The modal forms displayed, innermost last, each with the windows it disabled.
-    private readonly List<(VBWindowContext Form, List<Avalonia.Controls.Control> Disabled)> modals = [];
+    // The modal forms displayed, innermost last.
+    private readonly List<VBWindowContext> modals = [];
     private readonly TaskCompletionSource ended = new();
     private bool finishing;
 
@@ -252,15 +262,15 @@ public sealed class VBProgram : IFormProgram
     /// </summary>
     internal void Hide(IFormView view)
     {
-        if (modals.Count > 0 && !ReferenceEquals(modals[^1].Form, view.Context))
+        if (modals.Count > 0 && !ReferenceEquals(modals[^1], view.Context))
             throw new VBRunTimeException(VBStandardError.CodeMustCloseTopmostModalFormFirst);
         view.HideForm();
     }
 
     /// <summary>
-    /// Show a form modally, as <c>Show vbModal</c> does (#822): every other form is disabled, and the statement waits,
-    /// running the program's events as they come, until the form is hidden, made invisible or unloaded. Then the forms it
-    /// disabled are enabled again. All measured.
+    /// Show a form modally, as <c>Show vbModal</c> does (#822): every other form is held, taking no input, and the statement
+    /// waits, running the program's events as they come, until the form is hidden, made invisible or unloaded. Then each
+    /// form is held as it was before. All measured.
     /// </summary>
     /// <remarks>
     /// A form already shown modelessly turns modal, with no error: VB6's documented 400 never came (measured). So does a
@@ -271,23 +281,20 @@ public sealed class VBProgram : IFormProgram
     internal async Task ShowModal(IFormView view)
     {
         var context = view.Context;
-        if (modals.Exists(m => ReferenceEquals(m.Form, context)))
+        if (modals.Contains(context))
             throw new VBRunTimeException(VBStandardError.UnableToShowModalFormWithinThisContext);
-        // Form1.Enabled reads False while Form2 is modal, and True again once it has gone (measured on the console). A form
-        // its program disabled itself stays so. A form an outer modal form disabled is enabled while it is modal over it,
-        // and disabled again after.
-        var own = context.Window;
-        var outer = own is null ? -1 : modals.FindLastIndex(m => m.Disabled.Contains(own));
-        var disabled = new List<Avalonia.Controls.Control>();
+        // Form1.Enabled reads False while Form2 is modal, and True again once it has gone (measured on the console). The
+        // hold is apart from the form's own Enabled, so a form the program disabled stays so. A form an outer modal form
+        // holds is freed while it is modal over it, and held again after. Modal forms nest, so putting back what each
+        // form was held by undoes this one exactly.
+        var held = new List<(IFormView View, IFormView? Before)>();
         foreach (var other in contexts.Values)
-            if (!ReferenceEquals(other, context) && other.Window is { IsEnabled: true } window)
+            if (other.Window is IFormView otherView)
             {
-                window.IsEnabled = false;
-                disabled.Add(window);
+                held.Add((otherView, otherView.HeldBy));
+                otherView.HeldBy = ReferenceEquals(other, context) ? null : view;
             }
-        if (outer >= 0)
-            own!.IsEnabled = true;
-        modals.Add((context, disabled));
+        modals.Add(context);
         var over = interpreter.BuiltIns.WatchRunEnd?.Invoke();
         try
         {
@@ -297,11 +304,9 @@ public sealed class VBProgram : IFormProgram
         }
         finally
         {
-            modals.RemoveAt(modals.FindIndex(m => ReferenceEquals(m.Form, context)));
-            foreach (var window in disabled)
-                window.IsEnabled = true;
-            if (outer >= 0)
-                own!.IsEnabled = false;
+            modals.Remove(context);
+            foreach (var (otherView, before) in held)
+                otherView.HeldBy = before;
         }
         // The run ended under the modal form, by End, Stop or a fault: the statement after the Show never runs (measured
         // for End).

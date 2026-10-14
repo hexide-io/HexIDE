@@ -4,10 +4,13 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
@@ -522,8 +525,9 @@ public class SeveralFormsTests
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal("before", "f2 initialize", "f2 load");
         run.Opened["Form2"].IsVisible.Should().BeTrue();
-        run.Opened["Form1"].IsEnabled.Should().BeFalse("Form1.Enabled reads False under a modal form (measured)");
-        run.Opened["Form2"].IsEnabled.Should().BeTrue();
+        run.Opened["Form1"].HeldBy.Should().BeSameAs(run.Opened["Form2"], "a modal form holds every other (measured)");
+        run.Opened["Form1"].IsEnabled.Should().BeTrue("it is held, not disabled, so its controls are drawn as they were");
+        run.Opened["Form2"].HeldBy.Should().BeNull();
 
         run.Click("Form2");
         Pump();
@@ -531,7 +535,71 @@ public class SeveralFormsTests
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal("before", "f2 initialize", "f2 load", "f2 queryunload 1", "f2 unload",
             "after, form1 enabled True");
-        run.Opened["Form1"].IsEnabled.Should().BeTrue();
+        run.Opened["Form1"].HeldBy.Should().BeNull();
+    }
+
+    [AvaloniaFact]
+    public void A_held_form_refuses_its_close_box_its_text_and_its_pointer_and_reads_Enabled_False()
+    {
+        using var run = Start(ShowsForm2Modally + """
+            Private Sub Form_QueryUnload(Cancel As Integer, UnloadMode As Integer)
+                Debug.Print "f1 queryunload " & UnloadMode
+            End Sub
+            Private Sub Text1_Change()
+                Debug.Print "f1 change"
+            End Sub
+
+            """, Form2Clicked("""
+                Debug.Print "form1 enabled " & Form1.Enabled
+                Unload Me
+
+            """));
+        run.Click("Form1");
+        Pump();
+        var form1 = run.Opened["Form1"];
+        var text1 = form1.GetLogicalDescendants().OfType<VBTextBox>().Single();
+        var button = form1.GetLogicalDescendants().OfType<VBCommandButton>().Single();
+
+        // The close box: refused, raising nothing, as VB6's disabled window ignores a click on it.
+        form1.Context.UnloadFromCloseBox().Should().BeTrue("the window stays");
+        // Typing: swallowed on the way down, so the text is unchanged and Change isn't raised.
+        text1.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = "z" });
+        // The pointer: nothing beneath it takes a hit.
+        var centre = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), form1)!.Value;
+        bool OnButton() => form1.InputHitTest(centre) is Visual hit && (ReferenceEquals(hit, button) || button.IsVisualAncestorOf(hit));
+        OnButton().Should().BeFalse("nothing beneath the pointer takes a hit");
+        Pump();
+
+        text1.Text.Should().Be("Form1 text");
+        run.Printed.Should().Equal("before", "f2 initialize", "f2 load");
+
+        run.Click("Form2");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("before", "f2 initialize", "f2 load", "form1 enabled False", "f2 queryunload 1", "f2 unload",
+            "after, form1 enabled True");
+        OnButton().Should().BeTrue("freed once the modal form has gone");
+    }
+
+    [AvaloniaFact]
+    public void A_form_its_program_disabled_stays_disabled_after_the_modal_form_has_gone()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Me.Enabled = False
+                Form2.Show vbModal
+                Debug.Print "after, form1 enabled " & Me.Enabled
+            End Sub
+
+            """);
+        run.Click("Form1");
+        Pump();
+        run.Click("Form2");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 initialize", "f2 load", "f2 queryunload 1", "f2 unload", "after, form1 enabled False");
     }
 
     [AvaloniaTheory]
@@ -614,7 +682,7 @@ public class SeveralFormsTests
 
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal("f2 initialize", "f2 load");
-        run.Opened["Form1"].IsEnabled.Should().BeFalse();
+        run.Opened["Form1"].HeldBy.Should().NotBeNull();
 
         run.Click("Form2");
         Pump();
@@ -642,9 +710,9 @@ public class SeveralFormsTests
         run.Click("Form2");
         Pump();
 
-        run.Opened["Form1"].IsEnabled.Should().BeFalse();
-        run.Opened["Form2"].IsEnabled.Should().BeFalse();
-        run.Opened["Form3"].IsEnabled.Should().BeTrue();
+        run.Opened["Form1"].HeldBy.Should().NotBeNull();
+        run.Opened["Form2"].HeldBy.Should().NotBeNull();
+        run.Opened["Form3"].HeldBy.Should().BeNull();
 
         run.Click("Form3");
         Pump();
@@ -681,8 +749,8 @@ public class SeveralFormsTests
         run.Click("Form2");
         Pump();
 
-        run.Opened["Form1"].IsEnabled.Should().BeTrue("Form1 is modal now");
-        run.Opened["Form2"].IsEnabled.Should().BeFalse();
+        run.Opened["Form1"].HeldBy.Should().BeNull("Form1 is modal now");
+        run.Opened["Form2"].HeldBy.Should().NotBeNull();
 
         run.Click("Form1");
         Pump();
@@ -755,11 +823,42 @@ public class SeveralFormsTests
 
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal("f2 initialize", "f2 load");
-        run.Opened["Form1"].IsEnabled.Should().BeFalse();
+        run.Opened["Form1"].HeldBy.Should().NotBeNull();
 
         run.Click("Form2");
         Pump();
         run.Printed.Should().Equal("f2 initialize", "f2 load", "f2 queryunload 1", "f2 unload", "returned");
+    }
+
+    [AvaloniaFact]
+    public void A_modal_Show_in_an_event_the_code_raised_holds_the_raiser_too_until_the_form_has_gone()
+    {
+        // Text1_Change runs inside the assignment that raised it (#766), so the raiser's next statement waits for it, modal
+        // form and all, as every statement after a call waits for the call.
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Text1.Text = "x"
+                Debug.Print "after the assignment"
+            End Sub
+            Private Sub Text1_Change()
+                Debug.Print "change"
+                Form2.Show vbModal
+                Debug.Print "change after the modal"
+            End Sub
+
+            """);
+        run.Click("Form1");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("change", "f2 initialize", "f2 load");
+
+        run.Click("Form2");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("change", "f2 initialize", "f2 load", "f2 queryunload 1", "f2 unload",
+            "change after the modal", "after the assignment");
     }
 
     [AvaloniaFact]

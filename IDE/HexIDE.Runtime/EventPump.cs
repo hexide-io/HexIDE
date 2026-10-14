@@ -225,19 +225,17 @@ public sealed class EventPump
                 await started;
                 continue;
             }
-            // Nothing waits, so give the thread up until an event comes or the run ends. No walk runs meanwhile, the one
-            // that raised this one included, so an event that comes is top-level and waits in the queue for this loop, as
-            // VB6's modal loop takes it from the message queue.
+            // Nothing waits, so give the thread up until an event comes or the run ends, suspended as any wait is. The walk
+            // that raised this one waits for it at its next statement, so no walk runs meanwhile, and an event that comes is
+            // top-level and waits in the queue for this loop, as VB6's modal loop takes it from the message queue.
             var arrived = arrival = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            Current = null;
             try
             {
-                await arrived.Task;
+                await Suspended(walk, arrived.Task);
             }
             finally
             {
                 arrival = null;
-                Current = walk;
             }
         }
     }

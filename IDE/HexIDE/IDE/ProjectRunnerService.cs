@@ -576,7 +576,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
         // forms get MDI windows of their own.
         var shown = window = InstantiateWindow(VBLoader.FormComponentOf(element));
         VBLoader.PrepareForm(element, shown.Context, content => shown.Content = content, debugController, OpenInBrowser);
-        return VBLoader.StartAndShow(shown.Context, token, close: () => shown.CloseCommand.Execute(null),
+        return VBLoader.StartAndShow(shown.Context, token, close: shown.CloseForm,
             showUntilClosed: () => shown.ShowInHost(blockBehind: true));
     }
 
@@ -601,6 +601,17 @@ public partial class ProjectRunnerService : IProjectRunnerService
         {
             this.windowManager = windowManager;
             windowContext = new VBWindowContext(new MDIStandaloneStandardLib(windowManager)) { Window = this };
+            // Held by a modal form, the window takes no input of its own (#822), and a press on it brings the modal form
+            // forward instead.
+            foreach (var input in new RoutedEvent[] { KeyDownEvent, KeyUpEvent, TextInputEvent, PointerReleasedEvent, PointerWheelChangedEvent })
+                AddHandler(input, new EventHandler<RoutedEventArgs>((_, e) => e.Handled |= heldBy is not null), RoutingStrategies.Tunnel);
+            AddHandler(PointerPressedEvent, (_, e) =>
+            {
+                if (heldBy is null)
+                    return;
+                e.Handled = true;
+                heldBy.ActivateForm();
+            }, RoutingStrategies.Tunnel);
             this.GetObservable(BoundsProperty)
                 .Subscribe(new ActionObserver<Rect>(_ =>
                 {
@@ -636,8 +647,23 @@ public partial class ProjectRunnerService : IProjectRunnerService
         public Task ShowInHost(bool blockBehind)
         {
             IsVisible = true;
-            return inHost ??= blockBehind ? windowManager.ShowManagedWindow(this) : windowManager.ShowManagedWindow(this, blockBehind: false);
+            if (inHost is not null)
+                return inHost;
+            inHost = blockBehind ? windowManager.ShowManagedWindow(this) : windowManager.ShowManagedWindow(this, blockBehind: false);
+            // The host's own close takes the window away. The title bar's close asks the program first, as a desktop form's
+            // close box does, QueryUnload with UnloadMode 0 and then Unload (#973), and is refused while a modal form holds
+            // this one (#822). The window goes once the form has unloaded, through the host's close.
+            hostClose = CloseCommand;
+            CloseCommand = new DelegateCommand(() =>
+            {
+                if (!windowContext.UnloadFromCloseBox())
+                    hostClose?.Execute(null);
+            }, () => true);
+            return inHost;
         }
+
+        // The host's close, which takes the window away without asking the program.
+        private System.Windows.Input.ICommand? hostClose;
 
         public void SetContent(Control content) => Content = content;
 
@@ -645,9 +671,25 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
         public void HideForm() => IsVisible = false;
 
-        public void CloseForm() => CloseCommand?.Execute(null);
+        public void CloseForm() => (hostClose ?? CloseCommand)?.Execute(null);
 
         public bool IsShown => inHost is { IsCompleted: false } && IsVisible;
+
+        private IFormView? heldBy;
+
+        public IFormView? HeldBy
+        {
+            get => heldBy;
+            set
+            {
+                heldBy = value;
+                // Its controls stop taking hits, which disabling them would do too, greying each one (#822).
+                if (Content is Avalonia.Input.InputElement content)
+                    content.IsHitTestVisible = value is null;
+            }
+        }
+
+        public void ActivateForm() => this.ActivateMDIForm();
     }
 
     public class MDIStandaloneStandardLib : IBasicStandardLibrary
