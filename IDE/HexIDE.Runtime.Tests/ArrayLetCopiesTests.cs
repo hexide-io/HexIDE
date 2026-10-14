@@ -198,4 +198,111 @@ public class ArrayLetCopiesTests : BaseVBTestFixture
             "  Terminate D",
             "after Scope3");
     }
+
+    [Fact]
+    public async Task An_object_array_a_Function_returns_is_released_where_VB6_releases_it()
+    {
+        // Stored, its object terminates at the end of the Sub that stored it; discarded, right after the call. Measured.
+        await RunClasses("ScopeA\nDebug.Print \"after ScopeA\"\nScopeB\nDebug.Print \"after ScopeB\"\nFunction MakeArr(ByVal nm As String)\n    Dim a(0) As Foo\n    Set a(0) = New Foo\n    a(0).Name = nm\n    MakeArr = a\nEnd Function\nSub ScopeA()\n    Dim x\n    x = MakeArr(\"M1\")\n    Debug.Print \"ScopeA: x(0).Name \" & x(0).Name\nEnd Sub\nSub ScopeB()\n    MakeArr \"M2\"\n    Debug.Print \"ScopeB: after MakeArr\"\nEnd Sub\nSub ScopeC()\n    Dim a(1) As Foo, o\n    Set a(0) = New Foo\n    a(0).Name = \"F0\"\n    Set a(1) = New Foo\n    a(1).Name = \"F1\"\n    For Each o In a\n        Debug.Print \"ScopeC: loop \" & o.Name\n    Next\n    Debug.Print \"ScopeC: after the loop, TypeName(o) \" & TypeName(o)\n    Set a(0) = Nothing\n    Debug.Print \"ScopeC: after Set a(0) = Nothing\"\n    Set a(1) = Nothing\n    Debug.Print \"ScopeC: after Set a(1) = Nothing\"\nEnd Sub\nSub ScopeD()\n    On Error Resume Next\n    Dim v(0)\n    Set v(0) = New Foo\n    v(0).Name = \"E0\"\n    v(0) = 5\n    Debug.Print \"ScopeD: after v(0) = 5, err \" & Err.Number & \", TypeName(v(0)) \" & TypeName(v(0))\nEnd Sub\nSub ScopeE()\n    On Error Resume Next\n    Dim w\n    Set w = New Foo\n    w.Name = \"W0\"\n    w = 5\n    Debug.Print \"ScopeE: after w = 5, err \" & Err.Number & \", TypeName(w) \" & TypeName(w)\nEnd Sub\n", ("Foo", Foo));
+
+        Log.Should().Equal(
+            "ScopeA: x(0).Name M1",
+            "  Terminate M1",
+            "after ScopeA",
+            "  Terminate M2",
+            "ScopeB: after MakeArr",
+            "after ScopeB");
+    }
+
+    [Fact]
+    public async Task A_For_Each_variable_is_Empty_once_the_loop_runs_out()
+    {
+        // So it holds neither object afterwards, and each terminates when the array lets go of it. Measured.
+        await RunClasses("ScopeC\nDebug.Print \"after ScopeC\"\nFunction MakeArr(ByVal nm As String)\n    Dim a(0) As Foo\n    Set a(0) = New Foo\n    a(0).Name = nm\n    MakeArr = a\nEnd Function\nSub ScopeA()\n    Dim x\n    x = MakeArr(\"M1\")\n    Debug.Print \"ScopeA: x(0).Name \" & x(0).Name\nEnd Sub\nSub ScopeB()\n    MakeArr \"M2\"\n    Debug.Print \"ScopeB: after MakeArr\"\nEnd Sub\nSub ScopeC()\n    Dim a(1) As Foo, o\n    Set a(0) = New Foo\n    a(0).Name = \"F0\"\n    Set a(1) = New Foo\n    a(1).Name = \"F1\"\n    For Each o In a\n        Debug.Print \"ScopeC: loop \" & o.Name\n    Next\n    Debug.Print \"ScopeC: after the loop, TypeName(o) \" & TypeName(o)\n    Set a(0) = Nothing\n    Debug.Print \"ScopeC: after Set a(0) = Nothing\"\n    Set a(1) = Nothing\n    Debug.Print \"ScopeC: after Set a(1) = Nothing\"\nEnd Sub\nSub ScopeD()\n    On Error Resume Next\n    Dim v(0)\n    Set v(0) = New Foo\n    v(0).Name = \"E0\"\n    v(0) = 5\n    Debug.Print \"ScopeD: after v(0) = 5, err \" & Err.Number & \", TypeName(v(0)) \" & TypeName(v(0))\nEnd Sub\nSub ScopeE()\n    On Error Resume Next\n    Dim w\n    Set w = New Foo\n    w.Name = \"W0\"\n    w = 5\n    Debug.Print \"ScopeE: after w = 5, err \" & Err.Number & \", TypeName(w) \" & TypeName(w)\nEnd Sub\n", ("Foo", Foo));
+
+        Log.Should().Equal(
+            "ScopeC: loop F0",
+            "ScopeC: loop F1",
+            "ScopeC: after the loop, TypeName(o) Empty",
+            "  Terminate F0",
+            "ScopeC: after Set a(0) = Nothing",
+            "  Terminate F1",
+            "ScopeC: after Set a(1) = Nothing",
+            "after ScopeC");
+    }
+
+    [Fact]
+    public async Task A_Let_over_an_object_in_an_element_or_a_variable_releases_it()
+    {
+        // With no default member, the Let replaces the object, which terminates at the Let. Measured.
+        await RunClasses("ScopeD\nDebug.Print \"after ScopeD\"\nScopeE\nDebug.Print \"after ScopeE\"\nFunction MakeArr(ByVal nm As String)\n    Dim a(0) As Foo\n    Set a(0) = New Foo\n    a(0).Name = nm\n    MakeArr = a\nEnd Function\nSub ScopeA()\n    Dim x\n    x = MakeArr(\"M1\")\n    Debug.Print \"ScopeA: x(0).Name \" & x(0).Name\nEnd Sub\nSub ScopeB()\n    MakeArr \"M2\"\n    Debug.Print \"ScopeB: after MakeArr\"\nEnd Sub\nSub ScopeC()\n    Dim a(1) As Foo, o\n    Set a(0) = New Foo\n    a(0).Name = \"F0\"\n    Set a(1) = New Foo\n    a(1).Name = \"F1\"\n    For Each o In a\n        Debug.Print \"ScopeC: loop \" & o.Name\n    Next\n    Debug.Print \"ScopeC: after the loop, TypeName(o) \" & TypeName(o)\n    Set a(0) = Nothing\n    Debug.Print \"ScopeC: after Set a(0) = Nothing\"\n    Set a(1) = Nothing\n    Debug.Print \"ScopeC: after Set a(1) = Nothing\"\nEnd Sub\nSub ScopeD()\n    On Error Resume Next\n    Dim v(0)\n    Set v(0) = New Foo\n    v(0).Name = \"E0\"\n    v(0) = 5\n    Debug.Print \"ScopeD: after v(0) = 5, err \" & Err.Number & \", TypeName(v(0)) \" & TypeName(v(0))\nEnd Sub\nSub ScopeE()\n    On Error Resume Next\n    Dim w\n    Set w = New Foo\n    w.Name = \"W0\"\n    w = 5\n    Debug.Print \"ScopeE: after w = 5, err \" & Err.Number & \", TypeName(w) \" & TypeName(w)\nEnd Sub\n", ("Foo", Foo));
+
+        Log.Should().Equal(
+            "  Terminate E0",
+            "ScopeD: after v(0) = 5, err 0, TypeName(v(0)) Integer",
+            "after ScopeD",
+            "  Terminate W0",
+            "ScopeE: after w = 5, err 0, TypeName(w) Integer",
+            "after ScopeE");
+    }
+
+    [Fact]
+    public async Task Exit_For_leaves_the_variable_holding_its_element()
+    {
+        // X0 outlives Set a(0) = Nothing, held by o, and goes first at End Sub, a scalar before an array. Measured.
+        await RunClasses("ScopeF\nDebug.Print \"after ScopeF\"\nSub ScopeF()\n    Dim a(1) As Foo, o\n    Set a(0) = New Foo\n    a(0).Name = \"X0\"\n    Set a(1) = New Foo\n    a(1).Name = \"X1\"\n    For Each o In a\n        Debug.Print \"ScopeF: loop \" & o.Name\n        Exit For\n    Next\n    Debug.Print \"ScopeF: after Exit For, TypeName(o) \" & TypeName(o) & \" \" & o.Name\n    Set a(0) = Nothing\n    Debug.Print \"ScopeF: after Set a(0) = Nothing\"\nEnd Sub\nSub ScopeG()\n    Dim e, n(1) As Long, s\n    For Each e In Array(1, 2)\n    Next\n    Debug.Print \"ScopeG: after For Each over Array(1, 2), TypeName(e) \" & TypeName(e)\n    n(0) = 3: n(1) = 4\n    For Each e In n\n    Next\n    Debug.Print \"ScopeG: after For Each over a Long(), TypeName(e) \" & TypeName(e)\n    e = 9\n    s = Split(\"\")\n    For Each e In s\n    Next\n    Debug.Print \"ScopeG: after For Each over Split of nothing, e held 9, TypeName(e) \" & TypeName(e)\nEnd Sub\n", ("Foo", Foo));
+
+        Log.Should().Equal(
+            "ScopeF: loop X0",
+            "ScopeF: after Exit For, TypeName(o) Foo X0",
+            "ScopeF: after Set a(0) = Nothing",
+            "  Terminate X0",
+            "  Terminate X1",
+            "after ScopeF");
+    }
+
+    [Fact]
+    public async Task A_For_Each_over_any_array_leaves_its_variable_Empty()
+    {
+        // Over an object-free Variant array and a Long() too, and over an empty array, which still empties it. Measured.
+        await RunClasses("ScopeG\nSub ScopeF()\n    Dim a(1) As Foo, o\n    Set a(0) = New Foo\n    a(0).Name = \"X0\"\n    Set a(1) = New Foo\n    a(1).Name = \"X1\"\n    For Each o In a\n        Debug.Print \"ScopeF: loop \" & o.Name\n        Exit For\n    Next\n    Debug.Print \"ScopeF: after Exit For, TypeName(o) \" & TypeName(o) & \" \" & o.Name\n    Set a(0) = Nothing\n    Debug.Print \"ScopeF: after Set a(0) = Nothing\"\nEnd Sub\nSub ScopeG()\n    Dim e, n(1) As Long, s\n    For Each e In Array(1, 2)\n    Next\n    Debug.Print \"ScopeG: after For Each over Array(1, 2), TypeName(e) \" & TypeName(e)\n    n(0) = 3: n(1) = 4\n    For Each e In n\n    Next\n    Debug.Print \"ScopeG: after For Each over a Long(), TypeName(e) \" & TypeName(e)\n    e = 9\n    s = Split(\"\")\n    For Each e In s\n    Next\n    Debug.Print \"ScopeG: after For Each over Split of nothing, e held 9, TypeName(e) \" & TypeName(e)\nEnd Sub\n", ("Foo", Foo));
+
+        Log.Should().Equal(
+            "ScopeG: after For Each over Array(1, 2), TypeName(e) Empty",
+            "ScopeG: after For Each over a Long(), TypeName(e) Empty",
+            "ScopeG: after For Each over Split of nothing, e held 9, TypeName(e) Empty");
+    }
+
+    [Fact]
+    public async Task End_Sub_releases_scalar_locals_before_arrays()
+    {
+        // Variants and object references first, then arrays, each in declaration order. Measured, native and p-code.
+        await RunClasses("ScopeH\nDebug.Print \"after ScopeH\"\nScopeI\nDebug.Print \"after ScopeI\"\nScopeJ\nDebug.Print \"after ScopeJ\"\nScopeK\nDebug.Print \"after ScopeK\"\nScopeM\nDebug.Print \"after ScopeM\"\nScopeN\nDebug.Print \"after ScopeN\"\nSub ScopeH()\n    Dim a(0) As Foo, o\n    Set a(0) = New Foo: a(0).Name = \"H-array\"\n    Set o = New Foo: o.Name = \"H-variant\"\n    Debug.Print \"ScopeH: end (Dim a(0) As Foo, o)\"\nEnd Sub\nSub ScopeI()\n    Dim o, a(0) As Foo\n    Set o = New Foo: o.Name = \"I-variant\"\n    Set a(0) = New Foo: a(0).Name = \"I-array\"\n    Debug.Print \"ScopeI: end (Dim o, a(0) As Foo)\"\nEnd Sub\nSub ScopeJ()\n    Dim p As Foo, a(0) As Foo\n    Set p = New Foo: p.Name = \"J-object\"\n    Set a(0) = New Foo: a(0).Name = \"J-array\"\n    Debug.Print \"ScopeJ: end (Dim p As Foo, a(0) As Foo)\"\nEnd Sub\nSub ScopeK()\n    Dim a(0) As Foo, p As Foo\n    Set a(0) = New Foo: a(0).Name = \"K-array\"\n    Set p = New Foo: p.Name = \"K-object\"\n    Debug.Print \"ScopeK: end (Dim a(0) As Foo, p As Foo)\"\nEnd Sub\nSub ScopeM()\n    Dim p As Foo, q As Foo\n    Set p = New Foo: p.Name = \"M-first\"\n    Set q = New Foo: q.Name = \"M-second\"\n    Debug.Print \"ScopeM: end (Dim p As Foo, q As Foo)\"\nEnd Sub\nSub ScopeN()\n    Dim a(0) As Foo, b(0) As Foo\n    Set a(0) = New Foo: a(0).Name = \"N-first\"\n    Set b(0) = New Foo: b(0).Name = \"N-second\"\n    Debug.Print \"ScopeN: end (Dim a(0) As Foo, b(0) As Foo)\"\nEnd Sub\n", ("Foo", Foo));
+
+        Log.Should().Equal(
+            "ScopeH: end (Dim a(0) As Foo, o)",
+            "  Terminate H-variant",
+            "  Terminate H-array",
+            "after ScopeH",
+            "ScopeI: end (Dim o, a(0) As Foo)",
+            "  Terminate I-variant",
+            "  Terminate I-array",
+            "after ScopeI",
+            "ScopeJ: end (Dim p As Foo, a(0) As Foo)",
+            "  Terminate J-object",
+            "  Terminate J-array",
+            "after ScopeJ",
+            "ScopeK: end (Dim a(0) As Foo, p As Foo)",
+            "  Terminate K-object",
+            "  Terminate K-array",
+            "after ScopeK",
+            "ScopeM: end (Dim p As Foo, q As Foo)",
+            "  Terminate M-first",
+            "  Terminate M-second",
+            "after ScopeM",
+            "ScopeN: end (Dim a(0) As Foo, b(0) As Foo)",
+            "  Terminate N-first",
+            "  Terminate N-second",
+            "after ScopeN");
+    }
 }

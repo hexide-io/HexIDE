@@ -866,8 +866,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             // terminates locals (faithful stack teardown). The return object is deliberately NOT released here on
             // the NORMAL path — its hold transfers to the caller. But on an ERROR exit (the body threw, so no
             // caller adopts it), release the return-name slot too, or a `Set F = New T` before a fault leaks.
+            // A procedure's scalar locals, Variants and object references, are released before its arrays, each in
+            // declaration order (measured, #970: `Dim a(0) As Foo, o` terminates o's object first, and two arrays or
+            // two scalars go in the order they were declared).
             foreach (var slot in ownedSlots)
-                await ReleaseRef(ExecutionContext.State[slot]);
+                if (!ExecutionContext.State.IsDeclaredArray(slot))
+                    await ReleaseRef(ExecutionContext.State[slot]);
+            foreach (var slot in ownedSlots)
+                if (ExecutionContext.State.IsDeclaredArray(slot))
+                    await ReleaseRef(ExecutionContext.State[slot]);
             if (countMe && me is { } m2)
                 await ReleaseRef(m2);
             if (!completed && proc.IsFunction && ExecutionContext.TryGetVariable(callee, proc.Name, out var orphan))
@@ -1076,7 +1083,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 var arg = args[i];
                 // A `v As Variant` shares an array argument as an untyped `v` does (measured, #970). That is what lets a
                 // Variant sort routine sort its caller's array once a Let copies, and lets a ReDim reach the caller's
-                // array and its fixedness. Only an array: a typed scalar passed to a ByRef Variant is not measured.
+                // array and its fixedness. VB6 shares a scalar argument with it too, a Variant or a typed variable
+                // (measured), which is #1001.
                 bool aliasable = p.ByRef && arg.Location is not null
                     && (p.DeclaredType is null || p.DeclaredType == arg.Value.Type
                         || p.DeclaredType == Vb6Value.ValueType.EmptyVariant && arg.Value.Type.IsArray);

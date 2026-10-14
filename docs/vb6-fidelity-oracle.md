@@ -7776,8 +7776,9 @@ the caller's array and its fixedness; an untyped parameter ReDims by the Variant
   making an array hold itself; a copy nested more than 1000 deep is refused rather than risk the stack.
 - **The objects.** The copy AddRefs each object it holds, so every array has exactly one holder, and `ReleaseRef`
   descends into an array. A local object array's objects now terminate at `End Sub`, an overwritten element releases
-  what it held, a For Each variable holds its element, and an array a Function returns is released at the end of the
-  caller's statement, after whatever stored it has taken its copy.
+  what it held, a For Each variable holds its element and is emptied when the loop runs out, and an array a Function
+  returns is released at the end of the caller's statement, after whatever stored it has taken its copy. At `End Sub`
+  the scalar locals go before the arrays, as below.
 - **Where a reference is left uncounted**, the error is towards a late Terminate, never an early one: `Erase` and a
   `ReDim` without `Preserve` don't release the objects in the array they discard, and a module-level array's objects
   wait for the end of the program, as before.
@@ -7787,3 +7788,36 @@ the caller's array and its fixedness; an untyped parameter ReDims by the Variant
   slot, whose type and fixedness stay the caller's.
 - **A fixed array given an array** is "Can't assign to array" named directly, raised as the statement runs, and 13
   through a parameter, with the array kept.
+
+### Measured in #1000's review
+
+Four more projects, each built as native code and as p-code, the two agreeing on every line. A class `Foo` whose
+`Class_Terminate` logs its `Name`, each scope a Sub of its own:
+
+| Program | VB6 |
+|---|---|
+| `x = MakeArr("M1")`, a Function returning a local `Dim a(0) As Foo` holding M1, then `x(0).Name` | "M1", then M1 terminates at `End Sub` |
+| `MakeArr "M2"`, called as a statement | M2 terminates before the next statement |
+| `For Each o In a` over F0 and F1, then `TypeName(o)` | "Empty": the variable lets go when the loop runs out |
+| then `Set a(0) = Nothing`; `Set a(1) = Nothing` | F0 terminates at the first, F1 at the second |
+| the same loop left by `Exit For` at X0 | `o` is still X0, so `Set a(0) = Nothing` terminates nothing |
+| `For Each e In Array(1, 2)`; over a `Long()`; over an empty `Split("")` with `e` holding 9 | `TypeName(e)` "Empty" after each |
+| `Set v(0) = New Foo`, `v(0) = 5`, `Dim v(0)`; `Set w = New Foo`, `w = 5`, `Dim w` | the object terminates at the Let, Err 0, and `TypeName` is "Integer": with no default member, the Let replaces it |
+
+**The order of `End Sub`.** Two objects in each scope, the first set first:
+
+| Locals | VB6 terminates |
+|---|---|
+| `Dim a(0) As Foo, o`; `Dim o, a(0) As Foo` | `o`'s, then the array's, both ways round |
+| `Dim p As Foo, a(0) As Foo`; `Dim a(0) As Foo, p As Foo` | `p`'s, then the array's, both ways round |
+| `Dim p As Foo, q As Foo`; `Dim a(0) As Foo, b(0) As Foo` | in declaration order |
+
+So a procedure releases its scalar locals, Variants and object references alike, before its arrays, each group in
+declaration order. Not run: a Variant local holding an array, which HexIDE puts with the scalars, by its slot.
+
+**A ByRef `As Variant` given a scalar is written back.** `Sub S(v As Variant): v = 5` gives 5 to a caller's Variant
+holding 1, and to a caller's `Dim n As Integer` too, which compiles; `Sub U(v): v = 6` gives 6 and leaves `n` an
+Integer. HexIDE copies the scalar into a `v As Variant`, so the caller keeps 1: #1001.
+
+**HexIDE, after the review.** Every row above is pinned. A For Each that runs out empties its variable and releases
+what it held; `End Sub` releases scalar locals before arrays. The ByRef `As Variant` scalar is #1001's, apart from #970.

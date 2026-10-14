@@ -748,6 +748,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (result != ControlFlow.Nothing)
                 return result;
         }
+        // A loop that runs out leaves its variable Empty, releasing the last element it held, over an object array and a
+        // Long() alike, and even when there was nothing to walk (measured, #970: a variable holding 9 before a For Each
+        // over an empty Split is Empty after it). Exit For leaves it holding the element it reached.
+        interpreter.ExecutionContext.TryGetVariable(currentEnv, varName, out var last);
+        interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, Vb6Value.Variant);
+        await interpreter.ReleaseRef(last);
         return ControlFlow.Nothing;
     }
 

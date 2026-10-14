@@ -35,6 +35,9 @@ there isn't one yet. Anything may change between 0.x releases.
     still held it.
   - **A fixed array can't be assigned an array:** VB6's "Can't assign to array", or 13 through a parameter, where the
     fixed array was replaced.
+  - **A For Each variable is Empty once the loop runs out**, as in VB6, even when there was nothing to walk; it kept
+    the last element. `Exit For` still leaves it holding the element it reached.
+  - **`End Sub` releases a procedure's scalar locals before its arrays**, each in declaration order, as VB6 does.
 - **A Function declared to return a typed array takes only an array of its type** (#986). `F = Array(1, 2)` in a
   Function `As Integer()` returned a Variant array with no error, and `F = 5` in one `As Long()` returned an Integer.
   A mismatch now raises Type mismatch at the store, as VB6 does, or stops the run with VB6's compile error "Can't assign
