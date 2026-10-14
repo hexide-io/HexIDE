@@ -269,6 +269,8 @@ stays `Byte`. A result outside the result-type's range is `Err 6` — there is n
 > cells, `/` is a third table, `\`/`Mod` a fourth, and `^` a fifth.** `Long + Single` is also `Double`, not
 > Single, which no row here happened to cover. Two exceptions to the "no auto-promotion" sentence were also
 > found: `Byte * Byte` wraps mod 256 silently, and unary minus of a type's minimum returns the minimum.
+> **Corrected 2026-10-14:** the `Byte * Byte` wrap is native code only. P-code and the IDE raise 6, as for `Byte + Byte`;
+> see *Numeric type pairs*.
 > Read that section before implementing from this one.
 
 > **That last sentence is about DECLARED types only.** Every row below was measured through declared
@@ -2786,6 +2788,12 @@ could be widened. 30 cases; the result is a single rule with one genuinely surpr
 
 > **VB6 coerces the CASE EXPRESSION to the SELECTOR's runtime type, then compares.**
 
+> **Corrected 2026-10-13, #839's review round two:** for a selector with a FIXED type only, a declared
+> variable, a literal, a typed Function, parameter, field or array element, or an expression of those. Every
+> selector measured here was declared, apart from an unassigned Variant, so the rule was written for every
+> selector. A Variant selector holding a value converts nothing: a Variant 2 does not match `Case 1.7`, and a
+> Variant 1 does not match `Case "1.0"`. See *A typed selector and a Variant one*.
+
 It does *not* compare numerically, and it is not symmetric. Two measurements settle it, and they disagree
 with each other under any numeric reading:
 
@@ -2803,7 +2811,9 @@ Everything else follows from it and was confirmed rather than assumed: a `Long` 
 Integer literal; an `Integer` selector matches `1&`; `Double`, `Currency`, `Date` and `Boolean` selectors all
 participate (`True` matches `Case -1`, a Date of serial 2 matches `Case 2`); an unassigned Variant matches
 `Case 0`; the first of two matching arms wins; and a selector that is an *expression* is judged on its
-runtime type, not its declared one.
+runtime type, not its declared one. (**Corrected 2026-10-13:** an expression's type is fixed when its operands'
+are, as `i + 1` is with a declared `i`, and a Variant when one is a Variant, as `v + 1` is; a Variant one
+converts nothing. See *A typed selector and a Variant one*.)
 
 ### A failed coercion RAISES — it is not a non-match
 
@@ -3874,7 +3884,20 @@ this narrowing is not a checked conversion.
 | `1E30 \ 1`, `1E30 Mod 3` | — | 6 |
 
 **`Byte * Byte` silently wraps mod 256** while `Byte + Byte` and `Byte - Byte` raise. Every value above is the
-true product mod 256. **Unary minus of a type's minimum silently returns the minimum**, while subtracting it
+true product mod 256.
+
+> **Corrected 2026-10-14, #971's review round four: native code only.** These rows were measured with native builds.
+> Built as p-code and run in the IDE, each pair below raises 6, as `Byte + Byte` does; native code still wraps, as
+> above:
+>
+> | `Dim a, c As Byte` | Native | P-code and the IDE |
+> |---|---|---|
+> | `20 * 20`; `16 * 16`; `255 * 255`; `13 * 23`; `200 * 200` | `144`; `0`; `1`; `43`; `64`, Byte, Err 0 | 6, each |
+> | `200 + 200` | 6 | 6 |
+>
+> So multiply is not an exception to Byte's ceiling in the build the IDE runs. It looks like native code omitting
+> one overflow check, though that is a guess, not a measurement. The unary-minus row beside it was measured natively
+> too and has not been re-run as p-code. **Unary minus of a type's minimum silently returns the minimum**, while subtracting it
 from zero raises. Both were disbelieved on first measurement and re-run in independent cases.
 
 ### The Variant path is the typed path plus promotion
@@ -3925,7 +3948,8 @@ is *not* stated as a rule. The falsified hypothesis is kept because the next rea
 side cannot be an unchecked scaled-int64 cast, because (a) rules that out. Two narrowings, two mechanisms,
 one describable and unexplained.
 
-**(c) `Byte * Byte` wraps while `Byte + Byte` and `Byte - Byte` raise.** No rule explains why multiply is the
+**(c) `Byte * Byte` wraps while `Byte + Byte` and `Byte - Byte` raise.** (**Corrected 2026-10-14:** native code only;
+p-code and the IDE raise 6. See the correction above.) No rule explains why multiply is the
 exception. Confirmed across seven value pairs in two independent cases. **This is the most dangerous single
 fact here**, because HexIDE raises where VB6 runs — a false rejection, the top severity class.
 
@@ -3949,7 +3973,8 @@ Recorded because the wrong guess is what the next reader will also make:
 - **`Single / Single` was expected to be Double**, since `/` is "the floating divide". It is Single — and
   `Byte / Byte` is Double. The rule is the opposite shape to the guess.
 - **`Decimal / anything` was expected to be Double**, on the same reasoning. It is Decimal.
-- **`Byte * Byte` was expected to raise like `Byte + Byte`.** It wraps.
+- **`Byte * Byte` was expected to raise like `Byte + Byte`.** It wraps, natively. In p-code and the IDE it raises, as
+  expected (2026-10-14), so the surprise was the native build's.
 - **`-n` at `n = -32768` was expected to raise.** It returns `-32768`.
 - **The Single/Long comparison was expected to narrow to Single**, matching the Single/Double case. It
   escalates to Double instead — so the comparison defect in the interpreter is wrong in *both* directions and
@@ -3966,7 +3991,9 @@ otherwise, and that misreading has already produced one incorrect issue.
   be Decimal), `Lo/Sg`, and `By\By` / `By Mod By` (should be Byte). Filed as #230.
 - **Comparison** uses `ExpressionExecutor.NumericRank` (`:100`) — `By<In<Lo<Sg<Cu<De<Db` — and widens where
   VB6 narrows. **4 of 21 pairs diverge**, in both directions. Filed as #229.
-- **`Byte * Byte`** and **unary minus at a type minimum** raise where VB6 succeeds. Filed as #233, #234.
+- **`Byte * Byte`** and **unary minus at a type minimum** raise where VB6 succeeds. Filed as #233, #234. (**Corrected
+  2026-10-14:** VB6's native build succeeds at `Byte * Byte`, and its p-code build and the IDE raise, as HexIDE does.
+  Unary minus has not been re-measured as p-code.)
 - **`0#/0#`** reports 11 where VB6 reports 6, and **Variant Single overflow** raises where VB6 promotes. #234.
 
 The shape of the fix these measurements point to: **per-operator arithmetic tables and a separate per-pair
@@ -5519,6 +5546,561 @@ about case:
 `Me` and the form's own name do resolve in any case on that path, where `VBLoader.RunForm` binds them, and are
 tested there.
 
+## Resume Next into a block (2026-10-12, #839)
+
+**The question.** Under `On Error Resume Next`, what does VB6 do when the condition or header of a block statement
+raises? This covers If, ElseIf, Select Case, Do, While, For, For Each and With. HexIDE skipped the whole statement, so a
+program relying on Resume Next carried on down a path VB6 would not take, with no error.
+
+**The answer, in one line:** VB6 goes on at the next statement, and for a block statement that is the first statement
+inside it. So the block runs.
+
+### A new axis: native code and p-code
+
+Every probe in this file before this one was built as **native code**, and several were also run in the IDE (the App
+section, #174's and #840's, #847's, #874's, #882's and the Join and Filter rounds). What is new here is the p-code
+build. `/make` honours the project's `CompilationType`,
+and a `.vbp` with no `CompilationType` line builds native code with VB6's default optimisations: overflow checks on.
+Five probes here were each built several ways, and for the first time the two compiled forms give different answers.
+
+- **Native code, the harness's default.** No `CompilationType` line, or `CompilationType=0`.
+- **Native code with integer overflow checks removed.** `CompilationType=0` plus `OverflowCheck=-1`.
+- **P-code.** `CompilationType=-1`.
+
+Each probe starts with a tell that proves which build ran: `Dim ov As Integer: ov = 32767: ov = ov + 1` under Resume
+Next.
+- Native code without overflow checks gives -32768 and error 0.
+- Both other builds give 32767 and error 6.
+
+The probes told the two native builds apart with this tell, and the two compiled forms apart with the For evaluation
+order below.
+
+**And the IDE.** `VB6.EXE /runexit probe.vbp` runs a project in the IDE, as F5 does, and closes VB when the program
+ends. It works from PowerShell Direct's session 0, with no window or agent, because the probe writes its own results
+file. Two points about running it that way:
+- VB6.EXE exits with 0xC000041D (`STATUS_FATAL_USER_CALLBACK_EXCEPTION`) as it closes there, after the program has
+  finished.
+- A probe must not raise an unhandled error, which would leave the IDE waiting on a modal no one can see.
+
+**Four of these probes were run in the IDE, and it gave p-code's answer in every row**, including every row where
+native code differs. So in the tables below, the p-code column is also the IDE's, which is what HexIDE emulates. Where
+the compiled forms differ, HexIDE follows p-code.
+
+### The probes
+
+All of them are `Sub Main` programs, built with `vb6.exe /make` on the Win10 guest and run. Each result is written to a
+file.
+- `Boom()` is a Function `As Long` whose body is `Boom = 1 / 0`, so calling it raises 11.
+- `T(label, v)` appends `label` to a trail and returns `v`, which shows what was evaluated and in what order.
+- `s` is a **String** holding `"abc"`, `z` is 0, and `k` is an instance of a class with no default member.
+
+`s` must be a String. A Variant holding `"abc"` does not raise in `s > 1`: VB6 compares it as greater than any number,
+without converting it (recorded on #211).
+
+Every statement ran under `On Error Resume Next` unless a row says otherwise.
+
+Unless a table has a column for each mode, native code, p-code and the IDE all gave the same answer.
+
+**Conditions:**
+
+| Statement | VB6 runs | Err after |
+|---|---|---|
+| `If Boom() > 0 Then ... Else ...` | the Then branch | 11 |
+| `If False Then ... ElseIf Boom() > 0 Then ... Else ...` | the ElseIf branch | 11 |
+| the same, then a later `ElseIf T("e2", True)` | the first ElseIf's branch; `e2` is never evaluated | 11 |
+| `If Boom() > 0 Then c = "Then" Else c = "Else"`, one line | the Then part | 11 |
+| `If Boom() > 0 Then c = "Then": c = c & "+second"` | both statements of the Then part | 11 |
+| `If Boom() > 0 Then GoTo X Else ...` | the jump | 11 |
+| `If s > 1 Then`, a comparison that raises | the Then branch | 13 |
+| `If 1 \ z > 0 Then`, an operator that raises | the Then branch | 11 |
+| `If T("a", 1) = Boom() Then` | the Then branch; trail `a Boom` | 11 |
+| `If k Then`, from #174's probe | the Then branch | 438 |
+
+**Select Case.** A test that raises on a Case line:
+
+| Statement | VB6 runs | Trail |
+|---|---|---|
+| `Select Case 5`, `Case Boom()`, `Case T("next", 5)`, `Case Else` | `Case Boom()`'s body | `Boom`: nothing later is tested |
+| `Select Case 5`, `Case T("a", 1), Boom(), T("b", 5)` | that Case's body | `a Boom`: the rest of the list is not tested |
+| `Select Case 5`, `Case 1 To Boom()` | that Case's body | |
+| `Select Case 5`, `Case Is > Boom()` | that Case's body | |
+| `Select Case 5`, `Case k` | that Case's body, 438 | |
+| `Select Case s`, `Case 1`, `Case T("cabc", "abc")` | `Case "abc"`, error 0 | `Case 1` does not raise: 1 becomes `"1"` (see *Select Case matching*) |
+
+**Select Case.** The selector itself raises. The compiled forms differ here, and native code also depends on the shape
+of the Cases:
+
+| Statement | Native code | P-code and the IDE |
+|---|---|---|
+| `Select Case Boom()`, `Case 1`, `Case 0`, `Case Else`, constant Cases | nothing runs | nothing runs |
+| `Select Case Boom()`, `Case Else` only | nothing runs | nothing runs |
+| `Select Case Boom()`, `Case T("c1", 1)`, `Case T("c0", 0)`, `Case Else` | **`Case 0`**, trail `Boom c1 c0` | nothing runs |
+| the same with a Variant Function, and with `1 \ z` | **`Case 0`** | nothing runs |
+| `Select Case k`, `Case 1` or `Case T("c1", 1)`, `Case Else`; also through a Variant and `CLng(k)` | **`Case Else`** | nothing runs |
+
+Native code with non-constant Cases goes on to test them against a selector it never computed: 0 for a numeric
+selector, Empty for an object's. That is uninitialised state, not a rule.
+
+**Do and While:**
+
+| Statement | VB6 runs |
+|---|---|
+| `Do While Boom() > 0`, `Do Until Boom() > 0`, `While Boom() > 0` | the body, and the condition is asked again each time round: three passes, three calls, until the probe's own `Exit` |
+| `Do ... Loop While Boom() > 0`, `Loop Until` | the body once, then the statement after `Loop`: one call |
+| `Do While s > n`, a comparison that raises | the body each time round, error 13 |
+
+**For.** First, with nothing raising, the three expressions are evaluated in different orders:
+
+| `For i = T("start", 1) To T("limit", 3) Step T("step", 1)` | Native code | P-code and the IDE |
+|---|---|---|
+| trail | **`limit step start`** | `start limit step` |
+
+**That is observable without any error at all:** a For whose bounds have side effects behaves differently built native
+and built as p-code. HexIDE evaluates start, limit, step, which is p-code's order.
+
+**For.** When the start, limit or step raises, the body runs once with the counter never assigned. Then `Next`
+carries on with loop state that was never set. Each case below began with the counter at the stated value, and the
+probe's guard ended the loop after 4 passes:
+
+| Header, counter before | Native code | P-code and the IDE |
+|---|---|---|
+| `1 To Boom()`, i 0 | **for ever**: 0 0 0 0 | 1 pass (0); after, 1 |
+| `1 To Boom()`, i -5 | **for ever**: -5 -5 -5 -5 | -5 -4 -3 -2, counting up to 0 |
+| `1 To Boom()`, i 7 | 1 pass (7); after, 7 | 1 pass (7); after, **8** |
+| `Boom() To 3`, i 7 | 1 pass; after, 8 | 1 pass; after, 8 |
+| `Boom() To 3`, i 0 | 0 1 2 3, counting to 3 | 1 pass (0); after, 1 |
+| `Boom() To 3`, i 2 | 2 3; after, 4 | 1 pass (2); after, 3 |
+| `1 To 3 Step Boom()`, i 7 | 1 pass; after, 7 | 1 pass; after, 7 |
+| `1 To 3 Step Boom()`, i 0 | **for ever** at 0 | **for ever** at 0 |
+| `Boom() To 1 Step -1`, i 7 | 7 6 5 4, counting down to 1 | 1 pass; after, 7 |
+| `Boom() To 1 Step -1`, i 0 | 1 pass; after, -1 | **for ever** at 0 |
+| `T("start", 1) To Boom() Step T("step", 2)`, i 7 | 1 pass; after, 7; trail `Boom` | 1 pass; after, 7; trail `start Boom` |
+
+**The model that reproduces every p-code and IDE row:**
+1. The three are evaluated in order, and one that raises stops the rest.
+2. At `Next`, the counter is read back from the variable and the step added.
+3. The result is tested against the limit: to stay at or below it when the step is 0 or more, at or above it otherwise.
+4. A limit or step that was not evaluated is the value the statement last had in this call, or 0 if it has not run
+   before. So a raised step is a `Step 0`, which loops for ever while the counter is within the limit.
+5. Without a Step clause the step is 1 for an Integer or Long counter. Any other counter's implied step is kept as an
+   evaluated one is, so before the statement has run it is 0 (review round one, below).
+
+Native code fits the same model with two differences. It evaluates the limit and step before the start, and it has no
+implied step: an unevaluated step is 0, with or without a Step clause, for every counter type. So `1 To Boom()` with the
+counter at 0 loops for ever natively, and runs once in p-code.
+
+"Last had in this call" is measured. In each case below, one For statement ran twice in one procedure; the first run
+was normal and the second raised. All three modes agreed:
+
+| Second run | VB6 |
+|---|---|
+| limit raises, i 3, after a run with limit 5 | 3 4 5; after, 6: the limit was **5** |
+| step raises, i 0, after a run with `Step 2` | 0 2; after, 4: the step was **2** |
+| start raises, i 3, after a run `To 5` | 3 4 5; after, 6 |
+| a For in a Sub called twice, limit raising on the second call, i 3 | native: after, 3; p-code and the IDE: after, 4. Each call starts from 0 |
+
+**A Variant counter** does not carry on. `Next` raises **92**, "For loop not initialized", and the loop ends. The
+counter is left as it was, in all builds: `For vi = 1 To Boom()` with `vi` 7 gives one pass, then 7, and error 92.
+
+**Measured with it:** VB6's `Next` reads the counter back, so a body that changes the counter changes the loop. This
+matches the model above, and holds in both builds. HexIDE does not do this, which is #841:
+- `For i = 1 To 10` with `i = i + 1` in the body runs 5 passes: 1 3 5 7 9, ending at 11.
+- `If i = 3 Then i = 0` in `For i = 1 To 3` starts the loop again, for ever.
+
+**For Each.** In each case `x` started as `"pre"`, and the errors were logged in the order raised, under an
+`On Error GoTo` handler that did `Resume Next`:
+
+| Collection | Errors | `x` in the body | `x` after |
+|---|---|---|---|
+| an unallocated `dyn() As Long` | 92, then 92 | `"pre"` | `"pre"` |
+| a Collection variable that is Nothing | **424**, then 92 | `"pre"` | Empty |
+| a Variant holding Nothing | 424, then 92 | `"pre"` | Empty |
+| a Variant that is Empty | 13, then 92 | `"pre"` | Empty |
+| a Variant holding 5 | 13, then 92 | `"pre"` | Empty |
+| Null | 13, then 92 | `"pre"` | Empty |
+| a Variant Function that raises 11 | 11, then 92 | `"pre"` | Empty |
+| a Function `As Long()` that raises 11 | 11, then 92 | `"pre"` | `"pre"` |
+| control: a two-item Collection | none | `a`, `b` | Empty |
+
+The body runs once with the element as it was, then `Next` raises 92 and the loop ends. Whether `Next` empties the
+element depends on whether the collection is an array. A declared array leaves the element alone, and so does a Variant
+holding one (`v = dyn`, then `For Each x In v`, measured by #971's review in both modes). A Variant holding anything
+else, or an object, empties it. Where the collection itself raised, nothing arrived, and its declared type decides: a
+Function `As Long()` keeps the element and a Variant Function empties it.
+
+**Nothing raises 424, "Object required", not 91.** 91 was our expectation.
+
+**With:**
+
+| Statement | VB6 |
+|---|---|
+| `With BoomObj()`, a Function returning a class that raises 11 | the body runs; `Err.Number` there is 11; `.Tag = 5` raises **91** |
+| `With np`, a class variable that is Nothing | the `With` raises nothing; the body runs; `.Tag = 5` raises 91 |
+
+**On Error GoTo, then `Resume Next` in the handler,** gives the same answers as `On Error Resume Next` in every case
+tried:
+- block If: Then;
+- a raising Case test: its body;
+- a raising selector: native `Case 0`, p-code and the IDE nothing;
+- `Do While Boom()`: three passes;
+- `For i = 1 To Boom()`: native after 7, p-code and the IDE after 8.
+
+**What a condition is.** No error handling here: the value was assigned to a Variant `v` and tested by `If v Then` and
+`Do While v`.
+
+| `v` | If | Do While |
+|---|---|---|
+| 5, 0.5, `#1/1/2000#`, -1@ | Then | runs |
+| 0 | Else | does not run |
+| `"True"`, `"1"` | Then | runs |
+| `"abc"`, `""` | error 13 | error 13 |
+| Null, Empty | Else | does not run |
+
+So a condition is read as `CBool` reads it, except that Null is False rather than error 94.
+
+### The tests' own programs, run through vb6.exe
+
+`ResumeNextIntoABlockTests` pins these rows, so its programs were also turned into one probe and run as written: 57
+programs. **In the IDE, all 57 printed exactly what the tests expect.** As native code, exactly the 9 that the tests
+name as p-code's answer differed, each as its name says.
+
+The first such run found three tests wrong. They had declared `s` as a Variant, and so expected an error 13 that VB6
+does not raise. HexIDE raised it anyway (#211), so the tests passed while pinning HexIDE's bug.
+
+### What this overturned
+
+- **That a raised condition skips its block.** HexIDE did exactly that, and #174's probe was the first to show
+  otherwise.
+- **#174's probe said `Select Case k` reaches Case Else.** That is native code's answer only. Its explanation, that
+  each Case raised in turn, was wrong: no Case was tested against `k` at all. P-code and the IDE run nothing.
+- **This file's first #839 probe said a raised selector runs nothing.** True in p-code and the IDE always, and in
+  native code only for a numeric selector with constant Cases: an object selector reaches Case Else there even with
+  constant Cases.
+- **That one oracle build speaks for VB6.** The For evaluation order differs between the compiled forms with no error
+  anywhere. The harness's default, native code, is the one that differs from the IDE.
+- **For Each over Nothing raises 424, not 91.**
+
+### Resisted explanation
+
+Nothing in the p-code columns. The native columns follow from the model above with the native order and a kept step,
+but that was checked row by row, not proved.
+
+### Review round one (2026-10-13)
+
+#971's review measured four more axes, and each was then measured here with `/make`, one project built twice, as native
+code and as p-code (each with the tells above); the p-code projects were then run in the IDE too, which matched p-code on
+every line. The counter ran from 7, or 0, with the trail and a guard of four passes as above. Unless a column says
+otherwise, native code and p-code agree.
+
+**The counter's type decides the implied step.** `For c = 1 To Boom()`, no Step clause:
+
+| Counter | from 7 | from 0 |
+|---|---|---|
+| Integer, Long | p-code `1: 7:8`; native `1: 7:7` | p-code `1: 0:1`; native for ever at 0 |
+| Byte, Single, Double, Date | `1: 7:7` | for ever at 0 |
+| Currency | p-code `1: 7:7`; native **for ever at 7** | for ever at 0 |
+
+`For c = Boom() To 3` gives the same split: Integer and Long step by 1 in p-code, and the other types by 0, so a Byte
+from 0 loops for ever in p-code where native code counts 0 to 3. After a normal run of the same statement in the same
+call, every type keeps that run's limit and step, the implied 1 included: `For c = 1 To Lim(k)`, raising on the second
+run with `c` at 0, counts 0 1 2 3 for a Byte as for a Long, and `For c = 1 To 5 Step St(k)` counts 0 2 4.
+
+**A typed parameter is a typed counter.** `Function P(ByVal i As Long)` with `For i = 1 To Boom()`: `P(7)` is p-code
+`1: 7:8`, native `1: 7:7`; `P(-5)` counts -5 -4 -3 -2 up in p-code and stays at -5 natively. The same for a ByRef `i As
+Long` given a literal and for `Optional i As Long = 7`; a `ByVal b As Byte` is a Byte (`P(0)` loops for ever). The
+parameter keeps its type for a store too: `Optional i As Long = 7` is `Long 7`, `i = 2.5` into `ByVal i As Long` is
+`Long 2`, and `b = 300` into a `ByVal b As Byte` raises 6 and keeps 7.
+
+**The bounds convert into the counter's type, in the header.** Through variables, so nothing is folded:
+
+| Counter, header | VB6 |
+|---|---|
+| Byte, `s0 To l0` with 300 To 400; `1 To l0` with 300; `1 To 3 Step st` with 300 | 6, then the raised header: `1: 7:7`, and from 0 for ever |
+| Byte, `3 To 1 Step st` with -1; `0 To 0 Step st` with -1; `3 To 1 Step -1`, a literal | 6, the same |
+| Integer, `s0 To l0` with 40000; `1 To l0` with 40000 | 6; p-code `1: 7:8` and `1: 0:1`, native `1: 7:7` and for ever |
+| Integer, `1 To 3 Step st` with 40000 | 6; `1: 7:7`, and from 0 for ever |
+| Integer, `1 To 3 Step st` with 0.5 | 1 for ever: 0.5 is 0 |
+| Integer, `Step st` with 1.5; with 2.5 | 1 3 5; 1 3 5 7: 1.5 is 2, and 2.5 is 2 too |
+| Integer, `s0 To 4` with 1.5; with 2.5 | 2 3 4, both |
+| Integer, `1 To l0` with 2.5; with 3.5 | 1 2; 1 2 3 4 |
+| Long, `Step st` with 1.5 | 1 3 5 |
+| Single and Currency, `1 To 2 Step st` with 0.5 | 1 1.5 2, then 2.5 |
+| Integer, `1 To l0` with `"3"`; with `"x"` | 1 2 3; 13, then the raised header |
+
+So each of start, limit and step is converted as a store into the counter would convert it (banker's rounding, 6 on
+overflow, 13 for text that is not a number) as it is evaluated, and a conversion that raises is a raised header. A
+Byte counter cannot step down at all.
+
+**A Case Is or To value converts into the selector's type**, as an equality Case's does (see *Select Case matching*).
+**Corrected in review round two:** into a TYPED selector's type. Each selector below is a literal or a declared variable
+except the Variant in the third row, whose answer the two rules share; a Variant selector converts nothing, and the
+section *A typed selector and a Variant one* has its rules.
+
+| Selector | Case | VB6 |
+|---|---|---|
+| 5 | `Is > "abc"`; `"a" To "z"`; `1 To "x"`; `Is = "abc"`; `Is > v`, `v` a Variant holding `"abc"` | that Case, Err 13 |
+| 5 | `Is > "3"` | that Case |
+| `"abc"`, a String variable or a Variant holding it | `Is > 5` | that Case: 5 becomes `"5"` against the two typed ones, and the Variant is above any number (round two) |
+| `"10"`; a String `"9"` | `Is > 9`; `Is < 10` | Case Else: text against text |
+| 2 | `Is < 2.4`; `Is < 2.6`; `1.6 To 1.9`; `2.6 To 3` | Else; that Case; that Case; Else |
+| a Currency 2 | `Is < 2.00004` | Case Else |
+| 2 | `Is > 40000` | that Case, Err 6 |
+| Null | `Is > "abc"` | Case Else |
+| Empty | `Is > "abc"`; `Is < 1` | Case Else; that Case |
+
+**An empty branch.** `If Boom() > 0 Then` with an empty Then and an Else, and the same for an empty ElseIf after
+`If False`: neither branch runs, Err 11.
+
+**Resisted explanation.** Natively, a Currency counter's `1 To Boom()` from 7 loops for ever at 7, where every other type
+stops after one pass. An unevaluated limit of 0 explains the others; this one behaves as if the limit were at least 7.
+P-code does not do it, and HexIDE follows p-code.
+
+### HexIDE, after #839
+
+**Conditions.** If, ElseIf, one-line If, Do and While read a condition through `ConditionMet`, which wraps main's
+`ConditionHolds` (#847, #840) and adds only what Resume Next needs.
+- A condition that raises under Resume Next is recorded in `Err` and enters its block: the branch, or a pre-tested
+  loop's body, asked again next time round. A post-tested loop ends. An empty branch runs nothing (review round one);
+  it crashed, visiting a block the grammar does not give it.
+- The reading is `ConditionHolds`'s: `CBool`'s rule, Null and Empty False, an object read as an operand is. This branch
+  first wrote the same reading itself, and #847 landed it on main first, so the merge kept main's. An untrappable
+  refusal, such as a class's default member (#174), still stops the run under Resume Next, because it is not a run-time
+  error.
+
+**Select Case.**
+- A Case test that raises runs its own Case's body.
+- A selector that raises skips the statement, which is the IDE's and p-code's answer, and native code's for a numeric
+  selector with constant Cases.
+- How a Case value is compared is main's, unchanged. Review round one converted a `Case Is` or `To` value into the
+  selector's type, round two limited that to a typed selector and compared a Variant one as VB6 compares Variants, and
+  round three took both out of #839, because each round's version regressed programs it did not measure. The
+  measurements are in *A typed selector and a Variant one*, and the work is #987.
+
+**For.**
+- A header that raises runs the body once, then carries on by the p-code model above. A Variant counter raises 92 at
+  `Next` instead.
+- Each call keeps the limit and step each For statement last evaluated, a missing Step clause's 1 included.
+- The infinite loops are reproduced: a raised step is a `Step 0`.
+- Review round one: without a Step clause a raised header steps by 1 only for an Integer or Long counter, and by the
+  kept step for a Byte, Single, Double, Currency or Date one. A String or Boolean counter is refused, since none was
+  measured.
+- Review round one: each bound converts into a numeric counter's type as it is evaluated, through the conversion a
+  store uses, so an overflow or a text that is not a number is a raised header, and a fractional bound rounds into an
+  Integer or Long counter. A typed parameter's slot now records its numeric type, as a Dim's does, so it is a typed
+  counter and a store into it converts. It is also a ceiling in arithmetic, as a
+  declared variable is (#122), where it widened; review round four measured that, below.
+- A start, limit or step still fractional after its conversion into the counter's type is refused as not implemented,
+  and untrappably. That is any counter that keeps a fraction: a Single, Double, Currency or Date one, and a Variant or
+  undeclared one, which is the common `For x = 0 To 1 Step 0.25`. Main raised a trappable 13 for every fractional For,
+  which Resume Next stepped over, skipping the loop without a word. Neither is VB6's answer, and this one says so (#983).
+- A raised header with a String or Boolean counter is refused, since VB6 was not measured there (#984).
+
+**For Each.**
+- An unallocated array raises 92, Nothing 424, and any other non-object value 13, each at the statement. The first used
+  to run no passes and say nothing. The others used to raise 13 with a note that Collections were not implemented.
+- Under Resume Next, the body runs once and `Next` raises 92, emptying the element unless the collection is an array.
+- Where the collection itself raised, HexIDE cannot see its declared type without its value. It answers that only for a
+  call of one of the project's own Functions, from that Function's declaration, and not where a variable in scope
+  shadows the Function's name (review round one). Anything else is refused, naming #969.
+- For Each over an object is refused as not implemented, where it used to raise a trappable 13.
+
+**With.** A target that raises leaves the body with no object, so each leading-dot member raises 91.
+
+**Not changed: On Error GoTo, then `Resume Next` in the handler.** HexIDE resumes after the whole statement at the
+procedure's top level. That is the tree-walk limit for nested-granular `Resume`, recorded in `interpreter-gaps.md`.
+
+
+## A typed selector and a Variant one (2026-10-13, #839 review round two)
+
+**The question.** Review round one made a `Case Is` or `To` value convert into the selector's type, as an equality
+Case's does, and measured it with 20 rows. Every selector in them was a literal or a declared variable except one
+Variant holding a string, whose answer the two rules share. The review of that round ran the same programs on main and
+on the head and found 14 results changed, every one away from VB6: a Variant holding 5 was no longer `Case Is < 5.4`,
+and `Case Is > "a"` against it stopped the run with 13. So: which selectors convert, and how does VB6 compare the ones
+that do not?
+
+**The probe.** Seven Sub Main projects holding 111 Select Case rows. Each row is its own Sub under `On Error Resume Next`,
+writing the arm it took and `Err.Number`, so no row's error reaches the next. The same logs carry three typed-parameter
+rows, eight arithmetic lines and six lines about `Err`, which makes 123 lines across the first six projects. All seven
+were built as native code and as p-code, and the first six p-code projects were run in the IDE too, as described under
+"What a condition is": **every line agrees across all three.** The seventh, six rows pinning Empty as `""` against text,
+was added when a mutant that read it as `" "` survived, and was built as native code and as p-code only, the two agreeing.
+
+### What decides it is the selector's type
+
+A selector with a fixed type converts each Case value into it, as a store would (*Select Case matching*). A Variant
+converts nothing. Against 5, `Case Is < 5.4`:
+
+| Selector, holding 5 | VB6 |
+|---|---|
+| `Dim v As Integer`; the literal `5`; `i + 1`, `Dim i As Integer` holding 4 | Case Else: typed |
+| `F()`, a Function `As Integer`; `CInt(v)`; `ByVal p As Integer` | Case Else: typed |
+| `a(0)`, `Dim a(1) As Integer`; `u.n`, a Type's `n As Integer`; `o.N`, a class's `Public N As Integer` | Case Else: typed |
+| `Dim v`; `v = CLng(5)`; `CVar(5)` | that Case: a Variant |
+| `v + 1`, `v` holding 4; `i + v`, `i` an Integer 4 and `v` a Variant 1 | that Case: a Variant |
+| `v(0)`, `Dim v(1)`; `u.x`, a Type's `x As Variant`; `o.V`, a class's `Public V As Variant` | that Case: a Variant |
+| `FV()`, a Function with no `As` | that Case: a Variant |
+
+The same holds for text. Holding `"10"`, `Select Case "10"`, a Function `As String`, `CStr(v)`, `Mid$("10", 1)` and a
+`ByVal s As String` are not `Case Is > 9`, compared as text; `Mid("10", 1)` is, a Variant. A `ByVal b As Boolean`
+holding False is not `Case Is < 1`.
+
+**Arithmetic agrees**, since it reads the same type (#122): `F() * 7000`, `CInt(v) * 7000`, `a(0) * 7000`,
+`u.n * 7000` and `o.N * 7000` are all 6, Overflow, and `v(0) * 7000`, `u.x * 7000`, `o.V * 7000` and
+`CVar(5) * 7000` are all 35000.
+
+### A Variant selector against a typed Case value
+
+A literal, a declared variable or a typed Function's result. The selector is read as that value's type.
+
+| Selector | Case | VB6 |
+|---|---|---|
+| a Variant 5 | `Is < "10"`; `Is > "a"`; `"a" To "c"`; `Case "abc"` | Case Else, each: text, `"5"` |
+| a Variant 5 | `Is < "a"`; `Is = "5"`; `Is <> "abc"` | that Case, each: text |
+| a Variant 10; 100 | `Is > "9"` | Case Else, both: text |
+| a Variant 1 | `Case "1.0"` | Case Else: text |
+| a Variant 0 | `Is <> "abc"` | that Case |
+| a Variant 5, against `Dim w As String` holding `"10"` | `Is < w` | Case Else: text |
+| a Variant 5, against `FS()`, a Function `As String` returning `"10"` | `Is > FS()` | that Case: text |
+| a Variant True | `Case "True"`; `Case "-1"` | that Case; Case Else: True is written `"True"` |
+| a Variant `"3"`; `"10"`; `"10"` | `Is < 9`; `Is > 9`; `Is < 9` | that Case; that Case; Case Else: a number |
+| a Variant `"3"`, against `Dim k As Integer` holding 9 | `Is > k` | Case Else: a number |
+| a Variant `"2.5"`; `"2.6"`; `"70000"` | `Case 2`; `Is < 3`; `Is > 5` | Case Else; that Case; that Case: not rounded into the Integer, and no Overflow |
+| a Variant `"1.0"`; `"2.5"`; `"5"` | `Case 1`; `Case 2.5`; `Case 5&` | that Case, each |
+| a Variant `"0.5"`; `"1.5"` | `Is < 1`; `Is > 1` | that Case, both |
+| a Variant `"abc"` | `Is > 5`; `Is < 5`; `Case 5` | that Case; Case Else; Case Else: above any number, Err 0 |
+| a Variant `"True"` | `Case -1`; `Is < 0` | Case Else, both: not a number, so above |
+| a Variant `"1/2/1900"` | `Is < 5` | Case Else: not read as a date |
+| a Variant `"True"`; `"-1"`; `"5"` | `Case True` | that Case, each: read as CBool reads it |
+| a Variant `"abc"` | `Case True` | Case Else, Err 0 |
+| a Variant 2 | `Case 1.7`; `Is = 1.7` | Case Else, both: numbers compared as they are |
+| a Variant 5.5; 2.5 | `Is < 6`; `Case 2` and `2 To 2` | that Case; Case Else: not rounded either |
+| a Variant True; False | `Is < 0`; `Is < 1` | that Case, both: -1 and 0 |
+| a Variant True | `Case 1`; `Case -1` | Case Else; that Case |
+| a Variant 5 | `Is > True` | that Case |
+| a Variant Date `#1/2/1900#` | `Is > 2` | that Case: its serial, 3 |
+
+### A Variant selector against a Variant Case value
+
+Any number is below any string, whether or not the string reads as a number. Each `w` here is an undeclared Variant.
+
+| Selector | `w` | Case | VB6 |
+|---|---|---|---|
+| 10 | `"9"` | `Is > w` | Case Else |
+| 5 | `"10"`; `"abc"` | `Is < w` | that Case, both |
+| `"10"`; `"abc"` | 9; 5 | `Is > w` | that Case, both |
+| `"3"` | 9 | `Is < w` | Case Else |
+| 5; `"5"` | `"5"`; 5 | `Case w` | Case Else, both |
+| 5 | 5 | `Case w` | that Case |
+
+A typed selector converts a Variant Case value as it converts a literal: `Dim n As Integer` holding 5 matches `Case w`
+with `w` holding `"5"`, and `Dim s As String` holding `"5"` matches it with `w` holding 5.
+
+### Empty, Null and Booleans
+
+| Selector | Case | VB6 |
+|---|---|---|
+| 5; `"a"` | `Is > w`, `w` Empty | that Case, both: 0 and `""` |
+| 0 | `Case w`, `w` Empty | that Case |
+| 5; `"abc"`; `" "` | `Is > Empty` | that Case, each |
+| `""` | `Is < Empty` | Case Else: `""` is not below `""` |
+| Empty | `Case ""`; `Is < " "` | that Case, both: Empty is `""` |
+| `""`; `" "` | `Case w`; `Is > w`, `w` Empty | that Case, both |
+| Null | `Case Null`; `Is < 1`; `Is <> 1` | Case Else, each: Null is equal to, below, above and different from nothing |
+
+A Boolean is -1 or 0, so **True is below False**:
+
+| `Dim b As Boolean` | Case | VB6 |
+|---|---|---|
+| False | `Is < 1` | Case Else: 1 is True, which is below |
+| True | `Is < 0`; `Is < False` | that Case, both |
+| False | `Is > True` | that Case |
+| True | `3 To 6`; `Is >= 5.6`; `Is <= 4.6`; `4.6 To 5.4`; `Case 5` | that Case, each: each converts to True |
+| True | `Is > "a"` | that Case, Err 13 |
+
+### Err across a procedure (for #877)
+
+Read in passing, since the probe gives each row its own Sub. A Sub under `On Error Resume Next` that raises 11 and then
+returns leaves `Err.Number` at 11 in its caller, and the next Sub still reads 11 until its own `On Error Resume Next`,
+which clears it to 0. A Sub whose `On Error GoTo` handler ran to `End Sub` leaves 0. HexIDE gives 11 in both places.
+
+### What was overturned, and what resisted explanation
+
+**Overturned, both ours.**
+- **The 2026-09-03 rule:** "VB6 coerces the CASE EXPRESSION to the SELECTOR's runtime type". It was measured on declared
+  selectors and one unassigned Variant, and written for every selector.
+- **Round one's extension of it to `Is` and `To`:** measured on literal selectors, its 20 rows agreed with it.
+- **Main's accidental answers:** a String compared with a number matched nothing on main. That happens to be VB6's
+  answer for `Is > "a"` against a Variant 5, so main was right there for the wrong reason. So it was for four rows the
+  Variant rule would have broken had their sources not been marked typed with it: a Function `As String`, `CStr`, and a
+  String and a Boolean parameter. Two more, a Variant array element and a Variant Type field holding 5, main got right
+  because it compared numbers as numbers, and they would have broken had they kept the literal's type.
+- **Round two's own rule, in its review:** a value counted as typed only where its source marked it, so every source
+  nobody had marked flipped. See *Measured in the review of round two*.
+
+**Resisted explanation.** A Variant string against a typed Boolean is read as CBool reads it: `"True"`, `"-1"` and
+`"5"` all equal True. Against a typed number the same string is parsed as a number, so `"True"` does not equal -1. That
+fits every row and is not a mechanism understood. A Variant `"1/2/1900"` is not read as a date against a number;
+against a typed Date it was not run.
+
+### Measured in the review of round two
+
+The supervisor's probes, `/make` as native code, run against main and against round two's code, found three more
+families. Each one round two's rule got wrong, because a value counted as typed only where its source marked it:
+
+| Program | VB6 |
+|---|---|
+| `Const K = 5`, `Select Case K`, `Case 4.6`; `Case "a"` | that Case; 13: a Const is typed |
+| `Const ID_OPEN = 1`, a Variant `cmd` holding `"1"`, `Select Case cmd`, `Case ID_OPEN` | that Case |
+| the same for an Enum member, a `Const KI As Integer`, a Single, Double or Currency result, `/`, `&` and a comparison | typed |
+| `Len`, `Abs`, `Sgn`, `Asc`, `UBound`, `InStr` | typed |
+| `Hour(#5:00:00 AM#) * 7000`; `Day` | 35000, and `Case 4.6` takes Else: a Variant, both |
+| `Dim vo: Set vo = New Foo`, `Property Get P() As Integer` returning 5, `vo.P * 7000`; `vo.M()`; `With vo: .P` | 35000, each: late-bound, so a Variant |
+| `Select Case vo.P`, `Case Is > "a"` | Case Else, Err 0 |
+| `Dim o As Foo`, the same `o.P` | typed: early-bound |
+| `va = a`, with `a(0)` an Integer 5, then `Select Case va(0)`, `Case Is < 5.4` | that Case: an element of a Variant holding a typed array is a Variant |
+| `Function G(p)`, called `G(q)` with `q As Integer` holding 5, `Select Case p`, `Case Is > "a"` | Case Else, Err 0: an untyped ByRef parameter is a Variant |
+
+### A typed parameter in arithmetic (review round four)
+
+#839 gives a numeric parameter a typed slot, so that it is a typed For counter, and a typed slot is a ceiling in
+arithmetic. Measured, native, p-code and in the IDE, each in its own Sub under `On Error Resume Next`:
+
+| Parameter, given | Expression | Native | P-code and the IDE |
+|---|---|---|---|
+| `ByVal i As Integer`, 5 | `i * 7000` | 6 | 6 |
+| `Optional i As Long = 7`, omitted | `i * 400000000` | 6 | 6 |
+| `i As Integer`, ByRef, given a declared Integer 5; given the literal 5 | `i * 7000` | 6, both | 6, both |
+| `ByVal v`, untyped, given 5 | `v * 7000` | 35000, a Long | 35000, a Long |
+| `ByVal b As Byte`, 20 | `b * b` | **144**, a Byte, Err 0 | **6** |
+
+A typed parameter is a ceiling, as a declared variable is. Main widened the first three. The Byte row is the
+`Byte * Byte` split recorded under *Numeric type pairs*: native code wraps, p-code and the IDE raise.
+
+### HexIDE
+
+**None of this is implemented by #839.** Round two built it: Case values converted into a typed selector's type, a
+Variant selector compared as VB6 compares Variants, Booleans as -1 and 0, and the typed flag set where a value is read
+from a typed Function, a conversion function, a typed array element or Type field, or a typed parameter. That made 111
+rows right and broke the families above, all of them sources nobody had marked: a Const read as a Variant, a late-bound
+member as typed. Round three took it out, and Select Case and arithmetic are main's again. #987 holds the work, starting
+from these rows, and proposes the other polarity: a value is a Variant only where its source positively is one, so a
+source nobody has looked at keeps main's answer instead of flipping.
+
+What main does with these rows, for #987's reference:
+- **A typed selector:** an equality Case is converted into its type, as VB6 does, but `Is` and `To` compare the value
+  as it is, so a declared 2 matches `Case Is < 2.4`, and `Case Is > "abc"` against 5 matches nothing and raises nothing.
+- **A Variant selector:** an equality Case is converted into whatever it holds, so a Variant 2 matches `Case 1.7`.
+  `Is` and `To` compare numbers as numbers, which is right, and a string with a number not at all, which is right by
+  accident for `Is > "a"` against a Variant 5 and wrong for `"abc"` against `Is > 5`.
+- **A Boolean** orders False below True.
+- **The flag** is unmarked for a typed Function's result and the conversion functions, so `F() * 7000` and
+  `CInt(v) * 7000` widen where VB6 raises 6. A Variant array element or Type field holding a literal keeps the
+  literal's type, so `w(0) * 7000` raises 6 where VB6 widens.
+- **A Type field's store** is not converted (#221), so a typed field read is only as good as its store: `u.b = 200`,
+  `x = u.b + u.b` with `b As Byte` is 400 here, where VB6 raises 6.
+- **Not run here:** `Mid$` (#742), and `CVar`, which HexIDE does not have.
+
 ## Attribute lines inside a procedure (2026-10-12, #832)
 
 **The question.** VB6 writes `Attribute` lines in two places past a module's header. One is inside a procedure,
@@ -6584,6 +7166,10 @@ branch. Resume Next resumes at the next statement, and the next statement after 
 inside the block. The obvious reading, that the failed condition skips the block, is wrong. HexIDE skips it, and
 does the same for every statement in the table except `Do ... Loop While`, where it already runs the body once and
 leaves, as VB6 does. #839 has the rest.
+
+**HexIDE, since #839** (merged after this section was written): every row above gives VB6's answer.
+Where native code and the IDE differ, Select Case and For, HexIDE gives the IDE's answer, because it follows p-code.
+"Resume Next into a block" has the measurements behind that, and what each statement does.
 
 ### Found in #840's review (2026-10-12)
 

@@ -187,7 +187,8 @@ public class ObjectAsValueTests : BaseVBTestFixture
         "Select Case Empty\nCase o\nc = 1\nEnd Select",
         "Select Case Null\nCase o\nc = 1\nEnd Select",
         "Dim i As Long\nFor i = o To 50\nNext",
-        "Dim i As Long\nFor i = 1 To 3 Step o\nNext",
+        // The body leaves: a step that raises under Resume Next is a Step 0, and VB6 then loops for ever (#839, measured).
+        "Dim i As Long\nFor i = 1 To 3 Step o\nExit For\nNext",
         "Do\nc = 1\nLoop While o",
         "Do\nc = 1\nLoop Until o",
         "Randomize o",
