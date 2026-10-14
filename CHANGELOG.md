@@ -22,6 +22,19 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A running form is an object, with a real `Me`** (#822, first slice). A form's code ran as a standard module, with
+  `Me` and the form's name bound to its window. The form is now an instance of its module, as VB6 has it, measured on
+  vb6.exe:
+  - **`Me` is the form:** `TypeName(Me)` is `Form1` and `Me Is Form1` is True. `Me.Caption` and `Me.Hide` still reach the
+    window, after the form's own procedures, variables and controls.
+  - **A module reaches the form through its name:** `Form1.Caption`, `Form1.Score` and `Form1.Text1.Text` work from a
+    standard module.
+  - **A form's Public Subs aren't globals:** called unqualified from a module, one is "Sub or Function not defined", as
+    in VB6, and a module's Sub of the same name is no longer "Ambiguous name detected".
+  - **Declarations and events:** a form's declarations run before `Form_Initialize`, so an array sized by a Const is
+    sized (#256, #760), and a module's Public Const reads its value from `Form_Load`. `Form_Initialize` is raised, and
+    `Form_Load` runs before the window is shown and before `Form_Resize` (#994).
+  - **`WithEvents` in a form** binds, so the form's handlers run (#972).
 - **A store into a Const is refused, as VB6 refuses it** (#1003). `MK = 2` after `Const MK = 1` ran and overwrote the
   constant, so every later read gave 2. It is now VB6's compile error "Assignment to constant not permitted", raised
   as the statement runs. VB6 gives other messages for other statements, and so does HexIDE now, for a Const and an

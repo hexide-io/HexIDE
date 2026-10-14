@@ -186,6 +186,9 @@ public class PrePass : VB6BaseVisitor<object?>
                 }
 
                 Vb6Value.ValueType type = Vb6Value.ValueType.EmptyVariant;
+                // `Dim o As Object`, `Dim c As Collection`: an object slot, Nothing until Set (#1010 review). An array of
+                // them is still refused below, as it is in a procedure.
+                var objectSlot = false;
                 if (subStmt.asTypeClause() != null)
                 {
                     if (subStmt.asTypeClause().NEW() != null)
@@ -199,6 +202,9 @@ public class PrePass : VB6BaseVisitor<object?>
                         // PrePass can't — it runs while the type table is still being assembled.
                         type = Vb6Value.ValueType.EmptyVariant;
                     }
+                    else if (!isArray && subStmt.asTypeClause().type().baseType() is { } objectType
+                             && (objectType.OBJECT() != null || objectType.COLLECTION() != null))
+                        objectSlot = true;
                     else
                     {
                         type = BaseTypeMapper.Map(subStmt.asTypeClause().type().baseType())
@@ -208,7 +214,8 @@ public class PrePass : VB6BaseVisitor<object?>
                 if (isArray)
                     type = new Vb6Value.ValueType(type, true);
 
-                var value = dimensions != null ? new Vb6Value(type, dimensions) : new Vb6Value(type);
+                var value = objectSlot ? Vb6Value.Nothing
+                    : dimensions != null ? new Vb6Value(type, dimensions) : new Vb6Value(type);
                 if (dimensions != null && value.Value is VBArray fixedArr) fixedArr.IsDynamic = false;   // `Dim a(N)` = fixed
                 var location = state.Alloc(value);
                 if (isArray)
@@ -217,8 +224,8 @@ public class PrePass : VB6BaseVisitor<object?>
                     if (dimensions != null)
                         state.MarkFixedArray(location);
                 }
-                else if (subStmt.asTypeClause() is null
-                         || (subStmt.asTypeClause().type().complexType() is null && type == Vb6Value.ValueType.EmptyVariant))
+                else if (!objectSlot && (subStmt.asTypeClause() is null
+                         || (subStmt.asTypeClause().type().complexType() is null && type == Vb6Value.ValueType.EmptyVariant)))
                     state.MarkVariant(location);
                 rootEnv.DefineVariable(subStmt.ambiguousIdentifier().GetText(), location);
                 // Global is the old spelling of Public in a standard module (measured: `Global n` in a bound is

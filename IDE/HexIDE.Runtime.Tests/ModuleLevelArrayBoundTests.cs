@@ -1,4 +1,3 @@
-using HexIDE.IDE;
 using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.Tests;
@@ -238,28 +237,23 @@ public class ModuleLevelArrayBoundTests : BaseVBTestFixture
         (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*d's bounds call Tan*");
     }
 
-    [Fact]
-    public async Task A_forms_run_refuses_an_array_sized_by_a_Const_naming_the_module_and_the_array()
+    [Theory]
+    [InlineData("Private Const GRID = 10\nPrivate mBoard(0 To GRID - 1) As Long\n")]   // bounded by the form's own Const
+    [InlineData("Private mBoard(0 To 9) As Long\n")]                                   // and by literals
+    [InlineData("Private mBoard(0 To &H9) As Long\n")]                                 // #760's other bounds: hex,
+    [InlineData("Private mBoard(0 To 9&) As Long\n")]                                  // a typed literal,
+    [InlineData("Private mBoard(0 To (8 + 1)) As Long\n")]                             // and a constant expression
+    public void A_forms_run_sizes_its_module_level_arrays(string declarations)
     {
-        // A form's run enters through ExecuteSub and never runs the module's declarations (#256), so the array would
-        // stay unallocated and its first use would be a trappable 9.
-        var vb = new BasicInterpreter(new NoLibrary(), context, rootEnv,
-            "Private Const GRID = 10\nPrivate mBoard(0 To GRID - 1) As Long\nSub Form_Load()\n    mBoard(0) = 1\nEnd Sub\n", "Form1");
+        // A form's run used to skip the form's declarations (#256), so an array bounded by a Const was refused before
+        // Form_Load. Its declarations now run into its instance before Form_Initialize, as VB6's do (measured, #822), and
+        // the array is sized at its Dim. Through the window context, the path a running form takes.
+        var form = new VBWindowContext(new MockStdLib(debug));
+        form.SetCode(declarations + "Sub Form_Load()\n    mBoard(9) = 1\n    Debug.Print UBound(mBoard) & \" \" & mBoard(9)\nEnd Sub\n", "Form1");
 
-        var run = () => vb.ExecuteSub("Form_Load", null, true);
+        form.ExecuteSub("Form_Load");
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*Form1's mBoard is sized by a constant*#256*");
-    }
-
-    [Fact]
-    public async Task A_forms_run_with_only_literal_bounds_is_not_refused()
-    {
-        var vb = new BasicInterpreter(new NoLibrary(), context, rootEnv,
-            "Private mBoard(0 To 9) As Long\nSub Form_Load()\n    mBoard(9) = 1\nEnd Sub\n", "Form1");
-
-        var run = () => vb.ExecuteSub("Form_Load", null, true);
-
-        await run.Should().NotThrowAsync();
+        AssertDebugLog([new Vb6Value("9 1")]);
     }
 
     [Theory]
@@ -407,13 +401,5 @@ public class ModuleLevelArrayBoundTests : BaseVBTestFixture
         var run = () => RunModules($"{option}Dim d(n) As Long\n", ("Module2", "Global n As Long\n"));
 
         (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Constant expression required*");
-    }
-
-    private sealed class NoLibrary : IBasicStandardLibrary
-    {
-        public Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon) =>
-            Task.FromResult(default(MessageBoxResult));
-        public Task<string?> InputBox(string prompt, string? title, string defaultText) => Task.FromResult<string?>(null);
-        public void DebugPrint(Vb6Value value) { }
     }
 }

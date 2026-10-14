@@ -4,11 +4,19 @@ using System.Collections.Generic;
 namespace HexIDE.Runtime.Interpreter;
 
 /// <summary>The kind of a loaded module. Standard modules are shared singletons; class modules are
-/// instantiable templates (used from Phase 3 of interpreter-advanced).</summary>
+/// instantiable templates (used from Phase 3 of interpreter-advanced); a form module is a template too, whose running
+/// form is an instance of it (#822).</summary>
 public enum InterpreterModuleKind
 {
     Standard,
     Class,
+    /// <summary>
+    /// A form module. Like a class, it is a template: a running form is an instance of it, with its own copy of the
+    /// module's declarations and its controls, and <c>Me</c> is that instance. Unlike a standard module, its members are
+    /// not project globals: a form's Public Sub called unqualified from another module is "Sub or Function not
+    /// defined", and its Public variable named there is a new variable (measured, #822); <c>Form1.X</c> reaches them.
+    /// </summary>
+    Form,
 }
 
 /// <summary>

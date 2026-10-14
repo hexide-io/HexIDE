@@ -446,9 +446,10 @@ public class SubscriptCoercionTests : BaseVBTestFixture
     }
 
     [Fact]
-    public async Task A_module_Variant_is_a_Variant_to_ReDim_when_the_declarations_have_not_run()
+    public async Task A_module_Variant_is_a_Variant_to_ReDim_when_an_event_procedure_is_entered_first()
     {
-        // A form's run enters through ExecuteSub without running the declarations (#256), so only the pre-pass declared v.
+        // Entered through ExecuteSub, as an event is, without Execute: the declarations run first (#822). They used to be
+        // skipped (#256), leaving only the pre-pass's v, and v is a Variant either way.
         var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv,
             "Private v\nSub Go()\n    ReDim v(2)\n    On Error Resume Next\n    ReDim v(5 To 2)\n    Debug.Print Err.Number\nEnd Sub\n", "Form1");
 

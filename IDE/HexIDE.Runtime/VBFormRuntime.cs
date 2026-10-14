@@ -17,14 +17,10 @@ public class VBFormRuntime : Window, IModuleExecutionRoot
     
     public VBFormRuntime()
     {
-        windowContext = new VBWindowContext(new StandaloneStandardLib(this));
+        windowContext = new VBWindowContext(new StandaloneStandardLib(this)) { Window = this };
     }
 
-    protected override void OnLoaded(RoutedEventArgs e)
-    {
-        base.OnLoaded(e);
-        windowContext.ExecuteSub("Form_Load");
-    }
+    // Form_Load is not raised here: the program raises Initialize and Load before the window is shown (#822, #994).
 
     protected override void OnResized(WindowResizedEventArgs e)
     {

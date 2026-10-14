@@ -31,9 +31,12 @@ public partial class App : Application
                 // End exits the program, with code 0, as the exe vb6.exe makes does (#775). Posted, because End is
                 // reached in the middle of a walk on this thread.
                 BasicInterpreter.EndReached += _ => Dispatcher.UIThread.Post(() => desktop.Shutdown(0));
-                VBLoader.RunForm(Program.StartupForm, default, out var window);
+                // The program ends when the form closes. Not through MainWindow: the lifetime would show a MainWindow as
+                // it starts, and the form is shown only once its Load has run (#822), which a MsgBox in Load can delay.
+                desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+                var run = VBLoader.RunForm(Program.StartupForm, default, out var window);
                 window.Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://HexIDE.Standalone/form.ico")));
-                desktop.MainWindow = window;
+                run.ContinueWith(_ => Dispatcher.UIThread.Post(() => desktop.Shutdown(0)));
             }
             else
             {

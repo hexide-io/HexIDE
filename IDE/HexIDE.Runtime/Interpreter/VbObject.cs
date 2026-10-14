@@ -28,6 +28,34 @@ public sealed class VbObject
     public ModuleInfo ClassDef { get; }
     public ExecutionEnvironment InstanceEnv { get; }
 
+    /// <summary>
+    /// For an instance of a form module, the window it runs in, whose built-in members (Caption, Width, Hide and the
+    /// rest) the instance answers for once its own procedures, properties, fields and controls have been looked at.
+    /// Null for a class instance, and for a form run with no window behind it, as a test's is (#822).
+    /// </summary>
+    public Avalonia.Controls.Control? FormWindow { get; set; }
+
+    /// <summary>
+    /// Whether a form instance has begun to load: set as <c>Form_Load</c> is raised. Before it, during
+    /// <c>Form_Initialize</c>, VB6 would load the form at the first use of a control or a built-in member, inside
+    /// Initialize (measured, #822); HexIDE refuses that use instead (#1009).
+    /// </summary>
+    public bool FormLoaded { get; set; }
+
+    /// <summary>
+    /// The window whose built-in members answer for <paramref name="member"/>, or null when this is not a form instance
+    /// with a window. Refused before the form has loaded (see <see cref="FormLoaded"/>).
+    /// </summary>
+    public Avalonia.Controls.Control? BuiltInMembersFor(string member) =>
+        FormWindow is null ? null
+        : FormLoaded ? FormWindow
+        : throw new NotImplementedException(NotYetLoaded(ClassName, $"{ClassName}.{member}"));
+
+    /// <summary>The refusal for a use of a form's control or built-in member before the form has loaded (#1009).</summary>
+    public static string NotYetLoaded(string form, string what) =>
+        $"{what} is used before {form} has loaded. VB6 loads the form there and then, inside Form_Initialize, and HexIDE " +
+        "doesn't do that yet (#1009).";
+
     public string ClassName => ClassDef.Name;
 
     /// <summary>Live reference count — how many named-storage holds (variable/field slots) + transient holders

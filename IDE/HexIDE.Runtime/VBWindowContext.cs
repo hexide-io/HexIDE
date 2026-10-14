@@ -1,22 +1,40 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.Utils;
 using Serilog;
 
 namespace HexIDE.Runtime;
 
+/// <summary>
+/// A running form's handle on its program: the interpreter built from the project's modules, and the instance of the
+/// form module the window shows (#822). The form is an object: its declarations and controls are the instance's, and
+/// <c>Me</c> in its code is that instance, as it is for a class.
+/// </summary>
 public class VBWindowContext : IModuleExecutionRoot
 {
     private readonly IBasicStandardLibrary standardLibrary;
     private BasicInterpreter? interpreter;
+    private VbObject? instance;
+    private bool formDeclarationsRun;
+    // Set once StartAsync begins. A started form's declarations run there and nowhere else, so an event can never run
+    // them late, after Load has used the variables they would re-create (#1010 review).
+    private bool started;
 
     public ModuleExecutionContext ExecutionContext { get; } = new();
 
     public string Code { get; private set; } = "";
 
+    /// <summary>The form module's own env: the template its instance is cloned from.</summary>
     public ExecutionEnvironment RootEnv { get; } = new();
+
+    /// <summary>
+    /// The window the form runs in, whose built-in members (Caption, Width, Hide and the rest) the form instance answers
+    /// for after its own. Null for a context with no window, as a test's is.
+    /// </summary>
+    public Avalonia.Controls.Control? Window { get; init; }
 
     public static event Action<VBWindowContext, VBRunTimeException>? RunTimeError;
 
@@ -40,10 +58,11 @@ public class VBWindowContext : IModuleExecutionRoot
     }
 
     /// <summary>
-    /// Compile the form/module code into a fresh interpreter. <paramref name="moduleName"/> becomes the
-    /// interpreter's primary module name — the name the debug pause-gate reports (and that breakpoints are keyed
-    /// by), so it must be the form/module's real name, not the "Module1" default. <paramref name="debugController"/>
-    /// is the per-session controller (null ⇒ no debugging, zero gate overhead).
+    /// Compile the form's code, and the project's other modules, into a fresh interpreter. The form is the primary
+    /// module, of kind <see cref="InterpreterModuleKind.Form"/>: a template, whose running instance this context makes
+    /// on first use (#822). <paramref name="moduleName"/> is the form's name: the name the debug pause-gate reports and
+    /// breakpoints are keyed by, and the name the instance is reached by from any module.
+    /// <paramref name="debugController"/> is the per-session controller (null ⇒ no debugging, zero gate overhead).
     /// </summary>
     /// <param name="additionalModules">
     /// The project's other standard modules. Omitting these is not a missing nicety: without them a form
@@ -61,10 +80,12 @@ public class VBWindowContext : IModuleExecutionRoot
     {
         Code = code;
         interpreter = new BasicInterpreter(standardLibrary, ExecutionContext, RootEnv, code, moduleName,
-            additionalModules, classModules)
+            additionalModules, classModules, InterpreterModuleKind.Form)
         {
             DebugController = debugController
         };
+        instance = null;
+        formDeclarationsRun = false;
         // What `App` reports. Null means no project behind this run (a bare context), and App then reports
         // empty rather than inventing an identity.
         if (appInfo is not null)
@@ -78,6 +99,92 @@ public class VBWindowContext : IModuleExecutionRoot
     /// </summary>
     internal BasicInterpreter? Interpreter => interpreter;
 
+    /// <summary>The running form, an instance of the form module (#822), or null before <see cref="SetCode"/>.</summary>
+    public VbObject? FormInstance => interpreter is null ? null : EnsureInstance();
+
+    /// <summary>Where the form's controls go: its instance's own env, as a class instance's fields are in its own.</summary>
+    public ExecutionEnvironment InstanceEnv => EnsureInstance().InstanceEnv;
+
+    private VbObject EnsureInstance()
+    {
+        if (interpreter is null)
+            throw new InvalidOperationException("The form has no code yet: SetCode comes first.");
+        if (instance is null)
+        {
+            instance = interpreter.NewFormInstance(interpreter.PrimaryModule);
+            instance.FormWindow = Window;
+            // The context's own hold, apart from the one the form's name has: in VB6 a loaded form is kept alive by
+            // Forms, so `Set Form1 = Nothing` from a module clears the name and leaves the running form be (#1010
+            // review). Without it, that Set terminated the instance under its own window.
+            interpreter.AddRef(Vb6Value.NewObject(instance));
+        }
+        return instance;
+    }
+
+    /// <summary>
+    /// Hold the form's controls until it loads. VB6 loads a form at the first use of one of its controls, even inside
+    /// <c>Form_Initialize</c> (measured, #822); HexIDE can't yet, so a use before Load is refused (#1009) rather than read
+    /// in the wrong order. Called once the controls are in the instance's env.
+    /// </summary>
+    public void HoldControlsUntilLoad()
+    {
+        var form = EnsureInstance();
+        foreach (var location in form.InstanceEnv.variableToLocation.Values)
+            if (ExecutionContext.State[location].Value is Avalonia.Controls.Control or ControlArrayGroup)
+                ExecutionContext.State.MarkPendingControl(location, form.ClassName);
+    }
+
+    /// <summary>
+    /// Start the form as VB6 starts its startup form, before its window is shown (measured, #822): the modules'
+    /// declarations, then the form's own, then <c>Form_Initialize</c>, then <c>Form_Load</c>. An error in each is
+    /// reported as one in any event is. The whole start is one dispatch, as one event's handler chain is, so a step armed
+    /// before it (F8 from design mode) breaks on the first statement it reaches, Initialize's or Load's, and a step off
+    /// the end of Initialize goes on into Load (#1010 review).
+    /// </summary>
+    /// <returns>
+    /// Whether the form started, and so is to be shown.
+    /// <list type="bullet">
+    /// <item>A failure in the declarations ends the start. Every event after it would run on variables that were never
+    /// declared, and declarations never run later than this.</item>
+    /// <item>A run-time error in Initialize or Load leaves the run going, as one does in any event procedure
+    /// (debugger-vb6-divergences D23), so the start goes on.</item>
+    /// <item>A fault, End, or the debugger's Stop ends the run, and the start stops there: Load is not raised after a
+    /// fault in Initialize. The owner's reaction to a fault arrives later, posted, so the start can't wait for it.</item>
+    /// </list>
+    /// </returns>
+    public async Task<bool> StartAsync()
+    {
+        if (interpreter is null)
+            return false;
+        var form = EnsureInstance();
+        started = true;
+        try
+        {
+            if (await Report(EnsureDeclarations) != Outcome.Completed)
+                return false;
+            if (await Report(() => interpreter.RaiseFormEvent(form, "Form_Initialize")) == Outcome.Over || RunIsOver())
+                return false;
+            form.FormLoaded = true;
+            ExecutionContext.State.ClearPendingControls(form.ClassName);
+            return await Report(() => interpreter.RaiseFormEvent(form, "Form_Load")) != Outcome.Over && !RunIsOver();
+        }
+        finally
+        {
+            interpreter.DebugController?.NotifyDispatchIdle();
+        }
+    }
+
+    private bool RunIsOver() => interpreter!.Ending || interpreter.DebugController?.IsAborting == true;
+
+    private async Task EnsureDeclarations()
+    {
+        await interpreter!.RunModuleDeclarations();
+        if (formDeclarationsRun)
+            return;
+        formDeclarationsRun = true;
+        await interpreter.RunFormDeclarations(EnsureInstance());
+    }
+
     public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
     {
         // An event raised before SetCode has no code to run, as when a form's controls fail to build and the
@@ -85,47 +192,75 @@ public class VBWindowContext : IModuleExecutionRoot
         // real error, which read as a second fault (#590).
         if (interpreter is null)
             return;
+        var form = EnsureInstance();
         var argList = args is null ? null : new List<Vb6Value>(args);
-        async Task Execute()
+        // The event is the form's: its own procedure of that name, run on its instance (#822). A context that was never
+        // started, as a test's is, runs the declarations first; a started one ran them in StartAsync.
+        Dispatch(async () =>
         {
-            try
-            {
-                await interpreter!.ExecuteSub(name, argList, true);
-            }
-            catch (VBRunTimeException e)
-            {
-                RunTimeError?.Invoke(this, e);
-            }
-            catch (VBCompileErrorException e)
-            {
-                CompileError?.Invoke(this, e);
-            }
-            catch (Debugging.StopExecutionSignal)
-            {
-                // Debugger Stop (End) unwinds via this signal. The interpreter entry points already swallow it;
-                // this is the belt-and-suspenders at the run-window boundary so it never logs as an error.
-            }
-            catch (Exception e)
-            {
-                Log.Error(e, "Unhandled exception during form execution");
-                // Neither of these is a fault in the run. A cancellation is how a run being torn down reaches a
-                // statement still waiting on it, such as a MsgBox. An ImmediateEvalException is the Immediate
-                // window refusing to run an event procedure while paused: `Text1.Text = "x"` typed there raises
-                // Text1_Change, which cannot run in break mode. The refusal is the Immediate window's answer, and
-                // the paused run carries on.
-                if (e is not (OperationCanceledException or Debugging.ImmediateEvalException))
-                    Faulted?.Invoke(this, e);
-            }
-            finally
-            {
-                // Event-dispatch boundary: this handler chain has returned (or aborted). Disarm any step the
-                // front-end armed but never consumed, so a leftover Step Into/Over/Out can't spuriously break the
-                // NEXT event handler. A no-op unless a step is armed and the controller is Running. (Module top-level
-                // execution — the headless test path — never routes through here, so its stepping is unaffected.)
-                interpreter?.DebugController?.NotifyDispatchIdle();
-            }
-        }
+            if (!started)
+                await EnsureDeclarations();
+            await interpreter.RaiseFormEvent(form, name, argList);
+        }).ListenErrors();
+    }
 
-        Execute().ListenErrors();
+    // How a piece of a dispatch ended: it finished; it stopped on a run-time or compile error, which was reported and
+    // leaves the run going (D22, D23); or the run is over, after a fault, a cancellation, or the debugger's Stop.
+    private enum Outcome { Completed, Reported, Over }
+
+    // The event-dispatch boundary: one handler chain, its outcome reported, then the dispatch is idle. True when the
+    // run carries on afterwards.
+    private async Task<bool> Dispatch(Func<Task> work)
+    {
+        try
+        {
+            return await Report(work) != Outcome.Over;
+        }
+        finally
+        {
+            // Event-dispatch boundary: this handler chain has returned (or aborted). Disarm any step the
+            // front-end armed but never consumed, so a leftover Step Into/Over/Out can't spuriously break the
+            // NEXT event handler. A no-op unless a step is armed and the controller is Running. (Module top-level
+            // execution — the headless test path — never routes through here, so its stepping is unaffected.)
+            interpreter?.DebugController?.NotifyDispatchIdle();
+        }
+    }
+
+    // Every way a piece of event code can stop, reported as what it is.
+    private async Task<Outcome> Report(Func<Task> work)
+    {
+        try
+        {
+            await work();
+            return Outcome.Completed;
+        }
+        catch (VBRunTimeException e)
+        {
+            RunTimeError?.Invoke(this, e);
+            return Outcome.Reported;
+        }
+        catch (VBCompileErrorException e)
+        {
+            CompileError?.Invoke(this, e);
+            return Outcome.Reported;
+        }
+        catch (Debugging.StopExecutionSignal)
+        {
+            // Debugger Stop (End) unwinds via this signal. The interpreter entry points already swallow it;
+            // this is the belt-and-suspenders at the run-window boundary so it never logs as an error.
+            return Outcome.Over;
+        }
+        catch (Exception e)
+        {
+            Log.Error(e, "Unhandled exception during form execution");
+            // Neither of these is a fault in the run. A cancellation is how a run being torn down reaches a
+            // statement still waiting on it, such as a MsgBox. An ImmediateEvalException is the Immediate
+            // window refusing to run an event procedure while paused: `Text1.Text = "x"` typed there raises
+            // Text1_Change, which cannot run in break mode. The refusal is the Immediate window's answer, and
+            // the paused run carries on.
+            if (e is not (OperationCanceledException or Debugging.ImmediateEvalException))
+                Faulted?.Invoke(this, e);
+            return e is Debugging.ImmediateEvalException ? Outcome.Reported : Outcome.Over;
+        }
     }
 }

@@ -716,6 +716,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             }
             if (interpreter.ExecutionContext.TryGetVariable(vobj.InstanceEnv, memberName, out var fieldVal))
                 return fieldVal;
+            // A form's built-in members are its window's: `Me.Caption`, `Form1.Width` (#822). They come after the form's
+            // own members, which VB6 refuses to let clash with them.
+            if (vobj.BuiltInMembersFor(memberName) is { } formWindow)
+                return await ResolveOneMember(new Vb6Value(formWindow), member, ctx);
             throw new VBMethodOrDataMemberNotFoundException(memberName, variable.Type);
         }
 

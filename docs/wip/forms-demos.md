@@ -37,14 +37,18 @@ building (#850); subscripts and control-array indexes are converted as VB6 conve
 Label colours, a number assigned to a `Caption`, and `MsgBox` styles all work.
 
 **The keystone, #822:** one interpreter per run, with each form an instance of its module and a real `Me`.
-Today every form opens an interpreter of its own and `Me` is the window, so a second form has nowhere to run
-and nothing is shared between forms. Most of what remains either comes with #822 or is small once it lands:
+Its first slice makes the startup form an instance: `Me` is the form, its declarations run before
+`Form_Initialize`, Initialize and Load come before the window shows, and `Form1.X` works from a module. A second
+form still has nowhere to run until Load and Show arrive. Most of what remains either comes with #822 or is small
+once it lands:
 
 | Needed | Issue | Depends on #822 |
 |---|---|---|
-| Module-level declarations read from a form, such as the form's own `Const GRID = 10` | #256 | Mostly fixed by it |
-| A form-level array sized by a `Const` | #760 | Mostly fixed by it |
-| `WithEvents` in a form | #972 | An acceptance test for it |
+| Module-level declarations read from a form, such as the form's own `Const GRID = 10` | #256 | Fixed by the first slice |
+| A form-level array sized by a `Const` | #760 | Fixed by the first slice |
+| `WithEvents` in a form | #972 | Fixed by the first slice |
+| Implicit `Me`: `Caption = "x"` in a form sets the form's caption | #995 | Straight after the first slice |
+| A control used in `Form_Initialize` loads the form there | #1009 | With Load and Show |
 | `Unload Me`, with QueryUnload, Unload and Cancel | #973 | The first slice does not |
 | Default instances, `Load`, `Show`, `Hide`, `New frmX`, and `Show vbModal` | To be filed once #822 lands | Yes |
 | `MouseDown`, `MouseUp` and `MouseMove` | #974 | No |
