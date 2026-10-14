@@ -37,9 +37,9 @@ public class OverflowEdgeTests : BaseVBTestFixture
     [InlineData("a = 0: z = 0: v = a / z")]
     [InlineData("a = 0: z = 0: v = z / a")]
     [InlineData("vi = CInt(0): v = vi / vi")]
+    [InlineData("v = \"0\" / \"0\"")]
     public async Task Zero_over_zero_is_Overflow(string statement)
     {
-        // A numeric String's 0 / 0 is Err 6 too (measured), but a String operand is refused before it gets here (#1047).
         (await Cell(statement)).Should().Be("Empty:  Err 6");
     }
 
