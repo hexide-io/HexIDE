@@ -510,6 +510,11 @@ See [OUT_OF_SCOPE.md](docs/OUT_OF_SCOPE.md) for the full list of VB6 features th
 
 **Verify actual VB6 behaviour against the real compiler — never guess.** Any doubt about what VB6 *actually does* at runtime (a numeric result type, an overflow/error code, a rounding rule, a coercion, a literal's type, a `Format`/intrinsic edge) **must be tested against real `vb6.exe`** — the fidelity oracle — before you pin an interpreter test expectation. Documentation and memory are repeatedly wrong here; the oracle has overturned "obvious" assumptions many times. Record every verified fact (and the reusable `On Error Resume Next` `/make` harness) in [`docs/vb6-fidelity-oracle.md`](docs/vb6-fidelity-oracle.md). `vb6.exe` is at `C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE` (or `$VB6_EXE`) — the same toolchain as the "Make/Run with VB6" feature. This is a Windows dev-time check; it never becomes a runtime dependency (HexIDE re-implements VB6's behaviour, it does not call `MSVBVM60`).
 
+**Where native code and p-code differ, HexIDE matches p-code**, the build the VB6 IDE runs (decided 2026-10-14). So
+build a probe both ways wherever the two could disagree, and treat a row measured natively as provisional until
+p-code has answered too. The oracle long built native code only (#842), and that has already overturned a "fact":
+`Byte * Byte` wraps mod 256 natively but raises 6 as p-code and in the IDE, which is what HexIDE does (#233).
+
 **`vb6-fidelity-oracle.md` is a PRIMARY OUTPUT of this project, not a scratchpad.** It ranks with the code,
 and a change that measures something new is not finished until the measurement is written down there.
 
