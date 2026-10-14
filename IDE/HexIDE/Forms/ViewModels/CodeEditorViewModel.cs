@@ -579,9 +579,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// <remarks>
     /// The one way the code window toggles a breakpoint: F9, Debug ▸ Toggle Breakpoint and a gutter click all
     /// come here (#273 task 3.12). A breakpoint already on such a line can still be removed. The sidecar's load
-    /// drops one (task 3.17), but an edit can still leave one there, because a breakpoint is a bare line number:
-    /// text that moves under it, or a marked line that becomes part of the header or of a member's attribute
-    /// run, puts it on a read-only line (debugger-vb6-divergences.md, D24).
+    /// drops one (task 3.17), but an edit or a reload can still leave one there, because a breakpoint is a bare
+    /// line number: text that moves under it, or a marked line that becomes part of the header or of a member's
+    /// attribute run, puts it on a read-only line (debugger-vb6-divergences.md, D24).
     /// </remarks>
     public bool ToggleBreakpoint(int line)
     {
