@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using HexIDE.Runtime;
@@ -16,8 +17,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// <see cref="VBLoader.RunForm"/>, where F5 starts.
 /// </summary>
 /// <remarks>
-/// A bare name for one of the form's built-in members (<c>Caption = "x"</c>, implicit Me) is #995, so those rows are
-/// pinned through <c>Me</c> here: the same lookup, reached qualified.
+/// The names rows are pinned both ways: through <c>Me</c>, and bare, which is implicit <c>Me</c> (#995).
 /// </remarks>
 public class FormInstanceTests
 {
@@ -360,6 +360,148 @@ public class FormInstanceTests
       + "End\r\n"
       + "Attribute VB_Name = \"Form2\"\r\n";
 
+    // ── Implicit Me: a bare name is the form's (#995) ───────────────────────────────────────────────────
+
+    [AvaloniaFact]
+    public void A_bare_Caption_is_the_forms_and_so_is_a_bare_Top()
+    {
+        // L1, measured: `set by form` twice, then True. A bare Caption used to make a new variable.
+        var run = RunFormLoad("    Caption = \"set by form\"\n    Debug.Print Caption & \"|\" & Me.Caption & \"|\" & (Top = Me.Top)");
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("set by form|set by form|True");
+    }
+
+    [AvaloniaFact]
+    public void A_bare_Caption_is_the_forms_where_a_module_declares_a_Public_of_the_name()
+    {
+        // L2, measured: the form's member comes before the project's globals.
+        var run = RunFormLoad("    Caption = \"set by form\"\n    Debug.Print Me.Caption & \" [\" & Module1.Caption & \"]\"",
+            ("Module1", ModuleKind.StandardModule, "Public Caption As String\n"));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("set by form []");
+    }
+
+    [AvaloniaFact]
+    public void A_bare_Tag_is_the_forms_where_a_module_has_a_Function_of_the_name()
+    {
+        // L3, measured.
+        var run = RunFormLoad("    Debug.Print \"[\" & Tag & \"] \" & Module1.Tag()",
+            ("Module1", ModuleKind.StandardModule, "Public Function Tag() As String\n    Tag = \"module tag\"\nEnd Function\n"));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("[] module tag");
+    }
+
+    [AvaloniaFact]
+    public void A_bare_Name_and_Left_are_the_forms_and_Left_with_arguments_is_VBAs()
+    {
+        // L6, L7 and their combination, measured: `Form1 ab True`. A form property takes no arguments, so a call with
+        // some reaches VBA.
+        var run = RunFormLoad("    Debug.Print Name & \" \" & Left(\"abc\", 2) & \" \" & (Left = Me.Left)");
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Form1 ab True");
+    }
+
+    [AvaloniaFact]
+    public void A_bare_Caption_is_the_forms_under_Option_Explicit()
+    {
+        // Measured: `set|set`. It used to be "Variable not defined".
+        var run = RunForm("Option Explicit\nPrivate Sub Form_Load()\n    Caption = \"set\"\n    Debug.Print Caption & \"|\" & Me.Caption\nEnd Sub\n");
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("set|set");
+    }
+
+    [AvaloniaFact]
+    public void A_local_shadows_the_forms_member()
+    {
+        // Measured: `local|Form1`.
+        var run = RunFormLoad("    Dim Caption As String\n    Caption = \"local\"\n    Debug.Print Caption & \"|\" & Me.Caption");
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("local|Form1");
+    }
+
+    [AvaloniaFact]
+    public void A_bare_name_the_Form_lacks_is_still_a_new_variable()
+    {
+        var run = RunFormLoad("    Score = 5\n    Debug.Print Score");
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("5");
+    }
+
+    [AvaloniaFact]
+    public void A_modules_bare_Caption_is_its_own_variable_not_the_forms()
+    {
+        var run = RunFormLoad("    SetIt",
+            ("Module1", ModuleKind.StandardModule, "Sub SetIt()\n    Caption = \"mod\"\n    Debug.Print Caption & \"|\" & Form1.Caption\nEnd Sub\n"));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("mod|Form1");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("    hWnd = 5")]
+    [InlineData("    Count = 1")]
+    [InlineData("    Me.HasDC = True")]
+    public void Assigning_to_a_read_only_member_of_the_form_is_VB6s_compile_error(string statement)
+    {
+        // Measured for hWnd, hDC, Count and HasDC, bare and through Me: this message, not a read-only-property one.
+        var run = RunFormLoad(statement + "\n    Debug.Print \"ran\"");
+
+        run.Errors.Should().ContainSingle().Which.Should().BeOfType<VBCompileErrorException>()
+            .Which.Message.Should().Contain("Function or interface marked as restricted");
+        run.Printed.Should().BeEmpty();
+    }
+
+    [AvaloniaTheory]
+    [InlineData("    CurrentX = 0", "Setting Form1's CurrentX")]
+    [InlineData("    Debug.Print ScaleMode", "Reading Form1's ScaleMode")]
+    [InlineData("    Debug.Print Me.ScaleMode", "Reading Form1's ScaleMode")]
+    [InlineData("    Cls", "Cls method")]
+    [InlineData("    Debug.Print TextWidth(\"abc\")", "TextWidth method")]
+    [InlineData("    Debug.Print Controls(0).Name", "Form1's Controls with arguments")]
+    public void A_member_VB6s_Form_has_and_HexIDE_lacks_is_refused_as_not_implemented(string statement, string named)
+    {
+        // VB6 has each (measured where it matters: Cls runs, TextWidth is a Single, Controls is an object). Quietly making a
+        // variable of CurrentX, or saying "Sub or Function not defined" for Cls, would hide that HexIDE lacks it.
+        var run = RunFormLoad(statement + "\n    Debug.Print \"ran\"");
+
+        run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
+            .Which.Message.Should().Contain(named);
+        run.Printed.Should().BeEmpty();
+    }
+
+    [AvaloniaTheory]
+    [InlineData("    Debug.Print Caption(1)")]
+    [InlineData("    Debug.Print Left(5)")]
+    [InlineData("    Debug.Print Left(\"abc\", 1, 2)")]
+    public void A_property_of_the_form_called_with_arguments_VBA_cant_take_is_never_a_project_procedure(string statement)
+    {
+        // Measured: each is "Wrong number of arguments or invalid property assignment", the first though Module1 declares
+        // `Function Caption(n)`. VBA's Left takes the call only with its two arguments. Running Module1's Caption would be a
+        // wrong result; HexIDE refuses instead, as not implemented, since which error VB6 gives depends on the property's type.
+        var run = RunFormLoad(statement + "\n    Debug.Print \"ran\"",
+            ("Module1", ModuleKind.StandardModule, "Public Function Caption(ByVal n As Integer) As String\n    Caption = \"module \" & n\nEnd Function\n"));
+
+        run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
+            .Which.Message.Should().Contain("with arguments");
+        run.Printed.Should().BeEmpty();
+    }
+
+    [AvaloniaFact]
+    public void A_bare_member_used_in_Form_Initialize_is_refused_as_a_built_in_used_there_is()
+    {
+        var run = RunForm("Private Sub Form_Initialize()\n    Caption = \"x\"\nEnd Sub\n");
+
+        run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
+            .Which.Message.Should().Contain("#1009");
+    }
+
     // ── The debugger ────────────────────────────────────────────────────────────────────────────────────
 
     [AvaloniaFact]
@@ -464,6 +606,32 @@ public class FormInstanceTests
             }
             else
                 stops.Should().Equal([5], "Load's first statement: the declarations are never a stop");
+        }
+        finally
+        {
+            dbg.Stop();
+            Dispatcher.UIThread.RunJobs();
+            window.Close();
+        }
+        run.IsCompleted.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public async Task The_Immediate_window_reads_a_bare_member_as_the_forms()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var code = "Private Sub Form_Load()\n    Caption = \"paused\"\n    Stop\nEnd Sub\n";
+        var form = new FormDeserializer().Deserialize(project, (FormHeader + code).ReplaceLineEndings("\r\n"), new NullSink())!;
+        project.AddForm(form);
+        var dbg = new HexIDE.Runtime.Debugging.DebugController { TimeSliceMs = null };
+        dbg.Reset();
+
+        var run = VBLoader.RunForm(form, CancellationToken.None, out var window, dbg);
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            dbg.State.Should().Be(HexIDE.Runtime.Debugging.DebugState.Paused);
+            (await dbg.EvaluateAsync("Caption")).Should().Be("paused");
         }
         finally
         {
