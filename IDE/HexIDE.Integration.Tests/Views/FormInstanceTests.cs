@@ -384,6 +384,17 @@ public class FormInstanceTests
     }
 
     [AvaloniaFact]
+    public void A_forms_code_reads_and_writes_a_modules_Public_names_bare()
+    {
+        // Measured: `0 3`, then 4 (#880). A name that is not one of the form's members is the module's.
+        var run = RunFormLoad("    Debug.Print G & \" \" & M\n    G = 4\n    Debug.Print \"\" & Module1.G",
+            ("Module1", ModuleKind.StandardModule, "Public G As Long\nPublic Const M = 3\n"));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("0 3", "4");
+    }
+
+    [AvaloniaFact]
     public void A_bare_Tag_is_the_forms_where_a_module_has_a_Function_of_the_name()
     {
         // L3, measured.

@@ -18,6 +18,7 @@ public class ExecutionEnvironment
     {
         foreach (var (name, loc) in other.variableToLocation)
             variableToLocation[name] = loc;
+        ProjectNames = other.ProjectNames;
     }
 
     public ExecutionEnvironment()
@@ -30,10 +31,22 @@ public class ExecutionEnvironment
         variableToLocation[name] = location;
     }
 
-    public bool TryGetVariableLocation(string name, out int location)
-    {
-        return variableToLocation.TryGetValue(name, out location);
-    }
+    /// <summary>
+    /// The slot a name reads here: one this environment holds, or else another standard module's Public variable or Const
+    /// (#880). Throws VB6's "Ambiguous name detected" for a name two modules export.
+    /// </summary>
+    public bool TryGetVariableLocation(string name, out int location) =>
+        variableToLocation.TryGetValue(name, out location) || ProjectNames?.TryGetLocation(name, out location) == true;
+
+    /// <summary>A name this environment holds itself: a local, a parameter, or the module's own declaration.</summary>
+    public bool TryGetOwnVariableLocation(string name, out int location) =>
+        variableToLocation.TryGetValue(name, out location);
+
+    /// <summary>
+    /// What the module this environment belongs to sees of other modules' Public names, set once every module is loaded.
+    /// A procedure's environment and an instance's are cloned from the module's, and share it.
+    /// </summary>
+    internal ProjectNames? ProjectNames { get; set; }
 
     /// <summary>
     /// The parameters of the procedure this environment runs, by name. A ByRef one shares the caller's slot, so the slot

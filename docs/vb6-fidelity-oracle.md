@@ -6940,8 +6940,8 @@ declarations have already run; its value is final. Which have run depends on how
 only the tests use, runs the other standard modules in list order and the startup module last, its body doubling as
 its declarations. The IDE's Sub Main run, `RunStartupSubMain`, runs every standard module's declarations in list
 order, the startup module's among them, before Main. Before a module's have run, a read of its Const is refused naming
-#893, which is VB6's on-demand ordering, with its cycle error. Unqualified it is
-still #880. The module naming itself is "Circular dependencies between modules", whatever it names.
+#893, which is VB6's on-demand ordering, with its cycle error. Unqualified, it is read the same way since #880
+(*Another module's Public names, bare*, below). The module naming itself is "Circular dependencies between modules", whatever it names.
 
 **Review round three** asked what lies one level down: what a Const above the Dim may itself read, which built-ins
 are allowed, and what a qualified name does. Each case below is its own project, built with `/make` (`p27`, `p28` and
@@ -7002,8 +7002,8 @@ A procedure's Consts are not checked yet. What is refused:
 - a name the module cannot see is "Variable not defined" under `Option Explicit`, and "Constant expression
   required" without it;
 - the module's own name as a qualifier is "Circular dependencies between modules";
-- another module's Public Const unqualified is refused naming #880, and qualified it is read once that module's
-  declarations have run and refused naming #893 before; another module's Enum member
+- another module's Public Const, bare (since #880) or qualified, is read once that module's declarations have run,
+  and refused naming #893 before; another module's Enum member
   unqualified is refused naming #889, rather than sized from Empty. Qualified by its Enum's name it is read;
 - a built-in no probe has asked about is refused, rather than guessed either way.
 
@@ -7052,7 +7052,7 @@ what reads it. And a dimension with no values does not compile, at either level.
   and an inference for any other shape. (Round five narrowed this. It said a qualified shape no probe had asked about
   was refused, which the project-name step contradicts.)
 - Another module's Public declaration is looked for before a built-in constant of the same name; its Const is then
-  refused unqualified, naming #880.
+  read, bare as qualified, since #880.
 - `Len` and `LenB` size from a String constant only: a literal, a String Const, a concatenation, or `CStr` of a
   constant. Of a number or a non-String Const they are "Variable required". Of anything else, such as another
   function's result, they are refused loudly. HexIDE has no `LenB` to size from yet.
@@ -8273,5 +8273,71 @@ constant's:
 Private by default, and Module2, without Option Explicit, runs `X = 5` and prints `X`. VB6 prints `5, Integer` from
 Module2 and `1` from Module1: a Private Const is invisible outside its module, so Module2's `X` is a new variable of its
 own. With `Public Const X = 1` instead, Module2 does not compile: "Assignment to constant not permitted". HexIDE gives
-the Private row, pinned, since a store resolves the name in its own module first. It gives the same for the Public row,
-where VB6 refuses, because it does not see another module's Public names unqualified at all (#880).
+the Private row, pinned, since a store resolves the name in its own module first. It gave the same for the Public row,
+where VB6 refuses, because it did not see another module's Public names unqualified at all. Since #880 it refuses the
+store with VB6's message, pinned too.
+
+## Another module's Public names, bare (2026-10-14, #880)
+
+Can one standard module name another's Public variable or Const without its module's name in front, and where does
+that stop? Each row below is its own project, built with `/make` and run, native and p-code agreeing on every one; a
+row that does not compile is its own project because `/make` stops at the first error. Sub Main in Module1 is the
+startup unless the row says otherwise, and Module1 holds the logger `L`. Module2 holds `Public G As Long`,
+`Public Const M = 3` and `Global G2 As Integer` unless the row gives it something else.
+
+| Module1 does | VB6 |
+|---|---|
+| `Init2` (Module2 sets `G = 5`, `G2 = 6`), then `TypeName(G) & " " & G & " " & TypeName(M) & " " & M & " " & G2` | `Long 5 Integer 3 6` |
+| `G = 7`, then `Module2.G` | `7` |
+| `Bump G`, Module1's `Sub Bump(n As Long)` adding 1, then Module2's `Show2()` returning `CStr(G)` | `8` |
+| `Option Explicit` in Module1, then `M & " " & G & " " & G2` | `3 5 6` |
+| Module2's `Private P As Long`, `Dim D As Long` and `Private Const PC = 9`, set by Module2: `TypeName` of each, bare | `Empty Empty Empty` |
+| `Option Explicit`, then `L P` with Module2's `Private P` | does not compile: "Variable not defined" |
+| `L X`, with `Public X As Long` in both Module2 and Module3 | does not compile: "Ambiguous name detected: X" |
+| the same two `Public X`, set qualified and read `Module2.X & " " & Module3.X`; then Module2's own `L "own " & X` | `1 2`, then `own 1` |
+| Module1's own `Dim X As Long` set to 1, Module2's `Public X` to 2: `X & " " & Module2.X` in Module1 | `1 2` |
+| `L X`, with Module2's `Public X As Long` and Module3's `Public Sub X()` | does not compile: "Ambiguous name detected: X" |
+| `L F`, with Module2's `Public F As Long` and Module3's `Public Function F() As Long` | does not compile: "Ambiguous name detected: F" |
+| `vbCancel & " " & TypeName(vbCancel)`, with Module2's `Public Const vbCancel = 42` | `42 Integer` |
+| Class1's `GetG = G`, then its `G = 11`, then `Module2.G` from Module1 | `5`, then `11` |
+| Form1 as the startup: Load's `L G & " " & M`, then `G = 4` and `L Module2.G` | `0 3`, then `4` |
+| Module1's module-level `Const A = M + 1` and `Dim d(M) As Long`, Module1 listed first: `A & " " & UBound(d)` | `4 3` |
+| Module1's own `Function V() As String` returning "own fn", with Module2's `Public V As String`: `L V` | `own fn` |
+| Module2's `Public A() As Long`: `ReDim A(4)`, `A(2) = 9`, then `UBound(Module2.A) & " " & Module2.A(2) & " " & A(2)` | `4 9 9` |
+| Module2's `Public C As Collection`: `Set C = New Collection`, `C.Add 1`, then `Module2.C.Count & " " & C.Count` | `1 1` |
+| Module2's `Public P As PT`, a Public Type with `X As Long`: `P.X = 3`, then `Module2.P.X & " " & P.X` | `3 3` |
+| `M = 5` with Module2's `Public Const M = 3` | does not compile: "Assignment to constant not permitted" |
+| a procedure's `Dim G As String` set to "local", with Module2's `Public G`: `G & " " & Module2.G` | `local 0` |
+
+What these show:
+- **A standard module's Public names are the project's.** A Public variable, a Public Const and a `Global` are read,
+  written and passed ByRef bare from another module, with or without Option Explicit, and from a class's code and a
+  form's. The obvious alternative, that only procedures cross modules bare, is what HexIDE did; it read each as Empty.
+- **Private stays private.** A `Private` variable, a module-level `Dim` and a `Private Const` are each a new variable
+  bare from another module, and "Variable not defined" under Option Explicit.
+- **The module's own names come first:** its own module-level variable, its own Function, and a procedure's local.
+  In a form, the form's own members come before them too (L2, *A form as an object*).
+- **A clash is an error only where it is used.** Two modules exporting `X` compile, each reads its own, and qualified
+  reads work; only the bare use from a third module is "Ambiguous name detected". A Public variable beside another
+  module's Public Sub or Function of the same name is ambiguous in the same way, so variables and procedures share one
+  namespace here.
+- **The project comes before the library** at run time as in a bound: `vbCancel` is Module2's 42.
+- **A store into another module's Public Const** is refused as one into the module's own is.
+
+### HexIDE
+
+Before #880, a name a module did not declare itself was looked for only among other modules' Public procedures, so
+every row that reads or writes another module's variable or Const bare read Empty, or was "Variable not defined" under
+Option Explicit; the Const store made a new variable; a bound or Const naming one was refused naming #880.
+
+Since #880, each module sees the other standard modules' Public variables and Consts bare, behind its own names. The
+table is collected from the pre-pass's lists of each module's Public names (`ProjectNames`), and a name is resolved to
+its slot only when the walk reads it. Every row above matches, and is pinned in `PublicNamesAcrossModulesTests`,
+`FormInstanceTests`, `ModuleLevelArrayBoundTests` and `ConstStoreTests`, with three rows changed in shape because of
+gaps elsewhere: the probes that stored through a qualifier (`Module2.X = 1`) have each module store its own, because a
+qualified store raises 424 (#1006); `Module2.A(2)` is read through a Function of Module2's, because it reads the whole
+array (#965); and the Collection row uses a class, because HexIDE cannot create a Collection with `New` yet.
+
+What it still does not do: another module's Public Enum member, bare, is #889, and a module-level Const or bound that
+reads a Const of a module whose declarations have not run yet is refused naming #893, where VB6 reads it in either list
+order.

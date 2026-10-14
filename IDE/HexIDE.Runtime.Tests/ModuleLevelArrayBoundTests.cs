@@ -116,15 +116,33 @@ public class ModuleLevelArrayBoundTests : BaseVBTestFixture
     }
 
     [Theory]
-    [InlineData("Dim d(M) As Long")]
-    [InlineData("Dim d(1 To M + 1) As Long")]
-    public async Task A_bound_reading_another_modules_Const_is_refused_rather_than_sized_from_Empty(string declarations)
+    [InlineData("Dim d(M) As Long", "0 3")]
+    [InlineData("Dim d(1 To M + 1) As Long", "1 4")]
+    public async Task A_bound_reads_another_modules_Const_bare(string declarations, string expected)
     {
-        // VB6 gives 0 To 3 and 1 To 4. HexIDE does not read another module's Const unqualified
-        // (#880), and initialises modules in list order, so a size from it could be Empty's.
-        var run = () => RunModules($"{declarations}\n", ("Module2", "Public Const M = 3\n"));
+        // Measured: 0 To 3 and 1 To 4. HexIDE refused it until it read another module's Public names bare (#880).
+        await RunModules($"{declarations}\nDebug.Print LBound(d) & \" \" & UBound(d)\n", ("Module2", "Public Const M = 3\n"));
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*d's bounds read*M, another module's Public Const*#880*");
+        debug.Should().ContainSingle().Which.Value.Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task A_bound_reading_a_bare_Const_two_modules_export_is_ambiguous()
+    {
+        var run = () => RunModules("Dim d(M) As Long\n", ("Module2", "Public Const M = 3\n"), ("Module3", "Public Const M = 4\n"));
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Ambiguous name detected: M*");
+    }
+
+    [Fact]
+    public async Task A_bound_reading_a_bare_Const_of_a_module_whose_declarations_have_not_run_is_refused()
+    {
+        // VB6 reads it in either list order (measured, qualified). HexIDE initialises the primary module last, so Module2's
+        // bound would read Empty there (#893).
+        var run = () => RunModules("Public Const M = 3\n", ("Module2", "Public d(M) As Long\n"));
+
+        (await run.Should().ThrowAsync<NotImplementedException>())
+            .WithMessage("*d's bounds read M, a Public Const of Module1, whose declarations have not run yet*#893*");
     }
 
     [Theory]
@@ -141,14 +159,13 @@ public class ModuleLevelArrayBoundTests : BaseVBTestFixture
         (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Constant expression required*");
     }
 
-    [Theory]
-    [InlineData("Const C = M + 1\nDebug.Print C")]
-    public async Task A_module_Const_reading_another_modules_Const_is_refused_rather_than_read_as_Empty(string code)
+    [Fact]
+    public async Task A_module_Const_reads_another_modules_Const_bare()
     {
-        // VB6 gives 4 (measured). HexIDE gave 1: M unqualified is not found (#880).
-        var run = () => RunModules(code + "\n", ("Module2", "Public Const M = 3\n"));
+        // Measured: 4. HexIDE gave 1, M unqualified not being found, and then refused it (#880).
+        await RunModules("Const C = M + 1\nDebug.Print C\n", ("Module2", "Public Const M = 3\n"));
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*Const C's value reads*M, another module's Public Const*#880*");
+        debug.Should().ContainSingle().Which.Value.Should().Match<object>(v => Convert.ToInt64(v) == 4);
     }
 
     [Theory]
@@ -345,10 +362,10 @@ public class ModuleLevelArrayBoundTests : BaseVBTestFixture
     public async Task Another_modules_Public_Const_is_found_before_a_built_in_constant()
     {
         // Measured: Module2's `Public Const vbKeyA = 3` sizes Module1's `Dim d(vbKeyA)` 0 To 3, the project beating the
-        // library. HexIDE sized it 0 To 65; it now finds the project's, which it cannot read unqualified yet (#880).
-        var run = () => RunModules("Dim d(vbKeyA) As Long\nDebug.Print UBound(d)\n", ("Module2", "Public Const vbKeyA = 3\n"));
+        // library. HexIDE sized it 0 To 65, then refused it until it read another module's Public names bare (#880).
+        await RunModules("Dim d(vbKeyA) As Long\nDebug.Print UBound(d)\n", ("Module2", "Public Const vbKeyA = 3\n"));
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*vbKeyA, another module's Public Const*#880*");
+        debug.Should().ContainSingle().Which.Value.Should().Match<object>(v => Convert.ToInt64(v) == 3);
     }
 
     [Theory]

@@ -30,11 +30,11 @@ namespace HexIDE.Runtime.Interpreter;
 /// Const a bound or another Const names has been checked already: the walk is one level deep. This relates symbols,
 /// which the pre-pass must not do, so it runs with the declarations. The pre-pass only collects: each Const's
 /// declaration and visibility, each Enum's position, and each Public variable.</para>
-/// <para>Three things VB6 reads are refused loudly instead, because HexIDE would read Empty: another module's Public
-/// Const unqualified (#880), or qualified before that module's declarations have run (#893), and another module's
-/// Public Enum member unqualified (#889). Qualified, once that module has run, another module's Const is read: its
-/// value is final. A built-in function nobody has measured in a bound, and a qualified name of a shape nobody has
-/// measured, are refused loudly too, rather than guessed.</para>
+/// <para>Two things VB6 reads are refused loudly instead, because HexIDE would read Empty: another module's Public
+/// Const before that module's declarations have run (#893), and another module's Public Enum member unqualified (#889).
+/// Once that module has run, another module's Const is read, bare (#880) or qualified: its value is final. A built-in
+/// function nobody has measured in a bound, and a qualified name of a shape nobody has measured, are refused loudly
+/// too, rather than guessed.</para>
 /// <para>A procedure's Consts are not checked here (#894).</para>
 /// </remarks>
 internal sealed class ModuleLevelBounds
@@ -131,21 +131,30 @@ internal sealed class ModuleLevelBounds
         }
         if (module.PrePass.Procedures.ContainsKey(name) || module.PrePass.Properties.ContainsKey(name))
             throw ConstantExpressionRequired();
-        if (env.TryGetVariableLocation(name, out _))
+        if (env.TryGetOwnVariableLocation(name, out _))
             throw ConstantExpressionRequired();   // a variable of this module
         // The project before the library: measured, Module2's `Public Const vbKeyA = 3` sizes `Dim d(vbKeyA)` 0 To 3.
+        // Another module's Public Const is a constant, read as the qualified one is (measured, #880: Module2's
+        // `Public Const M = 3` makes Module1's `Const A = M + 1` 4 and `Dim d(M)` 0 To 3). Two modules naming it is
+        // ambiguous, as a bare read anywhere is (ProjectNames).
+        ModuleInfo? exporter = null;
+        var isConst = false;
         foreach (var other in interpreter.Modules.All)
         {
             if (ReferenceEquals(other, module) || other.Kind != InterpreterModuleKind.Standard)
                 continue;
-            if (other.PrePass.ModuleConsts.TryGetValue(name, out var theirs) && theirs.Public)
-                throw AnotherModulesConst(name);
             if (other.PrePass.Enums.Any(e => !other.PrePass.PrivateEnums.Contains(e.Key) && e.Value.ContainsKey(name)))
                 throw AnotherModulesEnumMember(name);
-            if (other.PrePass.PublicVariables.Contains(name)
-                || (other.PrePass.Procedures.TryGetValue(name, out var procedure) && !procedure.IsPrivate))
-                throw ConstantExpressionRequired();
+            var theirConst = other.PrePass.ModuleConsts.TryGetValue(name, out var theirs) && theirs.Public;
+            if (!theirConst && !other.PrePass.PublicVariables.Contains(name)
+                && !(other.PrePass.Procedures.TryGetValue(name, out var procedure) && !procedure.IsPrivate))
+                continue;
+            if (exporter is not null)
+                throw new VBCompileErrorException("Ambiguous name detected: " + name);
+            (exporter, isConst) = (other, theirConst);
         }
+        if (exporter is not null)
+            return isConst ? ModuleConst(exporter, name, name) : throw ConstantExpressionRequired();
         if (interpreter.BuiltIns.TryGetBuiltInConstant(name, out var builtIn))
             return builtIn;
         if (VB6BuiltIns.IsBuiltInFunction(name))
@@ -226,13 +235,7 @@ internal sealed class ModuleLevelBounds
         {
             var member = parts[1];
             if (other.PrePass.ModuleConsts.TryGetValue(member, out var theirs) && theirs.Public)
-            {
-                // VB6 reads it in either list order (measured). Once that module's declarations have run, its value is
-                // final, and the qualified read finds it; before, it would be Empty.
-                if (!other.DeclarationsRun)
-                    throw NotInitialisedYet(text, other.Name);
-                return interpreter.ExecutionContext.TryGetVariable(other.ModuleEnv, member, out var value) ? (Vb6Value?)value : null;
-            }
+                return ModuleConst(other, member, text);
             foreach (var (enumName, members) in other.PrePass.Enums)
             {
                 if (!members.TryGetValue(member, out var value))
@@ -250,6 +253,15 @@ internal sealed class ModuleLevelBounds
                  && !other.PrePass.PrivateEnums.Contains(parts[1]) && enumMembers.TryGetValue(parts[2], out var enumValue))
             return new Vb6Value(enumValue);
         throw Unsupported(text);
+    }
+
+    // Another module's Public Const, bare or qualified. VB6 reads it in either list order (measured). Once that module's
+    // declarations have run, its value is final; before, it would be Empty.
+    private Vb6Value? ModuleConst(ModuleInfo other, string name, string text)
+    {
+        if (!other.DeclarationsRun)
+            throw NotInitialisedYet(text, other.Name);
+        return interpreter.ExecutionContext.TryGetVariable(other.ModuleEnv, name, out var value) ? (Vb6Value?)value : null;
     }
 
     private void Call(string name, bool inConst)
@@ -323,10 +335,6 @@ internal sealed class ModuleLevelBounds
     private static bool? Known(Vb6Value? value) => value is { } v ? v.Type == Vb6Value.ValueType.String : null;
 
     private static VBCompileErrorException ConstantExpressionRequired() => new("Constant expression required");
-
-    private NotImplementedException AnotherModulesConst(string name) => new(
-        $"{subject} {reads} {name}, another module's Public Const. A module's Consts and arrays are worked out as its " +
-        "declarations run, and HexIDE does not read another module's Const there unqualified yet (#880).");
 
     private NotImplementedException NotInitialisedYet(string text, string other) => new(
         $"{subject} {reads} {text}, a Public Const of {other}, whose declarations have not run yet. VB6 works out every " +
