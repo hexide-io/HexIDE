@@ -267,8 +267,42 @@ public class FormInstanceTests
             var children = me.Expand();
             var names = children.Select(n => n.Name).ToList();
             names.Should().Contain(["Caption", "mCount", "Text1"]);
+            names.Should().NotContain("Form1", "the form's name is how it is reached, not one of its variables");
             names.IndexOf("Caption").Should().BeLessThan(names.IndexOf("mCount"), "the form's own properties come first");
             children.Single(n => n.Name == "mCount").Value.Should().Be("7");
+        }
+        finally
+        {
+            dbg.Stop();
+            Dispatcher.UIThread.RunJobs();
+            window.Close();
+        }
+        run.IsCompleted.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public void Locals_in_a_modules_procedure_does_not_list_the_form()
+    {
+        // The form's name is seeded into every module, as Debug and Err are, so that Form1.X resolves anywhere. VB6 lists
+        // neither under a module, and nor does Locals.
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var form = new FormDeserializer().Deserialize(project,
+            (FormHeader + "Private Sub Form_Load()\n    Pause\nEnd Sub\n").ReplaceLineEndings("\r\n"), new NullSink())!;
+        project.AddForm(form);
+        var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
+        module.UpdateCode("Public G As Long\r\nSub Pause()\r\n    Dim local As Long\r\n    G = 1\r\n    Stop\r\nEnd Sub\r\n");
+        project.AddModule(module);
+        var dbg = new HexIDE.Runtime.Debugging.DebugController();
+        dbg.Reset();
+
+        var run = VBLoader.RunForm(form, CancellationToken.None, out var window, dbg);
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            dbg.State.Should().Be(HexIDE.Runtime.Debugging.DebugState.Paused);
+            var locals = dbg.GetLocals()!.Locals;
+            locals.Select(n => n.Name).Should().Equal("Module1", "local");
+            locals[0].Expand().Select(n => n.Name).Should().Equal("G");
         }
         finally
         {

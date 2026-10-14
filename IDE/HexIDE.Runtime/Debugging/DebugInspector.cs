@@ -149,29 +149,30 @@ public static class DebugInspector
     {
         var ctx = interp.ExecutionContext;
 
-        // Locate Me + the base scope. Me is bound as a variable named "Me" only for instance (class) methods.
+        // Locate Me + the base scope. Me is bound as a variable named "Me" only in an instance's procedures: a class's, and
+        // a form's (#822).
         Vb6Value? me = null;
-        Control? formWindow = null;   // a form's Me is the live form window (a Control) — its own property surface (D7)
         ExecutionEnvironment baseEnv = module.ModuleEnv;
-        if (ctx.TryInspectVariable(env, "Me", out var meVal))
+        if (ctx.TryInspectVariable(env, "Me", out var meVal) && meVal.Value is VbObject mo)
         {
-            if (meVal.Value is VbObject mo) { me = meVal; baseEnv = mo.InstanceEnv; }
-            else if (meVal.Value is Control fw) formWindow = fw;   // VBLoader binds Me = the form window
+            me = meVal;
+            baseEnv = mo.InstanceEnv;
         }
 
         var nodes = new List<DebugNode>();
         // The module's own name is its self-reference in scope (a form seeds its own name into module scope); hide
         // it under the root — Me IS the form, VB6 never lists it as a field.
         string selfName = module.Name;
-        bool baseHasVars = HasVisibleVars(baseEnv, selfName);
+        bool baseHasVars = HasVisibleVars(baseEnv, ctx, selfName);
 
         // 1) The root: the Me / module / instance whose fields sit under it. Class method -> "Me" (class name);
         //    the primary (form) module -> synthetic "Me" (D8); another standard (.bas) module -> the module name.
         //    Only expandable when it actually has inspectable state (no empty expander — review finding).
         if (me is { Value: VbObject { FormWindow: { } instanceWindow } formObj })
         {
-            // A form instance (#822): its window's VB6 properties first, then the instance's variables and controls, as
-            // the window-bound Me below shows them. Read even before the form has loaded, since Locals only looks.
+            // A form instance (#822): its window's own VB6 properties (Caption / Width / BackColor / …) first, then the
+            // instance's variables and controls (P8 D7, the form property surface). Read even before the form has loaded,
+            // since Locals only looks.
             nodes.Add(new DebugNode("Me", formObj.ClassName, formObj.ClassName, () =>
             {
                 var kids = new List<DebugNode>();
@@ -194,20 +195,6 @@ public static class DebugInspector
             }
             nodes.Add(new DebugNode("Me", rootObj.ClassName, rootObj.ClassName, expand));
         }
-        else if (formWindow is { } fw)
-        {
-            // A form's Me is the live form window: its own VB6 properties (Caption / Width / BackColor / …) FIRST,
-            // then the form module's variables + child controls (P8 D7 — completes the form property surface; the
-            // synthetic-Me fallback below no longer applies to a form).
-            nodes.Add(new DebugNode("Me", module.Name, module.Name, () =>
-            {
-                var kids = new List<DebugNode>();
-                foreach (var (propName, propValue) in AvaloniaInteroperability.ReadProperties(fw))
-                    kids.Add(new DebugNode(propName, FormatValue(propValue), VB6BuiltIns.DebugTypeName(propValue)));
-                kids.AddRange(EnvChildren(baseEnv, ctx, NewAncestorSet(), 1, selfName));
-                return kids;
-            }));
-        }
         else if (baseHasVars)
         {
             string label = ReferenceEquals(module, interp.PrimaryModule) ? "Me" : module.Name;
@@ -224,7 +211,7 @@ public static class DebugInspector
         //    a local differing from a module var only in case is looked up as that name, and its slot decides.
         foreach (var (name, slot) in env.variableToLocation)
         {
-            if (Hidden.Contains(name))
+            if (Hidden.Contains(name) || IsFormName(ctx, env, name))
                 continue;
             if (baseEnv.variableToLocation.TryGetValue(name, out var baseSlot) && baseSlot == slot)
                 continue;   // identical to the base scope's binding — shown under the Me/module root instead
@@ -262,7 +249,7 @@ public static class DebugInspector
         var list = new List<DebugNode>();
         foreach (var name in env.variableToLocation.Keys)
         {
-            if (Hidden.Contains(name) || IsSelfRef(name, selfName))
+            if (Hidden.Contains(name) || IsSelfRef(name, selfName) || IsFormName(ctx, env, name))
                 continue;
             if (ctx.TryInspectVariable(env, name, out var value))
                 list.Add(ValueNode(name, value, ctx, ancestors, depth));
@@ -306,7 +293,7 @@ public static class DebugInspector
                 return new DebugNode(name, "Nothing", "Nothing");
             // Leaf when: a cycle back to an ancestor, at the depth cap, or the instance has no inspectable fields
             // (a field-less class would otherwise show an expander that opens to nothing — review finding).
-            if (depth >= MaxDepth || ancestors.Contains(obj) || !HasVisibleVars(obj.InstanceEnv))
+            if (depth >= MaxDepth || ancestors.Contains(obj) || !HasVisibleVars(obj.InstanceEnv, ctx))
                 return new DebugNode(name, obj.ClassName, obj.ClassName);   // cycle / too deep / no fields: leaf
             return new DebugNode(name, string.Empty, obj.ClassName, () =>
             {
@@ -410,8 +397,15 @@ public static class DebugInspector
 
     // True if an environment holds at least one variable that would actually be shown (not hidden, not the module
     // self-reference) — i.e. there is something to expand.
-    private static bool HasVisibleVars(ExecutionEnvironment env, string? selfName = null)
-        => env.variableToLocation.Keys.Any(n => !Hidden.Contains(n) && !IsSelfRef(n, selfName));
+    private static bool HasVisibleVars(ExecutionEnvironment env, ModuleExecutionContext ctx, string? selfName = null)
+        => env.variableToLocation.Keys.Any(n => !Hidden.Contains(n) && !IsSelfRef(n, selfName) && !IsFormName(ctx, env, n));
+
+    // The name a form is reached by, seeded into every module's env as Debug and Err are (#822). VB6 doesn't list it
+    // as a module's variable, and it is not one.
+    private static bool IsFormName(ModuleExecutionContext ctx, ExecutionEnvironment env, string name)
+        => env.TryGetVariableLocation(name, out var location)
+           && ctx.State[location].Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form
+           && string.Equals(form.ClassName, name, StringComparison.OrdinalIgnoreCase);
 
     private static bool IsSelfRef(string name, string? selfName)
         => selfName != null && string.Equals(name, selfName, StringComparison.OrdinalIgnoreCase);
