@@ -22,6 +22,22 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **An array assignment copies the array** (#970). `d = f` shared one array between the two names, so a write through
+  either reached the other, with no error. Measured on vb6.exe, VB6 copies wherever it stores an array: into a
+  variable, an element, a ByVal parameter and a For Each variable, and so the row-buffer idiom, `rows(i) = row`, keeps
+  each row. Along with it:
+  - **A ByRef `As Variant` parameter given an array shares it**, as an untyped one does, so a `ReDim` through it reaches
+    the caller's array, and is VB6's 10 for a fixed one.
+  - **An untyped or Variant parameter's `ReDim`** follows VB6's Variant rule even when the caller's array is declared:
+    `ReDim v(-1)` raises 9 and keeps the caller's array, where it erased it.
+  - **A copied array shares its objects, and each holder keeps them alive.** A local object array's objects now
+    terminate at `End Sub`, as in VB6; they never terminated at all, and an object could terminate while another array
+    still held it.
+  - **A fixed array can't be assigned an array:** VB6's "Can't assign to array", or 13 through a parameter, where the
+    fixed array was replaced.
+  - **A For Each variable is Empty once the loop runs out**, as in VB6, even when there was nothing to walk; it kept
+    the last element. `Exit For` still leaves it holding the element it reached.
+  - **`End Sub` releases a procedure's scalar locals before its arrays**, each in declaration order, as VB6 does.
 - **A Function declared to return a typed array takes only an array of its type** (#986). `F = Array(1, 2)` in a
   Function `As Integer()` returned a Variant array with no error, and `F = 5` in one `As Long()` returned an Integer.
   A mismatch now raises Type mismatch at the store, as VB6 does, or stops the run with VB6's compile error "Can't assign
@@ -90,8 +106,6 @@ there isn't one yet. Anything may change between 0.x releases.
 - **A fixed array can't be resized through a parameter** (#873). `ReDim b(10)` in a callee given a caller's
   `Dim buf(3)` raises VB6's 10, "This array is fixed or temporarily locked", and leaves `buf` as it was, whether `b` is
   an array parameter or an untyped one; named directly, `ReDim` of a fixed array is VB6's "Array already dimensioned".
-  A `v As Variant` parameter is not refused yet, and its ReDim of a caller's dynamic array still leaves the caller's
-  array as it was, where VB6 resizes it (#970).
 
 - **A module-level `Const` is checked as VB6 checks it** (#760). Its value may read only other constants: a Const
   declared below it or the Const itself, a variable, a user function and any function call are VB6's "Constant
