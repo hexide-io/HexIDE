@@ -112,7 +112,7 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
     /// moved, and an open buffer re-headed in place. Does nothing when it is the header already.
     /// </summary>
     /// <remarks>
-    /// Also trigger two. A save passes the header it just wrote rather than letting this re-render, because
+    /// Also trigger two, through <see cref="Saved"/>. A save passes the header it just wrote rather than letting this re-render, because
     /// the two can differ: the render a save makes is the one that reached disk, and a second render taken
     /// afterwards would be of a model that may have moved in between. It is called before the save is
     /// announced so that a server reading the buffer and a server reading the file agree about line one.
@@ -136,6 +136,42 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
         // for a form that no longer looks like it, permanently: the next render equals what is recorded, so
         // nothing would ever repair it. RefreshPrefix is a no-op when the two already agree.
         EditorFor(identity)?.RefreshPrefix(header);
+    }
+
+    /// <summary>
+    /// Trigger two, a save: the header the save rendered and the attribute qualifiers it rewrote, into an open
+    /// buffer, as one undo entry.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The model is already the text the save wrote; only the buffer has to follow.</b> The save rewrites the
+    /// model's qualifiers before it renders (<c>ProjectService</c>, task 4.4), because they have to reach the
+    /// file. So the open window is the one place still holding the old ones, and the window takes them from the
+    /// model rather than deciding again whether a save should rewrite them.
+    /// </para>
+    /// <para>
+    /// <b>One entry, for the reason <see cref="LayoutChanged"/> gives</b>: an undo that does not come through
+    /// <c>UndoRequested</c> (#513 lists the routes that still do not) could otherwise separate the header of a
+    /// save from its qualifiers. Neither write is the developer's, so both are marked as the IDE's own, and the
+    /// code window's Undo goes past them to the developer's last edit. AvaloniaEdit folds the nested groups into
+    /// this one, and an empty group pushes nothing.
+    /// </para>
+    /// </remarks>
+    public void Saved(DocumentIdentity document, string? header)
+    {
+        var editor = EditorFor(document);
+        var undo = editor?.Document.UndoStack;
+        undo?.StartUndoGroup();
+        try
+        {
+            if (header is not null && (document.Form ?? document.Module?.FormPart) is { } designer)
+                ApplyHeader(designer, header);
+            editor?.AdoptRewrittenQualifiers(document.Module?.Code ?? document.Form!.Code);
+        }
+        finally
+        {
+            undo?.EndUndoGroup();
+        }
     }
 
     /// <summary>

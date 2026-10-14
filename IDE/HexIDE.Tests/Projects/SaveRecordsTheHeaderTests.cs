@@ -199,7 +199,9 @@ public class SaveRecordsTheHeaderTests : IDisposable
         module.AbsolutePath = Path.Join(dir, "MyControl.ctl");
 
         (await service.SaveModuleCore(module, saveAs: false)).Should().BeTrue();
-        refresher.Received(1).ApplyHeader(module.FormPart!, Arg.Any<string>());
+        // Saved is the save's adoption since #273 task 4.4, which also hands the open buffer the qualifiers the
+        // save rewrote; it calls ApplyHeader for the designer half.
+        refresher.Received(1).Saved(DocumentIdentity.For(module), Arg.Is<string?>(header => header != null));
 
         refresher.ClearReceivedCalls();
         module.AbsolutePath = Path.Join(dir, "packaged-ctl", "MyControl.ctl");
@@ -208,6 +210,7 @@ public class SaveRecordsTheHeaderTests : IDisposable
         (await service.SaveModuleCore(module, saveAs: false, announceSave: false)).Should().BeTrue();
 
         File.Exists(module.AbsolutePath).Should().BeTrue("the copy is still written");
+        refresher.DidNotReceive().Saved(Arg.Any<DocumentIdentity>(), Arg.Any<string?>());
         refresher.DidNotReceive().ApplyHeader(Arg.Any<FormDefinition>(), Arg.Any<string>());
     }
 

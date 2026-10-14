@@ -1802,6 +1802,11 @@ public class ProjectService : IProjectService
             return false;
         }
 
+        // Before the render, because the qualifiers have to reach the file (#273 task 4.4). A copy leaves the
+        // model alone, as it leaves the header.
+        if (adoptHeader && RewrittenQualifiers(form, FormCodeText.Prefix(form), form.Code) is { } requalified)
+            form.UpdateCode(requalified);
+
         var (frmText, frxContent) = RenderForm(form, formPath);
 
         // Encoded before either half of the pair changes. An operation has checked this already; this is the
@@ -1833,8 +1838,45 @@ public class ProjectService : IProjectService
         // a server reading the buffer and a server reading the file agree about what line one is -- the
         // announcement flushes a pending didChange before its didSave, so the order holds on the wire too.
         if (adoptHeader)
-            headerRefresher.ApplyHeader(form, FormCodeText.DesignerHalfOf(frmText, form.Code));
+            headerRefresher.Saved(DocumentIdentity.For(form), FormCodeText.DesignerHalfOf(frmText, form.Code));
         return true;
+    }
+
+    /// <summary>
+    /// The code a save writes for <paramref name="document"/>, with every procedure's attribute run, and every
+    /// run a rename of a one-name variable line left, naming its member as declared; or null when the save
+    /// writes the code as it stands (#273 task 4.4).
+    /// </summary>
+    /// <param name="document">The form or module being saved, for <see cref="IsDirty(FormDefinition)"/>.</param>
+    /// <param name="prefix">What the code window composes in front of <paramref name="code"/>.</param>
+    /// <param name="code">The document's code, which the flush at the start of the save has just written.</param>
+    /// <remarks>
+    /// <para>
+    /// <b>Only a document with unsaved changes.</b> VB6 rewrites the qualifiers at every save of a module it
+    /// writes, and writes only a module it holds as changed: the oracle's IDE sessions dirtied every module before
+    /// a save on that premise, which neither measured. HexIDE writes every member of a project at Save Project,
+    /// so without this gate a loaded <c>Attribute Gone.VB_Description</c> under <c>Total</c> would be rewritten by
+    /// a save that changed nothing, and "an unchanged save writes the buffer" would stop holding. Asked only when
+    /// a rewrite is due, because the question renders the document.
+    /// </para>
+    /// <para>
+    /// <b>After the code page check and before the write, and that order is safe.</b> <c>EnsureEncodable</c>
+    /// rendered the code as it stood; this changes it after. A rewrite only ever writes a name the same file
+    /// already declares, so it adds no character the file did not hold, and what encoded before still encodes.
+    /// </para>
+    /// </remarks>
+    private string? RewrittenQualifiers(object document, string prefix, string code)
+    {
+        var rewritten = MemberAttributeQualifiers.Rewrite(prefix, code);
+        if (ReferenceEquals(rewritten, code))
+            return null;
+        var changed = document switch
+        {
+            FormDefinition form => IsDirty(form),
+            ModuleDefinition module => IsDirty(module),
+            _ => throw new ArgumentException($"HexIDE does not rewrite a {document.GetType().Name}.", nameof(document)),
+        };
+        return changed ? rewritten : null;
     }
 
     /// <summary>
@@ -2003,6 +2045,10 @@ public class ProjectService : IProjectService
     /// <summary>Writes a module the caller has decided HexIDE can reproduce, and repoints it there.</summary>
     private void WriteModule(ModuleDefinition module, string modulePath, bool adoptHeader)
     {
+        // As SerializeFormToFile: before the render, and not for a copy (#273 task 4.4).
+        if (adoptHeader && RewrittenQualifiers(module, FormCodeText.Prefix(module), module.Code) is { } requalified)
+            module.UpdateCode(requalified);
+
         var (text, companion) = RenderModule(module, modulePath);
         // Encoded before anything is written, and the module repointed only once everything is.
         var encodedText = Vb6TextFile.EncodeDocument(module.Name, text, module.TextEncoding);
@@ -2016,9 +2062,11 @@ public class ProjectService : IProjectService
         // As SerializeFormToFile: the .ctl/.pag half of the same refresh trigger (#273 task 3.3a). The code here is
         // the MODULE's, which is the pairing this path writes and the one the code window composes from. Gated
         // for the same reason announceSave exists -- Make writes a copy into a temporary directory and restores
-        // every path afterwards, so neither the save nor the header it rendered there is the developer's.
-        if (adoptHeader && DesignerPartOf(module) is { } half)
-            headerRefresher.ApplyHeader(half, FormCodeText.DesignerHalfOf(text, module.Code));
+        // every path afterwards, so neither the save nor the header it rendered there is the developer's. A .bas
+        // or .cls has no designer half to adopt, but its open buffer still takes the qualifiers the save rewrote.
+        if (adoptHeader)
+            headerRefresher.Saved(DocumentIdentity.For(module),
+                DesignerPartOf(module) is not null ? FormCodeText.DesignerHalfOf(text, module.Code) : null);
     }
 
     private void SerializeOnlyProjectToFile(ProjectDefinition definition, string projectPath)

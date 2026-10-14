@@ -167,6 +167,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
         var failures = new List<string>();
         var renamed = 0;
         var declinedDeclared = 0;
+        var ownQualifiers = 0;
 
         foreach (var (name, text) in Inputs())
         {
@@ -205,15 +206,17 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
                     continue; // a keyword, or nothing the server will rename
                 renamed++;
 
-                foreach (var edit in edits)
+                // The whole answer at once, because whether a qualifier edit is the rename's own depends on the
+                // answer also renaming the member's declaration (#273 task 4.4).
+                var answer = edits.Select(edit =>
                 {
                     var offset = lineStarts[edit.Range.Start.Line] + edit.Range.Start.Character;
                     var length = lineStarts[edit.Range.End.Line] + edit.Range.End.Character - offset;
-                    var change = new TextChange(offset, length, edit.NewText);
-                    if (ReadOnlyRegions.Touches(regions, offset, length)
-                        && !CodeEditorViewModel.IsOwnAttributeQualifier(text, change, word))
-                        failures.Add($"{name}: renaming {word} edits read-only line {edit.Range.Start.Line}");
-                }
+                    return new TextChange(offset, length, edit.NewText);
+                }).ToList();
+                if (CodeEditorViewModel.RefusedRenameEdit(text, 0, answer) is { } refused)
+                    failures.Add($"{name}: renaming {word} edits read-only line {LineOf(lineStarts, refused.Offset)}");
+                ownQualifiers += answer.Count(c => ReadOnlyRegions.Touches(regions, c.Offset, c.Length));
 
                 var highlight = await client.RequestDocumentHighlightAsync(uri, at, TestContext.Current.CancellationToken);
                 foreach (var h in highlight ?? [])
@@ -225,6 +228,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
         }
 
         renamed.Should().BeGreaterThan(0, "the corpus's code uses its controls' properties' names");
+        ownQualifiers.Should().BeGreaterThan(0, "the inline files rename members whose runs name them, so the exception is used");
         declinedDeclared.Should().BeGreaterThan(0, "the corpus's code refers to its controls by name");
         failures.Should().BeEmpty();
     }
@@ -347,6 +351,9 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
             .Where(i => regions.Any(r => starts[i] >= r.Start && starts[i] < r.End))
             .ToHashSet();
     }
+
+    /// <summary>The 0-based line <paramref name="offset"/> falls on.</summary>
+    private static int LineOf(List<int> lineStarts, int offset) => lineStarts.FindLastIndex(start => start <= offset);
 
     private static List<int> LineStarts(string text)
     {

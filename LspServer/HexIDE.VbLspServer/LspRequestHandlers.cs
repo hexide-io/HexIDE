@@ -252,8 +252,11 @@ internal static class LspRequestHandlers
             !store.Source.TryGetValue(uri, out var source))
             return LspJson.Null();
 
+        // A new name VB6 would not accept is answered with nothing, as the IDE refuses it before asking
+        // (hexide-io/HexIDE#273 task 4.4): written in, it would not compile, and "Total" renamed "Grand Total"
+        // would split one name into two wherever it stood.
         if (!p.TryGetProperty("newName", out var nn) || nn.GetString() is not { } newName ||
-            string.IsNullOrWhiteSpace(newName))
+            !VbTextHelpers.IsName(newName))
             return LspJson.Null();
 
         var word = VbTextHelpers.GetWordAtPosition(source, line, ch);
@@ -265,8 +268,10 @@ internal static class LspRequestHandlers
         // The header and members' attribute lines are the IDE's to change (hexide-io/HexIDE#273 task 3.10).
         // A rename is not started from inside them, and matches inside them are left alone: with a form's
         // designer block in view, renaming a local called Caption, Top or Text would otherwise rewrite the
-        // layout. The one exception is the renamed member's own name in `Attribute Name.VB_...`, which has to
-        // follow the rename or the attribute is left describing nothing.
+        // layout. The one exception is the renamed member's own name in `Attribute Name.VB_...`, which follows
+        // the rename -- and only the member's own: a run describing another member keeps what it says, since
+        // the IDE refuses a rename that writes into a run it does not rename (task 4.4) and rewrites those
+        // qualifiers itself at the next save.
         var regions = VbProtectedRegions.Of(source);
         if (regions.IsProtected(line)) return LspJson.Null();
 
@@ -277,10 +282,8 @@ internal static class LspRequestHandlers
         // of never breaking the common one. A control is renamed in the Properties window, as in VB6.
         if (regions.Declares(word)) return LspJson.Null();
 
-        var lines = source.Split('\n');
         var occurrences = VbTextHelpers.FindAllOccurrences(source, word)
-            .Where(r => !regions.Touches(r)
-                        || VbProtectedRegions.IsOwnQualifier(lines[r.Start.Line].TrimEnd('\r'), r, word))
+            .Where(r => !regions.Touches(r) || regions.IsOwnQualifier(r, word))
             .ToList();
         if (occurrences.Count == 0) return LspJson.Null();
 

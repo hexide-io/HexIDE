@@ -563,6 +563,79 @@ public class WireContractTests
             - e.GetProperty("range").GetProperty("start").GetProperty("character").GetInt32() == "Total".Length);
     }
 
+    [Fact]
+    public async Task Renaming_a_member_leaves_alone_a_run_that_describes_another_member()
+    {
+        // Halt's run says Total, and is Halt's: VB6 gives a procedure attribute to the procedure above it whatever
+        // its qualifier names. The IDE refuses a rename that writes into a run it does not rename (#273 task 4.4),
+        // so renaming Total sends no edit to it -- and the orphan two lines under total's run, which is free text,
+        // is renamed with the code.
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, WholeFileFixtures.ClassWithOrphans);
+
+        var edit = await RequestAsync(h, "textDocument/rename", new
+        {
+            textDocument = new { uri = Uri },
+            position = new { line = 28, character = 1 }, // "total = a + b"
+            newName = "Sum",
+        });
+
+        StartsOf(edit.GetProperty("changes").GetProperty(Uri))
+            .Should().Equal((25, 16), (27, 10), (28, 0), (29, 10));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("1Total")]
+    [InlineData("Grand Total")]
+    [InlineData("Grand.Total")]
+    [InlineData("Total$")]
+    [InlineData("_Total")]
+    [InlineData("_")]
+    [InlineData("[Total]")]
+    [InlineData("Grand-Total")]
+    public async Task Renaming_to_a_name_VB6_does_not_accept_has_no_answer(string newName)
+    {
+        // The IDE refuses these before it asks (#273 task 4.4); a client that does not is answered with nothing,
+        // rather than with edits writing a name that would not compile. A leading or lone underscore and a
+        // bracketed name were measured illegal against vb6.exe.
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, Doc);
+
+        var rename = await RequestAsync(h, "textDocument/rename", new
+        {
+            textDocument = new { uri = Uri },
+            position = new { line = 1, character = 6 },
+            newName,
+        });
+
+        rename.ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Theory]
+    [InlineData("Grand_Total")]
+    [InlineData("Total_")]
+    [InlineData("Total2")]
+    [InlineData("Größe")]
+    public async Task Rename_to_a_name_VB6_may_accept_is_answered(string newName)
+    {
+        // The positive control: an underscore inside or at the end of a name and a digit after its first letter
+        // were measured legal; a letter outside ASCII was not measured, and VB6 may accept one in its code page,
+        // so it is not refused.
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, Doc);
+
+        var edit = await RequestAsync(h, "textDocument/rename", new
+        {
+            textDocument = new { uri = Uri },
+            position = new { line = 1, character = 6 },
+            newName,
+        });
+
+        edit.GetProperty("changes").GetProperty(Uri).GetArrayLength().Should().Be(2);
+    }
+
     [Theory]
     [InlineData("form", 6, 8)]   // "      Caption         =   \"OK\"" in the designer block
     [InlineData("form", 12, 12)] // "Attribute VB_Name = \"frmOrders\"" -- the attribute's own name

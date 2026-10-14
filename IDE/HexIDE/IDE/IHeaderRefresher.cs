@@ -16,9 +16,9 @@ namespace HexIDE.IDE;
 /// </para>
 /// <para>
 /// <b>Three triggers, one write path.</b> A committed designer change (<c>FormLayoutChangedEvent</c>), a
-/// save (the header that was just written, before the save is announced), and a reload. All three land in
-/// <see cref="ApplyHeader"/> or in <see cref="ShiftMarks"/>, so a document's marks cannot move for one
-/// trigger and not for another.
+/// save (the header that was just written, before the save is announced, through <see cref="Saved"/>), and a
+/// reload. All three land in <see cref="ApplyHeader"/> or in <see cref="ShiftMarks"/>, so a document's marks
+/// cannot move for one trigger and not for another.
 /// </para>
 /// <para>
 /// <b>It works with no window open, and that is the point of the seam rather than an accident.</b>
@@ -41,6 +41,19 @@ public interface IHeaderRefresher
     /// moved, and an open buffer re-headed in place. Does nothing when it is the header already.
     /// </summary>
     void ApplyHeader(FormDefinition form, string header);
+
+    /// <summary>
+    /// Trigger two, a save: makes an open buffer the text the save just wrote, as one undo entry the code
+    /// window's Undo never stops at. That is the <paramref name="header"/> it rendered, for a kind with a
+    /// designer half (through <see cref="ApplyHeader"/>), and the qualifiers it rewrote in members' attribute
+    /// runs (#273 task 4.4).
+    /// </summary>
+    /// <param name="document">The document written.</param>
+    /// <param name="header">
+    /// The designer half the save rendered; null for a <c>.bas</c> or <c>.cls</c>, whose header the save does not
+    /// re-render.
+    /// </param>
+    void Saved(DocumentIdentity document, string? header);
 
     /// <summary>
     /// Makes the <c>Attribute VB_Name</c> the document carries say the document's current name — on the

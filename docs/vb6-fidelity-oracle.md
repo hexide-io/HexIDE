@@ -6240,6 +6240,10 @@ line above, the first draft's rule, and was rebuilt to the revised rules before 
 - `Public WithEvents A As T, WithEvents B As T`, `WithEvents` repeated within one declaration, which HexIDE's
   bundled grammar refuses.
 - E's UserControl loaded and saved again, to see that the reversed variable order is stable.
+- Whether File > Save Project writes a module nobody changed, and so whether a stale qualifier in an untouched
+  module (`NamesNothing`'s shape) survives a save. Both sessions dirtied every module first, on the premise that it
+  would not be written otherwise; HexIDE's save rewrites qualifiers only in a module with unsaved changes (task
+  4.4), which matches that premise and rests on it.
 - ActiveX DLL, OCX and group projects, and `VB_Exposed = True` classes, in the IDE: every IDE probe was a Standard
   EXE, its UserControls private to it.
 
@@ -6297,7 +6301,11 @@ the compiler half and before the IDE half had finished, and judged a run by a qu
 the revised rules on 2026-10-14: a procedure run's qualifiers are not consulted, every `:` statement on the line is
 read, a constant takes a `VB_Var` run, and a one-name line takes the run a rename by retyping leaves when the name
 it carries is declared nowhere in the module. The save's re-qualification of a procedure's run and a one-name
-variable's, as VB6 does, is settled in `design.md` and is task 4.4. The files the dialog wrote are to become the
+variable's, as VB6 does, is settled in `design.md` and was built in task 4.4, for a module with unsaved changes
+only, so a module saved untouched keeps a stale qualifier byte for byte. That VB6 writes only a module it holds as
+changed is the premise both sessions dirtied every module on (*Method*, above), not something either measured:
+whether VB6's Save Project leaves an untouched module's bytes alone, a stale qualifier included, is unmeasured. The
+files the dialog wrote are to become the
 corpus of task 4.6. Where HexIDE departs from VB6
 it does so on purpose: an orphan stays visible and editable, where VB6 hides it and drops or moves it at its next
 save; Undo restores a run and a cut carries one, where VB6 loses the description to both; a comma list keeps every
