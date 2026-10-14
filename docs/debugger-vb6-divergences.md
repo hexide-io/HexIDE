@@ -388,8 +388,8 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   sidecar could have left one there. Task 3.17 made that untrue: the sidecar's load drops a mark on a
   read-only line, from either format, and logs it (`UserSidecarService.OffReadOnlyLines`). What can still put
   one there is an edit, because a breakpoint or a bookmark is a bare line number and does not follow its line.
-  Only a header refresh moves marks (`HeaderRefresher.ShiftMarks`), and it moves those below the header with
-  the code, so a refresh never puts one on a read-only line. Three routes remain:
+  In a session, only a header refresh moves marks (`HeaderRefresher.ShiftMarks`), and it moves those below the
+  header with the code, so a refresh never puts one on a read-only line. Three routes remain:
   - an edit that adds or removes lines above a mark, by any route: Enter, a paste, a cut, Undo, an add-in's
     edit, `set_file_content`. A member's `Attribute` line can move under it: in the probe, one line inserted
     above `Public Function Total()` moved `Attribute Total.VB_Description` under a breakpoint set on
@@ -440,8 +440,8 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   ([#884](https://github.com/hexide-io/HexIDE/issues/884)), and a form HexIDE has just created, whose header
   first appears at its first designer change, save or reload, so the sidecar cannot tell whether its marks
   already count it ([#885](https://github.com/hexide-io/HexIDE/issues/885)).
-- **Numbered D23 when task 3.16 recorded it**, and renumbered on merging main, whose own D23 (#1011, cited from
-  `VBWindowContext`) came first.
+- **Numbered D23 when task 3.16 recorded it**, and renumbered in #273's documentation pass: merging main brought
+  in main's own D23 (#1011, cited from `VBWindowContext`), which came first.
 
 ### D26. A designer change while a run is paused asks nothing, and moves breakpoints the run numbers the old way
 - **VB6:** **unmeasured**: whether VB6 lets a form's design be changed in break mode at all, and whether doing so
