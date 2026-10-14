@@ -6217,8 +6217,8 @@ So:
   is written.
 - **Every write of a module writes its runs afresh**, as the earlier sessions saw at a Save Project of a dirtied one:
   re-qualified, at column 1, with single spaces, the orphans dropped. The runs an untouched module's Save writes are
-  the runs a dirtied module's save writes (`DeclShapes`, `NamesNothing`), and its Save As writes the same bytes as its
-  Save (`UntouchedC`). VB6's only byte-preserving behaviour is not writing the module at all.
+  the runs a dirtied module's save writes (`DeclShapes` by its Save, `NamesNothing` by its Save As), and its Save As
+  writes the same bytes as its Save (`UntouchedC`). VB6's only byte-preserving behaviour is not writing the module at all.
 - **A `VB_Var` line naming a name declared nowhere, loaded under a line declaring one variable, is given to no
   member**, and the next write of the module drops it. V1's retype of `Count` to `Tally` in the code window left the
   same declaration over the same description, and VB6 carried that description to `Tally`. So VB6 carries a
