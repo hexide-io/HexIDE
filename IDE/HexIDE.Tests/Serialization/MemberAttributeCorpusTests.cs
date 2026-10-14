@@ -220,12 +220,21 @@ public class MemberAttributeCorpusTests
             var text = Vb6TextFile.ReadDocument(File.ReadAllBytes(path)).Text;
             foreach (var run in ReadOnlyRegions.MemberRuns(text, 0))
             {
+                var name = Path.GetFileName(path);
                 run.Kind.Should().BeOneOf([MemberRunKind.Procedure, MemberRunKind.Variable],
-                    $"{Path.GetFileName(path)}: the run under '{FirstLineAt(text, run.DescribedStart)}' is one VB6 wrote");
+                    $"{name}: the run under '{FirstLineAt(text, run.DescribedStart)}' is one VB6 wrote");
+                foreach (var line in run.Lines)
+                {
+                    line.Qualifier.Should().NotBeNull($"{name}: VB6 writes no dotless line below the header");
+                    text.Substring(line.QualifierOffset, line.Qualifier!.Length).Should().Be(line.Qualifier,
+                        $"{name}: the qualifier is where the line says it is");
+                    run.Declared.Select(d => d.Name).Should().Contain(line.Qualifier,
+                        $"{name}: VB6 qualified the line with a name its declaration spells exactly so");
+                }
                 runs++;
             }
         }
-        runs.Should().BeGreaterThan(0);
+        runs.Should().Be(90, "58 runs in the round-trip half and 32 in the evidence's saved output");
     }
 
     /// <summary>
