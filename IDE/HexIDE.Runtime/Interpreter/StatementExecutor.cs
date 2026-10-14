@@ -453,9 +453,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitConstStmt(VB6Parser.ConstStmtContext context)
     {
-        // A Const is just a slot — the value model has no read-only concept, so reassignment isn't caught
-        // (VB6 rejects it at compile time; deferred). Module-level const names are hoisted by PrePass so a Sub
-        // declared after the Const can see them; here we evaluate the initializer and fill the slot.
+        // Module-level const names are hoisted by PrePass so a Sub declared after the Const can see them; here we evaluate
+        // the initializer and fill the slot. The slot is marked a constant, so any other store into it is refused (#1003).
         foreach (var sub in context.constSubStmt())
         {
             if (sub.typeHint() != null)
@@ -473,7 +472,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             ModuleLevelBounds.CheckConst(interpreter, currentModule, currentEnv, sub);
             var value = AsDeclared(sub, await expressionExecutor.EvaluateValue(sub.valueStmt()));
             // At module level the name was hoisted by the pre-pass, so this fills that slot.
-            if (!interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, value))
+            if (!interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, value, fillingConstant: true))
             {
                 interpreter.ExecutionContext.AllocVariable(currentEnv, name, value);
                 if (currentEnv.TryGetVariableLocation(name, out var constant))
@@ -581,6 +580,23 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // The program is over: no further statement, no Class_Terminate, no form events (#775).
         => throw interpreter.End();
 
+    private const string VariableRequired = "Variable required - can't assign to this expression";
+
+    /// <summary>
+    /// Refuse a statement whose target is a Const or an Enum member, with the message VB6 gives for that statement
+    /// (measured, #1003, a Const and an Enum member alike): a For counter, a For Each variable or the target of a Mid
+    /// statement is "Variable required - can't assign to this expression", and ReDim or Erase of one is "Expected array".
+    /// LSet and Line Input refuse one the same way as Mid; neither is implemented yet, so neither stores anything. VB6 refuses at compile time; this
+    /// raises it as the statement runs, before anything is evaluated. A Let or Set is refused by
+    /// <see cref="ModuleExecutionContext.TryUpdateVariable"/>, with "Assignment to constant not permitted".
+    /// </summary>
+    private void RefuseConstantTarget(string name, string message)
+    {
+        if (currentEnv.TryGetVariableLocation(name, out var location)
+            && (interpreter.ExecutionContext.State.IsConstant(location) || interpreter.ExecutionContext.State.IsReadOnly(location)))
+            throw new VBCompileErrorException($"{message} ({name})");
+    }
+
     public override async Task<ControlFlow> VisitEraseStmt(VB6Parser.EraseStmtContext context)
     {
         // `Erase a[, b, ...]` — a DYNAMIC array is freed (undimensioned: later LBound/UBound/index → Err 9), a FIXED
@@ -588,6 +604,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         foreach (var vs in context.valueStmt())
         {
             var name = vs.GetText();
+            RefuseConstantTarget(name, "Expected array");
             if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, name, out var v))
                 throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Variable " + name + " is not declared");
             if (!v.Type.IsArray || v.Value is not VBArray arr)
@@ -698,6 +715,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw new NotImplementedException("For Each type hints not supported");
 
         var varName = context.ambiguousIdentifier(0).GetText();
+        RefuseConstantTarget(varName, VariableRequired);
         if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, varName, out _))
             AllocImplicitVariant(varName);
 
@@ -768,6 +786,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     public override async Task<ControlFlow> VisitForNextStmt(VB6Parser.ForNextStmtContext context)
     {
         var variable = context.iCS_S_VariableOrProcedureCall().GetText();
+        RefuseConstantTarget(variable, VariableRequired);
         if (context.typeHint().Length != 0)
             throw new NotImplementedException("TypeHints not implemented");
         if (context.asTypeClause() != null)
@@ -1343,6 +1362,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (midArgs.Length < 2)
                     throw new VBRunTimeException(context, VBStandardError.ArgumentNotOptionalOrInvalidPropertyAssignment);
                 var targetName = midArgs[0].valueStmt().GetText();
+                RefuseConstantTarget(targetName, VariableRequired);
                 if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, targetName, out var midTarget))
                     throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Variable " + targetName + " is not declared");
                 var startVal = await expressionExecutor.EvaluateScalar(midArgs[1].valueStmt());
@@ -2034,6 +2054,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new NotImplementedException();
 
             var variableName = varOrProcCall.ambiguousIdentifier().GetText();
+            RefuseConstantTarget(variableName, "Expected array");
 
             if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, variableName, out var value))
                 throw new VBCompileErrorException("Unknown variable " + variableName);
