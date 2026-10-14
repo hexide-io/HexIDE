@@ -71,6 +71,17 @@ public class ExecutionState
     /// <summary>Whether a slot refuses assignment.</summary>
     public bool IsReadOnly(int location) => readOnlyLocations.Contains(location);
 
+    // A user Const's slot. Not read-only, since the Const statement fills it after the pre-pass makes it, and a class's
+    // top-level declarations run again for each instance; marked so that an argument naming it is passed by value.
+    private readonly HashSet<int> constantLocations = new();
+
+    /// <summary>Mark a slot as a user <c>Const</c>'s (see <see cref="IsConstant"/>).</summary>
+    public void MarkConstant(int location) => constantLocations.Add(location);
+
+    /// <summary>Whether a slot holds a user <c>Const</c>, which VB6 passes to a ByRef parameter by value: a write through
+    /// the parameter leaves the constant as it was (measured, #1001).</summary>
+    public bool IsConstant(int location) => constantLocations.Contains(location);
+
     private readonly HashSet<int> declaredArrayLocations = new();
 
     /// <summary>
