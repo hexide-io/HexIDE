@@ -88,10 +88,13 @@ every procedure renamed by retyping lost its run's protection.
 (`IDE/HexIDE.Runtime/Serialization/ReadOnlyRegions.cs`), and the two halves of the repository do not
 reference each other, for the same reasons the two grammar copies are separate; the server only ever has
 text, so it carries that file's text-only branch. `BundledServerRespectsTheIdesRegionsTests` keeps them in
-step by driving the built server with the real client over `demo/`, `corpus/designer`,
-`HEXIDE_ROUNDTRIP_CORPUS` when it is set, and inline files carrying members' attribute lines, which no corpus
-file has. Formatting is checked exactly: every line is given two trailing spaces, so the lines the answer
-changes must be exactly the non-empty lines outside the IDE's regions.
+step by driving the built server with the real client over four inline files, `demo/`, `corpus/designer`,
+`corpus/member-attributes` and `HEXIDE_ROUNDTRIP_CORPUS` when it is set. `corpus/member-attributes` is
+required, both its halves: the runs VB6's own IDE wrote, and the misplaced runs VB6 loaded. Without it the
+comparison would pass over the inline files and the demos alone. The inline files stay because VB6 writes no
+orphan and no rename's leftover, and each of the reader's rules is decided by one shape in them. Formatting
+is checked exactly: every line is given two trailing spaces, so the lines the answer changes must be exactly
+the non-empty lines outside the IDE's regions.
 
 - ◐ A local declared anywhere in the module counts as a name the module declares, so a `Dim Count` inside
   any procedure turns a renamed variable's `Attribute Count.VB_VarDescription` from that variable's run into
@@ -192,8 +195,10 @@ around them: a server fold that nests is kept, and one that crosses one of them 
 is dropped ([`lsp-client.md`](./lsp-client.md)). They describe the file format rather than the code, so they
 are the same whichever server is attached. Checked live on `demo/bill-of-fare`, none of the server's eleven
 procedure folds started in or crossed the form's 90-line header, which stayed one folded row when they
-arrived. A procedure's fold runs from its declaration's line to `End Sub`, so it contains its attribute
-run's fold, and the two nest.
+arrived. As the client reads it, a procedure's fold runs from the start of its declaration's line to
+`End Sub`, so it contains its attribute run's fold, and the two nest. LSP starts that fold after the
+declaration's text instead, which is where the attribute fold starts, and the client's merge would then drop
+the procedure's fold ([#1022](https://github.com/hexide-io/HexIDE/issues/1022)).
 
 - ◐ The scanner is regex/stack-based rather than ANTLR, so unusual nesting can misbehave. An ANTLR-backed
   replacement needs no client change.
@@ -277,8 +282,9 @@ whole rename.
 lines: renaming `Total` changes `Attribute Total.VB_Description` under `Total`, and nothing else on the line.
 A run VB6 gives to another member keeps what it says, so `Attribute Total.VB_Description` under `Sub Halt()`
 is `Halt`'s and is left alone (`VbProtectedRegions.IsOwnQualifier`). Nothing depends on a server sending the
-qualifier edit: the IDE rewrites a member's qualifiers itself whenever it writes a document that VB6 would
-write, as VB6 does at its own saves.
+qualifier edit. The IDE rewrites a member's qualifiers itself when it saves a document that has unsaved
+changes, at the document's own Save or Save As, and when it writes the document to another file. VB6 was
+measured doing the same. A project save leaves an unchanged member's file as it was read, and so did VB6's.
 
 **It answers with nothing** for:
 
@@ -292,8 +298,9 @@ write, as VB6 does at its own saves.
   would become a comment;
 - a caret on a keyword (`VbKeywords.ReservedWords`), a rule older than the rest.
 
-The code window asks the first three questions itself before it prompts for a name, and says why it
-refuses, because an answer of nothing shows the developer nothing at all. A local that shares only a property
+The code window asks the first three questions itself and says why it refuses, because an answer of nothing
+shows the developer nothing at all. It asks the first two before it prompts for a name, and the third after
+the prompt and before it sends the request. A local that shares only a property
 name the layout sets, such as `Caption`, or the `Index` parameter of a control array's event handler, is
 renamed as usual: its uses in the code change, and the designer lines that set `Caption` do not.
 
@@ -301,13 +308,18 @@ renamed as usual: its uses in the code change, and the designer lines that set `
   workspace model. **Semantic rename is explicitly outside the limit**, so this will not grow into it. For
   the same reason a local that shares a control's name is declined along with the control: telling a
   reference to the control from the local is binding.
-- ◐ No `prepareRename`, so the dialog always appears without pre-validating the position.
+- ◐ No `prepareRename`, so the server cannot say before the prompt that a position cannot be renamed. The
+  code window covers a protected line and a declared name itself. On a keyword the prompt still appears,
+  takes a name, and then nothing happens.
 - ◐ Every refusal above is answered with `null`, which the protocol reads as "no change was required" rather
   than "could not be done". A client that does not ask the same questions first shows nothing, and the
   keyword refusal reaches HexIDE's own code window that way
   ([#1015](https://github.com/hexide-io/HexIDE/issues/1015)).
-- ◐ Only the four words measured are refused as a new name. Any other keyword is let through, because no
-  measurement says VB6 refuses it.
+- ◐ Only those four words are refused as a new name, and any other keyword is let through. VB6 refuses
+  more in at least one position: the oracle's label probe found 24 other keywords that VB6 will not take as a
+  line label, among them `End`, `Loop`, `Next` and `Print` ([`vb6-fidelity-oracle.md`](./vb6-fidelity-oracle.md),
+  *Which keywords may name a label*). Whether it refuses each of them as a variable or procedure name has not
+  been measured, and the IDE and this server refuse only the words measured in one of those positions.
 
 **Depth: 🔧 Wired**
 

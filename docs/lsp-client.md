@@ -332,7 +332,12 @@ server is expected to keep off them — the bundled one does, by the rule in
   every answer (`Vb6FoldingAdapter.Merge`): one that nests inside or around them is kept, and one that crosses
   one of them, **or starts where one of them starts**, is dropped. The second rule is the fold library's
   doing: it pairs the folds it is given with the sections it holds by start offset alone, so a server fold
-  from the top of the file took the header's section, and the header came back unfolded.
+  from the top of the file took the header's section, and the header came back unfolded. A server's
+  procedure fold contains that procedure's attribute fold only because the client reads every server fold
+  as starting at the beginning of its first line. LSP starts a fold after that line's text, and the client
+  also ignores any character offsets a server sends
+  ([#1022](https://github.com/hexide-io/HexIDE/issues/1022)). Read as LSP means it, the fold of a procedure
+  declared on one line would start where its attribute fold starts, and the second rule would drop it.
 - **Formatting.** An answer is applied to a copy, reduced to the lines it actually changes, and any change to
   a line of the header or a member's attribute run is dropped, as one undo step. Lines are compared without
   their terminators, so a server answering in `\n` for a `\r\n` buffer does not rewrite every line.
@@ -340,11 +345,12 @@ server is expected to keep off them — the bundled one does, by the rule in
   with any edit in the header or a member's attribute run is refused whole, and the developer is told why.
   The one edit let through is a member's own name where it qualifies one of its attribute lines
   (`Attribute Total.VB_Description`), when the same answer renames that member's declaration to the same new
-  name. The code window also refuses before it asks: with the caret on a read-only line, on a name the
-  designer block declares (the form's, a control's or a menu's, which is renamed in the Properties window),
-  or with a new name that is not a VB6 name — a letter, then letters, digits and underscores, and not one of
-  `Rem`, `Empty`, `New` and `Nothing`, the four words `vb6.exe` was measured to refuse though each has a
-  name's shape.
+  name. The code window also refuses some renames before it sends the request. Before it prompts for a
+  name, it refuses when the caret is on a read-only line or on a name the designer block declares (the
+  form's, a control's or a menu's, which is renamed in the Properties window). After the prompt, it refuses
+  a new name that is not a VB6 name: a letter, then letters, digits and underscores, and not one of `Rem`,
+  `Empty`, `New` and `Nothing`, the four words `vb6.exe` was measured to refuse though each has a name's
+  shape.
 - **Diagnostics** inside the header or an attribute run are shown like any other, because they are a
   server's claim about the file. The bundled server raises none there.
 - **A rename's edits to other documents are dropped.** The code window applies the edits for its own
@@ -372,7 +378,10 @@ for every kind of document. They used to be matched to a form by its file's stem
 expected a format `vb6.exe` never writes, so in
 practice none had ever arrived ([#477](https://github.com/hexide-io/HexIDE/issues/477)). The line `vb6.exe`
 prints counts only the code it showed, without the header or any `Attribute` line, and is converted to a
-file line where the log is read and nowhere else.
+file line where the log is read and nowhere else. The conversion skips each physical line that starts with
+`Attribute`, where VB6 skips each logical line whose first word is `Attribute`. Where a `_` continuation
+meets an `Attribute` line, as one continued onto the next line or a comment continued onto one, the mark
+lands one line off ([#968](https://github.com/hexide-io/HexIDE/issues/968)).
 
 Without that, replacement meant last-writer-wins. Building with VB6 cleared its previous errors by
 publishing an empty set for every form, which deleted whatever the language server had published for those
@@ -463,10 +472,10 @@ identifier as a claim are gone.
 
 ### The one place the identifier still counts: a project's class modules
 
-The `.cls` collision is the worked example: a `.cls` is a VB6 class module *and* a LaTeX class file. A lone
-`.cls` claim therefore cannot be read as "serves VB6" — a real LaTeX server claims it too, and routing a VB6
-module there would have it parse Visual Basic as LaTeX and report confident nonsense about the developer's
-own source ([#279](https://github.com/hexide-io/HexIDE/issues/279)).
+The `.cls` collision ([#279](https://github.com/hexide-io/HexIDE/issues/279)) is the worked example: a `.cls`
+is a VB6 class module *and* a LaTeX class file. A lone `.cls` claim therefore cannot be read as "serves VB6"
+— a real LaTeX server claims it too, and routing a VB6 module there would have it parse Visual Basic as
+LaTeX and report confident nonsense about the developer's own source.
 
 So **a member of the project** is offered only to an entry whose claim establishes VB6
 (`DocumentLanguage.EstablishesVb6`): one that claims a VB6 extension no other language uses — `.bas`, `.frm`,
@@ -476,7 +485,11 @@ extension that matched already establishes VB6. It is deliberately about *VB6's*
 Stated loosely as "an extension no other language uses", it would admit a Markdown server through `.md`.
 
 **A file the project carries is not a member**, is not known to be VB6, and is routed by its extension alone.
-A carried `.cls` reaches the LaTeX server; a class module of the project does not.
+A carried `.cls` reaches the LaTeX server; a class module of the project does not. The gate closes only that
+half of the collision. A carried `.cls` also reaches every VB6 entry that claims `.cls`, the bundled one
+included, so a LaTeX class the project carries is parsed as VB6 and marked with errors it does not have.
+That half is what #279 reports, and it is still open: telling the two kinds of file apart would take
+something that reads the file, such as its first line, and extensions cannot.
 
 **Membership is stated by whoever opens the document, not worked out by the router.** The code window opens
 members and says so; the carried-file editor opens carried files and says not. The registry remembers the
@@ -515,7 +528,12 @@ claims it**, with its latest text, before any change to it is forwarded
 and every document except the one whose opening noticed the move goes silently dark. The re-open is driven by
 the registry's own record of what is open rather than by the document that triggered it, because the
 teardown stops every server and the triggering document's claimants are a smaller set. A move is noticed
-when a document is next opened, not when the project changes.
+when a document is next opened, not when the project changes. A save that gives a document its first file
+re-opens it under its new name, and that open notices the move. A save that writes no document to a new file
+notices nothing. Save Project As of a project already saved asks only where the project file goes, and so
+does the first save of a project whose documents were written into its scratch folder when they were added:
+a document is asked for a path only when it has none (`ProjectService.DestinationOf`). The running servers
+then keep the old root until a document is next opened.
 
 ### Transports
 
@@ -886,10 +904,10 @@ Three clusters account for nearly all of the gap:
 |---|---|---|
 | Full-text sync only; a declared incremental kind is ignored | Wasteful on large files; the incremental path is untested | [#282](https://github.com/hexide-io/HexIDE/issues/282) |
 | No workspace-wide pull diagnostics (`workspace/diagnostic`) | Diagnostics are per open document; a server's findings about files nobody has open are never requested | [#284](https://github.com/hexide-io/HexIDE/issues/284) |
-| `lsp-servers.json` resolved through a folder API that returns nothing on Unix | Config location is unreliable on Linux/macOS unless `XDG_CONFIG_HOME` is set | [#280](https://github.com/hexide-io/HexIDE/issues/280) |
 | No request but `initialize` has a timeout | A request about a document the server silently discarded is never answered, and nothing gives up on it | [#486](https://github.com/hexide-io/HexIDE/issues/486) |
 | A rename's `WorkspaceEdit` is applied to the code window's own document only | Edits to every other document are dropped without a word, so a binding server's rename is applied in part | [#1024](https://github.com/hexide-io/HexIDE/issues/1024) |
 | An error answered to `textDocument/rename` is turned into `null` | A server that refuses a rename with a reason is shown as one that found nothing to change | [#1015](https://github.com/hexide-io/HexIDE/issues/1015) |
+| A server's fold is read from the start of its first line, and its character offsets are ignored | Collapsed, a server's fold hides the line LSP leaves showing. Read as LSP means it, under today's merge, a procedure with an attribute run under a one-line declaration would lose its fold | [#1022](https://github.com/hexide-io/HexIDE/issues/1022) |
 
 ---
 

@@ -89,9 +89,11 @@ happens when a name changes, is in [`lsp-client.md`](./lsp-client.md).
 equally a LaTeX class file, so claiming `.cls` is not enough to receive the project's classes; reading it as
 a claim on VB6 would hand a LaTeX server your source. The entry must also establish that it serves VB6, by
 claiming one of `.bas`, `.frm`, `.ctl`, `.pag`, `.dob` or `.dsr`, or by declaring `languageId: vb6`. That is
-the only thing `languageId` is ever read for, and it never makes a claim on its own: an entry declaring `vb6`
-that claims no VB6 extension is still sent nothing. It applies only to documents of the project. A `.cls`
-the project merely carries goes to every entry that claims `.cls`, because nothing says it is VB6.
+the only thing routing ever reads `languageId` for, and it never makes a claim on its own: an entry declaring
+`vb6` that claims no VB6 extension is still sent nothing. It applies only to documents of the project. A
+`.cls` the project merely carries goes to every entry that claims `.cls`, because nothing says it is VB6.
+That includes the bundled VB6 server, so a LaTeX class file the project carries is parsed as VB6 and shown
+with errors it does not have ([#279](https://github.com/hexide-io/HexIDE/issues/279), open).
 
 > Earlier revisions of this section said HexIDE's forms and modules had no extension on the wire, and that
 > an entry naming the language `vb6` received them whatever extensions it claimed. Both were true while those
@@ -204,7 +206,8 @@ to where they were started, and that is part of whether they work at all.
 directory that does not exist on disk — it is created the moment something is written into it. A server
 cannot be launched in a directory that is not there, so HexIDE starts it in HexIDE's own directory instead
 and says so in the log. It is still told your project's directory as the workspace to analyse, so
-`{workspaceUri}` and `rootUri` are unaffected, and the server is re-rooted normally once you save.
+`{workspaceUri}` and `rootUri` are unaffected. Once you save, the server is restarted at the saved project's
+directory the next time a document is opened; a save that gives a document its first file is such an open.
 
 A `workingDirectory` **you** set is never second-guessed this way. If it does not exist the server does not
 start, and the reason names the directory — because you meant that directory, and quietly running somewhere
