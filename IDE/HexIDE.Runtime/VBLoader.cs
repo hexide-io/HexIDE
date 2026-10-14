@@ -31,6 +31,9 @@ public class VBLoader
         {
             ClipToBounds = true
         };
+        // The form's ScaleMode is the unit its controls' positions are read and written in (#933). The .frm holds them
+        // in twips whatever it is.
+        VBProps.SetScaleMode(canvas, (VBScaleMode)(element.Scale?.Mode ?? (int)VBScaleMode.Twip));
         var menu = new Menu();
         DockPanel.SetDock(menu, Avalonia.Controls.Dock.Top);
         var shortcuts = new List<(KeyGesture Gesture, Action Invoke)>();
@@ -351,8 +354,29 @@ public class VBLoader
             childHost = host;
         }
 
+        // A PictureBox's ScaleMode is the unit of the controls inside it (measured: in a pixel PictureBox, a TextBox at 150
+        // twips reads 10). HexIDE keeps it as the line the .frm wrote. A Frame has none, so its children stay in twips.
+        if (DeclaredScaleMode(component) is { } scaleMode)
+            VBProps.SetScaleMode(childHost, scaleMode);
+
         foreach (var child in component.ContainedControls)
             PlaceComponentTree(child, childHost, formCanvas, onPlaced);
+    }
+
+    // The ScaleMode a container's .frm block declares, from the line HexIDE preserves for it: `ScaleMode = 3  'Pixel`.
+    private static VBScaleMode? DeclaredScaleMode(ComponentInstance component)
+    {
+        foreach (var property in component.UnknownRawProperties)
+        {
+            if (!property.Name.Equals("ScaleMode", StringComparison.OrdinalIgnoreCase) || property.Lines.Count == 0)
+                continue;
+            var line = property.Lines[0];
+            var value = line[(line.IndexOf('=') + 1)..].TrimStart();
+            var digits = value.Length - value.TrimStart("0123456789".ToCharArray()).Length;
+            if (digits > 0 && int.TryParse(value[..digits], out var mode) && Enum.IsDefined(typeof(VBScaleMode), mode))
+                return (VBScaleMode)mode;
+        }
+        return null;
     }
 
     public static Canvas SpawnComponentsForDesigner(
