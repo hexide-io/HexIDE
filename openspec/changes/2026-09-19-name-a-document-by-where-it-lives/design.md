@@ -1062,8 +1062,9 @@ draft, and rebuilt to the rules above once the oracle overturned that. What the 
 - *An orphan is the server's ordinary text too*: it is formatted as code, and the grammar reads it as an attribute
   statement anywhere a statement goes, so a well-formed one raises nothing and a damaged one is reported. Seen
   while building: the bundled grammar takes `WithEvents` once per declaration, so `Public WithEvents A As T,
-  WithEvents B As T`, which the VBA reference's `Dim` syntax allows, is reported as a syntax error. Not measured on
-  `vb6.exe`, and not filed yet. The reader here accepts it.
+  WithEvents B As T`, which the VBA reference's `Dim` syntax allows, is reported as a syntax error. Measured since: VB6
+  accepts it, a `WithEvents` belonging to each declarator alone (the oracle's custom-events section; #1021). The
+  reader here accepts it.
 - *A logical line whose first word is `Attribute` is an attribute line however it goes on*, `Attribute = 5` and
   `Attribute(2) = 5` included, because `Attribute` is a reserved word in code (p07e). Such a line names nothing,
   so it describes nothing; all that changes is that it joins a run beside it, and a run with a nameless line in it
@@ -1284,7 +1285,9 @@ VB6 carries a procedure's description across all three kinds of rename, so that 
   description. VB6's IDE never writes the shape; only a hand-edited file carries it.
 - *Make writes a copy of the model as it stands*, so a renamed variable's stale qualifier reaches `vb6.exe /make`
   unrewritten until the document is saved, and VB6, binding a `VB_Var` line by name, attaches it to nothing in what
-  it compiles. A procedure's run is unaffected, being bound by position. Recorded, not handled.
+  it compiles. A procedure's run is unaffected, being bound by position. Recorded, not handled: today
+  Make Project's copies go to `HexIDE.Standalone`, which binds no variable attribute by name, so it would bite only
+  a build through `vb6.exe` from such a copy, one route #749 weighs; the constraint is noted there.
 
 *Settled after measuring the save* (2026-10-14). The open question this replaces, found reviewing 4.4, asked
 whether a Save As, or a write to a directory, of a document with no unsaved changes should re-qualify: (a) no, so
@@ -1451,7 +1454,7 @@ turned out wrong:
   adding whatever its caller wrote there. The developer repairs an orphan in the code window. A range edit is not
   held to this: an add-in's `TryApplyEdits` may insert an attribute line under a bare declaration, or delete the
   blank line above an orphan, because neither touches a region as the document stands. That gap is recorded, not
-  closed here. *Review found* that it also undid this bullet's first reason, that a caller allowed to promote an
+  closed here (#1012, which found a second shape: a line inserted where a run ends extends it). *Review found* that it also undid this bullet's first reason, that a caller allowed to promote an
   orphan could add any run in two calls: an add-in can add one in a single range edit. The reason above is the one
   that holds, and the spec delta says that one.
 - *A run separated from a declaration that stays is a loss*, a comment or a blank line put between them included,

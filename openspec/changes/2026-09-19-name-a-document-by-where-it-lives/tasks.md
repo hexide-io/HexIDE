@@ -1768,7 +1768,7 @@
   — **Seen while building.** The orphan fixture raises no diagnostic from the bundled server: the grammar reads an
   `Attribute` line anywhere a statement goes. A damaged orphan is reported, where a damaged member line is not.
   The grammar takes `WithEvents` once per declaration, so a list giving each name its own, which the VBA
-  reference allows, is a syntax error; the fixture avoids it, and it is recorded in design.md, not filed.
+  reference allows, is a syntax error; the fixture avoids it. Measured since and filed: VB6 accepts it (#1021).
   — **Mutation: 45 on the IDE's copy and 39 on the server's, each reddening a test**, the server's each run
   against the rebuilt server, with the parity check behind its own tests: continuation (a column-1 underscore,
   a name ending in `_`, no logical lines at all), what an attribute line is (needing whitespace after the word,
@@ -2003,7 +2003,7 @@
   every buffer the IDE composes, as recorded above.
   — **Left.** A range edit may still add a run: `TryApplyEdits` can insert an attribute line under a bare
   declaration, or delete the blank line above an orphan, since neither touches a region as the document stands, so
-  an add-in can do in one range edit what a replacement refuses. A replacement that changes the header and a run
+  an add-in can do in one range edit what a replacement refuses (#1012). A replacement that changes the header and a run
   is told about the header alone. Reordering a property's accessors passes, each run with its accessor, although
   VB6 reads the description from whichever is first (p14d); the code window allows the same move. A refusal says
   lines are removed or added where only what they describe changed: a local `Dim` added or deleted elsewhere,

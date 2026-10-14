@@ -730,6 +730,29 @@ sink is a **(listener-instance, WithEvents-var-name)** pair; a source keeps the 
 dispatches to `{varName}_{eventName}` on each listener instance, synchronously, in attach order, passing the same
 (ByRef-aliased) args to each.
 
+**`WithEvents` belongs to each declarator, not to the statement** (2026-10-14, hexide-io/HexIDE#1021). Measured with
+`scripts/vb6-oracle.ps1`, one headless `/make` and run per row. `Class2` is the source (`Public Event Ev()`, and
+`Public Sub Fire()` raising it); `Class1` holds the row's declaration line, a `Hits` string, `Private Sub A_Ev()` and
+`Private Sub B_Ev()` each appending their letter, and `Test()`, which sets `A` and `B` to new `Class2`s, fires each,
+and returns `"[" & Hits & "]"`.
+
+| Row | `Class1`'s declaration | `/make` | `Test()` |
+|---|---|---|---|
+| R1 | `Public WithEvents A As Class2, WithEvents B As Class2` | compiles | `[AB]` |
+| R2 | `Private WithEvents A As Class2, WithEvents B As Class2` | compiles | `[AB]` |
+| R3 | `Dim WithEvents A As Class2, WithEvents B As Class2` | compiles | `[AB]` |
+| R4 | `Public WithEvents A As Class2, B As Class2` | compiles | `[A]` |
+| R5 | `Public A As Class2, WithEvents B As Class2` | compiles | `[B]` |
+| R6 | the two declarations on two lines (control) | compiles | `[AB]` |
+| N1 | `Public WithEvents A As Class2, WithEvents B As Long` | `Expected: identifier` | |
+| N2 | `Public WithEvents B As Long` (control) | `Expected: identifier` | |
+
+So a `WithEvents` may stand before any declarator of a comma list, makes that declarator alone a sink, and is held
+to the same rule behind a comma as at the front (N1 against N2). The obvious reading, and HexIDE's, was that it
+qualifies the statement the way `Public` does: both grammars take it once, straight after `Dim`, `Static` or the
+visibility, so R1, R2, R3 and R5 are syntax errors here, and the interpreter, read from its code rather than run,
+makes every declarator of R4 a sink, which would print `[AB]` where VB6 prints `[A]`. Both compile errors report `Line 0`, which nothing here explains.
+
 ## `End` fires no `Class_Terminate` (interpreter-debugger reset)
 
 Verified: a module-level object held live, then `End` — the class's `Class_Terminate` does **not** run (output is
@@ -6367,8 +6390,6 @@ line above, the first draft's rule, and was rebuilt to the revised rules before 
 - Whether a constant's `VB_VarDescription` reaches a compiled type library. Probably it cannot be measured: a
   `Public Const` is rejected in an object module, a private member is not in the type library, and a standard
   module has none.
-- `Public WithEvents A As T, WithEvents B As T`, `WithEvents` repeated within one declaration, which HexIDE's
-  bundled grammar refuses.
 - E's UserControl loaded and saved again, to see that the reversed variable order is stable.
 - `Ctrl+S` with the focus in an untouched module's **code window**, rather than with the module selected in the
   Project Explorer. The menu item shows the same accelerator, so the outcome is presumably Q2's; that is inferred,
