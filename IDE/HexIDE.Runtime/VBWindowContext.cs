@@ -142,11 +142,13 @@ public class VBWindowContext : IModuleExecutionRoot
     /// <summary>
     /// Join <paramref name="program"/> as one of its forms (#822): its interpreter, its state and its pump, with an
     /// instance of <paramref name="form"/> made on first use, or <paramref name="existing"/>, an unloaded instance
-    /// loading again in this window.
+    /// loading again in this window. <paramref name="code"/> is the text the program parsed for the form, its whole
+    /// file (#273), which <see cref="Code"/> then reports as <see cref="SetCode"/>'s path does.
     /// </summary>
-    internal void Attach(VBProgram program, ModuleInfo form, VbObject? existing = null)
+    internal void Attach(VBProgram program, ModuleInfo form, string code, VbObject? existing = null)
     {
         Program = program;
+        Code = code;
         interpreter = program.Interpreter;
         ExecutionContext = program.ExecutionContext;
         Events = program.Events;
