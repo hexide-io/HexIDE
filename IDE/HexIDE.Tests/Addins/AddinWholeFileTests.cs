@@ -118,8 +118,18 @@ public class AddinWholeFileTests : IDisposable
         return Show(NewEditor().Initialize(form));
     }
 
+    /// <summary>A class whose function carries a description: a member's attribute run (#273 task 4.5b).</summary>
+    private const string DescribedClassCode =
+        "Option Explicit\r\n" +
+        "\r\n" +
+        "Public Function Total() As Currency\r\n" +
+        "Attribute Total.VB_Description = \"The order total\"\r\n" +
+        "    Total = 0\r\n" +
+        "End Function\r\n";
+
     /// <summary>A module of the given kind in a project, loaded and open in a code window that is the active one.</summary>
-    private CodeEditorViewModel OpenModule(string projectName, string name, ModuleKind kind = ModuleKind.StandardModule)
+    private CodeEditorViewModel OpenModule(string projectName, string name, ModuleKind kind = ModuleKind.StandardModule,
+        string code = ModuleCode)
     {
         var project = loaded.FirstOrDefault(p => p.Name == projectName);
         if (project is null)
@@ -128,7 +138,7 @@ public class AddinWholeFileTests : IDisposable
             loaded.Add(project);
         }
         var module = TestHelpers.CreateModule(project, name, kind);
-        module.UpdateCode(ModuleCode);
+        module.UpdateCode(code);
         project.AddModule(module);
         return Show(NewEditor().Initialize(module));
     }
@@ -286,6 +296,50 @@ public class AddinWholeFileTests : IDisposable
         result.Reason.Should().Contain("header", "the add-in is told why, not only that").And.Contain("only the IDE changes");
         result.HeaderKept.Should().BeFalse();
         editor.Document.Text.Should().Be(Frm, "nothing is written when the replacement is refused");
+    }
+
+    [AvaloniaFact]
+    public async Task AnAddinReplacesADocumentsContentChangingAMembersAttributeLines()
+    {
+        // The code-editor delta's scenario (#273 task 4.5b): the replacement is refused, and the add-in is told
+        // which member's lines it would have changed. Before, the header alone was compared and this was applied.
+        var editor = OpenModule("Shop", "Order", ModuleKind.ClassModule, DescribedClassCode);
+        var read = sut.GetActiveDocument()!.Content;
+
+        var result = await sut.TrySetContent("Order", read.Replace("The order total", "The total"), null);
+
+        result.Succeeded.Should().BeFalse();
+        result.Reason.Should().Contain("the Attribute lines describing Total are changed").And.Contain("only the IDE changes");
+        editor.Document.Text.Should().Be(read, "nothing is written when the replacement is refused");
+        (await sut.SetContent("Order", read.Replace("The order total", "The total"), null)).Should()
+            .BeFalse("the members that answer true or false refuse it too");
+    }
+
+    [AvaloniaFact]
+    public async Task AnAddinThatRenamesAMemberByReplacingTheContentTakesItsAttributeLinesAlong()
+    {
+        var editor = OpenModule("Shop", "Order", ModuleKind.ClassModule, DescribedClassCode);
+        var renamed = sut.GetActiveDocument()!.Content.Replace("Total", "Amount");
+
+        var result = await sut.TrySetContent("Order", renamed, null);
+
+        result.Succeeded.Should().BeTrue();
+        editor.Document.Text.Should().Be(renamed);
+    }
+
+    [AvaloniaFact]
+    public async Task AnEditToAMembersAttributeLineIsRefusedAndTheReasonNamesTheMember()
+    {
+        var editor = OpenModule("Shop", "Order", ModuleKind.ClassModule, DescribedClassCode);
+        var before = editor.Document.Text;
+        var line = LineOf(before, "Attribute Total.");
+
+        var result = await sut.TryApplyEdits("Order", [new AddinTextEdit(line, 1, line, 2, "a")], null);
+
+        result.Succeeded.Should().BeFalse();
+        result.Reason.Should().Be($"The edit (line {line}, column 1 to line {line}, column 2) would change the Attribute "
+                                  + "lines describing Total, which only the IDE changes. Nothing was changed.");
+        editor.Document.Text.Should().Be(before);
     }
 
     [AvaloniaFact]

@@ -129,6 +129,13 @@ Where a server's formatting answer would change a read-only region, the part tha
 the rest applied. Where a server's rename would change the header, the rename SHALL be refused as a whole and
 the developer told why.
 
+A replacement of a document's whole content SHALL be refused where it would change, add or remove a member's
+attribute run other than by moving the run with its member, renaming it with its member, or removing it together
+with the member's declaration, and the caller SHALL be told which member. A run carried with its member is still
+that member's: VB6 gives a procedure's run to the procedure above it whatever its lines name, and the run's lines
+follow the member's rename as the requirement above has them do. A run added is not exempt for having been inert
+text before, because a replacement cannot tell an orphan it repairs from a run its caller wrote.
+
 A mark SHALL NOT be set on a line in a read-only region: such a line never executes, and a folded header is
 one visible line, so a mark set there would land on a line the developer cannot see.
 
@@ -148,6 +155,11 @@ one visible line, so a mark set there would land on a line the developer cannot 
 #### Scenario: An add-in replaces a document's content
 - **WHEN** an add-in replaces a document's content with text whose header differs from the document's
 - **THEN** the replacement is refused and the add-in is told why
+
+#### Scenario: An add-in replaces a document's content, changing a member's attribute lines
+- **WHEN** an add-in replaces a document's content with text that changes, adds or drops a member's attribute
+  lines, other than by moving or renaming them with that member or deleting them with its declaration
+- **THEN** the replacement is refused and the add-in is told which member
 
 #### Scenario: A breakpoint in a form the IDE cannot save faithfully
 - **WHEN** the developer sets a breakpoint on a line of code in such a form

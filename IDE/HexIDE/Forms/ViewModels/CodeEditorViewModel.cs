@@ -1371,7 +1371,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
     /// <summary>
     /// Replaces this document's content, keeping its header: the rule add-in <c>SetContent</c> and automation
-    /// <c>set_file_content</c> share. Refused when the content would change the header.
+    /// <c>set_file_content</c> share. Refused when the content would change the header, or a member's attribute
+    /// lines other than by moving or renaming them with it or deleting them with its declaration (#273 task 4.5b).
     /// </summary>
     public ContentReplacement ReplaceContent(string incoming)
     {
@@ -1400,9 +1401,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             if (ReadOnlyRegions.Changes(regions, edit.Offset, edit.Length))
             {
                 var at = Document.GetLocation(edit.Offset);
-                return $"{describe?.Invoke(i) ?? $"The edit at line {at.Line}, column {at.Column}"} would change the "
-                       + "document's header (its designer block, class header or leading Attribute lines) or a "
-                       + "member's Attribute lines, which only the IDE changes. Nothing was changed.";
+                return $"{describe?.Invoke(i) ?? $"The edit at line {at.Line}, column {at.Column}"} would change "
+                       + WhatAnEditChanges(regions, edit) + ", which only the IDE changes. Nothing was changed.";
             }
         }
 
@@ -1410,6 +1410,31 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         lastFirst.Sort((a, b) => b.Offset.CompareTo(a.Offset));
         ApplyAsOneStep(lastFirst);
         return null;
+    }
+
+    /// <summary>
+    /// What a refused edit would change, as its refusal says it: the header, or the attribute lines of each member
+    /// whose run it reaches, named as a refused replacement names them (#273 task 4.5b).
+    /// </summary>
+    /// <remarks>
+    /// The header is named when the edit reaches it at all, as it always was; an edit reaching only members' runs
+    /// names those members, where it used to say "the header or a member's Attribute lines" and leave the caller to
+    /// work out which.
+    /// </remarks>
+    private string WhatAnEditChanges(IReadOnlyList<TextRegion> regions, TextChange edit)
+    {
+        var members = new List<string>();
+        foreach (var region in regions)
+        {
+            if (!region.Changes(edit.Offset, edit.Length))
+                continue;
+            if (GuardedContent.MemberNamedBy(Document.Text, bufferPrefix.Length, region) is not { } member)
+                return "the document's header (its designer block, class header or leading Attribute lines)";
+            members.Add(member);
+        }
+        return "the Attribute lines describing " + (members.Count == 1
+            ? members[0]
+            : string.Join(", ", members.GetRange(0, members.Count - 1)) + " and " + members[^1]);
     }
 
     /// <summary>Shows a refusal from one of the guarded writers to the developer.</summary>

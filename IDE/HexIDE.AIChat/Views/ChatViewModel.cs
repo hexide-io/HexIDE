@@ -477,6 +477,11 @@ public sealed class ChatViewModel : INotifyPropertyChanged
                       + "designer and the Properties window. So apply_edit takes either the whole file with the header exactly "
                       + "as shown, or the code alone, and keeps the header either way; content whose header differs is refused. "
                       + "To change a control or a property, tell the developer to do it in the designer.");
+        sb.AppendLine("A member's Attribute lines, the run directly under a procedure's or variable's declaration that gives it "
+                      + "a description, help topic or dispatch id, are read-only too. Keep them exactly as shown: they may move "
+                      + "with their member, follow its rename, or go when its declaration is deleted, and apply_edit refuses "
+                      + "content that changes, adds or drops them, naming the member. Do not write new Attribute lines; where "
+                      + "one should change, say so and leave it to the developer.");
         sb.AppendLine("Line numbers, in diagnostics and for navigate_to, count from 1 at the top of the file, header included.");
         sb.AppendLine("Be concise and practical.");
         sb.AppendLine();

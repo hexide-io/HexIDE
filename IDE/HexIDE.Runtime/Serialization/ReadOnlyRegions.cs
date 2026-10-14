@@ -209,6 +209,30 @@ public enum DeclarationKind
     Constant,
 }
 
+/// <summary>Which of a property's accessors a <c>Property</c> declaration declares.</summary>
+public enum PropertyAccessor
+{
+    /// <summary><c>Property Get</c>.</summary>
+    Get,
+
+    /// <summary><c>Property Let</c>.</summary>
+    Let,
+
+    /// <summary><c>Property Set</c>.</summary>
+    Set,
+}
+
+/// <summary>
+/// A declaration a run of attribute lines could describe, and for a property which accessor it is
+/// (hexide-io/HexIDE#273 task 4.5b). See <see cref="ReadOnlyRegions.MemberDeclarations"/>.
+/// </summary>
+/// <param name="Name">The name it declares, where, and what it declares.</param>
+/// <param name="Accessor">The accessor a <c>Property</c> declaration declares; null for every other declaration.</param>
+/// <remarks>
+/// A record of its own rather than a field on <see cref="DeclaredName"/>, whose positional equality tests pin.
+/// </remarks>
+public readonly record struct MemberDeclaration(DeclaredName Name, PropertyAccessor? Accessor);
+
 /// <summary>
 /// Where the read-only regions of a code window's buffer are: the file's header, and each run of attribute
 /// lines describing a member (hexide-io/HexIDE#273 phase 3).
@@ -336,6 +360,51 @@ public static class ReadOnlyRegions
 
     /// <summary>The names <paramref name="line"/> declares; see <see cref="NamesDeclaredOn(string, int, int)"/>.</summary>
     public static IReadOnlyList<DeclaredName> NamesDeclaredOn(string line) => NamesDeclaredOn(line, 0, line.Length);
+
+    /// <summary>
+    /// Every declaration below the header of <paramref name="text"/> that a run of attribute lines could describe,
+    /// in order: every procedure, and the variables and constants of the declarations section.
+    /// </summary>
+    /// <param name="text">The whole buffer, or any whole file: give 0 for <paramref name="prefixLength"/>.</param>
+    /// <param name="prefixLength">
+    /// The length of the header the buffer was composed with, or 0 when the model split nothing off.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <b>What is declared, described or not</b>, for comparing two texts (task 4.5b): a run's own
+    /// <see cref="MemberRun.Member"/> says what that run describes, and is one of these, at the same offset. Read as
+    /// <see cref="MemberRuns"/> reads the line above a run, every statement of every logical line, and with the same
+    /// declarations section: before the first logical line that opens a procedure's body, so a procedure's own
+    /// <c>Dim</c>, which no run can describe, is not one.
+    /// </para>
+    /// <para>
+    /// <b>A property's accessor is reported</b> because the name alone cannot say which of a property's
+    /// declarations a run hangs from, and it matters to VB6: it reads a property's description from its first
+    /// accessor in the file alone, and a run under the second reaches nothing (oracle probes p14d, p14e).
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<MemberDeclaration> MemberDeclarations(string text, int prefixLength)
+    {
+        var lines = LinesOf(text);
+        var declarations = new List<MemberDeclaration>();
+        var accessors = new List<PropertyAccessor?>();
+        var inBody = false;
+        foreach (var line in LogicalLinesOf(text, lines, HeaderLineCount(text, lines, prefixLength)))
+        {
+            accessors.Clear();
+            var names = ReadDeclarations(text, lines[line.First].Start, lines[line.Last].ContentEnd, out var opensBody, accessors);
+            // A line that opens a body is past the declarations section itself, as Scan reads it: a variable declared
+            // before a Sub on one line is not a module-level one.
+            var moduleLevel = !inBody && !opensBody;
+            for (var i = 0; i < names.Count; i++)
+            {
+                if (names[i].Kind == DeclarationKind.Procedure || moduleLevel)
+                    declarations.Add(new MemberDeclaration(names[i], accessors[i]));
+            }
+            inBody |= opensBody;
+        }
+        return declarations;
+    }
 
     /// <summary>
     /// The offset just past the header, which is where the developer's code starts. 0 when there is no header.
@@ -637,7 +706,12 @@ public static class ReadOnlyRegions
     /// True when a statement on it declares a <c>Sub</c>, a <c>Function</c> or a <c>Property</c> accessor, which
     /// opens a procedure's body: the end of the module's declarations section.
     /// </param>
-    private static List<DeclaredName> ReadDeclarations(string text, int start, int end, out bool opensBody)
+    /// <param name="accessors">
+    /// When given, receives one entry for each name returned, in step: the accessor a <c>Property</c> declaration
+    /// declares, and null for every other (<see cref="MemberDeclarations"/>).
+    /// </param>
+    private static List<DeclaredName> ReadDeclarations(string text, int start, int end, out bool opensBody,
+        List<PropertyAccessor?>? accessors = null)
     {
         var tokens = TokensOf(text, start, end);
         var names = new List<DeclaredName>();
@@ -648,7 +722,7 @@ public static class ReadOnlyRegions
             var to = from;
             while (to < tokens.Count && tokens[to].Kind != TokenKind.Colon)
                 to++;
-            opensBody |= ReadStatement(text, tokens, from, to, names);
+            opensBody |= ReadStatement(text, tokens, from, to, names, accessors);
             from = to + 1;
         }
         return names;
@@ -656,9 +730,11 @@ public static class ReadOnlyRegions
 
     /// <summary>
     /// Adds the names the statement of <paramref name="tokens"/> <c>[t, end)</c> declares to
-    /// <paramref name="names"/>; true when it opens a procedure's body.
+    /// <paramref name="names"/>, and to <paramref name="accessors"/> when given what each declares of a property;
+    /// true when it opens a procedure's body.
     /// </summary>
-    private static bool ReadStatement(string text, List<Token> tokens, int t, int end, List<DeclaredName> names)
+    private static bool ReadStatement(string text, List<Token> tokens, int t, int end, List<DeclaredName> names,
+        List<PropertyAccessor?>? accessors)
     {
         var modified = false;
         while (IsWord(text, tokens, t, end, "Public", "Private", "Friend", "Global", "Static"))
@@ -690,7 +766,10 @@ public static class ReadOnlyRegions
         {
             if (!IsWord(text, tokens, t + 1, end, "Get", "Let", "Set"))
                 return false;
-            AddName(t + 2, DeclarationKind.Procedure);
+            AddName(t + 2, DeclarationKind.Procedure,
+                IsWord(text, tokens, t + 1, end, "Get") ? PropertyAccessor.Get
+                : IsWord(text, tokens, t + 1, end, "Let") ? PropertyAccessor.Let
+                : PropertyAccessor.Set);
             return true;
         }
         if (IsWord(text, tokens, t, end, "Const"))
@@ -733,10 +812,13 @@ public static class ReadOnlyRegions
             }
         }
 
-        void AddName(int at, DeclarationKind kind)
+        void AddName(int at, DeclarationKind kind, PropertyAccessor? accessor = null)
         {
             if (at < end && tokens[at].Kind == TokenKind.Word)
+            {
                 names.Add(new DeclaredName(text.Substring(tokens[at].Start, tokens[at].Length), tokens[at].Start, kind));
+                accessors?.Add(accessor);
+            }
         }
     }
 

@@ -55,7 +55,8 @@ public static class DocumentContent
 
     /// <summary>
     /// Replaces the document's content with <paramref name="incoming"/>, keeping its header, or refuses when
-    /// the content would change the header. Nothing changes when it is refused.
+    /// the content would change the header or a member's attribute lines (<see cref="GuardedContent"/>). Nothing
+    /// changes when it is refused.
     /// </summary>
     /// <remarks>
     /// With a code window open the buffer takes the text and the model is given it at the next flush, as it is

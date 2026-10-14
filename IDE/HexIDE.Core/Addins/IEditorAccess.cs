@@ -16,8 +16,17 @@ namespace HexIDE.Addins;
 /// document has it, or the code alone, in which case the document's own header is kept in front of it; a form's
 /// code may also be sent with the <c>Attribute</c> lines it opens with, as earlier versions of this surface
 /// handed it out. A replacement whose header differs is refused. An edit to a range is refused if it would change
-/// the header or a member's <c>Attribute</c> lines. A replacement checks the header only: in this version one that
-/// changes a member's <c>Attribute</c> lines is applied (hexide-io/HexIDE#273 task 4.5b).
+/// the header or a member's <c>Attribute</c> lines, and the refusal names the member.
+/// </para>
+/// <para>
+/// <b>A member's <c>Attribute</c> lines are the IDE's too</b>: the run of them directly under a procedure's,
+/// property's or module-level variable's declaration, which give it its description, help topic or dispatch id. A
+/// replacement may move them with their member, as it moves the procedure, and rename them with it, and they may go
+/// with the member's declaration; otherwise it sends them exactly as the document has them. One that changes,
+/// adds or drops a member's <c>Attribute</c> lines is refused, and the refusal names each member
+/// (hexide-io/HexIDE#273 task 4.5b). Renaming a member and changing its lines, or retyping its declaration, in one
+/// replacement is refused as lines added to the new name. <c>Attribute</c> lines that describe nothing, under a
+/// blank line or a comment say, are ordinary text.
 /// </para>
 /// <para>
 /// <b>The members that start <c>Try</c> say why a call was refused</b>, and are the ones to call. The others
@@ -72,13 +81,14 @@ public interface IEditorAccess
     /// <remarks>
     /// Send the whole file with its header exactly as the document has it, which is what
     /// <see cref="AddinDocument.Content"/> holds, or the code alone. Either way the document keeps its own
-    /// header.
+    /// header. A member's <c>Attribute</c> lines go with it: moved or renamed with the member, or deleted with its
+    /// declaration, and otherwise exactly as the document has them.
     /// </remarks>
     /// <inheritdoc cref="NavigateTo(string, int, int, string?)" path="/param"/>
     /// <returns>
     /// False when no loaded project has the name given as <paramref name="project"/>, when no such document was
-    /// found, when the name was ambiguous, or when the content would have changed the document's header, in
-    /// which case nothing was written. <see cref="TrySetContent"/> says which.
+    /// found, when the name was ambiguous, or when the content would have changed the document's header or a
+    /// member's <c>Attribute</c> lines, in which case nothing was written. <see cref="TrySetContent"/> says which.
     /// </returns>
     Task<bool> SetContent(string fileName, string content, string? project);
 
@@ -121,11 +131,10 @@ public interface IEditorAccess
     /// <inheritdoc cref="NavigateTo(string, int, int, string?)" path="/param"/>
     /// <returns>
     /// Whether the content was written, and if not, why: no loaded project of the name given as
-    /// <paramref name="project"/>, no such document, a name two loaded projects share, or a header that differs
-    /// from the document's. Nothing is written when it is refused. A change to a member's <c>Attribute</c> lines
-    /// is not checked in this version, and is written (hexide-io/HexIDE#273 task 4.5b).
-    /// <see cref="AddinEditResult.HeaderKept"/> says whether the document's header was put in front of what
-    /// was sent.
+    /// <paramref name="project"/>, no such document, a name two loaded projects share, a header that differs
+    /// from the document's, or a change to a member's <c>Attribute</c> lines, which names each member it reaches.
+    /// Nothing is written when it is refused. <see cref="AddinEditResult.HeaderKept"/> says whether the document's
+    /// header was put in front of what was sent.
     /// </returns>
     async Task<AddinEditResult> TrySetContent(string fileName, string content, string? project) =>
         await SetContent(fileName, content, project).ConfigureAwait(false)
