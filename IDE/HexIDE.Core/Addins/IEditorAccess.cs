@@ -24,9 +24,9 @@ namespace HexIDE.Addins;
 /// replacement may move them with their member, as it moves the procedure, and rename them with it, and they may go
 /// with the member's declaration; otherwise it sends them exactly as the document has them. One that changes,
 /// adds or drops a member's <c>Attribute</c> lines is refused, and the refusal names each member
-/// (hexide-io/HexIDE#273 task 4.5b). Renaming a member and changing its lines in one replacement is refused as
-/// lines added to the new name. <c>Attribute</c> lines that describe nothing, under a blank line or a comment say,
-/// are ordinary text.
+/// (hexide-io/HexIDE#273 task 4.5b). Renaming a member and changing its lines, or retyping its declaration, in one
+/// replacement is refused as lines added to the new name. <c>Attribute</c> lines that describe nothing, under a
+/// blank line or a comment say, are ordinary text.
 /// </para>
 /// <para>
 /// <b>The members that start <c>Try</c> say why a call was refused</b>, and are the ones to call. The others

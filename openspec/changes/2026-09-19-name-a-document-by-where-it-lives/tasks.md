@@ -1864,11 +1864,51 @@
   agrees with the header read from its text, and no other shape was found. Not run, as equivalent: the early return
   when every run matched, which the passes after it reach anyway, and `MemberNamedBy` asking whether a run describes a
   member, since an orphan's region is never one `Of` returns.
+  — **Reviewed.** Review's probes and mutants found four defects, each checked here before it was fixed. The
+  rename pass never looked at accessors, so a property renamed with its one run moved from its Get to its Let
+  was applied, and renaming it back made, in two calls, the move one call refuses. A run is now carried across a
+  rename, which keeps its accessor, or a retype, which keeps its name, and not both at once (`RenamedOrRetyped`);
+  a lone accessor retyped and renamed in one replacement is refused with it and takes two. `Member` gains whether
+  a declaration is a procedure, so a procedure retyped to a variable of its name, or back, is a declaration gone
+  and its run, describing nothing, goes with it as an orphan; it was refused as a run lost. A changed comma-list
+  run is named by every variable either version names, where it named the replacement's alone and missed a
+  variable whose line was removed. And design.md said renaming a comma list's later declarator was refused
+  re-qualified or not, which holds only under a run that also names an earlier one: V2's `Multi2`, the later
+  declarator described alone, renames as a one-name run does, so the sentence is corrected and both shapes are
+  pinned. Decided, not changed: two members trading runs through renames, in one call or two, is accepted, since
+  the code window reaches the same end by retyping the names (design.md gives the k-th-to-k-th pairing considered
+  and why not). Restated: the accessor key's reason is the declaration a run hangs from, not what VB6 compiles,
+  with the three edits where they part; the spec delta's reason for refusing a promoted orphan, two calls, which an
+  add-in's single range edit undoes, now rests on a replacement not telling a repaired orphan from a written run;
+  and its save clause defers to the rename requirement, which 4.4 builds. `set_file_content`'s call-site comment
+  named the header alone, and the refusal's last sentence now names a retype beside a changed run.
+  — **Tests, after review.** `GuardedContentMemberRunTests` gains 14 cases, 54 in all: a lone accessor retyped,
+  a rename moving a property's run from Get to Let, an accessor retyped and renamed at once, a declaration retyped
+  to the other kind both ways, a run removed under a re-cased declaration, a changed comma-list run losing or
+  gaining a line, a one-variable run of two lines (VB6's order), two lines joined into one, a later declarator's own
+  run renamed both ways, and a later declarator renamed under a run the first also names, both ways.
+  — **Mutation, after review: eleven, one at a time, each reddening a test.** Names compared by case (review's
+  G21) reddens the re-cased declaration's row. A changed run named by the document's version alone (G38), by the
+  replacement's alone, or by both without de-duplication reddens the comma-list rows, the last the one-variable
+  run's too; `NamesOf` without de-duplication (G39) the one-variable run's. No separator between compared lines
+  (G30) is not equivalent after all: a comma list's two lines joined into one read the same without it, and that
+  row reddens. Pairing regardless of accessor, as reviewed, or without the predicate, reddens the two Get-to-Let
+  rows; on the accessor alone, the two retype rows; on the name alone, eight rename rows; and `Member` without
+  the procedure flag, the two kind-retype rows. Equivalent, and said so in the code: the early return when every
+  run matched (G16), commented as a shortcut; `MemberNamedBy`'s orphan test (G36) and `NamesOf`'s procedure test
+  (G35), each marked defensive with its reason; and a prefix of 0 for the composed text (G02) and from
+  `ApplyEdits` (E04), equivalent wherever a buffer's prefix agrees with the header its text reads as, which is
+  every buffer the IDE composes, as recorded above.
   — **Left.** A range edit may still add a run: `TryApplyEdits` can insert an attribute line under a bare
   declaration, or delete the blank line above an orphan, since neither touches a region as the document stands, so
-  an add-in can do in two range edits what a replacement refuses. A replacement that changes the header and a run
+  an add-in can do in one range edit what a replacement refuses. A replacement that changes the header and a run
   is told about the header alone. Reordering a property's accessors passes, each run with its accessor, although
-  VB6 reads the description from whichever is first (p14d); the code window allows the same move.
+  VB6 reads the description from whichever is first (p14d); the code window allows the same move. A refusal says
+  lines are removed or added where only what they describe changed: a local `Dim` added or deleted elsewhere,
+  turning a renamed variable's run into an orphan or back (the reader's recorded weakness, 4.1), an orphan's line
+  deleted from a mixed run, which promotes the rest, and a comma list's lines reordered, which changes its key.
+  Left as worded, since the add-in contract and the tool description use the same words; the refusal is right in
+  each, and only its verb is loose.
 - [ ] 4.6 Corpus lane: files carrying member-level attributes round-trip, which no lane covers today.
 - [ ] 4.7 Tests, one per scenario in this phase's delta, plus a deletion case for a described procedure.
 - [ ] 4.8 Verify in the running IDE, through the automation tools: a procedure's attributes folded into its

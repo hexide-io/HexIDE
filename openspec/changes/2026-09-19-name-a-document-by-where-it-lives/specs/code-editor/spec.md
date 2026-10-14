@@ -132,9 +132,9 @@ the developer told why.
 A replacement of a document's whole content SHALL be refused where it would change, add or remove a member's
 attribute run other than by moving the run with its member, renaming it with its member, or removing it together
 with the member's declaration, and the caller SHALL be told which member. A run carried with its member is still
-that member's: VB6 gives a procedure's run to the procedure above it whatever its lines name, and the IDE writes
-the member's name into them at its next save. A run added is not exempt for having been inert text before, because
-a caller that may promote an orphan may add any run in two steps.
+that member's: VB6 gives a procedure's run to the procedure above it whatever its lines name, and the run's lines
+follow the member's rename as the requirement above has them do. A run added is not exempt for having been inert
+text before, because a replacement cannot tell an orphan it repairs from a run its caller wrote.
 
 A mark SHALL NOT be set on a line in a read-only region: such a line never executes, and a folded header is
 one visible line, so a mark set there would land on a line the developer cannot see.

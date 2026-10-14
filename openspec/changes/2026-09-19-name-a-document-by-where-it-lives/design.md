@@ -1227,16 +1227,29 @@ the member in its refusal too.
 
 *Settled while building 4.5b.* The rule above, built, needed four things it left open, and two of its words
 turned out wrong:
-- *A run is matched by the declaration it hangs from, its member's name and a property's accessor, and not by
-  `MemberRunKey`.* "Keyed by member" first meant the key, and the key's ordinal is file order: deleting a
-  property's Get with its run, or putting the Let above the Get, renumbers the runs that remain, and the
-  comparison then sets one accessor's run against the other's and refuses an edit every rule allows. The name
-  alone is not enough either. VB6 reads a property's description from its first accessor in the file and nothing
-  else (oracle probes p14d, p14e), so a replacement that moves a property's one run from its Get to its Let changes
-  what VB6 compiles while the property's name still carries the run, and matching by name would let it through.
-  So `ReadOnlyRegions.MemberDeclarations` (new, additive, and the IDE's alone: nothing the server reads changed)
-  lists every declaration a run could describe with its accessor, and a run finds its own there by offset. The key
-  stays what 4.3 keys fold state by, where it serves.
+- *A run is matched by the declaration it hangs from, its member's name, whether that is a procedure, and a
+  property's accessor, and not by `MemberRunKey`.* "Keyed by member" first meant the key, and the key's ordinal is
+  file order: deleting a property's Get with its run, or putting the Let above the Get, renumbers the runs that
+  remain, and the comparison then sets one accessor's run against the other's and refuses an edit every rule
+  allows. The name alone is not enough either, because a property's Get and Let are two declarations, and a run
+  moved from one to the other leaves the declaration it hung from while that one stays. So
+  `ReadOnlyRegions.MemberDeclarations` (new, additive, and the IDE's alone: nothing the server reads changed) lists
+  every declaration a run could describe with its accessor, and a run finds its own there by offset. The key stays
+  what 4.3 keys fold state by, where it serves.
+  *Restated after review.* This first gave the accessor's reason as VB6's: it reads a property's description
+  from its first accessor in the file alone (oracle probes p14d, p14e), so moving the run from Get to Let
+  "changes what VB6 compiles". That is not what the rule tracks. **The guard keeps a run's text and the
+  declaration it hangs from**, not what VB6 compiles from them, and three edits come out the other way from VB6,
+  each erring towards a refusal or towards what the code window allows too. Reordering a property's accessors
+  passes, each run with its own, though VB6 may then read nothing: a Let-first property described on its Let,
+  with the bare Get moved above it, is p14e's shape. Deleting the Get and moving its run to the Let is refused,
+  though the Let is then first and VB6 reads the same description. And splitting `Public A As Long, B As Long`
+  into a line per declarator, each keeping its own attribute line, is refused as A's run changed and B's added,
+  though VB6 binds each line by name either way. Whether a declaration is a procedure was added by review: with
+  the name alone, `Public Sub Halt()` retyped to `Public Halt As Long` was the same declaration, still there, and
+  the run left under it, which then describes nothing (p05i), was refused as lost. It is a declaration gone, so the
+  run goes with it as an orphan, as it does when the declaration is commented out, and a variable retyped to a
+  procedure the same way (p05h).
 - *"Go with its declaration" is counted.* A run may be lost when its member is declared fewer times than before,
   one run for each declaration gone. Asking whether the member is still declared at all would refuse deleting a
   property's Get with its run while its Let, and the Let's run, stay.
@@ -1245,9 +1258,23 @@ turned out wrong:
   needs it to, since both readings leave the same text. What follows: a rename onto a name the document already
   declares (Halt deleted, its run put under the existing Pause) is an addition to Pause, refused; and a rename that
   also changes the run is an allowed loss under the old name and a refused addition under the new, so the refusal
-  names the new name alone and says that a rename and a change in one replacement read that way. A property's Get
-  and Let renamed together pair accessor to accessor, and an accessor retyped, Get to Let or Get to `Function`,
-  pairs as a rename does, which is V3's reading of `Function` to `Sub` carried over.
+  names the new name alone and says that a rename and a change in one replacement read that way. A run is carried
+  across a rename, which keeps the declaration's accessor, or across a retype, which keeps its name, and not across
+  both at once: a property's Get and Let renamed together pair accessor to accessor, and an accessor retyped, Get to
+  Let or Get to `Function`, pairs as V3's `Function` to `Sub` does.
+  *Found by review*: the first build paired any declaration gone with any come, so a property renamed with its
+  one run moved from its Get to its Let was applied, and renaming it back in a second call made the move that one
+  call refuses with the name kept. Text cannot tell that from a lone accessor retyped and renamed at once, which is
+  refused with it and takes two replacements.
+  *Accepted, found by review*: pairing by lines and counts cannot tell which renamed declaration became which. Two
+  members renamed in one replacement may each take the other's run, and two calls, renaming and renaming back,
+  leave each name with the other's description, where one call swapping the descriptions is refused. The reasoning
+  above settles it: text cannot tell those renames from deletions beside new members, and the code window reaches
+  the same end by retyping the two names, since a procedure's run follows its position. What it cannot do is
+  write a run's text, which no sequence of replacements can either. Pairing the k-th declaration gone with the k-th
+  come, in file order, was considered and not taken: it refuses a replacement that deletes one described member
+  and adds a bare one below a renamed one, as a caller regenerating a module sends, and two renamed members
+  reordered.
 - *"Reading the lines of a run whose qualifiers the save re-writes without them" was not enough for a variable.*
   Under that reading a variable's run is read with its qualifiers, and renaming the variable by replacement
   leaves a run read with a new qualifier, or a renamed one read with none, so neither ever matched the old run
@@ -1259,17 +1286,25 @@ turned out wrong:
   to a name declared nowhere, which the save writes back (4.4).
 - *An orphan turned into a run is an addition, and refused*, a pasted line under a declaration included, though in
   the code window such a line is a run at once (4.5a), and though VB6 binds a `VB_Var…` orphan below its variable
-  already. A replacement cannot be told from text its caller wrote, and an orphan is free text, so a caller allowed
-  to promote one could add any run in two calls. The developer repairs an orphan in the code window. A range edit
-  is not held to this: an add-in's `TryApplyEdits` may insert an attribute line under a bare declaration, or delete
-  the blank line above an orphan, because neither touches a region as the document stands. That gap is recorded,
-  not closed here.
+  already. A replacement cannot be told from text its caller wrote, and an orphan is free text, so promoting one is
+  adding whatever its caller wrote there. The developer repairs an orphan in the code window. A range edit is not
+  held to this: an add-in's `TryApplyEdits` may insert an attribute line under a bare declaration, or delete the
+  blank line above an orphan, because neither touches a region as the document stands. That gap is recorded, not
+  closed here. *Review found* that it also undid this bullet's first reason, that a caller allowed to promote an
+  orphan could add any run in two calls: an add-in can add one in a single range edit. The reason above is the one
+  that holds, and the spec delta says that one.
 - *A run separated from a declaration that stays is a loss*, a comment or a blank line put between them included,
   so it is refused as deleting it would be. A declaration commented out takes its run with it, as an orphan that
   keeps its text.
-- *A comma list's run is named by every variable its lines name*, and is matched under the first, its key's, so
-  renaming a later declarator of a described line by replacement is refused whether its line is re-qualified or
-  not. VB6 drops such a declarator's attributes at the edit (V2); the code window leaves an orphan.
+- *A comma list's run is named by every variable its lines name*, and is matched under the first of them, its
+  key's. So renaming a later declarator under a run that also names an earlier one is refused whether its line is
+  re-qualified or not: the run is the earlier one's, which stays, and re-qualified, its line reads the new name,
+  while left, it names a name the line no longer declares and the whole run is an orphan. A run naming the later
+  declarator alone, V2's `Multi2` shape, is keyed by it and renames as a one-name run does: re-qualified it is
+  carried, left it is an orphan whose declaration went, and both pass. VB6 drops such a declarator's attributes at
+  any edit of its line (V2); HexIDE keeps their text either way, as 4.4 does. *Corrected by review*: this said the
+  rename was refused in both shapes, and no test had the second. A refusal for a changed run names every variable
+  either version names, so a line removed from it, or added, names its variable too.
 - *The header is checked first*, and a replacement that changes both is told about the header alone, as before.
 - *`set_file_content`'s description had 158 characters left under the 2048 a client delivers*
   (`ToolDescriptionLengthTests`), so what to send moved into the `content` parameter's own description, which

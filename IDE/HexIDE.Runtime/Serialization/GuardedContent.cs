@@ -98,8 +98,10 @@ public static class GuardedContent
         var declarations = ReadOnlyRegions.MemberDeclarations(text, prefixLength);
         foreach (var run in ReadOnlyRegions.MemberRuns(text, prefixLength))
         {
+            // Defensive: every region a caller holds comes from ReadOnlyRegions.Of, which never returns an orphan's,
+            // so the region test alone decides today. An orphan names no member for NamesOf to read.
             if (run.DescribesMember && run.Region == region)
-                return Who(run, AccessorOf(run, declarations));
+                return Joined(NamesOf(run, AccessorOf(run, declarations)));
         }
         return null;
     }
@@ -110,13 +112,15 @@ public static class GuardedContent
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>A run is matched by the declaration it hangs from: the member's name, and for a property the accessor.</b>
-    /// Not by <see cref="MemberRunKey"/>'s ordinal, which is file order: deleting a property's first accessor, or
-    /// putting its Let above its Get, renumbers the runs of the accessors that remain, and the ordinal would then
-    /// compare one accessor's run with another's (settled while building 4.5b). The accessor and not the name alone,
-    /// because VB6 reads a property's description from its first accessor in the file alone (oracle probes p14d and
-    /// p14e), so a replacement that moves a property's one run from its Get to its Let changes what VB6 compiles
-    /// while the name keeps the run.
+    /// <b>A run is matched by the declaration it hangs from: the member's name, whether it is a procedure, and for a
+    /// property the accessor.</b> Not by <see cref="MemberRunKey"/>'s ordinal, which is file order: deleting a
+    /// property's first accessor, or putting its Let above its Get, renumbers the runs of the accessors that remain,
+    /// and the ordinal would then compare one accessor's run with another's (settled while building 4.5b). What the
+    /// guard keeps is a run's text and the declaration it hangs from, not what VB6 compiles from them: a property's
+    /// Get and Let are two declarations, so a run moved from one to the other is lost by the one and added to the
+    /// other, though the name carries both. A procedure retyped to a variable of its name, or the other way, leaves
+    /// a declaration of the other kind, under which the run describes nothing (oracle probes p05i, p05h), so the run
+    /// went with its declaration, as it does when the declaration is commented out.
     /// </para>
     /// <para>
     /// <b>A run's lines are read without a qualifier that stands for the run's own member</b>: every qualifier of a
@@ -131,9 +135,18 @@ public static class GuardedContent
     /// runs that only moved, or a property's Get and Let swapped with a run each, pass. What is left in the
     /// replacement is paired with what is left in the document as a rename, where a declaration went and another
     /// came: the run's lines unchanged, under a member declared fewer times than before, now under one declared
-    /// more. What is left after that in the document is a run gone with its declaration, while that member is
-    /// declared fewer times than before, and otherwise a run lost while its declaration stays; what is left in the
-    /// replacement is added. A member with both is a run changed.
+    /// more, the two declarations sharing the name, which is a retype, or the accessor, which is a rename
+    /// (<see cref="RenamedOrRetyped"/>). What is left after that in the document is a run gone with its
+    /// declaration, while that member is declared fewer times than before, and otherwise a run lost while its
+    /// declaration stays; what is left in the replacement is added. A member with both is a run changed.
+    /// </para>
+    /// <para>
+    /// <b>A rename pairs by lines and counts, so it cannot tell which renamed declaration became which</b>: two
+    /// members renamed in one replacement may each take the other's run, and two calls, renaming and renaming
+    /// back, then leave each name with the other's description, where one call swapping the descriptions is
+    /// refused. Accepted (design.md, "Settled while building 4.5b"): the code window gives the same end state by
+    /// retyping the two names, since a procedure's run follows its position. Pairing is greedy, in file order,
+    /// which can matter only between runs whose lines are the same.
     /// </para>
     /// <para>
     /// <b>An orphan turned into a run is an addition</b>, a pasted line under a declaration included, though in the
@@ -158,6 +171,7 @@ public static class GuardedContent
             else
                 leftBefore.Add(run);
         }
+        // A shortcut: when nothing is left, the passes below find nothing to refuse either.
         if (leftBefore.Count == 0 && leftAfter.Count == 0)
             return null;
 
@@ -174,7 +188,8 @@ public static class GuardedContent
         foreach (var run in leftAfter)
         {
             var from = came.GetValueOrDefault(run.Member) > 0
-                ? leftBefore.FindIndex(b => went.GetValueOrDefault(b.Member) > 0 && b.Lines == run.Lines)
+                ? leftBefore.FindIndex(b => went.GetValueOrDefault(b.Member) > 0 && b.Lines == run.Lines
+                                            && RenamedOrRetyped(b.Member, run.Member))
                 : -1;
             if (from < 0)
             {
@@ -205,7 +220,14 @@ public static class GuardedContent
             var changed = added.FindIndex(a => a.Member == run.Member);
             if (changed >= 0)
             {
-                findings.Add($"the Attribute lines describing {added[changed].Who} are changed");
+                // Named by what either version names: a variable whose line only one of them carries is reached too.
+                var names = new List<string>(run.Names);
+                foreach (var name in added[changed].Names)
+                {
+                    if (!names.Contains(name))
+                        names.Add(name);
+                }
+                findings.Add($"the Attribute lines describing {Joined(names)} are changed");
                 added.RemoveAt(changed);
             }
             else
@@ -217,16 +239,37 @@ public static class GuardedContent
         return "The content would change the Attribute lines that describe a member, which only the IDE changes: "
                + string.Join("; ", findings) + ". A member's Attribute lines may move with it, be renamed with it, "
                + "and go when its declaration goes, and may not otherwise change: send them exactly as the document "
-               + "has them. Renaming a member and changing its Attribute lines in one replacement reads as lines added "
-               + "to the new name. Nothing was changed.";
+               + "has them. Renaming a member and changing its Attribute lines, or retyping its declaration, in one "
+               + "replacement reads as lines added to the new name. Nothing was changed.";
     }
 
-    /// <summary>The declaration a run hangs from, as two texts can share it: its name without case, and a property's accessor.</summary>
-    private readonly record struct Member(string Name, PropertyAccessor? Accessor);
+    /// <summary>
+    /// Whether a run under <paramref name="from"/>'s declaration, gone, may be the run under
+    /// <paramref name="to"/>'s, come: across a rename, which keeps the accessor, or a retype, which keeps the name,
+    /// and not both at once.
+    /// </summary>
+    /// <remarks>
+    /// Both at once is a run moving between two declarations that both stay, renamed: a property's Get and Let
+    /// renamed together, the run leaving the Get for the Let. With the name kept that move is refused as a loss and
+    /// an addition, so allowing it here would let two calls, renaming and renaming back, make it. Text cannot tell it
+    /// from a lone accessor retyped and renamed in one replacement, which is refused with it and takes two. Whether
+    /// a declaration is a procedure is not compared: a procedure's run and a variable's never have the same lines.
+    /// </remarks>
+    private static bool RenamedOrRetyped(Member from, Member to) => from.Name == to.Name || from.Accessor == to.Accessor;
+
+    /// <summary>
+    /// The declaration a run hangs from, as two texts can share it: its name without case, whether it declares a
+    /// procedure, and a property's accessor.
+    /// </summary>
+    private readonly record struct Member(string Name, bool Procedure, PropertyAccessor? Accessor);
 
     /// <summary>A run that describes a member, with what the comparison reads of it and how a refusal names it.</summary>
     /// <param name="Lines">Its lines as compared: terminators normalised, and every qualifier that stands for the member removed.</param>
-    private sealed record Described(Member Member, string Lines, string Who);
+    /// <param name="Names">How a refusal names it; see <see cref="NamesOf"/>.</param>
+    private sealed record Described(Member Member, string Lines, IReadOnlyList<string> Names)
+    {
+        public string Who => Joined(Names);
+    }
 
     /// <summary>
     /// Every run of <paramref name="text"/> that describes a member, read for comparison, and how many times the text
@@ -238,7 +281,8 @@ public static class GuardedContent
         declared = new Dictionary<Member, int>();
         foreach (var declaration in declarations)
         {
-            var member = new Member(declaration.Name.Name.ToUpperInvariant(), declaration.Accessor);
+            var member = new Member(declaration.Name.Name.ToUpperInvariant(),
+                declaration.Name.Kind == DeclarationKind.Procedure, declaration.Accessor);
             declared[member] = declared.GetValueOrDefault(member) + 1;
         }
 
@@ -248,7 +292,9 @@ public static class GuardedContent
             if (run is not { DescribesMember: true, Member: { } described })
                 continue;
             var accessor = AccessorOf(run, declarations);
-            runs.Add(new Described(new Member(described.Name.ToUpperInvariant(), accessor), ComparedLines(text, run), Who(run, accessor)));
+            runs.Add(new Described(
+                new Member(described.Name.ToUpperInvariant(), described.Kind == DeclarationKind.Procedure, accessor),
+                ComparedLines(text, run), NamesOf(run, accessor)));
         }
         return runs;
     }
@@ -285,6 +331,8 @@ public static class GuardedContent
             }
             else
                 lines.Append(text, line.Start, line.End - line.Start);
+            // Lines are compared as lines: a comma list's run, read without its own qualifier and with another
+            // declarator's, would read the same with two of its lines joined into one.
             lines.Append('\n');
         }
         return lines.Replace("\r\n", "\n").ToString();
@@ -292,33 +340,41 @@ public static class GuardedContent
 
     /// <summary>
     /// The member a run describes, as a refusal names it: its name as declared, with its accessor for a property, and
-    /// for a variable's run every variable its lines name, since one run may describe several declarators of a line.
+    /// for a variable's run every variable its lines name, once each, since one run may describe several declarators
+    /// of a line.
     /// </summary>
-    private static string Who(MemberRun run, PropertyAccessor? accessor)
+    private static List<string> NamesOf(MemberRun run, PropertyAccessor? accessor)
     {
         var member = run.Member!.Value;
         if (accessor is { } which)
-            return $"Property {which} {member.Name}";
+            return [$"Property {which} {member.Name}"];
         if (run.Kind != MemberRunKind.Variable)
-            return member.Name;
+            return [member.Name];
 
         var names = new List<string>();
         foreach (var line in run.Lines)
         {
             foreach (var declared in run.Declared)
             {
+                // Defensive, the kind test: every line of a variable's run names a variable or constant its line
+                // declares, so a procedure matches a qualifier here only on a line declaring a procedure and a
+                // variable of one name, which VB6 refuses as an ambiguous name.
                 if (declared.Kind != DeclarationKind.Procedure
                     && string.Equals(declared.Name, line.Qualifier, StringComparison.OrdinalIgnoreCase)
                     && !names.Contains(declared.Name))
                     names.Add(declared.Name);
             }
         }
-        return names.Count switch
-        {
-            0 => member.Name,
-            1 => names[0],
-            _ => string.Join(", ", names.GetRange(0, names.Count - 1)) + " and " + names[^1],
-        };
+        return names.Count == 0 ? [member.Name] : names;
+    }
+
+    /// <summary><paramref name="names"/> as a refusal writes them: "A", "A and B", "A, B and C".</summary>
+    private static string Joined(IReadOnlyList<string> names)
+    {
+        var joined = new StringBuilder(names[0]);
+        for (var i = 1; i < names.Count; i++)
+            joined.Append(i == names.Count - 1 ? " and " : ", ").Append(names[i]);
+        return joined.ToString();
     }
 
     private static List<string> LinesOf(string text)

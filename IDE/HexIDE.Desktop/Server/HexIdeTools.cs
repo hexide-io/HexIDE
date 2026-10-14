@@ -272,10 +272,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (document.Module is { } pickerModule && HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(pickerModule.AbsolutePath))
                 return (null, null, $"Module '{pickerModule.Name}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
 
-            // Through the guarded path (#273 tasks 3.9 and 3.18), which is the one place that decides what
+            // Through the guarded path (#273 tasks 3.9, 3.18 and 4.5b), which is the one place that decides what
             // incoming content may touch, for every kind alike. It accepts what get_file_content returns, the
             // whole file with its header unchanged, and the code alone with the header kept. A header that
-            // DIFFERS is refused, because the header changes only from the IDE's model.
+            // DIFFERS is refused, because the header changes only from the IDE's model, and so is a change to a
+            // member's attribute lines other than moving or renaming them with it or deleting them with its
+            // declaration, with each member named.
             //
             // A whole .frm used to be refused here before the guard saw it (#338), on the ground that its
             // designer block describes controls this tool does not apply. The header comparison answers that
