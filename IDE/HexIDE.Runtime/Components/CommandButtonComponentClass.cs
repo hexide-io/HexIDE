@@ -20,7 +20,7 @@ public class CommandButtonComponentClass : ComponentBaseClass
         PictureProperty,
         EnabledProperty,
         TabStopProperty,
-        TabIndexProperty], [ClickEvent, GotFocusEvent, LostFocusEvent])
+        TabIndexProperty], [ClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
     {
     }
 

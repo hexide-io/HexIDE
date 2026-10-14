@@ -22,7 +22,7 @@ public class ListBoxComponentClass : ComponentBaseClass
         RightToLeftProperty,
         AppearanceProperty,
         TabStopProperty,
-        TabIndexProperty], [ClickEvent])
+        TabIndexProperty], [ClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
     {
     }
 

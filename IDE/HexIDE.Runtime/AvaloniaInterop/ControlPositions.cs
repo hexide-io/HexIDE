@@ -60,23 +60,35 @@ internal static class ControlPositions
         return twips / VBScaleModeExtensions.PixelToTwips;
     }
 
+    /// <summary>
+    /// A mouse event's X or Y (#974): the whole pixel under the pointer, counted from the object's client origin, in
+    /// twips, or in the object's own ScaleMode where it has one. Measured: a control's are twips even on a pixel form
+    /// (a CommandButton at client (10, 5) is 150, 75 there), and a form's follow its ScaleMode (300, 10).
+    /// </summary>
+    public static float MouseCoordinate(double pixels, VBScaleMode mode, bool vertical) =>
+        (float)(Math.Floor(pixels) * VBScaleModeExtensions.PixelToTwips / TwipsPerUnit(mode, vertical, vertical ? "Y" : "X"));
+
     // How many twips one of the program's units is, for this property of this control.
     private static double TwipsPerUnit(Control control, PropertyClass property)
     {
         if (control is Window)
             return 1;
         var mode = control.Parent is Control host ? VBProps.GetScaleMode(host) : VBScaleMode.Twip;
+        return TwipsPerUnit(mode, IsVertical(property), property.Name);
+    }
+
+    private static double TwipsPerUnit(VBScaleMode mode, bool vertical, string what)
+    {
         switch (mode)
         {
             case VBScaleMode.Twip or VBScaleMode.Point or VBScaleMode.Pixel or VBScaleMode.Character or VBScaleMode.Inch:
-                var (horizontal, vertical) = mode.TwipsPerUnit();
-                return IsVertical(property) ? vertical : horizontal;
+                var (horizontal, down) = mode.TwipsPerUnit();
+                return vertical ? down : horizontal;
             default:
                 // User needs the container's ScaleLeft, ScaleTop, ScaleWidth and ScaleHeight, which HexIDE does not hold.
                 // Centimeter and Millimeter read 0.2116669 and 2.116669 for 120 twips, where 1440 / 2.54 twips a
                 // centimetre gives 0.2116667: measured, and not explained, so not guessed.
-                throw new NotImplementedException(
-                    $"{property.Name} in a container whose ScaleMode is {mode} is not implemented (#990)");
+                throw new NotImplementedException($"{what} in a container whose ScaleMode is {mode} is not implemented (#990)");
         }
     }
 }

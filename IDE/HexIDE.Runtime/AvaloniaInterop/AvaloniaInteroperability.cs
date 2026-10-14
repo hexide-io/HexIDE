@@ -310,7 +310,10 @@ public static class AvaloniaInteroperability
         {
             // A position or size is a whole number of twips in a Long, though it reads back as a Single (measured).
             // ControlPositions rounds it, in twips, and checks the Long range there, where the unit is known: `Left =
-            // 1E+20`, which a Single could hold, is Overflow (6).
+            // 1E+20`, which a Single could hold, is Overflow (6). Any other double property keeps the Long check here,
+            // so one registered later, such as BorderWidth, does not lose it.
+            if (!ControlPositions.IsPosition(property))
+                Coerce(value, Vb6Value.ValueType.Long);
             return System.Convert.ToDouble(Coerce(value, Vb6Value.ValueType.Double));
         }
 

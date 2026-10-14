@@ -22,6 +22,14 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MouseDown, MouseUp and MouseMove are raised** (#974) on the form and on every control that has them in VB6:
+  CommandButton, Label, TextBox, PictureBox, Frame, CheckBox, OptionButton, Image and ListBox. Before, no handler for
+  them ever ran. Measured on vb6.exe:
+  - **Order:** a CommandButton and a CheckBox raise Click between MouseDown and MouseUp, and the others after MouseUp.
+  - **Arguments:** Button is 1, 2 or 4; Shift is 1, 2 and 4 for Shift, Ctrl and Alt; a control array's Index comes first.
+  - **X and Y** are twips from the control's client area, even on a pixel form, and the form's follow its own ScaleMode.
+  - **Image:** an Image takes the mouse, and Click, across its whole rectangle, with or without a picture (#861).
+  - **No passing up:** an event a control doesn't handle is not passed to its container, as in VB6.
 - **A running program's event handlers run one at a time, as in VB6** (#766). Under the debugger, a handler that gave up
   the thread at its time slice used to let any other event start and finish first, and let the statement that raised
   it run on. Measured on vb6.exe:

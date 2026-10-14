@@ -76,6 +76,8 @@ public class VBPictureBox : TemplatedControl, IVBContainerControl
 
     static VBPictureBox()
     {
+        // Before Click, so MouseUp comes first, as VB6 raises them (#974).
+        AttachedEvents.AttachMouse<VBPictureBox>();
         AttachedEvents.AttachClick<VBPictureBox>();
         PictureDataProperty.Changed.AddClassHandler<VBPictureBox>((box, _) => box.OnPictureDataChanged());
     }

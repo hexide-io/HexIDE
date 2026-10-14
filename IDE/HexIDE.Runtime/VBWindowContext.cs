@@ -199,8 +199,15 @@ public class VBWindowContext : IModuleExecutionRoot
     public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
     {
         var argList = args is null ? null : new List<Vb6Value>(args);
-        Raise(name, argList);
+        Raise(name, () => argList);
     }
+
+    /// <inheritdoc/>
+    public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None) =>
+        Raise(name, args, coalescing);
+
+    /// <inheritdoc/>
+    public bool Handles(string name) => interpreter is not null && EnsureInstance().ClassDef.PrePass.Procedures.ContainsKey(name);
 
     /// <inheritdoc/>
     public void ExecuteTimer(string name, IReadOnlyList<Vb6Value>? args = null)
@@ -208,10 +215,10 @@ public class VBWindowContext : IModuleExecutionRoot
         var argList = args is null ? null : new List<Vb6Value>(args);
         // Each element of a Timer array is a timer of its own, so its ticks are kept apart by Index.
         var key = argList is { Count: > 0 } ? $"{name}({argList[0].Value})" : name;
-        Raise(name, argList, EventCoalescing.Timer, key);
+        Raise(name, () => argList, EventCoalescing.Timer, key);
     }
 
-    private void Raise(string name, List<Vb6Value>? argList,
+    private void Raise(string name, Func<IReadOnlyList<Vb6Value>?> args,
         EventCoalescing coalescing = EventCoalescing.None, string? key = null)
     {
         // An event raised before SetCode has no code to run, as when a form's controls fail to build and the
@@ -221,7 +228,8 @@ public class VBWindowContext : IModuleExecutionRoot
             return;
         var form = EnsureInstance();
         // The event is the form's: its own procedure of that name, run on its instance (#822). A context that was never
-        // started, as a test's is, runs the declarations first; a started one ran them in StartAsync.
+        // started, as a test's is, runs the declarations first; a started one ran them in StartAsync. The arguments are
+        // worked out inside the dispatch, so one HexIDE can't work out is refused as the run's error (#974).
         async Task Work()
         {
             // An event that waited while the run ended runs nothing.
@@ -231,7 +239,7 @@ public class VBWindowContext : IModuleExecutionRoot
             {
                 if (!started)
                     await EnsureDeclarations();
-                await interpreter.RaiseFormEvent(form, name, argList);
+                await interpreter.RaiseFormEvent(form, name, args());
             });
         }
 

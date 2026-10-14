@@ -594,6 +594,11 @@ public partial class ProjectRunnerService : IProjectRunnerService
             windowContext.ExecuteSub(name, args);
         }
 
+        public bool Handles(string name) => windowContext.Handles(name);
+
+        public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None) =>
+            windowContext.ExecuteEvent(name, args, coalescing);
+
         public void ExecuteTimer(string name, IReadOnlyList<Vb6Value>? args = null) => windowContext.ExecuteTimer(name, args);
     }
 

@@ -11,6 +11,8 @@ public class VBCommandButton : Button
     {
         AttachedEvents.AttachFocusEvents<VBCommandButton>();
         AttachedEvents.AttachClick<VBCommandButton>();
+        // MouseUp follows Click, which the Button raised in its own release handler (measured, #974).
+        AttachedEvents.AttachMouse<VBCommandButton>();
         ContentTemplateProperty.OverrideDefaultValue<VBCommandButton>(AccessTextDataTemplate.Access);
     }
 }

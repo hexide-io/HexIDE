@@ -17,6 +17,8 @@ public class VBTextBox : TextBox
         {
             textBox.ExecuteSub(TextBoxComponentClass.ChangeEvent);
         });
+        // Before Click, so MouseUp comes first, as VB6 raises them (#974).
+        AttachedEvents.AttachMouse<VBTextBox>();
         AttachedEvents.AttachClick<VBTextBox>();
     }
 }
