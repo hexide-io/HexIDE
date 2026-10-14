@@ -452,23 +452,22 @@ public class VBLoader
     {
         var form = FormComponentOf(element);
         var shown = window = ((FormComponentClass)form.BaseClass).InstantiateWindow(form);
-        PrepareForm(element, shown.Context, content => shown.Content = content, debugController);
+        // Another form of the program gets a window of its own the same way (#822).
+        PrepareForm(element, shown.Context, content => shown.Content = content, debugController, OpenWindow);
 
+        // The run lasts until the program ends, not until this window closes: the startup form can unload and leave
+        // another form running (measured, #822).
         return StartAndShow(shown.Context, token, close: shown.Close, closeUnshown: shown.Close, showUntilClosed: () =>
         {
-            // Complete when the form closes. The TaskCompletionSource is captured directly in the handler rather than
-            // parked in window.Tag: Control.Tag backs the VB6 `Tag` property, so stashing runtime state there leaked
-            // "System.Threading.Tasks.TaskCompletionSource" into `Me.Tag` (and the Locals property surface, D7).
-            var closed = new TaskCompletionSource();
-            void OnClosed(object? sender, EventArgs e)
-            {
-                shown.Closed -= OnClosed;
-                closed.TrySetResult();
-            }
-            shown.Closed += OnClosed;
             shown.Show();
-            return closed.Task;
+            return new TaskCompletionSource().Task;
         });
+
+        static IFormView OpenWindow(FormDefinition definition)
+        {
+            var component = FormComponentOf(definition);
+            return ((FormComponentClass)component.BaseClass).InstantiateWindow(component);
+        }
     }
 
     /// <summary>The form's own component in its definition.</summary>
@@ -483,17 +482,17 @@ public class VBLoader
     /// real name: the bare name the IDE pushes each document's breakpoints under. Then the form's instance is made and
     /// its controls put into it, held until it loads.
     /// </summary>
-    public static void PrepareForm(FormDefinition element, VBWindowContext context, Action<Control> setContent,
-        Debugging.IDebugController? debugController)
+    /// <param name="openForm">
+    /// How the host makes a window for the program's other forms (#822), or null in a host that runs the startup form only:
+    /// a use of another form is then refused, naming #822.
+    /// </param>
+    public static VBProgram PrepareForm(FormDefinition element, VBWindowContext context, Action<Control> setContent,
+        Debugging.IDebugController? debugController, Func<FormDefinition, IFormView>? openForm = null)
     {
-        var formName = FormComponentOf(element).GetPropertyOrDefault(VBProperties.NameProperty)?.ToString();
-        var (standardModules, classModules) = InterpreterModules(element.Owner);
-        context.SetCode(code: FormCodeText.WholeFile(element), moduleName: formName ?? "Module1", debugController: debugController,
-            appInfo: Interpreter.AppInfo.FromProject(element.Owner),
-            additionalModules: standardModules, classModules: classModules);
-        DescribeProject(context.Interpreter!, element.Owner);
+        var program = new VBProgram(element, context, debugController, openForm);
         setContent(SpawnComponents(element, context.ExecutionContext, context.InstanceEnv));
         context.HoldControlsUntilLoad();
+        return program;
     }
 
     // OLE Automation, the one in-box library a .vbp lists as a Reference: VBA, VBRUN and VB are implicit.
@@ -529,10 +528,12 @@ public class VBLoader
         Action? closeUnshown = null)
     {
         var run = new TaskCompletionSource();
-        var shown = false;
-        // The way the host closes this form, which is also how an unloaded form's window goes once its Terminate has run.
-        context.CloseWindow = close;
-        // Where the run ends, its event pump closes, so nothing it left waiting can run beside the next one (#766).
+        var program = context.Program;
+        // How the window goes while it was never shown, and then how it goes once it has been: also how an unloaded form's
+        // window goes, once its handler has returned.
+        context.CloseWindow = closeUnshown;
+        // Where the run ends, its event pump closes, so nothing it left waiting can run beside the next one (#766). That is
+        // the program's end (#822).
         void Ended()
         {
             context.Events.Close();
@@ -540,29 +541,41 @@ public class VBLoader
         }
         token.Register(() =>
         {
-            if (shown)
-                close();
+            // Ended from outside the program, by End, Stop or a fault: every form's window goes, shown or not.
+            if (program is not null)
+                program.CloseAll();
             else
-            {
-                closeUnshown?.Invoke();
-                Ended();
-            }
+                context.CloseOnce();
+            Ended();
         });
 
         async Task StartThenShow()
         {
             try
             {
-                // A form whose start was a fault, or that the program ended, is never shown (#1010 review). Nor is one that
-                // unloaded itself in Load, whose Terminate runs here, before the pump closes (measured, #1046 review).
-                if (!await context.StartAsync() || token.IsCancellationRequested || run.Task.IsCompleted)
-                {
-                    if (!token.IsCancellationRequested && !run.Task.IsCompleted)
-                        await context.FinishUnloadAsync(closeUnshown);
+                var started = await context.StartAsync();
+                if (token.IsCancellationRequested || run.Task.IsCompleted)
                     return;
+                Task? closed = null;
+                if (started)
+                {
+                    context.CloseWindow = close;
+                    closed = showUntilClosed();
                 }
-                shown = true;
-                await showUntilClosed();
+                // A form that unloaded itself in Load is never shown, and its unload completes here (#1046 review). A form
+                // whose start was a fault, or that the program ended, is never shown either, and nothing more runs (#1010).
+                else if (context.UnloadedDuringStart)
+                    await context.FinishUnloadAsync(closeUnshown);
+                else
+                    return;
+                // The run lasts until the program ends: until no form is loaded (measured, #822). A host whose window can
+                // close without an unload ends it there too.
+                if (program is null)
+                    await (closed ?? Task.CompletedTask);
+                else if (closed is null)
+                    await program.Ended;
+                else
+                    await Task.WhenAny(program.Ended, closed);
             }
             finally
             {

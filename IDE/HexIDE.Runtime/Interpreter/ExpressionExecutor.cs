@@ -490,7 +490,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     {
         var identifier = await ExtractIdentifier(context);
         RefuseAmbiguousEnumMember(identifier);
-        if (interpreter.ExecutionContext.TryGetVariable(env, identifier, out var var))
+        // Through Loading: a form's name or control may need the form made or loaded first (#822).
+        if (!interpreter.TryReadNow(env, identifier, out var found, out var var, out var foundNeed))
+            (found, var) = await interpreter.ReadVariableAfter(env, identifier, foundNeed!);
+        if (found)
             return var;
         throw new VBVariableNotDefinedException(identifier);
     }
@@ -530,7 +533,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             var identifier = varOrProcCall.ambiguousIdentifier().GetText();
             RefuseAmbiguousEnumMember(identifier);
 
-            if (!interpreter.ExecutionContext.TryGetVariable(env, identifier, out var variable))
+            if (!interpreter.TryReadNow(env, identifier, out var found, out var variable, out var foundNeed))
+                (found, variable) = await interpreter.ReadVariableAfter(env, identifier, foundNeed!);
+            if (!found)
             {
                 // In a form's code, a member of the form: `Caption`, `Width`, `Left` (#995). After the procedure's locals and
                 // the form's own variables and controls, which the lookup above found, and before the project's globals
@@ -538,9 +543,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 if (FormMembers.TryBare(interpreter.ExecutionContext, env, identifier, out var form, out var formMember))
                 {
                     if (formMember.CanGet && formMember.RequiredArgs == 0)
-                        return FormMembers.Read(form, identifier);
+                        return await interpreter.Loading((Form: form, Name: identifier), static s => FormMembers.Read(s.Form, s.Name));
                     if (formMember.IsMethod && formMember.RequiredArgs == 0)
-                        return FormMembers.Call(form, identifier, []);
+                        return await interpreter.Loading((Form: form, Name: identifier), static s => FormMembers.Call(s.Form, s.Name, []));
                 }
                 if (interpreter.BuiltIns.TryGetBuiltInConstant(identifier, out var builtInConst))
                     return builtInConst;
@@ -585,7 +590,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // A namespace qualifier (`Module1.Foo`, `VBA.Abs`, `VBA.Math.Abs`) — resolved before treating the
             // leading part as a value, but a same-named variable shadows it (VB6 precedence).
             if (membersCall.iCS_S_VariableOrProcedureCall() is { } leadPart
-                && !interpreter.ExecutionContext.TryGetVariable(env, leadPart.GetText(), out _)
+                // Only whether there is one, as a statement's qualifier asks: it must not make a form's instance (#822).
+                && !interpreter.ExecutionContext.TryInspectVariable(env, leadPart.GetText(), out _)
                 && interpreter.TryResolveQualifier(leadPart.GetText(), out var qualifier))
             {
                 return await ResolveQualifiedMemberValue(qualifier, membersCall.iCS_S_MemberCall(), ctx);
@@ -641,8 +647,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
         // A control array indexed by element (`Command1(i)`) — the shared name resolves to a ControlArrayGroup
         // value; return the element control. A missing element is Err 340 (oracle-verified against vb6.exe).
-        if (interpreter.ExecutionContext.TryGetVariable(env, name, out var maybeGroup)
-            && maybeGroup.Value is ControlArrayGroup group)
+        if (!interpreter.TryReadNow(env, name, out var named, out var maybeGroup, out var namedNeed))
+            (named, maybeGroup) = await interpreter.ReadVariableAfter(env, name, namedNeed!);
+        if (named && maybeGroup.Value is ControlArrayGroup group)
         {
             var idxArgs = await EvaluateCallArgs(argsCtx);
             if (idxArgs.Count != 1)
@@ -677,10 +684,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         {
             var formArgs = await EvaluateCallArgs(argsCtx);
             if (formMember.IsMethod)
-                return FormMembers.Call(form, name, formArgs);
+                return await interpreter.Loading((Form: form, Name: name, Args: formArgs), static s => FormMembers.Call(s.Form, s.Name, s.Args));
             if (FormMembers.CallIsVbas(name, formArgs.Count) && await EvaluateFunction(name, formArgs) is { } vbaResult)
                 return vbaResult;
-            throw new NotImplementedException($"{form.ClassName}'s {name} with arguments is not implemented");
+            throw new NotImplementedException($"{form.ClassName}'s {name} with arguments is not implemented{FormMembers.TrackedBy(name)}");
         }
         if (interpreter.TryResolveProcedure(name, currentModule, out _, out _))
         {
@@ -738,11 +745,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 return await interpreter.RunProcedure(vobj.ClassDef, getter, [], vobj.InstanceEnv, variable, stmtFrames)
                     ?? throw new VBSubOrFunctionNotDefinedException(memberName);
             }
-            if (interpreter.ExecutionContext.TryGetVariable(vobj.InstanceEnv, memberName, out var fieldVal))
+            if (!interpreter.TryReadNow(vobj.InstanceEnv, memberName, out var isField, out var fieldVal, out var isFieldNeed))
+                (isField, fieldVal) = await interpreter.ReadVariableAfter(vobj.InstanceEnv, memberName, isFieldNeed!);
+            if (isField)
                 return fieldVal;
             // A form's built-in members are its window's: `Me.Caption`, `Form1.Width` (#822). They come after the form's
-            // own members, which VB6 refuses to let clash with them.
-            if (vobj.BuiltInMembersFor(memberName) is { } formWindow)
+            // own members, which VB6 refuses to let clash with them. Using one loads the form, as a control does.
+            if (await interpreter.Loading((Form: vobj, Member: memberName), static s => s.Form.BuiltInMembersFor(s.Member)) is { } formWindow)
             {
                 // A VB6 Form member HexIDE can't read is refused as not implemented: 438 is what VB6 says of a member the
                 // Form doesn't have, which this one does (#995). A method is the window's to call.
@@ -751,7 +760,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                     if (formMember.IsMethod)
                         return FormMembers.Call(vobj, memberName, await EvaluateCallArgs(MemberArgs(member)));
                     if (MemberArgs(member) == null && !FormMembers.CanRead(formWindow, memberName))
-                        throw new NotImplementedException($"Reading {vobj.ClassName}'s {memberName} is not implemented");
+                        throw new NotImplementedException($"Reading {vobj.ClassName}'s {memberName} is not implemented{FormMembers.TrackedBy(memberName)}");
                 }
                 return await ResolveOneMember(new Vb6Value(formWindow), member, ctx);
             }
@@ -791,7 +800,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// Everything else resolves a step at a time — so a chain may change kind as it goes (an object field
     /// holding a UDT, a UDT field holding an object) without any step needing to know what follows it.
     /// </summary>
-    private async Task<Vb6Value> ResolveMemberChain(
+    internal async Task<Vb6Value> ResolveMemberChain(
         Vb6Value current, VB6Parser.ICS_S_MemberCallContext[] members, int from,
         Antlr4.Runtime.ParserRuleContext ctx)
     {
@@ -847,7 +856,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // module-level Public. It is PROJECT-wide, so the search is too — the current module first,
             // then every other standard module. A member hoisted by Module2's enum is not in Module1's
             // env, and looking only there is what made this fail on the first run.
-            if (interpreter.ExecutionContext.TryGetVariable(env, memberName, out var projectMember))
+            var (inProject, projectMember) = await interpreter.ReadVariable(env, memberName);
+            if (inProject)
                 return await ThenTheRest(projectMember);
             foreach (var m in interpreter.Modules.All)
             {

@@ -58,7 +58,6 @@ interpreter. They are principled walls, not backlog:
 
 | Area | Out of scope (permanent) |
 |---|---|
-| **Member chains** | Multi-dot chains — `obj.Parent.Name`, `Module1.Thing.Field` (single dot only) |
 | **Bang / dictionary** | `rs!Field`, `obj!key` |
 | **Parameterized properties** | `Property Get Item(i)`, `obj.Item(1) = x` (there is no built-in `Collection` either, so the exception this row used to name does not exist) |
 | **Advanced classes** | `As New` / auto-instantiation, instancing modes. (`Implements` is now supported; `Friend` is not walled either — it parses and is deliberately treated as Public, there being no external COM clients to hide from. See [`MISSING_LANGUAGE.md`](../../docs/MISSING_LANGUAGE.md).) |

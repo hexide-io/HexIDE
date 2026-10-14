@@ -361,7 +361,9 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **HexIDE:** the error is recorded, so `get_last_runtime_error` returns it, and shown in the run-time error dialog,
   where End ends the run. The event procedure that met it is abandoned, and the run carries on: a Timer tick or a click
   still raises its handler, on whatever state the abandoned procedure left. That includes a form's start (#1010): a
-  run-time error in `Form_Initialize` is reported, and `Form_Load` is still raised and the form shown. A fault, a
+  run-time error in `Form_Initialize` is reported, and `Form_Load` is still raised and the form shown. Another form's
+  Load is the same (#822): an error there is reported, never trapped by the `On Error` of the statement that loaded the
+  form (measured, compiled), and that statement goes on, where a compiled exe would end. A fault, a
   construct HexIDE does not implement or an engine fault, is different: it ends the run, and during the start it stops
   before the window is shown.
 - **Why:** the error reaches the dialog only after the event-dispatch boundary in `VBWindowContext` has caught it, once

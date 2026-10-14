@@ -69,7 +69,7 @@ internal static class FormMembers
         foreach (var property in VBProperties.PropertiesByName.GetValueOrDefault(name, []))
             if (AvaloniaInteroperability.TryGet(window, property, out var value))
                 return value;
-        throw new NotImplementedException($"Reading {form.ClassName}'s {name} is not implemented");
+        throw new NotImplementedException($"Reading {form.ClassName}'s {name} is not implemented{TrackedBy(name)}");
     }
 
     /// <summary>
@@ -84,7 +84,7 @@ internal static class FormMembers
         foreach (var property in VBProperties.PropertiesByName.GetValueOrDefault(name, []))
             if (AvaloniaInteroperability.TrySet(window, property, value))
                 return;
-        throw new NotImplementedException($"Setting {form.ClassName}'s {name} is not implemented");
+        throw new NotImplementedException($"Setting {form.ClassName}'s {name} is not implemented{TrackedBy(name)}");
     }
 
     /// <summary>Call a method of the form, as <c>Me.Hide</c> does: through its window, which says when it can't.</summary>
@@ -92,6 +92,13 @@ internal static class FormMembers
         form.BuiltInMembersFor(name)!.Call(name, args);
 
     private static bool IsName(string name) => string.Equals(name, "Name", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The issue that tracks a Form member HexIDE lacks, as its refusal names it, or empty where no issue does yet. A
+    /// refusal that names its issue tells the reader whether it is known, and where to look.
+    /// </summary>
+    internal static string TrackedBy(string name) =>
+        string.Equals(name, "Controls", StringComparison.OrdinalIgnoreCase) ? ": the form's Controls collection is #1060" : "";
 
     /// <summary>
     /// Whether HexIDE can read <paramref name="name"/> on the form's window: what decides, for <c>Me.X</c>, between

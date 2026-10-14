@@ -414,7 +414,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         string primaryName = "Module1",
         IReadOnlyList<(string Name, string Code)>? additionalModules = null,
         IReadOnlyList<(string Name, string Code)>? classModules = null,
-        InterpreterModuleKind primaryKind = InterpreterModuleKind.Standard)
+        InterpreterModuleKind primaryKind = InterpreterModuleKind.Standard,
+        IReadOnlyList<(string Name, string Code)>? formModules = null)
     {
         ExecutionContext = executionContext;
         BuiltIns = new VB6BuiltIns(stdLib)
@@ -448,6 +449,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (classModules != null)
             foreach (var (name, modCode) in classModules)
                 Modules.Add(BuildModule(name, InterpreterModuleKind.Class, modCode, new ExecutionEnvironment()));
+
+        // The project's other forms are templates too (#822): each running form is an instance of one, made where the
+        // form's name is first used.
+        if (formModules != null)
+            foreach (var (name, modCode) in formModules)
+                Modules.Add(BuildModule(name, InterpreterModuleKind.Form, modCode, new ExecutionEnvironment()));
 
         // Aggregate every module's UDT/Enum definitions into one program-wide table.
         //
@@ -742,6 +749,124 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// <c>Set Form1 = Nothing</c> (measured, #822). Here the name is bound to the one instance the run starts with; that
     /// rule belongs to the slices that add Load, Show and a second form.
     /// </remarks>
+    /// <summary>The run's forms, which make default instances and load them (#822). Null in a run with none.</summary>
+    public IFormProgram? Forms { get; set; }
+
+    /// <summary>
+    /// Give every form module's name its program-wide slot, holding Nothing until its first read makes the form's default
+    /// instance (#822). The program calls this once its forms can be made.
+    /// </summary>
+    public void SeedFormNames()
+    {
+        foreach (var form in Modules.All)
+            if (form.Kind == InterpreterModuleKind.Form)
+            {
+                if (!rootEnv.TryGetVariableLocation(form.Name, out _))
+                    SeedProgramGlobal(form.Name, () => Vb6Value.Nothing);
+                if (primaryModule.ModuleEnv.TryGetVariableLocation(form.Name, out var slot)
+                    || form.ModuleEnv.TryGetVariableLocation(form.Name, out slot))
+                    ExecutionContext.State.MarkDefaultForm(slot, form);
+            }
+    }
+
+    /// <summary>
+    /// A variable read, the walk's hottest path, with a form's requests answered (#822): a form's name that holds no
+    /// instance makes one, and a control of a form that isn't loaded loads it, then the read is made again.
+    /// </summary>
+    internal ValueTask<(bool Found, Vb6Value Value)> ReadVariable(ExecutionEnvironment env, string name) =>
+        TryReadNow(env, name, out var found, out var value, out var need)
+            ? new ValueTask<(bool, Vb6Value)>((found, value))
+            : LoadingSlowly((Context: ExecutionContext, Env: env, Name: name),
+                static s => (s.Context.TryGetVariable(s.Env, s.Name, out var v), v), need!);
+
+    /// <summary>
+    /// The variable read without awaiting anything: true with the read's answer, or false with the form request that
+    /// <see cref="ReadVariable"/> must answer first (#822). The walk's hottest sites call this, and await
+    /// <see cref="ReadVariable"/> only when it returns false, so an ordinary read costs what it did before forms could
+    /// be made on use.
+    /// </summary>
+    internal bool TryReadNow(ExecutionEnvironment env, string name, out bool found, out Vb6Value value, out Exception? need)
+    {
+        try
+        {
+            found = ExecutionContext.TryGetVariable(env, name, out value);
+            need = null;
+            return true;
+        }
+        catch (Exception request) when (Forms is not null && request is FormInstanceNeeded or FormLoadNeeded)
+        {
+            found = false;
+            value = default;
+            need = request;
+            return false;
+        }
+    }
+
+    /// <summary>The rest of a read <see cref="TryReadNow"/> could not finish: the form made or loaded, then read again.</summary>
+    internal ValueTask<(bool Found, Vb6Value Value)> ReadVariableAfter(ExecutionEnvironment env, string name, Exception need) =>
+        LoadingSlowly((Context: ExecutionContext, Env: env, Name: name),
+            static s => (s.Context.TryGetVariable(s.Env, s.Name, out var v), v), need);
+
+    /// <summary>
+    /// A read that may meet a form not yet made or not loaded (#822): <paramref name="read"/> of
+    /// <paramref name="state"/>, and when it asks for a form's default instance or its load, that is done and the read
+    /// made again. A read has no side effect before the point it asks, so making it again is the same read. With no forms
+    /// to reach, the request stays the refusal it is.
+    /// </summary>
+    /// <remarks>
+    /// Synchronous until a form is asked for: the read is tried in place and its value returned as a completed
+    /// <see cref="ValueTask{T}"/>, so an ordinary read costs no allocation and no state machine. Only the catch goes
+    /// async. Pass a static lambda with its inputs in <paramref name="state"/>, which keeps the closure off that path too.
+    /// </remarks>
+    internal ValueTask<T> Loading<TState, T>(TState state, Func<TState, T> read)
+    {
+        try
+        {
+            return new ValueTask<T>(read(state));
+        }
+        catch (Exception need) when (Forms is not null && need is FormInstanceNeeded or FormLoadNeeded)
+        {
+            return LoadingSlowly(state, read, need);
+        }
+    }
+
+    private async ValueTask<T> LoadingSlowly<TState, T>(TState state, Func<TState, T> read, Exception need)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            if (need is FormInstanceNeeded instance)
+                await Forms!.MakeDefaultInstance(instance.Form);
+            else if (need is FormLoadNeeded load)
+                await Forms!.Load(load.Form);
+            try
+            {
+                return read(state);
+            }
+            catch (Exception again) when (attempt < 16 && again is FormInstanceNeeded or FormLoadNeeded)
+            {
+                need = again;
+            }
+        }
+    }
+
+    /// <inheritdoc cref="Loading{TState, T}"/>
+    internal ValueTask<bool> Loading<TState>(TState state, Action<TState> write) =>
+        Loading((State: state, Write: write), static s =>
+        {
+            s.Write(s.State);
+            return true;
+        });
+
+    /// <inheritdoc cref="Loading{TState, T}"/>
+    internal ValueTask<T> Loading<T>(Func<T> read) => Loading(read, static r => r());
+
+    /// <inheritdoc cref="Loading{TState, T}"/>
+    internal ValueTask<bool> Loading(Action read) => Loading(read, static r =>
+    {
+        r();
+        return true;
+    });
+
     public VbObject NewFormInstance(ModuleInfo form)
     {
         if (form.Kind != InterpreterModuleKind.Form)
