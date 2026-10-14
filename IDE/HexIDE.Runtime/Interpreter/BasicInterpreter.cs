@@ -170,11 +170,36 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         return new VbUdt(typeName, fields);
     }
 
-    /// <summary>Deep-copy a UDT value (VB6 value semantics); pass everything else through unchanged. Applied at
-    /// the value-assignment boundaries: <c>Let</c>, <c>ByVal</c> param, whole-UDT field write, function return.
-    /// A <c>VbObject</c> is deliberately NOT copied — objects are reference types, so <c>Set b = a</c> shares.</summary>
-    public static Vb6Value CopyIfValueType(Vb6Value v)
-        => v.Value is VbUdt udt ? Vb6Value.NewUdt(udt.DeepClone()) : v;
+    /// <summary>
+    /// The value a store keeps, copied as VB6 copies it: a UDT deeply, an array level by level
+    /// (<see cref="VBArray.CopyForLet"/>), everything else as it is. Applied wherever VB6 copies: a Let into a variable, a
+    /// field or an element, a ByVal argument and a For Each variable, and so a Function's return. A <c>VbObject</c> is
+    /// never copied: objects are references, so <c>Set b = a</c> shares, and a copied array shares its objects with the
+    /// original (measured, #970: <c>b(0) Is a(0)</c>). Each is held once more, so the copy AddRefs it, and every array then
+    /// has exactly one holder, which is what lets <see cref="ReleaseRef"/> descend into one. A ByRef argument never comes
+    /// here: it shares the caller's slot.
+    /// </summary>
+    public Vb6Value CopyForStore(Vb6Value v) => CopyForStore(v, 0);
+
+    private Vb6Value CopyForStore(Vb6Value v, int depth) => v.Value switch
+    {
+        VbUdt udt => Vb6Value.NewUdt(udt.DeepClone()),
+        VBArray array => v.WithArray(array.CopyForLet(element => CopyElement(element, depth + 1))),
+        _ => v,
+    };
+
+    // Arrays nested in arrays are copied recursively. A store into an element copies too, so no array can come to hold
+    // itself; the bound refuses where the alternative would be a stack overflow taking the host down.
+    private const int MaxArrayNesting = 1000;
+
+    private Vb6Value CopyElement(Vb6Value element, int depth)
+    {
+        if (depth > MaxArrayNesting)
+            throw new NotImplementedException(
+                $"An array nested more than {MaxArrayNesting} deep is not copied: HexIDE refuses rather than overflow its stack (#970).");
+        AddRef(element);
+        return CopyForStore(element, depth);
+    }
 
     /// <summary>Instantiate a class (<c>New ClassName</c>): build this instance's OWN field env by cloning the
     /// class template env (so the shared <c>Debug</c>/<c>Err</c>/global slots carry over) then re-running the
@@ -239,7 +264,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     }
 
     /// <summary>Decrement the reference count of a live class instance; fire <c>Class_Terminate</c> the instant it
-    /// reaches zero. Async because the hook runs user code.</summary>
+    /// reaches zero. Async because the hook runs user code. An array releases each object it holds, nested arrays
+    /// included: an array has one holder (<see cref="CopyForStore"/>), so releasing the holder releases its contents. That
+    /// is what terminates a local object array's objects at <c>End Sub</c>, as VB6 does (measured, #970).</summary>
     public async Task ReleaseRef(Vb6Value v)
     {
         if (v.Value is VbObject o && !o.Terminated)
@@ -247,6 +274,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             o.RefCount--;
             if (o.RefCount <= 0)
                 await FireTerminate(o);
+        }
+        else if (v.Value is VBArray array)
+        {
+            foreach (var element in array.EnumerateElements())
+                await ReleaseRef(element);
         }
     }
 
@@ -309,10 +341,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     // Adopt a call's object return into the CALLER's current statement frame — a transfer, no AddRef. Called by
     // RunProcedure with the caller's own frame stack (threaded from the calling executor), so it targets the
     // caller's activation, never a re-entrant one. No-op if the caller has no active frame (return then leaks —
-    // the safe direction).
+    // the safe direction). An array return is adopted too: the return name holds its own copy (#970), so the objects in
+    // it are released at the caller's statement end, after whatever stored the result has copied it.
     private static void AdoptReturn(Vb6Value? ret, Stack<List<Vb6Value>>? callerFrames)
     {
-        if (ret is { Value: VbObject } r && callerFrames is { Count: > 0 })
+        if (ret is { Value: VbObject or VBArray } r && callerFrames is { Count: > 0 })
             callerFrames.Peek().Add(r);
     }
 
@@ -833,8 +866,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             // terminates locals (faithful stack teardown). The return object is deliberately NOT released here on
             // the NORMAL path — its hold transfers to the caller. But on an ERROR exit (the body threw, so no
             // caller adopts it), release the return-name slot too, or a `Set F = New T` before a fault leaks.
+            // A procedure's scalar locals, Variants and object references, are released before its arrays, each in
+            // declaration order (measured, #970: `Dim a(0) As Foo, o` terminates o's object first, and two arrays or
+            // two scalars go in the order they were declared).
             foreach (var slot in ownedSlots)
-                await ReleaseRef(ExecutionContext.State[slot]);
+                if (!ExecutionContext.State.IsDeclaredArray(slot))
+                    await ReleaseRef(ExecutionContext.State[slot]);
+            foreach (var slot in ownedSlots)
+                if (ExecutionContext.State.IsDeclaredArray(slot))
+                    await ReleaseRef(ExecutionContext.State[slot]);
             if (countMe && me is { } m2)
                 await ReleaseRef(m2);
             if (!completed && proc.IsFunction && ExecutionContext.TryGetVariable(callee, proc.Name, out var orphan))
@@ -1032,6 +1072,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             if (p.ParamArray)
                 throw new NotImplementedException("ParamArray parameters are not yet supported");
             callee.Parameters.Add(p.Name);
+            if (!p.IsArray && (p.DeclaredType is null || p.DeclaredType == Vb6Value.ValueType.EmptyVariant))
+                callee.VariantParameters.Add(p.Name);
 
             // A blank slot at this position (`Foo 1, , 3`) occupies it only so the arguments after it bind
             // correctly. It is NOT a value: fall through to the Optional branch so the parameter takes its
@@ -1039,8 +1081,13 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             if (i < args.Count && !args[i].Value.IsMissing)
             {
                 var arg = args[i];
+                // A `v As Variant` shares an array argument as an untyped `v` does (measured, #970). That is what lets a
+                // Variant sort routine sort its caller's array once a Let copies, and lets a ReDim reach the caller's
+                // array and its fixedness. VB6 shares a scalar argument with it too, a Variant or a typed variable
+                // (measured), which is #1001.
                 bool aliasable = p.ByRef && arg.Location is not null
-                    && (p.DeclaredType is null || p.DeclaredType == arg.Value.Type);
+                    && (p.DeclaredType is null || p.DeclaredType == arg.Value.Type
+                        || p.DeclaredType == Vb6Value.ValueType.EmptyVariant && arg.Value.Type.IsArray);
                 if (aliasable)
                     callee.DefineVariable(p.Name, arg.Location!.Value);            // ByRef: share the caller's slot
                                                                                    // (NOT counted — the caller's slot already holds the ref)
@@ -1055,14 +1102,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                         : arg.Value;
                     var stored = p.DeclaredType is { } dt && VbNumeric.IsCoreNumeric(dt) && proc.Body is { } body
                         ? VbNumeric.Narrow(passed, dt, body)
-                        : CopyIfValueType(passed);
+                        : CopyForStore(passed);
                     ExecutionContext.AllocVariable(callee, p.Name, stored, NumericSlotType(p));
                     MarkParameterSlot(p, callee);
                     // A ByVal object param is a counted hold for the call's duration (so a `New T` passed straight
-                    // into a call terminates right after the call, per the oracle); release it at scope-exit.
-                    if (stored.Value is VbObject && callee.TryGetVariableLocation(p.Name, out var ploc))
+                    // into a call terminates right after the call, per the oracle); release it at scope-exit. A ByVal
+                    // array is the callee's own copy, whose objects the copy holds, so it is released there too.
+                    if (stored.Value is VbObject or VBArray && callee.TryGetVariableLocation(p.Name, out var ploc))
                     {
-                        AddRef(stored);
+                        if (stored.Value is VbObject)
+                            AddRef(stored);
                         ownedSlots.Add(ploc);
                     }
                 }
@@ -1095,7 +1144,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     // A parameter's own slot says what it was declared as, for ReDim: `b()` an array, `v` or `v As Variant` a Variant.
     // A ByRef parameter that shares its caller's slot keeps the caller's marks. That is right for fixedness (a fixed
     // array is 10 through it, measured), but not for the inverted-range rule: an untyped `v` sharing a declared `Long()`
-    // erases it with 9, where VB6 applies the Variant rule to `v` (measured, #970).
+    // takes the Variant rule (measured, #970), which ReDim reads from ExecutionEnvironment.VariantParameters.
     private void MarkParameterSlot(ParamInfo p, ExecutionEnvironment callee)
     {
         if (!callee.TryGetVariableLocation(p.Name, out var location))

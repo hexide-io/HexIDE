@@ -43,6 +43,12 @@ public class ExecutionEnvironment
     /// </summary>
     public HashSet<string> Parameters { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// The parameters declared untyped or <c>As Variant</c>, which ReDim treats by the Variant rule even when they share a
+    /// caller's slot marked as a declared array (measured, #970). Not copied by <see cref="Clone"/>.
+    /// </summary>
+    public HashSet<string> VariantParameters { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     public ExecutionEnvironment Clone()
     {
         return new ExecutionEnvironment(this);

@@ -140,6 +140,9 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     /// <summary>This reference as read through <paramref name="declaredClass"/> (null = through a Variant).</summary>
     public Vb6Value ViewedAs(string? declaredClass) => new Vb6Value(Type, Value, HasFixedType, declaredClass, HeldAsVariant);
 
+    /// <summary>This value with <paramref name="array"/> in place of the array it holds, keeping its type and flags.</summary>
+    internal Vb6Value WithArray(VBArray array) => new Vb6Value(Type, array, HasFixedType, DeclaredAs, HeldAsVariant);
+
     private Vb6Value(ValueType type, object? value, bool hasFixedType = false, string? declaredAs = null, bool heldAsVariant = false)
     {
         Type = type;
@@ -408,6 +411,28 @@ public class VBArray
     public bool IsDynamic { get; set; } = true;
 
     public bool IsDefined => bounds.Count > 0;
+
+    /// <summary>
+    /// The copy an assignment makes (#970). VB6 copies an array where HexIDE shared it: on a Let, into a dynamic array or
+    /// a Variant, at a ByVal argument, into an element and into a For Each variable, all measured. The copy is dynamic,
+    /// since only a dynamic array or a Variant can be assigned one, so it can be ReDimmed although the original is fixed
+    /// (measured). <paramref name="copyElement"/> copies each element as a store copies it.
+    /// </summary>
+    public VBArray CopyForLet(Func<Vb6Value, Vb6Value> copyElement) => new()
+    {
+        IsDynamic = true,
+        bounds = new List<(int lbound, int ubound)>(bounds),
+        elementType = elementType,
+        array = CopyLevel(array, copyElement),
+    };
+
+    private static object[] CopyLevel(object[] level, Func<Vb6Value, Vb6Value> copyElement)
+    {
+        var copy = new object[level.Length];
+        for (int i = 0; i < level.Length; i++)
+            copy[i] = level[i] is object[] inner ? CopyLevel(inner, copyElement) : copyElement((Vb6Value)level[i]);
+        return copy;
+    }
 
     public VBArray()
     {

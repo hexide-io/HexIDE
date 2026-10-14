@@ -19,7 +19,7 @@ public readonly record struct EventSink(Vb6Value Listener, string VarName);
 ///
 /// Reference semantics are deliberate and load-bearing: <c>VbObject</c> does NOT override
 /// <c>Equals</c>/<c>GetHashCode</c>, so two <c>Vb6Value</c>s wrapping the same instance compare equal by
-/// reference (that is how <c>a Is b</c> works), and <see cref="BasicInterpreter.CopyIfValueType"/> never clones
+/// reference (that is how <c>a Is b</c> works), and <see cref="BasicInterpreter.CopyForStore"/> never clones
 /// it (so <c>Set b = a</c> shares one instance). <c>Nothing</c> is a <c>Vb6Value</c> of the Object type with a
 /// null <c>Value</c> — not a <c>VbObject</c> at all.
 /// </summary>
