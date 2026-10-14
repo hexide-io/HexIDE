@@ -999,6 +999,117 @@ right-button release raises Click.
   to appear). Poll for a non-zero `MainWindowHandle` first, then shoot.
 
 
+## A form as an object: its names, its lifecycle and its predeclared instance (2026-10-14, #822)
+
+**The question.** #822 makes a running form an instance of its module, with a real `Me`, where HexIDE has had a form's
+code run as a standard module with `Me` bound to the window. The design turns on four things nobody had measured: how
+a bare name resolves inside a form, whether a form's members are visible outside it, when a form's declarations exist
+relative to its events, and what the form's own name refers to.
+
+**The probes.** Each is a Standard EXE built with `/make` as native code and as p-code, the two agreeing on every row,
+and run in session 0. Every log line is written by opening, appending and closing the file, as in [`End` itself, from
+three places](#end-itself-from-three-places-2026-10-12-775). Each lookup question is a project of its own, so that a
+compile error in one could not hide another. `Form1` has a TextBox `Text1`, and `Module1` is a standard module.
+
+### Names inside a form module
+
+| Form code | Also declared | VB6 |
+|---|---|---|
+| `Caption = "set by form"`, then `Caption`, `Me.Caption` and `Top = Me.Top` | nothing | sets the form's caption; reads `set by form` twice; `True` |
+| `Caption = "set by form"` | `Public Caption As String` in Module1 | `Me.Caption` is `set by form`; `Module1.Caption` is still empty |
+| `Tag` | `Public Function Tag()` in Module1, returning `module tag` | the form's `Tag`, empty; `Module1.Tag()` is `module tag` |
+| `TypeName(Text1)` | `Public Text1 As String` in Module1 | `TextBox` |
+| `Score = 5` | `Public Score As Long` in the form and in Module1 | `Me.Score` is 5; `Module1.Score` is 0 |
+| `Left("abc", 1)` | nothing | `a`, from VBA's `Left` |
+| `Left` | nothing | the form's `Left`, equal to `Me.Left` |
+| `Dim Tag As String` at form level | nothing | does not compile: "Member already exists in a object module from which this object module derives" |
+| `TypeName(Me)`, `TypeName(Form1)` and `Me Is Form1` | nothing | `Form1`, `Form1`, `True` |
+
+So inside a form, a bare name is the form's own before it is anything a standard module declares: its variables, its
+controls, and its built-in members, which are implicit `Me`. A form may not declare a member its Form base already has.
+VB6 gives no order to settle between the two, because a program that has both doesn't compile.
+
+**One exception, measured for one function only:** `Left("abc", 1)`, called with arguments, is VBA's `Left`, while a bare
+`Left` is the form's property. The form's `Left` takes no arguments. Whether arguments are what decides it was not
+measured beyond this one name, so it is recorded here as a fact about `Left`, not as a rule.
+
+### The form from a standard module
+
+| Module1 code | VB6 |
+|---|---|
+| `Form1.Caption`, `Form1.Score` (a Public of the form) and `Form1.Text1.Text` | `cap`, `5`, `t1` |
+| `Score`, unqualified, where `Score` is a Public of the form | Empty: a new variable, there being no Option Explicit |
+| `Hello`, unqualified, where `Hello` is a Public Sub of the form | does not compile: "Sub or Function not defined" |
+
+A form's Public members are members of the form, not project globals. They are reached through its name, and not
+without it. [A form-based game's runtime surface](#a-form-based-games-runtime-surface-2026-10-12) had the same refusal
+for a class calling a form's Public Sub unqualified, and the other direction too: a standard module's Public Const and
+variable are reachable unqualified from a form.
+
+### The form's lifecycle
+
+| Probe | Log |
+|---|---|
+| The startup form declares `Const K = 5`, `Dim a(1 To K) As Integer`, `Dim n As Integer` and `Private o As Class1`, and sets `o` in Load. A Timer does `Unload Me` | `initialize: UBound(a)=5 n=0`, `load`, `class initialize`, `resize`, `activate`, `timer`, `queryunload, mode 1`, `unload`, `terminate`, `class terminate` |
+| `Form_Initialize` sets `Text1.Text` | `initialize start`, `load`, `initialize end`, `resize`, `activate`, `timer`, `queryunload, mode 1`, `unload`, `terminate` |
+| `Sub Main` logs, calls `Form1.Show` and logs again. The form unloads from a Timer | `main start`, `initialize`, `load`, `resize`, `main end`, `activate`, `timer`, `queryunload, mode 1`, `unload`, `terminate` |
+
+What these show:
+- **A form's module-level declarations exist before `Form_Initialize`:** sized, so an array bounded by the form's own
+  Const is `1 To 5`, and zeroed. Initialize can read them.
+- **Touching a control in `Form_Initialize` loads the form there and then.** `Form_Load` runs inside Initialize, before
+  Initialize's next statement.
+- **`Show` returns after Load and Resize, and before Activate**, which comes once `Sub Main` has returned. The run
+  outlives `Sub Main` while a form is loaded.
+- **The form's object variables are released after `Form_Terminate`.** In the first probe, the object `o` held is the
+  last thing to go.
+
+The order on show, and `Unload Me`'s order, agree with [A form-based game's runtime
+surface](#a-form-based-games-runtime-surface-2026-10-12), which measured both first.
+
+### The form's name is a predeclared, auto-instantiating variable
+
+Every `.frm` carries `Attribute VB_PredeclaredId = True`. The probe asks what that means in use: `Sub Main` reaches a
+second form, `Form2`, only through its name, and `Form2` logs its events.
+
+| Step in `Sub Main` | Log |
+|---|---|
+| 1. read `Form2.Score`, a Public of the form | `initialize`, then `0` |
+| 2. `Form2.Score = 5` | nothing |
+| 3. read `Form2.Tag`, a built-in property | `load`, then empty |
+| 4. read `Form2.Text1.Text`, a control | `t1` |
+| 5. `Unload Form2` | `queryunload, mode 1`, `unload` |
+| 6. read `Form2.Score` after the Unload | `5` |
+| 7. read `Form2.Tag` after the Unload | `load`, then empty |
+| 8. `Unload Form2`, then `Set Form2 = Nothing` | `queryunload, mode 1`, `unload`, then `terminate` |
+| 9. read `Form2.Score` after `Nothing` | `initialize`, then `0` |
+| 10. `Form2 Is Nothing` | `False` |
+| 11. the end of `Sub Main` | `terminate` |
+
+So the form's name names an instance that VB6 creates on first use:
+- **Reaching a Public of the form creates the instance** and raises Initialize, but does not load it.
+- **Reaching a built-in member or a control loads it** and raises Load. A Public of the form does not.
+- **`Unload` unloads the form, not the instance.** No Terminate is raised, the form's variables keep their values
+  (`Score` is still 5), and the next built-in member loads the same instance again, with Load and no Initialize.
+- **`Set Form2 = Nothing` ends the instance.** Terminate is raised, and the next use creates a new one, with Initialize
+  and a `Score` of 0. So `Form2 Is Nothing` is never True: naming the form creates it.
+- **At the end of the run,** the instance still alive is terminated.
+
+### HexIDE
+
+Read from the code at `upstream/main` c933fbd, not run. A form's code runs as the primary standard module of an
+interpreter of its own, and `Me` and the form's name are bound to the window (`VBLoader.RunForm`). So:
+- **Implicit `Me`:** a bare name is never looked up on the form: `Caption = "x"` makes a new variable (#995).
+- **A form's Public Subs:** the form is a standard module, so they are found unqualified from another module, where VB6
+  refuses (#822).
+- **The form from outside:** its name is bound in its own module only.
+- **`TypeName(Me)`:** it is the window's .NET class name with `VB` taken off, `FormRuntime`.
+- **The lifecycle:** Initialize and Activate are never raised, and Resize comes before Load (#994). A form's declarations
+  never run (#256). `Unload` stops the run (#973).
+
+#822 carries the design that makes the form an instance. #995 follows it for implicit `Me`, and the predeclared,
+auto-instantiating name belongs to the slices that bring `Load`, `Show` and a second form.
+
 ## Assigning to a control property (2026-10-12, #768)
 
 Measured to decide what `Label1.Caption = 5` stores, and what every other property does with a value of another
