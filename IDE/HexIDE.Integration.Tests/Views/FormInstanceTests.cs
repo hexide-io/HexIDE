@@ -50,9 +50,12 @@ public class FormInstanceTests
     }
 
     /// <summary>Run Form1 with <paramref name="formCode"/>, and the named modules, as F5 does, then close it.</summary>
-    private static Run RunForm(string formCode, params (string Name, ModuleKind Kind, string Code)[] modules)
+    private static Run RunForm(string formCode, params (string Name, ModuleKind Kind, string Code)[] modules) =>
+        RunFormIn(new ProjectDefinition(VBProjectType.EXE, "P"), formCode, modules);
+
+    /// <summary>The same, in a project the test has set up: another form, or a reference.</summary>
+    private static Run RunFormIn(ProjectDefinition project, string formCode, params (string Name, ModuleKind Kind, string Code)[] modules)
     {
-        var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form = new FormDeserializer().Deserialize(project, (FormHeader + formCode).ReplaceLineEndings("\r\n"), new NullSink())!;
         project.AddForm(form);
         foreach (var (name, kind, code) in modules)
@@ -274,6 +277,89 @@ public class FormInstanceTests
         run.Shown.Should().BeTrue();
     }
 
+    [AvaloniaFact]
+    public void A_control_event_raised_from_Form_Load_runs_inside_it()
+    {
+        // Measured: `load start`, `change x`, `load end`. Load runs before the show now, when the window's content is not
+        // in the visual tree yet, and the event found no form through it (#1010 review).
+        var run = RunForm("Private Sub Form_Load()\n    Debug.Print \"load start\"\n    Text1.Text = \"x\"\n    Debug.Print \"load end\"\nEnd Sub\nPrivate Sub Text1_Change()\n    Debug.Print \"change \" & Text1.Text\nEnd Sub\n");
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("load start", "change x", "load end");
+    }
+
+    [AvaloniaFact]
+    public void A_forms_declarations_of_VBs_own_types_and_of_other_forms_are_Nothing_until_Set()
+    {
+        // Measured, with Form2 in the project: every TypeName is Nothing but OLE_COLOR's, a Long, and each object is Nothing.
+        // A form's declarations never ran before #822; once they did, each of these refused the start (#1010 review).
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        project.AddForm(new FormDeserializer().Deserialize(project, OtherForm, new NullSink())!);
+
+        var run = RunFormIn(project, "Private mParent As Form\nPrivate mObj As Object\nPrivate mCol As Collection\nPrivate mFont As StdFont\nPrivate mColour As OLE_COLOR\nPrivate mText As TextBox\nPrivate mOther As Form2\nPrivate mSelf As Form1\nPrivate mPic As IPictureDisp\nPrivate mCtl As Control\nPrivate Sub Form_Load()\n    Debug.Print TypeName(mParent) & \" \" & TypeName(mObj) & \" \" & TypeName(mCol) & \" \" & TypeName(mFont) & \" \" & TypeName(mColour) & \" \" & TypeName(mText) & \" \" & TypeName(mOther) & \" \" & TypeName(mSelf) & \" \" & TypeName(mPic) & \" \" & TypeName(mCtl)\n    Debug.Print (mParent Is Nothing) & \" \" & (mObj Is Nothing) & \" \" & (mCol Is Nothing) & \" \" & (mOther Is Nothing) & \" \" & (mCtl Is Nothing)\nEnd Sub\n");
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Nothing Nothing Nothing Nothing Long Nothing Nothing Nothing Nothing Nothing", "True True True True True");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_declaration_of_a_type_nothing_declares_ends_the_start_unless_a_library_may_declare_it(bool referencesALibrary)
+    {
+        // With only the in-box libraries, a name nobody declares is VB6's "User-defined type not defined", and the start
+        // ends there: Load would run on declarations that never were (#1010 review). With another library referenced, the
+        // name may be that library's, which HexIDE can't read, so it is an object slot, Nothing until Set.
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        if (referencesALibrary)
+            project.AddReference(new VbReference("{00000201-0000-0010-8000-00AA006D2EA4}", "2.1", 0, null, "Microsoft ActiveX Data Objects 2.1 Library"));
+
+        var run = RunFormIn(project, "Private mConn As Connection\nPrivate Sub Form_Load()\n    Debug.Print \"load \" & TypeName(mConn)\nEnd Sub\n");
+
+        if (referencesALibrary)
+        {
+            run.Errors.Should().BeEmpty();
+            run.Printed.Should().Equal("load Nothing");
+            run.Shown.Should().BeTrue();
+        }
+        else
+        {
+            run.Errors.Should().ContainSingle().Which.Should().BeOfType<VBCompileErrorException>()
+                .Which.Message.Should().Contain("User-defined type not defined");
+            run.Printed.Should().BeEmpty();
+            run.Shown.Should().BeFalse();
+        }
+    }
+
+    [AvaloniaFact]
+    public void A_qualified_type_from_a_library_HexIDE_cant_read_is_Nothing_until_Set()
+    {
+        var run = RunForm("Private mConn As ADODB.Connection\nPrivate Sub Form_Load()\n    Debug.Print TypeName(mConn)\nEnd Sub\n");
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Nothing");
+    }
+
+    [AvaloniaFact]
+    public void Setting_the_forms_name_to_Nothing_from_a_module_leaves_the_loaded_form_alive()
+    {
+        // Measured: `dropped`, then `after drop: 5 Form1`, and Terminate only after the unload. A loaded form is held by
+        // more than its name; that Set used to terminate the instance under its own window (#1010 review).
+        var run = RunForm("Public Score As Long\nPrivate WithEvents mSrc As Source\nPrivate Sub mSrc_ResultV(ByVal r As Integer)\n    Debug.Print \"got \" & r\nEnd Sub\nPrivate Sub Form_Load()\n    Score = 5\n    Set mSrc = New Source\n    Drop\n    Debug.Print \"after drop: \" & Me.Score & \" \" & TypeName(Me)\n    Debug.Print \"x \" & mSrc.FireV()\nEnd Sub\n",
+            ("Module1", ModuleKind.StandardModule, "Sub Drop()\n    Set Form1 = Nothing\n    Debug.Print \"dropped\"\nEnd Sub\n"),
+            ("Source", ModuleKind.ClassModule, Source));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("dropped", "after drop: 5 Form1", "got 3", "x 3");
+    }
+
+    private const string OtherForm =
+        "VERSION 5.00\r\n"
+      + "Begin VB.Form Form2 \r\n"
+      + "   Caption         =   \"Form2\"\r\n"
+      + "End\r\n"
+      + "Attribute VB_Name = \"Form2\"\r\n";
+
     // ── The debugger ────────────────────────────────────────────────────────────────────────────────────
 
     [AvaloniaFact]
@@ -334,6 +420,50 @@ public class FormInstanceTests
             var locals = dbg.GetLocals()!.Locals;
             locals.Select(n => n.Name).Should().Equal("Module1", "local");
             locals[0].Expand().Select(n => n.Name).Should().Equal("G");
+        }
+        finally
+        {
+            dbg.Stop();
+            Dispatcher.UIThread.RunJobs();
+            window.Close();
+        }
+        run.IsCompleted.Should().BeTrue();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Step_Into_from_design_mode_breaks_on_the_first_statement_of_the_start(bool hasInitialize)
+    {
+        // VB6 breaks on the first executable line, never on a declaration. The start is one dispatch now: a step armed
+        // before it reaches Initialize's first statement, or Load's when there is no Initialize, and a step off the end
+        // of Initialize goes on into Load. Each piece was a dispatch of its own, and the first one's end disarmed the
+        // step, so the run went straight through (#656, #1010 review).
+        var code = "Private Score As Integer\nDim Grid(1 To 3) As Integer\n"
+            + (hasInitialize ? "Private Sub Form_Initialize()\n    Score = 1\nEnd Sub\n" : "")
+            + "Private Sub Form_Load()\n    Score = Score + 1\n    Debug.Print Score\nEnd Sub\n";
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var form = new FormDeserializer().Deserialize(project, (FormHeader + code).ReplaceLineEndings("\r\n"), new NullSink())!;
+        project.AddForm(form);
+        var dbg = new HexIDE.Runtime.Debugging.DebugController { TimeSliceMs = null };
+        var stops = new List<int>();
+        dbg.Stopped += info => stops.Add(info.Line);
+        dbg.Reset();
+        dbg.StepInto();
+
+        var run = VBLoader.RunForm(form, CancellationToken.None, out var window, dbg);
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            if (hasInitialize)
+            {
+                stops.Should().Equal([5], "Initialize's first statement, after the Attribute line, the two declarations and its Sub line");
+                dbg.StepInto();
+                Dispatcher.UIThread.RunJobs();
+                stops.Should().Equal([5, 8], "off the end of Initialize, into Load's first statement");
+            }
+            else
+                stops.Should().Equal([5], "Load's first statement: the declarations are never a stop");
         }
         finally
         {

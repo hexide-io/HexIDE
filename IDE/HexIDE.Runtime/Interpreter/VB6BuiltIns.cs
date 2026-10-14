@@ -189,7 +189,13 @@ public partial class VB6BuiltIns
         var caption = args.Count >= 2 ? VbDisplay.ToTextOrNull(args[1]) : null;
         caption ??= AppTitle?.Invoke();
         var defaultText = args.Count >= 3 ? VbDisplay.ToTextOrNull(args[2]) : "";
+        var runEnded = WatchRunEnd?.Invoke();
         var result = await stdLib.InputBox(prompt ?? "", caption, defaultText ?? "");
+        // A box closed because its run ended answers nothing, as a MsgBox does, and the statement is abandoned with the
+        // run. Cancel, which a person can press, is also null, and is "" (#1010 review: after Restart, the old run's
+        // InputBox in Form_Load would otherwise hand it "" and its Load carry on beside the new run).
+        if (result is null && runEnded?.Invoke() == true)
+            throw new OperationCanceledException("The run ended while an input box was waiting for an answer");
         return (result ?? "");
     }
 

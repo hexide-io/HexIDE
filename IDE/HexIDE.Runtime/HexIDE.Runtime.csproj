@@ -37,6 +37,9 @@
              truth with no generated file to drift from it, and rather than read from disk so it
              cannot go missing from a published build. -->
         <EmbeddedResource Include="Interpreter\Data\vb6-inbox-constants.json" />
+        <!-- The types those libraries declare, read by scripts/dump-typelib-types.ps1, and embedded for the same
+             reasons: which names after `As` are VB's own object types (#822). -->
+        <EmbeddedResource Include="Interpreter\Data\vb6-inbox-types.json" />
     </ItemGroup>
 
     <ItemGroup>

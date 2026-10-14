@@ -403,7 +403,7 @@ public class VBLoader
         var shown = window = ((FormComponentClass)form.BaseClass).InstantiateWindow(form);
         PrepareForm(element, shown.Context, content => shown.Content = content, debugController);
 
-        return StartAndShow(shown.Context, token, close: shown.Close, showUntilClosed: () =>
+        return StartAndShow(shown.Context, token, close: shown.Close, closeUnshown: shown.Close, showUntilClosed: () =>
         {
             // Complete when the form closes. The TaskCompletionSource is captured directly in the handler rather than
             // parked in window.Tag: Control.Tag backs the VB6 `Tag` property, so stashing runtime state there leaked
@@ -439,8 +439,26 @@ public class VBLoader
         context.SetCode(code: element.Code, moduleName: formName ?? "Module1", debugController: debugController,
             appInfo: Interpreter.AppInfo.FromProject(element.Owner),
             additionalModules: standardModules, classModules: classModules);
+        DescribeProject(context.Interpreter!, element.Owner);
         setContent(SpawnComponents(element, context.ExecutionContext, context.InstanceEnv));
         context.HoldControlsUntilLoad();
+    }
+
+    // OLE Automation, the one in-box library a .vbp lists as a Reference: VBA, VBRUN and VB are implicit.
+    private const string StdoleGuid = "00020430-0000-0000-C000-000000000046";
+
+    /// <summary>
+    /// Tell an interpreter what of its project a declaration may name (#822 review): the project's forms, which are
+    /// types though only the running one is a module, and whether the project references a type library beyond the
+    /// in-box four, whose types the interpreter can't read.
+    /// </summary>
+    public static void DescribeProject(BasicInterpreter interpreter, ProjectDefinition? project)
+    {
+        if (project is null)
+            return;
+        interpreter.ProjectFormNames = new HashSet<string>(project.Forms.Select(f => f.Name), StringComparer.OrdinalIgnoreCase);
+        interpreter.ReferencesOtherLibraries = project.References.Any(r =>
+            !string.Equals(r.Guid.Trim('{', '}'), StdoleGuid, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
@@ -449,7 +467,14 @@ public class VBLoader
     /// the start does not end in a form to show: a fault in Initialize or Load, End, the debugger's Stop, or the run
     /// cancelled first. Shown or not, a cancellation closes the form.
     /// </summary>
-    public static Task StartAndShow(VBWindowContext context, CancellationToken token, Action close, Func<Task> showUntilClosed)
+    /// <param name="closeUnshown">
+    /// How to close the form before it was ever shown, or null when there is nothing to close. A desktop window must be
+    /// closed even then: a MsgBox or InputBox opened from Initialize or Load waits on its owner's Closed, so a window
+    /// left unclosed left the box standing, and answering it ran the ended run's Load on beside the next one (#820,
+    /// #1010 review).
+    /// </param>
+    public static Task StartAndShow(VBWindowContext context, CancellationToken token, Action close, Func<Task> showUntilClosed,
+        Action? closeUnshown = null)
     {
         var run = new TaskCompletionSource();
         var shown = false;
@@ -458,7 +483,10 @@ public class VBLoader
             if (shown)
                 close();
             else
+            {
+                closeUnshown?.Invoke();
                 run.TrySetResult();
+            }
         });
 
         async Task StartThenShow()

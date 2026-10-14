@@ -382,6 +382,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
                         DebugController = debugController,
                     };
                     interpreter.SetAppInfo(AppInfo.FromProject(projectDefinition));
+                    VBLoader.DescribeProject(interpreter, projectDefinition);
                     // A missing or ambiguous Main is found here, before anything runs, so it too is a start that
                     // never became a run. It used to be raised as the run began, and arrived as a run that ended,
                     // which run_project answered as a success (#759).

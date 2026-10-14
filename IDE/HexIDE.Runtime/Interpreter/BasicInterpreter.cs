@@ -132,6 +132,18 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// </summary>
     public string ProjectName { get; set; } = "Project1";
 
+    /// <summary>
+    /// The names of the project's forms, which a declaration may name as a type (<c>Private mOwner As Form2</c>) though
+    /// only the running form is a module here. Set by the host that knows the project; empty otherwise.
+    /// </summary>
+    public IReadOnlySet<string> ProjectFormNames { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Whether the project references a type library beyond the in-box four, whose types the interpreter can't read:
+    /// an unqualified type name nothing here declares may then be that library's. Set by the host; false otherwise.
+    /// </summary>
+    public bool ReferencesOtherLibraries { get; set; }
+
     public VbUdt NewUdt(string typeName) => NewUdt(typeName, 0);
 
     /// <summary>Instantiate a UDT resolved from a specific module's point of view — so `Module2.Point`
@@ -665,14 +677,29 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (declarationsRun)
             return;
         declarationsRun = true;
-        foreach (var m in Modules.All)
-            if (m.Kind == InterpreterModuleKind.Standard)
-            {
-                foreach (var block in m.PrePass.topLevelBlocks)
-                    await new StatementExecutor(this, m.ModuleEnv, m).Execute(block);
-                m.DeclarationsRun = true;
-            }
+        RunningDeclarations = true;
+        try
+        {
+            foreach (var m in Modules.All)
+                if (m.Kind == InterpreterModuleKind.Standard)
+                {
+                    foreach (var block in m.PrePass.topLevelBlocks)
+                        await new StatementExecutor(this, m.ModuleEnv, m).Execute(block);
+                    m.DeclarationsRun = true;
+                }
+        }
+        finally
+        {
+            RunningDeclarations = false;
+        }
     }
+
+    /// <summary>
+    /// True while the modules' or a form's declarations run (#1010 review). The debugger's gate is skipped then: VB6 never
+    /// stops on a declaration, so F8 from design mode breaks on the first statement of the event that follows, and a
+    /// breakpoint can't be hit there either. A class's field initialisers, run at New, still pass the gate (D13).
+    /// </summary>
+    internal bool RunningDeclarations { get; private set; }
 
     /// <summary>
     /// Make the running instance of a form module (#822): its own env, cloned from the module's template env as a
@@ -706,9 +733,17 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// </summary>
     public async Task RunFormDeclarations(VbObject instance)
     {
-        foreach (var block in instance.ClassDef.PrePass.topLevelBlocks)
-            await new StatementExecutor(this, instance.InstanceEnv, instance.ClassDef).Execute(block);
-        instance.ClassDef.DeclarationsRun = true;
+        RunningDeclarations = true;
+        try
+        {
+            foreach (var block in instance.ClassDef.PrePass.topLevelBlocks)
+                await new StatementExecutor(this, instance.InstanceEnv, instance.ClassDef).Execute(block);
+            instance.ClassDef.DeclarationsRun = true;
+        }
+        finally
+        {
+            RunningDeclarations = false;
+        }
     }
 
     /// <summary>

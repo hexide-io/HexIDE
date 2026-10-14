@@ -19,6 +19,9 @@ public class VBWindowContext : IModuleExecutionRoot
     private BasicInterpreter? interpreter;
     private VbObject? instance;
     private bool formDeclarationsRun;
+    // Set once StartAsync begins. A started form's declarations run there and nowhere else, so an event can never run
+    // them late, after Load has used the variables they would re-create (#1010 review).
+    private bool started;
 
     public ModuleExecutionContext ExecutionContext { get; } = new();
 
@@ -110,6 +113,10 @@ public class VBWindowContext : IModuleExecutionRoot
         {
             instance = interpreter.NewFormInstance(interpreter.PrimaryModule);
             instance.FormWindow = Window;
+            // The context's own hold, apart from the one the form's name has: in VB6 a loaded form is kept alive by
+            // Forms, so `Set Form1 = Nothing` from a module clears the name and leaves the running form be (#1010
+            // review). Without it, that Set terminated the instance under its own window.
+            interpreter.AddRef(Vb6Value.NewObject(instance));
         }
         return instance;
     }
@@ -129,30 +136,42 @@ public class VBWindowContext : IModuleExecutionRoot
 
     /// <summary>
     /// Start the form as VB6 starts its startup form, before its window is shown (measured, #822): the modules'
-    /// declarations, then the form's own, then <c>Form_Initialize</c>, then <c>Form_Load</c>. Each event runs inside the
-    /// boundary <see cref="ExecuteSub"/> gives any event, so an error in one is reported as one is there.
+    /// declarations, then the form's own, then <c>Form_Initialize</c>, then <c>Form_Load</c>. An error in each is
+    /// reported as one in any event is. The whole start is one dispatch, as one event's handler chain is, so a step armed
+    /// before it (F8 from design mode) breaks on the first statement it reaches, Initialize's or Load's, and a step off
+    /// the end of Initialize goes on into Load (#1010 review).
     /// </summary>
     /// <returns>
-    /// Whether the form started, and so is to be shown. A run-time error in Initialize or Load leaves the run going, as
-    /// one does in any event procedure (debugger-vb6-divergences D23), so the start goes on. A fault, End, or the
-    /// debugger's Stop ends the run: the start stops there, and Load is not raised after a fault in Initialize. The
-    /// owner's reaction to a fault arrives later, posted, so the start can't wait for it to say so.
+    /// Whether the form started, and so is to be shown.
+    /// <list type="bullet">
+    /// <item>A failure in the declarations ends the start. Every event after it would run on variables that were never
+    /// declared, and declarations never run later than this.</item>
+    /// <item>A run-time error in Initialize or Load leaves the run going, as one does in any event procedure
+    /// (debugger-vb6-divergences D23), so the start goes on.</item>
+    /// <item>A fault, End, or the debugger's Stop ends the run, and the start stops there: Load is not raised after a
+    /// fault in Initialize. The owner's reaction to a fault arrives later, posted, so the start can't wait for it.</item>
+    /// </list>
     /// </returns>
     public async Task<bool> StartAsync()
     {
         if (interpreter is null)
             return false;
         var form = EnsureInstance();
-        var initialized = await Dispatch(async () =>
+        started = true;
+        try
         {
-            await EnsureDeclarations();
-            await interpreter.RaiseFormEvent(form, "Form_Initialize");
-        });
-        if (!initialized || RunIsOver())
-            return false;
-        form.FormLoaded = true;
-        ExecutionContext.State.ClearPendingControls(form.ClassName);
-        return await Dispatch(() => interpreter.RaiseFormEvent(form, "Form_Load")) && !RunIsOver();
+            if (await Report(EnsureDeclarations) != Outcome.Completed)
+                return false;
+            if (await Report(() => interpreter.RaiseFormEvent(form, "Form_Initialize")) == Outcome.Over || RunIsOver())
+                return false;
+            form.FormLoaded = true;
+            ExecutionContext.State.ClearPendingControls(form.ClassName);
+            return await Report(() => interpreter.RaiseFormEvent(form, "Form_Load")) != Outcome.Over && !RunIsOver();
+        }
+        finally
+        {
+            interpreter.DebugController?.NotifyDispatchIdle();
+        }
     }
 
     private bool RunIsOver() => interpreter!.Ending || interpreter.DebugController?.IsAborting == true;
@@ -176,39 +195,60 @@ public class VBWindowContext : IModuleExecutionRoot
         var form = EnsureInstance();
         var argList = args is null ? null : new List<Vb6Value>(args);
         // The event is the form's: its own procedure of that name, run on its instance (#822). A context that was never
-        // started, as a test's is, runs the declarations first.
+        // started, as a test's is, runs the declarations first; a started one ran them in StartAsync.
         Dispatch(async () =>
         {
-            await EnsureDeclarations();
+            if (!started)
+                await EnsureDeclarations();
             await interpreter.RaiseFormEvent(form, name, argList);
         }).ListenErrors();
     }
 
-    // The event-dispatch boundary: every way an event procedure can stop, reported as what it is. True when the run
-    // carries on afterwards: the procedure finished, or stopped on a run-time or compile error, which leaves the run
-    // going (D22, D23). False when the run is over: a fault, a cancellation, or the debugger's Stop.
+    // How a piece of a dispatch ended: it finished; it stopped on a run-time or compile error, which was reported and
+    // leaves the run going (D22, D23); or the run is over, after a fault, a cancellation, or the debugger's Stop.
+    private enum Outcome { Completed, Reported, Over }
+
+    // The event-dispatch boundary: one handler chain, its outcome reported, then the dispatch is idle. True when the
+    // run carries on afterwards.
     private async Task<bool> Dispatch(Func<Task> work)
     {
         try
         {
+            return await Report(work) != Outcome.Over;
+        }
+        finally
+        {
+            // Event-dispatch boundary: this handler chain has returned (or aborted). Disarm any step the
+            // front-end armed but never consumed, so a leftover Step Into/Over/Out can't spuriously break the
+            // NEXT event handler. A no-op unless a step is armed and the controller is Running. (Module top-level
+            // execution — the headless test path — never routes through here, so its stepping is unaffected.)
+            interpreter?.DebugController?.NotifyDispatchIdle();
+        }
+    }
+
+    // Every way a piece of event code can stop, reported as what it is.
+    private async Task<Outcome> Report(Func<Task> work)
+    {
+        try
+        {
             await work();
-            return true;
+            return Outcome.Completed;
         }
         catch (VBRunTimeException e)
         {
             RunTimeError?.Invoke(this, e);
-            return true;
+            return Outcome.Reported;
         }
         catch (VBCompileErrorException e)
         {
             CompileError?.Invoke(this, e);
-            return true;
+            return Outcome.Reported;
         }
         catch (Debugging.StopExecutionSignal)
         {
             // Debugger Stop (End) unwinds via this signal. The interpreter entry points already swallow it;
             // this is the belt-and-suspenders at the run-window boundary so it never logs as an error.
-            return false;
+            return Outcome.Over;
         }
         catch (Exception e)
         {
@@ -220,15 +260,7 @@ public class VBWindowContext : IModuleExecutionRoot
             // the paused run carries on.
             if (e is not (OperationCanceledException or Debugging.ImmediateEvalException))
                 Faulted?.Invoke(this, e);
-            return e is Debugging.ImmediateEvalException;
-        }
-        finally
-        {
-            // Event-dispatch boundary: this handler chain has returned (or aborted). Disarm any step the
-            // front-end armed but never consumed, so a leftover Step Into/Over/Out can't spuriously break the
-            // NEXT event handler. A no-op unless a step is armed and the controller is Running. (Module top-level
-            // execution — the headless test path — never routes through here, so its stepping is unaffected.)
-            interpreter?.DebugController?.NotifyDispatchIdle();
+            return e is Debugging.ImmediateEvalException ? Outcome.Reported : Outcome.Over;
         }
     }
 }

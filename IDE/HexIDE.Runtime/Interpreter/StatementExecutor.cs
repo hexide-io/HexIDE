@@ -319,7 +319,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (interpreter.Ending)
                 throw new Debugging.StopExecutionSignal();
             // An Attribute line is metadata, so the debugger never stops on one, nested or not (see VisitAttributeStmt).
-            if (interpreter.DebugController is { } dbg && stmt.attributeStmt() == null)
+            if (interpreter.DebugController is { } dbg && stmt.attributeStmt() == null && !interpreter.RunningDeclarations)
             {
                 _suspendedAtTopLevel = false;   // a pause here is inside a nested block — Set Next Statement is refused
                 await dbg.OnStatementAsync(currentLine, currentModule.Name, this);
@@ -2239,8 +2239,22 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         value = Vb6Value.Nothing;
                         declaredClass = classMod.Name;   // the module's own casing, not the Dim's
                     }
+                    else if (IsObjectTypeWithoutClass(qualifier, typeName, out var aliasScalar))
+                    {
+                        // An object of a type the interpreter has no class for: VB's own (`As Form`, `As Control`,
+                        // `As TextBox`, `As StdFont`), a form of the project, or a referenced library's (#822). The
+                        // slot holds Nothing until it is Set, whatever the type, so knowing it is a type is enough.
+                        // A stdole alias for a scalar (`As OLE_COLOR`) is that scalar.
+                        value = aliasScalar is { } scalar ? new Vb6Value(scalar) : Vb6Value.Nothing;
+                    }
                     else
                         throw new VBCompileErrorException("User-defined type not defined: " + typeName);
+                }
+                else if (!isArray && asType?.NEW() == null && asType?.type()?.baseType() is { } objectType
+                         && (objectType.OBJECT() != null || objectType.COLLECTION() != null))
+                {
+                    // `Dim o As Object`, `Dim c As Collection`: an object slot, Nothing until Set (#822 review).
+                    value = Vb6Value.Nothing;
                 }
                 else
                 {
@@ -2649,6 +2663,35 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// is the module.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// Whether a type name the interpreter has no class, UDT or enum for is still a type a declaration may name (#822
+    /// review). It is when it is:
+    /// <list type="bullet">
+    /// <item>one of VB's own, read out of the in-box type libraries (<see cref="VB6InBoxTypes"/>);</item>
+    /// <item>a form, this one or another of the project's, none of which is a class;</item>
+    /// <item>qualified by a library the interpreter can't read, such as <c>ADODB.Connection</c>;</item>
+    /// <item>or unqualified, in a project that references such a library, which may well declare it.</item>
+    /// </list>
+    /// The last two are a missing input, not a missing name: without the library there is no telling, and the slot is
+    /// Nothing either way. A typo then runs on until the variable is used. With nothing referenced, a name nobody
+    /// declares stays VB6's "User-defined type not defined".
+    /// </summary>
+    private bool IsObjectTypeWithoutClass(string? qualifier, string typeName, out Vb6Value.ValueType? aliasScalar)
+    {
+        aliasScalar = null;
+        if (VB6InBoxTypes.TryResolve(qualifier, typeName, out var inbox))
+        {
+            aliasScalar = inbox.Scalar;
+            return true;
+        }
+        if (qualifier is null && (interpreter.ProjectFormNames.Contains(typeName)
+                                  || interpreter.Modules.TryGet(typeName, out var m) && m.Kind == InterpreterModuleKind.Form))
+            return true;
+        if (qualifier is not null)
+            return !interpreter.Modules.Contains(qualifier) && !VB6InBoxLibraries.IsLibrary(qualifier);
+        return interpreter.ReferencesOtherLibraries;
+    }
+
     private (string? Qualifier, string Name) SplitTypeName(string text)
     {
         var parts = text.Split('.');
@@ -2730,7 +2773,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (interpreter.Ending)
                 throw new Debugging.StopExecutionSignal();
             // An Attribute line is metadata, so the debugger never stops on one (see VisitAttributeStmt).
-            if (interpreter.DebugController is { } dbg && stmts[pc].attributeStmt() == null)
+            // Nor on a module's or form's declarations, as VB6 never does (BasicInterpreter.RunningDeclarations).
+            if (interpreter.DebugController is { } dbg && stmts[pc].attributeStmt() == null && !interpreter.RunningDeclarations)
             {
                 _suspendedAtTopLevel = true;   // a pause here is at a top-level statement — Set Next Statement is valid
                 await dbg.OnStatementAsync(currentLine, currentModule.Name, this);
