@@ -338,6 +338,23 @@ public class GuardedContentMemberRunTests
             .And.Contain("which only the IDE changes").And.EndWith("Nothing was changed.");
     }
 
+    /// <summary>
+    /// What stands before a line's qualifier is compared as well as what follows it: only the qualifier of a run's own
+    /// member is read past. VB6 reads an indented line, or one whose keyword is cased otherwise, as the same line, but
+    /// the contract is that a member's lines are sent exactly as the document has them, and a guard reading only
+    /// from the qualifier on would let any of that through unremarked.
+    /// </summary>
+    [Theory]
+    [InlineData("Attribute Halt.VB_Description", "    Attribute Halt.VB_Description", "Halt")]
+    [InlineData("Attribute Halt.VB_Description", "ATTRIBUTE Halt.VB_Description", "Halt")]
+    [InlineData("Attribute Total.VB_VarDescription", "  Attribute Total.VB_VarDescription", "Total")]
+    public void TheTextBeforeARunLinesQualifierChangedIsRefused(string from, string to, string member)
+    {
+        var refusal = Refused(Replace(Code, Code.Replace(from, to)));
+
+        refusal.Should().Contain($"the Attribute lines describing {member} are changed");
+    }
+
     [Fact]
     public void ARunRemovedWhileItsDeclarationStaysIsRefused()
     {
