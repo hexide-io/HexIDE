@@ -598,6 +598,10 @@ public class FormInstanceTests
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form = new FormDeserializer().Deserialize(project, (FormHeader + code).ReplaceLineEndings("\r\n"), new NullSink())!;
         project.AddForm(form);
+        // A stop is reported on its line counted from the top of the file, header included (#273), so each expected
+        // line is found in the whole file rather than counted from the code.
+        var whole = FormCodeText.WholeFile(form).ReplaceLineEndings("\n").Split('\n');
+        int LineOf(string statement) => System.Array.IndexOf(whole, statement) + 1;
         var dbg = new HexIDE.Runtime.Debugging.DebugController { TimeSliceMs = null };
         var stops = new List<int>();
         dbg.Stopped += info => stops.Add(info.Line);
@@ -610,13 +614,14 @@ public class FormInstanceTests
             Dispatcher.UIThread.RunJobs();
             if (hasInitialize)
             {
-                stops.Should().Equal([5], "Initialize's first statement, after the Attribute line, the two declarations and its Sub line");
+                stops.Should().Equal([LineOf("    Score = 1")], "Initialize's first statement, after the two declarations and its Sub line");
                 dbg.StepInto();
                 Dispatcher.UIThread.RunJobs();
-                stops.Should().Equal([5, 8], "off the end of Initialize, into Load's first statement");
+                stops.Should().Equal([LineOf("    Score = 1"), LineOf("    Score = Score + 1")],
+                    "off the end of Initialize, into Load's first statement");
             }
             else
-                stops.Should().Equal([5], "Load's first statement: the declarations are never a stop");
+                stops.Should().Equal([LineOf("    Score = Score + 1")], "Load's first statement: the declarations are never a stop");
         }
         finally
         {
