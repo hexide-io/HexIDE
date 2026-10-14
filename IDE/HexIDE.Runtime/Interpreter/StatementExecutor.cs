@@ -665,12 +665,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             if (value.Value is not VbObject vobj)
                 throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
-            if (VbInterface.ResolveMember(value, vobj, identifier) is not { } callName
-                || !vobj.ClassDef.PrePass.Procedures.TryGetValue(callName, out var method))
-                throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, identifier);
-            var objCallArgs = await expressionExecutor.ResolveCallArgs(context.argsCall());
-            await interpreter.RunProcedure(vobj.ClassDef, method, objCallArgs, vobj.InstanceEnv, value, stmtFrames);
-            return ControlFlow.Nothing;
+            if (VbInterface.ResolveMember(value, vobj, identifier) is { } callName
+                && vobj.ClassDef.PrePass.Procedures.TryGetValue(callName, out var method))
+            {
+                var objCallArgs = await expressionExecutor.ResolveCallArgs(context.argsCall());
+                await interpreter.RunProcedure(vobj.ClassDef, method, objCallArgs, vobj.InstanceEnv, value, stmtFrames);
+                return ControlFlow.Nothing;
+            }
+            // A form's built-in method is its window's: `Call Me.Move 0, 0` (#822).
+            value = vobj.BuiltInMembersFor(identifier) is { } formWindow
+                ? new Vb6Value(formWindow)
+                : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, identifier);
         }
 
         var callArgs = await expressionExecutor.EvaluateCallArgs(context.argsCall());
@@ -1290,12 +1295,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     await interpreter.RunProcedure(vobj.ClassDef, letter, [new CallArg(value, null)], vobj.InstanceEnv, variable, stmtFrames);
                     return default;
                 }
-                if (!interpreter.ExecutionContext.TryGetVariable(vobj.InstanceEnv, fieldName, out var oldFieldLet))
-                    throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, fieldName);
-                interpreter.ExecutionContext.TryUpdateVariable(vobj.InstanceEnv, fieldName, interpreter.CopyForStore(value));
-                // A field that held an object, now overwritten by a scalar via Let, drops that reference.
-                await interpreter.ReleaseRef(oldFieldLet);
-                return default;
+                if (interpreter.ExecutionContext.TryGetVariable(vobj.InstanceEnv, fieldName, out var oldFieldLet))
+                {
+                    interpreter.ExecutionContext.TryUpdateVariable(vobj.InstanceEnv, fieldName, interpreter.CopyForStore(value));
+                    // A field that held an object, now overwritten by a scalar via Let, drops that reference.
+                    await interpreter.ReleaseRef(oldFieldLet);
+                    return default;
+                }
+                // A form's built-in property is its window's: `Me.Caption = "x"` (#822). Set below, as a control's is.
+                variable = vobj.BuiltInMembersFor(fieldName) is { } formWindow
+                    ? new Vb6Value(formWindow)
+                    : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, fieldName);
             }
 
             if (membersCall.iCS_S_MemberCall().Length != 1)
@@ -1941,7 +1951,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             }
             // Raw object-field write: refcount the field slot (AddRef new before Release old, as for a plain var).
             if (!interpreter.ExecutionContext.TryGetVariable(targetObj.InstanceEnv, fieldName, out var oldField))
+            {
+                // A form's built-in object property (`Set Me.Picture = ...`) is not set through Set anywhere yet: a
+                // control's isn't either. Refused, rather than raising a trappable 438 VB6 would not (#822).
+                if (targetObj.BuiltInMembersFor(fieldName) is not null)
+                    throw new NotImplementedException($"Set on a form's own {fieldName} is not implemented");
                 throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, fieldName);
+            }
             interpreter.AddRef(value);
             interpreter.ExecutionContext.TryUpdateVariable(targetObj.InstanceEnv, fieldName, value);   // slot first (see above)
             await interpreter.ReleaseRef(oldField);
@@ -2481,12 +2497,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             if (value.Value is not VbObject vobj)
                 throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
-            if (VbInterface.ResolveMember(value, vobj, identifier) is not { } callName
-                || !vobj.ClassDef.PrePass.Procedures.TryGetValue(callName, out var method))
-                throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, identifier);
-            var objCallArgs = await expressionExecutor.ResolveCallArgs(context.argsCall());
-            await interpreter.RunProcedure(vobj.ClassDef, method, objCallArgs, vobj.InstanceEnv, value, stmtFrames);
-            return ControlFlow.Nothing;
+            if (VbInterface.ResolveMember(value, vobj, identifier) is { } callName
+                && vobj.ClassDef.PrePass.Procedures.TryGetValue(callName, out var method))
+            {
+                var objCallArgs = await expressionExecutor.ResolveCallArgs(context.argsCall());
+                await interpreter.RunProcedure(vobj.ClassDef, method, objCallArgs, vobj.InstanceEnv, value, stmtFrames);
+                return ControlFlow.Nothing;
+            }
+            // A form's built-in method is its window's: `Me.Hide`, `Form1.Move 0, 0` (#822).
+            value = vobj.BuiltInMembersFor(identifier) is { } formWindow
+                ? new Vb6Value(formWindow)
+                : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, identifier);
         }
 
         var callArgs = await expressionExecutor.EvaluateCallArgs(context.argsCall());

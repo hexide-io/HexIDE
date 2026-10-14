@@ -377,7 +377,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         string code,
         string primaryName = "Module1",
         IReadOnlyList<(string Name, string Code)>? additionalModules = null,
-        IReadOnlyList<(string Name, string Code)>? classModules = null)
+        IReadOnlyList<(string Name, string Code)>? classModules = null,
+        InterpreterModuleKind primaryKind = InterpreterModuleKind.Standard)
     {
         ExecutionContext = executionContext;
         BuiltIns = new VB6BuiltIns(stdLib)
@@ -396,7 +397,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // Build the primary (startup) module over the caller-provided rootEnv, then any additional modules —
         // each with its own env, ALL sharing one ExecutionState so slots are program-global (this is why ByRef
         // aliasing across modules works, and why cross-form sharing needs a project-scope hoist — see E1).
-        primaryModule = BuildModule(primaryName, InterpreterModuleKind.Standard, code, rootEnv);
+        // A form's run has the form as its primary module, of kind Form: a template whose running form is an instance of
+        // it (#822). Its env is the template's, which every instance is cloned from.
+        primaryModule = BuildModule(primaryName, primaryKind, code, rootEnv);
         prepass = primaryModule.PrePass;
         Modules.Add(primaryModule);
 
@@ -624,7 +627,6 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     public async Task RunStartupSubMain()
     {
         var startup = FindStartupSubMain();
-        declarationsRun = true;
 
         try
         {
@@ -638,13 +640,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             // These are declarations, not statements: VB6 refuses an executable statement outside a
             // procedure ("Invalid outside procedure", measured), so nothing here can have an effect
             // beyond seeding values.
-            foreach (var m in Modules.All)
-                if (m.Kind == InterpreterModuleKind.Standard)
-                {
-                    foreach (var block in m.PrePass.topLevelBlocks)
-                        await new StatementExecutor(this, m.ModuleEnv, m).Execute(block);
-                    m.DeclarationsRun = true;
-                }
+            await RunModuleDeclarations();
 
             await RunProcedure(startup.Module, startup.Proc, Array.Empty<CallArg>());
         }
@@ -654,28 +650,87 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         }
     }
 
-    // Set once the modules' declarations have run, by Execute or RunStartupSubMain. A form's run enters through
-    // ExecuteSub alone and never runs them (#256).
+    // Set once the modules' declarations have run, by Execute, RunStartupSubMain or RunModuleDeclarations.
     private bool declarationsRun;
 
     /// <summary>
-    /// A module-level array whose bounds name a constant is sized when its module's declarations run (the pre-pass
-    /// reads only plain integer bounds). A form's run does not run them yet (#256), so such an array would stay
-    /// unallocated and its first use would raise a trappable 9. Refused instead, naming the array.
+    /// Run every standard module's module-level declarations, once, in list order: the primary's too when it is a
+    /// standard module. Sub Main's run does this before Main, and a form's run before the form is created (#256): a
+    /// module's Consts are then filled and its arrays sized, so a form reads a module's Public Const as VB6 does, not as
+    /// Empty. A form module's declarations are its instance's, and run when the instance is made
+    /// (<see cref="RunFormDeclarations"/>); a class's run per instance at New.
+    /// </summary>
+    public async Task RunModuleDeclarations()
+    {
+        if (declarationsRun)
+            return;
+        declarationsRun = true;
+        foreach (var m in Modules.All)
+            if (m.Kind == InterpreterModuleKind.Standard)
+            {
+                foreach (var block in m.PrePass.topLevelBlocks)
+                    await new StatementExecutor(this, m.ModuleEnv, m).Execute(block);
+                m.DeclarationsRun = true;
+            }
+    }
+
+    /// <summary>
+    /// Make the running instance of a form module (#822): its own env, cloned from the module's template env as a
+    /// class's is at New, and the program-wide name the form is reached by, so <c>Form1.Caption</c> works from any
+    /// module (measured). The program holds the instance through that name, so it is not terminated by the Me holds its
+    /// own events take. Its declarations run separately (<see cref="RunFormDeclarations"/>), because the window's controls
+    /// go into the instance env first.
     /// </summary>
     /// <remarks>
-    /// Sizing the array here would not be enough: on that run a module's own Consts read Empty too, so a loop to
-    /// <c>GRID - 1</c> would still run no passes. #256 is the fix for both.
+    /// In VB6 a form's name is a predeclared variable that creates its instance on first use, and a new one after
+    /// <c>Set Form1 = Nothing</c> (measured, #822). Here the name is bound to the one instance the run starts with; that
+    /// rule belongs to the slices that add Load, Show and a second form.
     /// </remarks>
-    private void RefuseArraysSizedWhenDeclarationsRun()
+    public VbObject NewFormInstance(ModuleInfo form)
     {
-        foreach (var module in Modules.All)
+        if (form.Kind != InterpreterModuleKind.Form)
+            throw new ArgumentException($"{form.Name} is not a form module", nameof(form));
+        var instance = new VbObject(form, form.ModuleEnv.Clone());
+        var reference = Vb6Value.NewObject(instance);
+        SeedProgramGlobal(form.Name, () => reference);
+        if (form.ModuleEnv.TryGetVariableLocation(form.Name, out var slot))
+            instance.InstanceEnv.DefineVariable(form.Name, slot);
+        AddRef(reference);
+        return instance;
+    }
+
+    /// <summary>
+    /// Run a form instance's module-level declarations into its own env, as <see cref="NewObject"/> does for a class.
+    /// VB6 has them in place, sized and zeroed, before <c>Form_Initialize</c> (measured, #822: an array bounded by the
+    /// form's own Const is <c>1 To 5</c> there).
+    /// </summary>
+    public async Task RunFormDeclarations(VbObject instance)
+    {
+        foreach (var block in instance.ClassDef.PrePass.topLevelBlocks)
+            await new StatementExecutor(this, instance.InstanceEnv, instance.ClassDef).Execute(block);
+        instance.ClassDef.DeclarationsRun = true;
+    }
+
+    /// <summary>
+    /// Raise one of a form's events on its instance: run the form module's own procedure of that name with <c>Me</c>
+    /// bound to the instance, as a class's method runs (#822). A form with no handler for the event does nothing. Only
+    /// the form's own procedures are looked at: an event is the form's, never another module's Sub of the same name.
+    /// </summary>
+    public async Task RaiseFormEvent(VbObject instance, string name, IReadOnlyList<Vb6Value>? args = null)
+    {
+        if (!instance.ClassDef.PrePass.Procedures.TryGetValue(name, out var proc))
+            return;
+        var callArgs = new List<CallArg>();
+        if (args != null)
+            foreach (var value in args)
+                callArgs.Add(new CallArg(value, null));
+        try
         {
-            if (module.Kind == InterpreterModuleKind.Class || module.PrePass.DeferredArrays.Count == 0)
-                continue;
-            throw new NotImplementedException(
-                $"{module.Name}'s {module.PrePass.DeferredArrays[0]} is sized by a constant, which needs {module.Name}'s " +
-                "declarations to run, and a form's run does not run them yet (#256).");
+            await RunProcedure(instance.ClassDef, proc, callArgs, instance.InstanceEnv, Vb6Value.NewObject(instance));
+        }
+        catch (Debugging.StopExecutionSignal)
+        {
+            // A debugger reset (Stop) during this event handler — swallowed, as ExecuteSub does.
         }
     }
 
@@ -732,14 +787,14 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     // args or none). Enters at the primary (form) module's scope. Delegates to CallProcedure; return discarded.
     public async Task ExecuteSub(string name, List<Vb6Value>? args = null, bool ignoreMissing = false)
     {
-        if (!declarationsRun)
-            RefuseArraysSizedWhenDeclarationsRun();
         var callArgs = new List<CallArg>();
         if (args != null)
             foreach (var value in args)
                 callArgs.Add(new CallArg(value, null));
         try
         {
+            // Entered without Execute, as a test's event does, the modules' declarations have not run yet (#256).
+            await RunModuleDeclarations();
             await CallProcedure(name, callArgs, primaryModule, ignoreMissing);
         }
         catch (Debugging.StopExecutionSignal)
@@ -762,7 +817,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             // A bare call that resolves to a method OWNED by a class module (i.e. a sibling method called from
             // inside the same class — implicit Me) must run on the CURRENT instance, not a clone of the class
             // template. The instance is `Me` in the caller's env.
-            if (owner.Kind == InterpreterModuleKind.Class)
+            if (owner.Kind is InterpreterModuleKind.Class or InterpreterModuleKind.Form)
             {
                 if (callerEnv != null && ExecutionContext.TryGetVariable(callerEnv, "Me", out var me) && me.Value is VbObject self)
                     return await RunProcedure(owner, proc, args, self.InstanceEnv, me, callerFrames);

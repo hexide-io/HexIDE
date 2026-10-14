@@ -71,6 +71,25 @@ public class ExecutionState
     /// <summary>Whether a slot refuses assignment.</summary>
     public bool IsReadOnly(int location) => readOnlyLocations.Contains(location);
 
+    // A form's control slots before the form has loaded, by slot, naming the form (#822). A read of one is refused
+    // (#1009). Empty unless a form is between creating its instance and raising Load.
+    private readonly Dictionary<int, string> pendingControls = new();
+
+    /// <summary>Hold a form's control slot until the form loads: reading it is refused until then (#1009).</summary>
+    public void MarkPendingControl(int location, string form) => pendingControls[location] = form;
+
+    /// <summary>Release a form's control slots as the form begins to load.</summary>
+    public void ClearPendingControls(string form)
+    {
+        foreach (var (location, owner) in pendingControls.ToList())
+            if (owner == form)
+                pendingControls.Remove(location);
+    }
+
+    /// <summary>The form whose not-yet-loaded control this slot is, or null.</summary>
+    public string? PendingControlOf(int location) =>
+        pendingControls.Count > 0 && pendingControls.TryGetValue(location, out var form) ? form : null;
+
     // A user Const's slot. Not read-only, since the Const statement fills it after the pre-pass makes it, and a class's
     // top-level declarations run again for each instance; marked so that an argument naming it is passed by value.
     private readonly HashSet<int> constantLocations = new();

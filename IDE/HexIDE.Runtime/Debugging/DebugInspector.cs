@@ -153,7 +153,7 @@ public static class DebugInspector
         Vb6Value? me = null;
         Control? formWindow = null;   // a form's Me is the live form window (a Control) — its own property surface (D7)
         ExecutionEnvironment baseEnv = module.ModuleEnv;
-        if (ctx.TryGetVariable(env, "Me", out var meVal))
+        if (ctx.TryInspectVariable(env, "Me", out var meVal))
         {
             if (meVal.Value is VbObject mo) { me = meVal; baseEnv = mo.InstanceEnv; }
             else if (meVal.Value is Control fw) formWindow = fw;   // VBLoader binds Me = the form window
@@ -168,7 +168,22 @@ public static class DebugInspector
         // 1) The root: the Me / module / instance whose fields sit under it. Class method -> "Me" (class name);
         //    the primary (form) module -> synthetic "Me" (D8); another standard (.bas) module -> the module name.
         //    Only expandable when it actually has inspectable state (no empty expander — review finding).
-        if (me is { Value: VbObject rootObj })
+        if (me is { Value: VbObject { FormWindow: { } instanceWindow } formObj })
+        {
+            // A form instance (#822): its window's VB6 properties first, then the instance's variables and controls, as
+            // the window-bound Me below shows them. Read even before the form has loaded, since Locals only looks.
+            nodes.Add(new DebugNode("Me", formObj.ClassName, formObj.ClassName, () =>
+            {
+                var kids = new List<DebugNode>();
+                foreach (var (propName, propValue) in AvaloniaInteroperability.ReadProperties(instanceWindow))
+                    kids.Add(new DebugNode(propName, FormatValue(propValue), VB6BuiltIns.DebugTypeName(propValue)));
+                var ancestors = NewAncestorSet();
+                ancestors.Add(formObj);
+                kids.AddRange(EnvChildren(baseEnv, ctx, ancestors, 1, selfName));
+                return kids;
+            }));
+        }
+        else if (me is { Value: VbObject rootObj })
         {
             Func<IReadOnlyList<DebugNode>>? expand = null;
             if (baseHasVars)
@@ -213,7 +228,7 @@ public static class DebugInspector
                 continue;
             if (baseEnv.variableToLocation.TryGetValue(name, out var baseSlot) && baseSlot == slot)
                 continue;   // identical to the base scope's binding — shown under the Me/module root instead
-            if (ctx.TryGetVariable(env, name, out var value))
+            if (ctx.TryInspectVariable(env, name, out var value))
                 nodes.Add(ValueNode(name, value, ctx, NewAncestorSet(), 1));
         }
 
@@ -249,7 +264,7 @@ public static class DebugInspector
         {
             if (Hidden.Contains(name) || IsSelfRef(name, selfName))
                 continue;
-            if (ctx.TryGetVariable(env, name, out var value))
+            if (ctx.TryInspectVariable(env, name, out var value))
                 list.Add(ValueNode(name, value, ctx, ancestors, depth));
         }
         return list;
