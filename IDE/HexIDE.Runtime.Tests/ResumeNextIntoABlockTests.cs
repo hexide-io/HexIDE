@@ -596,37 +596,6 @@ public class ResumeNextIntoABlockTests : BaseVBTestFixture
         (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#969*");
     }
 
-    [Theory]
-    [InlineData("5", "Is > \"abc\"", "case|13")]
-    [InlineData("5", "\"a\" To \"z\"", "case|13")]
-    [InlineData("5", "1 To \"x\"", "case|13")]
-    [InlineData("5", "Is > v", "case|13")]          // v a Variant holding "abc"
-    [InlineData("5", "Is > \"3\"", "case|0")]
-    [InlineData("\"abc\"", "Is > 5", "case|0")]       // a number becomes text against a String selector
-    [InlineData("s", "Is > 5", "case|0")]
-    [InlineData("\"10\"", "Is > 9", "else|0")]
-    [InlineData("2", "Is < 2.4", "else|0")]          // 2.4 becomes the Integer 2
-    [InlineData("2", "Is < 2.6", "case|0")]
-    [InlineData("2", "1.6 To 1.9", "case|0")]
-    [InlineData("2", "2.6 To 3", "else|0")]
-    [InlineData("2", "Is > 40000", "case|6")]
-    [InlineData("Null", "Is > \"abc\"", "else|0")]
-    public async Task A_Case_Is_or_To_converts_its_value_into_the_selectors_type(string selector, string test, string expected)
-    {
-        // Measured, native and p-code alike. HexIDE compared without converting, so a String against a number matched
-        // nothing and raised nothing, and 2.4 was above 2.
-        await RunResumingNext($"v = \"abc\"\nc = \"none\"\nSelect Case {selector}\nCase {test}\n    c = \"case\"\nCase Else\n    c = \"else\"\nEnd Select\nDebug.Print c & \"|\" & Err.Number\n");
-        AssertLog([expected]);
-    }
-
-    [Fact]
-    public async Task A_Case_Is_that_cannot_convert_raises_13_without_a_handler()
-    {
-        var run = () => Run("Select Case 5\nCase Is > \"abc\"\nEnd Select\n");
-
-        (await run.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(13);
-    }
-
     // One For statement run twice in one call: what a raising header's Next uses is what the statement last evaluated
     // (measured in both builds).
     private const string RunTwice = """

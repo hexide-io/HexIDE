@@ -45,20 +45,6 @@ there isn't one yet. Anything may change between 0.x releases.
   Long, a store of 2.5 into a `ByVal i As Long` gives 2, and a store of 300 into a `ByVal b As Byte` raises Overflow.
   The parameter's slot recorded no type, so each held whatever was stored into it. For the numeric types only; a String,
   Boolean or Date parameter is still not converted (#874).
-- **`Case Is` and `Case x To y` convert their values into a typed selector's type** (#839), as an equality Case does.
-  Against a declared 5, `Case Is > "abc"` and `Case "a" To "z"` raise Type mismatch, where they matched nothing; against
-  a declared 2, `Case Is < 2.4` does not match, because 2.4 becomes 2.
-- **A Variant selector compares as VB6 compares Variants** (#839), in every kind of Case, the equality one included.
-  It converts nothing: a Variant 2 does not match `Case 1.7`, and a Variant 5 is `Case Is < 5.4` and is simply not above
-  `"a"`, with no error. Against a String it is compared as text, against a number as a number, a string that is not one
-  being above it, and against a Variant any number is below any string. A Variant 2 matched `Case 1.7`, and a Variant
-  string against a number matched nothing.
-- **A Boolean `Case` orders True below False** (#839), as -1 and 0, so a True selector is `Case Is < False`.
-- **A typed Function's result, a conversion function's, and a typed array element or Type field are typed, and a
-  Variant one is not** (#839), as VB6 types them. `F() * 7000`, with `F` declared `As Integer` returning 5, and
-  `CInt(v) * 7000` now raise Overflow, where they widened; a Variant array element or Type field holding 5 now widens,
-  where it overflowed. A String, Boolean or Date parameter given a value of its type is typed too.
-
 - **Calling a procedure that carries an `Attribute` line no longer stops the run.** VB6 writes these inside a
   procedure for a default member (`VB_UserMemId`), a description from Tools → Procedure Attributes
   (`VB_Description`), a property category (`VB_ProcData`) and more, and after a module-level variable for its

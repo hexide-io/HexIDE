@@ -5852,10 +5852,10 @@ P-code does not do it, and HexIDE follows p-code.
 - A Case test that raises runs its own Case's body.
 - A selector that raises skips the statement, which is the IDE's and p-code's answer, and native code's for a numeric
   selector with constant Cases.
-- A `Case Is` or `To` value converts into the selector's type before it is compared (review round one), so a value it
-  cannot convert raises, and runs its own Case under Resume Next. It was compared as it was, and matched nothing.
-  Review round two limited that to a typed selector, and compares a Variant one as VB6 compares Variants; see *A typed
-  selector and a Variant one*.
+- How a Case value is compared is main's, unchanged. Review round one converted a `Case Is` or `To` value into the
+  selector's type, round two limited that to a typed selector and compared a Variant one as VB6 compares Variants, and
+  round three took both out of #839, because each round's version regressed programs it did not measure. The
+  measurements are in *A typed selector and a Variant one*, and the work is #987.
 
 **For.**
 - A header that raises runs the body once, then carries on by the p-code model above. A Variant counter raises 92 at
@@ -5899,12 +5899,12 @@ on the head and found 14 results changed, every one away from VB6: a Variant hol
 and `Case Is > "a"` against it stopped the run with 13. So: which selectors convert, and how does VB6 compare the ones
 that do not?
 
-**The probe.** Seven Sub Main projects, 111 rows. Each row is its own Sub under `On Error Resume Next`, writing the arm it
-took and `Err.Number`, so no row's error reaches the next. Built as native code and as p-code, and the first six p-code
-projects run in the IDE, as described under "What a condition is": **all three agree on every row.** The seventh, six
-rows pinning Empty as `""` against text, was added when a mutant that read it as `" "` survived, and was built as native
-code and as p-code only, the two agreeing. `SelectCaseMatchingTests` generates its rows from these probes and their
-logs, so its expectations are not transcribed.
+**The probe.** Seven Sub Main projects holding 111 Select Case rows. Each row is its own Sub under `On Error Resume Next`,
+writing the arm it took and `Err.Number`, so no row's error reaches the next. The same logs carry three typed-parameter
+rows, eight arithmetic lines and six lines about `Err`, which makes 123 lines across the first six projects. All seven
+were built as native code and as p-code, and the first six p-code projects were run in the IDE too, as described under
+"What a condition is": **every line agrees across all three.** The seventh, six rows pinning Empty as `""` against text,
+was added when a mutant that read it as `" "` survived, and was built as native code and as p-code only, the two agreeing.
 
 ### What decides it is the selector's type
 
@@ -6011,39 +6011,59 @@ which clears it to 0. A Sub whose `On Error GoTo` handler ran to `End Sub` leave
   selectors and one unassigned Variant, and written for every selector.
 - **Round one's extension of it to `Is` and `To`:** measured on literal selectors, its 20 rows agreed with it.
 - **Main's accidental answers:** a String compared with a number matched nothing on main. That happens to be VB6's
-  answer for `Is > "a"` against a Variant 5, so main was right there for the wrong reason. So it was for four rows this
-  round would have broken had they not been made typed with it: a Function `As String`, `CStr`, and a String and a
-  Boolean parameter. Two more, a Variant array element and a Variant Type field holding 5, main got right because it
-  compared numbers as numbers, and they would have broken had they kept the literal's type.
+  answer for `Is > "a"` against a Variant 5, so main was right there for the wrong reason. So it was for four rows the
+  Variant rule would have broken had their sources not been marked typed with it: a Function `As String`, `CStr`, and a
+  String and a Boolean parameter. Two more, a Variant array element and a Variant Type field holding 5, main got right
+  because it compared numbers as numbers, and they would have broken had they kept the literal's type.
+- **Round two's own rule, in its review:** a value counted as typed only where its source marked it, so every source
+  nobody had marked flipped. See *Measured in the review of round two*.
 
 **Resisted explanation.** A Variant string against a typed Boolean is read as CBool reads it: `"True"`, `"-1"` and
 `"5"` all equal True. Against a typed number the same string is parsed as a number, so `"True"` does not equal -1. That
 fits every row and is not a mechanism understood. A Variant `"1/2/1900"` is not read as a date against a number;
 against a typed Date it was not run.
 
-### HexIDE, after round two
+### Measured in the review of round two
 
-- **Which rule.** `ForSelector` converts a Case value into a typed selector's type, and into nothing else. A Variant
-  selector goes to `CompareAsVariants`, which has the rules above. `CompareCase` serves `Is`, `To`, an equality Case and
-  `Is <>`. The equality Case had the 2026-09-03 rule for every selector too, so a Variant 2 matched `Case 1.7`; it
-  shares the comparison now. A `To`'s two bounds are both converted before either is compared, as before.
-- **A Boolean compares as -1 and 0** (`Vb6Value.TryCompareTo`). It compared as .NET's False below True.
-- **Where the type comes from.** A value's type is taken where it is read, from what holds it, which is arithmetic's
-  rule as much as this one's (`Vb6Value.HasFixedType`). Typed now:
-  - a typed Function's or Property Get's result;
-  - the conversion functions, `CByte` to `CStr` and `CDate`, but not `CDec`, whose result is a Variant in VB6;
-  - a typed array's element, from the array's element type;
-  - a typed Type field, from the Type's declaration;
-  - a String, Boolean or Date parameter whose value already has its type (#874 still owes the conversion of one that
-    does not).
+The supervisor's probes, `/make` as native code, run against main and against round two's code, found three more
+families. Each one round two's rule got wrong, because a value counted as typed only where its source marked it:
 
-  A Variant array element or Type field holding a literal had kept the literal's type, so it overflowed where VB6
-  widens. A typed Function's result and `CInt`'s widened where VB6 overflows.
-- **Not run here:** `Mid$` (#742) and `CVar`, which HexIDE does not have.
-- **Not measured, and so not claimed:**
-  - the result type of the other intrinsics (#985);
-  - a Variant holding a typed array, whose elements HexIDE reads as the array's type;
-  - a Type field's store, which is still not converted (#221).
+| Program | VB6 |
+|---|---|
+| `Const K = 5`, `Select Case K`, `Case 4.6`; `Case "a"` | that Case; 13: a Const is typed |
+| `Const ID_OPEN = 1`, a Variant `cmd` holding `"1"`, `Select Case cmd`, `Case ID_OPEN` | that Case |
+| the same for an Enum member, a `Const KI As Integer`, a Single, Double or Currency result, `/`, `&` and a comparison | typed |
+| `Len`, `Abs`, `Sgn`, `Asc`, `UBound`, `InStr` | typed |
+| `Hour(#5:00:00 AM#) * 7000`; `Day` | 35000, and `Case 4.6` takes Else: a Variant, both |
+| `Dim vo: Set vo = New Foo`, `Property Get P() As Integer` returning 5, `vo.P * 7000`; `vo.M()`; `With vo: .P` | 35000, each: late-bound, so a Variant |
+| `Select Case vo.P`, `Case Is > "a"` | Case Else, Err 0 |
+| `Dim o As Foo`, the same `o.P` | typed: early-bound |
+| `va = a`, with `a(0)` an Integer 5, then `Select Case va(0)`, `Case Is < 5.4` | that Case: an element of a Variant holding a typed array is a Variant |
+| `Function G(p)`, called `G(q)` with `q As Integer` holding 5, `Select Case p`, `Case Is > "a"` | Case Else, Err 0: an untyped ByRef parameter is a Variant |
+
+### HexIDE
+
+**None of this is implemented by #839.** Round two built it: Case values converted into a typed selector's type, a
+Variant selector compared as VB6 compares Variants, Booleans as -1 and 0, and the typed flag set where a value is read
+from a typed Function, a conversion function, a typed array element or Type field, or a typed parameter. That made 111
+rows right and broke the families above, all of them sources nobody had marked: a Const read as a Variant, a late-bound
+member as typed. Round three took it out, and Select Case and arithmetic are main's again. #987 holds the work, starting
+from these rows, and proposes the other polarity: a value is a Variant only where its source positively is one, so a
+source nobody has looked at keeps main's answer instead of flipping.
+
+What main does with these rows, for #987's reference:
+- **A typed selector:** an equality Case is converted into its type, as VB6 does, but `Is` and `To` compare the value
+  as it is, so a declared 2 matches `Case Is < 2.4`, and `Case Is > "abc"` against 5 matches nothing and raises nothing.
+- **A Variant selector:** an equality Case is converted into whatever it holds, so a Variant 2 matches `Case 1.7`.
+  `Is` and `To` compare numbers as numbers, which is right, and a string with a number not at all, which is right by
+  accident for `Is > "a"` against a Variant 5 and wrong for `"abc"` against `Is > 5`.
+- **A Boolean** orders False below True.
+- **The flag** is unmarked for a typed Function's result and the conversion functions, so `F() * 7000` and
+  `CInt(v) * 7000` widen where VB6 raises 6. A Variant array element or Type field holding a literal keeps the
+  literal's type, so `w(0) * 7000` raises 6 where VB6 widens.
+- **A Type field's store** is not converted (#221), so a typed field read is only as good as its store: `u.b = 200`,
+  `x = u.b + u.b` with `b As Byte` is 400 here, where VB6 raises 6.
+- **Not run here:** `Mid$` (#742), and `CVar`, which HexIDE does not have.
 
 ## Attribute lines inside a procedure (2026-10-12, #832)
 

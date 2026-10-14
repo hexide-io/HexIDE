@@ -156,11 +156,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (depth > 64)
             throw new VBCompileErrorException("Recursive Type definition: " + typeName);
         var fields = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
-        var typedFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in def.Fields)
         {
-            if (f.ScalarType is { } declared && VbNumeric.IsDeclarableScalar(declared))
-                typedFields.Add(f.Name);
             if (f.ScalarType is { } scalar)
                 fields[f.Name] = new Vb6Value(scalar);
             else if (f.UdtTypeName is { } nested)
@@ -170,7 +167,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             else
                 fields[f.Name] = Vb6Value.Variant;
         }
-        return new VbUdt(typeName, fields, typedFields);
+        return new VbUdt(typeName, fields);
     }
 
     /// <summary>Deep-copy a UDT value (VB6 value semantics); pass everything else through unchanged. Applied at
@@ -826,10 +823,6 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     // Coerce the function's value to its declared return type (banker's round + range-check).
                     ? (proc.Body is { } body && VbNumeric.IsCoreNumeric(proc.ReturnType) ? VbNumeric.Narrow(rv, proc.ReturnType, body) : rv)
                     : SeedReturnValue(proc);
-            // A Function declared As a scalar type returns a fixed one, as a declared variable reads (measured: `F() * 7000`
-            // with `F` As Integer returning 5 is 6, and `Select Case F()` converts its Case values).
-            if (ret is { } typed && VbNumeric.IsDeclarableScalar(proc.ReturnType))
-                ret = typed.AsFixedType();
             completed = true;
         }
         finally
@@ -1024,13 +1017,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         _ => false,
     };
 
-    // The declared type a parameter's own slot records, as a Dim's does, so that a store into it converts, a read of it is
-    // fixed, and a For over it is a typed counter (measured, #839: `Function P(ByVal i As Long)` counts as a Long, and a
-    // `ByVal s As String` holding "10" is not `Case Is > 9`). The numeric types always, since their value is converted on
-    // the way in. A String, Boolean or Date parameter is not converted yet (#874), so its slot is typed only when the
-    // value already has the type, which is the common case; one given another type is left as it was, for #874.
-    private static Vb6Value.ValueType? SlotType(ParamInfo p, Vb6Value stored) =>
-        p.DeclaredType is { } dt && (VbNumeric.IsCoreNumeric(dt) || VbNumeric.IsDeclarableScalar(dt) && stored.Type == dt) ? dt : null;
+    // The declared type a parameter's own slot records, as a Dim's does, so that a store into it converts and a For over
+    // it is a typed counter (measured, #839: `Function P(ByVal i As Long)` counts as a Long). Only the numeric types,
+    // whose value is already converted on the way in; a String, Boolean or Date parameter is not converted yet (#874).
+    private static Vb6Value.ValueType? NumericSlotType(ParamInfo p) =>
+        p.DeclaredType is { } dt && VbNumeric.IsCoreNumeric(dt) ? dt : null;
 
     private async Task BindParameters(ProcedureInfo proc, IReadOnlyList<CallArg> args, ExecutionEnvironment callee, ModuleInfo owner, List<int> ownedSlots)
     {
@@ -1064,7 +1055,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     var stored = p.DeclaredType is { } dt && VbNumeric.IsCoreNumeric(dt) && proc.Body is { } body
                         ? VbNumeric.Narrow(passed, dt, body)
                         : CopyIfValueType(passed);
-                    ExecutionContext.AllocVariable(callee, p.Name, stored, SlotType(p, stored));
+                    ExecutionContext.AllocVariable(callee, p.Name, stored, NumericSlotType(p));
                     MarkParameterSlot(p, callee);
                     // A ByVal object param is a counted hold for the call's duration (so a `New T` passed straight
                     // into a call terminates right after the call, per the oracle); release it at scope-exit.
@@ -1088,9 +1079,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     ? await new ExpressionExecutor(this, callee, owner, new Stack<Vb6Value>()).EvaluateValue(p.Default.valueStmt())
                     : p.DeclaredType is { } declared ? new Vb6Value(declared)
                     : Vb6Value.Missing;
-                if (p.DeclaredType is { } numeric && VbNumeric.IsCoreNumeric(numeric) && proc.Body is { } optionalBody)
+                if (NumericSlotType(p) is { } numeric && proc.Body is { } optionalBody)
                     value = VbNumeric.Narrow(value, numeric, optionalBody);
-                ExecutionContext.AllocVariable(callee, p.Name, value, SlotType(p, value));
+                ExecutionContext.AllocVariable(callee, p.Name, value, NumericSlotType(p));
                 MarkParameterSlot(p, callee);
             }
             else
