@@ -1300,12 +1300,12 @@ run that never broke.
 executable statement is still accepted. Both are noted on #569.
 
 **Since then.** The sidecar half was closed by #574's fix (#620): a mark on a line its document does not have is
-dropped at load, and logged (`UserSidecarService.WithinDocument`). #273 changed the rest (task 3.12, 2026-10-01).
-The range counts from the top of the file, header included, and the refusal says so: `… breakpoints are numbered
-1..N, from the top of the file. Nothing was changed.` A line of the header or of a member's Attribute lines is
-refused too, saying where the code starts (`MarkLineRules.Refusal`), and so are `run_to_cursor` and
-`set_next_statement` aimed at one; a sidecar's mark on such a line is dropped at load (task 3.17). Any other line
-with no executable statement, a blank or a comment, is still accepted.
+dropped at load, and logged (`UserSidecarService.WithinDocument`). #273 then changed what the range counts and what
+else is refused (task 3.12, 2026-10-01). The range counts from the top of the file, header included, and the
+refusal says so: `… breakpoints are numbered 1..N, from the top of the file. Nothing was changed.` A line of the
+header or of a member's Attribute lines is refused too, saying where the code starts (`MarkLineRules.Refusal`), and
+so are `run_to_cursor` and `set_next_statement` aimed at one; a sidecar's mark on such a line is dropped at load
+(task 3.17). Any other line with no executable statement, a blank or a comment, is still accepted.
 
 ---
 
@@ -1930,8 +1930,10 @@ values are already known to the server.
 > The code window now asks first whether its file is one HexIDE will not save, and `type_text` and `press_key`
 > answer `… refused: this file will not be saved, because HexIDE cannot yet reproduce it faithfully (…). Its code
 > is part of the file, so typing in its code window is refused anywhere, as the window's banner says. Nothing was
-> written.` That review found the window's own Enter writing a line break into such a file, past the section
-> provider that refuses typing, because its handler writes the document itself; Enter now refuses, and `press_key`
+> written.` On a code window that reply now comes before the one quoted above (`TextEditor is read-only, …`), which a
+> form held read-only as a whole no longer reaches (`UiAutomationDriver.RefusedInReadOnlyRegion`, asked first). That
+> review found the window's own Enter writing a line break into such a file, past the section provider that refuses
+> typing, because its handler writes the document itself; Enter now refuses, and `press_key`
 > says why rather than reporting the key pressed. Seen running on 2026-10-13 (#273 task 3.22), on a form whose
 > `.frx` was missing: `type_text` and `press_key` Enter each refused with that text.
 
