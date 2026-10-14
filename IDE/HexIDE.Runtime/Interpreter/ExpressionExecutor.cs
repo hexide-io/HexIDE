@@ -915,10 +915,19 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return new Vb6Value(AmpString(rightValue));
         if (rightValue.IsNull)
             return new Vb6Value(AmpString(leftValue));
-        return new Vb6Value(AmpString(leftValue) + AmpString(rightValue));
+        // Typed when both sides are, as `"1" & "0"` is, and a Variant's when either is, as `Chr(49) & "0"` is (measured,
+        // #987: a Select Case on each against `Case Is > 9`).
+        var joined = new Vb6Value(AmpString(leftValue) + AmpString(rightValue));
+        return leftValue.HasFixedType && rightValue.HasFixedType ? joined.AsFixedType() : Typed(leftValue, rightValue, joined);
     }
 
     private static string AmpString(Vb6Value v) => VbDisplay.ToText(v);
+
+    /// <summary>An operator's result, a Variant's when either operand is (measured, #987: `v + 1` with `v` holding 4, and
+    /// `i + v` with `i` an Integer, are Variant selectors), and otherwise as the operator produced it, which is typed when
+    /// both operands are (#122).</summary>
+    private static Vb6Value Typed(Vb6Value left, Vb6Value right, Vb6Value result) =>
+        left.HeldAsVariant || right.HeldAsVariant ? result.AsVariant() : result;
 
     public override async Task<object?> VisitVsAdd(VB6Parser.VsAddContext context)
     {
@@ -927,7 +936,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return Vb6Value.Null;
         if (leftValue.Type == Vb6Value.ValueType.String && rightValue.Type == Vb6Value.ValueType.String)
             return new Vb6Value((string)leftValue.Value! + (string)rightValue.Value!);   // VB6: String + String concatenates
-        return VbNumeric.Add(leftValue, rightValue, context);
+        return Typed(leftValue, rightValue, VbNumeric.Add(leftValue, rightValue, context));
     }
 
     public override async Task<object?> VisitVsMinus(VB6Parser.VsMinusContext context)
@@ -935,7 +944,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
-        return VbNumeric.Sub(leftValue, rightValue, context);
+        return Typed(leftValue, rightValue, VbNumeric.Sub(leftValue, rightValue, context));
     }
 
     public override async Task<object?> VisitVsMult(VB6Parser.VsMultContext context)
@@ -943,7 +952,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
-        return VbNumeric.Mul(leftValue, rightValue, context);
+        return Typed(leftValue, rightValue, VbNumeric.Mul(leftValue, rightValue, context));
     }
 
     public override async Task<object?> VisitVsMod(VB6Parser.VsModContext context)
@@ -951,7 +960,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
-        return VbNumeric.Modulo(leftValue, rightValue, context);
+        return Typed(leftValue, rightValue, VbNumeric.Modulo(leftValue, rightValue, context));
     }
 
     public async override Task<object?> VisitVsDiv(VB6Parser.VsDivContext context)
@@ -959,9 +968,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
-        return context.DIV().GetText() == "/"
+        return Typed(leftValue, rightValue, context.DIV().GetText() == "/"
             ? VbNumeric.RealDivide(leftValue, rightValue, context)
-            : VbNumeric.IntDivide(leftValue, rightValue, context);
+            : VbNumeric.IntDivide(leftValue, rightValue, context));
     }
 
     public override async Task<object?> VisitVsPow(VB6Parser.VsPowContext context)
@@ -969,7 +978,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
-        return VbNumeric.Power(leftValue, rightValue, context);
+        return Typed(leftValue, rightValue, VbNumeric.Power(leftValue, rightValue, context));
     }
 
     public override async Task<object?> VisitVsEq(VB6Parser.VsEqContext context)
@@ -1097,7 +1106,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var value = await EvaluateScalar(context.valueStmt());
         if (value.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
-        return VbNumeric.Negate(value, context);
+        var negated = VbNumeric.Negate(value, context);
+        return value.HeldAsVariant ? negated.AsVariant() : negated;
     }
 
     public override async Task<object?> VisitVsNot(VB6Parser.VsNotContext context)

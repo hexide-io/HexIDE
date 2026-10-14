@@ -55,7 +55,11 @@ public class ModuleExecutionContext
             // Set AND cleared, because the flag rides on the value and would otherwise be inherited from
             // whatever was stored: `a = 30000` puts a LITERAL (fixed) into an undeclared slot, and reading it
             // back as fixed would make `a * b` overflow where VB6 widens. The slot decides, not the history.
-            value = state.DeclaredTypeOf(loc) != null ? value.AsFixedType() : value.AsVariantSubtype();
+            // A slot known to be a Variant reads as a Variant's (#987); a slot that is neither, a Const or an object, reads
+            // as neither, and its value compares as it always has.
+            value = state.DeclaredTypeOf(loc) != null ? value.AsFixedType()
+                : state.IsVariant(loc) ? value.AsVariant()
+                : value.AsVariantSubtype();
             // And the NAME the slot was declared with, for a class-typed slot — set and cleared by the same
             // rule and for the same reason. This is what an `As IFoo` read carries into member dispatch.
             value = value.ViewedAs(state.DeclaredClassOf(loc));
