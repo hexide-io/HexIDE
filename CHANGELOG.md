@@ -43,8 +43,9 @@ there isn't one yet. Anything may change between 0.x releases.
   (#983), where it skipped the loop without a word.
 - **A typed parameter keeps its type** (#839), as a variable declared with it does. `Optional i As Long = 7` holds a
   Long, a store of 2.5 into a `ByVal i As Long` gives 2, and a store of 300 into a `ByVal b As Byte` raises Overflow.
-  The parameter's slot recorded no type, so each held whatever was stored into it. For the numeric types only; a String,
-  Boolean or Date parameter is still not converted (#874).
+  The parameter's slot recorded no type, so each held whatever was stored into it. The parameter is now a ceiling in
+  arithmetic too, as a declared variable is: with a `ByVal i As Integer` holding 5, `i * 7000` raises Overflow, where it
+  widened to 35000. For the numeric types only; a String, Boolean or Date parameter is still not converted (#874).
 - **A Function declared to return an array returns it** (#975). `Function F() As Long()` returned a Long 0 with no
   error, because its return was read as the element type, so `d = F()` left `d` a scalar and the next `d(1)` stopped
   the run. It now returns the array, and one that never assigns its name returns an empty one, as VB6 does. A Property

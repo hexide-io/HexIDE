@@ -517,6 +517,24 @@ public class ResumeNextIntoABlockTests : BaseVBTestFixture
     }
 
     [Theory]
+    [InlineData("ByVal i As Integer", "P 5", "i * 7000", "err 6, x  Empty")]
+    [InlineData("ByVal b As Byte", "P 20", "b * b", "err 6, x  Empty")]
+    [InlineData("Optional i As Long = 7", "P", "i * 400000000", "err 6, x  Empty")]
+    [InlineData("i As Integer", "P k", "i * 7000", "err 6, x  Empty")]
+    [InlineData("i As Integer", "P 5", "i * 7000", "err 6, x  Empty")]
+    [InlineData("ByVal v", "P 5", "v * 7000", "err 0, x 35000 Long")]
+    public async Task A_typed_parameter_is_a_ceiling_in_arithmetic_as_a_Dim_is(string parameter, string call, string expression, string expected)
+    {
+        // Measured, native and p-code, in #971's review round four. The parameter's typed slot, which makes it a typed For
+        // counter, also makes it a ceiling (#122): main widened `i * 7000` to 35000. A Byte's `b * b` is p-code's 6; native
+        // code wraps it to 144, which is not the answer HexIDE follows.
+        await Run($"Dim k As Integer\nk = 5\n{call}\nSub P({parameter})\n    On Error Resume Next\n    Dim x\n    x = {expression}\n"
+            + "    Debug.Print \"err \" & Err.Number & \", x \" & x & \" \" & TypeName(x)\nEnd Sub\n");
+
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    [Theory]
     [InlineData("Function F(Optional i As Long = 7) As String\n    F = TypeName(i) & \" \" & i", "F()", "Long 7")]
     [InlineData("Function F(Optional b As Byte = 7) As String\n    F = TypeName(b) & \" \" & b", "F()", "Byte 7")]
     [InlineData("Function F(ByVal i As Long) As String\n    i = 2.5\n    F = TypeName(i) & \" \" & i", "F(7)", "Long 2")]

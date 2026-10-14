@@ -269,6 +269,8 @@ stays `Byte`. A result outside the result-type's range is `Err 6` — there is n
 > cells, `/` is a third table, `\`/`Mod` a fourth, and `^` a fifth.** `Long + Single` is also `Double`, not
 > Single, which no row here happened to cover. Two exceptions to the "no auto-promotion" sentence were also
 > found: `Byte * Byte` wraps mod 256 silently, and unary minus of a type's minimum returns the minimum.
+> **Corrected 2026-10-14:** the `Byte * Byte` wrap is native code only. P-code and the IDE raise 6, as for `Byte + Byte`;
+> see *Numeric type pairs*.
 > Read that section before implementing from this one.
 
 > **That last sentence is about DECLARED types only.** Every row below was measured through declared
@@ -3882,7 +3884,20 @@ this narrowing is not a checked conversion.
 | `1E30 \ 1`, `1E30 Mod 3` | — | 6 |
 
 **`Byte * Byte` silently wraps mod 256** while `Byte + Byte` and `Byte - Byte` raise. Every value above is the
-true product mod 256. **Unary minus of a type's minimum silently returns the minimum**, while subtracting it
+true product mod 256.
+
+> **Corrected 2026-10-14, #971's review round four: native code only.** These rows were measured with native builds.
+> Built as p-code and run in the IDE, each pair below raises 6, as `Byte + Byte` does; native code still wraps, as
+> above:
+>
+> | `Dim a, c As Byte` | Native | P-code and the IDE |
+> |---|---|---|
+> | `20 * 20`; `16 * 16`; `255 * 255`; `13 * 23`; `200 * 200` | `144`; `0`; `1`; `43`; `64`, Byte, Err 0 | 6, each |
+> | `200 + 200` | 6 | 6 |
+>
+> So multiply is not an exception to Byte's ceiling in the build the IDE runs. It looks like native code omitting
+> one overflow check, though that is a guess, not a measurement. The unary-minus row beside it was measured natively
+> too and has not been re-run as p-code. **Unary minus of a type's minimum silently returns the minimum**, while subtracting it
 from zero raises. Both were disbelieved on first measurement and re-run in independent cases.
 
 ### The Variant path is the typed path plus promotion
@@ -3933,7 +3948,8 @@ is *not* stated as a rule. The falsified hypothesis is kept because the next rea
 side cannot be an unchecked scaled-int64 cast, because (a) rules that out. Two narrowings, two mechanisms,
 one describable and unexplained.
 
-**(c) `Byte * Byte` wraps while `Byte + Byte` and `Byte - Byte` raise.** No rule explains why multiply is the
+**(c) `Byte * Byte` wraps while `Byte + Byte` and `Byte - Byte` raise.** (**Corrected 2026-10-14:** native code only;
+p-code and the IDE raise 6. See the correction above.) No rule explains why multiply is the
 exception. Confirmed across seven value pairs in two independent cases. **This is the most dangerous single
 fact here**, because HexIDE raises where VB6 runs — a false rejection, the top severity class.
 
@@ -3957,7 +3973,8 @@ Recorded because the wrong guess is what the next reader will also make:
 - **`Single / Single` was expected to be Double**, since `/` is "the floating divide". It is Single — and
   `Byte / Byte` is Double. The rule is the opposite shape to the guess.
 - **`Decimal / anything` was expected to be Double**, on the same reasoning. It is Decimal.
-- **`Byte * Byte` was expected to raise like `Byte + Byte`.** It wraps.
+- **`Byte * Byte` was expected to raise like `Byte + Byte`.** It wraps, natively. In p-code and the IDE it raises, as
+  expected (2026-10-14), so the surprise was the native build's.
 - **`-n` at `n = -32768` was expected to raise.** It returns `-32768`.
 - **The Single/Long comparison was expected to narrow to Single**, matching the Single/Double case. It
   escalates to Double instead — so the comparison defect in the interpreter is wrong in *both* directions and
@@ -3974,7 +3991,9 @@ otherwise, and that misreading has already produced one incorrect issue.
   be Decimal), `Lo/Sg`, and `By\By` / `By Mod By` (should be Byte). Filed as #230.
 - **Comparison** uses `ExpressionExecutor.NumericRank` (`:100`) — `By<In<Lo<Sg<Cu<De<Db` — and widens where
   VB6 narrows. **4 of 21 pairs diverge**, in both directions. Filed as #229.
-- **`Byte * Byte`** and **unary minus at a type minimum** raise where VB6 succeeds. Filed as #233, #234.
+- **`Byte * Byte`** and **unary minus at a type minimum** raise where VB6 succeeds. Filed as #233, #234. (**Corrected
+  2026-10-14:** VB6's native build succeeds at `Byte * Byte`, and its p-code build and the IDE raise, as HexIDE does.
+  Unary minus has not been re-measured as p-code.)
 - **`0#/0#`** reports 11 where VB6 reports 6, and **Variant Single overflow** raises where VB6 promotes. #234.
 
 The shape of the fix these measurements point to: **per-operator arithmetic tables and a separate per-pair
@@ -5868,7 +5887,8 @@ P-code does not do it, and HexIDE follows p-code.
 - Review round one: each bound converts into a numeric counter's type as it is evaluated, through the conversion a
   store uses, so an overflow or a text that is not a number is a raised header, and a fractional bound rounds into an
   Integer or Long counter. A typed parameter's slot now records its numeric type, as a Dim's does, so it is a typed
-  counter and a store into it converts.
+  counter and a store into it converts. It is also a ceiling in arithmetic, as a
+  declared variable is (#122), where it widened; review round four measured that, below.
 - A start, limit or step still fractional after its conversion into the counter's type is refused as not implemented,
   and untrappably. That is any counter that keeps a fraction: a Single, Double, Currency or Date one, and a Variant or
   undeclared one, which is the common `For x = 0 To 1 Step 0.25`. Main raised a trappable 13 for every fractional For,
@@ -6040,6 +6060,22 @@ families. Each one round two's rule got wrong, because a value counted as typed 
 | `Dim o As Foo`, the same `o.P` | typed: early-bound |
 | `va = a`, with `a(0)` an Integer 5, then `Select Case va(0)`, `Case Is < 5.4` | that Case: an element of a Variant holding a typed array is a Variant |
 | `Function G(p)`, called `G(q)` with `q As Integer` holding 5, `Select Case p`, `Case Is > "a"` | Case Else, Err 0: an untyped ByRef parameter is a Variant |
+
+### A typed parameter in arithmetic (review round four)
+
+#839 gives a numeric parameter a typed slot, so that it is a typed For counter, and a typed slot is a ceiling in
+arithmetic. Measured, native, p-code and in the IDE, each in its own Sub under `On Error Resume Next`:
+
+| Parameter, given | Expression | Native | P-code and the IDE |
+|---|---|---|---|
+| `ByVal i As Integer`, 5 | `i * 7000` | 6 | 6 |
+| `Optional i As Long = 7`, omitted | `i * 400000000` | 6 | 6 |
+| `i As Integer`, ByRef, given a declared Integer 5; given the literal 5 | `i * 7000` | 6, both | 6, both |
+| `ByVal v`, untyped, given 5 | `v * 7000` | 35000, a Long | 35000, a Long |
+| `ByVal b As Byte`, 20 | `b * b` | **144**, a Byte, Err 0 | **6** |
+
+A typed parameter is a ceiling, as a declared variable is. Main widened the first three. The Byte row is the
+`Byte * Byte` split recorded under *Numeric type pairs*: native code wraps, p-code and the IDE raise.
 
 ### HexIDE
 

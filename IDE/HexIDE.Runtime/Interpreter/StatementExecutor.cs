@@ -1624,7 +1624,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// corresponding Select Case is not. Sharing a comparison helper between the two would be wrong, and
     /// was the obvious thing to do.
     /// </para></summary>
-
     private static bool CaseMatches(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx)
     {
         // Empty has not decided what it is yet, so it takes its partner's zero — the same rule
