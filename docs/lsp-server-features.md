@@ -107,7 +107,8 @@ the non-empty lines outside the IDE's regions.
 **`textDocument/publishDiagnostics`** (server-push)
 
 The server parses VB6 source with the full ANTLR4 grammar on every change. Syntax errors surface as red
-wavy underlines with a hover tooltip.
+wavy underlines. The client shows no message for one yet, on hover or anywhere else
+([#451](https://github.com/hexide-io/HexIDE/issues/451)); `get_diagnostics` reads them.
 
 **What works:** precise error spans on the offending token; ANTLR messages prettified into VB6-style text
 by `VbErrorMessages.Prettify()`; squiggles cleared on close. A whole VB6 file is accepted, and nothing is

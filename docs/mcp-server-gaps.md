@@ -1389,3 +1389,44 @@ measured the first half with Tools/Add Procedure left open; this is a modal rais
 **Suggested fix.** #681's decision, for the replies. For `take_snapshot` with `window: "ide"`, prefer a modal
 the IDE owns, as `auto` does, or at least name it in `activeDialog`.
 [#681](https://github.com/hexide-io/HexIDE/issues/681).
+
+## A whole replacement that changes the header and a member's `Attribute` lines is told only about the header
+
+**Symptom.** Read from the code, and recorded when #273 task 4.5b was built. `set_file_content` (and an add-in's
+`TrySetContent`) compares the header first and returns on the first difference:
+
+```
+set_file_content {"name":"Ledger","content":"<a class header with one line changed, and Total's run changed>"}
+→ refused: "The content would change the document's header (its designer block, class header or leading
+   Attribute lines), which only the IDE changes. ..."
+```
+
+A caller that restores the header and sends again is refused a second time, now for `Total`'s run, a reason the
+first reply did not give.
+
+**Workaround.** After a header refusal, compare the members' `Attribute` lines with `get_file_content`'s before
+sending again.
+
+**Suggested fix.** Compare the runs whatever the header does, and refuse once with every finding.
+[#1054](https://github.com/hexide-io/HexIDE/issues/1054).
+
+## `press_key` refuses a Delete over a selection reaching protected lines, where the key deletes the editable part
+
+**Symptom.** Read from the code (#273 task 4.5a records it as already so). With a selection running from code into
+the header or a member's `Attribute` lines, a person's Delete deletes the parts the code window's read-only sections
+allow. The tool deletes nothing:
+
+```
+press_key {"target":".../Custom[Root]/None[TextEditor]","key":"Delete"}
+→ {"success":false,"error":"press_key refused: offset N is in the file's header or a member's Attribute lines, ...
+   Nothing was written. ..."}
+```
+
+`UiAutomationDriver` asks `DeletionChangesARegion` about the whole span, where the key's provider deletes the
+deletable segments.
+
+**Workaround.** Narrow the selection to the editable part with `interact set_property` (`SelectionStart`,
+`SelectionLength`) before pressing the key.
+
+**Suggested fix.** Delete what the deletable segments allow, as the key does, and say what was left and why.
+[#1055](https://github.com/hexide-io/HexIDE/issues/1055).

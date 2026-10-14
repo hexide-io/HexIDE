@@ -2367,25 +2367,125 @@
 
 ## 5. Documentation
 
-- [ ] 5.1 `docs/lsp-client.md`: identifiers, the scheme retirement, the project-member gate, close and reopen.
-- [ ] 5.2 `docs/language-servers.md`: extensions are the only claim; `languageId` names a language and routes
+- [x] 5.1 `docs/lsp-client.md`: identifiers, the scheme retirement, the project-member gate, close and reopen.
+  — **Done 2026-10-14**, checked against the code and corrected in a second pass. `docs/lsp-client.md` gains
+  "Naming a document": `file:` by path, a UserControl or PropertyPage by its module's file (#474), and
+  `untitled:<Project>/<Name>.<ext>` with no leading slash and each segment escaped (#486), compared without case.
+  It carries 0.4's five-server table, marked as measured on 2026-09-20 because rumdl's pin has moved since, and
+  says what `vb6://` cost. The name is fixed at open; a change of name is a close then an open, with the old
+  name's diagnostics withdrawn from every source. A new "A server is sent the whole file" says the header's and
+  runs' folds are the client's own, nesting with a server's only because a server fold is read from its line's
+  start (#1022). Formatting is reduced to the lines it changes, and a rename answer is refused whole except the
+  member's own qualifier. The code window refuses a protected line or a declared name before the prompt, and a
+  non-name after it. Compiler rows are filed by absolute path for every kind (#477), one line off around a
+  continued `Attribute` line (#968). Routing is rewritten around extensions alone and the `.cls` member gate, with
+  the finding that the gate died with the scheme branch while both of its guards stayed green, and that it
+  closes only the member half of #279. Re-opening after a workspace move (#469) is added, with the finding, read
+  from the code, that a save giving no document a new file re-roots nothing until the next open (#1051). The
+  limitations table gains #486, #1015, #1022 and #1024, and loses the closed #280. In the generated table only
+  `prepareRename`'s note changed (the guard reads method, mark and direction, not notes).
+  — **Overturned:** "Documents the IDE carries have no extension at all and route by scheme instead."
+- [x] 5.2 `docs/language-servers.md`: extensions are the only claim; `languageId` names a language and routes
   nothing except as the ambiguity gate.
-- [ ] 5.3 `docs/lsp-server-features.md`: the example trace line; client-made folds; the formatter's header
+  — **Done 2026-10-14.** `extensions` is the only claim, and routing reads `languageId` only to let a `.cls` claim
+  take the project's class modules, by the code's six extensions (`.bas .frm .ctl .pag .dob .dsr`) where the page
+  listed four. A carried `.cls` routes by extension alone, the bundled VB6 server included (#279, open). Lazy
+  start reads "an extension it claims", re-rooting happens at the next document open (#1051), and
+  troubleshooting item 6 covers an entry that claims only `.cls`. **Overturned:** the paragraph saying forms and
+  modules "have no file extension on the wire".
+- [x] 5.3 `docs/lsp-server-features.md`: the example trace line; client-made folds; the formatter's header
   rule; what the server now accepts.
-- [ ] 5.4 `docs/mcp-server-gaps.md`: every automation contract change, recorded and filed.
-- [ ] 5.5 `docs/debugger-vb6-divergences.md`: the visible header, file-counted line numbers, and designer
+  — **Done 2026-10-14.** `docs/lsp-server-features.md` gains "What the server is sent, and the lines it keeps
+  off": the whole file, `VbProtectedRegions` behind diagnostics, formatting, rename and highlight, the member-run
+  rule and the qualifier-bound first draft `vb6.exe` overturned, and the port held in step by
+  `BundledServerRespectsTheIdesRegionsTests` over its inline files, `demo/`, `corpus/designer` and the required
+  `corpus/member-attributes` (◐ #1013). Diagnostics gains the second parse and grammar fix 7 (30 of 46 corpus
+  files failed before it), and no longer claims a hover tooltip (#451). Folding says the client owns the header's
+  and runs' folds. Rename covers its four `null` refusals (◐ #1015), two asked before the prompt and one after,
+  ◐ `prepareRename` now that only a keyword reaches the prompt, the qualifier rewrite at the IDE's saves, ■ for
+  locals sharing a control's name, and the six words refused as a new name against the 24 more the oracle's label
+  probe found. Formatting gains the copy-through of protected lines and the bill-of-fare `[]`. The trace example
+  is `untitled:Project1/Form1.frm`.
+  — **Found by this review and fixed in code, not only in prose:** the oracle had measured two more words VB6
+  refuses where a name stands, `Me` (a module-level array) and `Attribute` (a parameter, p07), so 4.4's rule
+  refuses six. Both copies of the rule and the test holding them to one verdict were changed together.
+- [x] 5.4 `docs/mcp-server-gaps.md`: every automation contract change, recorded and filed.
+  — **Done 2026-10-14**, each claim checked against the code. Live entries for the gaps the change left: replies
+  that act on a document without taking its name (#886, `get_open_editors` added to its shapes); `type_text`
+  beside a standing selection (#1040); `set_file_content` putting content into a file held read-only as a whole,
+  whose refusal says only that nothing was written (#701); a created form read without its header until its first
+  designer change or save, after which its lines move (#885); a refused key's reply pointing back at the caret
+  (#1042); `set_file_content` not saying it re-qualified (#1043, widened to `set_control_property` and
+  `add_control`); a whole replacement told only about the header (#1054); and `press_key` refusing a deletion the
+  key carries out in part (#1055). Corrected where #273 made an entry untrue: #923's designer block is now
+  readable, #571 gains 3.16's measurement, #707's caret at a run's end, `add_file`'s quoted description. In the
+  archive, #569's sidecar half was closed by #574, #649 gains 3.20's whole-file refusal, and the whole-`.frm` and
+  caret-offset entries gain 4.5b and 3.22. `McpGapsDocTests` 9/9.
+- [x] 5.5 `docs/debugger-vb6-divergences.md`: the visible header, file-counted line numbers, and designer
   changes exempt from the reset prompt.
   — **And D24's sentence "A mark already on one, which only an older sidecar can have left there, can still be
   removed"**, which 3.17 made wrong: the load now drops such a mark from any sidecar, in either format. D24 has
   to say where one can still come from, if anywhere, and go on saying that one already there can be removed.
-- [ ] 5.6 `docs/MISSING_FEATURES.md` and `docs/MISSING_LANGUAGE.md`: line numbers, folding, rename, Find and
+  — **Done 2026-10-14.** D24 no longer says only an older sidecar can leave a mark on a read-only line. A mark is a
+  bare line number, so an edit or a reload can: lines added or removed above it (#1053, which also asks the oracle
+  what VB6 does), a marked line coming to describe a member by `ReadOnlyRegions.Verdict`'s rules, an `Attribute`
+  line typed or pasted directly below the header, which joins it dotted or not, and a reload, which shifts by the
+  header alone. Once a project is open only `ShiftMarks` moves marks, and a designer change or a save moves each
+  with its line. A probe showed such a mark is never hit: a well-formed member `Attribute` line runs as nothing,
+  and a malformed one fails the start. D24 says one can still be removed, and that a folded header still draws
+  its first line's mark. Its VB6 side records V4 (a pasted `Attribute` line stays code until a reload).
+  — **Renumbered:** main's merge brought its own D23 (#1011), so the line-numbering row 3.16 and 3.17 call D23 is
+  now **D25**. D25 records an overturn: it called VB6's status-bar position unmeasured, and the oracle's
+  member-attribute sessions had measured it (`Ln 7` on C1, `Ln 4` on V1), counting the code view without what VB6
+  hid. **New D26** for #870: a designer change while paused asks nothing and moves breakpoints the run numbers the
+  old way, and the current-statement bar with them.
+- [x] 5.6 `docs/MISSING_FEATURES.md` and `docs/MISSING_LANGUAGE.md`: line numbers, folding, rename, Find and
   the Procedure Attributes row (#62). The attribute rows whose mechanism text says "stripped from the body".
-- [ ] 5.7 Comments that describe the old model: `FormCodeText`, `ModuleFileFormat`, `ModuleDefinition`,
+  — **Done 2026-10-14.** MISSING_FEATURES: line numbers, the status bar, breakpoints and bookmarks count from the
+  top of the file; F9, both gutters and bookmarks are refused on read-only lines, and `run_to_cursor` refuses them
+  where the menu does not. Folding (none for a one-line header), formatting reduced and clipped (the row's "one edit
+  over the whole document", untrue since 3.10, is now history), rename refused before the prompt, after it and on
+  a server answer, Find and Replace All skipping read-only regions (#703, #704, #705), the banner and #701, handler
+  searches landing in the header (#702, #711), Undo past the IDE's own writes losing redo (3.8), and diagnostics
+  dropped on protected lines. A new row for the header's and members' `Attribute` lines. Procedure Attributes
+  stays Stub and Missing (#62), now the only route the IDE could offer to edit them. MISSING_LANGUAGE: a header's
+  `Attribute` lines parse as `moduleAttributes` and never run, and a breakpoint on one is refused; no status changed.
+  — **Overturned:** Insert File was catalogued `Stub` twice though it has worked since `94be762`; `VB_Name` was "the
+  only VB_* attribute with any consumer" though PrePass has collected default members since #820; `VB_Creatable`
+  was "stripped from the editable body", and is kept out of `Code` but no longer hidden.
+- [x] 5.7 Comments that describe the old model: `FormCodeText`, `ModuleFileFormat`, `ModuleDefinition`,
   `DirtyDetector`, the redactor and disclosure, `DocumentSavedEvent`, `IBreakpointService`, the automation
   tool descriptions.
   — **And the remark on `CodeEditorViewModel.ToggleBreakpoint`**, which says, as D24 does, that only an older
   sidecar can have left a breakpoint on a read-only line. It is rewritten to agree with what 5.5 makes D24 say.
+  — **Done 2026-10-14, comments only.** Rewritten in `ModuleDefinition` (`Code` is the code section, not "the full
+  file, shown as-is"; `OriginalHeader` is null for a created module, and empty is #472's case), `ModuleFileFormat`,
+  `FormCodeText` (`WholeFile(module)` composes through `BufferHeader`, not `ToFileContent`; a form's leading run is
+  read-only now; `PreserveAttributes` has had no production caller since 3.9, see #686), `DirtyDetector` (its
+  `.ctl`/`.pag` "no-op" is #730), `DocumentSavedEvent`, `IBreakpointService`, `BreakpointService`,
+  `FormDefinition.DesignerText` and four stale `vb6://` examples. The redactor and disclosure were already current
+  apart from one overclaim, and all 77 tool descriptions were (3.18). `ToggleBreakpoint`'s remark and two test
+  comments now agree with D24, and so do the sidecar's, `HeaderRefresher`'s and `RefreshPrefix`'s remarks, which
+  still waited on task 3.7. `ApplyFormatting`'s "the bundled server answers with one edit" and
+  `VisitAttributeStmt`'s "until #273" are history. `ProjectNaming.IsReservedWord`'s "only these were measured"
+  now names the six.
 - [ ] 5.8 Validate and archive; rewrite the Purpose of each spec the archive touched if the CLI replaces it,
   and fill in the new capabilities' Purpose. The hexide-mcp-server requirement is only partly met (3.18's "Not
   done" note): unless that issue is closed first, note it under that spec's `## Purpose` with the issue linked,
   as `openspec/config.yaml` asks of a requirement the code does not yet meet.
+  — **Rehearsed 2026-10-14, not yet run**, because 3.22's AI Chat checks are still open and the archive should
+  find every task ticked. In a throwaway worktree with openspec 1.13.0, 3.22 and 5.1–5.7 ticked: `validate
+  --strict` clean; +18, ~7, −1 across the ten capabilities; `code-editor` and `document-identity` created with
+  their deltas' Purposes carried word for word; no existing Purpose replaced; every ADDED and MODIFIED body
+  identical to its delta; bookmarks' REMOVED requirement gone; no heading collision; `DesignRecordTests` 3/3. The
+  CLI writes LF (git normalises it) and moves bookmarks' narrowed requirement to the end (cosmetic).
+  `openspec/config.yaml`'s rule that the CLI overwrites a Purpose was out of date and now says what 1.13 does.
+  — **Owed by the real run:** tick 5.8 before archiving, so the archived tasks.md is complete; add under
+  `hexide-mcp-server`'s Purpose a note for the partly met naming requirement (#886), and under `code-editor`'s one
+  for "A document with no file yet SHALL hold the header its first save will write" (#885), both drafted in the
+  rehearsal; read `git diff --ignore-cr-at-eol HEAD -- openspec/specs` for any MODIFIED requirement main changed
+  meanwhile, which the archive would overwrite.
+  — **Scenarios mapped to tests by the rehearsal.** Two lsp-client scenarios had none and now do
+  (`DocumentWireNameTests.RenamingAFormThatHasAFile`, `.AModuleInAProjectNotYetSaved`), and document-identity's
+  "Renaming a document with breakpoints on it" was covered only in pieces until
+  `UserSidecarSaveTests.RenamingADocumentWithBreakpointsOnIt`.

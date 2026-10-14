@@ -724,7 +724,7 @@ than inferred.
 | ○ | `textDocument/moniker` | → |  |
 | ○ | `textDocument/onTypeFormatting` | → |  |
 | ○ | `textDocument/prepareCallHierarchy` | → | Needs a bound AST — a backend's job, see below |
-| ○ | `textDocument/prepareRename` | → | Why the rename dialog never pre-validates the caret position |
+| ○ | `textDocument/prepareRename` | → | No server is asked before the prompt; the code window itself refuses a protected line or a declared name |
 | ○ | `textDocument/prepareTypeHierarchy` | → |  |
 | ✅ | `textDocument/publishDiagnostics` | ← |  |
 | ○ | `textDocument/rangeFormatting` | → |  |
