@@ -73,22 +73,56 @@ public sealed class VBProgram : IFormProgram
     /// </param>
     public VBProgram(FormDefinition startup, VBWindowContext startupContext, Debugging.IDebugController? debugController,
         Func<FormDefinition, IFormView>? openForm)
+        : this(startup.Owner, startup, startupContext, debugController, openForm)
+    {
+    }
+
+    /// <summary>
+    /// Build the program a run that starts at <c>Sub Main</c> runs (#822): every standard module, the first of them primary,
+    /// and every form a template whose default instance is made where its name is first used. Parsed whole, as a form's
+    /// program is.
+    /// </summary>
+    /// <param name="rootContext">The library, state and root environment the program runs in. It is no form's handle.</param>
+    /// <param name="openForm">How the host makes a window for a form, or null in a host that shows none.</param>
+    public VBProgram(ProjectDefinition project, VBWindowContext rootContext, Debugging.IDebugController? debugController,
+        Func<FormDefinition, IFormView>? openForm)
+        : this(project, startup: null, rootContext, debugController, openForm)
+    {
+    }
+
+    private VBProgram(ProjectDefinition? project, FormDefinition? startup, VBWindowContext rootContext,
+        Debugging.IDebugController? debugController, Func<FormDefinition, IFormView>? openForm)
     {
         this.openForm = openForm;
-        var project = startup.Owner;
-        var startupName = VBLoader.FormComponentOf(startup).GetPropertyOrDefault(VBProperties.NameProperty)?.ToString()
+        var (standardModules, classModules) = VBLoader.InterpreterModules(project);
+        string primaryName, primaryCode;
+        var primaryKind = InterpreterModuleKind.Form;
+        IReadOnlyList<(string Name, string Code)> additional = standardModules;
+        if (startup is not null)
+        {
+            primaryName = VBLoader.FormComponentOf(startup).GetPropertyOrDefault(VBProperties.NameProperty)?.ToString()
                           ?? "Module1";
-        definitions[startupName] = startup;
+            primaryCode = startup.Code;
+            definitions[primaryName] = startup;
+        }
+        else
+        {
+            // Sub Main may be in any standard module (measured); the first is primary only so the gate has a name for it.
+            if (standardModules.Count == 0)
+                throw new VBCompileErrorException(BasicInterpreter.NoStartupObject);
+            (primaryName, primaryCode) = standardModules[0];
+            primaryKind = InterpreterModuleKind.Standard;
+            additional = standardModules.Skip(1).ToList();
+        }
         var others = new List<(string Name, string Code)>();
         if (project is not null)
             foreach (var form in project.Forms)
                 if (!ReferenceEquals(form, startup) && definitions.TryAdd(form.Name, form))
                     others.Add((form.Name, form.Code));
 
-        var (standardModules, classModules) = VBLoader.InterpreterModules(project);
-        ExecutionContext = startupContext.ExecutionContext;
-        interpreter = new BasicInterpreter(startupContext.StandardLibrary, ExecutionContext, startupContext.RootEnv,
-            startup.Code, startupName, standardModules, classModules, InterpreterModuleKind.Form, others)
+        ExecutionContext = rootContext.ExecutionContext;
+        interpreter = new BasicInterpreter(rootContext.StandardLibrary, ExecutionContext, rootContext.RootEnv,
+            primaryCode, primaryName, additional, classModules, primaryKind, others)
         {
             DebugController = debugController,
             Events = Events,
@@ -98,8 +132,47 @@ public sealed class VBProgram : IFormProgram
             interpreter.SetAppInfo(AppInfo.FromProject(project));
         VBLoader.DescribeProject(interpreter, project);
         interpreter.SeedFormNames();
-        startupContext.Attach(this, interpreter.PrimaryModule);
-        Register(startupContext);
+        if (startup is null)
+            return;
+        rootContext.Attach(this, interpreter.PrimaryModule);
+        Register(rootContext);
+    }
+
+    // Sub Main is running. The program doesn't end while it is, however many forms have unloaded (measured).
+    private bool mainRunning;
+
+    /// <summary>
+    /// Run <c>Sub Main</c>, the program's first walk (#822): events that come meanwhile wait for it, as they wait for a
+    /// form's Load. Then the program lasts until no form is loaded, and ends at once if none is (measured). An error in
+    /// Main, a missing or ambiguous Main among them, is thrown to the caller.
+    /// </summary>
+    public async Task RunMainAsync()
+    {
+        mainRunning = true;
+        try
+        {
+            await Events.Run("Sub Main", async () =>
+            {
+                await interpreter.RunStartupSubMain();
+                return true;
+            });
+        }
+        finally
+        {
+            mainRunning = false;
+        }
+        if (loaded.Count == 0)
+            await FinishAsync();
+    }
+
+    /// <summary>The run was ended from outside the program, by End, Stop or a fault: every window goes, and it is over.</summary>
+    public void Abandon()
+    {
+        // Ended from outside, nothing more of the program runs: no Terminate, as End raises none.
+        finishing = true;
+        CloseAll();
+        Events.Close();
+        ended.TrySetResult();
     }
 
     private void Register(VBWindowContext context)
@@ -261,7 +334,7 @@ public sealed class VBProgram : IFormProgram
     /// </summary>
     internal async Task Gone()
     {
-        if (loaded.Count == 0)
+        if (loaded.Count == 0 && !mainRunning)
             await FinishAsync();
     }
 

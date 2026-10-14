@@ -22,9 +22,9 @@ using HexIDE.Utils;
 namespace HexIDE.Integration.Tests.Views;
 
 /// <summary>
-/// The single-view host runs one form, in a managed window, and so far only the startup form (#822): a program's other
-/// forms come with slice 2a.2. Its single form runs as it did before a run became a program of forms, and a use of a
-/// second form is refused, naming #822, rather than read wrongly.
+/// The single-view host runs a program's forms in managed windows (#822). The startup form's window blocks the IDE behind
+/// it; each other form's blocks nothing, so the forms stay usable beside one another. A single form runs as it did before
+/// a run became a program of forms.
 /// </summary>
 public class SingleViewFormsTests
 {
@@ -53,11 +53,15 @@ public class SingleViewFormsTests
     {
         public required ProjectRunnerService Runner { get; init; }
         public required MDIWindow? Shown { get; init; }
+        /// <summary>The program's other forms' windows, shown beside the startup form's, by title.</summary>
+        public required Dictionary<string, MDIWindow> Beside { get; init; }
         public required List<string> Printed { get; init; }
         public required List<string> Failed { get; init; }
         public required Action Detach { get; init; }
 
-        public void Click() => Shown!.GetLogicalDescendants().OfType<VBCommandButton>().Single()
+        public void Click() => Click(Shown!);
+
+        public static void Click(MDIWindow window) => window.GetLogicalDescendants().OfType<VBCommandButton>().Single()
             .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
         public void Dispose()
@@ -68,12 +72,19 @@ public class SingleViewFormsTests
         }
     }
 
-    private static Run Start(string form1Code, string? form2Code = null)
+    private static Run Start(string form1Code, string? form2Code = null, string? mainCode = null)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         project.AddForm(new FormDeserializer().Deserialize(project, (Header("Form1") + form1Code).ReplaceLineEndings("\r\n"), new NullSink())!);
         if (form2Code is not null)
             project.AddForm(new FormDeserializer().Deserialize(project, (Header("Form2") + form2Code).ReplaceLineEndings("\r\n"), new NullSink())!);
+        if (mainCode is not null)
+        {
+            var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
+            module.UpdateCode(mainCode);
+            project.AddModule(module);
+            project.StartsAtSubMain = true;
+        }
 
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>() switch
@@ -90,6 +101,16 @@ public class SingleViewFormsTests
             shown = w;
             w.CloseCommand = new DelegateCommand(() => closed.TrySetResult(), () => true);
         })).Returns(closed.Task);
+        // Another form's window, which blocks nothing behind it, stays up until the run closes it too.
+        var beside = new Dictionary<string, MDIWindow>();
+        windows.ShowManagedWindow(Arg.Any<MDIWindow>(), false).Returns(call =>
+        {
+            var w = call.Arg<MDIWindow>();
+            beside[w.Title] = w;
+            var gone = new TaskCompletionSource();
+            w.CloseCommand = new DelegateCommand(() => gone.TrySetResult(), () => true);
+            return gone.Task;
+        });
         var runner = new ProjectRunnerService(
             Substitute.For<IEventBus>(), windows, Substitute.For<IProjectManager>(),
             localization, new DebugController(), Substitute.For<IBreakpointService>(), new WatchService(), new RunScope());
@@ -115,6 +136,7 @@ public class SingleViewFormsTests
         {
             Runner = runner,
             Shown = shown,
+            Beside = beside,
             Printed = printed,
             Failed = failed,
             Detach = () => VBDebugConsole.Output -= print,
@@ -156,20 +178,114 @@ public class SingleViewFormsTests
         run.Runner.IsRunning.Should().BeFalse("the form was the only one loaded");
     }
 
-    [AvaloniaTheory]
-    [InlineData("Form2.Show")]
-    [InlineData("Form2.pub = 1")]
-    [InlineData("Load Form2")]
-    public void A_second_form_is_refused_naming_822(string use)
+    private const string Form2Logs = """
+        Public pub As Integer
+        Private Sub Form_Initialize()
+            Debug.Print "f2 initialize"
+        End Sub
+        Private Sub Form_Load()
+            Debug.Print "f2 load"
+        End Sub
+        Private Sub Command1_Click()
+            Debug.Print "f2 click"
+            Unload Me
+        End Sub
+
+        """;
+
+    [AvaloniaFact]
+    public void Another_form_is_shown_beside_the_startup_form_blocking_nothing()
     {
-        using var run = Start($"Private Sub Command1_Click()\n    {use}\n    Debug.Print \"not reached\"\nEnd Sub\n",
-            "Public pub As Integer\nPrivate Sub Form_Initialize()\n    Debug.Print \"f2 initialize\"\nEnd Sub\n");
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Form2.Show
+                Debug.Print "shown"
+            End Sub
+
+            """, Form2Logs);
 
         run.Click();
         Pump();
 
-        run.Printed.Should().BeEmpty();
-        run.Failed.Should().ContainSingle().Which.Should().Contain("another form").And.Contain("#822");
-        run.Runner.IsRunning.Should().BeFalse("a refusal is a fault, which ends the run");
+        run.Failed.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 initialize", "f2 load", "shown");
+        run.Beside.Should().ContainKey("Form2").WhoseValue.IsVisible.Should().BeTrue();
+
+        Run.Click(run.Beside["Form2"]);
+        Pump();
+
+        run.Printed.Should().Equal("f2 initialize", "f2 load", "shown", "f2 click");
+        run.Runner.IsRunning.Should().BeTrue("Form1 is still loaded");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Form2.pub = 1", new[] { "f2 initialize" })]
+    [InlineData("Load Form2", new[] { "f2 initialize", "f2 load" })]
+    public void A_use_of_another_form_makes_or_loads_it_as_on_the_desktop(string use, string[] raised)
+    {
+        using var run = Start($"Private Sub Command1_Click()\n    {use}\n    Debug.Print \"after\"\nEnd Sub\n", Form2Logs);
+
+        run.Click();
+        Pump();
+
+        run.Failed.Should().BeEmpty();
+        run.Printed.Should().Equal([.. raised, "after"]);
+        run.Beside.Should().BeEmpty("neither use shows the form");
+    }
+
+    [AvaloniaFact]
+    public void Sub_Main_shows_a_form_and_returns_and_the_run_lasts_until_the_form_unloads()
+    {
+        using var run = Start("""
+            Private Sub Form_Load()
+                Debug.Print "f1 load"
+            End Sub
+            Private Sub Command1_Click()
+                Unload Me
+            End Sub
+
+            """, mainCode: """
+            Sub Main()
+                Debug.Print "main start"
+                Form1.Show
+                Debug.Print "main end"
+            End Sub
+
+            """);
+
+        run.Failed.Should().BeEmpty();
+        run.Printed.Should().Equal("main start", "f1 load", "main end");
+        run.Runner.IsRunning.Should().BeTrue("Form1 is loaded, though Main has returned (measured)");
+
+        Run.Click(run.Beside["Form1"]);
+        Pump();
+
+        run.Failed.Should().BeEmpty();
+        run.Runner.IsRunning.Should().BeFalse("the last form has unloaded and Main has returned");
+    }
+
+    [AvaloniaFact]
+    public void Show_vbModal_disables_the_startup_form_until_the_modal_form_unloads()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Form2.Show vbModal
+                Debug.Print "after the modal, enabled " & Me.Enabled
+            End Sub
+
+            """, Form2Logs);
+
+        run.Click();
+        Pump();
+
+        run.Shown!.IsEnabled.Should().BeFalse();
+        run.Beside["Form2"].IsEnabled.Should().BeTrue();
+
+        Run.Click(run.Beside["Form2"]);
+        Pump();
+
+        run.Failed.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 initialize", "f2 load", "f2 click", "after the modal, enabled True");
+        run.Shown.IsEnabled.Should().BeTrue();
     }
 }

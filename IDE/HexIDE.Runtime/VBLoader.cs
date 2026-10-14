@@ -455,11 +455,34 @@ public class VBLoader
             shown.Show();
             return new TaskCompletionSource().Task;
         });
+    }
 
-        static IFormView OpenWindow(FormDefinition definition)
+    /// <summary>A desktop window for one of a program's forms (#822).</summary>
+    public static IFormView OpenWindow(FormDefinition definition)
+    {
+        var component = FormComponentOf(definition);
+        return ((FormComponentClass)component.BaseClass).InstantiateWindow(component);
+    }
+
+    /// <summary>
+    /// Run a program that starts at <c>Sub Main</c> until it ends (#822): Main has returned and no form is loaded, or the
+    /// run was cancelled, by End, Stop or a fault, which closes every window. An error in Main is thrown, once every window
+    /// it left has gone.
+    /// </summary>
+    public static async Task RunSubMain(VBProgram program, CancellationToken token)
+    {
+        await using var registration = token.Register(program.Abandon);
+        try
         {
-            var component = FormComponentOf(definition);
-            return ((FormComponentClass)component.BaseClass).InstantiateWindow(component);
+            await program.RunMainAsync();
+            if (!token.IsCancellationRequested)
+                await program.Ended;
+        }
+        finally
+        {
+            if (!program.Ended.IsCompleted)
+                program.Abandon();
+            program.Events.Close();
         }
     }
 

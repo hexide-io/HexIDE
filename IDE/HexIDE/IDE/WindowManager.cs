@@ -36,20 +36,24 @@ public class WindowManager : IWindowManager
         return lifetime.MainWindow ?? throw new Exception("No main window and trying to open a window, fatal error");
     }
 
-    public Task ShowManagedWindow(MDIWindow window)
+    public Task ShowManagedWindow(MDIWindow window) => ShowManagedWindow(window, blockBehind: true);
+
+    public Task ShowManagedWindow(MDIWindow window, bool blockBehind)
     {
         var tcs = new TaskCompletionSource<bool>();
-        window.CloseCommand = new DelegateCommand(() => tcs.SetResult(true), () => true);
-        var blocker = new MDIBlockerControl();
+        window.CloseCommand = new DelegateCommand(() => tcs.TrySetResult(true), () => true);
+        var blocker = blockBehind ? new MDIBlockerControl() : null;
         var mainView = Static.MainView;
-        mainView.PART_ModalHost.Children.Add(blocker);
+        if (blocker is not null)
+            mainView.PART_ModalHost.Children.Add(blocker);
         mainView.PART_ModalHost.Children.Add(window);
 
         async Task WindowTask()
         {
             await tcs.Task;
             mainView.PART_ModalHost.Children.Remove(window);
-            mainView.PART_ModalHost.Children.Remove(blocker);
+            if (blocker is not null)
+                mainView.PART_ModalHost.Children.Remove(blocker);
         }
 
         return WindowTask();
