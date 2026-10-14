@@ -185,6 +185,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // that does `total = total + i` → 1,3,6, not 1,2,3). Case-insensitive, like VB6 identifiers.
     private readonly HashSet<string> declaredLocals = new(System.StringComparer.OrdinalIgnoreCase);
 
+    // The local names in declaredLocals that are Consts, which a typed-array return's check reads as typed (#986).
+    private readonly HashSet<string> localConsts = new(System.StringComparer.OrdinalIgnoreCase);
+
     // This activation's call depth, CAPTURED when it was pushed onto the activation stack (1 = outermost procedure;
     // 0 = module top-level code, which never runs through RunProcedure). Captured — NOT the live ActivationStack.Count
     // — so an unrelated re-entrant event frame (one frozen while paused, or one that starts mid-step) can't inflate
@@ -885,19 +888,57 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// <summary>
     /// A store into the name of a Function or Property Get declared to return an array, `As Integer()` or `As Variant()`,
     /// takes only an array of exactly that type, whose bounds it keeps (measured, #986, native and p-code). What VB6 can
-    /// see is wrong while compiling, a scalar or an array variable declared with another element type, is its compile
-    /// error "Can't assign to array", raised here as the statement runs. What it can only find at run time, a Variant
-    /// holding the wrong thing or a call that returns a Variant, such as Array or Split, is 13, and the caller's target is
-    /// left as it was.
+    /// see is wrong while compiling is its compile error "Can't assign to array", raised here as the statement runs: an
+    /// array variable declared with another element type, or a scalar whose type the statement itself shows. Anything
+    /// else is 13, and the caller's target is left as it was: a Variant holding the wrong thing, Empty, Null, or a call
+    /// that returns a Variant, such as Array or Split.
+    /// <para>
+    /// The one conversion VB6 makes is a String into a Byte(), which takes the String's bytes (measured: "ab" is
+    /// 97 0 98 0, from a literal, a String variable or a Variant). A Byte() variable converts the same way, and neither is
+    /// implemented, so that store is refused rather than given an error VB6 does not raise (#998).
+    /// </para>
     /// </summary>
     private void CheckArrayReturn(Vb6Value.ValueType declared, Vb6Value value, VB6Parser.LetStmtContext context)
     {
         if (value.Type == declared)
             return;
-        var seenWhileCompiling = value.Type.IsArray ? IsDeclaredArrayVariable(context.valueStmt()) : value.HasFixedType;
+        if (declared == ByteArray && value.Type == Vb6Value.ValueType.String)
+            throw new NotImplementedException(
+                "A String stored into a Function declared As Byte() is converted into its bytes by VB6, which HexIDE does not do yet (#998)");
+        var seenWhileCompiling = value.Type.IsArray ? IsDeclaredArrayVariable(context.valueStmt()) : IsTypedBySyntax(context.valueStmt());
         if (seenWhileCompiling)
             throw new VBCompileErrorException("Can't assign to array");
         throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
+    }
+
+    private static readonly Vb6Value.ValueType ByteArray = new(Vb6Value.ValueType.Byte, true);
+
+    // Whether the statement shows a value's type, as VB6's compiler sees it: a literal other than Empty, Null or Nothing,
+    // with or without a sign or parentheses, a bare name for a variable declared with a scalar type, or a Const. All
+    // measured as "Can't assign to array" into a typed-array return. Read from the syntax rather than from the value's
+    // fixed flag, which a Variant array element or a Variant field can carry from a literal stored into it (#987); there,
+    // VB6 raises 13. Whatever this misses is 13, which can only be wrong on a program VB6 does not compile, such as
+    // `F = G()` with G declared to return an Integer.
+    private bool IsTypedBySyntax(VB6Parser.ValueStmtContext valueStmt) => valueStmt switch
+    {
+        VB6Parser.VsLiteralContext literal => literal.literal() is { } l && l.NULL() == null && l.EMPTY_() == null && l.NOTHING() == null,
+        VB6Parser.VsNegationContext negation => IsTypedBySyntax(negation.valueStmt()),
+        VB6Parser.VsPlusContext plus => IsTypedBySyntax(plus.valueStmt()),
+        VB6Parser.VsStructContext parenthesised => parenthesised.valueStmt().Length == 1 && IsTypedBySyntax(parenthesised.valueStmt(0)),
+        VB6Parser.VsICSContext ics => ics.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } bare
+            && bare.dictionaryCallStmt() == null && NamesATypedScalarOrConst(bare.ambiguousIdentifier().GetText()),
+        _ => false,
+    };
+
+    private bool NamesATypedScalarOrConst(string name)
+    {
+        if (!currentEnv.TryGetVariableLocation(name, out var location))
+            return false;
+        if (interpreter.ExecutionContext.State.DeclaredTypeOf(location) != null || localConsts.Contains(name))
+            return true;
+        // The module's own Const, unless a local or a parameter of the same name hides it.
+        return currentModule.PrePass.ModuleConsts.ContainsKey(name)
+            && currentModule.ModuleEnv.TryGetVariableLocation(name, out var moduleLocation) && moduleLocation == location;
     }
 
     // A bare name for an array variable declared as one (`Dim a(1) As Long`, `Dim a() As Long`), whose type VB6 knows
@@ -1865,6 +1906,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var name = sub.ambiguousIdentifier().GetText();
         if (!declaredLocals.Add(name))
             return;
+        localConsts.Add(name);
         var value = AsDeclared(sub, await expressionExecutor.EvaluateValue(sub.valueStmt()));
         interpreter.ExecutionContext.AllocVariable(currentEnv, name, value);
         if (ownedSlots != null && currentEnv.TryGetVariableLocation(name, out var slot))

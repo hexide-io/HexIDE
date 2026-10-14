@@ -7088,11 +7088,48 @@ declared with another element type, is the compile error "Can't assign to array"
 time is 13, raised at the store, so the caller's target keeps what it had: through a Variant, and through Array and
 Split, which are declared to return a Variant even when what they return is a typed array.
 
-**HexIDE, after #986.** A store into the name of a Function or Property Get declared `As T()`, for a scalar `T` or
-Variant, checks the value's type against it. A mismatch is "Can't assign to array", raised as the statement runs, when
-the value is an array variable declared as one or a value of a declared type; otherwise it is 13. Every row is pinned,
-the Property Get ones through the class, since a standard module's Property Get is #977's. Two approximations, both on
-programs VB6 does not compile:
-- **A typed Function's result** is not marked as typed (#987), so `F = G()`, `G` returning an Integer, is 13 here where
-  VB6 refuses to compile it.
-- **`As Object()` and `As Collection()`** are not checked, since their element type is not modelled.
+**Measured in #997's review.** A project for each case, native and p-code agreeing on every row:
+
+| Body of a Function `As Integer()`, unless shown | VB6 |
+|---|---|
+| `As Byte()`: `F = "ab"`; `F = s`, `s As String` holding "ab"; `F = v`, `v` a Variant holding "ab" | Err 0; Byte() 0 To 3, holding 97 0 98 0, each |
+| `As Byte()`, `F = ""` | Err 0; Byte() 0 To -1 |
+| `As Byte()`, `F = StrConv("ab", vbFromUnicode)` | Err 0; Byte() 0 To 1, holding 97 98 |
+| `As Byte()`, `F = v`, `v` holding 5 | 13 |
+| `F = w(0)`, `Dim w(1)` with `w(0) = 5`; `F = t.f`, a Variant field of a Type holding 5 | 13, each |
+| `F = Empty`; `F = Null` | 13, each |
+| `Function F(ByVal K)`, called `F(5)`, `F = K`, with a module `Const K = 5` the parameter hides | 13 |
+| `F = "ab"`; `F = -5`; `F = (5)`; `F = True`; `As Byte()`, `F = 5`; `As Variant()`, `F = 5` | does not compile: "Can't assign to array" |
+| `F = n`, `n As Integer`; `F = s`, `s As String`; `As Variant()`, `F = n` | does not compile: "Can't assign to array" |
+| `F = K`, with `Const K = 5`, or `Const K As Integer = 5`, in the Function; or `Const K = 5` in the module | does not compile: "Can't assign to array" |
+| `F = G()`, `G` declared `As Integer` | does not compile: "Can't assign to array" |
+| `As Object()`, `F = Array(1, 2)`; `As Collection()`, `F = Array(1, 2)` | 13, each |
+| `As Object()`, `F = v`, `v` holding a `Dim oa(1) As Object` | Err 0; Object() 0 To 1 |
+
+The same project measured the variable path, with `Dim b() As Byte`: `b = "ab"`, `b = s` and `b = v` each give
+Byte() 0 To 3 holding 97 0 98 0, and `b = ""` gives Byte() 0 To -1. With `Dim a() As Integer`, `a = Array(1, 2)` is 13 and
+`a` stays unallocated.
+
+**What it adds.** A String into a Byte() is the one conversion: it takes the String's bytes, two per character, and a
+Byte() variable takes them the same way. Otherwise the line between the compile error and 13 is what the statement
+shows. A literal, signed or in parentheses, a variable declared with a scalar type, a Const and a typed Function's call
+are all refused while compiling. A Variant holding a literal is 13, whether it's a variable, an array element or a
+field, and so are Empty and Null. A parameter that hides a module Const is the parameter.
+
+**HexIDE, after #986 and its review.** A store into the name of a Function or Property Get declared `As T()`, for a
+scalar `T` or Variant, checks the value's type against it:
+- **An array variable declared with another element type**, or a scalar whose type the statement shows, is "Can't
+  assign to array", raised as the statement runs. That covers a literal, signed or parenthesised; a bare name for a
+  variable declared with a scalar type; and a Const, local or the module's, unless a local or a parameter hides it.
+- **Anything else** is 13. The decision is read from the statement, not from the value's fixed flag, which a Variant
+  element or field can carry from the literal stored into it (#987's "What main does").
+- **A String into a Byte()** stops the run with a NotImplementedException naming #998, since neither this path nor
+  a Byte() variable converts yet, and raising an error VB6 doesn't would be worse.
+
+Every row is pinned except three. The Property Get rows are pinned through the class, since a standard module's
+Property Get is #977's. Not pinned, and known to differ:
+- **`F = G()`**, with `G` declared `As Integer`, is 13 here where VB6 refuses to compile it, because the statement
+  executor doesn't read a callee's declared type. Wrong only on a program VB6 does not compile.
+- **`As Object()` and `As Collection()`** are not checked, because their element type is not modelled, so `F = Array(1,
+  2)` returns the Variant array where VB6 raises 13. That is a missing error on a path that runs: #999.
+- **`StrConv`** isn't implemented, so its row stops the run before the store.

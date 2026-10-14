@@ -136,4 +136,54 @@ public class TypedArrayReturnTests : BaseVBTestFixture
 
         AssertDebugLog([new Vb6Value("err 13, TypeName(x) Empty"), new Vb6Value("err 0, TypeName(x) Integer() 1 To 3")]);
     }
+
+    // #997's review. The type the statement itself shows decides a compile error; what only the value knows is 13.
+    [Theory]
+    [InlineData("", "Function F() As Integer()\n    Dim w(1)\n    w(0) = 5\n    F = w(0)\nEnd Function\n", "F()", "err 13, x Empty - To -")]
+    [InlineData("Private Type T\n    f As Variant\nEnd Type\n", "Function F() As Integer()\n    Dim t As T\n    t.f = 5\n    F = t.f\nEnd Function\n", "F()", "err 13, x Empty - To -")]
+    [InlineData("", "Function F() As Integer()\n    F = Empty\nEnd Function\n", "F()", "err 13, x Empty - To -")]
+    [InlineData("", "Function F() As Integer()\n    F = Null\nEnd Function\n", "F()", "err 13, x Empty - To -")]
+    [InlineData("", "Function F() As Byte()\n    Dim v\n    v = 5\n    F = v\nEnd Function\n", "F()", "err 13, x Empty - To -")]
+    [InlineData("Const K = 5\n", "Function F(ByVal K) As Integer()\n    F = K\nEnd Function\n", "F(5)", "err 13, x Empty - To -")]
+    public async Task A_store_whose_type_only_the_value_knows_is_13(string declarations, string function, string call, string expected)
+    {
+        await Run(declarations + $"On Error Resume Next\nDim x\nx = {call}\nDebug.Print \"err \" & Err.Number & \", x \" & Shape(x)\n" + function + Shape);
+
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    [Theory]
+    [InlineData("", "Function F() As Integer()\n    F = \"ab\"\nEnd Function\n")]
+    [InlineData("", "Function F() As Integer()\n    Const K = 5\n    F = K\nEnd Function\n")]
+    [InlineData("", "Function F() As Integer()\n    Const K As Integer = 5\n    F = K\nEnd Function\n")]
+    [InlineData("", "Function F() As Integer()\n    Dim n As Integer\n    n = 5\n    F = n\nEnd Function\n")]
+    [InlineData("", "Function F() As Integer()\n    Dim s As String\n    s = \"1\"\n    F = s\nEnd Function\n")]
+    [InlineData("", "Function F() As Integer()\n    F = -5\nEnd Function\n")]
+    [InlineData("", "Function F() As Byte()\n    F = 5\nEnd Function\n")]
+    [InlineData("", "Function F() As Variant()\n    F = 5\nEnd Function\n")]
+    [InlineData("", "Function F() As Variant()\n    Dim n As Integer\n    n = 5\n    F = n\nEnd Function\n")]
+    [InlineData("", "Function F() As Integer()\n    F = (5)\nEnd Function\n")]
+    [InlineData("", "Function F() As Integer()\n    F = True\nEnd Function\n")]
+    [InlineData("Const K = 5\n", "Function F() As Integer()\n    F = K\nEnd Function\n")]
+    public async Task A_store_whose_type_the_statement_shows_is_the_compile_error(string declarations, string function)
+    {
+        // A literal, signed or parenthesised, a variable declared with a scalar type, or a Const, local or the module's.
+        var run = () => Run(declarations + "On Error Resume Next\nDim x\nx = F()\n" + function + Shape);
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Can't assign to array*");
+    }
+
+    [Theory]
+    [InlineData("Function F() As Byte()\n    F = \"ab\"\nEnd Function\n")]   // VB6: err 0, x Byte() 0 To 3 [ 97 0 98 0 ]
+    [InlineData("Function F() As Byte()\n    Dim s As String\n    s = \"ab\"\n    F = s\nEnd Function\n")]   // VB6: err 0, x Byte() 0 To 3 [ 97 0 98 0 ]
+    [InlineData("Function F() As Byte()\n    Dim v\n    v = \"ab\"\n    F = v\nEnd Function\n")]   // VB6: err 0, x Byte() 0 To 3 [ 97 0 98 0 ]
+    [InlineData("Function F() As Byte()\n    F = \"\"\nEnd Function\n")]   // VB6: err 0, x Byte() 0 To -1 [ ]
+    public async Task A_String_stored_into_a_Byte_array_return_is_refused_until_it_converts(string function)
+    {
+        // VB6 converts a String into its bytes here (#998), and HexIDE does not yet, so the store stops the run rather
+        // than giving an error VB6 does not raise.
+        var run = () => Run("On Error Resume Next\nDim x\nx = F()\n" + function + Shape);
+
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#998*");
+    }
 }
