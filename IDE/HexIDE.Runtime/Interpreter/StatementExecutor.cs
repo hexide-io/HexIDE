@@ -1203,6 +1203,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             }
             if (checkedArrayReturn is { } declaredReturn && string.Equals(identifier, procName, StringComparison.OrdinalIgnoreCase))
                 CheckArrayReturn(declaredReturn, value, context);
+            // A fixed array cannot be assigned an array (measured, #970). Named directly it does not compile: "Can't assign
+            // to array", raised here as the statement runs. Through a ByRef parameter sharing it, it is 13, and the array is
+            // left as it was. Fixedness is the declaring slot's (ExecutionState.MarkFixedArray), as for ReDim.
+            if (value.Type.IsArray && currentEnv.TryGetVariableLocation(identifier, out var letLocation)
+                && interpreter.ExecutionContext.State.IsFixedArray(letLocation))
+            {
+                if (currentEnv.Parameters.Contains(identifier))
+                    throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
+                throw new VBCompileErrorException("Can't assign to array");
+            }
             interpreter.ExecutionContext.TryUpdateVariable(currentEnv, identifier, interpreter.CopyForStore(value));
             // Refcount (Phase 4.2): a Variant slot that held an object and is now overwritten by a scalar drops
             // that reference — release it (no-op unless the old value was an object). The new value is non-object

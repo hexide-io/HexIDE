@@ -328,8 +328,8 @@ public class SubscriptCoercionTests : BaseVBTestFixture
     public async Task An_array_assigned_a_fixed_array_can_still_be_ReDimmed(string setup, string subs)
     {
         // Measured: the first two here, natively; the first, third and fourth by #873's review. In VB6 `d` holds a dynamic
-        // copy, and the fixed original keeps its bounds and its element. Fixedness is the declaration's, so `d` is dynamic
-        // although HexIDE's Let shares `fx`'s array with it (#970), and the ReDim gives `d` a new array of its own.
+        // copy, and the fixed original keeps its bounds and its element. Fixedness is the declaration's, and the copy a Let
+        // makes is dynamic (#970), so the ReDim gives `d` a new array of its own.
         await Run($"{setup}\nDebug.Print UBound(d)\nDebug.Print UBound(fx)\nDebug.Print fx(1)\n{subs}");
 
         AssertDebugLog([new Vb6Value(10L), new Vb6Value(3L), new Vb6Value(7L)]);
@@ -340,7 +340,7 @@ public class SubscriptCoercionTests : BaseVBTestFixture
     {
         // Measured, native: an untyped ByRef parameter shares the caller's fixed array, so its ReDim is 10, "This array is
         // fixed or temporarily locked", and the array keeps its bounds and its element. It silently replaced the caller's
-        // array. A `v As Variant` parameter is not refused yet: HexIDE gives it a slot of its own (#970).
+        // array. A `v As Variant` parameter given an array shares it the same way (#970, ArrayLetCopiesTests).
         await Run("On Error Resume Next\nDim buf(3) As Byte\nbuf(1) = 9\nG buf\nDebug.Print Err.Number\n" +
                   "Debug.Print UBound(buf)\nDebug.Print CLng(buf(1))\nSub G(v)\n    ReDim v(10)\nEnd Sub\n");
 
@@ -350,9 +350,8 @@ public class SubscriptCoercionTests : BaseVBTestFixture
     [Fact]
     public async Task A_ByVal_Variant_parameter_can_ReDim_without_touching_the_callers_array()
     {
-        // Measured, native: the callee's ReDim gives it 0 To 10, and the caller's array is untouched. VB6 passes a copy;
-        // HexIDE passes the caller's array (read from the code: an element write would reach it, #970), and the ReDim
-        // replaces only the parameter's own slot.
+        // Measured, native: the callee's ReDim gives it 0 To 10, and the caller's array is untouched. VB6 passes a copy, and
+        // so does HexIDE (#970).
         await Run("On Error Resume Next\nDim buf(3) As Byte\nbuf(1) = 9\nGV buf\nDebug.Print Err.Number\n" +
                   "Debug.Print UBound(buf)\nDebug.Print CLng(buf(1))\n" +
                   "Sub GV(ByVal v)\n    ReDim v(10)\n    Debug.Print UBound(v)\nEnd Sub\n");
@@ -368,8 +367,8 @@ public class SubscriptCoercionTests : BaseVBTestFixture
     public async Task A_ByRef_Variant_parameter_writes_to_the_callers_array(string declaration)
     {
         // Measured by #873's review: 33 each time, which is what lets `Sub BubbleSort(arr As Variant)` sort its caller's
-        // array. HexIDE reaches it by passing the array itself, and #873's fifth round broke that when its Let copied
-        // arrays: these read 0, 1, Empty and 0. Whatever fixes #970 must keep them.
+        // array. A ByRef Variant shares an array argument's slot (#970), which is what keeps these at 33 now that a Let
+        // copies: #873's fifth round copied without it, and these read 0, 1, Empty and 0.
         await Run($"{declaration}\nS3 a\nDebug.Print a(0)\nSub S3(v As Variant)\n    v(0) = 33\nEnd Sub\n");
 
         debug.Select(v => v.Value?.ToString()).Should().Equal("33");
