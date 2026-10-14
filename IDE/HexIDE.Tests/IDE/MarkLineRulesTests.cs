@@ -88,8 +88,8 @@ public class MarkLineRulesTests
     [Fact]
     public void AReadOnlyLineAlreadyMarkedIsLetThrough()
     {
-        // An edit can leave one there, since a mark does not follow its line (debugger-vb6-divergences D24). A
-        // caller that reads a document's marks and writes the same set back must not be refused for it.
+        // An edit or a reload can leave one there, since a mark does not follow its line (debugger-vb6-divergences
+        // D24). A caller that reads a document's marks and writes the same set back must not be refused for it.
         MarkLineRules.Refusal(Form, "P/frmOrders", [3, 12], held: [3], first: 1, "breakpoint").Should().BeNull();
     }
 

@@ -152,8 +152,8 @@ public class MarkOnReadOnlyLineTests : IDisposable
     [AvaloniaFact]
     public void ABreakpointAlreadyOnAHeaderLineCanBeRemoved()
     {
-        // An edit can still leave one there, since a mark does not follow its line (debugger-vb6-divergences D24).
-        // Refusing to take it away would leave a mark nothing in the window can clear.
+        // An edit or a reload can still leave one there, since a mark does not follow its line
+        // (debugger-vb6-divergences D24). Refusing to take it away would leave a mark nothing in the window can clear.
         var vm = OpenForm();
         breakpoints.SetDocument(vm.Identity, [3]);
 

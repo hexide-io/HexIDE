@@ -393,10 +393,10 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   sidecar could have left one there. Task 3.17 made that untrue: the sidecar's load drops a mark on a
   read-only line, from either format, and logs it (`UserSidecarService.OffReadOnlyLines`). What can still put
   one there is an edit or a reload, because a breakpoint or a bookmark is a bare line number and does not
-  follow its line. In a session only `HeaderRefresher.ShiftMarks` moves marks, by the header's change in
-  length, at a designer change, a save or a reload. A designer change and a save add or remove no line below
-  the header, so for them that moves each mark with its line, and neither puts one on a read-only line. Three
-  routes remain:
+  follow its line. Once a project is open, only `HeaderRefresher.ShiftMarks` moves marks, by the header's
+  change in length, at a designer change, a save or a reload. A designer change and a save add or remove no
+  line below the header, so for them that moves each mark with its line, and neither puts one on a read-only
+  line. Three routes remain:
   - an edit that adds or removes lines at or above a mark, by any route: Enter, a paste, a cut, Undo, an
     add-in's edit, `set_file_content`. A member's `Attribute` line can move under it: in the probe, one line
     inserted above `Public Function Total()` moved `Attribute Total.VB_Description` under a breakpoint set on
@@ -418,13 +418,15 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 
   The first two routes were probed headlessly through `CodeEditorViewModel` on 2026-10-14, by writing to the
   document rather than typing; the third, and the rest of the second, are read from `FileReloader` and
-  `ReadOnlyRegions`. Such a mark is never hit. The gutter does not draw it while its run is folded, nor while
-  the header is folded unless it is on the header's first line: both margins draw a mark only on the first
-  line of each row the window shows, a folded run is hidden in its declaration's row, and a folded header is
-  one row that starts at the top of the file. Unfolded, F9, Ctrl+F2 or a click in the gutter beside the line
-  removes it, as do Clear All Breakpoints, Clear All Bookmarks, and `set_breakpoints` or `set_bookmarks` with
-  it left out; a set that keeps it is accepted, so a read-then-write round trip is never refused. Left alone,
-  it lasts until the project is next opened, when the sidecar's load drops it.
+  `ReadOnlyRegions`. Such a mark is never hit: the debugger passes over an `Attribute` statement, and an
+  `Attribute` line in a procedure without its `= value` is a syntax error, so the run never starts (both
+  probed through the interpreter's `DebugController` that day). The gutter does not draw it while its run is
+  folded, nor while the header is folded unless it is on the header's first line: both margins draw a mark
+  only on the first line of each row the window shows, a folded run is hidden in its declaration's row, and a
+  folded header is one row that starts at the top of the file. Unfolded, F9, Ctrl+F2 or a click in the gutter
+  beside the line removes it, as do Clear All Breakpoints, Clear All Bookmarks, and `set_breakpoints` or
+  `set_bookmarks` with it left out; a set that keeps it is accepted, so a read-then-write round trip is never
+  refused. Left alone, it lasts until the project is next opened, when the sidecar's load drops it.
 - **Why:** those lines never execute, so a breakpoint there is never hit and Run To Cursor would run to the end;
   and folded, the header is one visible line standing for many, so a mark set there would land on a line the
   developer cannot see.
