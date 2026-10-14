@@ -22,6 +22,13 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`Unload Me` unloads the startup form, as in VB6** (#973). It used to stop the run as not implemented. Measured on
+  vb6.exe:
+  - **The events:** `Form_QueryUnload` (UnloadMode 1 from code, 0 from the close box), then `Form_Unload`, each with a
+    Cancel that keeps the form loaded.
+  - **What comes after:** the rest of the handler still runs. Then `Form_Terminate`, the form's fields are released,
+    and the run ends.
+  - **The close box** asks the same way, and a refusal keeps the window open.
 - **MouseDown, MouseUp and MouseMove are raised** (#974) on the form and on every control that has them in VB6:
   CommandButton, Label, TextBox, PictureBox, Frame, CheckBox, OptionButton, Image and ListBox. Before, no handler for
   them ever ran. Measured on vb6.exe:

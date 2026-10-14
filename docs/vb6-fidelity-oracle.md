@@ -8601,3 +8601,41 @@ Where HexIDE still differs: VB6 runs a nested handler inside the very call that 
 expression comes after it. HexIDE waits at the next statement, the next part of a single-line `If`, the end of a block,
 or the return of a call. A raise in the middle of an expression, `x = SetIt() + Text1.Text` with SetIt raising Change, can therefore
 see the rest of the expression evaluated first. And `DoEvents` returns 0, not VB6's count of open forms.
+
+## Unload Me (2026-10-14, #973)
+
+What does `Unload Me` raise on the startup form, what does Cancel keep, and what runs after it? Six `/make` probes, each
+built native and p-code, all twelve builds agreeing on every line. A Timer drives each. Form_QueryUnload logs its
+UnloadMode and Cancel on entry, Form_Unload its Cancel, and Form_Terminate itself.
+
+| Probe | Log |
+|---|---|
+| `Unload Me`, then two more statements in the same handler | `queryunload, mode 1, cancel in 0`, `unload, cancel in 0`, **then both statements**, then `terminate` |
+| QueryUnload sets `Cancel = True`; the next tick unloads again | `queryunload` and its refusal, **no Unload**, the handler goes on; the Timer ticks again; then QueryUnload, Unload, `terminate` |
+| Form_Unload sets `Cancel = 1`; the next tick unloads again | QueryUnload, Unload and its refusal; the handler goes on; the Timer ticks again; then QueryUnload, Unload, `terminate` |
+| `SendMessage Me.hWnd, WM_CLOSE`, refused in QueryUnload, then allowed | `queryunload, mode 0` twice; refused, the form stays and ticks; allowed, Unload, the sender's next statement, then `terminate` |
+| `Unload Me`, then `Me.Caption` | QueryUnload, Unload, **`load` again** (no Initialize), the caption, and the run **carries on**: the next tick comes |
+| `Me.Visible` before and after a refused Unload | False both times, in this headless session, where the startup form never reads as visible |
+
+What these show:
+- **The rest of the handler runs after `Unload Me`.** Terminate comes after the handler returns, as the run ends.
+- **QueryUnload's Cancel stops the unload before Form_Unload is raised.** Unload's Cancel keeps the form loaded too.
+  Either way the form goes on running its Timer.
+- **UnloadMode is 1 from code and 0 from a close,** WM_CLOSE being what the window's close box sends.
+- **A use after Unload loads the form again,** raising Load but not Initialize, and the run carries on. The obvious
+  guess, that touching an unloaded form is an error, is wrong.
+
+### HexIDE
+
+Since #973 (its first slice), `Unload Me`, or `Unload Form1` naming the running startup form, raises Form_QueryUnload
+with UnloadMode 1 and Form_Unload. Each gets a ByRef Cancel, and either keeps the form. They run inside the statement,
+as a call does, so the statements after it run once they have. The window goes at once, and nothing more is delivered
+to it. Once the handler has returned, Form_Terminate runs, the form's fields are released, and the run ends, its last
+form gone. The window's close box raises the same pair with UnloadMode 0, and a refusal keeps the window open. Pinned
+in `UnloadTests`, through the IDE's F5 path, with every statement yielding.
+
+What it still does not do:
+- **Reload on use.** A use of the form after it has unloaded is refused as not implemented, naming #822, where VB6
+  loads it again. Running on would end the run where VB6 carries on.
+- **Another form, and `Unload` of a form that isn't loaded.** Both belong to #822's Load slice.
+- **The SingleView host's close box** still closes without asking. The desktop's asks.
