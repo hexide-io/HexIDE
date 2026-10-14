@@ -397,13 +397,17 @@ public static class UiAutomationDriver
 
     // ── interaction (Phase 6) ───────────────────────────────────────────────────────────────────────
 
+    // An action as Interact matches it: its letters alone, lower-cased, so "double_click" and "DoubleClick" are one verb.
+    private static string Normalise(string? action) =>
+        new string((action ?? string.Empty).Where(char.IsLetter).ToArray()).ToLowerInvariant();
+
     /// <summary>Drives a resolved control through its automation provider. The accepted actions are
     /// <see cref="Verbs"/>, and <see cref="VerbsByProvider"/> says which reported token each serves. A missing provider
     /// yields a clean "element does not support '&lt;action&gt;'" error — the caller's signal to inspect
     /// and switch to a Phase-7 reflection action.</summary>
     public static InteractOutcome Interact(Control control, string action, string? value)
     {
-        var norm = new string((action ?? string.Empty).Where(char.IsLetter).ToArray()).ToLowerInvariant();
+        var norm = Normalise(action);
         if (norm.Length == 0) return Err("action is required");
 
         AutomationPeer peer;
@@ -795,7 +799,7 @@ public static class UiAutomationDriver
         var where = $"({local.X:0.#}, {local.Y:0.#}) on '{Describe(control)}', which is ({inWindow.X:0.#}, {inWindow.Y:0.#}) in the window";
         // What a real press there reaches: the topmost element at that point that takes the pointer.
         if (topLevel.InputHitTest(inWindow) is not Avalonia.Interactivity.Interactive hit)
-            return Fail($"nothing takes the pointer at {where}, so nothing was pressed: the point is outside the target, "
+            return Fail($"{NothingTakesThePointer}{where}, so nothing was pressed: the point is outside the target, "
                         + "or on a part of it that is not hit-tested");
 
         var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
@@ -839,6 +843,48 @@ public static class UiAutomationDriver
             }
         });
     }
+
+    /// <summary>How long <c>click</c> waits for its window to draw its next frame before it hit-tests (#1065).</summary>
+    public static readonly TimeSpan ClickFrameWait = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// <see cref="Interact"/>, for a caller that can wait. A <c>click</c> first waits, up to <paramref name="frameWait"/>
+    /// (<see cref="ClickFrameWait"/> when omitted), for the target's window to draw its next frame. Every other action is
+    /// <see cref="Interact"/> as it is.
+    /// </summary>
+    /// <remarks>
+    /// A press is hit-tested as a real one is, against the frame the window last drew. A window opened a moment ago has
+    /// drawn none, so a click on it found nothing to press however its controls were laid out, and the same call worked
+    /// once the window had been drawn (#1065). Waiting for the next frame also means the point the target's layout gives
+    /// is the point that frame shows, where a control the program has just moved would otherwise be pressed where it was.
+    /// </remarks>
+    public static async Task<InteractOutcome> InteractAsync(Control control, string action, string? value, TimeSpan? frameWait = null)
+    {
+        if (!string.Equals(Normalise(action), "click", StringComparison.Ordinal))
+            return Interact(control, action, value);
+        var wait = frameWait ?? ClickFrameWait;
+        var drawn = await NextFrameDrawnAsync(control, wait);
+        var outcome = Interact(control, action, value);
+        if (!drawn && outcome is { Success: false, Error: { } error } && error.StartsWith(NothingTakesThePointer, StringComparison.Ordinal))
+            outcome = outcome with
+            {
+                Error = error + $"; or its window, which drew no frame in the {wait.TotalMilliseconds:0} ms the click waited, "
+                        + "has nothing drawn there yet, since a press is hit-tested against what was drawn: try again once it shows",
+            };
+        return outcome;
+    }
+
+    // Whether the control's window drew a frame within the wait: the next batch the compositor commits, once rendered.
+    private static async Task<bool> NextFrameDrawnAsync(Control control, TimeSpan wait)
+    {
+        if (TopLevel.GetTopLevel(control) is not { } topLevel
+            || Avalonia.Rendering.Composition.ElementComposition.GetElementVisual(topLevel)?.Compositor is not { } compositor)
+            return false;
+        var rendered = compositor.RequestCompositionBatchCommitAsync().Rendered;
+        return await Task.WhenAny(rendered, Task.Delay(wait)) == rendered;
+    }
+
+    private const string NothingTakesThePointer = "nothing takes the pointer at ";
 
     /// <summary>How long <c>click</c> holds the button down, about as long as a person does.</summary>
     public const int ClickHoldMs = 50;
