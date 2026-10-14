@@ -1150,7 +1150,7 @@ public static class UiAutomationDriver
             // code window, so the general check below still covers a disabled control, a read-only TextBox and
             // any other wholly read-only editor.
             if (AreaOf(surface) is { } typedInto
-                && RefusedInReadOnlyRegion(typedInto, (typedInto.Caret.Offset, 0), "type_text", TypedMechanism) is { } refused)
+                && RefusedInReadOnlyRegion(typedInto, new EditedSpan(typedInto.Caret.Offset, 0, Deletes: false), "type_text", TypedMechanism) is { } refused)
                 return refused;
 
             if (WhyNotTypable(surface) is { } refusal)
@@ -1159,6 +1159,23 @@ public static class UiAutomationDriver
                     + $"{refusal}, so a person could not type there either; nothing was inserted");
 
             surface.Focus();
+
+            // At the end of a line a member's Attribute lines describe, the text from its first line break on goes
+            // after them, as a person's paste does there, or the run would be left hanging from the text's last line
+            // (#273 task 4.5). Its line breaks are then written as the file's, as a paste's are.
+            if (AreaOf(surface) is { } codeArea && CodeWindowOf(codeArea) is { } window
+                && window.InsertLineBreakPastRun(codeArea.Caret.Offset, 0, text) is { } placed)
+            {
+                codeArea.Caret.Offset = placed.End;
+                return new InteractOutcome(true, TypedMechanism,
+                    $"typed {placed.Head.Length + placed.Tail.Length} char(s) into {surface.GetType().Name}"
+                    + $"{(ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface))}. "
+                    + $"The caret was at the end of the declaration of {placed.Run.Member?.Name}, so the text from its "
+                    + "first line break on went after that member's Attribute lines, which follow the line they "
+                    + $"describe; its line breaks were written as the file's. The caret is now at offset {placed.End}.",
+                    null);
+            }
+
             switch (surface)
             {
                 case TextEditor editor:
@@ -1250,7 +1267,15 @@ public static class UiAutomationDriver
     /// The span a key would change in a text area: the selection when there is one, otherwise what that key
     /// writes or deletes at the caret. Null for a key that changes no text (a navigation key, a command).
     /// </summary>
-    private static (int Offset, int Length)? EditSpan(TextArea area, Key key, KeyModifiers mods)
+    /// <remarks>
+    /// <see cref="EditedSpan.Deletes"/> says the key deletes the span rather than writing over it: Backspace and
+    /// Delete, a cut, and Ctrl+D. A deletion is judged as the code window's keys delete (#273 task 4.5a): one that
+    /// takes a described line takes its Attribute lines with it, which is allowed, where writing over the span would
+    /// not be. Ctrl+D deletes every line the selection touches, as the library's does, so that is its span. A cut with
+    /// nothing selected is still judged at the caret, as it was: regions are whole lines, so the caret's line, which
+    /// that cut takes, is in one exactly when the caret is, and on a described line the window takes the run with it.
+    /// </remarks>
+    private static EditedSpan? EditSpan(TextArea area, Key key, KeyModifiers mods)
     {
         var caret = area.Caret.Offset;
         var selection = area.Selection.SurroundingSegment;
@@ -1265,22 +1290,26 @@ public static class UiAutomationDriver
         };
         if (!edits)
             return null;
-
-        if (selection is { Length: > 0 })
-            return (selection.Offset, selection.Length);
+        var deletes = key is Key.Back or Key.Delete or Key.X or Key.D;
 
         if (key == Key.D)
         {
-            var line = area.Document.GetLineByOffset(caret);
-            return (line.Offset, Math.Max(line.TotalLength, 1));
+            var first = area.Document.GetLineByOffset(selection is { Length: > 0 } ? selection.Offset : caret);
+            var last = area.Document.GetLineByOffset(selection is { Length: > 0 } ? selection.EndOffset : caret);
+            return new EditedSpan(first.Offset, Math.Max(last.Offset + last.TotalLength - first.Offset, 1), deletes);
         }
+        if (selection is { Length: > 0 })
+            return new EditedSpan(selection.Offset, selection.Length, deletes);
         return key switch
         {
-            Key.Back => caret > 0 ? (caret - 1, 1) : null,
-            Key.Delete => caret < area.Document.TextLength ? (caret, 1) : null,
-            _ => (caret, 0),
+            Key.Back => caret > 0 ? new EditedSpan(caret - 1, 1, deletes) : null,
+            Key.Delete => caret < area.Document.TextLength ? new EditedSpan(caret, 1, deletes) : null,
+            _ => new EditedSpan(caret, 0, deletes),
         };
     }
+
+    /// <summary>What a key would change: <see cref="Length"/> characters at <see cref="Offset"/>, deleted or written over.</summary>
+    private readonly record struct EditedSpan(int Offset, int Length, bool Deletes);
 
     /// <summary>
     /// The code window whose buffer <paramref name="area"/> shows, when it shows one: the view model it
@@ -1307,7 +1336,7 @@ public static class UiAutomationDriver
     /// <c>"keyboard"</c>: <c>type_text</c> inserts into the document rather than sending keystrokes, and
     /// saying otherwise is how a read-only gate that held was once read as one that had failed (#649).
     /// </param>
-    private static InteractOutcome? RefusedInReadOnlyRegion(TextArea area, (int Offset, int Length) span, string tool, string mechanism = "keyboard")
+    private static InteractOutcome? RefusedInReadOnlyRegion(TextArea area, EditedSpan span, string tool, string mechanism = "keyboard")
     {
         if (CodeWindowOf(area) is not { } editor)
             return null;
@@ -1322,7 +1351,12 @@ public static class UiAutomationDriver
               + ". Its code is part of the file, so typing in its code window is refused anywhere, as the "
               + "window's banner says. Nothing was written.");
 
-        if (!editor.IsReadOnlyRegion(span.Offset, span.Length))
+        // A deletion by the window's own rule (#273 task 4.5a): one taking a described line whole takes its Attribute
+        // lines with it, which a person's key does, so only what it would still change of a region refuses it.
+        var changes = span.Deletes
+            ? editor.ReadOnlySections.DeletionChangesARegion(span.Offset, span.Length)
+            : editor.IsReadOnlyRegion(span.Offset, span.Length);
+        if (!changes)
             return null;
 
         var past = editor.PastReadOnlyRegion(span.Offset);

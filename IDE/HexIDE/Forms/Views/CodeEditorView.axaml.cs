@@ -7,6 +7,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Labs.Input;
 using Avalonia.Media;
 using Avalonia.Platform;
@@ -14,6 +15,7 @@ using Avalonia.Platform.Storage;
 using AvaloniaEdit;
 using AvaloniaEdit.CodeCompletion;
 using AvaloniaEdit.Document;
+using AvaloniaEdit.Editing;
 using AvaloniaEdit.Folding;
 using AvaloniaEdit.Highlighting;
 using HexIDE.Bookmarks;
@@ -94,20 +96,29 @@ public partial class CodeEditorView : UserControl
         // Cut, Delete and Paste are where their keys arrive, not OnEditorKeyDown: each key is bound to its command,
         // which takes it before the text area sees it. So each command asks about resetting a run itself, for the
         // key, the Edit menu, the context menu and the toolbar alike (#273 task 3.13).
+        // A cut or a delete of a described line takes its attribute run with it, onto the clipboard too, so each
+        // widens the selection first (#273 task 4.5a); a cut with nothing selected takes the caret's line.
         Cut = new DelegateCommand(() =>
         {
+            WidenSelectionForDeletion(wholeLineWhenEmpty: TextEditor.Options.CutCopyWholeLine);
             AskBeforeClipboardEdit(paste: false);
             TextEditor.Cut();
         }, () => true);
         Delete = new DelegateCommand(() =>
         {
             ArmResetPrompt();
+            WidenSelectionForDeletion(wholeLineWhenEmpty: false);
             TextEditor.Delete();
         }, () => true);
+        // A paste at the end of a described line is the window's own, so a line break in it can go past the run
+        // (task 4.5); the library's paste puts the text wherever the caret is, and only the text says whether it may.
         Paste = new DelegateCommand(() =>
         {
             AskBeforeClipboardEdit(paste: true);
-            TextEditor.Paste();
+            if (SelectionEndsWhereARunHangs())
+                _ = PasteAtTheEndOfADescribedLineAsync();
+            else
+                TextEditor.Paste();
         }, () => true);
         SelectAll = new DelegateCommand(() => TextEditor.SelectAll(), () => true);
         Find = new DelegateCommand(() =>
@@ -1179,6 +1190,14 @@ public partial class CodeEditorView : UserControl
         // Armed, not raised: whether the text lands is decided after this, by the read-only section provider.
         if (e.Text is { Length: > 0 })
             ArmResetPrompt();
+        // Shift+Enter, and any other input that types a line break, at the end of a described line (#273 task 4.5).
+        // Taken here because AvaloniaEdit raises this before it writes and writes nothing once it is handled.
+        if (e.Text is { } typed && PlaceTypedLineBreakPastRun(typed))
+        {
+            e.Handled = true;
+            _completionWindow?.Close();
+            return;
+        }
         // If a completion window is open and the user types a character that can't
         // be part of an identifier, close the window (AvaloniaEdit will then insert the char).
         if (_completionWindow is null || e.Text is not { Length: > 0 }) return;
@@ -1329,6 +1348,16 @@ public partial class CodeEditorView : UserControl
             AskBeforeClipboardEdit(paste: e.Key == Key.V);
         else if (IsDocumentEditKey(e))
             ArmResetPrompt();
+        // A key that deletes the selection, ahead of the library that deletes it: a deletion of a described line
+        // takes the line's attribute run with it (#273 task 4.5a). Delete itself is the Delete command's, which does
+        // the same. Ctrl+D, the library's Delete Line, is taken over only when it would leave a run behind.
+        if (DeletesTheSelection(e))
+            WidenSelectionForDeletion(wholeLineWhenEmpty: false);
+        else if (AvaloniaEditCommands.DeleteLine.Gesture?.Matches(e) == true && DeleteLinesWithTheirRuns())
+        {
+            e.Handled = true;
+            return;
+        }
         // Enter = auto-close block + auto-indent
         if (e.Key == Key.Return && e.KeyModifiers == KeyModifiers.None)
         {
@@ -1367,6 +1396,15 @@ public partial class CodeEditorView : UserControl
     /// Otherwise, inserts a newline with auto-indent (matching current line).
     /// </summary>
     /// <returns>True if the event was handled.</returns>
+    /// <remarks>
+    /// <b>At the end of a described line the line break goes after the run</b> (#273 task 4.5), as a line of its own
+    /// in the document's newline, and the closer is looked for past the run, all as one undo step with the
+    /// declaration's re-casing. Put at the caret, the line break would leave the run hanging from an empty line,
+    /// describing nothing. The declaration is read as 4.1's reader reads it, from <see cref="MemberRun.DescribedStart"/>:
+    /// its continuation rule, an underscore after whitespace, and not <see cref="VbAutoCloseProvider.IsContinuationLine"/>'s
+    /// looser one, which would take a declaration ending in a name like <c>Total_</c> for one continuing into the run,
+    /// and break the line at the caret.
+    /// </remarks>
     private bool HandleEnterAutoClose()
     {
         try
@@ -1379,8 +1417,12 @@ public partial class CodeEditorView : UserControl
             // does Enter anywhere in a file held read-only as a whole, whose banner says typing is refused. It
             // is taken here, ahead of AvaloniaEdit's own Enter, so no read-only section provider would ever see
             // it; and there is no "after the region" a line break could sensibly go to instead.
-            if (DataContext is CodeEditorViewModel guarded && guarded.RefusesTyping(caretOffset, 0))
+            var vm = DataContext as CodeEditorViewModel;
+            if (vm is not null && vm.RefusesTyping(caretOffset, 0))
                 return true;
+
+            // The run hanging from the line the caret ends, when it ends one, with only whitespace after the caret.
+            var run = vm?.ReadOnlySections.RunHangingFrom(caretOffset);
 
             var currentLineNumber = doc.GetLineByOffset(caretOffset).LineNumber;
             var currentDocLine = doc.GetLineByNumber(currentLineNumber);
@@ -1399,8 +1441,9 @@ public partial class CodeEditorView : UserControl
                 return true;
             }
 
-            // If the line ends with _ (continuation), just auto-indent (no case-correct yet)
-            if (VbAutoCloseProvider.IsContinuationLine(currentLineText))
+            // If the line ends with _ (continuation), just auto-indent (no case-correct yet). Never a described
+            // line: the reader ended its logical line there, or no run would hang from it.
+            if (run is null && VbAutoCloseProvider.IsContinuationLine(currentLineText))
             {
                 Log.Debug("[auto-close] Continuation line, auto-indent only");
                 InsertNewlineWithIndent(doc, caretOffset, currentLineText);
@@ -1409,19 +1452,27 @@ public partial class CodeEditorView : UserControl
 
             // Find the first physical line of the logical line (for continuations)
             var startLineNumber = currentLineNumber;
-            while (startLineNumber > 1)
+            if (run is not null)
+                startLineNumber = doc.GetLineByOffset(run.DescribedStart).LineNumber;
+            else
             {
-                var prevLine = doc.GetLineByNumber(startLineNumber - 1);
-                if (!VbAutoCloseProvider.IsContinuationLine(
-                        doc.GetText(prevLine.Offset, prevLine.Length)))
-                    break;
-                startLineNumber--;
+                while (startLineNumber > 1)
+                {
+                    var prevLine = doc.GetLineByNumber(startLineNumber - 1);
+                    if (!VbAutoCloseProvider.IsContinuationLine(
+                            doc.GetText(prevLine.Offset, prevLine.Length)))
+                        break;
+                    startLineNumber--;
+                }
             }
 
-            // Assemble the full logical line (handle multi-line continuations)
+            // Assemble the full logical line (handle multi-line continuations). Nothing above its first line is
+            // offered, so for a described line the looser rule cannot walk back past where 4.1's reader starts it.
             var logicalLine = VbAutoCloseProvider.AssembleLogicalLine(
                 lineIdx =>
                 {
+                    if (lineIdx + 1 < startLineNumber)
+                        return string.Empty;
                     var dl = doc.GetLineByNumber(lineIdx + 1); // lineIdx is 0-based, doc is 1-based
                     return doc.GetText(dl.Offset, dl.Length);
                 },
@@ -1430,6 +1481,9 @@ public partial class CodeEditorView : UserControl
             var closer = VbAutoCloseProvider.GetClosingStatement(logicalLine);
             Log.Debug("[auto-close] Logical line: '{LogicalLine}', closer: {Closer}",
                 logicalLine, closer ?? "(null)");
+
+            // A run is folded into the line it describes as the developer sees it, so the closer is looked for after it.
+            var lastLineBefore = run is null ? currentLineNumber : doc.GetLineByOffset(run.LastContentEnd).LineNumber;
 
             // Keyword-normalize the committed physical lines + insert closer (single undo)
             doc.BeginUpdate();
@@ -1442,7 +1496,7 @@ public partial class CodeEditorView : UserControl
                     var dl = doc.GetLineByNumber(lineNum);
                     // A committed line inside a region keeps its casing: re-casing it is a rewrite of text
                     // only the IDE may change, and the insert rule does not cover rewriting a line.
-                    if (DataContext is CodeEditorViewModel owner && owner.IsReadOnlyRegion(dl.Offset, dl.Length))
+                    if (vm is not null && vm.IsReadOnlyRegion(dl.Offset, dl.Length))
                         continue;
                     var lineText = doc.GetText(dl.Offset, dl.Length);
                     var normalized = VbKeywordNormalizer.NormalizeLine(lineText);
@@ -1456,25 +1510,31 @@ public partial class CodeEditorView : UserControl
                 // Recalculate caret offset after normalization (line lengths may change)
                 var adjustedCaretOffset = caretOffset + offsetAdjustment;
 
-                if (closer is null || NextNonEmptyLineIs(doc, currentLineNumber, closer))
+                var updatedLine = doc.GetLineByNumber(currentLineNumber);
+                var updatedLineText = doc.GetText(updatedLine.Offset, updatedLine.Length);
+                var indent = VbAutoCloseProvider.GetIndentation(updatedLineText);
+                var bodyIndent = VbAutoCloseProvider.GetBodyIndent(indent);
+                var addCloser = closer is not null && !NextNonEmptyLineIs(doc, lastLineBefore, closer);
+                var insertText = addCloser ? "\n" + bodyIndent + "\n" + indent + closer : "\n" + indent;
+
+                // After the run: the provider places it, writing each line break as the described line's own. The
+                // caret goes to the end of the new line, or to the body line between the declaration and the closer.
+                if (run is not null && vm?.InsertLineBreakPastRun(adjustedCaretOffset, 0, insertText) is { } placed)
+                {
+                    var lineBreak = placed.Tail.StartsWith("\r\n", StringComparison.Ordinal) ? 2 : 1;
+                    caret.Offset = addCloser ? placed.TailStart + lineBreak + bodyIndent.Length : placed.End;
+                    return true;
+                }
+
+                if (!addCloser)
                 {
                     // No closer to insert — just newline + auto-indent
-                    var updatedLine = doc.GetLineByNumber(currentLineNumber);
-                    var updatedLineText = doc.GetText(updatedLine.Offset, updatedLine.Length);
-                    var indent = VbAutoCloseProvider.GetIndentation(updatedLineText);
-                    var insertText = "\n" + indent;
                     doc.Insert(adjustedCaretOffset, insertText);
                     caret.Offset = adjustedCaretOffset + insertText.Length;
                 }
                 else
                 {
                     // Insert closer
-                    var updatedLine = doc.GetLineByNumber(currentLineNumber);
-                    var updatedLineText = doc.GetText(updatedLine.Offset, updatedLine.Length);
-                    var indent = VbAutoCloseProvider.GetIndentation(updatedLineText);
-                    var bodyIndent = VbAutoCloseProvider.GetBodyIndent(indent);
-                    var insertText = "\n" + bodyIndent + "\n" + indent + closer;
-
                     Log.Debug("[auto-close] Inserting closer: indent='{Indent}', insertText='{InsertText}'",
                         indent, insertText.Replace("\n", "\\n"));
 
@@ -1519,6 +1579,182 @@ public partial class CodeEditorView : UserControl
             return string.Equals(text, closer, StringComparison.OrdinalIgnoreCase);
         }
         return false;
+    }
+
+    // ── A member's run follows its line (#273 tasks 4.5 and 4.5a) ─────────────────────────────────────────
+
+    /// <summary>
+    /// The selection, or the caret as an empty one: where an edit made with the keyboard starts and how much it
+    /// replaces. Null for a rectangular selection, which the library writes line by line and these rules leave to it.
+    /// </summary>
+    private (int Offset, int Length)? EditedSpan()
+    {
+        var area = TextEditor.TextArea;
+        if (area.Selection is RectangleSelection)
+            return null;
+        if (area.Selection.IsEmpty)
+            return (area.Caret.Offset, 0);
+        var selected = area.Selection.SurroundingSegment;
+        return (selected.Offset, selected.Length);
+    }
+
+    /// <summary>
+    /// Widens the selection over the attribute run of every described line whose whole text deleting it would remove,
+    /// so the library deletes the run with its line, as one change and one undo step, and a cut puts both on the
+    /// clipboard (task 4.5a). With nothing selected, a whole-line cut's line is what is widened.
+    /// </summary>
+    /// <remarks>
+    /// Here, before the library asks the provider, because the provider can only narrow what it is asked about:
+    /// AvaloniaEdit throws on a segment outside the span. The selection is left alone when nothing is widened, so an
+    /// empty one still cuts its line the library's way.
+    /// </remarks>
+    private void WidenSelectionForDeletion(bool wholeLineWhenEmpty)
+    {
+        if (DataContext is not CodeEditorViewModel vm || EditedSpan() is not var (offset, length))
+            return;
+        var area = TextEditor.TextArea;
+        if (length == 0)
+        {
+            if (!wholeLineWhenEmpty)
+                return;
+            var line = area.Document.GetLineByOffset(offset);
+            (offset, length) = (line.Offset, line.TotalLength);
+        }
+        var widened = vm.ReadOnlySections.WidenDeletion(offset, length);
+        if (widened.Length != length)
+            area.Selection = Selection.Create(area, widened.Offset, widened.Offset + widened.Length);
+    }
+
+    /// <summary>
+    /// The library's commands that delete a selection when there is one, which the keys reaching the text area run:
+    /// Backspace, and Delete or Backspace by word. Delete alone is the code window's Delete command.
+    /// </summary>
+    private static readonly HashSet<System.Windows.Input.ICommand> SelectionDeletes =
+    [
+        EditingCommands.Backspace, EditingCommands.Delete,
+        EditingCommands.DeletePreviousWord, EditingCommands.DeleteNextWord,
+    ];
+
+    /// <summary>
+    /// True when <paramref name="e"/> is a key the text area deletes the selection for, by the first of its editing
+    /// bindings the key matches, as <see cref="StepsRight"/> tells a step; false with nothing selected.
+    /// </summary>
+    private bool DeletesTheSelection(KeyEventArgs e)
+    {
+        if (TextEditor.TextArea.Selection.IsEmpty)
+            return false;
+        foreach (var binding in TextEditor.TextArea.DefaultInputHandler.Editing.KeyBindings)
+        {
+            if (binding.Gesture?.Matches(e) == true)
+                return binding.Command is { } command && SelectionDeletes.Contains(command);
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Ctrl+D, the library's Delete Line, when the lines it would delete include a described line: it deletes them
+    /// with that line's run instead, as one change. False, with nothing done, when no run would be left behind, so
+    /// the library's own deletes the lines as before.
+    /// </summary>
+    /// <remarks>
+    /// Its own, because the library's computes the lines from the selection's two ends, and a selection widened to
+    /// the line after the run would delete that line too.
+    /// </remarks>
+    private bool DeleteLinesWithTheirRuns()
+    {
+        var area = TextEditor.TextArea;
+        if (DataContext is not CodeEditorViewModel vm || area.Selection is RectangleSelection)
+            return false;
+        var (first, last) = area.Selection.Length == 0
+            ? (area.Caret.Line, area.Caret.Line)
+            : (Math.Min(area.Selection.StartPosition.Line, area.Selection.EndPosition.Line),
+               Math.Max(area.Selection.StartPosition.Line, area.Selection.EndPosition.Line));
+        var from = area.Document.GetLineByNumber(first).Offset;
+        var lastLine = area.Document.GetLineByNumber(last);
+        var length = lastLine.Offset + lastLine.TotalLength - from;
+        var widened = vm.ReadOnlySections.WidenDeletion(from, length);
+        if (widened.Length == length)
+            return false;
+
+        area.Selection = Selection.Create(area, widened.Offset, widened.Offset + widened.Length);
+        TextEditor.Delete();
+        return true;
+    }
+
+    /// <summary>True when what a paste would replace ends where a member's run hangs (task 4.5).</summary>
+    private bool SelectionEndsWhereARunHangs() =>
+        DataContext is CodeEditorViewModel vm && EditedSpan() is var (offset, length)
+        && vm.ReadOnlySections.RunHangingFrom(offset + length) is not null;
+
+    /// <summary>
+    /// A paste at the end of a described line: the clipboard's text up to its first line break where the caret is,
+    /// and the rest after the run, as one undo step (task 4.5). Text with no line break is pasted where it was asked.
+    /// </summary>
+    /// <remarks>
+    /// The text is made what the library's paste makes it, with tabs as spaces when the editor converts them, and the
+    /// selection is read again once the clipboard has answered, since the developer may have moved on.
+    /// </remarks>
+    private async Task PasteAtTheEndOfADescribedLineAsync()
+    {
+        string? text;
+        try
+        {
+            text = TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard ? await clipboard.TryGetTextAsync() : null;
+        }
+        catch (Exception ex)
+        {
+            Log.Debug("[paste] {ErrorMessage}", ex.Message);
+            return;
+        }
+        if (string.IsNullOrEmpty(text) || DataContext is not CodeEditorViewModel vm)
+            return;
+
+        var area = TextEditor.TextArea;
+        if (area.Options.ConvertTabsToSpaces)
+            text = text.Replace("\t", new string(' ', area.Options.IndentationSize));
+        if (EditedSpan() is var (offset, length) && vm.InsertLineBreakPastRun(offset, length, text) is { } placed)
+        {
+            area.ClearSelection();
+            area.Caret.Offset = placed.End;
+        }
+        else
+        {
+            area.Selection.ReplaceSelectionWithText(
+                TextUtilities.NormalizeNewLines(text, TextUtilities.GetNewLineFromDocument(area.Document, area.Caret.Line)));
+        }
+        area.Caret.BringCaretToView();
+    }
+
+    /// <summary>
+    /// Writes typed text holding a line break past the run when it lands at the end of a described line (task 4.5):
+    /// Shift+Enter, and Enter when the window's own handling of it has failed, both of which the library types.
+    /// </summary>
+    /// <returns>True when it was written here, and the library must write nothing.</returns>
+    /// <remarks>
+    /// A line break alone is a key's, and the library indents the line it makes like the line above it. The line
+    /// above the new one is the declaration's, as the developer sees it, so the new line takes the declaration's
+    /// indent, which is what it would take with no run there.
+    /// </remarks>
+    private bool PlaceTypedLineBreakPastRun(string typed)
+    {
+        if (typed.AsSpan().IndexOfAny('\r', '\n') < 0 || DataContext is not CodeEditorViewModel vm
+            || EditedSpan() is not var (offset, length)
+            || vm.ReadOnlySections.RunHangingFrom(offset + length) is not { } run)
+            return false;
+
+        if (typed is "\n" or "\r" or "\r\n")
+        {
+            var declaration = TextEditor.Document.GetLineByOffset(run.Anchor);
+            typed += VbAutoCloseProvider.GetIndentation(TextEditor.Document.GetText(declaration));
+        }
+        if (vm.InsertLineBreakPastRun(offset, length, typed) is not { } placed)
+            return false;
+
+        var area = TextEditor.TextArea;
+        area.ClearSelection();
+        area.Caret.Offset = placed.End;
+        area.Caret.BringCaretToView();
+        return true;
     }
 
     private void TriggerCompletionAsync()

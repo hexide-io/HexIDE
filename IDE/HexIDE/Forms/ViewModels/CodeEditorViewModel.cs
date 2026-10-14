@@ -1231,7 +1231,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// whole-document verdict, both read live, so it never needs replacing.
     /// </summary>
     internal CodeWindowReadOnlySections ReadOnlySections =>
-        readOnlySections ??= new CodeWindowReadOnlySections(Document, () => IsReadOnly, () => ReadOnlyRegionsNow);
+        readOnlySections ??= new CodeWindowReadOnlySections(Document, () => IsReadOnly, () => ReadOnlyRegionsNow,
+            () => MemberRunsNow);
 
     private CodeWindowReadOnlySections? readOnlySections;
 
@@ -1300,6 +1301,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             CaretOffset = caret;
             return;
         }
+        // At the end of a described line, the file from its first line break on goes after the run (task 4.5).
+        if (InsertLineBreakPastRun(selectionStart, selectionLength, content) is { } placed)
+        {
+            CaretOffset = placed.End;
+            return;
+        }
         Document.Replace(selectionStart, selectionLength, content);
         CaretOffset = selectionStart + content.Length;
     }
@@ -1330,6 +1337,37 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
         Document.Insert(at, content);
         return at + content.Length;
+    }
+
+    /// <summary>
+    /// Writes text holding a line break that would replace <c>[offset, offset + length)</c> at the end of a line a
+    /// member's run describes, with everything from its first line break on after the run, as one undo step
+    /// (#273 task 4.5). The section provider decides where (<see cref="CodeWindowReadOnlySections.PlaceLineBreak"/>).
+    /// </summary>
+    /// <returns>Where the two parts went; or null when the rule does not apply, and nothing was written.</returns>
+    /// <remarks>
+    /// The window's line breaks all come here: Enter and Shift+Enter, a paste, Insert File and automation's
+    /// <c>type_text</c>. Put where the text asked, the line break would leave the run hanging from the last line of
+    /// the text, describing whatever that declares and most often nothing.
+    /// </remarks>
+    internal LineBreakPastRun? InsertLineBreakPastRun(int offset, int length, string text)
+    {
+        if (ReadOnlySections.PlaceLineBreak(offset, length, text) is not { } placed)
+            return null;
+
+        Document.BeginUpdate();
+        try
+        {
+            // The later offset first, so the earlier one still means what it meant.
+            Document.Insert(placed.TailAt, placed.Tail);
+            if (placed.Length > 0 || placed.Head.Length > 0)
+                Document.Replace(placed.Offset, placed.Length, placed.Head);
+        }
+        finally
+        {
+            Document.EndUpdate();
+        }
+        return placed;
     }
 
     /// <summary>
@@ -1456,6 +1494,23 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 return $"{describe?.Invoke(i) ?? $"The edit at line {at.Line}, column {at.Column}"} would change the "
                        + "document's header (its designer block, class header or leading Attribute lines) or a "
                        + "member's Attribute lines, which only the IDE changes. Nothing was changed.";
+            }
+        }
+
+        // An edit putting a line break at the end of a described line would leave the member's run hanging from
+        // the edit's last line, which mostly declares nothing (#273 task 4.5). The window moves such a line break
+        // past the run; an add-in's range is the add-in's own choice of place, so it is refused instead.
+        for (var i = 0; i < edits.Count; i++)
+        {
+            var edit = edits[i];
+            if (edit.Text.AsSpan().IndexOfAny('\r', '\n') >= 0
+                && ReadOnlySections.RunHangingFrom(edit.Offset + edit.Length) is { Member: { } member })
+            {
+                var at = Document.GetLocation(edit.Offset);
+                return $"{describe?.Invoke(i) ?? $"The edit at line {at.Line}, column {at.Column}"} would put a line "
+                       + $"break at the end of the declaration of {member.Name}, between it and its Attribute lines, "
+                       + "which follow the line they describe. Put new lines at the start of the line after the "
+                       + "Attribute lines instead. Nothing was changed.";
             }
         }
 
