@@ -24,6 +24,12 @@ public class InteractClickDescriptionTests
     }
 
     [Fact]
+    public void The_hold_the_description_states_is_the_one_click_uses()
+    {
+        Interact.Description.Should().Contain($"releasing {UiAutomationDriver.ClickHoldMs} ms later");
+    }
+
+    [Fact]
     public void Value_stays_optional_on_the_wire()
     {
         // click with no value is a left click at the centre, so the parameter must not become required.
