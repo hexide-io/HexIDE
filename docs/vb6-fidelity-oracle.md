@@ -6142,8 +6142,9 @@ The draft's rule, that such a run is an orphan, stands. Its "nothing the IDE doe
 as a recorded divergence from VB6, which removes or moves one at every save.
 
 **Ours, in the code.** `Vb6ToolchainService` counts physical lines starting `Attribute`, not logical ones (#968,
-above). And task 4.1, as built, still judges whether a run describes its member by matching every qualifier against
-the line above, the first draft's rule (*HexIDE, after #273*, below).
+above). Task 4.1 was first built judging whether a run describes its member by matching every qualifier against the
+line above, the first draft's rule, and was rebuilt to the revised rules before the rest of phase 4 (*HexIDE, after
+#273*, below).
 
 **The first IDE session's, by the second.**
 
@@ -6291,16 +6292,18 @@ Recorded so the next person driving VB6's IDE through the agent need not find th
 ### HexIDE, after #273
 
 The rules HexIDE takes from these measurements are in the change's `design.md`, under "Settled before building
-phase 4". Task 4.1 was built to the first draft while the measurements were being taken: it was committed after
-the compiler half and before the IDE half had finished. It leaves a run it judges to describe nothing as ordinary
-text, but it still judges by a qualifier match. The revised rule for 4.1 itself, under which a procedure run's
-qualifiers are not consulted, every `:` statement on the line is read and a constant takes a `VB_Var` run, and the
-save's re-qualification of a procedure's run and a one-name variable's as VB6 does, are settled in `design.md` and
-are yet to be built. The files the dialog wrote are to become the corpus of task 4.6. Where HexIDE departs from VB6
+phase 4". Task 4.1 was first built to the first draft while the measurements were being taken, committed after
+the compiler half and before the IDE half had finished, and judged a run by a qualifier match. It was rebuilt to
+the revised rules on 2026-10-14: a procedure run's qualifiers are not consulted, every `:` statement on the line is
+read, a constant takes a `VB_Var` run, and a one-name line takes the run a rename by retyping leaves when the name
+it carries is declared nowhere in the module. The save's re-qualification of a procedure's run and a one-name
+variable's, as VB6 does, is settled in `design.md` and is task 4.4. The files the dialog wrote are to become the
+corpus of task 4.6. Where HexIDE departs from VB6
 it does so on purpose: an orphan stays visible and editable, where VB6 hides it and drops or moves it at its next
 save; Undo restores a run and a cut carries one, where VB6 loses the description to both; a comma list keeps every
 declarator's run that still names a declarator on the line, where VB6 keeps only the first's; and an `Attribute`
 line pasted directly under a declaration is read as a run at once, which is what VB6's next load makes of the same
-bytes. Two go the other way, keeping less than VB6 keeps or protecting what VB6 drops: a comma list's renamed first
+bytes. A run mixing the two kinds is left as ordinary text, where VB6 gives each of its lines to its own member
+(p09n): the text stands, so VB6 binds it the same way at its next load. Two go the other way, keeping less than VB6 keeps or protecting what VB6 drops: a comma list's renamed first
 declarator leaves its run naming the old name, an orphan, where VB6 carries it and re-qualifies it; and a run under
 a `Public Const` in a class, form or UserControl is read as describing and protected, where VB6 drops it (V5).

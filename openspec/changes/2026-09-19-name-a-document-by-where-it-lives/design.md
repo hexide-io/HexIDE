@@ -1012,9 +1012,10 @@ VB6 reads every line of it as that declaration's:
   run under `Public A As Long: Public B As Long` for `B` (IDE probe E).
 
 A constant takes a `VB_Var…` run exactly as a variable does: by name, public or private, typed or not, and the
-second constant of `Const C1 = 1, C2 = 2` too. VB6 keeps it, moves it under its `Const` from elsewhere, and shows it
-in the Object Browser as the constant's description, though neither the dialog nor the Object Browser offers a way
-to make one (IDE probe V5). `Enum` and `Type` lines and enum members take no run of either kind, and a
+second constant of `Const C1 = 1, C2 = 2` too. VB6 keeps it (five shapes), moves it under its `Const` from
+elsewhere (one case), and shows it in the Object Browser as the constant's description (the one constant looked at
+there), though neither the dialog nor the Object Browser offers a way to make one (IDE probe V5). All of that is
+for a declaration VB6 accepts; the one it rejects is below. `Enum` and `Type` lines and enum members take no run of either kind, and a
 `VB_Description` line under a `Const` reaches nothing (V5).
 
 Declarations are read lexically, the same kind of read as `DeclaredNames`. This is collection, not binding: it
@@ -1102,6 +1103,21 @@ draft, and rebuilt to the rules above once the oracle overturned that. What the 
 - *What 4.4 and 4.5b need is on the run*, so neither reads the text again: `MemberRun.Kind` (which runs the save
   re-qualifies), `Member` (the name it writes, as declared), and each `AttributeLine`'s `Qualifier` and
   `QualifierOffset`, which may be on a physical line after the line's first.
+- *A run is read-only from the moment it describes a member, however it came to, and a run part-way through a
+  retype is no exception* (found reviewing the rebuild, settled 2026-10-14). Protection follows the text, so an
+  edit that makes a run describe the line above locks it at once. Retyping an orphan's name under a line declaring
+  one name locks it after the first key, once the name it carries is declared nowhere:
+  `Attribute Count.VB_VarDescription` under `Public Tally As Long`, with `Public Count As Long` further down, is an
+  orphan VB6 would move under `Count`, and one Backspace leaves `Coun`, Tally's renamed run, greyed and read-only.
+  A run typed by hand does the same at its first `.`: `Attribute Halt.` under `Public Sub Halt()` is already the
+  procedure's. Leaving the renamed kind editable, ungreyed and unfolded was considered and rejected. That kind is
+  above all what a rename by retyping leaves, so a run left unprotected would unfold under the line the developer
+  is typing on, and 4.4's save would then re-write text the developer could see and edit, where every other run
+  the save re-writes is folded and read-only. So an orphan is repaired by whole lines: cut, pasted, or deleted
+  with the line it sits under (4.5a). A retype the run locks part-way through is finished by the save, which
+  writes the name the line declares; one meant for another member is cut and pasted there. Typing a run character
+  by character is not a way VB6 offers either: its code window takes attribute text as code (V4), and the
+  Procedure Attributes dialog (#62) is the way it does offer.
 
 **A run that describes nothing is inert text, not a region.** The code-editor requirement defines a read-only
 region as the header or "a run of attribute lines describing a member", and says an attribute line left
@@ -1172,7 +1188,7 @@ VB6 drops, and carrying that one to the first declarator would give it a descrip
 
 A new name that is not a VB6 identifier is refused before the request, with a reason (a new string), and the
 bundled server answers nothing for one. The first draft said a rename by retyping leaves an orphan with no fix-up;
-VB6 carries the description across all three kinds of rename, so that is overturned.
+VB6 carries a procedure's description across all three kinds of rename, so that is overturned.
 
 **Enter, and a line break at an anchor (4.5).** A line break inserted at a described line's anchor goes after
 the run, as a line of its own, in the document's newline. That covers Enter and Shift+Enter, a multi-line paste,
@@ -1265,18 +1281,6 @@ Three consequences for this change, none of which move task 2.1:
   AvaloniaEdit throws when a provider returns a segment outside the span it was asked about (3.7). An
   orphaned run, however it arises, is inert text the next save preserves. Neither VB6's behaviour here nor
   the paste side is measured.
-- **Repairing an orphan one keystroke at a time** (found reviewing 4.1, left for a decision). The renamed kind
-  makes a run read-only the moment it names one name nothing declares, so an orphan under a line declaring one
-  name locks part-way through a retype. `Attribute Count.VB_VarDescription` under `Public Tally As Long`, with
-  `Public Count As Long` further down, is an orphan VB6 would move under `Count`; Backspace once and `Coun` is
-  declared nowhere, the run is Tally's renamed run, greyed and read-only, and the next Backspace is refused
-  without a word. Undo, or cutting the whole line, is the way out. A run typed by hand has always done the same:
-  `Attribute Halt.` under `Public Sub Halt()` is the procedure's run at its first `.`, and `Attribute Tally.VB_Var`
-  under `Public Tally As Long` is the variable's, so the rest of the line cannot be typed. So "repaired by hand"
-  (above) means by whole lines today: cut, paste and delete. The two ways forward the review put, to be decided
-  rather than drifted into: keep `RenamedVariable` as a kind for 4.4's re-qualifying and 4.5b's comparison but
-  leave its run editable, ungreyed and unfolded; or keep it protected and say in the spec that repair is by whole
-  lines. Whichever is chosen should cover the typed-by-hand case too, since that one needs no rename to happen.
 - **Line endings — measured while building 3.1, and the diagnosis here was incomplete.** This said the
   header is written CRLF while *typed* lines are LF. The larger mechanism was that
   `VbFrmFormatDeserializer` rebuilt the code body line by line with `StringBuilder.AppendLine`, which

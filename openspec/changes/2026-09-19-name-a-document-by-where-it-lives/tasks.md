@@ -1798,7 +1798,7 @@
   inside a statement VB6 accepts, and a doubled quote ending a string, which leaves every separator inside one
   string or the other. Test comments that named files the oracle does not record, or called a hand-written shape
   VB6's, now cite the probe. The review's one design-level finding, an orphan locking part-way through a retype,
-  is in design.md's open questions, undecided.
+  is settled in design.md: kept, and an orphan is repaired by whole lines.
   — **Left.** `CodeWindowReadOnlySections` still reads the physical line above a run as the described line when it
   decides whether a deletion takes the run, rather than `DescribedStart`; whether deleting part of a continued
   declaration takes its run is 4.5a's to decide. No test here shows it disagreeing with `Of`.
