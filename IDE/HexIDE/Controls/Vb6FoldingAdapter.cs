@@ -102,6 +102,8 @@ public static class Vb6FoldingAdapter
         var folds = new List<NewFolding>();
         foreach (var run in runs)
         {
+            // The length is defensive (#273 task 4.3 review): a run that describes a member ends on a line that holds
+            // `Attribute`, so its fold is never empty, and Merge drops an empty fold anyway.
             if (run.DescribesMember && run.LastContentEnd > run.Anchor)
                 folds.Add(new NewFolding(run.Anchor, run.LastContentEnd));
         }

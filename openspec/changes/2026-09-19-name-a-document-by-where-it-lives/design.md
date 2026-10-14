@@ -1154,8 +1154,8 @@ folds are re-made at once whenever they are not current, not only the header's, 
 carried forward as a server fold.
 
 With a server's procedure fold on the same row, AvaloniaEdit's margin draws one marker per row, the procedure's,
-so a run expanded there is folded again only by closing and reopening the window. That is filed as an issue
-rather than solved here with a margin of our own.
+so a run expanded there is folded again only by closing and reopening the window. That is to be filed as an
+issue, rather than solved here with a margin of our own.
 
 **The end of a folded described line is its anchor.** A collapsed run fold gives the row two caret stops:
 before the box (the anchor) and after it (the fold's end, inside the run). A caret landing on the second is moved
@@ -1168,12 +1168,19 @@ as 3.14 did for the header.
   for the first fold starting at or after the row's start, expanded or not. A run has a marker of its own only with
   no other fold on its row: no server, or a variable's run. Its box opens it when clicked, read in the library's
   source.
-- *"When it came from the first" means by a Right key*, not from wherever the caret was. End, and a click past the
-  end of the row, land on the stop after the box from the anchor exactly as Right does; End marks the position
-  `IsAtEndOfLine` and a click does not, so nothing in the position tells a click from a step. Read as written, End
-  or a click at the end of a declaration would have thrown the caret onto the next line. So the window notes the
-  caret's offset as a Right key goes down, with any modifiers, and only a move that key makes from the anchor goes
-  past the run; every other landing after the box goes to the anchor. Ctrl+Right is such a step: the stop after the
+- *"When it came from the first" means by a step to the right*, not from wherever the caret was. End, and a click
+  past the end of the row, land on the stop after the box from the anchor exactly as Right does; End marks the
+  position `IsAtEndOfLine` and a click does not, so nothing in the position tells a click from a step. Read as
+  written, End or a click at the end of a declaration would have thrown the caret onto the next line. So the window
+  notes the caret's offset as a key goes down that the caret navigation steps right for, by character or by word,
+  moving or selecting, and forgets it once that key has been handled; only a move that key makes from the anchor
+  goes past the run, and every other landing after the box goes to the anchor. **Corrected by review**: the first
+  build noted it for the Right key with any modifiers, until the caret next moved. macOS binds Cmd+Right to the end
+  of the line, so there End from the anchor went past the run; and a step that something took before the text area
+  did moved nothing, so the next landing after the box, a click or a navigation, went past the run instead. A step
+  is now told by the command its key's binding runs, which follows the platform's keymap, and lasts as long as the
+  key's handling. The box-selection steps are not counted, since a rectangular selection moves in virtual space and
+  none was measured against a folded run. Ctrl+Right is such a step: the stop after the
   box is a word start, which the first reading of the library's word rule missed, and Ctrl+Left from the next line
   stops there too and is taken to the anchor, as Left is. A run that ends the file has no line past it, so there
   Right stays at the anchor.
@@ -1183,13 +1190,24 @@ as 3.14 did for the header.
   the caret moves into, and this is recorded as the developer's expansion as that is.
 - *A section the manager paired keeps its state because pairing is by start alone*, measured again for a fold
   starting mid-line. Which run a section is the fold of is read from where it stands, against the runs as the text
-  now is, at every `Changing`, before every application and as the view detaches, so the remembered state follows a
-  rename or an ordinal shift that does not move the fold. Keeping the live state is what matters in the one case
-  that reading cannot cover: one edit group that grows a run and renames its member, where no moment in between
-  finds the grown run under its new key. A key no run carries is kept, so Undo brings a deleted run back as it was
-  left. And a run added above another of the same member takes that one's ordinal, and with it the state remembered
-  for it: a property's Let gaining a run above its Get's opens as the Get's did. That is the key's nature, and not
-  handled.
+  now is, at the first `Changing` of each edit group, before every application and as the view detaches, so the
+  remembered state follows a rename or an ordinal shift that does not move the fold. **Corrected by review**: it was
+  read at every `Changing`, and each change is a new version of the text, so a format, which applies one change per
+  line it rewrites, all in one group, read the whole buffer once per line: 8000 line edits of a 165,230-character
+  module took 99 seconds, measured headlessly. Nothing the developer does runs between two changes of one group, so
+  the first is enough. Keeping the live state is what matters in the one case that reading cannot cover: one edit
+  group that grows a run and renames its member, where no moment in between finds the grown run under its new key.
+  A key no run carries is kept, so Undo brings a deleted run back as it was left; a key a shown run moves off, by a
+  rename or an ordinal shift, is dropped, every one before any state is recorded, so two runs that trade keys in one
+  group keep their own. **Corrected by review**: keys were only ever added, so a name retyped key by key left every
+  name it passed through expanded, to open whatever member was next given one, and a run added above another of the
+  same member took that one's ordinal and opened as that one had been left. Dropping the key a run moves off ends
+  both, the second by the rule for any new run: it opens folded. It changes one more case. Deleting a property's Get
+  alone gives the Let's run the Get's key, and Undo opened the Get's run with the Let's state; the Let's run now
+  drops that key as Undo gives it back, so the Get's run returns folded. That is how it was left when it was left
+  folded, and not otherwise, and what remains is the key's nature, and not handled. Nor is a retype that passes
+  through no name: clearing a declaration's name leaves its run an orphan, with no fold, until the new name is typed,
+  and the run under it is then a run made new, folded unless that key was expanded.
 - *`ReadOnlyRegionRedraw` is redundant while the window folds.* Creating, removing or resizing a fold redraws the
   lines it spans, and every change to a run's region changes its fold, so 4.1's redraw tests pass with the redraw
   switched off. It is kept for an editor that installs no folds.
@@ -1329,6 +1347,14 @@ Three consequences for this change, none of which move task 2.1:
   is byte-exact. What remains open is the narrower original point: text *typed* into the buffer arrives
   with whatever the editor inserts, so a form edited and saved can still mix them. That is now the only
   live part, and it becomes visible to servers once they see the header.
+- **The caret at a folded run's end as the end of a selection** (found reviewing 4.3). Select All puts the caret at
+  the end of the file before it selects, and in a file whose last line is a described member's attribute line, with
+  no line break after it, that is the stop after the run's box, so the window moves the caret to the anchor and the
+  selection is left ending past it: Shift+Left then takes the selection back to before the declaration's last
+  character, a step further than the box. The options: let the caret rest after the box while it is the end of a
+  selection, and take it to the anchor when the selection clears, which touches every way a selection is made and
+  cleared; select only to the anchor, which leaves the run out of a copy of the whole file, rejected; or leave it,
+  since only that shape of file meets it. Left for now.
 - **Compiler diagnostics.** Their rows were keyed by `vb6://form/{Name}`, and the expression that parses
   them matches none of what the compiler actually writes (#477), so that consumer has had no live traffic
   at all. This change re-keys the rows to the wire name resolved from the

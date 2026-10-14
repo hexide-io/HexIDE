@@ -220,6 +220,7 @@ public partial class CodeEditorView : UserControl
             // outlives a dock move that re-materialises this view.
             _watchedDocument = vm.Document;
             _watchedDocument.Changing += OnDocumentChangingForResetPrompt;
+            _watchedDocument.UpdateStarted += OnDocumentUpdateStartedForFolding;
             _watchedDocument.Changing += OnDocumentChangingForFolding;
 
             // Attach LSP text marker service (squiggles) and diagnostics colorizer (red text)
@@ -296,6 +297,11 @@ public partial class CodeEditorView : UserControl
             // Use Tunnel routing so we intercept Enter BEFORE AvaloniaEdit's
             // TextArea.OnKeyDown inserts a default newline.
             TextEditor.TextArea.AddHandler(KeyDownEvent, OnEditorKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+            // And once the text area has handled a key, or something has taken it first: on the editor, an ancestor
+            // of the text area, so it runs after the library's own handling whatever order its handlers were added
+            // in (#273 task 4.3 review).
+            TextEditor.AddHandler(KeyDownEvent, OnEditorKeyHandled, Avalonia.Interactivity.RoutingStrategies.Bubble,
+                handledEventsToo: true);
 
             TextEditor.SyntaxHighlighting = SyntaxHighlightingTheme.Definition;
 
@@ -396,6 +402,7 @@ public partial class CodeEditorView : UserControl
             if (_watchedDocument is not null)
             {
                 _watchedDocument.Changing -= OnDocumentChangingForResetPrompt;
+                _watchedDocument.UpdateStarted -= OnDocumentUpdateStartedForFolding;
                 _watchedDocument.Changing -= OnDocumentChangingForFolding;
                 _watchedDocument = null;
             }
@@ -446,6 +453,7 @@ public partial class CodeEditorView : UserControl
             TextEditor.TextArea.Caret.PositionChanged -= KeepCaretOffFoldedRunsEnd;
             FoldingManager.Uninstall(_foldingManager);
             _foldingManager = null;
+            _runKeys.Clear();
         }
 
         if (_bookmarkMargin is not null)
@@ -484,6 +492,8 @@ public partial class CodeEditorView : UserControl
         TextEditor.TextArea.TextEntered  -= OnTextEntered;
         TextEditor.TextArea.TextEntering -= OnTextEntering;
         TextEditor.TextArea.KeyDown      -= OnEditorKeyDown;
+        TextEditor.RemoveHandler(KeyDownEvent, OnEditorKeyHandled);
+        _stepRightFrom = -1;
         _hoverCts?.Cancel();
         _hoverCts?.Dispose();
         _hoverCts = null;
@@ -645,11 +655,20 @@ public partial class CodeEditorView : UserControl
     /// Records on the view model whether the header's fold and each run's are expanded, while they are still shown.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A run's state is recorded under the key of the run whose fold the section is where it now stands. One that
     /// matches no run is passed over. That happens only after a change that moved the run and not yet its fold, as
-    /// the window re-makes its folds after it or part-way through an edit group, and an earlier <c>Changing</c>, the
-    /// group's first at the latest, recorded the state while the section still matched. Nothing the developer does
-    /// can change it in between.
+    /// the window re-makes its folds after it, and the group's first <c>Changing</c> recorded the state while the
+    /// section still matched. Nothing the developer does can change it in between.
+    /// </para>
+    /// <para>
+    /// <b>A key a section has moved off is dropped</b> (task 4.3 review): the run it is the fold of was renamed,
+    /// or renumbered by a run of the same member added or removed above it, so the key is its old one, and kept it
+    /// would open whatever run takes that key next. Retyping <c>Go</c> as <c>Gap</c> key by key left <c>GO</c>,
+    /// <c>G</c> and <c>GA</c> expanded, and a property's Let gaining a run above its Get's opened as the Get's did.
+    /// Every key left is dropped before any is recorded, so two runs that trade keys in one group each keep their
+    /// own state. A key no section moved off, a deleted run's, is kept for Undo.
+    /// </para>
     /// </remarks>
     private void ObserveOwnFolds(CodeEditorViewModel vm)
     {
@@ -658,15 +677,51 @@ public partial class CodeEditorView : UserControl
         if (_foldingManager is null) return;
 
         var runs = vm.MemberRunsNow;
+        var matched = new List<(FoldingSection Section, MemberRunKey Key)>();
+        var keys = new Dictionary<FoldingSection, MemberRunKey>();
         foreach (var section in _foldingManager.AllFoldings)
         {
-            if (!ReferenceEquals(section.Tag, RunFoldTag) || RunOf(runs, section)?.Key is not { } key) continue;
+            if (!ReferenceEquals(section.Tag, RunFoldTag)) continue;
+            if (RunOf(runs, section)?.Key is { } key)
+            {
+                matched.Add((section, key));
+                keys[section] = key;
+            }
+            // Passed over, and its key kept: the next observation that finds it matching compares with this one.
+            else if (_runKeys.TryGetValue(section, out var was))
+                keys[section] = was;
+        }
+
+        foreach (var (section, key) in matched)
+        {
+            if (_runKeys.TryGetValue(section, out var was) && was != key)
+                vm.ExpandedMemberRuns.Remove(was);
+        }
+        foreach (var (section, key) in matched)
+        {
             if (section.IsFolded)
                 vm.ExpandedMemberRuns.Remove(key);
             else
                 vm.ExpandedMemberRuns.Add(key);
         }
+
+        // Rebuilt from the sections the manager holds. One it has removed never comes back to be compared, so keeping
+        // it would change nothing but the size of the map.
+        _runKeys.Clear();
+        foreach (var (section, key) in keys)
+            _runKeys[section] = key;
     }
+
+    /// <summary>
+    /// The key each run section of this view was last seen under (task 4.3 review), so that
+    /// <see cref="ObserveOwnFolds"/> can tell a key a run has moved off from one a deleted run left.
+    /// </summary>
+    /// <remarks>
+    /// The view's, not the view model's: a section is this view's folding manager's, and a dock move makes them all
+    /// anew. A run whose first sighting by a new view is after its rename keeps its old key in the set, which is the
+    /// state before this was added.
+    /// </remarks>
+    private readonly Dictionary<FoldingSection, MemberRunKey> _runKeys = [];
 
     /// <summary>The header's folding section, or null when none is shown.</summary>
     private FoldingSection? HeaderSection()
@@ -735,22 +790,80 @@ public partial class CodeEditorView : UserControl
     }
 
     /// <summary>
-    /// Records the state of the window's own folds before a change that may remove them: a whole-document
-    /// assignment removes every fold, and the folding manager unfolds each one it removes.
+    /// Records the state of the window's own folds before an edit group's first change, which may remove them: a
+    /// whole-document assignment removes every fold, and the folding manager unfolds each one it removes.
     /// </summary>
+    /// <remarks>
+    /// <b>Once per group, not at every change</b> (task 4.3 review). Reading the runs is a scan of the whole buffer,
+    /// cached per version, and every change makes a new version, so recording at each <c>Changing</c> cost one scan
+    /// per change: a format applies one change per line it rewrites, all in one group, and measured headlessly 8000
+    /// line edits of a 165,230-character module took 99 seconds. A later change in the group would find the states
+    /// the first found, since nothing the developer does runs between two changes of one group; all that can differ
+    /// is the key a section is under, which the next observation reads: before the folds are re-made, or at the next
+    /// group or the detach when they are still current.
+    /// AvaloniaEdit raises <c>UpdateStarted</c> once per group, a bare <c>Replace</c> and an Undo included, since
+    /// each opens a group of its own.
+    /// </remarks>
     private void OnDocumentChangingForFolding(object? sender, DocumentChangeEventArgs e)
     {
-        if (DataContext is CodeEditorViewModel vm)
-            ObserveOwnFolds(vm);
+        if (_foldsObservedThisGroup || DataContext is not CodeEditorViewModel vm) return;
+        _foldsObservedThisGroup = true;
+        ObserveOwnFolds(vm);
     }
 
+    private void OnDocumentUpdateStartedForFolding(object? sender, EventArgs e) => _foldsObservedThisGroup = false;
+
+    /// <summary>True once this edit group's first change has recorded the folds; see <see cref="OnDocumentChangingForFolding"/>.</summary>
+    private bool _foldsObservedThisGroup;
+
     /// <summary>
-    /// The caret's offset when a Right key was pressed, until the caret next moves, or -1 (#273 task 4.3). Set by
-    /// <see cref="OnEditorKeyDown"/>, ahead of the key's own handling.
+    /// The caret's offset when a key that steps right went down, while that key is handled, or -1 (#273 task 4.3).
+    /// Set by <see cref="OnEditorKeyDown"/>, ahead of the key's own handling, and cleared by
+    /// <see cref="OnEditorKeyHandled"/> after it.
     /// </summary>
+    /// <remarks>
+    /// Its life is the key's and not until the caret next moves, which is what it first was (task 4.3 review): a
+    /// step that moves nothing, because something took the key before the text area did, raises no caret move, and
+    /// the next landing at the end of a folded run, whatever made it, went past the run as the step would have.
+    /// </remarks>
     private int _stepRightFrom = -1;
 
+    /// <summary>
+    /// The caret-navigation commands that step to the right, by character or by word, moving the caret or extending
+    /// the selection (task 4.3 review).
+    /// </summary>
+    /// <remarks>
+    /// A step is told by the command its key runs and not by the key, because the keymap is the platform's: macOS
+    /// binds Cmd+Right to the end of the line and Cmd+Shift+Right to selecting there, End and Shift+End and not steps,
+    /// and told by the key, both went past the run from the declaration's end, where End stays put. Alt+Right is a word
+    /// step there and nothing on Windows. The box-selection steps are left out: a rectangular selection moves the caret
+    /// in virtual space, and none of them was measured against a folded run.
+    /// </remarks>
+    private static readonly HashSet<System.Windows.Input.ICommand> RightSteps =
+    [
+        EditingCommands.MoveRightByCharacter, EditingCommands.SelectRightByCharacter,
+        EditingCommands.MoveRightByWord, EditingCommands.SelectRightByWord,
+    ];
+
+    /// <summary>
+    /// True when <paramref name="e"/> is a key the text area's caret navigation runs a step to the right for, as it
+    /// would choose: by the first of its key bindings whose gesture the key matches.
+    /// </summary>
+    private bool StepsRight(KeyEventArgs e)
+    {
+        foreach (var binding in TextEditor.TextArea.DefaultInputHandler.CaretNavigation.KeyBindings)
+        {
+            if (binding.Gesture?.Matches(e) == true)
+                return binding.Command is { } command && RightSteps.Contains(command);
+        }
+        return false;
+    }
+
     /// <summary>True while <see cref="KeepCaretOffFoldedRunsEnd"/> is placing the caret itself.</summary>
+    /// <remarks>
+    /// Defensive (task 4.3 review): the move it guards puts the caret at a run's anchor or at the start of
+    /// the line after the run, and neither is ever the end of a run's fold, so the nested call would do nothing anyway.
+    /// </remarks>
     private bool _placingCaret;
 
     /// <summary>
@@ -769,17 +882,24 @@ public partial class CodeEditorView : UserControl
     /// </para>
     /// <para>
     /// <b>Except a step to the right from that end</b>, which would otherwise never get past the run: moved back to
-    /// where it came from, Right would do nothing at all. The step is told apart by its key and not by where the
-    /// caret came from, because End and a click land from the declaration's end exactly as Right does, and the
+    /// where it came from, Right would do nothing at all. The step is told apart by its key's command and not by where
+    /// the caret came from, because End and a click land from the declaration's end exactly as Right does, and the
     /// position carries nothing to tell a click from a step. Runs from the caret's own <c>PositionChanged</c>, which
     /// AvaloniaEdit raises while it moves the caret and before it makes a selection from it, so Shift+Right selects to
     /// where the caret is put here.
+    /// </para>
+    /// <para>
+    /// <b>Two of its checks are defensive</b> (task 4.3 review). The caret rests in a folded run's
+    /// section only at one of its ends, because the folding manager, whose handler is installed with it and so runs
+    /// before this one, unfolds a section the caret moves strictly inside; at the start there is nothing to do. And
+    /// a step reaches the end of a folded run only from its anchor: Right from anywhere before it stops short, and a
+    /// word step from inside the declaration's last token stops at the anchor, measured. The anchor is compared all
+    /// the same, against a keymap whose step does otherwise.
     /// </para>
     /// </remarks>
     private void KeepCaretOffFoldedRunsEnd(object? sender, EventArgs e)
     {
         var stepFrom = _stepRightFrom;
-        _stepRightFrom = -1;
         if (_placingCaret || _foldingManager is null || DataContext is not CodeEditorViewModel vm) return;
 
         var caret = TextEditor.TextArea.Caret.Offset;
@@ -1195,8 +1315,9 @@ public partial class CodeEditorView : UserControl
     {
         // Ahead of AvaloniaEdit's own handling, which moves the caret: a step to the right from the end of a
         // declaration whose run is folded goes past the run, where End or a click landing on the same stop do not
-        // (KeepCaretOffFoldedRunsEnd, #273 task 4.3). Every key sets it, so none outlives the key that set it.
-        _stepRightFrom = e.Key == Key.Right ? TextEditor.CaretOffset : -1;
+        // (KeepCaretOffFoldedRunsEnd, #273 task 4.3). A step is a key the caret navigation steps right for, whatever
+        // key the platform puts it on, and it lasts until OnEditorKeyHandled, after the key has been handled.
+        _stepRightFrom = StepsRight(e) ? TextEditor.CaretOffset : -1;
 
         // Editing while the project is running/paused → VB6 reset prompt (see ArmResetPrompt). Covers the
         // non-printable edit keys that reach the text area (Backspace, Enter, Tab); printable chars go via
@@ -1233,6 +1354,12 @@ public partial class CodeEditorView : UserControl
             FormatDocument();
         }
     }
+
+    /// <summary>
+    /// Ends the step <see cref="OnEditorKeyDown"/> noted, once the key has been handled, whoever handled it (#273 task
+    /// 4.3 review).
+    /// </summary>
+    private void OnEditorKeyHandled(object? sender, KeyEventArgs e) => _stepRightFrom = -1;
 
     /// <summary>
     /// Handles Enter key press: if the current logical line is a VB6 block opener,

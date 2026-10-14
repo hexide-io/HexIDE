@@ -1870,6 +1870,54 @@
   still put the caret's old offset inside a run, which opens it as the caret moving there does, the run's version of
   what 3.14 fixed for the header. 4.5 owns Enter at the anchor and 4.5a a deletion of the described line; 4.8
   checks the folds in the running IDE.
+  — **Reviewed.** A review drove the folds headlessly against tests of its own. Recording the folds' state at every
+  `Changing` read the whole buffer once per change, because each change is a new version and the runs are cached per
+  version, so a format of N lines, one change per line in one group, cost N scans: 8000 line edits of a
+  165,230-character module took 99 seconds. The window now records at the first
+  `Changing` of each group, the flag reset on `UpdateStarted`, and `CodeEditorViewModel.MemberRunScans` counts the
+  reads. The step past a run was noted for the Right key with any modifiers, so on macOS, which binds Cmd+Right to
+  the end of the line, End from the anchor went past the run; it is now noted for a key whose binding in the caret
+  navigation steps right (`StepsRight`: by character or word, moving or selecting), and it ends once the key has been
+  handled, by a handler on the editor, so a step that something took before the text area, and that moved nothing,
+  no longer sends the next landing after the box past the run. The remembered expansion only ever gained keys, so
+  a name retyped key by key left every name it passed through expanded, and a run added above another of the same
+  member opened as that one had been left; a key a shown run moves off is now dropped, each before any state is
+  recorded, with the key each section was last seen under kept by the view, which also brings a property's Get back
+  folded when it is deleted alone and undone. design.md's settled points are corrected and say what is still not
+  handled: the Get left expanded comes back folded, and a retype that clears the name first folds the run. The
+  margin's one-marker-per-row is "to be filed" in design.md too now. Select All in a file a run ends leaves the
+  caret at the anchor, off both ends of the selection; fixing it is not cheap, and it is an open question in
+  design.md.
+  — **Tests.** `MemberRunFoldTests`, 28 to 43: a 200-line format reading the runs at most twice, with an expanded
+  run still expanded; Cmd+Right and Cmd+Shift+Right with macOS's two bindings added to the text area as its keymap
+  adds them; Ctrl+Shift+Right beside Shift+Right; a Right some handler takes before the text area, and a placement
+  at the run's end after Right went past it, both landing at the anchor; a dock move after End, and a declaration
+  uncommented with the caret at its end, both folding the run; Undo after deleting a Get alone; a retype key by key
+  and a member later named like a name it passed through; a run pasted for a Let above its Get's; two members
+  trading names in one group; the grown-and-renamed test now also reloading a described `Go`; and the review's
+  four measured-working cases, a continued attribute line under a continued declaration, Down from a longer line,
+  Ctrl+End to a run that ends the file, and a server's fold of the run's own lines. And a reload whose text is the
+  buffer's own and whose split is not: `ReloadFrom` returns before it touches the document, as
+  `ReadOnlySectionProviderTests` already makes it do, so the runs cache's prefix check, which 4.3 called
+  equivalent, is not.
+  — **Mutation: 12 run, one at a time, 10 caught.** Recording at every change (the 200-line format), the group's
+  flag never reset (four tests), the step told by the Right key (the Mac's bindings), the word-select step left out
+  (Ctrl+Shift+Right), the step outliving its key (the taken key and the placement after a step), the caret-inside
+  rule taking the anchor for inside (the dock move and the uncomment), the key a run moves off kept (four tests),
+  the two passes made one (the trade), the runs cache's prefix check (the moved split), and an unmatched section's
+  last key forgotten (the grown-and-renamed reload). A first form of the every-change mutant did not build, the flag
+  left unread (CS0414), and was replaced. Survived, and equivalent: the map of last keys never pruned, which only
+  grows it, since a section the manager removed never returns; and the step's origin unchecked, since a step reaches
+  a folded run's end only from its anchor now that a step is told by its command, under any keymap. It was not
+  equivalent under the Mac's while the key decided, and the comparison stays, marked defensive. Equivalent as the
+  review found, not run again, and marked defensive in comments: the guard on the window's own caret placement, the
+  adapter's empty-fold check, and the caret rule's end-of-section check. The review's other survivor, consuming the
+  step at the first caret move, is gone: the step's life is now the key's, and removing that bound reddens the
+  placement after a step.
+  — **Left.** Select All in a file a run ends, the open question in design.md. To be filed: the margin's one
+  marker per row; `ReadOnlyRegions` reading lines at LF alone, so a buffer of bare CRs has no runs, folds or
+  protection, which is 4.1's reader; and a navigation to a described event handler, which puts the caret at the start
+  of the line after the declaration, inside the folded run, opening it and recording the opening as the developer's.
 - [ ] 4.4 A member's rename rewrites its own attribute qualifiers — a procedure, property or module-level
   variable alike, since VB6 writes `VB_Var*` lines after a declaration. A server rename's edits to them are
   permitted; its edits to the header are not.

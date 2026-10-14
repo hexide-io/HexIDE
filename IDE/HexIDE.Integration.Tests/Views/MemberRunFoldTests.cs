@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 using AvaloniaEdit;
 using AvaloniaEdit.Document;
@@ -385,6 +387,26 @@ public class MemberRunFoldTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void ADockMoveWithTheCaretAtTheEndOfAFoldedDeclarationBringsItsRunBackFolded()
+    {
+        // The caret at the anchor is before the box, not in the run, so the fold made new around it is folded. Taken
+        // for inside, the run came back expanded after End and a dock move (task 4.3 review).
+        var vm = Open(Procedure);
+        var (window, editor) = Show(vm);
+        var declaration = LineWith(editor, "Public Sub Go()");
+        PutCaret(editor, declaration.Offset);
+        Press(editor, Key.End);
+        Caret(editor).Should().Be(declaration.EndOffset, "the premise");
+
+        window.Content = null;
+        Dispatcher.UIThread.RunJobs();
+        var moved = Attach(window, vm);
+
+        Caret(moved).Should().Be(declaration.EndOffset, "the premise: the caret came back where it was");
+        RunFold(moved, "Public Sub Go()")!.IsFolded.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
     public void ARunFoldedAgainAfterExpandingIsFoldedWhenMadeAgain()
     {
         // The developer's last choice is the one kept. The expansion is seen by a reload before the run is folded
@@ -503,6 +525,14 @@ public class MemberRunFoldTests : IDisposable
         after.Should().BeSameAs(fold, "the premise: the section was paired, not made anew");
         after!.EndOffset.Should().Be(LineWith(editor, "Attribute Go.VB_HelpID").EndOffset);
         after.IsFolded.Should().BeFalse();
+
+        // And the key it was last seen under, GO, is kept for it while its fold does not match it, so the next look
+        // finds it moved from GO to GOO and drops GO: a Go described later opens folded (task 4.3 review).
+        var prefix = vm.Document.Text[..vm.BufferPrefixLength];
+        vm.ReloadFrom(prefix, vm.BufferBody + "\r\nPublic Sub Go()\r\nAttribute Go.VB_Description = \"Goes\"\r\nEnd Sub\r\n");
+        Dispatcher.UIThread.RunJobs();
+        RunFold(editor, "Public Sub Goo()")!.IsFolded.Should().BeFalse();
+        RunFold(editor, "Public Sub Go()")!.IsFolded.Should().BeTrue();
     }
 
     [AvaloniaFact]
@@ -524,6 +554,143 @@ public class MemberRunFoldTests : IDisposable
 
         RunFold(editor, "Property Get Total")!.IsFolded.Should().BeTrue();
         RunFold(editor, "Property Let Total")!.IsFolded.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void UndoAfterDeletingAPropertysGetAloneBringsItsFoldedRunBackFolded()
+    {
+        // Deleting the Get alone renumbers the Let's run from TOTAL 1 to TOTAL 0, the Get's key, and the Let's expansion
+        // was recorded under it, so Undo opened the Get's run, left folded (task 4.3 review). The Let's run now hands
+        // the key back as Undo renumbers it, and the expansion goes with it.
+        var vm = Open(Property);
+        var (_, editor) = Show(vm);
+        RunFold(editor, "Property Let Total")!.IsFolded = false;
+        Dispatcher.UIThread.RunJobs();
+
+        var get = LineWith(editor, "Public Property Get Total");
+        var end = LineWith(editor, "End Property");
+        vm.Document.Remove(get.Offset, end.Offset + end.TotalLength - get.Offset);
+        Dispatcher.UIThread.RunJobs();
+        vm.MemberRunsNow.Single(r => r.DescribesMember).Key.Should().Be(new MemberRunKey("TOTAL", 0),
+            "the premise: the Let's run has the Get's key");
+        RunFold(editor, "Property Let Total")!.IsFolded.Should().BeFalse("the premise: and is still open");
+
+        vm.Document.UndoStack.Undo();
+        Dispatcher.UIThread.RunJobs();
+
+        RunFold(editor, "Property Get Total")!.IsFolded.Should().BeTrue("the Get's run was left folded");
+        RunFold(editor, "Property Let Total")!.IsFolded.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void ANameRetypedKeyByKeyLeavesNoExpansionBehindForAMemberNamedLikeOneItPassedThrough()
+    {
+        // Retyping Go as Gap passes through G and Ga, and the run's expansion was recorded under each and kept, so a
+        // member named G or Ga, or Go again, opened its run expanded at the next reload or dock move, though nobody
+        // had opened it (task 4.3 review). The expansion now moves with the run, to the name it ends on.
+        var vm = Open(Procedure);
+        var (_, editor) = Show(vm);
+        RunFold(editor, "Public Sub Go()")!.IsFolded = false;
+        Dispatcher.UIThread.RunJobs();
+
+        PutCaret(editor, LineWith(editor, "Public Sub Go()").Offset + "Public Sub Go".Length);
+        Press(editor, Key.Back);
+        TypeText(editor, "a");
+        TypeText(editor, "p");
+        RunFold(editor, "Public Sub Gap()")!.IsFolded.Should().BeFalse("the premise: the run the developer opened is open");
+
+        var prefix = vm.Document.Text[..vm.BufferPrefixLength];
+        vm.ReloadFrom(prefix, vm.BufferBody +
+            "\r\nPublic Sub G()\r\nAttribute G.VB_Description = \"Gee\"\r\nEnd Sub\r\n" +
+            "\r\nPublic Sub Ga()\r\nAttribute Ga.VB_Description = \"Gas\"\r\nEnd Sub\r\n" +
+            "\r\nPublic Sub Go()\r\nAttribute Go.VB_Description = \"Goes\"\r\nEnd Sub\r\n");
+        Dispatcher.UIThread.RunJobs();
+
+        RunFold(editor, "Public Sub Gap()")!.IsFolded.Should().BeFalse("the renamed run is remembered under its new name");
+        RunFold(editor, "Public Sub G()")!.IsFolded.Should().BeTrue();
+        RunFold(editor, "Public Sub Ga()")!.IsFolded.Should().BeTrue();
+        RunFold(editor, "Public Sub Go()")!.IsFolded.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public void ARunPastedForAPropertysLetAboveItsGetsOpensFoldedAndTheGetsKeepsItsState()
+    {
+        // The Let's new run takes TOTAL 0 and the Get's becomes TOTAL 1. The new run opened as the Get's had been left,
+        // since what was remembered under TOTAL 0 was the Get's (task 4.3 review); the Get's run now takes its state to
+        // its new key, and the new run opens folded, as any does.
+        var vm = Open(
+            "Option Explicit\r\n\r\n" +
+            "Public Property Let Total(ByVal Value As Long)\r\n" +
+            "End Property\r\n\r\n" +
+            "Public Property Get Total() As Long\r\n" +
+            "Attribute Total.VB_Description = \"The total\"\r\n" +
+            "    Total = 1\r\n" +
+            "End Property\r\n");
+        var (_, editor) = Show(vm);
+        RunFold(editor, "Property Get Total")!.IsFolded = false;
+        Dispatcher.UIThread.RunJobs();
+
+        vm.Document.Insert(LineWith(editor, "End Property").Offset, "Attribute Total.VB_Description = \"Sets the total\"\r\n");
+        Dispatcher.UIThread.RunJobs();
+
+        vm.MemberRunsNow.Where(r => r.DescribesMember).Select(r => r.Key)
+            .Should().Equal([new MemberRunKey("TOTAL", 0), new MemberRunKey("TOTAL", 1)], "the premise: the Let's run is first");
+        RunFold(editor, "Property Let Total")!.IsFolded.Should().BeTrue();
+        RunFold(editor, "Property Get Total")!.IsFolded.Should().BeFalse();
+
+        var prefix = vm.Document.Text[..vm.BufferPrefixLength];
+        vm.ReloadFrom(prefix, vm.BufferBody + "\r\n");
+        Dispatcher.UIThread.RunJobs();
+        RunFold(editor, "Property Let Total")!.IsFolded.Should().BeTrue("and both are made again as they were");
+        RunFold(editor, "Property Get Total")!.IsFolded.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void TwoRunsWhoseMembersTradeNamesInOneEditGroupEachKeepTheirOwnState()
+    {
+        // One undo step renaming Alpha to Bravo and Bravo to Alpha: each run's fold is found under the key the other
+        // left. Every key left is dropped before any is recorded, or the second run would drop the key the first had
+        // just recorded its state under.
+        var vm = Open(
+            "Option Explicit\r\n\r\n" +
+            "Public Sub Alpha()\r\nAttribute Alpha.VB_Description = \"A\"\r\nEnd Sub\r\n\r\n" +
+            "Public Sub Bravo()\r\nAttribute Bravo.VB_Description = \"B\"\r\nEnd Sub\r\n");
+        var (_, editor) = Show(vm);
+        RunFold(editor, "Public Sub Alpha()")!.IsFolded = false;
+        Dispatcher.UIThread.RunJobs();
+
+        var first = LineWith(editor, "Public Sub Alpha()").Offset + "Public Sub ".Length;
+        var second = LineWith(editor, "Public Sub Bravo()").Offset + "Public Sub ".Length;
+        vm.Document.BeginUpdate();
+        vm.Document.Replace(second, "Bravo".Length, "Alpha");
+        vm.Document.Replace(first, "Alpha".Length, "Bravo");
+        vm.Document.EndUpdate();
+        Dispatcher.UIThread.RunJobs();
+        RunFold(editor, "Public Sub Bravo()")!.IsFolded.Should().BeFalse("the premise: the open run is Bravo's now");
+
+        var prefix = vm.Document.Text[..vm.BufferPrefixLength];
+        vm.ReloadFrom(prefix, vm.BufferBody + "\r\n");
+        Dispatcher.UIThread.RunJobs();
+
+        RunFold(editor, "Public Sub Bravo()")!.IsFolded.Should().BeFalse();
+        RunFold(editor, "Public Sub Alpha()")!.IsFolded.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public void UncommentingADeclarationWithTheCaretAtItsEndFoldsItsRun()
+    {
+        // A run's fold made new with the caret at its start, the end of the declaration, is folded: the caret is before
+        // the box. Taken for inside, the run opened (task 4.3 review).
+        var vm = Open(Procedure.Replace("Public Sub Go()", "'Public Sub Go()"));
+        var (_, editor) = Show(vm);
+        RunFold(editor, "'Public Sub Go()").Should().BeNull("the premise: commented out, the run is an orphan");
+        PutCaret(editor, LineWith(editor, "'Public Sub Go()").EndOffset);
+
+        vm.Document.Remove(LineWith(editor, "'Public Sub Go()").Offset, 1);
+        Dispatcher.UIThread.RunJobs();
+
+        Caret(editor).Should().Be(LineWith(editor, "Public Sub Go()").EndOffset, "the premise: the caret is at the anchor");
+        RunFold(editor, "Public Sub Go()")!.IsFolded.Should().BeTrue();
     }
 
     [AvaloniaFact]
@@ -631,15 +798,175 @@ public class MemberRunFoldTests : IDisposable
     [AvaloniaFact]
     public void ShiftRightFromTheEndOfAFoldedDeclarationSelectsTheRunWithTheLineBreak()
     {
+        // By character and by word: each is a step of its own to the caret navigation.
+        var vm = Open(Procedure);
+        var (_, editor) = Show(vm);
+        var declaration = LineWith(editor, "Public Sub Go()");
+
+        foreach (var modifiers in new[] { KeyModifiers.Shift, KeyModifiers.Control | KeyModifiers.Shift })
+        {
+            editor.TextArea.ClearSelection();
+            PutCaret(editor, declaration.EndOffset);
+
+            Press(editor, Key.Right, modifiers);
+
+            var selection = editor.TextArea.Selection.SurroundingSegment!;
+            (selection.Offset, selection.EndOffset).Should().Be(
+                (declaration.EndOffset, LineWith(editor, "Debug.Print 1").Offset), $"Right with {modifiers}");
+        }
+    }
+
+    [AvaloniaFact]
+    public void CmdRightAndCmdShiftRightOnMacOSLeaveTheCaretAtTheEndOfAFoldedDeclaration()
+    {
+        // macOS binds Cmd+Right to the end of the line and Cmd+Shift+Right to selecting there: End and Shift+End on a
+        // Mac, read from Avalonia.Native's keymap, which AvaloniaEdit builds its bindings from. Taken for steps by
+        // their key, both went past the run from the declaration's end, where End stays put (task 4.3 review). This
+        // harness has Windows' keymap, so the Mac's two bindings are added as its keymap adds them.
+        var vm = Open(Procedure);
+        var (_, editor) = Show(vm);
+        var bindings = editor.TextArea.DefaultInputHandler.CaretNavigation.KeyBindings;
+        bindings.Add(new KeyBinding { Command = EditingCommands.MoveToLineEnd, Gesture = new KeyGesture(Key.Right, KeyModifiers.Meta) });
+        bindings.Add(new KeyBinding
+        {
+            Command = EditingCommands.SelectToLineEnd, Gesture = new KeyGesture(Key.Right, KeyModifiers.Meta | KeyModifiers.Shift),
+        });
+        var declaration = LineWith(editor, "Public Sub Go()");
+        PutCaret(editor, declaration.Offset);
+        Press(editor, Key.Right, KeyModifiers.Meta);
+        Caret(editor).Should().Be(declaration.EndOffset, "the premise: Cmd+Right is End here");
+
+        Press(editor, Key.Right, KeyModifiers.Meta);
+        Caret(editor).Should().Be(declaration.EndOffset, "End from the end of the declaration stays there");
+
+        Press(editor, Key.Right, KeyModifiers.Meta | KeyModifiers.Shift);
+        Caret(editor).Should().Be(declaration.EndOffset);
+        editor.TextArea.Selection.IsEmpty.Should().BeTrue("and Shift+End from there selects nothing of the run");
+    }
+
+    [AvaloniaFact]
+    public void ARightTakenBeforeTheTextAreaMovesTheCaretIsNoStepForTheNextLandingAtTheRunsEnd()
+    {
+        // A step that moves nothing raises no caret move, and noted until the caret next moved, it sent the next landing
+        // at the run's end past the run, whatever made that landing (task 4.3 review). Here the key is taken after the
+        // window has noted the step and before the text area's caret navigation sees it: by a class handler, which
+        // Avalonia runs ahead of an element's own handlers as the key bubbles, where the caret navigation's is. A
+        // tunnel handler added here would run ahead of the window's, since a tunnel visits an element's handlers last
+        // added first, and the window would note nothing.
+        var vm = Open(Procedure);
+        var (_, editor) = Show(vm);
+        var declaration = LineWith(editor, "Public Sub Go()");
+        using var taken = InputElement.KeyDownEvent.AddClassHandler<AvaloniaEdit.Editing.TextArea>((area, e) =>
+        {
+            if (ReferenceEquals(area, editor.TextArea) && e.Key == Key.Right) e.Handled = true;
+        }, RoutingStrategies.Bubble);
+        PutCaret(editor, declaration.EndOffset);
+
+        Press(editor, Key.Right);
+        Caret(editor).Should().Be(declaration.EndOffset, "the premise: nothing moved");
+        PutCaret(editor, LineWith(editor, "Attribute Go.VB_UserMemId").EndOffset);
+
+        Caret(editor).Should().Be(declaration.EndOffset);
+    }
+
+    [AvaloniaFact]
+    public void AfterRightPastARunAPlacementAtTheRunsEndThatNoKeyMadeGoesToTheEndOfTheDeclaration()
+    {
+        // The step ends with its key. Navigation, a search or automation putting the caret at the end of the run next
+        // is a landing like a click, and goes to the anchor.
         var vm = Open(Procedure);
         var (_, editor) = Show(vm);
         var declaration = LineWith(editor, "Public Sub Go()");
         PutCaret(editor, declaration.EndOffset);
+        Press(editor, Key.Right);
+        Caret(editor).Should().Be(LineWith(editor, "Debug.Print 1").Offset, "the premise: the step went past the run");
 
-        Press(editor, Key.Right, KeyModifiers.Shift);
+        PutCaret(editor, LineWith(editor, "Attribute Go.VB_UserMemId").EndOffset);
 
-        var selection = editor.TextArea.Selection.SurroundingSegment!;
-        (selection.Offset, selection.EndOffset).Should().Be((declaration.EndOffset, LineWith(editor, "Debug.Print 1").Offset));
+        Caret(editor).Should().Be(declaration.EndOffset);
+    }
+
+    [AvaloniaFact]
+    public void AContinuedAttributeLineUnderAContinuedDeclarationFoldsFromTheDeclarationsLastLineToTheContinuationsEnd()
+    {
+        // A continued declaration, as MemberRunsTests reads one, over p11a's continued attribute line: the anchor is the
+        // end of the declaration's last physical line, and the fold ends where the run's last logical line does.
+        var vm = Open(
+            "Option Explicit\r\n\r\n" +
+            "Public Function Total( _\r\n" +
+            "    ByVal Rate As Double) As Double\r\n" +
+            "Attribute Total.VB_Description = _\r\n" +
+            "    \"Totals\"\r\n" +
+            "    Total = 1\r\n" +
+            "End Function\r\n");
+        var (_, editor) = Show(vm);
+        var declaration = LineWith(editor, "    ByVal Rate As Double) As Double");
+        var fold = RunFold(editor, "    ByVal Rate As Double) As Double");
+
+        fold.Should().NotBeNull();
+        (fold!.StartOffset, fold.EndOffset).Should().Be((declaration.EndOffset, LineWith(editor, "    \"Totals\"").EndOffset));
+        fold.IsFolded.Should().BeTrue();
+        PutCaret(editor, declaration.Offset);
+        Press(editor, Key.End);
+        Caret(editor).Should().Be(declaration.EndOffset);
+        Press(editor, Key.Right);
+        Caret(editor).Should().Be(LineWith(editor, "    Total = 1").Offset);
+    }
+
+    [AvaloniaFact]
+    public void DownOntoAFoldedRowFromALongerLineAboveLandsAtTheEndOfTheDeclarationAndDownAgainOnTheBody()
+    {
+        var vm = Open(Procedure.Replace("Option Explicit\r\n\r\n",
+            "Option Explicit\r\n' a comment a good deal longer than the declaration below it\r\n"));
+        var (_, editor) = Show(vm);
+        PutCaret(editor, LineWith(editor, "' a comment").EndOffset);
+
+        Press(editor, Key.Down);
+        Caret(editor).Should().Be(LineWith(editor, "Public Sub Go()").EndOffset);
+        Press(editor, Key.Down);
+        editor.Document.GetLineByOffset(Caret(editor)).LineNumber.Should().Be(LineWith(editor, "Debug.Print 1").LineNumber);
+    }
+
+    [AvaloniaFact]
+    public void CtrlEndInAFileThatARunEndsLandsAtTheEndOfTheDeclaration()
+    {
+        // The end of the file is the run's last character, after the box.
+        var vm = Open("Option Explicit\r\n\r\nPublic Total As Long\r\nAttribute Total.VB_VarDescription = \"The total\"");
+        var (_, editor) = Show(vm);
+        RunFold(editor, "Public Total As Long")!.EndOffset.Should().Be(vm.Document.TextLength, "the premise: the run ends the file");
+        PutCaret(editor, LineWith(editor, "Option Explicit").Offset);
+
+        Press(editor, Key.End, KeyModifiers.Control);
+
+        Caret(editor).Should().Be(LineWith(editor, "Public Total As Long").EndOffset);
+    }
+
+    [AvaloniaFact]
+    public async Task AServersFoldOfTheAttributeLinesThemselvesNestsInsideTheRunsFoldAndTheCaretRuleStillHolds()
+    {
+        // A server that folds the run's own lines, from the first's start to the last's end: inside the run's fold, so
+        // the merge keeps both, and the caret keeps to the run's box.
+        folds = model =>
+        {
+            var first = model.Document.GetLineByOffset(model.Document.Text.IndexOf("Attribute Go.VB_Description", StringComparison.Ordinal));
+            var last = model.Document.GetLineByOffset(model.Document.Text.IndexOf("Attribute Go.VB_UserMemId", StringComparison.Ordinal));
+            return [new FoldingRange(first.LineNumber - 1, last.LineNumber - 1)];
+        };
+        var vm = Open(Procedure);
+        var (_, editor) = Show(vm);
+        ServerStateChanged();
+        await SettleFolding();
+
+        var declaration = LineWith(editor, "Public Sub Go()");
+        var first = LineWith(editor, "Attribute Go.VB_Description");
+        var last = LineWith(editor, "Attribute Go.VB_UserMemId");
+        Folding(editor).AllFoldings.Select(f => (f.StartOffset, f.EndOffset, f.IsFolded)).Should().Equal(
+            [(declaration.EndOffset, last.EndOffset, true), (first.Offset, last.EndOffset, false)]);
+        PutCaret(editor, declaration.Offset);
+        Press(editor, Key.End);
+        Caret(editor).Should().Be(declaration.EndOffset);
+        Press(editor, Key.Right);
+        Caret(editor).Should().Be(LineWith(editor, "Debug.Print 1").Offset);
     }
 
     [AvaloniaFact]
@@ -793,5 +1120,58 @@ public class MemberRunFoldTests : IDisposable
         Press(editor, Key.Back);
         Press(editor, Key.Delete);
         vm.Document.Text.Should().Be(before, "typed into, the expanded run is unchanged");
+    }
+
+    // ── What reading the runs costs, and when it is read again ─────────────────────────────────────────────
+
+    [AvaloniaFact]
+    public void AFormatOfManyLinesReadsTheRunsOnceForItsWholeEditGroupAndKeepsEachRunsState()
+    {
+        // A server's formatting answer is applied as one change per line it rewrites, all in one edit group. Recorded at
+        // every change, the folds read the runs at every change, a whole-buffer scan each: measured headlessly, 8000 line
+        // edits of a 165,230-character module took 99 seconds (task 4.3 review). Counted, not timed, so a loaded machine
+        // can neither pass it nor fail it. Every other body line is already indented, so the reduction cannot join two
+        // changed lines into one change.
+        var code = new StringBuilder("Option Explicit\r\n\r\n");
+        for (var p = 0; p < 20; p++)
+        {
+            code.Append($"Public Sub P{p}()\r\nAttribute P{p}.VB_Description = \"Does {p}\"\r\n");
+            for (var i = 0; i < 10; i++)
+                code.Append("  Debug.Print 1\r\n    Debug.Print 2\r\n");
+            code.Append("End Sub\r\n\r\n");
+        }
+        var vm = Open(code.ToString());
+        var (_, editor) = Show(vm);
+        RunFold(editor, "Public Sub P7()")!.IsFolded = false;
+        Dispatcher.UIThread.RunJobs();
+        var scans = vm.MemberRunScans;
+
+        var reduction = vm.ApplyFormatting([new TextEdit(
+            new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(vm.Document.LineCount, 0)),
+            vm.Document.Text.Replace("  Debug.Print 1", "    Debug.Print 1"))]);
+        Dispatcher.UIThread.RunJobs();
+
+        reduction.Changes.Should().HaveCount(200, "the premise: one change per body line, in one group");
+        (vm.MemberRunScans - scans).Should().BeLessThanOrEqualTo(2,
+            "the runs are read as the group begins and once it has changed the text, not at each of its changes");
+        RunFold(editor, "Public Sub P7()")!.IsFolded.Should().BeFalse("and what was recorded still holds");
+        RunFold(editor, "Public Sub P8()")!.IsFolded.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public void TheRunsFollowAReloadThatMovesTheSplitWithoutChangingTheText()
+    {
+        // A reload of the buffer's own text returns before it touches the document, so the version stays and only the
+        // prefix's length says the runs were read against another split. Here the prefix takes in the declaration, and
+        // the run below it hangs from no line of code.
+        var vm = Open(Procedure);
+        vm.MemberRunsNow.Should().ContainSingle(r => r.DescribesMember, "the premise");
+        var text = vm.Document.Text;
+        var split = text.IndexOf("Attribute Go.VB_Description", StringComparison.Ordinal);
+
+        vm.ReloadFrom(text[..split], text[split..]);
+
+        vm.Document.Text.Should().Be(text, "the premise: the text is the same");
+        vm.MemberRunsNow.Should().NotContain(r => r.DescribesMember);
     }
 }

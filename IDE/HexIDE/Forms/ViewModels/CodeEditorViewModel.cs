@@ -474,7 +474,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// For the reason <see cref="HeaderFoldExpanded"/> is held here, and by key rather than by offset, because what
     /// it has to outlive is the fold itself: a reload, a format that rewrites a run's surroundings, or a dock move
     /// removes the fold, and the run's fold made again afterwards is folded unless its key is in this set. A key the
-    /// window no longer shows is kept, so a run deleted and brought back by Undo comes back as it was left.
+    /// window no longer shows is kept, so a run deleted and brought back by Undo comes back as it was left, unless
+    /// another run of the same member took the key meanwhile, by an ordinal shift; and a key a shown run moves off,
+    /// renamed or renumbered, goes, so a name a retype passes through is not left in the set to open some other
+    /// member's run later (task 4.3 review). The view keeps both rules; design.md, "Settled while building 4.3".
     /// </remarks>
     internal HashSet<MemberRunKey> ExpandedMemberRuns { get; } = [];
 
@@ -1189,8 +1192,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// orphans alike (<see cref="ReadOnlyRegions.MemberRuns"/>).
     /// </summary>
     /// <remarks>
-    /// Cached as <see cref="ReadOnlyRegionsNow"/> is. The view reads it on every change, to keep a fold on each run
-    /// that describes a member (#273 task 4.3), and on every caret move that lands at the end of one.
+    /// Cached as <see cref="ReadOnlyRegionsNow"/> is, the prefix's length included: a reload whose text is the
+    /// buffer's own but whose split is not returns before it changes the document, so the version alone would keep
+    /// runs read against the old split. The view reads it once an edit group has changed the text and once as the
+    /// group begins, to keep a fold on each run that describes a member (#273 task 4.3), and when a step to the right
+    /// lands at the end of one; never at every change of a group, which made a format of N lines N whole-buffer
+    /// scans (task 4.3 review, <see cref="MemberRunScans"/>).
     /// </remarks>
     internal IReadOnlyList<MemberRun> MemberRunsNow
     {
@@ -1203,10 +1210,17 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 runsCache = ReadOnlyRegions.MemberRuns(Document.Text, bufferPrefix.Length);
                 runsCacheVersion = version;
                 runsCachePrefixLength = bufferPrefix.Length;
+                MemberRunScans++;
             }
             return runsCache;
         }
     }
+
+    /// <summary>
+    /// How many times <see cref="MemberRunsNow"/> has read the whole buffer, for the tests that hold the code window
+    /// to one read per edit group however many changes the group makes (#273 task 4.3 review).
+    /// </summary>
+    internal int MemberRunScans { get; private set; }
 
     private IReadOnlyList<MemberRun>? runsCache;
     private ITextSourceVersion? runsCacheVersion;
