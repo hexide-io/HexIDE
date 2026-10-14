@@ -79,8 +79,14 @@ public sealed class EventPump
     private int topLevel;
     private bool closed;
 
+    // Completed when an event is queued or the run ends, for a modal form's wait to wake on.
+    private TaskCompletionSource? arrival;
+
     /// <summary>The walk running now, or null when none is.</summary>
     internal Walk? Current { get; private set; }
+
+    /// <summary>Whether the run is over, and the pump takes no more events.</summary>
+    internal bool IsClosed => closed;
 
     /// <summary>How many events are waiting. For tests.</summary>
     internal int WaitingCount => queue.Count;
@@ -200,6 +206,41 @@ public sealed class EventPump
     }
 
     /// <summary>
+    /// VB6's <c>Show vbModal</c>, in the walk that showed the form (#822). The walk waits, and every event that comes runs
+    /// inside it one at a time, as <see cref="DoEvents"/> runs them, until <paramref name="shown"/> says the form has gone:
+    /// hidden, invisible or unloaded. The statement after the Show then runs, after the handler that removed the form has
+    /// returned (measured). Every form's events come, as Form1's Timer ticks under Form2's modal form, except a Timer whose
+    /// own handler is the one waiting, which never runs inside itself (measured). The wait also ends with the run.
+    /// </summary>
+    public async Task WhileModal(Func<bool> shown)
+    {
+        var walk = Current;
+        while (!closed && shown())
+        {
+            if (Dequeue() is { } next)
+            {
+                var started = Start(next.Name, next.Work);
+                if (!started.IsCompleted)
+                    await Suspended(walk, started);
+                await started;
+                continue;
+            }
+            // Nothing waits, so give the thread up until an event comes or the run ends, suspended as any wait is. The walk
+            // that raised this one waits for it at its next statement, so no walk runs meanwhile, and an event that comes is
+            // top-level and waits in the queue for this loop, as VB6's modal loop takes it from the message queue.
+            var arrived = arrival = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            try
+            {
+                await Suspended(walk, arrived.Task);
+            }
+            finally
+            {
+                arrival = null;
+            }
+        }
+    }
+
+    /// <summary>
     /// Run <paramref name="work"/> as a walk of its own once no handler is running and nothing waits: after the handler
     /// that asked for it has returned, as a form's Terminate comes after the handler that unloaded it (measured, #973).
     /// </summary>
@@ -221,6 +262,7 @@ public sealed class EventPump
         closed = true;
         queue.Clear();
         whenIdle.Clear();
+        arrival?.TrySetResult();
     }
 
     private bool IsRunning(string name) => running.TryGetValue(name, out var count) && count > 0;
@@ -329,11 +371,10 @@ public sealed class EventPump
             && queue.FindIndex(w => string.Equals(w.Name, item.Name, StringComparison.OrdinalIgnoreCase)) >= 0)
             return;
         if (item.Coalescing == EventCoalescing.Latest && queue.Count > 0 && queue[^1].Coalescing == EventCoalescing.Latest)
-        {
             queue[^1] = item;
-            return;
-        }
-        queue.Add(item);
+        else
+            queue.Add(item);
+        arrival?.TrySetResult();
     }
 
     private Waiting? Dequeue()

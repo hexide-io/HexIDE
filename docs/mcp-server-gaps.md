@@ -1083,3 +1083,34 @@ measured the first half with Tools/Add Procedure left open; this is a modal rais
 **Suggested fix.** #681's decision, for the replies. For `take_snapshot` with `window: "ide"`, prefer a modal
 the IDE owns, as `auto` does, or at least name it in `activeDialog`.
 [#681](https://github.com/hexide-io/HexIDE/issues/681).
+
+## `interact` `click` on a window that has just opened says nothing takes the pointer
+
+**Symptom.** (Windows 11, Debug build of #1063's branch at c69ad5b, 2026-10-14.) A running program's Form1 button
+shows Form2 modally. The click on Form2 came straight after the one that opened it, in the same turn:
+
+```
+interact {"target":"Window/Button[Show Form2 modal]","action":"click","window":"Form1"}
+→ {"success":true,"mechanism":"pointer","detail":"clicked the left button at (60.7, 12.7) … landing on its part 'AccessText'"}
+interact {"target":"Window/Button[End]","action":"click","window":"Form2"}
+→ {"success":false,"mechanism":"pointer","error":"nothing takes the pointer at (40.7, 12.7) on 'VBCommandButton', which is
+   (48.7, 84.7) in the window, so nothing was pressed: the point is outside the target, or on a part of it that is not hit-tested"}
+take_snapshot {"window":"Form2"}                      → the End button drawn at that point
+inspect_element {"target":"Window/Button[End]","window":"Form2"}
+→ {… "isEnabled":true, "boundingRect":[8,72,81.33,25.33] …}
+interact {"target":"Window/Button[End]","action":"click","window":"Form2"}
+→ {"success":true,"mechanism":"pointer","detail":"clicked the left button at (40.7, 12.7) … landing on its part 'AccessText'"}
+```
+
+The point was inside the button by the tool's own reckoning, and the same call worked the second time. The likely cause
+is that the hit test ran before the new window's first layout and render, when nothing in it can take a hit yet. The
+error gives the two causes a caller would rule out by looking, and not the one that applied, so a caller that had never
+seen this would conclude the button was covered or broken.
+
+**Workaround.** Take a `take_snapshot` or `inspect_element` of the new window first, then click. Retrying the click also
+works.
+
+**Suggested fix.** Before `InputHitTest`, have `click` make sure the target's top level has had a layout pass, and wait
+for its first render if it has had none. Where the hit test still finds nothing, say whether the window has been laid out
+and rendered yet.
+[#1065](https://github.com/hexide-io/HexIDE/issues/1065).

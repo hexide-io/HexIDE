@@ -715,7 +715,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (value.Type == Vb6Value.ValueType.CSharpProxyObject)
             ((ICSharpProxy)value.Value!).Call(identifier, callArgs);
         else if (value.Type == Vb6Value.ValueType.Control)
-            ((Control)value.Value!).Call(identifier, callArgs);
+            await ((Control)value.Value!).CallAsync(identifier, callArgs);
         else
             throw new VBRunTimeException(context, $"Unknown method {identifier} on {value}");
 
@@ -2637,7 +2637,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         else if (value.Type == Vb6Value.ValueType.Control)
         {
-            ((Control)value.Value!).Call(identifier, callArgs);
+            await ((Control)value.Value!).CallAsync(identifier, callArgs);
         }
         else
             throw new VBRunTimeException(context, $"Unknown method {identifier} on {value}");
@@ -2697,7 +2697,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             && formMember.IsMethod)
         {
             var callArgs = await expressionExecutor.EvaluateCallArgs(context.argsCall());
-            await interpreter.Loading((Form: form, Name: subName, Args: callArgs), static s => FormMembers.Call(s.Form, s.Name, s.Args));
+            // Loaded first, then called, so a modal Show can wait (#822).
+            var window = await interpreter.Loading((Form: form, Name: subName), static s => s.Form.BuiltInMembersFor(s.Name));
+            await window!.CallAsync(subName, callArgs);
             return ControlFlow.Nothing;
         }
         // A bare procedure statement (Foo a, b): a user Sub/Function (this module, or another module's Public)

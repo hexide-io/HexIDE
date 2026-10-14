@@ -8980,3 +8980,59 @@ implemented.
 
   So a loaded form is held apart from its name, and its Terminate waits for the last reference, the name included, as
   measurement 4's `Set Form2 = Nothing` after its Unload showed from the other side.
+
+**12. `Show vbModal`'s edges (2026-10-14, slice 2a.2).** Fourteen more projects, built the same way as the 21, native
+and p-code, which agree in every one. Compiled only, in session 0: the IDE is not measured here. Form1's Timer1 ticks
+every 200 ms, its Timer2 shows Form2 modally at 0.6 s, and each other form's Timer1 ticks every 200 ms from its Load.
+Every row ran under `On Error Resume Next`, logging `Err.Number` and `Err.Description` after the statement.
+
+| statement | where | result |
+|---|---|---|
+| `Form2.Show vbModal` | Form2 already shown, modelessly | **no error**: Form2 turns modal, and the statement returns when it has gone |
+| `Me.Show vbModal` | Form1 shown, no modal form displayed | **no error**: Form1 turns modal over itself, and the statement returns when its other Timer hides it |
+| `Me.Show vbModal` | inside Form2, which is modal | **405 "Unable to show modal form within this context"** |
+| `Form1.Show vbModal` | Form2 modal, Form1 beneath it | **no error**: Form1 turns modal over Form2, and Form2's statement returns once Form1 hides itself |
+| `Form2.Show vbModal` | Form2 shown, then hidden | no error, modal as usual |
+| `Form3.Show` (loaded, hidden) | Form2 modal | **401 "Can't show non-modal form when modal form is displayed"** |
+| `Form1.Show` (already shown) | Form2 modal | **401**, the same |
+| `Me.Show` | inside Form2, which is modal | **401**, the same |
+| `Load Form3` | Form2 modal | no error. Form3 loads hidden, and `Forms.Count` is 3 |
+| `Form1.Hide` | Form2 modal, Form1 not modal | **402 "Must close or hide topmost modal form first"** |
+| `Form2.Hide` | Form3 modal over Form2 | **402**, the same |
+| `Form2.Hide`, from Form1's Timer | Form2 modal and topmost | no error, and the modal returns |
+| `Me.Visible = False` | inside Form2, which is modal | the modal returns, as on Hide. Form2 stays loaded |
+| `Unload Form2`, from Form1's Timer | Form2 modal | the rest of Form1's Timer handler runs first, then the statement after `Show vbModal` |
+| `End` | inside Form2, which is modal | the run ends. The statement after `Show vbModal` never runs |
+
+**Show's style argument.** Form2 hid itself every fifth tick, so a modal Show returned about a second later.
+
+| `Form2.Show` | result |
+|---|---|
+| `0`, `0.4` | modeless |
+| `1`, `"1"`, `0.6` | modal |
+| `2`, `-1`, `True`, `1.5` | **5 "Invalid procedure call or argument"**, raised after Form2's Initialize and Load: Form2 is loaded, and not visible |
+
+So the style converts as `CInt` does, rounding 0.6 to 1 and 1.5 to 2, and only 0 and 1 are accepted.
+
+**A modal form showing another.** Form2, modal, shows Form3 modally from its Timer's handler.
+- Form1's Timer ticks throughout.
+- Form2's Timer doesn't tick until Form3's modal has returned, because the waiting handler is that Timer's own, and a
+  Timer never runs inside itself (#766).
+- Each modal returns once its own form has gone, innermost first.
+
+**The startup form's Load showing a form modally.** Form1 isn't shown while the modal is up, and reads `Visible` False.
+Load goes on once Form2 has unloaded, and Form1 is then shown as any startup form is, with its Resize after Load.
+
+**What was overturned.**
+- **Err 400, "Form already displayed; can't show modally",** is documented for a modal Show of a form already shown.
+  It never came: the shown form turned modal instead, in every case measured. The IDE wasn't measured, and an
+  owner-form argument wasn't tried.
+- **Err 402's text** is "Must close or hide topmost modal form first". HexIDE's table had "Code must close topmost modal
+  form first".
+- **Err 5's text** is "Invalid procedure call or argument". HexIDE's table had "Invalid procedure call", and every Err 5
+  it raised said so.
+
+**13. A method call statement with no space before its parenthesised argument.** A form's Timer ran `Form2.Show(0)`
+and `Text1.Move(100)`, written into the `.frm` that way. Both builds compile, and both statements run: Form2 loads and
+shows, and `Text1.Left` reads 100 after the Move. VB6's editor would have rewritten each with a space, so this is what
+a file written elsewhere gets. HexIDE's grammar refused both (#1064).

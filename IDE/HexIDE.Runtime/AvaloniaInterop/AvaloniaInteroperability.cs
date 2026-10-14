@@ -396,6 +396,13 @@ public static class AvaloniaInteroperability
 
     public static bool TryGet(Control c, PropertyClass property, out Vb6Value value)
     {
+        // A form a modal form holds reads Enabled False (measured, #822). The hold is apart from its own Enabled, which is
+        // what it reads once the modal form has gone.
+        if (c is IFormView { HeldBy: not null } && ReferenceEquals(property, VBProperties.EnabledProperty))
+        {
+            value = new Vb6Value(false);
+            return true;
+        }
         if (bindingsByProperty.TryGetValue(property, out var props))
         {
             foreach (var prop in props)

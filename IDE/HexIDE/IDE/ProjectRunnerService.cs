@@ -312,8 +312,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
     internal bool HasPendingRunToCursor => _pendingRunTo is not null;
 
     /// <summary>
-    /// Run a project whose startup object is <c>Sub Main</c> — a code-only Standard EXE, which has no
-    /// window to open and no form whose code could serve as the entry point.
+    /// Run a project whose startup object is <c>Sub Main</c>: a program of every standard module, with the project's forms
+    /// as templates that Main can load and show (#822).
     /// </summary>
     ///
     /// <remarks>
@@ -325,9 +325,10 @@ public partial class ProjectRunnerService : IProjectRunnerService
     /// <see cref="BasicInterpreter.RunStartupSubMain"/>'s business, not this method's.
     /// </para>
     /// <para>
-    /// The run has no window, so unlike the form path there is nothing whose closing ends it: it finishes
-    /// when <c>Main</c> returns. `Debug.Print` reaches the Immediate window through the same standard
-    /// library the MDI runtime uses.
+    /// The run lasts until Main has returned and no form is loaded, so a Main that shows a form and returns leaves the
+    /// form running (measured). End, a fault in any of its procedures, and the debugger's Stop end it as they end a form's
+    /// run, closing every window. `Debug.Print` reaches the Immediate window through the same standard library the MDI
+    /// runtime uses.
     /// </para>
     /// </remarks>
     private void RunSubMain(ProjectDefinition projectDefinition, bool stepInto,
@@ -335,7 +336,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
     {
         // Shared with the form paths, so the same project sees the same modules whichever startup object it
         // has. Sub Main previously answered this question here and the form paths not at all (#220).
-        var (modules, classModules) = VBLoader.InterpreterModules(projectDefinition);
+        var (modules, _) = VBLoader.InterpreterModules(projectDefinition);
 
         if (modules.Count == 0)
         {
@@ -362,31 +363,41 @@ public partial class ProjectRunnerService : IProjectRunnerService
             // as running while the dialog is up. These used to be MessageBox calls of their own, which no
             // record kept, so get_last_runtime_error never saw an error from Sub Main (#754).
             string? failure = null;
+            var tokenSource = new CancellationTokenSource();
+
+            // A fault in an event procedure of a form Main showed ends the run, as on the form path (#754).
+            Exception? fault = null;
+            void OnFaulted(VBWindowContext _, Exception e)
+            {
+                if (fault is not null)
+                    return;
+                fault = e;
+                debugController.Stop();
+                Dispatcher.UIThread.Post(() => tokenSource.Cancel());
+            }
+
+            // End in any procedure, Main's or a form's, ends the run and reports nothing (#775).
+            void OnEndReached(BasicInterpreter _) => Dispatcher.UIThread.Post(() => tokenSource.Cancel());
+
+            VBWindowContext.Faulted += OnFaulted;
+            BasicInterpreter.EndReached += OnEndReached;
             try
             {
-                BasicInterpreter interpreter;
+                VBProgram program;
                 try
                 {
-                    // Building the interpreter parses every module and runs the pre-pass over it, which throws for a
+                    // Building the program parses every module and runs the pre-pass over it, which throws for a
                     // syntax error, naming its module, and for a declaration it cannot take. It used to sit outside this try, after Reset() and the claim
                     // above, so a throw here left the debugger Running and the project claimed with nothing
                     // running, as #590 did on the form path. It is a start that never became a run, and is
                     // reported the way that path reports one.
                     var context = new VBWindowContext(new MDIStandaloneStandardLib(windowManager));
-                    interpreter = new BasicInterpreter(
-                        new MDIStandaloneStandardLib(windowManager), context.ExecutionContext, context.RootEnv,
-                        modules[0].Code, modules[0].Name,
-                        modules.Count > 1 ? modules.Skip(1).ToList() : null,
-                        classModules)
-                    {
-                        DebugController = debugController,
-                    };
-                    interpreter.SetAppInfo(AppInfo.FromProject(projectDefinition));
-                    VBLoader.DescribeProject(interpreter, projectDefinition);
+                    program = new VBProgram(projectDefinition, context, debugController,
+                        Static.SingleView ? OpenInBrowser : VBLoader.OpenWindow);
                     // A missing or ambiguous Main is found here, before anything runs, so it too is a start that
                     // never became a run. It used to be raised as the run began, and arrived as a run that ended,
                     // which run_project answered as a success (#759).
-                    interpreter.FindStartupSubMain();
+                    program.Interpreter.FindStartupSubMain();
                 }
                 catch (Exception e)
                 {
@@ -396,11 +407,13 @@ public partial class ProjectRunnerService : IProjectRunnerService
                     return;
                 }
 
-                RunHandle = new ActionDisposable(() => debugController.Stop());
-                // End in Sub Main unwinds it, and RunStartupSubMain takes that as a clean stop (#775). Sub Main cannot
-                // show a form yet, so no other interpreter can reach End during this run; when it can, this run will
-                // need to listen for EndReached as the form run does.
-                await interpreter.RunStartupSubMain();
+                RunHandle = new ActionDisposable(() =>
+                {
+                    debugController.Stop();
+                    tokenSource.Cancel();
+                });
+                // End in Sub Main unwinds it, and RunStartupSubMain takes that as a clean stop (#775).
+                await VBLoader.RunSubMain(program, tokenSource.Token);
             }
             catch (Exception e) when (e is not (OperationCanceledException or ImmediateEvalException))
             {
@@ -414,12 +427,16 @@ public partial class ProjectRunnerService : IProjectRunnerService
             }
             finally
             {
+                VBWindowContext.Faulted -= OnFaulted;
+                BasicInterpreter.EndReached -= OnEndReached;
                 debugController.Stop();
                 RunHandle = null;
                 RunningProject = null;
             }
 
-            if (failure is not null)
+            if (fault is not null)
+                RunFailed?.Invoke(RunErrorText.ForFault(fault, localization));
+            else if (failure is not null)
                 RunFailed?.Invoke(failure);
         }
 
@@ -555,26 +572,46 @@ public partial class ProjectRunnerService : IProjectRunnerService
         IDebugController? debugController = null)
     {
         // The same build, start and show as VBLoader.RunForm, in an MDI window (#822). Parsed before anything is shown, so
-        // a syntax error fails the start without leaving a window behind that nothing would close.
+        // a syntax error fails the start without leaving a window behind that nothing would close. The program's other
+        // forms get MDI windows of their own.
         var shown = window = InstantiateWindow(VBLoader.FormComponentOf(element));
-        VBLoader.PrepareForm(element, shown.Context, content => shown.Content = content, debugController);
-        return VBLoader.StartAndShow(shown.Context, token, close: () => shown.CloseCommand.Execute(null),
-            showUntilClosed: () => windowManager.ShowManagedWindow(shown));
+        VBLoader.PrepareForm(element, shown.Context, content => shown.Content = content, debugController, OpenInBrowser);
+        return VBLoader.StartAndShow(shown.Context, token, close: shown.CloseForm,
+            showUntilClosed: () => shown.ShowInHost(blockBehind: true));
     }
 
-    public class VBMDIFormRuntime : MDIWindow, IModuleExecutionRoot
+    // A window for another of the program's forms, in the single-view host (#822).
+    private IFormView OpenInBrowser(FormDefinition definition) => InstantiateWindow(VBLoader.FormComponentOf(definition));
+
+    public class VBMDIFormRuntime : MDIWindow, IModuleExecutionRoot, IFormView
     {
         protected override Type StyleKeyOverride => typeof(MDIWindow);
 
         private VBWindowContext windowContext;
+        private readonly IWindowManager windowManager;
 
         public VBWindowContext Context => windowContext;
 
         private bool first;
 
+        // The window's time in the host, from its first show until it closes.
+        private Task? inHost;
+
         public VBMDIFormRuntime(IWindowManager windowManager)
         {
+            this.windowManager = windowManager;
             windowContext = new VBWindowContext(new MDIStandaloneStandardLib(windowManager)) { Window = this };
+            // Held by a modal form, the window takes no input of its own (#822), and a press on it brings the modal form
+            // forward instead.
+            foreach (var input in new RoutedEvent[] { KeyDownEvent, KeyUpEvent, TextInputEvent, PointerReleasedEvent, PointerWheelChangedEvent })
+                AddHandler(input, new EventHandler<RoutedEventArgs>((_, e) => e.Handled |= heldBy is not null), RoutingStrategies.Tunnel);
+            AddHandler(PointerPressedEvent, (_, e) =>
+            {
+                if (heldBy is null)
+                    return;
+                e.Handled = true;
+                heldBy.ActivateForm();
+            }, RoutingStrategies.Tunnel);
             this.GetObservable(BoundsProperty)
                 .Subscribe(new ActionObserver<Rect>(_ =>
                 {
@@ -602,6 +639,57 @@ public partial class ProjectRunnerService : IProjectRunnerService
         public void ExecuteTimer(string name, IReadOnlyList<Vb6Value>? args = null) => windowContext.ExecuteTimer(name, args);
 
         public Task<bool> UnloadAsync(int mode) => windowContext.UnloadAsync(mode);
+
+        /// <summary>
+        /// Put the window in the host, or show it again there: the startup form blocking the IDE behind it, another form
+        /// blocking nothing, so the program's forms stay usable beside one another (#822). Completes when it closes.
+        /// </summary>
+        public Task ShowInHost(bool blockBehind)
+        {
+            IsVisible = true;
+            if (inHost is not null)
+                return inHost;
+            inHost = blockBehind ? windowManager.ShowManagedWindow(this) : windowManager.ShowManagedWindow(this, blockBehind: false);
+            // The host's own close takes the window away. The title bar's close asks the program first, as a desktop form's
+            // close box does, QueryUnload with UnloadMode 0 and then Unload (#973), and is refused while a modal form holds
+            // this one (#822). The window goes once the form has unloaded, through the host's close.
+            hostClose = CloseCommand;
+            CloseCommand = new DelegateCommand(() =>
+            {
+                if (!windowContext.UnloadFromCloseBox())
+                    hostClose?.Execute(null);
+            }, () => true);
+            return inHost;
+        }
+
+        // The host's close, which takes the window away without asking the program.
+        private System.Windows.Input.ICommand? hostClose;
+
+        public void SetContent(Control content) => Content = content;
+
+        public void ShowForm() => ShowInHost(blockBehind: false);
+
+        public void HideForm() => IsVisible = false;
+
+        public void CloseForm() => (hostClose ?? CloseCommand)?.Execute(null);
+
+        public bool IsShown => inHost is { IsCompleted: false } && IsVisible;
+
+        private IFormView? heldBy;
+
+        public IFormView? HeldBy
+        {
+            get => heldBy;
+            set
+            {
+                heldBy = value;
+                // Its controls stop taking hits, which disabling them would do too, greying each one (#822).
+                if (Content is Avalonia.Input.InputElement content)
+                    content.IsHitTestVisible = value is null;
+            }
+        }
+
+        public void ActivateForm() => this.ActivateMDIForm();
     }
 
     public class MDIStandaloneStandardLib : IBasicStandardLibrary
