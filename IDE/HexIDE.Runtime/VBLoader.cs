@@ -457,6 +457,44 @@ public class VBLoader
         });
     }
 
+    /// <summary>
+    /// Run a loaded project as a made program runs it (#1062): from its startup form, or from <c>Sub Main</c> where the
+    /// project starts there, with every form and module the project holds. The task completes when the program has ended.
+    /// A project with no startup object, a missing or ambiguous Main, and a syntax error in any module throw before
+    /// anything runs.
+    /// </summary>
+    /// <param name="startupWindow">The startup form's window, or null for a program that starts at Sub Main.</param>
+    public static Task RunMadeProgram(ProjectDefinition project, CancellationToken token, out VBFormRuntime? startupWindow)
+    {
+        if (!project.StartsAtSubMain)
+        {
+            startupWindow = null;
+            var form = project.StartupForm ?? throw new VBCompileErrorException(BasicInterpreter.NoStartupObject);
+            var run = RunForm(form, token, out var window);
+            startupWindow = window;
+            return run;
+        }
+        // Main has no window of its own, so its MsgBox and InputBox are centred on the screen: an owner that is never shown,
+        // closed when the run ends so a box still open goes with it, as one over a form does.
+        startupWindow = null;
+        var owner = new Window();
+        var program = new VBProgram(project, new VBWindowContext(new StandaloneStandardLib(owner)), debugController: null, OpenWindow);
+        program.Interpreter.FindStartupSubMain();
+        return RunThenClose(RunSubMain(program, token), owner);
+
+        static async Task RunThenClose(Task run, Window owner)
+        {
+            try
+            {
+                await run;
+            }
+            finally
+            {
+                owner.Close();
+            }
+        }
+    }
+
     /// <summary>A desktop window for one of a program's forms (#822).</summary>
     public static IFormView OpenWindow(FormDefinition definition)
     {
