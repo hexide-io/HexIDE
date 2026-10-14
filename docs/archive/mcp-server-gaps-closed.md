@@ -721,6 +721,13 @@ an explicit `save_form` tool so a caller can batch adds and commit once.
 > supplies are still never silently discarded, because a changed block is refused rather than dropped, and a
 > designer block never reaches the code, where it would be compiled as VB. Keeping a form's `Attribute` lines
 > when the content leaves them out is unchanged.
+>
+> **And a member's Attribute lines, since #273 task 4.5b (2026-10-14).** A change to the run under a procedure's
+> or variable's declaration is refused the same way, with nothing changed, and the refusal names each member whose
+> lines changed, were added or were dropped. Moving a run with its declaration, renaming it with it, or deleting
+> it with it is not a change. Left as they are (#273's tasks.md, 4.5b): content that changes both the header and a
+> run is told about the header alone, and a refusal says lines were removed or added where only what they describe
+> changed.
 
 > **Fixed, in both directions — the entry's case and its mirror (#338).**
 >
@@ -1291,6 +1298,14 @@ run that never broke.
 
 **Still open.** A sidecar that already holds such lines is loaded as-is, and a breakpoint on a line with no
 executable statement is still accepted. Both are noted on #569.
+
+**Since then.** The sidecar half was closed by #574's fix (#620): a mark on a line its document does not have is
+dropped at load, and logged (`UserSidecarService.WithinDocument`). #273 changed the rest (task 3.12, 2026-10-01).
+The range counts from the top of the file, header included, and the refusal says so: `… breakpoints are numbered
+1..N, from the top of the file. Nothing was changed.` A line of the header or of a member's Attribute lines is
+refused too, saying where the code starts (`MarkLineRules.Refusal`), and so are `run_to_cursor` and
+`set_next_statement` aimed at one; a sidecar's mark on such a line is dropped at load (task 3.17). Any other line
+with no executable statement, a blank or a comment, is still accepted.
 
 ---
 
@@ -1910,6 +1925,15 @@ values are already known to the server.
 > type there either; nothing was inserted`, and `get_file_content` showed the code unchanged. Worth knowing
 > when re-testing: the code window is read-only for a form HexIDE cannot save faithfully, not while a program
 > runs, so a running program is not the way to reach this.
+>
+> **Since #273 (the review of task 3.20, 5541621), a file held read-only as a whole is refused with its reason.**
+> The code window now asks first whether its file is one HexIDE will not save, and `type_text` and `press_key`
+> answer `… refused: this file will not be saved, because HexIDE cannot yet reproduce it faithfully (…). Its code
+> is part of the file, so typing in its code window is refused anywhere, as the window's banner says. Nothing was
+> written.` That review found the window's own Enter writing a line break into such a file, past the section
+> provider that refuses typing, because its handler writes the document itself; Enter now refuses, and `press_key`
+> says why rather than reporting the key pressed. Seen running on 2026-10-13 (#273 task 3.22), on a form whose
+> `.frx` was missing: `type_text` and `press_key` Enter each refused with that text.
 
 **Symptom.** Verifying the read-only editing gate (#22) against the running IDE, `type_text` successfully
 inserted `XXX_SHOULD_NOT_APPEAR` into a code editor whose `TextEditor.IsReadOnly` was bound true. The result
@@ -2277,6 +2301,14 @@ own argument binding, which can report through `McpException`, and #603 leaves t
 > (`DocumentContentTests`, including a read and write-back of every document in `demo/` and
 > `corpus/designer/`). The live check, a refusal's `CaretOffset` indexing a `get_file_content` reply in the
 > running IDE, is #273 task 3.22's, and its result belongs here when it is taken.
+>
+> **Taken in part on 2026-10-13 (#273 task 3.22)**, a Debug build of 5541621, on four files VB6 wrote. In the
+> form whose code starts at line 74 (`frmLogin`), with the caret at offset 0, `type_text`, `press_key` Delete and
+> `press_key` Enter were each refused, pointing at offset 2165 as the nearest place that can be edited. With the
+> caret put there the status bar read `Ln 74, Col 1`. `get_file_content {"name":"clsDataSource"}`, not open,
+> returned the file header first. What was not done is the comparison this entry asked for: reading the reply's
+> text at the offset a refusal gives. That the reply is the open window's text rests on the code, where
+> `DocumentContent.TextOf` returns the window's own `CodeWindowText`, and on `DocumentContentTests`.
 >
 > **Still open, and not a gap:** a way to put the caret at a line and column, or at a text match, would save
 > every caller the offset arithmetic. That is [#700](https://github.com/hexide-io/HexIDE/issues/700). An offset
