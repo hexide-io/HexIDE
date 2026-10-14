@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Avalonia.Controls;
+using HexIDE.Runtime.BuiltinControls;
 
 namespace HexIDE.IDE;
 
@@ -20,7 +22,8 @@ namespace HexIDE.IDE;
 public static class ForegroundWindow
 {
     /// <summary>
-    /// The window a caller asked for: the frontmost one by default, or the IDE's own window on request.
+    /// The window a caller asked for: the frontmost one by default, the IDE's own window on request, or one named by its
+    /// title or, for a running form, its form's name.
     /// </summary>
     /// <remarks>
     /// <para>Exists because "frontmost" is the wrong answer for a whole class of question. While a VB6
@@ -35,14 +38,16 @@ public static class ForegroundWindow
     /// succeed and change nothing here, because the preference is in target <i>selection</i>. So the choice
     /// has to be passed in, not arranged for.</para>
     ///
-    /// <para><b>Two values, not three.</b> A <c>"form"</c> scope was considered and left out: <c>"auto"</c>
+    /// <para><b>A name, not a third value.</b> A <c>"form"</c> scope was considered and left out: <c>"auto"</c>
     /// already resolves to the running form whenever one is up, so it would name a case that is already
     /// covered — and it would suggest an ability to pick <i>which</i> form, which an enum cannot do once a
-    /// project shows more than one.</para>
+    /// project shows more than one. A program of several forms does (#822), so a name picks one: a window's title,
+    /// or a running form's name.</para>
     /// </remarks>
     /// <param name="scope">
     /// <c>"auto"</c> or null for the frontmost window; <c>"ide"</c> (or <c>"main"</c>) for the IDE's own
-    /// window, whatever is in front of it.
+    /// window, whatever is in front of it; or a window's title, or a running form's name, for that window. A program
+    /// of several forms (#822) has one frontmost and the rest behind it, and only a name reaches those.
     /// </param>
     public static (Window? Window, string? Error) Pick(
         string? scope, Window mainWindow, IReadOnlyList<Window> windows)
@@ -54,12 +59,38 @@ public static class ForegroundWindow
             || scope.Equals("main", StringComparison.OrdinalIgnoreCase))
             return (mainWindow, null);
 
+        // A window by its title, or a running form by its name, which outlives a caption the program changes.
+        var named = windows.Where(w => w != mainWindow
+            && (string.Equals(w.Title, scope, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(VBProps.GetName(w), scope, StringComparison.OrdinalIgnoreCase))).ToList();
+        var shown = named.Where(w => w.IsVisible).ToList();
+        if (shown.Count == 1)
+            return (shown[0], null);
+        if (shown.Count > 1)
+            return (null, $"{shown.Count} open windows answer to '{scope}', as two instances of one form do: "
+                          + $"{Titles(shown)}. Name one by a title only it has.");
+        if (named.Count > 0)
+            return (null, $"'{scope}' is hidden, as a form after Hide is, and a hidden window can't be reached: a "
+                          + "person can't click it either.");
+
         // Named rather than silently treated as "auto". A caller who mistypes this is trying to reach a
         // window the default would not have given them, so falling back would answer a different question
         // than the one asked and look like it worked.
-        return (null, $"Unknown window '{scope}'. Use \"auto\" (the frontmost window, the default) "
-                    + "or \"ide\" (the IDE window, even while a program is running).");
+        var open = windows.Where(w => w != mainWindow && w.IsVisible).ToList();
+        return (null, $"Unknown window '{scope}'. Use \"auto\" (the frontmost window, the default), "
+                    + "\"ide\" (the IDE window, even while a program is running), or the name or title of an open "
+                    + (open.Count == 0
+                        ? "window, and none is open beside the IDE."
+                        : $"window: {Titles(open)}. A form's name is the stable handle: its caption can be empty, or change "
+                          + "as the program runs."));
     }
+
+    // Each window as a caller can name it: a running form by its name, then its title in quotes, and any other window
+    // by its title alone.
+    private static string Titles(IEnumerable<Window> windows) =>
+        string.Join(", ", windows.Select(w => VBProps.GetName(w) is { Length: > 0 } name
+            ? $"{name} (\"{w.Title}\")"
+            : $"\"{w.Title}\""));
 
     /// <summary>
     /// Picks the frontmost visible window, falling back to <paramref name="mainWindow"/> when nothing
