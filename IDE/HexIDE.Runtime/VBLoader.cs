@@ -1,4 +1,5 @@
 using System;
+using HexIDE.Runtime.Utils;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -398,45 +399,83 @@ public class VBLoader
     public static Task RunForm(FormDefinition element, CancellationToken token, out VBFormRuntime window,
         Debugging.IDebugController? debugController = null)
     {
-        var form = element.Components.FirstOrDefault(x => x.BaseClass == FormComponentClass.Instance);
-        if (form == null)
-            throw new Exception("No form found");
+        var form = FormComponentOf(element);
+        var shown = window = ((FormComponentClass)form.BaseClass).InstantiateWindow(form);
+        PrepareForm(element, shown.Context, content => shown.Content = content, debugController);
 
-        window = ((FormComponentClass)form.BaseClass).InstantiateWindow(form);
-        var formName = form.GetPropertyOrDefault(VBProperties.NameProperty)?.ToString();
-        if (formName is not null)
+        return StartAndShow(shown.Context, token, close: shown.Close, showUntilClosed: () =>
         {
-            window.Context.ExecutionContext.AllocVariable(window.Context.RootEnv, formName, new Vb6Value(window));
-            window.Context.ExecutionContext.AllocVariable(window.Context.RootEnv, "Me", new Vb6Value(window));
-        }
+            // Complete when the form closes. The TaskCompletionSource is captured directly in the handler rather than
+            // parked in window.Tag: Control.Tag backs the VB6 `Tag` property, so stashing runtime state there leaked
+            // "System.Threading.Tasks.TaskCompletionSource" into `Me.Tag` (and the Locals property surface, D7).
+            var closed = new TaskCompletionSource();
+            void OnClosed(object? sender, EventArgs e)
+            {
+                shown.Closed -= OnClosed;
+                closed.TrySetResult();
+            }
+            shown.Closed += OnClosed;
+            shown.Show();
+            return closed.Task;
+        });
+    }
 
-        window.Content = SpawnComponents(element, window.Context.ExecutionContext, window.Context.RootEnv);
-        // The form's own code runs as the primary module named after the form, so the debug gate reports — and
-        // breakpoints are keyed by — the form's real name (matching the editor's vb6://form/{name} document).
+    /// <summary>The form's own component in its definition.</summary>
+    public static ComponentInstance FormComponentOf(FormDefinition element) =>
+        element.Components.FirstOrDefault(x => x.BaseClass == FormComponentClass.Instance)
+        ?? throw new Exception("No form found");
+
+    /// <summary>
+    /// Build a form's program into its window's context (#822). Every module the run loads is parsed here, so a syntax
+    /// error throws before anything is shown. The form's code is the primary module, named after the form, so the debug
+    /// gate reports, and breakpoints are keyed by, the form's real name (matching the editor's vb6://form/{name}
+    /// document). Then the form's instance is made and its controls put into it, held until it loads.
+    /// </summary>
+    public static void PrepareForm(FormDefinition element, VBWindowContext context, Action<Control> setContent,
+        Debugging.IDebugController? debugController)
+    {
+        var formName = FormComponentOf(element).GetPropertyOrDefault(VBProperties.NameProperty)?.ToString();
         var (standardModules, classModules) = InterpreterModules(element.Owner);
-        window.Context.SetCode(code: element.Code, moduleName: formName ?? "Module1", debugController: debugController,
+        context.SetCode(code: element.Code, moduleName: formName ?? "Module1", debugController: debugController,
             appInfo: Interpreter.AppInfo.FromProject(element.Owner),
             additionalModules: standardModules, classModules: classModules);
-        window.Show();
+        setContent(SpawnComponents(element, context.ExecutionContext, context.InstanceEnv));
+        context.HoldControlsUntilLoad();
+    }
 
-        var tcs = new TaskCompletionSource();
-
-        token.Register((state, _) =>
+    /// <summary>
+    /// Start a prepared form, then show its window, as VB6 shows its startup form: Initialize and Load run before the
+    /// window appears (measured, #822), so a Resize comes after Load. The task completes when the window closes, or when
+    /// the run is cancelled, or ends, before it was shown. Shown or not, a cancellation closes the form.
+    /// </summary>
+    public static Task StartAndShow(VBWindowContext context, CancellationToken token, Action close, Func<Task> showUntilClosed)
+    {
+        var run = new TaskCompletionSource();
+        var shown = false;
+        token.Register(() =>
         {
-            (state as Window)!.Close();
-        }, window);
+            if (shown)
+                close();
+            else
+                run.TrySetResult();
+        });
 
-        // Complete the run-task when the form closes. The TaskCompletionSource is captured directly in the handler
-        // rather than parked in window.Tag: Control.Tag backs the VB6 `Tag` property, so stashing runtime state there
-        // leaked "System.Threading.Tasks.TaskCompletionSource" into `Me.Tag` (and the Locals property surface, D7).
-        // window is an out parameter and can't be captured, so the handler recovers the window from sender.
-        void OnClosed(object? sender, EventArgs e)
+        async Task StartThenShow()
         {
-            (sender as Window)!.Closed -= OnClosed;
-            tcs.TrySetResult();
+            try
+            {
+                await context.StartAsync();
+                if (token.IsCancellationRequested || run.Task.IsCompleted)
+                    return;
+                shown = true;
+                await showUntilClosed();
+            }
+            finally
+            {
+                run.TrySetResult();
+            }
         }
-        window.Closed += OnClosed;
-
-        return tcs.Task;
+        StartThenShow().ListenErrors();
+        return run.Task;
     }
 }

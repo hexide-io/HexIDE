@@ -233,8 +233,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
                         }
                         else
                         {
-                            task = VBLoader.RunForm(form, tokenSource.Token, out var window, debugController);
-                            window.Show();
+                            // RunForm starts the form and shows it once Load has run (#822).
+                            task = VBLoader.RunForm(form, tokenSource.Token, out _, debugController);
                         }
                     }
                     catch (Exception e)
@@ -553,33 +553,12 @@ public partial class ProjectRunnerService : IProjectRunnerService
     private Task RunFormInBrowser(FormDefinition element, CancellationToken token, out VBMDIFormRuntime window,
         IDebugController? debugController = null)
     {
-        var form = element.Components.FirstOrDefault(x => x.BaseClass == FormComponentClass.Instance);
-        if (form == null)
-            throw new Exception("No form found");
-
-        window = InstantiateWindow(form);
-        var formName = form.GetPropertyOrDefault(VBProperties.NameProperty)?.ToString();
-        if (formName is not null)
-        {
-            window.Context.ExecutionContext.AllocVariable(window.Context.RootEnv, formName, new Vb6Value(window));
-            window.Context.ExecutionContext.AllocVariable(window.Context.RootEnv, "Me", new Vb6Value(window));
-        }
-
-        window.Content = VBLoader.SpawnComponents(element, window.Context.ExecutionContext, window.Context.RootEnv);
-
-        // Parsed before the window is shown, as VBLoader.RunForm does, so a syntax error fails the start without
-        // leaving a window behind that nothing would close.
-        var (standardModules, classModules) = VBLoader.InterpreterModules(element.Owner);
-        window.Context.SetCode(code: element.Code, moduleName: formName ?? "Module1", debugController: debugController,
-            appInfo: HexIDE.Runtime.Interpreter.AppInfo.FromProject(element.Owner),
-            additionalModules: standardModules, classModules: classModules);
-        var task = windowManager.ShowManagedWindow(window);
-        token.Register((state, _) =>
-        {
-            (state as MDIWindow)!.CloseCommand.Execute(null);
-        }, window);
-
-        return task;
+        // The same build, start and show as VBLoader.RunForm, in an MDI window (#822). Parsed before anything is shown, so
+        // a syntax error fails the start without leaving a window behind that nothing would close.
+        var shown = window = InstantiateWindow(VBLoader.FormComponentOf(element));
+        VBLoader.PrepareForm(element, shown.Context, content => shown.Content = content, debugController);
+        return VBLoader.StartAndShow(shown.Context, token, close: () => shown.CloseCommand.Execute(null),
+            showUntilClosed: () => windowManager.ShowManagedWindow(shown));
     }
 
     public class VBMDIFormRuntime : MDIWindow, IModuleExecutionRoot
@@ -594,7 +573,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
         public VBMDIFormRuntime(IWindowManager windowManager)
         {
-            windowContext = new VBWindowContext(new MDIStandaloneStandardLib(windowManager));
+            windowContext = new VBWindowContext(new MDIStandaloneStandardLib(windowManager)) { Window = this };
             this.GetObservable(BoundsProperty)
                 .Subscribe(new ActionObserver<Rect>(_ =>
                 {
@@ -607,11 +586,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 }));
         }
 
-        protected override void OnLoaded(RoutedEventArgs e)
-        {
-            base.OnLoaded(e);
-            windowContext.ExecuteSub("Form_Load");
-        }
+        // Form_Load is not raised here: the program raises Initialize and Load before the window is shown (#822, #994).
 
         public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
         {
