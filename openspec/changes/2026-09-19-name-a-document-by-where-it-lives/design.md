@@ -1296,9 +1296,10 @@ other than the document's own counted as a change. A third IDE session measured 
   indented line, a spaced line, or a `VB_VarDescription` naming a name declared nowhere (Q1). File > Save of an
   untouched module, from the Project Explorer with nothing opened, is enabled and writes it, with its runs written
   afresh: `Gone` under `Total` re-qualified `Total`, the indent and spacing normalised, the `VB_Var` line naming
-  nothing dropped, and in `DeclShapes` the run under a `Public Const` in a class dropped, which is byte for byte what
-  the same module dirtied and saved writes (Q2). Save As to a new name writes the same bytes as the Save, and leaves
-  the file it was read from alone (Q3). So VB6's only byte-preserving behaviour is not writing, and it writes a
+  nothing dropped, and in `DeclShapes` the run under a `Public Const` in a class dropped, which for `DeclShapes` is
+  byte for byte what B2's save of the same module dirtied wrote, the marker aside (Q2). Save As to a new name writes
+  the same bytes as the Save (`UntouchedC`), leaves the file it was read from alone, and for `NamesNothing` writes
+  B's dirtied output, the marker aside (Q3). So VB6's only byte-preserving behaviour is not writing, and it writes a
   module's runs afresh every time it writes the module.
 - *The rule as built.* A form's or module's qualifiers are rewritten at a write when the document has unsaved
   changes, as before; or when the write is its own Save or Save As (`SaveForm`, `SaveModule`), whatever its state;
@@ -1327,7 +1328,9 @@ other than the document's own counted as a change. A third IDE session measured 
   binds them for every document it hosts, so it reaches `SaveModule` for none: a `.bas` or `.cls` window's Ctrl+S
   writes nothing (#244), and a UserControl's or PropertyPage's reaches `SaveForm` with its designer half (#474).
   `CodeEditorViewModel.SaveModule` is bound nowhere, and the Project Explorer's Save and Save As items carry no
-  command. None of that changes here. Two callers are not a Save the developer asked for:
+  command. None of that changes here, and it has a consequence worth saying: a module's own Save, the route Q2
+  measured, has no way in from the IDE's own UI today, only from automation, while a form's has the designer and
+  its code window. Two callers are not a Save the developer asked for:
   - `FormEditViewModel.SaveLockControls` writes a Lock Controls toggle, and its undo and redo, on the IDE's own
     initiative. The form's file carries a `LockControls` line only when it is set, and every toggle is written, so
     each toggle leaves the form changed from its file and the flag decides nothing there.
@@ -1335,7 +1338,8 @@ other than the document's own counted as a change. A third IDE session measured 
     changed. A call that changed nothing, such as `set_file_content` with what `get_file_content` returned, is now
     that document's own Save of an unchanged document, and re-qualifies a stale run where it used to write the bytes
     back, as VB6's Save of an untouched module does. The reply already says the file was saved, and the next
-    `get_file_content` returns the run as written.
+    `get_file_content` returns the run as written; it does not say that a qualifier was rewritten. The
+    `hexide-mcp-server` delta's "Reading and writing back a form" says so.
 
   Neither the close prompt nor an add-in calls either: the prompt saves through `SaveSelected`, which lists only
   documents with unsaved changes, so the dirty check decides it, and `IProjectAccess` has no save.
