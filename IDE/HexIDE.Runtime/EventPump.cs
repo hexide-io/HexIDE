@@ -74,6 +74,7 @@ public sealed class EventPump
     private sealed record Waiting(string Name, Func<Task> Work, EventCoalescing Coalescing);
 
     private readonly List<Waiting> queue = [];
+    private readonly List<Func<Task>> whenIdle = [];
     private readonly Dictionary<string, int> running = new(StringComparer.OrdinalIgnoreCase);
     private int topLevel;
     private bool closed;
@@ -149,11 +150,15 @@ public sealed class EventPump
         }
         // What waited behind it runs once the caller has gone on: after the form's start has shown the form, as VB6
         // delivers what came during Load once Load has returned.
-        if (queue.Count > 0)
+        if (queue.Count > 0 || whenIdle.Count > 0)
             Dispatcher.UIThread.Post(() =>
             {
-                if (topLevel == 0 && Current is null && Dequeue() is { } next)
+                if (topLevel != 0 || Current is not null)
+                    return;
+                if (Dequeue() is { } next)
                     RunFrom(next).ListenErrors();
+                else
+                    RunIdle().ListenErrors();
             });
         return result;
     }
@@ -195,6 +200,19 @@ public sealed class EventPump
     }
 
     /// <summary>
+    /// Run <paramref name="work"/> as a walk of its own once no handler is running and nothing waits: after the handler
+    /// that asked for it has returned, as a form's Terminate comes after the handler that unloaded it (measured, #973).
+    /// </summary>
+    public void WhenIdle(Func<Task> work)
+    {
+        if (closed)
+            return;
+        whenIdle.Add(work);
+        if (topLevel == 0 && Current is null)
+            RunIdle().ListenErrors();
+    }
+
+    /// <summary>
     /// The run is over: forget every waiting event, and take no more. Called where the run ends, so nothing it left
     /// waiting can run beside the next run, whatever the debugger the two runs share says by then.
     /// </summary>
@@ -202,6 +220,7 @@ public sealed class EventPump
     {
         closed = true;
         queue.Clear();
+        whenIdle.Clear();
     }
 
     private bool IsRunning(string name) => running.TryGetValue(name, out var count) && count > 0;
@@ -214,6 +233,26 @@ public sealed class EventPump
             try
             {
                 await Start(next.Name, next.Work);
+            }
+            finally
+            {
+                topLevel--;
+            }
+        }
+        if (topLevel == 0)
+            await RunIdle();
+    }
+
+    private async Task RunIdle()
+    {
+        while (topLevel == 0 && Current is null && queue.Count == 0 && whenIdle.Count > 0)
+        {
+            var work = whenIdle[0];
+            whenIdle.RemoveAt(0);
+            topLevel++;
+            try
+            {
+                await Start("(idle)", work);
             }
             finally
             {

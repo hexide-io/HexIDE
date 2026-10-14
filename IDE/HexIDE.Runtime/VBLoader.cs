@@ -522,6 +522,8 @@ public class VBLoader
     {
         var run = new TaskCompletionSource();
         var shown = false;
+        // The way the host closes this form, which is also how an unloaded form's window goes once its Terminate has run.
+        context.CloseWindow = close;
         // Where the run ends, its event pump closes, so nothing it left waiting can run beside the next one (#766).
         void Ended()
         {

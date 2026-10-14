@@ -43,18 +43,30 @@ public sealed class VbObject
     public bool FormLoaded { get; set; }
 
     /// <summary>
+    /// Whether a form instance has been unloaded (#973). VB6 loads it again at the next use of a control or a built-in
+    /// member, raising Load but not Initialize (measured); HexIDE refuses that use until the Load slice of #822.
+    /// </summary>
+    public bool FormUnloaded { get; set; }
+
+    /// <summary>
     /// The window whose built-in members answer for <paramref name="member"/>, or null when this is not a form instance
     /// with a window. Refused before the form has loaded (see <see cref="FormLoaded"/>).
     /// </summary>
     public Avalonia.Controls.Control? BuiltInMembersFor(string member) =>
         FormWindow is null ? null
         : FormLoaded ? FormWindow
+        : FormUnloaded ? throw new NotImplementedException(UsedAfterUnload(ClassName, $"{ClassName}.{member}"))
         : throw new NotImplementedException(NotYetLoaded(ClassName, $"{ClassName}.{member}"));
 
     /// <summary>The refusal for a use of a form's control or built-in member before the form has loaded (#1009).</summary>
     public static string NotYetLoaded(string form, string what) =>
         $"{what} is used before {form} has loaded. VB6 loads the form there and then, inside Form_Initialize, and HexIDE " +
         "doesn't do that yet (#1009).";
+
+    /// <summary>The refusal for a use of a form's control or built-in member after the form has unloaded (#973).</summary>
+    public static string UsedAfterUnload(string form, string what) =>
+        $"{what} is used after {form} has unloaded. VB6 loads the form again there, raising Form_Load, and HexIDE " +
+        "doesn't do that yet (#822).";
 
     public string ClassName => ClassDef.Name;
 

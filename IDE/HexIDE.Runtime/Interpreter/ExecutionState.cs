@@ -86,6 +86,15 @@ public class ExecutionState
                 pendingControls.Remove(location);
     }
 
+    // Forms whose controls are held because the form has unloaded, rather than because it has yet to load (#973).
+    private readonly HashSet<string> unloadedForms = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Note that a form's held controls are held because it unloaded, so their refusal says so.</summary>
+    public void MarkUnloaded(string form) => unloadedForms.Add(form);
+
+    /// <summary>Whether a form's held controls are held because it unloaded.</summary>
+    public bool IsUnloaded(string form) => unloadedForms.Contains(form);
+
     /// <summary>The form whose not-yet-loaded control this slot is, or null.</summary>
     public string? PendingControlOf(int location) =>
         pendingControls.Count > 0 && pendingControls.TryGetValue(location, out var form) ? form : null;

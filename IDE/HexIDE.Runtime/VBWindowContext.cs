@@ -133,12 +133,83 @@ public class VBWindowContext : IModuleExecutionRoot
     /// <c>Form_Initialize</c> (measured, #822); HexIDE can't yet, so a use before Load is refused (#1009) rather than read
     /// in the wrong order. Called once the controls are in the instance's env.
     /// </summary>
-    public void HoldControlsUntilLoad()
+    public void HoldControlsUntilLoad() => HoldControls(EnsureInstance());
+
+    private void HoldControls(VbObject form)
     {
-        var form = EnsureInstance();
         foreach (var location in form.InstanceEnv.variableToLocation.Values)
             if (ExecutionContext.State[location].Value is Avalonia.Controls.Control or ControlArrayGroup)
                 ExecutionContext.State.MarkPendingControl(location, form.ClassName);
+    }
+
+    /// <summary>How the host closes the form's window. Set as the form is started.</summary>
+    public Action? CloseWindow { get; set; }
+
+    // Set while QueryUnload and Unload run, so an Unload from inside them is refused rather than raising them again.
+    private bool unloading;
+
+    /// <summary>
+    /// Unload the form, as VB6 does (#973): <c>Form_QueryUnload</c>, then <c>Form_Unload</c>, each with a ByRef Cancel
+    /// that keeps the form loaded. They run inside the statement that unloads, as a call does, and the statements after
+    /// <c>Unload Me</c> run once they have. The window goes at once. Terminate, and the run's end with its last form, come
+    /// once the handler that unloaded it has returned (measured, native and p-code).
+    /// </summary>
+    /// <param name="mode">VB6's UnloadMode: 1 (vbFormCode) from <c>Unload</c>, 0 (vbFormControlMenu) from the close box.</param>
+    /// <returns>Whether the form unloaded: false when a handler cancelled.</returns>
+    public async Task<bool> UnloadAsync(int mode)
+    {
+        if (interpreter is null)
+            return true;
+        var form = EnsureInstance();
+        if (!form.FormLoaded || unloading)
+            throw new NotImplementedException(
+                $"Unload of {form.ClassName} while it is {(unloading ? "unloading" : "not loaded")} is not implemented yet (#822).");
+        unloading = true;
+        try
+        {
+            if (await Cancelled(form, "Form_QueryUnload", mode) || await Cancelled(form, "Form_Unload", null))
+                return false;
+        }
+        finally
+        {
+            unloading = false;
+        }
+        form.FormLoaded = false;
+        form.FormUnloaded = true;
+        ExecutionContext.State.MarkUnloaded(form.ClassName);
+        HoldControls(form);
+        if (Window is not null)
+            Window.IsVisible = false;
+        Events.WhenIdle(async () =>
+        {
+            await Report(() => interpreter.FireTerminate(form));
+            CloseWindow?.Invoke();
+        });
+        return true;
+    }
+
+    // Raise QueryUnload or Unload with Cancel passed by reference, and say whether the handler set it.
+    private async Task<bool> Cancelled(VbObject form, string name, int? mode)
+    {
+        var state = ExecutionContext.State;
+        var cancel = state.Alloc(new Vb6Value(0));
+        var args = new List<CallArg> { new(state[cancel], cancel) };
+        if (mode is { } unloadMode)
+            args.Add(new CallArg(new Vb6Value(unloadMode), null));
+        await interpreter!.RaiseFormEvent(form, name, args);
+        return state[cancel].Value is { } set && Convert.ToDouble(set, System.Globalization.CultureInfo.InvariantCulture) != 0;
+    }
+
+    /// <summary>
+    /// The window's close box, pressed: true when the program now decides, through QueryUnload with UnloadMode 0 and then
+    /// Unload, raised as any event is, so the window must stay open until it has. False when there is no program to ask.
+    /// </summary>
+    public bool UnloadFromCloseBox()
+    {
+        if (interpreter is null || RunIsOver() || instance is not { FormLoaded: true })
+            return false;
+        Events.Raise("Form_QueryUnload", async () => await Dispatch(async () => await UnloadAsync(0)));
+        return true;
     }
 
     /// <summary>
@@ -232,8 +303,9 @@ public class VBWindowContext : IModuleExecutionRoot
         // worked out inside the dispatch, so one HexIDE can't work out is refused as the run's error (#974).
         async Task Work()
         {
-            // An event that waited while the run ended runs nothing.
-            if (RunIsOver())
+            // An event that waited while the run ended runs nothing, and neither does one for a form that has unloaded,
+            // whose window and controls VB6 has destroyed.
+            if (RunIsOver() || form.FormUnloaded)
                 return;
             await Dispatch(async () =>
             {
