@@ -522,6 +522,7 @@ public static class UiAutomationDriver
                     return DoDoubleClick(control, peer);
 
                 case "click":
+                    // The press only: the release is still to come, as the outcome's Release (FinishAsync).
                     return DoClick(control, value);
 
                 case "scroll":
@@ -774,6 +775,11 @@ public static class UiAutomationDriver
     /// Raised on the element, as <see cref="Hover(Control, double?, double?)"/> raises its events, not through the input
     /// manager: so the press is not implicitly captured, and nothing sets <c>IsPointerOver</c>. A press, a move with the
     /// button held and a release somewhere else, which is a drag, is beyond it.
+    ///
+    /// <para>
+    /// Only the press is raised here. The release is the outcome's <see cref="InteractOutcome.Release"/>, which
+    /// <see cref="FinishAsync"/> raises as input of its own, after whatever the press set off has run.
+    /// </para>
     /// </remarks>
     private static InteractOutcome DoClick(Control control, string? value)
     {
@@ -805,14 +811,8 @@ public static class UiAutomationDriver
         var rawKeys = (keys.HasFlag(KeyModifiers.Shift) ? RawInputModifiers.Shift : RawInputModifiers.None)
                       | (keys.HasFlag(KeyModifiers.Control) ? RawInputModifiers.Control : RawInputModifiers.None)
                       | (keys.HasFlag(KeyModifiers.Alt) ? RawInputModifiers.Alt : RawInputModifiers.None);
-        var stamp = (ulong)Environment.TickCount64;
-        hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, stamp,
+        hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
             new PointerPointProperties(held | rawKeys, pressKind), keys));
-        // A control that captured the pointer on its press takes the release, as it would from a real pointer.
-        var releasedOn = pointer.Captured as Avalonia.Interactivity.Interactive ?? hit;
-        releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, inWindow, stamp + 1,
-            new PointerPointProperties(rawKeys, releaseKind), keys, button));
-        pointer.Capture(null);
 
         var landed = hit as Control;
         var landing = landed is null || ReferenceEquals(landed, control) ? ""
@@ -821,7 +821,44 @@ public static class UiAutomationDriver
         var holding = keys == KeyModifiers.None ? "" : " holding " + string.Join(" and ",
             new[] { (KeyModifiers.Shift, "shift"), (KeyModifiers.Control, "ctrl"), (KeyModifiers.Alt, "alt") }
                 .Where(k => keys.HasFlag(k.Item1)).Select(k => k.Item2));
-        return new InteractOutcome(true, "pointer", $"clicked the {name} button{holding} at {where}{landing}", null);
+        var pressed = $"the {name} button{holding} at {where}{landing}";
+        return new InteractOutcome(true, "pointer", $"pressed {pressed}; the release is still to come", null, Release: () =>
+        {
+            try
+            {
+                // A control that captured the pointer on its press takes the release, as it would from a real pointer.
+                var releasedOn = pointer.Captured as Avalonia.Interactivity.Interactive ?? hit;
+                releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, inWindow,
+                    (ulong)Environment.TickCount64, new PointerPointProperties(rawKeys, releaseKind), keys, button));
+                pointer.Capture(null);
+                return new InteractOutcome(true, "pointer", $"clicked {pressed}", null);
+            }
+            catch (Exception ex)
+            {
+                return new InteractOutcome(false, "pointer", null, $"pressed {pressed}, and the release threw: {ex.Message}");
+            }
+        });
+    }
+
+    /// <summary>How long <c>click</c> holds the button down, about as long as a person does.</summary>
+    public const int ClickHoldMs = 50;
+
+    /// <summary>
+    /// Completes an action that comes in two parts, as <c>click</c> does. Its release is raised as input of its own,
+    /// <see cref="ClickHoldMs"/> after the press and at input priority, so whatever the press set off has run first, as it
+    /// has by the time a person lifts a finger. An outcome with nothing still to come is returned as it is.
+    /// </summary>
+    /// <remarks>
+    /// Raising both in one dispatcher job is an order real input cannot produce. It is how <c>click</c> first worked, and
+    /// on a running form it put MouseUp before MouseDown: the MouseDown handler had yielded its time slice (#766), and the
+    /// release ran before the rest of it.
+    /// </remarks>
+    public static async Task<InteractOutcome> FinishAsync(InteractOutcome outcome)
+    {
+        if (outcome.Release is not { } release)
+            return outcome;
+        await Task.Delay(ClickHoldMs);
+        return await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(release, Avalonia.Threading.DispatcherPriority.Input);
     }
 
     // `click`'s value: an optional point, a button and the keys held, in any order (ClickValue).
@@ -2115,9 +2152,14 @@ public record VmMember(string Name, string Kind, string? TypeName, bool CanWrite
 /// A <c>set_value</c> pushed its text to a bound source, so whether the source kept it is still to be asked
 /// (<see cref="UiAutomationDriver.RefusedCommit"/>). Not part of the reply; the detail says it in words.
 /// </param>
+/// <param name="Release">
+/// The second part of an action that comes in two, still to be done: a <c>click</c>'s release, which
+/// <see cref="UiAutomationDriver.FinishAsync"/> raises and whose outcome is the reply. Not part of the reply.
+/// </param>
 public record InteractOutcome(
     bool Success,
     string Mechanism,
     string? Detail,
     string? Error,
-    [property: System.Text.Json.Serialization.JsonIgnore] bool Committed = false);
+    [property: System.Text.Json.Serialization.JsonIgnore] bool Committed = false,
+    [property: System.Text.Json.Serialization.JsonIgnore] Func<InteractOutcome>? Release = null);

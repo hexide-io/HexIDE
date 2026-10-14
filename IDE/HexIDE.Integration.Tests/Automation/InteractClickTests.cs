@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -45,7 +46,7 @@ public class InteractClickTests
     }
 
     [AvaloniaFact]
-    public void A_click_presses_and_releases_so_a_Button_raises_Click_from_its_release()
+    public async Task A_click_presses_and_releases_so_a_Button_raises_Click_from_its_release()
     {
         var scene = Build();
         try
@@ -55,7 +56,7 @@ public class InteractClickTests
             scene.Button.Click += (_, _) => seen.Add("click");
             scene.Button.AddHandler(InputElement.PointerReleasedEvent, (_, _) => seen.Add("released"), RoutingStrategies.Bubble, handledEventsToo: true);
 
-            var outcome = UiAutomationDriver.Interact(scene.Button, "click", null);
+            var outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Button, "click", null));
 
             outcome.Success.Should().BeTrue(outcome.Error);
             outcome.Mechanism.Should().Be("pointer");
@@ -67,7 +68,7 @@ public class InteractClickTests
     }
 
     [AvaloniaFact]
-    public void A_click_carries_the_point_the_button_and_the_keys_held()
+    public async Task A_click_carries_the_point_the_button_and_the_keys_held()
     {
         var scene = Build();
         try
@@ -88,7 +89,7 @@ public class InteractClickTests
                 released = e.InitialPressMouseButton;
             };
 
-            var outcome = UiAutomationDriver.Interact(scene.Pad, "click", "10,5.5 right shift ctrl");
+            var outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Pad, "click", "10,5.5 right shift ctrl"));
 
             outcome.Success.Should().BeTrue(outcome.Error);
             at.Should().Be(new Point(10, 5.5));
@@ -103,7 +104,7 @@ public class InteractClickTests
     }
 
     [AvaloniaFact]
-    public void A_click_on_a_covered_target_reaches_what_covers_it_and_says_so()
+    public async Task A_click_on_a_covered_target_reaches_what_covers_it_and_says_so()
     {
         // As a real click does: the press goes to the topmost element at the point, and the reply names it.
         var scene = Build();
@@ -114,11 +115,43 @@ public class InteractClickTests
             scene.Under.PointerPressed += (_, _) => underPressed++;
             scene.Cover.PointerPressed += (_, _) => coverPressed++;
 
-            var outcome = UiAutomationDriver.Interact(scene.Under, "click", null);
+            var outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Under, "click", null));
 
             outcome.Success.Should().BeTrue(outcome.Error);
             (underPressed, coverPressed).Should().Be((0, 1));
             outcome.Detail.Should().Contain("the press landed on '").And.Contain("which covers the target there");
+        }
+        finally { scene.Window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task What_the_press_set_off_runs_before_the_release()
+    {
+        // A person's release comes after the press has had its effect. Raised in the same dispatcher job, a running form's
+        // MouseUp came before its MouseDown, whose handler had yielded its time slice and queued the rest of itself (#766).
+        var scene = Build();
+        try
+        {
+            var seen = new List<string>();
+            scene.Pad.PointerPressed += (_, _) =>
+            {
+                seen.Add("pressed");
+                Dispatcher.UIThread.Post(() => seen.Add("queued by the press"));
+            };
+            scene.Pad.PointerReleased += (_, _) => seen.Add("released");
+
+            var pressed = UiAutomationDriver.Interact(scene.Pad, "click", null);
+
+            seen.Should().Equal("pressed");
+            pressed.Release.Should().NotBeNull();
+            pressed.Detail.Should().StartWith("pressed the left button at (50, 30) on '").And.EndWith("the release is still to come");
+
+            var outcome = await UiAutomationDriver.FinishAsync(pressed);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Release.Should().BeNull("the reply is the finished click");
+            outcome.Detail.Should().StartWith("clicked the left button at (50, 30) on '");
+            seen.Should().Equal("pressed", "queued by the press", "released");
         }
         finally { scene.Window.Close(); }
     }

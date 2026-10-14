@@ -2140,6 +2140,11 @@ own argument binding, which can report through `McpException`, and #603 leaves t
 > A point where nothing takes the pointer is refused, and nothing is pressed. Pinned in `InteractClickTests`, with the
 > wording of the description guarded against the refusals in `InteractClickDescriptionTests`.
 >
+> **Corrected the same day: the release is input of its own.** As first merged, `click` raised the press and the release
+> in one dispatcher job, which a person cannot do. On a running form that put MouseUp before MouseDown, every time:
+> the MouseDown handler yielded its time slice (#766), and the release ran before the rest of it. The release now comes
+> 50 ms after the press, at input priority, so whatever the press set off has run first.
+>
 > **What it does not do.** It presses and releases at one point. A drag, which is a press, a move with the button
 > held and a release elsewhere, is out of its reach, and so is a MouseMove with a button held, since `hover` moves
 > with none. The events are raised on the element, as `hover`'s are, not through the input manager, so the press is
