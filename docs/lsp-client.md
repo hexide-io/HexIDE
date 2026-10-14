@@ -533,7 +533,8 @@ re-opens it under its new name, and that open notices the move. A save that writ
 notices nothing. Save Project As of a project already saved asks only where the project file goes, and so
 does the first save of a project whose documents were written into its scratch folder when they were added:
 a document is asked for a path only when it has none (`ProjectService.DestinationOf`). The running servers
-then keep the old root until a document is next opened.
+then keep the old root until a document is next opened. That much is read from the code; neither save has
+been driven against a running server to watch it happen.
 
 ### Transports
 
