@@ -23,13 +23,22 @@ public class VBWindowContext : IModuleExecutionRoot
     // them late, after Load has used the variables they would re-create (#1010 review).
     private bool started;
 
-    public ModuleExecutionContext ExecutionContext { get; } = new();
+    public ModuleExecutionContext ExecutionContext { get; private set; } = new();
 
     /// <summary>
-    /// Runs this program's handlers one at a time, as VB6's single thread does (#766). One per run: a program of several
-    /// forms will share one, since VB6 serialises them all.
+    /// Runs this program's handlers one at a time, as VB6's single thread does (#766). One per run: every form of a
+    /// program shares its program's (#822).
     /// </summary>
-    public EventPump Events { get; } = new();
+    public EventPump Events { get; private set; } = new();
+
+    /// <summary>The program this form is one of, or null for a context that built its own interpreter (<see cref="SetCode"/>).</summary>
+    public VBProgram? Program { get; private set; }
+
+    // The form module this context's instance is made from: the program's primary module unless attached to another.
+    private ModuleInfo? template;
+
+    /// <summary>The library the program's built-ins reach the host through, from the startup form's window.</summary>
+    internal IBasicStandardLibrary StandardLibrary => standardLibrary;
 
     public string Code { get; private set; } = "";
 
@@ -118,20 +127,89 @@ public class VBWindowContext : IModuleExecutionRoot
             throw new InvalidOperationException("The form has no code yet: SetCode comes first.");
         if (instance is null)
         {
-            instance = interpreter.NewFormInstance(interpreter.PrimaryModule);
+            instance = interpreter.NewFormInstance(template ?? interpreter.PrimaryModule);
             instance.FormWindow = Window;
             // The context's own hold, apart from the one the form's name has: in VB6 a loaded form is kept alive by
             // Forms, so `Set Form1 = Nothing` from a module clears the name and leaves the running form be (#1010
-            // review). Without it, that Set terminated the instance under its own window.
-            interpreter.AddRef(Vb6Value.NewObject(instance));
+            // review). Without it, that Set terminated the instance under its own window. In a program, the program
+            // holds a form while it's loaded instead (#822).
+            if (Program is null)
+                interpreter.AddRef(Vb6Value.NewObject(instance));
         }
         return instance;
     }
 
     /// <summary>
+    /// Join <paramref name="program"/> as one of its forms (#822): its interpreter, its state and its pump, with an
+    /// instance of <paramref name="form"/> made on first use, or <paramref name="existing"/>, an unloaded instance
+    /// loading again in this window.
+    /// </summary>
+    internal void Attach(VBProgram program, ModuleInfo form, VbObject? existing = null)
+    {
+        Program = program;
+        interpreter = program.Interpreter;
+        ExecutionContext = program.ExecutionContext;
+        Events = program.Events;
+        template = form;
+        instance = existing;
+        // An instance loading again has had its declarations and its Initialize: VB6 raises Load alone (measured).
+        formDeclarationsRun = existing is not null;
+        started = existing is not null;
+        if (existing is not null)
+            existing.FormWindow = Window;
+    }
+
+    /// <summary>
+    /// Make the instance's start before its load (#822): the modules' declarations, the form's own, then
+    /// <c>Form_Initialize</c>, inside the walk that first used the form's name, as VB6 runs it (measured). An error in
+    /// Initialize is the walk's, for its <c>On Error</c> to trap (measured), so it isn't caught here.
+    /// </summary>
+    internal async Task InitializeAsync()
+    {
+        var form = EnsureInstance();
+        started = true;
+        await EnsureDeclarations();
+        await interpreter!.RaiseFormEvent(form, "Form_Initialize");
+    }
+
+    /// <summary>
+    /// Load the form (#822): its controls usable, the program holding it, then <c>Form_Load</c>, inside the walk that asked,
+    /// as <c>Load</c>, <c>Show</c> or the first use of a control does in VB6 (measured). The window stays hidden.
+    /// </summary>
+    internal async Task LoadAsync()
+    {
+        var form = EnsureInstance();
+        if (form.FormLoaded)
+            return;
+        form.FormLoaded = true;
+        form.FormUnloaded = false;
+        ExecutionContext.State.ClearPendingControls(form);
+        Program?.Loaded(this);
+        await Report(() => interpreter!.RaiseFormEvent(form, "Form_Load"));
+    }
+
+    /// <summary>Run the form's Terminate, as the program does at its end for a form whose instance it still holds.</summary>
+    internal async Task TerminateAsync() => await Report(() => interpreter!.FireTerminate(EnsureInstance()));
+
+    // Set once the window has been closed, so the program's end and an unload never close it twice.
+    private bool windowClosed;
+
+    /// <summary>Close the window once, however many times the program asks.</summary>
+    internal void CloseOnce()
+    {
+        if (windowClosed)
+            return;
+        windowClosed = true;
+        CloseWindow?.Invoke();
+    }
+
+    /// <summary>Whether the form unloaded itself during its start, as <c>Unload Me</c> in Form_Load does.</summary>
+    internal bool UnloadedDuringStart => instance is { FormUnloaded: true };
+
+    /// <summary>
     /// Hold the form's controls until it loads. VB6 loads a form at the first use of one of its controls, even inside
-    /// <c>Form_Initialize</c> (measured, #822); HexIDE can't yet, so a use before Load is refused (#1009) rather than read
-    /// in the wrong order. Called once the controls are in the instance's env.
+    /// <c>Form_Initialize</c> (measured, #822), and so does HexIDE: a read of a held control asks for the load
+    /// (<see cref="FormLoadNeeded"/>). Called once the controls are in the instance's env.
     /// </summary>
     public void HoldControlsUntilLoad() => HoldControls(EnsureInstance());
 
@@ -139,7 +217,7 @@ public class VBWindowContext : IModuleExecutionRoot
     {
         foreach (var location in form.InstanceEnv.variableToLocation.Values)
             if (ExecutionContext.State[location].Value is Avalonia.Controls.Control or ControlArrayGroup)
-                ExecutionContext.State.MarkPendingControl(location, form.ClassName);
+                ExecutionContext.State.MarkPendingControl(location, form);
     }
 
     /// <summary>How the host closes the form's window. Set as the form is started.</summary>
@@ -170,8 +248,10 @@ public class VBWindowContext : IModuleExecutionRoot
         var form = EnsureInstance();
         if (unloading || form.FormUnloaded)
             return form.FormUnloaded;
+        // A form that isn't loaded unloads as nothing: one whose name was only read, or one still in its own Initialize.
+        // No event, no error, and its instance stays (measured, #822).
         if (!form.FormLoaded)
-            throw new NotImplementedException($"Unload of {form.ClassName} before it has loaded is not implemented yet (#822).");
+            return true;
         unloading = true;
         try
         {
@@ -184,11 +264,12 @@ public class VBWindowContext : IModuleExecutionRoot
         }
         form.FormLoaded = false;
         form.FormUnloaded = true;
-        ExecutionContext.State.MarkUnloaded(form.ClassName);
         HoldControls(form);
         if (Window is not null)
             Window.IsVisible = false;
         terminatePending = true;
+        if (Program is { } program)
+            await program.Unloaded(this);
         Events.WhenIdle(() => FinishUnloadAsync(CloseWindow));
         return true;
     }
@@ -202,6 +283,19 @@ public class VBWindowContext : IModuleExecutionRoot
         if (!terminatePending)
             return;
         terminatePending = false;
+        // In a program the form's Terminate waits for its instance's release, or for the program's end, not its unload
+        // (measured, #822). The program ends first if this was its last form, running the Terminates and closing every
+        // window: a host whose run ends with the window would otherwise end it before them. Else the window goes now.
+        if (Program is { } program)
+        {
+            await program.Gone();
+            if (close is not null && !windowClosed)
+            {
+                windowClosed = true;
+                close();
+            }
+            return;
+        }
         await Report(() => interpreter!.FireTerminate(EnsureInstance()));
         close?.Invoke();
     }
@@ -278,11 +372,18 @@ public class VBWindowContext : IModuleExecutionRoot
                     return false;
                 if (await Report(() => interpreter.RaiseFormEvent(form, "Form_Initialize")) == Outcome.Over || RunIsOver())
                     return false;
-                form.FormLoaded = true;
-                ExecutionContext.State.ClearPendingControls(form.ClassName);
+                // A control or built-in member used in Initialize loaded the form there, and Load isn't raised again
+                // (measured, #822).
+                if (!form.FormLoaded && !form.FormUnloaded)
+                {
+                    form.FormLoaded = true;
+                    ExecutionContext.State.ClearPendingControls(form);
+                    Program?.Loaded(this);
+                    if (await Report(() => interpreter.RaiseFormEvent(form, "Form_Load")) == Outcome.Over)
+                        return false;
+                }
                 // A form that unloaded itself in Load, as `Unload Me` there does, is not shown (measured, #1046 review).
-                return await Report(() => interpreter.RaiseFormEvent(form, "Form_Load")) != Outcome.Over && !RunIsOver()
-                    && !form.FormUnloaded;
+                return !RunIsOver() && !form.FormUnloaded;
             }
             finally
             {
@@ -339,8 +440,8 @@ public class VBWindowContext : IModuleExecutionRoot
         async Task Work()
         {
             // An event that waited while the run ended runs nothing, and neither does one for a form that has unloaded,
-            // whose window and controls VB6 has destroyed.
-            if (RunIsOver() || form.FormUnloaded)
+            // whose window and controls VB6 has destroyed, or, in a program, one not loaded yet, which has none (#822).
+            if (RunIsOver() || form.FormUnloaded || Program is not null && !form.FormLoaded)
                 return;
             await Dispatch(async () =>
             {

@@ -368,11 +368,19 @@ public class UnloadTests
     }
 
     [AvaloniaFact]
-    public void Touching_the_form_after_Unload_is_refused_rather_than_ending_the_run_where_VB6_loads_it_again()
+    public void Touching_the_form_after_Unload_loads_it_again_hidden_with_Load_and_not_Initialize_and_the_run_goes_on()
     {
-        // Measured: VB6 loads the form again at the touch, raising Load, and the run carries on. HexIDE can't yet (#822).
+        // Measured (#822): the touch loads the form again, as designed, raising Load and not Initialize, and the form stays
+        // hidden. A form is loaded, so the run goes on, and its Terminate waits for the run's end.
         using var run = Start("""
+            Private Sub Form_Initialize()
+                Debug.Print "initialize"
+            End Sub
+            Private Sub Form_Load()
+                Debug.Print "load"
+            End Sub
             Private Sub Command1_Click()
+                Me.Caption = "changed"
                 Unload Me
                 Debug.Print "caption " & Me.Caption
             End Sub
@@ -381,7 +389,10 @@ public class UnloadTests
         run.Click();
         Pump();
 
-        run.Printed.Should().Equal("queryunload, mode 1, cancel in 0", "unload, cancel in 0");
-        run.Failed.Should().ContainSingle().Which.Should().Contain("after Form1 has unloaded").And.Contain("#822");
+        run.Failed.Should().BeEmpty();
+        run.Printed.Should().Equal("initialize", "load", "queryunload, mode 1, cancel in 0", "unload, cancel in 0", "load",
+            "caption UnloadTests");
+        run.Closed.Should().BeTrue("the window the form unloaded from is gone");
+        run.Runner.IsRunning.Should().BeTrue("the form is loaded again, hidden");
     }
 }
