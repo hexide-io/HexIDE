@@ -2328,9 +2328,42 @@
   reddens all three corpus tests, the evidence test on `ConstMulti`'s `C2`, where it had passed. The server's
   header taken to the file's last `Attribute` line reddens the corpus header check, on `Acc2/GetSetB.cls`, where
   only inline fixtures had caught it. The whole folder renamed reddens the parity check, which had passed 7/7.
-- [ ] 4.7 Tests, one per scenario in this phase's delta, plus a deletion case for a described procedure.
-- [ ] 4.8 Verify in the running IDE, through the automation tools: a procedure's attributes folded into its
+- [x] 4.7 Tests, one per scenario in this phase's delta, plus a deletion case for a described procedure.
+  — **Each scenario has its test, named for it**: code-editor's "A procedure with a description"
+  (`MemberRunFoldTests.AProcedureWithADescription`), "Deleting a described procedure"
+  (`MemberRunFollowsItsLineTests.DeletingADescribedProcedure`), "An attribute line that describes nothing"
+  (`ReadOnlyGreyingTests.AnAttributeLineThatDescribesNothing`), "Renaming a procedure that has a description"
+  (`MemberAttributesFollowARenameTests.RenamingAProcedureThatHasADescription`, three routes) and "An add-in replaces a
+  document's content, changing a member's attribute lines"
+  (`AddinWholeFileTests.AnAddinReplacesADocumentsContentChangingAMembersAttributeLines`); language-server's "Renaming a
+  member that has a description" and "Renaming to a name VB6 does not accept" (`WireContractTests`); and
+  hexide-mcp-server's "Reading and writing back a form", whose clause for a stale qualifier, added with the measured
+  saves, had no row until `DocumentContentTests.ReadingAndWritingBackAFormWhoseAttributeLineNamesAnotherName`. The
+  deletion case is `DeletingADescribedProceduresDeclarationLineAloneTakesItsAttributeLinesWithIt`.
+  — **After the lanes merged**, four suites on the merged branch: HexIDE.Tests 2756, Runtime 1897, Integration 839,
+  server 301, none failed and none skipped, each the base count plus every lane's own. Two mutants of the merge's
+  own: the replacement guard reading a run's lines from the qualifier on (survived every lane test, now refused by
+  `TheTextBeforeARunLinesQualifierChangedIsRefused`, three rows), and the server's reserved words losing `Empty` (now
+  caught by `TheServerRefusesExactlyTheNewNamesTheIdeRefuses`, which holds the two copies of the new-name rule to one
+  verdict over seventeen names).
+- [x] 4.8 Verify in the running IDE, through the automation tools: a procedure's attributes folded into its
   declaration line, refusing an edit, and surviving a format.
+  — **Verified 2026-10-14**, a Debug build of the merged branch on a copy of `corpus/member-attributes`'
+  `MemberAttributes` project, `Ledger.cls` open. *Folded*: the header and each described member's run (an `Event`, a
+  comma list's variables, a function, a property's Get, a continued declaration, a `Sub`) drawn as a box at the end
+  of the line each describes, the line numbers skipping the folded lines, and the Let, which has no run, with no box.
+  *Refused*: `press_key` Back at the start of the body line under `Total`'s run and `type_text` inside the run, each
+  refused with nothing written. *Format*: Format Document through the bundled server took two trailing spaces off a
+  body line and re-indented a continuation line, and left the header and every run byte for byte, each run in the
+  state it was in. Also: Enter at the end of `Total`'s declaration put the line break after the run, undone in one
+  step (it also wrote a second `End Function`, which is #471); a rename to `Rem` from the context menu refused with
+  "'Rem' cannot be a name, because VB6 reserves the word."; a rename to `GrandTotal` took the run's qualifier along;
+  and a retype to `GrandXTotal` saved by Save Project wrote `Attribute GrandXTotal.VB_UserMemId = 0`, the open window
+  following with no unsaved changes, and every other member byte for byte (the `.vbp`'s line order moved, #855).
+  — **Automation gaps met**: a refused Backspace's reply points the caller back at the caret it was refused at, and
+  says "header or a member's Attribute lines" without saying which (`docs/mcp-server-gaps.md`, #1042). A rename can be
+  reached only through the editor's context menu, which `interact expand` opens (#949), and the IDE could be driven
+  behind the refusal's still-open message box with `window: "ide"` (#681).
 
 ## 5. Documentation
 

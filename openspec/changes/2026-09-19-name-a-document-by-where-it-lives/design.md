@@ -1738,7 +1738,7 @@ Three consequences for this change, none of which move task 2.1:
   selection, and take it to the anchor when the selection clears, which touches every way a selection is made and
   cleared; select only to the anchor, which leaves the run out of a copy of the whole file, rejected; or leave it,
   since only that shape of file meets it. Left for now.
-- **A line break before a described line's trailing comment** (found reviewing 4.5). Enter with the caret before
+- **A line break before a described line's trailing comment** (found reviewing 4.5; #1037). Enter with the caret before
   ` ' does X` on `Public Sub Go() ' does X`, the run below it, splits the line at the caret, as any mid-line Enter
   does, and leaves the run under the comment, an orphan, which VB6 would give to nothing and drop at its next save.
   Shift+Enter, a multi-line paste, `type_text` and Insert File do the same there, and an add-in's line break there is
@@ -1751,7 +1751,7 @@ Three consequences for this change, none of which move task 2.1:
   member's attributes directly under its declaration, would presumably save from the same gesture (not measured);
   or leave it, as any split of the line. The second fits the existing placement: the span replaced reaches the
   anchor, and its text goes after the line break placed past the run. Left for now.
-- **A paste over a declaration's whole text whose first line does not declare** (found reviewing 4.5). `' note`,
+- **A paste over a declaration's whole text whose first line does not declare** (found reviewing 4.5; #1039). `' note`,
   `Public Sub Go()` pasted over the selected `Public Sub Go()` puts `' note` in the declaration's place and the
   rest after the run, which is left under the comment, an orphan; Insert File over the same selection does the same.
   With no rule the run would have stayed under the pasted declaration. But `Public Sub Leave()`, `    x = 1` pasted
@@ -1761,7 +1761,7 @@ Three consequences for this change, none of which move task 2.1:
   declaration comes last and wrong for `Leave`; or split after the text's first line that declares something, read
   as 4.1's reader reads a declaration, right for both at the cost of reading pasted text for declarations. Not
   measured in VB6. Left for now.
-- **Deleting a declaration's text by a writer that is not a key** (found reviewing 4.5a). The delta says deleting a
+- **Deleting a declaration's text by a writer that is not a key** (found reviewing 4.5a; #1038). The delta says deleting a
   described line deletes its run, unconditionally. The keys and `press_key` do; an add-in's range edit, Replace and
   Replace All that delete the declaration's text alone are applied and leave the run an orphan, and with the line's
   break they are refused. The options: widen such a deletion as the window does, so the IDE takes the run with the
