@@ -68,9 +68,11 @@ public class ModuleExecutionContext
             if (!inspecting && state.PendingControlOf(loc) is { } form)
                 throw new FormLoadNeeded(form, name);
             value = state[loc];
-            // A form's name holding no instance makes one where it's read, as VB6's predeclared name does (#822).
+            // A form's name holding no instance makes one where it's read, as VB6's predeclared name does (#822). Only
+            // through the name: a ByRef parameter aliasing the slot reads the Nothing it holds.
             if (!inspecting && value.Type == Vb6Value.ValueType.Object && value.Value is null
-                && state.DefaultFormOf(loc) is { } module)
+                && state.DefaultFormOf(loc) is { } module
+                && string.Equals(name, module.Name, StringComparison.OrdinalIgnoreCase))
                 throw new FormInstanceNeeded(module);
             // A slot with a declared type is a ceiling: overflowing it is Err 6, where a Variant would widen.
             // Marked on the VALUE because fixedness propagates through sub-expressions — `(a + 0) * 3` with a

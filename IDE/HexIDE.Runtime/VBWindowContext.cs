@@ -248,8 +248,10 @@ public class VBWindowContext : IModuleExecutionRoot
         var form = EnsureInstance();
         if (unloading || form.FormUnloaded)
             return form.FormUnloaded;
+        // A form that isn't loaded unloads as nothing: one whose name was only read, or one still in its own Initialize.
+        // No event, no error, and its instance stays (measured, #822).
         if (!form.FormLoaded)
-            throw new NotImplementedException($"Unload of {form.ClassName} before it has loaded is not implemented yet (#822).");
+            return true;
         unloading = true;
         try
         {
@@ -266,6 +268,8 @@ public class VBWindowContext : IModuleExecutionRoot
         if (Window is not null)
             Window.IsVisible = false;
         terminatePending = true;
+        if (Program is { } program)
+            await program.Unloaded(this);
         Events.WhenIdle(() => FinishUnloadAsync(CloseWindow));
         return true;
     }
@@ -288,7 +292,7 @@ public class VBWindowContext : IModuleExecutionRoot
                 windowClosed = true;
                 close();
             }
-            await program.Gone(this);
+            await program.Gone();
             return;
         }
         await Report(() => interpreter!.FireTerminate(EnsureInstance()));

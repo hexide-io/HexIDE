@@ -163,14 +163,22 @@ public sealed class VBProgram : IFormProgram
     }
 
     /// <summary>
-    /// A form's unload is complete, its handler returned: the program lets go of it, and ends once no form is loaded. A
-    /// form that loaded again meanwhile, in a new window, is still the program's.
+    /// A form has unloaded: the program lets go of it there, inside the statement that unloaded it, so a
+    /// <c>Set Form2 = Nothing</c> after it raises Terminate before the next statement (measured, #822).
     /// </summary>
-    internal async Task Gone(VBWindowContext context)
+    internal async Task Unloaded(VBWindowContext context)
     {
         var instance = context.FormInstance!;
-        if (!instance.FormLoaded && loaded.Remove(instance))
+        if (loaded.Remove(instance))
             await interpreter.ReleaseRef(Vb6Value.NewObject(instance));
+    }
+
+    /// <summary>
+    /// An unload is complete, the handler that unloaded the form having returned: the program ends there if no form is
+    /// loaded (measured, #973). A form that loaded again meanwhile, in a new window, keeps it going.
+    /// </summary>
+    internal async Task Gone()
+    {
         if (loaded.Count == 0)
             await FinishAsync();
     }

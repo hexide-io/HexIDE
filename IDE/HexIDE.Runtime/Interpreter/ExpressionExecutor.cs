@@ -851,7 +851,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // module-level Public. It is PROJECT-wide, so the search is too — the current module first,
             // then every other standard module. A member hoisted by Module2's enum is not in Module1's
             // env, and looking only there is what made this fail on the first run.
-            if (interpreter.ExecutionContext.TryGetVariable(env, memberName, out var projectMember))
+            var (inProject, projectMember) = await interpreter.Loading(() => (interpreter.ExecutionContext.TryGetVariable(env, memberName, out var v), v));
+            if (inProject)
                 return await ThenTheRest(projectMember);
             foreach (var m in interpreter.Modules.All)
             {

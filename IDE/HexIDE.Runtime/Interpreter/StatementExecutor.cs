@@ -987,7 +987,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var name = call?.iCS_S_VariableOrProcedureCall()?.ambiguousIdentifier()?.GetText()
                    ?? call?.iCS_S_ProcedureOrArrayCall()?.ambiguousIdentifier()?.GetText();
         if (name is null
-            || interpreter.ExecutionContext.TryGetVariable(currentEnv, name, out _)
+            || interpreter.ExecutionContext.TryInspectVariable(currentEnv, name, out _)
             || !interpreter.TryResolveProcedure(name, currentModule, out _, out var proc)
             || proc.Body?.Parent is not VB6Parser.FunctionStmtContext function)
             return null;
@@ -2640,7 +2640,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (baseCtx?.iCS_S_VariableOrProcedureCall()?.ambiguousIdentifier() is not { } leadId)
             return false;
         var lead = leadId.GetText();
-        if (interpreter.ExecutionContext.TryGetVariable(currentEnv, lead, out _))
+        // Only whether there is one: a form's name is a variable, and asking must not make its instance (#822).
+        if (interpreter.ExecutionContext.TryInspectVariable(currentEnv, lead, out _))
             return false;   // a same-named variable shadows the qualifier
         if (!interpreter.TryResolveQualifier(lead, out var qualifier))
             return false;
