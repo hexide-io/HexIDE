@@ -1190,6 +1190,75 @@ A new name that is not a VB6 identifier is refused before the request, with a re
 bundled server answers nothing for one. The first draft said a rename by retyping leaves an orphan with no fix-up;
 VB6 carries a procedure's description across all three kinds of rename, so that is overturned.
 
+*Settled while building 4.4.* What the paragraphs above left open, or got wrong:
+- *The model is rewritten before the render, and the window follows in the save's own step.* The save's header
+  write comes after the file is written, so a rewrite riding on it alone would never reach the file. So the same two
+  places that adopt the header (`SerializeFormToFile`, `WriteModule`), gated the same way, rewrite the model's code
+  first (`MemberAttributeQualifiers.Rewrite`, over the whole file so a control's name counts as declared), and the
+  open buffer takes the result in `IHeaderRefresher.Saved`, which replaces `ApplyHeader` at both save sites and makes
+  the header write and the qualifier write one undo entry. A `.bas` or `.cls`, which had no save-time adoption at all,
+  now has the qualifier half. Make's copies rewrite nothing, as they adopt no header.
+- *"A document it changed" is a document with unsaved changes*, the close prompt's own question. VB6 rewrites the
+  qualifiers of a module it writes, and is taken to write only a module it holds as changed; HexIDE's Save Project
+  writes every member, so without the gate a loaded `Attribute Gone.` under `Total` would be rewritten by a save that
+  changed nothing, and "Opening a form and saving it unchanged" would stop writing the buffer. That VB6 leaves an
+  untouched module unwritten is the oracle sessions' premise, not a measurement, and is recorded under *Not measured*.
+- *The window takes the model's rewrite rather than deciding again.* It rewrites its runs only when doing so turns
+  its code into what the save wrote, so an unchanged save leaves a stale run in the window as it leaves it in the
+  file. The rewrite is marked as the IDE's own, so the code window's Undo goes past it to the developer's last edit,
+  and after an undo that undid one the qualifiers are rewritten from the text as it then stands: a Ctrl+Z after a
+  save of a form changed only in its designer leaves the window holding what the file says, and one that also takes
+  back a rename finds nothing to rewrite. Not after every undo of the IDE's writes, which would rewrite a loaded
+  stale run no save had touched. A redo across that point is lost, as it is for the header.
+- *`ApplyRename` lets variable runs' qualifiers through too, which the paragraph above does not say.* It names "a run
+  describing a procedure" and refuses "every other edit to a run". Read that way, a described variable renamed by the
+  bundled server, which sends `Attribute Count.VB_VarDescription`'s qualifier with the declaration, would be refused
+  whole, where it was applied before and the run still describes the variable afterwards. So a qualifier edit is let
+  through when it replaces exactly one line's qualifier in a run that describes a member, and the same answer
+  replaces that member's name on the declaration with the same text: the procedure, whatever the qualifier said; for
+  a variable run, the declarator the line names; for the renamed kind, the one name its line declares. The rule it
+  replaced let a qualifier through when it spelled the old name, so renaming `Total` wrote into a stale `Total.` run
+  under `Halt`; that is now refused, and the bundled server no longer sends it. A lexical or foreign server still
+  does, so after a retype of `Total` to `Halt` with no save, a rename of any other `Total` through one of those is
+  refused whole where it used to be applied. That cost is taken knowingly: dropping the one edit and applying the
+  rest is formatting's rule, where a discarded edit changes only layout; a rename partly applied is an answer the
+  server did not give. Its port reads each qualifier's
+  owner at the qualifier's own position, so a qualifier on an attribute line's second physical line (p11b), which
+  the old text test missed, follows the rename too.
+- *One new string, for four words.* `Str.Naming.Msg.NotAVb6Name` already gives the shape rule's reason in every
+  shipped pack, and `ProjectNaming.IsValidName` is the measured rule every other name is chosen by: a letter, then
+  letters, digits and underscores, a leading or lone underscore and a bracketed name measured illegal. Both are
+  reused. The first build stopped there, saying no keyword was measured, which the oracle contradicts for four
+  (found reviewing 4.4): `Rem` is never an identifier anywhere (refused as a variable, a `Sub`, a parameter, a
+  field and an enum member), `Empty` is refused as a variable, and `New` and `Nothing` as a `Sub` and as a label.
+  Each has a name's shape, so the shape rule's message would be wrong for it, which was the real reason it was
+  let through; renamed `Rem`, `Function Total` stopped compiling and its `Rem = mSum` became a comment.
+  `ProjectNaming.IsReservedWord` holds those four, refused in every position since none was accepted in any
+  position tried, with `Str.Naming.Msg.ReservedWord`, and the bundled server's `IsName` refuses the same four. Not
+  refused: any other keyword, which words VB6 reserves being underivable (the label probes found `Beep` usable and
+  `Stop` not), a name past any length, and a letter outside ASCII.
+- *The weaknesses of the renamed kind are now the save's.* Each case under "What the module declares" above is
+  rewritten to the line's name where VB6 would bind it elsewhere or to nothing: p09f's `Gone` under `Public A`, the
+  `Count`/`Tally`/`Zed` retype, two one-name lines carrying one stale name, and a stale name that is a parameter's,
+  a label's, an `Enum`'s or a `Type`'s. `MemberAttributeQualifiersTests` pins each, beside the comma-list rules:
+  Multi2's run naming a declarator the line no longer declares is kept as text, and MultiP's renamed first
+  declarator is the one loss, its run left naming `P` where VB6 wrote `r`.
+- *The save rewrites a run's qualifiers and nothing else of it* (found reviewing 4.4, from the corpus's evidence).
+  VB6's save writes each run afresh: an indented line at column 1 and `Attribute   Spaced.VB_Description   =   ...`
+  with single spaces (B2's `DeclShapes`), a repeated attribute once (B's `DoubleDesc`), and `VB_VarHelpID = -1`
+  under every `WithEvents` declaration, one loaded without it included (B's `BareWithEvents`). HexIDE keeps each of
+  those as written, and adds no line. VB6 reads all of it the same way at its next load: its saves kept the
+  indented and spaced lines as the procedure's, took the first of two, and the compiler gives a `WithEvents`
+  variable help context -1 with the line or without it (p10a, p10b). So nothing VB6 reads differs, and rewriting
+  it would change text under a fold the developer never opened for no reader's sake. The qualifier is the
+  exception because it is the part a rename makes wrong, and for a variable's run the part VB6 binds by. A file
+  saved by each IDE in turn therefore changes in those bytes at VB6's save and never at HexIDE's. Whether the save
+  should drop a repeated attribute after all, which unlike the rest stays hidden and locked, is the open question
+  raised reviewing 4.6.
+- *Make writes a copy of the model as it stands*, so a renamed variable's stale qualifier reaches `vb6.exe /make`
+  unrewritten until the document is saved, and VB6, binding a `VB_Var` line by name, attaches it to nothing in what
+  it compiles. A procedure's run is unaffected, being bound by position. Recorded, not handled.
+
 **Enter, and a line break at an anchor (4.5).** A line break inserted at a described line's anchor goes after
 the run, as a line of its own, in the document's newline. That covers Enter and Shift+Enter, a multi-line paste,
 Insert File and automation's `type_text`. Enter's auto-close looks past the run for the closer, and its
@@ -1448,3 +1517,16 @@ Three consequences for this change, none of which move task 2.1:
   them matches none of what the compiler actually writes (#477), so that consumer has had no live traffic
   at all. This change re-keys the rows to the wire name resolved from the
   compiler's own (absolute) path, and converts its line numbers once, where the log is parsed.
+- **A Save As, or a write to a directory, of a document with no unsaved changes** (found reviewing 4.4). The save
+  rewrites a run's qualifiers only for a document with unsaved changes, asked against the baseline of the path it
+  was read from, so a Save As and `SaveProjectToDirectory` of an untouched module carry a loaded
+  `Attribute Gone.VB_Description` under `Function Total` to the new file as it was read. The gate stands in for
+  "a module VB6 writes", on the premise that VB6's Save Project writes no module it holds as unchanged, and that
+  premise says nothing about a Save As, which writes the module whatever its state. Whether VB6 then writes the
+  runs afresh is unmeasured; its saves of changed modules write each run whole from its own record (indent and
+  spacing too, "Settled while building 4.4"), which suggests it, and does not show it. The options: (a) keep the
+  gate as it is: a document saved untouched is written byte for byte wherever it goes, and the new file is the
+  old one; (b) treat a write to a path other than the document's own as a change, so the save rewrites and the
+  window follows, as at any save, which is what VB6 presumably does. One guest session settles it: load
+  `NamesNothing`'s shape, then Save As without editing, and diff. Until then (a), which writes nothing VB6's own
+  next load reads differently.

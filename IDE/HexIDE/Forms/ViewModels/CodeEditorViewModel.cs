@@ -400,6 +400,96 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     }
 
     /// <summary>
+    /// Marks a save's rewrite of members' attribute qualifiers as the IDE's own (#273 task 4.4), so
+    /// <see cref="UndoRequested"/> treats it as it treats a header write, and puts it back afterwards.
+    /// </summary>
+    /// <remarks>
+    /// Stateless for the reason <see cref="NameWrite"/> is: the qualifiers are in the body, so the split does not
+    /// move. What it adds is <see cref="qualifierWriteWasUndone"/>, because putting the qualifiers back is not
+    /// wanted after every undo of the IDE's writes, only after one that undid them.
+    /// </remarks>
+    private sealed class QualifierWrite(CodeEditorViewModel owner) : IUndoableOperation
+    {
+        public void Undo()
+        {
+            owner.ownerWriteWasUndone = true;
+            owner.qualifierWriteWasUndone = true;
+        }
+
+        public void Redo() { }
+    }
+
+    /// <summary>
+    /// Set while an undo replays a save's qualifier rewrite (<see cref="QualifierWrite"/>), so
+    /// <see cref="UndoRequested"/> knows to rewrite them again once the developer's edit is undone. Reset by that
+    /// caller before its loop; nothing else reads it.
+    /// </summary>
+    private bool qualifierWriteWasUndone;
+
+    /// <summary>
+    /// Makes this buffer's attribute qualifiers the ones a save just wrote into the document's code,
+    /// <paramref name="written"/> (#273 task 4.4), as one of the IDE's own writes. Does nothing when the buffer's
+    /// runs already name their members, or when the save did not rewrite them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The save decides, and this follows it.</b> A save rewrites the model's qualifiers only for a document
+    /// with unsaved changes, so a buffer whose runs still name a stale member may be exactly what an unchanged
+    /// save wrote. The rewrite is therefore made here only when it turns this buffer's code into
+    /// <paramref name="written"/>, which is the save having made it too. Anything else, including a buffer that
+    /// somehow no longer holds what was flushed, is left alone and logged: the next flush makes the buffer win,
+    /// as it always does.
+    /// </para>
+    /// <para>
+    /// <b>Replaced span by span, rather than by assigning the body</b>, for <see cref="RefreshPrefix"/>'s reason:
+    /// the caret, the selection and the folds over the rest of the buffer stay where they were. Each span is in a
+    /// member's read-only run, which the developer can neither type into nor have the caret inside, and which a
+    /// fold usually hides. The view model's own <see cref="CaretOffset"/> is moved with the text, as there.
+    /// </para>
+    /// </remarks>
+    internal void AdoptRewrittenQualifiers(string written)
+    {
+        var text = Document.Text;
+        var rewrites = MemberAttributeQualifiers.Rewrites(text, bufferPrefix.Length);
+        if (rewrites.Count == 0)
+            return;
+        if (!string.Equals(FormCodeText.BodyOf(MemberAttributeQualifiers.Apply(text, rewrites), bufferPrefix), written,
+                StringComparison.Ordinal))
+        {
+            Log.Debug("{Document}: the save did not rewrite the attribute qualifiers this window holds, so they stand",
+                identity?.Display);
+            return;
+        }
+        WriteQualifiers(rewrites);
+    }
+
+    /// <summary>Makes <paramref name="rewrites"/>, in order of offset, as one of the IDE's own writes.</summary>
+    private void WriteQualifiers(IReadOnlyList<TextChange> rewrites)
+    {
+        var caret = CaretOffset;
+        Document.BeginUpdate();
+        try
+        {
+            Document.UndoStack.Push(new QualifierWrite(this));
+            for (var i = rewrites.Count - 1; i >= 0; i--)
+                Document.Replace(rewrites[i].Offset, rewrites[i].Length, rewrites[i].Text);
+        }
+        finally
+        {
+            Document.EndUpdate();
+        }
+
+        var moved = 0;
+        foreach (var rewrite in rewrites)
+        {
+            if (rewrite.Offset + rewrite.Length <= caret)
+                moved += rewrite.Text.Length - rewrite.Length;
+        }
+        if (moved != 0)
+            CaretOffset = Math.Clamp(caret + moved, 0, Document.TextLength);
+    }
+
+    /// <summary>
     /// The document's code, without the header the buffer shows in front of it.
     /// </summary>
     /// <remarks>
@@ -633,13 +723,25 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     }
 
     /// <summary>
-    /// Puts back everything the IDE owns in this buffer: the header, and the name the code section gives.
+    /// Puts back everything the IDE owns in this buffer: the header, and the name the code section gives; and,
+    /// when <paramref name="qualifiers"/> is set, the qualifiers a save wrote into members' attribute runs.
     /// </summary>
-    private void ReassertOwnedText()
+    /// <remarks>
+    /// <b>The qualifiers only after an undo that undid a save's rewrite of them</b> (#273 task 4.4). Undoing one
+    /// puts back the qualifiers the buffer held before that save, which a file it wrote no longer holds, so a
+    /// Ctrl+Z with no code edit before it, across a save of a form changed only in its designer, would otherwise
+    /// leave the window holding a description's old name under its member. They are rewritten from the text as
+    /// it now stands, so after an undo that also took back a rename the rewrite finds nothing to do: the
+    /// declaration and its run name the old name together. Not after every undo of the IDE's writes, which would
+    /// rewrite a stale loaded qualifier that no save had rewritten, and change a document by itself.
+    /// </remarks>
+    private void ReassertOwnedText(bool qualifiers = false)
     {
         RefreshPrefix(ModelHeader);
         if (identity is { Name: { Length: > 0 } name })
             RetargetVbName(name);
+        if (qualifiers && MemberAttributeQualifiers.Rewrites(Document.Text, bufferPrefix.Length) is { Count: > 0 } rewrites)
+            WriteQualifiers(rewrites);
     }
 
     /// <summary>
@@ -655,8 +757,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// undoable from the code window, shall not block the code window's undo of an earlier code edit, and
     /// shall not make that earlier edit undo the wrong text. Those three pull against each other, and this
     /// loop is what satisfies all of them: pop the IDE's own writes until an ordinary edit comes off with
-    /// them, then put back what the IDE owns — the current header, and since task 3.5 the <c>VB_Name</c> a
-    /// rename wrote below it.
+    /// them, then put back what the IDE owns — the current header, since task 3.5 the <c>VB_Name</c> a
+    /// rename wrote below it, and since task 4.4 the attribute qualifiers a save rewrote, when one was undone.
     ///
     /// <para>
     /// <b>Why the header goes back rather than the write simply being skipped.</b> An undo entry holds an
@@ -681,6 +783,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     internal void UndoRequested(Action popOne)
     {
         var undidOwnerWrite = false;
+        qualifierWriteWasUndone = false;
         while (Document.UndoStack.CanUndo)
         {
             ownerWriteWasUndone = false;
@@ -696,7 +799,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         // header alone would leave the code section naming the form as it was before the rename, with
         // nothing afterwards that would ever repair it.
         if (undidOwnerWrite)
-            ReassertOwnedText();
+            ReassertOwnedText(qualifiers: qualifierWriteWasUndone);
     }
 
     public CodeEditorViewModel Initialize(FormDefinition formElement)
@@ -1294,31 +1397,150 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// form's layout. A control is renamed in the Properties window, as in VB6.
     /// </para>
     /// <para>
-    /// <b>The one write into a region it allows</b> is the renamed member's own qualifier in its attribute
-    /// lines: <c>Attribute Total.VB_Description</c> follows <c>Total</c> becoming <c>GrandTotal</c>, and has
-    /// to, or the description would be left describing nothing.
+    /// <b>The one write into a region it allows</b> is a member's qualifier in its own attribute lines, when the
+    /// same answer renames that member (<see cref="RefusedRenameEdit"/>): <c>Attribute Total.VB_Description</c>
+    /// follows <c>Total</c> becoming <c>GrandTotal</c>. Nothing depends on a server sending it, since the next
+    /// save of the document rewrites those qualifiers anyway (#273 task 4.4), but a server that does is right to.
     /// </para>
     /// </remarks>
     internal string? ApplyRename(IReadOnlyList<TextEdit> edits, string oldName)
     {
-        var text = Document.Text;
-        var regions = ReadOnlyRegionsNow;
         var changes = Resolve(edits);
 
-        foreach (var change in changes)
+        if (RefusedRenameEdit(Document.Text, bufferPrefix.Length, changes) is { } refused)
         {
-            if (ReadOnlyRegions.Changes(regions, change.Offset, change.Length)
-                && !IsOwnAttributeQualifier(text, change, oldName))
-            {
-                Log.Information("Refused a rename of {Name} in {Document}: an edit at offset {Offset} is in a read-only region",
-                    oldName, identity?.Display, change.Offset);
-                return localization.GetString("Str.CodeEditor.Msg.RenameTouchesReadOnly");
-            }
+            Log.Information("Refused a rename of {Name} in {Document}: an edit at offset {Offset} is in a read-only region",
+                oldName, identity?.Display, refused.Offset);
+            return localization.GetString("Str.CodeEditor.Msg.RenameTouchesReadOnly");
         }
 
         ApplyAsOneStep(changes);
         return null;
     }
+
+    /// <summary>
+    /// The first of <paramref name="changes"/>, a rename's edits to <paramref name="text"/>, that would change a
+    /// read-only region other than by a qualifier the rename may write; null when the rename may make them all.
+    /// </summary>
+    /// <param name="text">The whole buffer.</param>
+    /// <param name="prefixLength">The length of the header it was composed with; see <see cref="ReadOnlyRegions.Of"/>.</param>
+    /// <param name="changes">Every edit of the answer to this document.</param>
+    /// <remarks>
+    /// <para>
+    /// <b>A qualifier edit is let through when it replaces exactly one attribute line's qualifier, in a run that
+    /// describes a member, and the same answer renames that member</b>: it replaces the name on the declaration
+    /// above the run with the same new text. For a procedure's run the member is the procedure, whatever the
+    /// qualifier said, because VB6 gives the run to the procedure by position (design.md, "Renames (4.4)"). For a
+    /// variable run it is the declarator the line's qualifier names, since VB6 binds that line by name; and for a
+    /// run a rename by retyping left, it is the one name its line declares.
+    /// </para>
+    /// <para>
+    /// <b>Variables are let through too, which the design paragraph does not say.</b> It names a run describing a
+    /// procedure, and "every other edit to a run" refused. Read that way, renaming a described variable from the
+    /// bundled server, which sends <c>Attribute Count.VB_VarDescription</c>'s qualifier edit with the
+    /// declaration's, would be refused as a whole where it was applied before, though the run still names a name
+    /// its line declares afterwards and so still describes it.
+    /// </para>
+    /// <para>
+    /// <b>"Renames the member" is read off the answer, not off a name.</b> The rule this replaced let a qualifier
+    /// through whenever it spelled the old name, so renaming <c>Total</c> also rewrote a stale
+    /// <c>Attribute Total.</c> line under <c>Halt</c>, a run that is <c>Halt</c>'s. That edit is now refused, and
+    /// with it the rename, which is the policy for every edit to a run that the rename does not own. The bundled
+    /// server no longer sends it.
+    /// </para>
+    /// <para>
+    /// Internal and static so that <c>BundledServerRespectsTheIdesRegionsTests</c> judges the bundled server's
+    /// answers by this rule rather than by a copy of it.
+    /// </para>
+    /// </remarks>
+    internal static TextChange? RefusedRenameEdit(string text, int prefixLength, IReadOnlyList<TextChange> changes)
+    {
+        var regions = ReadOnlyRegions.Of(text, prefixLength);
+        IReadOnlyList<MemberRun>? runs = null;
+
+        foreach (var change in changes)
+        {
+            if (!ReadOnlyRegions.Changes(regions, change.Offset, change.Length))
+                continue;
+            runs ??= ReadOnlyRegions.MemberRuns(text, prefixLength);
+            if (!IsQualifierTheRenameOwns(runs, changes, change))
+                return change;
+        }
+        return null;
+    }
+
+    /// <summary>Whether <paramref name="change"/> is a qualifier of a member that <paramref name="changes"/> renames.</summary>
+    private static bool IsQualifierTheRenameOwns(IReadOnlyList<MemberRun> runs, IReadOnlyList<TextChange> changes, TextChange change)
+    {
+        foreach (var run in runs)
+        {
+            // DescribesMember is defensive. Only an edit that changes a region is asked about, and an orphan is no
+            // region and overlaps no run, so an edit starting in one reaches a region only past its own line, and is
+            // then none of its qualifiers: the answer is false either way.
+            if (!run.DescribesMember || change.Offset < run.Region.Start || change.Offset >= run.Region.End)
+                continue;
+            foreach (var line in run.Lines)
+            {
+                if (line.Qualifier is not { } qualifier || line.QualifierOffset != change.Offset
+                    || qualifier.Length != change.Length)
+                    continue;
+
+                DeclaredName? member = run.Member;
+                if (run.Kind == MemberRunKind.Variable)
+                {
+                    member = null;
+                    foreach (var declared in run.Declared)
+                    {
+                        if (declared.Kind != DeclarationKind.Procedure
+                            && string.Equals(declared.Name, qualifier, StringComparison.OrdinalIgnoreCase))
+                            member = declared;
+                    }
+                }
+                if (member is not { } renamed)
+                    return false;
+                foreach (var other in changes)
+                {
+                    if (other.Offset == renamed.Offset && other.Length == renamed.Name.Length
+                        && string.Equals(other.Text, change.Text, StringComparison.Ordinal))
+                        return true;
+                }
+                return false;
+            }
+            return false;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Why <paramref name="newName"/> cannot be the new name of a rename, or null when it may be: refused before
+    /// the request is sent (#273 task 4.4), so a server is never asked to write it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The rule names are chosen by everywhere else</b> (<see cref="ProjectNaming.IsValidName"/>): a letter, then
+    /// letters, digits and underscores. Each refusal it makes is measured or certain. A leading or lone
+    /// underscore and a bracketed name were measured illegal against <c>vb6.exe</c> (the oracle's
+    /// <c>continuation-vs-identifier</c> and "VB6 has no bracket-escaped identifiers"), and a leading digit, a
+    /// space, a <c>.</c> or a type-declaration character cannot be part of a name at all.
+    /// </para>
+    /// <para>
+    /// <b>Then the four words VB6 was measured to refuse though they have a name's shape</b>
+    /// (<see cref="ProjectNaming.IsReservedWord"/>): <c>Rem</c>, <c>Empty</c>, <c>New</c> and <c>Nothing</c>. Each
+    /// has a message of its own, because the shape rule's says what a name is made of, and these are made of
+    /// exactly that. Renamed to <c>Rem</c>, <c>Function Total</c> would no longer compile, and a body line
+    /// <c>Rem = mSum</c> would turn into a comment, in VB6 and in the interpreter alike.
+    /// </para>
+    /// <para>
+    /// <b>What it does not refuse, because nothing measured says to</b>: any other keyword, a name past any
+    /// length, and a letter outside ASCII, which VB6 may accept in its code page.
+    /// </para>
+    /// </remarks>
+    internal string? NewNameRefusal(string newName) =>
+        !ProjectNaming.IsValidName(newName)
+            ? string.Format(localization.GetString("Str.Naming.Msg.NotAVb6Name"), newName)
+            : ProjectNaming.IsReservedWord(newName)
+                ? string.Format(localization.GetString("Str.Naming.Msg.ReservedWord"), newName)
+                : null;
 
     /// <summary>
     /// Why <paramref name="word"/> cannot be renamed from <paramref name="offset"/>, or null when it can.
@@ -1345,29 +1567,6 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         IsReadOnlyRegion(offset, 0) || ReadOnlyRegions.DeclaredNames(Document.Text, bufferPrefix.Length).Contains(word)
             ? localization.GetString("Str.CodeEditor.Msg.RenameTouchesReadOnly")
             : null;
-
-    /// <summary>
-    /// True when <paramref name="change"/> rewrites exactly the <paramref name="oldName"/> in
-    /// <c>Attribute oldName.VB_…</c>, and nothing else of the line.
-    /// </summary>
-    /// <remarks>
-    /// Internal so that <c>BundledServerRespectsTheIdesRegionsTests</c> judges the bundled server's rename
-    /// by this rule rather than by a copy of it.
-    /// </remarks>
-    internal static bool IsOwnAttributeQualifier(string text, TextChange change, string oldName)
-    {
-        if (change.Length != oldName.Length
-            || !string.Equals(text.Substring(change.Offset, change.Length), oldName, StringComparison.OrdinalIgnoreCase)
-            || change.Offset + change.Length >= text.Length
-            || text[change.Offset + change.Length] != '.')
-            return false;
-
-        var lineStart = text.LastIndexOf('\n', Math.Max(change.Offset - 1, 0)) + 1;
-        if (change.Offset == 0)
-            lineStart = 0;
-        var before = text.AsSpan(lineStart, change.Offset - lineStart).Trim();
-        return before.Equals("Attribute", StringComparison.OrdinalIgnoreCase);
-    }
 
     /// <summary>
     /// Replaces this document's content, keeping its header: the rule add-in <c>SetContent</c> and automation

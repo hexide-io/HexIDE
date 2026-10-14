@@ -1807,9 +1807,88 @@
   region, these included. What is left is checking both once 4.3 folds the runs.
 - [ ] 4.3 Folds from the end of the described line, built with character offsets and nested inside a server's
   procedure fold.
-- [ ] 4.4 A member's rename rewrites its own attribute qualifiers — a procedure, property or module-level
+- [x] 4.4 A member's rename rewrites its own attribute qualifiers — a procedure, property or module-level
   variable alike, since VB6 writes `VB_Var*` lines after a declaration. A server rename's edits to them are
   permitted; its edits to the header are not.
+  — **Built** to design.md's "Renames (4.4)" and the "Settled while building 4.4" points under it.
+  `MemberAttributeQualifiers` (Runtime) reads `MemberRun.Kind`, `Member` and each line's `QualifierOffset` and
+  gives the replacements that make every `Procedure` and `RenamedVariable` run name its member as declared, over
+  the whole file so a control's name counts as declared. The save rewrites the model's code with it before the
+  render, in the two places that already adopt the header (`SerializeFormToFile`, `WriteModule`), gated the same
+  way so Make's copies are left alone, and only for a document with unsaved changes, so an unchanged save still
+  writes the buffer byte for byte. The open window follows in `IHeaderRefresher.Saved`, which replaces `ApplyHeader`
+  at both save sites, gives a `.bas` or `.cls` a save-time adoption for the first time, and makes the header write
+  and the qualifier write one undo entry. The window rewrites its runs only when that turns its code into what the
+  save wrote, marks the rewrite as the IDE's own (`QualifierWrite`), so Undo goes past it to the developer's edit,
+  and rewrites them again after an undo that undid one. `ApplyRename` judges a whole answer
+  (`RefusedRenameEdit`): a qualifier edit inside a run is let through when it replaces exactly that qualifier and
+  the same answer gives the run's member, the procedure, the declarator a variable line names, or the renamed
+  run's one name, the same new name on its declaration; every other edit to a run or the header refuses the
+  rename. That admits variables, which the design paragraph left out, and refuses the edit the old rule let
+  through into a run of another member. A new name `ProjectNaming.IsValidName` refuses is refused before the
+  request with the existing `Str.Naming.Msg.NotAVb6Name`, and, since review, one of the four reserved words with a
+  key of its own (below). The bundled server answers a rename
+  to such a name with nothing (`VbTextHelpers.IsName`), and edits a protected qualifier only in a run whose member
+  is the word renamed (`VbProtectedRegions.IsOwnQualifier`, now per run and at the qualifier's own position).
+  — **Tests.** `MemberAttributesFollowARenameTests`: the scenario test `RenamingAProcedureThatHasADescription`,
+  by the bundled server, by a server that leaves attribute lines alone and by retyping the name, each saved and
+  compared with the file VB6 saved after the same rename (C3, C3, C2), and undone in one step; B's
+  `NamesNothing`, `NamesOther` and `LowerCase` saved changed (VB6's saved files) and unchanged (byte for byte);
+  V1's retyped variable (VB6's file); V2's Multi2 kept as text where VB6 dropped it; a closed document; one undo
+  entry for the save's header and qualifiers; Undo after a designer-only change and save, after a code edit and
+  save, and across a designer change with no save; the caret; and Make's copy. `MemberAttributeQualifiersTests`:
+  the rewrite on VB6's shapes, every line and only the qualifier, a property's two runs, p11b's qualifier on a
+  second physical line, a continued declaration, variable runs and orphans left alone, MultiP's first declarator
+  (the one loss), and each recorded weakness of the renamed kind pinned. `GuardedWritersTests`: the rename rule's
+  admissions and refusals, variables and a second declarator included, and the new-name rule both ways (the old
+  scenario-named test renamed `ARenameTakesTheProceduresOwnQualifierAlong`). `SaveRecordsTheHeaderTests` asserts
+  `Saved` where it asserted `ApplyHeader`. `BundledServerRespectsTheIdesRegionsTests` judges each rename answer
+  whole by `RefusedRenameEdit`, and counts the qualifier edits it lets through. Server: `VbProtectedRegionsTests`
+  rows for the owner rule on both fixtures, `WireContractTests` for Halt's run left alone and for new names
+  refused and accepted.
+  — **Mutation: 22 on the IDE's side and 7 on the server's, each reddening a test**, one at a time. The save
+  rewriting a copy, rewriting without the gate on unsaved changes, not rewriting a module or a form at all, the
+  window not following, the save's two writes in two undo entries, the window rewriting whatever the save wrote,
+  the rewrite unmarked, the qualifiers never or always put back after an undo (and the flag that decides it never
+  set), the caret left behind; the rename rule not looking for the declaration's edit, not comparing its new text,
+  reading a variable line as the run's first declarator, not checking the qualifier's span, and the new-name rule
+  weakened; the rewrite taking variable runs, leaving out the renamed kind, ignoring case, reading the body without
+  its prefix, and applying first to last. On the server's: the leading letter, the handler's check, the owner
+  comparison, a variable line owned by its first declarator, a continued qualifier's position, and a renamed or
+  procedure run owned by its qualifier. First runs left one standing, the qualifier's span check, which the row
+  replacing `Gone.VB_` with the declaration's new text now decides; two did not compile (CS0414 under
+  warnings-as-errors, the flag left unread) and were rerun reading it. Equivalent, so not run: a run's
+  `DescribesMember` test in the rename rule, since only an edit inside a region is asked about and an orphan is
+  none.
+  — **Reviewed.** Thirteen findings and eight surviving mutants. The design paragraph asked for a new string for a
+  name that is not a VB6 identifier, and the build reused the shape rule's on the ground that no keyword was
+  measured; four were. `Rem` is never an identifier anywhere, `Empty` is refused as a variable, `New` and `Nothing`
+  as a `Sub` and a label, so renaming `Total` to `Rem` wrote a function that does not compile and turned
+  `Rem = mSum` into a comment. `ProjectNaming.IsReservedWord` holds those four and no others, `NewNameRefusal` gives
+  them `Str.Naming.Msg.ReservedWord` (in `en` and the 29 shipped packs), and the bundled server's `IsName` refuses
+  the same four; `RemX` and `Rem1`, measured legal, pass on both sides. Three mutants survived every committed
+  test and each now reddens one: a module's copy rewriting the model
+  (`ACopyMakeWritesOfAModuleLeavesTheModelsQualifiersAsTheyAre`, Make's repointing reproduced, so the module has
+  no baseline and reads as changed), the window's rewrites made first to last
+  (`SeveralRewritesInOneWindowLandWhereTheSaveWroteThem`, two runs whose names differ in length, the window
+  compared with the file), and the caret moved for a rewrite after it (`ACaretAboveARewrittenRunDoesNotMove`).
+  The flag not reset before the undo loop was thought to need an undo route outside `UndoRequested`; nothing
+  resets it after the loop either, so a second Undo reads the first's, and
+  `AnUndoAfterOneThatTookBackASavesRewriteLeavesAStaleRunAsItStands` reddens under it. The rename rule ignoring the
+  declaration edit's length reddens a row replacing `Total(` with the qualifier's new text, and its variable owner
+  taking a procedure reddens a row with `Public Event Total()` beside `Public Total As Long` on one line, a shape
+  VB6 was not seen to write. Equivalent: `Rewrite` passing a prefix of 0, since both branches of the header count
+  end in the same attribute run and the text walk finds the same designer block as the prefix the model split;
+  and orphans not skipped in the rename rule, said so in a comment. Recorded in design.md rather than changed: the
+  save rewrites a run's qualifiers and nothing else of it (VB6 rewrites the whole run), a rename from a lexical
+  server refused whole when it reaches another member's stale run, and, under "Open questions", Save As and a
+  write to a directory of an unchanged document. The scenario's THEN now says "once it is saved".
+  — **Left.** The view's call to `NewNameRefusal` after the input box, and its hardcoded `New name:` and `Rename`
+  prompt, have no test; the prompt is a localization gap older than this task. Keywords other than the four
+  measured are not refused as new names. Whether VB6's Save Project writes an untouched module, and whether its
+  Save As rewrites one's stale qualifiers, were not measured (oracle, *Not measured*). Make's copy carries a renamed
+  variable's stale qualifier to `vb6.exe` until the document is saved. The bundled server answers a refused
+  rename with `null`, which LSP reads as "no change required", for this refusal as for its others.
 - [ ] 4.5 Enter at the end of a described line inserts after the attribute run, not between the line and its
   attributes.
 - [ ] 4.5a A run follows the line it describes: deleting that line deletes the run with it, and a cut takes

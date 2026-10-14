@@ -42,11 +42,14 @@ internal sealed class VbProtectedRegions
 {
     private readonly bool[] protectedLines;
     private readonly HashSet<string> declaredNames;
+    private readonly Dictionary<(int Line, int Character), string> qualifierOwners;
 
-    private VbProtectedRegions(bool[] protectedLines, int headerLineCount, HashSet<string> declaredNames)
+    private VbProtectedRegions(bool[] protectedLines, int headerLineCount, HashSet<string> declaredNames,
+        Dictionary<(int Line, int Character), string> qualifierOwners)
     {
         this.protectedLines = protectedLines;
         this.declaredNames = declaredNames;
+        this.qualifierOwners = qualifierOwners;
         HeaderLineCount = headerLineCount;
     }
 
@@ -62,12 +65,15 @@ internal sealed class VbProtectedRegions
         var marks = new bool[lines.Count];
         for (var i = 0; i < header; i++)
             marks[i] = true;
-        foreach (var (first, last) in DescribingRuns(lines, header))
+        var owners = new Dictionary<(int Line, int Character), string>();
+        foreach (var (first, last, qualifiers) in DescribingRuns(lines, header))
         {
             for (var line = first; line <= last; line++)
                 marks[line] = true;
+            foreach (var (at, owner) in qualifiers)
+                owners[at] = owner;
         }
-        return new VbProtectedRegions(marks, header, DeclaredNames(lines, header));
+        return new VbProtectedRegions(marks, header, DeclaredNames(lines, header), owners);
     }
 
     /// <summary>
@@ -104,23 +110,37 @@ internal sealed class VbProtectedRegions
     }
 
     /// <summary>
-    /// True when <paramref name="occurrence"/> of <paramref name="word"/> is the member name in
-    /// <c>Attribute word.VB_…</c>: the one place inside a protected line that a rename changes.
+    /// True when <paramref name="occurrence"/> of <paramref name="word"/> is the qualifier of an attribute line in
+    /// a run that describes a member called <paramref name="word"/>: the one place inside a protected line that a
+    /// rename of <paramref name="word"/> changes.
     /// </summary>
     /// <remarks>
-    /// When <c>Total</c> is renamed to <c>GrandTotal</c>, <c>Attribute Total.VB_Description</c> has to follow,
-    /// or the description is left describing a member that no longer exists. The IDE lets exactly this edit
-    /// through its own guard for the same reason (<c>CodeEditorViewModel.IsOwnAttributeQualifier</c>).
+    /// <para>
+    /// When <c>Total</c> is renamed to <c>GrandTotal</c>, <c>Attribute Total.VB_Description</c> under it follows.
+    /// The IDE lets exactly this edit through its own guard (<c>CodeEditorViewModel.RefusedRenameEdit</c>): a
+    /// qualifier of a run whose member the same answer renames. A rename here renames every occurrence of the
+    /// word, the member's declaration included, so "the answer renames the member" is "the member is called the
+    /// word".
+    /// </para>
+    /// <para>
+    /// <b>The member a line belongs to is the IDE's</b> (hexide-io/HexIDE#273 task 4.4): a procedure's run is the
+    /// procedure's whatever its qualifier names, a variable run's line is the declarator it names, and a run a
+    /// rename by retyping left is the one name its line declares. So <c>Attribute Total.VB_Description</c> under
+    /// <c>Sub Halt()</c> is <c>Halt</c>'s, and renaming <c>Total</c> leaves it alone. The rule this replaced
+    /// matched the qualifier's text and sent that edit, and the IDE now refuses a rename that writes into a run
+    /// it does not rename. The IDE's next save rewrites that qualifier to <c>Halt</c> anyway.
+    /// </para>
+    /// <para>
+    /// Read at the qualifier's own position, which may be on a physical line after the attribute line's first
+    /// (<c>Attribute _</c> above <c>Wrapped.VB_HelpID = 3</c>, oracle probe p11b), where a reading of the line's
+    /// text before the occurrence would find no <c>Attribute</c>.
+    /// </para>
     /// </remarks>
-    public static bool IsOwnQualifier(string lineText, LspRange occurrence, string word)
-    {
-        var start = occurrence.Start.Character;
-        var end = occurrence.End.Character;
-        if (occurrence.Start.Line != occurrence.End.Line || end - start != word.Length
-            || end >= lineText.Length || lineText[end] != '.')
-            return false;
-        return lineText.AsSpan(0, start).Trim().Equals("Attribute", StringComparison.OrdinalIgnoreCase);
-    }
+    public bool IsOwnQualifier(LspRange occurrence, string word) =>
+        occurrence.Start.Line == occurrence.End.Line
+        && occurrence.End.Character - occurrence.Start.Character == word.Length
+        && qualifierOwners.TryGetValue((occurrence.Start.Line, occurrence.Start.Character), out var owner)
+        && string.Equals(owner, word, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// <paramref name="source"/> with every protected line emptied and every line break kept, so each line of
@@ -268,13 +288,16 @@ internal sealed class VbProtectedRegions
 
     private readonly record struct Declared(string Name, DeclarationKind Kind);
 
-    private readonly record struct AttributeLine(AttributeLineKind Kind, string? Qualifier);
+    /// <param name="QualifierAt">Where <paramref name="Qualifier"/> starts in the logical line's joined text; -1 for none.</param>
+    private readonly record struct AttributeLine(AttributeLineKind Kind, string? Qualifier, int QualifierAt);
 
     /// <summary>
-    /// The first and last physical line of every run below the header that describes a member. The IDE's
-    /// <c>ReadOnlyRegions.Scan</c>, which documents the rule.
+    /// The first and last physical line of every run below the header that describes a member, and where each of
+    /// its lines' qualifiers is with the member it belongs to. The IDE's <c>ReadOnlyRegions.Scan</c>, which
+    /// documents the rule, and its <c>MemberRun.Member</c>.
     /// </summary>
-    private static IEnumerable<(int First, int Last)> DescribingRuns(List<string> lines, int header)
+    private static IEnumerable<(int First, int Last, List<((int Line, int Character) At, string Owner)> Qualifiers)> DescribingRuns(
+        List<string> lines, int header)
     {
         var logical = LogicalLinesOf(lines, header);
         int? firstBody = null;
@@ -294,9 +317,36 @@ internal sealed class VbProtectedRegions
                 attributes.Add(ReadAttributeLine(Text(logical[k])));
 
             // The first line of the code has no line of its own above it, and so describes nothing.
-            if (first > 0 && Describes(attributes, ReadDeclarations(Text(logical[first - 1]), out _),
-                    () => first - 1 < FirstBody(), name => ModuleNames().Contains(name)))
-                yield return (logical[first].First, logical[k - 1].Last);
+            if (first == 0)
+                continue;
+            var declared = ReadDeclarations(Text(logical[first - 1]), out _);
+            if (!Describes(attributes, declared, () => first - 1 < FirstBody(), name => ModuleNames().Contains(name)))
+                continue;
+
+            var qualifiers = new List<((int Line, int Character) At, string Owner)>();
+            for (var a = 0; a < attributes.Count; a++)
+            {
+                if (attributes[a].Qualifier is { } qualifier)
+                    qualifiers.Add((PositionIn(logical[first + a], attributes[a].QualifierAt), Owner(attributes, declared, qualifier)));
+            }
+            yield return (logical[first].First, logical[k - 1].Last, qualifiers);
+        }
+
+        // Where an offset into a logical line's joined text falls: the physical line, and the character on it.
+        (int Line, int Character) PositionIn((int First, int Last) line, int offset)
+        {
+            var physical = line.First;
+            var start = 0;
+            var text = Text(line);
+            for (var i = 0; i < offset; i++)
+            {
+                if (text[i] == '\n')
+                {
+                    physical++;
+                    start = i + 1;
+                }
+            }
+            return (physical, offset - start);
         }
 
         // A logical line's physical lines, joined with the line breaks kept, which the declaration reader takes
@@ -352,6 +402,22 @@ internal sealed class VbProtectedRegions
         return declared.Count == 1 && declared[0].Kind != DeclarationKind.Procedure
             && attributes.TrueForAll(a => string.Equals(a.Qualifier, stale, StringComparison.OrdinalIgnoreCase))
             && !declaredInModule(stale);
+    }
+
+    /// <summary>
+    /// The member a line of a run that <see cref="Describes"/> its line belongs to, named as declared: the procedure
+    /// for a procedure's run, whatever <paramref name="qualifier"/> says; the declarator <paramref name="qualifier"/>
+    /// names for a variable run; and the line's one name for the run a rename by retyping left. The IDE's
+    /// <c>MemberRun.Member</c>, and for a variable run the declarator <c>CodeEditorViewModel.RefusedRenameEdit</c>
+    /// reads off the line.
+    /// </summary>
+    private static string Owner(List<AttributeLine> attributes, List<Declared> declared, string qualifier)
+    {
+        if (attributes.TrueForAll(a => a.Kind == AttributeLineKind.Procedure))
+            return declared.Find(d => d.Kind == DeclarationKind.Procedure).Name;
+        if (attributes.TrueForAll(a => declared.Exists(d => IsVariableNamed(d, a.Qualifier!))))
+            return declared.Find(d => IsVariableNamed(d, qualifier)).Name;
+        return declared[0].Name;
     }
 
     private static bool IsVariableNamed(Declared declared, string name) =>
@@ -414,12 +480,12 @@ internal sealed class VbProtectedRegions
         }
         var dot = text.IndexOf('.', name, i - name);
         if (dot < 0)
-            return new AttributeLine(AttributeLineKind.Dotless, null);
+            return new AttributeLine(AttributeLineKind.Dotless, null, -1);
 
         var kind = text.AsSpan(dot + 1, i - dot - 1).StartsWith("VB_Var", StringComparison.OrdinalIgnoreCase)
             ? AttributeLineKind.Variable
             : AttributeLineKind.Procedure;
-        return new AttributeLine(kind, text[name..dot]);
+        return new AttributeLine(kind, text[name..dot], name);
     }
 
     /// <summary>

@@ -245,15 +245,48 @@ public class VbProtectedRegionsTests
     }
 
     [Theory]
-    [InlineData("Attribute Total.VB_Description = \"x\"", 10, true)]
-    [InlineData("attribute total.VB_Description = \"x\"", 10, true)]
-    [InlineData("    Attribute Total.VB_UserMemId = 0", 14, true)]
-    [InlineData("Attribute Total = 1", 10, false)]
-    [InlineData("x = Total.VB_Description", 4, false)]
-    public void OnlyTheMemberNameInAnAttributeLineIsItsOwnQualifier(string line, int start, bool expected)
+    // A variable run's line is the declarator its qualifier names: a comma list's first and second, WithEvents
+    // or not, a colon's second statement, and a constant.
+    [InlineData("class", 10, 10, "Clock", true)]
+    [InlineData("class", 11, 10, "Alarm", true)]
+    [InlineData("class", 13, 10, "count", true)]
+    [InlineData("class", 15, 10, "B", true)]
+    [InlineData("class", 17, 10, "C2", true)]
+    // A procedure's run is the procedure's, the Get's and the Let's alike.
+    [InlineData("class", 27, 10, "total", true)]
+    [InlineData("class", 32, 10, "Value", true)]
+    [InlineData("class", 36, 10, "Value", true)]
+    // ... whatever its qualifier names: Halt's run says Total, and renaming Total leaves it alone.
+    [InlineData("class", 43, 10, "Total", false)]
+    // The run a rename by retyping left is the one name its line declares, Score, and not the name it carries.
+    [InlineData("class", 21, 10, "Points", false)]
+    // An orphan is nobody's: free text the rename writes into anyway, as it is not protected.
+    [InlineData("class", 29, 10, "total", false)]
+    [InlineData("class", 19, 10, "Tally", false)]
+    // A continued attribute line's qualifier, on its first physical line and on its second (p11b).
+    [InlineData("form", 53, 10, "Wrapped", true)]
+    [InlineData("form", 56, 0, "Wrapped", true)]
+    // The qualifier of a bracketed declaration's run, and of a declarator past a continuation.
+    [InlineData("form", 23, 10, "Total", true)]
+    [InlineData("form", 28, 10, "e1", true)]
+    public void AQualifierIsTheMembersOwnWhenTheRunItIsInBelongsToThatMember(
+        string file, int line, int character, string word, bool expected)
     {
-        VbProtectedRegions.IsOwnQualifier(line, Range(0, start, 0, start + "Total".Length), "Total")
-            .Should().Be(expected);
+        // The rename's exception, read per run as the IDE reads it (hexide-io/HexIDE#273 task 4.4): the code
+        // window refuses a rename that writes into a run it does not rename.
+        var regions = VbProtectedRegions.Of(file == "class" ? ClassWithOrphans : FormWithReaderShapes);
+
+        regions.IsOwnQualifier(Range(line, character, line, character + word.Length), word).Should().Be(expected);
+    }
+
+    [Fact]
+    public void AQualifierIsReadInAnyCaseAndOnlyAtItsOwnPosition()
+    {
+        var regions = VbProtectedRegions.Of(ClassWithOrphans);
+
+        regions.IsOwnQualifier(Range(27, 10, 27, 15), "TOTAL").Should().BeTrue("VB6 compares names without case");
+        regions.IsOwnQualifier(Range(27, 11, 27, 16), "total").Should().BeFalse("one character off the qualifier");
+        regions.IsOwnQualifier(Range(27, 10, 27, 14), "total").Should().BeFalse("a range shorter than the word");
     }
 
     [Fact]

@@ -8,8 +8,8 @@ those, and no formatting, rename or highlight answer it gives SHALL change or po
 exception: renaming a member SHALL change that member's own name where it qualifies one of its attribute lines
 (`Attribute Total.VB_Description`), and nothing else on that line. A rename or highlight asked for from a
 position inside any of those lines SHALL have no answer, and so SHALL a rename of a name the designer block
-declares: the form's own, a control's or a menu's, wherever it is asked for. A header the server cannot parse
-SHALL NOT stop it analysing the code after the header.
+declares: the form's own, a control's or a menu's, wherever it is asked for. So SHALL a rename to a new name that
+is not a VB6 name. A header the server cannot parse SHALL NOT stop it analysing the code after the header.
 
 The client now sends the file rather than the code, because that is the only way a position means the same
 thing to the editor, to a server reading the file from disk, and to anything reading it afterwards. A server
@@ -27,7 +27,15 @@ Rename and highlight are lexical in the bundled server, matching whole words acr
 designer block in view, a developer renaming a local called `Text`, `Top` or `Caption` would otherwise be
 offered edits inside the layout. The exception for a member's own qualifier is the code editor's rule that a
 member's attribute lines follow its rename, whether the IDE or a language server makes it: left behind,
-`Attribute Total.VB_Description` describes a member that no longer exists.
+`Attribute Total.VB_Description` describes a member that no longer exists. A member's own lines are the run VB6
+gives that member, which for a procedure is the run under its declaration whatever its qualifiers name, so a run
+naming `Total` under another procedure is that procedure's, and renaming `Total` leaves it alone.
+
+A new name that is not a VB6 name, a letter followed by letters, digits and underscores, would write text that
+does not compile wherever the name stands, and `Grand Total` would split one name into two. Nor is one of the four
+words VB6 was measured to refuse as a name though each has a name's shape, `Rem`, `Empty`, `New` and `Nothing`:
+renamed `Rem`, a function's `Rem = mSum` would be a comment. The code editor refuses such a name before it asks; a
+client that does not is answered with nothing.
 
 Keeping off the header makes a declared name the one rename that has to be declined outright. Its
 declaration is the `Begin` line in the designer block, so a rename that kept off the header would rename every
@@ -67,3 +75,8 @@ whole file, the code's real errors included, and give no reason why.
 - **GIVEN** a property followed by an `Attribute <Name>.VB_Description` line
 - **WHEN** the property is renamed from its declaration
 - **THEN** the answer changes the name that qualifies the attribute line, and nothing else on that line
+
+#### Scenario: Renaming to a name VB6 does not accept
+- **WHEN** a rename is asked for with a new name that does not start with a letter, holds a character other than
+  a letter, a digit or an underscore, or is `Rem`, `Empty`, `New` or `Nothing` in any case
+- **THEN** there is no answer

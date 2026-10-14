@@ -117,8 +117,9 @@ public class GuardedWritersTests : IDisposable
         vm.Document.Text.IndexOf("Option Explicit", StringComparison.Ordinal);
 
     /// <summary>
-    /// What the bundled server's rename sends: a whole-word, case-insensitive edit at every occurrence
-    /// outside strings and comments, header included.
+    /// What a lexical rename that knows nothing of read-only regions sends, as the bundled server's did before
+    /// task 3.10: a whole-word, case-insensitive edit at every occurrence outside strings, header and every
+    /// attribute run included.
     /// </summary>
     private static List<TextEdit> LexicalRename(TextDocument document, string word, string newName)
     {
@@ -176,10 +177,11 @@ public class GuardedWritersTests : IDisposable
     }
 
     [AvaloniaFact]
-    public void RenamingAProcedureThatHasADescription()
+    public void ARenameTakesTheProceduresOwnQualifierAlong()
     {
-        // The code-editor delta's scenario: the attribute line names the procedure's new name. The member's
-        // own qualifier is the one write into a region a rename may make.
+        // The member's own qualifier is the one write into a region a rename may make. The scenario this used to
+        // be named for is MemberAttributesFollowARenameTests', which takes it through every kind of rename and the
+        // save (#273 task 4.4).
         var vm = OpenClass();
         var edits = LexicalRename(vm.Document, "Total", "GrandTotal");
 
@@ -187,6 +189,219 @@ public class GuardedWritersTests : IDisposable
 
         vm.BufferBody.Should().Be(ClassCode.Replace("Total", "GrandTotal"));
         vm.Document.Text.Should().Contain("Attribute GrandTotal.VB_Description = \"The order total\"");
+    }
+
+    /// <summary>
+    /// A class with a run of each kind the rename rule reads (#273 task 4.4): a variable run on a comma list, a
+    /// procedure's run naming nothing, and a procedure's run naming another member.
+    /// </summary>
+    private const string DescribedCode =
+        "Option Explicit\r\n" +
+        "Public Rate As Currency, Count As Long\r\n" +
+        "Attribute Count.VB_VarDescription = \"How many\"\r\n" +
+        "Public Function Total() As Currency\r\n" +
+        "Attribute Gone.VB_Description = \"The order total\"\r\n" +
+        "    Total = 0\r\n" +
+        "End Function\r\n" +
+        "Public Sub Halt()\r\n" +
+        "Attribute Total.VB_Description = \"Named for another member\"\r\n" +
+        "End Sub\r\n";
+
+    private CodeEditorViewModel OpenDescribedClass()
+    {
+        var module = TestHelpers.CreateModule(name: "Order", kind: ModuleKind.ClassModule);
+        module.UpdateCode(DescribedCode);
+        return NewEditor().Initialize(module);
+    }
+
+    /// <summary>An edit replacing <paramref name="old"/> at its <paramref name="occurrence"/>th place in the buffer.</summary>
+    private static TextEdit EditOf(TextDocument document, string old, string text, int occurrence = 0)
+    {
+        var at = -1;
+        for (var i = 0; i <= occurrence; i++)
+            at = document.Text.IndexOf(old, at + 1, StringComparison.Ordinal);
+        return EditAt(document, at, old.Length, text);
+    }
+
+    /// <summary>An edit replacing <paramref name="length"/> characters at <paramref name="offset"/>, as a server sends it.</summary>
+    private static TextEdit EditAt(TextDocument document, int offset, int length, string text)
+    {
+        var start = document.GetLocation(offset);
+        var end = document.GetLocation(offset + length);
+        return new TextEdit(new HexIDE.Lsp.Messages.Range(
+            new Position(start.Line - 1, start.Column - 1), new Position(end.Line - 1, end.Column - 1)), text);
+    }
+
+    [AvaloniaFact]
+    public void ARenameMayRewriteTheQualifierOfAProcedureItRenamesWhateverTheQualifierSaid()
+    {
+        // VB6 gives the run to the procedure above it whatever its qualifier names (design.md, "Renames (4.4)"), so a
+        // qualifier edit there belongs to the procedure's rename even when the qualifier said Gone.
+        var vm = OpenDescribedClass();
+
+        vm.ApplyRename([
+            EditOf(vm.Document, "Total", "Grand"),
+            EditOf(vm.Document, "Gone", "Grand"),
+            EditOf(vm.Document, "Total", "Grand", occurrence: 1),
+        ], "Total").Should().BeNull();
+
+        vm.Document.Text.Should().Contain("Attribute Grand.VB_Description = \"The order total\"");
+    }
+
+    [AvaloniaFact]
+    public void ARenameIsRefusedWhenItWritesIntoTheRunOfAMemberItDoesNotRename()
+    {
+        // Halt's run says Total, and is Halt's. A lexical rename of Total reaches it, and a rule matching the
+        // qualifier's text let it through; the run's member is what decides now, and the rename is refused whole.
+        var vm = OpenDescribedClass();
+        var before = vm.Document.Text;
+        var edits = LexicalRename(vm.Document, "Total", "Grand");
+        edits.Should().Contain(e => e.Range.Start.Line == vm.Document.GetLocation(
+            before.IndexOf("Attribute Total.", StringComparison.Ordinal)).Line - 1, "the premise: the answer reaches Halt's run");
+
+        vm.ApplyRename(edits, "Total").Should().Be("rename refused");
+
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public void AQualifierEditIsRefusedWhenTheAnswerDoesNotRenameTheMembersDeclaration()
+    {
+        var vm = OpenDescribedClass();
+        var before = vm.Document.Text;
+
+        vm.ApplyRename([EditOf(vm.Document, "Gone", "Grand")], "Gone").Should().Be("rename refused");
+        vm.ApplyRename([EditOf(vm.Document, "Total", "Grand"), EditOf(vm.Document, "Gone", "Other")], "Total")
+            .Should().Be("rename refused", "the qualifier has to take the name the declaration takes");
+        vm.ApplyRename([EditOf(vm.Document, "Total", "Grand"), EditOf(vm.Document, "Gone.VB_", "Grand")], "Total")
+            .Should().Be("rename refused", "an edit reaching past the qualifier is an edit to the rest of the line");
+        vm.ApplyRename([EditOf(vm.Document, "Total(", "Grand"), EditOf(vm.Document, "Gone", "Grand")], "Total")
+            .Should().Be("rename refused",
+                "nor is a declaration's edit reaching past the name a rename of it, though it writes the qualifier's text");
+
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public void ARenameOfADescribedVariableTakesItsQualifierAlong()
+    {
+        // The design paragraph names procedures only; read that way, this rename, which the bundled server sends,
+        // would be refused whole. A variable's line binds by name, and still names a name its line declares after.
+        var vm = OpenDescribedClass();
+
+        vm.ApplyRename(LexicalRename(vm.Document, "Count", "Tally"), "Count").Should().BeNull();
+
+        vm.Document.Text.Should().Contain("Public Rate As Currency, Tally As Long\r\nAttribute Tally.VB_VarDescription");
+    }
+
+    [AvaloniaFact]
+    public void ARenameOfALinesSecondDeclaratorTakesThatDeclaratorsQualifierAlong()
+    {
+        // A's two-declarator run, which VB6 wrote: the run is keyed by A, the first declarator it names, but B's
+        // line is B's, by its name.
+        var module = TestHelpers.CreateModule(name: "Counters", kind: ModuleKind.ClassModule);
+        module.UpdateCode(
+            "Option Explicit\r\n" +
+            "Public A As Long, B As Long\r\n" +
+            "Attribute A.VB_VarHelpID = 5\r\n" +
+            "Attribute B.VB_VarDescription = \"Second counter.\"\r\n");
+        var vm = NewEditor().Initialize(module);
+
+        var text = vm.Document.Text;
+        var declared = text.IndexOf(", B As", StringComparison.Ordinal) + 2;
+        var qualifier = text.IndexOf("Attribute B.", StringComparison.Ordinal) + "Attribute ".Length;
+
+        vm.ApplyRename([EditAt(vm.Document, declared, 1, "C"), EditAt(vm.Document, qualifier, 1, "C")], "B").Should().BeNull();
+
+        vm.Document.Text.Should().Contain("Public A As Long, C As Long\r\nAttribute A.VB_VarHelpID = 5\r\nAttribute C.VB_VarDescription");
+    }
+
+    [AvaloniaFact]
+    public void AVariablesQualifierIsTheVariablesEvenWithAProcedureOfTheSameNameOnItsLine()
+    {
+        // A VB_Var line binds by name to a variable or constant, never to a procedure, so a same-named Event later on
+        // the line is not the member a rename of the variable has to rename. Not a shape VB6 was seen to write, or
+        // measured to accept; it is what reaches the rule's choice of declarator, which the shapes VB6 does write
+        // never do.
+        var module = TestHelpers.CreateModule(name: "Clash", kind: ModuleKind.ClassModule);
+        module.UpdateCode(
+            "Option Explicit\r\n" +
+            "Public Total As Long: Public Event Total()\r\n" +
+            "Attribute Total.VB_VarDescription = \"The variable's.\"\r\n");
+        var vm = NewEditor().Initialize(module);
+
+        vm.ApplyRename([EditOf(vm.Document, "Total", "Grand"), EditOf(vm.Document, "Total", "Grand", occurrence: 2)], "Total")
+            .Should().BeNull();
+
+        vm.Document.Text.Should().Contain("Public Grand As Long: Public Event Total()\r\nAttribute Grand.VB_VarDescription");
+    }
+
+    [AvaloniaFact]
+    public void ARenameMayNotRewriteAVariablesQualifierForAnotherDeclaratorOfItsLine()
+    {
+        var vm = OpenDescribedClass();
+        var before = vm.Document.Text;
+
+        vm.ApplyRename([EditOf(vm.Document, "Rate", "Speed"), EditOf(vm.Document, "Count", "Speed", occurrence: 1)], "Rate")
+            .Should().Be("rename refused", "Count's line is Count's, and Count is not what this answer renames");
+
+        vm.Document.Text.Should().Be(before);
+    }
+
+    // ── A new name VB6 would not accept: refused before the request ───────────────────────────────────
+
+    [AvaloniaTheory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("1Total")]
+    [InlineData("Grand Total")]
+    [InlineData("Grand.Total")]
+    [InlineData("Total$")]
+    [InlineData("_Total")]
+    [InlineData("_")]
+    [InlineData("[Total]")]
+    public void ANewNameThatIsNotAVb6NameIsRefusedWithTheReason(string newName)
+    {
+        // #273 task 4.4. A leading or lone underscore and a bracketed name were measured illegal against vb6.exe; the
+        // rest cannot be part of a name. The reason is the one every other naming refusal gives.
+        localization.GetString("Str.Naming.Msg.NotAVb6Name").Returns("'{0}' is not a VB6 name");
+
+        OpenClass().NewNameRefusal(newName).Should().Be($"'{newName}' is not a VB6 name");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Rem")]
+    [InlineData("rem")]
+    [InlineData("Empty")]
+    [InlineData("EMPTY")]
+    [InlineData("New")]
+    [InlineData("Nothing")]
+    public void ANewNameVb6ReservesIsRefusedWithItsOwnReason(string newName)
+    {
+        // The four words measured refused as a name wherever they were tried (oracle: Rem as a variable, a Sub, a
+        // parameter, a field and an enum member; Empty as a variable; New and Nothing as a Sub and a label). Each has
+        // a name's shape, so the shape rule's message would be wrong for it. Without the refusal, Total renamed Rem
+        // would leave `Rem = mSum` in its body, a comment in VB6 and in the interpreter.
+        localization.GetString("Str.Naming.Msg.NotAVb6Name").Returns("'{0}' is not a VB6 name");
+        localization.GetString("Str.Naming.Msg.ReservedWord").Returns("'{0}' is reserved");
+
+        OpenClass().NewNameRefusal(newName).Should().Be($"'{newName}' is reserved");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("GrandTotal")]
+    [InlineData("Grand_Total")]
+    [InlineData("Total_")]
+    [InlineData("Total2")]
+    [InlineData("Größe")]
+    [InlineData("RemX")]
+    [InlineData("Rem1")]
+    public void ANewNameVb6MayAcceptIsNotRefused(string newName)
+    {
+        // An underscore inside or at the end of a name and a digit after its first letter were measured legal, and so
+        // were RemX and Rem1, which start with a reserved word and are not one. A letter outside ASCII was not
+        // measured; VB6 may take one in its code page, so it is left to the server.
+        OpenClass().NewNameRefusal(newName).Should().BeNull();
     }
 
     [AvaloniaFact]

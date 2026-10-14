@@ -150,7 +150,7 @@ one visible line, so a mark set there would land on a line the developer cannot 
 
 #### Scenario: Renaming a procedure that has a description
 - **WHEN** a procedure with an `Attribute` line is renamed
-- **THEN** the attribute line names the procedure's new name
+- **THEN** the attribute line names the procedure's new name once the document is saved
 
 #### Scenario: An add-in replaces a document's content
 - **WHEN** an add-in replaces a document's content with text whose header differs from the document's
