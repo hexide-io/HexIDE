@@ -7817,7 +7817,25 @@ declaration order. Not run: a Variant local holding an array, which HexIDE puts 
 
 **A ByRef `As Variant` given a scalar is written back.** `Sub S(v As Variant): v = 5` gives 5 to a caller's Variant
 holding 1, and to a caller's `Dim n As Integer` too, which compiles; `Sub U(v): v = 6` gives 6 and leaves `n` an
-Integer. HexIDE copies the scalar into a `v As Variant`, so the caller keeps 1: #1001.
+Integer. HexIDE copied the scalar into a `v As Variant`, so the caller kept 1: #1001.
+
+**And the parameter is still a Variant** (#1001, measured native and p-code): given a `Dim n As Integer` holding 5,
+`v * 7000` is a Long 35000 in `Sub S(v As Variant)` and in `Sub U(v)` alike, `Select Case v` takes `Case Is < 5.4`, and
+`TypeName(v)` is "Integer". So sharing the caller's typed variable does not make the parameter typed.
+
+**HexIDE, after #1001.** A ByRef `v As Variant` shares its argument's slot whatever the argument holds, as an untyped
+`v` does, and a read of an untyped or Variant parameter is never typed, though the slot it shares may be. Before,
+`U(v)` given a typed Integer read as typed, so `v * 7000` overflowed where VB6 widens; that was older than #970, and
+the copy into `S(v As Variant)` had hidden it there. Every row is pinned.
+
+**A constant passed ByRef goes by value** (#1002's review, measured native and p-code). A module `Const MK = 1`, a local
+`Const LK = 1` and an Enum member `Red = 1`, each passed to `Sub S(v As Variant): v = 5`, are still 1 afterwards, and
+nothing is raised; so is a `Const MKI As Integer = 1` passed to `Sub X(x As Integer): x = 7`, and `MK` passed to an
+untyped `v`. VB6 passes a constant through a temporary. HexIDE aliased its slot, so the write overwrote a Const (main
+did it already for an untyped or matching typed parameter, and #1001 would have opened `As Variant` to it), and an
+Enum member, being read-only, raised "Assignment to constant not permitted". Now an argument naming a Const or an Enum
+member has no location to share. A store into a Const named directly, `MK = 2`, is VB6's compile error "Assignment to
+constant not permitted" (measured), and is #1003.
 
 **HexIDE, after the review.** Every row above is pinned. A For Each that runs out empties its variable and releases
 what it held; `End Sub` releases scalar locals before arrays. The ByRef `As Variant` scalar is #1001's, apart from #970.

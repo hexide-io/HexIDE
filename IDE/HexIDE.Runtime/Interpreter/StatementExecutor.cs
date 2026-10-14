@@ -474,7 +474,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             var value = AsDeclared(sub, await expressionExecutor.EvaluateValue(sub.valueStmt()));
             // At module level the name was hoisted by the pre-pass, so this fills that slot.
             if (!interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, value))
+            {
                 interpreter.ExecutionContext.AllocVariable(currentEnv, name, value);
+                if (currentEnv.TryGetVariableLocation(name, out var constant))
+                    interpreter.ExecutionContext.State.MarkConstant(constant);
+            }
         }
         return ControlFlow.Nothing;
     }
@@ -2263,8 +2267,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         localConsts.Add(name);
         var value = AsDeclared(sub, await expressionExecutor.EvaluateValue(sub.valueStmt()));
         interpreter.ExecutionContext.AllocVariable(currentEnv, name, value);
-        if (ownedSlots != null && currentEnv.TryGetVariableLocation(name, out var slot))
-            ownedSlots.Add(slot);
+        if (currentEnv.TryGetVariableLocation(name, out var slot))
+        {
+            interpreter.ExecutionContext.State.MarkConstant(slot);
+            ownedSlots?.Add(slot);
+        }
     }
 
     /// <summary>

@@ -301,12 +301,18 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return result;
     }
 
+    // A constant, a user Const or an Enum member, has no location to pass: VB6 passes it through a temporary, so a ByRef
+    // parameter's write leaves it as it was, raising nothing (measured, #1001: a module Const, a local one, a typed one
+    // and an Enum member, each through `v As Variant`, an untyped `v` and an `x As Integer`). It was aliased, so the
+    // write overwrote a Const, and was refused for an Enum member.
     private int? TryGetArgLocation(VB6Parser.ValueStmtContext valueStmt)
     {
         if (valueStmt is VB6Parser.VsICSContext ics
             && ics.implicitCallStmt_InStmt()?.iCS_S_VariableOrProcedureCall() is { } vp
             && vp.typeHint() == null && vp.dictionaryCallStmt() == null
-            && env.TryGetVariableLocation(vp.ambiguousIdentifier().GetText(), out var loc))
+            && env.TryGetVariableLocation(vp.ambiguousIdentifier().GetText(), out var loc)
+            && !interpreter.ExecutionContext.State.IsConstant(loc)
+            && !interpreter.ExecutionContext.State.IsReadOnly(loc))
             return loc;
         return null;
     }

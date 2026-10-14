@@ -55,9 +55,13 @@ public class ModuleExecutionContext
             // Set AND cleared, because the flag rides on the value and would otherwise be inherited from
             // whatever was stored: `a = 30000` puts a LITERAL (fixed) into an undeclared slot, and reading it
             // back as fixed would make `a * b` overflow where VB6 widens. The slot decides, not the history.
-            // A slot known to be a Variant reads as a Variant's (#987); a slot that is neither, a Const or an object, reads
-            // as neither, and its value compares as it always has.
-            value = state.DeclaredTypeOf(loc) != null ? value.AsFixedType()
+            //
+            // An untyped or Variant parameter is a Variant, though it may share a caller's typed slot: measured, #1001, a
+            // `v As Variant` or an untyped `v` given a `Dim n As Integer` holding 5 widens `v * 7000` to a Long 35000. The
+            // name decides that, since the slot is the caller's. A slot known to be a Variant reads as a Variant's too
+            // (#987); a slot that is neither, a Const or an object, reads as neither, and compares as it always has.
+            value = env.VariantParameters.Contains(name) ? value.AsVariant()
+                : state.DeclaredTypeOf(loc) != null ? value.AsFixedType()
                 : state.IsVariant(loc) ? value.AsVariant()
                 : value.AsVariantSubtype();
             // And the NAME the slot was declared with, for a class-typed slot — set and cleared by the same
