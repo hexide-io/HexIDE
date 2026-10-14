@@ -96,6 +96,8 @@ public class SeveralFormsTests
         public required List<Exception> Errors { get; init; }
         /// <summary>The windows that have been shown, by caption.</summary>
         public required Dictionary<string, VBFormRuntime> Opened { get; init; }
+        /// <summary>The captions of the windows that have closed.</summary>
+        public required HashSet<string> Closed { get; init; }
         public required Action Detach { get; init; }
 
         public void Click(string form) => Opened[form].GetLogicalDescendants().OfType<VBCommandButton>().Single()
@@ -131,8 +133,16 @@ public class SeveralFormsTests
         VBWindowContext.Faulted += OnFaulted;
         VBWindowContext.RunTimeError += OnRunTimeError;
         VBWindowContext.CompileError += OnCompileError;
-        var watch = Window.WindowOpenedEvent.AddClassHandler<VBFormRuntime>((w, _) => opened[w.Title ?? ""] = w);
+        var closed = new HashSet<string>();
+        var watch = Window.WindowOpenedEvent.AddClassHandler<VBFormRuntime>((w, _) =>
+        {
+            opened[w.Title ?? ""] = w;
+            w.Closed += (_, _) => closed.Add(w.Title ?? "");
+        });
         var cancel = new CancellationTokenSource();
+        // End ends the run as every host makes it: by cancelling it.
+        void OnEnd(BasicInterpreter _) => Dispatcher.UIThread.Post(() => cancel.Cancel());
+        BasicInterpreter.EndReached += OnEnd;
         var task = VBLoader.RunForm(form1, cancel.Token, out _);
         Pump();
         return new Run
@@ -142,9 +152,11 @@ public class SeveralFormsTests
             Printed = printed,
             Errors = errors,
             Opened = opened,
+            Closed = closed,
             Detach = () =>
             {
                 watch.Dispose();
+                BasicInterpreter.EndReached -= OnEnd;
                 VBDebugConsole.Output -= print;
                 VBWindowContext.Faulted -= OnFaulted;
                 VBWindowContext.RunTimeError -= OnRunTimeError;
@@ -327,6 +339,56 @@ public class SeveralFormsTests
         run.Opened.Should().NotContainKey("Form2");
     }
 
+    [AvaloniaFact]
+    public void After_Set_Nothing_on_a_loaded_forms_name_the_name_makes_a_second_instance()
+    {
+        // Measured: Initialize and Load again, Forms.Count 2, and the new instance is not Me. The first goes on running.
+        using var run = Start("""
+            Private Sub Form_Initialize()
+                Debug.Print "f1 initialize"
+            End Sub
+            Private Sub Form_Load()
+                Debug.Print "f1 load"
+            End Sub
+            Private Sub Command1_Click()
+                Set Form1 = Nothing
+                Debug.Print "caption " & Form1.Caption & ", same " & (Form1 Is Me)
+            End Sub
+            """);
+
+        run.Click("Form1");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f1 initialize", "f1 load", "f1 initialize", "f1 load", "caption Form1, same False");
+        run.Task.IsCompleted.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void A_form_whose_name_was_cleared_while_another_reference_holds_it_terminates_when_that_reference_goes()
+    {
+        using var run = Start("""
+            Private f As Object
+            Private Sub Command1_Click()
+                Set f = Form2
+                Form2.Show
+                Set Form2 = Nothing
+                Debug.Print "after Set Form2 = Nothing"
+                Unload f
+                Debug.Print "after Unload f"
+                Set f = Nothing
+                Debug.Print "after Set f = Nothing"
+            End Sub
+            """);
+
+        run.Click("Form1");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 initialize", "f2 load", "after Set Form2 = Nothing", "f2 queryunload 1", "f2 unload",
+            "after Unload f", "f2 terminate", "after Set f = Nothing");
+    }
+
     // ── When the run ends ──────────────────────────────────────────────────────────────────────────────
 
     [AvaloniaFact]
@@ -367,6 +429,30 @@ public class SeveralFormsTests
 
         run.Errors.Should().BeEmpty();
         run.Printed.Should().Equal("f2 initialize", "f2 load", "f2 queryunload 1", "f2 unload", "f1 terminate", "f2 terminate");
+        run.Task.IsCompleted.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public void End_with_two_forms_showing_closes_both_and_raises_no_Unload_or_Terminate()
+    {
+        using var run = Start("""
+            Private n As Integer
+            Private Sub Command1_Click()
+                n = n + 1
+                If n = 1 Then Form2.Show Else End
+            End Sub
+            """ + "\n" + Form1Terminate);
+
+        run.Click("Form1");
+        Pump();
+        run.Opened.Should().ContainKey("Form2");
+
+        run.Click("Form1");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 initialize", "f2 load");
+        run.Closed.Should().BeEquivalentTo(["Form1", "Form2"]);
         run.Task.IsCompleted.Should().BeTrue();
     }
 

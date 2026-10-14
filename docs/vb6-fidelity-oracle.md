@@ -8967,3 +8967,16 @@ implemented.
   answer too, and so does each use that loads the form.
 - **No second load.** VB6 doesn't load the form again to finish the use. HexIDE's first cut did, retrying the use after
   the load, and so loaded it again on every retry.
+
+**11. A loaded form's name set to Nothing.**
+- **In Form1's own code, `Set Form1 = Nothing`, then `Form1.Caption`:** the name makes a **second instance**, with
+  Initialize and Load. `Forms.Count` becomes 2, and `Form1 Is Me` is False. The first instance is untouched, and its
+  Timer runs on, so the second Load's Timer started a second run of ticks. Nothing else reaches the first instance by
+  name again.
+- **Form2's name cleared while `f` holds it:** the sequence was `Set f = Form2`, `Form2.Show`, `Set Form2 = Nothing`,
+  then `Unload f`.
+  - The Unload raises QueryUnload and Unload, and no Terminate.
+  - Terminate comes at `Set f = Nothing`, before the next statement.
+
+  So a loaded form is held apart from its name, and its Terminate waits for the last reference, the name included, as
+  measurement 4's `Set Form2 = Nothing` after its Unload showed from the other side.
