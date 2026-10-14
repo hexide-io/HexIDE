@@ -102,8 +102,8 @@ public class HeaderRefresherTests
     public void AMarkInsideTheHeaderStaysWhereItIs()
     {
         // The header is being replaced by another header, so a mark on its line 3 is still on its line 3.
-        // Task 3.7 stops a mark being set there at all; until then this is the honest answer rather than a
-        // clamp that would silently pile every header mark onto one line.
+        // Nothing sets a mark there since #273 task 3.12, but one can come to sit there (debugger-vb6-divergences
+        // D24), and this is the honest answer rather than a clamp that would pile every header mark onto one line.
         var form = Deserialize(OneLabel);
         var document = DocumentIdentity.For(form);
         breakpoints.SetDocument(document, [3, 10, 11]);

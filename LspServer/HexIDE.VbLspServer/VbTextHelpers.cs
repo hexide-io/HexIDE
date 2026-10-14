@@ -15,11 +15,11 @@ internal static class VbTextHelpers
     /// </summary>
     /// <remarks>
     /// A leading or lone underscore and a bracketed name were measured illegal against <c>vb6.exe</c>; a leading
-    /// digit, whitespace or punctuation cannot be in a name at all. Nor can the four words VB6 was measured to
-    /// refuse as a name, in every position tried and accepted in none: <c>Rem</c>, <c>Empty</c>, <c>New</c> and
-    /// <c>Nothing</c>, the IDE's <c>ProjectNaming.IsReservedWord</c>. No other keyword is refused, because none
-    /// other was measured as a name, and a letter outside ASCII is not, because VB6 may accept one in its code
-    /// page.
+    /// digit, whitespace or punctuation cannot be in a name at all. Nor can the six words VB6 was measured to
+    /// refuse as a name, in every position tried and accepted in none: <c>Rem</c>, <c>Empty</c>, <c>New</c>,
+    /// <c>Nothing</c>, <c>Me</c> and <c>Attribute</c>, the IDE's <c>ProjectNaming.IsReservedWord</c>. No other
+    /// keyword is refused, because none other was measured as a name, and a letter outside ASCII is not, because
+    /// VB6 may accept one in its code page.
     /// </remarks>
     public static bool IsName(string name)
     {
@@ -35,7 +35,7 @@ internal static class VbTextHelpers
 
     private static readonly HashSet<string> ReservedWords = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Rem", "Empty", "New", "Nothing",
+        "Rem", "Empty", "New", "Nothing", "Me", "Attribute",
     };
 
     public static bool ContainsPosition(LspRange range, int line, int ch)

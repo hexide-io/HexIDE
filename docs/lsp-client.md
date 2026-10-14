@@ -349,8 +349,8 @@ server is expected to keep off them — the bundled one does, by the rule in
   name, it refuses when the caret is on a read-only line or on a name the designer block declares (the
   form's, a control's or a menu's, which is renamed in the Properties window). After the prompt, it refuses
   a new name that is not a VB6 name: a letter, then letters, digits and underscores, and not one of `Rem`,
-  `Empty`, `New` and `Nothing`, the four words `vb6.exe` was measured to refuse though each has a name's
-  shape.
+  `Empty`, `New`, `Nothing`, `Me` and `Attribute`, the six words `vb6.exe` was measured to refuse though each
+  has a name's shape.
 - **Diagnostics** inside the header or an attribute run are shown like any other, because they are a
   server's claim about the file. The bundled server raises none there.
 - **A rename's edits to other documents are dropped.** The code window applies the edits for its own

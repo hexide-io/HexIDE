@@ -293,9 +293,10 @@ measured doing the same. A project save leaves an unchanged member's file as it 
   declaration is a `Begin` line in the header, so a rename that kept off the header would leave the code
   naming a control that no longer exists. Rename it in the Properties window, as in VB6;
 - a new name that is not a VB6 name: a letter, then letters, digits and underscores, and not `Rem`, `Empty`,
-  `New` or `Nothing` in any case (`VbTextHelpers.IsName`). Those four were measured against `vb6.exe`, each
-  refused in every position tried though it has a name's shape; renamed `Rem`, a function's `Rem = mSum`
-  would become a comment;
+  `New`, `Nothing`, `Me` or `Attribute` in any case (`VbTextHelpers.IsName`). Those six were measured against
+  `vb6.exe`, each refused in every position tried though it has a name's shape; renamed `Rem`, a function's
+  `Rem = mSum` would become a comment. Task 4.4 knew of the first four; `Me` (refused as a module-level array)
+  and `Attribute` (refused as a parameter) were found in the oracle by the review of this document;
 - a caret on a keyword (`VbKeywords.ReservedWords`), a rule older than the rest.
 
 The code window asks the first three questions itself and says why it refuses, because an answer of nothing
@@ -315,7 +316,7 @@ renamed as usual: its uses in the code change, and the designer lines that set `
   than "could not be done". A client that does not ask the same questions first shows nothing, and the
   keyword refusal reaches HexIDE's own code window that way
   ([#1015](https://github.com/hexide-io/HexIDE/issues/1015)).
-- ◐ Only those four words are refused as a new name, and any other keyword is let through. VB6 refuses
+- ◐ Only those six words are refused as a new name, and any other keyword is let through. VB6 refuses
   more in at least one position: the oracle's label probe found 24 other keywords that VB6 will not take as a
   line label, among them `End`, `Loop`, `Next` and `Print` ([`vb6-fidelity-oracle.md`](./vb6-fidelity-oracle.md),
   *Which keywords may name a label*). Whether it refuses each of them as a variable or procedure name has not

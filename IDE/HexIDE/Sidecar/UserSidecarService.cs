@@ -344,10 +344,13 @@ public class UserSidecarService : IUserSidecarService
     /// setting each in turn would keep only the second.
     /// </para>
     /// <para>
-    /// <b>A mark on a read-only line is dropped and logged</b>, from either format. Nothing in the IDE can set one
-    /// there since #273 task 3.12, so it can only be a migrated mark — the old window showed a form's leading
-    /// <c>Attribute</c> lines and a member's as editable code — or one written by a build without that refusal. A
-    /// breakpoint there would never be hit, and a bookmark there would mark a line the IDE writes.
+    /// <b>A mark on a read-only line is dropped and logged</b>, from either format. Nothing in the IDE sets one
+    /// there since #273 task 3.12, but a mark is a bare line number, so one already set can come to sit there: an
+    /// edit that adds or removes lines above it, a line below it coming to describe a member, or a reload
+    /// (debugger-vb6-divergences D24). The save writes what the stores hold, so such a mark reaches the file and is
+    /// dropped here at the next open; so is a migrated one (the old window showed a form's leading <c>Attribute</c>
+    /// lines and a member's as editable code), and one written by a build without the refusal. A breakpoint there
+    /// would never be hit, and a bookmark there would mark a line the IDE writes.
     /// </para>
     /// </remarks>
     private (UserSidecarData Migrated, Entries Consumed) Apply(

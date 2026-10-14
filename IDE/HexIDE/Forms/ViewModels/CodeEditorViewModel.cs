@@ -650,9 +650,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     ///
     /// <para>
     /// The region is taken by the prefix's LENGTH, exactly as <see cref="BufferBody"/> splits, so the two
-    /// cannot disagree about where the header ends. Until task 3.7 of hexide-io/HexIDE#273 puts a
-    /// read-only provider over it the developer can still edit the header, and a hand-edited header makes
-    /// both wrong together rather than one of them silently.
+    /// cannot disagree about where the header ends. Since #273 task 3.7 the header is read-only to the
+    /// developer, but a writer that does not ask the read-only sections can still change it (#701), and a header
+    /// changed that way makes both wrong together rather than one of them silently.
     /// </para>
     ///
     /// <para>
@@ -666,8 +666,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         if (string.Equals(newPrefix, bufferPrefix, StringComparison.Ordinal))
             return;
 
-        // Clamped because the buffer is the developer's until 3.7: a header deleted by hand leaves a
-        // document shorter than the prefix it is supposed to start with, and Replace would throw.
+        // Clamped because a writer that does not ask the read-only sections (#701) can still delete the header,
+        // leaving a document shorter than the prefix it is supposed to start with, and Replace would throw.
         var replaced = Math.Min(bufferPrefix.Length, Document.TextLength);
         var caret = CaretOffset;
         var before = bufferPrefix;
@@ -1176,11 +1176,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// <remarks>
     /// <para>
     /// <b>Never applied as sent</b> (#273 phase 3, the formatting row of the writer policy). The bundled
-    /// server answers with one edit replacing the whole document and re-indenting every designer line to
-    /// column zero. Applied as sent, that rewrote the header. The body is split off by the header's LENGTH, so
-    /// a shorter header also cut into the code: measured on a VB6-authored form, Format on Save lost the
-    /// whole attribute block and sixteen lines below it. So the answer is applied to a copy, reduced to the
-    /// lines it actually changes, and anything touching the header or a member's attribute run is dropped.
+    /// server used to answer with one edit replacing the whole document and re-indenting every designer line
+    /// to column zero. Applied as sent, that rewrote the header. The body is split off by the header's LENGTH,
+    /// so a shorter header also cut into the code: measured on a VB6-authored form, Format on Save lost the
+    /// whole attribute block and sixteen lines below it. Since task 3.10 the bundled server sends one edit per
+    /// run of changed lines and leaves protected lines out, but another server need not. So the answer is
+    /// applied to a copy, reduced to the lines it actually changes, and anything touching the header or a
+    /// member's attribute run is dropped.
     /// </para>
     /// <para>
     /// Lines are compared without their terminators, so a server answering in <c>\n</c> for a
@@ -1620,11 +1622,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// space, a <c>.</c> or a type-declaration character cannot be part of a name at all.
     /// </para>
     /// <para>
-    /// <b>Then the four words VB6 was measured to refuse though they have a name's shape</b>
-    /// (<see cref="ProjectNaming.IsReservedWord"/>): <c>Rem</c>, <c>Empty</c>, <c>New</c> and <c>Nothing</c>. Each
-    /// has a message of its own, because the shape rule's says what a name is made of, and these are made of
-    /// exactly that. Renamed to <c>Rem</c>, <c>Function Total</c> would no longer compile, and a body line
-    /// <c>Rem = mSum</c> would turn into a comment, in VB6 and in the interpreter alike.
+    /// <b>Then the six words VB6 was measured to refuse though they have a name's shape</b>
+    /// (<see cref="ProjectNaming.IsReservedWord"/>): <c>Rem</c>, <c>Empty</c>, <c>New</c>, <c>Nothing</c>,
+    /// <c>Me</c> and <c>Attribute</c>. Each has a message of its own, because the shape rule's says what a name
+    /// is made of, and these are made of exactly that. Renamed to <c>Rem</c>, <c>Function Total</c> would no
+    /// longer compile, and a body line <c>Rem = mSum</c> would turn into a comment, in VB6 and in the interpreter
+    /// alike.
     /// </para>
     /// <para>
     /// <b>What it does not refuse, because nothing measured says to</b>: any other keyword, a name past any

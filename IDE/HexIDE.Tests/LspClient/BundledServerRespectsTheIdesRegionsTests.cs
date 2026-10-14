@@ -257,7 +257,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
         string[] candidates =
         [
             "Amount", "Grand_Total", "RemX", "Rem1", "Stop", "a1",
-            "Rem", "rem", "EMPTY", "New", "nothing",
+            "Rem", "rem", "EMPTY", "New", "nothing", "mE", "ATTRIBUTE", "Mex", "Attributes",
             "1Amount", "_Amount", "Grand Total", "Gr-and", "Amount$", "",
         ];
         var client = await ConnectAsync();
@@ -275,7 +275,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
 
         disagreements.Should().BeEmpty();
         candidates.Count(n => !ProjectNaming.IsValidName(n) || ProjectNaming.IsReservedWord(n))
-            .Should().Be(11, "both verdicts are exercised, the reserved words and the shapes among the refusals");
+            .Should().Be(13, "both verdicts are exercised, the reserved words and the shapes among the refusals");
     }
 
     // ── Harness ───────────────────────────────────────────────────────────────────────────────────────

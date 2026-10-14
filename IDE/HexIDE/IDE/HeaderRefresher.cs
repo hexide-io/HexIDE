@@ -241,8 +241,9 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
     /// <b>A mark inside the header stays where it is.</b> The header is being replaced by another header, so
     /// a mark on line 3 of it is still on line 3 of it. Only marks below the old header move, and the
     /// arithmetic makes that automatic: a mark at or past the first body line lands at or past the new one.
-    /// Task 3.7 stops a mark being set in the header at all; until then this is the honest answer rather
-    /// than a clamp.
+    /// Nothing sets a mark in the header since #273 task 3.12, but one can come to sit there (an edit or a reload
+    /// moving lines under a bare line number, debugger-vb6-divergences D24), and leaving it where it is stays the
+    /// honest answer rather than a clamp.
     /// </para>
     /// <para>
     /// The two stores disagree about the base — breakpoints are 1-based and bookmarks 0-based, both stated

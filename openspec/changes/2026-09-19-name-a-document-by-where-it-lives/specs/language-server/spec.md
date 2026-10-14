@@ -32,8 +32,9 @@ gives that member, which for a procedure is the run under its declaration whatev
 naming `Total` under another procedure is that procedure's, and renaming `Total` leaves it alone.
 
 A new name that is not a VB6 name, a letter followed by letters, digits and underscores, would write text that
-does not compile wherever the name stands, and `Grand Total` would split one name into two. Nor is one of the four
-words VB6 was measured to refuse as a name though each has a name's shape, `Rem`, `Empty`, `New` and `Nothing`:
+does not compile wherever the name stands, and `Grand Total` would split one name into two. Nor is one of the six
+words VB6 was measured to refuse as a name though each has a name's shape, `Rem`, `Empty`, `New`, `Nothing`, `Me`
+and `Attribute`:
 renamed `Rem`, a function's `Rem = mSum` would be a comment. The code editor refuses such a name before it asks; a
 client that does not is answered with nothing.
 
@@ -78,5 +79,5 @@ whole file, the code's real errors included, and give no reason why.
 
 #### Scenario: Renaming to a name VB6 does not accept
 - **WHEN** a rename is asked for with a new name that does not start with a letter, holds a character other than
-  a letter, a digit or an underscore, or is `Rem`, `Empty`, `New` or `Nothing` in any case
+  a letter, a digit or an underscore, or is `Rem`, `Empty`, `New`, `Nothing`, `Me` or `Attribute` in any case
 - **THEN** there is no answer

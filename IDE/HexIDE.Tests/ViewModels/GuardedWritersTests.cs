@@ -376,10 +376,13 @@ public class GuardedWritersTests : IDisposable
     [InlineData("EMPTY")]
     [InlineData("New")]
     [InlineData("Nothing")]
+    [InlineData("mE")]
+    [InlineData("Attribute")]
     public void ANewNameVb6ReservesIsRefusedWithItsOwnReason(string newName)
     {
-        // The four words measured refused as a name wherever they were tried (oracle: Rem as a variable, a Sub, a
-        // parameter, a field and an enum member; Empty as a variable; New and Nothing as a Sub and a label). Each has
+        // The six words measured refused as a name wherever they were tried (oracle: Rem as a variable, a Sub, a
+        // parameter, a field and an enum member; Empty as a variable; New and Nothing as a Sub and a label; Me as a
+        // module-level array; Attribute as a parameter). Each has
         // a name's shape, so the shape rule's message would be wrong for it. Without the refusal, Total renamed Rem
         // would leave `Rem = mSum` in its body, a comment in VB6 and in the interpreter.
         localization.GetString("Str.Naming.Msg.NotAVb6Name").Returns("'{0}' is not a VB6 name");

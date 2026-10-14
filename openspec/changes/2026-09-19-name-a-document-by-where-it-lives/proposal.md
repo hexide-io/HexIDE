@@ -71,9 +71,10 @@ nothing to map.
   their content is preserved exactly.
 - **It does not change carried files.** They already use `file:` URIs, never lack a path, and are never
   renamed. They route by extension alone.
-- **It does not make member-level `Attribute` statements executable.** The interpreter already raises when it
-  reaches one, which is a separate, pre-existing gap. Giving the interpreter the whole file adds only
-  module-level attributes, which the grammar parses and the walk never executes.
+- **It does not make member-level `Attribute` statements executable.** When this was written the interpreter
+  raised when it reached one, a separate, pre-existing gap; since #838 it runs one as nothing, as metadata.
+  Giving the interpreter the whole file adds only module-level attributes, which the grammar parses and the
+  walk never executes.
 - **It does not fix the workspace-root restart losing open documents** (#469) as its own defect. It does
   state the requirement, because a first save triggers that restart.
 
