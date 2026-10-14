@@ -183,8 +183,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     ///
     /// <para>
     /// Created in <see cref="Initialize(FormDefinition)"/> rather than the constructor, because the URI it
-    /// is named by is not knowable until a definition has been supplied — a constructor-time session would
-    /// name every editor <c>vb6://form/untitled</c>.
+    /// is named by is not knowable until a definition has been supplied: <see cref="DocumentWireName"/> works it
+    /// out from the document's identity, its <c>file:</c> URI or <c>untitled:&lt;Project&gt;/&lt;Name&gt;.&lt;ext&gt;</c>,
+    /// and a constructor-time session would have neither a file nor a name to give it. (The retired
+    /// <c>vb6://</c> scheme would have named every such editor <c>vb6://form/untitled</c>.)
     /// </para>
     /// </summary>
     private LspDocumentSession? session;

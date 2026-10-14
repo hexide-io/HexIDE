@@ -478,9 +478,10 @@ public class VBLoader
 
     /// <summary>
     /// Build a form's program into its window's context (#822). Every module the run loads is parsed here, so a syntax
-    /// error throws before anything is shown. The form's code is the primary module, named after the form, so the debug
-    /// gate reports, and breakpoints are keyed by, the form's real name (matching the editor's vb6://form/{name}
-    /// document). Then the form's instance is made and its controls put into it, held until it loads.
+    /// error throws before anything is shown. The form's whole file is the primary module, so its line numbers are the
+    /// code window's, and it is named after the form, so the debug gate reports, and matches breakpoints by, the form's
+    /// real name: the bare name the IDE pushes each document's breakpoints under. Then the form's instance is made and
+    /// its controls put into it, held until it loads.
     /// </summary>
     public static void PrepareForm(FormDefinition element, VBWindowContext context, Action<Control> setContent,
         Debugging.IDebugController? debugController)

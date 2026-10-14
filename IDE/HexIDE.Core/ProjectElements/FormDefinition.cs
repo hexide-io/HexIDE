@@ -165,8 +165,10 @@ public partial class FormDefinition : INotifyPropertyChanged
     public List<string> HeaderLines { get; } = [];
 
     /// <summary>
-    /// This form's designer half exactly as it was read: the first line of the file through the root
-    /// <c>End</c> inclusive. Null for a form HexIDE created, which has no file to have read one from.
+    /// This form's designer half as its file has it: the first line of the file through the root <c>End</c>
+    /// inclusive, as read, or as last rendered — by the write that created the file, a committed designer change,
+    /// or a save. Null for a form HexIDE created that none of those has rendered yet: one with no file, untouched
+    /// in the designer (hexide-io/HexIDE#885).
     /// </summary>
     /// <remarks>
     /// <b>Kept as text as well as parsed into <see cref="Components"/>, because the two answer different
@@ -190,7 +192,10 @@ public partial class FormDefinition : INotifyPropertyChanged
     /// </remarks>
     public string? DesignerText { get; private set; }
 
-    /// <summary>Mirrors <c>ModuleDefinition.RecordOriginalHeader</c>: set by the reader, and by a save.</summary>
+    /// <summary>
+    /// Mirrors <c>ModuleDefinition.RecordOriginalHeader</c>: set by the reader, by a save (the write that creates a
+    /// new document's file among them), and by a committed designer change (<c>HeaderRefresher</c>).
+    /// </summary>
     public void RecordDesignerText(string? text) => DesignerText = text;
 
     /// <summary>

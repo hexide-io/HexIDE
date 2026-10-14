@@ -6,8 +6,9 @@ namespace HexIDE.Conversations;
 /// <summary>How many copies of one document a conversation carries, and how many bytes that came to.</summary>
 /// <param name="Document">
 /// What to show the reader: the last segment of the URI, which is the filename of a saved document and the
-/// document's own name for one with no file yet. Where two documents in this conversation share that, it is
-/// widened until they differ — see <c>DisplayNameFor</c>.
+/// document's own name for one with no file yet. Where two documents in this conversation share that, it gains
+/// its parent segment and stops there, so two whose last two segments match still read alike — see
+/// <c>DisplayNameFor</c>.
 /// </param>
 /// <param name="Uri">
 /// What the counting is grouped by: the whole name as the wire carried it.
@@ -237,7 +238,8 @@ public sealed record ConversationDisclosure(
     }
 
     /// <summary>
-    /// The name to show for one document, widened until it is unambiguous within this conversation.
+    /// The name to show for one document: its last segment, or its last two where that alone would collide
+    /// within this conversation.
     /// </summary>
     /// <remarks>
     /// <b>The leaf is the right answer almost always, and wrong in the one case grouping by URI created.</b>

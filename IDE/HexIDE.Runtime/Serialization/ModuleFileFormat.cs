@@ -5,14 +5,28 @@ namespace HexIDE.Runtime.Serialization;
 
 /// <summary>
 /// The VB6 module-file header for standard (<c>.bas</c>) and class (<c>.cls</c>) modules.
-///
-/// HexIDE keeps the header OUT of the editable <see cref="ModuleDefinition.Code"/> — mirroring how
-/// <c>FormSerializer</c> keeps a form's structural header out of <c>FormDefinition.Code</c> — so the code
-/// editor shows only the code body, exactly as the VB6 IDE does (it hides the <c>VERSION</c>/<c>Attribute</c>
-/// block). The header is added back on save and stripped on load, so clearing the editor can never produce an
-/// unloadable file. UserControl (<c>.ctl</c>) and PropertyPage (<c>.pag</c>) are NOT handled here — they carry
-/// a <c>FormPart</c> and round-trip through <c>FormSerializer</c>.
 /// </summary>
+/// <remarks>
+/// <para>
+/// <b>The model keeps the header OUT of <see cref="ModuleDefinition.Code"/></b>, as <c>FormSerializer</c>
+/// keeps a form's designer block out of <c>FormDefinition.Code</c>: <see cref="SplitHeader"/> takes it off at
+/// load into <see cref="ModuleDefinition.OriginalHeader"/>, and <see cref="ToFileContent"/> puts it back in
+/// front on save.
+/// </para>
+/// <para>
+/// <b>The code window does not hide it.</b> It shows the whole file: <see cref="BufferHeader"/> composes the
+/// header back in front of the body (<c>FormCodeText.Prefix</c>), greyed and read-only, and folded when it is
+/// more than one line; the flush splits it off again. So nothing typed in the window reaches it, and clearing
+/// the window cannot produce an unloadable file. This used to say the editor showed only the body, as VB6's
+/// code window did. Since hexide-io/HexIDE#273 it shows the header, so that a line number means the same thing
+/// to the code window, a language server, the interpreter and the debugger; that divergence from VB6 is
+/// deliberate.
+/// </para>
+/// <para>
+/// UserControl (<c>.ctl</c>) and PropertyPage (<c>.pag</c>) are NOT handled here — they carry a
+/// <c>FormPart</c> and round-trip through <c>FormSerializer</c>.
+/// </para>
+/// </remarks>
 public static class ModuleFileFormat
 {
     /// <summary>True for the kinds whose header this class manages (standard + class modules).</summary>
@@ -55,6 +69,10 @@ public static class ModuleFileFormat
     /// beyond the five in the literal — <c>VB_Description</c> among them.
     ///
     /// Pass null only for a module HexIDE is creating, which has no original to preserve.
+    ///
+    /// The header is all this touches. A member's <c>Attribute</c> lines are in <paramref name="body"/>, and a
+    /// save that VB6 would also make re-qualifies them with their members' names before it gets here
+    /// (<c>ProjectService</c>'s <c>RewrittenQualifiers</c>, hexide-io/HexIDE#273 task 4.4).
     /// </summary>
     public static string ToFileContent(string body, string name, ModuleKind kind, string? preservedHeader = null)
     {
@@ -97,7 +115,11 @@ public static class ModuleFileFormat
         : preservedHeader.Length == 0 ? ""
         : RetargetVbName(preservedHeader, name);
 
-    /// <summary>Rewrites the <c>Attribute VB_Name</c> line so a renamed module still round-trips.</summary>
+    /// <summary>
+    /// Rewrites the <c>Attribute VB_Name</c> line to say <paramref name="name"/>, so the header follows the
+    /// module's name rather than the one it was read with. No gesture renames a module yet
+    /// (hexide-io/HexIDE#493).
+    /// </summary>
     private static string RetargetVbName(string header, string name)
     {
         var lines = header.Replace("\r\n", "\n").Split('\n');
