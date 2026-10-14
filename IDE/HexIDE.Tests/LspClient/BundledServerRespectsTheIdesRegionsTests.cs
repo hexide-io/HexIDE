@@ -247,6 +247,37 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
             .Should().Equal((15, 20), (16, 10), (17, 10), (18, 0));
     }
 
+    [BundledServerFact]
+    public async Task TheServerRefusesExactlyTheNewNamesTheIdeRefuses()
+    {
+        // The rule for a rename's new name has two hand-kept copies too (#273 task 4.4): the IDE's
+        // ProjectNaming.IsValidName and IsReservedWord, which CodeEditorViewModel.NewNameRefusal composes, and the
+        // server's VbTextHelpers.IsName. The IDE asks first and never sends a name it refuses, so nothing else would
+        // notice the two drifting apart; a client that does not ask first would then be answered differently.
+        string[] candidates =
+        [
+            "Amount", "Grand_Total", "RemX", "Rem1", "Stop", "a1",
+            "Rem", "rem", "EMPTY", "New", "nothing",
+            "1Amount", "_Amount", "Grand Total", "Gr-and", "Amount$", "",
+        ];
+        var client = await ConnectAsync();
+        var uri = await OpenAsync(client, Class);
+
+        var disagreements = new List<string>();
+        foreach (var name in candidates)
+        {
+            var ideRefuses = !ProjectNaming.IsValidName(name) || ProjectNaming.IsReservedWord(name);
+            var rename = await client.RequestRenameAsync(uri, new Position(15, 21), name, TestContext.Current.CancellationToken);
+            var serverRefuses = rename is null;
+            if (ideRefuses != serverRefuses)
+                disagreements.Add($"'{name}': the IDE {(ideRefuses ? "refuses" : "accepts")} it, the server {(serverRefuses ? "refuses" : "accepts")} it");
+        }
+
+        disagreements.Should().BeEmpty();
+        candidates.Count(n => !ProjectNaming.IsValidName(n) || ProjectNaming.IsReservedWord(n))
+            .Should().Be(11, "both verdicts are exercised, the reserved words and the shapes among the refusals");
+    }
+
     // ── Harness ───────────────────────────────────────────────────────────────────────────────────────
 
     private async Task<VBLspClient> ConnectAsync()
