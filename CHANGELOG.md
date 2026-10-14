@@ -22,6 +22,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Two overflow edges now match VB6** (#234). Both were measured as p-code and in vb6.exe's IDE.
+  - **`0 / 0` raises Overflow (6)**, not Division by zero (11), for every operand type except Decimal, which keeps 11.
+  - **A Variant Single that overflows** widens to Double, as a Variant Integer widens to Long, instead of raising
+    Overflow. Two typed Singles still raise.
 - **`Unload Me` unloads the startup form, as in VB6** (#973). It used to stop the run as not implemented. Measured on
   vb6.exe:
   - **The events:** `Form_QueryUnload` (UnloadMode 1 from code, 0 from the close box), then `Form_Unload`, each with a
