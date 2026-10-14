@@ -22,6 +22,16 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A running program's event handlers run one at a time, as in VB6** (#766). Under the debugger, a handler that gave up
+  the thread at its time slice used to let any other event start and finish first, and let the statement that raised
+  it run on. Measured on vb6.exe:
+  - **What waits:** nothing runs inside a handler unless it calls `DoEvents`. An event that comes meanwhile waits its
+    turn.
+  - **Nested events:** a handler a statement raises (`Text1.Text = "x"` raising `Text1_Change`) finishes before the
+    raiser goes on.
+  - **`DoEvents`:** it now runs what is waiting, inside the caller, so a `Do: DoEvents: Loop Until clicked` loop sees
+    the click.
+  - **Timers:** a Timer delivers one tick, not several, once it is free, and never inside its own handler.
 - **A control's Left, Top, Width and Height are twips at run time** (#933), as VB6 has them, measured on vb6.exe:
   - **What changed:** a program read and wrote them in pixels, as a Double. A .frm Left of 120 read 8, and
     `Text1.Left = 1200` moved the control 1200 pixels, fifteen times too far. They are now twips, as a Single.

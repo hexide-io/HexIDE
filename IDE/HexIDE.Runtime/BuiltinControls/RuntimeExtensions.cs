@@ -20,7 +20,10 @@ internal static class RuntimeExtensions
             var args = VBProps.GetIndex(control) is { } index
                 ? new[] { new Vb6Value(index) }
                 : null;
-            executionRoot.ExecuteSub($"{name}_{eventClass.Name}", args);
+            if (ReferenceEquals(eventClass, TimerComponentClass.TimerEvent))
+                executionRoot.ExecuteTimer($"{name}_{eventClass.Name}", args);
+            else
+                executionRoot.ExecuteSub($"{name}_{eventClass.Name}", args);
         }
     }
 }

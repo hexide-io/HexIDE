@@ -307,6 +307,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return s;
     }
 
+    // The debugger's gate. A pause or a time slice there gives up the thread, which the pump has to be told of, or it would
+    // take the suspended handler for one still running and start the next event inside it (#766).
+    private ValueTask DebugGate(Debugging.IDebugController dbg)
+    {
+        var gate = dbg.OnStatementAsync(currentLine, currentModule.Name, this);
+        return interpreter.Events is { } events ? events.WhileSuspended(gate) : gate;
+    }
+
     public override async Task<ControlFlow> VisitBlock(VB6Parser.BlockContext context)
     {
         foreach (var stmt in context.blockStmt())
@@ -314,6 +322,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // Debugger pause-gate (before the temp-frame push, so a suspended break / reset never parks a
             // half-open frame). Null controller ⇒ skipped entirely (zero overhead headless/tests).
             currentLine = stmt.Start.Line;   // track for the Call Stack (this frame's current line)
+            // A handler the last statement raised finishes before this one starts (#766).
+            if (interpreter.Events is { } events)
+                await events.WaitForRaised();
             // After End nothing more runs, with or without a debugger (#775). Ahead of the debugger's gate, so a
             // breakpoint on a statement that would run after End is never hit.
             if (interpreter.Ending)
@@ -322,7 +333,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (interpreter.DebugController is { } dbg && stmt.attributeStmt() == null && !interpreter.RunningDeclarations)
             {
                 _suspendedAtTopLevel = false;   // a pause here is inside a nested block — Set Next Statement is refused
-                await dbg.OnStatementAsync(currentLine, currentModule.Name, this);
+                await DebugGate(dbg);
             }
 
             ControlFlow ret;
@@ -356,6 +367,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return ret;
         }
 
+        // And at the end of the block, so a loop's condition, read next, sees what a handler its last statement raised
+        // has set: `Do: Text1.Text = "x": Loop Until done`, with Text1_Change setting done (#766).
+        if (interpreter.Events is { } raised)
+            await raised.WaitForRaised();
         return ControlFlow.Nothing;
     }
 
@@ -1094,6 +1109,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     {
         foreach (var stmt in body.blockStmt())
         {
+            // Nor a wait for what the statement before raised, so it is here too: Text1_Change finishes before the rest
+            // of the tail runs (#766), and its fault or End then stops the tail below.
+            if (interpreter.Events is { } events)
+                await events.WaitForRaised();
             // The statements of a joined tail get no pause-gate of their own, so this is the only point at which
             // an abort can reach them. Without it, `If True Then Text1.Text = "x": Label1.Caption = "Saved"` set the
             // caption after Text1_Change had faulted and ended the run.
@@ -2798,6 +2817,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // Debugger pause-gate (before the temp-frame push). Sees every top-level statement; a StopExecutionSignal
             // it raises falls through all four catches below (none match) and unwinds via RunProcedure's finally.
             currentLine = stmts[pc].Start.Line;   // track for the Call Stack
+            // A handler the last statement raised finishes before this one starts (#766).
+            if (interpreter.Events is { } events)
+                await events.WaitForRaised();
             // After End nothing more runs, with or without a debugger (#775). Ahead of the debugger's gate, so a
             // breakpoint on a statement that would run after End is never hit.
             if (interpreter.Ending)
@@ -2807,7 +2829,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (interpreter.DebugController is { } dbg && stmts[pc].attributeStmt() == null && !interpreter.RunningDeclarations)
             {
                 _suspendedAtTopLevel = true;   // a pause here is at a top-level statement — Set Next Statement is valid
-                await dbg.OnStatementAsync(currentLine, currentModule.Name, this);
+                await DebugGate(dbg);
             }
             // Set Next Statement (P7b): apply a pc repoint requested while paused at this top-level gate, so the
             // resumed walk executes from the target instead of the paused statement.

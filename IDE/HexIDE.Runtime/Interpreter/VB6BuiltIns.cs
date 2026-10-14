@@ -129,9 +129,9 @@ public partial class VB6BuiltIns
         RegisterDateTime(d);
         RegisterFormat(d);
         RegisterColor(d);
-        // DoEvents — a no-op here (the tree-walking interpreter has no message pump). VB6 yields to the message queue
-        // and returns the open-form count; returning Integer 0 lets both `DoEvents` and `x = DoEvents` run without
-        // crashing (documented approximation).
+        // DoEvents, for code run with no window, as a module test's is: nothing can be waiting, so it does nothing. A program
+        // running in a window reaches BasicInterpreter.CallBuiltIn first, which runs what is waiting, as VB6 does (#766).
+        // VB6 returns the open-form count; Integer 0 lets both `DoEvents` and `x = DoEvents` run (documented approximation).
         d["DoEvents"] = (_, _, _) => new Vb6Value(0);
         return d;
     }

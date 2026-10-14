@@ -101,11 +101,11 @@ public class RunFaultTests
         localization.GetString("Str.ProjectRunner.NotImplementedYet").Returns("Not implemented yet: {0}");
 
         var windowManager = Substitute.For<IWindowManager>();
-        // Time-slicing off. None of these tests is about it, and a yield landing inside an event procedure that
-        // another statement raised lets that statement run on before the procedure has finished (#766). Whether
-        // one lands depends on how loaded the machine is, which made the nested-event test below fail on a busy
-        // box and pass on an idle one.
-        var controller = new DebugController { TimeSliceMs = null };
+        // A yield at every statement: the worst case for the time slice. A yield inside an event procedure that another
+        // statement raised used to let that statement run on before the procedure had finished, which made the
+        // nested-event test below fail on a busy box and pass on an idle one. Since #766 the raiser waits, so these run
+        // with the slice at its most disruptive rather than off.
+        var controller = new DebugController { TimeSliceMs = -1 };
         var runner = new ProjectRunnerService(
             Substitute.For<IEventBus>(), windowManager, Substitute.For<IProjectManager>(),
             localization, controller, Substitute.For<IBreakpointService>(), new WatchService(), new RunScope());
@@ -219,9 +219,9 @@ public class RunFaultTests
         // dispatched, not in Command1_Click. Unless the whole run is stopped, the click carries on past a
         // statement whose effects never happened.
         //
-        // That holds only while Text1_Change has not yielded its time slice before faulting. If it has, the
-        // setter returned and the click ran to its end before the fault arrived, so there was nothing left to
-        // stop (#766). Build turns time-slicing off for this class.
+        // That used to hold only while Text1_Change had not yielded its time slice before faulting. If it had, the
+        // setter returned and the click ran to its end before the fault arrived (#766). Now the click waits for the
+        // handler it raised, and Build yields at every statement to prove it.
         var run = FormProject(
             "Private Sub Command1_Click()\r\n"
           + click

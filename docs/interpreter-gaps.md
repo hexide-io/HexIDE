@@ -46,7 +46,7 @@ Platform: 4 · Partial: 12 · Other: 0.
 > per-item findings are retained below for detail):
 > - **Implemented:** **Erase** (dynamic → free / then `UBound`·index → Err 9; fixed scalar → bounds kept, elements
 >   reset; oracle-pinned) · **Mid statement** `Mid(s,i[,n])=repl` (in-place, length never grows, `start` out of range
->   → Err 5; oracle-pinned) · **DoEvents** (no-op → Integer 0) · **Beep** (really implemented as of
+>   → Err 5; oracle-pinned) · **DoEvents** (no-op → Integer 0; since #766 it runs what is waiting, and still returns 0) · **Beep** (really implemented as of
 >   2026-09-02 — `Console.Beep()`, platform-guarded and fail-safe; the earlier cross-platform justification for
 >   the no-op was measured and found wrong) · **Option Compare / Option Private
 >   Module** (now tolerated — the module loads; `Option Compare Text` accepted-but-always-Binary is the residual
