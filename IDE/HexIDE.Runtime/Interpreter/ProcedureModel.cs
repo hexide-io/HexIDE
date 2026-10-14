@@ -21,7 +21,11 @@ public sealed record ProcedureInfo(
     // For a Function returning a user-defined Type (`Function F() As Employee`), the type name — so the return
     // slot is seeded with a real zero-initialised UDT (its ReturnType is the generic UDT ValueType, which has
     // no concrete identity). Null for scalar/Enum/no return.
-    string? ReturnUdtTypeName = null)
+    string? ReturnUdtTypeName = null,
+    // For a Function or Property Get declared to return an array of a scalar type or of Variant (`As Integer()`), that
+    // array type, so a store into the return name can be checked against it (#986). Null otherwise, including `As
+    // Object()` and `As Collection()`, whose element type is not modelled.
+    Vb6Value.ValueType? CheckedArrayReturn = null)
 {
     private IReadOnlyList<VB6Parser.VariableSubStmtContext>? declaredLocals;
 

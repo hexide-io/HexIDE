@@ -50,6 +50,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // The procedure this activation is running, for the debugger's Locals header ("Module.Procedure"). Null for a
     // module-init / class-field-init executor (no enclosing proc) — those show just the module name.
     private readonly string? procName;
+    private readonly Vb6Value.ValueType? checkedArrayReturn;
 
     private ExpressionExecutor expressionExecutor => new ExpressionExecutor(interpreter, currentEnv, currentModule, withTargets, stmtFrames);
 
@@ -58,7 +59,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         ModuleInfo currentModule,
         List<int>? ownedSlots = null,
         Stack<List<Vb6Value>>? stmtFrames = null,
-        string? procName = null)
+        string? procName = null,
+        Vb6Value.ValueType? checkedArrayReturn = null)
     {
         this.interpreter = interpreter;
         this.currentEnv = currentEnv;
@@ -66,6 +68,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         this.ownedSlots = ownedSlots;
         this.stmtFrames = stmtFrames ?? new Stack<List<Vb6Value>>();
         this.procName = procName;
+        this.checkedArrayReturn = checkedArrayReturn;
     }
 
     /// <summary>The debugger's view of THIS activation's Locals (see <see cref="Debugging.DebugInspector"/>) —
@@ -879,6 +882,32 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         throw new NotImplementedException("Kill not implemented");
     }
 
+    /// <summary>
+    /// A store into the name of a Function or Property Get declared to return an array, `As Integer()` or `As Variant()`,
+    /// takes only an array of exactly that type, whose bounds it keeps (measured, #986, native and p-code). What VB6 can
+    /// see is wrong while compiling, a scalar or an array variable declared with another element type, is its compile
+    /// error "Can't assign to array", raised here as the statement runs. What it can only find at run time, a Variant
+    /// holding the wrong thing or a call that returns a Variant, such as Array or Split, is 13, and the caller's target is
+    /// left as it was.
+    /// </summary>
+    private void CheckArrayReturn(Vb6Value.ValueType declared, Vb6Value value, VB6Parser.LetStmtContext context)
+    {
+        if (value.Type == declared)
+            return;
+        var seenWhileCompiling = value.Type.IsArray ? IsDeclaredArrayVariable(context.valueStmt()) : value.HasFixedType;
+        if (seenWhileCompiling)
+            throw new VBCompileErrorException("Can't assign to array");
+        throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
+    }
+
+    // A bare name for an array variable declared as one (`Dim a(1) As Long`, `Dim a() As Long`), whose type VB6 knows
+    // while compiling, as against a Variant that happens to hold an array.
+    private bool IsDeclaredArrayVariable(VB6Parser.ValueStmtContext valueStmt) =>
+        valueStmt is VB6Parser.VsICSContext ics
+        && ics.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } bare
+        && currentEnv.TryGetVariableLocation(bare.ambiguousIdentifier().GetText(), out var location)
+        && interpreter.ExecutionContext.State.IsDeclaredArray(location);
+
     public override async Task<ControlFlow> VisitLetStmt(VB6Parser.LetStmtContext context)
     {
         var value = await expressionExecutor.EvaluateValue(context.valueStmt());
@@ -921,6 +950,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 AllocImplicitVariant(identifier);
                 interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out oldLet);
             }
+            if (checkedArrayReturn is { } declaredReturn && string.Equals(identifier, procName, StringComparison.OrdinalIgnoreCase))
+                CheckArrayReturn(declaredReturn, value, context);
             interpreter.ExecutionContext.TryUpdateVariable(currentEnv, identifier, BasicInterpreter.CopyIfValueType(value));
             // Refcount (Phase 4.2): a Variant slot that held an object and is now overwritten by a scalar drops
             // that reference — release it (no-op unless the old value was an object). The new value is non-object

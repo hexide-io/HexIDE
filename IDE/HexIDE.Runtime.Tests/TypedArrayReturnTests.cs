@@ -61,4 +61,79 @@ public class TypedArrayReturnTests : BaseVBTestFixture
 
         (await run.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(9);
     }
+
+    // #986. Every row was measured, native and p-code agreeing, and is generated from those probes and their logs (the
+    // oracle's "A Function that returns an array" has the tables). `Shape` writes a value's TypeName and bounds, "-"
+    // where a bound raises.
+    private const string Shape = """
+        Function Shape(x) As String
+            On Error Resume Next
+            Dim lo, hi
+            lo = "-": hi = "-"
+            lo = LBound(x): hi = UBound(x)
+            Shape = TypeName(x) & " " & lo & " To " & hi
+        End Function
+        """;
+
+    [Theory]
+    [InlineData("Function FA() As Integer()\n    FA = Array(1, 2)\nEnd Function\n", "FA()", "err 13, x Empty - To -")]
+    [InlineData("Function FB() As Integer()\n    Dim ia(1 To 3) As Integer\n    ia(2) = 7\n    FB = ia\nEnd Function\n", "FB()", "err 0, x Integer() 1 To 3")]
+    [InlineData("Function FC() As Integer()\n    Dim v, ia(1 To 3) As Integer\n    ia(2) = 7\n    v = ia\n    FC = v\nEnd Function\n", "FC()", "err 0, x Integer() 1 To 3")]
+    [InlineData("Function FD() As Integer()\n    Dim v, la(1) As Long\n    v = la\n    FD = v\nEnd Function\n", "FD()", "err 13, x Empty - To -")]
+    [InlineData("Function FE() As Integer()\n    Dim v\n    FE = v\nEnd Function\n", "FE()", "err 13, x Empty - To -")]
+    [InlineData("Function FF() As Integer()\n    Dim v\n    v = 5\n    FF = v\nEnd Function\n", "FF()", "err 13, x Empty - To -")]
+    [InlineData("Function FG() As Variant()\n    FG = Array(1, 2)\nEnd Function\n", "FG()", "err 0, x Variant() 0 To 1")]
+    [InlineData("Function FH() As Variant()\n    Dim v, ia(1) As Integer\n    v = ia\n    FH = v\nEnd Function\n", "FH()", "err 13, x Empty - To -")]
+    [InlineData("Function FI() As String()\n    FI = Split(\"a,b\", \",\")\nEnd Function\n", "FI()", "err 0, x String() 0 To 1")]
+    [InlineData("Function FJ() As Integer()\n    Dim d() As Integer\n    FJ = d\nEnd Function\n", "FJ()", "err 0, x Integer() - To -")]
+    [InlineData("Function FK() As Integer()\n    Dim v\n    v = Array(1, 2)\n    FK = v\nEnd Function\n", "FK()", "err 13, x Empty - To -")]
+    public async Task A_store_into_a_typed_array_return_takes_only_an_array_of_its_type(string procedure, string call, string expected)
+    {
+        await Run($"On Error Resume Next\nDim x\nx = {call}\nDebug.Print \"err \" & Err.Number & \", x \" & Shape(x)\n" + procedure + Shape);
+
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    [Theory]
+    [InlineData("Function F() As Integer()\n    F = Split(\"1,2\", \",\")\nEnd Function\n", "err 13, x Empty - To -")]
+    [InlineData("Function F() As Long()\n    F = Array(1, 2)\nEnd Function\n", "err 13, x Empty - To -")]
+    public async Task A_call_that_returns_a_Variant_stored_into_a_typed_array_return_is_13(string function, string expected)
+    {
+        await Run("On Error Resume Next\nDim x\nx = F()\nDebug.Print \"err \" & Err.Number & \", x \" & Shape(x)\n" + function + Shape);
+
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    [Theory]
+    [InlineData("Function F() As Long()\n    F = 5\nEnd Function\n")]
+    [InlineData("Function F() As Integer()\n    Dim la(1) As Long\n    F = la\nEnd Function\n")]
+    [InlineData("Function F() As Integer()\n    Dim va(1) As Variant\n    F = va\nEnd Function\n")]
+    [InlineData("Function F() As Variant()\n    Dim ia(1) As Integer\n    F = ia\nEnd Function\n")]
+    public async Task A_store_VB6_refuses_while_compiling_is_its_compile_error_as_the_statement_runs(string function)
+    {
+        // A scalar, or an array variable declared with another element type: VB6's "Can't assign to array" at the store.
+        var run = () => Run("On Error Resume Next\nDim x\nx = F()\n" + function + Shape);
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Can't assign to array*");
+    }
+
+    [Fact]
+    public async Task A_typed_array_return_keeps_its_bounds_through_a_typed_array_variable()
+    {
+        await Run("Dim d() As Integer\nd = FB()\nDebug.Print Shape(d)\n" + "Function FB() As Integer()\n    Dim ia(1 To 3) As Integer\n    ia(2) = 7\n    FB = ia\nEnd Function\n" + Shape);
+
+        AssertDebugLog([new Vb6Value("Integer() 1 To 3")]);
+    }
+
+    [Fact]
+    public async Task A_class_Property_Get_declared_to_return_a_typed_array_is_checked_too()
+    {
+        // Measured through a class, because HexIDE does not reach a standard module's Property Get by name (#977).
+        await RunClasses("On Error Resume Next\nDim o As Foo, x\nSet o = New Foo\nx = o.PG\nDebug.Print \"err \" & Err.Number & \", TypeName(x) \" & TypeName(x)\n"
+            + "Err.Clear\nx = Empty\nx = o.PB\nDebug.Print \"err \" & Err.Number & \", TypeName(x) \" & TypeName(x) & \" \" & LBound(x) & \" To \" & UBound(x)\n",
+            ("Foo", "Public Property Get PG() As Integer()\n    PG = Array(1, 2)\nEnd Property\n"
+                + "Public Property Get PB() As Integer()\n    Dim ia(1 To 3) As Integer\n    PB = ia\nEnd Property\n"));
+
+        AssertDebugLog([new Vb6Value("err 13, TypeName(x) Empty"), new Vb6Value("err 0, TypeName(x) Integer() 1 To 3")]);
+    }
 }

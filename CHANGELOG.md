@@ -22,6 +22,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A Function declared to return a typed array takes only an array of its type** (#986). `F = Array(1, 2)` in a
+  Function `As Integer()` returned a Variant array with no error, and `F = 5` in one `As Long()` returned an Integer.
+  A mismatch now raises Type mismatch at the store, as VB6 does, or stops the run with VB6's compile error "Can't assign
+  to array" where VB6 would not have compiled the program.
 - **A Function declared to return an array returns it** (#975). `Function F() As Long()` returned a Long 0 with no
   error, because its return was read as the element type, so `d = F()` left `d` a scalar and the next `d(1)` stopped
   the run. It now returns the array, and one that never assigns its name returns an empty one, as VB6 does. A Property

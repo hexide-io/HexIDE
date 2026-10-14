@@ -7050,3 +7050,49 @@ starts as an empty array of it and the array the body stores comes back as it is
 standard module's Property Get, which HexIDE does not reach by name at all: a bare `PG`, or a scalar `PS`, reads Empty
 with no error, and `PG()` is "Sub or Function not defined" (#977, found here). Whether the caller gets a copy of the
 array is #970's.
+
+### What a typed-array return accepts (2026-10-14, #986)
+
+**The question.** #981 made the return slot an array, and then accepted whatever the body stored in it: `F = Array(1, 2)`
+in a Function `As Integer()` returned a Variant array with no error, and `F = 5` in one `As Long()` returned an
+Integer. The review of #981 measured those two; this measures the rest.
+
+**The probe.** A runtime project, each Function called as `x = F()` under `On Error Resume Next` in its caller, writing
+`Err.Number`, `TypeName(x)` and its bounds. Each case that might not compile is a project of its own, so one refusal
+cannot hide another. A third project repeats two rows through a class's Property Get. All built as native code and as
+p-code, the two agreeing on every row.
+
+| Body of a Function `As Integer()`, unless shown | VB6 |
+|---|---|
+| `F = ia`, `Dim ia(1 To 3) As Integer` | Err 0; `x` is Integer() 1 To 3: the bounds are kept |
+| `F = v`, `v` a Variant holding that Integer(1 To 3) | Err 0; Integer() 1 To 3 |
+| `F = d`, `Dim d() As Integer` never allocated | Err 0; Integer(), its bounds raising 9 |
+| `F = Array(1, 2)`; `F = v` with `v` holding `Array(1, 2)` | 13, and `x` stays Empty |
+| `F = v`, `v` holding a Long(0 To 1); holding 5; Empty | 13, and `x` stays Empty, each |
+| `F = Split("1,2", ",")` | 13 |
+| `As Long()`, `F = Array(1, 2)` | 13 |
+| `As Variant()`, `F = Array(1, 2)` | Err 0; Variant() 0 To 1 |
+| `As Variant()`, `F = v`, `v` holding an Integer(0 To 1) | 13 |
+| `As String()`, `F = Split("a,b", ",")` | Err 0; String() 0 To 1 |
+| `As Long()`, `F = 5` | does not compile: "Can't assign to array" |
+| `F = la`, `Dim la(1) As Long` | does not compile: "Can't assign to array" |
+| `F = va`, `Dim va(1) As Variant` | does not compile: "Can't assign to array" |
+| `As Variant()`, `F = ia`, `Dim ia(1) As Integer` | does not compile: "Can't assign to array" |
+| a class's `Property Get PG() As Integer()`, `PG = Array(1, 2)`, read as `o.PG` | 13 |
+| the same class's `PB`, storing an Integer(1 To 3) | Err 0; Integer() 1 To 3 |
+| `Dim d() As Integer`, `d = F()` with `F` storing an Integer(1 To 3) | Err 0; 1 To 3 |
+
+**What it says.** A typed-array return takes an array of exactly its element type and nothing else, keeping the bounds,
+from a fixed array as readily as a dynamic one. A mismatch VB6 can see while compiling, a scalar or an array variable
+declared with another element type, is the compile error "Can't assign to array". A mismatch it can only find at run
+time is 13, raised at the store, so the caller's target keeps what it had: through a Variant, and through Array and
+Split, which are declared to return a Variant even when what they return is a typed array.
+
+**HexIDE, after #986.** A store into the name of a Function or Property Get declared `As T()`, for a scalar `T` or
+Variant, checks the value's type against it. A mismatch is "Can't assign to array", raised as the statement runs, when
+the value is an array variable declared as one or a value of a declared type; otherwise it is 13. Every row is pinned,
+the Property Get ones through the class, since a standard module's Property Get is #977's. Two approximations, both on
+programs VB6 does not compile:
+- **A typed Function's result** is not marked as typed (#987), so `F = G()`, `G` returning an Integer, is 13 here where
+  VB6 refuses to compile it.
+- **`As Object()` and `As Collection()`** are not checked, since their element type is not modelled.

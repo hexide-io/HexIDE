@@ -519,7 +519,7 @@ public class PrePass : VB6BaseVisitor<object?>
             ? Vb6Value.ValueType.UserDefinedType
             : ReturnTypeOf(context.asTypeClause());
         GetOrAddProperty(name).Get = new ProcedureInfo(name, true, args, returnType, context.block(),
-            IsPrivate(context.visibility()), returnUdt);
+            IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()));
         NoteDefaultMember(context.block());
         return default;
     }
@@ -606,7 +606,7 @@ public class PrePass : VB6BaseVisitor<object?>
             ? Vb6Value.ValueType.UserDefinedType
             : ReturnTypeOf(context.asTypeClause());
         Procedures[name] = new ProcedureInfo(name, true, ParseParams(context.argList()), returnType,
-            context.block(), IsPrivate(context.visibility()), returnUdt);
+            context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()));
         NoteDefaultMember(context.block());
         return default;
     }
@@ -660,4 +660,9 @@ public class PrePass : VB6BaseVisitor<object?>
         var type = ExtractBaseType(asType) ?? Vb6Value.ValueType.EmptyVariant;
         return asType?.type()?.LPAREN() != null ? new Vb6Value.ValueType(type, true) : type;
     }
+
+    // The array type a store into the return name is checked against (#986): `As Integer()` or `As Variant()`, but not
+    // `As Object()` or `As Collection()`, which ExtractBaseType does not map and ReturnTypeOf reads as a Variant array.
+    private static Vb6Value.ValueType? CheckedArrayReturnOf(VB6Parser.AsTypeClauseContext? asType)
+        => asType?.type()?.LPAREN() != null && ExtractBaseType(asType) is { } element ? new Vb6Value.ValueType(element, true) : null;
 }
