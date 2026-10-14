@@ -9031,3 +9031,8 @@ Load goes on once Form2 has unloaded, and Form1 is then shown as any startup for
   form first".
 - **Err 5's text** is "Invalid procedure call or argument". HexIDE's table had "Invalid procedure call", and every Err 5
   it raised said so.
+
+**13. A method call statement with no space before its parenthesised argument.** A form's Timer ran `Form2.Show(0)`
+and `Text1.Move(100)`, written into the `.frm` that way. Both builds compile, and both statements run: Form2 loads and
+shows, and `Text1.Left` reads 100 after the Move. VB6's editor would have rewritten each with a space, so this is what
+a file written elsewhere gets. HexIDE's grammar refused both (#1064).

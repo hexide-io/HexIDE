@@ -735,6 +735,33 @@ public class SeveralFormsTests
         run.Opened["Form2"].IsVisible.Should().BeTrue();
     }
 
+    // `Form2.Show(1)`, with no space, is #1064: vb6.exe compiles it, and HexIDE's grammar refuses every member call statement
+    // spelled that way.
+    [AvaloniaTheory]
+    [InlineData("Form2.Show (1)")]
+    [InlineData("Call Form2.Show(vbModal)")]
+    [InlineData("With Form2: .Show vbModal: End With")]
+    public void Every_statement_spelling_of_a_modal_Show_waits(string show)
+    {
+        using var run = Start($$"""
+            Private Sub Command1_Click()
+                {{show}}
+                Debug.Print "returned"
+            End Sub
+
+            """);
+        run.Click("Form1");
+        Pump();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 initialize", "f2 load");
+        run.Opened["Form1"].IsEnabled.Should().BeFalse();
+
+        run.Click("Form2");
+        Pump();
+        run.Printed.Should().Equal("f2 initialize", "f2 load", "f2 queryunload 1", "f2 unload", "returned");
+    }
+
     [AvaloniaFact]
     public void End_inside_the_modal_form_ends_the_run_and_the_statement_after_the_Show_never_runs()
     {

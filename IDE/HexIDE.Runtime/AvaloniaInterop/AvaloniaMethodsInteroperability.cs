@@ -52,7 +52,7 @@ public static class AvaloniaMethodsInteroperability
             }
         }
 
-        // A method VB6 has and HexIDE does not, such as Move, Refresh, SetFocus, Cls or a form's Hide. This was a
+        // A method VB6 has and HexIDE does not, such as Move, Refresh, SetFocus or Cls. This was a
         // plain Exception, which the IDE reports as an internal fault. It is HexIDE's gap, not the program's, so
         // it says so, and it is never trappable: On Error Resume Next stepping over a Move that never happened
         // would leave the program believing the control had moved (#754). A member VB6 itself lacks is a
