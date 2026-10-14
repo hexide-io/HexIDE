@@ -1305,15 +1305,37 @@ public partial class CodeEditorView : UserControl
         }
     }
 
-    // Keys that would modify the document (printable chars arrive via OnTextEntering, not here).
+    // Keys that would modify the document (printable chars arrive via OnTextEntering, not here; the clipboard's
+    // keys are ClipboardEditOf's).
     private static bool IsDocumentEditKey(KeyEventArgs e) => e.Key switch
     {
         Key.Back or Key.Delete or Key.Return or Key.Enter or Key.Tab
             => e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift,
-        Key.V or Key.X   // paste / cut
-            => e.KeyModifiers.HasFlag(KeyModifiers.Control),
         _ => false,
     };
+
+    /// <summary>
+    /// True when <paramref name="e"/> is the text area's own Paste, false when it is its own Cut, and null for any
+    /// other key: by the first of its editing bindings the key matches, as <see cref="DeletesTheSelection"/> tells
+    /// a deletion.
+    /// </summary>
+    /// <remarks>
+    /// The platform places these keys, Ctrl+V and Ctrl+X on Windows and Linux and Cmd on macOS. This used to match
+    /// Ctrl alone, so on macOS a paste or a cut by the library's own key wrote into a running program's code with no
+    /// prompt: CI's macOS run found it, in <c>ResetPromptTests</c> (#273).
+    /// </remarks>
+    private bool? ClipboardEditOf(KeyEventArgs e)
+    {
+        foreach (var binding in TextEditor.TextArea.DefaultInputHandler.Editing.KeyBindings)
+        {
+            if (binding.Gesture?.Matches(e) != true)
+                continue;
+            if (binding.Command == AvaloniaEdit.ApplicationCommands.Paste)
+                return true;
+            return binding.Command == AvaloniaEdit.ApplicationCommands.Cut ? false : null;
+        }
+        return null;
+    }
 
     private void OnTextEntered(object? sender, TextInputEventArgs e)
     {
@@ -1340,12 +1362,12 @@ public partial class CodeEditorView : UserControl
 
         // Editing while the project is running/paused → VB6 reset prompt (see ArmResetPrompt). Covers the
         // non-printable edit keys that reach the text area (Backspace, Enter, Tab); printable chars go via
-        // OnTextEntering, and Delete, Ctrl+V and Ctrl+X via the commands their keys are bound to.
+        // OnTextEntering, and Delete, Paste and Cut via the commands their keys are bound to.
         // The edit is allowed to proceed (VB6 lets it land); No reverts it, Yes keeps it + resets the project.
-        // Ctrl+V and Ctrl+X normally never get here, because the code window's command bindings take them; this
-        // is for a keymap that binds those commands elsewhere and leaves AvaloniaEdit's own paste on the key.
-        if (e.Key is Key.V or Key.X && e.KeyModifiers.HasFlag(KeyModifiers.Control))
-            AskBeforeClipboardEdit(paste: e.Key == Key.V);
+        // The keymap's Paste and Cut keys normally never get here, because the code window's command bindings take
+        // them; this is for a key the keymap leaves on AvaloniaEdit's own Paste or Cut, wherever the platform puts it.
+        if (ClipboardEditOf(e) is { } paste)
+            AskBeforeClipboardEdit(paste);
         else if (IsDocumentEditKey(e))
             ArmResetPrompt();
         // A key that deletes the selection, ahead of the library that deletes it: a deletion of a described line

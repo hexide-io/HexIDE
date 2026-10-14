@@ -238,7 +238,7 @@ public class ResetPromptTests : IDisposable
 
         editor.TextArea.RaiseEvent(new KeyEventArgs
         {
-            RoutedEvent = InputElement.KeyDownEvent, Key = Key.V, KeyModifiers = KeyModifiers.Control,
+            RoutedEvent = InputElement.KeyDownEvent, Key = Key.V, KeyModifiers = HexIDE.ApplicationCommands.PasteCommand.Gestures[0].KeyModifiers,
         });
         for (var i = 0; i < 50 && !vm.Document.Text.Contains("Pasted ", StringComparison.Ordinal); i++)
         {
@@ -263,7 +263,7 @@ public class ResetPromptTests : IDisposable
 
         editor.TextArea.RaiseEvent(new KeyEventArgs
         {
-            RoutedEvent = InputElement.KeyDownEvent, Key = Key.V, KeyModifiers = KeyModifiers.Control,
+            RoutedEvent = InputElement.KeyDownEvent, Key = Key.V, KeyModifiers = HexIDE.ApplicationCommands.PasteCommand.Gestures[0].KeyModifiers,
         });
         for (var i = 0; i < 20; i++)
         {
@@ -314,7 +314,7 @@ public class ResetPromptTests : IDisposable
 
         editor.TextArea.RaiseEvent(new KeyEventArgs
         {
-            RoutedEvent = InputElement.KeyDownEvent, Key = Key.X, KeyModifiers = KeyModifiers.Control,
+            RoutedEvent = InputElement.KeyDownEvent, Key = Key.X, KeyModifiers = HexIDE.ApplicationCommands.CutCommand.Gestures[0].KeyModifiers,
         });
         for (var i = 0; i < 50 && vm.Document.Text.Contains("Unload Me", StringComparison.Ordinal); i++)
         {
@@ -336,7 +336,7 @@ public class ResetPromptTests : IDisposable
 
         editor.TextArea.RaiseEvent(new KeyEventArgs
         {
-            RoutedEvent = InputElement.KeyDownEvent, Key = Key.X, KeyModifiers = KeyModifiers.Control,
+            RoutedEvent = InputElement.KeyDownEvent, Key = Key.X, KeyModifiers = HexIDE.ApplicationCommands.CutCommand.Gestures[0].KeyModifiers,
         });
         for (var i = 0; i < 20; i++)
         {

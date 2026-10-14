@@ -47,7 +47,7 @@ public class MidLineFoldBehaviourTests : IDisposable
         "Public Sub Go()\r\n" +                              // 3  the described line
         "Attribute Go.VB_Description = \"Goes\"\r\n" +       // 4  the run
         "Attribute Go.VB_UserMemId = 0\r\n" +                // 5
-        "    Debug.Print 1\r\n" +                            // 6
+        "    Debug.Print 1 ' a comment that runs well past the box on any font\r\n" + // 6
         "End Sub\r\n";                                       // 7
 
     private sealed record Rig(Window Window, TextEditor Editor, FoldingManager Folding)
@@ -253,8 +253,9 @@ public class MidLineFoldBehaviourTests : IDisposable
     [AvaloniaFact]
     public void UpAndDownOntoTheRowLandAfterTheBoxFromAColumnPastIt()
     {
-        // "    Debug.Print 1" is longer than "Public Sub Go()" and its box, so Up from its end lands at the row's
-        // last stop, after the box; Down from a short line's start lands at the row's start.
+        // Line 6 is far longer than "Public Sub Go()" and its box, so Up from its end lands at the row's last stop,
+        // after the box; Down from a short line's start lands at the row's start. It used to end at "Debug.Print 1",
+        // which on Linux's and macOS's fonts drew short of the box's far side, so Up landed before the box (CI, #273).
         var rig = Show();
         FoldTheRun(rig);
 

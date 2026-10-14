@@ -1425,7 +1425,10 @@ public static class UiAutomationDriver
     /// </summary>
     /// <remarks>
     /// <see cref="EditedSpan.Deletes"/> says the key deletes the span rather than writing over it: Backspace and
-    /// Delete, a cut, and Ctrl+D. A deletion is judged as the code window's keys delete (#273 task 4.5a): one that
+    /// Delete, a cut, and Ctrl+D. A cut and a paste are the keys the IDE binds to its Cut and Paste commands, Ctrl+X
+    /// and Ctrl+V on Windows and Linux and Cmd on macOS, and Delete Line is the library's; matching Ctrl alone let a
+    /// Cmd+X on macOS through unjudged (#273, found by CI's macOS run). A deletion is judged as the code window's keys
+    /// delete (#273 task 4.5a): one that
     /// takes a described line takes its Attribute lines with it, which is allowed, where writing over the span would
     /// not be. Ctrl+D deletes every line the selection touches, as the library's does, so that is its span. A cut with
     /// nothing selected is still judged at the caret, as it was: regions are whole lines, so the caret's line, which
@@ -1436,19 +1439,22 @@ public static class UiAutomationDriver
         var caret = area.Caret.Offset;
         var selection = area.Selection.SurroundingSegment;
         var chord = mods & ~KeyModifiers.Shift;
+        var probe = new KeyEventArgs { Key = key, KeyModifiers = mods };
+        var cut = HexIDE.ApplicationCommands.CutCommand.Gestures.Any(g => g.Matches(probe));
+        var paste = HexIDE.ApplicationCommands.PasteCommand.Gestures.Any(g => g.Matches(probe));
+        var deleteLine = AvaloniaEditCommands.DeleteLine.Gesture?.Matches(probe) == true;
 
-        var edits = (key, chord) switch
+        var edits = cut || paste || deleteLine || (key, chord) switch
         {
             (Key.Enter or Key.Return or Key.Tab, KeyModifiers.None) => true,
             (Key.Back or Key.Delete, KeyModifiers.None or KeyModifiers.Control) => true,
-            (Key.V or Key.X or Key.D, KeyModifiers.Control) => true,
             _ => false,
         };
         if (!edits)
             return null;
-        var deletes = key is Key.Back or Key.Delete or Key.X or Key.D;
+        var deletes = cut || deleteLine || key is Key.Back or Key.Delete;
 
-        if (key == Key.D)
+        if (deleteLine)
         {
             var first = area.Document.GetLineByOffset(selection is { Length: > 0 } ? selection.Offset : caret);
             var last = area.Document.GetLineByOffset(selection is { Length: > 0 } ? selection.EndOffset : caret);

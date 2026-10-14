@@ -803,7 +803,11 @@ public class MemberRunFoldTests : IDisposable
         var (_, editor) = Show(vm);
         var declaration = LineWith(editor, "Public Sub Go()");
 
-        foreach (var modifiers in new[] { KeyModifiers.Shift, KeyModifiers.Control | KeyModifiers.Shift })
+        // The word step's key is the platform's (Ctrl+Shift+Right, or Alt+Shift+Right on macOS), so it is read from the
+        // binding rather than assumed.
+        var byWord = editor.TextArea.DefaultInputHandler.CaretNavigation.KeyBindings
+            .First(b => b.Command == EditingCommands.SelectRightByWord && b.Gesture?.Key == Key.Right).Gesture!.KeyModifiers;
+        foreach (var modifiers in new[] { KeyModifiers.Shift, byWord })
         {
             editor.TextArea.ClearSelection();
             PutCaret(editor, declaration.EndOffset);

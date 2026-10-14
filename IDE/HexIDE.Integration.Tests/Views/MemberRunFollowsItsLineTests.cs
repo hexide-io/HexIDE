@@ -122,6 +122,16 @@ public class MemberRunFollowsItsLineTests : IDisposable
         Dispatcher.UIThread.RunJobs();
     }
 
+    /// <summary>
+    /// The key the IDE binds to <paramref name="command"/> on this platform: Ctrl+X on Windows and Linux, Cmd+X on
+    /// macOS, where Ctrl+X cuts nothing (CI's macOS run, #273).
+    /// </summary>
+    private static void PressCommand(TextEditor editor, Avalonia.Labs.Input.RoutedCommand command)
+    {
+        var gesture = command.Gestures[0];
+        Press(editor, gesture.Key, gesture.KeyModifiers);
+    }
+
     private static void TypeText(TextEditor editor, string text)
     {
         editor.TextArea.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = text });
@@ -280,7 +290,7 @@ public class MemberRunFollowsItsLineTests : IDisposable
         var lineStart = LineWith(editor, "Public Sub Go()").Offset;
         PutCaret(editor, lineStart + 2);
 
-        Press(editor, Key.X, KeyModifiers.Control);
+        PressCommand(editor, HexIDE.ApplicationCommands.CutCommand);
 
         var cut = "Public Sub Go()\r\n" + RunText;
         vm.Document.Text.Should().Be(before.Replace(cut, string.Empty));
@@ -290,7 +300,7 @@ public class MemberRunFollowsItsLineTests : IDisposable
             "the clipboard is written in the platform's newline, as AvaloniaEdit writes every copy");
 
         PutCaret(editor, lineStart);
-        Press(editor, Key.V, KeyModifiers.Control);
+        PressCommand(editor, HexIDE.ApplicationCommands.PasteCommand);
         await UntilChanged(vm, before.Replace(cut, string.Empty));
 
         vm.Document.Text.Should().Be(before, "pasted back, the run is under its declaration again");
@@ -306,7 +316,7 @@ public class MemberRunFollowsItsLineTests : IDisposable
         var declaration = LineWith(editor, "Public Sub Go()");
         editor.Select(declaration.Offset, declaration.Length);
 
-        Press(editor, Key.X, KeyModifiers.Control);
+        PressCommand(editor, HexIDE.ApplicationCommands.CutCommand);
 
         vm.Document.Text.Should().Be(before.Replace("Public Sub Go()\r\n" + RunText, "\r\n"));
         (await Clipboard(editor))!.ReplaceLineEndings().Should().Be(
@@ -421,7 +431,8 @@ public class MemberRunFollowsItsLineTests : IDisposable
         var declaration = LineWith(editor, "Public Sub Go()");
         editor.Select(declaration.Offset, declaration.TotalLength);
 
-        var pressed = UiAutomationDriver.PressKey(editor, key, modifiers);
+        // Cut is Cmd+X on macOS, where the IDE binds it as the platform does (ApplicationCommands).
+        var pressed = UiAutomationDriver.PressKey(editor, key, modifiers == "Ctrl" && OperatingSystem.IsMacOS() ? "Cmd" : modifiers);
 
         pressed.Success.Should().BeTrue(pressed.Error);
         vm.Document.Text.Should().Be(before.Replace("Public Sub Go()\r\n" + RunText, string.Empty));
@@ -575,7 +586,7 @@ public class MemberRunFollowsItsLineTests : IDisposable
         await SetClipboard(editor, " ' first\n\tDebug.Print 0");
         PutCaret(editor, LineWith(editor, "Public Sub Go()").EndOffset);
 
-        Press(editor, Key.V, KeyModifiers.Control);
+        PressCommand(editor, HexIDE.ApplicationCommands.PasteCommand);
         await UntilChanged(vm, before);
 
         vm.Document.Text.Should().Be(before
@@ -596,7 +607,7 @@ public class MemberRunFollowsItsLineTests : IDisposable
         await SetClipboard(editor, " ' goes");
         PutCaret(editor, LineWith(editor, "Public Sub Go()").EndOffset);
 
-        Press(editor, Key.V, KeyModifiers.Control);
+        PressCommand(editor, HexIDE.ApplicationCommands.PasteCommand);
         await UntilChanged(vm, before);
 
         vm.Document.Text.Should().Be(before.Replace("Public Sub Go()\r\n", "Public Sub Go() ' goes\r\n"));
@@ -620,7 +631,7 @@ public class MemberRunFollowsItsLineTests : IDisposable
         editor.Select(from, RunOf(vm, "Go").Anchor - from);
         await SetClipboard(editor, "A\nB");
 
-        Press(editor, Key.V, KeyModifiers.Control);
+        PressCommand(editor, HexIDE.ApplicationCommands.PasteCommand);
         await UntilChanged(vm, before);
 
         vm.Document.Text.Should().Contain("A\r\nB").And.Contain("Attribute Count.VB_VarDescription",
