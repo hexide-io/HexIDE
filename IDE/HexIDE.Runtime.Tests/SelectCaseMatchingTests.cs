@@ -520,4 +520,61 @@ public class SelectCaseMatchingTests : BaseVBTestFixture
 
         AssertDebugLog([new Vb6Value("else | 0")]);
     }
+
+    // The review of #1005 (2026-10-14): a parameter, return, variable or field declared as a class, an Enum or a Collection
+    // is typed, and one declared As Object is late-bound, so its members' results are Variants. Generated from the probe
+    // and its log, native and p-code agreeing (the oracle's "What a class, an Enum or an Object declaration reads as").
+    // A source holding 5 is tried against `Case 4.6` (typed converts 4.6 into 5: "eq"), against `Case Is < 5.4` (typed
+    // converts 5.4 into 5: "ge"), and times a typed multiplier past its ceiling (typed overflows: 6). Not pinned: `As
+    // Collection` and a local `Dim o As Object`, which HexIDE does not declare yet, and `Property Get Q() As MyEnum`,
+    // whose `Q = mFive` reads another module's Enum member unqualified, Empty here (#889).
+    private const string DeclaredDeclarations =
+        "Public Enum MyEnum\n    mA = 1\n    mFive = 5\nEnd Enum\nPrivate Type TE\n    c As MyEnum\nEnd Type\n"
+        + "Const MK = 5\nConst MKL As Long = 5\n";
+
+    private const string DeclaredFunctions =
+        "Function NewFoo() As Foo\n    Set NewFoo = New Foo\nEnd Function\n"
+        + "Function GetFoo() As Foo\n    Set GetFoo = New Foo\nEnd Function\n"
+        + "Function GetColor() As MyEnum\n    GetColor = mFive\nEnd Function\n"
+        + "Function GetObj() As Object\n    Set GetObj = New Foo\nEnd Function\n"
+        + "Function Coll5() As Collection\n    Dim k As Collection, i As Integer\n    Set k = New Collection\n"
+        + "    For i = 1 To 5\n        k.Add i\n    Next\n    Set Coll5 = k\nEnd Function\n";
+
+    private const string DeclaredFoo =
+        "Public N As MyEnum\nPublic Property Get P() As Integer\n    P = 5\nEnd Property\n"
+        + "Public Property Get Q() As MyEnum\n    Q = mFive\nEnd Property\n";
+
+    [Theory]
+    [InlineData("", "", "Dim s As Foo\n    Set s = New Foo", "s.P", "int", "eq err 0; ge err 0; *7000: err 6 Empty")]   // s.P, Dim s As Foo
+    [InlineData("s As Foo", "NewFoo()", "", "s.P", "int", "eq err 0; ge err 0; *7000: err 6 Empty")]   // s.P, s As Foo
+    [InlineData("ByVal s As Foo", "NewFoo()", "", "s.P", "int", "eq err 0; ge err 0; *7000: err 6 Empty")]   // s.P, ByVal s As Foo
+    [InlineData("", "", "", "GetFoo().P", "int", "eq err 0; ge err 0; *7000: err 6 Empty")]   // GetFoo().P, Function GetFoo() As Foo
+    [InlineData("c As MyEnum", "mFive", "", "c", "long", "eq err 0; ge err 0; *500000000: err 6 Empty")]   // c, c As MyEnum given mFive
+    [InlineData("ByVal c As MyEnum", "mFive", "", "c", "long", "eq err 0; ge err 0; *500000000: err 6 Empty")]   // c, ByVal c As MyEnum given mFive
+    [InlineData("", "", "", "GetColor()", "long", "eq err 0; ge err 0; *500000000: err 6 Empty")]   // GetColor(), Function GetColor() As MyEnum
+    [InlineData("", "", "Dim e As MyEnum\n    e = mFive", "e", "long", "eq err 0; ge err 0; *500000000: err 6 Empty")]   // e, Dim e As MyEnum
+    [InlineData("", "", "Dim t As TE\n    t.c = mFive", "t.c", "long", "eq err 0; ge err 0; *500000000: err 6 Empty")]   // t.c, c As MyEnum in a Type
+    [InlineData("", "", "Dim f As Foo\n    Set f = New Foo\n    f.N = mFive", "f.N", "long", "eq err 0; ge err 0; *500000000: err 6 Empty")]   // f.N, Public N As MyEnum in Foo
+    [InlineData("o As Object", "NewFoo()", "", "o.P", "int", "ne err 0; lt err 0; *7000: err 0 Long")]   // o.P, o As Object
+    [InlineData("ByVal o As Object", "NewFoo()", "", "o.P", "int", "ne err 0; lt err 0; *7000: err 0 Long")]   // o.P, ByVal o As Object
+    [InlineData("", "", "", "GetObj().P", "int", "ne err 0; lt err 0; *7000: err 0 Long")]   // GetObj().P, Function GetObj() As Object
+    [InlineData("o As Variant", "NewFoo()", "", "o.P", "int", "ne err 0; lt err 0; *7000: err 0 Long")]   // o.P, o As Variant holding a Foo
+    [InlineData("", "", "", "mFive", "long", "eq err 0; ge err 0; *500000000: err 6 Empty")]   // mFive, an Enum member
+    [InlineData("", "", "Const K = 5", "K", "int", "eq err 0; ge err 0; *7000: err 6 Empty")]   // K, Const K = 5
+    [InlineData("", "", "Const KI As Integer = 5", "KI", "int", "eq err 0; ge err 0; *7000: err 6 Empty")]   // KI, Const KI As Integer = 5
+    [InlineData("", "", "", "MK", "int", "eq err 0; ge err 0; *7000: err 6 Empty")]   // MK, a module Const MK = 5
+    [InlineData("", "", "", "MKL", "long", "eq err 0; ge err 0; *500000000: err 6 Empty")]   // MKL, a module Const MKL As Long = 5
+    public async Task A_class_Enum_or_Object_declaration_reads_as_VB6_reads_it(string parameters, string argument, string setup, string expression, string kind, string expected)
+    {
+        var (type, multiplier) = kind == "int" ? ("Integer", "7000") : ("Long", "500000000");
+        await RunClasses(DeclaredDeclarations + $"R {argument}\nSub R({parameters})\n    On Error Resume Next\n    Dim r As String, x, m As {type}\n    m = {multiplier}\n    {setup}\n"
+            + $"    r = \"?\"\n    Select Case {expression}\n        Case 4.6\n            r = \"eq\"\n        Case Else\n            r = \"ne\"\n    End Select\n"
+            + "    r = r & \" err \" & Err.Number\n    Err.Clear\n"
+            + $"    Select Case {expression}\n        Case Is < 5.4\n            r = r & \"; lt\"\n        Case Else\n            r = r & \"; ge\"\n    End Select\n"
+            + "    r = r & \" err \" & Err.Number\n    Err.Clear\n"
+            + $"    x = {expression} * m\n    r = r & \"; *{multiplier}: err \" & Err.Number & \" \" & TypeName(x)\n    Debug.Print r\nEnd Sub\n"
+            + DeclaredFunctions, ("Foo", DeclaredFoo));
+
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
 }

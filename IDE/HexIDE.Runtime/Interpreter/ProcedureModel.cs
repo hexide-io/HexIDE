@@ -25,7 +25,11 @@ public sealed record ProcedureInfo(
     // For a Function or Property Get declared to return an array of a scalar type or of Variant (`As Integer()`), that
     // array type, so a store into the return name can be checked against it (#986). Null otherwise, including `As
     // Object()` and `As Collection()`, whose element type is not modelled.
-    Vb6Value.ValueType? CheckedArrayReturn = null)
+    Vb6Value.ValueType? CheckedArrayReturn = null,
+    // Whether the return reads as a Variant's: declared with no As clause, `As Variant`, or `As Object`, which VB6 binds
+    // late as it binds a Variant (measured, #1005: `GetObj().P` with `GetObj() As Object` is a Variant, and `GetFoo().P`
+    // with `GetFoo() As Foo` is typed). A return the map does not type, such as `As Collection`, is neither.
+    bool ReturnsVariant = false)
 {
     private IReadOnlyList<VB6Parser.VariableSubStmtContext>? declaredLocals;
 
@@ -121,7 +125,14 @@ public sealed record ParamInfo(
     bool ParamArray,
     Vb6Value.ValueType? DeclaredType,
     VB6Parser.ArgDefaultValueContext? Default,
-    bool IsArray = false);
+    bool IsArray = false,
+    // Whether the parameter reads as a Variant's: declared with no As clause, `As Variant`, or `As Object`, which VB6
+    // binds late as it binds a Variant (measured, #1005). DeclaredType cannot say this: it is null for a class, an Enum
+    // and a Collection too, which are typed (`s.P` with `s As Foo` overflows, and `c` with `c As MyEnum` is a Long).
+    bool ReadsAsVariant = false,
+    // The type name of an `As Name` clause that is not a base type: a class, a UDT or an Enum. An Enum parameter is a
+    // Long, which BasicInterpreter.BindParameters resolves at the call, once every module's Enums are known.
+    string? TypeName = null);
 
 /// <summary>
 /// An evaluated argument at a call site: its value plus, when the argument is a caller lvalue, the caller

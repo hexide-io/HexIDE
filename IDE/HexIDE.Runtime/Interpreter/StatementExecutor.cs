@@ -477,7 +477,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 interpreter.ExecutionContext.AllocVariable(currentEnv, name, value);
                 if (currentEnv.TryGetVariableLocation(name, out var constant))
+                {
                     interpreter.ExecutionContext.State.MarkConstant(constant);
+                    if (PrePass.IsVariantConst(sub))
+                        interpreter.ExecutionContext.State.MarkVariant(constant);
+                }
             }
         }
         return ControlFlow.Nothing;
@@ -1635,7 +1639,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return ControlFlow.Nothing;
     }
 
-    /// <summary>Whether one test on a <c>Case</c> line, <c>Is &lt; x</c>, <c>x</c> or <c>x To y</c>, matches the selector.</summary>
     /// <summary>
     /// Whether one test on a <c>Case</c> line, <c>Is &lt; x</c>, <c>x</c> or <c>x To y</c>, matches the selector. Which rule
     /// applies is the selector's (#987, measured, native and p-code; the oracle's <i>A typed selector and a Variant one</i>):
@@ -2270,6 +2273,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (currentEnv.TryGetVariableLocation(name, out var slot))
         {
             interpreter.ExecutionContext.State.MarkConstant(slot);
+            if (PrePass.IsVariantConst(sub))
+                interpreter.ExecutionContext.State.MarkVariant(slot);
             ownedSlots?.Add(slot);
         }
     }

@@ -6169,6 +6169,86 @@ take the Case either way, and do not overflow. The row for `Err.Number` measured
 **And one more thing it found:** `Len` of a typed variable is its size, 2 for the Integer holding 5 here, and `Len` of a
 literal or an expression does not compile ("Variable required - can't assign to this expression"). That is #780's.
 
+### What a class, an Enum, an Object and a Const read as (2026-10-14, #1005's review)
+
+**The question.** #1005 first counted a parameter or a return as a Variant's whenever its declared type had no base type,
+which took in a class, an Enum and a Collection as well as an untyped one. Its review asked what each of them is.
+
+**The probe.** As above: one project, each row its own Sub under `On Error Resume Next`, built as native code and as
+p-code, the two agreeing on every line. `Foo` is a class with `Property Get P() As Integer` returning 5, and `MyEnum` has
+`mFive = 5`. A source holding 5 is tried three ways:
+- against `Case 4.6`: typed converts 4.6 into 5 and matches ("eq"); a Variant compares 5 with 4.6 ("ne");
+- against `Case Is < 5.4`: typed converts 5.4 into 5, which it is not below ("ge"); a Variant is below ("lt");
+- times a typed variable past its ceiling (`m As Integer` holding 7000 for an Integer source, `m As Long` holding
+  500000000 for a Long one): typed overflows, a Variant widens. The multiplier is a variable, so nothing folds.
+
+The constants are each in a project of their own, so a compile error in one could not hide the rest. None had one.
+
+| Source | `Case 4.6` | `Case Is < 5.4` | Times the multiplier | So |
+|---|---|---|---|---|
+| `mFive, an Enum member` | eq | ge | Overflow | typed |
+| `K, Const K = 5` | eq | ge | Overflow | typed |
+| `KI, Const KI As Integer = 5` | eq | ge | Overflow | typed |
+| `MK, a module Const MK = 5` | eq | ge | Overflow | typed |
+| `MKL, a module Const MKL As Long = 5` | eq | ge | Overflow | typed |
+| `s.P, Dim s As Foo` | eq | ge | Overflow | typed |
+| `s.P, s As Foo` | eq | ge | Overflow | typed |
+| `s.P, ByVal s As Foo` | eq | ge | Overflow | typed |
+| `GetFoo().P, Function GetFoo() As Foo` | eq | ge | Overflow | typed |
+| `c, c As MyEnum given mFive` | eq | ge | Overflow | typed |
+| `c, ByVal c As MyEnum given mFive` | eq | ge | Overflow | typed |
+| `GetColor(), Function GetColor() As MyEnum` | eq | ge | Overflow | typed |
+| `e, Dim e As MyEnum` | eq | ge | Overflow | typed |
+| `t.c, c As MyEnum in a Type` | eq | ge | Overflow | typed |
+| `f.N, Public N As MyEnum in Foo` | eq | ge | Overflow | typed |
+| `f.Q, Property Get Q() As MyEnum` | eq | ge | Overflow | typed |
+| `o.P, o As Object` | ne | lt | a Long | a Variant |
+| `o.P, ByVal o As Object` | ne | lt | a Long | a Variant |
+| `o.P, Dim o As Object` | ne | lt | a Long | a Variant |
+| `GetObj().P, Function GetObj() As Object` | ne | lt | a Long | a Variant |
+| `o.P, o As Variant holding a Foo` | ne | lt | a Long | a Variant |
+| `k.Count, k As Collection of 5` | eq | ge | Overflow | typed |
+| `k.Count, Dim k As Collection of 5` | eq | ge | Overflow | typed |
+
+Then the Consts that are not Integers or Longs, each in its own project. `Case Is > 9` against a String "10" is text for a
+typed one ("10" is not above "9") and numeric for a Variant; `Case Is > "a"` against a typed Double raises 13, where a
+Variant number is below any string; `Case 3 To 6` against a typed Boolean converts 3 and 6 into True, so True is in range,
+where a Variant True is -1. A Case that raises runs, as #839 measured.
+
+| Source | Result, then `TypeName` |
+|---|---|
+| `KS, Const KS = "10"` | Else err 0 String |
+| `KSS, Const KSS As String = "10"` | Else err 0 String |
+| `KD, Const KD = 5.5` | Case err 13 Double |
+| `KB, Const KB = True` | Case err 0 Boolean |
+| `KV, Const KV As Variant = 5` | Else err 0 Integer |
+| `KV, Const KV As Variant = 5, Is < 5.4` | Case err 0 Integer |
+| `MS, a module Const MS = "10"` | Else err 0 String |
+| `mFive against Is > "a"` | Case err 13 Long |
+
+**What it says.**
+- **A class, `As Foo`**, as a parameter (ByRef or ByVal), a variable or a return: early-bound, so its members read as
+  they are declared. `s.P` is a typed Integer.
+- **An Enum**, wherever it is declared (a parameter, a return, a variable, a Type field, a class field, a Property Get):
+  a typed Long.
+- **`As Collection`** is early-bound too: `k.Count` is a typed Long.
+- **`As Object`**, as a parameter (ByRef or ByVal), a variable or a return: late-bound, as a Variant is, so `o.P` is a
+  Variant whatever `P` is declared as.
+- **A Const** is typed as its value is, whatever that is and wherever it is declared: an Integer, a Long, a String, a
+  Double, a Boolean, and an Enum member, which is a Long. The one exception is a Const declared `As Variant`, which is a
+  Variant: `Const KV As Variant = 5` is "ne" and "lt".
+
+**What #1005 had wrong, and does now.** A class, Enum or Collection parameter was read as a Variant's, and so was a
+member reached through it: `Select Case s.P` with `s As Foo` compared by the Variant rule, so `Case 4.6` stopped
+matching. Main had answered these through its old comparison, which matched there. A declaration now reads as a Variant's
+only when it says so (no As clause, `As Variant` or `As Object`); an Enum parameter, return or Type field is a typed Long,
+and a Const and an Enum member are typed unless the Const is `As Variant`. Main had a Const and an Enum member as neither,
+so `K * m` widened to a Long 35000 where VB6 overflows.
+
+**Not reachable in HexIDE:** `As Collection` and a local `Dim o As Object`, which it does not declare yet, and
+`Property Get Q() As MyEnum`, whose `Q = mFive` reads another module's Enum member unqualified, which is Empty here
+(#889). The other rows are pinned in `SelectCaseMatchingTests`.
+
 ### HexIDE
 
 **None of this is implemented by #839.** Round two built it: Case values converted into a typed selector's type, a
@@ -6197,21 +6277,23 @@ What main does with these rows, for #987's reference:
 source nobody has measured cannot flip:
 - **Arithmetic** keeps #122's rule, a ceiling only when both operands are typed, so only the new typed marks change it:
   a typed Function's or Property Get's result, a typed array element or Type field, the typed intrinsics, and `Len`,
-  `InStr`, `Abs`, `Int` and `Fix` of typed arguments. `F() * 7000` and `CInt(v) * 7000` now overflow, as in VB6. A
-  Variant array element or Type field reads as a Variant's whatever it holds, so `w(0) * 7000` widens.
+  `InStr`, `Abs`, `Int` and `Fix` of typed arguments; and, after #1005's review, a Const, an Enum member, and an Enum
+  parameter, return or Type field. `F() * 7000`, `CInt(v) * 7000` and `K * m` now overflow, as in VB6. A Variant array
+  element or Type field reads as a Variant's whatever it holds, so `w(0) * 7000` widens.
 - **Select Case:** a typed selector converts each Case value into its type, `Is` and `To` as well as equality, and a
   Variant selector compares as VB6 compares Variants (round two's rules), against a Case value that is typed or a
-  Variant's. A selector or Case value that is neither, such as a Const, an Enum member or a Double result, compares as
+  Variant's. A selector or Case value that is neither, such as the result of an intrinsic nobody has run, compares as
   main did. A Boolean is -1 or 0, so True is below False.
-- **Variant sources:** a slot marked Variant, an untyped or Variant parameter even when it shares a typed variable
-  (#1001's read rule), a Variant array's element or any element read through a Variant, a Variant Type field, an
-  untyped or `As Variant` Function's result, a member reached through a Variant (late-bound), and the Variant
-  intrinsics. An operator's result is a Variant's when either operand is.
-- **Every measured row is pinned:** round two's 111 and its generated arithmetic rows, the review's families, and the
-  intrinsic table above, except `IIf`, `Choose` and `Switch`, which HexIDE does not implement, and `Len` of a typed
-  Integer, whose value is #780's.
-- **Left as main, by design:** a Const and an Enum member (typed in Select Case, where main's comparison was already
-  right; unmeasured in arithmetic), and every intrinsic not run here.
+- **Variant sources:** a slot marked Variant, an untyped, Variant or Object parameter even when it shares a typed
+  variable (#1001's read rule), a Variant array's element or any element read through a Variant, a Variant Type field,
+  an untyped, `As Variant` or `As Object` Function's result, a Const declared `As Variant`, a member reached through a
+  Variant or an Object (late-bound), and the Variant intrinsics. An operator's result is a Variant's when either operand
+  is. A class, Enum or Collection declaration is not one: those are typed or early-bound.
+- **Every measured row is pinned:** round two's 111 and its generated arithmetic rows, the review's families, the
+  intrinsic table above, and #1005's review rows, except `IIf`, `Choose` and `Switch`, which HexIDE does not implement,
+  `Len` of a typed Integer, whose value is #780's, and the three review rows HexIDE cannot reach.
+- **Left as main, by design:** every intrinsic not run here, and the reference itself where a class or Collection
+  declares it: its members are early-bound and read as they are declared.
 
 ## Attribute lines inside a procedure (2026-10-12, #832)
 

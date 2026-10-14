@@ -237,6 +237,14 @@ public class PrePass : VB6BaseVisitor<object?>
         int.TryParse(bound.GetText(), System.Globalization.NumberStyles.AllowLeadingSign,
             System.Globalization.CultureInfo.InvariantCulture, out value);
 
+    /// <summary>
+    /// A Const declared <c>As Variant</c>, which reads as a Variant's. Every other Const is typed as its value is: measured,
+    /// #1005, `Const KV As Variant = 5` is not `Case 4.6` and is `Case Is &lt; 5.4`, where `Const K = 5`, `Const KS = "10"`,
+    /// `Const KD = 5.5` and `Const KB = True` all convert their Case values as a typed selector does.
+    /// </summary>
+    internal static bool IsVariantConst(VB6Parser.ConstSubStmtContext sub) =>
+        sub.asTypeClause()?.type()?.baseType()?.VARIANT() != null;
+
     public override object? VisitConstStmt(VB6Parser.ConstStmtContext context)
     {
         // Hoist module-level const names into rootEnv (mirrors the Dim hoist) so a Sub declared after the
@@ -248,6 +256,8 @@ public class PrePass : VB6BaseVisitor<object?>
                 throw new NotImplementedException("Const type hints not supported");
             var location = state.Alloc(Vb6Value.Variant);
             state.MarkConstant(location);
+            if (IsVariantConst(sub))
+                state.MarkVariant(location);
             rootEnv.DefineVariable(sub.ambiguousIdentifier().GetText(), location);
             var isPublic = context.publicPrivateGlobalVisibility() is { } visibility && visibility.PRIVATE() == null;
             ModuleConsts.TryAdd(sub.ambiguousIdentifier().GetText(), (sub, isPublic));
@@ -520,7 +530,8 @@ public class PrePass : VB6BaseVisitor<object?>
             ? Vb6Value.ValueType.UserDefinedType
             : ReturnTypeOf(context.asTypeClause());
         GetOrAddProperty(name).Get = new ProcedureInfo(name, true, args, returnType, context.block(),
-            IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()));
+            IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
+            DeclaresVariant(context.asTypeClause()));
         NoteDefaultMember(context.block());
         return default;
     }
@@ -607,7 +618,8 @@ public class PrePass : VB6BaseVisitor<object?>
             ? Vb6Value.ValueType.UserDefinedType
             : ReturnTypeOf(context.asTypeClause());
         Procedures[name] = new ProcedureInfo(name, true, ParseParams(context.argList()), returnType,
-            context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()));
+            context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
+            DeclaresVariant(context.asTypeClause()));
         NoteDefaultMember(context.block());
         return default;
     }
@@ -643,10 +655,19 @@ public class PrePass : VB6BaseVisitor<object?>
                     ? new Vb6Value.ValueType(element, true)
                     : ExtractBaseType(arg.asTypeClause()),
                 Default: arg.argDefaultValue(),
-                IsArray: arg.LPAREN() != null));
+                IsArray: arg.LPAREN() != null,
+                ReadsAsVariant: arg.LPAREN() == null && DeclaresVariant(arg.asTypeClause()),
+                TypeName: arg.asTypeClause()?.type()?.complexType()?.GetText()));
         }
         return result;
     }
+
+    // A declaration that is a Variant's: no As clause, `As Variant`, or `As Object`, which VB6 binds late as it binds a
+    // Variant (measured, #1005). Not an array: `As Variant()` declares an array.
+    private static bool DeclaresVariant(VB6Parser.AsTypeClauseContext? asType) =>
+        asType is null
+        || asType.type()?.LPAREN() == null && asType.type()?.baseType() is { } baseType
+           && (baseType.VARIANT() != null || baseType.OBJECT() != null);
 
     // Maps an `As <type>` clause to a base ValueType, or null when absent / complex / unknown (params and
     // return types are left untyped in that case for now — the wider type system is a later phase).

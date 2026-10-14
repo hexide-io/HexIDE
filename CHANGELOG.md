@@ -34,6 +34,10 @@ there isn't one yet. Anything may change between 0.x releases.
   - **A Variant array element, a Variant Type field, a late-bound member and the Variant intrinsics** (`Hour`, `Day`,
     `Mid`, `Left` and the rest) widen, as a Variant does: `w(0) * 7000` with `w(0)` holding 5 is 35000, where it
     raised Overflow.
+  - **A Const, an Enum member, and an Enum parameter, return or Type field** are typed, as in VB6: `K * m` with
+    `Const K = 5` and `m As Integer` 7000 raises Overflow, where it gave 35000. A Const declared `As Variant` is a
+    Variant.
+  - **A parameter or return declared `As Object`** is late-bound, as a Variant is, so its members' results widen.
 - **A ByRef `As Variant` parameter writes back to its caller** (#1001). `Sub S(v As Variant): v = 5` left a caller's
   Variant, or a caller's `Integer`, as it was, because the parameter got a copy of anything but an array. It now
   shares the caller's variable, as an untyped parameter does. Along with it, an untyped or Variant parameter given a
