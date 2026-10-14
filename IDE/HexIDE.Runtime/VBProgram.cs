@@ -42,7 +42,7 @@ public sealed class VBProgram : IFormProgram
     private readonly Dictionary<VbObject, VBWindowContext> contexts = new(ReferenceEqualityComparer.Instance);
     private readonly List<VbObject> created = [];
     private readonly HashSet<VbObject> loaded = new(ReferenceEqualityComparer.Instance);
-    private readonly TaskCompletionSource ended = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource ended = new();
     private bool finishing;
 
     /// <summary>The program's state, every module's and form's slots in one.</summary>
@@ -105,14 +105,22 @@ public sealed class VBProgram : IFormProgram
             created.Add(instance);
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Make <paramref name="form"/>'s default instance where its name is first read: its declarations and Initialize run
+    /// inside the statement that read it, and an error in them is that statement's, for its own <c>On Error</c> to trap
+    /// (measured, #822), as an error in a class's Initialize is the <c>New</c>'s.
+    /// </summary>
     public async Task MakeDefaultInstance(ModuleInfo form)
     {
         var context = Open(form, existing: null);
         await context.InitializeAsync();
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Load <paramref name="form"/> if it isn't loaded, inside the statement that asked. Form_Load is an event, and its
+    /// error is not the statement's: an <c>On Error</c> around <c>Load Form2</c>, <c>Form2.Show</c> or a use of one of its
+    /// controls doesn't trap it (measured, #822), so it is reported as an error in any event is.
+    /// </summary>
     public async Task Load(VbObject form)
     {
         if (form.FormLoaded)
@@ -132,8 +140,9 @@ public sealed class VBProgram : IFormProgram
         if (!definitions.TryGetValue(form.Name, out var definition))
             throw new NotImplementedException($"{form.Name} has no form definition to run (#822).");
         if (openForm is null)
-            throw new NotImplementedException(
-                $"{form.Name} is another form, and this host runs only the startup form so far (#822).");
+            throw new NotImplementedException(existing is null
+                ? $"{form.Name} is another form, and this host runs only the startup form so far (#822)."
+                : $"{form.Name} is used after it has unloaded, and this host can't load it again yet (#822).");
         var view = openForm(definition);
         var context = view.Context;
         context.Attach(this, form, existing);

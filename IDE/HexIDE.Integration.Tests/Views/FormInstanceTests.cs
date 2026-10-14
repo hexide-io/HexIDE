@@ -237,20 +237,19 @@ public class FormInstanceTests
     }
 
     [AvaloniaTheory]
-    [InlineData("Text1.Text = \"x\"", "Text1")]
-    [InlineData("Me.Caption = \"x\"", "Form1.Caption")]
-    public void A_control_or_built_in_member_used_in_Form_Initialize_is_refused(string statement, string named)
+    [InlineData("Text1.Text = \"x\"", "Text1.Text")]
+    [InlineData("Me.Caption = \"x\"", "Me.Caption")]
+    [InlineData("Caption = \"x\"", "Caption")]
+    public void A_control_or_built_in_member_used_in_Form_Initialize_loads_the_form_there(string statement, string readBack)
     {
-        // VB6 loads the form there and then, inside Initialize (measured). HexIDE can't yet, and running Load afterwards
-        // would leave the wrong value, so the statement stops with "not implemented" (#1009). That is a fault, which ends
-        // the run, so the start stops with it: Load is not raised and the window is not shown (#1010 review).
-        var run = RunForm($"Private Sub Form_Initialize()\n    {statement}\n    Debug.Print \"initialize end\"\nEnd Sub\n"
+        // VB6 loads the form there and then, inside Initialize, and Load isn't raised again after it (measured, #822). It
+        // used to be refused (#1009), since running Load afterwards would have left the wrong value.
+        var run = RunForm($"Private Sub Form_Initialize()\n    {statement}\n    Debug.Print \"initialize end \" & {readBack}\nEnd Sub\n"
             + "Private Sub Form_Load()\n    Debug.Print \"load\"\nEnd Sub\n");
 
-        run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
-            .Which.Message.Should().Contain(named).And.Contain("#1009");
-        run.Printed.Should().BeEmpty();
-        run.Shown.Should().BeFalse();
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("load", "initialize end x");
+        run.Shown.Should().BeTrue();
     }
 
     [AvaloniaFact]
@@ -502,15 +501,6 @@ public class FormInstanceTests
         run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
             .Which.Message.Should().Contain("with arguments");
         run.Printed.Should().BeEmpty();
-    }
-
-    [AvaloniaFact]
-    public void A_bare_member_used_in_Form_Initialize_is_refused_as_a_built_in_used_there_is()
-    {
-        var run = RunForm("Private Sub Form_Initialize()\n    Caption = \"x\"\nEnd Sub\n");
-
-        run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
-            .Which.Message.Should().Contain("#1009");
     }
 
     // ── The debugger ────────────────────────────────────────────────────────────────────────────────────

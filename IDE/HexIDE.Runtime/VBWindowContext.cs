@@ -162,15 +162,14 @@ public class VBWindowContext : IModuleExecutionRoot
     /// <summary>
     /// Make the instance's start before its load (#822): the modules' declarations, the form's own, then
     /// <c>Form_Initialize</c>, inside the walk that first used the form's name, as VB6 runs it (measured). An error in
-    /// Initialize is reported as one in any event is.
+    /// Initialize is the walk's, for its <c>On Error</c> to trap (measured), so it isn't caught here.
     /// </summary>
     internal async Task InitializeAsync()
     {
         var form = EnsureInstance();
         started = true;
-        if (await Report(EnsureDeclarations) != Outcome.Completed)
-            return;
-        await Report(() => interpreter!.RaiseFormEvent(form, "Form_Initialize"));
+        await EnsureDeclarations();
+        await interpreter!.RaiseFormEvent(form, "Form_Initialize");
     }
 
     /// <summary>
@@ -368,12 +367,18 @@ public class VBWindowContext : IModuleExecutionRoot
                     return false;
                 if (await Report(() => interpreter.RaiseFormEvent(form, "Form_Initialize")) == Outcome.Over || RunIsOver())
                     return false;
-                form.FormLoaded = true;
-                ExecutionContext.State.ClearPendingControls(form);
-                Program?.Loaded(this);
+                // A control or built-in member used in Initialize loaded the form there, and Load isn't raised again
+                // (measured, #822).
+                if (!form.FormLoaded && !form.FormUnloaded)
+                {
+                    form.FormLoaded = true;
+                    ExecutionContext.State.ClearPendingControls(form);
+                    Program?.Loaded(this);
+                    if (await Report(() => interpreter.RaiseFormEvent(form, "Form_Load")) == Outcome.Over)
+                        return false;
+                }
                 // A form that unloaded itself in Load, as `Unload Me` there does, is not shown (measured, #1046 review).
-                return await Report(() => interpreter.RaiseFormEvent(form, "Form_Load")) != Outcome.Over && !RunIsOver()
-                    && !form.FormUnloaded;
+                return !RunIsOver() && !form.FormUnloaded;
             }
             finally
             {
