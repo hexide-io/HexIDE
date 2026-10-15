@@ -376,9 +376,13 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   raised it down to where the program was entered: an event's procedure, a `RaiseEvent` sink or `Sub Main`. So a handler
   in the code that raised an event never sees its error, `RaiseEvent` included. `HaltOnErrorTests` pins each case.
   What remains:
-  - **A statement runs again whole.** A condition runs again on its own: an `ElseIf`'s, or a `Loop Until`'s, without
-    another pass through the body. The same holds for a statement of a single-line `If`'s tail. But a `Case` expression
-    runs again with its `Select Case` and the `Case`s before it.
+  - **A statement runs again whole.** That is measured, for `x = F() + 1 \ 0`, where F is called again.
+  - **A condition runs again on its own,** an `ElseIf`'s, or a `Loop Until`'s without another pass through the body,
+    and so does a statement of a single-line `If`'s tail. **These are chosen, not measured.** They are the closest
+    reading of "the faulting statement", and they never repeat what came before the fault. But nothing has asked vb6.exe
+    what its F5 runs in these places ([#1079](https://github.com/hexide-io/HexIDE/issues/1079)).
+  - **A `Case` expression runs again with its `Select Case`** and the `Case`s before it. That is a limit of the walk,
+    also unmeasured.
   - **A dialog closed without an answer** takes Debug. What VB6 does then is unmeasured.
   - **Whether `Err` holds the error** at the break is unmeasured, and HexIDE leaves it as it was.
   - **A form's `Terminate`, and a class's `Initialize` and `Terminate`,** are not entries. An error a form's Terminate

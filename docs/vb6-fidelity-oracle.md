@@ -10085,8 +10085,9 @@ included.
 - **Debug** breaks at the statement, reason `RuntimeError`, and Continue runs it again, all of it: `F()` is called again.
 - **The event boundary** holds for b1, b2 and b3. c1 and c2 go to the caller's handler.
 
-Where HexIDE has to choose a granularity VB6 wasn't measured at, it runs again only what raised. That is a condition on
-its own, an `ElseIf`'s or a `Loop Until`'s, and a single-line `If`'s tail statement alone. Two things weren't measured,
+**Chosen, not measured.** Only `x = F() + 1 \ 0` was measured for the retry. Elsewhere HexIDE runs again only what raised:
+a condition on its own, an `ElseIf`'s or a `Loop Until`'s, and a single-line `If`'s tail statement alone. Those rules are
+pinned in tests, but that doesn't make them measured, and #1079 is to measure them. Two more things weren't measured,
 and HexIDE takes a side on each. A dialog closed without an answer takes Debug. `Err` is left as it was at the break.
 
 ## Operator precedence (2026-10-15, #1074)
