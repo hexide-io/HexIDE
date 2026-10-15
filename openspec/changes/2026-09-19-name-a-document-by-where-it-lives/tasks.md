@@ -1662,7 +1662,7 @@
   automation", "A name that is not a VB6 name") have no test by their name; phase 1 is closed, and they are left
   to that delta's archive check.
 
-- [ ] 3.22 Verify in the running IDE, through the automation tools rather than by asking anyone to click:
+- [x] 3.22 Verify in the running IDE, through the automation tools rather than by asking anyone to click:
   open a VB6-authored `.frm`, `.cls` and `.bas`; snapshot the header folded and greyed under a light and a
   dark theme; confirm typing and F9 in the header are refused and say why, and that Replace All leaves the header alone (saying
   why is #705); confirm the margin
@@ -1680,8 +1680,9 @@
   Refresh `docs/mcp-first-contact.md`'s transcript from that run: its `open_file` reply still reads
   `{"success": true}`, where the tool now returns `project`, `document` and a `note` too, and
   `FirstContactTranscriptTests` checks only that the fields it shows still exist.
-  — **Seen running on 2026-10-13**, a Debug build of 5541621 on port 5123. Everything below is done except
-  3.19's AI Chat checks, which need a model to answer and so an API key, and none is configured on this machine.
+  — **Seen running on 2026-10-13**, a Debug build of 5541621 on port 5123. Everything below was seen then except
+  3.19's AI Chat checks, which need a model to answer and so an API key. Those were seen on 2026-10-15, the last
+  bullet.
   Four files VB6 wrote, from the Template tree under `$HEXIDE_ROUNDTRIP_CORPUS`, were copied into a scratch
   project: `Log in Dialog.frm`, `Dialog.frm`, `Data Source.cls` and `Registry Access.bas`, with
   `About Dialog.frm` and no `.frx` for the banner. Every call went through the automation tools.
@@ -1716,9 +1717,31 @@
     (#961, recorded in mcp-server-gaps.md). The spring-tide screenshot was retaken, against the server and commit its README names.
   - *Found and filed, outside this change:* the status bar's "Ln x, Col y" and INS are hard-coded English
     (#960).
-  - *Not done: 3.19's AI Chat checks.* They need an API key (`HEXIDE_AI_API_KEY`, `ANTHROPIC_API_KEY` or
-    `OPENAI_API_KEY`), and none is set here. Deferred on 2026-10-13 until API credits are arranged; 3.22 stays
-    open for them alone, and phase 4 goes ahead meanwhile.
+  - *3.19's AI Chat checks*, seen on 2026-10-15 on a Debug build of fcaaa99 on port 5123. They ran against the API
+    with the panel's default model (`claude-opus-5`), in the same scratch project with `Ledger.cls` from
+    `corpus/member-attributes` added. Scripted replies went in through `set_property` on `ChatViewModel.Say`, and
+    Apply, Send and Approve were pressed with `interact invoke`.
+    - *An unchanged whole-file Apply* of `Dialog` is accepted. The transcript reads "Applied to Dialog.", and the
+      note in `chat-history.json` says the IDE accepted it. The header stayed folded and the caret at Ln 1, Col 1.
+      The document was then modified and one line shorter: Apply drops the final line break (#1068) and writes
+      the block's LF lines under the CRLF header (#530). One Undo restored the file byte for byte.
+    - *A caption changed in the designer block* (`OK` to `Okay`) is refused. The transcript reads "Not applied to
+      Dialog: The content would change the document's header …", the note the model reads carries the same
+      reason, and the file is unchanged. The model's own `apply_edit` of the same change, approved, was refused
+      with that reason as its tool result, and the model quoted it.
+    - *The model's `get_file_content`* on `frmLogin`, open behind `Dialog`, returned `frmLogin`, and the model
+      quoted its first and last lines correctly. Its header stayed folded (1, then 74). The tool reads by
+      navigating, so `frmLogin` came forward with the caret at 1, 1 (#887).
+    - *The model's `navigate_to`* asked for `cmdOK_Click` at line 85, counted from the top of the file.
+      `frmLogin`, behind `Dialog`, came forward with the caret at Ln 85, Col 1 and the header still folded.
+    - *The model's `apply_edit` of `Dialog` unchanged*, approved, is accepted
+      (`{"success":true,"headerKept":false}`). The fold held, and the caret stayed at Ln 1, Col 1. The model sent
+      43 bare LFs and no CRLF, though `get_file_content` gave it CRLF; that measurement is on #530.
+    - *From phase 4:* an Apply to `Ledger` with `Rate`'s description reworded is refused, naming "Property Get
+      Rate", and the file is unchanged.
+    - *`docs/mcp-first-contact.md`* was re-recorded on 2026-10-13, and nothing run here changes it.
+    - *Found:* `interact` invokes a control that is not on screen and reports success (#1069, recorded in
+      mcp-server-gaps.md). The transcript lists a hidden Approve and Reject pair for every message.
 
 ## 4. Member attributes
 
