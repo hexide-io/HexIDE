@@ -1390,6 +1390,21 @@ measured the first half with Tools/Add Procedure left open; this is a modal rais
 the IDE owns, as `auto` does, or at least name it in `activeDialog`.
 [#681](https://github.com/hexide-io/HexIDE/issues/681).
 
+**Seen again with #1011's halt** (2026-10-15, Debug build of `fix/1011-halt-on-error`). A click divides by zero, and the
+program halts at the run-time error dialog. After Debug, a Continue without a fix retries the statement, which halts again:
+
+```
+continue_program {}
+→ {"success":true,"note":"Running; no pause within 2 s. It raised Run-time error '11': Division by zero at 10 \ d;
+   get_last_runtime_error has it."}
+get_debug_state {}
+→ {"running":true,"state":"Running"}
+```
+
+Both replies say Running. The program is held at a dialog that waits for End or Debug, and nothing of it runs. Naming
+the error helps, but neither reply says the program is waiting for an answer. `dump_visual_tree {}` finds the dialog, as
+above.
+
 ## A whole replacement that changes the header and a member's `Attribute` lines is told only about the header
 
 **Symptom.** Read from the code, and recorded when #273 task 4.5b was built. `set_file_content` (and an add-in's

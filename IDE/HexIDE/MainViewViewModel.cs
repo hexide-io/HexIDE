@@ -807,6 +807,22 @@ public partial class MainViewViewModel : ObservableObject
                 projectRunnerService.EndProject();
         }
 
+        // A run-time error nothing handles halts the program at the statement that raised it, as VB6's IDE does (#1011).
+        // The dialog offers End and Debug, and nothing runs behind it. Debug breaks there with the procedure still live,
+        // and Continue runs the statement again. Recorded before the dialog, as every run-time error is. A dialog closed
+        // without an answer, as stop_project and shutdown_ide close it, takes Debug, which loses nothing: what VB6 does
+        // then is not measured.
+        debugController.HaltHost = async error =>
+        {
+            var message = RunErrorText.For(error);
+            RuntimeErrors.Record(message);
+            if (!await windowManager.ShowDialog(new RuntimeErrorViewModel(message, canDebug: true)))
+                return true;
+            if (projectRunnerService.CanEndProject)
+                projectRunnerService.EndProject();
+            return false;
+        };
+
         // A compile error met while a form runs, such as a call to a Sub that does not exist, reached from a click.
         // Reported as a run-time error is: recorded, so get_last_runtime_error sees it, and shown in the dialog
         // whose End ends the run. It was a message box nothing recorded (#759). One route for every error a run
