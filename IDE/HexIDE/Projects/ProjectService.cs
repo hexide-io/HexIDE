@@ -125,13 +125,8 @@ public class ProjectService : IProjectService
     /// it. In the shape VB6 requires for each kind: <c>Name; File</c> for a module or class, the bare path
     /// for the designer kinds (see <see cref="ProjectSerializer"/>).
     /// </summary>
-    private static string ItemLineFor(ModuleKind kind, string name, string relativePath) => kind switch
-    {
-        ModuleKind.ClassModule  => $"{SerializedProject.ClassKey}={name}; {relativePath}",
-        ModuleKind.UserControl  => $"{SerializedProject.UserControlKey}={relativePath}",
-        ModuleKind.PropertyPage => $"{SerializedProject.PropertyPageKey}={relativePath}",
-        _                       => $"{SerializedProject.ModuleKey}={name}; {relativePath}",
-    };
+    private static string ItemLineFor(ModuleKind kind, string name, string relativePath) =>
+        ProjectLoader.ItemLineFor(kind, name, relativePath);
 
     private async Task<IAddinProjectTemplate?> ChooseNewProject()
     {
@@ -341,212 +336,15 @@ public class ProjectService : IProjectService
             await windowManager.MessageBox($"Project {Path.GetFileName(projectPath)} is already opened.", icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
-        var projectDeserializer = new ProjectDeserializer();
-        var formDeserializer = new FormDeserializer();
         var errorSink = new DeserializeErrorSink();
-        var readByteForByte = new List<string>();
-
-        var (projectText, _, projectEncoding, projectByteForByte) = await ReadSourceAsync(projectPath);
-        if (projectByteForByte)
-            readByteForByte.Add(Path.GetFileName(projectPath));
-        var serializedProject = projectDeserializer.Deserialize(projectText, errorSink);
-
-        var project = new ProjectDefinition(serializedProject.ProjectType, serializedProject.Name ?? "Project1");
-        project.AbsolutePath = projectPath;
-        project.TextEncoding = projectEncoding;
-
-        // Pass 1: .ctl files — load UserControls first so FormParts are available when building the registry
-        foreach (var (moduleName, modulePath, moduleKind) in serializedProject.RelativeModulePaths)
+        // The load itself is shared with the Standalone host a made program runs in (#1062). What the IDE adds is its own
+        // record of what it read, which the save-changes prompt and the file watcher compare against.
+        var (project, serializedProject, readByteForByteList) = await new ProjectLoader
         {
-            if (moduleKind != ModuleKind.UserControl)
-                continue;
-
-            try
-            {
-                var moduleAbsolutePath = Path.Join(Path.GetDirectoryName(projectPath)!, ToLocalRelativePath(modulePath));
-                var module = new ModuleDefinition(project, moduleName, moduleKind);
-                module.AbsolutePath = moduleAbsolutePath;
-                var memberReadByteForByte = false;
-                if (File.Exists(moduleAbsolutePath))
-                {
-                    var (moduleSource, moduleBytes, moduleEncoding, moduleByteForByte) = await ReadSourceAsync(moduleAbsolutePath);
-                    memberReadByteForByte = moduleByteForByte;
-                    module.TextEncoding = moduleEncoding;
-                    baselineStore.Record(moduleAbsolutePath, moduleBytes);
-                    var ctxBlobs = await LoadCompanionBlobs(moduleAbsolutePath, moduleSource);
-                    var formPart = formDeserializer.Deserialize(project, moduleSource, errorSink, ctxBlobs);
-                    if (formPart != null)
-                    {
-                        formPart.AbsolutePath = moduleAbsolutePath;
-                        module.UpdateFormPart(formPart);
-                        // Body only. FormSerializer regenerates the Begin..End header and then appends Code
-                        // verbatim, so storing the whole file here emits the header twice on every save.
-                        module.UpdateCode(formPart.Code);
-                    }
-                    else
-                    {
-                        // Unparseable .ctl: keep it verbatim so a save round-trips it unchanged (SaveModule
-                        // falls through to the header-less branch when FormPart is null).
-                        module.UpdateCode(moduleSource);
-                    }
-                }
-                project.AddModule(module);
-                // Only once it has joined: a notice that the file will save back unchanged is untrue of a
-                // member that then failed to load.
-                if (memberReadByteForByte)
-                    readByteForByte.Add(modulePath);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Failed to load module {ModulePath}", modulePath);
-                errorSink.LogError($"Failed to load module {modulePath}: {ex.Message}");
-                // Kept, as a missing file's line is. Not loaded, so a save cannot write its file; dropping the
-                // line would have the next Save Project remove the member from the project instead.
-                project.PreservedItemLines.Add(ItemLineFor(moduleKind, moduleName, modulePath));
-            }
-        }
-
-        var userControlRegistry = BuildUserControlRegistry(project);
-
-        // Pass 2: .frm files — load forms using the UC registry
-        foreach (var formPath in serializedProject.RelativeFormPaths)
-        {
-            var formAbsolutePath = Path.Join(Path.GetDirectoryName(projectPath)!, ToLocalRelativePath(formPath));
-
-            try
-            {
-                if (!File.Exists(formAbsolutePath))
-                {
-                    errorSink.LogError($"Form file not found: {formPath}");
-                    // Preserve the Form= line so the missing node survives an open->save round-trip
-                    // (mirrors modules, which are kept even when their file is absent). Not loaded into
-                    // the model — a future project-explorer spec may surface it with a "missing" glyph.
-                    project.PreservedItemLines.Add($"{SerializedProject.FormKey}={formPath}");
-                    continue;
-                }
-
-                // Form text before companion: the .frm's cited offsets partition the .frx.
-                var (formSource, formBytes, formEncoding, formByteForByte) = await ReadSourceAsync(formAbsolutePath);
-                baselineStore.Record(formAbsolutePath, formBytes);
-
-                var frxBlobs = await LoadCompanionBlobs(formAbsolutePath, formSource);
-                var form = formDeserializer.Deserialize(project, formSource, errorSink, frxBlobs, userControlRegistry);
-                if (form != null)
-                {
-                    form.AbsolutePath = formAbsolutePath;
-                    form.TextEncoding = formEncoding;
-                    project.AddForm(form);
-                    if (formByteForByte)
-                        readByteForByte.Add(formPath);
-                }
-                else
-                {
-                    errorSink.LogError($"Failed to load form {formPath}");
-                    project.PreservedItemLines.Add($"{SerializedProject.FormKey}={formPath}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Failed to load form {FormPath}", formPath);
-                errorSink.LogError($"Failed to load form {formPath}: {ex.Message}");
-                // Kept, as a missing form's line is: see the module passes.
-                project.PreservedItemLines.Add($"{SerializedProject.FormKey}={formPath}");
-            }
-        }
-
-        // Pass 4: related documents — files the project carries but does not compile.
-        //
-        // Note what this pass does NOT do: read the file. A related document's content belongs to the
-        // editor that opens it, not to project load. Reading here would mean loading every README and
-        // spec in a project on open, and — worse — would hand a text buffer to machinery built for VB6
-        // source, which is precisely how a non-code file ends up with an Attribute header written into it.
-        foreach (var (docName, docPath, originalItemLine) in serializedProject.RelativeRelatedDocPaths)
-        {
-            try
-            {
-                var absolute = Path.Join(Path.GetDirectoryName(projectPath)!, ToLocalRelativePath(docPath));
-                project.AddRelatedDocument(
-                    new RelatedDocumentDefinition(project, docName, absolute, originalItemLine));
-            }
-            catch (Exception ex)
-            {
-                // A malformed path costs one entry, never the project load.
-                Log.Error(ex, "Failed to load related document {DocPath}", docPath);
-            }
-        }
-
-        // Pass 3: remaining modules (.bas, .cls, .pag) — UserControls already loaded in pass 1
-        foreach (var (moduleName, modulePath, moduleKind) in serializedProject.RelativeModulePaths)
-        {
-            if (moduleKind == ModuleKind.UserControl)
-                continue;
-
-            try
-            {
-                var moduleAbsolutePath = Path.Join(Path.GetDirectoryName(projectPath)!, ToLocalRelativePath(modulePath));
-                var module = new ModuleDefinition(project, moduleName, moduleKind);
-                module.AbsolutePath = moduleAbsolutePath;
-                var memberReadByteForByte = false;
-                if (File.Exists(moduleAbsolutePath))
-                {
-                    var (moduleSource, moduleBytes, moduleEncoding, moduleByteForByte) = await ReadSourceAsync(moduleAbsolutePath);
-                    memberReadByteForByte = moduleByteForByte;
-                    module.TextEncoding = moduleEncoding;
-                    baselineStore.Record(moduleAbsolutePath, moduleBytes);
-                    // .bas/.cls: strip the VB6 header so Code is the body only (no-op for .pag/.ctl).
-                    var (preservedHeader, moduleBody) = ModuleFileFormat.SplitHeader(moduleSource, moduleKind);
-
-                    module.RecordOriginalHeader(preservedHeader);
-
-                    module.UpdateCode(moduleBody);
-                    if (moduleKind == ModuleKind.PropertyPage)
-                    {
-                        var pgxBlobs = await LoadCompanionBlobs(moduleAbsolutePath, moduleSource);
-                        var formPart = formDeserializer.Deserialize(project, moduleSource, errorSink, pgxBlobs);
-                        if (formPart != null)
-                        {
-                            formPart.AbsolutePath = moduleAbsolutePath;
-                            module.UpdateFormPart(formPart);
-                            // StripHeader above is a no-op for .pag, so Code still holds the whole file —
-                            // replace it with the body only or the next save writes the header twice.
-                            module.UpdateCode(formPart.Code);
-                        }
-                    }
-                }
-                project.AddModule(module);
-                // Only once it has joined: a notice that the file will save back unchanged is untrue of a
-                // member that then failed to load.
-                if (memberReadByteForByte)
-                    readByteForByte.Add(modulePath);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Failed to load module {ModulePath}", modulePath);
-                errorSink.LogError($"Failed to load module {modulePath}: {ex.Message}");
-                // Kept, as a missing file's line is. Not loaded, so a save cannot write its file; dropping the
-                // line would have the next Save Project remove the member from the project instead.
-                project.PreservedItemLines.Add(ItemLineFor(moduleKind, moduleName, modulePath));
-            }
-        }
-
-        // Always retain the startup form NAME so Startup= survives round-trip even when its .frm was
-        // missing and no FormDefinition was created (the live StartupForm, if found, takes precedence).
-        project.StartupFormName = serializedProject.StartupFormName;
-        // `Startup="Sub Main"` names a procedure, not a form — the ordinary shape of a code-only Standard
-        // EXE. Read before the form lookup, which would otherwise find nothing and leave the project with
-        // no startup at all: the .vbp round-tripped, and F5 refused.
-        if (string.Equals(serializedProject.StartupFormName, SerializedProject.SubMainStartup,
-                StringComparison.OrdinalIgnoreCase))
-            project.StartsAtSubMain = true;
-        else if (serializedProject.StartupFormName != null)
-            project.StartupForm = project.Forms.FirstOrDefault(x => x.Name == serializedProject.StartupFormName);
-
-        foreach (var reference in serializedProject.References)
-            project.AddReference(reference);
-
-        project.UnknownPreSectionLines.AddRange(serializedProject.UnknownPreSectionLines);
-        project.PreservedItemLines.AddRange(serializedProject.PreservedItemLines);
-        project.ExtensionTail = serializedProject.ExtensionTail;
+            HostAnsi = HostAnsi,
+            FileRead = baselineStore.Record,
+        }.LoadAsync(projectPath, errorSink);
+        var readByteForByte = readByteForByteList.ToList();
 
         projectManager.AddProject(project);
         recentProjects.Add(projectPath);
@@ -580,22 +378,7 @@ public class ProjectService : IProjectService
     }
 
     private static IReadOnlyDictionary<string, ComponentBaseClass> BuildUserControlRegistry(
-        ProjectDefinition project)
-    {
-        var projectName = project.Name;
-        var dict = new Dictionary<string, ComponentBaseClass>(StringComparer.OrdinalIgnoreCase);
-        foreach (var module in project.Modules)
-        {
-            if (module.Kind != ModuleKind.UserControl)
-                continue;
-            var typeName = $"{projectName}.{module.Name}";
-            if (module.FormPart != null)
-                dict[typeName] = UserControlComponentClass.ForModule(typeName, module.FormPart, dict);
-            else
-                dict[typeName] = PlaceholderComponentClass.ForType(typeName);
-        }
-        return dict;
-    }
+        ProjectDefinition project) => ProjectLoader.BuildUserControlRegistry(project);
 
     private class DeserializeErrorSink : IDeserializeErrorSink
     {
@@ -1951,12 +1734,7 @@ public class ProjectService : IProjectService
     }
 
     private static string CompanionBinaryExtension(string sourceFilePath) =>
-        Path.GetExtension(sourceFilePath).ToLowerInvariant() switch
-        {
-            ".ctl" => ".ctx",
-            ".pag" => ".pgx",
-            _ => ".frx"
-        };
+        ProjectLoader.CompanionBinaryExtension(sourceFilePath);
 
     /// <summary>
     /// Read the companion binary resource file (.frx / .ctx / .pgx) beside a .frm / .ctl / .pag, if present.

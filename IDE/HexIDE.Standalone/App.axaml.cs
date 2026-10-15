@@ -1,4 +1,6 @@
 
+using System;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -26,19 +28,31 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            if (Program.StartupForm != null)
+            Task? run = null;
+            if (Program.Project != null)
             {
                 // End exits the program, with code 0, as the exe vb6.exe makes does (#775). Posted, because End is
                 // reached in the middle of a walk on this thread.
                 BasicInterpreter.EndReached += _ => Dispatcher.UIThread.Post(() => desktop.Shutdown(0));
-                // The program ends when the form closes. Not through MainWindow: the lifetime would show a MainWindow as
-                // it starts, and the form is shown only once its Load has run (#822), which a MsgBox in Load can delay.
+                // The program ends when its last form unloads, and Sub Main has returned where it starts there (#822). Not
+                // through MainWindow: the lifetime would show a MainWindow as it starts, and the form is shown only once its
+                // Load has run, which a MsgBox in Load can delay.
                 desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-                var run = VBLoader.RunForm(Program.StartupForm, default, out var window);
-                window.Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://HexIDE.Standalone/form.ico")));
-                run.ContinueWith(_ => Dispatcher.UIThread.Post(() => desktop.Shutdown(0)));
+                try
+                {
+                    run = VBLoader.RunMadeProgram(Program.Project, default, out var window);
+                    if (window is not null)
+                        window.Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://HexIDE.Standalone/form.ico")));
+                    run.ContinueWith(_ => Dispatcher.UIThread.Post(() => desktop.Shutdown(0)));
+                }
+                catch (Exception e)
+                {
+                    // A start that never became a run: no startup object, no usable Main, or a syntax error in a module.
+                    Program.Error = e.Message;
+                    run = null;
+                }
             }
-            else
+            if (run is null)
             {
                 var window = new Window()
                 {

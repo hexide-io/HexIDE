@@ -13,7 +13,8 @@ namespace HexIDE.Standalone;
 
 public class Program
 {
-    public static FormDefinition? StartupForm;
+    /// <summary>The project the made program runs, every form and module of it, or null where it couldn't be loaded.</summary>
+    public static ProjectDefinition? Project;
     public static string? Error;
 
     // Initialization code. Don't use any Avalonia, third-party APIs or any
@@ -171,9 +172,6 @@ public class Program
         }
         else
         {
-            var projectDeserializer = new ProjectDeserializer();
-            var formDeserializer = new FormDeserializer();
-
             // This is not a .dll file, but it will look better :wink: :wink:
             if (string.Equals(Path.GetExtension(projectPath), ".dll", StringComparison.OrdinalIgnoreCase))
             {
@@ -193,28 +191,18 @@ public class Program
                 projectPath = actualProjectPath;
             }
 
-            var serializedProject = projectDeserializer.Deserialize(File.ReadAllText(projectPath), new NullErrorSink());
-            var forms = new List<FormDefinition>();
-
-            var projectDefinition = new ProjectDefinition(serializedProject.ProjectType, serializedProject.Name ?? "Unnamed project");
-
-            foreach (var relativeFormPath in serializedProject.RelativeFormPaths)
+            // The IDE's own loader, so the made program has every form and module F5 had, read in the same code page (#1062).
+            // It used to read the forms alone, into a list the run never saw, and no module at all.
+            var project = new ProjectLoader().LoadAsync(projectPath, new NullErrorSink()).GetAwaiter().GetResult().Project;
+            if (!project.StartsAtSubMain && project.StartupForm == null)
             {
-                var absolutePath = Path.Join(Path.GetDirectoryName(projectPath)!, SerializedProject.ToHostPath(relativeFormPath));
-                var form = formDeserializer.Deserialize(projectDefinition, File.ReadAllText(absolutePath), new NullErrorSink());
-                if (form != null)
-                    forms.Add(form);
-            }
-
-            var startupForm = forms.FirstOrDefault(x => x.Name == serializedProject.StartupFormName);
-
-            if (startupForm == null)
-            {
-                Error = "No startup form found";
+                Error = project.StartupFormName is { } missing
+                    ? $"No startup form found: {missing}"
+                    : HexIDE.Runtime.Interpreter.BasicInterpreter.NoStartupObject;
                 return;
             }
 
-            StartupForm = startupForm;
+            Project = project;
         }
     }
 

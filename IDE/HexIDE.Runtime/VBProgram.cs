@@ -20,8 +20,21 @@ public interface IFormView
     /// <summary>Put the form's controls in the window.</summary>
     void SetContent(Avalonia.Controls.Control content);
 
-    /// <summary>Show the window, modelessly.</summary>
+    /// <summary>Show the window. Whether it is modal is the program's business, not the window's.</summary>
     void ShowForm();
+
+    /// <summary>Whether the window is showing: false once it has been hidden, made invisible or closed.</summary>
+    bool IsShown { get; }
+
+    /// <summary>
+    /// The modal form holding this one, or null (#822). A held form is drawn as it was and takes no input: no pointer, no
+    /// key, and its close box is refused, as VB6's disabled window ignores a click on it. Its <c>Enabled</c> reads False
+    /// (measured). It is not disabled, which would grey every control VB6 leaves as drawn.
+    /// </summary>
+    IFormView? HeldBy { get; set; }
+
+    /// <summary>Bring the window to the front with the focus, as activating a form beneath a modal one brings the modal form.</summary>
+    void ActivateForm();
 
     /// <summary>Hide the window. The form stays loaded.</summary>
     void HideForm();
@@ -43,6 +56,8 @@ public sealed class VBProgram : IFormProgram
     private readonly Dictionary<VbObject, VBWindowContext> contexts = new(ReferenceEqualityComparer.Instance);
     private readonly List<VbObject> created = [];
     private readonly HashSet<VbObject> loaded = new(ReferenceEqualityComparer.Instance);
+    // The modal forms displayed, innermost last.
+    private readonly List<VBWindowContext> modals = [];
     private readonly TaskCompletionSource ended = new();
     private bool finishing;
 
@@ -69,24 +84,57 @@ public sealed class VBProgram : IFormProgram
     /// </param>
     public VBProgram(FormDefinition startup, VBWindowContext startupContext, Debugging.IDebugController? debugController,
         Func<FormDefinition, IFormView>? openForm)
+        : this(startup.Owner, startup, startupContext, debugController, openForm)
+    {
+    }
+
+    /// <summary>
+    /// Build the program a run that starts at <c>Sub Main</c> runs (#822): every standard module, the first of them primary,
+    /// and every form a template whose default instance is made where its name is first used. Parsed whole, as a form's
+    /// program is.
+    /// </summary>
+    /// <param name="rootContext">The library, state and root environment the program runs in. It is no form's handle.</param>
+    /// <param name="openForm">How the host makes a window for a form, or null in a host that shows none.</param>
+    public VBProgram(ProjectDefinition project, VBWindowContext rootContext, Debugging.IDebugController? debugController,
+        Func<FormDefinition, IFormView>? openForm)
+        : this(project, startup: null, rootContext, debugController, openForm)
+    {
+    }
+
+    private VBProgram(ProjectDefinition? project, FormDefinition? startup, VBWindowContext rootContext,
+        Debugging.IDebugController? debugController, Func<FormDefinition, IFormView>? openForm)
     {
         this.openForm = openForm;
-        var project = startup.Owner;
-        var startupName = VBLoader.FormComponentOf(startup).GetPropertyOrDefault(VBProperties.NameProperty)?.ToString()
+        var (standardModules, classModules) = VBLoader.InterpreterModules(project);
+        string primaryName, primaryCode;
+        var primaryKind = InterpreterModuleKind.Form;
+        IReadOnlyList<(string Name, string Code)> additional = standardModules;
+        if (startup is not null)
+        {
+            primaryName = VBLoader.FormComponentOf(startup).GetPropertyOrDefault(VBProperties.NameProperty)?.ToString()
                           ?? "Module1";
-        // Every form's whole file, header included, as the code window and the debugger count its lines (#273).
-        var startupCode = FormCodeText.WholeFile(startup);
-        definitions[startupName] = startup;
+            // Every form's whole file, header included, as the code window and the debugger count its lines (#273).
+            primaryCode = FormCodeText.WholeFile(startup);
+            definitions[primaryName] = startup;
+        }
+        else
+        {
+            // Sub Main may be in any standard module (measured); the first is primary only so the gate has a name for it.
+            if (standardModules.Count == 0)
+                throw new VBCompileErrorException(BasicInterpreter.NoStartupObject);
+            (primaryName, primaryCode) = standardModules[0];
+            primaryKind = InterpreterModuleKind.Standard;
+            additional = standardModules.Skip(1).ToList();
+        }
         var others = new List<(string Name, string Code)>();
         if (project is not null)
             foreach (var form in project.Forms)
                 if (!ReferenceEquals(form, startup) && definitions.TryAdd(form.Name, form))
                     others.Add((form.Name, FormCodeText.WholeFile(form)));
 
-        var (standardModules, classModules) = VBLoader.InterpreterModules(project);
-        ExecutionContext = startupContext.ExecutionContext;
-        interpreter = new BasicInterpreter(startupContext.StandardLibrary, ExecutionContext, startupContext.RootEnv,
-            startupCode, startupName, standardModules, classModules, InterpreterModuleKind.Form, others)
+        ExecutionContext = rootContext.ExecutionContext;
+        interpreter = new BasicInterpreter(rootContext.StandardLibrary, ExecutionContext, rootContext.RootEnv,
+            primaryCode, primaryName, additional, classModules, primaryKind, others)
         {
             DebugController = debugController,
             Events = Events,
@@ -96,8 +144,47 @@ public sealed class VBProgram : IFormProgram
             interpreter.SetAppInfo(AppInfo.FromProject(project));
         VBLoader.DescribeProject(interpreter, project);
         interpreter.SeedFormNames();
-        startupContext.Attach(this, interpreter.PrimaryModule, startupCode);
-        Register(startupContext);
+        if (startup is null)
+            return;
+        rootContext.Attach(this, interpreter.PrimaryModule, primaryCode);
+        Register(rootContext);
+    }
+
+    // Sub Main is running. The program doesn't end while it is, however many forms have unloaded (measured).
+    private bool mainRunning;
+
+    /// <summary>
+    /// Run <c>Sub Main</c>, the program's first walk (#822): events that come meanwhile wait for it, as they wait for a
+    /// form's Load. Then the program lasts until no form is loaded, and ends at once if none is (measured). An error in
+    /// Main, a missing or ambiguous Main among them, is thrown to the caller.
+    /// </summary>
+    public async Task RunMainAsync()
+    {
+        mainRunning = true;
+        try
+        {
+            await Events.Run("Sub Main", async () =>
+            {
+                await interpreter.RunStartupSubMain();
+                return true;
+            });
+        }
+        finally
+        {
+            mainRunning = false;
+        }
+        if (loaded.Count == 0)
+            await FinishAsync();
+    }
+
+    /// <summary>The run was ended from outside the program, by End, Stop or a fault: every window goes, and it is over.</summary>
+    public void Abandon()
+    {
+        // Ended from outside, nothing more of the program runs: no Terminate, as End raises none.
+        finishing = true;
+        CloseAll();
+        Events.Close();
+        ended.TrySetResult();
     }
 
     private void Register(VBWindowContext context)
@@ -160,6 +247,75 @@ public sealed class VBProgram : IFormProgram
         return context;
     }
 
+    /// <summary>
+    /// Show a form modelessly. While a modal form is displayed that is 401, "Can't show non-modal form when modal form is
+    /// displayed", for any form, one already shown and the modal form itself included (measured, #822).
+    /// </summary>
+    internal void Show(IFormView view)
+    {
+        if (modals.Count > 0)
+            throw new VBRunTimeException(VBStandardError.CantShowNonModalFormWhenModalFormIsDisplayed);
+        view.ShowForm();
+    }
+
+    /// <summary>
+    /// Hide a form. While a modal form is displayed only the innermost one can be hidden: any other is 402, "Must close or
+    /// hide topmost modal form first", a modal form beneath it included (measured, #822).
+    /// </summary>
+    internal void Hide(IFormView view)
+    {
+        if (modals.Count > 0 && !ReferenceEquals(modals[^1], view.Context))
+            throw new VBRunTimeException(VBStandardError.CodeMustCloseTopmostModalFormFirst);
+        view.HideForm();
+    }
+
+    /// <summary>
+    /// Show a form modally, as <c>Show vbModal</c> does (#822): every other form is held, taking no input, and the statement
+    /// waits, running the program's events as they come, until the form is hidden, made invisible or unloaded. Then each
+    /// form is held as it was before. All measured.
+    /// </summary>
+    /// <remarks>
+    /// A form already shown modelessly turns modal, with no error: VB6's documented 400 never came (measured). So does a
+    /// form beneath the modal one, over it. Only the modal forms themselves are refused, with 405, "Unable to show modal
+    /// form within this context". Other forms' events go on: Form1's Timer ticks under Form2's modal form, in compiled code
+    /// and in the IDE alike (measured).
+    /// </remarks>
+    internal async Task ShowModal(IFormView view)
+    {
+        var context = view.Context;
+        if (modals.Contains(context))
+            throw new VBRunTimeException(VBStandardError.UnableToShowModalFormWithinThisContext);
+        // Form1.Enabled reads False while Form2 is modal, and True again once it has gone (measured on the console). The
+        // hold is apart from the form's own Enabled, so a form the program disabled stays so. A form an outer modal form
+        // holds is freed while it is modal over it, and held again after. Modal forms nest, so putting back what each
+        // form was held by undoes this one exactly.
+        var held = new List<(IFormView View, IFormView? Before)>();
+        foreach (var other in contexts.Values)
+            if (other.Window is IFormView otherView)
+            {
+                held.Add((otherView, otherView.HeldBy));
+                otherView.HeldBy = ReferenceEquals(other, context) ? null : view;
+            }
+        modals.Add(context);
+        var over = interpreter.BuiltIns.WatchRunEnd?.Invoke();
+        try
+        {
+            view.ShowForm();
+            var form = context.FormInstance!;
+            await Events.WhileModal(() => form.FormLoaded && view.IsShown && over?.Invoke() != true);
+        }
+        finally
+        {
+            modals.Remove(context);
+            foreach (var (otherView, before) in held)
+                otherView.HeldBy = before;
+        }
+        // The run ended under the modal form, by End, Stop or a fault: the statement after the Show never runs (measured
+        // for End).
+        if (Events.IsClosed || over?.Invoke() == true)
+            throw new Debugging.StopExecutionSignal();
+    }
+
     /// <summary>A form has loaded: the program holds it until it unloads, as VB6's Forms does.</summary>
     internal void Loaded(VBWindowContext context)
     {
@@ -185,7 +341,7 @@ public sealed class VBProgram : IFormProgram
     /// </summary>
     internal async Task Gone()
     {
-        if (loaded.Count == 0)
+        if (loaded.Count == 0 && !mainRunning)
             await FinishAsync();
     }
 
