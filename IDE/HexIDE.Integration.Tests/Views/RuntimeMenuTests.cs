@@ -271,6 +271,8 @@ public class RuntimeMenuTests
 
         text.Focus();
         Dispatcher.UIThread.RunJobs();
+        // Focusing the TextBox raises its GotFocus (#1061). The shortcut is what is under test, so only what it runs counts.
+        root.Executed.Clear();
 
         // The case the whole binding exists for. A shortcut that only works when the menu bar happens to
         // have focus is not a shortcut — VB6 fires Ctrl+S from wherever the user is typing.

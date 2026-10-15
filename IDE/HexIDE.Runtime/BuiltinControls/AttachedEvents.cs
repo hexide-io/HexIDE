@@ -14,10 +14,20 @@ namespace HexIDE.Runtime.BuiltinControls;
 
 public static class AttachedEvents
 {
+    // The control's own focus only: GotFocus and LostFocus bubble, and a part inside the control taking the focus is not
+    // the control's GotFocus.
     public static void AttachFocusEvents<T>() where T : Control
     {
-        InputElement.GotFocusEvent.AddClassHandler<T>((control, e) => control.ExecuteSub(ComponentBaseClass.GotFocusEvent));
-        InputElement.LostFocusEvent.AddClassHandler<T>((control, e) => control.ExecuteSub(ComponentBaseClass.LostFocusEvent));
+        InputElement.GotFocusEvent.AddClassHandler<T>((control, e) =>
+        {
+            if (ReferenceEquals(e.Source, control))
+                control.ExecuteSub(ComponentBaseClass.GotFocusEvent);
+        });
+        InputElement.LostFocusEvent.AddClassHandler<T>((control, e) =>
+        {
+            if (ReferenceEquals(e.Source, control))
+                control.ExecuteSub(ComponentBaseClass.LostFocusEvent);
+        });
     }
 
     public static void AttachClick<T>() where T : Control

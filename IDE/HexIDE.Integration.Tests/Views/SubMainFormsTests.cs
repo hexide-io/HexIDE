@@ -269,14 +269,14 @@ public class SubMainFormsTests
             End Sub
             """, """
             Private Sub Command1_Click()
-                Command1.SetFocus
+                Command1.ShowWhatsThis
             End Sub
             """));
 
         run.Click("Form1");
         Pump();
 
-        run.Failed.Should().ContainSingle().Which.Should().Contain("SetFocus");
+        run.Failed.Should().ContainSingle().Which.Should().Contain("ShowWhatsThis");
         run.Runner.IsRunning.Should().BeFalse();
         run.Closed.Should().Contain("Form1");
     }

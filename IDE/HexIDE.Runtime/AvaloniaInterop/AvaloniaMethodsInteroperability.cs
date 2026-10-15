@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.LogicalTree;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
@@ -58,15 +59,44 @@ public static class AvaloniaMethodsInteroperability
         if (method.Equals("move", StringComparison.OrdinalIgnoreCase) && c is not Window)
             return Move(c, args);
 
+        if (method.Equals("setfocus", StringComparison.OrdinalIgnoreCase) && args.Count == 0 && (c is IFormView || c.Focusable))
+            return SetFocus(c);
+
         // A method VB6 has and HexIDE does not, such as Refresh, SetFocus or Cls. This was a
         // plain Exception, which the IDE reports as an internal fault. It is HexIDE's gap, not the program's, so
         // it says so, and it is never trappable: On Error Resume Next stepping over a Move that never happened
         // would leave the program believing the control had moved (#754). A member VB6 itself lacks is a
         // trappable 438 in VB6, and telling the two apart needs each control's VB6 method list.
         var target = VBProps.GetName(c) ?? c.GetType().Name;
-        // SetFocus is refused on every control, its own form's included; #1061 tracks it.
-        var tracked = method.Equals("SetFocus", StringComparison.OrdinalIgnoreCase) ? " (#1061)" : "";
-        throw new NotImplementedException($"The {method} method is not implemented for {target}{tracked}");
+        throw new NotImplementedException($"The {method} method is not implemented for {target}");
+    }
+
+    /// <summary>
+    /// SetFocus (#1061), as measured on vb6.exe, native and p-code alike, on the console ("SetFocus" in the oracle):
+    /// <list type="bullet">
+    /// <item>on a form that isn't shown it is 5, Invalid procedure call: in its Form_Load, on a control or on the form
+    /// itself, and on a control of a form loaded but not shown;</item>
+    /// <item>on a disabled or invisible control it is 5, and nothing changes;</item>
+    /// <item>otherwise the control has the focus at once, and its form is activated if another one had it. The old
+    /// control's LostFocus and the new one's GotFocus come after the handler that called SetFocus has returned, as
+    /// messages Windows posts;</item>
+    /// <item>it raises no Validate, and on the control that already has the focus it raises nothing.</item>
+    /// </list>
+    /// A control that can't take the focus, such as a Label, has no SetFocus in VB6, and is refused as not implemented
+    /// before this is reached.
+    /// </summary>
+    private static Vb6Value SetFocus(Control c)
+    {
+        var view = c as IFormView ?? c.GetLogicalAncestors().OfType<IFormView>().FirstOrDefault();
+        if (view is not { IsShown: true } || c is not IFormView && (!c.IsEffectivelyVisible || !c.IsEffectivelyEnabled))
+            throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
+        view.ActivateForm();
+        if (c is not IFormView)
+        {
+            using var posting = view.Context.Events.Posting();
+            c.Focus();
+        }
+        return Vb6Value.Nothing;
     }
 
     private static readonly PropertyClass[] MoveOrder =

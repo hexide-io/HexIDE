@@ -349,6 +349,7 @@
 | Image | Done | `ImageComponentClass` + `VBImage`; decodes an .frx picture record by peeling both the record framing and the StdPicture preamble. Raises Click and the mouse events, hit-tested across its whole rectangle with or without a picture (#974); DblClick is #1031 |
 | OLE | Windows-only | OLE Container control; in-process COM hosting; Windows only |
 | PictureBox | Done | |
+| Common controls (MSCOMCTL et al.) | Missing | ListView, TreeView, ImageList, ProgressBar and the rest of the ActiveX controls VB6 shipped in the box, re-implemented cross-platform under VB6's own type names, members and `.frm`/`.frx` shape, with nothing hosted through COM. The epic is [#1081](https://github.com/hexide-io/HexIDE/issues/1081), its foundation [#1082](https://github.com/hexide-io/HexIDE/issues/1082), and the controls #1083 to #1100 |
 | Custom tab / component groups | Missing | Single flat list; no tab support |
 | Add/remove controls via Components dialog | Stub | Components dialog Apply is a no-op |
 | Tooltips on hover | Missing | No ToolTip shown for toolbox items |

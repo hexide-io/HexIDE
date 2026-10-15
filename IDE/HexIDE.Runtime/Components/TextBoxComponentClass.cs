@@ -7,10 +7,10 @@ namespace HexIDE.Runtime.Components;
 
 public class TextBoxComponentClass : ComponentBaseClass
 {
-    public TextBoxComponentClass() : base([TextProperty,
+    public TextBoxComponentClass() : base([TextProperty, EnabledProperty,
         BackColorProperty, ForeColorProperty,
         TabStopProperty,
-        TabIndexProperty], [ChangeEvent, ClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
+        TabIndexProperty], [ChangeEvent, ClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
     {
     }
 

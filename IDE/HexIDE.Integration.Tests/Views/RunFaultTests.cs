@@ -375,7 +375,7 @@ public class RunFaultTests
     [AvaloniaFact]
     public void A_control_method_HexIDE_lacks_is_reported_as_not_implemented_rather_than_as_an_internal_error()
     {
-        // VB6 controls have methods HexIDE does not, such as Move, Refresh, SetFocus and ShowWhatsThis. One
+        // VB6 controls have methods HexIDE does not, such as Refresh, ZOrder and ShowWhatsThis. One
         // reached through a control used to throw a plain Exception, which this change would otherwise have
         // reported as VB6's Internal error (51). ShowWhatsThis stands for the set, as the least likely to be
         // implemented soon.
