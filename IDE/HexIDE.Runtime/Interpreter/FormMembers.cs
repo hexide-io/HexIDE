@@ -66,6 +66,8 @@ internal static class FormMembers
         // A form's Name is its module's, read-only at run time: no property of the window holds it.
         if (IsName(name))
             return new Vb6Value(form.ClassName);
+        if (IsScaleSize(name, out var vertical) && window is Avalonia.Controls.Window shown)
+            return AvaloniaInterop.ControlPositions.ScaleSize(shown, vertical);
         foreach (var property in VBProperties.PropertiesByName.GetValueOrDefault(name, []))
             if (AvaloniaInteroperability.TryGet(window, property, out var value))
                 return value;
@@ -80,6 +82,8 @@ internal static class FormMembers
     {
         if (!member.CanLet)
             throw new VBCompileErrorException(AssignToReadOnly);
+        if (IsScaleSize(name, out _))
+            throw new NotImplementedException($"Setting {form.ClassName}'s {name} is not implemented: it sets a scale of the program's own (#990)");
         var window = form.BuiltInMembersFor(name)!;
         foreach (var property in VBProperties.PropertiesByName.GetValueOrDefault(name, []))
             if (AvaloniaInteroperability.TrySet(window, property, value))
@@ -93,12 +97,21 @@ internal static class FormMembers
 
     private static bool IsName(string name) => string.Equals(name, "Name", StringComparison.OrdinalIgnoreCase);
 
+    // ScaleWidth and ScaleHeight, which no property of the window holds: the client area, in the form's units (#1071).
+    private static bool IsScaleSize(string name, out bool vertical)
+    {
+        vertical = string.Equals(name, "ScaleHeight", StringComparison.OrdinalIgnoreCase);
+        return vertical || string.Equals(name, "ScaleWidth", StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>
     /// The issue that tracks a Form member HexIDE lacks, as its refusal names it, or empty where no issue does yet. A
     /// refusal that names its issue tells the reader whether it is known, and where to look.
     /// </summary>
     internal static string TrackedBy(string name) =>
-        string.Equals(name, "Controls", StringComparison.OrdinalIgnoreCase) ? ": the form's Controls collection is #1060" : "";
+        string.Equals(name, "Controls", StringComparison.OrdinalIgnoreCase) ? ": the form's Controls collection is #1060"
+        : name.StartsWith("Scale", StringComparison.OrdinalIgnoreCase) ? ": the form's coordinate system is #990"
+        : "";
 
     /// <summary>
     /// Whether HexIDE can read <paramref name="name"/> on the form's window: what decides, for <c>Me.X</c>, between
@@ -106,7 +119,7 @@ internal static class FormMembers
     /// </summary>
     public static bool CanRead(Avalonia.Controls.Control window, string name)
     {
-        if (IsName(name))
+        if (IsName(name) || (IsScaleSize(name, out _) && window is Avalonia.Controls.Window))
             return true;
         foreach (var property in VBProperties.PropertiesByName.GetValueOrDefault(name, []))
             if (AvaloniaInteroperability.TryGet(window, property, out _))

@@ -1,5 +1,7 @@
 using System;
+using System.Linq;
 using Avalonia.Controls;
+using Avalonia.LogicalTree;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
@@ -67,6 +69,26 @@ internal static class ControlPositions
     /// </summary>
     public static float MouseCoordinate(double pixels, VBScaleMode mode, bool vertical) =>
         (float)(Math.Floor(pixels) * VBScaleModeExtensions.PixelToTwips / TwipsPerUnit(mode, vertical, vertical ? "Y" : "X"));
+
+    /// <summary>
+    /// A form's ScaleWidth or ScaleHeight (#1071): its client area in whole pixels, in the form's ScaleMode, as a Single.
+    /// Measured: a 2520-twip client reads 2520 and, in pixels, 168. After a resize to 2000 twips of client height it reads
+    /// 1995, since the client is whole pixels.
+    /// </summary>
+    public static Vb6Value ScaleSize(Window form, bool vertical)
+    {
+        var what = vertical ? "ScaleHeight" : "ScaleWidth";
+        // The menu bar sits inside the window here, where VB6 leaves it out of the client area.
+        if (vertical && form.GetLogicalDescendants().OfType<Menu>().Any(menu => menu.ItemCount > 0))
+            throw new NotImplementedException($"{what} on a form with a menu bar is not implemented (#990)");
+        var canvas = form.GetLogicalDescendants().OfType<Canvas>().FirstOrDefault();
+        var mode = canvas is null ? VBScaleMode.Twip : VBProps.GetScaleMode(canvas);
+        var pixels = vertical ? form.Height : form.Width;
+        if (double.IsNaN(pixels))
+            pixels = vertical ? form.ClientSize.Height : form.ClientSize.Width;
+        var whole = Math.Floor(pixels + 1e-9);
+        return new Vb6Value((float)(whole * VBScaleModeExtensions.PixelToTwips / TwipsPerUnit(mode, vertical, what)));
+    }
 
     // How many twips one of the program's units is, for this property of this control.
     private static double TwipsPerUnit(Control control, PropertyClass property)

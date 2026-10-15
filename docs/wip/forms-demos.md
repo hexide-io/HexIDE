@@ -1,7 +1,8 @@
 # The next forms demos: Battleship, then Minesweeper
 
-> **Work in progress.** Captured 2026-10-13. Neither demo exists yet. The work that blocks them is tracked in
-> issues, linked below; this document is the reason those issues are ordered as they are.
+> **Work in progress.** Captured 2026-10-13. **Battleship exists** since 2026-10-15, as
+> [`demo/battleship-forms`](../../demo/battleship-forms) (#1071). Minesweeper doesn't yet. The work that blocked them
+> is tracked in issues, linked below; this document is the reason those issues were ordered as they were.
 
 ## Why demos
 
@@ -29,30 +30,26 @@ The engine already exists as the console demo in [`demo/battleship`](../../demo/
 instead of `MouseDown`, would run sooner, but it would show off a subset of VB6 that real programs do not fit
 into. Real programs need the full set, so the demo waits for it.
 
-### What it needs
+### What it needed
 
-**Done on main:** a program that hits something HexIDE does not implement now stops with an error rather than
-silently (#754); identifiers are case-insensitive (#811); `Class_Initialize` no longer ends the object it is
-building (#850); subscripts and control-array indexes are converted as VB6 converts them (#849); and runtime
-Label colours, a number assigned to a `Caption`, and `MsgBox` styles all work.
+All of it has landed, and the demo runs under F5 (#1071).
 
-**The keystone, #822:** one interpreter per run, with each form an instance of its module and a real `Me`.
-Its first slice makes the startup form an instance: `Me` is the form, its declarations run before
-`Form_Initialize`, Initialize and Load come before the window shows, and `Form1.X` works from a module. A second
-form still has nowhere to run until Load and Show arrive. Most of what remains either comes with #822 or is small
-once it lands:
-
-| Needed | Issue | Depends on #822 |
+| Needed | Issue | Landed in |
 |---|---|---|
-| Module-level declarations read from a form, such as the form's own `Const GRID = 10` | #256 | Fixed by the first slice |
-| A form-level array sized by a `Const` | #760 | Fixed by the first slice |
-| `WithEvents` in a form | #972 | Fixed by the first slice |
-| Implicit `Me`: `Caption = "x"` in a form sets the form's caption | #995 | Done |
-| A control used in `Form_Initialize` loads the form there | #1009 | With Load and Show |
-| `Unload Me`, with QueryUnload, Unload and Cancel | #973 | The first slice does not |
-| Default instances, `Load`, `Show`, `Hide`, `New frmX`, and `Show vbModal` | To be filed once #822 lands | Yes |
-| `MouseDown`, `MouseUp` and `MouseMove` | #974 | No |
-| Control positions in twips at run time | #933 | No |
+| Module-level declarations read from a form, such as the form's own `Const GRID = 10` | #256 | #822's first slice |
+| A form-level array sized by a `Const` | #760 | #822's first slice |
+| `WithEvents` in a form | #972 | #822's first slice |
+| Implicit `Me`: `Caption = "x"` in a form sets the form's caption | #995 | its own fix |
+| A control used in `Form_Initialize` loads the form there | #1009 | #1056, #822's slice 2a.1 |
+| `Unload Me`, with QueryUnload, Unload and Cancel | #973 | #1046 |
+| Default instances, `Load`, `Show` and `Hide` | #822 | #1056, slice 2a.1 |
+| `Show vbModal`, and `Sub Main` showing forms | #822 | #1063, slice 2a.2 |
+| `MouseDown`, `MouseUp` and `MouseMove` | #974 | #1032 |
+| Control positions in twips at run time | #933 | its own fix |
+| `Trim$(s)`: a library call written with a `$` | #742 | #1071, which found it. The rest of #742 is still open |
+
+Still to come from #822, and not needed by the demo: `New frmX`, several instances of one form, and the `Forms`
+collection (slice 2b).
 
 ## Then Minesweeper
 

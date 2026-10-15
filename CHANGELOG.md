@@ -157,6 +157,13 @@ there isn't one yet. Anything may change between 0.x releases.
   warning showing, or stayed typable with no warning. The designer already followed the reload.
   ([#475](https://github.com/hexide-io/HexIDE/issues/475))
 
+- **A call written with a `$`, such as `Trim$(s)` or `Left$(s, 1)`, runs** (#1071). It stopped the run. The 23 library
+  functions that have a `$` form answer as their plain form with the result made a String, so a Null is error 94, all
+  measured on vb6.exe. A program's own String Function answers its `$` form. Any other `$` still stops the run,
+  naming #742.
+- **A control's `Move` runs, and a form's `ScaleWidth` and `ScaleHeight` can be read** (#1071). Both stopped the run.
+  Move sets Left, Top, Width and Height as given, and checks before it moves, as vb6.exe was measured to: a negative
+  size is error 5, and nothing moves.
 - **Arithmetic on a numeric String works, as in VB6** (#1047). `Text1.Text * 2` used to stop the run with Type mismatch.
   - **The reading:** every operator now reads a String operand as `CDbl` does, in the program's locale, and the result
     type is the one a Double would give.
