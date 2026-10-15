@@ -324,6 +324,9 @@ public class HaltOnErrorTests
 
         run.Controller.State.Should().Be(DebugState.Paused);
         run.Controller.CurrentStop.Should().Be(new StoppedInfo(StopReason.RuntimeError, "Form1", LineOf(code, "' faults")));
+        // A statement typed in the Immediate window that raises answers with its error, and halts nothing.
+        run.Controller.EvaluateAsync("d = 1 \\ 0").GetAwaiter().GetResult().Should().Contain("Division by zero");
+        run.Halts.Should().ContainSingle();
         // The procedure is live: the Immediate window reaches its frame, and a statement typed there runs in it.
         run.Controller.EvaluateAsync("d = 2").GetAwaiter().GetResult();
         Pump();
