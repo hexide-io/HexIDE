@@ -133,6 +133,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Operators group as VB6 groups them** (#1074). Each had a precedence level of its own, so `10 - 2 + 3` was 5,
+  `5 * 5 \ 2` was 10, `1 < 2 = True` was False and `Not False And False` was True, with no error. Measured on
+  vb6.exe across the whole ladder: `*` and `/` share a level, then `\`, then `Mod`, then `+` and `-`, then every
+  comparison, and operators of one level go left to right. A Boolean beside a number now compares as that number,
+  True as -1, where it raised Type mismatch.
 - **Formatting no longer changes a file's line endings.** The bundled language server joined its formatted
   text with bare line feeds, so a file VB6 wrote, with CRLF endings, was never already formatted: every
   save sent an edit covering the whole file, and applying it put LF endings into the code window.
