@@ -30,6 +30,17 @@ when the shots run out the ships you missed are shown in grey.
 
 ## What it took
 
-Writing it the natural way found one gap HexIDE had: a call written with a `$`, `Trim$(txtName.Text)` in the setup
-dialog, stopped the run. The call form is fixed here, from a measurement of which library functions have a `$` form
-and what the `$` changes. The rest of the type-character work is #742.
+Written the natural way, it ran into four things HexIDE got wrong, each measured on vb6.exe and fixed:
+- **`Trim$(txtName.Text)`,** in the setup dialog, stopped the run: a call written with a `$`. The call form is fixed
+  here, from a measurement of which library functions have a `$` form and what the `$` changes. The rest of the
+  type-character work is #742.
+- **`lblCell(i).Move ...`,** laying out the grid, stopped the run: Move wasn't implemented. Fixed here.
+- **`Width - ScaleWidth`,** fitting the form to the grid, stopped the run: a form's ScaleWidth and ScaleHeight couldn't
+  be read. Fixed here for the default ScaleMode. The rest of the form's coordinate system is #990.
+- **`gSize * gSize \ 2`** gave a 5 x 5 board 10 shots instead of 12, with no error, because every operator had a
+  precedence level of its own. That was fixed on its own, in #1074, since it touches every program.
+
+Two more it found and doesn't depend on:
+- **A form's Width and Height** are its client size in HexIDE, where VB6's include the border and caption (#1072).
+  `Width = (Width - ScaleWidth) + needed` comes out right either way.
+- **`-2 ^ 2`** is 4 in HexIDE and -4 in VB6 (#1073).
