@@ -30,4 +30,23 @@ public interface ISearchableDocument
     int SelectionStart { get; set; }
 
     int SelectionLength { get; set; }
+
+    /// <summary>
+    /// True when replacing <paramref name="length"/> characters at <paramref name="offset"/> would change a
+    /// region only the IDE may write: a code window's header, or a member's attribute lines, including by
+    /// removing the line break those lines hang from (hexide-io/HexIDE#273 phase 3). False for a document
+    /// that has no such regions, which is every one except a code window.
+    /// </summary>
+    bool IsReadOnlyRegion(int offset, int length) => false;
+
+    /// <summary>
+    /// <see cref="IsReadOnlyRegion"/> against the buffer as it stands now, found once, for a caller about to
+    /// make many replacements.
+    /// </summary>
+    /// <remarks>
+    /// Finding the regions reads the whole buffer, so asking afresh at every match of a Replace All is
+    /// quadratic in a large module. The snapshot stays true for a caller that works from the end of the
+    /// buffer backwards, because a replacement never moves anything before it.
+    /// </remarks>
+    Func<int, int, bool> SnapshotReadOnlyRegions() => static (_, _) => false;
 }

@@ -174,11 +174,22 @@ public class TwoForeignServersTests : IAsyncDisposable
     public async Task ALatexServerClaimingClsIsNotOfferedVb6Modules()
     {
         // The rule that stopped the routing fix from becoming a worse bug, now exercised against a real
-        // LaTeX server rather than a fake. It genuinely claims `.cls`, and a VB6 module must not reach it:
-        // it would parse Visual Basic as LaTeX and report confident nonsense about the developer's source.
+        // LaTeX server rather than a fake. It genuinely claims `.cls`, and a VB6 class module must not
+        // reach it: it would parse Visual Basic as LaTeX and report confident nonsense about the
+        // developer's source.
+        //
+        // This used to open `vb6://module/Module1`, and passed for a reason that has since evaporated:
+        // that URI carries no extension, so routing returned no claimants and the assertion held without
+        // ever reaching the rule it names. Nothing mints that string since #273 task 2.1, and a class
+        // module is now `untitled:<Project>/<Name>.cls` -- which DOES match this server's claim. What
+        // keeps it away is the membership gate, so the document is opened the way the code window opens
+        // one. Retargeted rather than added to: a guard that cannot fail is worse than no guard.
         var sut = RegistryOf(RegistrationFor(ForeignServer.Latex, "latex"));
 
-        await sut.OpenDocumentAsync("vb6://module/Module1", "Sub Main()\r\nEnd Sub\r\n");
+        await sut.OpenDocumentAsync(
+            "untitled:Project1/Class1.cls",
+            "Option Explicit\r\nPublic Sub Go()\r\nEnd Sub\r\n",
+            isProjectMember: true);
 
         // Servers start on the first document of a language they claim, so "was it claimed" is observable
         // as "did it start". The registration is still LISTED — that list is what is configured, not what
@@ -192,9 +203,13 @@ public class TwoForeignServersTests : IAsyncDisposable
     [ForeignServerFact("latex")]
     public async Task ACarriedLatexClassIsStillOfferedToTheLatexServer()
     {
-        // The other half, and the reason the rule is about the SCHEME rather than about `.cls` itself. A
-        // real `.cls` on disk routes by extension like any other file, so a server claiming it gets it;
-        // what it must not get is the IDE's own modules, which carry no extension at all.
+        // The other half, and the reason the rule is about MEMBERSHIP rather than about `.cls` itself. A
+        // carried `.cls` is an ordinary file the project happens to reference, so it routes by extension
+        // like any other and a server claiming it gets it. What that server must not get is a class
+        // module of the project, which is known to be VB6 whatever its extension shares.
+        //
+        // Written as "anything the project names", the gate would take this away too -- which is why the
+        // carried-file editor states `isProjectMember: false`, and why this test opens it that way.
         //
         // Asserted as "the server started", not "it published diagnostics", because measuring this server
         // showed it publishes NOTHING for a `.cls` — it reads class files for definitions rather than

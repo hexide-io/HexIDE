@@ -3,9 +3,6 @@ using System.Text.Json.Nodes;
 using HexIDE.Bookmarks;
 using HexIDE.Debugging;
 using HexIDE.Sidecar;
-using Serilog;
-using Serilog.Core;
-using Serilog.Events;
 
 namespace HexIDE.Tests.Sidecar;
 
@@ -118,26 +115,14 @@ public sealed class UserSidecarSaveTests : IDisposable
         }
     }
 
-    /// <summary>Collects what is logged while it is installed, and puts the previous logger back when disposed.</summary>
-    private sealed class CapturedLog : ILogEventSink, IDisposable
-    {
-        private readonly ILogger previous = Log.Logger;
-        public List<string> Messages { get; } = [];
-
-        public CapturedLog() =>
-            Log.Logger = new LoggerConfiguration().MinimumLevel.Verbose().WriteTo.Sink(this).CreateLogger();
-
-        public void Emit(LogEvent logEvent) => Messages.Add(logEvent.RenderMessage());
-
-        public void Dispose() => Log.Logger = previous;
-    }
-
     // ── A. A save rewrites the sidecar; it does not rebuild it ───────────────────────────────────────────
 
     [Fact]
     public async Task ContentThisVersionDoesNotRecogniseSurvivesASave()
     {
-        // The user-sidecar spec's scenario, exactly as #466 reports it: the watches key used to vanish.
+        // The user-sidecar spec's scenario, exactly as #466 reports it: the watches key used to vanish. The file is
+        // in the format before lines counted from the top of the file, so its bookmark comes back under the key
+        // that format is written with now; Form1 has no header, so its line does not move.
         var project = Project();
         File.WriteAllText(SidecarOf(project),
             """{ "version": 1, "bookmarks": { "vb6://form/Form1": [1] }, "watches": ["x + 1"] }""");
@@ -151,7 +136,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         var written = Read(SidecarOf(project));
         Same(written["watches"], """["x + 1"]""").Should().BeTrue(
             "the unrecognised key is still there with its value, whatever escaping the writer chose");
-        Lines(written, "bookmarks", "Form1").Should().Equal(1, 3);
+        Lines(written, "fileBookmarks", "Form1").Should().Equal(1, 3);
     }
 
     [Fact]
@@ -161,7 +146,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         // would read its own keys as written by this one.
         var project = Project();
         File.WriteAllText(SidecarOf(project),
-            """{ "version": 2, "bookmarks": { "Form1": [1] }, "marks": { "Form1": { "bookmarks": [9] } } }""");
+            """{ "version": 3, "fileBookmarks": { "Form1": [1] }, "marks": { "Form1": { "bookmarks": [9] } } }""");
         var bookmarks = new BookmarkService();
         var sidecar = Service(bookmarks);
         await sidecar.LoadAsync(project);
@@ -170,9 +155,9 @@ public sealed class UserSidecarSaveTests : IDisposable
         await sidecar.SaveAsync(project);
 
         var written = Read(SidecarOf(project));
-        written["version"]!.GetValue<int>().Should().Be(2);
+        written["version"]!.GetValue<int>().Should().Be(3);
         Same(written["marks"], """{"Form1":{"bookmarks":[9]}}""").Should().BeTrue();
-        Lines(written, "bookmarks", "Form1").Should().Equal(2);
+        Lines(written, "fileBookmarks", "Form1").Should().Equal(2);
     }
 
     [Fact]
@@ -186,14 +171,14 @@ public sealed class UserSidecarSaveTests : IDisposable
         await sidecar.LoadAsync(project);
 
         File.WriteAllText(SidecarOf(project),
-            """{ "version": 2, "bookmarks": { "Form1": [1] }, "marks": { "Form1": { "bookmarks": [9] } } }""");
+            """{ "version": 3, "fileBookmarks": { "Form1": [1] }, "marks": { "Form1": { "bookmarks": [9] } } }""");
         bookmarks.SetBookmarks(Form1(project), [1, 4]);
         await sidecar.SaveAsync(project);
 
         var written = Read(SidecarOf(project));
-        written["version"]!.GetValue<int>().Should().Be(2);
+        written["version"]!.GetValue<int>().Should().Be(3);
         Same(written["marks"], """{"Form1":{"bookmarks":[9]}}""").Should().BeTrue();
-        Lines(written, "bookmarks", "Form1").Should().Equal([1, 4], "for this build's own keys, this session wins");
+        Lines(written, "fileBookmarks", "Form1").Should().Equal([1, 4], "for this build's own keys, this session wins");
     }
 
     [Fact]
@@ -211,7 +196,7 @@ public sealed class UserSidecarSaveTests : IDisposable
 
         var written = Read(SidecarOf(project));
         Same(written["watches"], """["x"]""").Should().BeTrue();
-        Lines(written, "bookmarks", "Form1").Should().Equal(2);
+        Lines(written, "fileBookmarks", "Form1").Should().Equal(2);
     }
 
     [Fact]
@@ -226,7 +211,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         bookmarks.SetBookmarks(Form1(project), [1, 2]);
         await sidecar.SaveAsync(project);
 
-        Read(SidecarOf(project))["version"]!.GetValue<int>().Should().Be(1);
+        Read(SidecarOf(project))["version"]!.GetValue<int>().Should().Be(2);
     }
 
     [Fact]
@@ -333,6 +318,38 @@ public sealed class UserSidecarSaveTests : IDisposable
         File.ReadAllText(SidecarOf(project)).Should().Be(odd);
     }
 
+    /// <summary>
+    /// A null where an entry's lines belong fails the read in either format, before any of the file's marks reach
+    /// the stores, and the file is then not rewritten (#273 task 3.17).
+    /// </summary>
+    /// <remarks>
+    /// The good entry is one the read reaches before the null: the earlier format's keys are read before the new
+    /// ones, and bookmarks before breakpoints. A read that placed each entry as it went would leave it in the store.
+    /// </remarks>
+    [Theory]
+    [InlineData("""{ "version": 1, "breakpoints": { "Module1": [3] }, "fileBookmarks": { "Form1": null } }""")]
+    [InlineData("""{ "version": 2, "fileBookmarks": { "Module1": [3] }, "fileBreakpoints": { "Form1": null } }""")]
+    public async Task ANullWhereAnEntrysLinesBelongFailsTheReadInEitherFormat(string odd)
+    {
+        var project = Project();
+        File.WriteAllText(SidecarOf(project), odd);
+        var bookmarks = new BookmarkService();
+        var breakpoints = new BreakpointService();
+        var sidecar = Service(bookmarks, breakpoints);
+        using var log = new CapturedLog();
+
+        await sidecar.LoadAsync(project);
+
+        breakpoints.GetBreakpoints(Module1(project)).Should().BeEmpty("nothing of a sidecar that cannot be applied is");
+        bookmarks.GetBookmarks(Module1(project)).Should().BeEmpty();
+        log.Messages.Should().Contain(m => m.StartsWith("Failed to apply user sidecar"));
+
+        bookmarks.SetBookmarks(Form1(project), [2]);
+        await debounce.ElapseAsync(sidecar);
+
+        File.ReadAllText(SidecarOf(project)).Should().Be(odd);
+    }
+
     [Fact]
     public async Task ASidecarThatStopsBeingReadableWhileTheProjectIsOpenIsNotRewritten()
     {
@@ -378,7 +395,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         // written again; nothing else of it is.
         var project = Project();
         File.WriteAllText(SidecarOf(project),
-            """{ "version": 2, "bookmarks": { "Form1": [1] }, "marks": { "Form1": { "bookmarks": [9] } } }""");
+            """{ "version": 3, "fileBookmarks": { "Form1": [1] }, "marks": { "Form1": { "bookmarks": [9] } } }""");
         var bookmarks = new BookmarkService();
         var sidecar = Service(bookmarks);
         await sidecar.LoadAsync(project);
@@ -388,8 +405,8 @@ public sealed class UserSidecarSaveTests : IDisposable
         await sidecar.SaveAsync(project);
 
         var written = Read(SidecarOf(project));
-        written.Select(p => p.Key).Should().BeEquivalentTo("version", "bookmarks");
-        written["version"]!.GetValue<int>().Should().Be(1);
+        written.Select(p => p.Key).Should().BeEquivalentTo("version", "fileBookmarks");
+        written["version"]!.GetValue<int>().Should().Be(2);
     }
 
     [Fact]
@@ -422,7 +439,7 @@ public sealed class UserSidecarSaveTests : IDisposable
 
         var written = Read(SidecarOf(project));
         Same(written["watches"], """["x"]""").Should().BeTrue();
-        Lines(written, "bookmarks", "Form1").Should().Equal(1);
+        Lines(written, "fileBookmarks", "Form1").Should().Equal(1);
     }
 
     [Fact]
@@ -431,7 +448,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         // A newer build's marks under keys this one does not know count as something to record: the project has
         // no marks this build can see, and still takes them with it.
         var project = Project();
-        File.WriteAllText(SidecarOf(project), """{ "version": 2, "marks": { "Form1": { "bookmarks": [9] } } }""");
+        File.WriteAllText(SidecarOf(project), """{ "version": 3, "marks": { "Form1": { "bookmarks": [9] } } }""");
         var sidecar = Service(new BookmarkService());
         await sidecar.LoadAsync(project);
 
@@ -439,7 +456,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         await sidecar.SaveAsync(project);
 
         var written = Read(SidecarOf(project));
-        written["version"]!.GetValue<int>().Should().Be(2);
+        written["version"]!.GetValue<int>().Should().Be(3);
         Same(written["marks"], """{"Form1":{"bookmarks":[9]}}""").Should().BeTrue();
     }
 
@@ -454,14 +471,14 @@ public sealed class UserSidecarSaveTests : IDisposable
 
         var destination = Elsewhere(project);
         File.WriteAllText(Path.ChangeExtension(destination, null) + ".user.hexproj",
-            """{ "version": 2, "bookmarks": { "Form1": [11] }, "stale": true }""");
+            """{ "version": 3, "fileBookmarks": { "Form1": [11] }, "stale": true }""");
         project.AbsolutePath = destination;
         await sidecar.SaveAsync(project);
 
         var written = Read(SidecarOf(project));
         written.ContainsKey("stale").Should().BeFalse();
-        written["version"]!.GetValue<int>().Should().Be(1);
-        Lines(written, "bookmarks", "Form1").Should().Equal(1);
+        written["version"]!.GetValue<int>().Should().Be(2, "the project's own sidecar was migrated as it opened");
+        Lines(written, "fileBookmarks", "Form1").Should().Equal(1);
     }
 
     [Fact]
@@ -471,7 +488,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         // is grafted onto the new one, which would later show marks nobody set in it.
         var project = Project();
         File.WriteAllText(SidecarOf(project),
-            """{ "version": 2, "bookmarks": { "Form1": [5] }, "marks": { "Form1": { "bookmarks": [9] } } }""");
+            """{ "version": 3, "fileBookmarks": { "Form1": [5] }, "bookmarks": { "Form1": [4] }, "marks": { "Form1": { "bookmarks": [9] } } }""");
         var bookmarks = new BookmarkService();
         var breakpoints = new BreakpointService();
         var sidecar = Service(bookmarks, breakpoints);
@@ -480,9 +497,9 @@ public sealed class UserSidecarSaveTests : IDisposable
         await sidecar.SaveAsync(project);
 
         var written = Read(SidecarOf(project));
-        written.Select(p => p.Key).Should().BeEquivalentTo("version", "breakpoints");
-        written["version"]!.GetValue<int>().Should().Be(1);
-        Lines(written, "breakpoints", "Module1").Should().Equal(2);
+        written.Select(p => p.Key).Should().BeEquivalentTo("version", "fileBreakpoints");
+        written["version"]!.GetValue<int>().Should().Be(2);
+        Lines(written, "fileBreakpoints", "Module1").Should().Equal(2);
         bookmarks.GetBookmarks(Form1(project)).Should().BeEmpty();
     }
 
@@ -506,7 +523,7 @@ public sealed class UserSidecarSaveTests : IDisposable
 
         var written = Read(lyingThere);
         written.ContainsKey("stale").Should().BeFalse();
-        Lines(written, "bookmarks", "Form1").Should().Equal(1);
+        Lines(written, "fileBookmarks", "Form1").Should().Equal(1);
     }
 
     [Fact]
@@ -527,7 +544,7 @@ public sealed class UserSidecarSaveTests : IDisposable
 
         var written = Read(SidecarOf(project));
         Same(written["watches"], """["x"]""").Should().BeTrue();
-        Lines(written, "bookmarks", "Form1").Should().Equal(1);
+        Lines(written, "fileBookmarks", "Form1").Should().Equal(1);
     }
 
     [Fact]
@@ -541,12 +558,12 @@ public sealed class UserSidecarSaveTests : IDisposable
         await sidecar.SaveAsync(project);
         File.Exists(SidecarOf(project)).Should().BeFalse();
 
-        File.WriteAllText(SidecarOf(project), """{ "version": 2, "marks": { "Form1": { "bookmarks": [9] } } }""");
+        File.WriteAllText(SidecarOf(project), """{ "version": 3, "marks": { "Form1": { "bookmarks": [9] } } }""");
         bookmarks.SetBookmarks(Form1(project), [2]);
         await debounce.ElapseAsync(sidecar);
 
         var written = Read(SidecarOf(project));
-        written["version"]!.GetValue<int>().Should().Be(2);
+        written["version"]!.GetValue<int>().Should().Be(3);
         Same(written["marks"], """{"Form1":{"bookmarks":[9]}}""").Should().BeTrue();
     }
 
@@ -583,7 +600,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         bookmarks.SetBookmarks(Form1(project), [3]);
         await sidecar.SaveAsync(project);
 
-        Lines(Read(SidecarOf(project)), "bookmarks", "Form1").Should().Equal(3);
+        Lines(Read(SidecarOf(project)), "fileBookmarks", "Form1").Should().Equal(3);
     }
 
     // ── B. Every project's last change reaches its own file ──────────────────────────────────────────────
@@ -600,7 +617,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         File.Exists(SidecarOf(project)).Should().BeFalse("nothing is written while the change waits");
         await debounce.ElapseAsync(sidecar);
 
-        Lines(Read(SidecarOf(project)), "bookmarks", "Form1").Should().Equal(3);
+        Lines(Read(SidecarOf(project)), "fileBookmarks", "Form1").Should().Equal(3);
     }
 
     [Fact]
@@ -616,8 +633,8 @@ public sealed class UserSidecarSaveTests : IDisposable
         await debounce.ElapseAsync(sidecar);
 
         var written = Read(SidecarOf(project));
-        Lines(written, "bookmarks", "Form1").Should().Equal(3);
-        Lines(written, "bookmarks", "Module1").Should().Equal(4);
+        Lines(written, "fileBookmarks", "Form1").Should().Equal(3);
+        Lines(written, "fileBookmarks", "Module1").Should().Equal(4);
     }
 
     [Fact]
@@ -635,8 +652,8 @@ public sealed class UserSidecarSaveTests : IDisposable
         debounce.Cancelled.Should().Be(0);
         await debounce.ElapseAsync(sidecar);
 
-        Lines(Read(SidecarOf(a)), "bookmarks", "Form1").Should().Equal(1);
-        Lines(Read(SidecarOf(b)), "bookmarks", "Form1").Should().Equal(2);
+        Lines(Read(SidecarOf(a)), "fileBookmarks", "Form1").Should().Equal(1);
+        Lines(Read(SidecarOf(b)), "fileBookmarks", "Form1").Should().Equal(2);
     }
 
     [Fact]
@@ -651,7 +668,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         Close(b);
         await debounce.ElapseAsync(sidecar);
 
-        Lines(Read(SidecarOf(a)), "bookmarks", "Form1").Should().Equal(1);
+        Lines(Read(SidecarOf(a)), "fileBookmarks", "Form1").Should().Equal(1);
         File.Exists(SidecarOf(b)).Should().BeFalse("B had nothing to record");
     }
 
@@ -672,11 +689,11 @@ public sealed class UserSidecarSaveTests : IDisposable
 
         bookmarks.GetBookmarks(Form1(project)).Should().BeEmpty("the project is cleared from memory");
         var written = Read(SidecarOf(project));
-        Lines(written, "bookmarks", "Form1").Should().Equal(3);
-        Lines(written, "breakpoints", "Module1").Should().Equal(5);
+        Lines(written, "fileBookmarks", "Form1").Should().Equal(3);
+        Lines(written, "fileBreakpoints", "Module1").Should().Equal(5);
 
         await debounce.ElapseAsync(sidecar);
-        Lines(Read(SidecarOf(project)), "bookmarks", "Form1").Should().Equal(3);
+        Lines(Read(SidecarOf(project)), "fileBookmarks", "Form1").Should().Equal(3);
     }
 
     [Fact]
@@ -709,7 +726,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         uiThread.Pump();
         await sidecar.SettledAsync();
 
-        Lines(Read(SidecarOf(project)), "bookmarks", "Form1").Should().Equal(3);
+        Lines(Read(SidecarOf(project)), "fileBookmarks", "Form1").Should().Equal(3);
     }
 
     /// <summary>Runs what is posted to it only when pumped, as a busy UI thread would.</summary>
@@ -745,7 +762,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         Directory.Delete(blocker);
         Close(project);
 
-        Lines(Read(SidecarOf(project)), "bookmarks", "Form1").Should().Equal(3);
+        Lines(Read(SidecarOf(project)), "fileBookmarks", "Form1").Should().Equal(3);
     }
 
     [Fact]
@@ -762,8 +779,8 @@ public sealed class UserSidecarSaveTests : IDisposable
         bookmarks.SetBookmarks(Form1(b), [2]);
         sidecar.FlushAll();
 
-        Lines(Read(SidecarOf(a)), "bookmarks", "Form1").Should().Equal(1);
-        Lines(Read(SidecarOf(b)), "bookmarks", "Form1").Should().Equal(2);
+        Lines(Read(SidecarOf(a)), "fileBookmarks", "Form1").Should().Equal(1);
+        Lines(Read(SidecarOf(b)), "fileBookmarks", "Form1").Should().Equal(2);
         debounce.Cancelled.Should().Be(2, "the waiting saves were superseded by the flush");
         await sidecar.SettledAsync();
     }
@@ -779,21 +796,24 @@ public sealed class UserSidecarSaveTests : IDisposable
         await sidecar.SaveAsync(project);
 
         debounce.Cancelled.Should().Be(1);
-        Lines(Read(SidecarOf(project)), "bookmarks", "Form1").Should().Equal(3);
+        Lines(Read(SidecarOf(project)), "fileBookmarks", "Form1").Should().Equal(3);
     }
 
     [Fact]
     public async Task LoadingASidecarSchedulesNoSave()
     {
         // Its marks reach the stores by this service's own hand, and writing them straight back would only churn
-        // the file.
+        // the file. In this build's own format, because one in the earlier format is written once as it loads, to
+        // migrate it (SidecarMigrationTests).
         var project = Project();
-        File.WriteAllText(SidecarOf(project), """{ "version": 1, "bookmarks": { "Form1": [1] } }""");
+        const string sidecarText = """{ "version": 2, "fileBookmarks": { "Form1": [1] } }""";
+        File.WriteAllText(SidecarOf(project), sidecarText);
         var sidecar = Service(new BookmarkService());
 
         await sidecar.LoadAsync(project);
 
         debounce.Started.Should().Be(0);
+        File.ReadAllText(SidecarOf(project)).Should().Be(sidecarText);
     }
 
     [Fact]
@@ -814,14 +834,16 @@ public sealed class UserSidecarSaveTests : IDisposable
         read.SetResult(File.ReadAllText(SidecarOf(b)));
         await loading;
         await debounce.ElapseAsync(sidecar);
-        Lines(Read(SidecarOf(a)), "bookmarks", "Form1").Should().Equal(4);
+        Lines(Read(SidecarOf(a)), "fileBookmarks", "Form1").Should().Equal(4);
     }
 
     [Fact]
     public async Task AChangeMadeWhileTheSidecarIsReadWaitsForIt()
     {
         // Written then, it would carry none of the file's marks, since the stores do not hold them yet, and they
-        // would be gone from the file for good.
+        // would be gone from the file for good. The file is in the earlier format, so the write the load makes
+        // also migrates it: one save, holding the change and the file's breakpoint, moved down by the Attribute
+        // VB_Name line the code window now shows above Module1's code.
         var project = Project();
         const string sidecarText = """{ "version": 1, "breakpoints": { "Module1": [3] } }""";
         File.WriteAllText(SidecarOf(project), sidecarText);
@@ -838,8 +860,9 @@ public sealed class UserSidecarSaveTests : IDisposable
         await loading;
 
         var written = Read(SidecarOf(project));
-        Lines(written, "breakpoints", "Module1").Should().Equal(3);
-        Lines(written, "bookmarks", "Form1").Should().Equal(4);
+        Lines(written, "fileBreakpoints", "Module1").Should().Equal(4);
+        Lines(written, "fileBookmarks", "Form1").Should().Equal(4);
+        written.ContainsKey("breakpoints").Should().BeFalse("the entry it migrated is not written back as it was");
     }
 
     [Fact]
@@ -869,11 +892,13 @@ public sealed class UserSidecarSaveTests : IDisposable
     public async Task AFormAndAModuleOfOneNameShareTheirEntry_AndTheSidecarIsStillWritten()
     {
         // A .vbp written elsewhere can hold both. A save unions their marks under the one name, so a load gives the
-        // entry to each; refusing the sidecar instead would stop the project saving any mark at all.
+        // entry to each; refusing the sidecar instead would stop the project saving any mark at all. In this build's
+        // own format: in the earlier one the form and the module would move by different amounts, their headers
+        // being of different lengths, which is the migration's business rather than this test's.
         var project = Project();
         project.AddModule(new ModuleDefinition(project, "Form1", ModuleKind.StandardModule));
         project.Modules[1].UpdateCode(TwelveLines);
-        File.WriteAllText(SidecarOf(project), """{ "version": 1, "bookmarks": { "Form1": [1] } }""");
+        File.WriteAllText(SidecarOf(project), """{ "version": 2, "fileBookmarks": { "Form1": [1] } }""");
         var bookmarks = new BookmarkService();
         var sidecar = Service(bookmarks);
         await sidecar.LoadAsync(project);
@@ -884,7 +909,7 @@ public sealed class UserSidecarSaveTests : IDisposable
         bookmarks.SetBookmarks(DocumentIdentity.For(project.Modules[1]), [1, 6]);
         await sidecar.SaveAsync(project);
 
-        Lines(Read(SidecarOf(project)), "bookmarks", "Form1").Should().Equal(1, 6);
+        Lines(Read(SidecarOf(project)), "fileBookmarks", "Form1").Should().Equal(1, 6);
     }
 
     [Fact]
@@ -902,5 +927,33 @@ public sealed class UserSidecarSaveTests : IDisposable
         await sidecar.SaveAsync(project);
 
         File.GetLastWriteTimeUtc(path).Should().Be(stamp);
+    }
+
+    /// <summary>
+    /// document-identity's scenario of that name (#273). Both stores key a mark by the document's identity, not by
+    /// its name, so a rename moves nothing; the sidecar is written under the name the document has when it is
+    /// saved. The next run is honoured by the same lookup: the runner reads each document's marks by identity and
+    /// names them to the interpreter by the document's current name (<c>ProjectRunnerService</c>).
+    /// </summary>
+    [Fact]
+    public async Task RenamingADocumentWithBreakpointsOnIt()
+    {
+        var project = Project();
+        var bookmarks = new BookmarkService();
+        var breakpoints = new BreakpointService();
+        var sidecar = Service(bookmarks, breakpoints);
+        await sidecar.LoadAsync(project);
+        bookmarks.SetBookmarks(Module1(project), [4]);
+        breakpoints.SetDocument(Module1(project), [7]);
+
+        project.Modules[0].Name = "Utilities";
+
+        bookmarks.GetBookmarks(Module1(project)).Should().Equal([4], "the same line, under the renamed document");
+        breakpoints.GetBreakpoints(Module1(project)).Should().Equal([7], "the same line, under the renamed document");
+        await sidecar.SaveAsync(project);
+        var written = Read(SidecarOf(project));
+        Lines(written, "fileBookmarks", "Utilities").Should().Equal(4);
+        Lines(written, "fileBreakpoints", "Utilities").Should().Equal(7);
+        written["fileBookmarks"]!.AsObject().ContainsKey("Module1").Should().BeFalse("the old name is not kept beside the new");
     }
 }

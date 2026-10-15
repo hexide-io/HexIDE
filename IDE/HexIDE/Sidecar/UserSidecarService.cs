@@ -10,6 +10,7 @@ using HexIDE.Bookmarks;
 using HexIDE.Debugging;
 using HexIDE.IDE;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Serialization;
 using Serilog;
 
 namespace HexIDE.Sidecar;
@@ -37,11 +38,23 @@ namespace HexIDE.Sidecar;
 /// A write that no other write can interleave with is what makes a save on close, an explicit save during a
 /// waiting one, and the single temporary file all safe without anything further.
 /// </para>
+/// <para>
+/// <b>Two formats, and the older one is migrated as the project opens</b> (hexide-io/HexIDE#273 task 3.17). Version
+/// 1 counted lines from the first line the code window showed, which was the first line of a document's code;
+/// version 2 counts them from the top of the file, because the code window now holds the whole file. They are
+/// kept under different keys, <c>bookmarks</c>/<c>breakpoints</c> and <c>fileBookmarks</c>/<c>fileBreakpoints</c>,
+/// so that a build that knows only the first never shows a migrated mark on the wrong line. See
+/// <see cref="UserSidecarData"/> for what each key means and <see cref="Apply"/> for the migration.
+/// </para>
 /// </remarks>
 public class UserSidecarService : IUserSidecarService
 {
-    /// <summary>The format this build writes: lines counted from the first line the code window showed.</summary>
-    private const int CurrentVersion = 1;
+    /// <summary>
+    /// The format this build writes: marks under <c>fileBookmarks</c> and <c>fileBreakpoints</c>, lines counted from
+    /// the top of the file. Version 1 wrote them under <c>bookmarks</c> and <c>breakpoints</c>, counted from the first
+    /// line the code window showed.
+    /// </summary>
+    private const int CurrentVersion = 2;
 
     private readonly IBookmarkService bookmarkService;
     private readonly IBreakpointService breakpointService;
@@ -98,9 +111,41 @@ public class UserSidecarService : IUserSidecarService
 
         /// <summary>
         /// The sidecar as last read or written at <see cref="ReadFrom"/>, or carried there from where the project
-        /// was before. Null while nothing has been read.
+        /// was before. Null while nothing has been read. After a migration it is what the file holds once the
+        /// migration is written, whether or not that write has landed yet.
         /// </summary>
         public UserSidecarData? Read;
+
+        /// <summary>
+        /// The names whose marks this session keeps in the stores and writes from them: every document the project
+        /// had when it opened, except one whose file was missing then. Compared ignoring case, as VB6 compares
+        /// names. Null for a project that was not opened from a file, which owns every name.
+        /// </summary>
+        /// <remarks>
+        /// Fixed when the project opens and never updated, because an entry for a name outside it is carried in the
+        /// file untouched, and has to stay carried even if a document of that name is added or removed meanwhile.
+        /// Asking the project as it is now would keep a renamed document's old entry beside its new one, bring back
+        /// a mark removed while it was renamed, and give a later document of the old name marks nobody set in it.
+        /// </remarks>
+        public HashSet<string>? Owned;
+
+        /// <summary>
+        /// The version-1 entries the load moved into the stores, so a save does not write them back beside the marks
+        /// they became. Null once a write at <see cref="ReadFrom"/> has landed, since the file no longer holds them.
+        /// </summary>
+        public Entries? Consumed;
+
+        /// <summary>
+        /// What the stores put under the version-2 keys at the last write to <see cref="ReadFrom"/>, so that a later
+        /// save can tell an entry this session wrote from one it is carrying. Null until something has been written.
+        /// </summary>
+        /// <remarks>
+        /// A name outside <see cref="Owned"/> can still be one this session writes: a document renamed to it, or
+        /// added under it, since the project opened. Without this, the next save would find that entry in the file,
+        /// see a name the project did not own, and carry it — so a document renamed twice would leave its middle
+        /// name's marks behind, and a mark removed from it would come back.
+        /// </remarks>
+        public Entries? Wrote;
 
         /// <summary>The sidecar at <see cref="ReadFrom"/> could not be read or applied when the project opened.</summary>
         public bool ReadFailed;
@@ -121,6 +166,12 @@ public class UserSidecarService : IUserSidecarService
 
         /// <summary>The debounce the latest change is waiting on, if one is.</summary>
         public CancellationTokenSource? Pending;
+    }
+
+    /// <summary>One format's entries of a sidecar, by kind: a document's key mapped to its lines.</summary>
+    private sealed record Entries(Dictionary<string, List<int>> Bookmarks, Dictionary<string, List<int>> Breakpoints)
+    {
+        public bool IsEmpty => Bookmarks.Count == 0 && Breakpoints.Count == 0;
     }
 
     private ProjectState StateOf(ProjectDefinition project)
@@ -166,7 +217,9 @@ public class UserSidecarService : IUserSidecarService
 
         // Registered before the read, even when there is no file: a sidecar that appears there later is this
         // project's own, and a project closed while its file is read can be told apart once the read completes.
-        var state = new ProjectState { ReadFrom = path, Loading = File.Exists(path) };
+        // The names it owns are taken now, while the project is as it opened, for the same reason.
+        var owned = OwnedAtOpen(project);
+        var state = new ProjectState { ReadFrom = path, Loading = File.Exists(path), Owned = owned };
         lock (gate)
             projects[project] = state;
 
@@ -201,7 +254,19 @@ public class UserSidecarService : IUserSidecarService
                 quiet.Add(project);
                 try
                 {
-                    Apply(project, data, path);
+                    var (migrated, consumed) = Apply(project, data, path, owned);
+                    state.Read = migrated;
+                    if (!consumed.IsEmpty)
+                    {
+                        // Written once, now, so the next opening finds the marks where they are rather than migrating
+                        // them again. A change made while the file was read is written by the same save.
+                        state.Consumed = consumed;
+                        state.Owed = true;
+                        Log.Information(
+                            "Migrated user sidecar {Path}: {Bookmarks} bookmark and {Breakpoints} breakpoint entries " +
+                            "now count lines from the top of the file", path,
+                            consumed.Bookmarks.Count, consumed.Breakpoints.Count);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -216,48 +281,214 @@ public class UserSidecarService : IUserSidecarService
             }
 
             // A change made while the file was read was held back, because the stores did not yet hold the file's
-            // marks and a write then would have dropped them. It is written now that they do.
+            // marks and a write then would have dropped them. It is written now that they do, and so is a migration.
             if (state.Owed)
                 Save(project);
         }
     }
 
     /// <summary>
-    /// Puts the sidecar's marks into the stores. An entry goes to every document of the name it gives: a project
-    /// loaded from a .vbp written elsewhere may hold a form and a module of one name, whose marks a save unions
-    /// under that name, and an entry for a document the project does not have goes nowhere.
+    /// The names of the documents the project has as it opens, except any whose file is missing: the names whose
+    /// entries this session applies, and writes from the stores.
     /// </summary>
-    private void Apply(ProjectDefinition project, UserSidecarData data, string path)
+    /// <remarks>
+    /// <para>
+    /// <b>A document whose file is missing is still a document of the project</b>, and that is why this cannot be
+    /// "the project's names". A module whose file cannot be found is loaded empty, so the code window shows only
+    /// the header it would have, and nothing about it says how many lines its file had or how long its header was.
+    /// Its entries can neither be moved nor checked against its lines, so they are carried in the file untouched,
+    /// for an opening that finds the file to apply. A form whose file is missing is never loaded at all, and a
+    /// file that cannot be read never becomes a document, so both of those are already names the project lacks.
+    /// </para>
+    /// <para>
+    /// A document with no file yet is not missing one: the code window shows it whole, header and all, so its
+    /// lines can be counted. Where two documents share a name, as a project written elsewhere can, the name is
+    /// carried if either cannot be measured, because the entry is one entry and cannot be half applied.
+    /// </para>
+    /// </remarks>
+    private static HashSet<string> OwnedAtOpen(ProjectDefinition project)
     {
-        var byName = DocumentLookup.DocumentsOf(project).ToLookup(d => d.Name, StringComparer.OrdinalIgnoreCase);
-
-        foreach (var (document, lines) in Gather(byName, data.Bookmarks, first: 0, "bookmark", path))
-            bookmarkService.SetBookmarks(document, lines);
-
-        foreach (var (document, lines) in Gather(byName, data.Breakpoints, first: 1, "breakpoint", path))
-            breakpointService.SetDocument(document, lines);
+        var owned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var missing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var document in DocumentLookup.DocumentsOf(project))
+            (document.AbsolutePath is { } file && !File.Exists(file) ? missing : owned).Add(document.Name);
+        owned.ExceptWith(missing);
+        return owned;
     }
 
     /// <summary>
-    /// Each document's lines from every entry naming it, together. Two keys can name one document — a sidecar
-    /// holding both spellings, or one keyed <c>vb6://form/Foo</c> and <c>vb6://module/Foo</c> — and setting each in
-    /// turn would keep only the last.
+    /// Puts the sidecar's marks into the stores, moving any it holds in version 1's numbering, and answers what the
+    /// file should hold afterwards and which version-1 entries were moved out of it.
     /// </summary>
-    private static Dictionary<DocumentIdentity, List<int>> Gather(ILookup<string, DocumentIdentity> byName,
-        Dictionary<string, List<int>>? entries, int first, string what, string path)
+    /// <remarks>
+    /// <para>
+    /// <b>The version-1 keys are migrated whatever <c>version</c> says.</b> A build with the #466 fix and without
+    /// this migration keeps a version-2 file's keys and its version, and writes its own marks beside them under
+    /// the old keys, so those keys are always counted the old way. An entry naming a document the project owns
+    /// (<see cref="OwnedAtOpen"/>) is checked against the lines its document's code had, which is what the old
+    /// numbering counted, then moved down by the number of lines the code window now shows above that code:
+    /// <see cref="FormCodeText.Prefix(DocumentIdentity)"/>. That is the header of a <c>.bas</c> or <c>.cls</c>,
+    /// and only the designer block of a form, UserControl or PropertyPage, whose old window already began at its
+    /// <c>Attribute</c> lines: shifting by the whole header would put every mark on a form five lines too low.
+    /// It is re-keyed to the document's name and leaves the old keys. Bookmarks stay 0-based and breakpoints
+    /// 1-based, as the automation tools state them.
+    /// </para>
+    /// <para>
+    /// <b>An entry for a name the project does not own is left exactly as it is</b>, under whichever key it was
+    /// found. Guessing its shift would misplace its marks and dropping it would lose them; a later opening that
+    /// can measure it migrates it then.
+    /// </para>
+    /// <para>
+    /// <b>Both formats' marks for one document are gathered into one set before it is stored</b>, because a
+    /// store's setter replaces: a version-2 file can hold version-1 entries an older build wrote beside it, and
+    /// setting each in turn would keep only the second.
+    /// </para>
+    /// <para>
+    /// <b>A mark on a read-only line is dropped and logged</b>, from either format. Nothing in the IDE sets one
+    /// there since #273 task 3.12, but a mark is a bare line number, so one already set can come to sit there: an
+    /// edit that adds or removes lines above it, a line below it coming to describe a member, or a reload
+    /// (debugger-vb6-divergences D24). The save writes what the stores hold, so such a mark reaches the file and is
+    /// dropped here at the next open; so is a migrated one (the old window showed a form's leading <c>Attribute</c>
+    /// lines and a member's as editable code), and one written by a build without the refusal. A breakpoint there
+    /// would never be hit, and a bookmark there would mark a line the IDE writes.
+    /// </para>
+    /// </remarks>
+    private (UserSidecarData Migrated, Entries Consumed) Apply(
+        ProjectDefinition project, UserSidecarData data, string path, HashSet<string> owned)
     {
-        var gathered = new Dictionary<DocumentIdentity, List<int>>();
-        if (entries == null) return gathered;
+        var byName = DocumentLookup.DocumentsOf(project).ToLookup(d => d.Name, StringComparer.OrdinalIgnoreCase);
+        var bookmarks = new Dictionary<DocumentIdentity, List<int>>();
+        var breakpoints = new Dictionary<DocumentIdentity, List<int>>();
+
+        var (oldBookmarks, consumedBookmarks) =
+            Migrate(byName, owned, data.Bookmarks, first: 0, "bookmark", path, bookmarks);
+        var (oldBreakpoints, consumedBreakpoints) =
+            Migrate(byName, owned, data.Breakpoints, first: 1, "breakpoint", path, breakpoints);
+        Gather(byName, owned, data.FileBookmarks, first: 0, "bookmark", path, bookmarks);
+        Gather(byName, owned, data.FileBreakpoints, first: 1, "breakpoint", path, breakpoints);
+
+        foreach (var (document, lines) in bookmarks)
+            bookmarkService.SetBookmarks(document, lines);
+        foreach (var (document, lines) in breakpoints)
+            breakpointService.SetDocument(document, lines);
+
+        var migrated = new UserSidecarData
+        {
+            Version = data.Version,
+            FileBookmarks = data.FileBookmarks,
+            FileBreakpoints = data.FileBreakpoints,
+            Bookmarks = oldBookmarks.Count > 0 ? oldBookmarks : null,
+            Breakpoints = oldBreakpoints.Count > 0 ? oldBreakpoints : null,
+            Extra = data.Extra,
+        };
+        return (migrated, new Entries(consumedBookmarks, consumedBreakpoints));
+    }
+
+    /// <summary>
+    /// Moves one kind's version-1 entries into <paramref name="into"/>, in the file's numbering, and answers the
+    /// entries left for a later opening and the entries moved.
+    /// </summary>
+    private static (Dictionary<string, List<int>> Left, Dictionary<string, List<int>> Moved) Migrate(
+        ILookup<string, DocumentIdentity> byName, HashSet<string> owned, Dictionary<string, List<int>>? entries,
+        int first, string what, string path, Dictionary<DocumentIdentity, List<int>> into)
+    {
+        var left = new Dictionary<string, List<int>>();
+        var moved = new Dictionary<string, List<int>>();
+        if (entries == null) return (left, moved);
+
         foreach (var (key, lines) in entries)
         {
-            foreach (var document in byName[NameIn(key)])
+            RequireLines(key, lines);
+            var name = NameIn(key);
+            if (!owned.Contains(name))
             {
-                if (!gathered.TryGetValue(document, out var all))
-                    gathered[document] = all = [];
-                all.AddRange(WithinDocument(document, lines, first, what, path).Where(line => !all.Contains(line)));
+                left[key] = lines;
+                LogCarried(key, what, path);
+                continue;
             }
+
+            foreach (var document in byName[name])
+            {
+                var shift = FormCodeText.LineBreaks(FormCodeText.Prefix(document));
+                var moving = WithinOldCode(document, lines, first, what, path).Select(line => line + shift);
+                AddTo(into, document, OffReadOnlyLines(document, moving.ToList(), first, what, path));
+            }
+            moved[key] = lines;
         }
-        return gathered;
+        return (left, moved);
+    }
+
+    /// <summary>
+    /// Adds one kind's version-2 entries to <paramref name="into"/>: each document's lines from every entry naming
+    /// it, together. Two keys can name one document — a sidecar holding both spellings, or one keyed
+    /// <c>vb6://form/Foo</c> and <c>vb6://module/Foo</c> — and setting each in turn would keep only the last.
+    /// </summary>
+    /// <remarks>
+    /// An entry for a name the project does not own is not applied, and is not lost: a save takes it from the file
+    /// as the file holds it then. See <see cref="Carry"/>.
+    /// </remarks>
+    private static void Gather(ILookup<string, DocumentIdentity> byName, HashSet<string> owned,
+        Dictionary<string, List<int>>? entries, int first, string what, string path,
+        Dictionary<DocumentIdentity, List<int>> into)
+    {
+        if (entries == null) return;
+        foreach (var (key, lines) in entries)
+        {
+            RequireLines(key, lines);
+            if (!owned.Contains(NameIn(key)))
+            {
+                LogCarried(key, what, path);
+                continue;
+            }
+
+            foreach (var document in byName[NameIn(key)])
+                AddTo(into, document, OffReadOnlyLines(document, WithinDocument(document, lines, first, what, path),
+                    first, what, path));
+        }
+    }
+
+    /// <summary>
+    /// A key whose lines are <c>null</c> cannot be applied. Refused rather than skipped: some marks would reach the
+    /// stores and some not, and a rewrite would then keep only those that did.
+    /// </summary>
+    private static void RequireLines(string key, List<int>? lines)
+    {
+        if (lines is null)
+            throw new InvalidDataException($"The sidecar entry '{key}' has no lines.");
+    }
+
+    private static void AddTo(Dictionary<DocumentIdentity, List<int>> into, DocumentIdentity document,
+        IEnumerable<int> lines)
+    {
+        if (!into.TryGetValue(document, out var all))
+            into[document] = all = [];
+        all.AddRange(lines.Where(line => !all.Contains(line)));
+    }
+
+    private static void LogCarried(string key, string what, string path) =>
+        Log.Information("Kept the {What:l}s for {Key} in {Path} as they are: the project has no document of that " +
+                        "name whose file could be found when it opened, so their lines cannot be placed", what, key, path);
+
+    /// <summary>
+    /// The <paramref name="lines"/> of a version-1 entry that were lines of the document's code when the entry was
+    /// written; the rest are logged and dropped.
+    /// </summary>
+    /// <remarks>
+    /// Checked in the numbering they were written in, before they move, as every build before the migration checked
+    /// them (#574): bookmarks from 0 and breakpoints from 1, over the document's code without its header. Checked
+    /// after the move instead, a line before the first, which was never a line of the old window, would be moved
+    /// into the header and judged as a line of it.
+    /// </remarks>
+    private static IEnumerable<int> WithinOldCode(
+        DocumentIdentity document, IReadOnlyCollection<int> lines, int first, string what, string path)
+    {
+        var code = new CodeWindowText(document.Module?.Code ?? document.Form!.Code, PrefixLength: 0);
+        var (kept, dropped) = MarkLineRules.Within(code, lines, first);
+        if (dropped.Count > 0)
+            Log.Warning("Dropped {What:l}s on {Lines} from {Path}: they were written before lines counted from the top of " +
+                        "the file, when {Document} had {Count} line(s) of code, numbered {First}..{Last}",
+                what, dropped.Distinct(), path, document.Display, code.LineCount, first, first + code.LineCount - 1);
+        return kept;
     }
 
     /// <summary>
@@ -267,21 +498,43 @@ public class UserSidecarService : IUserSidecarService
     /// A mark on a line the document does not have is drawn nowhere and never hit, yet it came back on every load
     /// (#574). It could be there from before set_breakpoints and set_bookmarks refused such lines (#570), from a
     /// file shortened outside HexIDE, or from a hand-edited sidecar. Dropped here, it is gone from the next save.
-    /// Lines are counted as those tools count them, in the code the editor numbers, which has no Attribute header;
-    /// bookmarks from 0, breakpoints from 1.
+    /// <para>
+    /// Lines are counted as those tools count them, from the top of the file with the header included, which is
+    /// how the stores hold them; bookmarks from 0, breakpoints from 1. Counting the code section, as this did
+    /// until #273 task 3.12, dropped every mark on a form's last lines of code: the code window shows a form's
+    /// designer block above its code, so its last line is that many lines further down than the code's.
+    /// </para>
     /// </remarks>
-    private static IEnumerable<int> WithinDocument(
+    private static IReadOnlyList<int> WithinDocument(
         DocumentIdentity document, IReadOnlyCollection<int> lines, int first, string what, string path)
     {
-        var lineCount = (document.Module?.Code ?? document.Form?.Code ?? "").Split('\n').Length;
-        var last = first + lineCount - 1;
-        var outside = lines.Where(l => l < first || l > last).Distinct().ToList();
-        if (outside.Count == 0)
-            return lines;
+        var text = CodeWindowText.Of(document);
+        var (kept, dropped) = MarkLineRules.Within(text, lines, first);
+        if (dropped.Count > 0)
+            Log.Warning("Dropped {What:l}s on {Lines} from {Path}: {Document} has {Count} line(s), numbered {First}..{Last}",
+                what, dropped.Distinct(), path, document.Display, text.LineCount, first, first + text.LineCount - 1);
+        return kept;
+    }
 
-        Log.Warning("Dropped {What}s on {Lines} from {Path}: {Document} has {Count} line(s), numbered {First}..{Last}",
-            what, outside, path, document.Display, lineCount, first, last);
-        return lines.Where(l => l >= first && l <= last).ToList();
+    /// <summary>
+    /// The <paramref name="lines"/>, numbered from <paramref name="first"/>, that are not on a read-only line of
+    /// <paramref name="document"/>; the rest are logged and dropped. See <see cref="Apply"/> for why.
+    /// </summary>
+    private static IEnumerable<int> OffReadOnlyLines(
+        DocumentIdentity document, IReadOnlyList<int> lines, int first, string what, string path)
+    {
+        if (lines.Count == 0) return lines;
+
+        var text = CodeWindowText.Of(document);
+        var regions = text.Regions;
+        var dropped = lines.Where(line => ReadOnlyRegions.IsReadOnlyLine(text.Text, regions, line - first + 1))
+            .Distinct().ToList();
+        if (dropped.Count == 0) return lines;
+
+        Log.Warning("Dropped {What:l}s on {Lines} from {Path}: in {Document} those are read-only lines, of its header " +
+                    "or of the Attribute lines that describe a member, where nothing can be marked",
+            what, dropped, path, document.Display);
+        return lines.Where(line => !dropped.Contains(line));
     }
 
     /// <summary>
@@ -292,8 +545,8 @@ public class UserSidecarService : IUserSidecarService
     /// keyed by the URI the IDE used internally — <c>vb6://form/Form1</c> — and one written since keys by the
     /// document's name alone, because the file already belongs to exactly one project. A VB6 name is a
     /// letter followed by letters, digits and underscores, so it can never look like a URI; no version step
-    /// is needed to distinguish them, and none is spent on it. The <c>version</c> field records how the
-    /// <em>lines</em> are counted, which is a separate question and not one this change moves.
+    /// is needed to distinguish them, and none was spent on it. The <c>version</c> field, and which keys an
+    /// entry is under, record how the <em>lines</em> are counted, which is a separate question.
     /// </remarks>
     private static string NameIn(string key)
     {
@@ -383,27 +636,36 @@ public class UserSidecarService : IUserSidecarService
 
             var bookmarks = Collect(project, bookmarkService.GetBookmarks);
             var breakpoints = Collect(project, breakpointService.GetBreakpoints);
+            var ours = new Entries(Copy(bookmarks), Copy(breakpoints));
+            Carry(source?.FileBookmarks, state.Owned, state.Wrote?.Bookmarks, bookmarks);
+            Carry(source?.FileBreakpoints, state.Owned, state.Wrote?.Breakpoints, breakpoints);
+            var oldBookmarks = Unconsumed(source?.Bookmarks, state.Consumed?.Bookmarks);
+            var oldBreakpoints = Unconsumed(source?.Breakpoints, state.Consumed?.Breakpoints);
             // Never lowered: a newer build's sidecar still holds that build's content after this one rewrites it,
             // and labelling it with this build's version would misdescribe it.
             var version = Math.Max(source?.Version ?? CurrentVersion, CurrentVersion);
             var extra = source?.Extra is { Count: > 0 } unrecognised ? unrecognised : null;
 
             // A sidecar is created only when there is something to record, and content this build does not
-            // understand is something. One that exists is rewritten even when its last mark has gone, rather than
-            // deleted: it may hold what this build does not understand, and it is a file the user may have committed.
-            if (!exists && bookmarks.Count == 0 && breakpoints.Count == 0 && extra == null && version == CurrentVersion)
+            // understand is something, as are the entries it keeps without understanding where they go. One that
+            // exists is rewritten even when its last mark has gone, rather than deleted: it may hold what this build
+            // does not understand, and it is a file the user may have committed.
+            if (!exists && bookmarks.Count == 0 && breakpoints.Count == 0 && oldBookmarks == null &&
+                oldBreakpoints == null && extra == null && version == CurrentVersion)
             {
                 // Nothing lies here, so the place is the project's own from now on: a sidecar that appears here
                 // later is kept as its own, as it is for a project opened where none was.
-                Adopt(state, path, data: null);
+                Adopt(state, path, data: null, ours);
                 return;
             }
 
             var data = new UserSidecarData
             {
                 Version = version,
-                Bookmarks = bookmarks.Count > 0 ? bookmarks : null,
-                Breakpoints = breakpoints.Count > 0 ? breakpoints : null,
+                FileBookmarks = bookmarks.Count > 0 ? bookmarks : null,
+                FileBreakpoints = breakpoints.Count > 0 ? breakpoints : null,
+                Bookmarks = oldBookmarks,
+                Breakpoints = oldBreakpoints,
                 Extra = extra,
             };
 
@@ -416,7 +678,7 @@ public class UserSidecarService : IUserSidecarService
                 Log.Debug("UserSidecarService: Saved sidecar to {Path}", path);
             }
 
-            Adopt(state, path, data);
+            Adopt(state, path, data, ours);
         }
         catch (Exception ex)
         {
@@ -427,14 +689,95 @@ public class UserSidecarService : IUserSidecarService
         }
     }
 
-    /// <summary>Records that the sidecar at <paramref name="path"/> now holds <paramref name="data"/>, and nothing is owed.</summary>
-    private static void Adopt(ProjectState state, string path, UserSidecarData? data)
+    /// <summary>
+    /// Adds to <paramref name="map"/> the version-2 entries of <paramref name="source"/> that name a document this
+    /// session does not own, as the file holds them, less whatever this session itself wrote there
+    /// (<paramref name="wrote"/>). Where the stores have marks under the same name — a document of that name added
+    /// since the project opened, or one whose file is missing — the two are joined, as the next opening would join
+    /// them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Taken from the file each time rather than kept from the load, as everything else this build does not apply is:
+    /// a sidecar the developer deleted while the project was open must not come back holding them, and an entry
+    /// another build wrote there since is kept.
+    /// </para>
+    /// <para>
+    /// <b>Less what this session wrote</b>, because a name the project did not own when it opened can still be one
+    /// it writes — a document renamed to it — and that entry is this session's to drop, not one to carry. A line
+    /// that is in both is taken as this session's: it is the one that can say it is gone.
+    /// </para>
+    /// </remarks>
+    private static void Carry(Dictionary<string, List<int>>? source, HashSet<string>? owned,
+        Dictionary<string, List<int>>? wrote, Dictionary<string, List<int>> map)
+    {
+        if (source == null || owned == null) return;
+        foreach (var (key, lines) in source)
+        {
+            if (owned.Contains(NameIn(key))) continue;
+
+            // Unchanged where this session wrote nothing under the key, so the entry is written back as it was read.
+            var carried = wrote != null && wrote.TryGetValue(key, out var own) && lines != null
+                ? lines.Where(line => !own.Contains(line)).ToList()
+                : lines;
+            if (carried is { Count: 0 }) continue;
+
+            if (map.TryGetValue(key, out var existing))
+            {
+                existing.AddRange((carried ?? []).Where(line => !existing.Contains(line)));
+                existing.Sort();
+            }
+            else
+            {
+                map[key] = carried!;
+            }
+        }
+    }
+
+    private static Dictionary<string, List<int>> Copy(Dictionary<string, List<int>> map) =>
+        map.ToDictionary(entry => entry.Key, entry => new List<int>(entry.Value), StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// A file's version-1 entries less those the load migrated into the stores, or null when none are left. This
+    /// build never writes these keys from its own marks: they are content it carries, as it carries a newer
+    /// build's, so that a build without the migration keeps what it wrote there for a later opening to migrate.
+    /// </summary>
+    /// <remarks>
+    /// It matters until a write lands, and the first write it matters to is the migration's own: that save reads the
+    /// file it is about to replace, which still holds every entry the load moved. After a migration whose write
+    /// failed, because another program held the file, it goes on mattering until one succeeds. An entry is
+    /// subtracted only when it is still exactly what the load moved, so that whatever an older build wrote under that
+    /// key since is kept for the next opening to migrate.
+    /// </remarks>
+    private static Dictionary<string, List<int>>? Unconsumed(
+        Dictionary<string, List<int>>? onFile, Dictionary<string, List<int>>? consumed)
+    {
+        if (onFile == null) return null;
+        var left = new Dictionary<string, List<int>>();
+        foreach (var (key, lines) in onFile)
+        {
+            if (consumed != null && consumed.TryGetValue(key, out var moved) && lines != null &&
+                moved.SequenceEqual(lines))
+                continue;
+            left[key] = lines!;
+        }
+        return left.Count > 0 ? left : null;
+    }
+
+    /// <summary>
+    /// Records that the sidecar at <paramref name="path"/> now holds <paramref name="data"/>, of which the stores
+    /// wrote <paramref name="ours"/>, and nothing is owed.
+    /// </summary>
+    private static void Adopt(ProjectState state, string path, UserSidecarData? data, Entries ours)
     {
         state.Read = data;
         state.ReadFrom = path;
         state.ReadFailed = false;
         state.RefusalLogged = false;
         state.Owed = false;
+        state.Wrote = ours;
+        // The file written no longer holds what the load migrated, so nothing remains to be subtracted from it.
+        state.Consumed = null;
     }
 
     /// <summary>How sidecar paths compare: as the file system compares them, as other path checks here do.</summary>
@@ -458,9 +801,9 @@ public class UserSidecarService : IUserSidecarService
     /// project needs no naming inside it, because the sidecar belongs to one.
     /// </summary>
     /// <remarks>
-    /// An entry naming a document the project does not have is not kept: it is written from what the stores hold,
-    /// which has nothing for it. Keeping such entries for a document that is only absent for now belongs to the
-    /// sidecar migration (#273 task 3.17), which has to tell one from a document renamed or removed this session.
+    /// Only what the stores hold. An entry for a document the project did not own when it opened is added by
+    /// <see cref="Carry"/>, from the file; one for a document it did own and no longer has — renamed or removed this
+    /// session — is not written, because the stores have nothing for it.
     /// </remarks>
     private static Dictionary<string, List<int>> Collect(
         ProjectDefinition project, Func<DocumentIdentity, IReadOnlyList<int>> getLines)
@@ -539,31 +882,41 @@ public class UserSidecarService : IUserSidecarService
     }
 }
 
+/// <summary>A project's sidecar as it is written: two formats' marks, its version, and whatever else it holds.</summary>
 internal class UserSidecarData
 {
     /// <summary>
-    /// How this sidecar is written. Read from the next change onwards, when lines start being counted from
-    /// the top of the file rather than from the first line the code window showed.
+    /// The highest format anything in this sidecar is written in. 1, or no version at all, is the format before
+    /// lines counted from the top of the file; 2 is this build's. A rewrite never lowers it: a sidecar a newer build
+    /// wrote still holds that build's content afterwards.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// It records the <b>line base</b>, not how entries are keyed. The two key spellings — the old
-    /// <c>vb6://form/Form1</c> and the document's bare name — are told apart by the key itself, since a VB6
-    /// name cannot look like a URI, so re-keying costs no version step. See
+    /// It is read, but it does not decide how a key's lines are counted: the key does. A build with the #466 fix and
+    /// without the migration keeps a version-2 file's version and writes version-1 lines under the version-1 keys
+    /// beside it, so a file labelled 2 can hold both. Nor does it record how entries are keyed: the two spellings,
+    /// the old <c>vb6://form/Form1</c> and the document's bare name, are told apart by the key itself. See
     /// <c>UserSidecarService.NameIn</c>.
-    /// </para>
-    /// <para>
-    /// A rewrite never lowers it: a sidecar a newer build wrote still holds that build's content afterwards. So the
-    /// <c>bookmarks</c> and <c>breakpoints</c> keys are counted from the first line the code window showed whatever
-    /// the version says: every build that writes those keys counts them that way.
-    /// </para>
     /// </remarks>
     [JsonPropertyName("version")]
     public int Version { get; set; } = 1;
 
+    /// <summary>Bookmarks by document, 0-based, counted from the top of the file. Written by version 2.</summary>
+    [JsonPropertyName("fileBookmarks")]
+    public Dictionary<string, List<int>>? FileBookmarks { get; set; }
+
+    /// <summary>Breakpoints by document, 1-based, counted from the top of the file. Written by version 2.</summary>
+    [JsonPropertyName("fileBreakpoints")]
+    public Dictionary<string, List<int>>? FileBreakpoints { get; set; }
+
+    /// <summary>
+    /// Bookmarks by document, 0-based, counted from the first line the code window showed: version 1's numbering,
+    /// in every file whatever its <see cref="Version"/>. Migrated on load; this build writes back only the entries
+    /// it could not migrate, and never its own marks.
+    /// </summary>
     [JsonPropertyName("bookmarks")]
     public Dictionary<string, List<int>>? Bookmarks { get; set; }
 
+    /// <summary>Breakpoints by document, 1-based, in version 1's numbering. See <see cref="Bookmarks"/>.</summary>
     [JsonPropertyName("breakpoints")]
     public Dictionary<string, List<int>>? Breakpoints { get; set; }
 

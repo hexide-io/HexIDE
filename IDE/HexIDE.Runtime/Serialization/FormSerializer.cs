@@ -22,6 +22,26 @@ public class FormSerializer
     public (string frmText, byte[]? frxContent) Serialize(FormDefinition element, string code, string formFileName)
         => SerializeCore(element, code, formFileName);
 
+    /// <summary>
+    /// The designer half alone: the first line through the root <c>End</c> inclusive, and nothing after it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The same render the save makes, stopped before the code.</b> The code body is the serializer's
+    /// last write and goes out verbatim with no separator in front of it, so a render given no code IS the
+    /// designer half — which is also exactly the span <c>FormDeserializer</c> hands to
+    /// <c>FormDefinition.DesignerText</c> when it reads a file. <c>DesignerHalfIsTheRenderMinusTheCode</c>
+    /// pins that, because a separator added here later would silently move the split everywhere.
+    ///
+    /// <para>
+    /// Used to refresh the header the code window shows in front of a form's code after a committed
+    /// designer change (hexide-io/HexIDE#273 task 3.3). It carries no fidelity check of its own — neither
+    /// does <see cref="Serialize(FormDefinition, string)"/>, which is why <c>SerializeFormToFile</c> gates
+    /// on <c>CanSaveFaithfully</c> before calling it, and why the refresh gates on the same thing.
+    /// </para>
+    /// </remarks>
+    public string SerializeDesignerText(FormDefinition element, string formFileName)
+        => SerializeCore(element, "", formFileName).frmText;
+
     private (string frmText, byte[]? frxContent) SerializeCore(FormDefinition element, string code, string formFileName)
     {
         // Collect all byte[] blobs first so we can assign offsets.

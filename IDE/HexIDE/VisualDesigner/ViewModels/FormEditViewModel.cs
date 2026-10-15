@@ -152,12 +152,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             UndoCommand.RaiseCanExecutedChanged();
             RedoCommand.RaiseCanExecutedChanged();
         };
-        AutoDispose(this.eventBus.Subscribe<ApplyAllUnsavedChangesEvent>(e =>
-        {
-            var (orderedComponents, positionInList) = ComponentsAsSaved();
-            RebuildContainmentOrder(positionInList);
-            formDefinition?.UpdateComponents(orderedComponents);
-        }));
+        AutoDispose(this.eventBus.Subscribe<ApplyAllUnsavedChangesEvent>(_ => FlushComponentsToModel()));
         AutoDispose(this.eventBus.Subscribe<FormUnloadedEvent>(e =>
         {
             if (e.Form == formDefinition)
@@ -185,6 +180,49 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// </remarks>
     public bool HasComponentsNotInModel =>
         formDefinition is { } form && !ComponentsAsSaved().Ordered.SequenceEqual(form.Components);
+
+    /// <summary>
+    /// Writes the designer's working collections through to <see cref="FormDefinition.Components"/>, in
+    /// document order and with containment rebuilt.
+    /// </summary>
+    /// <remarks>
+    /// <b>Membership and order run ahead of the model; property values do not.</b> The canvas and the model
+    /// hold the same <c>ComponentInstance</c> objects, so a drag or a property-grid edit is in the model the
+    /// instant it happens. What the model does not have until this runs is a control that was just added or
+    /// deleted, and the order they sit in — which is why anything re-rendering the form has to call this
+    /// first or it renders the form as it was one control ago.
+    /// </remarks>
+    public void FlushComponentsToModel()
+    {
+        var (orderedComponents, positionInList) = ComponentsAsSaved();
+        RebuildContainmentOrder(positionInList);
+        formDefinition?.UpdateComponents(orderedComponents);
+    }
+
+    /// <summary>
+    /// Announces a committed change to this form's designer half, flushing the working collections into the
+    /// model first so that whatever re-renders the form sees the change.
+    /// </summary>
+    /// <remarks>
+    /// <b>Called once per commit, never per property write.</b> Every designer gesture funnels through
+    /// <see cref="DesignerUndoStack"/>, which already discards pushes while a drag is in flight and takes a
+    /// single command when the drag ends — so hanging this off the stack's three mutating operations gives
+    /// exactly the granularity <see cref="FormLayoutChangedEvent"/> asks for. The surfaces that mutate the
+    /// model without pushing anything (the menu editor, the colour palette) call it themselves.
+    ///
+    /// <para>
+    /// It also announces a <b>rename</b>, which is the half of task 2.4a that was deferred here: a form's
+    /// <c>Name</c> is derived from its root component's <c>(Name)</c> property and is only raised as a
+    /// property change by <c>UpdateComponents</c>, so renaming a form in the property grid was not
+    /// observable to the tab title or to the language layer until something flushed. This is that something.
+    /// </para>
+    /// </remarks>
+    public void CommitLayout()
+    {
+        FlushComponentsToModel();
+        if (formDefinition is not null)
+            eventBus.Publish(new FormLayoutChangedEvent(formDefinition));
+    }
 
     public FormEditViewModel Initialize(FormDefinition formElement)
     {
@@ -965,6 +1003,13 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             TopLevelMenu.RemoveAt(TopLevelMenu.Count - 1);
         foreach (var x in topLevel)
             TopLevelMenu.Add(x);
+
+        // The first of the three paths that bypass the undo stack: the menu editor adds, removes and
+        // re-parents components and pushes nothing, so nothing else would announce it. In practice the
+        // refresh usually stops at the fidelity gate — HexIDE flattens nested Begin blocks, so a form with
+        // a real menu is one it refuses to save — and that is the correct outcome rather than a missing
+        // one: the buffer keeps showing the file, which is what the save refusal protects.
+        CommitLayout();
     }
 
     public void RequestCode(string? subName)

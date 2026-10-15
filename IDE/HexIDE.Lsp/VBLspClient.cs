@@ -691,6 +691,16 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    /// <summary>
+    /// Membership is a ROUTER concern, so one connection ignores it: by the time a document reaches this
+    /// class the registry has already decided that this server should see it. Implemented rather than
+    /// refused because the interface is what the registry itself implements, and a connection used
+    /// directly (the tests, and the single-server path) must accept the same call.
+    /// </summary>
+    public Task OpenDocumentAsync(
+        string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default) =>
+        OpenDocumentAsync(uri, text, cancellationToken);
+
     public async Task OpenDocumentAsync(string uri, string text, CancellationToken cancellationToken = default)
     {
         // Tracked BEFORE the gate, deliberately: a document opened while no server is up must still be
@@ -806,6 +816,22 @@ public sealed class VBLspClient : ILspClient
         _logger.LogDebug(
             "Ignoring publishDiagnostics from a server that advertised diagnosticProvider; using the "
           + "pull model for this connection instead.");
+    }
+
+    /// <summary>
+    /// A close that also says, for certain, that this connection now has nothing to report about the name.
+    /// </summary>
+    /// <remarks>
+    /// The clearing publication is unconditional here, where <see cref="ForgetPullState"/> raises it only
+    /// for a server that answers when asked. For an ordinary close that gate is right: a PUSH server clears
+    /// a document by publishing an empty set itself, and pre-empting it would fight a server that has a
+    /// view. For a rename it is wrong — the name is going away, so there is no later publication to wait
+    /// for and a push server will never send one about a document it was told to close.
+    /// </remarks>
+    public async Task CloseDocumentForRenameAsync(string uri, CancellationToken cancellationToken = default)
+    {
+        await CloseDocumentAsync(uri, cancellationToken);
+        RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, new PublishDiagnosticsParams(uri, []));
     }
 
     private void ForgetPullState(string uri)

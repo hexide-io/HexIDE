@@ -49,6 +49,11 @@ public partial class DISetup
             .Bind().As(Singleton).To<ProjectRunnerService>()
             .Bind().As(Singleton).To<ProjectService>()
             .Bind<IFileBaselineStore>().As(Singleton).To<FileBaselineStore>()
+            // One per session, and it must be the same one everywhere: it holds no state itself, but the
+            // three refresh triggers reach it through three different dependents (the save path, the file
+            // watcher's reloader, and its own subscription to FormLayoutChangedEvent) and a second instance
+            // would mean a second, silent subscription.
+            .Bind<IHeaderRefresher>().As(Singleton).To<HeaderRefresher>()
             .Bind<IClock>().As(Singleton).To<SystemClock>()
             .Bind<IFileWatcherService>().As(Singleton).To<FileWatcherService>()
             .Bind<ISettingsService>().As(Singleton).To<SettingsService>()
@@ -201,6 +206,7 @@ public partial class DISetup
             .Root<IDocumentDockService>("DocumentDockService")
             .Root<IProjectRunnerService>("ProjectRunnerService")
             .Root<IProjectService>("ProjectService")
+            .Root<IEventBus>("EventBus")
             .Root<IUserSidecarService>("UserSidecarService")
             .Root<IFileWatcherService>("FileWatcherService")
             .Root<IBookmarkService>("BookmarkService")

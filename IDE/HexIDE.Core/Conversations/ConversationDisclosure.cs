@@ -5,10 +5,19 @@ namespace HexIDE.Conversations;
 
 /// <summary>How many copies of one document a conversation carries, and how many bytes that came to.</summary>
 /// <param name="Document">
-/// The document as the wire named it — the last segment of its URI, which for a VB6 form or module is the
-/// component name the reader already knows it by.
+/// What to show the reader: the last segment of the URI, which is the filename of a saved document and the
+/// document's own name for one with no file yet. Where two documents in this conversation share that, it gains
+/// its parent segment and stops there, so two whose last two segments match still read alike — see
+/// <c>DisplayNameFor</c>.
 /// </param>
-public sealed record DisclosedDocument(string Document, int Copies, long Bytes);
+/// <param name="Uri">
+/// What the counting is grouped by: the whole name as the wire carried it.
+/// <b>Not the display name, and the distinction is the point.</b> Two projects may each hold a
+/// <c>Module1</c>, and so may two directories; grouping by the leaf merged them into one row whose copy
+/// count and byte total belonged to neither. A disclosure exists to be weighed, so a number that is the sum
+/// of two unrelated things is worse than no number.
+/// </param>
+public sealed record DisclosedDocument(string Document, string Uri, int Copies, long Bytes);
 
 /// <summary>
 /// What an export is about to disclose, in terms a person can weigh.
@@ -28,9 +37,17 @@ public sealed record DisclosedDocument(string Document, int Copies, long Bytes);
 ///
 /// <para>
 /// The document name is read from the message rather than from the redactor's output on purpose: this is
-/// shown to the person who owns the file, and it has to be the name they recognise. For a VB6 form or
-/// module the two are the same anyway — that traffic rides an opaque scheme carrying only a component
-/// name, so there is no path in it to replace.
+/// shown to the person who owns the file, and it has to be the name they recognise. A pseudonym would make
+/// the one surface addressed to that person the one they cannot read.
+/// </para>
+///
+/// <para>
+/// <b>That used to come with a reassurance that is no longer true.</b> It said a VB6 document's traffic
+/// rode an opaque scheme carrying only a component name, so there was no path in it to replace and the two
+/// answers coincided. Since hexide-io/HexIDE#273 a document is named by its file, so they diverge for every
+/// saved document and this is now a deliberate choice between them rather than a coincidence. Nothing here
+/// reaches an export — the export takes the redactor's output; this is the preview shown before one is
+/// written, so that the person deciding can see what they are deciding about.
 /// </para>
 /// </remarks>
 /// <param name="Messages">Everything the export will contain, one line each.</param>
@@ -79,6 +96,9 @@ public sealed record ConversationDisclosure(
         // the reader has just provoked would describe a different export from the one about to be written.
         await log.DrainAsync().ConfigureAwait(false);
 
+        // Keyed by the whole URI, not by its last segment. Ordinal because two spellings differing only
+        // in case are two strings on the wire, and merging them here would hide exactly the normalisation
+        // defect the rest of this subsystem goes out of its way to preserve.
         var perDocument = new Dictionary<string, (int Copies, long Bytes)>(StringComparer.Ordinal);
         var messages = 0;
         var noBody = 0;
@@ -128,10 +148,16 @@ public sealed record ConversationDisclosure(
             else noBody++;
         }
 
+        var uris = perDocument.Keys.ToList();
         var documents = perDocument
-            .Select(pair => new DisclosedDocument(pair.Key, pair.Value.Copies, pair.Value.Bytes))
+            .Select(pair => new DisclosedDocument(
+                DisplayNameFor(pair.Key, uris), pair.Key, pair.Value.Copies, pair.Value.Bytes))
             .OrderByDescending(d => d.Bytes)
             .ThenBy(d => d.Document, StringComparer.Ordinal)
+            // The URI breaks the remaining tie, so the order cannot depend on dictionary iteration: two
+            // documents may now share a display name AND a byte count, which the leaf-keyed version could
+            // not produce because it had already merged them.
+            .ThenBy(d => d.Uri, StringComparer.Ordinal)
             .ToList();
 
         return new ConversationDisclosure(
@@ -194,7 +220,10 @@ public sealed record ConversationDisclosure(
                         when property == "uri"
                              && path.Count > 0
                              && path.Peek() == "textDocument":
-                        return Leaf(reader.GetString());
+                        // The WHOLE URI. It is the grouping key, and the reader-facing name is derived from
+                        // it afterwards, once every document in the conversation is known -- which is the
+                        // only point at which "does this name collide" can be answered.
+                        return reader.GetString();
                 }
 
                 property = null;
@@ -209,12 +238,67 @@ public sealed record ConversationDisclosure(
     }
 
     /// <summary>
+    /// The name to show for one document: its last segment, or its last two where that alone would collide
+    /// within this conversation.
+    /// </summary>
+    /// <remarks>
+    /// <b>The leaf is the right answer almost always, and wrong in the one case grouping by URI created.</b>
+    /// A saved document's leaf is its filename and a pathless one's is its own name, which is what its owner
+    /// calls it. But two projects may each hold a <c>Module1</c>, and so may two directories — and now that
+    /// those count as two documents, showing both as <c>Module1.bas</c> would present the reader with two
+    /// identical rows carrying different numbers and no way to tell which is which.
+    ///
+    /// <para>
+    /// So a colliding name gains its parent segment, which is the project's name for an <c>untitled:</c>
+    /// document and the containing directory for a saved one. It stops there rather than widening to the
+    /// whole path: the point is to distinguish two rows for someone who already knows their own project, not
+    /// to name the file absolutely, and a disclosure listing full paths would be unreadable at exactly the
+    /// moment it matters.
+    /// </para>
+    /// </remarks>
+    private static string DisplayNameFor(string uri, IReadOnlyList<string> all)
+    {
+        var leaf = Leaf(uri) ?? uri;
+
+        var collides = false;
+        foreach (var other in all)
+        {
+            if (ReferenceEquals(other, uri) || other == uri) continue;
+            if (!string.Equals(Leaf(other) ?? other, leaf, StringComparison.Ordinal)) continue;
+            collides = true;
+            break;
+        }
+
+        return collides ? Trail(uri) : leaf;
+    }
+
+    /// <summary>The last two segments of a URI, which is as far as the display name ever widens.</summary>
+    /// <remarks>
+    /// The scheme is dropped first. An <c>untitled:</c> URI has no <c>//</c> after its colon, so its scheme
+    /// is part of the first path segment and a naive split hands back <c>untitled:Ledger/Module1.bas</c> --
+    /// the wire name, in the one place whose whole job is to show a name its reader recognises.
+    /// </remarks>
+    private static string Trail(string uri)
+    {
+        var colon = uri.IndexOf(':');
+        var path = colon >= 0 && colon < uri.Length - 1 ? uri[(colon + 1)..] : uri;
+
+        var segments = path.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length == 0) return Unescape(uri);
+
+        var take = segments[^Math.Min(2, segments.Length)..];
+
+        return string.Join('/', take.Select(Unescape));
+    }
+
+    /// <summary>
     /// The last segment of a URI, whatever its scheme.
     /// </summary>
     /// <remarks>
-    /// A VB6 document's URI is opaque and carries only the component name; a carried file's is a real path
-    /// whose leaf is the filename. Both are what the reader calls the thing, which is the only name worth
-    /// showing to the person who owns it.
+    /// A saved document's URI is a real path whose leaf is the filename; a document with no file yet is
+    /// <c>untitled:&lt;Project&gt;/&lt;Name&gt;.&lt;ext&gt;</c>, whose leaf is the name the developer typed.
+    /// Both are what the reader calls the thing, which is the only name worth showing to the person who owns
+    /// it.
     /// </remarks>
     private static string? Leaf(string? uri)
     {
@@ -223,8 +307,21 @@ public sealed record ConversationDisclosure(
         var cut = uri.LastIndexOfAny(['/', '\\']);
         var leaf = cut >= 0 && cut < uri.Length - 1 ? uri[(cut + 1)..] : uri;
 
-        try { return Uri.UnescapeDataString(leaf); }
-        catch (UriFormatException) { return leaf; }
+        return Unescape(leaf);
+    }
+
+    /// <summary>
+    /// A percent-encoded segment as a person reads it.
+    /// </summary>
+    /// <remarks>
+    /// Undone here and nowhere else: an <c>untitled:</c> name is percent-encoded when it is minted, so a
+    /// project called <c>Bill of Fare</c> reaches the wire as <c>Bill%20of%20Fare</c> and would be shown
+    /// that way. The grouping key keeps the encoded form, because that is what was sent.
+    /// </remarks>
+    private static string Unescape(string segment)
+    {
+        try { return Uri.UnescapeDataString(segment); }
+        catch (UriFormatException) { return segment; }
     }
 
     /// <summary>A byte count as a person reads one.</summary>

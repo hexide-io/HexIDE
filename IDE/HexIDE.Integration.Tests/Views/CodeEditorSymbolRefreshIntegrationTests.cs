@@ -104,7 +104,7 @@ public class CodeEditorSymbolRefreshIntegrationTests
         _lspClient.ClearReceivedCalls();
 
         _lspClient.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(
-            _lspClient, new PublishDiagnosticsParams("vb6://module/SomethingElse", []));
+            _lspClient, new PublishDiagnosticsParams("untitled:TestProject/SomethingElse.bas", []));
         Dispatcher.UIThread.RunJobs();
 
         _lspClient.DidNotReceive().RequestDocumentSymbolsAsync(

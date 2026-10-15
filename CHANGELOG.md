@@ -20,7 +20,137 @@ there isn't one yet. Anything may change between 0.x releases.
 - **`--ansi-code-page <n>`, in Debug builds**, reads and writes VB6 sources as a machine whose ANSI code page is
   `n` would, so a file from, say, a Japanese machine can be checked on a Western one.
 
+### Changed
+
+- **The code window shows the whole file, header included, and one line number now means the same thing
+  everywhere** - to the editor, to a language server, to the interpreter and to the debugger. A form's
+  designer block and a module's `Attribute` header are no longer hidden from the code window.
+- **That header opens folded**, into one line at the top of the window, so a form's code still starts where
+  it did. Expand it and it stays expanded in that window, through formatting, a change in the form designer
+  and a reload, until you fold it again. It needs no language server. A module whose header is a single line
+  has nothing to fold.
+- **The header and a procedure's `Attribute` lines are drawn in grey**, so the lines only the IDE writes look
+  it. Each theme sets its own grey, and each stays legible on that theme's editor. A folded section's label
+  takes the same colour, which makes those labels legible on a white or Dark editor, where the old grey was
+  not. A web or mail address in those lines is greyed with them and is no longer a link. A theme pack sets
+  the colour as `ReadOnlyText`.
+- **Undo in the code window never undoes a designer change.** A change committed in the form designer
+  reaches the code window as a rewrite of the header at the top of it, and Ctrl+Z there undoes the last
+  thing typed in that window, exactly as before. **One consequence is worth knowing:** undoing a code edit
+  made *before* a designer change costs the redo for it. The header has to be put back afterwards, and
+  putting anything back is itself a change, which is what clears a redo stack. The alternatives were worse -
+  discarding the whole history, or refusing to undo past the designer change at all.
+- **Opening a file leaves nothing to undo.** Previously the first Ctrl+Z in a newly opened code window
+  emptied it, because loading the text counted as an edit.
+- **Reloading a file changed outside the IDE discards that window's undo history**, as reloading it into
+  the form designer already did. The history described a document that is no longer there.
+- **Only the IDE rewrites a file's header or a procedure's `Attribute` lines.** Now that the code window
+  shows them, the commands that write into it keep off them. Formatting leaves them as they are. Find and
+  Replace do not search them, as VB6's Find never searched the header it hid: searching a form's code for
+  `Command1` finds it in the code rather than on the control's line in the designer block, and replacing
+  every `Command1` does not rename the control behind the designer's back. Insert File puts its text after
+  them. A rename that would reach them is
+  refused with a message saying why - except for the renamed procedure's own `Attribute` line, which
+  follows it. Add-ins and automation clients are refused the same writes, and told so. Typing keeps off
+  them too, and cannot split a procedure from its `Attribute` lines: nothing can be typed at the start of
+  one, and Delete at the end of a declaration cannot join the line below onto it. Nor can Replace, a
+  rename, formatting or an add-in. Deleting or cutting a whole procedure takes its `Attribute` lines with
+  it.
+- **The bundled language server keeps to the same rule itself**, rather than leaving the code window to
+  discard what it should not have sent. It reports nothing inside a header or a procedure's `Attribute`
+  lines, its formatting touches only the lines that change, and rename and highlight leave those lines
+  alone. So renaming a local that shares its name with a property the layout sets - a `Caption`, a `Text`,
+  an `Index` - renames it in the code instead of being refused because the layout uses the same word. A
+  control's or the form's own name is still not renamed from the code, and the code window now says so
+  before asking for a new name: rename it in the Properties window. Another language server still gets the
+  code window's protection.
+- **The warning above the code of a form HexIDE cannot save now says what it means**: the file will not be
+  saved, its code included, so typing in that window is refused. Typing now is refused everywhere in it:
+  Enter, and accepting a completion, used to write a line break or a word there despite it, and an automation
+  client's `type_text` and `press_key` are refused with the reason. It used to say the code could not be edited,
+  which read like the header's read-only lines and was not true: Replace All, formatting, a rename, Insert File,
+  undo and redo, an add-in or an automation client's `set_file_content` can still change the code there, and
+  nothing they change is saved ([#701](https://github.com/hexide-io/HexIDE/issues/701)).
+- **No breakpoint or bookmark can be set on a file's header or a procedure's `Attribute` lines**, by F9,
+  Ctrl+F2, a click in either margin or an automation client; the status bar says why. Those lines never run.
+  One already there can still be removed, and one found there among a project's saved marks is dropped as the
+  project opens, with a note in the log.
+- **Bookmarks and breakpoints saved by an earlier HexIDE stay on the statements they were set on.** They were
+  counted from the first line of code and now count from the top of the file, so the file a project keeps them
+  in (`<project>.user.hexproj`) is migrated as the project opens and rewritten once, as version 2, with the
+  marks under new keys, `fileBookmarks` and `fileBreakpoints`. A mark for a document whose file is missing is
+  kept as it is, and moved by the first opening that finds the file. A mark the old code window allowed on what
+  is now a read-only line, such as a form's `Attribute VB_Name`, is dropped instead. **Going back to an earlier
+  HexIDE afterwards costs those marks:** it shows none of a migrated file's bookmarks or breakpoints, and HexIDE
+  0.2.0 and earlier delete them the next time they write that file, which saving the project or setting or
+  clearing any mark does.
+- **Editing code while a program is paused asks about resetting it only when the edit actually lands.** A
+  keystroke in the header writes nothing and no longer asks, and nor does a change made in the form designer.
+  Paste, cut and deleting a selection now do ask: until now they slipped past the prompt by every route, the
+  keys, the menus and the toolbar alike.
+- **For automation clients: `get_file_content` returns a form's, module's or class's whole file**, header
+  included, whether or not it is open in the IDE, where it used to return the code alone. Its line 1 is the
+  file's first line, as the breakpoint, diagnostic and debugger tools count, and an editor offset indexes it.
+  `set_file_content` takes that text back unchanged, or the code alone as before. A whole `.frm` is no longer
+  refused for being one: only a header that differs from the document's is refused, and nothing changes. Its
+  reply now counts the lines the document holds from the top of the file. `hasUnsavedChanges` means what it
+  did. A client that edits what it read and sends it back needs no change; one that searched `content` for
+  line numbers now finds them counted from the top of the file.
+- **For automation clients: every tool that takes a form, module or class by name finds it the same way** -
+  in any loaded project, without regard to case, with an optional `project` for when a group holds two of one
+  name. Without `project`, such a name is refused and the refusal lists both. `set_control_property`,
+  `move_control` and `add_control` were the exceptions: the first looked only in the startup project, and the
+  other two used whichever open designer of that name came first. So with a group open, a bare name those two
+  accepted may now be refused as ambiguous; pass `project`. `add_file` takes `project` too, for the project to
+  add to. The reply of every tool that takes a document's name now names what it found in `project` and
+  `document`, spelled as the IDE spells them, and so do `add_file`'s reply and each `get_diagnostics` item; a
+  diagnostic for a file two projects of a group share names neither. Where a reply also carries a `uri`, the
+  tool's description now says what it is: the name the language server knows the document by. `get_debug_state`
+  and `get_call_stack` name the running project. Not yet: the run-control replies' "Paused at" note, the
+  locals' and watches' `context`, the designer undo, redo and format tools, and the tab tools, which take and
+  report a tab's title, still name a form or module without its project.
+- **For add-in authors: `AddinDocument.Content` is now the document's whole file**, as the code window shows it - a
+  form's designer block, a class's header and the leading `Attribute` lines first, then the code - where it used to
+  be the code alone. Every position on the add-in surface counts from the top of that file - selections, edits,
+  navigation and diagnostics - where in 0.2.0 it counted from the first line of code, so line N of `Content` is
+  line N everywhere. An add-in that counted lines itself is out by the header's length until it counts them in
+  `Content`. `SetContent` takes `Content` back unchanged, or the code alone, and keeps the header either way; a header
+  that differs is refused. **New `TrySetContent`, `TryApplyEdits` and `TryNavigateTo` say why a call was refused**:
+  an unknown or ambiguous name, a header the call would change, or a line the document does not have. **New
+  `IDiagnosticsAccess.TryGetFor` says why a name found no single document**, where `GetFor` answers an empty list for
+  that and for a file with no diagnostics alike. The existing members keep their signatures and answers, so a
+  packaged add-in keeps running; and the new ones have default implementations, so a hand-written `IEditorAccess` or
+  `IDiagnosticsAccess` keeps compiling. A line outside the document passed to
+  `NavigateTo` now moves nothing, where it closed the IDE, and navigating to a document open behind another tab
+  brings it to the front, where the caret used to move out of sight.
+- **The AI Chat panel is told, and tells you, when the IDE refuses an edit.** It is shown the whole file, header
+  included, and told the header is read-only. An edit it asks for, or a block you apply, that would change the
+  header is refused: the reason is shown in the transcript and the assistant is told it, on both paths, where
+  before the edit was reported as done whether it was or not. Asking for the diagnostics of a file name two
+  loaded projects share, or one none has, is refused with the reason rather than answered with no diagnostics.
+  Its privacy notice now says the active file's contents are sent, layout and captions included, and is
+  shown once more to anyone who saw the old one, which said "code".
+
 ### Fixed
+
+- **Operators group as VB6 groups them** (#1074). Each had a precedence level of its own, so `10 - 2 + 3` was 5,
+  `5 * 5 \ 2` was 10, `1 < 2 = True` was False and `Not False And False` was True, with no error. Measured on
+  vb6.exe across the whole ladder: `*` and `/` share a level, then `\`, then `Mod`, then `+` and `-`, then every
+  comparison, and operators of one level go left to right. A Boolean beside a number now compares as that number,
+  True as -1, where it raised Type mismatch.
+- **Formatting no longer changes a file's line endings.** The bundled language server joined its formatted
+  text with bare line feeds, so a file VB6 wrote, with CRLF endings, was never already formatted: every
+  save sent an edit covering the whole file, and applying it put LF endings into the code window.
+- **Renaming a form now renames it in its file's `Attribute VB_Name` line as well as its `Begin` line.**
+  Previously a renamed form was saved naming two different forms, one in each. The code window follows
+  the rename as it happens, and Ctrl+Z there does not undo it.
+- **Find with Use Pattern Matching and Find Whole Word Only no longer gives up at the first match that is
+  not a whole word.** It reported the text as not found, however many whole-word matches came after it.
+- **An open code window now follows a reload that changes whether its form can be saved.** Previously,
+  when a form's file changed on disk so that HexIDE could now reproduce it, or could no longer reproduce
+  it, the code window kept its old answer until it was closed and reopened. It stayed locked with the
+  warning showing, or stayed typable with no warning. The designer already followed the reload.
+  ([#475](https://github.com/hexide-io/HexIDE/issues/475))
 
 - **Arithmetic on a numeric String works, as in VB6** (#1047). `Text1.Text * 2` used to stop the run with Type mismatch.
   - **The reading:** every operator now reads a String operand as `CDbl` does, in the program's locale, and the result

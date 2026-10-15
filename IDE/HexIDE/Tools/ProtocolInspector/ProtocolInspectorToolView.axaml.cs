@@ -1,4 +1,6 @@
+using System;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
@@ -13,12 +15,15 @@ namespace HexIDE.Tools.ProtocolInspector;
 public partial class ProtocolInspectorToolView : UserControl
 {
     private FoldingManager? _folding;
+    private TextEditor? _body;
+    private IDisposable? _foldLabelSub;
 
     public ProtocolInspectorToolView()
     {
         InitializeComponent();
 
         if (this.FindControl<TextEditor>("Body") is not { } editor) return;
+        _body = editor;
 
         // The same definition the export preview uses, so a colour means the same thing in both. Null is
         // tolerated: colouring is a nicety and this pane's job is to show what crossed the wire.
@@ -33,6 +38,23 @@ public partial class ProtocolInspectorToolView : UserControl
     }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
+
+    // Fold labels are drawn in one brush shared by every editor that folds, the theme's read-only colour
+    // (#273 task 3.15). Followed while this pane is on screen, as the code windows do, so a label here never
+    // keeps the grey of a theme that was switched away while the pane was the only editor showing.
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (_body is { } editor)
+            _foldLabelSub = ReadOnlyText.Follow(this, _ => editor.TextArea.TextView.Redraw());
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        _foldLabelSub?.Dispose();
+        _foldLabelSub = null;
+        base.OnDetachedFromVisualTree(e);
+    }
 
     /// <summary>
     /// Recomputes the fold regions for whatever the pane is now showing.

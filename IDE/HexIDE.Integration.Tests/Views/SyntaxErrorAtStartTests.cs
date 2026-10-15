@@ -139,7 +139,8 @@ public class SyntaxErrorAtStartTests
 
         h.Runner.RunProject(project);
 
-        AssertAStartThatNeverRan(h).Should().StartWith("Compile error:").And.Contain("in Helpers, line 2");
+        // Line 3 of the file: the module's Attribute VB_Name line is line 1, as the code window counts (#273).
+        AssertAStartThatNeverRan(h).Should().StartWith("Compile error:").And.Contain("in Helpers, line 3");
     }
 
     [AvaloniaFact]
@@ -151,7 +152,7 @@ public class SyntaxErrorAtStartTests
 
         h.Runner.RunProject(project);
 
-        AssertAStartThatNeverRan(h).Should().StartWith("Compile error:").And.Contain("in Module1, line 2");
+        AssertAStartThatNeverRan(h).Should().StartWith("Compile error:").And.Contain("in Module1, line 3");
     }
 
     [AvaloniaFact]
@@ -165,7 +166,8 @@ public class SyntaxErrorAtStartTests
 
         h.Runner.RunProject(project);
 
-        AssertAStartThatNeverRan(h).Should().Contain("in Widget, line 2");
+        // Line 15 of the file: a class's header, VERSION through its five Attribute lines, is thirteen lines.
+        AssertAStartThatNeverRan(h).Should().Contain("in Widget, line 15");
     }
 
     [AvaloniaTheory]
@@ -183,7 +185,7 @@ public class SyntaxErrorAtStartTests
         h.Runner.RunProject(project);
 
         AssertAStartThatNeverRan(h).Should().StartWith("Compile error:").And.Contain("nesting too deep")
-            .And.Contain("in Deep, line 2");
+            .And.Contain("in Deep, line 3");
     }
 
     [AvaloniaFact]

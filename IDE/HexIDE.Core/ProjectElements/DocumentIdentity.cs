@@ -121,7 +121,35 @@ public sealed class DocumentIdentity : IEquatable<DocumentIdentity>
     /// creation sets only the module's, and the code window's Save repoints the form part's alone (#474) —
     /// and the module's is the one the project file names and the one the save event carries.
     /// </remarks>
-    public string? AbsolutePath => module?.AbsolutePath ?? form!.AbsolutePath;
+    /// <remarks>
+    /// <b>Not <c>module?.AbsolutePath ?? form!.AbsolutePath</c>.</b> That reads correctly and throws: for a
+    /// module that has no file yet, the left side is null, so <c>??</c> evaluates the right side and
+    /// dereferences a form that is null by construction. It went unnoticed because nothing asked a pathless
+    /// document for its path until the wire name did — which #489 established is the ordinary state of a
+    /// document, not a rare one. The kind decides which half answers; the answer being null is the point.
+    /// </remarks>
+    public string? AbsolutePath => module is not null ? module.AbsolutePath : form!.AbsolutePath;
+
+    /// <summary>
+    /// The extension this document is saved with, dot included — <c>.frm</c>, <c>.bas</c>, <c>.cls</c>,
+    /// <c>.ctl</c> or <c>.pag</c>.
+    /// </summary>
+    /// <remarks>
+    /// The extension a document <em>will</em> take, not one read off <see cref="AbsolutePath"/>, because a
+    /// document with no file still has a kind and the wire name of one is built from it. A UserControl
+    /// answers <c>.ctl</c> rather than its designer half's <c>.frm</c>, for the same reason
+    /// <see cref="For(FormDefinition)"/> resolves to the module: one file, one identity.
+    /// </remarks>
+    public string Extension => module is null
+        ? ".frm"
+        : module.Kind switch
+        {
+            ModuleKind.ClassModule => ".cls",
+            ModuleKind.UserControl => ".ctl",
+            ModuleKind.PropertyPage => ".pag",
+            ModuleKind.StandardModule => ".bas",
+            _ => ".bas",
+        };
 
     /// <summary>
     /// What this document is written as for a human or an automation client: <c>&lt;Project&gt;/&lt;Name&gt;</c>.

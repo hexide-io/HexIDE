@@ -696,21 +696,19 @@ valueStmt
    | valueStmt WS? POW WS? valueStmt                                 # vsPow
    | MINUS WS? valueStmt                                             # vsNegation
    | PLUS WS? valueStmt                                              # vsPlus
-   | valueStmt WS? DIV WS? valueStmt                                 # vsDiv
-   | valueStmt WS? MULT WS? valueStmt                                # vsMult
+   // Operators VB6 holds at one level share one alternative, so they are taken left to right, as VB6 takes them:
+   // `*` and `/`, then `\`, then Mod, then `+` and `-`, then every comparison, Like and Is included (measured, #1074).
+   // Each had an alternative of its own, which ranked each above the next, and `10 - 2 + 3` was 10 - (2 + 3). This is
+   // the grouping the LSP server's grammar already has.
+   | valueStmt WS? (MULT | DIV) WS? valueStmt                        # vsMult
+   | valueStmt WS? IDIV WS? valueStmt                                # vsDiv
    | valueStmt WS? MOD WS? valueStmt                                 # vsMod
-   | valueStmt WS? PLUS WS? valueStmt                                # vsAdd
-   | valueStmt WS? MINUS WS? valueStmt                               # vsMinus
+   | valueStmt WS? (PLUS | MINUS) WS? valueStmt                      # vsAdd
    | valueStmt WS? AMPERSAND WS? valueStmt                           # vsAmp
-   | valueStmt WS? EQ WS? valueStmt                                  # vsEq
-   | valueStmt WS? NEQ WS? valueStmt                                 # vsNeq
-   | valueStmt WS? LT WS? valueStmt                                  # vsLt
-   | valueStmt WS? GT WS? valueStmt                                  # vsGt
-   | valueStmt WS? LEQ WS? valueStmt                                 # vsLeq
-   | valueStmt WS? GEQ WS? valueStmt                                 # vsGeq
-   | valueStmt WS LIKE WS valueStmt                                  # vsLike
-   | valueStmt WS IS WS valueStmt                                    # vsIs
-   | NOT (WS valueStmt | LPAREN WS? valueStmt WS? RPAREN)            # vsNot
+   | valueStmt WS? (EQ | NEQ | LT | GT | LEQ | GEQ | LIKE | IS) WS? valueStmt # vsCompare
+   // A prefix operator only when its operand ends the alternative, so ANTLR gives it a level: `Not False And False` is
+   // (Not False) And False (measured, #1074). Its operand in a sub-rule, as it was, read the whole of `False And False`.
+   | NOT WS? valueStmt                                               # vsNot
    | valueStmt WS? AND WS? valueStmt                                 # vsAnd
    | valueStmt WS? OR WS? valueStmt                                  # vsOr
    | valueStmt WS? XOR WS? valueStmt                                 # vsXor
@@ -2121,7 +2119,11 @@ COMMA
 
 
 DIV
-   : '\\' | '/'
+   : '/'
+   ;
+
+IDIV
+   : '\\'
    ;
 
 

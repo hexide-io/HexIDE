@@ -138,9 +138,12 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient)
     /// </para>
     ///
     /// <para>
-    /// Identified by a <c>file:</c> URI, not by the <c>vb6://</c> scheme the IDE's own documents use.
-    /// Routing keys on the extension, and that is the entire basis on which a server claims this file;
-    /// a scheme URI carries none. It is also a real file on disk, which a server may want to read itself.
+    /// Identified by its <c>file:</c> URI, as every document with a file now is. Routing keys on the extension,
+    /// and that is the entire basis on which a server claims this file. It is also a real file on disk, which a
+    /// server may want to read itself. This used to be contrasted with the <c>vb6://</c> scheme the IDE's own
+    /// documents rode, which carried no extension; hexide-io/HexIDE#273 retired it, and a project member with
+    /// no file is named <c>untitled:&lt;Project&gt;/&lt;Name&gt;.&lt;ext&gt;</c>. A carried file never takes
+    /// that name: one with no path is not opened to the language layer at all (below).
     /// </para>
     /// </summary>
     private void OpenToLanguageLayer()
@@ -154,7 +157,11 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient)
         // drawn over a banner that says the file could not be read.
         if (LoadError is not null) return;
 
-        session = AutoDispose(new LspDocumentSession(lspClient, Document, LspDocumentUri.ForFile(path)));
+        // isProjectMember: false -- a carried file is an ordinary file the project happens to reference,
+        // so it goes wherever its extension leads. A carried `.cls` reaching a LaTeX server is correct, and
+        // is the case that stops the #279 gate being written as "anything the project names".
+        session = AutoDispose(new LspDocumentSession(
+            lspClient, Document, LspDocumentUri.ForFile(path), isProjectMember: false));
         session.MarkersChanged += markers =>
         {
             Markers = markers;

@@ -1328,7 +1328,8 @@ public static class UiAutomationDriver
 
     /// <summary>Types text into the resolved control (or its nearest text surface) by inserting at the
     /// caret via the control's own API — reliable and exact (no synthetic keystrokes, so live
-    /// auto-indent/IntelliSense don't garble it). Multi-line text is inserted verbatim.</summary>
+    /// auto-indent/IntelliSense don't garble it). Multi-line text is inserted verbatim, except at the end of a
+    /// code window's described line, where it is placed as a paste there is (#273 task 4.5).</summary>
     /// <remarks>
     /// The insert is a document edit, not input, so it would go through a read-only editor that a person's
     /// keystrokes could not change. It is refused there instead, and the mechanism is reported as
@@ -1343,12 +1344,40 @@ public static class UiAutomationDriver
                 return new InteractOutcome(false, TypedMechanism, null,
                     $"'{control.GetType().Name}' has no text surface (TextEditor/TextArea/TextBox) to type into");
 
+            // The code window's check runs first because it is the more specific of the two: it names the
+            // header and gives the nearest offset that can be edited, or says why the whole file refuses typing,
+            // where WhyNotTypable can only say "is read-only". It returns null for every surface that is not a
+            // code window, so the general check below still covers a disabled control, a read-only TextBox and
+            // any other wholly read-only editor.
+            if (AreaOf(surface) is { } typedInto
+                && RefusedInReadOnlyRegion(typedInto, new EditedSpan(typedInto.Caret.Offset, 0, Deletes: false), "type_text", TypedMechanism) is { } refused)
+                return refused;
+
             if (WhyNotTypable(surface) is { } refusal)
                 return new InteractOutcome(false, TypedMechanism, null,
                     $"{surface.GetType().Name}{(ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface))} "
                     + $"{refusal}, so a person could not type there either; nothing was inserted");
 
             surface.Focus();
+
+            // At the end of a line a member's Attribute lines describe, the text from its first line break on goes
+            // after them, as a person's paste does there, or the run would be left hanging from the text's last line
+            // (#273 task 4.5). Its line breaks are then written as the file's, as a paste's are.
+            if (AreaOf(surface) is { } codeArea && CodeWindowOf(codeArea) is { } window
+                && window.InsertLineBreakPastRun(codeArea.Caret.Offset, 0, text) is { } placed)
+            {
+                codeArea.Caret.Offset = placed.End;
+                // The count is of what was sent, as everywhere else this reports one; its line breaks may have been
+                // written in a newline of another length.
+                return new InteractOutcome(true, TypedMechanism,
+                    $"typed {text.Length} char(s) into {surface.GetType().Name}"
+                    + $"{(ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface))}. "
+                    + $"The caret was at the end of the declaration of {placed.Run.Member?.Name}, so the text from its "
+                    + "first line break on went after that member's Attribute lines, which follow the line they "
+                    + $"describe; its line breaks were written as the file's. The caret is now at offset {placed.End}.",
+                    null);
+            }
+
             switch (surface)
             {
                 case TextEditor editor:
@@ -1407,6 +1436,11 @@ public static class UiAutomationDriver
                     $"'{Describe(control)}' has nothing under it that can take keyboard focus, so a key "
                   + "press there would go nowhere. Address a focusable control, or a text surface.");
 
+            if (AreaOf(target) is { } pressedIn
+                && EditSpan(pressedIn, parsedKey, mods) is { } span
+                && RefusedInReadOnlyRegion(pressedIn, span, "press_key") is { } refused)
+                return refused;
+
             target.Focus();
             target.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = parsedKey, KeyModifiers = mods });
             target.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyUpEvent, Key = parsedKey, KeyModifiers = mods });
@@ -1421,6 +1455,124 @@ public static class UiAutomationDriver
             return new InteractOutcome(true, "keyboard", $"pressed {chord}{parsedKey}{where}", null);
         }
         catch (Exception ex) { return new InteractOutcome(false, "keyboard", null, $"press_key threw: {ex.Message}"); }
+    }
+
+    /// <summary>The code editor's text area behind a surface, when it is one.</summary>
+    private static TextArea? AreaOf(Control surface) => surface switch
+    {
+        TextEditor editor => editor.TextArea,
+        TextArea area => area,
+        _ => null,
+    };
+
+    /// <summary>
+    /// The span a key would change in a text area: the selection when there is one, otherwise what that key
+    /// writes or deletes at the caret. Null for a key that changes no text (a navigation key, a command).
+    /// </summary>
+    /// <remarks>
+    /// <see cref="EditedSpan.Deletes"/> says the key deletes the span rather than writing over it: Backspace and
+    /// Delete, a cut, and Ctrl+D. A cut and a paste are the keys the IDE binds to its Cut and Paste commands, Ctrl+X
+    /// and Ctrl+V on Windows and Linux and Cmd on macOS, and Delete Line is the library's; matching Ctrl alone let a
+    /// Cmd+X on macOS through unjudged (#273, found by CI's macOS run). A deletion is judged as the code window's keys
+    /// delete (#273 task 4.5a): one that
+    /// takes a described line takes its Attribute lines with it, which is allowed, where writing over the span would
+    /// not be. Ctrl+D deletes every line the selection touches, as the library's does, so that is its span. A cut with
+    /// nothing selected is still judged at the caret, as it was: regions are whole lines, so the caret's line, which
+    /// that cut takes, is in one exactly when the caret is, and on a described line the window takes the run with it.
+    /// </remarks>
+    private static EditedSpan? EditSpan(TextArea area, Key key, KeyModifiers mods)
+    {
+        var caret = area.Caret.Offset;
+        var selection = area.Selection.SurroundingSegment;
+        var chord = mods & ~KeyModifiers.Shift;
+        var probe = new KeyEventArgs { Key = key, KeyModifiers = mods };
+        var cut = HexIDE.ApplicationCommands.CutCommand.Gestures.Any(g => g.Matches(probe));
+        var paste = HexIDE.ApplicationCommands.PasteCommand.Gestures.Any(g => g.Matches(probe));
+        var deleteLine = AvaloniaEditCommands.DeleteLine.Gesture?.Matches(probe) == true;
+
+        var edits = cut || paste || deleteLine || (key, chord) switch
+        {
+            (Key.Enter or Key.Return or Key.Tab, KeyModifiers.None) => true,
+            (Key.Back or Key.Delete, KeyModifiers.None or KeyModifiers.Control) => true,
+            _ => false,
+        };
+        if (!edits)
+            return null;
+        var deletes = cut || deleteLine || key is Key.Back or Key.Delete;
+
+        if (deleteLine)
+        {
+            var first = area.Document.GetLineByOffset(selection is { Length: > 0 } ? selection.Offset : caret);
+            var last = area.Document.GetLineByOffset(selection is { Length: > 0 } ? selection.EndOffset : caret);
+            return new EditedSpan(first.Offset, Math.Max(last.Offset + last.TotalLength - first.Offset, 1), deletes);
+        }
+        if (selection is { Length: > 0 })
+            return new EditedSpan(selection.Offset, selection.Length, deletes);
+        return key switch
+        {
+            Key.Back => caret > 0 ? new EditedSpan(caret - 1, 1, deletes) : null,
+            Key.Delete => caret < area.Document.TextLength ? new EditedSpan(caret, 1, deletes) : null,
+            _ => new EditedSpan(caret, 0, deletes),
+        };
+    }
+
+    /// <summary>What a key would change: <see cref="Length"/> characters at <see cref="Offset"/>, deleted or written over.</summary>
+    private readonly record struct EditedSpan(int Offset, int Length, bool Deletes);
+
+    /// <summary>
+    /// The code window whose buffer <paramref name="area"/> shows, when it shows one: the view model it
+    /// inherits, provided that is the document it is showing, so a text surface nested in a code window's
+    /// view for some other purpose is not judged by the code window's regions.
+    /// </summary>
+    private static HexIDE.Forms.ViewModels.CodeEditorViewModel? CodeWindowOf(TextArea area) =>
+        area.DataContext is HexIDE.Forms.ViewModels.CodeEditorViewModel editor
+        && ReferenceEquals(editor.Document, area.Document)
+            ? editor
+            : null;
+
+    /// <summary>
+    /// A refusal, when <paramref name="span"/> is in a region of a code window only the IDE may change
+    /// (#273 task 3.9), or anywhere in a code window whose file is held read-only as a whole. Null when the
+    /// write may go ahead.
+    /// </summary>
+    /// <remarks>
+    /// The reply says where the code starts, because a caller that has just been refused needs to know where
+    /// it may type instead, and "move the caret" alone does not say to what.
+    /// </remarks>
+    /// <param name="mechanism">
+    /// What the caller would have used to make the change, reported back on the refusal. It is not always
+    /// <c>"keyboard"</c>: <c>type_text</c> inserts into the document rather than sending keystrokes, and
+    /// saying otherwise is how a read-only gate that held was once read as one that had failed (#649).
+    /// </param>
+    private static InteractOutcome? RefusedInReadOnlyRegion(TextArea area, EditedSpan span, string tool, string mechanism = "keyboard")
+    {
+        if (CodeWindowOf(area) is not { } editor)
+            return null;
+
+        // Asked first, because no offset helps: the window's banner says typing is refused anywhere in it.
+        // Without this a press_key Enter reported "pressed" and its tunnel handler then wrote nothing, which
+        // reads as a key that went astray rather than one that was refused.
+        if (editor.IsReadOnly)
+            return new InteractOutcome(false, mechanism, null,
+                $"{tool} refused: this file will not be saved, because HexIDE cannot yet reproduce it faithfully"
+              + (editor.ReadOnlyReason is { Length: > 0 } why ? $" ({why})" : string.Empty)
+              + ". Its code is part of the file, so typing in its code window is refused anywhere, as the "
+              + "window's banner says. Nothing was written.");
+
+        // A deletion by the window's own rule (#273 task 4.5a): one taking a described line whole takes its Attribute
+        // lines with it, which a person's key does, so only what it would still change of a region refuses it.
+        var changes = span.Deletes
+            ? editor.ReadOnlySections.DeletionChangesARegion(span.Offset, span.Length)
+            : editor.IsReadOnlyRegion(span.Offset, span.Length);
+        if (!changes)
+            return null;
+
+        var past = editor.PastReadOnlyRegion(span.Offset);
+        return new InteractOutcome(false, mechanism, null,
+            $"{tool} refused: offset {span.Offset} is in the file's header or a member's Attribute lines, which "
+          + "only the IDE changes (the designer, a save, a rename). Nothing was written. The nearest place "
+          + $"that can be edited starts at offset {past}; put the caret there with interact set_property "
+          + $"CaretOffset={past}. Offsets count from the start of the file, in the text get_file_content returns.");
     }
 
     /// <summary>

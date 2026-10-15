@@ -59,6 +59,29 @@ public class WholeFileGrammarTests
         // VB6 install, which CI does not have — see corpus/designer/README.md.
         var designer = FindUpwards(Path.Join("corpus", "designer"));
         if (designer is not null) yield return designer;
+
+        // The only files that carry members' attribute lines, as VB6's own IDE writes them, so the only ones that
+        // hand the grammar an Attribute statement below the header (#273 task 4.6).
+        foreach (var root in MemberAttributeCorpus())
+            yield return root;
+    }
+
+    /// <summary>
+    /// <c>corpus/member-attributes</c>' round-trip half, and the output VB6 saved for each hand-written project of its
+    /// evidence half: every file there that VB6 wrote. Not the hand-written inputs, one of which declares what VB6
+    /// itself rejects. Required, unlike the roots above that a machine may lack: the folder ships with the
+    /// repository, and a lane that lost it would pass on the rest without a word.
+    /// </summary>
+    private static IEnumerable<string> MemberAttributeCorpus()
+    {
+        var root = FindUpwards(Path.Join("corpus", "member-attributes"));
+        root.Should().NotBeNull("corpus/member-attributes ships with the repository");
+        var roundTrip = Path.Join(root!, "round-trip");
+        Directory.Exists(roundTrip).Should().BeTrue("its round-trip half is the lane's proof");
+        yield return roundTrip;
+        foreach (var saved in Directory.EnumerateDirectories(Path.Join(root!, "evidence"), "saved*", SearchOption.AllDirectories)
+                     .Order(StringComparer.Ordinal))
+            yield return saved;
     }
 
     private static string? FindUpwards(string folderName)
@@ -110,7 +133,7 @@ public class WholeFileGrammarTests
         var unsplittable = new List<string>();
         var counts = new SortedDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var ownedRoots = new[] { FindUpwards("demo"), FindUpwards(Path.Join("corpus", "designer")) }
-            .Where(r => r is not null).Select(r => r!).ToList();
+            .Where(r => r is not null).Select(r => r!).Concat(MemberAttributeCorpus()).ToList();
 
         foreach (var path in files)
         {

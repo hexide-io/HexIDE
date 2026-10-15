@@ -8,6 +8,36 @@ internal static class VbTextHelpers
 {
     public static bool IsIdentifierChar(char c) => char.IsLetterOrDigit(c) || c == '_';
 
+    /// <summary>
+    /// Whether <paramref name="name"/> can be a VB6 name: a letter, then letters, digits and underscores. The
+    /// IDE's <c>ProjectNaming.IsValidName</c>, which the code window holds a rename's new name to before it asks
+    /// (hexide-io/HexIDE#273 task 4.4); a rename to anything else is answered with nothing here.
+    /// </summary>
+    /// <remarks>
+    /// A leading or lone underscore and a bracketed name were measured illegal against <c>vb6.exe</c>; a leading
+    /// digit, whitespace or punctuation cannot be in a name at all. Nor can the six words VB6 was measured to
+    /// refuse as a name, in every position tried and accepted in none: <c>Rem</c>, <c>Empty</c>, <c>New</c>,
+    /// <c>Nothing</c>, <c>Me</c> and <c>Attribute</c>, the IDE's <c>ProjectNaming.IsReservedWord</c>. No other
+    /// keyword is refused, because none other was measured as a name, and a letter outside ASCII is not, because
+    /// VB6 may accept one in its code page.
+    /// </remarks>
+    public static bool IsName(string name)
+    {
+        if (name.Length == 0 || !char.IsLetter(name[0]))
+            return false;
+        foreach (var c in name)
+        {
+            if (!IsIdentifierChar(c))
+                return false;
+        }
+        return !ReservedWords.Contains(name);
+    }
+
+    private static readonly HashSet<string> ReservedWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Rem", "Empty", "New", "Nothing", "Me", "Attribute",
+    };
+
     public static bool ContainsPosition(LspRange range, int line, int ch)
     {
         var (sl, sc) = (range.Start.Line, range.Start.Character);

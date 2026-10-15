@@ -42,7 +42,7 @@ public class LspDocumentSessionTests : IDisposable
         // in a suite this size that is whichever test class got there first — so pumping from here passes
         // alone and throws "a different thread owns it" in the full run. Injecting the hop removes the
         // dependency rather than racing it.
-        var session = new LspDocumentSession(_client, _document, uri, work => work());
+        var session = new LspDocumentSession(_client, _document, uri, postToUiThread: work => work());
         _sessions.Add(session);
         return session;
     }
@@ -122,7 +122,7 @@ public class LspDocumentSessionTests : IDisposable
     {
         Session("# hi").Start();
 
-        await _client.Received(1).OpenDocumentAsync(Uri, "# hi", Arg.Any<CancellationToken>());
+        await _client.Received(1).OpenDocumentAsync(Uri, "# hi", false, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -136,7 +136,7 @@ public class LspDocumentSessionTests : IDisposable
 
         Session("# hi").Start();
 
-        await _client.Received(1).OpenDocumentAsync(Uri, "# hi", Arg.Any<CancellationToken>());
+        await _client.Received(1).OpenDocumentAsync(Uri, "# hi", false, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -170,7 +170,120 @@ public class LspDocumentSessionTests : IDisposable
         session.Start();
 
         await _client.Received(1).OpenDocumentAsync(Arg.Any<string>(), Arg.Any<string>(),
-            Arg.Any<CancellationToken>());
+            Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    // ── Renaming a live session ───────────────────────────────────────────────────────────────────────
+
+    private const string Renamed = "file:///c:/proj/RENAMED.md";
+
+    [Fact]
+    public async Task ARenameClosesUnderTheOldNameThenOpensUnderTheNewOne()
+    {
+        // The protocol's own guidance for a rename, and for its reason: more than the name can change, so a
+        // server is told to forget and told afresh rather than asked to follow.
+        //
+        // The ORDER is asserted, not just the pair. Start and Dispose are fire-and-forget, so nothing else
+        // in this class orders anything; an open that overtook its close would leave the server holding the
+        // document twice, under a name it will never be told to release.
+        var session = Session("# hi");
+        session.Start();
+
+        await session.RenameAsync(Renamed, TestContext.Current.CancellationToken);
+
+        Received.InOrder(() =>
+        {
+            _client.CloseDocumentForRenameAsync(Uri, Arg.Any<CancellationToken>());
+            _client.OpenDocumentAsync(Renamed, "# hi", Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        });
+    }
+
+    [Fact]
+    public async Task ARenameUsesTheCloseThatWithdrawsDiagnostics_NotAnOrdinaryClose()
+    {
+        // An ordinary close must NOT withdraw everything -- a build's claim about a form outlives the
+        // editor showing it. A rename must, because nothing answers to the old name again, so anything
+        // left under it is a mark with no way to be cleared. Two different closes, and picking the wrong
+        // one is invisible until a stale marker appears with no way to dismiss it.
+        var session = Session("# hi");
+        session.Start();
+
+        await session.RenameAsync(Renamed, TestContext.Current.CancellationToken);
+
+        await _client.Received(1).CloseDocumentForRenameAsync(Uri, Arg.Any<CancellationToken>());
+        await _client.DidNotReceive().CloseDocumentAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RenamingToTheNameItAlreadyHasDoesNothing()
+    {
+        // Every save reconciles the name, and most saves do not change it. A close-and-reopen per keystroke
+        // -worth of saving would throw away the server's state on a file the developer is working in.
+        // Compared with AreSame, so a server-normalised spelling is not mistaken for a new document.
+        var session = Session("# hi");
+        session.Start();
+        _client.ClearReceivedCalls();
+
+        await session.RenameAsync(Uri, TestContext.Current.CancellationToken);
+        await session.RenameAsync("FILE:///c:/proj/README.md", TestContext.Current.CancellationToken);
+
+        await _client.DidNotReceive().CloseDocumentForRenameAsync(
+            Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _client.DidNotReceive().OpenDocumentAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task TheSessionIsNotOpenWhileTheRenameIsInFlight()
+    {
+        // IsOpen is the precondition every request is gated on. `started && !disposed` describes the whole
+        // session rather than this moment, so without the transitional flag a hover issued between the
+        // close and the open passes the gate and names a document neither connection has heard of.
+        bool? openDuringTheGap = null;
+        var session = Session("# hi");
+        session.Start();
+        _client.CloseDocumentForRenameAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ => { openDuringTheGap = session.IsOpen; return Task.CompletedTask; });
+
+        await session.RenameAsync(Renamed, TestContext.Current.CancellationToken);
+
+        openDuringTheGap.Should().BeFalse("no request may name a document that is between two names");
+        session.IsOpen.Should().BeTrue("and the gate must close again afterwards");
+    }
+
+    [Fact]
+    public async Task TheSessionAnswersToItsNewNameAndNoLongerToItsOld()
+    {
+        // The withdrawal the close raises comes back through this same filter. Reassigning the URI before
+        // the close returned would make the session ignore its own clearing publication -- the markers stay
+        // on screen, attributable to nothing.
+        var session = Session("# hi");
+        IReadOnlyList<LspMarker>? seen = null;
+        session.MarkersChanged += m => seen = m;
+        session.Start();
+
+        await session.RenameAsync(Renamed, TestContext.Current.CancellationToken);
+
+        Publish(OneDiagnostic(Uri, 0, 0, 1));
+        seen.Should().BeNull("the old name is not this document any more");
+
+        Publish(OneDiagnostic(Renamed, 0, 0, 1));
+        seen.Should().ContainSingle("the new one is");
+    }
+
+    [Fact]
+    public async Task ARenameBeforeTheSessionStartedDoesNothing()
+    {
+        // A document can be renamed while its editor exists but has not opened it -- nothing to close, and
+        // opening it here would send a didOpen the session does not know it has sent.
+        var session = Session("# hi");
+
+        await session.RenameAsync(Renamed, TestContext.Current.CancellationToken);
+
+        await _client.DidNotReceive().CloseDocumentForRenameAsync(
+            Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _client.DidNotReceive().OpenDocumentAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
     }
 
     // ── Synchronization ───────────────────────────────────────────────────────────────────────────────
@@ -335,17 +448,17 @@ public class LspDocumentSessionTests : IDisposable
     }
 
     [Fact]
-    public void AVb6UriDifferingOnlyInCaseStillMatches()
+    public void AnUntitledUriDifferingOnlyInCaseStillMatches()
     {
-        // The IDE's own scheme, and the case that matters most for the VB6 editor: a `vb6://` path segment
-        // is a VB6 identifier, and VB6 identifiers are case-insensitive on every platform. A server that
-        // echoes `module1` for our `Module1` is not disagreeing with us about anything.
-        var session = Session("Sub Main()", "vb6://module/Module1");
+        // Both segments of untitled:<Project>/<Name>.<ext> are VB6 names, and VB6 compares names without
+        // regard to case on every platform. A server that echoes `module1` for our `Module1` is not
+        // disagreeing with us about anything.
+        var session = Session("Sub Main()", "untitled:Project1/Module1.bas");
         IReadOnlyList<LspMarker>? seen = null;
         session.MarkersChanged += m => seen = m;
         session.Start();
 
-        Publish(OneDiagnostic("vb6://module/module1", 0, 0, 3));
+        Publish(OneDiagnostic("untitled:project1/module1.bas", 0, 0, 3));
 
         seen.Should().ContainSingle();
     }
@@ -429,7 +542,7 @@ public class LspDocumentSessionTests : IDisposable
         // Reproduced by queuing the posted work instead of running it, closing, and only then draining.
         var queued = new List<Action>();
         _document.Text = "hello world";
-        var session = new LspDocumentSession(_client, _document, Uri, queued.Add);
+        var session = new LspDocumentSession(_client, _document, Uri, postToUiThread: queued.Add);
         _sessions.Add(session);
         IReadOnlyList<LspMarker>? seen = null;
         session.MarkersChanged += m => seen = m;

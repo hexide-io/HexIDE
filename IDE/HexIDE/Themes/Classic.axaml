@@ -87,6 +87,12 @@
          reference text and its rejected-edit status message. -->
     <SolidColorBrush x:Key="ValidationErrorBrush" Color="#CC0000" />
 
+    <!-- Code window: the text of a file's header and of each member's Attribute lines, which only the IDE
+         writes, and the label of a folded section (#273). A grey that still clears WCAG AA 4.5:1 on the editor's
+         background (4.95:1 on #FFFFFF), so it reads as not the developer's to edit without becoming hard to
+         read. Every shipped pack carries its own value: this one fails the bar on a dark editor. -->
+    <SolidColorBrush x:Key="ReadOnlyTextBrush" Color="#707070" />
+
     <!-- Warning triangle icon (amber, with exclamation) for the developer-mode banner -->
     <DrawingImage x:Key="WarningTriangleIcon">
         <DrawingImage.Drawing>

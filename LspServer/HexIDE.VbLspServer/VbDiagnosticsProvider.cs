@@ -23,13 +23,14 @@ public static class VbDiagnosticsProvider
 
     public static List<LspDiagnostic> GetDiagnostics(string source)
     {
+        var regions = VbProtectedRegions.Of(source);
         var diagnostics = new List<LspDiagnostic>();
-        var tree = ParseSource(source, diagnostics);
+        var tree = ParseSource(source, diagnostics, protectedRegions: regions);
 
         // Only run scope analysis when the syntax is clean — syntax errors can produce
         // an incomplete parse tree which would cause spurious undeclared-variable warnings.
         if (EnableUndeclaredVariableCheck && diagnostics.Count == 0 && tree is not null)
-            diagnostics.AddRange(VbScopeAnalyzer.GetOptionExplicitDiagnostics(tree));
+            diagnostics.AddRange(OutsideProtectedLines(VbScopeAnalyzer.GetOptionExplicitDiagnostics(tree), regions));
 
         return diagnostics;
     }
@@ -40,12 +41,30 @@ public static class VbDiagnosticsProvider
     /// </summary>
     public static (List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree) GetDiagnosticsAndTree(string source)
     {
+        var regions = VbProtectedRegions.Of(source);
         var diagnostics = new List<LspDiagnostic>();
-        var tree = ParseSource(source, diagnostics);
+        var tree = ParseSource(source, diagnostics, protectedRegions: regions);
 
         if (EnableUndeclaredVariableCheck && diagnostics.Count == 0 && tree is not null)
-            diagnostics.AddRange(VbScopeAnalyzer.GetOptionExplicitDiagnostics(tree));
+            diagnostics.AddRange(OutsideProtectedLines(VbScopeAnalyzer.GetOptionExplicitDiagnostics(tree), regions));
 
+        return (diagnostics, tree);
+    }
+
+    /// <summary>
+    /// The parse's diagnostics with nothing held back, including those inside a header or a member's
+    /// attribute lines, which every other entry point here leaves out.
+    /// </summary>
+    /// <remarks>
+    /// For the grammar's own whole-file check (<c>WholeFileGrammarTests</c>), which exists to find a header
+    /// the grammar cannot parse. Given the filtered answer it would pass whatever the grammar did with a
+    /// header, because it would never be shown an error there. Not a path the server answers from.
+    /// </remarks>
+    internal static (List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree)
+        GetDiagnosticsAndTreeIncludingProtectedLines(string source)
+    {
+        var diagnostics = new List<LspDiagnostic>();
+        var tree = ParseSource(source, diagnostics);
         return (diagnostics, tree);
     }
 
@@ -67,14 +86,23 @@ public static class VbDiagnosticsProvider
         var diagnostics = new List<LspDiagnostic>();
 
         var startedAt = Stopwatch.GetTimestamp();
-        var tree = ParseSource(source, diagnostics, report);
+        var regions = VbProtectedRegions.Of(source);
+        var tree = ParseSource(source, diagnostics, report, regions);
         report.Elapsed = Stopwatch.GetElapsedTime(startedAt);
 
         if (EnableUndeclaredVariableCheck && diagnostics.Count == 0 && tree is not null)
-            diagnostics.AddRange(VbScopeAnalyzer.GetOptionExplicitDiagnostics(tree));
+            diagnostics.AddRange(OutsideProtectedLines(VbScopeAnalyzer.GetOptionExplicitDiagnostics(tree), regions));
 
         return (diagnostics, tree, report);
     }
+
+    /// <summary>
+    /// <paramref name="diagnostics"/> less any that start on a line of the header or of a member's attribute
+    /// run (hexide-io/HexIDE#273 task 3.10).
+    /// </summary>
+    private static IEnumerable<LspDiagnostic> OutsideProtectedLines(
+        IEnumerable<LspDiagnostic> diagnostics, VbProtectedRegions regions) =>
+        diagnostics.Where(d => !regions.IsProtected(d.Range.Start.Line));
 
     /// <summary>Wall-clock budget for a single parse. VB6's genuine call-vs-array ambiguity can push the
     /// LL stage to ~1s on a slow machine, and a rare environmental runaway (e.g. a GC stall landing on a
@@ -185,9 +213,40 @@ public static class VbDiagnosticsProvider
     /// it, or feeds it back into the parse — it is written at the three points where the outcome becomes
     /// known and nowhere else, so the parse behaves identically whether or not one was passed.
     /// </param>
+    /// <param name="protectedRegions">
+    /// The lines on which no parse error is reported: the header and members' attribute lines. Null reports
+    /// every error, which only the grammar's own whole-file check asks for. The notices this method raises
+    /// itself, for a file too large to analyse or nested too deep, are about the file rather than a line,
+    /// and are raised whatever this holds, although they sit at (0,0).
+    /// </param>
+    /// <remarks>
+    /// <b>When the grammar cannot read a protected line, the file is parsed again with those lines
+    /// emptied</b>, and that parse is the answer. Leaving the error out is not enough on its own: ANTLR's
+    /// recovery from a damaged designer block can consume the code after it, so the first parse reports
+    /// nothing past the header at all -- measured, with a syntax error in the code that the first parse never
+    /// reported. Leaving out the header's errors then left a developer with no diagnostics and no reason why.
+    /// Emptying a line keeps its line break, so every line of code keeps the line and column it had, and a
+    /// header the grammar does read is still in the tree. Only a file with such an error pays for a second
+    /// parse, and no file in the corpus has one.
+    /// </remarks>
     internal static VisualBasic6Parser.StartRuleContext? ParseSource(
-        string source, List<LspDiagnostic>? diagnostics = null, ParseReport? report = null)
+        string source, List<LspDiagnostic>? diagnostics = null, ParseReport? report = null,
+        VbProtectedRegions? protectedRegions = null)
     {
+        var reportedBefore = diagnostics?.Count ?? 0;
+        var tree = ParseOnce(source, diagnostics, report, protectedRegions, out var leftOutAnError);
+        if (!leftOutAnError || protectedRegions is null)
+            return tree;
+
+        diagnostics?.RemoveRange(reportedBefore, diagnostics.Count - reportedBefore);
+        return ParseOnce(protectedRegions.Blank(source), diagnostics, report, protectedRegions, out _);
+    }
+
+    private static VisualBasic6Parser.StartRuleContext? ParseOnce(
+        string source, List<LspDiagnostic>? diagnostics, ParseReport? report,
+        VbProtectedRegions? protectedRegions, out bool leftOutAnError)
+    {
+        leftOutAnError = false;
         // Defense-in-depth: never let a giant paste drive a multi-second parse on the keystroke path.
         if (source.Length > MaxParseInputChars)
         {
@@ -202,7 +261,7 @@ public static class VbDiagnosticsProvider
         var inputStream = new AntlrInputStream(source);
         var lexer = new VisualBasic6Lexer(inputStream);
         lexer.RemoveErrorListeners();
-        DiagnosticErrorListener? errorListener = diagnostics is not null ? new DiagnosticErrorListener(diagnostics) : null;
+        DiagnosticErrorListener? errorListener = diagnostics is not null ? new DiagnosticErrorListener(diagnostics, protectedRegions) : null;
         if (errorListener is not null)
             lexer.AddErrorListener(errorListener);
 
@@ -234,6 +293,8 @@ public static class VbDiagnosticsProvider
                 var tree = parser.startRule();
                 // After the call, not before: a bail or a depth abort must not be recorded as an SLL answer.
                 if (report is not null) report.Prediction = ParsePrediction.Sll;
+                // The lexer's errors still count here, though SLL itself reports none.
+                leftOutAnError = errorListener?.LeftOutAny == true;
                 return tree;
             }
             catch (ParseCanceledException)
@@ -253,7 +314,9 @@ public static class VbDiagnosticsProvider
                 parser.Interpreter.PredictionMode = PredictionMode.LL;
                 if (errorListener is not null)
                     parser.AddErrorListener(errorListener);
-                return parser.startRule();
+                var tree = parser.startRule();
+                leftOutAnError = errorListener?.LeftOutAny == true;
+                return tree;
             }
         }
         catch (ParseNestingTooDeepException)
@@ -267,12 +330,30 @@ public static class VbDiagnosticsProvider
         }
     }
 
-    private sealed class DiagnosticErrorListener(List<LspDiagnostic> diagnostics)
+    /// <summary>
+    /// Turns ANTLR's errors into diagnostics, leaving out any that start on a protected line.
+    /// </summary>
+    /// <remarks>
+    /// The server raises no diagnostic inside a header or a member's attribute lines (hexide-io/HexIDE#273
+    /// task 3.10). The grammar parses every header in the corpus cleanly, so on a real file there is nothing
+    /// to leave out; this is what keeps a damaged one from burying the code's real diagnostics under false
+    /// ones about lines the developer cannot edit. Leaving one out is also what sends
+    /// <see cref="ParseSource"/> round for its second parse.
+    /// </remarks>
+    private sealed class DiagnosticErrorListener(List<LspDiagnostic> diagnostics, VbProtectedRegions? protectedRegions)
         : IAntlrErrorListener<IToken>, IAntlrErrorListener<int>
     {
+        /// <summary>True once an error on a protected line has been left out.</summary>
+        public bool LeftOutAny { get; private set; }
+
         public void SyntaxError(TextWriter output, IRecognizer recognizer, IToken offendingSymbol,
             int line, int charPositionInLine, string msg, RecognitionException e)
         {
+            if (protectedRegions?.IsProtected(line - 1) == true)
+            {
+                LeftOutAny = true;
+                return;
+            }
             var tokenText = offendingSymbol?.Text;
             var tokenLen = tokenText is { } t && t != "<EOF>" ? t.Length : 1;
             diagnostics.Add(new LspDiagnostic(
@@ -287,6 +368,11 @@ public static class VbDiagnosticsProvider
         public void SyntaxError(TextWriter output, IRecognizer recognizer, int offendingSymbol,
             int line, int charPositionInLine, string msg, RecognitionException e)
         {
+            if (protectedRegions?.IsProtected(line - 1) == true)
+            {
+                LeftOutAny = true;
+                return;
+            }
             diagnostics.Add(new LspDiagnostic(
                 new LspRange(
                     new LspPosition(line - 1, charPositionInLine),
