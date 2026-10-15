@@ -90,7 +90,7 @@ public class VBLoader
         }
 
         foreach (var component in TopLevelComponents(element))
-            PlaceComponentTree(component, canvas, canvas, OnPlaced);
+            PlaceComponentTree(component, canvas, canvas, element, OnPlaced);
 
         // Bind each control-array group to its shared Name once every element is in place.
         foreach (var (name, group) in arrayGroups)
@@ -322,7 +322,7 @@ public class VBLoader
     /// Where non-visual components go regardless of what contains them. A Timer is not drawn, so it has no
     /// place inside a Frame's clipped host; the model still records the container so the file round-trips.
     /// </param>
-    private static void PlaceComponentTree(ComponentInstance component, Canvas host, Canvas formCanvas,
+    private static void PlaceComponentTree(ComponentInstance component, Canvas host, Canvas formCanvas, FormDefinition form,
         Action<ComponentInstance, Control, Canvas>? onPlaced = null)
     {
         var componentClass = (ComponentBaseClass)component.BaseClass;
@@ -344,6 +344,14 @@ public class VBLoader
             // zero is not what VBTimer renders at, because its template pins Min/MaxWidth to 28. That is why
             // a running form has always shown a clock face in its top-left corner.
             control.IsVisible = false;
+        }
+
+        // A Line lays itself out from its endpoints, which are in its container's scale (#163). A line earlier in the
+        // .frm is drawn over a later one (measured), and every line is drawn under the controls.
+        if (control is VBLine line)
+        {
+            line.Resolve(LineComponentClass.TwipsPerUnit(component, form));
+            line.ZIndex = -1 - target.Children.OfType<VBLine>().Count();
         }
 
         target.Children.Add(control);
@@ -378,11 +386,11 @@ public class VBLoader
         }
 
         foreach (var child in component.ContainedControls)
-            PlaceComponentTree(child, childHost, formCanvas, onPlaced);
+            PlaceComponentTree(child, childHost, formCanvas, form, onPlaced);
     }
 
     // The ScaleMode a container's .frm block declares, from the line HexIDE preserves for it: `ScaleMode = 3  'Pixel`.
-    private static VBScaleMode? DeclaredScaleMode(ComponentInstance component) =>
+    internal static VBScaleMode? DeclaredScaleMode(ComponentInstance component) =>
         RawNumber(component, "ScaleMode") is { } mode && Enum.IsDefined(typeof(VBScaleMode), mode) ? (VBScaleMode)mode : null;
 
     // The number on a property line HexIDE preserves without modelling it, such as `BorderStyle = 0  'None`.
@@ -447,7 +455,7 @@ public class VBLoader
     {
         var canvas = new Canvas { ClipToBounds = true };
         foreach (var component in TopLevelComponents(formDef))
-            PlaceComponentTree(component, canvas, canvas);
+            PlaceComponentTree(component, canvas, canvas, formDef);
         return canvas;
     }
 

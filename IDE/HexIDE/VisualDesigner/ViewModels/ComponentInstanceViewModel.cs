@@ -3,6 +3,7 @@ using Avalonia;
 using System.Linq;
 using Avalonia.Data;
 using Avalonia.Media;
+using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
@@ -58,6 +59,17 @@ public partial class ComponentInstanceViewModel : ObservableObject
         {
             OnPropertyChanged(nameof(Height));
             NotifyDescendantGeometry();
+        }
+        else if (IsLine && (propertyClass == VBProperties.X1Property || propertyClass == VBProperties.Y1Property
+                            || propertyClass == VBProperties.X2Property || propertyClass == VBProperties.Y2Property
+                            || propertyClass == VBProperties.BorderWidthProperty))
+        {
+            OnPropertyChanged(nameof(Left));
+            OnPropertyChanged(nameof(Top));
+            OnPropertyChanged(nameof(RelativeLeft));
+            OnPropertyChanged(nameof(RelativeTop));
+            OnPropertyChanged(nameof(Width));
+            OnPropertyChanged(nameof(Height));
         }
         else if (propertyClass == VBProperties.NameProperty)
             OnPropertyChanged(nameof(Name));
@@ -173,31 +185,109 @@ public partial class ComponentInstanceViewModel : ObservableObject
     /// </summary>
     public double Left
     {
-        get => ContainerBounds.X + instance.GetPropertyOrDefault(VBProperties.LeftProperty);
-        set => instance.SetProperty(VBProperties.LeftProperty, value - ContainerBounds.X);
+        get => ContainerBounds.X + RelativeLeft;
+        set
+        {
+            if (IsLine)
+                MoveLine(value - Left, 0);
+            else
+                instance.SetProperty(VBProperties.LeftProperty, value - ContainerBounds.X);
+        }
     }
 
     public double Top
     {
-        get => ContainerBounds.Y + instance.GetPropertyOrDefault(VBProperties.TopProperty);
-        set => instance.SetProperty(VBProperties.TopProperty, value - ContainerBounds.Y);
+        get => ContainerBounds.Y + RelativeTop;
+        set
+        {
+            if (IsLine)
+                MoveLine(0, value - Top);
+            else
+                instance.SetProperty(VBProperties.TopProperty, value - ContainerBounds.Y);
+        }
     }
 
     /// <summary>The VB6 value the model holds — container-relative, which is what the status bar shows.</summary>
-    public double RelativeLeft => instance.GetPropertyOrDefault(VBProperties.LeftProperty);
+    public double RelativeLeft => IsLine ? LineBounds.X : instance.GetPropertyOrDefault(VBProperties.LeftProperty);
 
-    public double RelativeTop => instance.GetPropertyOrDefault(VBProperties.TopProperty);
+    public double RelativeTop => IsLine ? LineBounds.Y : instance.GetPropertyOrDefault(VBProperties.TopProperty);
 
     public double Width
     {
-        get => instance.GetPropertyOrDefault(VBProperties.WidthProperty);
-        set => instance.SetProperty(VBProperties.WidthProperty, value);
+        get => IsLine ? LineBounds.Width : instance.GetPropertyOrDefault(VBProperties.WidthProperty);
+        set
+        {
+            // A Line is moved by its rectangle but not resized by it: its endpoints are #163's to drag.
+            if (IsLine)
+                OnPropertyChanged(nameof(Width));
+            else
+                instance.SetProperty(VBProperties.WidthProperty, value);
+        }
     }
 
     public double Height
     {
-        get => instance.GetPropertyOrDefault(VBProperties.HeightProperty);
-        set => instance.SetProperty(VBProperties.HeightProperty, value);
+        get => IsLine ? LineBounds.Height : instance.GetPropertyOrDefault(VBProperties.HeightProperty);
+        set
+        {
+            if (IsLine)
+                OnPropertyChanged(nameof(Height));
+            else
+                instance.SetProperty(VBProperties.HeightProperty, value);
+        }
+    }
+
+    /// <summary>
+    /// A Line has no Left, Top, Width or Height (#163). The designer selects and moves it by the rectangle its endpoints
+    /// and pen cover, in pixels, from the endpoints in its container's scale.
+    /// </summary>
+    public bool IsLine => instance.BaseClass is LineComponentClass;
+
+    /// <summary>How many twips one of a Line's container's units is, or twips where HexIDE cannot run that scale.</summary>
+    public (double X, double Y) LineTwipsPerUnit
+    {
+        get
+        {
+            try
+            {
+                return parentViewModel.FormDefinition is { } form ? LineComponentClass.TwipsPerUnit(instance, form) : (1, 1);
+            }
+            catch (NotImplementedException)
+            {
+                return (1, 1);
+            }
+        }
+    }
+
+    private Rect LineBounds
+    {
+        get
+        {
+            var (x, y) = LineTwipsPerUnit;
+            return VBLine.BoundsFor(instance.GetPropertyOrDefault(VBProperties.X1Property) * x,
+                instance.GetPropertyOrDefault(VBProperties.Y1Property) * y,
+                instance.GetPropertyOrDefault(VBProperties.X2Property) * x,
+                instance.GetPropertyOrDefault(VBProperties.Y2Property) * y,
+                (int)instance.GetPropertyOrDefault(VBProperties.BorderWidthProperty));
+        }
+    }
+
+    // Both endpoints by the same distance, in pixels, written back in the container's scale.
+    private void MoveLine(double dxPixels, double dyPixels)
+    {
+        var (x, y) = LineTwipsPerUnit;
+        var dx = dxPixels * VBScaleModeExtensions.PixelToTwips / x;
+        var dy = dyPixels * VBScaleModeExtensions.PixelToTwips / y;
+        if (dx != 0)
+        {
+            instance.SetProperty(VBProperties.X1Property, instance.GetPropertyOrDefault(VBProperties.X1Property) + dx);
+            instance.SetProperty(VBProperties.X2Property, instance.GetPropertyOrDefault(VBProperties.X2Property) + dx);
+        }
+        if (dy != 0)
+        {
+            instance.SetProperty(VBProperties.Y1Property, instance.GetPropertyOrDefault(VBProperties.Y1Property) + dy);
+            instance.SetProperty(VBProperties.Y2Property, instance.GetPropertyOrDefault(VBProperties.Y2Property) + dy);
+        }
     }
 
     public string Name => instance.GetPropertyOrDefault(VBProperties.NameProperty) ?? "";

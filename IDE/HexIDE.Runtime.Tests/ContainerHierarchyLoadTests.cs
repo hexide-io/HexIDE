@@ -39,9 +39,9 @@ public class ContainerHierarchyLoadTests
 
     /// <summary>
     /// One fixture carrying four of the five shapes at once: a control inside a Frame, that Frame inside a
-    /// PictureBox, an unmodelled child (VB.Line — there is no LineComponentClass) sitting among modelled
-    /// siblings, and a control on the form for contrast. The PictureBox carries Scale* so the container's
-    /// own scale is checked too — that is what gives a VB.Line child its units.
+    /// PictureBox, an unmodelled child (NoSuchLib.Gadget, a type made up so that it is never modelled) sitting
+    /// among modelled siblings, and a control on the form for contrast. The PictureBox carries Scale* so the
+    /// container's own scale is checked too — that is what gives a child its units.
     /// </summary>
     internal const string NestedForm =
         "VERSION 5.00\r\n" +
@@ -75,7 +75,7 @@ public class ContainerHierarchyLoadTests
         "            Width           =   1215\r\n" +
         "         End\r\n" +
         "      End\r\n" +
-        "      Begin VB.Line Line1 \r\n" +
+        "      Begin NoSuchLib.Gadget Gadget1 \r\n" +
         "         X1              =   10\r\n" +
         "         X2              =   200\r\n" +
         "         Y1              =   10\r\n" +
@@ -170,12 +170,12 @@ public class ContainerHierarchyLoadTests
 
         var picture = Find(form, "picOuter");
 
-        // Line1 is picOuter's second child, after fraInner. Recording the ordinal is what lets the writer
+        // Gadget1 is picOuter's second child, after fraInner. Recording the ordinal is what lets the writer
         // put it back between the right two siblings instead of at the end of the form, where it would be
         // re-parented AND re-ordered — position among siblings is z-order.
         picture.PreservedChildSubtrees.Should().ContainSingle();
         picture.PreservedChildSubtrees[0].Ordinal.Should().Be(1);
-        picture.PreservedChildSubtrees[0].Text.Should().Contain("VB.Line Line1");
+        picture.PreservedChildSubtrees[0].Text.Should().Contain("NoSuchLib.Gadget Gadget1");
 
         form.Components[0].PreservedChildSubtrees.Should().BeEmpty(
             "the block was read from inside picOuter, and re-emitting it at form level is the re-parenting bug");
@@ -189,7 +189,7 @@ public class ContainerHierarchyLoadTests
         // FormDefinition.UnknownChildSubtreeTexts is now derived from the containers rather than stored.
         // Callers outside the serializer only ever wanted the flat view, and it still means what it meant.
         form.UnknownChildSubtreeTexts.Should().ContainSingle();
-        form.UnknownChildSubtreeTexts[0].Should().Contain("VB.Line Line1");
+        form.UnknownChildSubtreeTexts[0].Should().Contain("NoSuchLib.Gadget Gadget1");
     }
 
     [Fact]
@@ -199,26 +199,27 @@ public class ContainerHierarchyLoadTests
         // per container walks the form's list first and would report them the wrong way round, which is a
         // silent reordering of exactly the thing that is only being kept because it is verbatim.
         //
-        // VB.Line, not VB.Image. This used VB.Image until Image was modelled, at which point the fixture
+        // A made-up type. This used VB.Image until Image was modelled, at which point the fixture
         // stopped containing anything unmodelled and the test asserted document order over an empty list —
         // it failed loudly, which is the good outcome, but the lesson is that a fixture standing in for
-        // "unmodelled" has a shelf life. VB.Line is the sibling test's choice for the same reason.
+        // "unmodelled" has a shelf life. VB.Line replaced it, and then the Line was modelled too (#163), so it is
+        // now a type nobody will model. The sibling test made the same change for the same reason.
         const string frm =
             "VERSION 5.00\r\n" +
             "Begin VB.Form Form1 \r\n" +
             "   Begin VB.Frame Frame1 \r\n" +
-            "      Begin VB.Line lineInside \r\n" +
+            "      Begin NoSuchLib.Gadget gadgetInside \r\n" +
             "      End\r\n" +
             "   End\r\n" +
-            "   Begin VB.Line lineOutside \r\n" +
+            "   Begin NoSuchLib.Gadget gadgetOutside \r\n" +
             "   End\r\n" +
             "End\r\nAttribute VB_Name = \"Form1\"\r\n";
 
         var form = Load(frm);
 
         form.UnknownChildSubtreeTexts.Should().HaveCount(2);
-        form.UnknownChildSubtreeTexts[0].Should().Contain("lineInside");
-        form.UnknownChildSubtreeTexts[1].Should().Contain("lineOutside");
+        form.UnknownChildSubtreeTexts[0].Should().Contain("gadgetInside");
+        form.UnknownChildSubtreeTexts[1].Should().Contain("gadgetOutside");
     }
 
     [Fact]

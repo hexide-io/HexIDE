@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using HexIDE.Forms.ViewModels;
+using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
 using HexIDE.VisualDesigner;
 using ComponentInstanceViewModel = HexIDE.VisualDesigner.ComponentInstanceViewModel;
@@ -71,6 +72,9 @@ public class ControlRenderer : Decorator
             RenderTargetBitmap target = new RenderTargetBitmap(new PixelSize((int)Bounds.Width, (int)Bounds.Height),
                 new Vector(96, 96));
             var visual = ((ComponentBaseClass)Component.Instance.BaseClass).Instantiate(Component.Instance);
+            // A Line draws itself from its endpoints in its container's scale, which only the form knows (#163).
+            if (visual is VBLine line)
+                line.Resolve(Component.LineTwipsPerUnit);
             VisualChildren.Add(visual);
             LogicalChildren.Add(visual);
 

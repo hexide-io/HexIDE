@@ -103,14 +103,14 @@ public class WriterFormatTests
     {
         // The Begin and End of a preserved subtree are REGENERATED at the right indent rather than
         // replayed, so they are the one part of it that has to reproduce VB6's formatting itself.
-        // About Dialog.frm's two VB.Line controls are the corpus case, and they were the last two
-        // differing lines in that file.
+        // About Dialog.frm's two VB.Line controls were the corpus case, and they were the last two
+        // differing lines in that file. The Line is modelled now (#163), so a made-up type stands in.
         var saved = Save(Load(Frm(
-            "   Begin VB.Line Line1 \r\n" +
+            "   Begin NoSuchLib.Gadget Gadget1 \r\n" +
             "      X1              =   120\r\n" +
             "   End\r\n")));
 
-        saved.Should().Contain("   Begin VB.Line Line1 \r\n");
+        saved.Should().Contain("   Begin NoSuchLib.Gadget Gadget1 \r\n");
     }
 
     [Fact]

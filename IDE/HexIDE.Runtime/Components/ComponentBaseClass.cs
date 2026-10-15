@@ -13,17 +13,22 @@ public abstract class ComponentBaseClass : IComponentClass
 {
     public ComponentBaseClass(IReadOnlyList<PropertyClass> extendedProperties,
         IReadOnlyList<EventClass>? events = null)
+        : this(extendedProperties, events, hasBounds: true)
     {
-        Properties = new List<PropertyClass>(extendedProperties)
-        {
-            NameProperty,
-            LeftProperty,
-            TopProperty,
-            WidthProperty,
-            HeightProperty,
-            VisibleProperty,
-            TagProperty
-        };
+    }
+
+    /// <param name="hasBounds">
+    /// False for a control with no Left, Top, Width or Height, which is the Line: its geometry is two endpoints (#163). A
+    /// program reading one of them is 438 in VB6 (measured), and the .frm never holds them.
+    /// </param>
+    protected ComponentBaseClass(IReadOnlyList<PropertyClass> extendedProperties, IReadOnlyList<EventClass>? events,
+        bool hasBounds)
+    {
+        var properties = new List<PropertyClass>(extendedProperties) { NameProperty };
+        if (hasBounds)
+            properties.AddRange([LeftProperty, TopProperty, WidthProperty, HeightProperty]);
+        properties.AddRange([VisibleProperty, TagProperty]);
+        Properties = properties;
         PropertiesByName = Properties.ToDictionary(p => p.Name, p => p, StringComparer.OrdinalIgnoreCase);   // #811
         Events = events ?? [];
     }

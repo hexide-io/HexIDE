@@ -18,6 +18,7 @@ public class FormDeserializer
         FrameComponentClass.Instance,
         HScrollBarComponentClass.Instance,
         LabelComponentClass.Instance,
+        LineComponentClass.Instance,
         ListBoxComponentClass.Instance,
         MenuComponentClass.Instance,
         OptionButtonComponentClass.Instance,

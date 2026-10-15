@@ -16,6 +16,7 @@
     "Str.PropDesc.BackColor": "The background colour used for the object's text and graphics.",
     "Str.PropDesc.BorderColor": "The colour of the object's border.",
     "Str.PropDesc.FillColor": "The colour used to fill shapes such as circles and boxes.",
+    "Str.PropDesc.DrawMode": "How the line's colour combines with what is already drawn beneath it.",
     "Str.PropDesc.MaxButton": "Whether the form's title bar shows a Maximise button.",
     "Str.PropDesc.MinButton": "Whether the form's title bar shows a Minimise button.",
     "Str.PropCategory.Behavior": "Behaviour",
