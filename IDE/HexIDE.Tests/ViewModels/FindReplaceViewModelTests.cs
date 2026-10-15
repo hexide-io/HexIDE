@@ -267,6 +267,440 @@ public class FindReplaceViewModelTests
         editor.Document.Text.Should().Be("Hello HELLO Hi");
     }
 
+    /// <summary>A form whose control's name appears in its designer block and in its code.</summary>
+    private const string FormWithCommand1 =
+        "VERSION 5.00\r\n" +
+        "Begin VB.Form Form1 \r\n" +
+        "   Begin VB.CommandButton Command1 \r\n" +
+        "      Caption         =   \"Command1\"\r\n" +
+        "   End\r\n" +
+        "End\r\n" +
+        "Attribute VB_Name = \"Form1\"\r\n" +
+        "Private Sub Command1_Click()\r\n" +
+        "    Command1.Enabled = False\r\n" +
+        "End Sub\r\n";
+
+    [AvaloniaFact]
+    public void ReplaceAll_ReplacingTextThatAlsoAppearsInTheHeader()
+    {
+        // The code-editor delta's scenario (#273 task 3.9): the code is changed and the designer block is
+        // not. Replacing the control's name in the header would rename it behind the designer's back.
+        var editor = CreateMockEditor(FormWithCommand1);
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.SearchText = "Command1";
+        sut.ReplaceText = "cmdOK";
+
+        sut.ReplaceAllCommand.Execute(null);
+
+        var codeStart = FormWithCommand1.IndexOf("Private Sub", StringComparison.Ordinal);
+        editor.Document.Text.Should().Be(
+            FormWithCommand1[..codeStart] + FormWithCommand1[codeStart..].Replace("Command1", "cmdOK"));
+        _windowManager.Received(1).MessageBox("2 replacement(s) made.", "Replace",
+            MessageBoxButtons.Ok, MessageBoxIcon.Information);
+    }
+
+    private sealed class NullSink : HexIDE.Runtime.Serialization.IDeserializeErrorSink
+    {
+        public static readonly NullSink Instance = new();
+        public void LogError(string _) { }
+    }
+
+    /// <summary>
+    /// <see cref="FormWithCommand1"/> with a blank line after <c>VERSION</c>. The deserializer reads it, and the
+    /// window's header is the designer block it read. A header found from the text alone stops at the blank
+    /// line, taking <c>VERSION 5.00</c> for the whole of it, so this is a form on which the two ways of finding
+    /// the header disagree.
+    /// </summary>
+    private const string FormWithCommand1AndABlankLine =
+        "VERSION 5.00\r\n" +
+        "\r\n" +
+        "Begin VB.Form Form1 \r\n" +
+        "   Begin VB.CommandButton Command1 \r\n" +
+        "      Caption         =   \"Command1\"\r\n" +
+        "   End\r\n" +
+        "End\r\n" +
+        "Attribute VB_Name = \"Form1\"\r\n" +
+        "Private Sub Command1_Click()\r\n" +
+        "    Command1.Enabled = False\r\n" +
+        "End Sub\r\n";
+
+    [AvaloniaFact]
+    public void ReplaceAllDoesNotTouchAControlsBeginLine()
+    {
+        // Task 3.21's case, in the window as the IDE opens one: a form read by the deserializer and composed with
+        // its designer block in front of its code. ReplaceAll_ReplacingTextThatAlsoAppearsInTheHeader assigns its
+        // text to a window that was never given a form, so its header is found from the text alone; here the
+        // header is the prefix the window was opened with, which is the path every real form takes. The form is
+        // one the text alone misreads (FormWithCommand1AndABlankLine), so a window that stopped using its prefix
+        // would let the replacement into the Begin line, and this test would say so.
+        const string file = FormWithCommand1AndABlankLine;
+        var form = new HexIDE.Runtime.Serialization.FormDeserializer()
+            .Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), file, NullSink.Instance)!;
+        var editor = CreateMockEditor("");
+        editor.Initialize(form);
+        editor.CaretOffset = 0;
+        editor.Document.Text.Should().Be(file, "the premise: the window holds the form's file");
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.SearchText = "Command1";
+        sut.ReplaceText = "cmdOK";
+
+        sut.ReplaceAllCommand.Execute(null);
+
+        editor.Document.Text.Should().Contain("   Begin VB.CommandButton Command1 \r\n", "the control's Begin line is untouched")
+            .And.Contain("      Caption         =   \"Command1\"\r\n", "and so is everything else in the designer block");
+        var codeStart = file.IndexOf("Private Sub", StringComparison.Ordinal);
+        editor.Document.Text.Should().Be(
+            file[..codeStart] + file[codeStart..].Replace("Command1", "cmdOK"));
+        editor.BufferBody.Should().Be(form.Code.Replace("Command1", "cmdOK"), "the code is what changed");
+        editor.Dispose();
+    }
+
+    [AvaloniaFact]
+    public void ReplaceOne_WithAMatchSelectedInTheHeader_LeavesItAlone()
+    {
+        var editor = CreateMockEditor(FormWithCommand1);
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.SearchText = "Command1";
+        sut.ReplaceText = "cmdOK";
+        editor.SelectionStart = FormWithCommand1.IndexOf("Command1", StringComparison.Ordinal);
+        editor.SelectionLength = "Command1".Length;
+
+        sut.ReplaceOneCommand.Execute(null);
+
+        editor.Document.Text.Should().Be(FormWithCommand1);
+        editor.SelectionStart.Should().Be(FirstCodeMatch,
+            "the Find that follows a Replace skips the header too, so it lands on the code");
+    }
+
+    // --- Read-only regions: Find does not search them (#273 task 3.11) ---
+    //
+    // The code-editor delta's "Searching for a control's name": only matches in the code are found. Each
+    // direction and each wrap is its own scan, plain and pattern alike, so each has its own test here. A
+    // scan that forgot the regions would land in the designer block, usually inside a fold.
+
+    private static readonly int CodeStart = FormWithCommand1.IndexOf("Private Sub", StringComparison.Ordinal);
+    private static readonly int FirstCodeMatch = FormWithCommand1.IndexOf("Command1", CodeStart, StringComparison.Ordinal);
+    private static readonly int LastCodeMatch = FormWithCommand1.LastIndexOf("Command1", StringComparison.Ordinal);
+
+    private FindReplaceViewModel SearchingTheFormFor(string term, int caret, FindDirection direction,
+        bool pattern = false)
+    {
+        var editor = CreateMockEditor(FormWithCommand1);
+        editor.CaretOffset = caret;
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.SearchText = term;
+        sut.Direction = direction;
+        sut.UsePatternMatching = pattern;
+        return sut;
+    }
+
+    private CodeEditorViewModel ActiveEditor => (CodeEditorViewModel)_documentDockService.ActiveDocument!;
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SearchingForAControlsName_Down_FindsTheCodeNotTheDesignerBlock(bool pattern)
+    {
+        var sut = SearchingTheFormFor("Command1", caret: 0, FindDirection.Down, pattern);
+
+        sut.FindNextCommand.Execute(null);
+
+        ActiveEditor.SelectionStart.Should().Be(FirstCodeMatch,
+            "the designer block's Begin line and Caption come first in the file, and neither is searched");
+        ActiveEditor.SelectionLength.Should().Be("Command1".Length);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SearchingForAControlsName_Down_WrapsToTheFirstMatchInTheCode(bool pattern)
+    {
+        var sut = SearchingTheFormFor("Command1", caret: LastCodeMatch + "Command1".Length, FindDirection.Down, pattern);
+
+        sut.FindNextCommand.Execute(null);
+
+        ActiveEditor.SelectionStart.Should().Be(FirstCodeMatch, "the wrap starts at the top of the file");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SearchingForAControlsName_Up_FindsTheCodeNotTheDesignerBlock(bool pattern)
+    {
+        var sut = SearchingTheFormFor("Command1", caret: LastCodeMatch, FindDirection.Up, pattern);
+
+        sut.FindNextCommand.Execute(null);
+
+        ActiveEditor.SelectionStart.Should().Be(FirstCodeMatch);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SearchingForAControlsName_Up_WrapsToTheLastMatchInTheCode(bool pattern)
+    {
+        // Upward from the first match in the code, the next two candidates are the designer block's. Both
+        // are passed over and the search wraps to the bottom of the file.
+        var sut = SearchingTheFormFor("Command1", caret: FirstCodeMatch, FindDirection.Up, pattern);
+
+        sut.FindNextCommand.Execute(null);
+
+        ActiveEditor.SelectionStart.Should().Be(LastCodeMatch);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SearchingUp_WrapsPastAnAttributeLineAtTheBottomOfTheFile(bool pattern)
+    {
+        // The Up wrap scans from the bottom of the file, so what it meets first is whatever read-only region
+        // lies below the caret: here, the last procedure's attribute line. A header is always above the
+        // caret, so the test above cannot reach this scan's own filter.
+        const string module =
+            "Attribute VB_Name = \"Module1\"\r\n" +
+            "Private Sub Other()\r\n" +
+            "    x = Total\r\n" +
+            "End Sub\r\n" +
+            "Public Function Total() As Currency\r\n" +
+            "Attribute Total.VB_Description = \"x\"\r\n" +
+            "End Function\r\n";
+        var editor = CreateMockEditor(module);
+        editor.CaretOffset = module.IndexOf("Total", StringComparison.Ordinal);
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.SearchText = "Total";
+        sut.Direction = FindDirection.Up;
+        sut.UsePatternMatching = pattern;
+
+        sut.FindNextCommand.Execute(null);
+
+        editor.SelectionStart.Should().Be(module.IndexOf("Function Total", StringComparison.Ordinal) + "Function ".Length,
+            "the attribute line's Total is the last in the file and is passed over");
+    }
+
+    [AvaloniaFact]
+    public void AllOpenDocuments_TheFinalWrapIntoTheActiveDocumentPassesOverItsHeader()
+    {
+        // Nothing below the caret and nothing in the other document, so the search comes back round to the
+        // top of the active one, where the designer block's matches come first.
+        var form = CreateMockEditor(FormWithCommand1);
+        form.CaretOffset = LastCodeMatch + "Command1".Length;
+        SetOpenDocuments(form, CreateCarriedFileEditor("nothing to see here"));
+        var sut = CreateSut();
+        sut.SearchText = "Command1";
+        sut.Scope = FindScope.AllOpenDocuments;
+
+        sut.FindNextCommand.Execute(null);
+
+        form.SelectionStart.Should().Be(FirstCodeMatch);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void SearchingForTextOnlyTheHeaderHolds_IsNotFound(bool pattern)
+    {
+        var sut = SearchingTheFormFor("VB_Name", caret: 0, FindDirection.Down, pattern);
+
+        sut.FindNextCommand.Execute(null);
+
+        ActiveEditor.SelectionLength.Should().Be(0);
+        _windowManager.Received(1).MessageBox("The search text 'VB_Name' was not found.", "Find",
+            MessageBoxButtons.Ok, MessageBoxIcon.Information);
+    }
+
+    [AvaloniaFact]
+    public void SearchingForAMembersName_PassesOverItsAttributeLines()
+    {
+        const string cls =
+            "VERSION 1.0 CLASS\r\n" +
+            "BEGIN\r\n" +
+            "  MultiUse = -1  'True\r\n" +
+            "END\r\n" +
+            "Attribute VB_Name = \"Order\"\r\n" +
+            "Option Explicit\r\n" +
+            "Public Function Total() As Currency\r\n" +
+            "Attribute Total.VB_Description = \"The order total\"\r\n" +
+            "    Total = 0\r\n" +
+            "End Function\r\n";
+        var editor = CreateMockEditor(cls);
+        editor.CaretOffset = cls.IndexOf("Total()", StringComparison.Ordinal) + "Total".Length;
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.SearchText = "Total";
+
+        sut.FindNextCommand.Execute(null);
+
+        editor.SelectionStart.Should().Be(cls.IndexOf("    Total = 0", StringComparison.Ordinal) + 4,
+            "a member's attribute run is a read-only region as much as the header is");
+    }
+
+    [AvaloniaFact]
+    public void AllOpenDocuments_SearchesAnotherDocumentOutsideItsOwnRegions()
+    {
+        var active = CreateMockEditor("Option Explicit\r\n");
+        var form = CreateMockEditor(FormWithCommand1);
+        SetOpenDocuments(active, form);
+        var sut = CreateSut();
+        sut.SearchText = "Command1";
+        sut.Scope = FindScope.AllOpenDocuments;
+
+        sut.FindNextCommand.Execute(null);
+
+        form.SelectionStart.Should().Be(FirstCodeMatch,
+            "each document is searched against its own regions, not the active one's");
+    }
+
+    [AvaloniaFact]
+    public void ReplaceAll_WithPatternMatching_LeavesTheHeaderAlone()
+    {
+        // Replace All walks backwards through its own scan, FindPrevious, which has a pattern half of its own.
+        var editor = CreateMockEditor(FormWithCommand1);
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.SearchText = "Command[0-9]";
+        sut.ReplaceText = "cmdOK";
+        sut.UsePatternMatching = true;
+
+        sut.ReplaceAllCommand.Execute(null);
+
+        editor.Document.Text.Should().Be(
+            FormWithCommand1[..CodeStart] + FormWithCommand1[CodeStart..].Replace("Command1", "cmdOK"));
+    }
+
+    [AvaloniaTheory]
+    [InlineData(FindDirection.Down, 0)]
+    [InlineData(FindDirection.Up, -1)]
+    public void APatternMatchStraddlingTheHeadersEnd_DoesNotHideTheMatchInsideTheCode(FindDirection direction, int caret)
+    {
+        // \s* first matches from the header's last line break, which overlaps the header and is refused.
+        // Resuming after that match, as NextMatch and Matches do, would skip "Private Sub" inside it.
+        var sut = SearchingTheFormFor(@"\s*Private Sub", caret < 0 ? FormWithCommand1.Length : caret, direction,
+            pattern: true);
+
+        sut.FindNextCommand.Execute(null);
+
+        ActiveEditor.SelectionStart.Should().Be(CodeStart);
+        ActiveEditor.SelectionLength.Should().Be("Private Sub".Length);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void SearchingUp_FromEitherEndOfTheFile_FindsTheLastMatchInTheCode(int caret)
+    {
+        // Up from offset 0 scans from the bottom of the file, like Up from the end of it.
+        var sut = SearchingTheFormFor("Command1", caret < 0 ? FormWithCommand1.Length : caret, FindDirection.Up);
+
+        sut.FindNextCommand.Execute(null);
+
+        ActiveEditor.SelectionStart.Should().Be(LastCodeMatch);
+    }
+
+    [AvaloniaFact]
+    public void ReplaceAll_WithAPatternStraddlingAnAttributeRunsEnd_ReplacesTheMatchAfterIt()
+    {
+        const string cls =
+            "Attribute VB_Name = \"Order\"\r\n" +
+            "Public Function Total() As Currency\r\n" +
+            "Attribute Total.VB_Description = \"The order total\"\r\n" +
+            "    Total = 0\r\n" +
+            "End Function\r\n";
+        var editor = CreateMockEditor(cls);
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.SearchText = @"\s+Total = 0";
+        sut.ReplaceText = "    Total = 1";
+        sut.UsePatternMatching = true;
+
+        sut.ReplaceAllCommand.Execute(null);
+
+        editor.Document.Text.Should().Be(cls.Replace("    Total = 0", "    Total = 1"),
+            "the first match begins on the attribute line's terminator and is refused; the one a character "
+            + "later begins on the code line");
+    }
+
+    /// <summary>A procedure with a description: the attribute run hangs from the declaration's line break.</summary>
+    private const string DescribedFunction =
+        "Attribute VB_Name = \"Order\"\r\n" +
+        "Public Function Total() As Currency\r\n" +
+        "Attribute Total.VB_Description = \"The order total\"\r\n" +
+        "    Total = 0\r\n" +
+        "End Function\r\n";
+
+    [AvaloniaFact]
+    public void ReplaceOne_NeverJoinsAMembersAttributeLineOntoItsDeclaration()
+    {
+        // Found by review. The match ends on the declaration's line break, which is outside the attribute
+        // run, and replacing it would join the attribute line onto the declaration. Typing was already
+        // refused that deletion (task 3.7); Find and Replace now ask the same question.
+        var editor = CreateMockEditor(DescribedFunction);
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.SearchText = "Currency\r\n";
+        sut.ReplaceText = "Currency";
+
+        sut.FindNextCommand.Execute(null);
+        sut.ReplaceOneCommand.Execute(null);
+
+        editor.Document.Text.Should().Be(DescribedFunction);
+    }
+
+    [AvaloniaFact]
+    public void ReplaceAll_NeverJoinsAMembersAttributeLineOntoItsDeclaration()
+    {
+        var editor = CreateMockEditor(DescribedFunction);
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.SearchText = @"Currency\s+";
+        sut.ReplaceText = "Long ";
+        sut.UsePatternMatching = true;
+
+        sut.ReplaceAllCommand.Execute(null);
+
+        editor.Document.Text.Should().Be(DescribedFunction);
+    }
+
+    [AvaloniaFact]
+    public void FindNext_WithPatternMatchingAndWholeWord_FindsAWholeWordInsideARefusedMatch()
+    {
+        // "Total.*" first matches "total = Total + 1" inside "Subtotal", which is not a whole word. The
+        // whole-word match overlaps it and starts later.
+        var editor = CreateMockEditor("Subtotal = Total + 1");
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.SearchText = "Total.*";
+        sut.UsePatternMatching = true;
+        sut.WholeWordOnly = true;
+
+        sut.FindNextCommand.Execute(null);
+
+        editor.SelectionStart.Should().Be("Subtotal = ".Length);
+        editor.SelectionLength.Should().Be("Total + 1".Length);
+    }
+
+    [AvaloniaFact]
+    public void FindNext_WithPatternMatchingAndWholeWord_WalksPastAMatchThatIsNotAWholeWord()
+    {
+        // The pattern scan used to take the first match and stop, so a first match that failed Whole Word
+        // meant "not found" however many whole-word matches followed. Walking past a match is what the
+        // regions need anyway, and it fixes this with them.
+        var editor = CreateMockEditor("Dim Totals\r\nTotal = 1\r\n");
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.SearchText = "Total";
+        sut.UsePatternMatching = true;
+        sut.WholeWordOnly = true;
+
+        sut.FindNextCommand.Execute(null);
+
+        editor.SelectionStart.Should().Be("Dim Totals\r\n".Length);
+    }
+
     // --- Pattern matching (regex) ---
 
     [AvaloniaFact]

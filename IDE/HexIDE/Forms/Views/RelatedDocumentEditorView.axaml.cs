@@ -25,6 +25,7 @@ public partial class RelatedDocumentEditorView : UserControl
     private TextEditor? _foldingEditor;
     private CancellationTokenSource? _foldCts;
     private EventHandler? _onTextChangedForFolding;
+    private IDisposable? _foldLabelSub;
     private LspDiagnosticsColorizer? _colorizer;
     private System.ComponentModel.PropertyChangedEventHandler? _vmCaretSync;
     private EventHandler? _caretMoved;
@@ -86,6 +87,10 @@ public partial class RelatedDocumentEditorView : UserControl
         // Folding, on the same terms as the VB6 editor. A carried file's URI is a real file: one, so an
         // attached server can answer for it; the registry decides whether any server may.
         _foldingManager = FoldingManager.Install(editor.TextArea);
+        // Fold labels in the theme's read-only colour, which is one brush for every editor, and repainted here when
+        // that colour changes. A switch between the shipped packs also changes this editor's text colour, which
+        // repaints it anyway; a pack differing from another in the read-only colour alone would not.
+        _foldLabelSub = ReadOnlyText.Follow(this, _ => editor.TextArea.TextView.Redraw());
         _onTextChangedForFolding = (_, _) => ScheduleFolding(editor, vm);
         editor.TextChanged += _onTextChangedForFolding;
         _foldingEditor = editor;
@@ -241,6 +246,9 @@ public partial class RelatedDocumentEditorView : UserControl
             if (foldingEditor is not null) foldingEditor.TextChanged -= _onTextChangedForFolding;
             _onTextChangedForFolding = null;
         }
+
+        _foldLabelSub?.Dispose();
+        _foldLabelSub = null;
 
         if (_foldingManager is not null)
         {

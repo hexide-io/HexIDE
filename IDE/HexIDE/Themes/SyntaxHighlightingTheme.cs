@@ -248,7 +248,7 @@ public static class SyntaxHighlightingTheme
     }
 
     /// <summary>WCAG relative-luminance contrast ratio between two opaque colours.</summary>
-    private static double ContrastRatio(Color a, Color b)
+    internal static double ContrastRatio(Color a, Color b)
     {
         var la = RelativeLuminance(a);
         var lb = RelativeLuminance(b);

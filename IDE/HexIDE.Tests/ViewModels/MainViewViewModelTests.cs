@@ -45,9 +45,10 @@ public class MainViewViewModelTests
     /// The view model over the given runner. A substitute serves most tests; a real runner lets a test start
     /// where F5 does and end at what the user is shown.
     /// </summary>
-    private MainViewViewModel Build(IProjectRunnerService runner)
+    private MainViewViewModel Build(IProjectRunnerService runner, IDocumentDockService? dock = null,
+        HexIDE.Debugging.IBreakpointService? breakpoints = null)
     {
-        var mockDocDock = Substitute.For<IDocumentDockService>();
+        var mockDocDock = dock ?? Substitute.For<IDocumentDockService>();
         var loc = Substitute.For<ILocalizationService>();
         loc.ActiveLanguage.Returns("en");
 
@@ -127,7 +128,7 @@ public class MainViewViewModelTests
             new AddinCommandService(),
             new AddinToolWindowService(),
             windowStateService,
-            Substitute.For<HexIDE.Debugging.IBreakpointService>(),
+            breakpoints ?? Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
     }
 
@@ -615,5 +616,73 @@ public class MainViewViewModelTests
         _windowManager.Received(1).ShowDialog(
             Arg.Is<HexIDE.Forms.ViewModels.RuntimeErrorViewModel>(vm => vm.ErrorText == recorded.Value.Message));
         runner.IsRunning.Should().BeFalse();
+    }
+
+    // --- Breakpoints from the main window (the interpreter-debugger delta's restated scenarios) ---
+
+    /// <summary>A code window on a module of the given project, keeping its marks in <paramref name="breakpoints"/>.</summary>
+    private static HexIDE.Forms.ViewModels.CodeEditorViewModel CodeWindow(
+        ProjectDefinition project, string name, HexIDE.Debugging.IBreakpointService breakpoints)
+    {
+        var module = new ModuleDefinition(project, name, ModuleKind.StandardModule);
+        module.UpdateCode("Option Explicit\r\n\r\nSub Main()\r\n    Debug.Print 1\r\nEnd Sub\r\n");
+        project.AddModule(module);
+        var eventBus = Substitute.For<IEventBus>();
+        eventBus.Subscribe<HexIDE.Events.CreateOrNavigateToSubEvent>(Arg.Any<Action<HexIDE.Events.CreateOrNavigateToSubEvent>>()).Returns(Substitute.For<IDisposable>());
+        eventBus.Subscribe<HexIDE.Events.ApplyAllUnsavedChangesEvent>(Arg.Any<Action<HexIDE.Events.ApplyAllUnsavedChangesEvent>>()).Returns(Substitute.For<IDisposable>());
+        eventBus.Subscribe<HexIDE.Events.FormUnloadedEvent>(Arg.Any<Action<HexIDE.Events.FormUnloadedEvent>>()).Returns(Substitute.For<IDisposable>());
+        return new HexIDE.Forms.ViewModels.CodeEditorViewModel(
+            Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(), eventBus,
+            Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
+            Substitute.For<HexIDE.Bookmarks.IBookmarkService>(), breakpoints,
+            Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.Debugging.IRunScope>(),
+            Substitute.For<ILocalizationService>()).Initialize(module);
+    }
+
+    [AvaloniaFact]
+    public void TogglingABreakpointOnTheCaretLine()
+    {
+        // F9 and Debug > Toggle Breakpoint both run the main window's ToggleBreakpoint (MainView.axaml binds the
+        // command they share to it). It toggles the active code window's caret line, counted from the top of the
+        // file, and toggling it again removes the breakpoint. The gutter's click and the dot it draws are
+        // MarkGutterOnReadOnlyLineTests'.
+        var breakpoints = new HexIDE.Debugging.BreakpointService();
+        var dock = Substitute.For<IDocumentDockService>();
+        using var code = CodeWindow(new ProjectDefinition(VBProjectType.EXE, "P"), "Module1", breakpoints);
+        dock.ActiveDocument.Returns(code);
+        var sut = Build(_runnerService, dock, breakpoints);
+        code.CaretOffset = code.Document.Text.IndexOf("Debug.Print", StringComparison.Ordinal);
+        var line = code.Document.GetLineByOffset(code.CaretOffset).LineNumber;
+        line.Should().Be(5, "the premise: the Attribute VB_Name line is line 1, so the statement is line 5");
+
+        sut.ToggleBreakpoint();
+
+        breakpoints.GetBreakpoints(code.Identity).Should().Equal(line);
+
+        sut.ToggleBreakpoint();
+
+        breakpoints.GetBreakpoints(code.Identity).Should().BeEmpty("toggling again removes it");
+    }
+
+    [AvaloniaFact]
+    public void ClearingEveryBreakpointInTheProject()
+    {
+        // Ctrl+Shift+F9 and Debug > Clear All Breakpoints both run the main window's ClearAllBreakpoints. Every
+        // document loses its breakpoints, in a second loaded project as well.
+        var breakpoints = new HexIDE.Debugging.BreakpointService();
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        using var first = CodeWindow(project, "Module1", breakpoints);
+        using var second = CodeWindow(project, "Module2", breakpoints);
+        using var elsewhere = CodeWindow(new ProjectDefinition(VBProjectType.EXE, "Q"), "Module1", breakpoints);
+        first.ToggleBreakpoint(4).Should().BeTrue();
+        second.ToggleBreakpoint(5).Should().BeTrue();
+        elsewhere.ToggleBreakpoint(4).Should().BeTrue();
+        var sut = Build(_runnerService, Substitute.For<IDocumentDockService>(), breakpoints);
+
+        sut.ClearAllBreakpoints();
+
+        breakpoints.GetBreakpoints(first.Identity).Should().BeEmpty();
+        breakpoints.GetBreakpoints(second.Identity).Should().BeEmpty();
+        breakpoints.GetBreakpoints(elsewhere.Identity).Should().BeEmpty();
     }
 }

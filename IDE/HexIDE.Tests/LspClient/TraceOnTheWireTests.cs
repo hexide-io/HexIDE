@@ -112,7 +112,8 @@ public class TraceOnTheWireTests : IAsyncDisposable
     /// <summary>Waits for a condition the far end satisfies asynchronously, rather than sleeping at it.</summary>
     private static async Task EventuallyAsync(Func<bool> condition)
     {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        // 30s to match the rest of this suite: 10s was the outlier that flaked on CI (#503).
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
         while (DateTime.UtcNow < deadline)
         {
             if (condition()) return;

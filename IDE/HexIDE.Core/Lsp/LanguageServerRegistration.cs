@@ -30,7 +30,9 @@ namespace HexIDE.Lsp;
 /// server's <c>python</c> and another's <c>python3</c> can both be right about the same file.
 ///
 /// <para>
-/// It doubles as the claim for HexIDE's own <c>vb6://</c> documents, which carry no extension to match on.
+/// It no longer routes anything on its own — #273 retired the <c>vb6://</c> scheme it used to claim — but
+/// declaring <c>vb6</c> still establishes that an entry serves VB6, which is what lets it be offered a
+/// project's class modules despite <c>.cls</c> belonging to another language too.
 /// </para>
 /// </param>
 /// <param name="CreateClient">Builds the single-server client, transport and all. Called at most once.</param>

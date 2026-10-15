@@ -63,7 +63,8 @@ public class ClassModuleSaveFidelityTests : IDisposable
             Substitute.For<IReferenceLibraryService>(),
             sidecar,
             new FileBaselineStore(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>());
+            Substitute.For<HexIDE.Localization.ILocalizationService>(),
+            Substitute.For<IHeaderRefresher>());
     }
 
     /// <summary>Stages a VB6-shipped class beside a minimal .vbp. Null when VB6 is absent.</summary>

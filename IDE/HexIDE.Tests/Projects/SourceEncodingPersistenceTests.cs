@@ -65,7 +65,8 @@ public class SourceEncodingPersistenceTests : IDisposable
             Substitute.For<IReferenceLibraryService>(),
             sidecar,
             new FileBaselineStore(),
-            localization);
+            localization,
+            Substitute.For<IHeaderRefresher>());
     }
 
     private string WriteProject()

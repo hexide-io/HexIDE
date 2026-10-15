@@ -91,7 +91,8 @@ public class CompanionBinaryPreservationTests : IDisposable
             Substitute.For<IReferenceLibraryService>(),
             sidecar,
             new FileBaselineStore(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>());
+            Substitute.For<HexIDE.Localization.ILocalizationService>(),
+            Substitute.For<IHeaderRefresher>());
     }
 
     /// <summary>Copies a VB6-shipped form + its .frx into the scratch dir with a .vbp. Null if VB6 absent.</summary>

@@ -71,23 +71,4 @@ public class FormCodeTextTests
 
         FormCodeText.AttributeBlock(code).Should().BeEmpty();
     }
-
-    [Theory]
-    [InlineData("VERSION 5.00\r\nBegin VB.Form Form1 \r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n", true)]
-    [InlineData("\r\n\r\nVERSION 5.00\r\nBegin VB.Form Form1 \r\nEnd\r\n", true)]
-    [InlineData("Attribute VB_Name = \"Form1\"\r\nPrivate Sub Form_Load()\r\nEnd Sub\r\n", false)]
-    [InlineData("Private Sub Form_Load()\r\nEnd Sub\r\n", false)]
-    [InlineData("", false)]
-    public void A_whole_frm_file_is_told_apart_from_a_code_section(string content, bool isFile)
-    {
-        FormCodeText.LooksLikeFormFile(content).Should().Be(isFile);
-    }
-
-    [Fact]
-    public void A_lone_VERSION_line_is_not_enough_to_call_it_a_file()
-    {
-        // Both signals are required: VERSION alone could plausibly open a code section, VERSION followed by
-        // a Begin block is the shape of the file and of nothing else.
-        FormCodeText.LooksLikeFormFile("VERSION = 5\r\nDebug.Print VERSION\r\n").Should().BeFalse();
-    }
 }

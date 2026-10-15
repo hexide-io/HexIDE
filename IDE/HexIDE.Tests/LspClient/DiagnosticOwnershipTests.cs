@@ -11,7 +11,7 @@ namespace HexIDE.Tests.LspClient;
 
 public class DiagnosticOwnershipTests
 {
-    private const string Form1 = "vb6://form/Form1";
+    private const string Form1 = "untitled:Project1/Form1.frm";
 
     private const string FullCapabilities = """
         {"textDocumentSync":{"openClose":true,"change":1}}
@@ -93,6 +93,51 @@ public class DiagnosticOwnershipTests
         seen.GetAll().Should().Contain(d => d.Code == "F401" && d.Source == "Ruff");
         seen.GetAll().Should().Contain(d => d.Code == "1042" && d.Source == "vbc",
             "a numeric code is as usable as a named one, rendered as the digits it arrived as");
+    }
+
+    [Fact]
+    public async Task ARenameWithdrawsEveryOwnersRowsUnderTheOldName()
+    {
+        // The case an empty publication cannot reach, and the reason 2.4b needed a new ledger operation
+        // rather than a call to an existing one. Record(uri, owner, []) removes that owner's row and
+        // returns the union of the REST -- so a form carrying both a server diagnostic and an injected
+        // compiler one still publishes a non-empty set. Under a name the document no longer answers to,
+        // the compiler's rows are marks nothing will ever clear: #269's shape by a different route.
+        var server = FakeServer();
+        var sut = Registry(Registration("vb6", server));
+        await sut.OpenDocumentAsync(Form1, "code", TestContext.Current.CancellationToken);
+
+        using var seen = new AddinDiagnosticsService(sut, NoProjects());
+
+        server.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(
+            server, new PublishDiagnosticsParams(Form1, [Say("from the server")]));
+        await sut.InjectDiagnosticsAsync(Form1, [Say("from the compiler")], DiagnosticOwner.Vb6Compiler);
+        seen.GetAll().Should().HaveCount(2, "the premise: two owners, one document");
+
+        await sut.CloseDocumentForRenameAsync(Form1, TestContext.Current.CancellationToken);
+
+        seen.GetAll().Should().BeEmpty(
+            "nothing may remain recorded under a name the document has stopped answering to");
+    }
+
+    [Fact]
+    public async Task AnOrdinaryCloseLeavesTheCompilersClaimAlone()
+    {
+        // The counterweight, and why the rename close is a separate method rather than the ordinary one
+        // made thorough. Shutting an editor does not make a build's claim about that form untrue -- the
+        // form still exists, under that name, and the error is still there to be found when it reopens.
+        var server = FakeServer();
+        var sut = Registry(Registration("vb6", server));
+        await sut.OpenDocumentAsync(Form1, "code", TestContext.Current.CancellationToken);
+
+        using var seen = new AddinDiagnosticsService(sut, NoProjects());
+
+        await sut.InjectDiagnosticsAsync(Form1, [Say("from the compiler")], DiagnosticOwner.Vb6Compiler);
+
+        await sut.CloseDocumentAsync(Form1, TestContext.Current.CancellationToken);
+
+        seen.GetAll().Should().ContainSingle()
+            .Which.Message.Should().Be("from the compiler");
     }
 
     [Fact]

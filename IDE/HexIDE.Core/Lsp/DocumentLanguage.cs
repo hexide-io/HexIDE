@@ -13,46 +13,31 @@ namespace HexIDE.Lsp;
 /// </para>
 ///
 /// <para>
-/// <b>Scheme first, extension second.</b> HexIDE's own documents are <c>vb6://module/Module1</c> and
-/// <c>vb6://form/Form1</c> — they carry no extension at all, so an extension-only rule would fail to
-/// classify the only documents the IDE opens today. That rule stays here rather than moving to a server's
-/// declaration, because the scheme is HexIDE's own invention and not a server's claim to make.
+/// <b>By extension, for every document.</b> This used to read a URI scheme first, because HexIDE named its
+/// own documents <c>vb6://module/Module1</c> and those carry no extension to match on. Since #273 they are
+/// named <c>file:</c> or <c>untitled:&lt;Project&gt;/&lt;Name&gt;.&lt;ext&gt;</c> and always carry one, so
+/// there is a single rule again — which is the point of having stopped inventing a scheme.
+/// </para>
+///
+/// <para>
+/// What the extension cannot say is whether a document belongs to a VB6 project, and <c>.cls</c> is a VB6
+/// class module and equally a LaTeX class file. That question is answered by
+/// <see cref="EstablishesVb6"/>, applied to documents the caller states are project members.
 /// </para>
 /// </summary>
 public static class DocumentLanguage
 {
     /// <summary>
-    /// HexIDE's own scheme, and the language identifier a server must declare to be offered the documents
-    /// carrying it.
+    /// The language identifier for VB6 — what the bundled server declares, what a user's entry may declare
+    /// to establish that it serves VB6, and what documents are labelled as on the wire.
+    ///
+    /// <para>
+    /// It no longer routes anything on its own. It was also a URI scheme until #273, and reading it as a
+    /// claim meant a VB6 server attached as <c>vba</c> — at least as natural a choice — started,
+    /// initialized and was never sent a document (hexide-io/HexIDE#277).
+    /// </para>
     /// </summary>
     public const string Vb6 = "vb6";
-
-    /// <summary>
-    /// The language a URI's scheme names, or null when the scheme names a transport rather than a language.
-    ///
-    /// <para>
-    /// Only <c>vb6</c> qualifies today, because it is the only scheme HexIDE mints. <c>file</c> deliberately
-    /// does not: it says where a document is, not what it is.
-    /// </para>
-    ///
-    /// <para>
-    /// A server is offered these documents by declaring this as its language identifier. That is a real
-    /// coupling worth naming: a replacement VB6 server that calls the language something else would not be
-    /// offered the IDE's own documents. It is the correct trade while the scheme is HexIDE's own — the
-    /// alternative is letting configuration claim a scheme, which invites two servers to disagree about
-    /// what <c>vb6://</c> means, and unlike a file extension there is no outside authority to appeal to.
-    /// </para>
-    /// </summary>
-    public static string? SchemeLanguageOf(string? uri)
-    {
-        if (string.IsNullOrWhiteSpace(uri)) return null;
-
-        var schemeEnd = uri.IndexOf("://", StringComparison.Ordinal);
-        if (schemeEnd <= 0) return null;
-
-        var scheme = uri[..schemeEnd];
-        return scheme.Equals(Vb6, StringComparison.OrdinalIgnoreCase) ? Vb6 : null;
-    }
 
     /// <summary>
     /// The document's extension including its leading dot, lower-cased, or null when it has none.
@@ -90,8 +75,8 @@ public static class DocumentLanguage
         [".bas", ".cls", ".frm", ".ctl", ".pag", ".dob", ".dsr"];
 
     /// <summary>
-    /// The VB6 extensions that mean VB6 and nothing else — used to recognise an entry as a claim on the
-    /// IDE's own documents, which carry no extension of their own.
+    /// The VB6 extensions that mean VB6 and nothing else — how an entry establishes that it serves VB6,
+    /// and so may be offered a project's class modules as well as its unambiguous documents.
     ///
     /// <para>
     /// <c>.cls</c> is deliberately absent. It is a VB6 class module and it is equally a LaTeX class file
@@ -103,4 +88,33 @@ public static class DocumentLanguage
     /// </summary>
     public static readonly string[] UnambiguousVb6Extensions =
         [".bas", ".frm", ".ctl", ".pag", ".dob", ".dsr"];
+
+    /// <summary>
+    /// Whether a server's own claim establishes that it serves VB6 — it claims a VB6 extension no other
+    /// language uses, or it declares the identifier outright.
+    /// </summary>
+    /// <param name="extensions">the extensions the entry claims.</param>
+    /// <param name="languageId">the identifier the entry declares.</param>
+    /// <remarks>
+    /// <para>
+    /// This is the gate a <b>project member</b> passes through, and only a project member: a carried
+    /// <c>.cls</c> is an ordinary file and goes wherever its extension leads. A member is known to be VB6
+    /// whatever its extension shares with another language, so offering it to a server that has not
+    /// established VB6 would hand a LaTeX server the developer's source (hexide-io/HexIDE#279).
+    /// </para>
+    /// <para>
+    /// <b>Applying it to every member is the same rule as applying it only to ambiguous extensions</b>,
+    /// which is why there is no second predicate. On <c>.bas</c>, <c>.frm</c>, <c>.ctl</c> or <c>.pag</c>
+    /// the very extension that matched is itself unambiguous, so an entry that routed on it satisfies this
+    /// too and the gate is the identity. <c>.cls</c> is the only VB6 source extension it can actually
+    /// exclude, and excluding it is the whole point.
+    /// </para>
+    /// <para>
+    /// Said loosely as "an extension no other language uses", the rule would admit a Markdown server
+    /// through <c>.md</c>. It is deliberately about <em>VB6's</em> unambiguous extensions.
+    /// </para>
+    /// </remarks>
+    public static bool EstablishesVb6(IEnumerable<string> extensions, string? languageId) =>
+        Vb6.Equals(languageId, StringComparison.OrdinalIgnoreCase)
+        || extensions.Intersect(UnambiguousVb6Extensions, StringComparer.OrdinalIgnoreCase).Any();
 }

@@ -31,6 +31,7 @@ public class ProjectService : IProjectService
     private readonly IUserSidecarService sidecar;
     private readonly IFileBaselineStore baselineStore;
     private readonly ILocalizationService localization;
+    private readonly IHeaderRefresher headerRefresher;
 
     public ProjectService(Func<NewProjectViewModel> newProjectVm,
         IWindowManager windowManager,
@@ -40,7 +41,8 @@ public class ProjectService : IProjectService
         IReferenceLibraryService referenceLibraryService,
         IUserSidecarService sidecar,
         IFileBaselineStore baselineStore,
-        ILocalizationService localization)
+        ILocalizationService localization,
+        IHeaderRefresher headerRefresher)
     {
         this.newProjectVm = newProjectVm;
         this.windowManager = windowManager;
@@ -51,6 +53,7 @@ public class ProjectService : IProjectService
         this.sidecar = sidecar;
         this.baselineStore = baselineStore;
         this.localization = localization;
+        this.headerRefresher = headerRefresher;
     }
 
     /// <summary>
@@ -426,7 +429,7 @@ public class ProjectService : IProjectService
             // Returned so a non-interactive caller can tell a refusal from a save. The MCP write tools reported
             // success unconditionally, which told an agent a file had been written when it had not — and an
             // agent, unlike a developer, has no dialog to read and will build on the answer.
-            return (await WithEncodingError(() => SaveFiles([(form, saveAs)]), interactive)).Count > 0;
+            return (await WithEncodingError(() => SaveFiles([(form, saveAs)], ownCommand: true), interactive)).Count > 0;
         }
         finally
         {
@@ -489,6 +492,12 @@ public class ProjectService : IProjectService
     /// is chosen, and every file checked against its code page, before the first is written. So a refusal,
     /// or a picker dismissed part-way, leaves every file as it was.
     /// </summary>
+    /// <param name="ownCommand">
+    /// The one document in <paramref name="files"/> is written by its own Save or Save As command
+    /// (<see cref="SaveForm"/>, <see cref="SaveModule"/>), not as a member of a project's or the group's save. Such
+    /// a write rewrites the document's attribute qualifiers whether or not it has unsaved changes, as VB6's does;
+    /// see <see cref="RewrittenQualifiers"/>.
+    /// </param>
     /// <returns>What was written. A document HexIDE cannot reproduce is left out, and banked for the
     /// caller's <see cref="ReportRefusedSaves"/>.</returns>
     /// <remarks>
@@ -505,7 +514,7 @@ public class ProjectService : IProjectService
     /// If one stops holding, each writer's own encode still refuses, but files written before it stay written.
     /// </remarks>
     private async Task<IReadOnlyList<Destination>> SaveFiles(
-        IReadOnlyList<(object Document, bool SaveAs)> files, bool announceSave = true)
+        IReadOnlyList<(object Document, bool SaveAs)> files, bool announceSave = true, bool ownCommand = false)
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
@@ -521,7 +530,7 @@ public class ProjectService : IProjectService
         EnsureEncodable(destinations);
         var written = new List<Destination>();
         foreach (var destination in destinations)
-            if (Write(destination, announceSave))
+            if (Write(destination, announceSave, ownCommand))
                 written.Add(destination);
 
         foreach (var destination in written)
@@ -761,20 +770,21 @@ public class ProjectService : IProjectService
     /// Writes one file an operation has already checked, and announces a form or module. False when a form's
     /// own gate refused it, which <see cref="SaveFiles"/> rules out by deciding just before.
     /// </summary>
-    private bool Write(Destination destination, bool announceSave)
+    /// <param name="ownCommand">As <see cref="SaveFiles"/>'s.</param>
+    private bool Write(Destination destination, bool announceSave, bool ownCommand = false)
     {
         switch (destination.Document)
         {
             case FormDefinition form:
                 // On success only. A refusal is the opposite of a save, and telling a server a document was
                 // written when it was not would have it re-read a file that still holds the previous content.
-                if (!SerializeFormToFile(form, destination.Path))
+                if (!SerializeFormToFile(form, destination.Path, adoptHeader: announceSave, ownCommand))
                     return false;
                 if (announceSave)
                     eventBus.Publish(new DocumentSavedEvent(form, null));
                 return true;
             case ModuleDefinition module:
-                WriteModule(module, destination.Path);
+                WriteModule(module, destination.Path, adoptHeader: announceSave, ownCommand);
                 if (announceSave)
                     eventBus.Publish(new DocumentSavedEvent(module.FormPart, module));
                 return true;
@@ -1075,7 +1085,8 @@ public class ProjectService : IProjectService
         try
         {
             foreach (var form in projectDefinition.Forms)
-                if (!SerializeFormToFile(form, Path.Join(tempPath, Path.ChangeExtension(form.Name, "frm"))))
+                if (!SerializeFormToFile(form, Path.Join(tempPath, Path.ChangeExtension(form.Name, "frm")),
+                        adoptHeader: false))
                     refused.Add(form.Name);
 
             // Modules too. SaveModuleCore rather than SaveModule, because this is a batch: a refusal is
@@ -1190,6 +1201,9 @@ public class ProjectService : IProjectService
         ];
         EnsureEncodable(files);
         Directory.CreateDirectory(directory);
+        // Not each member's own Save: a member written to a file other than its own has its attribute qualifiers
+        // rewritten for that reason alone, as VB6's Save As writes them, and one written back to its own file is a
+        // project save's member like any other (RewrittenQualifiers, #273 task 4.4).
         foreach (var file in files)
             Write(file, announceSave: true);
         return Task.CompletedTask;
@@ -1241,11 +1255,18 @@ public class ProjectService : IProjectService
         var dir = ProjectFilesDirectory(project);
         Directory.CreateDirectory(dir);
         module.AbsolutePath = Path.Join(dir, fileName);
-        // The VB6 file header and an empty body; the editor still shows only the body.
-        var bytes = Vb6TextFile.EncodeDocument(
-            module.Name, RenderModule(module, module.AbsolutePath).Text, module.TextEncoding);
+        // The VB6 file header and an empty body.
+        var text = RenderModule(module, module.AbsolutePath).Text;
+        var bytes = Vb6TextFile.EncodeDocument(module.Name, text, module.TextEncoding);
         File.WriteAllBytes(module.AbsolutePath, bytes);
         baselineStore.Record(module.AbsolutePath, bytes);
+        // The header the code window will show, recorded from the render that reached disk. Without this a
+        // brand-new UserControl or PropertyPage opens with no header at all while its file has one.
+        //
+        // This path writes at creation, which is what #489 was opened about and decided AGAINST: VB6 writes
+        // nothing until the project is saved, and #500 is the implementation of that. Until it lands a
+        // created UserControl has a file at once, so this is the ordinary case today and will not be.
+        DesignerPartOf(module)?.RecordDesignerText(FormCodeText.DesignerHalfOf(text, module.Code));
         project.AddModule(module);
         return module;
     }
@@ -1541,7 +1562,17 @@ public class ProjectService : IProjectService
     /// Returns false when the form was refused, in which case nothing was written and nothing on the model
     /// was repointed. Reporting is the caller's: a lone save says so immediately, a batch collects.
     /// </summary>
-    private bool SerializeFormToFile(FormDefinition form, string formPath)
+    /// <param name="adoptHeader">
+    /// False for a write that is a COPY rather than the developer's file. Make packages every form into a
+    /// temporary directory under a name built from the form's own name, so the header it renders cites a
+    /// companion that may not be the one the real file cites -- and adopting it would leave that in the
+    /// model and in the open code window after the temp directory has been deleted. The path repointing
+    /// beside it is already undone in a finally for the same reason; this is the half that could not be.
+    /// </param>
+    /// <param name="ownCommand">As <see cref="SaveFiles"/>'s: the form is written by its own Save or Save As.</param>
+    // internal rather than private so the adoptHeader contract can be asserted directly; the Make
+    // path that depends on it cannot be driven from a test (it needs the published standalone runtime).
+    internal bool SerializeFormToFile(FormDefinition form, string formPath, bool adoptHeader = true, bool ownCommand = false)
     {
         // ONE ruler, asked ONCE, before either half is written. (#148)
         //
@@ -1564,6 +1595,13 @@ public class ProjectService : IProjectService
             Log.Warning("Refusing to write {Form}: {Reason}", form.Name, form.UnfaithfulSaveReason);
             return false;
         }
+
+        // Before the render, because the qualifiers have to reach the file (#273 task 4.4). A copy leaves the
+        // model alone, as it leaves the header. Before the repointing below, too, which is what lets the rewrite
+        // tell a write to the form's own file from a write somewhere else.
+        if (adoptHeader
+            && RewrittenQualifiers(form, formPath, ownCommand, FormCodeText.Prefix(form), form.Code) is { } requalified)
+            form.UpdateCode(requalified);
 
         var (frmText, frxContent) = RenderForm(form, formPath);
 
@@ -1588,8 +1626,68 @@ public class ProjectService : IProjectService
         WriteCompanionBinary(formPath, frxContent, form);
         AtomicWriteText(formPath, frmText, encodedText);
         form.AbsolutePath = formPath;
+
+        // The second refresh trigger (#273 task 3.3a). The header the buffer shows becomes the header this
+        // save wrote, which is NOT always the one it was opened with: the serializer is a reproduction
+        // rather than a byte-faithful copy, and a Save As or a first save to a name of the developer's
+        // choosing also rewrites every .frx citation in it. Below the write and above the announcement, so
+        // a server reading the buffer and a server reading the file agree about what line one is -- the
+        // announcement flushes a pending didChange before its didSave, so the order holds on the wire too.
+        if (adoptHeader)
+            headerRefresher.Saved(DocumentIdentity.For(form), FormCodeText.DesignerHalfOf(frmText, form.Code));
         return true;
     }
+
+    /// <summary>
+    /// The code a save writes for <paramref name="document"/>, with every procedure's attribute run, and every
+    /// run a rename of a one-name variable line left, naming its member as declared; or null when the save
+    /// writes the code as it stands (#273 task 4.4).
+    /// </summary>
+    /// <param name="document">The form or module being saved, for <see cref="IsDirty(FormDefinition)"/>.</param>
+    /// <param name="path">Where the save writes it, compared with where it lives now.</param>
+    /// <param name="ownCommand">The document is written by its own Save or Save As (<see cref="SaveFiles"/>).</param>
+    /// <param name="prefix">What the code window composes in front of <paramref name="code"/>.</param>
+    /// <param name="code">The document's code, which the flush at the start of the save has just written.</param>
+    /// <remarks>
+    /// <para>
+    /// <b>Whenever VB6 would write the module, and only then.</b> VB6 writes a module's runs afresh every time it
+    /// writes the module, changed or not, and its Save Project does not write a module it holds as unchanged
+    /// (oracle, "Member attributes", the third IDE session's Q1 to Q3). HexIDE's Save Project writes every member,
+    /// so the rewrite is gated on the writes VB6 makes: a document with unsaved changes, a document written by its
+    /// own Save or Save As whatever its state, and a document written to a file other than its own, which
+    /// <c>SaveProjectToDirectory</c> does and VB6 does only by a Save As. A project's or the group's save of an
+    /// unchanged member at its own path writes its bytes as they were read, which is all VB6's leaving the file
+    /// alone can be here, so a loaded <c>Attribute Gone.VB_Description</c> under <c>Total</c> survives it, as it
+    /// does VB6's. The dirty check is asked last, and only when a rewrite is due, because it renders the document.
+    /// </para>
+    /// <para>
+    /// <b>After the code page check and before the write, and that order is safe.</b> <c>EnsureEncodable</c>
+    /// rendered the code as it stood; this changes it after. A rewrite only ever writes a name the same file
+    /// already declares, so it adds no character the file did not hold, and what encoded before still encodes.
+    /// </para>
+    /// </remarks>
+    private string? RewrittenQualifiers(object document, string path, bool ownCommand, string prefix, string code)
+    {
+        var rewritten = MemberAttributeQualifiers.Rewrite(prefix, code);
+        if (ReferenceEquals(rewritten, code))
+            return null;
+        var written = document switch
+        {
+            FormDefinition form => ownCommand || !IsItsOwnFile(form.AbsolutePath, path) || IsDirty(form),
+            ModuleDefinition module => ownCommand || !IsItsOwnFile(module.AbsolutePath, path) || IsDirty(module),
+            _ => throw new ArgumentException($"HexIDE does not rewrite a {document.GetType().Name}.", nameof(document)),
+        };
+        return written ? rewritten : null;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="path"/> is the file a document already lives at, <paramref name="own"/>, as the host's
+    /// file system compares names: without case on Windows only. Never for a document with no file yet.
+    /// </summary>
+    private static bool IsItsOwnFile(string? own, string path) =>
+        own is not null
+        && string.Equals(Path.GetFullPath(own), Path.GetFullPath(path),
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
     /// <summary>
     /// Write, replace, or remove a companion binary (.frx/.ctx/.pgx) beside <paramref name="sourcePath"/>.
@@ -1741,17 +1839,30 @@ public class ProjectService : IProjectService
     /// reports every refusal in one dialog.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <c>internal</c> rather than private so a test can reach the <paramref name="announceSave"/> flag.
     /// Its only production caller that passes <see langword="false"/> is Make EXE, which cannot be driven
     /// without a published standalone runtime — so without this the one exclusion in "which writes count
     /// as a save" would have no test at all, which mutation testing confirmed.
+    /// </para>
+    /// <para>
+    /// The module is written on its own, so the write is its own Save or Save As (<see cref="SaveFiles"/>'s
+    /// <c>ownCommand</c>). Make's copy, which passes <paramref name="announceSave"/> false, rewrites nothing either
+    /// way, because a write that adopts no header rewrites no qualifier.
+    /// </para>
     /// </remarks>
     internal async Task<bool> SaveModuleCore(ModuleDefinition module, bool saveAs, bool announceSave = true) =>
-        (await SaveFiles([(module, saveAs)], announceSave)).Count > 0;
+        (await SaveFiles([(module, saveAs)], announceSave, ownCommand: true)).Count > 0;
 
     /// <summary>Writes a module the caller has decided HexIDE can reproduce, and repoints it there.</summary>
-    private void WriteModule(ModuleDefinition module, string modulePath)
+    /// <param name="ownCommand">As <see cref="SaveFiles"/>'s: the module is written by its own Save or Save As.</param>
+    private void WriteModule(ModuleDefinition module, string modulePath, bool adoptHeader, bool ownCommand)
     {
+        // As SerializeFormToFile: before the render and the repointing, and not for a copy (#273 task 4.4).
+        if (adoptHeader
+            && RewrittenQualifiers(module, modulePath, ownCommand, FormCodeText.Prefix(module), module.Code) is { } requalified)
+            module.UpdateCode(requalified);
+
         var (text, companion) = RenderModule(module, modulePath);
         // Encoded before anything is written, and the module repointed only once everything is.
         var encodedText = Vb6TextFile.EncodeDocument(module.Name, text, module.TextEncoding);
@@ -1761,6 +1872,15 @@ public class ProjectService : IProjectService
             WriteCompanionBinary(modulePath, companion, designerPart);
         AtomicWriteText(modulePath, text, encodedText);
         module.AbsolutePath = modulePath;
+
+        // As SerializeFormToFile: the .ctl/.pag half of the same refresh trigger (#273 task 3.3a). The code here is
+        // the MODULE's, which is the pairing this path writes and the one the code window composes from. Gated
+        // for the same reason announceSave exists -- Make writes a copy into a temporary directory and restores
+        // every path afterwards, so neither the save nor the header it rendered there is the developer's. A .bas
+        // or .cls has no designer half to adopt, but its open buffer still takes the qualifiers the save rewrote.
+        if (adoptHeader)
+            headerRefresher.Saved(DocumentIdentity.For(module),
+                DesignerPartOf(module) is not null ? FormCodeText.DesignerHalfOf(text, module.Code) : null);
     }
 
     private void SerializeOnlyProjectToFile(ProjectDefinition definition, string projectPath)

@@ -29,7 +29,20 @@ namespace HexIDE.Tests.IDE;
 /// </summary>
 public class Vb6ToolchainDiagnosticsTests
 {
-    private const string Form1Uri = "vb6://form/Form1";
+    // The name a saved form carries since #273 task 2.1, and the one production injects under. It was
+    // `vb6://form/Form1`, then briefly an `untitled:` spelling -- neither of which this form answers to,
+    // because the fixture gives it a file. AFailedBuildsErrorsSitBesideTheServersOnTheSameForm never
+    // proved its own name while these disagreed: the server published under one URI and the compiler
+    // injected under another, two ledger documents that AddinDiagnosticsService flattens into one list.
+    // Paths, because #273 task 2.9 resolves a compiler diagnostic by the absolute path vb6.exe printed
+    // rather than by matching a file stem against a form's name. The fixture gave its forms none, which
+    // was invisible while the regex matched nothing the compiler writes.
+    private static readonly string ProjectDir =
+        Path.Combine(Path.GetTempPath(), "hexide-toolchain-test");
+
+    private static readonly string Form1Path = Path.Combine(ProjectDir, "Form1.frm");
+
+    private static readonly string Form1Uri = LspDocumentUri.ForFile(Form1Path);
 
     private readonly ILspClient _lsp;
     private readonly ILspClient _server = Substitute.For<ILspClient>();
@@ -94,10 +107,22 @@ public class Vb6ToolchainDiagnosticsTests
     private static ProjectDefinition ProjectWithTwoForms()
     {
         var project = TestHelpers.CreateProjectWithForm(formName: "Form1");
-        project.AddForm(new FormDefinition(project, FormComponentClass.Instance, "Form2"));
-        project.AbsolutePath = Path.Combine(Path.GetTempPath(), "hexide-toolchain-test", "Test.vbp");
+        project.Forms[0].AbsolutePath = Form1Path;
+        project.AddForm(new FormDefinition(project, FormComponentClass.Instance, "Form2")
+        {
+            AbsolutePath = Path.Combine(ProjectDir, "Form2.frm"),
+        });
+        project.AbsolutePath = Path.Combine(ProjectDir, "Test.vbp");
         return project;
     }
+
+    /// <summary>
+    /// A failing build's log, in the shape vb6.exe actually writes -- measured, and quoted in
+    /// docs/vb6-fidelity-oracle.md. The leading blank line is real, and so are the spaces either side of
+    /// the colon.
+    /// </summary>
+    private static string CompileErrorIn(string path, int line = 7, string message = "Type mismatch") =>
+        $"\r\nCompile Error in File '{path}', Line {line} : {message}\r\nBuild of 'Test.exe' failed.\r\n";
 
     private async Task GivenTheServerReportedAsyntaxErrorInForm1()
     {
@@ -162,13 +187,21 @@ public class Vb6ToolchainDiagnosticsTests
         using var seen = new AddinDiagnosticsService(_lsp, NoProjects());
         await GivenTheServerReportedAsyntaxErrorInForm1();
 
-        var output = $@"{Path.Combine("C:", "proj", "Form1.frm")}(7) : error C0001: Type mismatch";
+        var output = CompileErrorIn(Form1Path);
         (await Build(exitCode: 1, output).MakeWithVb6Async(project)).Should().BeFalse();
 
         seen.GetAll().Select(d => d.Message).Should().BeEquivalentTo([
             "Syntax error: unexpected 'End Sub'",
-            "C0001: Type mismatch",
+            "Type mismatch",
         ]);
+
+        // On ONE document, which is what this test's name claims and what it could not previously check.
+        // The server published under Form1Uri while production injected under DocumentWireName.For(form),
+        // and while those disagreed they were two ledger entries that GetAll() flattens into one list --
+        // so "both are present" passed whether or not they shared a document. Now that a saved form's wire
+        // name IS its file URI, the two agree and the claim is testable.
+        seen.GetAll().Select(d => d.FileName).Distinct().Should().ContainSingle(
+            "a build's errors and a server's belong to the same document, not to two that look alike");
     }
 
     [Fact]
@@ -178,7 +211,7 @@ public class Vb6ToolchainDiagnosticsTests
         var project = ProjectWithTwoForms();
         using var seen = new AddinDiagnosticsService(_lsp, NoProjects());
 
-        var output = $@"{Path.Combine("C:", "proj", "Form1.frm")}(7) : error C0001: Type mismatch";
+        var output = CompileErrorIn(Form1Path);
         await Build(exitCode: 1, output).MakeWithVb6Async(project);
         seen.GetAll().Should().ContainSingle("the failing build put its error on the form");
 
@@ -195,7 +228,7 @@ public class Vb6ToolchainDiagnosticsTests
         var project = ProjectWithTwoForms();
         using var seen = new AddinDiagnosticsService(_lsp, NoProjects());
 
-        var output = $@"{Path.Combine("C:", "proj", "Form1.frm")}(7) : error C0001: Type mismatch";
+        var output = CompileErrorIn(Form1Path);
         await Build(exitCode: 1, output).MakeWithVb6Async(project);
         seen.GetAll().Should().ContainSingle();
 
@@ -212,7 +245,7 @@ public class Vb6ToolchainDiagnosticsTests
         var project = ProjectWithTwoForms();
         using var seen = new AddinDiagnosticsService(_lsp, NoProjects());
 
-        var output = $@"{Path.Combine("C:", "proj", "Form1.frm")}(7) : error C0001: Type mismatch";
+        var output = CompileErrorIn(Form1Path);
         await Build(exitCode: 1, output).MakeWithVb6Async(project);
         seen.GetAll().Should().ContainSingle();
 

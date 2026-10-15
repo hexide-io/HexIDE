@@ -38,6 +38,18 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **Status:** **shipped** (commit 1e52d8f, 2026-08-09), live-verified. A genuine live-apply subset (edits to
   procedures NOT on the current call stack) is a possible later refinement — constrained today because a live run
   loads only the startup form's code.
+- **Since #273 task 3.13 (2026-10-02):** the prompt asks only about an edit that lands. A keystroke in the
+  file's header or a member's `Attribute` lines writes nothing, and no longer asks to reset the run for it; nor
+  does a designer change or a save, each of which rewrites the header as the IDE's own edit (a designer change
+  has a cost of its own during a run: D26), nor a reload, which the file watcher holds back until the run ends
+  (`FileWatcherService`). Paste, cut and Delete with a selection now ask: their keys are
+  bound to code-window commands that took them before the old handler saw them, so until then a paste while
+  paused landed with no prompt at all, by the key, the menus and the toolbar alike. Answering No restores the
+  code only, under whatever header the window shows by then.
+- **"Every edit" is unmeasured for the routes that are not keystrokes.** Replace All, formatting, Insert File,
+  rename, an add-in's `ApplyEdits`/`SetContent` and automation's `set_file_content` while paused have not been
+  checked against the prompt. Paste, cut and Delete were assumed covered until they were tested, and were not.
+  Tracked as [#710](https://github.com/hexide-io/HexIDE/issues/710).
 
 ### D3. E&C prompt fires per-keystroke, not on line-leave
 - **VB6:** evaluates an edit when you **leave the line** (or on Run/Continue), so you can finish typing a line /
@@ -236,9 +248,9 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   (current at top) with **Show** and **Close** buttons, and **no line numbers** (VB6 code had no line numbers by
   default).
 - **HexIDE:** the Call Stack is a **dockable tool window** (a `Document`/tool pane, not a modal dialog), and each
-  frame carries a right-aligned **Line** column (the 1-based statement line of that activation). Current frame is
-  marked with an arrow; there are no Show/Close buttons (the dock owns close; double-click-to-navigate is a later
-  nice-to-have).
+  frame carries a right-aligned **Line** column (the 1-based statement line of that activation, counted from the
+  top of the file: D25). Current frame is marked with an arrow; there are no Show/Close buttons (the dock owns
+  close; double-click-to-navigate is a later nice-to-have).
 - **Why:** a non-modal, always-available pane fits the dock-based IDE better than a modal dialog, and the interpreter
   *does* track a per-frame current line, so surfacing it is a cheap, useful modern-additive (muscle-memory:
   recognisable list, plus more info). Project name is omitted (single-project interpreter).
@@ -360,6 +372,122 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **Status:** **open**, [#1011](https://github.com/hexide-io/HexIDE/issues/1011): the measurement, and whether to end
   the run (the compiled exe's behaviour) or break at the statement (the IDE's). D22 is the same divergence for a
   compile error.
+
+---
+
+## Line numbering
+
+### D24. No breakpoint or bookmark on a header line or a member's `Attribute` line
+- **VB6:** the case could not arise for a line VB6 loaded: it hid the header and every `Attribute` line at load,
+  an orphan's included, where HexIDE shows an orphan as editable text that takes a mark, which is never hit.
+  One exception is measured: an `Attribute` line pasted into the code window stays code, shown in red, until
+  the module is reloaded (V4 in [the measurement](vb6-fidelity-oracle.md)), where HexIDE reads one pasted
+  directly under a declaration as a run at once and refuses a mark on it. Whether VB6 lets a breakpoint be set
+  on such a red line is **unmeasured**.
+- **HexIDE:** F9, Debug ▸ Toggle Breakpoint, Ctrl+F2 and a click in either gutter set no mark on such a line,
+  and the status bar says why. A click on a folded header lands on the fold's first line, which is the
+  header's, and is refused the same way. `set_breakpoints`, `set_bookmarks`, `run_to_cursor` and
+  `set_next_statement` refuse those lines and reply with where the code starts. A form held read-only as a
+  whole is not a read-only region, and takes breakpoints in its code as before. Run To Cursor from the Debug
+  menu is **not** refused there: it behaves as from any other line that never executes, running until
+  something else stops it. Set Next Statement from the menu already refuses any line that is not a statement.
+- **A mark can still be on such a line, and can still be removed.** This row used to say that only an older
+  sidecar could have left one there. Task 3.17 made that untrue: the sidecar's load drops a mark on a
+  read-only line, from either format, and logs it (`UserSidecarService.OffReadOnlyLines`). What can still put
+  one there is an edit or a reload, because a breakpoint or a bookmark is a bare line number and does not
+  follow its line. Once a project is open, only `HeaderRefresher.ShiftMarks` moves marks, by the header's
+  change in length, at a designer change, a save or a reload. A designer change and a save add or remove no
+  line below the header, so for them that moves each mark with its line, and neither puts one on a read-only
+  line. Three routes remain:
+  - an edit that adds or removes lines at or above a mark, by any route: Enter, a paste, a cut, Undo, an
+    add-in's edit, `set_file_content`. A member's `Attribute` line can move under it: in the probe, one line
+    inserted above `Public Function Total()` moved `Attribute Total.VB_Description` under a breakpoint set on
+    `Total = 0`;
+  - an edit that makes the marked line itself read-only. An orphaned `Attribute` line is not a region, so it
+    takes a mark, and it locks the moment it comes to describe a member (`ReadOnlyRegions.Verdict`). A
+    procedure attribute describes any procedure declared on the line above, whatever its qualifier names. A
+    `VB_Var` attribute describes the variable it names, declared on the line above in the declarations section,
+    or the one variable that line declares once the name it carries is declared nowhere in the module, so
+    deleting a declaration elsewhere can lock it. An `Attribute` line typed over a marked line directly under
+    `Public Sub Halt()` is read-only from its first `.`, and one pasted there is read-only at once. An
+    `Attribute` line typed or pasted directly below the header, dotted or not, joins the header, with any blank
+    lines between them (`ReadOnlyRegions.HeaderLineCount`), and so does a mark on it; typed, it joins at the
+    first character after `Attribute `;
+  - a reload after an external change, which moves marks by the change in the header's length alone (for a
+    form, its designer block's), so lines the change added or removed below it move under them. VB6 adding
+    an `Attribute` line directly under a procedure's declaration puts it on the number of a breakpoint on
+    the procedure's first statement.
+
+  The first two routes were probed headlessly through `CodeEditorViewModel` on 2026-10-14, by writing to the
+  document rather than typing; the third, and the rest of the second, are read from `FileReloader` and
+  `ReadOnlyRegions`. Such a mark is never hit: the debugger passes over an `Attribute` statement, and an
+  `Attribute` line in a procedure without its `= value` is a syntax error, so the run never starts (both
+  probed through the interpreter's `DebugController` that day). The gutter does not draw it while its run is
+  folded, nor while the header is folded unless it is on the header's first line: both margins draw a mark
+  only on the first line of each row the window shows, a folded run is hidden in its declaration's row, and a
+  folded header is one row that starts at the top of the file. Unfolded, F9, Ctrl+F2 or a click in the gutter
+  beside the line removes it, as do Clear All Breakpoints, Clear All Bookmarks, and `set_breakpoints` or
+  `set_bookmarks` with it left out; a set that keeps it is accepted, so a read-then-write round trip is never
+  refused. Left alone, it lasts until the project is next opened, when the sidecar's load drops it.
+- **Why:** those lines never execute, so a breakpoint there is never hit and Run To Cursor would run to the end;
+  and folded, the header is one visible line standing for many, so a mark set there would land on a line the
+  developer cannot see.
+- **Status:** **by design** (#273 tasks 3.12 and 3.17). That an edit or a reload can still leave a mark on a
+  read-only line follows from marks not following their lines: nothing in the IDE anchors a mark to its text.
+
+### D25. Line numbers count from the top of the file, header included
+- **VB6:** the code window never showed a file's header — a form's designer block, a class's `VERSION`/`BEGIN`
+  block, and every `Attribute` line it loaded — so nothing the developer saw was numbered from it. VB6's code
+  window had no line-number margin, and its status bar counts the code view as `/make`'s `Line N` does, 1-based
+  where that is 0-based, so neither the header nor any `Attribute` line VB6 hid is counted: C1's caret on
+  `Total = mSum`, below a hidden run, read `Ln 7`, and V1's read `Ln 4` on the blank line under a described
+  variable. A pasted `Attribute` line, which VB6 holds as code until a reload, is counted (V4). All three are
+  in [the measurement](vb6-fidelity-oracle.md), *What `Line N` counts, refined*. When task 3.16 recorded this
+  row it called the status bar **unmeasured**, because `/make` cannot answer it; phase 4's IDE sessions on the
+  oracle have measured it since.
+- **HexIDE:** the code window holds the whole file: the header read-only, greyed and, when longer than one
+  line, folded, and each member's `Attribute` lines read-only, greyed and folded under the line they describe.
+  Every line number it shows or reports counts from the file's first line, every one of those lines included:
+  the line-number margin, the status bar, breakpoints, bookmarks, the current-statement bar, the Call Stack,
+  Run To Cursor, Set Next Statement, and the automation and add-in surfaces. In a class with the standard
+  header the first line of code is line 14.
+- **Why:** one numbering is the point of holding the whole file. A second, code-relative numbering anywhere
+  would put back exactly the translation the change removed, and two places disagreeing by the header's length
+  is the bug class that motivated it (hexide-io/HexIDE#273). VB6's compiler is the one exception: `/make`
+  reports a line in its own code view, every `Attribute` line excluded, and that number is converted where the
+  log is parsed and nowhere else ([the measurement](vb6-fidelity-oracle.md)). That conversion is one line off
+  below a continued `Attribute` line ([#968](https://github.com/hexide-io/HexIDE/issues/968)).
+- **Status:** **by design** (#273 tasks 3.6 and 3.16). A sidecar written before the change counts from the
+  first line of code, and is migrated as its project opens, each mark moved down onto the statement it was set
+  on (task 3.17). Two ways a sidecar can still restore marks in another numbering are open: a conflicted
+  external change, whose header change never reaches the stores
+  ([#884](https://github.com/hexide-io/HexIDE/issues/884)), and a form HexIDE has just created, whose header
+  first appears at its first designer change, save or reload, so the sidecar cannot tell whether its marks
+  already count it ([#885](https://github.com/hexide-io/HexIDE/issues/885)).
+- **Numbered D23 when task 3.16 recorded it**, and renumbered in #273's documentation pass: merging main brought
+  in main's own D23 (#1011, cited from `VBWindowContext`), which came first.
+
+### D26. A designer change while a run is paused asks nothing, and moves breakpoints the run numbers the old way
+- **VB6:** **unmeasured**: whether VB6 lets a form's design be changed in break mode at all, and whether doing so
+  asks to reset the project.
+- **HexIDE:** nothing stops a designer change during a run: neither the designer nor `add_control` checks for
+  one. Since #273 task 3.13 it raises no reset prompt (D2), because a designer change is not a code edit
+  (`ResetPromptTests.ChangingAFormsLayoutWhilePaused`). The change reaches the model, the header and, at a
+  save, the file; the running form keeps the layout it was loaded with, since `VBLoader` builds it from the
+  definition once. Since lines count from the top of the file (D25), a change that adds or removes lines of the
+  designer block moves every line of code below it, and `HeaderRefresher.ShiftMarks` moves the document's
+  breakpoints with them and `ProjectRunnerService` pushes the moved set to the run. The interpreter still
+  numbers its statements from the text it parsed when the run started, so a moved breakpoint is missed or
+  stops another statement. The current-statement bar is a bare line number as well (`CurrentLineRenderer`), so
+  it is off by the change from that moment, and at every later pause, which the run reports in its own
+  numbering. A save whose rendered header has a different number of lines takes the same path
+  (`HeaderRefresher.Saved`).
+- **Why:** the prompt was exempted because a designer change is the IDE re-rendering the header, not the
+  developer editing code; the run's line numbers are the text it parsed, and nothing re-numbers it.
+- **Status:** **open**, [#870](https://github.com/hexide-io/HexIDE/issues/870), read from the code and not yet
+  reproduced live. It weighs holding the run's numbering until the run ends, re-numbering the run, which is
+  hard, and treating a designer change during a run as the code window treats an edit, the likeliest, which
+  waits on measuring what VB6 allows in break mode.
 
 ---
 

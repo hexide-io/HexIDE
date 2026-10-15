@@ -14,6 +14,7 @@ using Avalonia.Interactivity;
 using Avalonia.Controls.Primitives;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using HexIDE.Runtime.Serialization;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
@@ -426,6 +427,12 @@ public class VBLoader
     /// Loading one here as a free-standing module would run its declarations a second time, in the wrong
     /// scope.
     /// </para>
+    ///
+    /// <para>
+    /// <b>Each module is its whole file, header included</b> (hexide-io/HexIDE#273 task 3.6), so the line
+    /// a statement is on in the interpreter is the line the code window shows it on. The grammar parses the
+    /// header and the walk executes none of it.
+    /// </para>
     /// </summary>
     public static (IReadOnlyList<(string Name, string Code)> Standard,
                    IReadOnlyList<(string Name, string Code)> Classes)
@@ -435,7 +442,7 @@ public class VBLoader
             return ([], []);
 
         static IReadOnlyList<(string, string)> Of(ProjectDefinition p, ModuleKind kind) =>
-            p.Modules.Where(m => m.Kind == kind).Select(m => (m.Name, m.Code)).ToList();
+            p.Modules.Where(m => m.Kind == kind).Select(m => (m.Name, FormCodeText.WholeFile(m))).ToList();
 
         return (Of(project, ModuleKind.StandardModule), Of(project, ModuleKind.ClassModule));
     }
@@ -531,9 +538,10 @@ public class VBLoader
 
     /// <summary>
     /// Build a form's program into its window's context (#822). Every module the run loads is parsed here, so a syntax
-    /// error throws before anything is shown. The form's code is the primary module, named after the form, so the debug
-    /// gate reports, and breakpoints are keyed by, the form's real name (matching the editor's vb6://form/{name}
-    /// document). Then the form's instance is made and its controls put into it, held until it loads.
+    /// error throws before anything is shown. The form's whole file is the primary module, so its line numbers are the
+    /// code window's, and it is named after the form, so the debug gate reports, and matches breakpoints by, the form's
+    /// real name: the bare name the IDE pushes each document's breakpoints under. Then the form's instance is made and
+    /// its controls put into it, held until it loads.
     /// </summary>
     /// <param name="openForm">
     /// How the host makes a window for the program's other forms (#822), or null in a host that runs the startup form only:

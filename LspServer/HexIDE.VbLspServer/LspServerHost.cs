@@ -84,13 +84,14 @@ public static class LspServerHost
                 case ContentChange.Ranged:
                     // We advertise Full sync, so a ranged change means the client ignored us or something
                     // is confused about who it is talking to. Applying it would take the replacement text
-                    // for a few characters as the WHOLE document — after which whole-document formatting
-                    // returns an edit spanning the real file, and the user's source is replaced by the
-                    // fragment. That is a destructive write, not a degraded feature.
+                    // for a few characters as the WHOLE document — after which formatting answers with
+                    // edits computed from the fragment, and a client applies them to the user's real file.
+                    // (It was once a single edit spanning the file, which replaced the source with the
+                    // fragment outright.) That is a destructive write, not a degraded feature.
                     //
                     // So refuse, and evict. Eviction is what closes the path structurally: with no source
-                    // entry, formatting physically cannot emit a whole-document edit. Logging and ignoring
-                    // would leave the stale buffer in place and the hazard live.
+                    // entry, formatting physically cannot emit an edit. Logging and ignoring would leave the
+                    // stale buffer in place and the hazard live.
                     Log.Error("Ranged contentChange for {Uri}; Full sync was advertised. Document evicted "
                             + "rather than mis-applied.", uri);
                     store.RemoveDocument(uri);

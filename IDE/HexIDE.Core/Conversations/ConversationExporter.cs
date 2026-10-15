@@ -249,10 +249,15 @@ public static class ConversationExporter
         writer.WriteBoolean("pseudonymised", redactor.IsPseudonymising);
         writer.WriteNumber("distinctValuesNamed", redactor.NamedValues);
         writer.WriteString("note", redactor.IsPseudonymising
-            ? "Paths, workspace folders and server launch configuration have been replaced with stable "
-            + "session pseudonyms. Two names differing only in capitalisation were two different strings."
-            : "NOT REDACTED. Real paths and real server launch configuration are present, including "
-            + "anything a command-line argument carried.");
+            ? "Document names, paths, workspace folders and server launch configuration have been replaced "
+            + "with stable session pseudonyms, segment by segment, so the shape of a path survives. File "
+            + "extensions and Windows drive letters are kept: routing is by extension, and a drive "
+            + "letter's case is diagnostic. A document with no file on disk is named "
+            + "untitled:<project>/<document>, and both of those segments are replaced too. Two names "
+            + "differing only in capitalisation were two different strings and have two different "
+            + "pseudonyms."
+            : "NOT REDACTED. Real document names, real paths and real server launch configuration are "
+            + "present, including anything a command-line argument carried.");
         writer.WriteEndObject();
 
         writer.WriteStartObject("limits");

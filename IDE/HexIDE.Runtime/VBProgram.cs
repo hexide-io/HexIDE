@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Serialization;
 
 namespace HexIDE.Runtime;
 
@@ -112,7 +113,8 @@ public sealed class VBProgram : IFormProgram
         {
             primaryName = VBLoader.FormComponentOf(startup).GetPropertyOrDefault(VBProperties.NameProperty)?.ToString()
                           ?? "Module1";
-            primaryCode = startup.Code;
+            // Every form's whole file, header included, as the code window and the debugger count its lines (#273).
+            primaryCode = FormCodeText.WholeFile(startup);
             definitions[primaryName] = startup;
         }
         else
@@ -128,7 +130,7 @@ public sealed class VBProgram : IFormProgram
         if (project is not null)
             foreach (var form in project.Forms)
                 if (!ReferenceEquals(form, startup) && definitions.TryAdd(form.Name, form))
-                    others.Add((form.Name, form.Code));
+                    others.Add((form.Name, FormCodeText.WholeFile(form)));
 
         ExecutionContext = rootContext.ExecutionContext;
         interpreter = new BasicInterpreter(rootContext.StandardLibrary, ExecutionContext, rootContext.RootEnv,
@@ -144,7 +146,7 @@ public sealed class VBProgram : IFormProgram
         interpreter.SeedFormNames();
         if (startup is null)
             return;
-        rootContext.Attach(this, interpreter.PrimaryModule);
+        rootContext.Attach(this, interpreter.PrimaryModule, primaryCode);
         Register(rootContext);
     }
 
@@ -236,7 +238,7 @@ public sealed class VBProgram : IFormProgram
                 : $"{form.Name} is used after it has unloaded, and this host can't load it again yet (#822).");
         var view = openForm(definition);
         var context = view.Context;
-        context.Attach(this, form, existing);
+        context.Attach(this, form, FormCodeText.WholeFile(definition), existing);
         var instance = context.FormInstance!;
         view.SetContent(VBLoader.SpawnComponents(definition, ExecutionContext, instance.InstanceEnv));
         context.HoldControlsUntilLoad();

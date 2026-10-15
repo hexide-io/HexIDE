@@ -36,6 +36,35 @@ public static class ProjectNaming
     }
 
     /// <summary>
+    /// Whether a name with a name's shape (<see cref="IsValidName"/>) is still one VB6 was measured to refuse:
+    /// <c>Rem</c>, <c>Empty</c>, <c>New</c> or <c>Nothing</c>, in any case.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>These six and no others, because only these were measured refused as a name</b>
+    /// (<c>docs/vb6-fidelity-oracle.md</c>). <c>Rem</c> was refused as a variable, a <c>Sub</c>, a parameter, a
+    /// <c>Type</c>'s field and an enum member, and is never an identifier anywhere; <c>Empty</c> as a variable, a
+    /// reserved word and not a name; <c>New</c> and <c>Nothing</c> as a <c>Sub</c>'s name and as a label; <c>Me</c>
+    /// as a module-level array (<c>Private mE(N - 1)</c>, "Expected: identifier", found as a by-product of the
+    /// constant-bound probe); and <c>Attribute</c> as a parameter (p07, "Expected: identifier"). The first four were
+    /// all task 4.4 knew of; the review of its documentation found the last two. None was accepted in any position
+    /// tried, so each is refused in every position, including ones nobody tried. Every other keyword is left alone: which words
+    /// VB6 reserves is not derivable (the label probes found <c>Beep</c> and <c>Reset</c> usable and <c>Stop</c>
+    /// and <c>Randomize</c> not), and refusing one unmeasured would refuse a name the compiler may accept.
+    /// </para>
+    /// <para>
+    /// Asked of a rename's new name (hexide-io/HexIDE#273 task 4.4), which becomes a member's name in code. A
+    /// document's and a project's names are not held to it: nothing measured a form called <c>Rem</c>.
+    /// </para>
+    /// </remarks>
+    public static bool IsReservedWord(string? name) => name is not null && ReservedWords.Contains(name);
+
+    private static readonly HashSet<string> ReservedWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Rem", "Empty", "New", "Nothing", "Me", "Attribute",
+    };
+
+    /// <summary>
     /// Whether a project already has a form, module or class of this name.
     /// </summary>
     /// <param name="project">The project to check.</param>
