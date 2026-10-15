@@ -138,10 +138,8 @@ public class CorpusBehaviourTests
         // ---- REFUSES CODE VB6 RAN. A false rejection at run time rather than parse time — the parse ---
         // ---- gate is blind to these too, because the module parses and then dies executing. ----------
 
-        // CONTINUATION-INSIDE-AN-EXPRESSION. A continuation between an open paren and its argument, or
-        // before a comma in an argument list, reaches an unimplemented path.
-        ["continuation-basics/cont-arglist-before-comma"] = "EXPR-CONTINUATION: NotImplementedException",
-        ["continuation-illegal/continuation-inside-argument-list"] = "EXPR-CONTINUATION: NotImplementedException",
+        // A type-declaration character on a declaration, `Dim s_$` (#742). Filed as a continuation inside an expression,
+        // with three `Left$(` and `Mid$(` calls the `$` fix closed (#1071): the continuation was never the cause.
         ["continuation-vs-identifier/trailing-underscore-then-type-hint"] = "EXPR-CONTINUATION: NotImplementedException",
 
         // LEADING-COLON. A statement separator opening a line, or standing alone between statements.
