@@ -133,6 +133,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A form holding a control HexIDE cannot create is refused, rather than run without it** (#857). Examples are a
+  `VB.Data`, a `VB.OLE` and any ActiveX control. The form used to run with the control, and everything inside it, left
+  out. Code naming it read Empty or wasn't defined, a call on it under `On Error Resume Next` was skipped with
+  `Err.Number` 0, and a form whose code never named it ran as a different program. Now the run stops before the form
+  is built, naming each control it can't create, and the program can't trap it. The designer still opens the form.
 - **A run-time error nothing handles halts the program where it stands, as VB6 does** (#1011). The event procedure that
   met it used to be abandoned while the run carried on, so a Timer tick or a click still ran, on whatever state it had
   left half done. Now the dialog offers End and Debug, and nothing runs behind it. Debug breaks at the statement with the

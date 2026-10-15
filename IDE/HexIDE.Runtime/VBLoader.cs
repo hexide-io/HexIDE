@@ -28,6 +28,7 @@ public class VBLoader
         ModuleExecutionContext executionContext,
         ExecutionEnvironment environment)
     {
+        RefuseUncreatableControls(element);
         var canvas = new Canvas()
         {
             ClipToBounds = true
@@ -398,6 +399,46 @@ public class VBLoader
                 return number;
         }
         return null;
+    }
+
+    /// <summary>
+    /// A form holding a control HexIDE cannot create is refused before any control is placed (#857). Left out, the control
+    /// made the form a different program: code naming it read Empty, was told the name was not defined, or skipped a call
+    /// with Err.Number 0, and a form whose code never names it ran as if it had never held it. This is an engine limit,
+    /// so no On Error in the program can trap it. A form the designer opens is not refused: it shows what it holds.
+    /// </summary>
+    private static void RefuseUncreatableControls(FormDefinition element)
+    {
+        var lines = new List<string>();
+        foreach (var block in element.UnknownChildSubtreeTexts)
+            DescribeUncreatable(block, lines);
+        if (lines.Count > 0)
+            throw new NotImplementedException(string.Join("\n", lines.Distinct()));
+    }
+
+    // Every control in a preserved block, from its Begin lines: the block's own, then each nested one. A control nested in
+    // one can't be created either, even one HexIDE models, because the block is carried as text and nothing in it is read.
+    // A control array's elements share a name, so they are named once.
+    private static void DescribeUncreatable(string block, List<string> lines)
+    {
+        (string Type, string Name)? outer = null;
+        foreach (var raw in block.Split('\n'))
+        {
+            var line = raw.Trim();
+            // BeginProperty opens a property block, not a control.
+            if (!line.StartsWith("Begin ", StringComparison.OrdinalIgnoreCase))
+                continue;
+            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 3)
+                continue;
+            if (outer is not { } container)
+            {
+                outer = (parts[1], parts[2]);
+                lines.Add($"HexIDE cannot create {parts[2]} ({parts[1]}).");
+            }
+            else
+                lines.Add($"HexIDE cannot create {parts[2]}, inside {container.Name} ({container.Type}).");
+        }
     }
 
     public static Canvas SpawnComponentsForDesigner(
