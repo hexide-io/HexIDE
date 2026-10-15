@@ -133,6 +133,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A run-time error nothing handles halts the program where it stands, as VB6 does** (#1011). The event procedure that
+  met it used to be abandoned while the run carried on, so a Timer tick or a click still ran, on whatever state it had
+  left half done. Now the dialog offers End and Debug, and nothing runs behind it. Debug breaks at the statement with the
+  procedure still live, so Locals and the Immediate window work there, and Continue runs the statement again. A handler
+  in the code that raised an event, `RaiseEvent` included, no longer catches the event's error, as in VB6.
 - **`SetFocus` runs** (#1061). It stopped the run as not implemented, on every control. Measured on vb6.exe:
   - the control has the focus at once;
   - its LostFocus and GotFocus come after the handler that called SetFocus;

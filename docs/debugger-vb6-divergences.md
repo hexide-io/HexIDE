@@ -354,13 +354,13 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   the measurement, and whether to break at the line instead, is
   [#833](https://github.com/hexide-io/HexIDE/issues/833).
 
-### D23. An unhandled run-time error in an event procedure leaves the run going
+### D23. An unhandled run-time error in an event procedure left the run going — FIXED
 - **VB6:** in the IDE, an unhandled run-time error stops the program at the statement and enters break mode, offering
   End, Debug and Help, and nothing else runs until the developer chooses. A compiled exe shows the message and ends.
-  That is how it is commonly described; it is **not yet measured** on the oracle.
-- **HexIDE:** the error is recorded, so `get_last_runtime_error` returns it, and shown in the run-time error dialog,
-  where End ends the run. The event procedure that met it is abandoned, and the run carries on: a Timer tick or a click
-  still raises its handler, on whatever state the abandoned procedure left. That includes a form's start (#1010): a
+  Measured on the oracle (2026-10-14): `docs/vb6-fidelity-oracle.md`, "An unhandled run-time error".
+- **HexIDE, until #1011:** the error was recorded, so `get_last_runtime_error` returned it, and shown in the run-time
+  error dialog, where End ended the run. The event procedure that met it was abandoned, and the run carried on: a Timer
+  tick or a click still raised its handler, on whatever state the abandoned procedure left. That included a form's start (#1010): a
   run-time error in `Form_Initialize` is reported, and `Form_Load` is still raised and the form shown. Another form's
   Load is the same (#822): an error there is reported, never trapped by the `On Error` of the statement that loaded the
   form (measured, compiled), and that statement goes on, where a compiled exe would end. A fault, a
@@ -369,9 +369,45 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **Why:** the error reaches the dialog only after the event-dispatch boundary in `VBWindowContext` has caught it, once
   the procedure has unwound, so there is no live frame to break into. Breaking at the statement needs the walk to
   pause where the error is raised.
-- **Status:** **open**, [#1011](https://github.com/hexide-io/HexIDE/issues/1011): the measurement, and whether to end
-  the run (the compiled exe's behaviour) or break at the statement (the IDE's). D22 is the same divergence for a
-  compile error.
+- **Status:** **fixed** by [#1011](https://github.com/hexide-io/HexIDE/issues/1011). An unhandled run-time error now halts
+  the program at the statement that raised it, before anything unwinds. The dialog offers End and Debug, and nothing runs
+  behind it. Debug breaks there, reason `RuntimeError`, with the procedure live, and Continue runs the statement again,
+  all of it. End ends the run as End does. An error is unhandled when no activation would trap it, from the one that
+  raised it down to where the program was entered: an event's procedure, a `RaiseEvent` sink or `Sub Main`. So a handler
+  in the code that raised an event never sees its error, `RaiseEvent` included. `HaltOnErrorTests` pins each case.
+  What remains:
+  - **A statement runs again whole.** That is measured, for `x = F() + 1 \ 0`, where F is called again.
+  - **A condition runs again on its own,** an `ElseIf`'s, or a `Loop Until`'s without another pass through the body,
+    and so does a statement of a single-line `If`'s tail. **These are chosen, not measured.** They are the closest
+    reading of "the faulting statement", and they never repeat what came before the fault. But nothing has asked vb6.exe
+    what its F5 runs in these places ([#1079](https://github.com/hexide-io/HexIDE/issues/1079)).
+  - **A `Case` expression runs again with its `Select Case`** and the `Case`s before it. That is a limit of the walk,
+    also unmeasured.
+  - **A dialog closed without an answer** takes Debug. What VB6 does then is unmeasured.
+  - **Whether `Err` holds the error** at the break is unmeasured, and HexIDE leaves it as it was.
+  - **A form's `Terminate`, and a class's `Initialize` and `Terminate`,** are not entries. An error a form's Terminate
+    leaves unhandled is reported as before, and the run carries on.
+  - **No host to halt:** the Standalone runner has none, and its run-time errors are
+    [#757](https://github.com/hexide-io/HexIDE/issues/757). Without one, an error unwinds to the event's dispatch as
+    before, and a `RaiseEvent` sink's error still reaches a handler in the raiser.
+
+  D22 is the same divergence for a compile error, and D27 is the one case where HexIDE follows the compiled program
+  instead.
+
+### D27. A class's error that its caller handles goes to the caller, where VB6's IDE stops in the class (deliberate)
+- **VB6:** under the IDE's default Error Trapping, *Break in Class Module*, a class method with no handler of its own
+  that raises an error stops in the class, even when its caller has an active `On Error`. The caller's handler never
+  runs. Under *Break on Unhandled Errors*, and in every compiled program, native and p-code, the caller's handler
+  catches it (measured, `docs/vb6-fidelity-oracle.md`, c1). A form counts as a class module here.
+- **HexIDE:** the caller's handler catches it, as a compiled program does. An error that nothing handles still breaks
+  at the innermost faulting line, a class's included, as the default does (#1011).
+- **Why:** a deliberate exception to the rule that HexIDE matches the IDE where the two differ (decided 2026-10-15,
+  recorded on #1011). The default stops code that handles its own errors, and following it would mean building
+  "Continue from a break hands the error to the caller's handler".
+- **Status:** **by design.** An Error Trapping option, which would let a developer choose VB6's default, is
+  [#1070](https://github.com/hexide-io/HexIDE/issues/1070).
+- **Numbered D24 when the decision was recorded** on #1011's branch, and renumbered when merging main brought in main's
+  D24, the header-line breakpoint, which came first.
 
 ---
 
