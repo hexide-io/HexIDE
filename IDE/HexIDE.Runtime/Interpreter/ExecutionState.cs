@@ -71,33 +71,35 @@ public class ExecutionState
     /// <summary>Whether a slot refuses assignment.</summary>
     public bool IsReadOnly(int location) => readOnlyLocations.Contains(location);
 
-    // A form's control slots before the form has loaded, by slot, naming the form (#822). A read of one is refused
-    // (#1009). Empty unless a form is between creating its instance and raising Load.
-    private readonly Dictionary<int, string> pendingControls = new();
+    // A form's control slots while the form isn't loaded, by slot, naming the form instance (#822): before its Load, or
+    // after its Unload. A read of one asks for the form to be loaded. Empty unless a form is in one of those states.
+    private readonly Dictionary<int, VbObject> pendingControls = new();
 
-    /// <summary>Hold a form's control slot until the form loads: reading it is refused until then (#1009).</summary>
-    public void MarkPendingControl(int location, string form) => pendingControls[location] = form;
+    /// <summary>Hold a form's control slot until the form loads: a read asks for the load (#822).</summary>
+    public void MarkPendingControl(int location, VbObject form) => pendingControls[location] = form;
 
     /// <summary>Release a form's control slots as the form begins to load.</summary>
-    public void ClearPendingControls(string form)
+    public void ClearPendingControls(VbObject form)
     {
         foreach (var (location, owner) in pendingControls.ToList())
-            if (owner == form)
+            if (ReferenceEquals(owner, form))
                 pendingControls.Remove(location);
     }
 
-    // Forms whose controls are held because the form has unloaded, rather than because it has yet to load (#973).
-    private readonly HashSet<string> unloadedForms = new(StringComparer.OrdinalIgnoreCase);
-
-    /// <summary>Note that a form's held controls are held because it unloaded, so their refusal says so.</summary>
-    public void MarkUnloaded(string form) => unloadedForms.Add(form);
-
-    /// <summary>Whether a form's held controls are held because it unloaded.</summary>
-    public bool IsUnloaded(string form) => unloadedForms.Contains(form);
-
-    /// <summary>The form whose not-yet-loaded control this slot is, or null.</summary>
-    public string? PendingControlOf(int location) =>
+    /// <summary>The form instance whose not-loaded control this slot is, or null.</summary>
+    public VbObject? PendingControlOf(int location) =>
         pendingControls.Count > 0 && pendingControls.TryGetValue(location, out var form) ? form : null;
+
+    // The slots of forms' names, by slot, naming the form module (#822). A form's name is a predeclared variable: read
+    // while it holds Nothing, VB6 makes the form's default instance there (measured).
+    private readonly Dictionary<int, ModuleInfo> defaultForms = new();
+
+    /// <summary>Mark a slot as a form's name, whose instance is made on its first read.</summary>
+    public void MarkDefaultForm(int location, ModuleInfo form) => defaultForms[location] = form;
+
+    /// <summary>The form module whose name this slot is, or null.</summary>
+    public ModuleInfo? DefaultFormOf(int location) =>
+        defaultForms.Count > 0 && defaultForms.TryGetValue(location, out var form) ? form : null;
 
     // A user Const's slot. Not read-only, since the Const statement fills it after the pre-pass makes it, and a class's
     // top-level declarations run again for each instance. Marked so that an argument naming it is passed by value, and so

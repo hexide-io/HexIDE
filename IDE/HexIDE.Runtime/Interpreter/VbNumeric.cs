@@ -46,10 +46,31 @@ public static class VbNumeric
         _ => VT.Decimal
     };
 
+    /// <summary>
+    /// A String operand, read as VB6 reads it: as the Double <c>CDbl</c> would make of it, or Type mismatch (#1047). Measured
+    /// across every operator and partner, native, p-code and the IDE: <c>"6" * 2</c> is 12, and the String takes a Double's
+    /// place in the result table, so <c>"6" + CCur(2)</c> is Currency, <c>"6" * CDec(2)</c> Decimal, and <c>"7" \ "2"</c> Long.
+    /// </summary>
+    private static Vb6Value ReadString(Vb6Value v, ParserRuleContext? ctx)
+    {
+        if (v.Type != VT.String)
+            return v;
+        try
+        {
+            return new Vb6Value(VB6BuiltIns.ToNum(v));
+        }
+        catch (VBRunTimeException e) when (ctx is not null)
+        {
+            throw new VBRunTimeException(ctx, e.Error);
+        }
+    }
+
     // ===== + - * =====
 
     public static Vb6Value Add(Vb6Value l, Vb6Value r, ParserRuleContext? ctx)
     {
+        l = ReadString(l, ctx);
+        r = ReadString(r, ctx);
         if (l.Type == VT.Date || r.Type == VT.Date)
             return FromSerial(SerialOf(l) + SerialOf(r), ctx);   // Date + anything -> Date (adds serial days)
         return Arith(l, r, ctx, '+');
@@ -57,6 +78,8 @@ public static class VbNumeric
 
     public static Vb6Value Sub(Vb6Value l, Vb6Value r, ParserRuleContext? ctx)
     {
+        l = ReadString(l, ctx);
+        r = ReadString(r, ctx);
         bool ld = l.Type == VT.Date, rd = r.Type == VT.Date;
         if (ld && rd)
             return new Vb6Value(SerialOf(l) - SerialOf(r));      // Date - Date -> Double (day difference)
@@ -65,7 +88,8 @@ public static class VbNumeric
         return Arith(l, r, ctx, '-');
     }
 
-    public static Vb6Value Mul(Vb6Value l, Vb6Value r, ParserRuleContext? ctx) => Arith(l, r, ctx, '*');
+    public static Vb6Value Mul(Vb6Value l, Vb6Value r, ParserRuleContext? ctx) =>
+        Arith(ReadString(l, ctx), ReadString(r, ctx), ctx, '*');
 
     private static Vb6Value Arith(Vb6Value l, Vb6Value r, ParserRuleContext? ctx, char op)
     {
@@ -90,7 +114,7 @@ public static class VbNumeric
         if (rt == VT.Single || rt == VT.Double)
         {
             double a = ToDouble(l), b = ToDouble(r);
-            return NarrowDouble(op == '+' ? a + b : op == '-' ? a - b : a * b, rt, ctx);
+            return NarrowDouble(op == '+' ? a + b : op == '-' ? a - b : a * b, rt, ctx, l.HasFixedType && r.HasFixedType);
         }
 
         long la = ToLong(l), lb = ToLong(r);
@@ -101,23 +125,33 @@ public static class VbNumeric
 
     public static Vb6Value RealDivide(Vb6Value l, Vb6Value r, ParserRuleContext? ctx)
     {
+        l = ReadString(l, ctx);
+        r = ReadString(r, ctx);
         if (!TryToDouble(l, out var a) || !TryToDouble(r, out var b))
             throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
+        // Zero over zero is Overflow, and anything else over zero is Division by zero. A Decimal operand on either side
+        // makes it Decimal's division, which says Division by zero for both (measured, #234: every core type, Boolean,
+        // Empty, String and mixed operands, native, p-code and the IDE alike).
         if (b == 0.0)
-            throw new VBRunTimeException(ctx, VBStandardError.DivisionByZero);
+            throw new VBRunTimeException(ctx, a == 0.0 && l.Type != VT.Decimal && r.Type != VT.Decimal
+                ? VBStandardError.Overflow
+                : VBStandardError.DivisionByZero);
         // Result is Single iff the widest core operand is Single (no Long/Double). int/int -> Double.
         int lr = CoreRank(l.Type), rr = CoreRank(r.Type);
         bool single = lr >= 0 && rr >= 0 && Math.Max(lr, rr) == 3;
         // Through NarrowDouble on BOTH paths. The Single path always went through it; the Double path did
         // not, so `1E+308 / 0.0001` handed back an infinity instead of the Overflow vb6.exe raises.
         double res = a / b;
-        return NarrowDouble(res, single ? VT.Single : VT.Double, ctx);
+        return NarrowDouble(res, single ? VT.Single : VT.Double, ctx, l.HasFixedType && r.HasFixedType);
     }
 
     // ===== \ (integer division) and Mod =====
 
     public static Vb6Value IntDivide(Vb6Value l, Vb6Value r, ParserRuleContext? ctx)
     {
+        RefuseBooleanOverString(l, r, "\\", ctx);
+        l = ReadString(l, ctx);
+        r = ReadString(r, ctx);
         long a = RoundToLong(l, ctx), b = RoundToLong(r, ctx);
         if (b == 0)
             throw new VBRunTimeException(ctx, VBStandardError.DivisionByZero);
@@ -126,16 +160,31 @@ public static class VbNumeric
 
     public static Vb6Value Modulo(Vb6Value l, Vb6Value r, ParserRuleContext? ctx)
     {
+        RefuseBooleanOverString(l, r, "Mod", ctx);
+        l = ReadString(l, ctx);
+        r = ReadString(r, ctx);
         long a = RoundToLong(l, ctx), b = RoundToLong(r, ctx);
         if (b == 0)
             throw new VBRunTimeException(ctx, VBStandardError.DivisionByZero);
         return NarrowLong(a % b, IntResultType(l.Type, r.Type), ctx);   // C# % sign follows dividend, as VB6 Mod
     }
 
+    // A Boolean divided by a String, with \ or Mod, is the one shape where VB6 does not read the String as a Double:
+    // `True \ "6"` is the Boolean True and `True Mod "6"` the Boolean False (measured, native and p-code), though
+    // `"6" \ True` is the Long -6. Read as a Double it would come out a Long 0, a wrong value, so it is refused (#1047).
+    private static void RefuseBooleanOverString(Vb6Value l, Vb6Value r, string op, ParserRuleContext? ctx)
+    {
+        if (l.Type == VT.Boolean && r.Type == VT.String)
+            throw new NotImplementedException(
+                $"A Boolean {op} a String is not implemented: VB6 gives a Boolean there, by a rule not yet measured (#1047).");
+    }
+
     // ===== ^ and unary minus =====
 
     public static Vb6Value Power(Vb6Value l, Vb6Value r, ParserRuleContext? ctx)
     {
+        l = ReadString(l, ctx);
+        r = ReadString(r, ctx);
         if (!TryToDouble(l, out var a) || !TryToDouble(r, out var b))
             throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
         // `^` distinguishes a DOMAIN error from an overflow, and the two get different numbers (measured):
@@ -150,6 +199,7 @@ public static class VbNumeric
 
     public static Vb6Value Negate(Vb6Value v, ParserRuleContext? ctx)
     {
+        v = ReadString(v, ctx);
         int rank = CoreRank(v.Type);
         if (rank < 0)
         {
@@ -333,7 +383,13 @@ public static class VbNumeric
     /// exactly the case that needed raising. Both now raise, which is what vb6.exe does either way.
     /// </para>
     /// </summary>
-    private static Vb6Value NarrowDouble(double res, VT target, ParserRuleContext? ctx)
+    /// <para>
+    /// A Single that overflows widens to a Double unless both operands were typed, as an integral result widens
+    /// (<see cref="NarrowLong"/>). Measured, #234: a Variant Single on either side lifts the ceiling for <c>+</c>,
+    /// <c>-</c>, <c>*</c> and <c>/</c>, and two typed Singles raise Err 6. <paramref name="fixedType"/> is that
+    /// condition, and an all-typed Single result stays typed, as an integral one does.
+    /// </para>
+    private static Vb6Value NarrowDouble(double res, VT target, ParserRuleContext? ctx, bool fixedType = true)
     {
         if (double.IsNaN(res))
             throw new VBRunTimeException(ctx, VBStandardError.InvalidProcedureCall);
@@ -343,8 +399,8 @@ public static class VbNumeric
         {
             var f = (float)res;
             if (float.IsInfinity(f))
-                throw new VBRunTimeException(ctx, VBStandardError.Overflow);
-            return new Vb6Value(f);
+                return fixedType ? throw new VBRunTimeException(ctx, VBStandardError.Overflow) : new Vb6Value(res);
+            return fixedType ? new Vb6Value(f).AsFixedType() : new Vb6Value(f);
         }
         return new Vb6Value(res);
     }

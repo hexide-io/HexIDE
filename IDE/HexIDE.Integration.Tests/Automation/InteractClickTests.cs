@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Avalonia;
@@ -38,8 +39,8 @@ public class InteractClickTests
         window.Show();
         Dispatcher.UIThread.RunJobs();
         window.UpdateLayout();
-        // click hit-tests as a real press does, against what has been rendered, so a frame must exist first. A running
-        // IDE has rendered long before a call arrives; a headless window shown a moment ago has not.
+        // click hit-tests as a real press does, against what has been rendered, so a frame must exist first. Interact, which
+        // these call, takes the window as it is; the tool goes through InteractAsync, which waits for the frame (#1065).
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         Dispatcher.UIThread.RunJobs();
         return new Scene(window, button, pad, cover, under);
@@ -154,6 +155,78 @@ public class InteractClickTests
             seen.Should().Equal("pressed", "queued by the press", "released");
         }
         finally { scene.Window.Close(); }
+    }
+
+    // A window shown and laid out a moment ago, which has drawn no frame yet: no dispatcher job has run since it was shown,
+    // so the render timer has had no chance to tick (#1065).
+    private static (Window Window, Button Button) ShownButNotDrawn()
+    {
+        var button = new Button { Content = "go", Width = 80, Height = 30 };
+        var window = new Window { Content = button, Width = 200, Height = 100 };
+        window.Show();
+        window.UpdateLayout();
+        return (window, button);
+    }
+
+    [AvaloniaFact]
+    public async Task A_click_on_a_window_shown_a_moment_ago_waits_for_its_first_frame()
+    {
+        var (window, button) = ShownButNotDrawn();
+        try
+        {
+            var clicks = 0;
+            button.Click += (_, _) => clicks++;
+
+            // What #1065 saw: laid out, so the point is inside the button, and refused, because nothing has been drawn.
+            var undrawn = UiAutomationDriver.Interact(button, "click", null);
+            undrawn.Success.Should().BeFalse("the window has drawn nothing for the press to be hit-tested against");
+            undrawn.Error.Should().StartWith("nothing takes the pointer at (40, 15) on '");
+
+            var outcome = await UiAutomationDriver.FinishAsync(await UiAutomationDriver.InteractAsync(button, "click", null));
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Detail.Should().StartWith("clicked the left button at (40, 15) on '");
+            clicks.Should().Be(1);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task A_click_on_a_window_that_draws_nothing_in_time_is_refused_and_says_why()
+    {
+        var (window, button) = ShownButNotDrawn();
+        try
+        {
+            var pressed = 0;
+            button.AddHandler(InputElement.PointerPressedEvent, (_, _) => pressed++, RoutingStrategies.Tunnel, handledEventsToo: true);
+
+            var outcome = await UiAutomationDriver.InteractAsync(button, "click", null, frameWait: TimeSpan.Zero);
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().StartWith("nothing takes the pointer at (40, 15) on '")
+                .And.Contain("or its window, which drew no frame in the 0 ms the click waited, has nothing drawn there yet")
+                .And.EndWith("try again once it shows");
+            pressed.Should().Be(0);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task Waiting_for_a_frame_leaves_every_other_action_as_it_was()
+    {
+        var (window, button) = ShownButNotDrawn();
+        try
+        {
+            var clicks = 0;
+            button.Click += (_, _) => clicks++;
+
+            // invoke goes through the peer, which needs nothing drawn, and does not wait: a zero wait would refuse a click.
+            var outcome = await UiAutomationDriver.InteractAsync(button, "invoke", null, frameWait: TimeSpan.Zero);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            clicks.Should().Be(1);
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaFact]

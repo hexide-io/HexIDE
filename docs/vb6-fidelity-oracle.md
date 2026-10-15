@@ -4181,8 +4181,11 @@ otherwise, and that misreading has already produced one incorrect issue.
   VB6 narrows. **4 of 21 pairs diverge**, in both directions. Filed as #229.
 - **`Byte * Byte`** and **unary minus at a type minimum** raise where VB6 succeeds. Filed as #233, #234. (**Corrected
   2026-10-14:** VB6's native build succeeds at `Byte * Byte`, and its p-code build and the IDE raise, as HexIDE does.
-  Unary minus has not been re-measured as p-code.)
-- **`0#/0#`** reports 11 where VB6 reports 6, and **Variant Single overflow** raises where VB6 promotes. #234.
+  Unary minus has since been re-measured, as p-code and in the IDE: it is native code's too, and HexIDE matches the IDE.
+  See *Overflow edges*.)
+- **`0#/0#`** reports 11 where VB6 reports 6, and **Variant Single overflow** raises where VB6 promotes. #234. (**Fixed
+  2026-10-14,** after re-measuring both as p-code and in the IDE, which widened the first and found an exception to it.
+  See *Overflow edges*.)
 
 The shape of the fix these measurements point to: **per-operator arithmetic tables and a separate per-pair
 comparison table, both generated from the rows above rather than from a rank function.** All 49 pairs × 7
@@ -8653,7 +8656,7 @@ ends with `End`, which raises no Terminate, and none came before it. A form's Te
 release. The startup form's comes as the run ends, which is where the first table sees it.
 
 **In vb6.exe's IDE, the same.** Where the IDE and a compiled program differ, HexIDE matches the IDE (decided
-2026-10-14, recorded on #822). So the probes whose answer could depend on the IDE's host were run again in it, with
+2026-10-14, recorded on #822), with one exception: a class's error that its caller handles (#1011's c1, below). So the probes whose answer could depend on the IDE's host were run again in it, with
 `VB6.EXE /runexit`:
 - **`Unload Me`** and the statements after it;
 - **a WM_CLOSE**, refused and then allowed;
@@ -8698,6 +8701,343 @@ What it still does not do:
 - **`Unload Me` in Form_Initialize** is refused, naming #822. It is not measured.
 - **The SingleView host's close box** still closes without asking. The desktop's asks.
 
+## Overflow edges (2026-10-14, #234)
+
+The three rows of #234 came from the 2026-09-03 type-pair pass, which built native code only. They were measured again
+as native code, as p-code and in vb6.exe's IDE (`/runexit`). Every cell was logged under `On Error Resume Next` as
+TypeName, value and Err.Number. **The IDE matched p-code on all 49 cells**, and native code differed only at unary
+minus.
+
+**Unary minus at a type's minimum: no change.** Native code wraps (`-n` of an Integer -32768 is `Integer: -32768`, Err
+0). P-code and the IDE raise Err 6, as HexIDE already does. The same holds for a Long, and for `-CInt(-32768)`, whose
+operand is typed. A Variant holding the minimum widens in all three: `Long: 32768`, and `Double: 2147483648` for the
+Long.
+
+**0 / 0 is Overflow, unless Decimal's division does it.** The obvious reading of the native row, that a Double's `0# /
+0#` is the odd one out, is wrong in both directions.
+
+| operands | 0 / 0 | 1 / 0 |
+|---|---|---|
+| Byte, Integer, Long, Single, Double, Currency, each typed | **Err 6** | Err 11 |
+| Boolean `False / False`, `Empty / Empty`, a numeric String `"0" / "0"` | **Err 6** | |
+| a Variant Integer or Double, and mixed `Integer / Double` either way | **Err 6** | |
+| **Decimal / Decimal** | **Err 11** | Err 11 |
+| **a Decimal beside Integer, Double or Currency, either side** | **Err 11** | |
+
+`\` and `Mod` by zero are Err 11 whatever the dividend, and `0 ^ -1` is Err 5, as before. A Decimal on either side
+makes the division Decimal's, and `CDec(3) / 2` is a **Decimal** (`Currency / Currency` is a Double). The Decimal
+cells were run native and p-code; the rest were run in the IDE too.
+
+**A Variant Single that overflows widens to Double, as a Variant Integer does.**
+
+| probe | result |
+|---|---|
+| `vs + vs`, `vs = CSng(3E38)` | `Double: 6.00000001099551E+38` |
+| `vs * vt`, `vt = CSng(10)` | `Double: 3.00000000549776E+39` |
+| `vs - vt`, `vs = CSng(-3E38)`, `vt = CSng(3E38)` | `Double: -6.00000001099551E+38` |
+| `vs / vt`, `vt = CSng(0.1)` | `Double: 2.99999996079427E+39` |
+| `vs + s` and `s + vs`, `s As Single = 3E38` | `Double: 6.00000001099551E+38` |
+| `CSng(3E38) + CSng(3E38)`, and `s + s` | **Err 6** |
+| `vs + vi`, `vi = CInt(1)` | `Single: 3E+38`, no overflow |
+
+So a Variant on either side lifts the ceiling, and two typed Singles raise, exactly as for the integral types. Each
+value is the sum computed in Double from the Singles' own values, which is why it isn't `6E+38`. **`CSng` returns a
+typed Single:** its two results raise where two Variant Singles widen. That is the same test #987 applied to the other
+conversions, so `CSng` now sits in HexIDE's list of typed intrinsics.
+
+**Found on the way:** every arithmetic operator refuses a numeric String with Err 13, where VB6 reads it as a Double.
+`"0" / "0"` is Err 6 in VB6 for that reason. Filed as #1047, with its own measurements.
+
+### HexIDE
+
+Since #234:
+- **`/`:** zero over zero raises Err 6 unless an operand is a Decimal, and any other division by zero raises Err 11.
+- **Single overflow:** in `+`, `-`, `*` and `/`, it widens to Double unless both operands are typed. A result that is
+  all typed stays typed, so `(s + 0) * 10` still raises.
+- **`CSng`'s result** is typed.
+
+Pinned in `OverflowEdgeTests`. One older test, `SingleOverflow_IsStillError6`, had put its first operand in a Variant
+where the oracle row it cites has two `CSng` results. With the widening it gave a Double, and it now has the row's own
+form.
+
+What it still does not do: a Decimal division gives back a Double, where VB6 gives a Decimal (#230 has the result-type
+table). A numeric String operand was refused too, until #1047 (*A String in arithmetic*, below).
+
+## A String in arithmetic (2026-10-14, #1047, #770)
+
+What does VB6 do with a String operand to `+ - * / \ Mod ^` and unary minus? Before this, HexIDE raised Type
+mismatch for every one, so `Text1.Text * 2` stopped the run. These runs were made:
+- 76 cells, run as native code, as p-code and in the IDE (`/runexit`), under the guest's en-GB locale and again under
+  de-DE, the locale switched with `Set-Culture` and restored afterwards;
+- then 135 cells of result type, native and p-code.
+
+**Native code, p-code and the IDE agree on every cell, in both locales.**
+
+**A numeric String is read as a number, by CDbl's own reader.** Each of 22 edge strings was run as `s * 1` and as
+`CDbl(s)`. The two agreed every time:
+
+| String | en-GB | de-DE |
+|---|---|---|
+| `"1e3"`, `"1D3"` | 1000 | 1000 |
+| `" 6 "`, `"+6"` | 6 | 6 |
+| `"-6"`, `"6-"`, `"(6)"` | -6 | -6 |
+| `"&H10"`, `"&O10"`, `"&HFFFF"` | 16, 8, 65535 | the same |
+| `"1,000"` | 1000 | **1** |
+| `"6,5"` | **65** | 6.5 |
+| `"6.5"` | 6.5 | **65** |
+| `"6.5e1"` | 65 | **650** |
+| `"abc"`, `""`, `"  "`, `"True"`, `"0x10"`, `"$6"` | Err 13 | Err 13 |
+| `"1e400"` | Err 6 | Err 6 |
+
+The locale's thousands separator is skipped wherever it falls, and its decimal separator is the point. So under de-DE
+`"1.5" * 2` is 30. `"£6"` was meant to be measured and wasn't: the harness read the probe as UTF-8 where it had been
+written as Latin-1, so the cell ran as `"?6"`.
+
+**The String takes a Double's place in the result table.** Against each partner, both ways round:
+
+| partner | `+`, `-` | `*` | `/` | `\`, `Mod` | `^` |
+|---|---|---|---|---|---|
+| Byte, Integer, Long, Single, Double, Boolean | Double | Double | Double | Long | Double |
+| Currency | **Currency** | Double | Double | Long | Double |
+| Decimal | Decimal | Decimal | **Decimal** | Long | Double |
+| Date | **Date** | Double | Double | Long | Double |
+
+That is the table a Double operand gets, Currency's dominance under `+` and `-` included. `i = "6" * 2` stores Integer 12.
+
+**`+` concatenates a String beside a String or beside Empty, and adds otherwise:**
+- `"6" + "2"` is the String `"62"`, and so is the same pair held in two Variants;
+- `"6" + Empty` and `Empty + "6"` are the String `"6"`;
+- `"6" + 2`, `2 + "6"`, a Variant 6 + `"2"`, and a Variant `"6"` + a Variant 2 are all Double 8;
+- `"6" + True` is Double 5, and `"6" + Null` is Null.
+
+`"6" - Empty` is Double 6, and `"6" * Empty` is Double 0.
+
+**Resisted explanation: a Boolean divided by a String.** `True \ "6"` is the Boolean **True**, and `True Mod "6"` is the
+Boolean **False**, where `"6" \ True` is the Long -6 and `True / "6"` the Double -0.166666666666667. With a Boolean
+on the left, `\` and `Mod` behave as if the String were read as a Boolean: -1 \ -1 is 1, and -1 Mod -1 is 0.
+That fits both cells, but it is a fit to two cells, not a rule that has been tested.
+
+### HexIDE
+
+Since #1047, every arithmetic operator reads a String operand through `ToNum`, the reader `CDbl`, a store into a number
+and a property assignment already share. It reads it as a Double, and the existing result table does the rest. `ToNum`
+itself now reads:
+- the locale's thousands separator, which also fixes #770, where `Label1.Left = "1,5"` raised 13 and VB6 stores 15;
+- a trailing sign;
+- parentheses;
+- a `D` exponent.
+
+`+` gives back the String when the other operand is Empty. `True \ "6"` and `True Mod "6"` are refused as not
+implemented, because read as a Double they would be a Long 0, a wrong value. Pinned in `StringOperandArithmeticTests`,
+each cell under a stated culture. The `"0" / "0"` cell left out of #234 is pinned now as well: Err 6.
+
+What it still does not do:
+- **`"6" * CCur(2)` and `"6" / CDec(2)`** come out as Currency and Double, where VB6 gives Double and Decimal. HexIDE gets
+  the same two pairs wrong for any Double operand, which is #230.
+- **A String compared to a number** is #211.
+
+## Several forms: load, show, hide, modal, and when the run ends (2026-10-14, #822)
+
+The seven questions of #822's design note for slice 2a. There are 21 projects, two forms each. Every form logs
+Initialize, Load, Resize, Activate, Deactivate, QueryUnload, Unload and Terminate, with the seconds since the start, and
+every project ends itself.
+
+**How they were run:**
+- every project native and p-code, which agree in every probe;
+- in vb6.exe's IDE (`/runexit`) for the modal, hide and run's-end probes, where the host could matter. The IDE matches
+  p-code in every one.
+- Most runs were in the guest's session 0, which has no interactive desktop. Two things read differently there, so the
+  modal probes were run on the console session too. The console answers stand.
+
+**1. Which use loads a form.** Form1 touches Form2 once, then logs `Forms.Count`, which counts loaded forms without
+touching Form2.
+
+| first use | raises | loaded after it |
+|---|---|---|
+| `x = Form2.Caption` | Initialize, Load | yes |
+| `x = Form2.Text1.Text` | Initialize, Load | yes |
+| `x = Form2.pub`, a Public variable | Initialize | **no** |
+| `Form2.pub = 3` | Initialize | **no** |
+| `Form2.Foo`, a Public Sub | Initialize, then Foo runs | **no** |
+| `Set o = Form2` | Initialize (`TypeName(o)` is `Form2`) | **no** |
+
+**Any use of the name makes the instance and raises Initialize. Only a control or a built-in member loads it.** None
+of them shows it.
+
+**2. `Load Form2`, then `Form2.Show`.**
+- **Load:** raises Initialize and Load, and returns with the form loaded and not visible.
+- **Show:** raises Resize and returns. Form1's Deactivate and Form2's Activate come after the statement has returned.
+
+**3. Hide.**
+- **`Form2.Hide`:** the form stays loaded, and `Forms.Count` is still 2.
+- **Hiding both forms:** the run keeps going. Form1's Timer ticked four more times, until the forms were unloaded.
+- **Activation:** no Deactivate was logged for a hidden form. That was in session 0, and activation there is not
+  trustworthy, so it is unmeasured.
+
+**4. Unload, then use again.**
+- **After `Unload Form2`:**
+  - `Form2.pub` still reads **5**, the value set before the unload, and does not reload the form;
+  - `Form2.Caption` reloads it, raising **Load without Initialize**.
+- **Terminate** is not raised by Unload. It came at `Set Form2 = Nothing`, before the next statement.
+- **After that,** `Form2.pub` makes a **new instance** (Initialize, with pub 0), not loaded.
+
+**5. `New Form2`.**
+- **`Set f = New Form2`:** raises Initialize at once, and the form is not loaded.
+- **`f.Caption = "second"`:** loads it.
+- **`f.Show`:** shows it.
+- **`Form2.Show` after that:** makes the **default instance**, a third Initialize and Load, so three forms are
+  loaded. `f Is Form2` is False, and the captions are "second" and "Form2".
+- **`Set f = Nothing`, after `Unload f`:** raises f's Terminate.
+
+**6. `Show vbModal`.** Form1's Timer1 ticks every 200 ms throughout. Its Timer2 shows Form2 modally at 0.6 s, and
+Form2's own timer reports on Form1, then unloads (6a) or hides (6b) Form2 at its fifth tick.
+- **Form1's Timer keeps ticking while Form2 is modal,** in native code, in p-code and in the IDE. This is the
+  measurement the design waited on. The obvious guess, that the IDE holds other forms' Timers behind a modal form, is
+  wrong here. **It is right for a `MsgBox`**, measured straight after:
+  - **in the IDE**, no tick came in the 5 s a MsgBox was up, from a Timer2 on the same form;
+  - **compiled**, Form1's Timer ticked under it for the whole 29 s.
+
+  Both runs were in session 0. So a modal form lets other events run in either build, and a MsgBox holds them, but
+  only in the IDE.
+- **Form1 is disabled while Form2 is modal.** On the console, `Form1.Enabled` reads False and so does
+  `IsWindowEnabled(Form1.hWnd)`, and both read True again once the modal form has gone. In session 0 both read True
+  throughout, the one place that session misled.
+- **A click posted to Form1's button still ran its Click** (6c), on the console as in session 0. That shows only that
+  posted messages bypass the disabled window. A person's click cannot reach a disabled window, so it is not evidence
+  that input runs.
+- **The statement after `Show vbModal`** runs once Form2 has unloaded (6a) or hidden itself (6b), and after the handler
+  that did so has returned. After a hide, Form2 is still loaded.
+- **Activation:** Form1 is deactivated as Form2 activates, and activated again when the modal returns.
+
+**7. When the run ends.**
+- **Sub Main showing a form and returning:** Main ends straight after the form's Resize, before its Activate (as E3
+  had it). The run then lasts until the form unloads.
+- **Sub Main loading a form hidden and returning:** the run goes on; its Timer ticked until it unloaded itself.
+- **Sub Main showing a form modally:** Main waits. Once the form has unloaded, Main goes on with no form loaded, and
+  returns.
+- **The last visible form unloading while another form is loaded:** the run goes on with the other form, hidden or
+  shown, and ends only when it unloads.
+- **So the run ends when no form is loaded, shown or hidden, and Sub Main has returned.**
+- **The Terminates of default instances never released** come at the run's end, all together, in the order the forms
+  were first created.
+
+Unrelated to the questions but recorded: in session 0 a shown form reads `Visible` False, as #973's probe saw.
+
+**8. An error in another form's Initialize or Load, under the caller's `On Error`.** Form1's Timer calls a Sub that sets
+`On Error GoTo h`, then uses Form2 once. Form2 divides an Integer by an Integer variable holding 0 in its Initialize or
+its Load. Compiled only, native and p-code agreeing.
+
+| use | Form2 errs in | the caller's handler |
+|---|---|---|
+| `Load Form2` | Load | **not reached**: the run stops at the error |
+| `L Form2.Text1.Text` | Load | **not reached** |
+| `Form2.Show` | Load | **not reached** |
+| `Form2.pub = 1` | Initialize | **traps it**: `caught 11 Division by zero` |
+
+- **Load is an event, and its error is not the caller's.** The log stops after Form2's Load line and the run hangs on
+  the unhandled-error box (session 0 can't dismiss it). This matches what b1 to b3 found for other events.
+- **Initialize is not a boundary.** Its error comes back through the statement that used the form's name, as a class's
+  Initialize error comes back through its `New`. After the trap Form1's Timer ticked on, and the run ended at its End.
+- **What it overturned.** HexIDE's first cut reported an error in either the same way, at the boundary, on the
+  reasoning that both are event procedures. Initialize isn't one in this sense.
+- **The IDE is not measured here.** Under the IDE's default Break in Class Module, a form counts as a class module,
+  which is #1011's c1. HexIDE follows the compiled program there: the caller's handler catches it (decided
+  2026-10-15).
+
+**9. Unload of a form that isn't loaded.**
+- **`Unload Form2`, with Form2 never used:** raises Form2's Initialize, from the use of its name, then nothing. There
+  is no QueryUnload, Unload or error, and `Forms.Count` stays 1.
+- **`Form2.pub = 1`, then `Unload Form2`:** the same. Afterwards `Form2.pub` still reads 1, so the instance was kept.
+- **`Unload Me` inside the form's own Initialize** does nothing, for the startup form and for another form:
+  - the line after it runs;
+  - the form then loads, and Show goes on as usual.
+
+So an Unload of a form that isn't loaded does nothing, wherever it comes from. HexIDE had refused it as not
+implemented.
+
+**10. A use whose Load unloads the form.** Form2's Load unloads it with `Unload Me`. Form1 then uses Form2 once under
+`On Error Resume Next`, logging `Err` and `Forms.Count`. Native and p-code agree.
+
+| use | log |
+|---|---|
+| `x = Form2.Text1.Text` | Initialize, Load, QueryUnload 1, Unload, the rest of Load, then **364 "Object was unloaded"**. `x` is left Empty and `Forms.Count` is 1 |
+| `x = Form2.Caption` | the same, and the same **364** |
+| `Form2.Hide` | the same, and the same **364** |
+
+- **Same answer for every use.** The `Show`, `Load` and `Show vbModal` rows under *Unload Me inside Form_Load* gave this
+  answer too, and so does each use that loads the form.
+- **No second load.** VB6 doesn't load the form again to finish the use. HexIDE's first cut did, retrying the use after
+  the load, and so loaded it again on every retry.
+
+**11. A loaded form's name set to Nothing.**
+- **In Form1's own code, `Set Form1 = Nothing`, then `Form1.Caption`:** the name makes a **second instance**, with
+  Initialize and Load. `Forms.Count` becomes 2, and `Form1 Is Me` is False. The first instance is untouched, and its
+  Timer runs on, so the second Load's Timer started a second run of ticks. Nothing else reaches the first instance by
+  name again.
+- **Form2's name cleared while `f` holds it:** the sequence was `Set f = Form2`, `Form2.Show`, `Set Form2 = Nothing`,
+  then `Unload f`.
+  - The Unload raises QueryUnload and Unload, and no Terminate.
+  - Terminate comes at `Set f = Nothing`, before the next statement.
+
+  So a loaded form is held apart from its name, and its Terminate waits for the last reference, the name included, as
+  measurement 4's `Set Form2 = Nothing` after its Unload showed from the other side.
+
+**12. `Show vbModal`'s edges (2026-10-14, slice 2a.2).** Fourteen more projects, built the same way as the 21, native
+and p-code, which agree in every one. Compiled only, in session 0: the IDE is not measured here. Form1's Timer1 ticks
+every 200 ms, its Timer2 shows Form2 modally at 0.6 s, and each other form's Timer1 ticks every 200 ms from its Load.
+Every row ran under `On Error Resume Next`, logging `Err.Number` and `Err.Description` after the statement.
+
+| statement | where | result |
+|---|---|---|
+| `Form2.Show vbModal` | Form2 already shown, modelessly | **no error**: Form2 turns modal, and the statement returns when it has gone |
+| `Me.Show vbModal` | Form1 shown, no modal form displayed | **no error**: Form1 turns modal over itself, and the statement returns when its other Timer hides it |
+| `Me.Show vbModal` | inside Form2, which is modal | **405 "Unable to show modal form within this context"** |
+| `Form1.Show vbModal` | Form2 modal, Form1 beneath it | **no error**: Form1 turns modal over Form2, and Form2's statement returns once Form1 hides itself |
+| `Form2.Show vbModal` | Form2 shown, then hidden | no error, modal as usual |
+| `Form3.Show` (loaded, hidden) | Form2 modal | **401 "Can't show non-modal form when modal form is displayed"** |
+| `Form1.Show` (already shown) | Form2 modal | **401**, the same |
+| `Me.Show` | inside Form2, which is modal | **401**, the same |
+| `Load Form3` | Form2 modal | no error. Form3 loads hidden, and `Forms.Count` is 3 |
+| `Form1.Hide` | Form2 modal, Form1 not modal | **402 "Must close or hide topmost modal form first"** |
+| `Form2.Hide` | Form3 modal over Form2 | **402**, the same |
+| `Form2.Hide`, from Form1's Timer | Form2 modal and topmost | no error, and the modal returns |
+| `Me.Visible = False` | inside Form2, which is modal | the modal returns, as on Hide. Form2 stays loaded |
+| `Unload Form2`, from Form1's Timer | Form2 modal | the rest of Form1's Timer handler runs first, then the statement after `Show vbModal` |
+| `End` | inside Form2, which is modal | the run ends. The statement after `Show vbModal` never runs |
+
+**Show's style argument.** Form2 hid itself every fifth tick, so a modal Show returned about a second later.
+
+| `Form2.Show` | result |
+|---|---|
+| `0`, `0.4` | modeless |
+| `1`, `"1"`, `0.6` | modal |
+| `2`, `-1`, `True`, `1.5` | **5 "Invalid procedure call or argument"**, raised after Form2's Initialize and Load: Form2 is loaded, and not visible |
+
+So the style converts as `CInt` does, rounding 0.6 to 1 and 1.5 to 2, and only 0 and 1 are accepted.
+
+**A modal form showing another.** Form2, modal, shows Form3 modally from its Timer's handler.
+- Form1's Timer ticks throughout.
+- Form2's Timer doesn't tick until Form3's modal has returned, because the waiting handler is that Timer's own, and a
+  Timer never runs inside itself (#766).
+- Each modal returns once its own form has gone, innermost first.
+
+**The startup form's Load showing a form modally.** Form1 isn't shown while the modal is up, and reads `Visible` False.
+Load goes on once Form2 has unloaded, and Form1 is then shown as any startup form is, with its Resize after Load.
+
+**What was overturned.**
+- **Err 400, "Form already displayed; can't show modally",** is documented for a modal Show of a form already shown.
+  It never came: the shown form turned modal instead, in every case measured. The IDE wasn't measured, and an
+  owner-form argument wasn't tried.
+- **Err 402's text** is "Must close or hide topmost modal form first". HexIDE's table had "Code must close topmost modal
+  form first".
+- **Err 5's text** is "Invalid procedure call or argument". HexIDE's table had "Invalid procedure call", and every Err 5
+  it raised said so.
+
+**13. A method call statement with no space before its parenthesised argument.** A form's Timer ran `Form2.Show(0)`
+and `Text1.Move(100)`, written into the `.frm` that way. Both builds compile, and both statements run: Form2 loads and
+shows, and `Text1.Left` reads 100 after the Move. VB6's editor would have rewritten each with a space, so this is what
+a file written elsewhere gets. HexIDE's grammar refused both (#1064).
+
 ## An unhandled run-time error (2026-10-14, #1011)
 
 What does VB6 do when an event procedure raises a run-time error that nothing handles? The probe has Timer1 logging a
@@ -8741,4 +9081,11 @@ inside `On Error GoTo` (c1):
   runs.
 
 The same call to a standard-module Sub (c2) is caught by the form's handler in the IDE and in both builds. So the IDE's
-option decides c1, not the language. Which of the two HexIDE follows is open on #1011.
+option decides c1, not the language.
+
+**HexIDE follows the compiled program in c1** (decided 2026-10-15, recorded on #1011). The form's handler catches the
+class's error, which is also what the IDE does under its *Break on Unhandled Errors* setting. This is a deliberate
+exception to the rule that HexIDE matches the IDE where the two differ. The IDE's default stops code that handles its
+own errors, and following it would mean building "Continue from a break hands the error to the caller's handler".
+For an error that nothing handles, HexIDE keeps the default's location: the innermost faulting line, a class's
+included.
