@@ -140,7 +140,6 @@ public class CorpusBehaviourTests
 
         // CONTINUATION-INSIDE-AN-EXPRESSION. A continuation between an open paren and its argument, or
         // before a comma in an argument list, reaches an unimplemented path.
-        ["continuation-basics/cont-after-open-paren"] = "EXPR-CONTINUATION: NotImplementedException",
         ["continuation-basics/cont-arglist-before-comma"] = "EXPR-CONTINUATION: NotImplementedException",
         ["continuation-illegal/continuation-inside-argument-list"] = "EXPR-CONTINUATION: NotImplementedException",
         ["continuation-vs-identifier/trailing-underscore-then-type-hint"] = "EXPR-CONTINUATION: NotImplementedException",

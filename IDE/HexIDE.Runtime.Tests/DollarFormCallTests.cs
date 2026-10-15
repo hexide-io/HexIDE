@@ -24,10 +24,10 @@ public class DollarFormCallTests : BaseVBTestFixture
     [Fact]
     public async Task Where_the_plain_form_passes_a_Null_through_the_dollar_form_raises_94()
     {
-        await Run("Dim r\nOn Error Resume Next\nr = Trim(Null)\nDebug.Print IsNull(r), Err.Number\n"
+        await Run("Dim r\nOn Error Resume Next\nr = Trim(Null)\nDebug.Print IsNull(r)\nDebug.Print Err.Number\n"
                   + "r = Trim$(Null)\nDebug.Print Err.Number\nErr.Clear\nr = Left$(Null, 1)\nDebug.Print Err.Number\n");
 
-        AssertDebugLog([new Vb6Value(true), new Vb6Value(0), new Vb6Value(94), new Vb6Value(94)]);
+        AssertDebugLog([new Vb6Value(true), new Vb6Value(0L), new Vb6Value(94L), new Vb6Value(94L)]);
     }
 
     [Fact]
@@ -35,7 +35,7 @@ public class DollarFormCallTests : BaseVBTestFixture
     {
         // Ignored: Len$ is Len, a Long (measured).
         await Run("Debug.Print Len$(\"abc\")\nDebug.Print TypeName(Len$(\"abc\"))\n");
-        AssertDebugLog([new Vb6Value(3), new Vb6Value("Long")]);
+        AssertDebugLog([new Vb6Value(3L), new Vb6Value("Long")]);
 
         // Refused: VB6's compile error, raised here when the statement runs (measured on Val$).
         var refused = () => Run("Dim r\nr = Val$(\"12\")\n");

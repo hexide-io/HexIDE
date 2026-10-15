@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.AvaloniaInterop;
@@ -52,7 +55,10 @@ public static class AvaloniaMethodsInteroperability
             }
         }
 
-        // A method VB6 has and HexIDE does not, such as Move, Refresh, SetFocus or Cls. This was a
+        if (method.Equals("move", StringComparison.OrdinalIgnoreCase) && c is not Window)
+            return Move(c, args);
+
+        // A method VB6 has and HexIDE does not, such as Refresh, SetFocus or Cls. This was a
         // plain Exception, which the IDE reports as an internal fault. It is HexIDE's gap, not the program's, so
         // it says so, and it is never trappable: On Error Resume Next stepping over a Move that never happened
         // would leave the program believing the control had moved (#754). A member VB6 itself lacks is a
@@ -61,6 +67,28 @@ public static class AvaloniaMethodsInteroperability
         // SetFocus is refused on every control, its own form's included; #1061 tracks it.
         var tracked = method.Equals("SetFocus", StringComparison.OrdinalIgnoreCase) ? " (#1061)" : "";
         throw new NotImplementedException($"The {method} method is not implemented for {target}{tracked}");
+    }
+
+    private static readonly PropertyClass[] MoveOrder =
+        [VBProperties.LeftProperty, VBProperties.TopProperty, VBProperties.WidthProperty, VBProperties.HeightProperty];
+
+    /// <summary>
+    /// A control's Move (#1071): Left, then Top, Width and Height where they are given, each as its property takes it, in
+    /// the container's ScaleMode. Measured: <c>Move 100</c> sets Left alone and <c>Move 200, 300</c> Left and Top, 450.5
+    /// reads 450, and a negative width is 5 with nothing moved, Left included. So the check comes before any is set.
+    /// </summary>
+    private static Vb6Value Move(Control c, IReadOnlyList<Vb6Value> args)
+    {
+        // An omitted argument, `Move 1, , 3`, and Move with none at all, are not measured.
+        if (args.Count is 0 or > 4 || args.Any(a => a.IsMissing))
+            throw new NotImplementedException($"The Move method with {args.Count} arguments, or with one omitted, is not implemented");
+        for (var i = 2; i < args.Count; i++)
+            if (AvaloniaInteroperability.ConvertForAssignment(MoveOrder[i], args[i]) is double size && size < 0)
+                throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
+        for (var i = 0; i < args.Count; i++)
+            if (!AvaloniaInteroperability.TrySet(c, MoveOrder[i], args[i]))
+                throw new NotImplementedException($"The Move method is not implemented for {VBProps.GetName(c) ?? c.GetType().Name}");
+        return Vb6Value.Nothing;
     }
 
     /// <summary>
