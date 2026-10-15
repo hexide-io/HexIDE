@@ -10,8 +10,9 @@ namespace HexIDE.Runtime.Serialization;
 public class VbFrmFormatDeserializer
 {
     private readonly Stack<VBSerializedComponent> componentStack = new Stack<VBSerializedComponent>();
-    private readonly StringBuilder _codeBuilder = new StringBuilder();
-    private bool parsingCode = false;
+
+    /// <summary>Where the code body begins in the input, or -1 if the root <c>End</c> was never reached.</summary>
+    private int _codeStart = -1;
 
     /// <summary>
     /// The open <c>BeginProperty</c> blocks, innermost last. A stack rather than three scalar fields
@@ -24,7 +25,40 @@ public class VbFrmFormatDeserializer
 
     private readonly Stack<OpenBlock> _openBlocks = new();
 
-    public string Code => _codeBuilder.ToString();
+    /// <summary>
+    /// The code body: everything after the root <c>End</c>, <b>sliced from the input</b> rather than
+    /// rebuilt.
+    /// </summary>
+    /// <remarks>
+    /// <b>This used to be accumulated with <c>StringBuilder.AppendLine</c>, which re-terminated every line
+    /// with <c>Environment.NewLine</c>.</b> On Windows that is indistinguishable from the CRLF the file
+    /// already had; on Linux it silently rewrote a whole VB6-authored code body to LF, and the save path
+    /// writes <c>Code</c> back byte-verbatim while the designer half is pinned to CRLF — so a form merely
+    /// opened and saved on a Linux host came back with mixed terminators. `build-ide` runs on
+    /// `ubuntu-latest`, and the round-trip corpus gate passes vacuously without
+    /// <c>HEXIDE_ROUNDTRIP_CORPUS</c>, which is why it was never caught.
+    ///
+    /// <para>
+    /// It also always ended in a newline, whether or not the file did, because every line was appended
+    /// with one. Slicing preserves the file's own terminators and its own ending, which is what phase 3
+    /// needs: the editor's buffer is about to become <see cref="DesignerText"/> + this, and that
+    /// composition has to equal the file byte for byte or the invariant the whole phase rests on is false.
+    /// </para>
+    /// </remarks>
+    public string Code { get; private set; } = "";
+
+    /// <summary>
+    /// The designer half, verbatim: the first line through the root <c>End</c> inclusive.
+    /// </summary>
+    /// <remarks>
+    /// Kept as text as well as parsed into components, because the two answer different questions. The
+    /// components are what the designer edits and what a save re-renders; this is what the file actually
+    /// said, and it is what the code window puts in front of the developer until something changes it
+    /// (hexide-io/HexIDE#273 task 3.1). The <c>VERSION</c> line and the block's own <c>Begin</c>/<c>End</c>
+    /// are otherwise unrecoverable — the first is dropped at parse and regenerated from a literal, the
+    /// second is rebuilt at a computed indent.
+    /// </remarks>
+    public string DesignerText { get; private set; } = "";
 
     /// <summary>
     /// Lines between the VERSION line and the root <c>Begin</c>, kept verbatim. Almost always OCX
@@ -34,19 +68,14 @@ public class VbFrmFormatDeserializer
 
     public (VBSerializedComponent, string) Deserialize(string input)
     {
-        using (var reader = new StringReader(input))
         {
-            string? rawLine;
             VBSerializedComponent? rootComponent = null;
 
-            while ((rawLine = reader.ReadLine()) != null)
+            // Walked with offsets rather than a StringReader, so the boundary between the two halves is a
+            // character position in the ORIGINAL text. Both halves are then slices of the input and every
+            // terminator is the file's own. See the remarks on Code.
+            foreach (var (rawLine, lineEnd) in LinesWithEnds(input))
             {
-                if (parsingCode)
-                {
-                    _codeBuilder.AppendLine(rawLine);
-                    continue;
-                }
-
                 var line = rawLine.Trim();
 
                 if (line.StartsWith("VERSION"))
@@ -131,7 +160,12 @@ public class VbFrmFormatDeserializer
                 {
                     componentStack.Pop();
                     if (componentStack.Count == 0)
-                        parsingCode = true;
+                    {
+                        // The root End closes the designer half. Everything from here is the code body, so
+                        // there is nothing left to scan — the two slices are taken below.
+                        _codeStart = lineEnd;
+                        break;
+                    }
                 }
                 else
                 {
@@ -147,7 +181,39 @@ public class VbFrmFormatDeserializer
                 }
             }
 
+            // A file whose root End is never reached is all designer and no code, which is what the
+            // old accumulator produced too (it never flipped, so nothing was appended).
+            DesignerText = _codeStart >= 0 ? input[.._codeStart] : input;
+            Code = _codeStart >= 0 ? input[_codeStart..] : "";
+
             return (rootComponent ?? throw new InvalidOperationException("No root component found in input."), Code);
+        }
+    }
+
+    /// <summary>
+    /// Each line of <paramref name="input"/> with the offset just past its terminator.
+    /// </summary>
+    /// <remarks>
+    /// Follows <see cref="System.IO.TextReader.ReadLine"/>'s rules exactly, because it replaces a
+    /// <c>StringReader</c> and any divergence would change which text is parsed: <c>\r\n</c> is one
+    /// terminator, and a lone <c>\r</c> or a lone <c>\n</c> is one. A final line with no terminator is
+    /// yielded, and its end is the end of the input.
+    /// </remarks>
+    private static IEnumerable<(string Line, int End)> LinesWithEnds(string input)
+    {
+        var i = 0;
+        while (i < input.Length)
+        {
+            var start = i;
+            while (i < input.Length && input[i] is not ('\r' or '\n')) i++;
+            var textEnd = i;
+
+            if (i < input.Length)
+            {
+                i += input[i] == '\r' && i + 1 < input.Length && input[i + 1] == '\n' ? 2 : 1;
+            }
+
+            yield return (input[start..textEnd], i);
         }
     }
 

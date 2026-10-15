@@ -93,12 +93,13 @@ public class WireContractTests
     }
 
     [Fact]
-    public async Task A_refused_ranged_change_cannot_produce_a_whole_document_formatting_edit()
+    public async Task A_refused_ranged_change_cannot_produce_a_formatting_edit()
     {
-        // This is why refusal evicts rather than logs-and-ignores. Formatting returns a single TextEdit
-        // spanning (0,0) to end-of-buffer, so a stale buffer left in the store after a mis-applied ranged
-        // change would let a client replace the user's real file with the fragment. With no source entry
-        // the path is closed structurally rather than by remembering not to take it.
+        // This is why refusal evicts rather than logs-and-ignores. Formatting answers with edits whose ranges
+        // and text come from the stored buffer, so a stale buffer left in the store after a mis-applied ranged
+        // change would have a client apply the fragment's formatting to the user's real file. (It used to be
+        // one edit spanning the whole buffer, which replaced the file with the fragment outright.) With no
+        // source entry the path is closed structurally rather than by remembering not to take it.
         await using var h = await StartAsync();
         await OpenAsync(h, Uri, Doc);
         await h.NextDiagnosticsAsync();
@@ -124,7 +125,7 @@ public class WireContractTests
             options = new { tabSize = 4, insertSpaces = true },
         });
 
-        edits.GetArrayLength().Should().Be(0, "no source, so no whole-document edit can be emitted");
+        edits.GetArrayLength().Should().Be(0, "no source, so no edit can be emitted");
     }
 
     [Fact]
@@ -266,10 +267,11 @@ public class WireContractTests
     }
 
     [Fact]
-    public async Task Formatting_returns_a_single_whole_document_TextEdit()
+    public async Task Formatting_returns_one_TextEdit_per_run_of_changed_lines()
     {
         await using var h = await StartAsync();
-        await OpenAsync(h, Uri, "sub foo()\ndim x\nend sub\n"); // lowercase keywords → reformatted
+        // Lines 0-2 change, line 3 is already formatted, line 4 changes again.
+        await OpenAsync(h, Uri, "sub foo()\ndim x\nend sub\n' note\nsub bar()\nEnd Sub\n");
 
         var edits = await RequestAsync(h, "textDocument/formatting", new
         {
@@ -277,8 +279,10 @@ public class WireContractTests
             options = new { tabSize = 4, insertSpaces = true }
         });
         edits.ValueKind.Should().Be(JsonValueKind.Array);
-        edits.GetArrayLength().Should().Be(1);
-        edits[0].GetProperty("newText").GetString().Should().Contain("Sub foo()");
+        edits.EnumerateArray().Select(RangeOf).Select(r => (r.Start.Line, r.Start.Character, r.End.Line, r.End.Character))
+            .Should().Equal((0, 0, 2, 7), (4, 0, 4, 9));
+        edits[0].GetProperty("newText").GetString().Should().Be("Sub foo()\n    Dim x\nEnd Sub");
+        edits[1].GetProperty("newText").GetString().Should().Be("Sub bar()");
     }
 
     [Fact]
@@ -450,8 +454,325 @@ public class WireContractTests
             (await h.NextDiagnosticsAsync()).GetProperty("uri").GetString().Should().Be(Uri);
     }
 
+    // ── a whole file: the header is the IDE's (#273 task 3.10) ─────────────────────────────────
+    // The language-server delta's requirement, on the wire: no answer changes or points inside a header or a
+    // member's attribute lines. WholeFileAnswersTests holds the formatter and the diagnostics to it directly;
+    // these hold the handlers, which are where rename and highlight make the decision.
+
+    [Fact]
+    public async Task Formatting_a_whole_class_never_edits_its_header_or_its_members_attribute_lines()
+    {
+        // The delta's "Formatting a class".
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, WholeFileFixtures.Class);
+
+        var edits = await RequestAsync(h, "textDocument/formatting", new
+        {
+            textDocument = new { uri = Uri },
+            options = new { tabSize = 4, insertSpaces = true },
+        });
+
+        var regions = VbProtectedRegions.Of(WholeFileFixtures.Class);
+        edits.GetArrayLength().Should().BeGreaterThan(0, "the code under the header is deliberately unformatted");
+        edits.EnumerateArray().Should().OnlyContain(e => !regions.Touches(RangeOf(e)));
+        Apply(WholeFileFixtures.Class, edits).Should().Be(VbFormatter.Format(WholeFileFixtures.Class));
+    }
+
+    [Fact]
+    public async Task Renaming_a_local_named_like_a_control_has_no_answer()
+    {
+        // The delta's "Renaming an identifier that also appears in the layout", literally: the local has the
+        // control's own name, which the designer block declares on its Begin line. Lexically that local is
+        // indistinguishable from a reference to the control, and renaming the control from its code, keeping
+        // off the header, would leave the code naming a control that does not exist. So both are declined,
+        // and nothing at all falls inside the designer block.
+        var form = string.Concat(WholeFileFixtures.Lines(WholeFileFixtures.Form).Take(WholeFileFixtures.FormHeaderLines)
+                       .Select(l => l + "\r\n")) +
+                   "Private Sub Form_Load()\r\n" +      // 17
+                   "    Dim cmdOK As String\r\n" +       // 18
+                   "    cmdOK = \"x\"\r\n" +             // 19
+                   "End Sub\r\n";
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, form);
+
+        var edit = await RequestAsync(h, "textDocument/rename", new
+        {
+            textDocument = new { uri = Uri },
+            position = new { line = 18, character = 9 },
+            newName = "okText",
+        });
+
+        edit.ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task Renaming_a_control_from_its_code_has_no_answer()
+    {
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, WholeFileFixtures.Form);
+
+        var edit = await RequestAsync(h, "textDocument/rename", new
+        {
+            textDocument = new { uri = Uri },
+            position = new { line = 21, character = 12 }, // "Caption = cmdOK.Caption"
+            newName = "cmdAccept",
+        });
+
+        edit.ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task Renaming_an_identifier_that_also_appears_in_the_layout_edits_nothing_in_the_designer_block()
+    {
+        // The language-server delta's scenario. Caption is a property three times over in the fixture's designer
+        // block, and the local renamed here is called Caption too.
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, WholeFileFixtures.Form);
+
+        var edit = await RequestAsync(h, "textDocument/rename", new
+        {
+            textDocument = new { uri = Uri },
+            position = new { line = 20, character = 5 }, // "dim Caption as string"
+            newName = "title",
+        });
+
+        var starts = StartsOf(edit.GetProperty("changes").GetProperty(Uri));
+        starts.Should().Contain((20, 4)).And.OnlyContain(s => s.Line >= WholeFileFixtures.FormHeaderLines);
+    }
+
+    [Fact]
+    public async Task Renaming_a_member_that_has_a_description_takes_its_qualifier_along_and_nothing_else_on_that_line()
+    {
+        // The one exception to the rule, and the design record's: an attribute line names the member it
+        // describes, so a rename that left it behind would describe a member that no longer exists. Only the
+        // qualifier itself moves -- the attribute's name and value on the same line are not touched.
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, WholeFileFixtures.Class);
+
+        var edit = await RequestAsync(h, "textDocument/rename", new
+        {
+            textDocument = new { uri = Uri },
+            position = new { line = 15, character = 21 }, // "public property get Total()"
+            newName = "Amount",
+        });
+
+        var changes = edit.GetProperty("changes").GetProperty(Uri);
+        StartsOf(changes).Should().Equal((15, 20), (16, 10), (17, 10), (18, 0));
+        changes.EnumerateArray().Should().OnlyContain(e =>
+            e.GetProperty("range").GetProperty("end").GetProperty("character").GetInt32()
+            - e.GetProperty("range").GetProperty("start").GetProperty("character").GetInt32() == "Total".Length);
+    }
+
+    [Fact]
+    public async Task Renaming_a_member_leaves_alone_a_run_that_describes_another_member()
+    {
+        // Halt's run says Total, and is Halt's: VB6 gives a procedure attribute to the procedure above it whatever
+        // its qualifier names. The IDE refuses a rename that writes into a run it does not rename (#273 task 4.4),
+        // so renaming Total sends no edit to it -- and the orphan two lines under total's run, which is free text,
+        // is renamed with the code.
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, WholeFileFixtures.ClassWithOrphans);
+
+        var edit = await RequestAsync(h, "textDocument/rename", new
+        {
+            textDocument = new { uri = Uri },
+            position = new { line = 28, character = 1 }, // "total = a + b"
+            newName = "Sum",
+        });
+
+        StartsOf(edit.GetProperty("changes").GetProperty(Uri))
+            .Should().Equal((25, 16), (27, 10), (28, 0), (29, 10));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("1Total")]
+    [InlineData("Grand Total")]
+    [InlineData("Grand.Total")]
+    [InlineData("Total$")]
+    [InlineData("_Total")]
+    [InlineData("_")]
+    [InlineData("[Total]")]
+    [InlineData("Grand-Total")]
+    [InlineData("Rem")]
+    [InlineData("empty")]
+    [InlineData("New")]
+    [InlineData("Nothing")]
+    [InlineData("Me")]
+    [InlineData("attribute")]
+    public async Task Renaming_to_a_name_VB6_does_not_accept_has_no_answer(string newName)
+    {
+        // The IDE refuses these before it asks (#273 task 4.4); a client that does not is answered with nothing,
+        // rather than with edits writing a name that would not compile. A leading or lone underscore and a
+        // bracketed name were measured illegal against vb6.exe, and so were the six reserved words, each with a
+        // name's shape: Rem wherever it was tried, Empty as a variable, New and Nothing as a Sub, Me as an array,
+        // Attribute as a parameter.
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, Doc);
+
+        var rename = await RequestAsync(h, "textDocument/rename", new
+        {
+            textDocument = new { uri = Uri },
+            position = new { line = 1, character = 6 },
+            newName,
+        });
+
+        rename.ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Theory]
+    [InlineData("Grand_Total")]
+    [InlineData("Total_")]
+    [InlineData("Total2")]
+    [InlineData("Größe")]
+    [InlineData("RemX")]
+    [InlineData("Rem1")]
+    public async Task Rename_to_a_name_VB6_may_accept_is_answered(string newName)
+    {
+        // The positive control: an underscore inside or at the end of a name, a digit after its first letter, and
+        // RemX and Rem1 were measured legal; a letter outside ASCII was not measured, and VB6 may accept one in its
+        // code page, so it is not refused.
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, Doc);
+
+        var edit = await RequestAsync(h, "textDocument/rename", new
+        {
+            textDocument = new { uri = Uri },
+            position = new { line = 1, character = 6 },
+            newName,
+        });
+
+        edit.GetProperty("changes").GetProperty(Uri).GetArrayLength().Should().Be(2);
+    }
+
+    [Theory]
+    [InlineData("form", 6, 8)]   // "      Caption         =   \"OK\"" in the designer block
+    [InlineData("form", 12, 12)] // "Attribute VB_Name = \"frmOrders\"" -- the attribute's own name
+    [InlineData("class", 16, 12)] // "Attribute Total.VB_Description" -- the qualifier itself
+    public async Task Rename_and_highlight_with_the_caret_in_a_protected_line_answer_null(string file, int line, int character)
+    {
+        // Nothing there is the developer's to rename, including a member's name in its own attribute line:
+        // the rename starts from the member, and the qualifier follows it.
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, file == "form" ? WholeFileFixtures.Form : WholeFileFixtures.Class);
+
+        var rename = await RequestAsync(h, "textDocument/rename", new
+        {
+            textDocument = new { uri = Uri },
+            position = new { line, character },
+            newName = "Renamed",
+        });
+        var highlight = await RequestAsync(h, "textDocument/documentHighlight", Pos(Uri, line, character));
+
+        rename.ValueKind.Should().Be(JsonValueKind.Null);
+        highlight.ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Fact]
+    public async Task Highlight_leaves_out_occurrences_in_a_header_and_in_members_attribute_lines()
+    {
+        // Stricter than rename: highlighting the qualifier would suggest it can be edited there, and it
+        // cannot.
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, WholeFileFixtures.Class);
+
+        var hl = await RequestAsync(h, "textDocument/documentHighlight", Pos(Uri, 15, 21));
+
+        StartsOf(hl).Should().Equal((15, 20), (18, 0));
+    }
+
+    [Fact]
+    public async Task Opening_a_form_reports_nothing_in_its_header()
+    {
+        // The language-server delta's scenario: a form's whole file, designer block and all, as VB6 writes it,
+        // including the comment VB6 puts after an enumerated value, which once failed both grammars on most forms
+        // (task 0.2). A header like this raises nothing in either layer that keeps it out (the grammar reads it,
+        // and the server withholds anything on a protected line), so the body is damaged: a publish with no
+        // diagnostics in it cannot pass for one that left the header out.
+        var form = WholeFileFixtures.Form
+            .Replace("   ClientHeight    =   3000\r\n",
+                "   BorderStyle     =   1  'Fixed Single\r\n   ClientHeight    =   3000\r\n", StringComparison.Ordinal)
+            .Replace("dim Caption as string", "dim Caption as", StringComparison.Ordinal);
+        const int headerLines = WholeFileFixtures.FormHeaderLines + 1;
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, form);
+
+        var lines = (await h.NextDiagnosticsAsync()).GetProperty("diagnostics").EnumerateArray()
+            .Select(d => d.GetProperty("range").GetProperty("start").GetProperty("line").GetInt32()).ToList();
+
+        lines.Should().Contain(21).And.OnlyContain(l => l >= headerLines);
+    }
+
+    [Fact]
+    public async Task Opening_a_form_whose_designer_block_cannot_be_parsed_publishes_the_codes_diagnostics_and_none_in_the_header()
+    {
+        // The language-server delta's scenario. The body is damaged too, so an empty publish cannot pass for a
+        // filtered one.
+        var form = WholeFileFixtures.Form
+            .Replace("ClientHeight    =   3000", "ClientHeight    =   = 3000", StringComparison.Ordinal)
+            .Replace("dim Caption as string", "dim Caption as", StringComparison.Ordinal);
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, form);
+
+        var lines = (await h.NextDiagnosticsAsync()).GetProperty("diagnostics").EnumerateArray()
+            .Select(d => d.GetProperty("range").GetProperty("start").GetProperty("line").GetInt32()).ToList();
+
+        lines.Should().Contain(20).And.OnlyContain(l => l >= WholeFileFixtures.FormHeaderLines);
+    }
+
+    [Fact]
+    public async Task A_damaged_header_leaves_the_codes_procedures_in_the_outline()
+    {
+        // The grammar's recovery from this damage consumes the rest of the file, which took the procedure out
+        // of the outline as well as the code's errors out of the list.
+        var form = WholeFileFixtures.Form
+            .Replace("ClientHeight    =   3000", "ClientHeight    =   = 3000", StringComparison.Ordinal);
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, form);
+        await h.NextDiagnosticsAsync();
+
+        var symbols = await RequestAsync(h, "textDocument/documentSymbol", DocParams(Uri));
+
+        symbols.EnumerateArray().Select(s => s.GetProperty("name").GetString()).Should().Contain("cmdOK_Click");
+    }
+
     // ── harness ─────────────────────────────────────────────────────────────────────────────────
     private static object DocParams(string uri) => new { textDocument = new { uri } };
+
+    private static LspRange RangeOf(JsonElement edit)
+    {
+        var range = edit.GetProperty("range");
+        return new LspRange(PositionOf(range.GetProperty("start")), PositionOf(range.GetProperty("end")));
+
+        static LspPosition PositionOf(JsonElement p) =>
+            new(p.GetProperty("line").GetInt32(), p.GetProperty("character").GetInt32());
+    }
+
+    /// <summary>Where each answer in an array of edits or highlights starts, in the order given.</summary>
+    private static List<(int Line, int Character)> StartsOf(JsonElement answers) =>
+        answers.EnumerateArray().Select(RangeOf).Select(r => (r.Start.Line, r.Start.Character)).ToList();
+
+    /// <summary>Applies a formatting answer the way a client does: from the last edit to the first.</summary>
+    private static string Apply(string text, JsonElement edits)
+    {
+        var lineStarts = new List<int> { 0 };
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (text[i] == '\n')
+                lineStarts.Add(i + 1);
+        }
+
+        var result = new System.Text.StringBuilder(text);
+        foreach (var edit in edits.EnumerateArray().Select(e => (Range: RangeOf(e), Text: e.GetProperty("newText").GetString()!))
+                     .OrderByDescending(e => e.Range.Start.Line).ThenByDescending(e => e.Range.Start.Character))
+        {
+            var start = lineStarts[edit.Range.Start.Line] + edit.Range.Start.Character;
+            var end = lineStarts[edit.Range.End.Line] + edit.Range.End.Character;
+            result.Remove(start, end - start).Insert(start, edit.Text);
+        }
+        return result.ToString();
+    }
     private static object Pos(string uri, int line, int character) =>
         new { textDocument = new { uri }, position = new { line, character } };
 

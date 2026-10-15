@@ -25,7 +25,8 @@ namespace HexIDE.Tests.LspClient;
 /// </summary>
 public class Vb6ServerRoutingTests
 {
-    private const string Vb6Doc = "vb6://module/Module1";
+    // A project's standard module, as it is actually named since #273 task 2.1.
+    private const string Vb6Doc = "untitled:Project1/Module1.bas";
 
     private const string Capabilities = """{"textDocumentSync":{"openClose":true,"change":1}}""";
 
@@ -71,17 +72,42 @@ public class Vb6ServerRoutingTests
     }
 
     [Fact]
-    public async Task AnEntryDeclaringTheSchemeLanguageStillWorksWhateverItsExtensions()
+    public async Task DeclaringTheLanguageWithoutClaimingAnExtensionNoLongerRoutesAnything()
     {
-        // The bundled entry, and any user copying it. Broadening must be additive: an entry that names the
-        // scheme language is claiming these documents directly and should not need particular extensions.
+        // INVERTED by #273 task 2.6, deliberately, and it is the one behavioural loss in retiring the
+        // scheme. `languageId` used to double as a claim on `vb6://` documents, which carried no extension
+        // for an entry to match on. They carry one now, so routing reads the extension for every document
+        // and the identifier names the language a server is TOLD rather than what it is SENT.
+        //
+        // Nothing real regresses: an entry claiming a made-up extension and nothing else was never going
+        // to be handed a `.bas` on disk either, so this removes an inconsistency rather than a capability.
         var server = FakeServer();
         var sut = RegistryOf(new LanguageServerRegistration(
             "hexide.vb6", "Bundled", [".nothing-familiar"], "vb6", () => server));
 
         await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\r\n", TestContext.Current.CancellationToken);
 
-        await server.Received(1).OpenDocumentAsync(Vb6Doc, Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await server.DidNotReceive().OpenDocumentAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DeclaringTheLanguageIsStillWhatLetsAnEntryBeOfferedAProjectsClassModules()
+    {
+        // The half the identifier KEPT. It no longer routes, but it still establishes that an entry serves
+        // VB6 -- which is what distinguishes a VB6 server claiming `.cls` from a LaTeX one claiming the
+        // same extension (#279). Without this the inversion above would read as "the identifier means
+        // nothing now", and someone would delete the gate.
+        var server = FakeServer();
+        var sut = RegistryOf(new LanguageServerRegistration(
+            "cls-only", "Classes only", [".cls"], "vb6", () => server));
+
+        await sut.OpenDocumentAsync(
+            "untitled:Project1/Class1.cls", "Option Explicit", isProjectMember: true,
+            TestContext.Current.CancellationToken);
+
+        await server.Received(1).OpenDocumentAsync(
+            "untitled:Project1/Class1.cls", Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -114,6 +140,25 @@ public class Vb6ServerRoutingTests
             "latex", "LaTeX", [".cls", ".sty", ".tex"], "latex", () => latex));
 
         await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\r\n", TestContext.Current.CancellationToken);
+
+        await latex.DidNotReceive().OpenDocumentAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AnEntryClaimingOnlyTheAmbiguousExtensionIsNotOfferedARealProjectClassModule()
+    {
+        // The same guarantee as the test above, asserted against the URI a class module actually carries
+        // since #273 task 2.1. The test above opens `vb6://module/Module1`, which nothing mints any more:
+        // that string has no extension, so routing returns no claimants and the assertion passes without
+        // testing anything. This one names the document the way the IDE now does.
+        var latex = FakeServer();
+        var sut = RegistryOf(new LanguageServerRegistration(
+            "latex", "LaTeX", [".cls", ".sty", ".tex"], "latex", () => latex));
+
+        await sut.OpenDocumentAsync(
+            "untitled:Project1/Class1.cls", "Option Explicit", isProjectMember: true,
+            TestContext.Current.CancellationToken);
 
         await latex.DidNotReceive().OpenDocumentAsync(
             Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());

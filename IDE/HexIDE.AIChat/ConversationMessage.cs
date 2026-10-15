@@ -10,16 +10,26 @@ public sealed class ConversationMessage
     public string? ToolCallId { get; }
     public string? ToolName { get; }
 
+    /// <summary>
+    /// True for a note the IDE wrote to the assistant about something the developer did, such as applying a code
+    /// block. It goes to the model as a <c>user</c> message, which is the only role that can carry it: a
+    /// <c>tool</c> message needs a call to answer, and a <c>system</c> message mid-conversation is refused by some
+    /// endpoints. The flag keeps it out of the developer's own bubbles when the transcript is rebuilt.
+    /// </summary>
+    public bool FromIde { get; }
+
     public ConversationMessage(string role, string content,
         IReadOnlyList<ToolCall>? toolCalls = null,
         string? toolCallId = null,
-        string? toolName = null)
+        string? toolName = null,
+        bool fromIde = false)
     {
         Role = role;
         Content = content;
         ToolCalls = toolCalls;
         ToolCallId = toolCallId;
         ToolName = toolName;
+        FromIde = fromIde;
     }
 
     public JsonObject ToApiJson()

@@ -60,7 +60,8 @@ public class DocumentSavedAnnouncementTests : IDisposable
             Substitute.For<IReferenceLibraryService>(),
             sidecar,
             new FileBaselineStore(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>());
+            Substitute.For<HexIDE.Localization.ILocalizationService>(),
+            Substitute.For<IHeaderRefresher>());
     }
 
     private ProjectDefinition AProjectWith(params string[] moduleNames)
@@ -216,6 +217,31 @@ public class DocumentSavedAnnouncementTests : IDisposable
         await MakeService().SaveProjectToDirectory(project, destination);
 
         _announced.Select(e => e.Module?.Name ?? e.Form!.Name).Should().BeEquivalentTo(["Form1", "Module1", "Module2"]);
+    }
+
+    [Fact]
+    public async Task SavingTheProjectToANewDirectoryAnnouncesItsFormsToo()
+    {
+        // The half that was missing, and it was the half that mattered most. SerializeFormToFile repoints
+        // every form's AbsolutePath, so this loop renames each of them as far as the language layer is
+        // concerned -- a document is named by its file. Without the event a server goes on holding each
+        // form under the name it had in the old directory, and every later change reaches it under a name
+        // it was never told about (#273 task 2.4a).
+        //
+        // The module loop beside it had always announced, through SaveModuleCore. The two halves of one
+        // method simply disagreed, which is why the gap survived: the test above passes either way.
+        var project = AProjectWith("Module1");
+        var form = new FormDefinition(project, FormComponentClass.Instance, "Form1");
+        project.AddForm(form);
+        var destination = Path.Combine(_dir, "elsewhere-with-a-form");
+        Directory.CreateDirectory(destination);
+
+        await MakeService().SaveProjectToDirectory(project, destination);
+
+        _announced.Should().Contain(e => e.Form == form,
+            "a form whose path this method repointed has been renamed as far as any server is concerned");
+        _announced.Select(e => e.Module?.Name ?? e.Form!.Name)
+            .Should().BeEquivalentTo(["Form1", "Module1"]);
     }
 
     [Fact]

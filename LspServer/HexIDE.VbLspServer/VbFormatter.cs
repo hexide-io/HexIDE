@@ -130,57 +130,139 @@ public static class VbFormatter
     /// Formats the given VB6/VBA source code. Returns <c>null</c> if the
     /// formatted text is identical to the input (no edits needed).
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The header and every member's attribute lines come back exactly as they were</b>
+    /// (<see cref="VbProtectedRegions"/>; hexide-io/HexIDE#273 task 3.10). They are copied through untrimmed,
+    /// and they are not classified, so they cannot move the indent either: a member attribute line sits inside
+    /// a procedure, and the body after it must still be indented as the body. Formatting them would rewrite a
+    /// form's layout on every save — its designer block is indented by three spaces, VB6 writes a trailing
+    /// space after each <c>Begin</c> line, and a class header's <c>END</c> would be re-cased.
+    /// </para>
+    /// <para>
+    /// <b>Every line keeps its own terminator.</b> The formatter used to join its output with <c>\n</c>, so a
+    /// CRLF file came back LF on every line, and no VB6 file was ever "already formatted".
+    /// </para>
+    /// </remarks>
     public static string? Format(string source)
     {
-        var lines = source.Split('\n');
+        var lines = FormatLines(source);
         var sb = new StringBuilder(source.Length);
-        int indent = 0;
+        foreach (var line in lines)
+            sb.Append(line.Formatted).Append(line.Terminator);
 
-        for (var i = 0; i < lines.Length; i++)
+        var result = sb.ToString();
+        return result == source ? null : result;
+    }
+
+    /// <summary>
+    /// The formatting answer as edits: one per run of consecutive lines whose text changes, each covering
+    /// those lines' text and not their terminators. Empty when nothing changes.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Why not one edit spanning the document</b>, which is what this server used to send: a whole-document
+    /// edit points inside the header even when the text it carries leaves the header alone, and the
+    /// requirement is that no answer changes or points inside it. The formatter maps lines one to one — it
+    /// never adds or removes a line — so the changed lines are found by comparing them in place, and a
+    /// protected line is never changed, so no edit can cover one.
+    /// </para>
+    /// <para>
+    /// A client applies the edits together, so the whole format is still one undo step in any client that
+    /// groups an answer's edits, as the IDE does.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<VbFormattingEdit> Edits(string source)
+    {
+        var lines = FormatLines(source);
+        var edits = new List<VbFormattingEdit>();
+
+        var i = 0;
+        while (i < lines.Count)
         {
-            var raw = lines[i];
-            // Strip trailing \r
-            if (raw.Length > 0 && raw[^1] == '\r')
-                raw = raw[..^1];
-
-            var trimmed = raw.Trim();
-
-            // Blank lines: emit empty
-            if (trimmed.Length == 0)
+            if (lines[i].Formatted == lines[i].Original)
             {
-                if (i > 0) sb.Append('\n');
+                i++;
                 continue;
             }
 
-            // Check if this line is a closer (dedent before writing)
-            bool isCloser = IsCloser(trimmed);
-            bool isMidBlock = !isCloser && IsMidBlock(trimmed);
-
-            if (isCloser)
-                indent = Math.Max(0, indent - 1);
-            else if (isMidBlock)
-                indent = Math.Max(0, indent - 1);
-
-            // Normalize keyword casing in the trimmed line
-            var formatted = NormalizeKeywords(trimmed);
-
-            // Write indented line
-            if (i > 0) sb.Append('\n');
-            if (indent > 0)
-                sb.Append(' ', indent * IndentSize);
-            sb.Append(formatted);
-
-            // Re-indent after mid-block lines
-            if (isMidBlock)
-                indent++;
-
-            // Check if this line is an opener (indent after writing)
-            if (IsOpener(trimmed))
-                indent++;
+            var first = i;
+            var text = new StringBuilder(lines[i].Formatted);
+            while (i + 1 < lines.Count && lines[i + 1].Formatted != lines[i + 1].Original)
+            {
+                text.Append(lines[i].Terminator).Append(lines[i + 1].Formatted);
+                i++;
+            }
+            edits.Add(new VbFormattingEdit(
+                new LspRange(new LspPosition(first, 0), new LspPosition(i, lines[i].Original.Length)),
+                text.ToString()));
+            i++;
         }
+        return edits;
+    }
 
-        var result = sb.ToString();
-        return result == source || result == source.TrimEnd('\r', '\n') ? null : result;
+    /// <summary>One line of the source: its text, its formatted text and the terminator it ends with.</summary>
+    private readonly record struct FormattedLine(string Original, string Formatted, string Terminator);
+
+    private static List<FormattedLine> FormatLines(string source)
+    {
+        var regions = VbProtectedRegions.Of(source);
+        var result = new List<FormattedLine>();
+        int indent = 0;
+
+        var pos = 0;
+        var lineNumber = 0;
+        while (pos <= source.Length)
+        {
+            var newline = source.IndexOf('\n', pos);
+            var end = newline < 0 ? source.Length : newline;
+            var contentEnd = end > pos && source[end - 1] == '\r' ? end - 1 : end;
+            var raw = source[pos..contentEnd];
+            var terminator = source[contentEnd..(newline < 0 ? source.Length : newline + 1)];
+
+            result.Add(new FormattedLine(raw, FormatLine(raw, regions.IsProtected(lineNumber), ref indent), terminator));
+
+            if (newline < 0)
+                break;
+            pos = newline + 1;
+            lineNumber++;
+        }
+        return result;
+    }
+
+    private static string FormatLine(string raw, bool isProtected, ref int indent)
+    {
+        // Copied through as it is, and not classified: it neither opens nor closes a block.
+        if (isProtected)
+            return raw;
+
+        var trimmed = raw.Trim();
+        if (trimmed.Length == 0)
+            return string.Empty;
+
+        // Check if this line is a closer (dedent before writing)
+        bool isCloser = IsCloser(trimmed);
+        bool isMidBlock = !isCloser && IsMidBlock(trimmed);
+
+        if (isCloser)
+            indent = Math.Max(0, indent - 1);
+        else if (isMidBlock)
+            indent = Math.Max(0, indent - 1);
+
+        // Normalize keyword casing in the trimmed line, and indent it
+        var formatted = indent > 0
+            ? new string(' ', indent * IndentSize) + NormalizeKeywords(trimmed)
+            : NormalizeKeywords(trimmed);
+
+        // Re-indent after mid-block lines
+        if (isMidBlock)
+            indent++;
+
+        // Check if this line is an opener (indent after writing)
+        if (IsOpener(trimmed))
+            indent++;
+
+        return formatted;
     }
 
     // ── Indent classification ─────────────────────────────────────────────────
@@ -280,3 +362,6 @@ public static class VbFormatter
         return sb.ToString();
     }
 }
+
+/// <summary>One edit of a formatting answer: the range it replaces and the text it puts there.</summary>
+public readonly record struct VbFormattingEdit(LspRange Range, string NewText);

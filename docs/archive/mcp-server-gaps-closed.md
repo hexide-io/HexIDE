@@ -712,6 +712,22 @@ an explicit `save_form` tool so a caller can batch adds and commit once.
 
 ## 14. `set_file_content` silently dropped a form's `Attribute` header — **CLOSED** (#344, 2026-09-09)
 
+> **The mirror half is superseded, 2026-10-13 (#273 task 3.18).** A whole `.frm` is no longer refused.
+> `get_file_content` now returns a form's whole file, designer block included, so a whole `.frm` is what a
+> caller round-tripping a form sends back, and refusing the shape would refuse what the read returned.
+> `set_file_content` compares the incoming header with the form's instead: a designer block exactly as the
+> form has it applies nothing and is accepted, and one that differs is refused with the reason and nothing
+> changed. That meets the argument below more exactly than refusing the shape did. The controls a caller
+> supplies are still never silently discarded, because a changed block is refused rather than dropped, and a
+> designer block never reaches the code, where it would be compiled as VB. Keeping a form's `Attribute` lines
+> when the content leaves them out is unchanged.
+>
+> **And a member's Attribute lines, since #273 task 4.5b (2026-10-14).** A change to the run under a procedure's
+> or variable's declaration is refused the same way, with nothing changed, and the refusal names each member whose
+> lines changed, were added or were dropped. Moving a run with its declaration, renaming it with it, or deleting
+> it with it is not a change. Left as they are (#273's tasks.md, 4.5b): content that changes both the header and a
+> run is told about the header alone, and a refusal says lines were removed or added where only what they describe
+> changed.
 
 > **Fixed, in both directions — the entry's case and its mirror (#338).**
 >
@@ -802,6 +818,66 @@ provider, `OpenSelected` not a command — as the reason it existed. That workar
 reachable and left the root cause in place, so the next feature to depend on the gesture (the read-only
 project document) hit the same wall. A bypass that resolves one symptom is worth writing down as a gap
 even when it unblocks the task, which is what that comment did and why this was quick to place.
+
+---
+
+## `invoke_menu_item` could not reach an item whose access key is not its first letter — **CLOSED** (#501, 2026-09-22)
+
+> **Fixed** by hexide-io/HexIDE#519, which strips the access-key underscore wherever it falls (`MenuPath`,
+> `IDE/HexIDE/Automation/`) and makes a miss name the menu it looked in and every item that menu holds.
+
+**Symptom.** `invoke_menu_item(path: "Project/Add Module")` answers
+`{"success":false,"error":"Menu item 'Add Module' not found"}`. The item is plainly there:
+`dump_visual_tree` after an `expand` lists it as `MenuItem[Add Module]` with an `invoke` provider, and
+invoking it that way works. The top-level `Format` menu fails the same way, so `Format/Align/Lefts` never
+gets past its first segment.
+
+**Cause.** The resolver matches each segment against the item's raw header, and strips only a **leading**
+access-key underscore. `Add _Module` and `F_ormat` carry theirs mid-word, so no spelling a caller would type
+matches them. The resolver walks the menu's logical `Items`, which are complete whether or not the menu has
+been opened.
+
+**This entry first recorded the wrong cause**, and it is worth keeping as the trap it was: it blamed
+Avalonia for not realising a closed menu's children, on the evidence that a dump of the closed menu bar
+shows every item with `"children":[]`. That is true of the *visual* tree `dump_visual_tree` walks and
+irrelevant to the logical tree the resolver walks. Corrected by the session working hexide-io/HexIDE#501.
+
+**Why the reply misleads.** The tool's description warns that built-in items using routed commands "may not
+execute correctly", so the natural reading of a failure is that the item was found and its command would
+not run. It was never found, and "not found" cannot tell a caller a wrong path from a spelling the matcher
+does not normalise.
+
+**Workaround.** The generic trio: `dump_visual_tree`, `interact` with `expand` on the top-level item,
+`dump_visual_tree` scoped to it, then `interact` with `invoke`.
+
+---
+
+## Insert File opened a native picker that `answer_next_file_dialog` could not answer — **CLOSED** (#532, 2026-09-22)
+
+> **Fixed** by moving Insert File into `CodeEditorViewModel.InsertFileAsync`, which asks
+> `IWindowManager.OpenFilePickerAsync`: the picker every other file dialog in the IDE uses, and the one an
+> armed answer replaces.
+
+**Symptom.** With an answer armed, `invoke_menu_item("Edit/Insert File...")` answered `{"success":true}`
+and nothing was inserted. `clear_file_dialog_answers` then reported the answer still pending, which reads
+as "the command never ran". It had run. Each attempt left a real native "Open Text File" picker open, three
+of them by the time anyone looked, and they were found only by listing the process's top-level windows.
+The automation server kept answering throughout, so nothing on the MCP surface showed that a modal dialog
+was waiting.
+
+**Cause.** `CodeEditorView.InsertFile` called `TopLevel.StorageProvider.OpenFilePickerAsync` itself, the
+only picker in the IDE that did, so it never reached the hook in `WindowManager` that
+`answer_next_file_dialog` arms.
+
+**The wrong reading, recorded because it is the natural one.** The tool's description warns that routed
+commands "may not execute correctly", and Insert File is a routed command, so a success with no effect
+looked like exactly that. The next two attempts went into putting keyboard focus in the editor first. The
+pending answer was the misleading evidence: it proved the IDE's picker had not been asked, not that the
+command had not run.
+
+**How to tell next time.** A native picker is invisible to every tool here. If an armed answer survives an
+action that should have consumed it, list the process's visible top-level windows (a native dialog appears
+there under its title) before concluding that the command did nothing.
 
 ---
 
@@ -997,6 +1073,40 @@ specification.
 
 ---
 
+## `add_control` on a document with no file opened a native picker and stopped the whole server — **CLOSED** (#514, 2026-09-22)
+
+> **Fixed** by hexide-io/HexIDE#539, which refuses before anything is placed: a form with no file and no
+> armed answer gets a reply naming `answer_next_file_dialog`, and the description now says so beside the
+> sentence about saving. An armed answer, including an armed cancel, lets the save go ahead as before.
+> `set_file_content` and `set_control_property` refuse a pathless document outright but only after the
+> edit, with advice that leads back to the picker; that is #538.
+
+**Symptom.** `add_control` on the `Form1` of a project created through `File > New Project` never returned.
+The call was moved to the background after 120 s and every later MCP call hung behind it. Nothing on the
+tool said a save was involved, let alone one that could stop the server.
+
+**Cause.** `add_control` "places a control ... and SAVES the file" — its own description says so. A form with
+no path takes the save picker (`ProjectService.WriteFormToDisk`), and a modal native dialog is outside the
+control tree: the server cannot answer while one is up, which `answer_next_file_dialog` already documents
+for the flows built around it. The two facts are each written down; the consequence of combining them is not.
+
+**Why it misleads.** The save is a clause at the end of a sentence about placing a control, and it is
+harmless on every form that has a file — which is every form the dev loop normally reaches, because a demo
+project is opened from disk. The one case that hangs is the one a caller reaches deliberately when testing
+the pathless state, having just been told by the entry above that it is hard to reach at all.
+
+**Workaround.** Arm `answer_next_file_dialog` immediately before the call: with a path to let the save
+happen, or with none to answer it as cancelled, which leaves the document pathless and is what a test of the
+pathless state wants. The reply is then honest and useful —
+`{"success":false,"controlName":"Command0","error":"'Command0' was added to the designer but the save
+failed: The operation was canceled."}` — naming the control that is in the designer and not on disk.
+
+**Suggested fix.** Any tool whose implementation can reach a file picker should say so in its description,
+in the same sentence as the save, and name `answer_next_file_dialog`. Better still, refuse rather than block:
+a save that would open a picker with no answer armed could return "this document has no file; arm
+`answer_next_file_dialog` first", which is a reply instead of a hang. The list of such tools is knowable —
+they are the ones that reach `SaveForm` or `SaveModule` with a null `AbsolutePath`.
+
 ## `invoke_menu_item` misses items with `_` in their text, and describes menus it cannot read (#544) — **CLOSED** (#560, 2026-09-22)
 
 > **Closed (#560).** `MenuPath.Resolve` matches a segment as typed first and with its access key
@@ -1154,6 +1264,18 @@ open_file {"name":"Nope"}                     → No form, module or carried fil
 **Since closed.** `get_project_info` reported only the startup project, which left a refusal as the only
 reply that showed the whole group; it now lists every loaded project in `projects` (#581).
 
+**Three tools this did not reach, closed 2026-10-13 (#273).** `set_control_property` still looked in the
+startup project only. `move_control` and `add_control` matched the open designers by name and took the first,
+so with a group holding two `Form1`s they acted on whichever designer happened to be found first, and never
+refused. All three now resolve a name as the five above do, take the same optional `project`, and refuse an
+ambiguous name with the candidates listed. `move_control` and `add_control` then look for the designer open on
+the document the name resolved to, so a bare `Form1` that used to work while only one of two was open is now
+refused, as it is everywhere else. `add_file` takes `project` too, naming the project to add to. The rule moved
+out of the tool bodies into `NamedDocuments` in the IDE assembly, where `NamedDocumentsTests` covers the
+refusals quoted above. That the tools use it is checked by `ToolDocumentNamingTests`, which reads their source:
+a tool that takes `project` must find the name through the lookup and use it for nothing else, so a designer
+found by its form's name, which is how `move_control` worked, fails the build.
+
 ---
 
 ## A mark tool accepted lines the document does not have, and persisted them — **CLOSED** (#569, 2026-09-22)
@@ -1176,6 +1298,14 @@ run that never broke.
 
 **Still open.** A sidecar that already holds such lines is loaded as-is, and a breakpoint on a line with no
 executable statement is still accepted. Both are noted on #569.
+
+**Since then.** The sidecar half was closed by #574's fix (#620): a mark on a line its document does not have is
+dropped at load, and logged (`UserSidecarService.WithinDocument`). #273 then changed what the range counts and what
+else is refused (task 3.12, 2026-10-01). The range counts from the top of the file, header included, and the
+refusal says so: `… breakpoints are numbered 1..N, from the top of the file. Nothing was changed.` A line of the
+header or of a member's Attribute lines is refused too, saying where the code starts (`MarkLineRules.Refusal`), and
+so are `run_to_cursor` and `set_next_statement` aimed at one; a sidecar's mark on such a line is dropped at load
+(task 3.17). Any other line with no executable statement, a blank or a comment, is still accepted.
 
 ---
 
@@ -1719,6 +1849,26 @@ Where a tool normalises what it was given — a name matched without regard to c
 reply must carry the **normalised** form, because the difference between the two is the whole of what the
 caller cannot otherwise see.
 
+**"Every tool" was not yet true, corrected 2026-10-13 (#273).** The fix above says every tool that names a
+document searches every loaded project, and that replies carry `project` and `document`. Neither held
+everywhere. `set_control_property`, `move_control` and `add_control` still resolved a form their own way (see
+the #575 entry for what that did). Of the replies, only `get_bookmarks` and `get_breakpoints` carried the names.
+Now every tool that takes a form, module or class by name resolves it through one rule, and its reply carries
+`project` and `document` as the IDE spells them whenever the name found one: the content, designer and mark
+tools, `run_to_cursor` and `set_next_statement`. So do `add_file`'s reply and each `get_diagnostics` item. On a
+diagnostic they sit beside the server's `uri`, and are absent when that names nothing loaded or a file two
+loaded projects share. `get_debug_state` and `get_call_stack` carry the running `project` beside their bare
+module names. **Still not every reply:** a tool that reports or acts on a document without taking its name does
+not name its project yet. That is the run-control replies' "Paused at" note, `get_locals`' and the watches'
+`context`, the designer undo, redo and format tools, which act on the active designer, and the tab tools, which
+take and report a tab's title. Filed as #886. `uri` is now explained where it is
+returned (`get_bookmarks`, `get_breakpoints`, `get_diagnostics`): it is the name a language server knows the
+document by, its `file:` URI, or `untitled:<project>/<name>.<ext>` before it has a file. Until now its only
+explanation was a code comment, which no caller can read. The delta's scenario, a breakpoint set in `form1` of a
+project holding `Form1`, is `BreakpointByNameTests.SettingABreakpointByNameInTheWrongCase`. It checks that the
+code window's gutter draws the breakpoint, a run stops on it, and the sidecar records it under `Form1`. Each of
+the three fails when the breakpoint is keyed under the caller's spelling instead.
+
 ## 2. `set_control_property` only handles string / number / bool — **CLOSED** (#641, 2026-09-22)
 
 > **Fixed.** `set_control_property` reads its value through `PropertyText`, which defers to the Properties
@@ -1775,6 +1925,17 @@ values are already known to the server.
 > type there either; nothing was inserted`, and `get_file_content` showed the code unchanged. Worth knowing
 > when re-testing: the code window is read-only for a form HexIDE cannot save faithfully, not while a program
 > runs, so a running program is not the way to reach this.
+>
+> **Since #273 (the review of task 3.20, 5541621), a file held read-only as a whole is refused with its reason.**
+> The code window now asks first whether its file is one HexIDE will not save, and `type_text` and `press_key`
+> answer `… refused: this file will not be saved, because HexIDE cannot yet reproduce it faithfully (…). Its code
+> is part of the file, so typing in its code window is refused anywhere, as the window's banner says. Nothing was
+> written.` On a code window that reply now comes before the one quoted above (`TextEditor is read-only, …`), which a
+> form held read-only as a whole no longer reaches (`UiAutomationDriver.RefusedInReadOnlyRegion`, asked first). That
+> review found the window's own Enter writing a line break into such a file, past the section provider that refuses
+> typing, because its handler writes the document itself; Enter now refuses, and `press_key`
+> says why rather than reporting the key pressed. Seen running on 2026-10-13 (#273 task 3.22), on a form whose
+> `.frx` was missing: `type_text` and `press_key` Enter each refused with that text.
 
 **Symptom.** Verifying the read-only editing gate (#22) against the running IDE, `type_text` successfully
 inserted `XXX_SHOULD_NOT_APPEAR` into a code editor whose `TextEditor.IsReadOnly` was bound true. The result
@@ -2125,6 +2286,57 @@ tool being added, expect the first call to fail against a stale schema and do no
 **Since #603.** A throw inside a tool is now reported with its exception type and message rather than the bare
 line. Not re-measured for this case: a call that does not match the tool's parameters may fail in the SDK's
 own argument binding, which can report through `McpException`, and #603 leaves that as the SDK reports it.
+
+## Placing the caret needed a buffer offset that no read tool returned — **CLOSED** (#273 task 3.18, 2026-10-13)
+
+> **Closed by changing the read, not the offsets.** `get_file_content` returns a form's, module's or class's
+> whole file, whether or not it is open: a form's `VERSION` line and designer block, a class's header and the
+> leading `Attribute` lines, then the code. That is the text an open code window holds, so every offset a
+> caller is given (a `type_text` or `press_key` refusal's `CaretOffset=N`, `inspect_element`'s `CaretOffset`,
+> `SelectionStart` and `SelectionLength`) indexes the reply directly, and line N of the reply is line N to
+> `set_breakpoints`, `get_diagnostics` and the debugger. `set_file_content` takes the same text back, so the
+> two changed together: the whole file with its header unchanged, or the code alone, and only a header that
+> differs is refused. Its reply counts the lines the document holds from the top of the file. The tool
+> descriptions, and the refusal that gives an offset, now say what offsets and lines count from.
+>
+> **What is not measured yet.** This is closed on headless tests of the rule both tools relay
+> (`DocumentContentTests`, including a read and write-back of every document in `demo/` and
+> `corpus/designer/`). The live check, a refusal's `CaretOffset` indexing a `get_file_content` reply in the
+> running IDE, is #273 task 3.22's, and its result belongs here when it is taken.
+>
+> **Taken in part on 2026-10-13 (#273 task 3.22)**, a Debug build of 5541621, on four files VB6 wrote. In the
+> form whose code starts at line 74 (`frmLogin`), with the caret at offset 0, `type_text`, `press_key` Delete and
+> `press_key` Enter were each refused, pointing at offset 2165 as the nearest place that can be edited. With the
+> caret put there the status bar read `Ln 74, Col 1`. `get_file_content {"name":"clsDataSource"}`, not open,
+> returned the file header first. What was not done is the comparison this entry asked for: reading the reply's
+> text at the offset a refusal gives. That the reply is the open window's text rests on the code, where
+> `DocumentContent.TextOf` returns the window's own `CodeWindowText`, and on `DocumentContentTests`.
+>
+> **Still open, and not a gap:** a way to put the caret at a line and column, or at a text match, would save
+> every caller the offset arithmetic. That is [#700](https://github.com/hexide-io/HexIDE/issues/700). An offset
+> counts every character of the text, so a client that turns `\r\n` into `\n` before counting comes up one
+> short per line above the target.
+
+**Symptom (2026-09-25, during #273 task 3.7's live check).** With a class module open,
+`type_text {"target":"…/Custom[Root]/None[TextEditor]","text":"X"}` after `press_key {"key":"Home","modifiers":"Ctrl"}`
+was refused with a good reply: the offset is in the header, and *"put the caret there with interact
+set_property CaretOffset=371"*. That offset is into the editor buffer, which holds the whole file. But
+`get_file_content {"name":"Order"}` answers with the code section only, header stripped, so no read tool
+returns the text those offsets count into. To reach a given line the caller has to navigate with keys:
+`press_key` Ctrl+End, then Up three times, then Home, to land on a member's `Attribute` line.
+
+**Workaround, before the fix.** Take offsets from a refusal's reply, or navigate with `press_key`.
+`inspect_element` on the code view reports `CaretOffset` and `BufferBody`, which is still the code section too.
+
+**Do not compute offsets from the file on disk.** Tried on 2026-10-02 (#273 task 3.13): offsets taken from
+`BillOfFare.frm`'s bytes landed four characters early in the editor, because the file is UTF-8 and its two
+em dashes above that line are three bytes each and one character each in the buffer. A copy and a paste
+then took different text from what was intended, which read like corruption until it was traced. This still
+holds after the fix: count in the text `get_file_content` returns, never in the file's bytes.
+
+**Suggested fix, as recorded.** #273 task 3.18 makes `get_file_content` return the whole file, which closes the
+mismatch. A way to put the caret at a line and column, or at a text match, would still save every caller
+the offset arithmetic. Filed as [#700](https://github.com/hexide-io/HexIDE/issues/700).
 
 ## No call pressed or released a pointer, so a running form's MouseDown and MouseUp could not be driven — **CLOSED** (#1033, 2026-10-14)
 

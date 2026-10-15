@@ -23,12 +23,18 @@ internal static class ToolSource
     /// empty when it has none.</param>
     internal sealed record Parameter(string Name, bool Optional, string Type = "", string Description = "");
 
+    /// <param name="Body">
+    /// The method's body as code: comments removed and the text of every string literal blanked, so a word
+    /// inside a message is not mistaken for a use of it. An interpolation hole is code and is kept. Indices
+    /// match nothing outside this string; the body is for searching, not for quoting.
+    /// </param>
     internal sealed record Tool(
         string Name,
         string Description,
         IReadOnlyList<Parameter> Parameters,
         IReadOnlyList<(string Enum, string[] NotRendered)> Enums,
-        string ReplyType)
+        string ReplyType,
+        string Body = "")
     {
         /// <summary>Everything a caller reads about this tool: its description and each parameter's.</summary>
         public string AllText =>
@@ -130,6 +136,7 @@ internal static class ToolSource
     private static (IReadOnlyList<Tool>, IReadOnlyList<string>) Read()
     {
         var source = WithoutComments(Source);
+        var code = CodeOnly(source);
         var constants = ConstantStrings(source);
         var starts = ToolStart.Matches(source).ToList();
         var tools = new List<Tool>();
@@ -162,15 +169,153 @@ internal static class ToolSource
             if (description.Length == 0)
                 unparsed.Add($"HexIdeTools.cs:{line}: {name.Groups["name"].Value} has no [Description] this can read");
 
+            var body = BodyAt(code, starts[i].Index + signature.Index + signature.Length - 1);
+            if (body is null)
+                unparsed.Add($"HexIdeTools.cs:{line}: {name.Groups["name"].Value} has no method body this can read");
+
             tools.Add(new Tool(
                 name.Groups["name"].Value,
                 description,
                 PartsOf(block[(signature.Index + signature.Length - 1)..])
                     .Select(part => ParameterOf(part, constants)).OfType<Parameter>().ToList(),
                 enums,
-                signature.Groups["reply"].Value));
+                signature.Groups["reply"].Value,
+                body ?? ""));
         }
         return (tools, unparsed);
+    }
+
+    /// <summary>
+    /// The bodies of every method in the tool source with this name, overloads included, as code (see
+    /// <see cref="Tool.Body"/>), for a guard on a helper the tools share.
+    /// </summary>
+    public static IReadOnlyList<string> MethodBodies(string method)
+    {
+        var code = CodeOnly(WithoutComments(Source));
+        var declaration = new Regex(
+            $@"^[ \t]*(?:(?:private|internal|public|protected|static|async)\s+)+[\w<>\[\]?.,]+(?:\s*\?)?\s+{Regex.Escape(method)}\s*\(",
+            RegexOptions.Multiline);
+        return declaration.Matches(code)
+            .Select(m => BodyAt(code, m.Index + m.Length - 1))
+            .OfType<string>()
+            .ToList();
+    }
+
+    /// <summary>
+    /// The body of the method whose parameter list opens at <paramref name="open"/>, in <paramref name="code"/>
+    /// (see <see cref="CodeOnly"/>): what an expression body says up to its semicolon, or what lies between a block
+    /// body's braces. Null when what follows the parameter list is neither.
+    /// </summary>
+    internal static string? BodyAt(string code, int open)
+    {
+        var close = Closing(code, open);
+        if (close < 0) return null;
+        var start = close + 1;
+        while (start < code.Length && char.IsWhiteSpace(code[start])) start++;
+
+        if (start + 1 < code.Length && code[start] == '=' && code[start + 1] == '>')
+        {
+            var depth = 0;
+            for (var i = start + 2; i < code.Length; i++)
+            {
+                if (code[i] is '(' or '[' or '{') depth++;
+                else if (code[i] is ')' or ']' or '}') depth--;
+                else if (code[i] == ';' && depth == 0) return code[(start + 2)..i].Trim();
+            }
+            return null;
+        }
+        if (start < code.Length && code[start] == '{')
+        {
+            var end = Closing(code, start);
+            return end < 0 ? null : code[(start + 1)..end];
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Where the bracket at <paramref name="open"/> closes in <paramref name="code"/>, counting every kind of
+    /// bracket, or -1 when it never does. Only meaningful in a <see cref="CodeOnly"/> text, where no literal can
+    /// hold a bracket.
+    /// </summary>
+    internal static int Closing(string code, int open)
+    {
+        var depth = 0;
+        for (var i = open; i < code.Length; i++)
+        {
+            if (code[i] is '(' or '[' or '{') depth++;
+            else if (code[i] is ')' or ']' or '}' && --depth == 0) return i;
+        }
+        return -1;
+    }
+
+    /// <summary>
+    /// <paramref name="text"/> with the contents of its string and character literals blanked, the quotes kept,
+    /// and the length unchanged. An interpolation hole is code, so it is kept, and its own literals are blanked in
+    /// turn. Expects comments to be gone already (see <see cref="WithoutComments"/>).
+    /// </summary>
+    internal static string CodeOnly(string text)
+    {
+        var result = text.ToCharArray();
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (text[i] == '"') i = BlankString(text, result, i);
+            else if (text[i] == '\'') i = BlankChar(text, result, i);
+        }
+        return new string(result);
+    }
+
+    /// <summary>Blanks the string literal whose opening quote is at <paramref name="quote"/>; returns its closing quote.</summary>
+    private static int BlankString(string text, char[] result, int quote)
+    {
+        var verbatim = false;
+        var interpolated = false;
+        for (var k = quote - 1; k >= 0 && k >= quote - 2 && text[k] is '@' or '$'; k--)
+            if (text[k] == '@') verbatim = true; else interpolated = true;
+
+        for (var i = quote + 1; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (c == '"')
+            {
+                if (verbatim && i + 1 < text.Length && text[i + 1] == '"') { result[i] = result[++i] = ' '; continue; }
+                return i;
+            }
+            if (!verbatim && c == '\\' && i + 1 < text.Length) { result[i] = result[++i] = ' '; continue; }
+            if (interpolated && c == '{')
+            {
+                if (i + 1 < text.Length && text[i + 1] == '{') { result[i] = result[++i] = ' '; continue; }
+                i = EndOfHole(text, result, i);
+                continue;
+            }
+            if (c is not ('\n' or '\r')) result[i] = ' ';
+        }
+        return text.Length - 1;
+    }
+
+    /// <summary>Walks the interpolation hole opening at <paramref name="open"/>, blanking its literals; returns its closing brace.</summary>
+    private static int EndOfHole(string text, char[] result, int open)
+    {
+        var depth = 0;
+        for (var i = open; i < text.Length; i++)
+        {
+            if (text[i] == '"') i = BlankString(text, result, i);
+            else if (text[i] == '\'') i = BlankChar(text, result, i);
+            else if (text[i] == '{') depth++;
+            else if (text[i] == '}' && --depth == 0) return i;
+        }
+        return text.Length - 1;
+    }
+
+    /// <summary>Blanks the character literal opening at <paramref name="quote"/>; returns its closing quote.</summary>
+    private static int BlankChar(string text, char[] result, int quote)
+    {
+        for (var i = quote + 1; i < text.Length; i++)
+        {
+            if (text[i] == '\\' && i + 1 < text.Length) { result[i] = result[++i] = ' '; continue; }
+            if (text[i] == '\'') return i;
+            result[i] = ' ';
+        }
+        return text.Length - 1;
     }
 
     /// <summary>The description's text: every literal in the attribute, joined as the compiler joins a `+` chain.</summary>

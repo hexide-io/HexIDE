@@ -31,22 +31,35 @@ public sealed class AddinDiagnosticsService : IDiagnosticsAccess, IDisposable
 
     /// <inheritdoc/>
     /// <remarks>
+    /// <see cref="TryGetFor"/> with the reason dropped, so the two cannot disagree about what a name finds.
+    /// </remarks>
+    public IReadOnlyList<AddinDiagnostic> GetFor(string fileName, string? project) =>
+        TryGetFor(fileName, project).Diagnostics;
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// <para>
     /// The document is found first and its diagnostics second, rather than the other way round. This used
     /// to compare the caller's name with the last slash-separated segment of every wire URI it held — which
     /// answers correctly only while a document's wire name happens to end in its own name. It does not for a
     /// document named by its file (<c>Utilities</c> saved as <c>util.bas</c>), and it cannot tell two
     /// projects' <c>Module1</c> apart at all.
+    /// </para>
+    /// <para>
+    /// The name is found as automation and the rest of the add-in surface find one (<see cref="NamedDocuments"/>),
+    /// so a refusal here reads as theirs does for the same name (hexide-io/HexIDE#273 task 3.21).
+    /// </para>
     /// </remarks>
-    public IReadOnlyList<AddinDiagnostic> GetFor(string fileName, string? project)
+    public AddinDiagnosticsResult TryGetFor(string fileName, string? project)
     {
-        var found = DocumentLookup.Find(_projectManager.LoadedProjects, fileName, project);
-        if (found.Count != 1) return [];
+        var found = NamedDocuments.Resolve(_projectManager.LoadedProjects, fileName, project);
+        if (found.Document is not { } document)
+            return new AddinDiagnosticsResult([], found.Error);
 
-        var document = found[0];
         var wire = DocumentWireName.For(document);
-        return [.. _latest
+        return new AddinDiagnosticsResult([.. _latest
             .Where(kv => LspDocumentUri.AreSame(kv.Key, wire))
-            .SelectMany(kv => kv.Value.Select(d => Map(document, d)))];
+            .SelectMany(kv => kv.Value.Select(d => Map(document, d)))]);
     }
 
     public void Dispose() => _lspClient.DiagnosticsPublished -= OnPublished;

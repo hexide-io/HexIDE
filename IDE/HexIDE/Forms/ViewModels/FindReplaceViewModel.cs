@@ -213,7 +213,8 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     {
         var single = Scope == FindScope.CurrentModule;
 
-        var here = FindNext(active.Document, active.CaretOffset, active.SelectionLength, allowWrap: single);
+        var here = FindNext(active.Document, active.CaretOffset, active.SelectionLength, allowWrap: single,
+            active.IsReadOnlyRegion);
         if (here is not null) return (active, here.Value.offset, here.Value.length);
         if (single) return null;
 
@@ -222,11 +223,12 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
             // Entered at the end for an upward search, so the LAST match in that document is the first
             // one an Up search meets — the same order the user would see stepping through by hand.
             var from = Direction == FindDirection.Down ? 0 : other.Document.TextLength;
-            var found = FindNext(other.Document, from, 0, allowWrap: false);
+            var found = FindNext(other.Document, from, 0, allowWrap: false, other.IsReadOnlyRegion);
             if (found is not null) return (other, found.Value.offset, found.Value.length);
         }
 
-        var wrapped = FindNext(active.Document, active.CaretOffset, active.SelectionLength, allowWrap: true);
+        var wrapped = FindNext(active.Document, active.CaretOffset, active.SelectionLength, allowWrap: true,
+            active.IsReadOnlyRegion);
         return wrapped is null ? null : (active, wrapped.Value.offset, wrapped.Value.length);
     }
 
@@ -282,7 +284,9 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
         if (editor.SelectionLength > 0)
         {
             var selectedText = editor.Document.GetText(editor.SelectionStart, editor.SelectionLength);
-            if (IsMatch(selectedText))
+            // Never inside the header or a member's attribute lines (#273 task 3.9): VB6 never searched the
+            // header, because it was not in the code window, and a match there is text only the IDE changes.
+            if (IsMatch(selectedText) && !editor.IsReadOnlyRegion(editor.SelectionStart, editor.SelectionLength))
             {
                 editor.Document.Replace(editor.SelectionStart, editor.SelectionLength, ReplaceText);
                 editor.CaretOffset = editor.SelectionStart + ReplaceText.Length;
@@ -306,9 +310,9 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
         // Scope means the same thing to Replace All as it does to Find. Honouring it in one and not the
         // other would leave the combo telling the truth in Find mode and lying in Replace mode, which is
         // the defect this change exists to end rather than to halve.
-        var count = ReplaceAllIn(editor.Document);
+        var count = ReplaceAllIn(editor);
         foreach (var other in OtherDocumentsInScope(editor))
-            count += ReplaceAllIn(other.Document);
+            count += ReplaceAllIn(other);
 
         _windowManager.MessageBox(
             count > 0
@@ -319,22 +323,27 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
             MessageBoxIcon.Information);
     }
 
-    private int ReplaceAllIn(TextDocument doc)
+    private int ReplaceAllIn(ISearchableDocument target)
     {
+        var doc = target.Document;
         var count = 0;
 
         doc.BeginUpdate();
         try
         {
-            // Search from end to start to preserve offsets
+            // Search from end to start to preserve offsets. A match inside the header or a member's attribute
+            // lines is never found, so never replaced (#273 tasks 3.9 and 3.11): replacing every Command1 in a
+            // form's code must not rename the control in its designer block, which only the IDE changes. The
+            // regions are found once, and stay true because nothing before a replacement moves.
+            var isReadOnly = target.SnapshotReadOnlyRegions();
             int pos = doc.TextLength;
             while (pos > 0)
             {
-                var result = FindPrevious(doc, pos);
+                var result = FindPrevious(doc, pos, isReadOnly);
                 if (result is null) break;
 
-                doc.Replace(result.Value.offset, result.Value.length, ReplaceText);
                 pos = result.Value.offset;
+                doc.Replace(result.Value.offset, result.Value.length, ReplaceText);
                 count++;
             }
         }
@@ -350,13 +359,14 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     /// Whether an unsuccessful scan may start again from the other end of this document. False while a
     /// multi-document search is still working through the other documents — see <see cref="FindInScope"/>.
     /// </param>
+    /// <param name="isReadOnly">The document's read-only regions; see <see cref="Accepts"/>.</param>
     private (int offset, int length)? FindNext(TextDocument doc, int startOffset, int currentSelectionLength,
-        bool allowWrap)
+        bool allowWrap, Func<int, int, bool> isReadOnly)
     {
         if (SearchText.Length == 0) return null;
 
         if (UsePatternMatching)
-            return FindNextRegex(doc, startOffset, currentSelectionLength, allowWrap);
+            return FindNextRegex(doc, startOffset, currentSelectionLength, allowWrap, isReadOnly);
 
         var comparison = MatchCase ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
 
@@ -368,13 +378,13 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
             if (currentSelectionLength > 0)
                 searchStart = Math.Min(startOffset + 1, doc.TextLength);
 
-            // Search forward, skipping non-whole-word matches
+            // Search forward, skipping matches Accepts refuses
             var pos = searchStart;
             while (pos < doc.TextLength)
             {
                 var idx = doc.IndexOf(SearchText, pos, doc.TextLength - pos, comparison);
                 if (idx < 0) break;
-                if (CheckWholeWord(doc, idx, SearchText.Length))
+                if (Accepts(doc, idx, SearchText.Length, isReadOnly))
                     return (idx, SearchText.Length);
                 pos = idx + 1;
             }
@@ -387,7 +397,7 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
                 {
                     var idx = doc.IndexOf(SearchText, pos, Math.Min(searchStart + SearchText.Length, doc.TextLength) - pos, comparison);
                     if (idx < 0 || idx >= searchStart) break;
-                    if (CheckWholeWord(doc, idx, SearchText.Length))
+                    if (Accepts(doc, idx, SearchText.Length, isReadOnly))
                         return (idx, SearchText.Length);
                     pos = idx + 1;
                 }
@@ -401,7 +411,7 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
             {
                 if (i + SearchText.Length > text.Length) continue;
                 var candidate = text.Substring(i, SearchText.Length);
-                if (string.Equals(candidate, SearchText, comparison) && CheckWholeWord(doc, i, SearchText.Length))
+                if (string.Equals(candidate, SearchText, comparison) && Accepts(doc, i, SearchText.Length, isReadOnly))
                     return (i, SearchText.Length);
             }
             // Wrap around from end
@@ -410,7 +420,7 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
                 for (int i = text.Length - SearchText.Length; i > searchStart; i--)
                 {
                     var candidate = text.Substring(i, SearchText.Length);
-                    if (string.Equals(candidate, SearchText, comparison) && CheckWholeWord(doc, i, SearchText.Length))
+                    if (string.Equals(candidate, SearchText, comparison) && Accepts(doc, i, SearchText.Length, isReadOnly))
                         return (i, SearchText.Length);
                 }
             }
@@ -420,7 +430,7 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
     }
 
     private (int offset, int length)? FindNextRegex(TextDocument doc, int startOffset, int currentSelectionLength,
-        bool allowWrap)
+        bool allowWrap, Func<int, int, bool> isReadOnly)
     {
         var options = MatchCase ? RegexOptions.None : RegexOptions.IgnoreCase;
         Regex regex;
@@ -445,27 +455,25 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
 
         if (Direction == FindDirection.Down)
         {
-            var match = regex.Match(text, searchFrom);
-            if (match.Success && (!WholeWordOnly || CheckWholeWord(doc, match.Index, match.Length)))
+            var match = FirstAccepted(regex, text, searchFrom, doc, isReadOnly, before: text.Length + 1);
+            if (match.Success)
                 return (match.Index, match.Length);
 
             // Wrap
             if (allowWrap && searchFrom > 0)
             {
-                match = regex.Match(text, 0);
-                if (match.Success && match.Index < searchFrom &&
-                    (!WholeWordOnly || CheckWholeWord(doc, match.Index, match.Length)))
+                match = FirstAccepted(regex, text, 0, doc, isReadOnly, before: searchFrom);
+                if (match.Success)
                     return (match.Index, match.Length);
             }
         }
         else
         {
-            // For reverse, collect all matches and find the one before startOffset
-            var matches = regex.Matches(text);
+            // For reverse, collect every match Accepts takes and find the one before startOffset
+            var matches = AcceptedMatches(regex, text, doc, isReadOnly);
             for (int i = matches.Count - 1; i >= 0; i--)
             {
-                if (matches[i].Index < startOffset &&
-                    (!WholeWordOnly || CheckWholeWord(doc, matches[i].Index, matches[i].Length)))
+                if (matches[i].Index < startOffset)
                     return (matches[i].Index, matches[i].Length);
             }
             // Wrap
@@ -473,8 +481,7 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
             {
                 for (int i = matches.Count - 1; i >= 0; i--)
                 {
-                    if (matches[i].Index >= startOffset &&
-                        (!WholeWordOnly || CheckWholeWord(doc, matches[i].Index, matches[i].Length)))
+                    if (matches[i].Index >= startOffset)
                         return (matches[i].Index, matches[i].Length);
                 }
             }
@@ -483,7 +490,61 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
         return null;
     }
 
-    private (int offset, int length)? FindPrevious(TextDocument doc, int beforeOffset)
+    /// <summary>
+    /// The first match at or after <paramref name="from"/> that <see cref="Accepts"/> takes and that starts
+    /// before <paramref name="before"/>, or an unsuccessful match.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Walked, not taken.</b> The first match may be one Accepts refuses, and the one the developer wants
+    /// can still be further on. Taking only the first used to report "not found" whenever it failed Whole
+    /// Word, and would do so whenever it sat in the header.
+    /// </para>
+    /// <para>
+    /// <b>A refused match is stepped past by one character, not by its length.</b> <c>NextMatch</c> resumes
+    /// at the end of the match it was given, so a refused match hides any match overlapping it. A pattern
+    /// such as <c>\s*Private Sub</c> first matches from the header's last line break, which is refused, and
+    /// <c>NextMatch</c> then resumed after <c>Private Sub</c> and never saw it. The plain scan has always
+    /// stepped by one, and this is the same stepping.
+    /// </para>
+    /// </remarks>
+    private Match FirstAccepted(Regex regex, string text, int from, TextDocument doc, Func<int, int, bool> isReadOnly,
+        int before)
+    {
+        var match = regex.Match(text, from);
+        while (match.Success && match.Index < before && !Accepts(doc, match.Index, match.Length, isReadOnly))
+            match = StepPast(regex, text, match);
+        return match.Success && match.Index < before ? match : Match.Empty;
+    }
+
+    /// <summary>
+    /// Every match <see cref="Accepts"/> takes, in order: a taken match is followed by the next that does not
+    /// overlap it, and a refused one by any that starts after its first character.
+    /// </summary>
+    /// <remarks>See <see cref="FirstAccepted"/> for why a refused match is stepped past by one character.</remarks>
+    private List<Match> AcceptedMatches(Regex regex, string text, TextDocument doc, Func<int, int, bool> isReadOnly)
+    {
+        var accepted = new List<Match>();
+        var match = regex.Match(text, 0);
+        while (match.Success)
+        {
+            if (Accepts(doc, match.Index, match.Length, isReadOnly))
+            {
+                accepted.Add(match);
+                match = match.NextMatch();
+            }
+            else
+            {
+                match = StepPast(regex, text, match);
+            }
+        }
+        return accepted;
+    }
+
+    private static Match StepPast(Regex regex, string text, Match refused) =>
+        refused.Index < text.Length ? regex.Match(text, refused.Index + 1) : Match.Empty;
+
+    private (int offset, int length)? FindPrevious(TextDocument doc, int beforeOffset, Func<int, int, bool> isReadOnly)
     {
         if (SearchText.Length == 0) return null;
 
@@ -493,11 +554,10 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
             try
             {
                 var regex = new Regex(SearchText, options);
-                var matches = regex.Matches(doc.Text);
+                var matches = AcceptedMatches(regex, doc.Text, doc, isReadOnly);
                 for (int i = matches.Count - 1; i >= 0; i--)
                 {
-                    if (matches[i].Index < beforeOffset &&
-                        (!WholeWordOnly || CheckWholeWord(doc, matches[i].Index, matches[i].Length)))
+                    if (matches[i].Index < beforeOffset)
                         return (matches[i].Index, matches[i].Length);
                 }
             }
@@ -514,12 +574,26 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
         {
             if (i + SearchText.Length > text.Length) continue;
             var candidate = text.Substring(i, SearchText.Length);
-            if (string.Equals(candidate, SearchText, comparison) && CheckWholeWord(doc, i, SearchText.Length))
+            if (string.Equals(candidate, SearchText, comparison) && Accepts(doc, i, SearchText.Length, isReadOnly))
                 return (i, SearchText.Length);
         }
 
         return null;
     }
+
+    /// <summary>
+    /// Whether a match of the search text at <paramref name="offset"/> is one to report: a whole word when
+    /// Whole Word is on, and not in a read-only region.
+    /// </summary>
+    /// <remarks>
+    /// <b>One test at every place a match is yielded</b>: forward, backward, both wraps, plain and pattern,
+    /// and Replace All's backward walk. A region is the header or a member's attribute lines (#273 task
+    /// 3.11). VB6's Find never searched the header, because the header was not in its code window, and a
+    /// search that stopped there now would land on text the developer cannot change, often inside a fold.
+    /// A form held read-only as a whole is not a region, so Find still searches all of it.
+    /// </remarks>
+    private bool Accepts(TextDocument doc, int offset, int length, Func<int, int, bool> isReadOnly) =>
+        CheckWholeWord(doc, offset, length) && !isReadOnly(offset, length);
 
     private bool CheckWholeWord(TextDocument doc, int offset, int length)
     {

@@ -358,6 +358,162 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task EveryOpenDocumentIsReopenedOnTheRestartedServer()
+    {
+        // The teardown covers every entry; the caller that triggered it goes on to start and open only the
+        // claimants of ONE document. So before this, every other open document was left on a connection
+        // that no longer exists — later changes reached a server that had never been told the document was
+        // open, and the file simply went quiet (hexide-io/HexIDE#469).
+        //
+        // A first save of a never-saved project moves the root, and #489 established that is the ordinary
+        // way a document gets a file at all, so this is the common path rather than an edge case.
+        var workspace = new FixedWorkspace("/projects/a");
+        var created = new List<ILspClient>();
+        var sut = new LspClientRegistry(
+            [new LanguageServerRegistration("s", "s", [".bas"], "vb6", () =>
+            {
+                var c = RunningServer();
+                created.Add(c);
+                return c;
+            })],
+            Substitute.For<ILogger<LspClientRegistry>>(),
+            workspace);
+        _disposables.Add(sut);
+
+        await sut.OpenDocumentAsync("file:///projects/a/One.bas", "one", TestContext.Current.CancellationToken);
+        await sut.OpenDocumentAsync("file:///projects/a/Two.bas", "two", TestContext.Current.CancellationToken);
+
+        workspace.Directory = "/projects/b";
+        await sut.OpenDocumentAsync("file:///projects/b/New.bas", "new", TestContext.Current.CancellationToken);
+
+        created.Should().HaveCount(2, "one server before the move and one after");
+        await created[1].Received(1).OpenDocumentAsync(
+            "file:///projects/a/One.bas", "one", Arg.Any<CancellationToken>());
+        await created[1].Received(1).OpenDocumentAsync(
+            "file:///projects/a/Two.bas", "two", Arg.Any<CancellationToken>());
+        await created[1].Received(1).OpenDocumentAsync(
+            "file:///projects/b/New.bas", "new", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task TheDocumentThatTriggeredTheRestartIsOpenedExactlyOnce()
+    {
+        // The replay and the caller would otherwise both open it: the replay walks everything known to be
+        // open, and the caller opens the document it was called with. A duplicate didOpen for one URI is
+        // not a protocol error a server has to tolerate, and the ones that do tolerate it answer twice.
+        var workspace = new FixedWorkspace("/projects/a");
+        var created = new List<ILspClient>();
+        var sut = new LspClientRegistry(
+            [new LanguageServerRegistration("s", "s", [".bas"], "vb6", () =>
+            {
+                var c = RunningServer();
+                created.Add(c);
+                return c;
+            })],
+            Substitute.For<ILogger<LspClientRegistry>>(),
+            workspace);
+        _disposables.Add(sut);
+
+        await sut.OpenDocumentAsync("file:///projects/a/M.bas", "code", TestContext.Current.CancellationToken);
+
+        workspace.Directory = "/projects/b";
+        // The same URI again, which is the case where the replay and the caller collide.
+        await sut.OpenDocumentAsync("file:///projects/a/M.bas", "code", TestContext.Current.CancellationToken);
+
+        await created[1].Received(1).OpenDocumentAsync(
+            "file:///projects/a/M.bas", Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AChangeThatReachedNoServerIsStillWhatTheReopenSends()
+    {
+        // Between the teardown and the next server starting, StartedClaimantsFor yields nothing and a
+        // change goes nowhere. If the registry only remembered text it had successfully routed, the
+        // re-open would send the text from before that change — silently undoing what was typed, and
+        // leaving the server disagreeing with the editor about the document's contents.
+        var workspace = new FixedWorkspace("/projects/a");
+        var created = new List<ILspClient>();
+        var sut = new LspClientRegistry(
+            [new LanguageServerRegistration("s", "s", [".bas"], "vb6", () =>
+            {
+                var c = RunningServer();
+                created.Add(c);
+                return c;
+            })],
+            Substitute.For<ILogger<LspClientRegistry>>(),
+            workspace);
+        _disposables.Add(sut);
+
+        await sut.OpenDocumentAsync("file:///projects/a/M.bas", "before", TestContext.Current.CancellationToken);
+        await sut.ChangeDocumentAsync(
+            "file:///projects/a/M.bas", 2, "after", TestContext.Current.CancellationToken);
+
+        workspace.Directory = "/projects/b";
+        await sut.OpenDocumentAsync("file:///projects/b/Other.bas", "x", TestContext.Current.CancellationToken);
+
+        await created[1].Received(1).OpenDocumentAsync(
+            "file:///projects/a/M.bas", "after", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AClosedDocumentIsNotReopenedByARestart()
+    {
+        // The record has to be forgotten on close, or a restart resurrects documents the developer shut —
+        // and nothing would ever close them again, because the editor that owned them is gone.
+        var workspace = new FixedWorkspace("/projects/a");
+        var created = new List<ILspClient>();
+        var sut = new LspClientRegistry(
+            [new LanguageServerRegistration("s", "s", [".bas"], "vb6", () =>
+            {
+                var c = RunningServer();
+                created.Add(c);
+                return c;
+            })],
+            Substitute.For<ILogger<LspClientRegistry>>(),
+            workspace);
+        _disposables.Add(sut);
+
+        await sut.OpenDocumentAsync("file:///projects/a/Gone.bas", "code", TestContext.Current.CancellationToken);
+        await sut.CloseDocumentAsync("file:///projects/a/Gone.bas", TestContext.Current.CancellationToken);
+
+        workspace.Directory = "/projects/b";
+        await sut.OpenDocumentAsync("file:///projects/b/M.bas", "code", TestContext.Current.CancellationToken);
+
+        await created[1].DidNotReceive().OpenDocumentAsync(
+            "file:///projects/a/Gone.bas", Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ARestartReopensAMemberThroughTheSameGateItWasOpenedUnder()
+    {
+        // The replay must ask the membership question the OPEN asked, not re-derive it. A class module
+        // re-opened as a non-member would be offered to a server that claims `.cls` for another language,
+        // which is the #279 hole arriving by a back door that no routing test would see.
+        var workspace = new FixedWorkspace("/projects/a");
+        var created = new List<ILspClient>();
+        var sut = new LspClientRegistry(
+            [new LanguageServerRegistration("latex", "LaTeX", [".cls", ".tex"], "latex", () =>
+            {
+                var c = RunningServer();
+                created.Add(c);
+                return c;
+            }),
+             new LanguageServerRegistration("vb6", "VB6", [".bas", ".cls"], "vb6", RunningServer)],
+            Substitute.For<ILogger<LspClientRegistry>>(),
+            workspace);
+        _disposables.Add(sut);
+
+        await sut.OpenDocumentAsync(
+            "untitled:Project1/Class1.cls", "Option Explicit", isProjectMember: true,
+            TestContext.Current.CancellationToken);
+
+        workspace.Directory = "/projects/b";
+        await sut.OpenDocumentAsync("file:///projects/b/M.bas", "code", TestContext.Current.CancellationToken);
+
+        created.Should().BeEmpty("the LaTeX server never claimed the member, so it never started");
+    }
+
+    [Fact]
     public async Task AWorkspaceThatHasNotMovedDoesNotRestartAnything()
     {
         // The control. Without it a bug that restarted on every document open would pass the test above,

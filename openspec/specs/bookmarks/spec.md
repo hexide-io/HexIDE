@@ -8,21 +8,6 @@ back to, the three procedures involved in one change. In a language where a modu
 lines and there is no cross-file navigation to lean on, that is more load-bearing than it sounds.
 
 ## Requirements
-### Requirement: A bookmark SHALL be settable on any line and visible in the margin
-The developer SHALL be able to toggle a bookmark on the current line, and a bookmarked line SHALL be marked
-in the editor margin. A bookmark and a breakpoint on the same line SHALL both remain visible.
-
-A bookmark that is not visible is just a hidden cursor position — the mark is the feature. Breakpoints share
-the same margin and the same line can carry both, so neither may hide the other: a developer who cannot see
-that a line is bookmarked because it also has a breakpoint has lost the bookmark.
-
-#### Scenario: Toggling a bookmark
-- **WHEN** the developer toggles a bookmark on a line
-- **THEN** the line is marked in the margin, and toggling again removes it
-
-#### Scenario: A line with both a bookmark and a breakpoint
-- **WHEN** a line carries both
-- **THEN** both are distinguishable in the margin
 
 ### Requirement: Navigation SHALL move between bookmarks and wrap around
 The developer SHALL be able to move to the next and previous bookmark in the document, and navigation SHALL
@@ -72,3 +57,27 @@ developer's working state and has no business appearing in a colleague's diff.
 #### Scenario: The effect on source files
 - **WHEN** bookmarks are set and the project is saved
 - **THEN** no source file changes as a result
+
+### Requirement: A bookmark SHALL be settable on any editable line and visible in the margin
+The developer SHALL be able to toggle a bookmark on the current line, provided it is not in a read-only region
+of the code window, and a bookmarked line SHALL be marked in the editor margin. A bookmark and a breakpoint on
+the same line SHALL both remain visible.
+
+A bookmark that is not visible is just a hidden cursor position — the mark is the feature. Breakpoints share
+the same margin and the same line can carry both, so neither may hide the other: a developer who cannot see
+that a line is bookmarked because it also has a breakpoint has lost the bookmark.
+
+A read-only region is excluded because, folded, it is one visible line standing for many: a mark set by
+clicking it would belong to whichever of those lines the click happened to map to.
+
+#### Scenario: Toggling a bookmark
+- **WHEN** the developer toggles a bookmark on a line
+- **THEN** the line is marked in the margin, and toggling again removes it
+
+#### Scenario: A line with both a bookmark and a breakpoint
+- **WHEN** a line carries both
+- **THEN** both are distinguishable in the margin
+
+#### Scenario: Toggling a bookmark on a folded header
+- **WHEN** the developer toggles a bookmark on a form's folded header
+- **THEN** no bookmark is set

@@ -87,6 +87,7 @@ public sealed class ChatSession
                     Content = m.Content,
                     ToolCallId = m.ToolCallId,
                     ToolName = m.ToolName,
+                    FromIde = m.FromIde ? true : null,
                     ToolCalls = m.ToolCalls?.Select(tc => new PersistedToolCall
                     {
                         Id = tc.Id,
@@ -118,7 +119,7 @@ public sealed class ChatSession
                     .ToList();
 
                 var msg = new ConversationMessage(
-                    entry.Role, entry.Content, toolCalls, entry.ToolCallId, entry.ToolName);
+                    entry.Role, entry.Content, toolCalls, entry.ToolCallId, entry.ToolName, entry.FromIde == true);
                 session._log.Add(msg);
                 session._window.Add(msg);
             }
@@ -141,6 +142,8 @@ public sealed class ChatSession
         [JsonPropertyName("content")] public string Content { get; set; } = "";
         [JsonPropertyName("toolCallId")] public string? ToolCallId { get; set; }
         [JsonPropertyName("toolName")] public string? ToolName { get; set; }
+        // Null rather than false when unset, so a history without IDE notes is written exactly as before.
+        [JsonPropertyName("fromIde")] public bool? FromIde { get; set; }
         [JsonPropertyName("toolCalls")] public List<PersistedToolCall>? ToolCalls { get; set; }
     }
 

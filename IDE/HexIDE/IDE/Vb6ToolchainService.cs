@@ -9,6 +9,7 @@ using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Serialization;
 using Serilog;
 
 namespace HexIDE.IDE;
@@ -27,10 +28,20 @@ public class Vb6ToolchainService : IVb6ToolchainService
     // hang the IDE indefinitely. Generous: a large real project can take a while to compile.
     private static readonly TimeSpan BuildTimeout = TimeSpan.FromSeconds(180);
 
-    // Matches: path(line) : error|warning anything
-    // e.g.  C:\MyProject\Form1.frm(10) : error C0001: Compile error
+    // What vb6.exe actually writes to /out, measured rather than assumed -- see "What `/make` writes to
+    // `/out`, and what "Line N" counts" in docs/vb6-fidelity-oracle.md:
+    //
+    //     <CRLF>Compile Error in File '<ABSOLUTE path>', Line <N> : <message><CRLF>Build of 'x.exe' failed.
+    //
+    // Note the spaces either side of the colon, and that the path is absolute even where the .vbp named
+    // the file relatively.
+    //
+    // This used to match `path(N) : error C0001: ...`, which is a C compiler's format and nothing VB6 has
+    // ever produced -- so every compiler diagnostic was silently dropped and that consumer had never once
+    // had live traffic (#477). Anchored on `', Line ` and on ` : ` rather than on the message, because a
+    // message may contain both a colon and an apostrophe and a path may contain either.
     private static readonly Regex ErrorRegex = new(
-        @"^(.+?)\((\d+)\)\s*:\s*(error|warning)\s+(.+)$",
+        @"^Compile Error in File '(?<path>.+)', Line (?<line>\d+) : (?<message>.*)$",
         RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     // A .vbp may override the output name:  ExeName32="MyApp.exe"  (value may be unquoted).
@@ -236,7 +247,12 @@ public class Vb6ToolchainService : IVb6ToolchainService
         try
         {
             if (!File.Exists(logPath)) return "";
-            var text = File.ReadAllText(logPath);
+            // Decoded rather than File.ReadAllText, which assumes UTF-8. The log is ANSI (measured), so
+            // a non-ASCII character anywhere in the absolute path becomes U+FFFD before the regex sees it
+            // -- and the path is how a diagnostic finds its document, so every error in that project would
+            // be dropped in silence. Vb6TextFile.Decode covers Latin-1 with no new dependency; a true ANSI
+            // codepage would need System.Text.Encoding.CodePages, a package, and a licence row for it.
+            var text = Vb6TextFile.Decode(File.ReadAllBytes(logPath));
             File.Delete(logPath);
             return text;
         }
@@ -249,26 +265,84 @@ public class Vb6ToolchainService : IVb6ToolchainService
         catch { /* best-effort */ }
     }
 
+    /// <summary>
+    /// The log parser, for tests. Materialised, because every caller wants to index it and a lazy sequence
+    /// over a regex reads as a list that is sometimes empty for a different reason than it looks.
+    /// </summary>
+    internal static System.Collections.Generic.IReadOnlyList<(string uri, Diagnostic diagnostic)> ParseForTests(
+        string output, ProjectDefinition project) => [.. ParseVb6Errors(output, project)];
+
     private static System.Collections.Generic.IEnumerable<(string uri, Diagnostic diagnostic)> ParseVb6Errors(
         string output, ProjectDefinition project)
     {
         foreach (Match m in ErrorRegex.Matches(output))
         {
-            var filePath = m.Groups[1].Value.Trim();
-            var line = int.Parse(m.Groups[2].Value) - 1; // LSP lines are 0-based
-            var isError = m.Groups[3].Value.Equals("error", StringComparison.OrdinalIgnoreCase);
-            var message = m.Groups[4].Value.Trim();
+            var filePath = m.Groups["path"].Value.Trim();
+            var printed = int.Parse(m.Groups["line"].Value);
+            var message = m.Groups["message"].Value.Trim();
 
-            var baseName = Path.GetFileNameWithoutExtension(filePath);
-            var form = project.Forms.FirstOrDefault(f =>
-                string.Equals(f.Name, baseName, StringComparison.OrdinalIgnoreCase));
+            // By PATH, across every kind. It used to match forms only, by file stem -- so a .bas, a .cls,
+            // a .ctl and a .pag were all dropped, and a form whose file was not named after it was dropped
+            // too. The compiler prints an absolute path; that identifies a document exactly.
+            var document = DocumentLookup.FindByPath([project], filePath);
+            if (document is null) continue;
 
-            if (form is null)
-                continue;
-
+            var line = EditorLineOf(document, printed);
             var range = new HexIDE.Lsp.Messages.Range(new Position(line, 0), new Position(line, 999));
-            var severity = isError ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning;
-            yield return (GetFormUri(form), new Diagnostic(range, message, severity, "VB6 Compiler"));
+
+            // vb6.exe writes no severity: the log says "Compile Error in File" and nothing else, and a
+            // compile error is never a warning. Read from the format rather than parsed out of it.
+            yield return (
+                DocumentWireName.For(document),
+                new Diagnostic(range, message, DiagnosticSeverity.Error, "VB6 Compiler"));
         }
     }
+
+    /// <summary>
+    /// Turns the line number <c>vb6.exe</c> printed into a 0-based line in the editor's buffer.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>VB6's <c>N</c> is a 0-based index into the CODE VIEW</b>, which is the file minus its header and
+    /// minus <b>every</b> <c>Attribute</c> line, module-level and procedure-level alike. Measured across
+    /// nine probes; see the oracle. Both of the obvious readings are wrong: it is not a file line, and it
+    /// is not 1-based.
+    /// </para>
+    /// <para>
+    /// <b>Counted rather than offset.</b> The hidden total is not a constant per file kind -- a class
+    /// module with two procedure attributes above the error hides fifteen lines where one without them
+    /// hides thirteen. So this walks the buffer skipping exactly what VB6 skipped, which needs no table
+    /// and cannot drift from one.
+    /// </para>
+    /// <para>
+    /// <b>The buffer is the whole file (#273 task 3.2), so the header's lines come first.</b> A form's or a
+    /// designer module's designer block, and a module's own header, are all lines VB6 did not count, so the
+    /// walk is over the code and the header's line count is added after. Inside the code a form's
+    /// <c>Attribute</c> run and every procedure-level one are skipped, as VB6 skipped them.
+    /// </para>
+    /// </remarks>
+    internal static int EditorLineOf(DocumentIdentity document, int printedLine)
+    {
+        var code = document.Module?.Code ?? document.Form?.Code;
+        var header = document.Module is { } module ? FormCodeText.Prefix(module)
+            : document.Form is { } form ? FormCodeText.Prefix(form) : "";
+        var headerLines = header.Count(c => c == '\n');
+        if (string.IsNullOrEmpty(code)) return headerLines + Math.Max(printedLine, 0);
+
+        var lines = code.Replace("\r\n", "\n").Split('\n');
+        var counted = -1;
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (IsHiddenFromVb6LineCount(lines[i])) continue;
+            if (++counted == printedLine) return headerLines + i;
+        }
+
+        // Past the end of what we hold. Clamped rather than dropped: the developer is better served by a
+        // marker on the last line with the compiler's message than by silence about a build that failed.
+        return headerLines + Math.Max(lines.Length - 1, 0);
+    }
+
+    /// <summary>A line the compiler did not count when numbering the code view.</summary>
+    private static bool IsHiddenFromVb6LineCount(string line) =>
+        line.TrimStart().StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase);
 }

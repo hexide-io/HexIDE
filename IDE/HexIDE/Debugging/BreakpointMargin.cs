@@ -21,6 +21,7 @@ public sealed class BreakpointMargin : AbstractMargin
 
     private readonly IBreakpointService _breakpoints;
     private readonly DocumentIdentity _document;
+    private readonly Func<int, bool> _toggle;
 
     /// <param name="document">
     /// The document this gutter is drawn for. An identity rather than a name: a gutter is built when its view
@@ -28,10 +29,16 @@ public sealed class BreakpointMargin : AbstractMargin
     /// stopped agreeing the moment the document was renamed (#269). The identity is the same value on both
     /// sides for as long as the document is loaded.
     /// </param>
-    public BreakpointMargin(IBreakpointService breakpoints, DocumentIdentity document)
+    /// <param name="toggle">
+    /// What a click does, given the clicked line: the code window's own toggle, which refuses a read-only line
+    /// (#273 task 3.12). Not the store's, which takes any line it is given. A click on a folded header lands on
+    /// the fold's first line, which is the header's, so it is refused with the rest.
+    /// </param>
+    public BreakpointMargin(IBreakpointService breakpoints, DocumentIdentity document, Func<int, bool> toggle)
     {
         _breakpoints = breakpoints;
         _document = document;
+        _toggle = toggle;
     }
 
     protected override void OnTextViewChanged(TextView? oldTextView, TextView? newTextView)
@@ -96,7 +103,7 @@ public sealed class BreakpointMargin : AbstractMargin
         if (visualLine == null) return;
 
         int lineNumber = visualLine.FirstDocumentLine.LineNumber; // 1-based
-        _breakpoints.Toggle(_document, lineNumber);
+        _toggle(lineNumber);
         e.Handled = true;
     }
 }

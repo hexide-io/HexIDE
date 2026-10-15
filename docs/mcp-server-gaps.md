@@ -340,6 +340,9 @@ handler that flushes Serilog on `AppDomain.UnhandledException` would also make t
 - **`Debug.Print` didn't reach the Immediate window** — that was an *interpreter* bug (the `Debug` object was
   seeded only in the test fixture, not the live F5 run), fixed this session (`VBDebugConsole`), not an MCP
   limitation. It's listed here only because gap #1 made it hard to *see* the resulting error.
+- **`hexide` missing from `/mcp` entirely, even after resumes and reconnects**: the project-local
+  `.claude/settings.local.json` had `"disabledMcpjsonServers": ["hexide"]`, so the client skipped the
+  `.mcp.json` entry altogether (2026-09-25). Check that list before diagnosing the server.
 
 ## MCP tools do not re-attach to a resumed session while the IDE keeps running
 
@@ -525,9 +528,55 @@ any other line tool, or read a line number off a snapshot, is still one line out
 
 **Workaround.** Subtract one before calling `set_bookmarks`, and add one to what `get_bookmarks` returns.
 
+**Since #273 both numberings count from the top of the file, header included** (task 3.12), as every line tool
+now counts, and a line of the header or of a member's Attribute lines is refused, with where the code starts given
+in the tool's own numbering. So being one out near the top is sometimes refused rather than placed. Measured in
+task 3.16's live check (2026-10-01), on a class added through the IDE whose header is lines 1 to 13:
+`set_breakpoints` with `[13]` was refused with "its code starts at 14", and `set_bookmarks` with `[13]` was
+accepted, which counting from 0 is the gutter's line 14. One number, refused by one tool and accepted by the
+other. Below the header the difference is as silent as it was.
+
 **Suggested fix.** Undecided, and filed as needs-decision:
 [#571](https://github.com/hexide-io/HexIDE/issues/571). Either convert at the tool boundary, which changes
 the contract, or keep 0-based and have the descriptions say the gutter shows N+1.
+
+## Every automation route to a new document saves it, so the pathless state cannot be reached
+
+**Symptom.** `add_file` says, in its own description, "Adds a new form or module to the startup project, or to
+the loaded project `project` names …, **saves the new file to disk**, and returns its path." (Reworded by #596 and
+by #273, which added `project`; this entry first quoted "saves it to disk", and the point is the same.)
+`--newproject` — the flag the documented dev loop uses on every launch — goes further and saves the whole project
+into `%TEMP%` before the first tool call
+(`DesktopStartup.cs`, the `--newproject` hook's `SaveProjectToDirectory` call). So a caller driving HexIDE through automation never sees a document that has no
+file.
+
+**Why that matters more than it sounds.** #489 measured that in real VB6 a document with no file is the
+*ordinary* state: nothing is written until the project is saved. #273 names such a document
+`untitled:<Project>/<Name>.<ext>` on the wire, and that branch was measured against five foreign language
+servers precisely because a branch nothing exercises is a branch that rots. A model asked to verify it
+through this surface will call `add_file`, see a `file:` URI, and reasonably conclude the `untitled:`
+spelling is dead code.
+
+**Workaround, and it is not obvious.** Drive the real menu: `dump_visual_tree` to find
+`MenuItem[Project]`, `interact` with `expand`, `dump_visual_tree` again scoped to it, then `interact` with
+`invoke` on `MenuItem[Add Module]`. That reaches `ProjectService.AddNewModule` — which, as of today, also
+writes (hexide-io/HexIDE#500). The only genuinely pathless document reachable at all is the initial `Form1`
+of a project created through `File > New Project` **in the UI**, which `--newproject` skips.
+
+**Such a form also reads without its header, since #273 task 3.18.** Read in code, not run. `get_file_content`
+returns a form's whole file, except a form created in this session and not yet saved or changed in the designer,
+which has no header yet, so its text is its code alone; the tool's description says so. Its first committed designer
+change or save gives it one (`HeaderRefresher.ApplyHeader`), its marks move down by the header's height, and from then
+its lines count from the top of that header. So a line number read before then is out by the header's height after
+it. **Workaround:** read the content again after any designer change or save before using a line number from it.
+Where a created form's first header should come from, so that it holds one from the start, is
+[#885](https://github.com/hexide-io/HexIDE/issues/885).
+
+**Suggested fix.** Two parts, and the first is cheap. (1) `add_file` should say which of the two states it
+leaves the document in, and gain a way to ask for the other — a caller cannot currently express "add it the
+way the user's own menu does". (2) A launch flag that creates a project without saving it, so the dev loop
+can reach the state the product will normally be in once #500 lands. Until then, any verification of
+`untitled:` naming through this surface is verifying something the surface itself prevents.
 
 ## Three tools accept a negative control size and report success
 
@@ -563,12 +612,90 @@ part of it.
 `invoke_menu_item {"path":"Project/Add Module"}` does the same for `Module3`. An untouched module loaded from
 disk reads `false`.
 
+**Since #273 task 3.18 the `content` half of that reply reads differently, and the defect does not.**
+`get_file_content` now returns a module's whole file, so a new `Helpers` answers with its one header line,
+`Attribute VB_Name = "Helpers"`, rather than `""`. `hasUnsavedChanges` still compares the code section with
+the model's, which did not change, so it still reads `true`. The `""` above is what was measured, before
+that change.
+
 **Workaround.** Read `hasUnsavedChanges` on a document added in this session as "new", not as "edited".
 
 **Suggested fix.** Undecided, and filed as needs-decision:
 [#597](https://github.com/hexide-io/HexIDE/issues/597). Either record the render baseline when a new
 document is written, or keep new documents unsaved on purpose and say so in `get_file_content`'s
 description.
+
+## A whole-window `dump_visual_tree` overflows the caller's output limit
+
+**Symptom (2026-09-25).** `dump_visual_tree {"maxDepth":12}` with an IDE showing three document tabs and
+the usual tool windows returned 58,264 characters. That is over the client's limit, so it was written to a
+file instead of being returned. The only way to find the code editor's path was to parse that file outside
+the tool. The description does say to scope a large dump with `root`, but a first-time caller does not yet
+know any path to scope it with.
+
+**Workaround.** Dump once to a file and extract paths with a script. After that, always pass `root`.
+
+**Suggested fix.** A filter on class name, view-model type or name, returning matching nodes with their
+paths and no subtrees. This is the question a first call usually asks: where is the code editor? Filed as
+[#699](https://github.com/hexide-io/HexIDE/issues/699).
+
+## The code window's gutters are not in the control tree, so a gutter click cannot be driven
+
+**Symptom (2026-10-01, during #273 task 3.12's live check).**
+`dump_visual_tree {"root":"…/Custom[Root]/None[TextEditor]/Pane[PART_ScrollViewer]/None","interactiveOnly":false,"maxDepth":4}`
+returns the `TextArea` with two children: an empty `ItemsControl` and the hidden `PART_Watermark`. The
+breakpoint gutter, the bookmark gutter and the line-number margin are all absent, because AvaloniaEdit's
+`AbstractMargin` has no automation peer, so `interact` has nothing to click. The task's own named case, a
+click on a folded header, could only be tested headlessly (`MarkGutterOnReadOnlyLineTests`, which raises
+the press on the gutter itself).
+
+**Workaround.** Place the caret with `interact set_property CaretOffset=N` on the code view, then
+`invoke_menu_item Debug/Toggle Breakpoint` or `Edit/Bookmarks/Toggle Bookmark`. That reaches the same
+toggle a gutter click calls, but not the gutter's own mapping from a point to a visual line, which is
+what decides what a click on a folded row marks.
+
+**Suggested fix.** Undecided: a peer on the gutters that `interact` can drive with a line, a `click` action
+on `interact` at a point relative to its target (which would cover other drawn surfaces too), or a
+dedicated tool if the authoring policy justifies one. Filed as
+[#707](https://github.com/hexide-io/HexIDE/issues/707).
+
+**The fold margin is the same (2026-10-02, during #273 task 3.14's live check).**
+`dump_visual_tree {"interactiveOnly":false,"maxDepth":40}` over the whole window has no node whose class is
+`FoldingMargin` or `FoldingMarginMarker`, so a fold cannot be expanded or folded by its marker. The
+`TextEditor` node does report `expandCollapse`, which reads as the answer and is not: `inspect_element` on it
+shows no expand state, and the provider is advertised because the editor owns a context menu, which is what
+`expand` opens. **Workaround:** placing the caret inside a folded section with `interact set_property
+CaretOffset=N` on the code view expands it, because the editor unfolds any fold the caret moves into. Nothing
+folds one again. A `click` action on `interact` would cover this margin as well as the gutters.
+
+**A member's Attribute lines fold too since #273 task 4.3**, into a box at the end of the line they describe, and
+the workaround reaches them with one difference, read in code and not run. An offset strictly inside the run opens
+it, as for any fold. An offset at the run's very end does not: the window moves a caret that lands after a folded
+run's box to the end of the declaration, in front of the box (`CodeEditorView.KeepCaretOffFoldedRunsEnd`), and the
+run stays folded.
+
+## `select` on an Options tree item reports success and selects nothing
+
+**Symptom (2026-10-02, during #273 task 3.15's live check).** In Tools → Options, the page tree's items each
+advertise `selectionItem`. `interact {"target":"Window/Custom/Tree/Pane/TreeItem[#0]/TreeItem[#1]","action":"select"}`
+(the Theme item) replies `{"success":true,"mechanism":"peer","detail":"selected 'TreeItem'"}`, and nothing has
+changed: `inspect_element {"target":"Window"}` still has the same `SelectedNode`, and the page beside the tree
+is still `EnvironmentGeneralPageView`. Seen on three launches. Selecting by text fails differently:
+`interact {"target":"Window/Custom/Tree","action":"select","value":"Theme"}` replies `'Tree' has no selectable
+items realized`, although `dump_visual_tree {"root":"Window/Custom/Tree/Pane/TreeItem[#0]","interactiveOnly":false,"maxDepth":4}`
+shows every item realized, with its text in a child `Text[Theme]`. The items have no automation name of their
+own, which is also why the success reply calls the item `'TreeItem'`.
+
+**Workaround.** Keyboard: `press_key {"target":"Window/Custom/Tree/Pane/TreeItem[#0]/TreeItem[#0]","key":"Down"}`
+moves from General to Theme and the page follows. A theme is then switched by `interact expand` on
+`Window/Custom/Custom/ComboBox`, `interact select` with the theme's name as `value`, and `interact invoke` on
+`Window/Custom/Button[OK]`.
+
+**Suggested fix.** `DoSelect` takes the item peer's `Select()` as done. It should read the selection back, from
+the item and from its owning tree, fall back to `TrySelectThroughOwningTree` when it did not take, and say so
+when neither did, rather than reporting a selection it never checked. Naming a tree item after its header text
+would let `select` with a `value` find it, and would let the reply name what it selected. Filed as
+[#714](https://github.com/hexide-io/HexIDE/issues/714).
 
 ## A write tool that needed no picker leaves an armed file-dialog answer pending, and says nothing
 
@@ -652,6 +779,174 @@ at launch.
 **Suggested fix.** `invoke_command` falling back to a public parameterless method, listed by `inspect_element`, and
 a refusal that names what it looked for rather than a property. An action to open a context menu is not needed:
 `expand` is it. [#836](https://github.com/hexide-io/HexIDE/issues/836).
+
+## Polling `list_lsp_messages` with the highest sequence seen never shows a waiting request answered
+
+**Symptom.** While re-recording [`mcp-first-contact.md`](mcp-first-contact.md) for #273 on 2026-10-13, in a fresh
+`--newproject` session, a request seen waiting never came back answered when polled as the description advises:
+
+```
+open_file {"name":"Form1"}
+list_lsp_messages {}
+→ six rows; sequence 4 is initialize, with no outcome; 6 is the highest
+list_lsp_messages {"afterSequence":6,"limit":3}
+→ rows 12, 13, 15 ("matched":7); initialize is not among them
+list_lsp_messages {"afterSequence":3}
+→ row 4 comes back "outcome":"Answered", "answerSequence":8
+```
+
+The description says to pass "the highest one already seen to poll for what is new". A reply does not add a row:
+it completes its request's row and uses up a sequence. That row's sequence is below the one a poller passes, so
+the filter (`CaptureQueries`, `envelope.Sequence <= after`) drops it. The poller sees what followed the request
+and never sees the request answered.
+
+**Workaround.** Pass a sequence below the oldest request still waiting, and read each request's row again.
+
+**Suggested fix.** Match a row that was completed after `afterSequence` as well as one recorded after it, keyed
+on the sequence its reply consumed, which exists whether or not the body was kept. Say in the description that
+a completed request comes back on its own row. [#961](https://github.com/hexide-io/HexIDE/issues/961).
+
+## A refused edit's reply sends a Backspace back to the caret it was refused at, and does not say whose lines are in the way
+
+**Symptom.** Found in #273's live check (task 4.8) on 2026-10-14, with a class whose `Public Function Total()` has
+its run `Attribute Total.VB_UserMemId = 0` folded into the declaration's row, and the caret put at the start of the
+body line below it, offset 790:
+
+```
+interact {"target":".../Custom[Root]","action":"set_property","value":"CaretOffset=790"}
+press_key {"target":".../Custom[Root]/None[TextEditor]","key":"Back"}
+→ {"success":false,"error":"press_key refused: offset 789 is in the file's header or a member's Attribute lines,
+   which only the IDE changes (the designer, a save, a rename). Nothing was written. The nearest place that can be
+   edited starts at offset 790; put the caret there with interact set_property CaretOffset=790. ..."}
+```
+
+The refusal is right: Backspace there would join the body line to the run's last line. The advice is not. Offset
+790 is where the caret already was, so a caller that follows it presses the same key in the same place and is
+refused again, which a first-contact model can loop on. The reply also says "the file's header or a member's
+Attribute lines" although the IDE knows which, and since #273 task 4.5b names the member in an add-in's refusal
+(`GuardedContent.MemberNamedBy`). `type_text` gives the same wording: at offset 766, inside the run, it said
+"header or a member's Attribute lines" and pointed at 790.
+
+**Workaround.** Read the refused offset, not the advice. A backward deletion refused at the start of the line under a
+run has nowhere to go on that line; delete the declaration line whole instead (Ctrl+D, which takes the run with it).
+
+**Suggested fix.** Name the region: "the file's header" or "the Attribute lines describing Total" (`MemberNamedBy`).
+For a deleting key whose span ends at the caret, say that the text before the caret is the run's and that deleting
+the declaration line takes both, rather than pointing at the caret's own offset; keep the "nearest place" advice for
+an insertion or a forward deletion, where it moves the caller somewhere new.
+[#1042](https://github.com/hexide-io/HexIDE/issues/1042).
+
+## `type_text` writes beside a standing selection instead of over it
+
+**Symptom.** Found by the review of #273 task 4.5, which reproduced it. The calls below are #1040's reproduction,
+read in code and not run live. In a module with no `Attribute` lines, with `E` the code editor's path from
+`dump_visual_tree` and the caret after `Debug.Print 1` on the line `    Debug.Print 1, 2`:
+
+```
+press_key {"target":E,"key":"End","modifiers":"Shift"}      selects ", 2"
+type_text {"target":E,"text":", 3"}
+→ success; the line now reads "    Debug.Print 1, 2, 3"
+```
+
+A person's typing replaces the selection. `UiAutomationDriver.TypeText` inserts at the caret on every surface (a
+`TextEditor`, a `TextArea`, and a `TextBox` at its `CaretIndex`), never reads the selection, and, away from a
+described line's end, replies only with how many characters it typed. Its description says it inserts "at the
+caret", so it does what it says; what it does not do is what a person's typing does. `press_key` already judges a
+key with a selection standing as a write over it, so the two tools disagree. The code window's own Enter has the
+same shape, which is a product defect in the same issue.
+
+**Workaround.** Delete the selection first with `press_key {"target":E,"key":"Delete"}`, then call `type_text`.
+
+**Suggested fix.** Write over the selection, as a person's typing does and as `press_key` already assumes, and say
+in the reply how much was replaced. [#1040](https://github.com/hexide-io/HexIDE/issues/1040).
+
+## `set_file_content`'s reply does not say when its save rewrote a member's attribute qualifier
+
+**Symptom.** `set_file_content` saves as the document's own Save does, and since #273 task 4.4 that save writes each
+member's attribute run with its member's name, as VB6's own Save does whatever the module's state. Content holding
+`Attribute Gone.VB_Description` under `Public Function Total()` is therefore written as `Attribute
+Total.VB_Description`, and a no-op write-back of what `get_file_content` returned can change the file in that one
+place. The reply says the file was written and nothing more, so a caller comparing the file with what it sent finds
+a change it did not make, with no reason given.
+
+**`set_control_property` and `add_control` save the same way, and say no more.** Read in code, not run: both save
+through `ProjectService.SaveForm` or `SaveModule`, as `set_file_content` does, and both reach `SaveFiles` with
+`ownCommand: true`, `SaveModule` through `SaveModuleCore`. So a property set on a form or UserControl, or a control
+added to it, also writes a stale qualifier in its code with its member's name, and neither reply says so. #1043
+names `set_file_content` alone.
+
+**Workaround.** Read the file back with `get_file_content` after the write, and expect a stale qualifier to have been
+re-qualified.
+
+**Suggested fix.** Have the save report what it rewrote and say it in the reply's `note`, not the description, which
+is within about 60 characters of its cap. [#1043](https://github.com/hexide-io/HexIDE/issues/1043).
+
+## `set_file_content` puts its content into a file the IDE will not save, and its refusal says only that the file was not written
+
+**Symptom.** Read in code, not run, at ec9bfc4. On a form HexIDE holds read-only as a whole because it cannot save it
+faithfully, such as the `frmAbout` with no `.frx` that #273's live check used on 2026-10-13 (archived under the #649
+entry):
+
+```
+get_file_content {"name":"frmAbout"}
+set_file_content {"name":"frmAbout","content":"<that text, with one line of code changed>"}
+→ {"success":false,"error":"HexIDE cannot reproduce this file faithfully, so it was not written and the copy on
+   disk is unchanged.", "project":…, "document":"frmAbout"}
+get_file_content {"name":"frmAbout"}
+→ the text that was sent
+```
+
+The content is applied before the save is refused. `DocumentContent.Write` asks `GuardedContent` about the header
+and members' Attribute lines, never about the file as a whole, so the open code window's buffer takes the content, or
+with no window open the model's code does; then `ProjectService.SaveForm` refuses the form (`RefusesUnfaithful`). The
+reply says nothing of the IDE's copy, where the same tool's encoding refusal says "The new code is in the IDE, but
+the file was not written." A caller reading `success:false` takes it that nothing changed. The window's banner says
+typing in it is refused, and `type_text` and `press_key` are refused there with that reason, yet its text has
+changed, and no save will write it.
+
+**Workaround.** Before sending content, open the file's code window and `inspect_element` its code view, which lists
+the view model's `IsReadOnly` and `ReadOnlyReason` (read in code; #273's check read `BufferBody` there). When
+`IsReadOnly` is true the file is held read-only as a whole: send nothing. After this refusal, read it as "the IDE
+holds the content and no save will write it", and put the IDE's copy back by sending the text `get_file_content`
+returned before the write, which is applied the same way.
+
+**Suggested fix.** #701's: refuse in the guarded write path, before anything changes, with the reason the banner and
+`type_text` give. The issue lists this tool among the writers that still edit such a file.
+[#701](https://github.com/hexide-io/HexIDE/issues/701).
+
+## Replies that report or act on a document without taking its name do not say which project's it is
+
+**Symptom.** Read in code, not run, at ec9bfc4. #273 made every tool that takes a document's name find it in any
+loaded project and name it back as `project` and `document` (archived under the #575 and #467 entries). The tools
+that report or act on a document without taking its name were left as they were. The shapes, from the code, with a
+group holding a `Form1` in each of two projects:
+
+```
+step_over {}               → "note": "Paused at Form1 line 9 (Step)."
+                             as run_project, break_program, continue_program, step_into, step_out, run_to_cursor
+get_locals {}              → "context": "Form1.Form_Load", the Module.Procedure header, as the watch tools' context
+invoke_designer_undo {}    → "note": "Undid '…'. Next undo: …", on the active designer, its form not named,
+                             as invoke_designer_redo, get_undo_state and invoke_format_command
+get_document_tabs {}       → each tab's title, which activate_document_tab and close_document_tab take
+get_open_editors {}        → each editor's title, and 'activeWindow' as a title
+```
+
+None of these says which project's `Form1` it means. `get_debug_state` and `get_call_stack` now carry the running
+`project`; the run-control notes beside them do not. A tab's title starts with its project's name
+(`Second - Module1 (Code)`, measured in the #575 entry), but it is the IDE's display string, whose suffix follows
+the IDE's language, and not the `project` and `document` every naming tool takes and returns.
+
+**Workaround.** For a run, `get_debug_state {}` gives `project` beside `module`, and every frame `get_call_stack {}`
+lists is in that project. For a designer, `view_designer` with `project` first makes the intended form the active
+designer, and its reply names it. Address a tab by the title `get_document_tabs` returns, never by one composed from
+a name.
+
+**Suggested fix.** #886's: the running project beside a bare module name in the run-control notes and in the
+locals and watch `context`; `project` and `document` for the document behind the active designer in the designer
+tools' replies; and the tab tools reporting `project` and `document`, and accepting them in place of a title.
+Until then the hexide-mcp-server requirement #273 added, that "a tool that accepts or reports a form, module or class
+SHALL identify it by its project and its name", is only partly met.
+[#886](https://github.com/hexide-io/HexIDE/issues/886).
 
 ## `dump_visual_tree` shows a node cut off by `maxDepth` as a leaf, and under `interactiveOnly` drops it and its ancestors
 
@@ -868,8 +1163,19 @@ paused listed Label0 without them too. `get_form_controls` describes itself as r
 properties", which is accurate; what is not is `set_control_property`'s "Use get_form_controls to see available
 controls and properties".
 
-**Workaround.** Not exercised in that run: select the control in the designer and read the Properties window's
-rows with `dump_visual_tree` and `interactiveOnly: false`, or `inspect_element` on a row.
+**Since #273 task 3.18 the `get_file_content` line reads differently, and the gap is narrower.** That run was on
+main, where `get_file_content` returned a form's code alone. With #273 it returns the form's whole file, its
+designer block included, and the block follows the designer: #273's live check on 2026-10-13 saw
+`move_control {"formName":"Dialog","controlName":"OKButton","left":300}` reach the open code window's header as
+`Left = 4500`, and after a save, which `set_control_property` makes, the block is the one written. So a property
+the `.frm` records can now be read back, in the file's own spelling: twips for a position, a Font as its
+`BeginProperty Font` block, a `Byte[]` property as a reference into the `.frx`. That is not the Properties
+window's text, which is what `set_control_property` takes, and it is only what the file records.
+
+**Workaround.** With #273, read the control's `Begin` block in `get_file_content {"name":"Form1"}`, as the file
+spells it. For the Properties window's own spelling, not exercised in that run: select the control in the designer
+and read the Properties window's rows with `dump_visual_tree` and `interactiveOnly: false`, or `inspect_element` on
+a row.
 
 **Suggested fix.** An optional `controlName` on `get_form_controls` that returns every property the Properties
 window shows for that control, under its name there and in the text form `set_control_property` accepts, and a
@@ -1083,3 +1389,66 @@ measured the first half with Tools/Add Procedure left open; this is a modal rais
 **Suggested fix.** #681's decision, for the replies. For `take_snapshot` with `window: "ide"`, prefer a modal
 the IDE owns, as `auto` does, or at least name it in `activeDialog`.
 [#681](https://github.com/hexide-io/HexIDE/issues/681).
+
+## A whole replacement that changes the header and a member's `Attribute` lines is told only about the header
+
+**Symptom.** Read from the code, and recorded when #273 task 4.5b was built. `set_file_content` (and an add-in's
+`TrySetContent`) compares the header first and returns on the first difference:
+
+```
+set_file_content {"name":"Ledger","content":"<a class header with one line changed, and Total's run changed>"}
+→ refused: "The content would change the document's header (its designer block, class header or leading
+   Attribute lines), which only the IDE changes. ..."
+```
+
+A caller that restores the header and sends again is refused a second time, now for `Total`'s run, a reason the
+first reply did not give.
+
+**Workaround.** After a header refusal, compare the members' `Attribute` lines with `get_file_content`'s before
+sending again.
+
+**Suggested fix.** Compare the runs whatever the header does, and refuse once with every finding.
+[#1054](https://github.com/hexide-io/HexIDE/issues/1054).
+
+## `press_key` refuses a Delete over a selection reaching protected lines, where the key deletes the editable part
+
+**Symptom.** Read from the code (#273 task 4.5a records it as already so). With a selection running from code into
+the header or a member's `Attribute` lines, a person's Delete deletes the parts the code window's read-only sections
+allow. The tool deletes nothing:
+
+```
+press_key {"target":".../Custom[Root]/None[TextEditor]","key":"Delete"}
+→ {"success":false,"error":"press_key refused: offset N is in the file's header or a member's Attribute lines, ...
+   Nothing was written. ..."}
+```
+
+`UiAutomationDriver` asks `DeletionChangesARegion` about the whole span, where the key's provider deletes the
+deletable segments.
+
+**Workaround.** Narrow the selection to the editable part with `interact set_property` (`SelectionStart`,
+`SelectionLength`) before pressing the key.
+
+**Suggested fix.** Delete what the deletable segments allow, as the key does, and say what was left and why.
+[#1055](https://github.com/hexide-io/HexIDE/issues/1055).
+
+## `interact` acts on a control that is not on screen, and reports success
+
+**Symptom.** Measured on 2026-10-15 in AI Chat's transcript (#273 task 3.22). Each message is templated with an
+Approve and a Reject button, shown only while that message is an approval prompt. So `dump_visual_tree` lists a
+pair per message, each one `"isHidden": true` except the pair of the prompt awaiting a decision. Invoking a
+hidden one:
+
+```
+interact {"target":".../TitleBar[AI Chat]/Pane[AI Chat]/Custom/Custom/Pane[Scroller]/List/Button[#0]","action":"invoke"}
+→ {"success":true,"mechanism":"peer","detail":"invoked Button 'Approve'"}
+```
+
+Nothing happened: that message was never a prompt, and its view model ignores the decision. No person can press a
+button that is not shown, and a caller who takes the first `Approve` in the tree reads that it approved the
+pending call. A control whose handler has no such guard would act out of sight.
+
+**Workaround.** Pick the node without `isHidden`. In AI Chat's transcript, the pending prompt's pair is the only
+one without it.
+
+**Suggested fix.** Refuse a provider or pointer action on a control that is not effectively visible, saying why
+and naming the `isHidden` flag. [#1069](https://github.com/hexide-io/HexIDE/issues/1069).

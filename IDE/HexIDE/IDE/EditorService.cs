@@ -85,8 +85,15 @@ public class EditorService : IEditorService
     /// <remarks>
     /// Compared with <see cref="LspDocumentUri.AreSame"/> rather than <c>==</c>: a server is under no
     /// obligation to echo a URI back byte for byte, and a normalised drive letter is the measured case
-    /// (hexide-io/HexIDE#236). A document with no file yet has no <c>file:</c> spelling at all, which is
-    /// why the scheme URI is still checked first.
+    /// (hexide-io/HexIDE#236).
+    ///
+    /// <para>
+    /// Both spellings are tried, and for a document that has a file they are the same string — the wire
+    /// name <em>is</em> its <c>file:</c> URI since #273. They diverge only for a document with no file,
+    /// which is named <c>untitled:</c> and has no <c>file:</c> spelling at all, and for a carried file,
+    /// which has no identity here and so only has the second. Keeping both is what lets one method answer
+    /// for all three.
+    /// </para>
     /// </remarks>
     private static bool Names(string uri, DocumentIdentity? document, string? absolutePath)
     {

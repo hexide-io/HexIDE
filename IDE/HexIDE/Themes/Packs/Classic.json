@@ -19,6 +19,7 @@
     "HighlightText":            "#FFFFFF",
     "Desktop":                  "#000000",
     "GrayText":                 "#808080",
+    "ReadOnlyText":             "#707070",
     "InactiveCaption":          "#ABABAB",
     "InactiveCaptionText":      "#666666",
     "ActiveTitleBar":           "#000080",

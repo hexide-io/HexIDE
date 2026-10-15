@@ -173,6 +173,12 @@ public partial class ColorPaletteToolViewModel : Tool
         ignoreNotifications = true;
         selectedComponent.Instance.SetProperty(prop, SelectedColor.Color);
         ignoreNotifications = false;
+
+        // The second of the three paths that bypass the undo stack (#273 task 3.3). This writes the model
+        // directly and pushes nothing, so the colour is neither undoable nor — without this — reflected in
+        // the header the code window shows. Only the header is fixed here; that it is not undoable is a
+        // separate gap and is not this task's.
+        formEdit.CommitLayout();
     }
 
     public ObservableCollection<ColorPaletteViewModel> Palette { get; }

@@ -44,6 +44,26 @@ public static class LspDocumentUri
     /// </summary>
     public static string ForFile(string hostPath) => new Uri(Path.GetFullPath(hostPath)).AbsoluteUri;
 
+    /// <summary>
+    /// The <c>untitled:</c> URI naming a document that has no file yet: <c>untitled:&lt;project&gt;/&lt;name&gt;&lt;ext&gt;</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>There is no leading slash</b>, and both spellings normalise differently, so one is chosen here and
+    /// never mixed. The extension is what routing reads, so it is appended outside the escaping — it is
+    /// already a literal drawn from a closed set, and escaping the dot would route it nowhere.
+    /// </para>
+    /// <para>
+    /// <b>Each segment is escaped, not interpolated raw.</b> texlab silently drops a notification whose URI
+    /// is not strictly valid — no response, no error, nothing on standard error, and the connection stays up
+    /// and answers about later documents normally, so a request naming that document is simply never
+    /// answered (hexide-io/HexIDE#486). The same server in the same process answers the percent-encoded
+    /// form. That is the whole argument for escaping, and it was measured rather than assumed.
+    /// </para>
+    /// </remarks>
+    public static string ForUntitled(string projectName, string documentName, string extension) =>
+        $"untitled:{Uri.EscapeDataString(projectName)}/{Uri.EscapeDataString(documentName)}{extension}";
+
     /// <summary>True when both URIs identify the same document.</summary>
     public static bool AreSame(string? a, string? b)
     {
@@ -91,9 +111,15 @@ public static class LspDocumentUri
         // the wrong file — worse than the missing-diagnostic bug this class fixes.
         "file" => OperatingSystem.IsWindows(),
 
-        // HexIDE's own scheme (vb6://module/{name}, vb6://form/{name}). The path segment is a VB6
-        // identifier, and VB6 identifiers are case-insensitive.
-        "vb6" => true,
+        // untitled:<Project>/<Name>.<ext> — both segments are VB6 names, and VB6 names are
+        // case-insensitive. Inherited from the vb6:// scheme this replaced, for the same reason.
+        //
+        // Only ever exercised against a server that speaks the name back. A PUSH server echoes it byte
+        // for byte, in either spelling (measured on texlab, raw and percent-encoded); a PULL server
+        // cannot echo anything, because a DocumentDiagnosticReport carries no URI, so the client files
+        // the answer under the name it asked about. Worth saying because the obvious test — compare the
+        // published URI with the one sent — is a tautology on three of the five foreign servers.
+        "untitled" => true,
 
         // Everything else: RFC 3986 says the path is case-sensitive unless a scheme says otherwise,
         // and we do not know this scheme.

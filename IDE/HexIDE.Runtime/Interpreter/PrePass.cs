@@ -416,12 +416,11 @@ public class PrePass : VB6BaseVisitor<object?>
         // The binary operators, all of which need both sides folded first.
         var (left, right, op) = ctx switch
         {
-            VB6Parser.VsAddContext a => (a.valueStmt(0), a.valueStmt(1), "+"),
-            VB6Parser.VsMinusContext m => (m.valueStmt(0), m.valueStmt(1), "-"),
-            VB6Parser.VsMultContext m => (m.valueStmt(0), m.valueStmt(1), "*"),
-            // ONE token covers both `/` and `\`; the runtime tells them apart by its text and so must this.
-            // Folding them alike makes `7 / 2` come out 3 where VB6 says 4.
-            VB6Parser.VsDivContext d => (d.valueStmt(0), d.valueStmt(1), d.DIV().GetText() == "/" ? "/" : "\\"),
+            // `+` and `-` share an alternative, as `*` and `/` do, which is what takes them left to right (#1074).
+            VB6Parser.VsAddContext a => (a.valueStmt(0), a.valueStmt(1), a.MINUS() != null ? "-" : "+"),
+            VB6Parser.VsMultContext m => (m.valueStmt(0), m.valueStmt(1), m.DIV() != null ? "/" : "*"),
+            // `\` alone: `7 / 2` is 4 in VB6 and `7 \ 2` is 3, so the two must not fold alike.
+            VB6Parser.VsDivContext d => (d.valueStmt(0), d.valueStmt(1), "\\"),
             VB6Parser.VsModContext m => (m.valueStmt(0), m.valueStmt(1), "Mod"),
             VB6Parser.VsPowContext p => (p.valueStmt(0), p.valueStmt(1), "^"),
             VB6Parser.VsAndContext a => (a.valueStmt(0), a.valueStmt(1), "And"),

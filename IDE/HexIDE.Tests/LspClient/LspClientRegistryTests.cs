@@ -11,7 +11,10 @@ namespace HexIDE.Tests.LspClient;
 
 public class LspClientRegistryTests
 {
-    private const string Vb6Doc = "vb6://module/Module1";
+    // The spelling a project's standard module actually carries since #273 task 2.1. It was
+    // `vb6://module/Module1` until 2.6 retired that scheme -- a string with no extension, which routed
+    // only through a branch that no longer exists.
+    private const string Vb6Doc = "untitled:Project1/Module1.bas";
 
     // A server advertising the full standard set. Since capability gating landed, a fake advertising
     // NOTHING serves nothing — which is correct, and means these fakes must say what they support.
@@ -417,19 +420,21 @@ public class LspClientRegistryTests
     }
 
     [Theory]
-    [InlineData("vb6://module/Module1", DocumentLanguage.Vb6)]   // scheme, no extension at all
-    [InlineData("vb6://form/Form1", DocumentLanguage.Vb6)]
-    [InlineData("VB6://module/M", DocumentLanguage.Vb6)]         // scheme is case-insensitive
-    [InlineData("file:///c:/p/Mod.bas", null)]                   // `file` names a transport, not a language
-    [InlineData("custom://thing/x", null)]                       // an unknown scheme claims nothing
-    [InlineData("", null)]
-    [InlineData(null, null)]
-    public void OnlyHexIdesOwnSchemeNamesALanguage(string? uri, string? expected)
+    [InlineData(new[] { ".bas", ".frm" }, "vb6", true)]          // the bundled shape
+    [InlineData(new[] { ".bas" }, "basic", true)]                // one unambiguous extension is enough
+    [InlineData(new[] { ".cls" }, "vb6", true)]                  // or the identifier, whatever it claims
+    [InlineData(new[] { ".cls", ".tex", ".sty" }, "latex", false)]  // texlab: .cls alone establishes nothing
+    [InlineData(new[] { ".md" }, "markdown", false)]             // "no other language uses it" is not the rule
+    [InlineData(new string[0], "latex", false)]
+    public void OnlyAVb6ClaimEstablishesVb6(string[] extensions, string languageId, bool expected)
     {
-        // Scheme first is load-bearing rather than tidy: HexIDE's own documents are vb6://module/Module1,
-        // which carry no extension, so an extension-only rule would fail to classify the only documents the
-        // IDE opens today. It stays in code because the scheme is HexIDE's invention, not a server's claim.
-        DocumentLanguage.SchemeLanguageOf(uri).Should().Be(expected);
+        // What replaced scheme routing. The scheme used to answer "is this a VB6 document"; nothing mints
+        // one since #273, and the question that actually needs answering is the other way round -- has this
+        // SERVER established that it serves VB6, so that a project's .cls may be offered to it.
+        //
+        // The .md row is the one that matters: said loosely as "an extension no other language uses", the
+        // rule would admit a Markdown server, which is the opposite of what it is for.
+        DocumentLanguage.EstablishesVb6(extensions, languageId).Should().Be(expected);
     }
 
     [Theory]
@@ -440,7 +445,7 @@ public class LspClientRegistryTests
     [InlineData("file:///c:/p/a.bas#frag", ".bas")]
     [InlineData("file:///c:/p/no-extension", null)]
     [InlineData("file:///c:/p.d/no-extension", null)]           // the dot is in a DIRECTORY, not the name
-    [InlineData("vb6://module/Module1", null)]                  // nothing to extract, hence scheme-first
+    [InlineData("untitled:P/Module1.bas", ".bas")]              // untitled: has no authority and still classifies
     [InlineData("", null)]
     [InlineData(null, null)]
     public void AnExtensionIsExtractedWithoutBeingInterpreted(string? uri, string? expected)

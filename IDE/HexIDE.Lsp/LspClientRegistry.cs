@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using HexIDE.Lsp.Messages;
 using Microsoft.Extensions.Logging;
@@ -37,6 +38,42 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     // Each connection is a source of its own, and so is anything injecting through this router. Without
     // this, two servers claiming one document overwrote each other and a build erased both (#358).
     private readonly DiagnosticLedger _diagnostics = new();
+
+    /// <summary>
+    /// What the registry remembers about each document a caller has opened, for as long as it is open.
+    /// </summary>
+    /// <remarks>
+    /// <b>Ordinal, deliberately, and not <see cref="LspDocumentUri.Comparer"/>.</b> The per-connection
+    /// tracker this shadows (<c>VBLspClient._openDocuments</c>) is an ordinary <c>ConcurrentDictionary</c>
+    /// with the default comparer, and two stores keyed differently desynchronise on exactly the
+    /// case-folding case a URI comparer exists for: one document reached under two spellings would be one
+    /// entry here and two there, so a close would clear this and leave the connection tracking a document
+    /// that a later reconnect then replays. They must agree, and the cheaper one to agree with is ordinal.
+    /// </remarks>
+    private readonly ConcurrentDictionary<string, OpenDocument> _open = new(StringComparer.Ordinal);
+
+    /// <summary>What is known about a document that is open.</summary>
+    /// <param name="IsProjectMember">
+    /// Whether it belongs to a VB6 project. Stated by the caller rather than worked out here: see
+    /// <see cref="OpenDocumentAsync(string, string, bool, CancellationToken)"/>.
+    /// </param>
+    /// <param name="Text">
+    /// The latest text this registry has been given for it. Kept because a workspace move replaces every
+    /// client, and a fresh client has no history to replay from — the per-connection tracker went with the
+    /// connection. Updated on every change <b>before</b> the change is routed, so text that arrives while
+    /// no client is up is still what the re-open sends. Routed-path-only bookkeeping would re-open the
+    /// document with the text from before that change and silently undo it.
+    /// </param>
+    private sealed record OpenDocument(bool IsProjectMember, string Text);
+
+    /// <summary>
+    /// Serialises workspace-move handling. Without it two opens can both pass the
+    /// <see cref="SameDirectory"/> check before either reaches <c>_rootedAt = current</c> — which is
+    /// ordinary, since loading a <c>.vbg</c> opens several editors and nothing gates
+    /// <c>LspDocumentSession.Start</c>. Before this change that raced to a duplicate <c>StopAsync</c> and
+    /// was swallowed; now it would replay every open document twice onto the new connection.
+    /// </summary>
+    private readonly SemaphoreSlim _restartGate = new(1, 1);
 
     /// <summary>The workspace the running servers were told about, so a move can be noticed.</summary>
     private string? _rootedAt;
@@ -181,26 +218,88 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         ConnectionsChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    public async Task OpenDocumentAsync(string uri, string text, CancellationToken cancellationToken = default)
+    public Task OpenDocumentAsync(string uri, string text, CancellationToken cancellationToken = default) =>
+        OpenDocumentAsync(uri, text, isProjectMember: false, cancellationToken);
+
+    public async Task OpenDocumentAsync(
+        string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default)
     {
-        // Before anything starts or is used: a server told about one project must not go on serving another.
-        await RestartIfWorkspaceMovedAsync();
+        // Before anything starts or is used: a server told about one project must not go on serving
+        // another. This document is named so the replay inside can skip it — it is opened below either
+        // way, and opening it twice is the failure this argument exists to prevent.
+        await RestartIfWorkspaceMovedAsync(uri, cancellationToken);
+
+        // Recorded before routing, so change, close and save answer the same question this open did. The
+        // registry deliberately holds no model of the project, and it could not work membership out for
+        // itself: an `untitled:` name would have to be parsed back into project and document names, which
+        // this change forbids everywhere else, and a path match cannot see a document that has no file.
+        // The opener already knows -- the code window opens members, the carried-file editor does not.
+        _open[uri] = new OpenDocument(isProjectMember, text);
 
         // The one place a server starts. Opening a document is the first moment its language is known to be
         // present, which is exactly the trigger lazy start is defined against.
-        var claimants = ClaimantsFor(uri);
+        var claimants = ClaimantsFor(uri, isProjectMember);
         foreach (var e in claimants) await EnsureStartedAsync(e, cancellationToken);
         await Task.WhenAll(claimants
             .Where(e => e.Client is not null)
             .Select(e => e.Client!.OpenDocumentAsync(uri, text, cancellationToken)));
     }
 
-    public Task ChangeDocumentAsync(string uri, int version, string text, CancellationToken cancellationToken = default) =>
-        // No start here: a change to a document nothing has opened is not a reason to launch a server.
-        Task.WhenAll(StartedClaimantsFor(uri).Select(c => c.ChangeDocumentAsync(uri, version, text, cancellationToken)));
+    public Task ChangeDocumentAsync(string uri, int version, string text, CancellationToken cancellationToken = default)
+    {
+        // Recorded BEFORE routing, and deliberately even when routing reaches nobody. Between a workspace
+        // move tearing the clients down and the next one starting, StartedClaimantsFor yields nothing and
+        // this change goes nowhere — so if the record were only updated on the routed path, the re-open
+        // would send the text from before it and quietly undo the developer's typing. Same reasoning as
+        // VBLspClient tracking a document before its own gate.
+        if (_open.TryGetValue(uri, out var known)) _open[uri] = known with { Text = text };
 
-    public Task CloseDocumentAsync(string uri, CancellationToken cancellationToken = default) =>
-        Task.WhenAll(StartedClaimantsFor(uri).Select(c => c.CloseDocumentAsync(uri, cancellationToken)));
+        // No start here: a change to a document nothing has opened is not a reason to launch a server.
+        return Task.WhenAll(StartedClaimantsFor(uri).Select(c => c.ChangeDocumentAsync(uri, version, text, cancellationToken)));
+    }
+
+    /// <summary>
+    /// Withdraws every diagnostic recorded under a name the document is about to stop answering to, and
+    /// raises the empty set so consumers clear it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// For a RENAME, and called by the close half of one. An ordinary close must not do this: a build's
+    /// claim about a form outlives the editor that was showing it, and the document still exists under
+    /// that name.
+    /// </para>
+    /// <para>
+    /// Necessary because an empty publication from a language server does not clear the document. The
+    /// ledger removes that server's row and raises the union of the rest, so a form carrying both a server
+    /// diagnostic and an injected compiler one still publishes a non-empty set — and under a name nothing
+    /// answers to any more, those survivors are marks nothing will ever clear. That is #269's shape
+    /// arriving by a different route.
+    /// </para>
+    /// </remarks>
+    public void ForgetDiagnosticsFor(string uri)
+    {
+        if (_diagnostics.Forget(uri) is { } cleared)
+            DiagnosticsPublished?.Invoke(this, cleared);
+    }
+
+    public async Task CloseDocumentForRenameAsync(string uri, CancellationToken cancellationToken = default)
+    {
+        // The connections first, so each drops its own state and a push server stops republishing under the
+        // old name; then the ledger, which is what actually clears a mark no single connection owns.
+        await Task.WhenAll(StartedClaimantsFor(uri)
+            .Select(c => c.CloseDocumentForRenameAsync(uri, cancellationToken)));
+        _open.TryRemove(uri, out _);
+        ForgetDiagnosticsFor(uri);
+    }
+
+    public Task CloseDocumentAsync(string uri, CancellationToken cancellationToken = default)
+    {
+        // Routed BEFORE the record is dropped, or the close would be offered to a different set of servers
+        // than the open was -- the exact asymmetry that leaves a server holding a document forever.
+        var closing = Task.WhenAll(StartedClaimantsFor(uri).Select(c => c.CloseDocumentAsync(uri, cancellationToken)));
+        _open.TryRemove(uri, out _);
+        return closing;
+    }
 
     public Task SaveDocumentAsync(string uri, CancellationToken cancellationToken = default) =>
         // No start here either, for the same reason as a change: saving a document nothing has opened is
@@ -445,47 +544,36 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// <summary>
     /// Every server that claims this document. Keyed on the EXTENSION, not on a language name, so two
     /// servers claiming one extension are both offered it even when they disagree about what to call it.
+    ///
+    /// <para>
+    /// There used to be a branch above this one for HexIDE's own <c>vb6://</c> scheme, which carried no
+    /// extension. #273 retired the scheme, and the branch became unreachable the moment nothing minted one
+    /// — taking the <c>.cls</c> gate that lived inside it with it. The gate is now
+    /// <paramref name="isProjectMember"/>, below, and is reached on every document rather than on one
+    /// spelling of one.
+    /// </para>
     /// </summary>
-    private List<Entry> ClaimantsFor(string? uri)
+    private List<Entry> ClaimantsFor(string? uri, bool isProjectMember)
     {
-        // A scheme that names a language wins: HexIDE's own documents carry no extension to match on.
-        if (DocumentLanguage.SchemeLanguageOf(uri) is { } schemeLanguage)
-            return _entries.Where(e => Claims(e.Registration, schemeLanguage)).ToList();
-
         if (DocumentLanguage.ExtensionOf(uri) is not { } extension) return [];
 
         return _entries
             .Where(e => e.Registration.Extensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+            .Where(e => !isProjectMember
+                        || DocumentLanguage.EstablishesVb6(e.Registration.Extensions, e.Registration.LanguageId))
             .ToList();
     }
 
     /// <summary>
-    /// Whether a registration claims documents of a language named by a URI scheme.
-    ///
-    /// <para>
-    /// <b>An entry's extensions are what it claims to SERVE; its language identifier is what it wants that
-    /// thing CALLED.</b> Routing already reads the first for files on disk. Reading only the second here
-    /// meant the configuration file required a field it then ignored, and silently depended on one whose
-    /// single working value was written down nowhere — so a VB6 server attached as <c>vba</c>, which is
-    /// what the wider ecosystem calls the language, started, initialized, and was never sent a document
-    /// (hexide-io/HexIDE#277). That defeated the configurable server list for the one language this IDE is
-    /// about, while every other file type worked, so it read as the user's server being broken.
-    /// </para>
-    ///
-    /// <para>
-    /// Both readings are accepted rather than the second being replaced: an entry naming the language
-    /// directly is claiming these documents whatever it says about extensions, which is how the bundled
-    /// entry and anything modelled on it works.
-    /// </para>
+    /// Whether this document is a member of a VB6 project, as the caller that opened it stated.
+    /// Defaults to <c>false</c> for a document nothing has opened, which is the safe answer: an ungated
+    /// route offers strictly fewer servers than a gated one would wrongly exclude.
     /// </summary>
-    private static bool Claims(LanguageServerRegistration registration, string schemeLanguage) =>
-        registration.LanguageId.Equals(schemeLanguage, StringComparison.OrdinalIgnoreCase)
-        || (schemeLanguage.Equals(DocumentLanguage.Vb6, StringComparison.OrdinalIgnoreCase)
-            && registration.Extensions.Intersect(
-                   DocumentLanguage.UnambiguousVb6Extensions, StringComparer.OrdinalIgnoreCase).Any());
+    private bool IsProjectMember(string? uri) =>
+        uri is not null && _open.TryGetValue(uri, out var record) && record.IsProjectMember;
 
     private IEnumerable<ILspClient> StartedClaimantsFor(string? uri) =>
-        ClaimantsFor(uri).Select(e => e.Client).Where(c => c is not null).Select(c => c!);
+        ClaimantsFor(uri, IsProjectMember(uri)).Select(e => e.Client).Where(c => c is not null).Select(c => c!);
 
     /// <summary>
     /// The one server chosen for a feature that cannot merge two answers. Selection is among claimants that
@@ -540,11 +628,24 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// cost paid repeatedly.
     /// </para>
     /// </summary>
-    private async Task RestartIfWorkspaceMovedAsync()
+    private async Task RestartIfWorkspaceMovedAsync(string? triggeringUri, CancellationToken cancellationToken)
     {
         if (_workspace is null) return;
 
-        var current = _workspace.Directory;
+        await _restartGate.WaitAsync(cancellationToken);
+        try
+        {
+            await RestartIfWorkspaceMovedCoreAsync(triggeringUri, cancellationToken);
+        }
+        finally
+        {
+            _restartGate.Release();
+        }
+    }
+
+    private async Task RestartIfWorkspaceMovedCoreAsync(string? triggeringUri, CancellationToken cancellationToken)
+    {
+        var current = _workspace!.Directory;
 
         // Nothing is running, so whatever the workspace is now is what the first server will be told.
         if (!_entries.Any(e => e.Client is not null))
@@ -580,7 +681,46 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         }
 
         _rootedAt = current;
+
+        // Re-open everything that was open, before anything else is forwarded. The teardown above covers
+        // EVERY entry, while the caller goes on to start and open only the claimants of the one document
+        // that triggered it — so without this a Markdown server holding a carried file is stopped with
+        // nothing to re-open it, and every later change to those documents reaches a server that never saw
+        // them opened (hexide-io/HexIDE#469). A first save of a never-saved project moves the root, so
+        // since #489 this is the ordinary path rather than an edge case.
+        await ReopenKnownDocumentsAsync(triggeringUri, cancellationToken);
+
         ConnectionsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Opens every document the registry knows to be open on the connections that now claim it.
+    /// </summary>
+    /// <remarks>
+    /// Driven from the record rather than from the triggering document's claimants: those are two
+    /// different sets, and the teardown used the wider one.
+    /// <para>
+    /// <paramref name="triggeringUri"/> is skipped because its caller opens it immediately afterwards.
+    /// It is not yet in the record on a first open — the record is written after this returns — but a
+    /// re-open of a document already known would otherwise be sent twice.
+    /// </para>
+    /// </remarks>
+    private async Task ReopenKnownDocumentsAsync(string? triggeringUri, CancellationToken cancellationToken)
+    {
+        foreach (var (uri, known) in _open)
+        {
+            if (triggeringUri is not null && string.Equals(uri, triggeringUri, StringComparison.Ordinal))
+                continue;
+
+            foreach (var e in ClaimantsFor(uri, known.IsProjectMember))
+            {
+                // A failed entry is not revived by a document arriving, which is the rule EnsureStartedAsync
+                // already applies; the null check is what keeps that true here rather than restating it.
+                await EnsureStartedAsync(e, cancellationToken);
+                if (e.Client is { } client)
+                    await client.OpenDocumentAsync(uri, known.Text, cancellationToken);
+            }
+        }
     }
 
     /// <summary>
