@@ -22,6 +22,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Operators group as VB6 groups them** (#1074). Each had a precedence level of its own, so `10 - 2 + 3` was 5,
+  `5 * 5 \ 2` was 10 and `1 < 2 = True` was False, with no error. Measured on vb6.exe across the whole ladder:
+  `*` and `/` share a level, then `\`, then `Mod`, then `+` and `-`, then every comparison, and operators of one
+  level go left to right. A Boolean beside a number now compares as that number, True as -1, where it raised Type
+  mismatch.
 - **Arithmetic on a numeric String works, as in VB6** (#1047). `Text1.Text * 2` used to stop the run with Type mismatch.
   - **The reading:** every operator now reads a String operand as `CDbl` does, in the program's locale, and the result
     type is the one a Double would give.

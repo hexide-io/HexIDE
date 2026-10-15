@@ -113,6 +113,16 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (leftValue.Type == rightValue.Type)
             return (leftValue, rightValue);
 
+        // A Boolean beside a number takes the number's type, as that type's conversion takes it: True is -1, and for a Byte
+        // 255, its bits. Measured: `True = -1`, `True < 0` and `CDbl(-1) >= True` are True, and `CByte(1) > True` is False.
+        // A chained comparison reaches this, since `3 = 3 < 4` is (3 = 3) < 4 (#1074).
+        if (leftValue.Type == Vb6Value.ValueType.Boolean && NumericRank(rightValue.Type) >= 0)
+            leftValue = BooleanAs(leftValue, rightValue.Type);
+        if (rightValue.Type == Vb6Value.ValueType.Boolean && NumericRank(leftValue.Type) >= 0)
+            rightValue = BooleanAs(rightValue, leftValue.Type);
+        if (leftValue.Type == rightValue.Type)
+            return (leftValue, rightValue);
+
         // Both numeric but different subtypes: promote both to the wider one on the VB6 widening ladder
         // (Byte < Integer < Long < Single < Currency < Decimal < Double). The operator/comparison cascades
         // then read the common type. NOTE: this is a stopgap that unblocks the new types — the VB6-correct
@@ -126,6 +136,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         }
 
         throw new VBRunTimeException(context[0], VBStandardError.TypeMismatch);
+    }
+
+    private static Vb6Value BooleanAs(Vb6Value boolean, Vb6Value.ValueType target)
+    {
+        var isTrue = boolean.Value is true;
+        return target == Vb6Value.ValueType.Byte
+            ? new Vb6Value((byte)(isTrue ? 255 : 0))
+            : PromoteNumeric(new Vb6Value(isTrue ? -1 : 0), target);
     }
 
     // --- 2.2 numeric widening helpers (superseded by VbNumeric in 2.3) ---
@@ -1034,11 +1052,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     private static Vb6Value Typed(Vb6Value left, Vb6Value right, Vb6Value result) =>
         left.HeldAsVariant || right.HeldAsVariant ? result.AsVariant() : result;
 
+    // `+` and `-`, one level of the grammar, so taken left to right (#1074).
     public override async Task<object?> VisitVsAdd(VB6Parser.VsAddContext context)
     {
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
+        if (context.MINUS() != null)
+            return Typed(leftValue, rightValue, VbNumeric.Sub(leftValue, rightValue, context));
         if (leftValue.Type == Vb6Value.ValueType.String && rightValue.Type == Vb6Value.ValueType.String)
             return new Vb6Value((string)leftValue.Value! + (string)rightValue.Value!);   // VB6: String + String concatenates
         // A String beside Empty is the String, both ways round: `"6" + Empty` and `Empty + "6"` are the String "6"
@@ -1050,20 +1071,15 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return Typed(leftValue, rightValue, VbNumeric.Add(leftValue, rightValue, context));
     }
 
-    public override async Task<object?> VisitVsMinus(VB6Parser.VsMinusContext context)
-    {
-        var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
-        if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
-            return Vb6Value.Null;
-        return Typed(leftValue, rightValue, VbNumeric.Sub(leftValue, rightValue, context));
-    }
-
+    // `*` and `/`, one level of the grammar (#1074).
     public override async Task<object?> VisitVsMult(VB6Parser.VsMultContext context)
     {
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
-        return Typed(leftValue, rightValue, VbNumeric.Mul(leftValue, rightValue, context));
+        return Typed(leftValue, rightValue, context.DIV() != null
+            ? VbNumeric.RealDivide(leftValue, rightValue, context)
+            : VbNumeric.Mul(leftValue, rightValue, context));
     }
 
     public override async Task<object?> VisitVsMod(VB6Parser.VsModContext context)
@@ -1079,9 +1095,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
-        return Typed(leftValue, rightValue, context.DIV().GetText() == "/"
-            ? VbNumeric.RealDivide(leftValue, rightValue, context)
-            : VbNumeric.IntDivide(leftValue, rightValue, context));
+        return Typed(leftValue, rightValue, VbNumeric.IntDivide(leftValue, rightValue, context));
     }
 
     public override async Task<object?> VisitVsPow(VB6Parser.VsPowContext context)
@@ -1092,80 +1106,57 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return Typed(leftValue, rightValue, VbNumeric.Power(leftValue, rightValue, context));
     }
 
-    public override async Task<object?> VisitVsEq(VB6Parser.VsEqContext context)
+    // Every comparison is one level of the grammar, Like and Is included, so `1 < 2 = True` is (1 < 2) = True and
+    // `Nothing Is Nothing = True` is True (measured, #1074).
+    public override async Task<object?> VisitVsCompare(VB6Parser.VsCompareContext context)
     {
-        var (leftValue, rightValue) = await GetTwoValuesSameTypesOrNull(context.valueStmt());
-        if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
-            return Vb6Value.Null;
-        return new Vb6Value(leftValue.Equals(rightValue));
-    }
-
-    public override async Task<object?> VisitVsNeq(VB6Parser.VsNeqContext context)
-    {
-        var (leftValue, rightValue) = await GetTwoValuesSameTypesOrNull(context.valueStmt());
-        if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
-            return Vb6Value.Null;
-        return new Vb6Value(!leftValue.Equals(rightValue));
-    }
-
-    public override async Task<object?> VisitVsLt(VB6Parser.VsLtContext context)
-    {
+        if (context.LIKE() != null)
+            throw new NotImplementedException("Like is not implemented");
+        if (context.IS() != null)
+        {
+            // Reference identity on the underlying object (Nothing = null). One line covers a Is b, x Is Nothing,
+            // and Nothing Is Nothing — NOT Vb6Value equality (which would run numeric coercion).
+            var leftObject = await EvaluateValue(context.valueStmt(0));
+            var rightObject = await EvaluateValue(context.valueStmt(1));
+            return new Vb6Value(ReferenceEquals(leftObject.Value, rightObject.Value));
+        }
+        if (context.EQ() != null || context.NEQ() != null)
+        {
+            var (left, right) = await GetTwoValuesSameTypesOrNull(context.valueStmt());
+            if (left.Type == Vb6Value.ValueType.Null || right.Type == Vb6Value.ValueType.Null)
+                return Vb6Value.Null;
+            return new Vb6Value(left.Equals(right) == (context.EQ() != null));
+        }
+        var order = context.LT() != null ? Order.Less
+            : context.GT() != null ? Order.Greater
+            : context.LEQ() != null ? Order.LessOrEqual
+            : Order.GreaterOrEqual;
         var (leftValue, rightValue) = await GetTwoValuesSameTypes(context.valueStmt());
         // Two strings compare ordinally (VB6 default Option Compare Binary — oracle-verified: "B" < "a", "10" < "9").
         // A string-vs-number pair is left to the numeric path below (numeric string coerces; a non-numeric string
         // vs a number is Type Mismatch — both already faithful).
         if (StringCompare(leftValue, rightValue) is int sc)
-            return (Vb6Value)(sc < 0);
+            return (Vb6Value)Holds(order, sc, 0);
         if (TryUnpack(leftValue, rightValue, out int leftInt, out int rightInt))
-            return (Vb6Value)(leftInt < rightInt);
+            return (Vb6Value)Holds(order, leftInt, rightInt);
         if (TryUnpack(leftValue, rightValue, out float leftFloat, out float rightFloat))
-            return (Vb6Value)(leftFloat < rightFloat);
+            return (Vb6Value)Holds(order, leftFloat, rightFloat);
         if (TryUnpack(leftValue, rightValue, out double leftDouble, out double rightDouble))
-            return (Vb6Value)(leftDouble < rightDouble);
+            return (Vb6Value)Holds(order, leftDouble, rightDouble);
         throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
     }
 
-    public override async Task<object?> VisitVsGt(VB6Parser.VsGtContext context)
-    {
-        var (leftValue, rightValue) = await GetTwoValuesSameTypes(context.valueStmt());
-        if (StringCompare(leftValue, rightValue) is int sc)
-            return (Vb6Value)(sc > 0);
-        if (TryUnpack(leftValue, rightValue, out int leftInt, out int rightInt))
-            return (Vb6Value)(leftInt > rightInt);
-        if (TryUnpack(leftValue, rightValue, out float leftFloat, out float rightFloat))
-            return (Vb6Value)(leftFloat > rightFloat);
-        if (TryUnpack(leftValue, rightValue, out double leftDouble, out double rightDouble))
-            return (Vb6Value)(leftDouble > rightDouble);
-        throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
-    }
+    private enum Order { Less, Greater, LessOrEqual, GreaterOrEqual }
 
-    public override async Task<object?> VisitVsLeq(VB6Parser.VsLeqContext context)
-    {
-        var (leftValue, rightValue) = await GetTwoValuesSameTypes(context.valueStmt());
-        if (StringCompare(leftValue, rightValue) is int sc)
-            return (Vb6Value)(sc <= 0);
-        if (TryUnpack(leftValue, rightValue, out int leftInt, out int rightInt))
-            return (Vb6Value)(leftInt <= rightInt);
-        if (TryUnpack(leftValue, rightValue, out float leftFloat, out float rightFloat))
-            return (Vb6Value)(leftFloat <= rightFloat);
-        if (TryUnpack(leftValue, rightValue, out double leftDouble, out double rightDouble))
-            return (Vb6Value)(leftDouble <= rightDouble);
-        throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
-    }
-
-    public override async Task<object?> VisitVsGeq(VB6Parser.VsGeqContext context)
-    {
-        var (leftValue, rightValue) = await GetTwoValuesSameTypes(context.valueStmt());
-        if (StringCompare(leftValue, rightValue) is int sc)
-            return (Vb6Value)(sc >= 0);
-        if (TryUnpack(leftValue, rightValue, out int leftInt, out int rightInt))
-            return (Vb6Value)(leftInt >= rightInt);
-        if (TryUnpack(leftValue, rightValue, out float leftFloat, out float rightFloat))
-            return (Vb6Value)(leftFloat >= rightFloat);
-        if (TryUnpack(leftValue, rightValue, out double leftDouble, out double rightDouble))
-            return (Vb6Value)(leftDouble >= rightDouble);
-        throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
-    }
+    // The operator itself, on the operands' own type, as each comparison had it: a NaN compares false every way.
+    private static bool Holds<T>(Order order, T left, T right) where T : System.Numerics.IComparisonOperators<T, T, bool> =>
+        order switch
+        {
+            Order.Less => left < right,
+            Order.Greater => left > right,
+            Order.LessOrEqual => left <= right,
+            _ => left >= right,
+        };
 
     // Ordinal string comparison for the relational operators when BOTH operands are String (VB6 default Option
     // Compare Binary — verified against vb6.exe). Returns null when the pair is not two strings, so the caller
@@ -1286,11 +1277,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var operandStmt = context.typeOfStmt().valueStmt();
         var targetType = context.typeOfStmt().type();
 
-        // Grammar greediness: `TypeOf p Is Clock` parses the operand as the vsIs expression `p Is Clock` with NO
-        // Is-type clause. Recover by splitting the vsIs into the real operand + the type name.
+        // Grammar greediness: `TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO
+        // Is-type clause. Recover by splitting the comparison into the real operand + the type name.
         Vb6Value operand;
         string targetName;
-        if (targetType == null && operandStmt is VB6Parser.VsIsContext vsIs)
+        if (targetType == null && operandStmt is VB6Parser.VsCompareContext vsIs && vsIs.IS() != null)
         {
             operand = await EvaluateValue(vsIs.valueStmt(0));
             targetName = vsIs.valueStmt(1).GetText();
@@ -1314,17 +1305,6 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     }
 
     public override Task<object?> VisitVsAssign(VB6Parser.VsAssignContext context) => throw new NotImplementedException("Assign is not implemented");
-
-    public override Task<object?> VisitVsLike(VB6Parser.VsLikeContext context) => throw new NotImplementedException("Like is not implemented");
-
-    public override async Task<object?> VisitVsIs(VB6Parser.VsIsContext context)
-    {
-        // Reference identity on the underlying object (Nothing = null). One line covers a Is b, x Is Nothing,
-        // and Nothing Is Nothing — NOT Vb6Value equality (which would run numeric coercion).
-        var left = await EvaluateValue(context.valueStmt(0));
-        var right = await EvaluateValue(context.valueStmt(1));
-        return new Vb6Value(ReferenceEquals(left.Value, right.Value));
-    }
 
     public override async Task<object?> VisitVsMid(VB6Parser.VsMidContext context)
     {

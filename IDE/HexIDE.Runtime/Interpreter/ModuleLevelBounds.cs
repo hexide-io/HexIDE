@@ -309,6 +309,8 @@ internal sealed class ModuleLevelBounds
               || literal.literal().DATELITERAL() != null ? false
             : null,
         VB6Parser.VsAmpContext => true,
+        // A difference is not a sum: what it reads as is left unknown, as it was while `-` had an alternative of its own.
+        VB6Parser.VsAddContext subtract when subtract.MINUS() != null => null,
         // A String added to a String is a String, and to a number it is not (measured: `Len("ab" + "c")` sizes 0 To 3,
         // and `Len("ab" + 1)` is "Variable required").
         VB6Parser.VsAddContext add => (IsString(add.valueStmt(0), position), IsString(add.valueStmt(1), position)) switch
