@@ -58,7 +58,7 @@ public class ContainerHierarchySaveTests
             "         Begin VB.CommandButton cmdGo",
             "         End",
             "      End",
-            "      Begin VB.Line Line1",
+            "      Begin NoSuchLib.Gadget Gadget1",
             "      End",
             "   End",
             "   Begin VB.CommandButton cmdClose",
@@ -77,7 +77,7 @@ public class ContainerHierarchySaveTests
         // AFTER fraInner rather than before it, because position among siblings is z-order.
         var picture = shape.IndexOf("   Begin VB.PictureBox picOuter");
         var frame = shape.IndexOf("      Begin VB.Frame fraInner");
-        var line = shape.IndexOf("      Begin VB.Line Line1");
+        var line = shape.IndexOf("      Begin NoSuchLib.Gadget Gadget1");
 
         line.Should().BeGreaterThan(picture).And.BeGreaterThan(frame);
         shape.IndexOf("   Begin VB.CommandButton cmdClose").Should().BeGreaterThan(line);
@@ -90,8 +90,8 @@ public class ContainerHierarchySaveTests
 
         // The property lines inside a preserved block are the original file's lines, replayed with the
         // original file's indentation. Only Begin and End are regenerated, so a fixed indent level would
-        // put the block's own frame at odds with its contents. Line1 sits at depth 3 — six spaces.
-        output.Should().Contain("      Begin VB.Line Line1")
+        // put the block's own frame at odds with its contents. Gadget1 sits at depth 3 — six spaces.
+        output.Should().Contain("      Begin NoSuchLib.Gadget Gadget1")
               .And.Contain("         X1              =   10");
     }
 
@@ -101,7 +101,7 @@ public class ContainerHierarchySaveTests
         var output = Save(Load(ContainerHierarchyLoadTests.NestedForm));
         var lines = output.Split(["\r\n", "\n"], StringSplitOptions.None);
 
-        foreach (var name in new[] { "picOuter", "fraInner", "cmdGo", "cmdClose", "Line1" })
+        foreach (var name in new[] { "picOuter", "fraInner", "cmdGo", "cmdClose", "Gadget1" })
         {
             var occurrences = lines.Count(l => l.TrimEnd().EndsWith(" " + name)
                                             && l.TrimStart().StartsWith("Begin "));

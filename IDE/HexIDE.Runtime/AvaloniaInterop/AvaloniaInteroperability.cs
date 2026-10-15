@@ -142,6 +142,17 @@ public static class AvaloniaInteroperability
 
         Register<ComboBox, int>(VBProperties.ListIndexProperty, SelectingItemsControl.SelectedIndexProperty);
         Register<ListBox, int>(VBProperties.ListIndexProperty, SelectingItemsControl.SelectedIndexProperty);
+
+        // A Line's members are read and written by LineMembers, which types and checks them as VB6 does (#163). They are
+        // bound here as well so that the Locals window lists them, as it lists every bound property.
+        Register<VBLine, double>(VBProperties.X1Property, l => l.Read(VBLine.X1), (l, v) => l.Write(VBLine.X1, v));
+        Register<VBLine, double>(VBProperties.Y1Property, l => l.Read(VBLine.Y1), (l, v) => l.Write(VBLine.Y1, v));
+        Register<VBLine, double>(VBProperties.X2Property, l => l.Read(VBLine.X2), (l, v) => l.Write(VBLine.X2, v));
+        Register<VBLine, double>(VBProperties.Y2Property, l => l.Read(VBLine.Y2), (l, v) => l.Write(VBLine.Y2, v));
+        Register<VBLine, double>(VBProperties.BorderWidthProperty, l => l.BorderWidth, (l, v) => l.BorderWidth = (int)v);
+        Register<VBLine, BorderStyles>(VBProperties.ShapeBorderStyleProperty, VBLine.BorderStyleProperty);
+        Register<VBLine, VBColor>(VBProperties.BorderColorProperty, VBLine.BorderColorProperty);
+        Register<VBLine, int>(VBProperties.DrawModeProperty, VBLine.DrawModeProperty);
     }
 
     private static VBColor ToVbColor(IBrush? brush)
@@ -188,6 +199,9 @@ public static class AvaloniaInteroperability
 
     public static bool TrySet(Control control, PropertyClass property, Vb6Value value)
     {
+        if (control is VBLine line && LineMembers.TrySet(line, property, value) is { } lineMember)
+            return lineMember;
+
         // VB6 accepts this and resets BackColor to the appearance's default (measured, #795). Setting the property
         // alone would leave the old BackColor, a wrong value; failing to find it would be a trappable 461 that On
         // Error Resume Next swallows into the same wrong value. So it is refused, untrappably, until #796.
@@ -396,6 +410,8 @@ public static class AvaloniaInteroperability
 
     public static bool TryGet(Control c, PropertyClass property, out Vb6Value value)
     {
+        if (c is VBLine line && LineMembers.TryGet(line, property, out value) is { } lineMember)
+            return lineMember;
         // A form a modal form holds reads Enabled False (measured, #822). The hold is apart from its own Enabled, which is
         // what it reads once the modal form has gone.
         if (c is IFormView { HeldBy: not null } && ReferenceEquals(property, VBProperties.EnabledProperty))

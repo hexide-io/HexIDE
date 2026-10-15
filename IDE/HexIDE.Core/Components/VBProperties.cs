@@ -113,6 +113,20 @@ public static class VBProperties
 
     public static PropertyClass<ShapeTypes> ShapeProperty = new PropertyClass<ShapeTypes>("Shape", "The geometric form drawn by a Shape control.", PropertyCategory.Appearance, ShapeTypes.Rectangle);
 
+    // A Line's two endpoints (#163). The .frm holds them in the container's ScaleMode, unlike Left and Top, which it holds
+    // in twips whatever the ScaleMode (measured), so the model keeps them as the file wrote them and converts at run time.
+    public static PropertyClass<double> X1Property = new PropertyClass<double>("X1", "The horizontal position of the line's first endpoint, in its container's scale.", PropertyCategory.Position, 0);
+
+    public static PropertyClass<double> Y1Property = new PropertyClass<double>("Y1", "The vertical position of the line's first endpoint, in its container's scale.", PropertyCategory.Position, 0);
+
+    public static PropertyClass<double> X2Property = new PropertyClass<double>("X2", "The horizontal position of the line's second endpoint, in its container's scale.", PropertyCategory.Position, 0);
+
+    public static PropertyClass<double> Y2Property = new PropertyClass<double>("Y2", "The vertical position of the line's second endpoint, in its container's scale.", PropertyCategory.Position, 0);
+
+    // 1 to 16, each a raster operation; 13 is Copy Pen, which draws the colour as it is (measured: the default, and 0 and
+    // 17 are 380). An Integer to a program.
+    public static PropertyClass<int> DrawModeProperty = new PropertyClass<int>("DrawMode", "How the line's color combines with what is already drawn beneath it.", PropertyCategory.Appearance, 13);
+
     /// <summary>
     /// A ListBox or ComboBox's items, held as the companion record cites them.
     ///

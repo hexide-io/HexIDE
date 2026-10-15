@@ -10,6 +10,13 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **The Line control** (#163). A form holding one used to be refused at run time, since #857. Now:
+  - it loads, runs and saves byte for byte, VB6's About Dialog included;
+  - it draws pixel for pixel as VB6 does: dashes, widths, and which of two lines is on top;
+  - its members read and write from code, with VB6's types and refusals.
+
+  The designer draws a Line and moves it by the rectangle it covers. Every rule was measured on vb6.exe. Still to
+  come: the toolbox entry, and dragging one endpoint at a time.
 - **`RGB` and `QBColor`.** They stopped a run with "Sub or Function not defined"; both now return VB6's Long,
   with its rounding, clamping and errors, measured.
 - **The protocol inspector says when a server's bytes actually moved**, not only when a message was prepared. For

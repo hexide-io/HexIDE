@@ -345,7 +345,7 @@
 | DirListBox | Missing | Not in toolbox — see DriveListBox |
 | FileListBox | Missing | Not in toolbox — see DriveListBox |
 | Shape | Done | |
-| Line | Missing | Not in toolbox. The only intrinsic that is not a rectangle — its geometry is X1/Y1/X2/Y2, which the designer's bounding-box model has no concept of ([#163](https://github.com/hexide-io/HexIDE/issues/163)) |
+| Line | Partial | A form holding one loads, runs and saves byte for byte, VB6's About Dialog included. It draws pixel for pixel as VB6 does, and its members read and write from code (oracle, "The Line control"). The designer draws it and moves it by the rectangle it covers. Not yet in the toolbox, and its endpoints can't be dragged on their own ([#163](https://github.com/hexide-io/HexIDE/issues/163)) |
 | Image | Done | `ImageComponentClass` + `VBImage`; decodes an .frx picture record by peeling both the record framing and the StdPicture preamble. Raises Click and the mouse events, hit-tested across its whole rectangle with or without a picture (#974); DblClick is #1031 |
 | OLE | Windows-only | OLE Container control; in-process COM hosting; Windows only |
 | PictureBox | Done | |
@@ -515,7 +515,7 @@
 | Watch / variable inspection at runtime | Done | Watches window (Add/Edit/Quick Watch, expandable tree; MCP `add_watch`/`get_watches`) + the Locals window + Data Tips (hover in break mode) — native debugger P6/P8 |
 | Call stack | Done | Call Stack window (Ctrl+L) — native debugger P5; MCP `get_call_stack` |
 | DriveListBox / DirListBox / FileListBox | Missing | Controls not implemented ([#164](https://github.com/hexide-io/HexIDE/issues/164)) |
-| Line control | Missing | Not implemented ([#163](https://github.com/hexide-io/HexIDE/issues/163)) |
+| Line control | Partial | Runs as VB6 draws it and reads its members, measured. Not in the toolbox yet ([#163](https://github.com/hexide-io/HexIDE/issues/163)) |
 | OLE / COM automation | Windows-only | `CreateObject`, late-bound dispatch; Windows only |
 | File I/O (Open/Close/Write/Read) | Missing | No VB6 file I/O statements |
 | Screen / Printer objects | Missing | |
