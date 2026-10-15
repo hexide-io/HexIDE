@@ -625,6 +625,27 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         }
     }
 
+    private const string TypeCharacterMismatch = "Type-declaration character does not match declared data type";
+
+    /// <summary>The library's functions that have a <c>$</c> form, every one measured to compile and answer a String.</summary>
+    private static readonly HashSet<string> DollarForms = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Chr", "ChrB", "ChrW", "CurDir", "Environ", "Error", "Format", "Hex", "LCase", "Left", "LeftB", "LTrim", "Mid",
+        "MidB", "Oct", "Right", "RightB", "RTrim", "Space", "Str", "String", "Trim", "UCase",
+    };
+
+    /// <summary>Library functions on which VB6 refuses a <c>$</c> at compile time (measured).</summary>
+    private static readonly HashSet<string> DollarRefused = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Array", "Asc", "Choose", "IIf", "InStrRev", "Val",
+    };
+
+    /// <summary>Library functions on which VB6 ignores a <c>$</c>, the result keeping its usual type (measured).</summary>
+    private static readonly HashSet<string> DollarIgnored = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Abs", "CLng", "Fix", "InStr", "InStrB", "Int", "Len", "LenB", "Sgn",
+    };
+
     /// <summary>Resolve a parenthesised call on an identifier — a control-array element (<c>Command1(i)</c>), a
     /// local array element (<c>arr(i)</c>), a user Function, or an intrinsic — as a VALUE. Shared by expression
     /// position and the leading part of a member chain (<c>Command1(i).Caption</c>).</summary>
@@ -636,8 +657,17 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (procOrArrayCall.ambiguousIdentifier() == null)
             throw new NotImplementedException($"only proc call supportedhere");
 
-        if (procOrArrayCall.typeHint() != null)
-            throw new NotImplementedException($"typehint not supported");
+        // A type-declaration character on the call (#742). `$` is the one a program reaches first, the library's string
+        // functions written `Trim$` and `Left$` (#1071). The name is looked up without it by the ordinary search, and the
+        // `$` is then checked against what was found (measured, docs/vb6-fidelity-oracle.md). The other characters still
+        // stop the run.
+        var dollar = false;
+        if (procOrArrayCall.typeHint() is { } hint)
+        {
+            if (hint.GetText() != "$")
+                throw new NotImplementedException($"the type-declaration character {hint.GetText()} on a call is not implemented (#742)");
+            dollar = true;
+        }
 
         if (procOrArrayCall.argsCall().Length > 1)
             throw new NotImplementedException("only a single argsCall is supported");
@@ -651,6 +681,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             (named, maybeGroup) = await interpreter.ReadVariableAfter(env, name, namedNeed!);
         if (named && maybeGroup.Value is ControlArrayGroup group)
         {
+            if (dollar)
+                throw new NotImplementedException($"{name}$ on a control array is not implemented (#742)");
             var idxArgs = await EvaluateCallArgs(argsCtx);
             if (idxArgs.Count != 1)
                 throw new VBRunTimeException(procOrArrayCall, VBStandardError.SubscriptOutOfRange);
@@ -664,6 +696,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // through so `Fact(n - 1)` inside `Fact` is a recursive call, and `Zero()` finds the Function.
         if (interpreter.ExecutionContext.TryGetVariable(env, name, out var variable) && variable.Type.IsArray)
         {
+            if (dollar)
+                throw new NotImplementedException($"{name}$ on an array is not implemented (#742)");
             if (variable.Value is not VBArray array)
                 throw new VBCompileErrorException("Array expected");
             var indices = await EvaluateCallArgs(argsCtx);
@@ -682,6 +716,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // takes no index, and reaches a default member where it does (`Controls(0)`), which HexIDE has none of yet.
         if (FormMembers.TryBare(interpreter.ExecutionContext, env, name, out var form, out var formMember))
         {
+            if (dollar)
+                throw new NotImplementedException($"{name}$ on a member of the form is not implemented (#742)");
             var formArgs = await EvaluateCallArgs(argsCtx);
             if (formMember.IsMethod)
                 return await interpreter.Loading((Form: form, Name: name, Args: formArgs), static s => FormMembers.Call(s.Form, s.Name, s.Args));
@@ -689,16 +725,32 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 return vbaResult;
             throw new NotImplementedException($"{form.ClassName}'s {name} with arguments is not implemented{FormMembers.TrackedBy(name)}");
         }
-        if (interpreter.TryResolveProcedure(name, currentModule, out _, out _))
+        if (interpreter.TryResolveProcedure(name, currentModule, out _, out var procedure))
         {
+            // The program's own Trim answers Trim$, and only a String Function matches the `$`: a Variant one, declared
+            // with no As clause, is the mismatch (measured, TU_01 and TV_01).
+            if (dollar && (procedure.ReturnType != Vb6Value.ValueType.String || procedure.ReturnsVariant))
+                throw new VBCompileErrorException(TypeCharacterMismatch);
             var callArgs = await ResolveCallArgs(argsCtx);
             if (await interpreter.CallProcedure(name, callArgs, currentModule, callerEnv: env, callerFrames: stmtFrames) is { } fnResult)
                 return fnResult;
             throw new VBSubOrFunctionNotDefinedException(name); // a Sub used where a value is required
         }
+        if (dollar && DollarRefused.Contains(name))
+            throw new VBCompileErrorException(TypeCharacterMismatch);
+        if (dollar && !DollarForms.Contains(name) && !DollarIgnored.Contains(name))
+            throw new NotImplementedException($"{name}$ is not implemented: what VB6 does with a $ on {name} is not measured (#742)");
         var args = await EvaluateCallArgs(argsCtx);
         if (await EvaluateFunction(name, args) is { } builtInResult)
+        {
+            // A `$` form is its plain form with the result made a String, so where the plain form passes a Null through,
+            // the `$` form raises 94 (measured on all 23).
+            if (dollar && DollarForms.Contains(name))
+                return builtInResult.IsNull
+                    ? throw new VBRunTimeException(procOrArrayCall, VBStandardError.InvalidUseOfNull)
+                    : new Vb6Value(VbDisplay.ToText(builtInResult));
             return builtInResult;
+        }
 
         throw new VBSubOrFunctionNotDefinedException(name);
     }

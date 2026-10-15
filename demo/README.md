@@ -33,6 +33,7 @@ with another's. To rebuild any of them you need VB6 installed (`VB98\VB6.EXE`):
 | [wild-ecstasy](wild-ecstasy/) | Big wavy text — "HEXIDE" rippling on per-letter sine waves with colour cycling |
 | [neon-vertigo](neon-vertigo/) | A rotating 3D sphere of 130 glowing vector balls — Fibonacci-distributed, spun on two axes, depth-shaded magenta→blue and painted back-to-front |
 | [battleship](battleship/) | *(different kind)* An OO Battleship **engine** (classes, properties, object arrays, `WithEvents` events) whose full run is **byte-identical** on HexIDE's interpreter and real `vb6.exe` — a fidelity cross-check, not a graphical intro |
+| [battleship-forms](battleship-forms/) | *(different kind)* The battleship engine played on **forms**, as a VB6 developer would write it: a modal setup dialog, a Label grid loaded at run time, `WithEvents`, `MouseDown`, and Play again. Hand-written, and run under F5 in HexIDE and built by vb6.exe |
 | [bill-of-fare](bill-of-fare/) | *(different kind)* A tour of the VB6 **menu** surface — bar, nested submenus, separators, shortcuts, access keys, a disabled item and click dispatch — hand-written to be looked at and clicked, and to give CI a menu form to round-trip |
 | [spring-tide](spring-tide/) | *(different kind)* A short module with a deliberate syntax error, for opening with a **foreign language server** attached — its folding regions and diagnostics rendered in HexIDE's editor. Does not build, by design |
 
