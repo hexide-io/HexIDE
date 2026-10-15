@@ -12,6 +12,15 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 > opens no port. Making it a supported opt-in feature for end users is a decided direction rather than
 > current behaviour, and the requirements below describe what ships today.
 
+> **Known divergence.** The requirements below state intended behaviour. One is only partly met: "A tool that
+> names a document SHALL name its project, and count lines from the top of the file" holds for every tool that
+> takes a document's name, and not yet for those that report or act on a document without taking one. The note a
+> run-control reply gives when a run pauses, the context the locals and watch tools report, the designer tools'
+> undo, redo and format replies, and the tab tools, which take and report a tab's title, still name a form or
+> module without its project, so with two projects each holding a `Form1` none of them can say which one it
+> means. Tracked in [#886](https://github.com/hexide-io/HexIDE/issues/886). The requirement is stated as intended
+> rather than narrowed to the tools that meet it, because the code is incomplete here, not the intent.
+
 ## Requirements
 
 ### Requirement: The server SHALL be inactive unless explicitly requested
@@ -248,3 +257,25 @@ unrelated save, and that damage surfaces somewhere other than where it was cause
 #### Scenario: A distributed build
 - **WHEN** a build excludes the automation server
 - **THEN** it contains no way to bypass a file dialog
+
+### Requirement: A tool that names a document SHALL name its project, and count lines from the top of the file
+A tool that accepts or reports a form, module or class SHALL identify it by its project and its name, SHALL
+find it in any loaded project, and SHALL match both without regard to case. Where a reply also carries the name
+a language server knows the document by, it SHALL say so. Every line number a tool accepts or reports SHALL be
+counted from the top of the file, header included. Reading a document's content SHALL return its whole file
+whether or not it is open. Writing content SHALL NOT be refused for being in the shape reading returned — the
+whole file with its header unchanged, or the code alone — which leaves the existing refusal of a document the
+IDE will not save in force for its own reason.
+
+A caller that has never seen the IDE cannot know which of a document's several names a bare `uri` field holds,
+and a name that is only unique within a project is ambiguous the moment a group is open. A read whose result
+the matching write refuses breaks the most basic loop an automation client runs.
+
+#### Scenario: Setting a breakpoint by name in the wrong case
+- **WHEN** a client sets a breakpoint in `form1` of a project containing `Form1`
+- **THEN** it is shown in `Form1`'s gutter, pushed to the next run, and saved with the project
+
+#### Scenario: Reading and writing back a form
+- **WHEN** a client reads the content of a form the IDE will save, and writes the same text back
+- **THEN** the write succeeds and the form is unchanged, but for a member's attribute line naming another name than
+  its member's, which the save writes with its member's name, as the form's own Save does

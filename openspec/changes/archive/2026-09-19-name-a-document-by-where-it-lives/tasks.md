@@ -2492,22 +2492,29 @@
   still waited on task 3.7. `ApplyFormatting`'s "the bundled server answers with one edit" and
   `VisitAttributeStmt`'s "until #273" are history. `ProjectNaming.IsReservedWord`'s "only these were measured"
   now names the six.
-- [ ] 5.8 Validate and archive; rewrite the Purpose of each spec the archive touched if the CLI replaces it,
+- [x] 5.8 Validate and archive; rewrite the Purpose of each spec the archive touched if the CLI replaces it,
   and fill in the new capabilities' Purpose. The hexide-mcp-server requirement is only partly met (3.18's "Not
   done" note): unless that issue is closed first, note it under that spec's `## Purpose` with the issue linked,
   as `openspec/config.yaml` asks of a requirement the code does not yet meet.
-  — **Rehearsed 2026-10-14, not yet run**, because 3.22's AI Chat checks are still open and the archive should
-  find every task ticked. In a throwaway worktree with openspec 1.13.0, 3.22 and 5.1–5.7 ticked: `validate
+  — **Rehearsed 2026-10-14**, before the real run, because 3.22's AI Chat checks were still open and the archive
+  should find every task ticked. In a throwaway worktree with openspec 1.13.0, 3.22 and 5.1–5.7 ticked: `validate
   --strict` clean; +18, ~7, −1 across the ten capabilities; `code-editor` and `document-identity` created with
   their deltas' Purposes carried word for word; no existing Purpose replaced; every ADDED and MODIFIED body
   identical to its delta; bookmarks' REMOVED requirement gone; no heading collision; `DesignRecordTests` 3/3. The
   CLI writes LF (git normalises it) and moves bookmarks' narrowed requirement to the end (cosmetic).
   `openspec/config.yaml`'s rule that the CLI overwrites a Purpose was out of date and now says what 1.13 does.
-  — **Owed by the real run:** tick 5.8 before archiving, so the archived tasks.md is complete; add under
+  — **Owed by the real run, and done in it (below):** tick 5.8 before archiving, so the archived tasks.md is complete; add under
   `hexide-mcp-server`'s Purpose a note for the partly met naming requirement (#886), and under `code-editor`'s one
   for "A document with no file yet SHALL hold the header its first save will write" (#885), both drafted in the
   rehearsal; read `git diff --ignore-cr-at-eol HEAD -- openspec/specs` for any MODIFIED requirement main changed
   meanwhile, which the archive would overwrite.
+  — **Run on 2026-10-15** with openspec 1.13.0, after 3.22 was ticked and main merged at 2eae6f10. Nothing under
+  `openspec/specs` had changed since the rehearsal's base, so no MODIFIED requirement overwrote a later change.
+  The lsp-client delta's stray line break was joined first. `validate --strict` was clean, and the archive found
+  every task complete. It applied the rehearsal's +18, ~7, −1. Every ADDED and MODIFIED body landed identical to
+  its delta, no untouched requirement changed, no heading repeats, and no existing Purpose changed. The #886 note
+  went under hexide-mcp-server's Purpose and the #885 note under code-editor's, as drafted. Afterwards
+  `validate --all --strict` gave 44 passed, `DesignRecordTests` 3/3 and `McpGapsDocTests` 9/9.
   — **Scenarios mapped to tests by the rehearsal.** Two lsp-client scenarios had none and now do
   (`DocumentWireNameTests.RenamingAFormThatHasAFile`, `.AModuleInAProjectNotYetSaved`), and document-identity's
   "Renaming a document with breakpoints on it" was covered only in pieces until

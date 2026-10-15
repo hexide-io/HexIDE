@@ -84,8 +84,7 @@ questions — *where the process runs* and *which tree it analyses* — and they
 project that has not been saved yet has a directory that is real as an answer to the second and not yet real
 as an answer to the first: it is where the project's files will be written the moment the user adds a
 module. A form or module with no file yet is outside it, and so is a document adopted from somewhere else.
-Starting a process there instead fails outright,
-which costs the whole connection and every language feature with it.
+Starting a process there instead fails outright, which costs the whole connection and every language feature with it.
 
 The IDE SHALL NOT create the directory in order to launch there. Nothing reaps these directories, so one
 created per server start would accumulate with no owner, and a directory that exists would then no longer
