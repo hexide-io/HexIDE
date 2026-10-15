@@ -16,7 +16,7 @@
 
             <Button Grid.Column="0" Command="{CompiledBinding Continue}" Content="{DynamicResource Str.Dialog.RuntimeError.Button.Continue}" />
             <Button Grid.Column="2" Command="{CompiledBinding End}" Content="{DynamicResource Str.Dialog.RuntimeError.Button.End}" />
-            <Button Grid.Column="4" Command="{CompiledBinding Debug}" Content="{DynamicResource Str.Dialog.RuntimeError.Button.Debug}" />
+            <Button Grid.Column="4" Command="{CompiledBinding Debug}" IsDefault="True" Content="{DynamicResource Str.Dialog.RuntimeError.Button.Debug}" />
             <Button Grid.Column="6" Command="{CompiledBinding Help}" Content="{DynamicResource Str.Dialog.RuntimeError.Button.Help}" />
 
         </Grid>

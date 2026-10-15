@@ -133,6 +133,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A run-time error nothing handles halts the program where it stands, as VB6 does** (#1011). The event procedure that
+  met it used to be abandoned while the run carried on, so a Timer tick or a click still ran, on whatever state it had
+  left half done. Now the dialog offers End and Debug, and nothing runs behind it. Debug breaks at the statement with the
+  procedure still live, so Locals and the Immediate window work there, and Continue runs the statement again. A handler
+  in the code that raised an event, `RaiseEvent` included, no longer catches the event's error, as in VB6.
 - **Operators group as VB6 groups them** (#1074). Each had a precedence level of its own, so `10 - 2 + 3` was 5,
   `5 * 5 \ 2` was 10, `1 < 2 = True` was False and `Not False And False` was True, with no error. Measured on
   vb6.exe across the whole ladder: `*` and `/` share a level, then `\`, then `Mod`, then `+` and `-`, then every

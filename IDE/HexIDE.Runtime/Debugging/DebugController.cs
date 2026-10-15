@@ -154,6 +154,25 @@ public sealed class DebugController : IDebugController
         return SuspendAtBreakAsync(StopReason.StopStatement, line, module, frame);
     }
 
+    public Func<VBRunTimeException, Task<bool>>? HaltHost { get; set; }
+
+    public bool CanHalt => HaltHost is not null;
+
+    public async ValueTask<bool> HaltAsync(VBRunTimeException error, int line, string module, IDebugFrame? frame)
+    {
+        if (_isAborting)
+            throw new StopExecutionSignal();
+        if (HaltHost is not { } host)
+            return false;
+        var session = _session;
+        var debug = await host(error);
+        // End, or the run ended some other way while the dialog was up: stop_project and shutdown_ide close it.
+        if (!debug || _isAborting || _session != session)
+            throw new StopExecutionSignal();
+        await SuspendAtBreakAsync(StopReason.RuntimeError, line, module, frame);
+        return true;
+    }
+
     /// <summary>The paused frame's Locals, or null when not in Break mode. The walk is frozen while Paused, so the
     /// lazy reads a node's <c>Expand()</c> performs are stable.</summary>
     public DebugScope? GetLocals()

@@ -39,6 +39,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // Active On Error mode for this procedure body (and its nested blocks, which share this executor).
     private ErrorMode errorMode = ErrorMode.None;
     private string? handlerLabel;   // target when errorMode == GoToLabel
+    // In an On Error GoTo handler, where a further fault propagates rather than being trapped again. A field, not a local
+    // of the body's loop, because a halt asks every caller's activation whether it would trap (#1011).
+    private bool inHandler;
+
+    /// <summary>Whether the program was entered at this activation: an event's procedure, a RaiseEvent sink or Sub Main.
+    /// A handler further down the stack never sees an error raised above an entry (measured, #1011).</summary>
+    internal bool IsEntry { get; init; }
+
+    // Whether a run-time error raised in this activation now would be trapped by it.
+    private bool Traps => errorMode == ErrorMode.ResumeNext || errorMode == ErrorMode.GoToLabel && !inHandler;
 
     // Object-holding slots this activation OWNS (its own `Dim` locals, appended in declaration order), released by
     // RunProcedure at scope-exit for reference counting (Phase 4.2). Non-null only for a PROCEDURE-body executor —
@@ -317,8 +327,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitBlock(VB6Parser.BlockContext context)
     {
-        foreach (var stmt in context.blockStmt())
+        var stmts = context.blockStmt();
+        var retry = false;
+        for (var i = 0; i < stmts.Length; i++)
         {
+            var stmt = stmts[i];
             // Debugger pause-gate (before the temp-frame push, so a suspended break / reset never parks a
             // half-open frame). Null controller ⇒ skipped entirely (zero overhead headless/tests).
             currentLine = stmt.Start.Line;   // track for the Call Stack (this frame's current line)
@@ -330,11 +343,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (interpreter.Ending)
                 throw new Debugging.StopExecutionSignal();
             // An Attribute line is metadata, so the debugger never stops on one, nested or not (see VisitAttributeStmt).
-            if (interpreter.DebugController is { } dbg && stmt.attributeStmt() == null && !interpreter.RunningDeclarations)
+            // Nor again on a statement a halt is retrying: its break has just been resumed, and a step armed there runs it.
+            if (!retry && interpreter.DebugController is { } dbg && stmt.attributeStmt() == null && !interpreter.RunningDeclarations)
             {
                 _suspendedAtTopLevel = false;   // a pause here is inside a nested block — Set Next Statement is refused
                 await DebugGate(dbg);
             }
+            retry = false;
 
             ControlFlow ret;
             try
@@ -360,6 +375,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // trapped — engine-limit NotImplementedExceptions propagate as real gaps. This per-block trap
                 // gives correct nested-block and cross-procedure semantics for free.
                 interpreter.Err.Capture(ex);
+                continue;
+            }
+            catch (VBRunTimeException ex) when (HaltsHere())
+            {
+                _suspendedAtTopLevel = false;
+                if (!await Halt(ex, stmt.Start.Line))
+                    throw;
+                retry = true;
+                i--;
                 continue;
             }
 
@@ -1080,14 +1104,25 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// </summary>
     private async Task<bool?> ConditionMet(Antlr4.Runtime.Tree.IParseTree condition, Antlr4.Runtime.ParserRuleContext statement)
     {
-        try
+        while (true)
         {
-            return await ConditionHolds(condition, statement);
-        }
-        catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
-        {
-            interpreter.Err.Capture(ex);
-            return null;
+            try
+            {
+                return await ConditionHolds(condition, statement);
+            }
+            catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+            {
+                interpreter.Err.Capture(ex);
+                return null;
+            }
+            catch (VBRunTimeException ex) when (HaltsHere())
+            {
+                // The condition alone runs again: an ElseIf's without the conditions before it, a Loop Until's without
+                // another pass through the body.
+                _suspendedAtTopLevel = false;
+                if (!await Halt(ex, (condition as Antlr4.Runtime.ParserRuleContext ?? statement).Start.Line))
+                    throw;
+            }
         }
     }
 
@@ -1118,7 +1153,22 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // caption after Text1_Change had faulted and ended the run.
             if (interpreter.Ending || interpreter.DebugController is { IsAborting: true })
                 throw new Debugging.StopExecutionSignal();
-            var flow = await Visit(stmt);
+            ControlFlow flow;
+            while (true)
+            {
+                try
+                {
+                    flow = await Visit(stmt);
+                    break;
+                }
+                catch (VBRunTimeException ex) when (errorMode != ErrorMode.ResumeNext && HaltsHere())
+                {
+                    // The statement alone runs again, not the statements before it on the line (#1011).
+                    _suspendedAtTopLevel = false;
+                    if (!await Halt(ex, stmt.Start.Line))
+                        throw;
+                }
+            }
             if (flow != ControlFlow.Nothing)
                 return flow;
         }
@@ -1628,7 +1678,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (sink.Listener.Value is not VbObject listener || listener.Terminated)
                 continue;
             if (listener.ClassDef.PrePass.Procedures.TryGetValue(sink.VarName + "_" + eventName, out var handler))
-                await interpreter.RunProcedure(listener.ClassDef, handler, args, listener.InstanceEnv, sink.Listener, stmtFrames);
+                await interpreter.RunProcedure(listener.ClassDef, handler, args, listener.InstanceEnv, sink.Listener, stmtFrames,
+                    isEntry: true);
         }
         return ControlFlow.Nothing;
     }
@@ -2857,7 +2908,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         int pc = 0;
         int faultPc = -1;       // index of the statement that faulted (for Resume); -1 = no active error
-        bool inHandler = false; // in an On Error GoTo handler — a further fault propagates (isn't re-trapped)
+        inHandler = false;
+        var retry = false;      // the statement a halt retries, whose break has just been resumed (#1011)
 
         while (pc < stmts.Length)
         {
@@ -2873,11 +2925,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new Debugging.StopExecutionSignal();
             // An Attribute line is metadata, so the debugger never stops on one (see VisitAttributeStmt).
             // Nor on a module's or form's declarations, as VB6 never does (BasicInterpreter.RunningDeclarations).
-            if (interpreter.DebugController is { } dbg && stmts[pc].attributeStmt() == null && !interpreter.RunningDeclarations)
+            if (!retry && interpreter.DebugController is { } dbg && stmts[pc].attributeStmt() == null && !interpreter.RunningDeclarations)
             {
                 _suspendedAtTopLevel = true;   // a pause here is at a top-level statement — Set Next Statement is valid
                 await DebugGate(dbg);
             }
+            retry = false;
             // Set Next Statement (P7b): apply a pc repoint requested while paused at this top-level gate, so the
             // resumed walk executes from the target instead of the paused statement.
             if (_setNextTargetPc is { } snt) { pc = snt; _setNextTargetPc = null; currentLine = stmts[pc].Start.Line; }
@@ -2928,7 +2981,52 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 faultPc = pc;
                 pc++;
             }
+            catch (VBRunTimeException ex) when (HaltsHere())
+            {
+                // Set Next Statement is valid at this break, as at any top-level one, and applies as the loop goes round.
+                _suspendedAtTopLevel = true;
+                if (!await Halt(ex, stmts[pc].Start.Line))
+                    throw;
+                retry = true;
+            }
         }
+    }
+
+    /// <summary>
+    /// Whether a run-time error raised in this activation is one nothing handles, so the program halts at the statement
+    /// that raised it (#1011). Asked where the error is caught, before anything has unwound. It is handled when this
+    /// activation would trap it, or a caller below would, as far down as the activation the program was entered at:
+    /// a handler in the code that raised an event never sees the event's error (measured, b1 to b3 in the oracle).
+    /// A class's error that its caller traps goes to the caller, as a compiled program does (decided on #1011, D27).
+    /// </summary>
+    private bool HaltsHere()
+    {
+        if (interpreter.DebugController is not { CanHalt: true })
+            return false;
+        var stack = interpreter.ActivationStack;
+        var at = -1;
+        for (var i = stack.Count - 1; i >= 0; i--)
+            if (ReferenceEquals(stack[i], this)) { at = i; break; }
+        // A module's declarations, or code the host ran without entering the program, which halting has no frame for.
+        if (at < 0)
+            return false;
+        for (var i = at; i >= 0; i--)
+        {
+            if (stack[i].Traps)
+                return false;
+            if (stack[i].IsEntry)
+                return true;
+        }
+        return false;
+    }
+
+    // Halt at the statement on line, and answer whether to run it again. The dialog, and a break after it, give up the
+    // thread, which the pump is told of, so that an event that comes meanwhile waits (#766): nothing runs behind it.
+    private async Task<bool> Halt(VBRunTimeException error, int line)
+    {
+        currentLine = line;
+        var halt = interpreter.DebugController!.HaltAsync(error, line, currentModule.Name, this).AsTask();
+        return interpreter.Events is { } events ? await events.WhileSuspended(halt) : await halt;
     }
 
     private static int ResolveLabel(Dictionary<string, int> labels, string label) =>

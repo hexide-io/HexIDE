@@ -690,7 +690,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             // beyond seeding values.
             await RunModuleDeclarations();
 
-            await RunProcedure(startup.Module, startup.Proc, Array.Empty<CallArg>());
+            await RunProcedure(startup.Module, startup.Proc, Array.Empty<CallArg>(), isEntry: true);
         }
         catch (Debugging.StopExecutionSignal)
         {
@@ -924,7 +924,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             return;
         try
         {
-            await RunProcedure(instance.ClassDef, proc, callArgs, instance.InstanceEnv, Vb6Value.NewObject(instance));
+            await RunProcedure(instance.ClassDef, proc, callArgs, instance.InstanceEnv, Vb6Value.NewObject(instance), isEntry: true);
         }
         catch (Debugging.StopExecutionSignal)
         {
@@ -1043,8 +1043,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// = the object value: the callee then clones the instance env (so field writes persist through the shared
     /// slots while params/locals stay per-call) with <c>Me</c> bound. Defaults reproduce the module-procedure
     /// behaviour exactly (base = owner's ModuleEnv, no Me).</summary>
+    /// <param name="isEntry">Whether the program is entered here: an event's procedure, a <c>RaiseEvent</c> sink or
+    /// <c>Sub Main</c>. A handler below an entry never sees an error raised above it (#1011).</param>
     public async Task<Vb6Value?> RunProcedure(ModuleInfo owner, ProcedureInfo proc, IReadOnlyList<CallArg> args,
-        ExecutionEnvironment? baseEnv = null, Vb6Value? me = null, Stack<List<Vb6Value>>? callerFrames = null)
+        ExecutionEnvironment? baseEnv = null, Vb6Value? me = null, Stack<List<Vb6Value>>? callerFrames = null,
+        bool isEntry = false)
     {
         // Immediate-window evaluation forbids running USER code — its statements would hit the paused pause-gate on
         // this (UI) thread and deadlock, and mutate program state. RunProcedure is the single sink every user
@@ -1098,7 +1101,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             {
                 // The callee runs with its OWN per-activation statement-frame stack (re-entrancy isolation).
                 var executor = new StatementExecutor(this, callee, owner, ownedSlots, new Stack<List<Vb6Value>>(), proc.Name,
-                    proc.CheckedArrayReturn);
+                    proc.CheckedArrayReturn) { IsEntry = isEntry };
                 // Debugger call stack + depth: push before running, remove THIS executor after (Remove, not
                 // RemoveAt(Count-1), so overlapping async re-entrancy pops the right frame). Reflects the physical
                 // call stack — matching VB6's Call Stack, which shows a re-entrant handler's frames above the

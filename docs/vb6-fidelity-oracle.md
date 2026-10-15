@@ -10080,6 +10080,15 @@ own errors, and following it would mean building "Continue from a break hands th
 For an error that nothing handles, HexIDE keeps the default's location: the innermost faulting line, a class's
 included.
 
+**In HexIDE (#1011),** all of the above is pinned in `HaltOnErrorTests`:
+- **The halt** comes before anything unwinds. The dialog offers End and Debug, and nothing runs behind it.
+- **Debug** breaks at the statement, reason `RuntimeError`, and Continue runs it again, all of it: `F()` is called again.
+- **The event boundary** holds for b1, b2 and b3. c1 and c2 go to the caller's handler.
+
+Where HexIDE has to choose a granularity VB6 wasn't measured at, it runs again only what raised. That is a condition on
+its own, an `ElseIf`'s or a `Loop Until`'s, and a single-line `If`'s tail statement alone. Two things weren't measured,
+and HexIDE takes a side on each. A dialog closed without an answer takes Debug. `Err` is left as it was at the break.
+
 ## Operator precedence (2026-10-15, #1074)
 
 **How it was found.** The Battleship demo (#1071) gives a 5 x 5 board `gSize * gSize \ 2` shots, which VB6 makes 12.

@@ -120,6 +120,24 @@ public interface IDebugController
     /// execution suspends exactly as it would at a breakpoint.</summary>
     ValueTask EnterBreakFromStopStatementAsync(int line, string module, IDebugFrame? frame);
 
+    /// <summary>
+    /// Who answers a run-time error that nothing handles (#1011): the IDE, which shows VB6's dialog. It answers true for
+    /// Debug, and false for End once it has ended the run. While it is null the program does not halt: the error unwinds
+    /// to the event's dispatch, which reports it, as before.
+    /// </summary>
+    Func<VBRunTimeException, Task<bool>>? HaltHost { get; set; }
+
+    /// <summary>Whether a run-time error nothing handles halts the program: whether <see cref="HaltHost"/> is set.</summary>
+    bool CanHalt { get; }
+
+    /// <summary>
+    /// Halt on a run-time error nothing handles, at the statement that raised it, before anything unwinds (#1011). The
+    /// interpreter awaits this inside the faulting statement. It returns true once the developer chose Debug and the break
+    /// that followed has been resumed, for the statement to run again, all of it, as VB6 retries it (measured). End raises
+    /// <see cref="StopExecutionSignal"/>, as the End button does. False means no host is set, and the error goes on.
+    /// </summary>
+    ValueTask<bool> HaltAsync(VBRunTimeException error, int line, string module, IDebugFrame? frame);
+
     /// <summary>The Locals for the frame that is currently paused, or null when not in Break mode. Read by the IDE
     /// Locals pane and the MCP <c>get_locals</c> tool on each <see cref="Stopped"/>. Children are lazy per node.</summary>
     DebugScope? GetLocals();
@@ -143,7 +161,7 @@ public interface IDebugController
 public enum DebugState { Running, Paused, Stopped }
 
 /// <summary>Why the walk entered Break mode.</summary>
-public enum StopReason { Breakpoint, Step, Pause, StopStatement, Watch }
+public enum StopReason { Breakpoint, Step, Pause, StopStatement, Watch, RuntimeError }
 
 /// <summary>A break-type watch pushed to the gate: the <paramref name="Expression"/> to evaluate, and whether it
 /// breaks on CHANGE (Break When Value Has Changed) rather than on TRUE (Break When Value Is True).</summary>
