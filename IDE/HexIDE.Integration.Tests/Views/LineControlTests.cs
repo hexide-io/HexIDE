@@ -366,6 +366,14 @@ public class LineControlTests
     }
 
     [AvaloniaFact]
+    public void The_designer_stacks_lines_as_a_running_form_does()
+    {
+        var form = Form(Pixel, Line("LineA", Black(1, 1) + At(20, 20, 220, 20)) + Line("LineB", Black(1, 1) + At(20, 30, 220, 30)));
+
+        (Designed(form, "LineA").ZIndex, Designed(form, "LineB").ZIndex).Should().Be((-1, -2));
+    }
+
+    [AvaloniaFact]
     public void Moving_a_line_in_the_designer_moves_both_endpoints_in_its_containers_scale()
     {
         var line = Designed(Form(Pixel, Line("Ln", Black(1, 1) + At(20, 20, 220, 20))), "Ln");

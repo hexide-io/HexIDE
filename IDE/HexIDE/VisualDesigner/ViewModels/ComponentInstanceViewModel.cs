@@ -243,6 +243,12 @@ public partial class ComponentInstanceViewModel : ObservableObject
     /// </summary>
     public bool IsLine => instance.BaseClass is LineComponentClass;
 
+    /// <summary>
+    /// Where the designer stacks this control: a Line under every other control, and one earlier in the form over a later
+    /// one, as a running form draws them (measured, #163). Everything else keeps its order in the form.
+    /// </summary>
+    public int ZIndex => IsLine ? -1 - parentViewModel.Components.TakeWhile(c => !ReferenceEquals(c, this)).Count(c => c.IsLine) : 0;
+
     /// <summary>How many twips one of a Line's container's units is, or twips where HexIDE cannot run that scale.</summary>
     public (double X, double Y) LineTwipsPerUnit
     {
