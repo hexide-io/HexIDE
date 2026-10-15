@@ -87,8 +87,9 @@ Private Sub NewGame()
     ShowStatus
 End Sub
 
+' Short enough for the 5 x 5 board, the narrowest.
 Private Sub ShowStatus()
-    lblStatus.Caption = mShotsLeft & " shots left, " & mGame.ShipsLeft & " ships afloat"
+    lblStatus.Caption = "Shots " & mShotsLeft & ", ships " & mGame.ShipsLeft
 End Sub
 
 ' A press on a cell fires at it. A cell already fired at costs nothing.

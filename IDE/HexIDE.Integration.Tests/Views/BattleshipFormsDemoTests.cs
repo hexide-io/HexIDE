@@ -77,10 +77,10 @@ public sealed class BattleshipFormsDemoTests
             setup.IsVisible.Should().BeFalse();
             var board = opened.Should().ContainKey("Battleship - Ada").WhoseValue;
             var labels = board.GetLogicalDescendants().OfType<VBLabel>().ToList();
-            var status = labels.Single(l => l.Text?.Contains("shots left") == true);
+            var status = labels.Single(l => l.Text?.StartsWith("Shots ") == true);
             var cells = labels.Where(l => !ReferenceEquals(l, status)).ToList();
             cells.Should().HaveCount(25);
-            status.Text.Should().Be("12 shots left, 2 ships afloat");
+            status.Text.Should().Be("Shots 12, ships 2");
             // In twips on the form, 15 to the pixel: the cell in row 1, column 1 is at 120 + 360 twips.
             cells.Should().Contain(l => Canvas.GetLeft(l) == 32 && Canvas.GetTop(l) == 32);
             run.IsCompleted.Should().BeFalse("the board is loaded, though Main has returned");
@@ -92,12 +92,12 @@ public sealed class BattleshipFormsDemoTests
             Pump();
 
             errors.Should().BeEmpty();
-            status.Text.Should().StartWith("11 shots left, ");
+            status.Text.Should().StartWith("Shots 11, ");
             // A second press on the same cell costs nothing.
             press = await UiAutomationDriver.FinishAsync(await UiAutomationDriver.InteractAsync(first, "click", null));
             press.Success.Should().BeTrue(press.Error);
             Pump();
-            status.Text.Should().StartWith("11 shots left, ");
+            status.Text.Should().StartWith("Shots 11, ");
         }
         finally
         {

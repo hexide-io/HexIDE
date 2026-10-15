@@ -1452,3 +1452,25 @@ one without it.
 
 **Suggested fix.** Refuse a provider or pointer action on a control that is not effectively visible, saying why
 and naming the `isHidden` flag. [#1069](https://github.com/hexide-io/HexIDE/issues/1069).
+
+## A Label on a running form is missing from the tree, so no tool can click it or read its caption
+
+**Symptom.** Measured on 2026-10-15, driving the Battleship demo (#1071), whose board is 25 Labels and a status Label:
+
+```
+dump_visual_tree {"interactiveOnly":false,"maxDepth":20}
+→ {"window":"Battleship - Admiral","root":{"path":"Window",...,"children":[{"path":"Window/Menu",...,"isHidden":true,
+   "children":[]}]}}
+```
+
+None of the 26 Labels is there, with `interactiveOnly` false (the default is true). A pointer reaches them, so they
+are on screen: `interact {"target":"Window","action":"click","value":"20,20"}` replies "landing on its part 'VBLabel'".
+Nothing in the reply says controls were left out.
+
+**Workaround.** Click the form at a point: `interact {"target":"Window","action":"click","value":"x,y"}`, with `x,y` worked
+out from the control's twips at 15 to a pixel, in device-independent units from the client area's top-left. Read a
+caption with `take_snapshot`.
+
+**Suggested fix.** A peer for each built-in control that has none, `VBLabel` first, naming it by its caption. No control
+in `BuiltinControls/` overrides `OnCreateAutomationPeer`, which is the likely cause and isn't verified.
+[#1076](https://github.com/hexide-io/HexIDE/issues/1076).
