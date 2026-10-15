@@ -6,8 +6,8 @@ using System.Text;
 namespace HexIDE.Runtime.Interpreter;
 
 // Phase 3 — String intrinsics. 1-based indexing throughout; a Null string argument propagates to Null.
-// Split/Join live in the Array group (they involve VBArray). The `$`-typed twins (Left$, Mid$, …) need
-// type-hint dispatch and are deferred.
+// Split/Join live in the Array group (they involve VBArray). The `$`-typed twins (Left$, Mid$, …) are these
+// functions with the result made a String, which ExpressionExecutor applies at the call (#1071).
 public partial class VB6BuiltIns
 {
     private static void RegisterStrings(Dictionary<string, BuiltinFn> d)
