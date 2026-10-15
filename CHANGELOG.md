@@ -138,6 +138,14 @@ there isn't one yet. Anything may change between 0.x releases.
   left half done. Now the dialog offers End and Debug, and nothing runs behind it. Debug breaks at the statement with the
   procedure still live, so Locals and the Immediate window work there, and Continue runs the statement again. A handler
   in the code that raised an event, `RaiseEvent` included, no longer catches the event's error, as in VB6.
+- **`SetFocus` runs** (#1061). It stopped the run as not implemented, on every control. Measured on vb6.exe:
+  - the control has the focus at once;
+  - its LostFocus and GotFocus come after the handler that called SetFocus;
+  - it is error 5 on a form not yet shown, or on a disabled or invisible control.
+
+  A TextBox now raises GotFocus and LostFocus too.
+- **A TextBox, Frame or scroll bar saved disabled runs disabled** (#1061). `Enabled = 0` in the form was dropped, and the
+  control ran enabled.
 - **Operators group as VB6 groups them** (#1074). Each had a precedence level of its own, so `10 - 2 + 3` was 5,
   `5 * 5 \ 2` was 10, `1 < 2 = True` was False and `Not False And False` was True, with no error. Measured on
   vb6.exe across the whole ladder: `*` and `/` share a level, then `\`, then `Mod`, then `+` and `-`, then every

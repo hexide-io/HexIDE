@@ -454,11 +454,10 @@ public class SeveralFormsTests
     [AvaloniaTheory]
     [InlineData("For Each c In Form2.Controls\n        Debug.Print TypeName(c)\n    Next",
         "Reading Form2's Controls is not implemented: the form's Controls collection is #1060")]
-    [InlineData("Form2.Text1.SetFocus", "The SetFocus method is not implemented for Text1 (#1061)")]
     public void A_use_HexIDE_lacks_loads_the_form_then_is_refused_naming_its_issue(string use, string refusal)
     {
         // The load is the measured part: a built-in member or a control's loads the form. What follows is HexIDE's gap,
-        // and the refusal is the gap itself: the Controls collection, or SetFocus, not the chain that reached it.
+        // and the refusal is the gap itself, the Controls collection, not the chain that reached it.
         using var run = Start($"Private c As Variant\nPrivate Sub Form_Load()\n    {use}\n    Debug.Print \"not reached\"\nEnd Sub\n");
 
         run.Printed.Should().Equal("f2 initialize", "f2 load");
@@ -487,13 +486,14 @@ public class SeveralFormsTests
     }
 
     [AvaloniaFact]
-    public void SetFocus_is_refused_on_the_forms_own_control_too_so_the_refusal_is_SetFocus_and_not_the_chain()
+    public void SetFocus_on_another_forms_control_loads_it_and_is_5_while_it_is_not_shown()
     {
-        using var run = Start("Private Sub Form_Load()\n    Text1.SetFocus\n    Debug.Print \"not reached\"\nEnd Sub\n");
+        // The two-dot chain loads Form2, as any use of its control does. Form2 is then loaded but not shown, and SetFocus
+        // on a control of a form not shown is 5 (measured, #1061).
+        using var run = Start("Private Sub Form_Load()\n    On Error Resume Next\n    Form2.Text1.SetFocus\n    Debug.Print \"err \" & Err.Number\nEnd Sub\n");
 
-        run.Printed.Should().BeEmpty();
-        run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
-            .Which.Message.Should().Be("The SetFocus method is not implemented for Text1 (#1061)");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 initialize", "f2 load", "err 5");
     }
 
     // ── Show vbModal ──────────────────────────────────────────────────────────────────────────────────

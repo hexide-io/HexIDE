@@ -77,6 +77,7 @@ public sealed class EventPump
     private readonly List<Func<Task>> whenIdle = [];
     private readonly Dictionary<string, int> running = new(StringComparer.OrdinalIgnoreCase);
     private int topLevel;
+    private int posting;
     private bool closed;
 
     // Completed when an event is queued or the run ends, for a modal form's wait to wake on.
@@ -99,6 +100,12 @@ public sealed class EventPump
     {
         if (closed)
             return;
+        // Posted: it waits its turn behind the running walk, as a message Windows posts waits for the message loop.
+        if (posting > 0 && (topLevel > 0 || Current is not null))
+        {
+            Enqueue(new Waiting(name, work, coalescing));
+            return;
+        }
         if (Current is { } raiser)
         {
             var started = Start(name, work);
@@ -167,6 +174,30 @@ public sealed class EventPump
                     RunIdle().ListenErrors();
             });
         return result;
+    }
+
+    /// <summary>
+    /// While the returned scope is open, an event raised waits its turn behind the running walk, even one its own code
+    /// raises: after the handler that raised it has returned, or at its DoEvents. That is how a message Windows posts is
+    /// delivered, and how SetFocus's LostFocus and GotFocus come (measured, #1061).
+    /// </summary>
+    public IDisposable Posting()
+    {
+        posting++;
+        return new PostingScope(this);
+    }
+
+    private sealed class PostingScope(EventPump pump) : IDisposable
+    {
+        private bool disposed;
+
+        public void Dispose()
+        {
+            if (disposed)
+                return;
+            disposed = true;
+            pump.posting--;
+        }
     }
 
     /// <summary>

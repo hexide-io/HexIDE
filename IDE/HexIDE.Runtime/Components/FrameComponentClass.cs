@@ -8,7 +8,7 @@ namespace HexIDE.Runtime.Components;
 
 public class FrameComponentClass : ComponentBaseClass
 {
-    public FrameComponentClass() : base([CaptionProperty,
+    public FrameComponentClass() : base([CaptionProperty, EnabledProperty,
     BackColorProperty,
     ForeColorProperty,
     FontProperty], [ClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])

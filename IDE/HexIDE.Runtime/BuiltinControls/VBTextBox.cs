@@ -20,5 +20,7 @@ public class VBTextBox : TextBox
         // Before Click, so MouseUp comes first, as VB6 raises them (#974).
         AttachedEvents.AttachMouse<VBTextBox>();
         AttachedEvents.AttachClick<VBTextBox>();
+        // A TextBox raises GotFocus and LostFocus, as SetFocus's are measured to come (#1061).
+        AttachedEvents.AttachFocusEvents<VBTextBox>();
     }
 }
