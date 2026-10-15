@@ -706,7 +706,9 @@ valueStmt
    | valueStmt WS? (PLUS | MINUS) WS? valueStmt                      # vsAdd
    | valueStmt WS? AMPERSAND WS? valueStmt                           # vsAmp
    | valueStmt WS? (EQ | NEQ | LT | GT | LEQ | GEQ | LIKE | IS) WS? valueStmt # vsCompare
-   | NOT (WS valueStmt | LPAREN WS? valueStmt WS? RPAREN)            # vsNot
+   // A prefix operator only when its operand ends the alternative, so ANTLR gives it a level: `Not False And False` is
+   // (Not False) And False (measured, #1074). Its operand in a sub-rule, as it was, read the whole of `False And False`.
+   | NOT WS? valueStmt                                               # vsNot
    | valueStmt WS? AND WS? valueStmt                                 # vsAnd
    | valueStmt WS? OR WS? valueStmt                                  # vsOr
    | valueStmt WS? XOR WS? valueStmt                                 # vsXor

@@ -9085,7 +9085,7 @@ oracle guest. Each expression was assigned to a Variant and logged with its `Typ
 | `&`, comparisons | `"a" & "b" = "ab"` | True | |
 | comparisons, `And` | `1 + 2 = 3 And 4` | 4, Integer | |
 | comparisons, `Not` | `Not 1 = 2`, `Not 0 = 1` | True, True | True |
-| `Not`, `And` | `Not False And False` | False | |
+| `Not`, `And` | `Not False And False` | False | **True** |
 | `And`, `Or` | `True Or True And False` | True | |
 | `Or`, `Xor` | `True Xor True Or True` | False | |
 | `Eqv`, `Imp` | `False Imp False Eqv False` | True | |
@@ -9122,6 +9122,11 @@ Type mismatch, which a chained comparison such as `3 = 3 < 4` reaches.
 interpreter's grammar gave each operator an alternative of its own, so each was ranked above the next: `/` and `\`
 (one token) above `*`, `+` above `-`, and `=` above `<`. A row whose answer didn't depend on the order came out right,
 which is why the rest lasted.
+
+`Not` went wrong a different way. Its alternative wrapped the operand in a sub-rule,
+`NOT (WS valueStmt | LPAREN valueStmt RPAREN)`, and ANTLR treats an alternative as a prefix operator only when its
+operand ends it. So `Not` had no level at all, and its operand was a whole expression: `Not False And False` was
+`Not (False And False)`, True. That is the shape of `If Not found And retry Then`.
 
 The LSP server's grammar (`VisualBasic6Parser.g4`) already grouped them as VB6 does, in `vsMultDiv`, `vsIDiv`,
 `vsAddSub` and one `vsComp`. The interpreter's now does the same.
