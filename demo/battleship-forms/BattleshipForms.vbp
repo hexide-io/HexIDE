@@ -1,0 +1,12 @@
+Type=Exe
+Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0##OLE Automation
+Form=frmSetup.frm
+Form=frmBoard.frm
+Module=modMain; modMain.bas
+Class=Ship; Ship.cls
+Class=Grid; Grid.cls
+Class=Game; Game.cls
+Startup="Sub Main"
+Title="Battleship"
+ExeName32="BattleshipForms.exe"
+Name="BattleshipForms"
