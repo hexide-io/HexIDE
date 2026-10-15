@@ -28,7 +28,16 @@ To see it for yourself rather than take the screenshot's word for it, launch wit
 [rubberduck-vba/RDCore#260](https://github.com/rubberduck-vba/RDCore/pull/260)** (merged as `0ed29c9`).
 Before it, answering `textDocument/diagnostic` killed the server's entire output channel, so the first pull
 silenced everything after it. From an RDCore checkout at or after that commit, run its `PlatformPublish.ps1`.
-Measured on Windows, over a named pipe.
+Measured on Windows, over a named pipe, against RDCore `d1c04b5`, which has `0ed29c9` as an ancestor, except
+where a section names a later commit.
+
+Two things about the published server are worth knowing before you point HexIDE at it:
+
+- **Keep the whole published tree, and set `command` to the executable inside it.** The server derives its
+  platform root as the *parent* of its own directory, and reads its configuration, its parse server and its
+  extensions from there. An executable copied out on its own starts and then analyses nothing.
+- **The build is framework-dependent**, so the machine needs a .NET 10 runtime. `PlatformPublish.ps1` does
+  not produce a self-contained binary.
 
 **1. Make a profile.** HexIDE keeps settings, layout and its language server configuration in a per-user
 directory, and `--user-data-dir` points a session at a different one. So the demo brings its own, and your
@@ -71,21 +80,40 @@ inspector: an error-level `window/logMessage` saying that `textDocument/didOpen`
 `No .rdproj was found under the workspace root.`, goes only to the server's standard output, which HexIDE
 does not read ([#724](https://github.com/hexide-io/HexIDE/issues/724)).
 
-**`RelatedDoc=`, not `Module=`.** `SpringTide.vbp` carries `TideTable.bas` as a related document. That is a
-workaround, and it is the reason this demo works at all:
+**`Module=`, and note the shape.** `SpringTide.vbp` carries `TideTable.bas` as an ordinary module:
 
-- As a module, HexIDE names the file to servers as `vb6://module/TideTable`
-  ([#273](https://github.com/hexide-io/HexIDE/issues/273)). RDCore now accepts a document's text when it is
-  opened and parses it, but it finds a document again only by its file path. So every answer about the `vb6:`
-  name comes back empty, with no message saying why. An `untitled:` name, which #273 gives a document with no
-  file yet, fares the same. A carried document is named by its real path.
-- A module opened before its server has initialized also never asks for folds
-  ([#446](https://github.com/hexide-io/HexIDE/issues/446)). The carried-document view asks again once
-  diagnostics arrive; the module view does not.
+```
+Module=TideTable; TideTable.bas
+```
 
-When #273 is fixed this should become an ordinary `Module=` line, and that change is the test that it was.
-Keep `TideTable.bas` listed in `.rdproj` when it does. A file opened but not listed still gets folds and
-syntax errors, but not RDCore's semantic checks.
+`Module=` requires `Name; File` and a bare path is rejected — `Module=TideTable.bas` makes `vb6.exe` report
+that *the project file is corrupt*, naming no line. That is measured, along with the other four item keys,
+which do **not** all agree: see *A `.vbp` item line has two shapes* in
+[`docs/vb6-fidelity-oracle.md`](../../docs/vb6-fidelity-oracle.md). Keep `TideTable.bas` listed in `.rdproj`
+too: a file opened but not listed still gets folds and syntax errors, but not RDCore's semantic checks.
+
+**It used to be `RelatedDoc=`, as a workaround, and that is worth recording because it was the demo's own
+acceptance test.** Two things made a real module unusable here, and both are now closed:
+
+- As a module, HexIDE named the file to servers as `vb6://module/TideTable`
+  ([#273](https://github.com/hexide-io/HexIDE/issues/273)) — a scheme HexIDE invented for itself. RDCore
+  finds a document only by its file path: at first it implemented no document sync and never received the
+  text, and now that it accepts an opened document's text it still finds the document again by path. So
+  every answer about the `vb6:` name came back empty, with nothing saying why. A document is now named by its
+  file, and this demo is what proved it: measured on the wire against `d1c04b5`, HexIDE sends
+  `file:///…/demo/spring-tide/TideTable.bas`, and RDCore answers with six folding regions and one
+  `VBC00001` — the same answers it gave the carried document. A document with no file yet is named
+  `untitled:`, and at `a9a4918` RDCore answered that name as it answered `vb6:`, with nothing.
+- A module opened before its server had initialized never asked for folds
+  ([#446](https://github.com/hexide-io/HexIDE/issues/446)), where the carried-document view asked again
+  once diagnostics arrived. Fixed independently.
+
+**Whether a `didOpen` is sent depends on RDCore's commit.** At `d1c04b5` RDCore advertised no
+`textDocumentSync`, so HexIDE told it nothing about the buffer and it read the file from disk. It has since
+registered its open, change and close handlers (see *Against RDCore's current `main`* below), and HexIDE
+sends all three with no change of its own, because it gates every lifecycle notification on what the server
+advertises. If the Protocol Inspector shows no open notification, check the commit before concluding that a
+document failed to open.
 
 **The error is after the last member, not inside one.** RDCore's parser does not recover after a syntax
 error: everything below the first one gets no folds and no diagnostics, and the member containing it is cut
@@ -99,7 +127,8 @@ HexIDE widens a zero-width range to a single character so it can be seen at all.
 ## Against RDCore's current `main`
 
 Measured on 2026-10-05 against RDCore `a9a4918`, published locally and attached through this profile. The
-screenshot predates it.
+screenshot is not from it: it was taken on 2026-10-13 against `d1c04b5`, with the code window holding the whole
+file ([#273](https://github.com/hexide-io/HexIDE/issues/273)).
 
 **Folds follow your edits now, and the squiggle may not.** RDCore receives the text of an opened document,
 and the change after each edit, so its folds track what you type. Its diagnostics stop. Line 17,

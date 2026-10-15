@@ -17,16 +17,22 @@ public sealed class BookmarkMargin : AbstractMargin
 
     private readonly IBookmarkService _bookmarkService;
     private readonly DocumentIdentity _document;
+    private readonly Func<int, bool> _toggle;
 
     /// <param name="document">
     /// The document this gutter is drawn for — an identity, for the reason given on
     /// <see cref="HexIDE.Debugging.BreakpointMargin"/>: a name captured at attach and one recomputed by the
     /// Ctrl+F2 command diverge on the first rename.
     /// </param>
-    public BookmarkMargin(IBookmarkService bookmarkService, DocumentIdentity document)
+    /// <param name="toggle">
+    /// What a click does, given the clicked line, 1-based: the code window's own toggle, which refuses a
+    /// read-only line, as <see cref="HexIDE.Debugging.BreakpointMargin"/>'s does.
+    /// </param>
+    public BookmarkMargin(IBookmarkService bookmarkService, DocumentIdentity document, Func<int, bool> toggle)
     {
         _bookmarkService = bookmarkService;
         _document = document;
+        _toggle = toggle;
     }
 
     protected override void OnTextViewChanged(TextView? oldTextView, TextView? newTextView)
@@ -90,8 +96,7 @@ public sealed class BookmarkMargin : AbstractMargin
         var visualLine = textView.GetVisualLineFromVisualTop(docY);
         if (visualLine == null) return;
 
-        int lineNumber = visualLine.FirstDocumentLine.LineNumber - 1; // 0-based
-        _bookmarkService.Toggle(_document, lineNumber);
+        _toggle(visualLine.FirstDocumentLine.LineNumber);
         e.Handled = true;
     }
 }

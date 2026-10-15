@@ -40,6 +40,52 @@ public sealed class DocumentIdentityTests
     }
 
     [Fact]
+    public void ADocumentWithNoFileAnswersNullRatherThanThrowing()
+    {
+        // Written as `module?.AbsolutePath ?? form!.AbsolutePath`, this threw: the left side is null for a
+        // module that has not been saved, so `??` evaluated the right side and dereferenced a form that is
+        // null by construction. Nothing asked a pathless document for its path until the wire name did, and
+        // #489 established that a pathless document is the ordinary state rather than a rare one.
+        var (_, module) = AProjectWithAModule();
+        var form = TestHelpers.CreateForm(name: "Form1");
+
+        DocumentIdentity.For(module).Invoking(d => d.AbsolutePath).Should().NotThrow()
+            .Which.Should().BeNull();
+        DocumentIdentity.For(form).Invoking(d => d.AbsolutePath).Should().NotThrow()
+            .Which.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(ModuleKind.StandardModule, ".bas")]
+    [InlineData(ModuleKind.ClassModule, ".cls")]
+    [InlineData(ModuleKind.UserControl, ".ctl")]
+    [InlineData(ModuleKind.PropertyPage, ".pag")]
+    public void TheExtensionIsTheOneTheDocumentWillBeSavedWith(ModuleKind kind, string extension)
+    {
+        // Read off the kind, never off AbsolutePath, because a document with no file still has a kind and
+        // its wire name is built from it.
+        var project = TestHelpers.CreateProject();
+        var module = new ModuleDefinition(project, "Thing", kind);
+        project.AddModule(module);
+
+        DocumentIdentity.For(module).Extension.Should().Be(extension);
+    }
+
+    [Fact]
+    public void AFormsExtensionIsFrm_AndAUserControlsIsNotItsDesignerHalfs()
+    {
+        DocumentIdentity.For(TestHelpers.CreateForm()).Extension.Should().Be(".frm");
+
+        var project = TestHelpers.CreateProject();
+        var module = new ModuleDefinition(project, "Gauge", ModuleKind.UserControl);
+        project.AddModule(module);
+        var designer = new FormDefinition(project, FormComponentClass.Instance, "Gauge");
+        module.UpdateFormPart(designer);
+
+        DocumentIdentity.For(designer).Extension.Should().Be(".ctl", "one file, one identity, one extension");
+    }
+
+    [Fact]
     public void AFirstSaveDoesNotChangeTheIdentity()
     {
         var (_, module) = AProjectWithAModule();

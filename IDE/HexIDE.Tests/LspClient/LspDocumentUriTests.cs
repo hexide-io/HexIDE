@@ -31,13 +31,42 @@ public class LspDocumentUriTests
     [Fact]
     public void SchemeAndHostAreCaseInsensitivePerRfc3986()
     {
-        LspDocumentUri.AreSame("VB6://module/Module1", "vb6://module/Module1").Should().BeTrue();
+        LspDocumentUri.AreSame("UNTITLED:Project1/Module1.bas", "untitled:Project1/Module1.bas")
+            .Should().BeTrue();
     }
 
     [Fact]
-    public void TheVb6SchemeIgnoresCaseBecauseVb6IdentifiersDo()
+    public void TheUntitledSchemeIgnoresCaseBecauseVb6NamesDo()
     {
-        LspDocumentUri.AreSame("vb6://module/Module1", "vb6://module/MODULE1").Should().BeTrue();
+        // Both segments of untitled:<Project>/<Name>.<ext> are VB6 names, and VB6 compares names without
+        // regard to case. Inherited from the vb6:// scheme this replaced, for the same reason.
+        LspDocumentUri.AreSame("untitled:Project1/Module1.bas", "untitled:PROJECT1/MODULE1.bas")
+            .Should().BeTrue();
+    }
+
+    [Fact]
+    public void AnUntitledUriSurvivesNormalisationAtAll()
+    {
+        // untitled: has no authority, so it is not the hierarchical shape the file: cases exercise. Asserted
+        // on its own because a scheme the URI parser handles differently would make every comparison above
+        // pass for the wrong reason, or throw, and neither would be obvious from the cases that use it.
+        LspDocumentUri.AreSame("untitled:Project1/Module1.bas", "untitled:Project1/Module1.bas")
+            .Should().BeTrue();
+        LspDocumentUri.AreSame("untitled:Project1/Module1.bas", "untitled:Project1/Module2.bas")
+            .Should().BeFalse();
+        LspDocumentUri.AreSame("untitled:Project1/Module1.bas", "untitled:Project2/Module1.bas")
+            .Should().BeFalse();
+        LspDocumentUri.AreSame("untitled:Project1/Module1.bas", "untitled:Project1/Module1.cls")
+            .Should().BeFalse("the extension is what routes the document, so it distinguishes two of them");
+    }
+
+    [Fact]
+    public void AnEncodedUntitledNameMatchesItsRawSpelling()
+    {
+        // HexIDE always sends the encoded form (#486). A push server echoes back what it was sent, so this
+        // only matters for one that normalises — but that is exactly the case this class exists for.
+        LspDocumentUri.AreSame("untitled:Pr%C3%B8jekt/Mod.bas", "untitled:Prøjekt/Mod.bas")
+            .Should().BeTrue();
     }
 
     [Fact]
@@ -46,9 +75,9 @@ public class LspDocumentUriTests
         // The counter-example that matters. A fix implemented as OrdinalIgnoreCase would pass every
         // test above and fail this one only on a case-sensitive filesystem — silently attributing
         // one file's diagnostics to another, which is worse than the bug being fixed.
-        LspDocumentUri.AreSame("vb6://module/Module1", "vb6://module/Module2").Should().BeFalse();
+        LspDocumentUri.AreSame("untitled:P/Module1.bas", "untitled:P/Module2.bas").Should().BeFalse();
         LspDocumentUri.AreSame("file:///c:/a/Mod.bas", "file:///c:/b/Mod.bas").Should().BeFalse();
-        LspDocumentUri.AreSame("vb6://module/Module1", "vb6://form/Module1").Should().BeFalse();
+        LspDocumentUri.AreSame("untitled:P/Module1.bas", "file:///c:/P/Module1.bas").Should().BeFalse();
     }
 
     [Fact]
@@ -70,8 +99,8 @@ public class LspDocumentUriTests
     public void NullsAreHandledWithoutThrowing()
     {
         LspDocumentUri.AreSame(null, null).Should().BeTrue();
-        LspDocumentUri.AreSame(null, "vb6://module/M").Should().BeFalse();
-        LspDocumentUri.AreSame("vb6://module/M", null).Should().BeFalse();
+        LspDocumentUri.AreSame(null, "untitled:P/M.bas").Should().BeFalse();
+        LspDocumentUri.AreSame("untitled:P/M.bas", null).Should().BeFalse();
     }
 
     [Fact]
@@ -81,11 +110,11 @@ public class LspDocumentUriTests
         // comparer silently stops working for precisely the inputs it exists to handle.
         var dict = new Dictionary<string, int>(LspDocumentUri.Comparer)
         {
-            ["vb6://module/Module1"] = 1,
+            ["untitled:Project1/Module1.bas"] = 1,
         };
 
-        dict.ContainsKey("vb6://module/MODULE1").Should().BeTrue();
-        dict["vb6://module/MODULE1"] = 2;
+        dict.ContainsKey("untitled:PROJECT1/MODULE1.bas").Should().BeTrue();
+        dict["untitled:PROJECT1/MODULE1.bas"] = 2;
         dict.Should().HaveCount(1, "one document must not occupy two entries");
     }
 }

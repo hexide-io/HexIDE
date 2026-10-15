@@ -128,12 +128,59 @@ public interface ILspClient : IAsyncDisposable
     Task OpenDocumentAsync(string uri, string text, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Opens a document at <see cref="LspDocumentVersion.Opening"/>, stating whether it belongs to a VB6
+    /// project.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A project member is known to be VB6 whatever its extension shares with another language, so it is
+    /// offered only to servers whose own claim establishes VB6 (hexide-io/HexIDE#279). <c>.cls</c> is the
+    /// case that matters: a VB6 class module and a LaTeX class file spell the same.
+    /// </para>
+    /// <para>
+    /// <b>An overload, not a defaulted parameter on the method above.</b> A <c>bool</c> defaulted after the
+    /// cancellation token would compile at every existing call site and then quietly change what they mean:
+    /// every <c>Received().OpenDocumentAsync(uri, text, Arg.Any&lt;CancellationToken&gt;())</c> in the suite
+    /// would start asserting against an implicit <c>false</c> that production no longer passes, and the
+    /// resulting wall of red reads as a routing regression rather than as a signature change.
+    /// </para>
+    /// <para>
+    /// The caller states it because the registry cannot work it out. It holds no model of the project by
+    /// design, and neither parsing an <c>untitled:</c> name back into its parts nor matching a path would
+    /// answer — the first is forbidden everywhere else in this seam, and the second cannot see a document
+    /// that has no file. The opener already knows.
+    /// </para>
+    /// </remarks>
+    Task OpenDocumentAsync(
+        string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Sends a document's whole new text. <paramref name="version"/> must be later than the version of the
     /// last message about the document, beginning with <see cref="LspDocumentVersion.Opening"/>, or a server
     /// that orders by version may discard the text as stale.
     /// </summary>
     Task ChangeDocumentAsync(string uri, int version, string text, CancellationToken cancellationToken = default);
     Task CloseDocumentAsync(string uri, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Closes a document because it is about to be re-opened under a different name, and withdraws every
+    /// diagnostic recorded under the old one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Separate from <see cref="CloseDocumentAsync"/> because the two want opposite things. An ordinary
+    /// close must NOT withdraw everything: a build's claim about a form outlives the editor that happened
+    /// to be showing it, and the document still exists under that name. A rename must, because nothing
+    /// will ever answer to the old name again, so anything left under it is a mark with no way to be
+    /// cleared — which is hexide-io/HexIDE#269's shape arriving by a different route.
+    /// </para>
+    /// <para>
+    /// Not expressible as "close, then publish an empty set". An empty publication from a language server
+    /// removes only that server's rows; a document carrying an injected compiler diagnostic as well still
+    /// publishes a non-empty union, and those survivors are exactly the ones nothing can clear.
+    /// </para>
+    /// </remarks>
+    Task CloseDocumentForRenameAsync(string uri, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Tells the servers holding this document that it has been written to disk.

@@ -76,7 +76,7 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
     public async Task AForeignServerStartsLazilyAndItsDiagnosticsReachUs()
     {
         // The whole proof in one test: routing by language id, lazy start on first document, a real stdio
-        // subprocess we did not write, a `file://` URI (every URI HexIDE has ever sent is `vb6://`), and a
+        // subprocess we did not write, a `file://` URI (until #273 every URI HexIDE sent was `vb6://`), and a
         // capability handshake with a server that advertises honestly rather than advertising nothing.
         var sut = ForeignMarkdownRegistry();
         var received = new TaskCompletionSource<PublishDiagnosticsParams>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -215,7 +215,7 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
         // that sent every document to every server.
         var sut = ForeignMarkdownRegistry();
 
-        await sut.OpenDocumentAsync("vb6://module/Module1", "Sub Main()\nEnd Sub\n");
+        await sut.OpenDocumentAsync("untitled:Project1/Module1.bas", "Sub Main()\nEnd Sub\n");
 
         sut.Connections.Single().State.Should().Be(
             LanguageConnectionState.NotStarted,

@@ -75,7 +75,8 @@ public class UnfaithfulSaveGateTests : IDisposable
             Substitute.For<IReferenceLibraryService>(),
             sidecar,
             new FileBaselineStore(),
-            localization);
+            localization,
+            Substitute.For<IHeaderRefresher>());
     }
 
     private const string FlatForm =

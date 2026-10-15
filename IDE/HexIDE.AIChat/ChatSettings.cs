@@ -14,7 +14,7 @@ public sealed class ChatSettings
     public string ApiKey { get; set; } = string.Empty;
 
     [JsonPropertyName("modelId")]
-    public string ModelId { get; set; } = "claude-opus-5";
+    public string ModelId { get; set; } = "claude-opus-5-5";
 
     [JsonPropertyName("maxTurnsBeforeCompaction")]
     public int MaxTurnsBeforeCompaction { get; set; } = 20;

@@ -7,11 +7,19 @@ namespace HexIDE.Redaction;
 /// Rewrites the four places a captured conversation carries something about the machine it ran on.
 /// </summary>
 /// <remarks>
-/// <b>The surface is enumerable, and that is a finding rather than a simplification.</b> VB6 forms and
-/// modules ride an opaque scheme that carries only a component name, so the primary editor's traffic is
-/// already free of filesystem paths. Real paths reach the wire through exactly three places — the
-/// handshake's root URI, its workspace folders, and the URIs of carried files — and a fourth category is
-/// not a path at all: the server launch configuration a user wrote by hand.
+/// <b>The surface is enumerable, and that is a finding rather than a simplification.</b> Names reach the
+/// wire through the handshake's root URI, its workspace folders, and the URI of every document — and a
+/// further category is not a path at all: the server launch configuration a user wrote by hand.
+///
+/// <para>
+/// <b>This used to say the primary editor's traffic was already path-free</b>, because VB6 forms and
+/// modules rode an opaque <c>vb6:</c> scheme that carried a component name and nothing else. That scheme is
+/// retired (hexide-io/HexIDE#273): a document is now named by its file where it has one, and
+/// <c>untitled:&lt;Project&gt;/&lt;Name&gt;.&lt;ext&gt;</c> where it does not. So the editor's own traffic
+/// is the largest source of real paths in a capture rather than the one source with none, and the reasoning
+/// is recorded here because a reader meeting the old sentence would reasonably conclude this file had less
+/// to do than it does.
+/// </para>
 ///
 /// <para>
 /// <b>Launch configuration is its own category because no content-agnostic rule would recognise it.</b>
@@ -28,27 +36,41 @@ namespace HexIDE.Redaction;
 /// </para>
 ///
 /// <para>
-/// <b>What it deliberately leaves alone.</b> A <c>vb6:</c> URI keeps its component name. That name is the
-/// one the developer typed, so it is not nothing — but it is also the only handle an author has on which
-/// document a message concerned, and a capture in which every module is <c>hx-toad</c> cannot be read
-/// against the project it came from. Recorded here as a known limit rather than an oversight, since it is
-/// the obvious first thing to revisit if this is ever pointed at a codebase whose module names are the
-/// sensitive part.
+/// <b>An <c>untitled:</c> name is pseudonymised like a path, because it is made of exactly what a path is
+/// made of.</b> Its two segments are the project's name and the document's own name, both typed by the
+/// developer, and a document having no file yet is no reason to disclose what they called it. It is treated
+/// as a path rather than replaced whole for the same reason a <c>file:</c> URI is: the shape survives, so a
+/// reader can still see that two messages concerned two documents of one project.
+/// </para>
+///
+/// <para>
+/// <b>What it deliberately leaves alone: the extension, the drive letter, and a bare switch.</b> Each is
+/// argued at its own member below. What it no longer leaves alone is a VB6 document's name — that was a
+/// recorded limit of the <c>vb6:</c> scheme and it went with the scheme.
 /// </para>
 /// </remarks>
 public sealed partial class ConversationRedactor
 {
     /// <summary>
-    /// A <c>file:</c> URI as it appears inside a JSON body.
+    /// A document URI — <c>file:</c> or <c>untitled:</c> — as it appears inside a JSON body.
     /// </summary>
     /// <remarks>
     /// Stops at the JSON string delimiter and steps over escape sequences, so a path carrying a
     /// <c>\uXXXX</c> escape is matched whole rather than truncated mid-escape. The matched text is never
     /// decoded: two differently-escaped spellings of one path are meant to produce two different
-    /// pseudonyms, because that difference is precisely the kind of defect this preserves.
+    /// pseudonyms, because that difference is precisely the kind of defect this preserves. The same applies
+    /// to case, which matters more for <c>untitled:</c> than for a path — two <c>untitled:</c> names are
+    /// compared case-insensitively by the client, so two spellings reaching the wire is a defect worth
+    /// seeing rather than one worth folding away here.
+    ///
+    /// <para>
+    /// <b>Both schemes, one expression, and it will match the word in prose too.</b> A diagnostic message
+    /// quoting a URI has it replaced along with the real ones. That is the safe direction for something
+    /// that governs egress, and it was already true of <c>file:</c>.
+    /// </para>
     /// </remarks>
-    [GeneratedRegex(@"file:(?:\\.|[^""\\\s])*", RegexOptions.IgnoreCase)]
-    private static partial Regex FileUriInJson();
+    [GeneratedRegex(@"(?:file|untitled):(?:\\.|[^""\\\s])*", RegexOptions.IgnoreCase)]
+    private static partial Regex DocumentUriInJson();
 
     private readonly Pseudonymiser _names;
 
@@ -76,7 +98,7 @@ public sealed partial class ConversationRedactor
     public long NamedValues => _names.Assigned;
 
     /// <summary>
-    /// Every <c>file:</c> URI inside a message body, rewritten in place.
+    /// Every document URI inside a message body, rewritten in place.
     /// </summary>
     /// <remarks>
     /// Textual rather than structural, because the body may be one this client could not decode — which is
@@ -87,11 +109,12 @@ public sealed partial class ConversationRedactor
     {
         if (!IsPseudonymising || json.Length == 0) return json;
 
-        return FileUriInJson().Replace(json, match => Uri(match.Value));
+        return DocumentUriInJson().Replace(json, match => Uri(match.Value));
     }
 
     /// <summary>
-    /// One URI. A <c>file:</c> URI is rewritten segment by segment; every other scheme is left alone.
+    /// One URI. A <c>file:</c> or <c>untitled:</c> URI is rewritten segment by segment; every other scheme
+    /// is left alone.
     /// </summary>
     /// <remarks>
     /// <b>Per segment, not per URI, and the drive letter is kept verbatim.</b> Naming a whole URI with one
@@ -108,10 +131,9 @@ public sealed partial class ConversationRedactor
     public string Uri(string uri)
     {
         if (!IsPseudonymising || uri.Length == 0) return uri;
-        if (!uri.StartsWith("file:", StringComparison.OrdinalIgnoreCase)) return uri;
+        if (SchemeOf(uri) is not { } scheme) return uri;
 
-        var scheme = uri[.."file:".Length];
-        var rest = uri["file:".Length..];
+        var rest = uri[scheme.Length..];
 
         var segments = rest.Split('/');
         for (var i = 0; i < segments.Length; i++)
@@ -122,6 +144,19 @@ public sealed partial class ConversationRedactor
 
         return scheme + string.Join('/', segments);
     }
+
+    /// <summary>
+    /// The scheme of a URI this rewrites, sliced from the original so its own capitalisation survives.
+    /// </summary>
+    /// <remarks>
+    /// Two schemes, listed rather than derived from the first colon. A scheme this file does not understand
+    /// must be left alone — its part after the colon may not be a path at all, and splitting it on slashes
+    /// would produce a plausible-looking URI that means something else.
+    /// </remarks>
+    private static string? SchemeOf(string uri) =>
+        uri.StartsWith("file:", StringComparison.OrdinalIgnoreCase) ? uri[.."file:".Length]
+        : uri.StartsWith("untitled:", StringComparison.OrdinalIgnoreCase) ? uri[.."untitled:".Length]
+        : null;
 
     /// <summary>A path on this machine, such as a server's working directory.</summary>
     /// <remarks>

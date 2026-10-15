@@ -62,11 +62,13 @@ public class FormDeserializer
         VBSerializedComponent rootComponent;
         string code;
         List<string> headerLines;
+        string designerText;
         try
         {
             var vb = new VbFrmFormatDeserializer();
             (rootComponent, code) = vb.Deserialize(source);
             headerLines = vb.HeaderLines;
+            designerText = vb.DesignerText;
             // The parser no longer reports a raw Begin depth. It counted every Begin without knowing what
             // any of them were, which stopped being a usable gate signal once menu nesting became
             // reproducible — only the component walk below can tell menu nesting from container nesting.
@@ -85,6 +87,10 @@ public class FormDeserializer
 
         var form = new FormDefinition(owner, Array.Empty<ComponentInstance>(), "");
         form.HeaderLines.AddRange(headerLines);
+        // The designer half verbatim, beside the components parsed out of it (#273 task 3.1). Set here
+        // rather than at the fidelity block below because `vb` is scoped to the try above, and this is
+        // where the other verbatim carry-over from the same read already lands.
+        form.RecordDesignerText(designerText);
         form.RecordLoadedCompanionBlobCount(frxBlobs?.Count ?? 0);
         var components = new List<ComponentInstance>();
         var maxUnreproducibleDepth = 0;

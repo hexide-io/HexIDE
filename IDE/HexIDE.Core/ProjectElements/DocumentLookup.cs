@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using HexIDE.Lsp;
 
 namespace HexIDE.Runtime.ProjectElements;
 
@@ -49,6 +50,48 @@ public static class DocumentLookup
     /// here: VB6 requires a name to be unique only within a project, so with a group open two documents may
     /// genuinely answer to <c>Module1</c>. The caller says what to do about it.
     /// </returns>
+    /// <summary>
+    /// The document saved at a path, or null when no loaded project has one there.
+    /// </summary>
+    /// <param name="projects">The projects to search — normally every loaded one.</param>
+    /// <param name="absolutePath">An absolute path in the HOST filesystem's own separators.</param>
+    /// <remarks>
+    /// <para>
+    /// Compared as URIs through <see cref="LspDocumentUri.AreSame"/> rather than as strings, because the
+    /// two spellings come from different places and need not agree character for character: one is what
+    /// <c>vb6.exe</c> printed into its log, the other is what the IDE stored when it saved the file.
+    /// Case, separators and a trailing dot are all fair game between them.
+    /// </para>
+    /// <para>
+    /// A document with no file cannot be found this way, and that is correct rather than a gap: the
+    /// compiler only ever names files it read.
+    /// </para>
+    /// </remarks>
+    public static DocumentIdentity? FindByPath(
+        IEnumerable<ProjectDefinition> projects, string absolutePath)
+    {
+        ArgumentNullException.ThrowIfNull(projects);
+        if (string.IsNullOrWhiteSpace(absolutePath)) return null;
+
+        string wanted;
+        try { wanted = LspDocumentUri.ForFile(absolutePath); }
+        catch (ArgumentException) { return null; }
+        catch (NotSupportedException) { return null; }
+
+        foreach (var document in projects.SelectMany(DocumentsOf))
+        {
+            if (document.AbsolutePath is not { } path) continue;
+            try
+            {
+                if (LspDocumentUri.AreSame(wanted, LspDocumentUri.ForFile(path))) return document;
+            }
+            catch (ArgumentException) { }
+            catch (NotSupportedException) { }
+        }
+
+        return null;
+    }
+
     public static IReadOnlyList<DocumentIdentity> Find(
         IEnumerable<ProjectDefinition> projects, string name, string? project = null)
     {

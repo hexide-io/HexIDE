@@ -6,7 +6,8 @@ using HexIDE.Runtime.ProjectElements;
 namespace HexIDE.Debugging;
 
 /// <summary>
-/// In-memory breakpoint store: 1-based line sets per document. Persistence is owned by
+/// In-memory breakpoint store: 1-based line sets per document, counted from the top of the file with its header
+/// included (see <see cref="IBreakpointService"/>). Persistence is owned by
 /// <c>UserSidecarService</c>, which loads/saves these alongside bookmarks in the per-user <c>&lt;project&gt;.user.hexproj</c>
 /// sidecar (beside the .vbp — the user chooses to commit or ignore it). Mirrors <c>BookmarkService</c> but keeps
 /// 1-based lines (matching the runtime and the breakpoint gutter).

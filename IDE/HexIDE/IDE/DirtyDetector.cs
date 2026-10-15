@@ -62,20 +62,32 @@ public sealed class DirtyDetector(IFileBaselineStore baselineStore, IProjectServ
         // its undo stack signals unsaved layout edits, mirroring the form case.
         var designerDirty = t.Designer is { CanUndo: true };
 
-        // A .bas/.cls/.ctl/.pag file's content is exactly module.Code, so the editor buffer / model code
-        // can be compared directly against the last-known disk content while open.
+        // While a window is open, the question is whether it holds anything the model does not: the code
+        // window's code section against module.Code, and the designer's undo stack for layout. The disk is not
+        // consulted. (This used to say a file's content was exactly module.Code, which is true of no kind that
+        // splits a header off at load: module.Code is the code section, the header held apart.)
         if (t.CodeEditor is not null || t.Designer is not null)
         {
+            // BufferBody, not Document.Text: since #273 task 3.2 the buffer is the whole file, so
+            // comparing it against Code would report every open document as edited -- and a Conflict is
+            // not merely "skip the reload", it queues the ConflictGate and raises a dialog. Every external
+            // change would prompt, and the silent CleanReload the file-watcher capability requires would
+            // never be reached. The editor owns the split so the two cannot disagree about where it is.
             var codeDirty = t.CodeEditor is not null
-                && !string.Equals(t.CodeEditor.Document.Text, module.Code, StringComparison.Ordinal);
+                && !string.Equals(t.CodeEditor.BufferBody, module.Code, StringComparison.Ordinal);
             return (codeDirty || designerDirty) ? ReloadDecision.Conflict : ReloadDecision.CleanReload;
         }
 
         var baseline = baselineStore.TryGet(t.SourcePath);
         if (baseline is null)
             return ReloadDecision.Indeterminate; // unknown saved state — don't risk clobbering edits
-        // module.Code is the body only for .bas/.cls; reconstruct the on-disk form (header + body) so the
-        // hash matches the baseline (which records the full file written to disk). No-op for .ctl/.pag.
+        // module.Code is the code section only, so a .bas/.cls is rebuilt as a save writes it (header + body)
+        // to be hashed against the baseline, which records the bytes on disk. Two things stop the two matching,
+        // both hexide-io/HexIDE#730, and each classes a module with no unsaved edits Conflict on an external
+        // change: the model is hashed as UTF-8 text where the baseline is the file's own bytes, so a Latin-1
+        // accent differs; and a .ctl/.pag is hashed as module.Code alone, which is its file only when its
+        // designer block did not parse, and otherwise the code after the root End. This used to call the
+        // .ctl/.pag case a no-op.
         var modelOnDisk = ModuleFileFormat.HandlesHeader(module.Kind)
             ? ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind, module.OriginalHeader)
             : module.Code;
@@ -86,10 +98,11 @@ public sealed class DirtyDetector(IFileBaselineStore baselineStore, IProjectServ
 
     private ReloadDecision ClassifyForm(WatchedFileTarget t)
     {
-        // A .frm is serialized layout + code, so we cannot compare a raw hash to the editor buffer
-        // (which holds only the code) or to a re-serialized model (round-trip is not byte-identical).
-        // Use the editor buffer vs the model code for code dirtiness and the designer undo stack for
-        // layout dirtiness — both only meaningful while the file is open.
+        // A .frm is serialized layout + code, so we cannot compare a raw hash to a re-serialized model
+        // (round-trip is not byte-identical), nor to the editor buffer: that holds the whole file since #273,
+        // but its header is the designer text as last read, saved or committed, which says nothing about layout
+        // still in the designer. Use the buffer's code section vs the model code for code dirtiness and the
+        // designer undo stack for layout dirtiness — both only meaningful while the file is open.
         //
         // With no views to consult, ask the project service the render-vs-render question the save
         // prompt uses: has the model changed since it was last loaded, saved, or reloaded? That sidesteps
@@ -101,8 +114,9 @@ public sealed class DirtyDetector(IFileBaselineStore baselineStore, IProjectServ
                 ? ReloadDecision.Conflict
                 : ReloadDecision.CleanReload;
 
+        // BufferBody rather than the raw buffer -- see the note in ClassifyModule.
         var codeDirty = t.CodeEditor is not null
-            && !string.Equals(t.CodeEditor.Document.Text, t.Form!.Code, StringComparison.Ordinal);
+            && !string.Equals(t.CodeEditor.BufferBody, t.Form!.Code, StringComparison.Ordinal);
         var designerDirty = t.Designer is { CanUndo: true };
         return (codeDirty || designerDirty) ? ReloadDecision.Conflict : ReloadDecision.CleanReload;
     }

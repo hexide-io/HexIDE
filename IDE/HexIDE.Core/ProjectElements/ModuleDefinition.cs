@@ -16,7 +16,24 @@ public partial class ModuleDefinition : INotifyPropertyChanged
     private string? absolutePath;
     private string name;
 
-    /// <summary>The full file content — shown as-is in the code editor.</summary>
+    /// <summary>
+    /// The module's code section: the file minus what its kind splits off at load.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// For a <c>.bas</c> or <c>.cls</c> that is the body below the header, which is held apart in
+    /// <see cref="OriginalHeader"/>. For a <c>.ctl</c> or <c>.pag</c> it is everything after the designer block's
+    /// root <c>End</c>, the leading <c>Attribute</c> run included, with the designer block on the
+    /// <see cref="FormPart"/>. Where the load recognised no header, or could not parse the designer block, nothing
+    /// was split off and this is the whole file.
+    /// </para>
+    /// <para>
+    /// <b>This used to say it was the full file, shown as-is in the code editor.</b> It was neither, for any kind
+    /// that split something off. Since hexide-io/HexIDE#273 the code window shows the whole file, but as a prefix
+    /// composed in front of this (<c>FormCodeText.Prefix</c>), split off again on every flush, so this still never
+    /// holds the header the window shows.
+    /// </para>
+    /// </remarks>
     public string Code { get; private set; }
 
     public FormDefinition? FormPart { get; private set; }
@@ -55,10 +72,11 @@ public partial class ModuleDefinition : INotifyPropertyChanged
         Owner = owner;
         this.name = name;
         Kind = kind;
-        // .bas/.cls keep their VB6 file header OUT of the editable Code (ModuleFileFormat adds it on save,
-        // mirroring how FormSerializer manages a form's structural header) — so the editor shows only the
-        // code body, as the VB6 IDE does, and clearing the editor can't corrupt the file. .ctl/.pag carry a
-        // FormPart through FormSerializer, which expects the Attribute line to live in Code.
+        // .bas/.cls keep their VB6 file header OUT of Code: ModuleFileFormat writes it in front on save, as
+        // FormSerializer writes a form's designer block. The code window shows it all the same, as a greyed,
+        // read-only prefix that the flush splits off again (#273), so typing in the window cannot reach the
+        // header and Code stays the body. .ctl/.pag carry a FormPart through FormSerializer, which expects
+        // the Attribute line to live in Code, so their new Code opens with it.
         Code = kind is ModuleKind.StandardModule or ModuleKind.ClassModule
             ? ""
             : $"Attribute VB_Name = \"{name}\"\r\n";
@@ -67,13 +85,31 @@ public partial class ModuleDefinition : INotifyPropertyChanged
     public void UpdateCode(string newCode) => Code = newCode;
 
     /// <summary>
-    /// The module's VB6 header exactly as it was read from disk, re-emitted verbatim on save. Empty for a
-    /// module HexIDE created, which falls back to the canonical literal.
-    ///
+    /// A <c>.bas</c> or <c>.cls</c> module's VB6 header exactly as it was read from disk, re-emitted verbatim on
+    /// save with only its <c>Attribute VB_Name</c> retargeted, and shown as the code window's read-only header.
+    /// </summary>
+    /// <remarks>
+    /// <para>
     /// Regenerating a class header from the literal resets VB_Exposed, VB_Creatable, MultiUse and the
     /// data-binding keys — how VB6 encodes Instancing — on every save, including for files the user never
     /// opened. Preserving the original text is both safer and simpler than modelling those settings.
-    /// </summary>
+    /// </para>
+    /// <para>
+    /// <b>Null and empty mean different things, and this used to say a created module's was empty.</b>
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description><c>null</c> — never read from disk: a module HexIDE created. Its file will say the
+    /// canonical literal, and the code window shows that.</description></item>
+    /// <item><description><c>""</c> — read, and no header recognised, so <see cref="Code"/> holds the whole
+    /// file. The code window adds nothing in front of it. A save still writes the canonical literal in front,
+    /// which is hexide-io/HexIDE#472.</description></item>
+    /// <item><description>anything else — the header as read.</description></item>
+    /// </list>
+    /// <para>
+    /// <c>ModuleFileFormat.BufferHeader</c> is the one reader that tells the first two apart;
+    /// <c>ModuleFileFormat.ToFileContent</c> treats both as "no header".
+    /// </para>
+    /// </remarks>
     public string? OriginalHeader { get; private set; }
 
     public void RecordOriginalHeader(string? header) => OriginalHeader = header;

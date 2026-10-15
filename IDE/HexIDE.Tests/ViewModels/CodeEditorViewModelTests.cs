@@ -7,6 +7,7 @@ using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Serialization;
 
 namespace HexIDE.Tests.ViewModels;
 
@@ -135,12 +136,58 @@ public class CodeEditorViewModelTests : IDisposable
     }
 
     [AvaloniaFact]
-    public void Initialize_Module_SetsDocumentTextFromModuleCode()
+    public void Initialize_Module_SetsDocumentTextToTheWholeFile()
     {
+        // Renamed and retargeted rather than adjusted. It asserted buffer == Code, which was the contract
+        // #273 task 3.2 exists to replace: the buffer is now the whole file, so that one line number means
+        // the same thing to the editor, a language server, the interpreter and the debugger. A module
+        // HexIDE created has no preserved header, so its prefix is the canonical literal.
         var module = TestHelpers.CreateModule(name: "Module1");
         var vm = CreateSut().Initialize(module);
 
+        vm.Document.Text.Should().Be("Attribute VB_Name = \"Module1\"\r\n" + module.Code);
+        vm.BufferBody.Should().Be(module.Code, "the split has to invert the composition exactly");
+    }
+
+    [AvaloniaFact]
+    public void Initialize_Form_ShowsItsDesignerHalfInFrontOfItsCode()
+    {
+        // The form half of the same rule. A form HexIDE created has no designer text, so nothing is put in
+        // front of it -- there is no file yet for the buffer to differ from.
+        var form = TestHelpers.CreateForm(name: "Form1");
+        form.RecordDesignerText("VERSION 5.00\r\nBegin VB.Form Form1 \r\nEnd\r\n");
+        var vm = CreateSut().Initialize(form);
+
+        vm.Document.Text.Should().StartWith("VERSION 5.00").And.EndWith(form.Code);
+        vm.BufferBody.Should().Be(form.Code);
+    }
+
+    [AvaloniaFact]
+    public void AFormWithNoFileShowsItsCodeAlone()
+    {
+        var form = TestHelpers.CreateForm(name: "Form1");
+        var vm = CreateSut().Initialize(form);
+
+        vm.Document.Text.Should().Be(form.Code);
+        vm.BufferBody.Should().Be(form.Code);
+    }
+
+    [AvaloniaFact]
+    public void AModuleWhoseHeaderWasNotRecognisedGetsNoPrefix()
+    {
+        // hexide-io/HexIDE#472: recognition is positional and tests only line 0, so a leading blank line
+        // is enough to leave the WHOLE file in Code with an empty recorded header. Prepending the canonical
+        // literal on top of that would show the developer two headers. Null means "never read from disk";
+        // empty means "read, and nothing was split off" -- ToFileContent conflates them with IsNullOrEmpty,
+        // which is the defect, and the buffer must not.
+        var module = TestHelpers.CreateModule(name: "Module1");
+        module.RecordOriginalHeader("");
+        module.UpdateCode("\r\nAttribute VB_Name = \"Module1\"\r\nOption Explicit\r\n");
+
+        var vm = CreateSut().Initialize(module);
+
         vm.Document.Text.Should().Be(module.Code);
+        vm.BufferBody.Should().Be(module.Code);
     }
 
     [AvaloniaFact]
@@ -201,7 +248,11 @@ public class CodeEditorViewModelTests : IDisposable
         vm.Document.UndoStack.Undo();
         if (vm.Document.UndoStack.CanUndo) vm.Document.UndoStack.Undo();
 
-        vm.Document.Text.Should().Be(SomeCode);
+        // BufferBody, not Document.Text: since #273 task 3.2 the buffer holds the whole file, so a module's
+        // own `Attribute VB_Name` header sits above the code. What this test is about is that the code
+        // survived, and the code is the body.
+        vm.BufferBody.Should().Be(SomeCode);
+        vm.Document.TextLength.Should().BeGreaterThan(0, "undoing past the load must not empty the window");
     }
 
     [AvaloniaFact]
@@ -212,7 +263,9 @@ public class CodeEditorViewModelTests : IDisposable
         var vm = CreateSut().Initialize(module);
         vm.Document.Insert(0, "x");
 
-        vm.ReloadFrom("Private Sub Bar()\r\nEnd Sub\r\n");
+        // A module has no designer prefix, so the reload is body-only. ReloadFrom takes both halves since
+        // #273 task 3.2, because a form's buffer holds its designer block above the code.
+        vm.ReloadFrom("", "Private Sub Bar()\r\nEnd Sub\r\n");
 
         vm.Document.UndoStack.CanUndo.Should().BeFalse("undoing across a reload would put back text the file no longer has");
     }
@@ -220,21 +273,21 @@ public class CodeEditorViewModelTests : IDisposable
     // ── Document URI ─────────────────────────────────────────────────
 
     [AvaloniaFact]
-    public void GetDocumentUri_Form_ReturnsCorrectUri()
+    public void GetDocumentUri_AFormWithNoFile_IsNamedUntitledUnderItsProject()
     {
         var form = TestHelpers.CreateForm(name: "Form1");
         var vm = CreateSut().Initialize(form);
 
-        vm.GetDocumentUriPublic().Should().Be("vb6://form/Form1");
+        vm.GetDocumentUriPublic().Should().Be("untitled:TestProject/Form1.frm");
     }
 
     [AvaloniaFact]
-    public void GetDocumentUri_Module_ReturnsCorrectUri()
+    public void GetDocumentUri_AModuleWithNoFile_IsNamedUntitledUnderItsProject()
     {
         var module = TestHelpers.CreateModule(name: "Module1");
         var vm = CreateSut().Initialize(module);
 
-        vm.GetDocumentUriPublic().Should().Be("vb6://module/Module1");
+        vm.GetDocumentUriPublic().Should().Be("untitled:TestProject/Module1.bas");
     }
 
     // ── LSP open on init ─────────────────────────────────────────────
@@ -248,8 +301,9 @@ public class CodeEditorViewModelTests : IDisposable
         CreateSut().Initialize(form);
 
         _lspClient.Received(1).OpenDocumentAsync(
-            "vb6://form/Form1",
+            "untitled:TestProject/Form1.frm",
             form.Code,
+            true,
             Arg.Any<CancellationToken>());
     }
 
@@ -267,7 +321,8 @@ public class CodeEditorViewModelTests : IDisposable
 
         CreateSut().Initialize(form);
 
-        _lspClient.Received(1).OpenDocumentAsync("vb6://form/Form1", form.Code, Arg.Any<CancellationToken>());
+        _lspClient.Received(1).OpenDocumentAsync(
+            "untitled:TestProject/Form1.frm", form.Code, true, Arg.Any<CancellationToken>());
     }
 
     [AvaloniaFact]
@@ -279,8 +334,10 @@ public class CodeEditorViewModelTests : IDisposable
         CreateSut().Initialize(module);
 
         _lspClient.Received(1).OpenDocumentAsync(
-            "vb6://module/Module1",
-            module.Code,
+            "untitled:TestProject/Module1.bas",
+            // The whole file since #273 task 3.2 -- see the sibling assertion below.
+            "Attribute VB_Name = \"Module1\"\r\n" + module.Code,
+            true,
             Arg.Any<CancellationToken>());
     }
 
@@ -298,7 +355,210 @@ public class CodeEditorViewModelTests : IDisposable
 
         CreateSut().Initialize(module);
 
-        _lspClient.Received(1).OpenDocumentAsync("vb6://module/Module1", module.Code, Arg.Any<CancellationToken>());
+        // The WHOLE file, which is the point of the change rather than a side effect of it: a server that
+        // reads a document from disk and a server that is handed the buffer must see the same text, or the
+        // positions they report do not mean the same thing.
+        _lspClient.Received(1).OpenDocumentAsync(
+            "untitled:TestProject/Module1.bas",
+            "Attribute VB_Name = \"Module1\"\r\n" + module.Code, true, Arg.Any<CancellationToken>());
+    }
+
+    // ── Dirty detection follows the split (#273 task 3.2a) ───────────
+
+    [AvaloniaFact]
+    public void AnUneditedOpenDocumentIsACleanReloadRatherThanAConflict()
+    {
+        // THE reason 3.2a ships with 3.2 rather than after it. Once the buffer is the whole file it never
+        // equals Code again, so a detector still comparing the raw buffer reports EVERY open document as
+        // edited. And Conflict is not merely "skip the reload" -- it queues the ConflictGate and raises a
+        // dialog, so every external change to any open file would prompt, and the silent CleanReload the
+        // file-watcher capability requires would never be reached once.
+        var module = TestHelpers.CreateModule(name: "Module1");
+        module.UpdateCode("Option Explicit\r\n");
+        var vm = CreateSut().Initialize(module);
+
+        var detector = new DirtyDetector(new FileBaselineStore(), Substitute.For<IProjectService>());
+
+        detector.Classify(new WatchedFileTarget("Module1.bas", null, module, vm, null))
+            .Should().Be(ReloadDecision.CleanReload);
+    }
+
+    [AvaloniaFact]
+    public void AnEditedOpenDocumentIsStillAConflict()
+    {
+        // The other side, and the one a careless split would break in the opposite direction: comparing
+        // the wrong pair could just as easily make everything look clean, and a CleanReload over unsaved
+        // work discards it silently.
+        var module = TestHelpers.CreateModule(name: "Module1");
+        module.UpdateCode("Option Explicit\r\n");
+        var vm = CreateSut().Initialize(module);
+
+        vm.Document.Text += "Dim x As Long\r\n";
+
+        var detector = new DirtyDetector(new FileBaselineStore(), Substitute.For<IProjectService>());
+
+        detector.Classify(new WatchedFileTarget("Module1.bas", null, module, vm, null))
+            .Should().Be(ReloadDecision.Conflict);
+    }
+
+    [AvaloniaFact]
+    public void EditingTheBodyFlushesTheBodyAloneBackToTheModel()
+    {
+        // The composition has to be invertible or the header ends up in Code, where the interpreter
+        // compiles it as VB -- and it would be written back into the file below its real header on the
+        // next save, doubling it.
+        var module = TestHelpers.CreateModule(name: "Module1");
+        module.UpdateCode("Option Explicit\r\n");
+        var vm = CreateSut().Initialize(module);
+
+        vm.Document.Text += "Dim x As Long\r\n";
+        vm.Dispose();
+
+        module.Code.Should().Be("Option Explicit\r\nDim x As Long\r\n");
+        module.Code.Should().NotContain("Attribute VB_Name");
+    }
+
+    [AvaloniaFact]
+    public void ReplacingTheBodyLeavesTheHeaderStanding()
+    {
+        // The write half of the same contract. Automation and the add-in surface both assign a bare body;
+        // before ReplaceBody they assigned it straight over Document.Text, which since 3.2 would destroy
+        // the header and leave the next flush splitting into the body.
+        var module = TestHelpers.CreateModule(name: "Module1");
+        module.UpdateCode("Option Explicit\r\n");
+        var vm = CreateSut().Initialize(module);
+
+        vm.ReplaceBody("Public Sub Main()\r\nEnd Sub\r\n");
+
+        vm.Document.Text.Should().Be(
+            "Attribute VB_Name = \"Module1\"\r\nPublic Sub Main()\r\nEnd Sub\r\n");
+        vm.BufferBody.Should().Be("Public Sub Main()\r\nEnd Sub\r\n");
+    }
+
+    // -- The header is refreshed in place (#273 tasks 3.3/3.3a) -------
+
+    [AvaloniaFact]
+    public void ARefreshedHeaderReplacesTheHeaderAndLeavesTheBodyWhereItWas()
+    {
+        var module = TestHelpers.CreateModule(name: "Module1");
+        module.UpdateCode("Option Explicit\r\nDim x As Long\r\n");
+        var vm = CreateSut().Initialize(module);
+
+        vm.RefreshPrefix("Attribute VB_Name = \"RenamedToSomethingMuchLonger\"\r\n");
+
+        vm.Document.Text.Should().Be(
+            "Attribute VB_Name = \"RenamedToSomethingMuchLonger\"\r\nOption Explicit\r\nDim x As Long\r\n");
+        vm.BufferBody.Should().Be("Option Explicit\r\nDim x As Long\r\n");
+    }
+
+    [AvaloniaFact]
+    public void ARefreshedHeaderCarriesTheCaretWithTheLineItWasOn()
+    {
+        // The whole reason this replaces the header REGION rather than assigning Document.Text: a
+        // whole-document assignment collapses every anchor AvaloniaEdit holds -- the caret, the selection,
+        // the LSP marker segments, the folds -- and the developer's cursor jumps to the top of the file
+        // every time they nudge a control in the designer.
+        var module = TestHelpers.CreateModule(name: "Module1");
+        module.UpdateCode("Option Explicit\r\nDim x As Long\r\n");
+        var vm = CreateSut().Initialize(module);
+
+        var header = "Attribute VB_Name = \"Module1\"\r\n";
+        vm.CaretOffset = header.Length + "Option Explicit\r\nDim x".Length;
+
+        vm.RefreshPrefix("Attribute VB_Name = \"RenamedToSomethingMuchLonger\"\r\n");
+
+        vm.Document.GetText(vm.CaretOffset - 5, 5).Should().Be("Dim x");
+    }
+
+    [AvaloniaFact]
+    public void AnUnchangedHeaderIsNotWrittenAtAll()
+    {
+        // A committed designer change re-renders whether or not the render moved. Writing an identical
+        // header anyway would put an undo entry and a didChange on the wire for every nudge.
+        var module = TestHelpers.CreateModule(name: "Module1");
+        module.UpdateCode("Option Explicit\r\n");
+        var vm = CreateSut().Initialize(module);
+
+        var changed = 0;
+        vm.Document.TextChanged += (_, _) => changed++;
+
+        vm.RefreshPrefix("Attribute VB_Name = \"Module1\"\r\n");
+
+        changed.Should().Be(0);
+    }
+
+    [AvaloniaFact]
+    public void AReloadReplacesBOTHHalvesSoTheNextFlushDoesNotCutIntoTheBody()
+    {
+        // The live defect 3.2 left on the reload path. FileReloader pushed the bare code section into a
+        // buffer whose prefix was still the header read at open, so BufferBody split at the stale prefix's
+        // length -- and when the code section is longer than the header, that silently truncates real
+        // source on the next flush. It is data loss, not a display fault.
+        var module = TestHelpers.CreateModule(name: "Module1");
+        module.UpdateCode("Option Explicit\r\n");
+        var vm = CreateSut().Initialize(module);
+
+        module.UpdateCode("Public Sub Main()\r\n    Debug.Print 1\r\nEnd Sub\r\n");
+        vm.ReloadFrom(FormCodeText.Prefix(module), module.Code);
+
+        vm.Document.Text.Should().Be(
+            "Attribute VB_Name = \"Module1\"\r\nPublic Sub Main()\r\n    Debug.Print 1\r\nEnd Sub\r\n");
+        vm.BufferBody.Should().Be("Public Sub Main()\r\n    Debug.Print 1\r\nEnd Sub\r\n");
+
+        vm.Dispose();
+        module.Code.Should().Be("Public Sub Main()\r\n    Debug.Print 1\r\nEnd Sub\r\n");
+    }
+
+    [AvaloniaFact]
+    public void AReloadThatChangesTheHeaderFollowsIt()
+    {
+        var module = TestHelpers.CreateModule(name: "Module1");
+        module.UpdateCode("Option Explicit\r\n");
+        var vm = CreateSut().Initialize(module);
+
+        // What a reload of a .cls looks like: the file on disk carries an attribute block the canonical
+        // literal does not, and the buffer has to follow the file rather than the file it was opened from.
+        module.RecordOriginalHeader(
+            "Attribute VB_Name = \"Module1\"\r\nAttribute VB_Description = \"Rewritten elsewhere\"\r\n");
+        vm.ReloadFrom(FormCodeText.Prefix(module), module.Code);
+
+        vm.Document.Text.Should().StartWith(
+            "Attribute VB_Name = \"Module1\"\r\nAttribute VB_Description = \"Rewritten elsewhere\"\r\n");
+        vm.BufferBody.Should().Be("Option Explicit\r\n");
+    }
+
+    [AvaloniaFact]
+    public void AReloadThatGrowsTheHeaderKeepsTheCaretInTheCode()
+    {
+        // Measured live before the fix: a form whose designer block gained a longer caption on disk was
+        // reloaded with the caret at the start of its first line of code, and the caret came back two lines up,
+        // inside the header. The marks are moved by the header's change in length; so is the caret.
+        var module = TestHelpers.CreateModule(name: "Module1");
+        module.UpdateCode("Option Explicit\r\n");
+        var vm = CreateSut().Initialize(module);
+        vm.CaretOffset = vm.BufferPrefixLength + "Option".Length;
+
+        module.RecordOriginalHeader(
+            "Attribute VB_Name = \"Module1\"\r\nAttribute VB_Description = \"Rewritten elsewhere\"\r\n");
+        vm.ReloadFrom(FormCodeText.Prefix(module), module.Code);
+
+        vm.CaretOffset.Should().Be(vm.BufferPrefixLength + "Option".Length, "the caret is where it was in the code");
+    }
+
+    [AvaloniaFact]
+    public void AReloadThatShrinksTheHeaderKeepsTheCaretInTheCode()
+    {
+        var module = TestHelpers.CreateModule(name: "Module1");
+        module.RecordOriginalHeader(
+            "Attribute VB_Name = \"Module1\"\r\nAttribute VB_Description = \"Long before\"\r\n");
+        module.UpdateCode("Option Explicit\r\n");
+        var vm = CreateSut().Initialize(module);
+        vm.CaretOffset = vm.BufferPrefixLength + "Option".Length;
+
+        module.RecordOriginalHeader("Attribute VB_Name = \"Module1\"\r\n");
+        vm.ReloadFrom(FormCodeText.Prefix(module), module.Code);
+
+        vm.CaretOffset.Should().Be(vm.BufferPrefixLength + "Option".Length);
     }
 
     // ── LSP delegation ───────────────────────────────────────────────
@@ -310,7 +570,7 @@ public class CodeEditorViewModelTests : IDisposable
         var vm = CreateSut().Initialize(form);
         var pos = new Position(1, 5);
         var expected = new HoverResult(new MarkupContent("plaintext", "info"));
-        _lspClient.RequestHoverAsync("vb6://form/Form1", pos, Arg.Any<CancellationToken>())
+        _lspClient.RequestHoverAsync("untitled:TestProject/Form1.frm", pos, Arg.Any<CancellationToken>())
             .Returns(expected);
 
         var result = await vm.RequestHoverAsync(pos);
@@ -324,7 +584,7 @@ public class CodeEditorViewModelTests : IDisposable
         var form = TestHelpers.CreateForm(name: "Form1");
         var vm = CreateSut().Initialize(form);
         var expected = new[] { new FoldingRange(0, 10) };
-        _lspClient.RequestFoldingRangesAsync("vb6://form/Form1", Arg.Any<CancellationToken>())
+        _lspClient.RequestFoldingRangesAsync("untitled:TestProject/Form1.frm", Arg.Any<CancellationToken>())
             .Returns(expected);
 
         var result = await vm.RequestFoldingRangesAsync();
@@ -339,7 +599,7 @@ public class CodeEditorViewModelTests : IDisposable
         var vm = CreateSut().Initialize(form);
         var pos = new Position(0, 0);
         var expected = new[] { new CompletionItem("Dim", CompletionItemKind.Keyword) };
-        _lspClient.RequestCompletionAsync("vb6://form/Form1", pos, Arg.Any<CancellationToken>())
+        _lspClient.RequestCompletionAsync("untitled:TestProject/Form1.frm", pos, Arg.Any<CancellationToken>())
             .Returns(expected);
 
         var result = await vm.RequestCompletionAsync(pos);
@@ -355,7 +615,7 @@ public class CodeEditorViewModelTests : IDisposable
         var pos = new Position(0, 3);
         var expected = new SignatureHelp(
             new[] { new SignatureInformation("MsgBox", "Shows a message", Array.Empty<ParameterInformation>()) }, 0, 0);
-        _lspClient.RequestSignatureHelpAsync("vb6://form/Form1", pos, Arg.Any<CancellationToken>())
+        _lspClient.RequestSignatureHelpAsync("untitled:TestProject/Form1.frm", pos, Arg.Any<CancellationToken>())
             .Returns(expected);
 
         var result = await vm.RequestSignatureHelpAsync(pos);
@@ -369,8 +629,8 @@ public class CodeEditorViewModelTests : IDisposable
         var form = TestHelpers.CreateForm(name: "Form1");
         var vm = CreateSut().Initialize(form);
         var pos = new Position(2, 0);
-        var expected = new[] { new Location("vb6://form/Form1", new Lsp.Messages.Range(new Position(0, 0), new Position(0, 5))) };
-        _lspClient.RequestDefinitionAsync("vb6://form/Form1", pos, Arg.Any<CancellationToken>())
+        var expected = new[] { new Location("untitled:TestProject/Form1.frm", new Lsp.Messages.Range(new Position(0, 0), new Position(0, 5))) };
+        _lspClient.RequestDefinitionAsync("untitled:TestProject/Form1.frm", pos, Arg.Any<CancellationToken>())
             .Returns(expected);
 
         var result = await vm.RequestDefinitionAsync(pos);
@@ -388,7 +648,7 @@ public class CodeEditorViewModelTests : IDisposable
         {
             new DocumentHighlight(new Lsp.Messages.Range(new Position(0, 0), new Position(0, 5)), 1)
         };
-        _lspClient.RequestDocumentHighlightAsync("vb6://form/Form1", pos, Arg.Any<CancellationToken>())
+        _lspClient.RequestDocumentHighlightAsync("untitled:TestProject/Form1.frm", pos, Arg.Any<CancellationToken>())
             .Returns(expected);
 
         var result = await vm.RequestDocumentHighlightAsync(pos);
@@ -402,13 +662,13 @@ public class CodeEditorViewModelTests : IDisposable
         var form = TestHelpers.CreateForm(name: "Form1");
         var vm = CreateSut().Initialize(form);
         var pos = new Position(0, 12);
-        _lspClient.RequestRenameAsync("vb6://form/Form1", pos, "newName", Arg.Any<CancellationToken>())
+        _lspClient.RequestRenameAsync("untitled:TestProject/Form1.frm", pos, "newName", Arg.Any<CancellationToken>())
             .Returns((WorkspaceEdit?)null);
 
         var result = await vm.RequestRenameAsync(pos, "newName");
 
         await _lspClient.Received(1).RequestRenameAsync(
-            "vb6://form/Form1", pos, "newName", Arg.Any<CancellationToken>());
+            "untitled:TestProject/Form1.frm", pos, "newName", Arg.Any<CancellationToken>());
     }
 
     [AvaloniaFact]
@@ -417,7 +677,7 @@ public class CodeEditorViewModelTests : IDisposable
         var form = TestHelpers.CreateForm(name: "Form1");
         var vm = CreateSut().Initialize(form);
         var expected = Array.Empty<TextEdit>();
-        _lspClient.RequestFormattingAsync("vb6://form/Form1", Arg.Any<CancellationToken>())
+        _lspClient.RequestFormattingAsync("untitled:TestProject/Form1.frm", Arg.Any<CancellationToken>())
             .Returns(expected);
 
         var result = await vm.RequestFormattingAsync();
@@ -436,7 +696,7 @@ public class CodeEditorViewModelTests : IDisposable
         vm.Dispose();
         _sut = null; // prevent double-dispose in teardown
 
-        _lspClient.Received(1).CloseDocumentAsync("vb6://form/Form1", Arg.Any<CancellationToken>());
+        _lspClient.Received(1).CloseDocumentAsync("untitled:TestProject/Form1.frm", Arg.Any<CancellationToken>());
     }
 
     [AvaloniaFact]
@@ -493,7 +753,7 @@ public class CodeEditorViewModelTests : IDisposable
 
         saved!(new DocumentSavedEvent(null, module));
 
-        await _lspClient.Received(1).SaveDocumentAsync("vb6://module/Module1", Arg.Any<CancellationToken>());
+        await _lspClient.Received(1).SaveDocumentAsync("untitled:TestProject/Module1.bas", Arg.Any<CancellationToken>());
     }
 
     [AvaloniaFact]
@@ -541,7 +801,7 @@ public class CodeEditorViewModelTests : IDisposable
         saved!(new DocumentSavedEvent(designerHalf, control));
 
         await _lspClient.Received(1).SaveDocumentAsync(
-            "vb6://module/UserControl1", Arg.Any<CancellationToken>());
+            "untitled:P/UserControl1.ctl", Arg.Any<CancellationToken>());
     }
 
     [AvaloniaFact]
@@ -571,6 +831,236 @@ public class CodeEditorViewModelTests : IDisposable
         _lspClient.Received().DiagnosticsPublished -= Arg.Any<EventHandler<PublishDiagnosticsParams>>();
     }
 
+    // ── A name change is announced, not assumed ──────────────────────
+
+    [AvaloniaFact]
+    public async Task AFirstSaveReopensTheDocumentUnderItsFileName()
+    {
+        // The trigger #489 made ordinary: a document has no file until the project is saved, so a first
+        // save is how nearly every document acquires one -- and a document is named by its file.
+        //
+        // Close THEN open, both under the right names. The protocol's guidance for a rename, and for its
+        // reason: more than the name can change, so the server is told to forget and told afresh.
+        Action<DocumentSavedEvent>? saved = null;
+        _eventBus.Subscribe(Arg.Do<Action<DocumentSavedEvent>>(h => saved = h))
+            .Returns(Substitute.For<IDisposable>());
+        var module = TestHelpers.CreateModule(name: "Module1");
+        CreateSut().Initialize(module);
+        _lspClient.ClearReceivedCalls();
+
+        var path = OperatingSystem.IsWindows() ? @"C:\proj\Module1.bas" : "/proj/Module1.bas";
+        module.AbsolutePath = path;
+        saved!(new DocumentSavedEvent(null, module));
+
+        Received.InOrder(() =>
+        {
+            _lspClient.CloseDocumentForRenameAsync(
+                "untitled:TestProject/Module1.bas", Arg.Any<CancellationToken>());
+            _lspClient.OpenDocumentAsync(
+                LspDocumentUri.ForFile(path), Arg.Any<string>(), true, Arg.Any<CancellationToken>());
+        });
+    }
+
+    [AvaloniaFact]
+    public async Task AFirstSaveOfAPathlessFormReopensItUnderItsFrmFile()
+    {
+        // The form half of the same rule, and it is the half that had no event to act on until #273 task
+        // 2.4a: SaveProjectToDirectory's module loop announced through SaveModuleCore while its form loop
+        // wrote through SerializeFormToFile and announced nothing, so a form whose path that method had
+        // just repointed went on being named untitled: forever. A server then held it under a name the
+        // editor no longer used, and every later change reached it under a name it had never been told
+        // about -- silently, because an unknown URI is answered with an empty result rather than an error.
+        //
+        // Written against a form rather than a module deliberately. The two are separate Initialize
+        // overloads with separate subscriptions, and this suite's module tests passed throughout the
+        // period the form path was broken.
+        Action<DocumentSavedEvent>? saved = null;
+        _eventBus.Subscribe(Arg.Do<Action<DocumentSavedEvent>>(h => saved = h))
+            .Returns(Substitute.For<IDisposable>());
+        var form = TestHelpers.CreateForm(name: "Form1");
+        CreateSut().Initialize(form);
+        _lspClient.ClearReceivedCalls();
+
+        var path = OperatingSystem.IsWindows() ? @"C:\proj\Form1.frm" : "/proj/Form1.frm";
+        form.AbsolutePath = path;
+        saved!(new DocumentSavedEvent(form, null));
+
+        Received.InOrder(() =>
+        {
+            _lspClient.CloseDocumentForRenameAsync(
+                "untitled:TestProject/Form1.frm", Arg.Any<CancellationToken>());
+            _lspClient.OpenDocumentAsync(
+                LspDocumentUri.ForFile(path), Arg.Any<string>(), true, Arg.Any<CancellationToken>());
+        });
+    }
+
+    [AvaloniaFact]
+    public async Task TheSaveIsAnnouncedUnderTheNewNameNotTheOld()
+    {
+        // Ordering, and it is not cosmetic: announcing the save first tells a server about a write to a
+        // document it is then immediately told to forget, and the server that matters never hears that the
+        // document it now holds was saved at all.
+        Action<DocumentSavedEvent>? saved = null;
+        _eventBus.Subscribe(Arg.Do<Action<DocumentSavedEvent>>(h => saved = h))
+            .Returns(Substitute.For<IDisposable>());
+        var module = TestHelpers.CreateModule(name: "Module1");
+        CreateSut().Initialize(module);
+        _lspClient.ClearReceivedCalls();
+
+        var path = OperatingSystem.IsWindows() ? @"C:\proj\Module1.bas" : "/proj/Module1.bas";
+        module.AbsolutePath = path;
+        saved!(new DocumentSavedEvent(null, module));
+
+        await _lspClient.Received(1).SaveDocumentAsync(
+            LspDocumentUri.ForFile(path), Arg.Any<CancellationToken>());
+        await _lspClient.DidNotReceive().SaveDocumentAsync(
+            "untitled:TestProject/Module1.bas", Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaFact]
+    public async Task AnOrdinarySaveThatChangesNoNameDoesNotReopenAnything()
+    {
+        // Most saves change nothing about the name, and a close-and-reopen on each would throw away the
+        // server's state on the file the developer is actually working in.
+        Action<DocumentSavedEvent>? saved = null;
+        _eventBus.Subscribe(Arg.Do<Action<DocumentSavedEvent>>(h => saved = h))
+            .Returns(Substitute.For<IDisposable>());
+        var module = TestHelpers.CreateModule(name: "Module1");
+        module.AbsolutePath = OperatingSystem.IsWindows() ? @"C:\proj\Module1.bas" : "/proj/Module1.bas";
+        CreateSut().Initialize(module);
+        _lspClient.ClearReceivedCalls();
+
+        saved!(new DocumentSavedEvent(null, module));
+
+        await _lspClient.DidNotReceive().CloseDocumentForRenameAsync(
+            Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _lspClient.Received(1).SaveDocumentAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaFact]
+    public void RenamingAPathlessDocumentReopensItWithNoSaveInvolved()
+    {
+        // A document with no file is named untitled:<Project>/<Name>, so its own rename changes what
+        // servers should call it with nothing written to disk at all. After #489 that is the ordinary
+        // state of a new document, not a corner case -- and no save event will ever fire to catch it.
+        var module = TestHelpers.CreateModule(name: "Module1");
+        CreateSut().Initialize(module);
+        _lspClient.ClearReceivedCalls();
+
+        module.Name = "Utilities";
+
+        _lspClient.Received(1).CloseDocumentForRenameAsync(
+            "untitled:TestProject/Module1.bas", Arg.Any<CancellationToken>());
+        _lspClient.Received(1).OpenDocumentAsync(
+            "untitled:TestProject/Utilities.bas", Arg.Any<string>(), true, Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaFact]
+    public void RenamingTheProjectReopensItsPathlessDocuments()
+    {
+        // The project name is half the untitled: spelling, so renaming the project renames every document
+        // in it that has no file -- again with no save, and again invisibly without this.
+        var project = TestHelpers.CreateProject("TestProject");
+        var module = TestHelpers.CreateModule(owner: project, name: "Module1");
+        project.AddModule(module);
+        CreateSut().Initialize(module);
+        _lspClient.ClearReceivedCalls();
+
+        project.Name = "Renamed";
+
+        _lspClient.Received(1).CloseDocumentForRenameAsync(
+            "untitled:TestProject/Module1.bas", Arg.Any<CancellationToken>());
+        _lspClient.Received(1).OpenDocumentAsync(
+            "untitled:Renamed/Module1.bas", Arg.Any<string>(), true, Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaFact]
+    public void ABuildSaysNothingAtAllAlthoughItRepointsEveryPath()
+    {
+        // Make EXE writes every form and module into a temporary directory, repointing each AbsolutePath
+        // on the way in and restoring it in a finally -- so for the length of one build, the path a
+        // document would be NAMED from is a file in TEMP that is about to be deleted.
+        //
+        // The wire name has to sit that out, and it does so structurally rather than by recognising a
+        // temporary path: it is fixed when the document is opened and moves only when a rename or an
+        // announced save says so. Nothing polls AbsolutePath, and this test is what stops one starting to
+        // -- a reconcile driven off the path would rename the document into TEMP and back on every build,
+        // twice, handing servers two names that never existed and discarding whatever state they held.
+        //
+        // The build's own silence is the other half, pinned separately: Make EXE passes announceSave:
+        // false for its modules and writes its forms through SerializeFormToFile, which announces nothing
+        // at all (DocumentSavedAnnouncementTests).
+        var module = TestHelpers.CreateModule(name: "Module1");
+        var real = OperatingSystem.IsWindows() ? @"C:\proj\Module1.bas" : "/proj/Module1.bas";
+        module.AbsolutePath = real;
+        CreateSut().Initialize(module);
+        _lspClient.ClearReceivedCalls();
+
+        // Composed rather than written out: this is a real filesystem path, so Path is the right tool
+        // (the rule against it governs paths going into a VB6 file), and a literal one under a user
+        // profile is indistinguishable to a scanner from somebody's actual machine.
+        var staged = Path.Combine(Path.GetTempPath(), "hexide-make-1234", "Module1.bas");
+
+        module.AbsolutePath = staged;   // into the build's temp directory
+        module.AbsolutePath = real;     // and back, in Make EXE's finally
+
+        _lspClient.DidNotReceive().CloseDocumentForRenameAsync(
+            Arg.Any<string>(), Arg.Any<CancellationToken>());
+        _lspClient.DidNotReceive().OpenDocumentAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    // ── The name a request goes out under ────────────────────────────
+
+    [AvaloniaFact]
+    public async Task ARequestAfterAFirstSaveStillNamesTheDocumentTheSessionOpened()
+    {
+        // The defect 2.5 closes, and it was silent. The session's name is fixed when it opens, but every
+        // request used to be minted fresh from the identity -- which reads the path live. So from the
+        // moment a document was first saved, the lifecycle notifications still said `untitled:` while
+        // every request said `file:`. The bundled server answers an unknown URI with an empty array and no
+        // error, so hover, completion, folding, Go To Definition, rename and formatting simply went quiet.
+        //
+        // Since #489 established that a document normally HAS no file until the project is saved, a first
+        // save is the ordinary path into this, not a corner of it.
+        var module = TestHelpers.CreateModule(name: "Module1");
+        var vm = CreateSut().Initialize(module);
+        _lspClient.ClearReceivedCalls();
+
+        module.AbsolutePath = OperatingSystem.IsWindows() ? @"C:\proj\Module1.bas" : "/proj/Module1.bas";
+
+        await vm.RequestHoverAsync(new Position(0, 0));
+
+        await _lspClient.Received(1).RequestHoverAsync(
+            "untitled:TestProject/Module1.bas", Arg.Any<Position>(), Arg.Any<CancellationToken>());
+        await _lspClient.DidNotReceive().RequestHoverAsync(
+            Arg.Is<string>(u => u.StartsWith("file:")), Arg.Any<Position>(), Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaFact]
+    public async Task NoRequestIsSentOnceTheSessionHasClosed()
+    {
+        // A request naming a document no server was told about is not a question with a wrong answer; it
+        // is one nobody can be expected to answer, and asking invites exactly the silence above. Disposal
+        // is the reachable way to observe it -- the editor is gone, but a pending completion task or a
+        // queued symbol refresh can still arrive.
+        var module = TestHelpers.CreateModule(name: "Module1");
+        var vm = CreateSut().Initialize(module);
+        vm.Dispose();
+        _sut = null;
+        _lspClient.ClearReceivedCalls();
+
+        var hover = await vm.RequestHoverAsync(new Position(0, 0));
+        var folds = await vm.RequestFoldingRangesAsync();
+
+        hover.Should().BeNull();
+        folds.Should().BeEmpty();
+        await _lspClient.DidNotReceive().RequestHoverAsync(
+            Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>());
+        await _lspClient.DidNotReceive().RequestFoldingRangesAsync(
+            Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
     // ── LSP delegation with Module URI ───────────────────────────────
 
     [AvaloniaFact]
@@ -583,7 +1073,7 @@ public class CodeEditorViewModelTests : IDisposable
         await vm.RequestHoverAsync(pos);
 
         await _lspClient.Received(1).RequestHoverAsync(
-            "vb6://module/Utils", pos, Arg.Any<CancellationToken>());
+            "untitled:TestProject/Utils.bas", pos, Arg.Any<CancellationToken>());
     }
 
     [AvaloniaFact]
@@ -596,7 +1086,7 @@ public class CodeEditorViewModelTests : IDisposable
         await vm.RequestCompletionAsync(pos);
 
         await _lspClient.Received(1).RequestCompletionAsync(
-            "vb6://module/Utils", pos, Arg.Any<CancellationToken>());
+            "untitled:TestProject/Utils.bas", pos, Arg.Any<CancellationToken>());
     }
 
     // ── Constructor subscribes to events ─────────────────────────────

@@ -70,7 +70,8 @@ public class ExternalFormChangeTests : IDisposable
             Substitute.For<IReferenceLibraryService>(),
             sidecar,
             new FileBaselineStore(),
-            Substitute.For<HexIDE.Localization.ILocalizationService>());
+            Substitute.For<HexIDE.Localization.ILocalizationService>(),
+            Substitute.For<IHeaderRefresher>());
     }
 
     /// <summary>

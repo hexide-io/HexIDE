@@ -62,7 +62,8 @@ public sealed class FileWatcherService : IFileWatcherService
         IWindowManager windowManager,
         IStatusBarService statusBar,
         ILocalizationService localization,
-        IClock clock)
+        IClock clock,
+        IHeaderRefresher headerRefresher)
     {
         this.projectManager = projectManager;
         this.dock = dock;
@@ -72,7 +73,7 @@ public sealed class FileWatcherService : IFileWatcherService
 
         coalescer = new ChangeCoalescer(clock);
         dirtyDetector = new DirtyDetector(baselineStore, projectService);
-        reloader = new FileReloader(projectService, eventBus, statusBar, localization);
+        reloader = new FileReloader(projectService, eventBus, statusBar, localization, headerRefresher);
         conflictGate = new ConflictGate(windowManager, ReloadConflictsAsync, KeepConflictsAsync);
 
         projectManager.ProjectLoaded += OnProjectLoaded;

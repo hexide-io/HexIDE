@@ -75,7 +75,7 @@ public class RelatedDocumentEditorViewModelTests : IDisposable
         Open(document);
 
         await _lspClient.Received(1).OpenDocumentAsync(
-            Arg.Any<string>(), "# hello\n", Arg.Any<CancellationToken>());
+            Arg.Any<string>(), "# hello\n", false, Arg.Any<CancellationToken>());
     }
 
     [Fact]

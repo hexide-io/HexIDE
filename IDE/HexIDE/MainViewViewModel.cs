@@ -1145,14 +1145,15 @@ public partial class MainViewViewModel : ObservableObject
         return end > start ? text[start..end] : null;
     }
 
-    // Toggle a breakpoint on the active code editor's caret line (1-based). The gutter margin repaints itself via
-    // IBreakpointService.BreakpointsChanged, and a live run picks it up immediately (ProjectRunnerService pushes it).
+    // Toggle a breakpoint on the active code editor's caret line (1-based), through the editor so a read-only line
+    // is refused (#273 task 3.12). The gutter margin repaints itself via IBreakpointService.BreakpointsChanged, and
+    // a live run picks it up immediately (ProjectRunnerService pushes it).
     public void ToggleBreakpoint()
     {
         if (documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.CodeEditorViewModel code)
         {
             var line = code.Document.GetLineByOffset(code.CaretOffset).LineNumber;
-            breakpointService.Toggle(code.Identity, line);
+            code.ToggleBreakpoint(line);
         }
     }
 

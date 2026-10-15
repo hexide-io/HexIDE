@@ -127,9 +127,9 @@ public class ChatSessionTests
     }
 
     [Fact]
-    public void ChatSettings_DefaultsModelIdToClaudeOpus5()
+    public void ChatSettings_DefaultsModelIdToClaudeOpus55()
     {
         var settings = new ChatSettings();
-        settings.ModelId.Should().Be("claude-opus-5");
+        settings.ModelId.Should().Be("claude-opus-5-5");
     }
 }

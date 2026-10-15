@@ -155,7 +155,7 @@ public class WorkspaceSymbolTests : IAsyncDisposable
     {
         var registry = RegistryOf(clients);
         await registry.OpenDocumentAsync(
-            "vb6://module/Module1", "Option Explicit", TestContext.Current.CancellationToken);
+            "untitled:Project1/Module1.bas", "Option Explicit", TestContext.Current.CancellationToken);
         return registry;
     }
 

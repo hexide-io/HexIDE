@@ -49,6 +49,20 @@ public class SerializationCorpusTests
         var designer = FindUpwards(Path.Join("corpus", "designer"));
         if (designer is not null) yield return designer;
 
+        // Always too, for the same reason: the only files anywhere that carry members' attribute lines, every one
+        // written by VB6's own IDE (#273 task 4.6). The round-trip half, which its dialog wrote, and the output VB6
+        // saved for each hand-written project of the evidence half; not those inputs, which are not VB6's bytes.
+        // Required, not skipped when absent: the folder ships with the repository, and losing it would leave this
+        // lane passing on the rest without a word.
+        var memberAttributes = FindUpwards(Path.Join("corpus", "member-attributes"));
+        memberAttributes.Should().NotBeNull("corpus/member-attributes ships with the repository");
+        var roundTrip = Path.Join(memberAttributes!, "round-trip");
+        Directory.Exists(roundTrip).Should().BeTrue("its round-trip half is this lane's proof for members' attribute lines");
+        yield return roundTrip;
+        foreach (var saved in Directory.EnumerateDirectories(Path.Join(memberAttributes!, "evidence"), "saved*", SearchOption.AllDirectories)
+                     .Order(StringComparer.Ordinal))
+            yield return saved;
+
         var env = Environment.GetEnvironmentVariable("HEXIDE_ROUNDTRIP_CORPUS");
         if (!string.IsNullOrWhiteSpace(env))
         {

@@ -249,16 +249,104 @@ public class ConversationRedactorTests
         redactor.Endpoint("ws://127.0.0.1:5123/lsp").Should().StartWith("ws://127.0.0.1:5123");
     }
 
+    // ── A document with no file yet ──────────────────────────────────
+
     [Fact]
-    public void AVb6UriIsLeftAlone()
+    public void BothHalvesOfAnUntitledNameAreReplaced()
     {
-        // A recorded limit rather than an oversight: the component name is the only handle an author has on
-        // which document a message concerned, and a capture where every module is the same word cannot be
-        // read against the project it came from.
-        const string Uri = "vb6://module/Module1";
+        // The whole of task 2.10. A document with no file is named untitled:<Project>/<Name>, and since
+        // #489 established that a document normally HAS no file until the project is saved, that is the
+        // ordinary state of a new document rather than a corner of the format. Both segments are words the
+        // developer typed, and neither was being replaced -- this scheme simply did not exist when the
+        // redactor was written, and its predecessor was argued as deliberately exempt.
+        var redacted = Redactor().Uri("untitled:InvoiceLedger/Form1.frm");
+
+        redacted.Should().NotContain("InvoiceLedger").And.NotContain("Form1");
+        redacted.Should().StartWith("untitled:");
+    }
+
+    [Fact]
+    public void AnUntitledNameIsRedactedInsideABodyToo()
+    {
+        // The body path is textual and had only `file:` in its expression, so a didOpen for a document with
+        // no file went out whole. That is the path every export actually takes.
+        var redacted = Redactor().Body(
+            """{"method":"textDocument/didOpen","params":{"textDocument":"""
+          + """{"uri":"untitled:InvoiceLedger/Form1.frm","text":"Option Explicit"}}}""");
+
+        redacted.Should().NotContain("InvoiceLedger").And.NotContain("Form1");
+        redacted.Should().Contain("textDocument/didOpen", "the method is not a name belonging to anybody");
+    }
+
+    [Fact]
+    public void AnUntitledNameKeepsItsShapeAndItsExtension()
+    {
+        // The other half of every rule in this file: what survives is what makes a capture readable. Two
+        // segments in, two segments out, so a reader can still see that a message concerned a document OF a
+        // project -- and `.frm` against `.cls` stays a diagnosis, because routing is by extension.
+        var redacted = Redactor().Uri("untitled:InvoiceLedger/Form1.frm");
+
+        // The "was replaced at all" clause first, and it is load-bearing rather than belt-and-braces:
+        // without it every assertion below is satisfied by the untouched input, and this test would go on
+        // passing with the feature deleted. Checked by deleting it.
+        redacted.Should().NotContain("InvoiceLedger").And.NotContain("Form1");
+
+        redacted.Should().EndWith(".frm");
+        redacted["untitled:".Length..].Split('/').Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void TwoDocumentsOfOneProjectShareItsPseudonym()
+    {
+        // The structural claim, and the one a redactor fails quietly. Replacing each URI whole would pass
+        // every leak assertion above and lose the fact that these two documents belong together, which for
+        // an untitled: name is the only relationship the wire carries at all.
+        var redactor = Redactor();
+
+        var one = redactor.Uri("untitled:InvoiceLedger/Form1.frm");
+        var two = redactor.Uri("untitled:InvoiceLedger/Module1.bas");
+
+        var project = one.Split('/')[0];
+        project.Should().Be(two.Split('/')[0], "one project is one pseudonym");
+
+        // Again the clause that stops this passing on an untouched input, which it otherwise does: two
+        // unredacted URIs share their project segment too, and differ from each other too.
+        project.Should().NotBe("untitled:InvoiceLedger");
+        one.Should().NotBe(two);
+    }
+
+    [Fact]
+    public void TwoCapitalisationsOfOneUntitledNameStayTwoStrings()
+    {
+        // Deliberate, and the same rule the escaping comment states for paths. Two untitled: names are
+        // compared case-insensitively by the client, so two spellings reaching the wire is a defect -- and
+        // a redactor that folded them together would hide precisely the bug an export is being sent to
+        // diagnose.
+        var redactor = Redactor();
+
+        var upper = redactor.Uri("untitled:Ledger/Form1.frm");
+        var lower = redactor.Uri("untitled:ledger/Form1.frm");
+
+        // Both actually replaced -- without this the assertion below holds for the untouched inputs, which
+        // differ from each other by construction and would prove nothing.
+        upper.Should().NotContain("edger");
+        lower.Should().NotContain("edger");
+
+        upper.Should().NotBe(lower);
+    }
+
+    [Fact]
+    public void AUriWithAnUnknownSchemeIsLeftAlone()
+    {
+        // This test used to assert that a `vb6:` URI was left alone, which was a recorded limit of a scheme
+        // HexIDE invented for itself: it carried a component name and nothing else, and replacing it made a
+        // capture unreadable against the project it came from. That scheme is retired (#273) and the
+        // exemption went with it, so the test is retargeted rather than deleted -- the rule it now states
+        // is the one that remains true. A scheme this file does not understand may not hold a path at all,
+        // so splitting it on slashes would produce a plausible URI meaning something else.
+        const string Uri = "jdt://contents/rt.jar/java.lang/String.class";
 
         Redactor().Uri(Uri).Should().Be(Uri);
-        Redactor().Body($"{{\"uri\":\"{Uri}\"}}").Should().Contain(Uri);
     }
 
     [Fact]
