@@ -56,9 +56,13 @@ public class LineComponentClass : ComponentBaseClass
         if (container is null || container.BaseClass is FormComponentClass)
         {
             var mode = (VBScaleMode)(form.Scale?.Mode ?? (int)VBScaleMode.Twip);
+            var root = VBLoader.FormComponentOf(form);
+            // A scale whose origin is not the client's corner, such as a graph's y-up `ScaleTop = 100`, would put every
+            // endpoint in the wrong place, and HexIDE does not apply an origin.
+            if ((VBLoader.RawDouble(root, "ScaleLeft") ?? 0) != 0 || (VBLoader.RawDouble(root, "ScaleTop") ?? 0) != 0)
+                throw new NotImplementedException("A Line on a form whose ScaleLeft or ScaleTop is not 0 is not implemented (#163)");
             if (mode != VBScaleMode.User)
                 return Known(mode);
-            var root = VBLoader.FormComponentOf(form);
             if (form.Scale is not { Width: { } width, Height: { } height } || width == 0 || height == 0)
                 throw new NotImplementedException("A Line on a form with a user scale but no ScaleWidth or ScaleHeight is not implemented (#163)");
             return ((float)(root.GetPropertyOrDefault(WidthProperty) * VBScaleModeExtensions.PixelToTwips) / (float)width,

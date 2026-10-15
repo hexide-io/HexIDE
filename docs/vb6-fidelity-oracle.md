@@ -10467,3 +10467,5 @@ Three probes, each compiled native and as p-code. Every line of output was the s
   - a Line is drawn under every other control, Labels included;
   - a wide diagonal's ends are round caps, not measured;
   - the default member is not implemented.
+- **Refused:** a Line on a form whose ScaleLeft or ScaleTop is not 0, such as a y-up graph's, since HexIDE
+  applies no origin; and a Line in a PictureBox with a user scale.

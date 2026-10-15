@@ -393,6 +393,24 @@ public class VBLoader
     internal static VBScaleMode? DeclaredScaleMode(ComponentInstance component) =>
         RawNumber(component, "ScaleMode") is { } mode && Enum.IsDefined(typeof(VBScaleMode), mode) ? (VBScaleMode)mode : null;
 
+    // The number on a property line HexIDE preserves without modelling it, as a Double, sign and fraction included:
+    // `ScaleTop = -12.5`. Null when the component has no such line, or its value is not a number.
+    internal static double? RawDouble(ComponentInstance component, string name)
+    {
+        foreach (var property in component.UnknownRawProperties)
+        {
+            if (!property.Name.Equals(name, StringComparison.OrdinalIgnoreCase) || property.Lines.Count == 0)
+                continue;
+            var line = property.Lines[0];
+            var value = line[(line.IndexOf('=') + 1)..].Trim();
+            var end = value.IndexOfAny([' ', '\'']);
+            if (double.TryParse(end < 0 ? value : value[..end], System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var number))
+                return number;
+        }
+        return null;
+    }
+
     // The number on a property line HexIDE preserves without modelling it, such as `BorderStyle = 0  'None`.
     private static int? RawNumber(ComponentInstance component, string name)
     {

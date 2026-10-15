@@ -108,6 +108,22 @@ public class LineControlTests
         printed.Should().Equal("84.51466 5309.398 1687.583");
     }
 
+    [AvaloniaTheory]
+    [InlineData("   ScaleLeft       =   0\r\n   ScaleTop        =   100\r\n")]
+    [InlineData("   ScaleLeft       =   -12.5\r\n")]
+    public void A_form_whose_scale_has_its_own_origin_is_refused_rather_than_drawn_off_it(string origin)
+    {
+        // A y-up graph: the origin at the bottom, and ScaleHeight negative. HexIDE applies no origin, so the endpoints
+        // would land in the wrong place, and what a program read back would be wrong too.
+        var frm = Form("   ClientHeight    =   3000\r\n   ClientWidth     =   4000\r\n   ScaleHeight     =   -100\r\n"
+                       + origin + "   ScaleMode       =   0  'User\r\n   ScaleWidth      =   100\r\n",
+            Line("Axis", At(0, 0, 100, 0)));
+
+        var act = () => ContainerRuntimeHarness.Spawn(frm);
+
+        act.Should().Throw<NotImplementedException>().Which.Message.Should().Contain("ScaleLeft or ScaleTop");
+    }
+
     [AvaloniaFact]
     public async Task On_a_twips_form_a_fractional_coordinate_rounds_half_to_even()
     {
