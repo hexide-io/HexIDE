@@ -12,7 +12,7 @@
         <PackageReference Include="StreamJsonRpc" />
         <!-- Direct references to pin above vulnerable transitive versions pulled in by StreamJsonRpc:
              Nerdbank.MessagePack above 1.0.2 (GHSA-2cwq-pwfr-wcw3), MessagePack above 2.5.198
-             (CVE-2026-48109 / GHSA-hv8m-jj95-wg3x). -->
+             (CVE-2026-48109 / GHSA-hv8m-jj95-wg3x) and at 2.5.303 or later (GHSA-qhrr-8q5h-9q3h). -->
         <PackageReference Include="MessagePack" />
         <PackageReference Include="Nerdbank.MessagePack" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
