@@ -10359,9 +10359,9 @@ Enabled and ignores Visible and Checked settles it.
 is ("Control arrays" above), so this is where menus and controls part. Not measured: where a loaded element sits in
 its menu when the array has gaps, and whether it copies a Shortcut.
 
-**In HexIDE:** none of this works yet. No menu has a variable at run time, so the first line naming one is "Variable
-not defined" (#1126), and a menu array's Click is called without its Index. The menu bar sits inside the window's
-client area, so a menued form loses the bar's height at the bottom, and reading ScaleHeight on it is refused (#1127).
+**In HexIDE:** the bar is above the client area, 19 pixels high, and ScaleHeight is the area below it (#1127). None of
+the menus-from-code rows works yet: no menu has a variable at run time, so the first line naming one is "Variable not
+defined" (#1126), and a menu array's Click is called without its Index.
 
 ## SetFocus (2026-10-15, #1061)
 
