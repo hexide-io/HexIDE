@@ -10290,6 +10290,78 @@ one Label at Left 120, Top 120, 360 x 360. The program logs each step under `On 
 - **A form's Width and Height** read and set the client size, not the outer one: #1072. The fit-to-content idiom
   above still lands right, because here the difference between Width and ScaleWidth is 0.
 
+## Menus at run time, and the menu bar (2026-10-17, #1126, #1127)
+
+**The probe.** Found by the Minesweeper demo's Game menu (#1123). A Fixed Single form, `ClientWidth = 2940`,
+`ClientHeight = 3420`, with a Game menu holding New (Shortcut F2), a separator `mnuSep1`, and a three-element
+array `mnuLevel(0 To 2)`: "&Beginner" checked, "&Intermediate" and "&Expert". `Form_Load` logs each step to a file under
+`On Error Resume Next`, then `End`s. Two probes, each built native and p-code; all four runs agreed.
+
+**The menu bar is outside the client area:**
+
+| Read | Logged |
+|---|---|
+| `ScaleWidth`, `ScaleHeight`, `TypeName(ScaleHeight)` | `2940 3420 Single` |
+| `Width`, `Height` | `3030 4080` |
+| `Height = (Height - ScaleHeight) + 2000`, then `ScaleHeight`, `Height` | `1995 2660` |
+| `Height = (Height - ScaleHeight) + 3420`, then `ScaleHeight`, `Height` | `3420 4085` |
+| `mnuGame.Visible = False`, then `ScaleHeight`, `Height`; and after `= True` again | `3420 4085`, both times |
+
+The same form without a menu has `Height - ScaleHeight` = 375 ("Move, ScaleWidth and ScaleHeight"), and with one it
+is 660: the bar takes 285 twips, 19 pixels at 96 dpi. `ClientHeight` and `ScaleHeight` are the area below it. Hiding
+the only top-level menu changed nothing before the form was shown; what it does once shown is unmeasured.
+
+**Menus from code:**
+
+| Probe | Logged |
+|---|---|
+| `TypeName(mnuNew)`, `TypeName(mnuLevel)`, `TypeName(mnuLevel(0))` | `Menu Object Menu` |
+| `mnuLevel.LBound`, `.UBound`, `.Count`; `mnuLevel(1).Index` | `0 2 3`; `1` |
+| `mnuLevel(0)`'s Caption, Checked, Enabled, Visible | `&Beginner True True True` |
+| `TypeName` of Checked, of Caption | `Boolean String` |
+| `For i = 0 To 2: mnuLevel(i).Checked = (i = 2)`, then each | `False False True` |
+| `mnuLevel(1).Checked = 5`, then read | `True` |
+| `mnuLevel(1).Enabled = False` and `.Caption = "&Medium"`, then read | `False &Medium` |
+| `mnuNew` read bare: as it stands, then with Enabled False, Visible False and Checked True in turn | `True`, `False`, `True`, `True` |
+| `mnuNew = False`, then Enabled, Visible, Checked | `False True True` |
+| `mnuLevel_Click 1`, called from code | the handler runs with Index 1 |
+| `mnuSep1.Caption = "Sep"`, then read | `Sep` |
+| `mnuNew.Left` | compile error, "Method or data member not found" |
+
+So a menu's **default member is Enabled**. The obvious guess was Caption, as for a Label; a Boolean that tracks
+Enabled and ignores Visible and Checked settles it.
+
+**Refusals,** each a run-time error under `On Error Resume Next`:
+
+| Probe | Err |
+|---|---|
+| `mnuGame.Checked = True`, a menu with sub-items | 387, "'Checked' property can't be set on this control" |
+| `mnuSep1.Checked = True`, a separator | 387 |
+| `mnuNew.Caption = "-"`, making an item a separator | 395 |
+| hiding every item of the Game menu in turn | 387, "'Visible' property can't be set on this control", at the last |
+| `mnuNew.Index`, not an array | an error; the number wasn't logged |
+
+**Load and Unload of a menu array:**
+
+| Probe | Logged |
+|---|---|
+| `Load mnuLevel(3)`, then `Err`, Count, UBound | `0 4 3` |
+| the loaded element's Caption, Checked, Enabled, Visible | `&Beginner False True True` |
+| with `mnuLevel(0)` first ticked, then disabled, then hidden and captioned "Zero", each Load's element | Checked `True`; Enabled `False`; Visible `False`, Caption `Zero` |
+| `Load mnuLevel(7)`, then Count, UBound | `5 7` |
+| `Unload mnuLevel(3)`, then Count, UBound | `4 7` |
+| `Unload mnuLevel(0)` | 362, "Can't unload controls created at design time" |
+| `Load mnuNew` | 361, "Can't load or unload this object" |
+| `mnuLevel(5).Checked = True`, no such element | 340, "Control array element '5' doesn't exist" |
+
+**A loaded menu element copies element 0, Visible included.** A loaded control is created hidden whatever element 0
+is ("Control arrays" above), so this is where menus and controls part. Not measured: where a loaded element sits in
+its menu when the array has gaps, and whether it copies a Shortcut.
+
+**In HexIDE:** none of this works yet. No menu has a variable at run time, so the first line naming one is "Variable
+not defined" (#1126), and a menu array's Click is called without its Index. The menu bar sits inside the window's
+client area, so a menued form loses the bar's height at the bottom, and reading ScaleHeight on it is refused (#1127).
+
 ## SetFocus (2026-10-15, #1061)
 
 **The probe.** A compiled form, native and p-code, run on the oracle guest's **console** session through the agent.
