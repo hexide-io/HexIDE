@@ -10286,7 +10286,8 @@ one Label at Left 120, Top 120, 360 x 360. The program logs each step under `On 
 - **Move on a control** does this, the check included. Move with an omitted argument (`Move 1, , 3`), with none, or on
   a form, is not measured, and stops the run.
 - **ScaleWidth and ScaleHeight on a form** read the client area in whole pixels, in the form's ScaleMode. Setting them
-  is #990, and so is ScaleHeight on a form with a menu bar, whose menu sits inside the client area here.
+  is #990. On a form with a menu bar they are the area below the bar, as in VB6 (#1127): the window is the form's
+  ClientHeight plus VB6's 19-pixel bar tall, so the canvas gets the whole ClientHeight.
 - **A form's Width and Height** read and set the client size, not the outer one: #1072. The fit-to-content idiom
   above still lands right, because here the difference between Width and ScaleWidth is 0.
 

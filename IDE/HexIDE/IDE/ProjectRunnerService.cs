@@ -555,13 +555,14 @@ public partial class ProjectRunnerService : IProjectRunnerService
     public bool CanEndProject => IsRunning;
     public bool CanRestartProject => IsRunning;
 
-    private VBMDIFormRuntime InstantiateWindow(ComponentInstance instance)
+    // As FormComponentClass.InstantiateWindow builds a desktop one, the menu bar included (#1127).
+    private VBMDIFormRuntime InstantiateWindow(ComponentInstance instance, bool menuBar)
     {
         var form = new VBMDIFormRuntime(windowManager)
         {
             Title = instance.GetPropertyOrDefault(VBProperties.CaptionProperty) ?? "",
             Width = instance.GetPropertyOrDefault(VBProperties.WidthProperty),
-            Height = instance.GetPropertyOrDefault(VBProperties.HeightProperty),
+            Height = instance.GetPropertyOrDefault(VBProperties.HeightProperty) + (menuBar ? VBLoader.MenuBarHeight : 0),
             [AttachedProperties.BackColorProperty] = instance.GetPropertyOrDefault(VBProperties.BackColorProperty),
             [MDIHostPanel.WindowLocationProperty] = new Point((int)instance.GetPropertyOrDefault(VBProperties.LeftProperty), (int)instance.GetPropertyOrDefault(VBProperties.TopProperty))
         };
@@ -575,14 +576,15 @@ public partial class ProjectRunnerService : IProjectRunnerService
         // The same build, start and show as VBLoader.RunForm, in an MDI window (#822). Parsed before anything is shown, so
         // a syntax error fails the start without leaving a window behind that nothing would close. The program's other
         // forms get MDI windows of their own.
-        var shown = window = InstantiateWindow(VBLoader.FormComponentOf(element));
+        var shown = window = InstantiateWindow(VBLoader.FormComponentOf(element), VBLoader.HasMenuBar(element));
         VBLoader.PrepareForm(element, shown.Context, content => shown.Content = content, debugController, OpenInBrowser);
         return VBLoader.StartAndShow(shown.Context, token, close: shown.CloseForm,
             showUntilClosed: () => shown.ShowInHost(blockBehind: true));
     }
 
     // A window for another of the program's forms, in the single-view host (#822).
-    private IFormView OpenInBrowser(FormDefinition definition) => InstantiateWindow(VBLoader.FormComponentOf(definition));
+    private IFormView OpenInBrowser(FormDefinition definition) =>
+        InstantiateWindow(VBLoader.FormComponentOf(definition), VBLoader.HasMenuBar(definition));
 
     public class VBMDIFormRuntime : MDIWindow, IModuleExecutionRoot, IFormView
     {

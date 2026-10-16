@@ -31,13 +31,17 @@ public class FormComponentClass : ComponentBaseClass
         };
     }
 
-    public VBFormRuntime InstantiateWindow(ComponentInstance instance)
+    /// <param name="menuBar">
+    /// Whether the form has a menu bar, which sits inside the window here and outside the client area in VB6, so the
+    /// window is that much taller than the form's ClientHeight (#1127).
+    /// </param>
+    public VBFormRuntime InstantiateWindow(ComponentInstance instance, bool menuBar = false)
     {
         var form = new VBFormRuntime()
         {
             Title = instance.GetPropertyOrDefault(CaptionProperty),
             Width = instance.GetPropertyOrDefault(WidthProperty),
-            Height = instance.GetPropertyOrDefault(HeightProperty),
+            Height = instance.GetPropertyOrDefault(HeightProperty) + (menuBar ? VBLoader.MenuBarHeight : 0),
             [AttachedProperties.BackColorProperty] = instance.GetPropertyOrDefault(BackColorProperty),
             [AttachedProperties.ForeColorProperty] = instance.GetPropertyOrDefault(ForeColorProperty),
             [AttachedProperties.FontProperty] = instance.GetPropertyOrDefault(FontProperty),
