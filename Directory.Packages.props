@@ -54,9 +54,11 @@
     <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
   </ItemGroup>
   <!-- LSP / StreamJsonRpc — Nerdbank.MessagePack pinned above 1.0.2 (GHSA-2cwq-pwfr-wcw3);
-       MessagePack pinned above 2.5.198 (CVE-2026-48109 / GHSA-hv8m-jj95-wg3x) pulled in by StreamJsonRpc -->
+       MessagePack pinned above 2.5.198 (CVE-2026-48109 / GHSA-hv8m-jj95-wg3x) and at 2.5.303 or later
+       (GHSA-qhrr-8q5h-9q3h, #1124), pulled in by StreamJsonRpc. HexIDE formats with SystemTextJsonFormatter and never
+       uses MessagePack itself, but NU1902 is an error here, so an advisory against the pin stops every build. -->
   <ItemGroup>
-    <PackageVersion Include="MessagePack" Version="2.5.301" />
+    <PackageVersion Include="MessagePack" Version="2.5.307" />
     <PackageVersion Include="Nerdbank.MessagePack" Version="1.2.4" />
     <PackageVersion Include="StreamJsonRpc" Version="2.24.92" />
   </ItemGroup>
