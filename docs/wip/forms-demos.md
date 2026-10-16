@@ -1,8 +1,9 @@
 # The next forms demos: Battleship, then Minesweeper
 
-> **Work in progress.** Captured 2026-10-13. **Battleship exists** since 2026-10-15, as
-> [`demo/battleship-forms`](../../demo/battleship-forms) (#1071). Minesweeper doesn't yet. The work that blocked them
-> is tracked in issues, linked below; this document is the reason those issues were ordered as they were.
+> **Work in progress.** Captured 2026-10-13. **Both exist:** Battleship since 2026-10-15, as
+> [`demo/battleship-forms`](../../demo/battleship-forms) (#1071), and Minesweeper since 2026-10-17, as
+> [`demo/minesweeper-forms`](../../demo/minesweeper-forms) (#1123). The work that blocked them is tracked in issues,
+> linked below; this document is the reason those issues were ordered as they were.
 
 ## Why demos
 
@@ -66,6 +67,21 @@ needing almost nothing Battleship has not already brought:
 
 Things to leave out until the interpreter has them: a high-score table needs file I/O (`Open`, `Print #`,
 `FreeFile`), which still stops the run, and `Static` locals do too.
+
+### What it found
+
+As planned, it needed nothing new: it ran under F5 the first time, a game won and a game lost (#1123).
+
+So it grew the Game menu a real Minesweeper has, with the level as a menu control array, and that found three
+bugs, each measured on vb6.exe:
+
+| Found | Issue |
+|---|---|
+| A form with a menu bar loses the bar's height off its client area, and reading `ScaleHeight` on it stops the run | #1127 |
+| No menu can be used from code at run time: `mnuLevel(i).Checked` is "Variable not defined", and a menu array's Click gets no Index | #1126 |
+| The automation tree names a running form's menu `&Game` | #1128 |
+
+The demo ships without the menu until those land, and the version with it is commit caab5bdd.
 
 ## Related
 
