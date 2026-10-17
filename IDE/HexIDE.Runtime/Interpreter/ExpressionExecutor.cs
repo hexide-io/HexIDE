@@ -862,6 +862,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // FontName, which is no property of its own here but the name of the control's font (#1141).
         if (FontMembers.TryGet(control, memberIdentifier, out var fontMember))
             return fontMember;
+        // A TextBox's SelStart, SelLength and SelText, which exist only at run time (#1150).
+        if (TextBoxMembers.TryGet(control, memberIdentifier, out var textBoxMember))
+            return textBoxMember;
 
         throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
     }
