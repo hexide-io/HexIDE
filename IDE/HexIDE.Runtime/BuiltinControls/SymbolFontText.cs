@@ -1,10 +1,9 @@
-using System.Collections.Concurrent;
 using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
-using Avalonia.Media;
 using HexIDE.IDE;
+using HexIDE.Runtime.BuiltinTypes;
 
 namespace HexIDE.Runtime.BuiltinControls;
 
@@ -37,19 +36,8 @@ public static class SymbolFontText
     public static bool GetSymbolGlyphs(AvaloniaObject element) => element.GetValue(SymbolGlyphsProperty);
     public static void SetSymbolGlyphs(AvaloniaObject element, bool value) => element.SetValue(SymbolGlyphsProperty, value);
 
-    private static readonly ConcurrentDictionary<string, bool> Installed = new(System.StringComparer.OrdinalIgnoreCase);
-
     /// <summary>Whether <paramref name="font"/> draws as a symbol font here: its Charset is 2 and the family is installed.</summary>
-    public static bool UsesSymbolGlyphs(VBFont font) => font.Charset == SymbolCharset && IsInstalled(font.FontFamilyName);
-
-    /// <summary>
-    /// Whether this machine has a font of exactly this family. A platform may answer a family it lacks with a substitute,
-    /// so the family found must be the one asked for.
-    /// </summary>
-    public static bool IsInstalled(string? family) =>
-        !string.IsNullOrEmpty(family) && Installed.GetOrAdd(family, name =>
-            FontManager.Current.TryGetGlyphTypeface(new Typeface(name), out var typeface)
-            && string.Equals(typeface.FamilyName, name, System.StringComparison.OrdinalIgnoreCase));
+    public static bool UsesSymbolGlyphs(VBFont font) => font.Charset == SymbolCharset && VBFontExtensions.IsInstalled(font.FontFamilyName);
 
     /// <summary>
     /// <paramref name="text"/> as GDI draws it in a symbol font: each character's byte in the ANSI code page, at U+F000

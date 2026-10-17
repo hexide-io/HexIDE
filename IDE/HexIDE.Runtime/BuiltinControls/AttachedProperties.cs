@@ -44,7 +44,10 @@ public class AttachedProperties
                 control.FontWeight = font.ToFontWeight();
                 control.FontSize = font.Size;
                 control.FontStyle = font.ToFontStyle();
-                SymbolFontText.SetSymbolGlyphs(control, SymbolFontText.UsesSymbolGlyphs(font));
+                // Only on the controls that draw a caption in their own font. It is inherited, so set on a form it would
+                // reach the form's menus, which VB6 draws in the menu font whatever the form's is.
+                if (control is VBLabel or VBCommandButton or VBCheckBox or VBOptionButton)
+                    SymbolFontText.SetSymbolGlyphs(control, SymbolFontText.UsesSymbolGlyphs(font));
             }
         });
     }

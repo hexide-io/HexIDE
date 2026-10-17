@@ -2,6 +2,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Media;
+using Avalonia.Media.TextFormatting;
 using Avalonia.VisualTree;
 using HexIDE.IDE;
 using HexIDE.Runtime.BuiltinControls;
@@ -19,7 +21,7 @@ public class SymbolFontTests
 {
     private static string Glyphs(params int[] codes) => new(codes.Select(c => (char)c).ToArray());
 
-    private static readonly bool HasWingdings = SymbolFontText.IsInstalled("Wingdings");
+    private static readonly bool HasWingdings = VBFontExtensions.IsInstalled("Wingdings");
 
     private static string Frm(string control, string caption, string font, int charset) => $$"""
         VERSION 5.00
@@ -90,12 +92,66 @@ public class SymbolFontTests
         Drawn(Child(canvas, "Cell")).Should().Be("PMJ");
     }
 
-    [AvaloniaFact]
-    public void A_Wingdings_CommandButton_draws_its_caption_as_glyphs_with_its_access_key()
+    [AvaloniaTheory]
+    [InlineData("VB.CommandButton")]
+    [InlineData("VB.CheckBox")]
+    [InlineData("VB.OptionButton")]
+    public void A_Wingdings_button_draws_its_caption_as_glyphs_with_its_access_key(string control)
     {
-        var (canvas, _, _, _) = Laid(Frm("VB.CommandButton", "&PM", "Wingdings", 2));
+        var (canvas, _, _, _) = Laid(Frm(control, "&PM", "Wingdings", 2));
 
         Drawn(Child(canvas, "Cell")).Should().Be(HasWingdings ? "_" + Glyphs(0xF050, 0xF04D) : "_PM");
+    }
+
+    [AvaloniaFact]
+    public void A_Wingdings_form_draws_its_menus_in_letters()
+    {
+        // VB6 draws menus in the system's menu font, whatever the form's font is.
+        var (root, _, _, _) = Spawn("""
+            VERSION 5.00
+            Begin VB.Form Form1
+               Caption         =   "Form1"
+               BeginProperty Font
+                  Name            =   "Wingdings"
+                  Size            =   12
+                  Charset         =   2
+                  Weight          =   400
+                  Underline       =   0   'False
+                  Italic          =   0   'False
+                  Strikethrough   =   0   'False
+               EndProperty
+               Begin VB.Menu mnuGame
+                  Caption         =   "&Game"
+               End
+            End
+            Attribute VB_Name = "Form1"
+            """);
+        // The form's font goes on its window, as FormComponentClass.InstantiateWindow puts it there.
+        var window = new Window { Content = root, [AttachedProperties.FontProperty] = new VBFont("Wingdings", 12, charset: 2) };
+        window.Show();
+
+        var menu = ((DockPanel)root).Children.OfType<Menu>().Single();
+        menu.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text).Should().Contain("_Game");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Wingdings")]
+    [InlineData("Marlett")]
+    public void An_installed_symbol_font_draws_its_own_glyphs(string family)
+    {
+        var fontFamily = new VBFont(family, 18, charset: SymbolFontText.SymbolCharset).ToFontFamily();
+        if (!VBFontExtensions.IsInstalled(family))
+        {
+            // Not on this machine, as on Linux and macOS: the fallbacks follow it.
+            fontFamily.FamilyNames.Should().Contain("Liberation Sans");
+            return;
+        }
+
+        // Marlett was passed over for the platform's default face when named with the fallbacks after it, and drew boxes.
+        var layout = new TextLayout(SymbolFontText.ToSymbolGlyphs("ab"), new Typeface(fontFamily), 18, Brushes.Black);
+        var run = layout.TextLines.SelectMany(line => line.TextRuns).OfType<ShapedTextRun>().Single();
+        run.GlyphRun.GlyphTypeface.FamilyName.Replace(((char)0).ToString(), "").Should().Be(family);
+        run.GlyphRun.GlyphInfos.Select(glyph => glyph.GlyphIndex).Should().NotContain((ushort)0, "0 is the missing glyph, drawn as a box");
     }
 
     [AvaloniaFact]

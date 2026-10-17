@@ -5444,9 +5444,36 @@ character of a SYMBOL_CHARSET font into the font's private-use range: `P` is U+F
 **In HexIDE:**
 - **The family:** fixed (#1132). Every font used to draw in one sans serif, because the family was looked up only in the
   bundled collection, which holds no fonts. Now it is looked up among the installed fonts first.
-- **The symbols:** #1133. Wingdings `PMJKLN` still draws those letters, because nothing maps them into the private-use
-  range. Given U+F050 and so on directly, the same Label draws the flag and the bomb, so the mapping is the missing
-  piece. Marlett's private-use characters draw empty boxes, so Marlett, a hidden system font, isn't found by name.
+- **The symbols:** the same as vb6.exe for both Labels, where the font is installed (#1133). A caption in a font whose
+  Charset is 2 is drawn at U+F000 plus each character's ANSI byte, as GDI maps it, and still reads back as the letters
+  the program wrote. That covers a Label and the captions of a CommandButton, CheckBox and OptionButton, in the
+  designer and at run time. Not yet: a Frame's caption, list items, a TextBox's text, and `Print` on a form.
+- **Two things stood in the way, neither of them VB6's.** Avalonia reads a symbol font's family name a byte at a time,
+  so Wingdings came back as `\0W\0i\0n...` and never matched the name asked for. And Marlett, named with the fallback
+  families after it, was passed over for the platform's default face, which has none of its glyphs, and drew boxes;
+  named alone it resolves. So an installed family is now named alone.
+- **On a machine without the font**, as Linux and macOS are for Wingdings and Marlett, the letters are drawn as before:
+  the mapped characters would draw as empty boxes. What to draw there is the open half of #1133.
+
+**Setting the font at run time.** A second probe, native and p-code agreeing: 18-point Labels changed in `Form_Load`,
+read back, then shown and screenshotted.
+
+| Probe | Logged | Drawn |
+|---|---|---|
+| Arial Label, read `FontName`, `TypeName`, `Font.Charset` | `Arial String 0` | |
+| `FontName = "Wingdings"` on it | `Wingdings`, `Font.Name` Wingdings, **Charset 2** | the flag, the bomb and the face |
+| Wingdings Label (Charset 2), `FontName = "Arial"` | `Arial`, **Charset 0** | `PMJ` |
+| `FontName = "Wingdings"`, then `"Arial"` | `Arial`, Charset 0 | `PMJ` |
+| `Font.Name = "Wingdings"` on an Arial Label | **`Arial`**, Charset 0, no error | `PMJ` |
+| `FontName = "Wingdings"`, then `Font.Charset = 0` | **`Arial`**, Charset 0 | `PMJ` |
+| `FontName = "NoSuchFont123"` | **380**, "Invalid property value"; FontName stays `Arial` | |
+| `FontName = ""` | 380; FontName stays `Arial` | |
+
+FontName picks the font's own charset, 2 for Wingdings and 0 for Arial. `Font.Name` doesn't. Wingdings at Charset 0
+isn't Wingdings at all: GDI picks another face, and the name then reads back as that face. Two obvious guesses are
+wrong here: that `Font.Name` and FontName are the same assignment, and that an assignment raising no error took
+effect. **In HexIDE:** FontName is 461 either way, read or written (#1141).
+
 ## A Label's border (2026-10-17, #1077)
 
 **The probe.** A pixel-mode form with a white BackColor, holding Labels 20 pixels square (300 twips): Fixed Single with
