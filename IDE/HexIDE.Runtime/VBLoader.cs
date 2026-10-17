@@ -43,7 +43,8 @@ public class VBLoader
         var menu = new Menu();
         DockPanel.SetDock(menu, Avalonia.Controls.Dock.Top);
         var shortcuts = new List<(KeyGesture Gesture, Action Invoke)>();
-        BuildMenuBar(element, menu, shortcuts);
+        var menus = new List<(ComponentInstance Component, Control Control, ItemsControl Parent)>();
+        BuildMenuBar(element, menu, shortcuts, menus);
 
         // A VB6 control array is 2+ controls sharing a Name, or a single control carrying an explicit `Index` (a
         // 1-element array). Detect the array Names first so each element joins a group rather than overwriting the
@@ -91,6 +92,23 @@ public class VBLoader
 
         foreach (var component in TopLevelComponents(element))
             PlaceComponentTree(component, canvas, canvas, element, OnPlaced);
+
+        // A menu has a name in code as a control has (#1126): a variable of its own, or an element of its menu control
+        // array, whose Click then passes the element's Index.
+        foreach (var (component, control, parent) in menus)
+        {
+            if (component.GetPropertyOrDefault(VBProperties.NameProperty) is not { } name)
+                continue;
+            VBProps.SetName(control, name);
+            if (arrayGroups.TryGetValue(name, out var group))
+            {
+                var index = TryParseControlArrayIndex(component, out var parsed) ? parsed : group.Count;
+                VBProps.SetIndex(control, index);
+                group.AddDesignTimeMenuElement(index, control, parent, live => NewMenuLike(component, live, menu));
+            }
+            else
+                executionContext.AllocVariable(environment, name, new Vb6Value(control));
+        }
 
         // Bind each control-array group to its shared Name once every element is in place.
         foreach (var (name, group) in arrayGroups)
@@ -155,10 +173,11 @@ public class VBLoader
     /// canvas: a VB6 menu has no Left/Top/Width/Height, so every one of them used to land as a zero-sized
     /// child of the form's canvas while the bar itself stayed empty.
     /// </summary>
-    private static void BuildMenuBar(FormDefinition element, Menu menu, List<(KeyGesture Gesture, Action Invoke)> shortcuts)
+    private static void BuildMenuBar(FormDefinition element, Menu menu, List<(KeyGesture Gesture, Action Invoke)> shortcuts,
+        List<(ComponentInstance Component, Control Control, ItemsControl Parent)> built)
     {
         foreach (var component in TopLevelMenus(element))
-            if (BuildMenuItem(component, menu, shortcuts) is { } item)
+            if (BuildMenuItem(component, menu, shortcuts, menu, built) is { } item)
                 menu.Items.Add(item);
 
         // An empty bar still occupies a strip at the top of the form and pushes the canvas down, so a form
@@ -214,7 +233,7 @@ public class VBLoader
     /// </summary>
     private static Separator NewMenuSeparator()
     {
-        return new Separator
+        return new VBMenuSeparator
         {
             Height = 1,
             // Width is set to auto EXPLICITLY, and that is the whole reason this renders. The IDE's own
@@ -267,41 +286,75 @@ public class VBLoader
     /// window entirely and finds nothing, so every submenu item would silently do nothing while the
     /// top-level ones worked.
     /// </summary>
-    private static Control? BuildMenuItem(ComponentInstance component, Menu menu, List<(KeyGesture Gesture, Action Invoke)> shortcuts)
+    private static Control? BuildMenuItem(ComponentInstance component, Menu menu, List<(KeyGesture Gesture, Action Invoke)> shortcuts,
+        ItemsControl parent, List<(ComponentInstance Component, Control Control, ItemsControl Parent)> built)
     {
         var caption = component.GetPropertyOrDefault(VBProperties.CaptionProperty);
 
         // VB6 spells a separator as a menu whose caption is a single hyphen.
         if (caption == "-")
-            return NewMenuSeparator();
+        {
+            var separator = NewMenuSeparator();
+            separator.IsVisible = component.GetPropertyOrDefault(VBProperties.VisibleProperty);
+            built.Add((component, separator, parent));
+            return separator;
+        }
 
         var item = (MenuItem)((ComponentBaseClass)component.BaseClass).Instantiate(component);
+        built.Add((component, item, parent));
 
         var name = component.GetPropertyOrDefault(VBProperties.NameProperty);
         if (name is not null)
         {
-            item.Click += (_, e) =>
-            {
-                // Click bubbles, so a submenu click reaches every ancestor item too. VB6 raises Click on the
-                // item the user chose and on nothing above it — a parent with sub-items just opens.
-                if (!ReferenceEquals(e.Source, item))
-                    return;
-                menu.FindAncestorOfType<IModuleExecutionRoot>()?.ExecuteSub($"{name}_Click");
-            };
+            WireMenuClick(item, name, menu);
 
             if (VBMenuShortcut.TryParse(component, out var gesture))
             {
                 // Displays right-aligned in the item, as VB6 draws it.
                 item.InputGesture = gesture;
-                shortcuts.Add((gesture, () =>
-                    menu.FindAncestorOfType<IModuleExecutionRoot>()?.ExecuteSub($"{name}_Click")));
+                shortcuts.Add((gesture, () => RaiseMenuClick(item, name, menu)));
             }
         }
 
         foreach (var child in SubItemsOf(component))
-            if (BuildMenuItem(child, menu, shortcuts) is { } childItem)
+            if (BuildMenuItem(child, menu, shortcuts, item, built) is { } childItem)
                 item.Items.Add(childItem);
 
+        return item;
+    }
+
+    private static void WireMenuClick(MenuItem item, string name, Menu menu) =>
+        item.Click += (_, e) =>
+        {
+            // Click bubbles, so a submenu click reaches every ancestor item too. VB6 raises Click on the
+            // item the user chose and on nothing above it — a parent with sub-items just opens.
+            if (!ReferenceEquals(e.Source, item))
+                return;
+            RaiseMenuClick(item, name, menu);
+        };
+
+    // The item's Click, with its Index first when it is an element of a menu control array: `mnuLevel_Click(Index As
+    // Integer)` (#1126).
+    private static void RaiseMenuClick(Control item, string name, Menu menu) =>
+        menu.FindAncestorOfType<IModuleExecutionRoot>()?.ExecuteSub($"{name}_Click",
+            VBProps.GetIndex(item) is { } index ? [new Vb6Value(index)] : null);
+
+    /// <summary>
+    /// A new element of a menu control array, for <c>Load mnuRecent(n)</c>: a copy of the array's first element as it
+    /// stands, its caption, tick, Enabled and Visible included (measured, #1126). Unlike a loaded control, which starts
+    /// hidden, a loaded menu is visible when the element it copies is. Its Shortcut is not copied, which is unmeasured.
+    /// </summary>
+    private static Control NewMenuLike(ComponentInstance component, Control live, Menu menu)
+    {
+        if (live is not VBMenu first)
+            return new VBMenuSeparator { IsVisible = live.IsVisible };
+        var item = (MenuItem)((ComponentBaseClass)component.BaseClass).Instantiate(component);
+        item.Header = first.Header;
+        item.IsChecked = first.IsChecked;
+        item.IsEnabled = first.IsEnabled;
+        item.IsVisible = first.IsVisible;
+        if (component.GetPropertyOrDefault(VBProperties.NameProperty) is { } name)
+            WireMenuClick(item, name, menu);
         return item;
     }
 

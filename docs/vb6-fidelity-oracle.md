@@ -10408,9 +10408,15 @@ Enabled and ignores Visible and Checked settles it.
 |---|---|
 | `mnuGame.Checked = True`, a menu with sub-items | 387, "'Checked' property can't be set on this control" |
 | `mnuSep1.Checked = True`, a separator | 387 |
-| `mnuNew.Caption = "-"`, making an item a separator | 395 |
+| `mnuNew.Caption = "-"`, making an item a separator | 395, "Cannot use separator bar as menu name for this control"; the caption stays `&New` |
+| `mnuLevel(0).Caption = "-"`, an element of an array | 395 |
+| `mnuSep1.Enabled = False`, a separator | 387, and Enabled still reads True |
 | hiding every item of the Game menu in turn | 387, "'Visible' property can't be set on this control", at the last |
-| `mnuNew.Index`, not an array | an error; the number wasn't logged |
+| with only the separator left visible, hiding it | 387: the last visible menu under a menu can't be hidden, separator or not |
+| `mnuNew.Index`, not an array | 343, "Object not an array" |
+
+A third probe added the rest: `mnuSep1.Caption = "-"` is taken; `mnuNew.Tag` reads "" and takes "t"; `mnuNew.WindowList`
+reads False; `mnuLevel(1).Name` is `mnuLevel`; and `mnuNew.Parent.Name` is `Form1`.
 
 **Load and Unload of a menu array:**
 
@@ -10429,12 +10435,26 @@ Enabled and ignores Visible and Checked settles it.
 is ("Control arrays" above), so this is where menus and controls part. Not measured: where a loaded element sits in
 its menu when the array has gaps, and whether it copies a Shortcut.
 
-**In HexIDE:** the bar is above the client area, 19 pixels high, and ScaleHeight is the area below it, on a form with a
-visible top-level menu; a form whose top-level menus are all hidden has no bar (#1127). The bar is one line high
-however many menus it holds, where VB6's wraps onto a second line on a form too narrow for them, which is unmeasured.
-Showing or hiding a top-level menu from code waits on #1126. None of
-the menus-from-code rows works yet: no menu has a variable at run time, so the first line naming one is "Variable not
-defined" (#1126), and a menu array's Click is called without its Index.
+**In HexIDE:**
+- **The bar** is above the client area, 19 pixels high, and ScaleHeight is the area below it, on a form with a visible
+  top-level menu; a form whose top-level menus are all hidden has no bar (#1127). The bar is one line high however many
+  menus it holds, where VB6's wraps onto a second line on a form too narrow for them, which is unmeasured.
+- **Menus from code** work as the tables above say (#1126): each menu has its name, a menu array is a control array
+  with Count, LBound, UBound and an Index on its Click, and Caption, Checked, Enabled, Visible and Tag read and write
+  with the 387 and 395 refusals. Load copies the first element as it stands, Visible included, and places the new one
+  after the element below it; Unload removes it; and the 340, 361 and 362 refusals hold. Choosing an item no longer
+  toggles its tick, which is the program's to set. `TypeName` gives Menu, and Object for the array.
+- **Not yet:** a menu's default member, Enabled, so `mnuNew = False` and a bare `mnuNew` read; giving a separator a
+  caption, which makes it an item, refused as not implemented; and setting WindowList, refused the same way.
+- **The bar appearing or going away from code is refused** as not implemented (#1140): hiding the last visible
+  top-level menu, or showing one on a form whose top-level menus are all hidden, as a form that only pops its menus up
+  has them. The bar's height comes off the client area, and what the window or ScaleHeight does once the form is shown
+  is unmeasured; the one case measured, before it is shown, changed nothing. Wanted: ScaleHeight and Height after each
+  direction on a shown form, and on a maximized form and an MDI child. A change that leaves a top-level menu visible
+  works, and so does every change to a sub-item.
+- **The text of 340** names the element in vb6.exe, "Control array element '5' doesn't exist", and doesn't here.
+  The "Control arrays" rows above give it without the index, which looks abbreviated rather than measured; not
+  rechecked.
 
 ## SetFocus (2026-10-15, #1061)
 

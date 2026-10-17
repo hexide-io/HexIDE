@@ -49,6 +49,8 @@ public partial class VB6BuiltIns
     {
         if (!v.Type.IsArray)
         {
+            // A menu's separator is a Menu to a program, as every menu is (#1126).
+            if (v.Value is HexIDE.Runtime.BuiltinControls.VBMenuSeparator) return "Menu";
             if (v.Value is Control ctrl) return StripVb(ctrl.GetType().Name);
             if (v.Value is ICSharpProxy px) return InBoxTypeName(px);
         }
@@ -62,6 +64,8 @@ public partial class VB6BuiltIns
     {
         VbErr => "ErrObject",
         VbApp => "App",
+        // A control array is an Object to TypeName: measured on a menu array, `TypeName(mnuLevel)` (#1126).
+        HexIDE.Runtime.BuiltinControls.ControlArrayGroup => "Object",
         _ => StripVb(px.GetType().Name),
     };
 
