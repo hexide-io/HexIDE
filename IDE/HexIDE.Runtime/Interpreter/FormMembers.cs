@@ -68,6 +68,8 @@ internal static class FormMembers
             return new Vb6Value(form.ClassName);
         if (IsScaleSize(name, out var vertical) && window is Avalonia.Controls.Window shown)
             return AvaloniaInterop.ControlPositions.ScaleSize(shown, vertical);
+        if (IsWindowState(name) && window is Avalonia.Controls.Window stateWindow)
+            return ReadWindowState(stateWindow);
         foreach (var property in VBProperties.PropertiesByName.GetValueOrDefault(name, []))
             if (AvaloniaInteroperability.TryGet(window, property, out var value))
                 return value;
@@ -87,6 +89,11 @@ internal static class FormMembers
         if (IsScaleSize(name, out _))
             throw new NotImplementedException($"Setting {form.ClassName}'s {name} is not implemented: it sets a scale of the program's own (#990)");
         var window = form.BuiltInMembersFor(name)!;
+        if (IsWindowState(name) && window is Avalonia.Controls.Window stateWindow)
+        {
+            WriteWindowState(stateWindow, value);
+            return;
+        }
         foreach (var property in VBProperties.PropertiesByName.GetValueOrDefault(name, []))
             if (AvaloniaInteroperability.TrySet(window, property, value))
                 return;
@@ -101,6 +108,44 @@ internal static class FormMembers
         form.BuiltInMembersFor(name)!.Call(name, args);
 
     private static bool IsName(string name) => string.Equals(name, "Name", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsWindowState(string name) => string.Equals(name, "WindowState", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// WindowState, an Integer: 0 normal, 1 minimized, 2 maximized (#1152). A form not yet shown reads 0 whatever it was
+    /// set to or saved with, and reads the state it showed in once shown (measured).
+    /// </summary>
+    private static Vb6Value ReadWindowState(Avalonia.Controls.Window window) =>
+        new(window.IsVisible
+            ? window.WindowState switch
+            {
+                Avalonia.Controls.WindowState.Minimized => 1,
+                Avalonia.Controls.WindowState.Maximized or Avalonia.Controls.WindowState.FullScreen => 2,
+                _ => 0,
+            }
+            : 0);
+
+    /// <summary>
+    /// Sets WindowState: a hidden form takes it when it is shown, and a shown one at once, raising Resize as its size
+    /// changes (measured). Converted as an Integer is, so 1.6 is 2; Null is 94, and anything but 0, 1 or 2 is 380.
+    /// </summary>
+    private static void WriteWindowState(Avalonia.Controls.Window window, Vb6Value value)
+    {
+        if (value.IsNull)
+            throw new VBRunTimeException(VBStandardError.InvalidUseOfNull);
+        var state = Convert.ToInt32(VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Integer, null).Value,
+            System.Globalization.CultureInfo.InvariantCulture);
+        window.WindowState = AvaloniaWindowState(state) ?? throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+    }
+
+    /// <summary>VB6's WindowState as Avalonia's, or null for a value VB6 refuses.</summary>
+    internal static Avalonia.Controls.WindowState? AvaloniaWindowState(int state) => state switch
+    {
+        0 => Avalonia.Controls.WindowState.Normal,
+        1 => Avalonia.Controls.WindowState.Minimized,
+        2 => Avalonia.Controls.WindowState.Maximized,
+        _ => null,
+    };
 
     // ScaleWidth and ScaleHeight, which no property of the window holds: the client area, in the form's units (#1071).
     private static bool IsScaleSize(string name, out bool vertical)
@@ -117,18 +162,4 @@ internal static class FormMembers
         string.Equals(name, "Controls", StringComparison.OrdinalIgnoreCase) ? ": the form's Controls collection is #1060"
         : name.StartsWith("Scale", StringComparison.OrdinalIgnoreCase) ? ": the form's coordinate system is #990"
         : "";
-
-    /// <summary>
-    /// Whether HexIDE can read <paramref name="name"/> on the form's window: what decides, for <c>Me.X</c>, between
-    /// reading it and refusing a VB6 member HexIDE lacks as not implemented, where it used to raise 438.
-    /// </summary>
-    public static bool CanRead(Avalonia.Controls.Control window, string name)
-    {
-        if (IsName(name) || (IsScaleSize(name, out _) && window is Avalonia.Controls.Window))
-            return true;
-        foreach (var property in VBProperties.PropertiesByName.GetValueOrDefault(name, []))
-            if (AvaloniaInteroperability.TryGet(window, property, out _))
-                return true;
-        return FontMembers.TryGet(window, name, out _);
-    }
 }

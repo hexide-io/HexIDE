@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -44,10 +45,37 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
 
     // Form_Load is not raised here: the program raises Initialize and Load before the window is shown (#822, #994).
 
+    private bool minimizedResizeRaised;
+
     protected override void OnResized(WindowResizedEventArgs e)
     {
         base.OnResized(e);
+        // Minimize is dispatched by the state change, including on backends that also resize it.
+        if (WindowState == WindowState.Minimized)
+        {
+            if (minimizedResizeRaised)
+                return;
+            minimizedResizeRaised = true;
+        }
         windowContext.ExecuteSub("Form_Resize");
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        // Win32 deliberately does not report a client resize when minimizing. VB6 does raise Resize,
+        // with WindowState already 1. Observe the window so the minimize button and code agree.
+        // Before Show, setting the initial state must not raise a form event.
+        if (change.Property == WindowStateProperty)
+        {
+            if (WindowState != WindowState.Minimized)
+                minimizedResizeRaised = false;
+            else if (IsVisible && !minimizedResizeRaised)
+            {
+                minimizedResizeRaised = true;
+                windowContext.ExecuteSub("Form_Resize");
+            }
+        }
     }
 
     public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)

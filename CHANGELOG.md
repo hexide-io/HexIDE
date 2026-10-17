@@ -13,6 +13,9 @@ there isn't one yet. Anything may change between 0.x releases.
 - **A TextBox's `SelStart`, `SelLength` and `SelText`** (#1150). They raised 438. They now read and write as vb6.exe
   measured: setting SelStart drops the selection, positions past the end clamp, a negative one is 380, and SelText
   leaves the caret after what it put in.
+- **A form's `WindowState`** (#1152). Reading or setting it stopped the run, and a form saved maximized opened at its
+  normal size. It now reads and writes as vb6.exe measured: 0 until the form is shown, then the state it is in, with
+  380 for a value other than 0, 1 or 2. A form saved minimized or maximized shows that way.
 - **The CommonDialog control** (#1084). A form holding one used to be refused at run time. Now `ShowOpen`,
   `ShowSave` and `ShowFont` show the IDE's own dialogs, and an automation client can answer the pickers with
   `answer_next_file_dialog`. Cancel and `CancelError`, `FileName`, `FileTitle`, `DefaultExt` and the Font properties

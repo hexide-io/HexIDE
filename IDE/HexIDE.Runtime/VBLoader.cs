@@ -506,7 +506,7 @@ public class VBLoader
     }
 
     // The number on a property line HexIDE preserves without modelling it, such as `BorderStyle = 0  'None`.
-    private static int? RawNumber(ComponentInstance component, string name)
+    internal static int? RawNumber(ComponentInstance component, string name)
     {
         foreach (var property in component.UnknownRawProperties)
         {
