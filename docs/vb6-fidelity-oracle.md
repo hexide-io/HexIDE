@@ -5452,7 +5452,8 @@ theme, which isn't loaded, so neither border drew at all. It now draws each ring
 HexIDE resolves that colour. HexIDE's Classic palette keeps its own values for four of them: shadow `808080`, dark shadow
 `404040`, and both lights `FFFFFF`, against Windows 10's `A0A0A0`, `696969`, `E3E3E3` and `FFFFFF`. So the structure is
 VB6's and the shades are the palette's. Window frame had no colour at all, so `vbWindowFrame` resolved to nothing; it is
-now Windows 10's `646464`.
+now Windows 10's `646464`. That is the Windows 10 measurement inside an otherwise Win98-era palette, whose window frame
+would be black, which is why black was the obvious guess.
 
 ## RGB, QBColor and MsgBox's style (2026-10-12)
 
