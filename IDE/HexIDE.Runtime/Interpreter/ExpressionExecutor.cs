@@ -859,6 +859,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             if (AvaloniaInteroperability.TryGet(control, prop, out var value))
                 return value;
         }
+        // FontName, which is no property of its own here but the name of the control's font (#1141).
+        if (FontMembers.TryGet(control, memberIdentifier, out var fontMember))
+            return fontMember;
 
         throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
     }

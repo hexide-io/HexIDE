@@ -71,6 +71,8 @@ internal static class FormMembers
         foreach (var property in VBProperties.PropertiesByName.GetValueOrDefault(name, []))
             if (AvaloniaInteroperability.TryGet(window, property, out var value))
                 return value;
+        if (FontMembers.TryGet(window, name, out var fontMember))
+            return fontMember;
         throw new NotImplementedException($"Reading {form.ClassName}'s {name} is not implemented{TrackedBy(name)}");
     }
 
@@ -88,6 +90,9 @@ internal static class FormMembers
         foreach (var property in VBProperties.PropertiesByName.GetValueOrDefault(name, []))
             if (AvaloniaInteroperability.TrySet(window, property, value))
                 return;
+        // The form's own font: its controls keep theirs, as vb6.exe measured (#1141).
+        if (FontMembers.TrySet(window, name, value))
+            return;
         throw new NotImplementedException($"Setting {form.ClassName}'s {name} is not implemented{TrackedBy(name)}");
     }
 
@@ -124,6 +129,6 @@ internal static class FormMembers
         foreach (var property in VBProperties.PropertiesByName.GetValueOrDefault(name, []))
             if (AvaloniaInteroperability.TryGet(window, property, out _))
                 return true;
-        return false;
+        return FontMembers.TryGet(window, name, out _);
     }
 }

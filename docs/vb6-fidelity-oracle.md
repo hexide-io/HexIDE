@@ -5472,7 +5472,46 @@ read back, then shown and screenshotted.
 FontName picks the font's own charset, 2 for Wingdings and 0 for Arial. `Font.Name` doesn't. Wingdings at Charset 0
 isn't Wingdings at all: GDI picks another face, and the name then reads back as that face. Two obvious guesses are
 wrong here: that `Font.Name` and FontName are the same assignment, and that an assignment raising no error took
-effect. **In HexIDE:** FontName is 461 either way, read or written (#1141).
+effect.
+
+**Which names FontName takes.** A third probe set FontName on an Arial Label at 12 point to each name in turn, from
+Arial each time, and read back FontName, `Font.Charset` and FontSize. Native and p-code agree.
+
+| Names | Logged |
+|---|---|
+| MS Sans Serif, MS Serif | taken, Charset 0, Size 12 |
+| System; Courier | taken, Charset 0, **Size 9.75** |
+| Terminal | taken, **Charset 255**, Size 9 |
+| Fixedsys | taken, Charset 0, Size 9 |
+| Small Fonts | taken, Charset 0, Size 8.25 |
+| Modern, Roman, Script | taken, **Charset 255** |
+| MS Shell Dlg, MS Shell Dlg 2, Microsoft Sans Serif, Segoe UI, Tahoma, Courier New, MS Gothic | taken, Charset 0 |
+| Helvetica, Times | taken, Charset 0, and read back as written |
+| `arial`; `WINGDINGS` | read back **`Arial`**; **`Wingdings`**, Charset 2 |
+| Webdings, Symbol, Marlett | taken, Charset 2 |
+| `5`; `"  Arial  "` | 380; 380, with no trimming |
+| Null | 94 |
+| `FontBold = True`, then FontName | the bold stays |
+| `Command1.FontName = "Wingdings"` | taken, Charset 2 |
+| `Me.FontName = "Courier New"` | taken; a Label on the form keeps MS Sans Serif |
+
+**The size is snapped to one a bitmap font has.** The 12 points became 9.75 under System and Courier, 9 under Terminal
+and 8.25 under Small Fonts, and setting Arial back afterwards didn't restore them: every later row read 8.25. That is
+why the Size column stops at Small Fonts. FontName returns the family's own spelling, except for the names Windows
+substitutes, Helvetica and Times, which read back as written.
+
+**In HexIDE (#1141):**
+- FontName reads and sets on every control whose font HexIDE holds, and on the form, which leaves its controls'
+  fonts alone. The charset comes with it: 2 for a symbol font, found by its glyphs being at U+F061 rather than at `a`;
+  255 for the four OEM names above; otherwise 0. The size and weight stay. `""`, padding, `5` and a missing family are
+  380, and Null is 94.
+- **Which families count as the machine's** is a decision, because HexIDE runs where Windows' fonts mostly aren't. A
+  family installed here by its exact name counts, and so does any text family from the table above, drawn in a
+  substitute where it isn't installed, as a form naming it at design time is. A symbol font has no substitute, since
+  letters aren't its glyphs, so one that isn't installed is 380: VB6's own answer on a machine without it, which a
+  program can trap. Wingdings by name is therefore 380 on Linux.
+- Not modelled: the size snapping for a bitmap font. HexIDE can't read a size yet, so nothing reads wrong. FontSize,
+  FontBold and the other font members are still 461.
 
 ## A Label's border (2026-10-17, #1077)
 
