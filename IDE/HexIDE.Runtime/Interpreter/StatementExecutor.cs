@@ -1540,6 +1540,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 await forms.Load(form);
                 return ControlFlow.Nothing;
             }
+            // A menu that is not an element of a menu array can't be loaded: 361 (measured, #1126).
+            if (target.Value is BuiltinControls.VBMenu or BuiltinControls.VBMenuSeparator)
+                throw new VBRunTimeException(context, VBStandardError.CantLoadOrUnloadThisObject);
         }
         // Otherwise a control-array element, Load Command1(i): the only other thing Load loads.
         var (group, index) = await ResolveControlArrayTarget(context.valueStmt(), "Load");

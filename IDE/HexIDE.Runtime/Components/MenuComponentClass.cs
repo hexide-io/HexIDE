@@ -16,7 +16,7 @@ public class MenuComponentClass : ComponentBaseClass
 
     protected override Control InstantiateInternal(ComponentInstance instance)
     {
-        return new MenuItem()
+        return new VBMenu()
         {
             Header = instance.GetPropertyOrDefault(CaptionProperty),
             // VB6 marks a menu's access key with an ampersand — "&File" is drawn as File with the F
@@ -26,7 +26,9 @@ public class MenuComponentClass : ComponentBaseClass
             HeaderTemplate = AccessTextDataTemplate.Access,
             IsEnabled = instance.GetPropertyOrDefault(EnabledProperty),
             IsChecked = instance.GetPropertyOrDefault(CheckedProperty),
-            ToggleType = instance.GetPropertyOrDefault(CheckedProperty) ? MenuItemToggleType.CheckBox : MenuItemToggleType.None,
+            // Every item can be ticked from code (#1126), so every item draws its tick when IsChecked; VBMenu keeps a click
+            // from toggling it.
+            ToggleType = MenuItemToggleType.CheckBox,
             IsVisible = instance.GetPropertyOrDefault(VisibleProperty)
         };
     }
