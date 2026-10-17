@@ -60,6 +60,21 @@ public class CommonDialogTests
         return project;
     }
 
+    private sealed class ListSink : IDeserializeErrorSink
+    {
+        public readonly List<string> Errors = [];
+        public void LogError(string error) => Errors.Add(error);
+    }
+
+    [AvaloniaFact]
+    public void Opening_a_form_that_holds_one_warns_of_nothing()
+    {
+        var sink = new ListSink();
+        new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), Form(Dialog, ""), sink);
+
+        sink.Errors.Should().BeEmpty();
+    }
+
     private sealed record Ran(List<string> Printed, List<string> Failures);
 
     // Runs the form as the IDE runs it, over a window manager whose dialogs answer as given.
