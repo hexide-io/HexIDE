@@ -10701,3 +10701,111 @@ Three probes, each compiled native and as p-code. Every line of output was the s
   - the default member is not implemented.
 - **Refused:** a Line on a form whose ScaleLeft or ScaleTop is not 0, such as a y-up graph's, since HexIDE
   applies no origin; and a Line in a PictureBox with a user scale.
+
+## Sequential files (2026-10-17, #1145)
+
+**The probes.** Found by the Notepad demo (`demo/notepad-forms`), which reads and writes its documents with `Open`,
+`Line Input #`, `Print #`, `Close`, `FreeFile` and `EOF`. Two probes, each a form whose `Form_Load` logs to a file on
+number 100 under `On Error Resume Next`, then `End`s. Each probe was built native and p-code, and **all four runs
+agreed**. The input files were written byte for byte with `Put` on a Binary file, and what `Print #` wrote was read
+back the same way and logged as hex. The guest is en-GB, code page 1252.
+
+**Where `Line Input #` ends a line:**
+
+| The file's bytes | Lines read before `EOF` |
+|---|---|
+| `a CR LF b CR LF` | `a`, `b`: a final line break makes no empty last line |
+| `a CR LF b` | `a`, `b` |
+| `a CR LF CR LF` | `a`, `""` |
+| `a CR b CR c` | `a`, `b`, `c`: a lone CR ends a line |
+| `a LF b LF c` | one line, `a LF b LF c`: a lone LF does **not** end one |
+| `a LF CR b` | `a LF`, `b` |
+| `a CR LF b ^Z c CR LF d` | `a`, `b`: **Ctrl+Z (26) ends the file** |
+| no bytes | none: `EOF` is True at once |
+| `caf E9 CR LF` | `café`: the ANSI code page |
+| one line of 70,000 characters | all 70,000 |
+
+After the last line `EOF` is True, and one more `Line Input #` is **62**, "Input past end of file", with the variable
+keeping the value it had. A Variant read into holds a String.
+
+**What `Print #` writes:**
+
+| Statement | Bytes |
+|---|---|
+| `Print #f, "a"` | `a CR LF` |
+| `Print #f, "a";` then `Print #f, "b"` | `ab CR LF` |
+| `Print #f, "a", "b"` | `a`, 13 spaces, `b CR LF` |
+| `Print #f, 5` / `-5` / `1.5` | ` 5 ` / `-5 ` / ` 1.5 `, each then `CR LF` |
+| `Print #f, "x"; 5; "y"` | `x 5 y CR LF` |
+| `Print #f, True` | `True CR LF`: no spaces |
+| `Print #f,` | `CR LF` |
+| `Print #f, "a",` then `Print #f, "c"` | `a`, 13 spaces, `c CR LF` |
+| `Print #f, "a";` then `Print #f, ; "z"` | `az CR LF` |
+| `Print #f, Null` (in a Variant) | `Null CR LF` |
+| `Print #f, "e"; Empty; "e"` | `ee CR LF` |
+| `Print #f, #1/2/2003#` | `02/01/2003 CR LF`: the date as it reads, then a space |
+| `Print #f, ChrW$(&H416)` | `? CR LF`: code page 1252 has no byte for it |
+| `Print #f, CCur(2.5), CSng(0.1), CDbl(1E+20)` | ` 2.5 `, ` 0.1 ` and `1E+20 `, each starting a zone |
+| `"12345678901234567890", "x"` | 8 spaces before `x`: column 20 moves to 28 |
+| `"12345678901234", "x"` | 14 spaces: a zone boundary already reached still moves on, to 28 |
+| `"1234567890123", "x"` | 1 space |
+| `"ab" & vbCrLf & "c", "x"` | 13 spaces after `c`: the column restarts at a line break inside an item |
+| `"ab";` then `"cd", "x"` | 10 spaces after `abcd`: the column carries across statements |
+
+So a number has a space before it where its sign would go and one after, and a date has one after. A string, a
+Boolean and Null have none. A comma moves to the next 14-column zone, and a statement ending in `;` or `,` writes no
+line break.
+
+**Opening, numbering and closing:**
+
+| Probe | Result |
+|---|---|
+| `FreeFile`, `FreeFile(0)`, `FreeFile(1)`, `FreeFile(2)` with nothing open | 1, 1, 256, 256, with no error |
+| `FreeFile` read twice before an `Open` | the same number both times |
+| `FreeFile` with 1 and 2 open | 3 |
+| `Open` For Output on an existing file | truncated: `LOF` 0 |
+| `Open` For Append | adds at the end, and creates a missing file |
+| a missing file For Input | 53, "File not found", and the number stays free |
+| a missing directory, For Input or Output | 76, "Path not found" |
+| a directory as the path | 75, "Path/File access error" |
+| `""` as the path | 75 |
+| a number already open | 55, "File already open" |
+| a second Output, Append or Input of a file open for Output | 55 |
+| a second Output or Append of a file open for Input | 55 |
+| a second Input of a file open for Input | taken |
+| a second Input of one opened `Lock Write` or `Lock Read` | 55 |
+| `Open ... As #0` | 52, "Bad file name or number" |
+| `Open ... As #512` (a literal) | compile error, "Syntax error" |
+| `Open ... As #g` with `g = 512` | taken |
+| `As 3` and `Close 3`, with no `#` | taken, and `Print #3` writes to it |
+| `Access Read` with Input; `Shared` | taken |
+| `For Input Access Write` | compile error, "Syntax error" |
+| `Print #` on an Input file; `Line Input #` on an Output file | 54, "Bad file mode" |
+| `EOF` of an Output file | True, with no error |
+| `Line Input #`, `Print #` or `EOF` on a number not open | 52 |
+| `Close` on a number not open, twice, or `#0` | no error |
+| `Close #g` with `g = -1` | 52 |
+| `Close` with no number | closes every open file, the log's included |
+| a relative path, after `ChDir App.Path` | resolved against the current directory |
+
+**Overturned while measuring.** Our first reading was that `As 3` without the `#` was refused, with 55. It was not:
+`a1.txt` was still open on number 512 from the line before, so the 55 was the second Output of one file. The second
+probe used a fresh file, and `As 3` was taken.
+
+**In HexIDE (#1145):**
+- **All of the above runs**, apart from the two compile errors, which are not raised.
+- **Not implemented:**
+  - Random and Binary mode, `Get`, `Put`, `Input #`, `Write #`, `Input$`, `LOF`, `Loc` and `Seek`;
+  - `Tab` and `Spc` in `Print #`;
+  - `Line Input #` into anything but a plain variable.
+- **The divergences:**
+  - an Input file is read whole when it opens, so a change another program makes while it is open is not seen;
+  - a `Lock` keeps the file only from this program's own second open, not from another process.
+- **Chosen, not measured: where a relative path goes.** Against the project's folder, `App.Path`, until the program
+  runs `ChDir`, and against that directory after it. VB6 resolves one against `CurDir`, which the row above measured,
+  and `CurDir` is the project's folder when the project was opened from Explorer, the usual case. The IDE's own working
+  directory is never used: it is wherever HexIDE was started, and a file written there is one the developer never
+  chose. An unsaved project has no folder, so a relative path in one is refused as not implemented. What `CurDir` is
+  in the VB6 IDE when the project was opened some other way is not measured.
+- **Still a parse failure:** a line holding two `#` file numbers. That is the date-literal token, and it has an issue
+  of its own.

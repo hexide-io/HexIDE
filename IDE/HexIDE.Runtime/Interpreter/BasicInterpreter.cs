@@ -95,6 +95,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     internal Debugging.StopExecutionSignal End()
     {
         Ending = true;
+        // End closes every file, as the end of the program does (#1145).
+        BuiltIns.Files.CloseAll();
         EndReached?.Invoke(this);
         return new Debugging.StopExecutionSignal();
     }
@@ -430,6 +432,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         this.stdLib = stdLib;
         this.rootEnv = rootEnv;
         this.code = code;
+        // A relative path in a file statement is the project's folder's (#1145), read when the file is opened, since the
+        // project's details arrive after the interpreter is built.
+        BuiltIns.Files.ProjectFolder = () => App.Path;
 
         // Build the primary (startup) module over the caller-provided rootEnv, then any additional modules —
         // each with its own env, ALL sharing one ExecutionState so slots are program-global (this is why ByRef

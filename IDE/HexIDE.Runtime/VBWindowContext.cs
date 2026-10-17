@@ -17,6 +17,9 @@ public class VBWindowContext : IModuleExecutionRoot
 {
     private readonly IBasicStandardLibrary standardLibrary;
     private BasicInterpreter? interpreter;
+
+    /// <summary>Closes every file the program has open: its end, however it ends (#1145).</summary>
+    internal void CloseFiles() => interpreter?.BuiltIns.Files.CloseAll();
     private VbObject? instance;
     private bool formDeclarationsRun;
     // Set once StartAsync begins. A started form's declarations run there and nowhere else, so an event can never run

@@ -670,6 +670,7 @@ public class VBLoader
             if (!program.Ended.IsCompleted)
                 program.Abandon();
             program.Events.Close();
+            program.Interpreter.BuiltIns.Files.CloseAll();
         }
     }
 
@@ -740,6 +741,8 @@ public class VBLoader
         void Ended()
         {
             context.Events.Close();
+            // The program's files close with it, so what it printed reaches the disk (#1145).
+            context.CloseFiles();
             run.TrySetResult();
         }
         token.Register(() =>

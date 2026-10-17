@@ -114,6 +114,9 @@ public class VbApp(AppInfo info) : ICSharpProxy, ICSharpPropertyBag
 
     private string title = info.Title;
 
+    /// <summary>The project's folder, empty for an unsaved project: where a relative file path is resolved (#1145).</summary>
+    public string Path => info.Path;
+
     /// <summary>
     /// The caption <c>MsgBox</c> / <c>InputBox</c> use when the caller omits a Title — null when there is
     /// no project behind the program, so "omitted" stays omitted rather than becoming a blank caption.
