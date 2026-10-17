@@ -2252,9 +2252,34 @@ STRINGLITERAL
    ;
 
 
+// A date-shaped token, not arbitrary text between hashes (#1146). The latter swallowed whole file
+// statements, e.g. `Line Input #1, s: Print #2, s`, and even `Close #1, #2`.
+// A separator needs a component after it: `#1, #` and `#1, 2, #` are not dates. Keep the real
+// ambiguity: vb6.exe reads `#1, 2#` as a date even after Print, not as a file number and a Double.
+// This only delimits the token; it does not validate calendar dates. Mirrored in the LSP lexer.
 DATELITERAL
-   : HASH (~ [#\r\n])* HASH
+   : HASH [ \t]* DATECOMPONENT (DATESEPARATOR DATECOMPONENT)+ ([ \t]* DATEMERIDIEM)? [ \t]* HASH
+   | HASH [ \t]* [0-9]+ [ \t]* DATEMERIDIEM [ \t]* HASH
    ;
+
+fragment DATECOMPONENT
+   : [0-9]+
+   | DATENAME DOT?
+   ;
+
+fragment DATENAME
+   // VB6 accepts prefixes of at least three letters, e.g. Janu and Februar, as well as Weds.
+   : J A N (U (A (R Y?)?)?)? | F E B (R (U (A (R Y?)?)?)?)?
+   | M A R (C H?)? | A P R (I L?)? | M A Y | J U N E? | J U L Y? | A U G (U (S T?)?)?
+   | S E P (T (E (M (B (E R?)?)?)?)?)? | O C T (O (B (E R?)?)?)?
+   | N O V (E (M (B (E R?)?)?)?)? | D E C (E (M (B (E R?)?)?)?)?
+   | S U N (D (A Y?)?)? | M O N (D (A Y?)?)? | T U E (S (D (A Y?)?)?)?
+   | W E D (S | N (E (S (D (A Y?)?)?)?)?)? | T H U (R (S (D (A Y?)?)?)?)?
+   | F R I (D (A Y?)?)? | S A T (U (R (D (A Y?)?)?)?)?
+   ;
+
+fragment DATESEPARATOR : [ \t/.,:\-]+;
+fragment DATEMERIDIEM : (A | P) M?;
 
 
 HEXLITERAL

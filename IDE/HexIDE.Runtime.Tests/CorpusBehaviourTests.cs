@@ -158,7 +158,6 @@ public class CorpusBehaviourTests
         ["gap-fill/gosub-return-colon-joined-one-line"] = "GOSUB: the execution-strategy limit, by design",
 
         // FILE I/O. Two file numbers across a colon — the largest Dies family in MISSING_LANGUAGE.md.
-        ["gap-fill/two-file-numbers-across-a-colon"] = "FILE-IO: VBCompileErrorException",
     };
 
     [Fact]

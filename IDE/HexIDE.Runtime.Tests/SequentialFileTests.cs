@@ -23,6 +23,22 @@ public class SequentialFileTests : BaseVBTestFixture, IDisposable
 
     private List<string?> Printed() => debug.Select(v => v.Value as string).ToList();
 
+    [Fact]
+    public async Task Multiple_file_numbers_on_one_line_copy_and_close_both_files()
+    {
+        File.WriteAllText(PathOf("source.txt"), "alpha\r\nbeta\r\n");
+        await Run($$"""
+            Dim s As String
+            Open "{{PathOf("source.txt")}}" For Input As #1: Open "{{PathOf("copy.txt")}}" For Output As #2
+            Do While Not EOF(1)
+                Line Input #1, s: Print #2, s
+            Loop
+            Print #2, "tail";: Close #1, #2
+            """);
+
+        File.ReadAllText(PathOf("copy.txt")).Should().Be("alpha\r\nbeta\r\ntail");
+    }
+
     // Reads a file whose bytes are given with Line Input #, as the probe did: each line in brackets, CR and LF shown.
     private async Task<string> ReadBack(string bytes)
     {

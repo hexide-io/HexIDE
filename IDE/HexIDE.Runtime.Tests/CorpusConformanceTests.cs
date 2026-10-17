@@ -88,7 +88,6 @@ public class CorpusConformanceTests
 
         // OTHER-REJECTION (5) — individually caused; see each case's own why in the corpus.
         ["continuation-basics/cont-after-member-dot"] = "OTHER-REJECTION",
-        ["gap-fill/two-file-numbers-across-a-colon"] = "OTHER-REJECTION",
         ["separator-and-continuation-together/continuation-drags-a-label-onto-a-statement"] = "OTHER-REJECTION",
         ["separator-with-declarations/hashconst-value-continued"] = "OTHER-REJECTION",
         ["whitespace-and-eol-edges/eof-mid-continuation-no-trailing-newline"] = "OTHER-REJECTION",

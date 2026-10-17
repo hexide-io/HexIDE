@@ -455,7 +455,32 @@ R_SQUARE_BRACKET: ']';
 
 STRINGLITERAL: '"' (~ ["\r\n] | '""')* '"';
 
-DATELITERAL: HASH (~ [#\r\n])* HASH;
+// Delimit dates rather than swallowing arbitrary text between file-number hashes (#1146).
+// A trailing separator is not a date component: `Close #1, #2` must keep both file numbers.
+// `#1, 2#` IS a date, even after Print, as vb6.exe measured. Mirrored in the interpreter grammar.
+DATELITERAL:
+    HASH [ \t]* DATECOMPONENT (DATESEPARATOR DATECOMPONENT)+ ([ \t]* DATEMERIDIEM)? [ \t]* HASH
+    | HASH [ \t]* [0-9]+ [ \t]* DATEMERIDIEM [ \t]* HASH
+;
+
+fragment DATECOMPONENT:
+    [0-9]+
+    | DATENAME DOT?
+;
+
+fragment DATENAME:
+    // Prefixes of at least three letters, including Janu and Februar; Weds is accepted too.
+    'JAN' ('U' ('A' ('R' 'Y'?)?)?)? | 'FEB' ('R' ('U' ('A' ('R' 'Y'?)?)?)?)?
+    | 'MAR' ('C' 'H'?)? | 'APR' ('I' 'L'?)? | 'MAY' | 'JUN' 'E'? | 'JUL' 'Y'? | 'AUG' ('U' ('S' 'T'?)?)?
+    | 'SEP' ('T' ('E' ('M' ('B' ('E' 'R'?)?)?)?)?)? | 'OCT' ('O' ('B' ('E' 'R'?)?)?)?
+    | 'NOV' ('E' ('M' ('B' ('E' 'R'?)?)?)?)? | 'DEC' ('E' ('M' ('B' ('E' 'R'?)?)?)?)?
+    | 'SUN' ('D' ('A' 'Y'?)?)? | 'MON' ('D' ('A' 'Y'?)?)? | 'TUE' ('S' ('D' ('A' 'Y'?)?)?)?
+    | 'WED' ('S' | 'N' ('E' ('S' ('D' ('A' 'Y'?)?)?)?)?)? | 'THU' ('R' ('S' ('D' ('A' 'Y'?)?)?)?)?
+    | 'FRI' ('D' ('A' 'Y'?)?)? | 'SAT' ('U' ('R' ('D' ('A' 'Y'?)?)?)?)?
+;
+
+fragment DATESEPARATOR: [ \t/.,:\-]+;
+fragment DATEMERIDIEM: ('A' | 'P') 'M'?;
 
 COLORLITERAL: '&H' [0-9A-F]+ ( AMPERSAND | PERCENT )?;
 
