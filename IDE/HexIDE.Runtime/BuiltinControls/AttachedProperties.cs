@@ -44,6 +44,7 @@ public class AttachedProperties
                 control.FontWeight = font.ToFontWeight();
                 control.FontSize = font.Size;
                 control.FontStyle = font.ToFontStyle();
+                SymbolFontText.SetSymbolGlyphs(control, SymbolFontText.UsesSymbolGlyphs(font));
             }
         });
     }

@@ -27,10 +27,9 @@ public class LabelComponentClass : ComponentBaseClass
         var control = new VBLabel()
         {
             Text = instance.GetPropertyOrDefault(CaptionProperty),
-            FontSize = vbFont.Size,
-            FontFamily = vbFont.ToFontFamily(),
-            FontWeight = vbFont.ToFontWeight(),
-            FontStyle = vbFont.ToFontStyle(),
+            // Through the attached property, as the other controls with a font, whose handler applies it, so a symbol
+            // font draws its glyphs (#1133) and a read finds the font rather than nothing (#934).
+            [AttachedProperties.FontProperty] = vbFont,
             // Through the attached property, as every other control's ForeColor: a run-time assignment writes it and
             // its handler repaints, and a read finds the form's colour rather than nothing (#795).
             [AttachedProperties.ForeColorProperty] = instance.GetPropertyOrDefault(ForeColorProperty),

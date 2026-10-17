@@ -97,6 +97,7 @@ public class VBLabel : TemplatedControl
         WordWrapProperty.Changed.AddClassHandler<VBLabel>((label, e) => label.UpdateStyle());
         RecognizesAccessKeyProperty.Changed.AddClassHandler<VBLabel>((label, e) => label.UpdateStyle());
         TextProperty.Changed.AddClassHandler<VBLabel>((label, e) => label.UpdateStyle());
+        SymbolFontText.SymbolGlyphsProperty.Changed.AddClassHandler<VBLabel>((label, e) => label.UpdateStyle());
 
         // Before Click, so MouseUp comes first, as VB6 raises them (#974).
         AttachedEvents.AttachMouse<VBLabel>();
@@ -141,7 +142,9 @@ public class VBLabel : TemplatedControl
         }
 
         var textblock = (decorator.Child as TextBlock)!;
-        textblock.Text = RecognizesAccessKey && Text != null && Text.Contains('&') ? Text.Replace("&", "_") : Text;
+        // In a symbol font, the glyphs GDI draws for the caption's bytes (#1133); the caption itself is unchanged.
+        var text = Text is { } caption && SymbolFontText.GetSymbolGlyphs(this) ? SymbolFontText.ToSymbolGlyphs(caption) : Text;
+        textblock.Text = RecognizesAccessKey && text != null && text.Contains('&') ? text.Replace("&", "_") : text;
         textblock.TextWrapping = WordWrap ? TextWrapping.Wrap : TextWrapping.NoWrap;
         textblock.TextAlignment = Alignment switch
         {
