@@ -513,6 +513,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             (found, var) = await interpreter.ReadVariableAfter(env, identifier, foundNeed!);
         if (found)
             return var;
+        VbIntrinsicNames.RefuseMissingObject(identifier);
         throw new VBVariableNotDefinedException(identifier);
     }
 
@@ -595,6 +596,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 // watch on an undeclared name would create it and fire a change the program never made.
                 // That is not hypothetical: it broke WatchBreakTests, which caught the observer changing
                 // what it observed. The write path allocates; a read only reports.
+                VbIntrinsicNames.RefuseMissingObject(identifier);
                 if (currentModule.PrePass.RequireVariableDefinitions || interpreter.SuppressImplicitDeclaration)
                     throw new VBVariableNotDefinedException(identifier);
                 // A name VB6 defines as an intrinsic is NOT an undeclared variable, and must not quietly

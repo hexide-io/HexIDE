@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace HexIDE.Runtime.Interpreter;
 
 /// <summary>
-/// Every intrinsic FUNCTION name VB6 defines — whether or not HexIDE implements it.
+/// Every intrinsic FUNCTION name VB6 defines, plus global object names guarded against implicit Empty reads.
 ///
 /// This exists so an unimplemented intrinsic fails LOUDLY instead of silently. Without it, `s = CurDir`
 /// finds no procedure and no registry entry, falls through to VB6's implicit-declaration rule, and
@@ -50,4 +50,20 @@ internal static class VbIntrinsicNames
     /// <summary>True if <paramref name="name"/> is a VB6 intrinsic function. Callers check the builtin
     /// registry FIRST — a true here means "VB6 has this and we do not".</summary>
     internal static bool IsIntrinsic(string name) => Names.Contains(name);
+
+    private static readonly HashSet<string> ObjectNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Screen", "Clipboard", "Printer", "Printers", "Forms"
+    };
+
+    /// <summary>
+    /// Called only after normal name resolution fails. These VB6 globals are objects, never implicitly
+    /// declared Empty variables (#871). A declared name, or a future implementation seeded by the host,
+    /// has already won before this guard. Option Explicit does not make a built-in object undeclared.
+    /// </summary>
+    internal static void RefuseMissingObject(string name)
+    {
+        if (ObjectNames.Contains(name))
+            throw new NotImplementedException(name + " is a VB6 built-in object that HexIDE does not implement yet (#871)");
+    }
 }
