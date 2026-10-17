@@ -18,8 +18,8 @@ namespace HexIDE.Runtime.AvaloniaInterop;
 /// a new caption and becomes an item, which HexIDE refuses as not implemented.</item>
 /// <item>Hiding the last visible menu under a menu is 387, "'Visible' property can't be set on this control", whether
 /// that last one is an item or a separator. A top-level menu can be hidden.</item>
-/// <item>Left, Top, Width and Height are not members, nor are colours or a font: a late-bound read is 438. Tag is, as
-/// on any control.</item>
+/// <item>Left is not a member: vb6.exe refuses <c>mnuNew.Left</c> when it compiles. HexIDE refuses a member a menu
+/// doesn't have when the statement runs. Tag is a member, as on any control, and WindowList reads False.</item>
 /// </list>
 /// </summary>
 internal static class MenuMembers

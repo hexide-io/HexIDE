@@ -148,22 +148,16 @@ public class MenuMembersTests
     [AvaloniaFact]
     public async Task Load_and_Unload_of_a_menu_array_answer_as_vb6_exe_did()
     {
+        // The first probe's order: the levels ticked so that element 0 is not, then the loads and unloads.
         var printed = await Printed("""
             On Error Resume Next
-            mnuLevel(0).Checked = True
+            Dim i As Integer
+            For i = 0 To 2
+                mnuLevel(i).Checked = (i = 2)
+            Next i
             Load mnuLevel(3)
             Debug.Print Err.Number & " " & mnuLevel.Count & " " & mnuLevel.UBound: Err.Clear
             Debug.Print mnuLevel(3).Caption & "|" & mnuLevel(3).Checked & "|" & mnuLevel(3).Enabled & "|" & mnuLevel(3).Visible
-            mnuLevel(0).Checked = False
-            mnuLevel(0).Enabled = False
-            Load mnuLevel(4)
-            Debug.Print mnuLevel(4).Checked & " " & mnuLevel(4).Enabled
-            mnuLevel(0).Enabled = True
-            mnuLevel(0).Caption = "Zero"
-            mnuLevel(0).Visible = False
-            Load mnuLevel(5)
-            Debug.Print mnuLevel(5).Visible & " " & mnuLevel(5).Caption
-            mnuLevel(0).Visible = True
             Load mnuLevel(7)
             Debug.Print Err.Number & " " & mnuLevel.Count & " " & mnuLevel.UBound: Err.Clear
             Unload mnuLevel(3)
@@ -172,17 +166,41 @@ public class MenuMembersTests
             Debug.Print Err.Number & "|" & Err.Description: Err.Clear
             Load mnuNew
             Debug.Print Err.Number & "|" & Err.Description: Err.Clear
+            mnuLevel(5).Checked = True
+            Debug.Print Err.Number: Err.Clear
             """);
 
         printed.Should().Equal(
             "0 4 3",
-            "&Beginner|True|True|True",
-            "False False",
-            "False Zero",
-            "0 7 7",
-            "0 6 7",
+            "&Beginner|False|True|True",
+            "0 5 7",
+            "0 4 7",
             "362|Can't unload controls created at design time",
-            "361|Can't load or unload this object");
+            "361|Can't load or unload this object",
+            // vb6.exe's text names the element, "Control array element '5' doesn't exist", and HexIDE's doesn't.
+            "340");
+    }
+
+    [AvaloniaFact]
+    public async Task A_loaded_menu_copies_the_first_element_as_it_stands_Visible_included()
+    {
+        // The second probe's order. A loaded control starts hidden whatever element 0 is; a loaded menu doesn't.
+        var printed = await Printed("""
+            mnuLevel(0).Checked = True
+            Load mnuLevel(3)
+            Debug.Print mnuLevel(3).Checked
+            mnuLevel(0).Checked = False
+            mnuLevel(0).Enabled = False
+            Load mnuLevel(4)
+            Debug.Print mnuLevel(4).Enabled
+            mnuLevel(0).Enabled = True
+            mnuLevel(0).Caption = "Zero"
+            mnuLevel(0).Visible = False
+            Load mnuLevel(5)
+            Debug.Print mnuLevel(5).Visible & " " & mnuLevel(5).Caption
+            """);
+
+        printed.Should().Equal("True", "False", "False Zero");
     }
 
     // ── on the menu itself ─────────────────────────────────────────────────────────────────────────

@@ -140,6 +140,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A program can use its menus** (#1126). Naming one in code stopped the run with "Variable not defined", so
+  `mnuFile.Enabled = False` or a ticked level menu couldn't run, and choosing an element of a menu array called its
+  Click without the Index. Now each menu has its name, a menu array works like a control array, Index on its Click
+  included, and Caption, Checked, Enabled, Visible and Tag read and write with VB6's refusals. `Load` and `Unload`
+  grow a menu array, as a recent-files list does. Choosing an item no longer ticks or unticks it, which is the
+  program's to do. Every rule was measured on vb6.exe.
 - **A form's fonts are drawn in the family they name** (#1132), when it is installed. Every VB6 font used to draw in one
   sans serif: Courier New wasn't monospaced, Times New Roman had no serifs. The family was looked up only in a bundled
   collection that holds no fonts; now the installed fonts come first. VB6's own default, MS Sans Serif, isn't shipped,
