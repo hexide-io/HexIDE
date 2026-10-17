@@ -140,6 +140,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A caption in a symbol font draws the font's symbols** (#1133), where the font is installed. A Wingdings Label
+  captioned `PMJ` drew those letters; now it draws a flag, a bomb and a smiling face, as vb6.exe does, and Marlett draws
+  its ticks, cross and arrows. Labels, CommandButtons, CheckBoxes and OptionButtons are covered. The caption still reads
+  back as the letters. On a machine without the font, as Linux and macOS are for Wingdings, the letters are drawn as
+  before.
 - **A program can use its menus** (#1126). Naming one in code stopped the run with "Variable not defined", so
   `mnuFile.Enabled = False` or a ticked level menu couldn't run, and choosing an element of a menu array called its
   Click without the Index. Now each menu has its name, a menu array works like a control array, Index on its Click

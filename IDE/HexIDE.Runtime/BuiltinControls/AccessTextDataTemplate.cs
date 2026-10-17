@@ -11,11 +11,8 @@ public class AccessTextDataTemplate
             {
                 if (data is string str)
                 {
-                    var result = new AccessText()
-                    {
-                        Text = str.Replace("&", "_")
-                    };
-                    return result;
+                    // Drawn as a symbol font's glyphs when the control's font is one (#1133).
+                    return new VBAccessText { Source = str };
                 }
                 else
                 {
