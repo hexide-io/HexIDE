@@ -1449,6 +1449,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (AvaloniaInteroperability.TrySet(control, prop, value))
                     return default;
             }
+            // FontName sets the control's font by name (#1141).
+            if (FontMembers.TrySet(control, memberIdentifier, value))
+                return default;
 
             throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} type {variable.Type} doesn't have member {memberIdentifier}");
         }

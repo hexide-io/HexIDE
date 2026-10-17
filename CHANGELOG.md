@@ -140,6 +140,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **FontName reads and sets at run time** (#1141), on a control or the form. `Label1.FontName = "Wingdings"` stopped
+  the run with "Method or data member not found"; now it switches the font, with the charset that makes a symbol font
+  draw its symbols. As vb6.exe measured, a family the machine doesn't have is 380, "Invalid property value", which a
+  program can trap to fall back. On Linux and macOS, Windows' text fonts are taken and drawn in a substitute, but a
+  missing symbol font is 380.
 - **A caption in a symbol font draws the font's symbols** (#1133), where the font is installed. A Wingdings Label
   captioned `PMJ` drew those letters; now it draws a flag, a bomb and a smiling face, as vb6.exe does, and Marlett draws
   its ticks, cross and arrows. Labels, CommandButtons, CheckBoxes and OptionButtons are covered. The caption still reads
