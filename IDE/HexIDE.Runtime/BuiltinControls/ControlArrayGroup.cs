@@ -26,6 +26,9 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
     // Treeview Listview Splitter.frm puts a two-element lblTitle array entirely inside one picTitles — so a
     // single field would clone a new element into whichever container happened to be registered last.
     private readonly Dictionary<int, Canvas> hosts = new();
+    // For a menu control array (#1126): the menu each element sits in, and how to make a new element from the first.
+    private readonly Dictionary<int, ItemsControl> menuHosts = new();
+    private System.Func<Control, Control>? newMenuLike;
 
     public ControlArrayGroup(string name) => Name = name;
 
@@ -51,6 +54,20 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
         }
     }
 
+    /// <summary>
+    /// Register a design-time element of a menu control array (#1126): the menu item, the menu it sits in, and how to
+    /// make a new element like the first, which is what <see cref="Load"/> does for a menu.
+    /// </summary>
+    public void AddDesignTimeMenuElement(int index, Control control, ItemsControl parent, System.Func<Control, Control> newLike)
+    {
+        elements[index] = control;
+        designTimeIndices.Add(index);
+        menuHosts[index] = parent;
+        newMenuLike = newLike;
+        if (index < templateIndex)
+            templateIndex = index;
+    }
+
     public bool TryGetElement(int index, out Control control) => elements.TryGetValue(index, out control!);
 
     /// <summary>VB6 <c>Load Command1(i)</c> — create a new element by cloning the lowest-index element's properties,
@@ -60,6 +77,11 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
     {
         if (elements.ContainsKey(index))
             throw new VBRunTimeException(VBStandardError.ObjectAlreadyLoaded);            // 360
+        if (newMenuLike is not null)
+        {
+            LoadMenu(index);
+            return;
+        }
         if (template is not { } tmpl || !hosts.TryGetValue(templateIndex, out var parent))
             throw new VBRunTimeException(VBStandardError.CantLoadOrUnloadThisObject);      // 361 (defensive)
 
@@ -86,6 +108,23 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
         hosts[index] = parent;
     }
 
+    // A new element of a menu control array, copied from the first as it stands, and placed in its menu after the
+    // element below it in index order, or before the first when it is the lowest. Where VB6 puts an element loaded
+    // into a gap is unmeasured.
+    private void LoadMenu(int index)
+    {
+        if (!elements.TryGetValue(templateIndex, out var first) || !menuHosts.TryGetValue(templateIndex, out var menu))
+            throw new VBRunTimeException(VBStandardError.CantLoadOrUnloadThisObject);      // 361 (defensive)
+        var item = newMenuLike!(first);
+        VBProps.SetName(item, Name);
+        VBProps.SetIndex(item, index);
+        var below = elements.Keys.Where(k => k < index).Select(k => elements[k]).LastOrDefault();
+        var position = below is not null ? menu.Items.IndexOf(below) + 1 : menu.Items.IndexOf(elements[elements.Keys.First()]);
+        menu.Items.Insert(position, item);
+        elements[index] = item;
+        menuHosts[index] = menu;
+    }
+
     /// <summary>VB6 <c>Unload Command1(i)</c> — remove a runtime-loaded element. Err 340 if the index doesn't
     /// exist, Err 362 if it is a design-time element (which can't be unloaded).</summary>
     public void Unload(int index)
@@ -96,8 +135,11 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
             throw new VBRunTimeException(VBStandardError.CantUnloadControlsCreatedAtDesignTime);      // 362
         if (hosts.TryGetValue(index, out var host))
             host.Children.Remove(control);
+        if (menuHosts.TryGetValue(index, out var menu))
+            menu.Items.Remove(control);
         elements.Remove(index);
         hosts.Remove(index);
+        menuHosts.Remove(index);
     }
 
     // VB6: a control array's LBound/UBound are the lowest/highest indices present. An empty array (every element

@@ -201,6 +201,8 @@ public static class AvaloniaInteroperability
     {
         if (control is VBLine line && LineMembers.TrySet(line, property, value) is { } lineMember)
             return lineMember;
+        if (MenuMembers.IsMenu(control) && MenuMembers.TrySet(control, property, value) is { } menuMember)
+            return menuMember;
 
         // VB6 accepts this and resets BackColor to the appearance's default (measured, #795). Setting the property
         // alone would leave the old BackColor, a wrong value; failing to find it would be a trappable 461 that On
@@ -412,6 +414,8 @@ public static class AvaloniaInteroperability
     {
         if (c is VBLine line && LineMembers.TryGet(line, property, out value) is { } lineMember)
             return lineMember;
+        if (MenuMembers.IsMenu(c) && MenuMembers.TryGet(c, property, out value) is { } menuMember)
+            return menuMember;
         // A form a modal form holds reads Enabled False (measured, #822). The hold is apart from its own Enabled, which is
         // what it reads once the modal form has gone.
         if (c is IFormView { HeldBy: not null } && ReferenceEquals(property, VBProperties.EnabledProperty))

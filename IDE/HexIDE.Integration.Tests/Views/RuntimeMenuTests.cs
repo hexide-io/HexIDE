@@ -137,7 +137,7 @@ public class RuntimeMenuTests
         // item would put a literal "-" in the middle of the File menu.
         var file = Item(bar, "&File");
         file.Items.Should().HaveCount(3);
-        file.Items[1].Should().BeOfType<Separator>();
+        file.Items[1].Should().BeAssignableTo<Separator>();
     }
 
     [AvaloniaFact]

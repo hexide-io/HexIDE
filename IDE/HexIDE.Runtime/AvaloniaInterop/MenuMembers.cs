@@ -1,0 +1,97 @@
+using System.Linq;
+using Avalonia.Controls;
+using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Interpreter;
+
+namespace HexIDE.Runtime.AvaloniaInterop;
+
+/// <summary>
+/// A menu's members as a program reads and writes them (#1126). Measured on vb6.exe, native and p-code agreeing (the
+/// oracle's "Menus at run time, and the menu bar"):
+/// <list type="bullet">
+/// <item>Caption reads as a String with its ampersand, and Checked, Enabled and Visible as Booleans. Checked takes any
+/// number, as True when it is not 0.</item>
+/// <item>Checked on a menu with sub-items, or on a separator, is 387, "'Checked' property can't be set on this control".
+/// A separator's Enabled is 387 as well, and reads True.</item>
+/// <item>A Caption of "-" on an item is 395, "Cannot use separator bar as menu name for this control". A separator takes
+/// a new caption and becomes an item, which HexIDE refuses as not implemented.</item>
+/// <item>Hiding the last visible menu under a menu is 387, "'Visible' property can't be set on this control", whether
+/// that last one is an item or a separator. A top-level menu can be hidden.</item>
+/// <item>Left, Top, Width and Height are not members, nor are colours or a font: a late-bound read is 438. Tag is, as
+/// on any control.</item>
+/// </list>
+/// </summary>
+internal static class MenuMembers
+{
+    private static VBRunTimeException CantSet(string property) =>
+        new(new VBStandardError(387, $"'{property}' property can't be set on this control"));
+
+    private static readonly VBStandardError SeparatorAsName = new(395, "Cannot use separator bar as menu name for this control");
+
+    public static bool IsMenu(Control control) => control is VBMenu or VBMenuSeparator;
+
+    /// <summary>
+    /// A menu's own member, read: true with its value, false for a member a menu does not have, null for one the shared
+    /// bindings read (Enabled, Visible and Tag).
+    /// </summary>
+    public static bool? TryGet(Control menu, PropertyClass property, out Vb6Value value)
+    {
+        value = default;
+        if (ReferenceEquals(property, VBProperties.CaptionProperty))
+            value = new Vb6Value(menu is VBMenu item ? item.Header as string ?? "" : "-");
+        else if (ReferenceEquals(property, VBProperties.CheckedProperty))
+            value = new Vb6Value(menu is VBMenu { IsChecked: true });
+        else if (ReferenceEquals(property, VBProperties.EnabledProperty) && menu is VBMenuSeparator)
+            value = new Vb6Value(true);
+        else if (ReferenceEquals(property, VBProperties.WindowListProperty))
+            value = new Vb6Value(false);
+        else if (IsShared(property))
+            return null;
+        else
+            return false;
+        return true;
+    }
+
+    /// <summary>A menu's own member, written: as <see cref="TryGet"/>, raising VB6's error for a value it refuses.</summary>
+    public static bool? TrySet(Control menu, PropertyClass property, Vb6Value value)
+    {
+        if (ReferenceEquals(property, VBProperties.CaptionProperty))
+        {
+            var caption = (string)AvaloniaInteroperability.ConvertForAssignment(property, value)!;
+            if (menu is VBMenu item)
+            {
+                if (caption == "-")
+                    throw new VBRunTimeException(SeparatorAsName);
+                item.Header = caption;
+            }
+            else if (caption != "-")
+                throw new System.NotImplementedException("Giving a menu separator a caption, which makes it an item, is not implemented (#1126)");
+            return true;
+        }
+        if (ReferenceEquals(property, VBProperties.CheckedProperty))
+        {
+            var isChecked = (bool)AvaloniaInteroperability.ConvertForAssignment(property, value)!;
+            if (menu is not VBMenu item || item.ItemCount > 0)
+                throw CantSet("Checked");
+            item.IsChecked = isChecked;
+            return true;
+        }
+        if (ReferenceEquals(property, VBProperties.EnabledProperty) && menu is VBMenuSeparator)
+            throw CantSet("Enabled");
+        if (ReferenceEquals(property, VBProperties.VisibleProperty)
+            && !(bool)AvaloniaInteroperability.ConvertForAssignment(property, value)!
+            && menu.Parent is MenuItem owner
+            && !owner.Items.OfType<Control>().Any(other => !ReferenceEquals(other, menu) && other.IsVisible))
+            throw CantSet("Visible");
+        if (ReferenceEquals(property, VBProperties.WindowListProperty))
+            throw new System.NotImplementedException("Setting a menu's WindowList at run time is not implemented (#1126)");
+        if (IsShared(property))
+            return null;
+        return false;
+    }
+
+    private static bool IsShared(PropertyClass property) =>
+        ReferenceEquals(property, VBProperties.EnabledProperty) || ReferenceEquals(property, VBProperties.VisibleProperty)
+                                                                || ReferenceEquals(property, VBProperties.TagProperty);
+}
