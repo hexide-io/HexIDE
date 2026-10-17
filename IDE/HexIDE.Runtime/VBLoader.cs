@@ -162,8 +162,9 @@ public class VBLoader
                 menu.Items.Add(item);
 
         // An empty bar still occupies a strip at the top of the form and pushes the canvas down, so a form
-        // with no menus would be laid out differently from the same form in VB6.
-        menu.IsVisible = menu.Items.Count > 0;
+        // with no menus would be laid out differently from the same form in VB6. So does a bar whose menus are all
+        // hidden, as a form's are when it keeps them only for PopupMenu, and VB6 shows no bar then (measured, #1127).
+        menu.IsVisible = HasMenuBar(element);
         // VB6's bar, so that the client area below it is the .frm's ClientHeight in a window HasMenuBar made taller by
         // this much, before anything has been laid out (#1127).
         menu.Height = MenuBarHeight;
@@ -177,10 +178,12 @@ public class VBLoader
     public const double MenuBarHeight = 19;
 
     /// <summary>
-    /// Whether the form runs with a menu bar. In VB6 the bar is outside the client area, so the window is the form's
-    /// ClientHeight plus <see cref="MenuBarHeight"/> tall (#1127).
+    /// Whether the form runs with a menu bar: it has a top-level menu that is visible. In VB6 the bar is outside the
+    /// client area, so the window is the form's ClientHeight plus <see cref="MenuBarHeight"/> tall, and a form whose
+    /// top-level menus are all hidden has no bar and is no taller (measured, #1127).
     /// </summary>
-    public static bool HasMenuBar(FormDefinition element) => TopLevelMenus(element).Any();
+    public static bool HasMenuBar(FormDefinition element) =>
+        TopLevelMenus(element).Any(menu => menu.GetPropertyOrDefault(VBProperties.VisibleProperty));
 
     // The menus on the bar itself. A menu some other menu claims as a sub-item belongs in that menu, not on the bar:
     // the same filter the writer applies, and for the same reason.

@@ -206,6 +206,56 @@ public sealed class MoveAndScaleSizeTests : IDisposable
         }
     }
 
+    // A form that keeps its only top-level menu hidden, for PopupMenu: VB6 shows no bar, and its Height is the same form's
+    // without a menu (measured, #1127).
+    private const string PopupOnlyForm = """
+        VERSION 5.00
+        Begin VB.Form Form1
+           BorderStyle     =   1  'Fixed Single
+           Caption         =   "Form1"
+           ClientHeight    =   3420
+           ClientLeft      =   45
+           ClientTop       =   330
+           ClientWidth     =   2940
+           ScaleHeight     =   3420
+           ScaleWidth      =   2940
+           Begin VB.Menu mnuPop
+              Caption         =   "Pop"
+              Visible         =   0   'False
+              Begin VB.Menu mnuPopA
+                 Caption         =   "A"
+              End
+           End
+        End
+        Attribute VB_Name = "Form1"
+        Private Sub Form_Load()
+            Debug.Print ScaleHeight
+            Height = (Height - ScaleHeight) + 2000
+            Debug.Print ScaleHeight
+        End Sub
+        """;
+
+    [AvaloniaFact]
+    public async Task A_form_whose_menus_are_all_hidden_has_no_bar()
+    {
+        using var cancel = new CancellationTokenSource();
+        Window? window = null;
+        try
+        {
+            (var printed, var errors, window) = await RunAsync(PopupOnlyForm, cancel.Token);
+
+            errors.Should().BeEmpty();
+            printed.Should().Equal("3420", "1995");
+            window.GetLogicalDescendants().OfType<Menu>().Single().IsVisible.Should().BeFalse();
+            window.GetLogicalDescendants().OfType<Canvas>().First().Bounds.Top.Should().Be(0);
+        }
+        finally
+        {
+            cancel.Cancel();
+            window?.Close();
+        }
+    }
+
     [AvaloniaFact]
     public async Task A_form_without_menus_has_no_bar_and_keeps_its_client_area()
     {

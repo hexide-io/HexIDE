@@ -10310,7 +10310,19 @@ array `mnuLevel(0 To 2)`: "&Beginner" checked, "&Intermediate" and "&Expert". `F
 
 The same form without a menu has `Height - ScaleHeight` = 375 ("Move, ScaleWidth and ScaleHeight"), and with one it
 is 660: the bar takes 285 twips, 19 pixels at 96 dpi. `ClientHeight` and `ScaleHeight` are the area below it. Hiding
-the only top-level menu changed nothing before the form was shown; what it does once shown is unmeasured.
+the only top-level menu from code changed nothing before the form was shown; what it does once shown is unmeasured.
+
+**A menu hidden at design time is no bar.** A second probe, with `ClientTop = 330`, logs in `Form_Load`, again from a
+Timer once the form is shown, and after `Height = (Height - ScaleHeight) + 2000`:
+
+| The form's top-level menus | Load | Shown | After the fit |
+|---|---|---|---|
+| none | `3420 3795` | `3420 3795` | `1995 2375` |
+| one, `Visible = False` in the .frm, with an item under it | `3420 3795` | `3420 3795` | `1995 2375` |
+| that one, and a visible File menu | `3420 4080` | `3420 4080` | `1995 2660` |
+
+Each cell is `ScaleHeight Height`. A form that keeps its only menu hidden, for `PopupMenu`, is the same size as one with
+no menu at all, so VB6 shows a bar only for a visible top-level menu.
 
 **Menus from code:**
 
@@ -10359,7 +10371,10 @@ Enabled and ignores Visible and Checked settles it.
 is ("Control arrays" above), so this is where menus and controls part. Not measured: where a loaded element sits in
 its menu when the array has gaps, and whether it copies a Shortcut.
 
-**In HexIDE:** the bar is above the client area, 19 pixels high, and ScaleHeight is the area below it (#1127). None of
+**In HexIDE:** the bar is above the client area, 19 pixels high, and ScaleHeight is the area below it, on a form with a
+visible top-level menu; a form whose top-level menus are all hidden has no bar (#1127). The bar is one line high
+however many menus it holds, where VB6's wraps onto a second line on a form too narrow for them, which is unmeasured.
+Showing or hiding a top-level menu from code waits on #1126. None of
 the menus-from-code rows works yet: no menu has a variable at run time, so the first line naming one is "Variable not
 defined" (#1126), and a menu array's Click is called without its Index.
 
