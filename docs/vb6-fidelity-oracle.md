@@ -10446,8 +10446,12 @@ its menu when the array has gaps, and whether it copies a Shortcut.
   toggles its tick, which is the program's to set. `TypeName` gives Menu, and Object for the array.
 - **Not yet:** a menu's default member, Enabled, so `mnuNew = False` and a bare `mnuNew` read; giving a separator a
   caption, which makes it an item, refused as not implemented; and setting WindowList, refused the same way.
-- **Hiding every top-level menu from code** leaves the bar in place, empty, so ScaleHeight and Height don't change.
-  That matches vb6.exe before the form is shown, the one case measured; once it is shown is unmeasured.
+- **The bar appearing or going away from code is refused** as not implemented (#1140): hiding the last visible
+  top-level menu, or showing one on a form whose top-level menus are all hidden, as a form that only pops its menus up
+  has them. The bar's height comes off the client area, and what the window or ScaleHeight does once the form is shown
+  is unmeasured; the one case measured, before it is shown, changed nothing. Wanted: ScaleHeight and Height after each
+  direction on a shown form, and on a maximized form and an MDI child. A change that leaves a top-level menu visible
+  works, and so does every change to a sub-item.
 - **The text of 340** names the element in vb6.exe, "Control array element '5' doesn't exist", and doesn't here.
   The "Control arrays" rows above give it without the index, which looks abbreviated rather than measured; not
   rechecked.

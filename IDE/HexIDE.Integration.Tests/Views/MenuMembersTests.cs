@@ -138,11 +138,109 @@ public class MenuMembersTests
             Debug.Print Err.Number: Err.Clear
             mnuSep1.Visible = False
             Debug.Print Err.Number: Err.Clear
-            mnuGame.Visible = False
-            Debug.Print Err.Number: Err.Clear
             """);
 
-        printed.Should().Equal("0", "387|'Visible' property can't be set on this control", "0", "387", "0");
+        printed.Should().Equal("0", "387|'Visible' property can't be set on this control", "0", "387");
+    }
+
+    // ── the bar, from code ─────────────────────────────────────────────────────────────────────────
+
+    private const string TwoMenus = """
+        VERSION 5.00
+        Begin VB.Form Form1
+           Caption         =   "Probe"
+           Begin VB.Menu mnuGame
+              Caption         =   "&Game"
+              Begin VB.Menu mnuNew
+                 Caption         =   "&New"
+              End
+           End
+           Begin VB.Menu mnuHelp
+              Caption         =   "&Help"
+              Begin VB.Menu mnuAbout
+                 Caption         =   "&About"
+              End
+           End
+        End
+        Attribute VB_Name = "Form1"
+        """;
+
+    private const string PopupOnly = """
+        VERSION 5.00
+        Begin VB.Form Form1
+           Caption         =   "Probe"
+           Begin VB.Menu mnuPopup
+              Caption         =   "Popup"
+              Visible         =   0   'False
+              Begin VB.Menu mnuCopy
+                 Caption         =   "&Copy"
+              End
+           End
+        End
+        Attribute VB_Name = "Form1"
+        """;
+
+    [AvaloniaFact]
+    public async Task A_top_level_menu_hides_and_shows_while_another_keeps_the_bar()
+    {
+        var (content, _, ctx, env) = Spawn(TwoMenus);
+        var bar = ((DockPanel)content).Children.OfType<Menu>().Single();
+
+        var printed = await ContainerRuntimeHarness.Run(ctx, env, """
+            mnuHelp.Visible = False
+            Debug.Print mnuHelp.Visible
+            mnuHelp.Visible = True
+
+            """);
+
+        printed.Single().Value.Should().Be(false);
+        bar.IsVisible.Should().BeTrue();
+        Item(bar, "&Help").IsVisible.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public async Task Hiding_the_last_visible_top_level_menu_is_refused_rather_than_leave_an_empty_bar()
+    {
+        // VB6 takes the bar away, and how the window or ScaleHeight changes then is unmeasured (#1140). Leaving the bar in
+        // place would give a wrong ScaleHeight with no error, so the run stops instead, even under On Error Resume Next.
+        var (content, _, ctx, env) = Spawn(TwoMenus);
+        var bar = ((DockPanel)content).Children.OfType<Menu>().Single();
+
+        var hide = () => ContainerRuntimeHarness.Run(ctx, env, """
+            On Error Resume Next
+            mnuHelp.Visible = False
+            mnuGame.Visible = False
+
+            """);
+
+        (await hide.Should().ThrowAsync<System.NotImplementedException>()).WithMessage("*#1140*");
+        Item(bar, "&Game").IsVisible.Should().BeTrue();
+        bar.IsVisible.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public async Task Showing_a_top_level_menu_on_a_form_whose_menus_are_all_hidden_is_refused_rather_than_draw_nothing()
+    {
+        // The PopupMenu idiom: the bar was never shown, so showing the menu would draw nothing (#1140).
+        var (content, _, ctx, env) = Spawn(PopupOnly);
+        var bar = ((DockPanel)content).Children.OfType<Menu>().Single();
+
+        var show = () => ContainerRuntimeHarness.Run(ctx, env, """
+            On Error Resume Next
+            mnuPopup.Visible = True
+
+            """);
+
+        (await show.Should().ThrowAsync<System.NotImplementedException>()).WithMessage("*#1140*");
+        bar.IsVisible.Should().BeFalse();
+
+        // Its sub-items are still the program's to change, which is what a popup menu's code does.
+        var printed = await ContainerRuntimeHarness.Run(ctx, env, """
+            mnuCopy.Enabled = False
+            Debug.Print mnuCopy.Enabled
+
+            """);
+        printed.Single().Value.Should().Be(false);
     }
 
     [AvaloniaFact]

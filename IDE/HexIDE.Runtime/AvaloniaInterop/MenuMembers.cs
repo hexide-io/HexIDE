@@ -79,16 +79,35 @@ internal static class MenuMembers
         }
         if (ReferenceEquals(property, VBProperties.EnabledProperty) && menu is VBMenuSeparator)
             throw CantSet("Enabled");
-        if (ReferenceEquals(property, VBProperties.VisibleProperty)
-            && !(bool)AvaloniaInteroperability.ConvertForAssignment(property, value)!
-            && menu.Parent is MenuItem owner
-            && !owner.Items.OfType<Control>().Any(other => !ReferenceEquals(other, menu) && other.IsVisible))
-            throw CantSet("Visible");
+        if (ReferenceEquals(property, VBProperties.VisibleProperty))
+        {
+            var visible = (bool)AvaloniaInteroperability.ConvertForAssignment(property, value)!;
+            if (!visible && menu.Parent is MenuItem owner && !AnyOtherVisible(owner, menu))
+                throw CantSet("Visible");
+            if (menu.Parent is Menu bar)
+                RefuseBarChange(bar, bar.IsVisible && !visible && !AnyOtherVisible(bar, menu) || !bar.IsVisible && visible);
+        }
         if (ReferenceEquals(property, VBProperties.WindowListProperty))
             throw new System.NotImplementedException("Setting a menu's WindowList at run time is not implemented (#1126)");
         if (IsShared(property))
             return null;
         return false;
+    }
+
+    private static bool AnyOtherVisible(ItemsControl parent, Control menu) =>
+        parent.Items.OfType<Control>().Any(other => !ReferenceEquals(other, menu) && other.IsVisible);
+
+    /// <summary>
+    /// Refuses a change that would make the menu bar appear or go away: the last visible top-level menu hidden, or one shown
+    /// on a form whose top-level menus are all hidden, as a form that only pops its menus up has them. The bar's height is
+    /// taken off the client area, so the window or ScaleHeight would have to change with it, and how is unmeasured.
+    /// Leaving the bar in place would be a wrong ScaleHeight, so the run stops instead (#1140).
+    /// </summary>
+    internal static void RefuseBarChange(Menu bar, bool changes)
+    {
+        if (changes)
+            throw new System.NotImplementedException(
+                "Showing or hiding the menu bar at run time, by the last visible top-level menu's Visible, is not implemented (#1140)");
     }
 
     private static bool IsShared(PropertyClass property) =>
