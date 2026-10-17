@@ -81,7 +81,9 @@ bugs, each measured on vb6.exe:
 | No menu can be used from code at run time: `mnuLevel(i).Checked` is "Variable not defined", and a menu array's Click gets no Index | #1126 |
 | The automation tree names a running form's menu `&Game` | #1128 |
 
-The demo ships without the menu until those land, and the version with it is commit caab5bdd.
+The first two are fixed, and so are three more the finished game needed: the cells' sunken borders (#1077), installed
+fonts (#1132), and a symbol font's glyphs (#1133) set at run time with `FontName` (#1141). The demo now ships with the
+menu, Wingdings flags, mines and faces, and letters where Wingdings isn't installed. #1128 is still open.
 
 ## Related
 

@@ -9,6 +9,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using HexIDE.Automation;
 using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinControls;
@@ -19,8 +20,10 @@ namespace HexIDE.Integration.Tests.Views;
 
 /// <summary>
 /// <c>demo/minesweeper-forms</c> (#1123), read from the repository and run as a made program: a field of Labels loaded at
-/// run time, a right-click that flags a cell, a left click that digs it and floods the empty region round it, and a face
-/// button that starts again. A change that stops it running fails here rather than in front of whoever opens the demo.
+/// run time, a right-click that flags a cell, a left click that digs it and floods the empty region round it, a face
+/// button that starts again, and a Game menu whose levels resize the field. The flag and the faces are Wingdings where
+/// the machine has it, and letters where it doesn't. A change that stops it running fails here rather than in front of
+/// whoever opens the demo.
 /// </summary>
 public sealed class MinesweeperFormsDemoTests
 {
@@ -37,6 +40,13 @@ public sealed class MinesweeperFormsDemoTests
             dir = dir.Parent;
         return Path.Combine(dir!.FullName, "demo", "minesweeper-forms", "MinesweeperForms.vbp");
     }
+
+    private static readonly bool HasWingdings = HexIDE.Runtime.BuiltinTypes.VBFontExtensions.IsInstalled("Wingdings");
+    private static string Flag => HasWingdings ? "P" : "F";
+    private static string Smile => HasWingdings ? "J" : ":)";
+
+    private static MenuItem Item(ItemsControl parent, string header) =>
+        parent.Items.OfType<MenuItem>().First(i => (i.Header as string) == header);
 
     private static void Pump()
     {
@@ -89,8 +99,14 @@ public sealed class MinesweeperFormsDemoTests
 
             // A right-click flags a cell through MouseDown's Button, and counts it off; a second takes the flag back.
             await Click(Cell(0, 0), "right");
-            Cell(0, 0).Text.Should().Be("F");
+            Cell(0, 0).Text.Should().Be(Flag);
             minesLeft.Text.Should().Be("009");
+            if (HasWingdings)
+            {
+                // A Wingdings P, drawn as its flag.
+                AttachedProperties.GetFont(Cell(0, 0))!.Value.FontFamilyName.Should().Be("Wingdings");
+                Cell(0, 0).GetVisualDescendants().OfType<TextBlock>().Single().Text.Should().Be(((char)0xF050).ToString());
+            }
             await Click(Cell(0, 0), "right");
             Cell(0, 0).Text.Should().BeEmpty();
             minesLeft.Text.Should().Be("010");
@@ -100,7 +116,7 @@ public sealed class MinesweeperFormsDemoTests
             await Click(Cell(4, 4));
             errors.Should().BeEmpty();
             Cell(4, 4).BackColor.R.Should().Be(0xE0);
-            face.Content.Should().Be(":)");
+            face.Content.Should().Be(Smile);
             var dug = cells.Where(c => c.BackColor.R == 0xE0).ToList();
             dug.Should().NotBeEmpty();
             dug.Should().OnlyContain(c => c.Text == "" || (c.Text!.Length == 1 && c.Text[0] >= '1' && c.Text[0] <= '8'));
@@ -114,6 +130,23 @@ public sealed class MinesweeperFormsDemoTests
             cells.Should().OnlyContain(c => c.BackColor.R == 0xC0 && c.Text == "");
             minesLeft.Text.Should().Be("010");
             clock.Text.Should().Be("000");
+
+            // The Game menu's levels are a menu control array: choosing one ticks it through mnuLevel_Click(Index) and
+            // resizes the field with Load and Unload.
+            var game = Item(form.GetLogicalDescendants().OfType<Menu>().Single(), "&Game");
+            Item(game, "&Intermediate").RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Pump();
+            errors.Should().BeEmpty();
+            Item(game, "&Intermediate").IsChecked.Should().BeTrue();
+            Item(game, "&Beginner").IsChecked.Should().BeFalse();
+            minesLeft.Text.Should().Be("040");
+            form.GetLogicalDescendants().OfType<VBLabel>().Count(l => l.IsVisible).Should().Be(256 + 2);
+
+            Item(game, "&Beginner").RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Pump();
+            errors.Should().BeEmpty();
+            minesLeft.Text.Should().Be("010");
+            form.GetLogicalDescendants().OfType<VBLabel>().Count().Should().Be(81 + 2, "the cells Intermediate loaded are unloaded");
             run.IsCompleted.Should().BeFalse("the form is still loaded");
         }
         finally
