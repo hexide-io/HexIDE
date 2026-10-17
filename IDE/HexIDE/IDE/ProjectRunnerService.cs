@@ -715,5 +715,42 @@ public partial class ProjectRunnerService : IProjectRunnerService
         }
 
         public void DebugPrint(Vb6Value value) => VBDebugConsole.Emit(value);
+
+        /// <summary>
+        /// A CommonDialog's Open or Save As (#1084), through the IDE's own pickers, so an automation client answers one
+        /// with answer_next_file_dialog as it answers the IDE's.
+        /// </summary>
+        public async Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request)
+        {
+#if DEBUG
+            // An armed answer stands for a name typed with the filter left as the program set it.
+            int? scriptedIndex = HexIDE.IDE.ScriptedFileDialogs.Pending > 0 && request.FilterIndex >= 1 ? request.FilterIndex : null;
+#else
+            int? scriptedIndex = null;
+#endif
+            var start = Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime { MainWindow: { } main }
+                        && TopLevel.GetTopLevel(main)?.StorageProvider is { } provider
+                ? await VbFileDialogOptions.StartFolder(provider, request)
+                : null;
+            var path = request.Save
+                ? await windowManager.SaveFilePickerAsync(VbFileDialogOptions.Save(request, start))
+                : (await windowManager.OpenFilePickerAsync(VbFileDialogOptions.Open(request, start)))?.FirstOrDefault();
+            return path is null ? null : new VbFileDialogAnswer(path, scriptedIndex);
+        }
+
+        /// <summary>A CommonDialog's ShowFont (#1084), through the IDE's font dialog.</summary>
+        public async Task<VbFontChoice?> ShowFontDialog(VbFontChoice initial)
+        {
+            var start = initial.Name.Length == 0
+                ? null
+                : new FontDialogResult(new Avalonia.Media.FontFamily(initial.Name),
+                    initial.Italic ? Avalonia.Media.FontStyle.Italic : Avalonia.Media.FontStyle.Normal,
+                    initial.Bold ? Avalonia.Media.FontWeight.Bold : Avalonia.Media.FontWeight.Normal, initial.Size);
+            var chosen = await windowManager.ShowFontDialog(start);
+            return chosen is null
+                ? null
+                : new VbFontChoice(chosen.Family.Name, (float)chosen.Size, chosen.Weight >= Avalonia.Media.FontWeight.Bold,
+                    chosen.Style != Avalonia.Media.FontStyle.Normal);
+        }
     }
 }

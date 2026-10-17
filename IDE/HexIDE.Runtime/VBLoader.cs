@@ -24,11 +24,16 @@ namespace HexIDE.Runtime;
 
 public class VBLoader
 {
+    /// <param name="standardLibrary">
+    /// The run's library, which shows a CommonDialog's dialogs (#1084). Without one a form holding a CommonDialog is
+    /// refused, as a form holding any control HexIDE can't create is.
+    /// </param>
     public static Control SpawnComponents(FormDefinition element,
         ModuleExecutionContext executionContext,
-        ExecutionEnvironment environment)
+        ExecutionEnvironment environment,
+        IBasicStandardLibrary? standardLibrary = null)
     {
-        RefuseUncreatableControls(element);
+        RefuseUncreatableControls(element, standardLibrary is not null);
         var canvas = new Canvas()
         {
             ClipToBounds = true
@@ -92,6 +97,20 @@ public class VBLoader
 
         foreach (var component in TopLevelComponents(element))
             PlaceComponentTree(component, canvas, canvas, element, OnPlaced);
+
+        // A CommonDialog is read from the block the form keeps for it, and only to run: nothing in the designer or the
+        // file changes (#1084). It is invisible, and has a name in code as any control has.
+        if (standardLibrary is not null)
+            foreach (var block in element.UnknownChildSubtreeTexts)
+                if (CommonDialogBlock(block) is { } dialogBlock)
+                {
+                    var dialog = new VBCommonDialog(standardLibrary);
+                    foreach (var (property, value) in dialogBlock.Properties)
+                        dialog.SetDesignTime(property, value);
+                    VBProps.SetName(dialog, dialogBlock.Name);
+                    canvas.Children.Add(dialog);
+                    executionContext.AllocVariable(environment, dialogBlock.Name, new Vb6Value(dialog));
+                }
 
         // A menu has a name in code as a control has (#1126): a variable of its own, or an element of its menu control
         // array, whose Click then passes the element's Index.
@@ -508,13 +527,68 @@ public class VBLoader
     /// with Err.Number 0, and a form whose code never names it ran as if it had never held it. This is an engine limit,
     /// so no On Error in the program can trap it. A form the designer opens is not refused: it shows what it holds.
     /// </summary>
-    private static void RefuseUncreatableControls(FormDefinition element)
+    private static void RefuseUncreatableControls(FormDefinition element, bool canShowDialogs)
     {
         var lines = new List<string>();
         foreach (var block in element.UnknownChildSubtreeTexts)
-            DescribeUncreatable(block, lines);
+            if (!(canShowDialogs && CommonDialogBlock(block) is not null))
+                DescribeUncreatable(block, lines);
         if (lines.Count > 0)
             throw new NotImplementedException(string.Join("\n", lines.Distinct()));
+    }
+
+    /// <summary>
+    /// A CommonDialog's block (#1084): its name, and the properties it sets, as code would set them. Null for any other
+    /// block, and for a CommonDialog this can't create: one holding a control, or an element of a control array.
+    /// </summary>
+    /// <remarks>
+    /// The OCX's own properties, <c>_ExtentX</c>, <c>_ExtentY</c> and <c>_Version</c>, and its designer position, are
+    /// the designer's and mean nothing to a running program.
+    /// </remarks>
+    private static (string Name, List<(string Property, Vb6Value Value)> Properties)? CommonDialogBlock(string block)
+    {
+        var lines = block.Split('\n').Select(l => l.Trim()).Where(l => l.Length > 0).ToList();
+        if (lines.Count < 2)
+            return null;
+        var begin = lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (begin.Length < 3 || !begin[0].Equals("Begin", StringComparison.OrdinalIgnoreCase)
+            || !begin[1].Equals("MSComDlg.CommonDialog", StringComparison.OrdinalIgnoreCase))
+            return null;
+        var properties = new List<(string, Vb6Value)>();
+        foreach (var line in lines.Skip(1).SkipLast(1))
+        {
+            if (line.StartsWith("Begin", StringComparison.OrdinalIgnoreCase))
+                return null;
+            var equals = line.IndexOf('=');
+            if (equals < 0)
+                continue;
+            var name = line[..equals].Trim();
+            var text = line[(equals + 1)..].Trim();
+            if (name.Equals("Index", StringComparison.OrdinalIgnoreCase))
+                return null;
+            if (name.StartsWith('_') || name is "Left" or "Top")
+                continue;
+            properties.Add((name, DesignTimeValue(text)));
+        }
+        return (begin[2], properties);
+    }
+
+    // A value as the .frm writes it: a quoted string, -1 or 0 for a Boolean, or a number, with any trailing comment
+    // dropped. The control's own setter converts it to the property's type, as an assignment would.
+    private static Vb6Value DesignTimeValue(string text)
+    {
+        if (text.StartsWith('"'))
+        {
+            var end = text.LastIndexOf('"');
+            return new Vb6Value(text[1..Math.Max(1, end)].Replace("\"\"", "\""));
+        }
+        var token = text.Split(' ', 2)[0];
+        if (token.StartsWith("&H", StringComparison.OrdinalIgnoreCase)
+            && long.TryParse(token[2..].TrimEnd('&'), System.Globalization.NumberStyles.HexNumber, null, out var hex))
+            return new Vb6Value(hex);
+        if (double.TryParse(token, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var number))
+            return new Vb6Value(number);
+        return new Vb6Value(token);
     }
 
     // Every control in a preserved block, from its Begin lines: the block's own, then each nested one. A control nested in
@@ -693,7 +767,7 @@ public class VBLoader
         Debugging.IDebugController? debugController, Func<FormDefinition, IFormView>? openForm = null)
     {
         var program = new VBProgram(element, context, debugController, openForm);
-        setContent(SpawnComponents(element, context.ExecutionContext, context.InstanceEnv));
+        setContent(SpawnComponents(element, context.ExecutionContext, context.InstanceEnv, context.StandardLibrary));
         context.HoldControlsUntilLoad();
         return program;
     }
