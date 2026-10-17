@@ -24,7 +24,8 @@ public record AppInfo(
     string FileDescription = "",
     string LegalCopyright = "",
     string LegalTrademarks = "",
-    string Comments = "")
+    string Comments = "",
+    bool CommonDialogReferenced = false)
 {
     /// <summary>A program with no project behind it — the test harness and the bare interpreter.</summary>
     public static readonly AppInfo None = new();
@@ -55,7 +56,10 @@ public record AppInfo(
             FileDescription: PreSectionValue(project, "VersionFileDescription") ?? "",
             LegalCopyright: PreSectionValue(project, "VersionLegalCopyright") ?? "",
             LegalTrademarks: PreSectionValue(project, "VersionLegalTrademarks") ?? "",
-            Comments: PreSectionValue(project, "VersionComments") ?? "");
+            Comments: PreSectionValue(project, "VersionComments") ?? "",
+            // The .vbp's Object= line, or a form's: VB6 writes both for a form that holds the control (#1084).
+            CommonDialogReferenced: project.UnknownPreSectionLines.Any(l => CommonDialogConstants.IsReference(l.RawLine))
+                || project.Forms.Any(f => f.HeaderLines.Any(CommonDialogConstants.IsReference)));
     }
 
     /// <summary>

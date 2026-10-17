@@ -85,6 +85,9 @@ public partial class ProjectRunnerService : IProjectRunnerService
         this.breakpointService = breakpointService;
         this.watchService = watchService;
         this.runScope = runScope;
+        // A running program's CommonDialog shows the IDE's own dialogs (#1084), whichever window the form runs in.
+        HostDialogs.File = request => MDIStandaloneStandardLib.ShowFileDialog(windowManager, request);
+        HostDialogs.Font = initial => MDIStandaloneStandardLib.ShowFontDialog(windowManager, initial);
 
         // Break/Continue toggle the debug state without touching `runningProject`, so re-query the run commands
         // when the controller pauses/resumes (otherwise the Break/Continue buttons stay stale).
@@ -720,7 +723,11 @@ public partial class ProjectRunnerService : IProjectRunnerService
         /// A CommonDialog's Open or Save As (#1084), through the IDE's own pickers, so an automation client answers one
         /// with answer_next_file_dialog as it answers the IDE's.
         /// </summary>
-        public async Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request)
+        public Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request) => ShowFileDialog(windowManager, request);
+
+        public Task<VbFontChoice?> ShowFontDialog(VbFontChoice initial) => ShowFontDialog(windowManager, initial);
+
+        internal static async Task<VbFileDialogAnswer?> ShowFileDialog(IWindowManager windowManager, VbFileDialogRequest request)
         {
 #if DEBUG
             // An armed answer stands for a name typed with the filter left as the program set it.
@@ -739,7 +746,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
         }
 
         /// <summary>A CommonDialog's ShowFont (#1084), through the IDE's font dialog.</summary>
-        public async Task<VbFontChoice?> ShowFontDialog(VbFontChoice initial)
+        internal static async Task<VbFontChoice?> ShowFontDialog(IWindowManager windowManager, VbFontChoice initial)
         {
             var start = initial.Name.Length == 0
                 ? null

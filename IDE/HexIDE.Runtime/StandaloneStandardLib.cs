@@ -80,6 +80,8 @@ public class StandaloneStandardLib : IBasicStandardLibrary
     /// <summary>A CommonDialog's Open or Save As (#1084), as the platform's own picker over the program's window.</summary>
     public async Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request)
     {
+        if (HostDialogs.File is { } application)
+            return await application(request);
         var provider = TopLevel.GetTopLevel(_parent)?.StorageProvider
                        ?? throw new NotImplementedException("A CommonDialog needs a window to show its dialog over (#1084)");
         var start = await VbFileDialogOptions.StartFolder(provider, request);
@@ -93,4 +95,10 @@ public class StandaloneStandardLib : IBasicStandardLibrary
         var opened = await provider.OpenFilePickerAsync(VbFileDialogOptions.Open(request, start));
         return opened.Count > 0 && opened[0].TryGetLocalPath() is { } openedPath ? new VbFileDialogAnswer(openedPath, null) : null;
     }
+
+    /// <summary>A CommonDialog's ShowFont (#1084): the application's font dialog, where it has one.</summary>
+    public async Task<VbFontChoice?> ShowFontDialog(VbFontChoice initial) =>
+        HostDialogs.Font is { } application
+            ? await application(initial)
+            : throw new NotImplementedException("A CommonDialog's font dialog is not implemented outside the IDE (#1084)");
 }
