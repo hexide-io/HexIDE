@@ -163,6 +163,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Multiple file numbers on one source line** (#1146). `Line Input #1, s: Print #2, s` and `Close #1, #2`
+  now parse in both the interpreter and language server. The date-literal token no longer consumes the file statements.
+
 - **FontName reads and sets at run time** (#1141), on a control or the form. `Label1.FontName = "Wingdings"` stopped
   the run with "Method or data member not found"; now it switches the font, with the charset that makes a symbol font
   draw its symbols. As vb6.exe measured, a family the machine doesn't have is 380, "Invalid property value", which a

@@ -127,10 +127,10 @@ The *Silently wrong* column counts only what a verifier proved by running it. It
 census — see the caveat above.
 
 
-### The single most useful number here is 4
+### The single most useful number here is 3
 
-**Only four constructs in the whole VB6 language fail to parse**: `#Const`, the `D` exponent marker
-(`1.5D2`), two `#`-prefixed file numbers on one physical line, and a `Function` declared with a type
+**Only three constructs in this inventory fail to parse**: `#Const`, the `D` exponent marker
+(`1.5D2`), and a `Function` declared with a type
 character (`Function GetName$()`, [#740](https://github.com/hexide-io/HexIDE/issues/740)). Every other
 gap parses cleanly and goes wrong at run time: mostly by throwing, sometimes by running on with a wrong
 value. The eight Silently wrong rows below are the wrong values counted as such; the `()` row records
@@ -288,11 +288,10 @@ obscure: the character stands in for an `As` clause. Only `$` has a VB6 row: VB6
 declared with it (oracle TR_01, TR_02, TB_01, each a `Function Left$`). No oracle row has a `Function`
 declared with `% & ! # @`, although HexIDE refuses `Function Twice%` in the same way.
 
-**One more, found by verification and not in the table.** Any single physical source line containing two
-`#`-prefixed file numbers — `Print #1, #2` and the like — fails to parse, taking the whole module with
-it. This had the widest blast radius of the first three and has no row of its own, because the
-enumeration listed `#n` once as a literal rather than as a sequence that can repeat on a line. It is tracked in
-[#1146](https://github.com/hexide-io/HexIDE/issues/1146): the date-literal token takes the text between the two `#`s.
+**Multiple file numbers on one line used to fail here** ([#1146](https://github.com/hexide-io/HexIDE/issues/1146)).
+The date-literal token swallowed the text between two `#`s, so `Line Input #1, s: Print #2, s` and
+`Close #1, #2` prevented a whole module from parsing. Both grammars now delimit date/time components instead of
+arbitrary text. Real dates still win where VB6 gives them that meaning: `#1, 2#` is a date, even after `Print`.
 
 **Numeric line labels used to be here**, and how they were found is the useful part: the LSP server's
 grammar already had a working `lineNumber` rule that the interpreter's lacked, so the *editor* accepted
