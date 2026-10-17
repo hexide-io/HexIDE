@@ -10,6 +10,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **A TextBox's `SelStart`, `SelLength` and `SelText`** (#1150). They raised 438. They now read and write as vb6.exe
+  measured: setting SelStart drops the selection, positions past the end clamp, a negative one is 380, and SelText
+  leaves the caret after what it put in.
 - **The CommonDialog control** (#1084). A form holding one used to be refused at run time. Now `ShowOpen`,
   `ShowSave` and `ShowFont` show the IDE's own dialogs, and an automation client can answer the pickers with
   `answer_next_file_dialog`. Cancel and `CancelError`, `FileName`, `FileTitle`, `DefaultExt` and the Font properties

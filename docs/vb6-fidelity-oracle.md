@@ -10897,3 +10897,37 @@ its `Command$` is empty.
 **In HexIDE (#742):** `Left$` with arguments in a form's code runs as VBA's `Left$`. `Command`, `Command()` and
 `Command$` give the project's `Command32`, empty where there is none. That half is chosen rather than measured: VB6
 gives `Command32` under F5, and HexIDE always runs as F5 does. A made program's own process arguments are not passed.
+
+## A TextBox's selection (2026-10-17, #1150)
+
+**The probe.** Found by the Notepad demo, which sets `SelStart` straight after reading a file, and selects with
+SelStart and SelLength to find text. A form with three TextBoxes: Text1, single-line with Text "Text1"; Text2,
+MultiLine; and Text3, Locked. Its `Form_Load` logs each step under `On Error Resume Next`. Built native and p-code,
+and every row agreed.
+
+| Step | Text, SelStart, SelLength, SelText, Err |
+|---|---|
+| `TypeName` of SelStart, SelLength, SelText | `Long Long String` |
+| at design time | `Text1`, 0, 0, empty |
+| `Text1.Text = "Hello world"` | 0, 0: setting Text resets the selection |
+| `SelStart = 6` | 6, 0 |
+| `SelLength = 5` | 6, 5, `world` |
+| `SelText = "there"` | `Hello there`, 11, 0: the caret ends after what was put in |
+| SelStart 2, SelLength 3, then `SelStart = 4` | 4, 0: setting SelStart drops the selection |
+| `SelStart = 100` | 11, 0, no error: the end |
+| `SelStart = -1` | 11, 0, **380** |
+| `SelStart = 6`, `SelLength = 100` | 6, 5, `there`, no error |
+| `SelLength = -1` | 6, 5, **380** |
+| at 0 with nothing selected, `SelText = ">"` | `>Hello there`, 1, 0 |
+| SelStart 3, SelLength 2, then `Text = "new"` | `new`, 0, 0 |
+| `SelStart = 1.6`, then `SelStart = "2"` | 2, then 2 |
+| `SelText = Null`, `SelStart = Null` | **94** each, nothing changed |
+| `Text2.Text = "ab" & vbCrLf & "cd"`, SelStart 3, SelLength 2 | 3, 2, LF and `c`: the caret can sit between the CR and the LF |
+| SelStart 4, SelLength 1 | `c` |
+| `SelStart = Len(Text)`, `SelText = vbCrLf & "ef"` | `ab CRLF cd CRLF ef`, 10 |
+| Text3 (Locked) `"locked"`, start 0, length 1, `SelText = "L"` | `Locked`, 1: Locked keeps out the user, not code |
+| `Text1.MaxLength = 5`, Text `12345`, SelStart 5, `SelText = "678"` | `12345`, 5: SelText keeps to MaxLength |
+
+**In HexIDE (#1150):** every row runs as measured but the last, since HexIDE's TextBox doesn't model MaxLength. Avalonia
+moves a caret placed inside a line break past it, so the selection code sets is remembered and read back while
+Avalonia's has not moved. Once the user moves it, the selection is Avalonia's.

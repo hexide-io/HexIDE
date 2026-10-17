@@ -331,7 +331,7 @@
 |---|---|---|
 | Cursor / pointer tool | Done | |
 | Label | Done | |
-| TextBox | Done | |
+| TextBox | Partial | Text, Change, the colours, focus and the mouse events run. SelStart, SelLength and SelText read and write at run time as vb6.exe measured ([#1150](https://github.com/hexide-io/HexIDE/issues/1150)). MultiLine, ScrollBars, MaxLength, Locked, PasswordChar and Alignment are kept in the file but not applied at run time, and its own Font is not drawn ([#915](https://github.com/hexide-io/HexIDE/issues/915)) |
 | Frame | Done | |
 | CommandButton | Done | |
 | CheckBox | Done | |
