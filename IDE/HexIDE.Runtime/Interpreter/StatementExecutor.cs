@@ -1573,6 +1573,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // what it had (measured), so the line is read before anything is stored.
     public override async Task<ControlFlow> VisitLineInputStmt(VB6Parser.LineInputStmtContext context)
     {
+        RequireHash(context.valueStmt(0), "Line Input");
         var number = await FileNumber(context.valueStmt(0));
         var target = context.valueStmt(1).GetText();
         if (!System.Text.RegularExpressions.Regex.IsMatch(target, "^[A-Za-z][A-Za-z0-9_]*$"))
@@ -1727,6 +1728,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     public override async Task<ControlFlow> VisitPrintStmt(VB6Parser.PrintStmtContext context)
     {
         var files = interpreter.BuiltIns.Files;
+        RequireHash(context.valueStmt(), "Print");
         var number = await FileNumber(context.valueStmt());
         files.Column(number);   // 52 or 54 before anything is evaluated
         var joined = false;
@@ -1757,6 +1759,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     }
 
     private const int PrintZone = 14;
+
+    // `Print #` and `Line Input #` need the `#`, where Open and Close take a number without one. The grammar sends
+    // `Print 1, "x"` and `Print "a", "b"` here too, and those are a form's Print method, not a file's, so neither may
+    // reach a file: that would write the program's text where it never asked.
+    private static void RequireHash(VB6Parser.ValueStmtContext number, string statement)
+    {
+        if (!number.GetText().StartsWith('#'))
+            throw new NotImplementedException(statement == "Print"
+                ? "Print without a # file number is a form's Print method, which is not implemented"
+                : $"{statement} without a # file number is not implemented");
+    }
 
     private static string PrintText(Vb6Value value) => value.Value switch
     {

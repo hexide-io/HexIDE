@@ -258,6 +258,22 @@ public class SequentialFileTests : BaseVBTestFixture, IDisposable
         Printed().Should().Equal("by number");
     }
 
+    [Theory]
+    [InlineData("Print 1, \"x\"")]
+    [InlineData("Print \"a\", \"b\"")]
+    public async Task Print_without_a_hash_is_the_form_method_and_never_reaches_a_file(string statement)
+    {
+        var run = () => Run($$"""
+            Open "{{PathOf("held.txt")}}" For Output As #1
+            On Error Resume Next
+            {{statement}}
+            """);
+
+        await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*Print method*");
+        // By its length: the run left the file open, and its writer would refuse a reader that shares no writes.
+        new FileInfo(PathOf("held.txt")).Length.Should().Be(0);
+    }
+
     [Fact]
     public async Task A_comma_moves_to_the_next_zone_from_where_the_line_has_got_to()
     {
