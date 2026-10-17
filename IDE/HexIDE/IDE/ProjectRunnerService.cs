@@ -719,6 +719,10 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
         public void DebugPrint(Vb6Value value) => VBDebugConsole.Emit(value);
 
+        public ITextClipboard Clipboard => new AvaloniaTextClipboard(() =>
+            (Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)
+                ?.MainWindow?.Clipboard);
+
         /// <summary>
         /// A CommonDialog's Open or Save As (#1084), through the IDE's own pickers, so an automation client answers one
         /// with answer_next_file_dialog as it answers the IDE's.

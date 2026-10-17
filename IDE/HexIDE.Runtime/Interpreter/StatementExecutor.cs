@@ -789,7 +789,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var callArgs = await expressionExecutor.EvaluateCallArgs(context.argsCall());
 
         if (value.Type == Vb6Value.ValueType.CSharpProxyObject)
-            ((ICSharpProxy)value.Value!).Call(identifier, callArgs);
+            await interpreter.CallProxy((ICSharpProxy)value.Value!, identifier, callArgs);
         else if (value.Type == Vb6Value.ValueType.Control)
             await ((Control)value.Value!).CallAsync(identifier, callArgs);
         else
@@ -2825,7 +2825,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         if (value.Type == Vb6Value.ValueType.CSharpProxyObject)
         {
-            ((ICSharpProxy)value.Value!).Call(identifier, callArgs);
+            await interpreter.CallProxy((ICSharpProxy)value.Value!, identifier, callArgs);
         }
         else if (value.Type == Vb6Value.ValueType.Control)
         {

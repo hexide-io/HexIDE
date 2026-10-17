@@ -119,9 +119,9 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Keywords and modifiers | 0 | 0 | 11 | 19 | 1 | 20 | 51 |
 | Literals, types and suffixes | 6 | 1 | 5 | 13 | 0 | 25 | 50 |
 | Compiler directives and options | 0 | 1 | 9 | 9 | 20 | 8 | 47 |
-| In-box objects | 0 | 0 | 98 | 8 | 0 | 17 | 123 |
+| In-box objects | 0 | 0 | 93 | 12 | 0 | 18 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **8** | **4** | **242** | **397** | **22** | **509** | **1182** |
+| **Total** | **8** | **4** | **237** | **401** | **22** | **510** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -313,7 +313,7 @@ Worth noting what is *not* here: `#If` parses fine and throws, and so does the n
 | `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 
-## Dies mid-run — 236 names
+## Dies mid-run — 231 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -367,13 +367,8 @@ most of the in-box object model.
 | `ChrB` | **Dies** | No registry entry (VB6BuiltIns.cs; no occurrence of "ChrB" under IDE/HexIDE.Runtime). `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (ChrB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `ChrW` | **Dies** | No registry entry (VB6BuiltIns.cs). `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (ChrW)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `Circle` | **Dies** | throws `"Only single element supported"` — fails at run time - but NOT with a name-resolution error. VB6.g4 has no CIRCLE token and no circleStmt rule, so `Circle (100, 100), 50` parses as a… | ExpressionExecutor.cs |
-| `Clipboard` | **Dies** | Not implemented. Unresolved bare and member reads are explicitly refused, untrappably, with or without Option Explicit (#871). Declared names still win. | ExpressionExecutor.cs |
-| `Clipboard.Clear` | **Dies** | Measured (statement position): a VBRunTimeException from StatementExecutor.cs - "Unknown method Clear on <Right(EmptyVariant)>()" - because the Clipboard lead resolves to Empty, so neither… | StatementExecutor.cs |
-| `Clipboard.GetData` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Clipboard.GetFormat` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Clipboard.GetText` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Clipboard.SetData` | **Dies** | Measured verbatim: "Run-time error: Unknown method SetData on <Right(EmptyVariant)>()". | StatementExecutor.cs |
-| `Clipboard.SetText` | **Dies** | Measured verbatim: "Run-time error: Unknown method SetText on <Right(EmptyVariant)>()". | StatementExecutor.cs |
+| `Clipboard.GetData` | **Dies** | Explicitly refused as not implemented (#1156). | VbClipboard.cs |
+| `Clipboard.SetData` | **Dies** | Explicitly refused as not implemented (#1156). | VbClipboard.cs |
 | `Collection` | **Dies** | **[#1010](https://github.com/hexide-io/HexIDE/issues/1010):** `Dim c As Collection`, without `New`, now declares an object slot holding Nothing, at module and procedure level (measured: `TypeName` is Nothing, `Is Nothing` True). Creating one is still refused: there is no Collection object, and `As New` is not implemented. — COLLECTION is a real grammar token (VB6.g4) listed in baseType (VB6.g4), so `Dim c As Collection` reaches BaseTypeMapper.Map, which returns null for it (BaseTypeMapper.cs comment:… | PrePass.cs |
 | `Collection._NewEnum` | **Dies** | The name lexes as an ordinary IDENTIFIER (VB6.g4; the LETTER fragment at :2110 includes `_`), and the bracketed form `[_NewEnum]` parses too — but `_NewEnum`/`NewEnum` appears nowhere in… | Exceptions.cs |
 | `Collection.Add` | **Dies** | No Collection object can exist (see Collection), and no Add handler exists on any runtime proxy. Measured with the call-statement form on a Variant holder: VBRunTimeException: "Unknown… | StatementExecutor.cs |
@@ -1073,7 +1068,7 @@ missing.
 | `Option Base` | Supported | Collected by PrePass ('ArrayBase = int.Parse(context.INTEGERLITERAL().GetText());', PrePass.cs) and applied on both declaration paths: module-level Dim arrays (PrePass.cs) and… | PrePass.cs |
 | `Version` | Supported | Handled on three independent paths. Form/control files: the deserializer skips the line ('if (line.StartsWith("VERSION")) { continue; }', VbFrmFormatDeserializer.cs) and the serializer… | VbFrmFormatDeserializer.cs |
 
-### In-box objects — 123 names (98 absent, 8 partial, 17 supported)
+### In-box objects — 123 names (93 absent, 12 partial, 18 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -1105,13 +1100,13 @@ missing.
 | `AsyncProperty` | **Dies** | Measured for `Dim a As AsyncProperty`: VBCompileErrorException: "User-defined type not defined: AsyncProperty" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `AsyncProperty_VB5` | **Dies** | Measured for `Dim a As AsyncProperty_VB5`: VBCompileErrorException: "User-defined type not defined: AsyncProperty_VB5" (StatementExecutor.cs). | StatementExecutor.cs |
 | `Circle` | **Dies** | throws `"Only single element supported"` — fails at run time - but NOT with a name-resolution error. VB6.g4 has no CIRCLE token and no circleStmt rule, so `Circle (100, 100), 50` parses as a… | ExpressionExecutor.cs |
-| `Clipboard` | **Dies** | Not implemented. Unresolved bare and member reads are explicitly refused, untrappably, with or without Option Explicit (#871). Declared names still win. | ExpressionExecutor.cs |
-| `Clipboard.Clear` | **Dies** | Measured (statement position): a VBRunTimeException from StatementExecutor.cs - "Unknown method Clear on <Right(EmptyVariant)>()" - because the Clipboard lead resolves to Empty, so neither… | StatementExecutor.cs |
-| `Clipboard.GetData` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Clipboard.GetFormat` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Clipboard.GetText` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Clipboard.SetData` | **Dies** | Measured verbatim: "Run-time error: Unknown method SetData on <Right(EmptyVariant)>()". | StatementExecutor.cs |
-| `Clipboard.SetText` | **Dies** | Measured verbatim: "Run-time error: Unknown method SetText on <Right(EmptyVariant)>()". | StatementExecutor.cs |
+| `Clipboard` | Partial | Text operations use the host clipboard (#1156); declared names still win. Image/data and non-text format queries remain explicitly unsupported. | VbClipboard.cs |
+| `Clipboard.Clear` | Supported | Clears the host clipboard, including all formats (#1156). | VbClipboard.cs, AvaloniaTextClipboard.cs |
+| `Clipboard.GetData` | **Dies** | Explicitly refused as not implemented (#1156). | VbClipboard.cs |
+| `Clipboard.GetFormat` | Partial | vbCFText reports whether text exists, including empty text (#1156). Other formats are explicitly unsupported. | VbClipboard.cs |
+| `Clipboard.GetText` | Partial | Returns ANSI text for omitted format or vbCFText, empty when no text exists (#1156). RTF and Link formats are explicitly unsupported. | VbClipboard.cs |
+| `Clipboard.SetData` | **Dies** | Explicitly refused as not implemented (#1156). | VbClipboard.cs |
+| `Clipboard.SetText` | Partial | Sets ANSI text for omitted format or vbCFText (#1156). Truncates at NUL. Refuses a clipboard containing non-text formats to avoid discarding them; Clear first. RTF and Link are unsupported. | VbClipboard.cs, AvaloniaTextClipboard.cs |
 | `Collection` | **Dies** | **[#1010](https://github.com/hexide-io/HexIDE/issues/1010):** `Dim c As Collection`, without `New`, now declares an object slot holding Nothing, at module and procedure level (measured: `TypeName` is Nothing, `Is Nothing` True). Creating one is still refused: there is no Collection object, and `As New` is not implemented. — COLLECTION is a real grammar token (VB6.g4) listed in baseType (VB6.g4), so `Dim c As Collection` reaches BaseTypeMapper.Map, which returns null for it (BaseTypeMapper.cs comment:… | PrePass.cs |
 | `Collection._NewEnum` | **Dies** | The name lexes as an ordinary IDENTIFIER (VB6.g4; the LETTER fragment at :2110 includes `_`), and the bracketed form `[_NewEnum]` parses too — but `_NewEnum`/`NewEnum` appears nowhere in… | Exceptions.cs |
 | `Collection.Add` | **Dies** | No Collection object can exist (see Collection), and no Add handler exists on any runtime proxy. Measured with the call-statement form on a Variant holder: VBRunTimeException: "Unknown… | StatementExecutor.cs |
