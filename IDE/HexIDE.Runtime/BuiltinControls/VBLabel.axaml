@@ -1,14 +1,24 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:builtinControls="clr-namespace:HexIDE.Runtime.BuiltinControls">
+                    xmlns:builtinControls="clr-namespace:HexIDE.Runtime.BuiltinControls"
+                    xmlns:common="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia">
     <ControlTheme x:Key="{x:Type builtinControls:VBLabel}"
                   TargetType="builtinControls:VBLabel">
         <Setter Property="Template">
             <ControlTemplate>
+                <!-- The four 3D shades are set here because ClassicBorderDecorator takes its defaults from the Classic
+                     theme, which is not loaded, and without them it draws nothing: a Fixed Single label was a block of
+                     its BackColor (#1077). Each is the VB6 system colour that vb6.exe draws in that ring of a sunken
+                     edge, as VBColor resolves it: shadow over dark shadow at the top and left, 3D light inside highlight
+                     at the bottom and right. -->
                 <ClassicBorderDecorator
                     Name="PART_Border"
                     BorderThickness="2"
-                    BorderStyle="Sunken">
+                    BorderStyle="Sunken"
+                    BorderDarkBrush="{DynamicResource {x:Static common:SystemColors.ControlDarkBrushKey}}"
+                    BorderDarkDarkBrush="{DynamicResource {x:Static common:SystemColors.ControlDarkDarkBrushKey}}"
+                    BorderLightBrush="{DynamicResource {x:Static common:SystemColors.ControlLightLightBrushKey}}"
+                    BorderLightLightBrush="{DynamicResource {x:Static common:SystemColors.ControlLightBrushKey}}">
                 </ClassicBorderDecorator>
             </ControlTemplate>
         </Setter>

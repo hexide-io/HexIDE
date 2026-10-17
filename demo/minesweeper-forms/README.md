@@ -41,8 +41,8 @@ three things HexIDE gets wrong, each measured on vb6.exe:
 The menu waits for those, and the version with it is commit caab5bdd.
 
 It also met three things already filed:
-- **The cells' `BorderStyle = 1`** draws no border, so the field is one grey block where VB6 draws a grid of sunken
-  cells (#1077).
+- **The cells' `BorderStyle = 1`** drew no border, so the field was one grey block where VB6 draws a grid of sunken
+  cells (#1077, since fixed).
 - **No Label on a running form is in the automation tree,** so the field is played by clicking points on the form
   (#1076).
 - **Under a dark theme the running form draws dark** (#806, #909).

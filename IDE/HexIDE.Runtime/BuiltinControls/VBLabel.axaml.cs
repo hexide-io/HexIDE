@@ -108,23 +108,26 @@ public class VBLabel : TemplatedControl
         if (decorator == null)
             return;
 
+        // Measured with vb6.exe (#1077): Fixed Single is a sunken edge two pixels deep when 3D, and one pixel of the window
+        // frame colour when Flat. The 3D shades come from the template.
         if (BorderStyle == VBBorder.None)
         {
+            decorator.BorderStyle = ClassicBorderStyle.None;
             decorator.BorderThickness = new Thickness(0);
         }
         else if (BorderStyle == VBBorder.FixedSingle)
         {
             if (Appearance == VBAppearance.Flat)
             {
-                decorator.BorderStyle = ClassicBorderStyle.Sunken;
+                decorator.BorderStyle = ClassicBorderStyle.Thin;
                 decorator.BorderThickness = new Thickness(1);
-                decorator.BorderBrush = new SolidColorBrush(Colors.Black);
+                decorator[!ClassicBorderDecorator.BorderBrushProperty] =
+                    decorator.GetResourceObservable(VbSystemColor.Windowframe.GetKey()).ToBinding();
             }
             else if (Appearance == VBAppearance._3D)
             {
                 decorator.BorderStyle = ClassicBorderStyle.Sunken;
                 decorator.BorderThickness = new Thickness(2);
-                decorator.BorderBrush = ClassicBorderDecorator.ClassicBorderBrush;
             }
         }
 
