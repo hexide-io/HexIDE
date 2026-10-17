@@ -10508,8 +10508,9 @@ its menu when the array has gaps, and whether it copies a Shortcut.
 - **Menus from code** work as the tables above say (#1126): each menu has its name, a menu array is a control array
   with Count, LBound, UBound and an Index on its Click, and Caption, Checked, Enabled, Visible and Tag read and write
   with the 387 and 395 refusals. Load copies the first element as it stands, Visible included, and places the new one
-  after the element below it; Unload removes it; and the 340, 361 and 362 refusals hold. Choosing an item no longer
-  toggles its tick, which is the program's to set. `TypeName` gives Menu, and Object for the array.
+  after the element below it; Unload removes it; and the 340, 361 and 362 refusals hold. Choosing an item leaves
+  its tick to the program (#1158 corrected pointer/Enter, which still toggled before Click despite the original
+  #1126 claim). `TypeName` gives Menu, and Object for the array.
 - **Not yet:** a menu's default member, Enabled, so `mnuNew = False` and a bare `mnuNew` read; giving a separator a
   caption, which makes it an item, refused as not implemented; and setting WindowList, refused the same way.
 - **The bar appearing or going away from code is refused** as not implemented (#1140): hiding the last visible
@@ -11178,3 +11179,33 @@ A function also shadows Clipboard when it supplies the object of a member chain.
 `Function Clipboard() As Box: Set Clipboard = New Box: End Function` (each statement on its own line), evaluating
 `Clipboard.GetText` returned `shadow`, **String**, native and p-code. The member-lead resolver must check that
 function before returning the host Clipboard object.
+
+## Menu selection leaves Checked to the program (2026-10-18, #1158)
+
+**Probe:** a shown Form1 with a Root menu and two children, Plain and Toggle. A one-shot Timer obtains the
+native child IDs with `GetMenuItemID(GetSubMenu(GetMenu(Me.hwnd), 0), position)` and dispatches each with
+`SendMessage Me.hwnd, &H111, id, 0` (WM_COMMAND). It first sets each child's Checked to False, then to True.
+Each Click logs its entry value; Toggle additionally executes `mnuToggle.Checked = Not mnuToggle.Checked`.
+The Timer logs Checked after SendMessage returns. Built with real VB6, CompilationType=0 (native) and -1
+(p-code), in the Windows oracle VM. Both runs agree, with Err.Number 0:
+
+| Handler | Initial Checked | At Click entry | After dispatch |
+|---|---|---|---|
+| Plain (log only) | False | False | False |
+| Plain (log only) | True | True | True |
+| Toggle (`Checked = Not Checked`) | False | False | True |
+| Toggle (`Checked = Not Checked`) | True | True | False |
+
+This measures native menu command dispatch, not a physical mouse gesture or the VB6 IDE. HexIDE's pointer
+and Enter paths previously flipped Checked in Avalonia before delivering Click; raising Click directly
+(the old regression and MCP invoke) skipped that step. The runtime menu now draws the checkbox glyph
+without opting into Avalonia's automatic toggle. Tests exercise pointer, Enter and MCP invoke from both
+initial states, with and without a VB6 assignment in the handler, and assert one dispatch with the array Index.
+
+**Live verification (Windows, 2026-10-18).** The unmodified NotepadForms demo was run in a freshly built IDE.
+Before the fix, a fresh MCP invoke of Select All left it unticked, then a pointer click ticked it. After
+rebuilding, pointer-clicking Select All and selecting it with Enter both left it unticked; invoking Copy
+also left it unticked. Word Wrap gained its tick after a pointer click, lost it after Enter, and gained it
+again after invoke, proving that the VB6 handler's changes still draw. Snapshots verified each state.
+No runtime error was raised; the project was stopped after the checks. This verifies the menu-state
+behavior, not the remaining Find/Font features or all Word Wrap text/selection behavior.

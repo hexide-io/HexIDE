@@ -2,9 +2,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.Input.Raw;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using HexIDE.Automation;
 using HexIDE.Runtime;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
@@ -352,7 +356,7 @@ public class MenuMembersTests
         // And a tick set from code is drawn, on an item the .frm did not tick.
         ContainerRuntimeHarness.Run(ctx, env, "mnuLevel(1).Checked = True\r\n").GetAwaiter().GetResult();
         Item(game, "&Intermediate").IsChecked.Should().BeTrue();
-        Item(game, "&Intermediate").ToggleType.Should().Be(MenuItemToggleType.CheckBox);
+        Item(game, "&Intermediate").Classes.Should().Contain(":checked").And.Contain(":toggle");
     }
 
     [AvaloniaFact]
@@ -371,5 +375,74 @@ public class MenuMembersTests
 
         await ContainerRuntimeHarness.Run(ctx, env, "Unload mnuLevel(3)\r\n");
         game.Items.OfType<MenuItem>().Select(m => m.Header as string).Should().NotContain("&Custom");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("invoke", false, false)]
+    [InlineData("invoke", true, false)]
+    [InlineData("invoke", false, true)]
+    [InlineData("invoke", true, true)]
+    [InlineData("click", false, false)]
+    [InlineData("click", true, false)]
+    [InlineData("click", false, true)]
+    [InlineData("click", true, true)]
+    [InlineData("Enter", false, false)]
+    [InlineData("Enter", true, false)]
+    [InlineData("Enter", false, true)]
+    [InlineData("Enter", true, true)]
+    public void Choosing_a_menu_preserves_Checked_until_its_handler_changes_it(string action, bool initial, bool change)
+    {
+        var (bar, root, ctx, env) = Hosted();
+        try
+        {
+            var game = Item(bar, "&Game");
+            var item = Item(game, initial ? "&Beginner" : "&Intermediate");
+            var seen = new List<bool>();
+            item.Click += (_, _) =>
+            {
+                seen.Add(item.IsChecked);
+                if (change)
+                    ContainerRuntimeHarness.Run(ctx, env,
+                        $"mnuLevel({(initial ? 0 : 1)}).Checked = Not mnuLevel({(initial ? 0 : 1)}).Checked\r\n")
+                        .GetAwaiter().GetResult();
+            };
+            game.Open();
+            Dispatcher.UIThread.RunJobs();
+
+            if (action == "click")
+            {
+                // Exercise the menu's pointer handler rather than raising Click. Deliver to the item directly:
+                // other headless tests change popup/rendering state, making coordinate hit-testing order-dependent.
+                // Live MCP checks additionally exercise hit-testing and the delayed pointer release.
+                var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, true);
+                var topLevel = TopLevel.GetTopLevel(item)!;
+                var point = item.TranslatePoint(new Point(2, 2), topLevel)!.Value;
+                item.RaiseEvent(new PointerPressedEventArgs(item, pointer, topLevel, point, 0,
+                    new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed),
+                    KeyModifiers.None));
+                item.RaiseEvent(new PointerReleasedEventArgs(item, pointer, topLevel, point, 1,
+                    new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased),
+                    KeyModifiers.None, MouseButton.Left));
+                pointer.Capture(null);
+            }
+            else if (action == "Enter")
+            {
+                item.Focus();
+                item.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+            }
+            else
+            {
+                var result = UiAutomationDriver.Interact(item, action, null);
+                result.Success.Should().BeTrue(result.Error);
+            }
+            Dispatcher.UIThread.RunJobs();
+
+            seen.Should().Equal(new[] { initial }, "the handler must see the program's Checked value, exactly once");
+            item.IsChecked.Should().Be(change ? !initial : initial);
+            root.Calls.Should().ContainSingle();
+            root.Calls[0].Name.Should().Be("mnuLevel_Click");
+            root.Calls[0].Args!.Single().Should().Be(new Vb6Value(initial ? 0 : 1));
+        }
+        finally { root.Close(); }
     }
 }

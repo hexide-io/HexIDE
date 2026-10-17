@@ -1509,24 +1509,19 @@ caller must know VB6's caption syntax to address what it can see.
 **Suggested fix.** Name each run-time menu item by its caption as drawn, `&` removed and `&&` read as one `&`. The IDE's
 own menus had the same fault with `_` (#578). [#1128](https://github.com/hexide-io/HexIDE/issues/1128).
 
-## Invoking a runtime menu item can leave a checkmark it did not request
+## Runtime menu clicks could leave an unrequested checkmark (fixed, #1158)
 
-**Symptom (2026-10-18, #1156 live verification).** On the running Notepad form, these calls succeeded:
+**Original observation (2026-10-18, #1156 live verification).** After mixed pointer and invocation checks
+in Notepad, Copy and Select All showed ticks although neither handler sets Checked. The first report
+attributed this to `invoke` and assumed pointer clicks were correct. A fresh isolated run disproved that:
+`invoke` alone preserves Checked; `click` adds the tick. Enter does the same in headless regression tests.
 
-```text
-interact {"window":"frmNotepad","target":"Window/Menu/MenuItem[&Edit]","action":"expand"}
-interact {"window":"frmNotepad","target":"Window/Menu/MenuItem[&Edit]/Pane/MenuItem[&Copy]","action":"invoke"}
-```
+**Cause and fix.** Avalonia's menu interaction handler toggles CheckBox items before raising Click.
+VBMenu's old OnClick override saved the already-toggled value, so restoring it did nothing. Runtime menus
+now keep the checkbox appearance without opting into automatic toggling. Checked remains controlled by
+VB6 code, including changes in the Click handler. Pointer, Enter and MCP invoke are covered from both
+checked and unchecked states, with handler changes retained and one dispatch per action.
 
-After invoking Copy and Select All, `take_snapshot {"window":"frmNotepad"}` showed checkmarks beside both items.
-Neither handler sets Checked and neither menu is declared checked. The VBMenu click override normally preserves
-Checked, so the automation peer's invocation path needs checking against the ordinary click path. A breakpoint
-confirmed a subsequent Copy invocation did reach `mnuEditCopy_Click`; the unexpected tick is separate from dispatch.
-
-**Workaround.** Drive the runtime menu shortcut with `press_key`, for example
-`{"window":"frmNotepad","target":"Window/Edit[#1]","key":"C","modifiers":"Ctrl"}`. Select text first and
-use a breakpoint to distinguish the VB6 handler from a TextBox's own shortcut handling. For opening a menu,
-`expand` only opens it; explicitly invoke its parent when testing that parent's VB6 Click handler.
-
-**Suggested fix.** Make the runtime menu's automation invocation preserve the program's Checked value, as its
-pointer click path does, and cover both paths with a regression test.
+The menu shortcut was a workaround because its dispatch bypasses the menu interaction handler.
+`expand` only opens the menu; explicitly invoking its parent is still needed when testing that parent's
+VB6 Click handler. [#1158](https://github.com/hexide-io/HexIDE/issues/1158).

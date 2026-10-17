@@ -168,6 +168,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Runtime menu checkmarks** (#1158). Clicking a menu item or choosing it with Enter no longer toggles
+  Checked before its VB6 Click handler runs. The program controls the tick, including changes made by the handler.
+
 - **Missing VB6 global objects fail explicitly** (#871). Reading `Screen`, `Clipboard`, `Printer`, `Printers` or
   `Forms` no longer silently returns Empty without Option Explicit. Bare and member reads report an unsupported
   object, which On Error cannot swallow; declared variables and user functions still take precedence.

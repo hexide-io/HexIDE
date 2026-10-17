@@ -1,6 +1,5 @@
 using System;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
 
 namespace HexIDE.Runtime.BuiltinControls;
 
@@ -13,13 +12,12 @@ public class VBMenu : MenuItem
 {
     protected override Type StyleKeyOverride => typeof(MenuItem);
 
-    protected override void OnClick(RoutedEventArgs e)
+    public VBMenu()
     {
-        // MenuItem.OnClick flips IsChecked for a CheckBox toggle. Keep what the program set, and raise Click as before.
-        var isChecked = IsChecked;
-        base.OnClick(e);
-        if (IsChecked != isChecked)
-            SetCurrentValue(IsCheckedProperty, isChecked);
+        // Draw a checkbox glyph, but leave ToggleType at None. Avalonia's menu interaction handler toggles
+        // CheckBox items BEFORE raising Click (pointer and Enter alike), so restoring state in OnClick is too late.
+        // IsChecked still drives :checked, and the VB6 Click handler remains free to change it itself (#1158).
+        PseudoClasses.Set(":toggle", true);
     }
 }
 
