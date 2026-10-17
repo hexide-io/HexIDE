@@ -115,13 +115,13 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 2 | 2 | 42 | 30 | 0 | 29 | 105 |
 | Operators | 0 | 0 | 3 | 18 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 67 | 38 | 1 | 47 | 153 |
+| Intrinsic functions | 0 | 0 | 66 | 39 | 1 | 47 | 153 |
 | Keywords and modifiers | 0 | 0 | 11 | 19 | 1 | 20 | 51 |
 | Literals, types and suffixes | 6 | 1 | 5 | 13 | 0 | 25 | 50 |
 | Compiler directives and options | 0 | 1 | 9 | 9 | 20 | 8 | 47 |
 | In-box objects | 0 | 0 | 98 | 8 | 0 | 17 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **8** | **4** | **243** | **396** | **22** | **509** | **1182** |
+| **Total** | **8** | **4** | **242** | **397** | **22** | **509** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -715,7 +715,7 @@ missing.
 | `TypeOf ... Is` | Supported | `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (67 absent, 38 partial, 47 supported)
+### Intrinsic functions — 153 names (66 absent, 39 partial, 47 supported)
 
 
 **array** (3)
@@ -816,7 +816,7 @@ missing.
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `Command` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | ExpressionExecutor.cs |
+| `Command` | Partial | The project's Command Line Arguments (`Command32` in the .vbp), as VB6 gives them under F5, which is how HexIDE always runs: empty where there are none, as a String, spelt `Command`, `Command()` or `Command$` (measured in a made program run with none). A made program's own process arguments are not passed. | VB6BuiltIns.cs, VbApp.cs |
 | `Shell` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 | `CallByName` | **Dies** | Zero occurrences anywhere in HexIDE.Runtime; not registered by any Register* partial, so BuildRegistry has no entry. The call reaches ExpressionExecutor's final fallthrough and throws… | ExpressionExecutor.cs |
 | `Choose` | **Dies** | Not in BuildRegistry - a grep of every d["..."] registration across all VB6BuiltIns partials returns no Choose. `x = Choose(i, "a", "b")` throws VBSubOrFunctionNotDefinedException: "Sub or… | ExpressionExecutor.cs |
