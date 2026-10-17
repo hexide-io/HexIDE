@@ -38,6 +38,9 @@
     <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.ControlLightBrushKey}"      Color="#FFFFFF" />
     <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.ControlLightLightBrushKey}" Color="#FFFFFF" />
     <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.ControlDarkDarkBrushKey}"   Color="#404040" />
+    <!-- Window frame: the colour vb6.exe draws a Flat Fixed Single label's border in, measured on Windows 10 (#1077). It
+         was undefined, so vbWindowFrame resolved to nothing and the colour swatches that use it had no edge. -->
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.WindowFrameBrushKey}"      Color="#646464" />
     <!-- Menu colours (Win11 system menu background: #F0F0F0) -->
     <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.MenuBrushKey}"              Color="#F0F0F0" />
     <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.MenuTextBrushKey}"          Color="#000000" />

@@ -44,6 +44,6 @@ It found four more that it doesn't depend on:
 - **A form's Width and Height** are its client size in HexIDE, where VB6's include the border and caption (#1072).
   `Width = (Width - ScaleWidth) + needed` comes out right either way.
 - **`-2 ^ 2`** is 4 in HexIDE and -4 in VB6 (#1073).
-- **The cells' `BorderStyle = 1`** draws no border, so the board is one block of colour where VB6 draws a grid of
-  sunken cells (#1077).
+- **The cells' `BorderStyle = 1`** drew no border, so the board was one block of colour where VB6 draws a grid of
+  sunken cells (#1077, since fixed).
 - **The setup dialog's TextBox** clips its text and shows part of a scroll bar (#914).
