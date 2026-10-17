@@ -511,6 +511,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         App = new VbApp(info);
         SeedProgramGlobal("App", () => new Vb6Value(App));
+        BuiltIns.CommandLine = info.CommandLine;
     }
 
     /// <summary>The program-global <c>Err</c> object. Shared with the <c>Err</c> slot in every module env (see

@@ -24,7 +24,8 @@ public record AppInfo(
     string FileDescription = "",
     string LegalCopyright = "",
     string LegalTrademarks = "",
-    string Comments = "")
+    string Comments = "",
+    string CommandLine = "")
 {
     /// <summary>A program with no project behind it — the test harness and the bare interpreter.</summary>
     public static readonly AppInfo None = new();
@@ -55,7 +56,9 @@ public record AppInfo(
             FileDescription: PreSectionValue(project, "VersionFileDescription") ?? "",
             LegalCopyright: PreSectionValue(project, "VersionLegalCopyright") ?? "",
             LegalTrademarks: PreSectionValue(project, "VersionLegalTrademarks") ?? "",
-            Comments: PreSectionValue(project, "VersionComments") ?? "");
+            Comments: PreSectionValue(project, "VersionComments") ?? "",
+            // Project Properties' "Command Line Arguments", which is what Command gives under F5, and HexIDE runs as F5 runs.
+            CommandLine: PreSectionValue(project, "Command32") ?? "");
     }
 
     /// <summary>

@@ -46,6 +46,9 @@ public partial class VB6BuiltIns
         this.stdLib = stdLib;
     }
 
+    /// <summary>What <c>Command</c> answers: the project's command line arguments, empty where it has none.</summary>
+    internal string CommandLine { get; set; } = "";
+
     /// <summary>The program's open files (#1145), which FreeFile and EOF read and the file statements use.</summary>
     internal VbFiles Files { get; } = new();
 
@@ -132,6 +135,10 @@ public partial class VB6BuiltIns
         RegisterDateTime(d);
         RegisterFormat(d);
         RegisterColor(d);
+        // The command line, a String (measured): empty in a made program run with none.
+        d["Command"] = (self, a, _) => a.Count == 0
+            ? new Vb6Value(self.CommandLine)
+            : throw new VBRunTimeException(VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
         // FreeFile is an Integer, 1 with nothing open, and FreeFile(1) the first from 256 (measured, #1145).
         d["FreeFile"] = (self, a, _) => new Vb6Value(self.Files.FreeFile(Supplied(a, 0) ? AsInt(a[0]) : 0));
         d["EOF"] = (self, a, _) => new Vb6Value(self.Files.Eof(AsInt(a[0])));

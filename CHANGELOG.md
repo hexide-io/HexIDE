@@ -10,6 +10,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **`Command`, and `Left$` in a form's code** (#742). Both stopped a run. `Command$`, `Command` and `Command()`
+  now give the project's command line arguments, empty where it has none. `Left$("abc", 1)` in a form's code is
+  VBA's `Left$`, as vb6.exe measured.
 - **Text files** (#1145). `Open` For Input, Output and Append, `Line Input #`, `Print #`, `Close`, `FreeFile` and
   `EOF` used to stop a run at the first of them. Now they read and write as vb6.exe does, byte for byte:
   - lines end at CR or CR LF, and Ctrl+Z ends the file;

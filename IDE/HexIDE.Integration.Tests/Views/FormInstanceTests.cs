@@ -416,6 +416,16 @@ public class FormInstanceTests
     }
 
     [AvaloniaFact]
+    public void Left_dollar_with_arguments_is_VBAs_Left_dollar()
+    {
+        // Measured, native and p-code: `String [ab]`. Left$ with no arguments would be the form's Left, which has no `$`.
+        var run = RunFormLoad("    Debug.Print TypeName(Left$(\"abcdef\", 2)) & \" [\" & Left$(\"abcdef\", 2) & \"]\"");
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("String [ab]");
+    }
+
+    [AvaloniaFact]
     public void A_bare_Caption_is_the_forms_under_Option_Explicit()
     {
         // Measured: `set|set`. It used to be "Variable not defined".

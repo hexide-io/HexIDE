@@ -85,6 +85,26 @@ public class AppObjectTests
     }
 
     [Fact]
+    public async Task Command_is_the_projects_command_line_arguments_a_String_in_each_spelling()
+    {
+        // vb6.exe, native and p-code: a made program run with no arguments gives "" as a String, as Command$, Command and
+        // Command(). Under F5 it gives the project's Command32, which HexIDE always runs as.
+        var empty = await Run("Debug.Print \"[\" & Command$ & \"] \" & TypeName(Command$) & \" \" & TypeName(Command) & \" \" & TypeName(Command())");
+        var given = await Run("Debug.Print Command$ & \"|\" & Command & \"|\" & Command()", Probe with { CommandLine = "hello world" });
+
+        empty.Should().ContainSingle().Which.Value.Should().Be("[] String String String");
+        given.Should().ContainSingle().Which.Value.Should().Be("hello world|hello world|hello world");
+    }
+
+    [Fact]
+    public async Task Command_reads_the_vbps_Command32()
+    {
+        var info = AppInfo.FromProject(ProjectWith("NameKey", "Command32=\"-v notes.txt\""));
+
+        info.CommandLine.Should().Be("-v notes.txt");
+    }
+
+    [Fact]
     public async Task App_PrevInstance_is_false()
     {
         var log = await Run("Debug.Print App.PrevInstance", Probe);
