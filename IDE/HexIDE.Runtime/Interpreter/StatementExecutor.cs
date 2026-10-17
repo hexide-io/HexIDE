@@ -464,6 +464,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         try { Environment.CurrentDirectory = path; }
         catch (Exception ex) when (ex is System.IO.DirectoryNotFoundException or System.IO.FileNotFoundException or ArgumentException or System.IO.IOException)
         { throw new VBRunTimeException(context, VBStandardError.PathNotFound); }
+        // The program's files resolve a relative path here from now on (#1145).
+        interpreter.BuiltIns.Files.CurrentDirectory = Environment.CurrentDirectory;
         return ControlFlow.Nothing;
     }
 

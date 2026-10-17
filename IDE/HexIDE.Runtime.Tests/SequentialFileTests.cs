@@ -258,6 +258,30 @@ public class SequentialFileTests : BaseVBTestFixture, IDisposable
         Printed().Should().Equal("by number");
     }
 
+    [Fact]
+    public async Task A_relative_path_lands_in_the_project_s_folder()
+    {
+        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, """
+            Open "notes.txt" For Output As #1
+            Print #1, "beside the project";
+            Close #1
+            """);
+        vb.SetAppInfo(new AppInfo(Title: "Notes", ExeName: "Notes", Path: dir));
+        await vb.Execute();
+
+        File.ReadAllText(PathOf("notes.txt")).Should().Be("beside the project");
+    }
+
+    [Fact]
+    public async Task A_relative_path_in_an_unsaved_project_is_refused_rather_than_written_where_HexIDE_was_started()
+    {
+        var run = () => Run("""
+            Open "notes.txt" For Output As #1
+            """);
+
+        await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*saved project*");
+    }
+
     [Theory]
     [InlineData("Print 1, \"x\"")]
     [InlineData("Print \"a\", \"b\"")]

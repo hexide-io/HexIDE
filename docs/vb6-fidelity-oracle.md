@@ -10801,5 +10801,11 @@ probe used a fresh file, and `As 3` was taken.
 - **The divergences:**
   - an Input file is read whole when it opens, so a change another program makes while it is open is not seen;
   - a `Lock` keeps the file only from this program's own second open, not from another process.
+- **Chosen, not measured: where a relative path goes.** Against the project's folder, `App.Path`, until the program
+  runs `ChDir`, and against that directory after it. VB6 resolves one against `CurDir`, which the row above measured,
+  and `CurDir` is the project's folder when the project was opened from Explorer, the usual case. The IDE's own working
+  directory is never used: it is wherever HexIDE was started, and a file written there is one the developer never
+  chose. An unsaved project has no folder, so a relative path in one is refused as not implemented. What `CurDir` is
+  in the VB6 IDE when the project was opened some other way is not measured.
 - **Still a parse failure:** a line holding two `#` file numbers. That is the date-literal token, and it has an issue
   of its own.

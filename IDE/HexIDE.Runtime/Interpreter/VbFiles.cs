@@ -26,9 +26,14 @@ internal enum VbFileMode
 /// </list>
 /// </summary>
 /// <remarks>
-/// An Input file is read whole when it is opened. VB6 reads it as it goes, so a file changed by another program while
-/// it is open reads differently here; nothing measured depends on it. Locks hold only within the program: another
-/// process is not kept out.
+/// <para>An Input file is read whole when it is opened. VB6 reads it as it goes, so a file changed by another program
+/// while it is open reads differently here; nothing measured depends on it. Locks hold only within the program: another
+/// process is not kept out.</para>
+/// <para>A relative path is resolved against the project's folder until the program changes directory with
+/// <c>ChDir</c>, and against that directory after it. Chosen, not measured: VB6 resolves against <c>CurDir</c> (measured),
+/// which is the project's folder when the project was opened from Explorer, the usual case. The IDE's own working
+/// directory, wherever HexIDE happened to be started, is never used, since a file written there is one the developer
+/// never chose.</para>
 /// </remarks>
 internal sealed class VbFiles
 {
@@ -47,6 +52,12 @@ internal sealed class VbFiles
     }
 
     private readonly Dictionary<int, OpenFile> open = new();
+
+    /// <summary>The project's folder, read when a relative path is opened: App.Path, empty for an unsaved project.</summary>
+    public Func<string> ProjectFolder { get; set; } = () => "";
+
+    /// <summary>The directory the program last changed to with ChDir, or null while it has not.</summary>
+    public string? CurrentDirectory { get; set; }
 
     /// <summary>
     /// The lowest number not open: from 1 to 255 for range 0, and from 256 to 511 for any other (measured: 1, then 256 for
@@ -198,12 +209,18 @@ internal sealed class VbFiles
     }
 
     // A program's paths are Windows paths. Elsewhere a backslash is taken as the separator it means. A relative path is
-    // resolved against the current directory, which is CurDir (measured).
-    private static string FullPath(string path)
+    // resolved as the remarks say.
+    private string FullPath(string path)
     {
         if (!OperatingSystem.IsWindows())
             path = path.Replace('\\', System.IO.Path.DirectorySeparatorChar);
-        return System.IO.Path.GetFullPath(path);
+        if (System.IO.Path.IsPathFullyQualified(path))
+            return System.IO.Path.GetFullPath(path);
+        var baseDirectory = CurrentDirectory ?? ProjectFolder();
+        if (baseDirectory.Length == 0)
+            throw new NotImplementedException(
+                $"Opening \"{path}\", a relative path, needs a saved project: an unsaved one has no folder to resolve it against");
+        return System.IO.Path.GetFullPath(path, baseDirectory);
     }
 
     private static bool SamePath(string a, string b) =>
