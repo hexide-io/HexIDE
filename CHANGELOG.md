@@ -10,6 +10,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **The CommonDialog control** (#1084). A form holding one used to be refused at run time. Now `ShowOpen`,
+  `ShowSave` and `ShowFont` show the IDE's own dialogs, and an automation client can answer the pickers with
+  `answer_next_file_dialog`. Cancel and `CancelError`, `FileName`, `FileTitle`, `DefaultExt` and the Font properties
+  behave as vb6.exe measured, and the control's 102 constants resolve in a project that references it. The form still
+  saves byte for byte. `ShowColor`, `ShowPrinter` and `ShowHelp` are still to come.
 - **Text files** (#1145). `Open` For Input, Output and Append, `Line Input #`, `Print #`, `Close`, `FreeFile` and
   `EOF` used to stop a run at the first of them. Now they read and write as vb6.exe does, byte for byte:
   - lines end at CR or CR LF, and Ctrl+Z ends the file;

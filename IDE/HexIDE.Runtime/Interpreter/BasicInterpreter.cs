@@ -15,6 +15,14 @@ public interface IBasicStandardLibrary
 
     /// <summary>Sink for <c>Debug.Print</c>. Receives the typed value (live → Immediate window; test → capture).</summary>
     void DebugPrint(Vb6Value value);
+
+    /// <summary>A CommonDialog's <c>ShowOpen</c> or <c>ShowSave</c> (#1084): the file chosen, or null for Cancel.</summary>
+    Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request) =>
+        throw new NotImplementedException("A CommonDialog's file dialogs are not implemented in this host (#1084)");
+
+    /// <summary>A CommonDialog's <c>ShowFont</c> (#1084): the font chosen, or null for Cancel.</summary>
+    Task<VbFontChoice?> ShowFontDialog(VbFontChoice initial) =>
+        throw new NotImplementedException("A CommonDialog's font dialog is not implemented in this host (#1084)");
 }
 
 public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrErrorListener<int>
@@ -511,6 +519,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         App = new VbApp(info);
         SeedProgramGlobal("App", () => new Vb6Value(App));
+        BuiltIns.CommonDialogReferenced = info.CommonDialogReferenced;
     }
 
     /// <summary>The program-global <c>Err</c> object. Shared with the <c>Err</c> slot in every module env (see
