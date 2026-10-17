@@ -77,6 +77,8 @@ public class StandaloneStandardLib : IBasicStandardLibrary
 
     public void DebugPrint(Vb6Value value) => VBDebugConsole.Emit(value);
 
+    public ITextClipboard Clipboard => new AvaloniaTextClipboard(() => _parent.Clipboard);
+
     /// <summary>A CommonDialog's Open or Save As (#1084), as the platform's own picker over the program's window.</summary>
     public async Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request)
     {

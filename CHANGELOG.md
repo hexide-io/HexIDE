@@ -10,6 +10,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Text clipboard operations** (#1156). `Clipboard.Clear`, `SetText`, `GetText` and `GetFormat(vbCFText)` now
+  use the host clipboard, enabling Notepad's Edit menu, Cut, Copy and Paste. Defaults, ANSI conversion, NUL
+  truncation and argument errors follow measured VB6 behavior. Non-text operations remain explicitly unsupported;
+  setting text over non-text formats is refused until they can be preserved (call Clear first).
+
 - **A TextBox's `SelStart`, `SelLength` and `SelText`** (#1150). They raised 438. They now read and write as vb6.exe
   measured: setting SelStart drops the selection, positions past the end clamp, a negative one is 380, and SelText
   leaves the caret after what it put in.

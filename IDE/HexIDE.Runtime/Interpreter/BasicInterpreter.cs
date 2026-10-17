@@ -10,6 +10,7 @@ namespace HexIDE.Runtime.Interpreter;
 
 public interface IBasicStandardLibrary
 {
+    ITextClipboard Clipboard => throw new NotImplementedException("This host does not implement the clipboard (#1156)");
     Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon);
     Task<string?> InputBox(string prompt, string? title, string defaultText);
 
@@ -75,6 +76,21 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         }
         return await events.WhileSuspended(BuiltIns.EvaluateBuiltInFunction(name, args));
     }
+
+    internal async Task<Vb6Value?> CallProxy(ICSharpProxy proxy, string name, List<Vb6Value> args)
+    {
+        if (proxy is not ICSharpAsyncProxy asyncProxy)
+        {
+            proxy.Call(name, args);
+            return null;
+        }
+        var pending = asyncProxy.CallAsync(name, args);
+        return Events is { } events ? await events.WhileSuspended(pending) : await pending;
+    }
+
+    // Resolved after project names, rather than seeded over user variables or functions (#1156).
+    private VbClipboard? clipboard;
+    internal VbClipboard Clipboard => clipboard ??= new VbClipboard(stdLib);
 
     /// <summary>
     /// Set by <c>End</c>, and never cleared: the program is over. Every walk of this interpreter stops at its next

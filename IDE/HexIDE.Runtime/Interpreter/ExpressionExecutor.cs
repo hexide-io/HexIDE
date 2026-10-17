@@ -513,6 +513,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             (found, var) = await interpreter.ReadVariableAfter(env, identifier, foundNeed!);
         if (found)
             return var;
+        if (identifier.Equals("Clipboard", StringComparison.OrdinalIgnoreCase))
+        {
+            // A function named Clipboard can supply the member-chain's object too, not just a bare value.
+            if (interpreter.TryResolveProcedure(identifier, currentModule, out _, out var proc) && proc.IsFunction
+                && await interpreter.CallProcedure(identifier, [], currentModule, callerEnv: env, callerFrames: stmtFrames) is { } result)
+                return result;
+            return new Vb6Value(interpreter.Clipboard);
+        }
         VbIntrinsicNames.RefuseMissingObject(identifier);
         throw new VBVariableNotDefinedException(identifier);
     }
@@ -587,6 +595,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 // variable/constant/user Function of the same name still wins above.
                 if (await EvaluateFunction(identifier, []) is { } builtInFn)
                     return builtInFn;
+                if (identifier.Equals("Clipboard", StringComparison.OrdinalIgnoreCase))
+                    return new Vb6Value(interpreter.Clipboard);
                 // Nothing else claims the name, so VB6 makes it a variable: reading an undeclared name is
                 // legal and yields Empty (measured). LAST, after procedures and intrinsics — a mistyped
                 // function call must not become a silent Empty. (#171)
@@ -802,6 +812,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     private async Task<Vb6Value> ResolveOneMember(
         Vb6Value variable, VB6Parser.ICS_S_MemberCallContext member, Antlr4.Runtime.ParserRuleContext ctx)
     {
+        if (variable.Value is ICSharpAsyncProxy proxy)
+            return await interpreter.CallProxy(proxy, MemberName(member), await EvaluateCallArgs(MemberArgs(member)))
+                ?? throw new VBSubOrFunctionNotDefinedException(MemberName(member));
         // A class instance member (`obj.Method(args)` or `obj.Field`) — method dispatch wins over a field of
         // the same name. Nothing.Member → Error 91.
         if (variable.Type == Vb6Value.ValueType.Object)
