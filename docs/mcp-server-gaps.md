@@ -1508,3 +1508,25 @@ caller must know VB6's caption syntax to address what it can see.
 
 **Suggested fix.** Name each run-time menu item by its caption as drawn, `&` removed and `&&` read as one `&`. The IDE's
 own menus had the same fault with `_` (#578). [#1128](https://github.com/hexide-io/HexIDE/issues/1128).
+
+## Invoking a runtime menu item can leave a checkmark it did not request
+
+**Symptom (2026-10-18, #1156 live verification).** On the running Notepad form, these calls succeeded:
+
+```text
+interact {"window":"frmNotepad","target":"Window/Menu/MenuItem[&Edit]","action":"expand"}
+interact {"window":"frmNotepad","target":"Window/Menu/MenuItem[&Edit]/Pane/MenuItem[&Copy]","action":"invoke"}
+```
+
+After invoking Copy and Select All, `take_snapshot {"window":"frmNotepad"}` showed checkmarks beside both items.
+Neither handler sets Checked and neither menu is declared checked. The VBMenu click override normally preserves
+Checked, so the automation peer's invocation path needs checking against the ordinary click path. A breakpoint
+confirmed a subsequent Copy invocation did reach `mnuEditCopy_Click`; the unexpected tick is separate from dispatch.
+
+**Workaround.** Drive the runtime menu shortcut with `press_key`, for example
+`{"window":"frmNotepad","target":"Window/Edit[#1]","key":"C","modifiers":"Ctrl"}`. Select text first and
+use a breakpoint to distinguish the VB6 handler from a TextBox's own shortcut handling. For opening a menu,
+`expand` only opens it; explicitly invoke its parent when testing that parent's VB6 Click handler.
+
+**Suggested fix.** Make the runtime menu's automation invocation preserve the program's Checked value, as its
+pointer click path does, and cover both paths with a regression test.

@@ -11152,10 +11152,25 @@ window clipboard. RTF, Link, image/data methods and other format queries are exp
 Since Avalonia's SetText clears other formats, the host refuses SetText while non-text formats exist until those can
 be preserved. Clear followed by SetText works; that is what the Notepad demo does.
 
-**Validation limits:** the Notepad forms passed a headless run through Edit, Copy, Cut, Paste and Save. The host tests
-use Avalonia's headless clipboard and cover external text changes and preservation refusal. This session exposed no
-HexIDE MCP tools, so no live IDE or native desktop clipboard verification is claimed. The existing grammar also
-refuses empty parentheses after `Call` (for example `Call Clipboard.Clear()`); `Call Clipboard.Clear` and
+**Live Windows follow-up, 2026-10-18:** built the PR's desktop application at `905e3506` and launched it with an
+isolated user-data directory and copies of the unmodified Notepad demo forms. HexIDE MCP was now available.
+`dump_visual_tree`, `inspect_element` and `take_snapshot` confirmed the running form and text. Breakpoints in
+`mnuEdit_Click`, `mnuEditCopy_Click` and `mnuEditPaste_Click` confirmed the VB6 handlers executed, rather than merely
+the TextBox's native editing commands. The following checks passed with no runtime error (`raised:false`, sequence 0):
+
+- Copy placed `Clipboard live check` on the native Windows clipboard, independently read back with PowerShell.
+- Cut emptied the selected editor text; Paste restored it, verified with `inspect_element`.
+- Text set by an external PowerShell process pasted as `External clipboard text`.
+- Clearing the native clipboard externally and invoking the Edit handler disabled the Paste menu item.
+- Pausing after Clipboard.Clear returned False from `Clipboard.GetFormat(vbCFText)`. Setting the selection length
+  to zero before the next SetText stored empty text: the following GetFormat was True and Len(GetText) was 0.
+- External Unicode text `unicode: ĀΩЖ€中` pasted as `unicode: AO?€?`, matching the measured ANSI best-fit conversion.
+- Save wrote that text in Windows-1252 through the actual file flow (the MCP picker answer supplied the path),
+  and Exit ended the run. Breakpoints and pending picker answers were cleared afterwards.
+
+The Windows native clipboard is verified; Linux host tests remain headless, and no native Linux/macOS clipboard
+verification is claimed. Headless tests also cover preservation refusal when non-text formats exist. The existing
+grammar refuses empty parentheses after `Call` (for example `Call Clipboard.Clear()`); `Call Clipboard.Clear` and
 `Call Clipboard.SetText("hello")` are covered. That pre-existing grammar restriction is outside this clipboard slice.
 
 A function also shadows Clipboard when it supplies the object of a member chain. With class `Box` containing
