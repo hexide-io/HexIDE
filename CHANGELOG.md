@@ -140,6 +140,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A form's fonts are drawn in the family they name** (#1132), when it is installed. Every VB6 font used to draw in one
+  sans serif: Courier New wasn't monospaced, Times New Roman had no serifs. The family was looked up only in a bundled
+  collection that holds no fonts; now the installed fonts come first. VB6's own default, MS Sans Serif, isn't shipped,
+  so a form on it still draws in the fallback.
 - **A Label with `BorderStyle = 1` draws its border** (#1077), at run time and in the designer. It drew none, so a
   grid of bordered Labels, such as the Battleship and Minesweeper demos' fields, was one block of colour. As vb6.exe
   draws it: a sunken edge two pixels deep when Appearance is 3D, and one pixel of the window-frame colour when Flat.

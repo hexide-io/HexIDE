@@ -5,11 +5,12 @@ namespace HexIDE.Runtime.BuiltinTypes;
 public static class VBFontExtensions
 {
     public static FontFamily ToFontFamily(this VBFont font) =>
-        // VB6's default UI font (MS Sans Serif) is proprietary and is NOT redistributed — it has been
-        // removed from Resources/. Resolve the requested family from the bundled font collection, falling
-        // back to the libre substitute Liberation Sans (SIL OFL — drop LiberationSans-*.ttf into
-        // Resources/ for consistent form rendering) and finally to the platform's default sans-serif.
-        new FontFamily($"fonts:App#{font.FontFamilyName}, Liberation Sans");
+        // The family the form names, installed on this machine, as VB6 draws it: Courier New, Times New Roman,
+        // Wingdings. It used to be looked up only in the bundled collection, which holds no fonts, so every form drew in
+        // one sans serif (#1132). Then the bundled collection, for a substitute shipped there; then the libre Liberation
+        // Sans (SIL OFL); then the platform's default sans serif. VB6's default, MS Sans Serif, is proprietary, is not
+        // redistributed, and as a bitmap font is not one the renderer draws, so a form on it still falls through.
+        new FontFamily($"{font.FontFamilyName}, fonts:App#{font.FontFamilyName}, Liberation Sans");
 
     public static FontWeight ToFontWeight(this VBFont font) =>
         font.Bold ? FontWeight.Bold : FontWeight.Normal;
