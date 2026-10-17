@@ -842,8 +842,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 {
                     if (formMember.IsMethod)
                         return FormMembers.Call(vobj, memberName, await EvaluateCallArgs(MemberArgs(member)));
-                    if (MemberArgs(member) == null && !FormMembers.CanRead(formWindow, memberName))
-                        throw new NotImplementedException($"Reading {vobj.ClassName}'s {memberName} is not implemented{FormMembers.TrackedBy(memberName)}");
+                    if (MemberArgs(member) == null)
+                        return FormMembers.Read(vobj, memberName);
                 }
                 return await ResolveOneMember(new Vb6Value(formWindow), member, ctx);
             }

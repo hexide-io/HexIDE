@@ -10955,5 +10955,7 @@ So a state set before the form is shown, in code or in the file, is the state it
 2400 twips is the width Windows gives a minimized window.
 
 **In HexIDE (#1152):** WindowState reads and writes as above, on a form's window, and a form saved with a WindowState shows
-in it. Resize comes from the window's size changing, as for any resize. Not reproduced: a minimized window's 2400-twip
+in it. Bare and qualified reads use the same getter. Resize comes from the window's size changing, except on minimizing:
+that state transition raises Resize explicitly because Avalonia's Windows backend does not report a client resize.
+Duplicate resize notifications while minimized are suppressed. Not reproduced: a minimized window's 2400-twip
 Width, which Avalonia doesn't report, and what a form hidden after being shown reads, which was not measured.

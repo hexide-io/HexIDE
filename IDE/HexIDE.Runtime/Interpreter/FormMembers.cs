@@ -162,18 +162,4 @@ internal static class FormMembers
         string.Equals(name, "Controls", StringComparison.OrdinalIgnoreCase) ? ": the form's Controls collection is #1060"
         : name.StartsWith("Scale", StringComparison.OrdinalIgnoreCase) ? ": the form's coordinate system is #990"
         : "";
-
-    /// <summary>
-    /// Whether HexIDE can read <paramref name="name"/> on the form's window: what decides, for <c>Me.X</c>, between
-    /// reading it and refusing a VB6 member HexIDE lacks as not implemented, where it used to raise 438.
-    /// </summary>
-    public static bool CanRead(Avalonia.Controls.Control window, string name)
-    {
-        if (IsName(name) || ((IsScaleSize(name, out _) || IsWindowState(name)) && window is Avalonia.Controls.Window))
-            return true;
-        foreach (var property in VBProperties.PropertiesByName.GetValueOrDefault(name, []))
-            if (AvaloniaInteroperability.TryGet(window, property, out _))
-                return true;
-        return FontMembers.TryGet(window, name, out _);
-    }
 }

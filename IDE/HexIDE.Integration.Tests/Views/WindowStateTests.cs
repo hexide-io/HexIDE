@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using HexIDE.Runtime;
@@ -15,6 +16,61 @@ namespace HexIDE.Integration.Tests.Views;
 /// </summary>
 public class WindowStateTests
 {
+    [AvaloniaFact]
+    public void Minimizing_from_code_or_the_window_raises_one_resize_with_the_new_state()
+    {
+        var source = Form[..Form.IndexOf("Private Sub", StringComparison.Ordinal)] + """
+            Private Sub Form_Load()
+                WindowState = 1
+                WindowState = 0
+                Debug.Print "loaded"
+            End Sub
+            Private Sub Form_Resize()
+                Debug.Print "resize " & Me.WindowState
+            End Sub
+            Public Sub Minimize()
+                Me.WindowState = 1
+                Debug.Print "after " & Form1.WindowState
+            End Sub
+            """.ReplaceLineEndings("\r\n") + "\r\n";
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        project.AddForm(new FormDeserializer().Deserialize(project, source, new NullSink())!);
+        var printed = new List<string>();
+        VBDebugConsole.Output += printed.Add;
+        using var cancel = new CancellationTokenSource();
+        try
+        {
+            _ = VBLoader.RunForm(project.StartupForm!, cancel.Token, out var window);
+            Dispatcher.UIThread.RunJobs();
+            printed.Should().StartWith("loaded", "resize 0");
+            printed.Clear();
+
+            window.ExecuteSub("Minimize");
+            Dispatcher.UIThread.RunJobs();
+            printed.Should().Equal("resize 1", "after 1");
+            printed.Clear();
+
+            // Reassigning the current state is not another transition.
+            window.WindowState = WindowState.Minimized;
+            Dispatcher.UIThread.RunJobs();
+            printed.Should().BeEmpty();
+
+            window.WindowState = WindowState.Normal;
+            Dispatcher.UIThread.RunJobs();
+            printed.Clear();
+            // The same property notification is used by a native minimize button.
+            window.WindowState = WindowState.Minimized;
+            Dispatcher.UIThread.RunJobs();
+            printed.Should().Equal("resize 1");
+        }
+        finally
+        {
+            cancel.Cancel();
+            Dispatcher.UIThread.RunJobs();
+            VBDebugConsole.Output -= printed.Add;
+        }
+    }
+
     private sealed class NullSink : IDeserializeErrorSink
     {
         public void LogError(string _) { }
@@ -58,11 +114,16 @@ public class WindowStateTests
         + "End Sub\r\n"
         + "\r\n";
 
-    [AvaloniaFact]
-    public void It_reads_0_until_shown_takes_the_file_s_state_and_refuses_what_vb6_exe_refused()
+    [AvaloniaTheory]
+    [InlineData("WindowState")]
+    [InlineData("Me.WindowState")]
+    [InlineData("Form1.WindowState")]
+    public void It_reads_0_until_shown_takes_the_file_s_state_and_refuses_what_vb6_exe_refused(string member)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
-        project.AddForm(new FormDeserializer().Deserialize(project, Form, new NullSink())!);
+        var codeStart = Form.IndexOf("Private Sub", StringComparison.Ordinal);
+        var source = Form[..codeStart] + Form[codeStart..].Replace("WindowState", member);
+        project.AddForm(new FormDeserializer().Deserialize(project, source, new NullSink())!);
         var printed = new List<string>();
         Action<string> print = printed.Add;
         VBDebugConsole.Output += print;
