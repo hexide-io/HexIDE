@@ -126,6 +126,9 @@ public static class AvaloniaMethodsInteroperability
     /// </summary>
     public static async ValueTask<Vb6Value> CallAsync(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
+        // A CommonDialog's ShowOpen and the rest wait for the dialog (#1084).
+        if (c is VBCommonDialog dialog && VBCommonDialog.Handles(method))
+            return await dialog.CallAsync(method, args);
         if (c is IFormView view && method.Equals("show", StringComparison.OrdinalIgnoreCase) && IsModal(args))
         {
             var program = view.Context.Program

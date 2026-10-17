@@ -10,6 +10,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **The CommonDialog control** (#1084). A form holding one used to be refused at run time. Now `ShowOpen`,
+  `ShowSave` and `ShowFont` show the IDE's own dialogs, and an automation client can answer the pickers with
+  `answer_next_file_dialog`. Cancel and `CancelError`, `FileName`, `FileTitle`, `DefaultExt` and the Font properties
+  behave as vb6.exe measured, and the control's 102 constants resolve in a project that references it. The form still
+  saves byte for byte. `ShowColor`, `ShowPrinter` and `ShowHelp` are still to come.
 - **`Command`, and `Left$` in a form's code** (#742). Both stopped a run. `Command$`, `Command` and `Command()`
   now give the project's command line arguments, empty where it has none. `Left$("abc", 1)` in a form's code is
   VBA's `Left$`, as vb6.exe measured.

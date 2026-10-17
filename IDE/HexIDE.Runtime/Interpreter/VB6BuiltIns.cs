@@ -313,5 +313,9 @@ public partial class VB6BuiltIns
     /// VBRUN's 0 (measured). The caller must check the project's own declarations first: a user
     /// <c>Enum</c> or <c>Const</c> of the same name wins over any library.</summary>
     public bool TryGetBuiltInConstant(string name, out Vb6Value constant)
-        => VB6InBoxLibraries.TryBare(name, out constant);
+        => VB6InBoxLibraries.TryBare(name, out constant)
+           || (CommonDialogReferenced && CommonDialogConstants.TryBare(name, out constant));
+
+    /// <summary>Whether the project references the CommonDialog control, whose constants then resolve (#1084).</summary>
+    internal bool CommonDialogReferenced { get; set; }
 }
