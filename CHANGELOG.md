@@ -15,6 +15,9 @@ there isn't one yet. Anything may change between 0.x releases.
   `answer_next_file_dialog`. Cancel and `CancelError`, `FileName`, `FileTitle`, `DefaultExt` and the Font properties
   behave as vb6.exe measured, and the control's 102 constants resolve in a project that references it. The form still
   saves byte for byte. `ShowColor`, `ShowPrinter` and `ShowHelp` are still to come.
+- **`Command`, and `Left$` in a form's code** (#742). Both stopped a run. `Command$`, `Command` and `Command()`
+  now give the project's command line arguments, empty where it has none. `Left$("abc", 1)` in a form's code is
+  VBA's `Left$`, as vb6.exe measured.
 - **Text files** (#1145). `Open` For Input, Output and Append, `Line Input #`, `Print #`, `Close`, `FreeFile` and
   `EOF` used to stop a run at the first of them. Now they read and write as vb6.exe does, byte for byte:
   - lines end at CR or CR LF, and Ctrl+Z ends the file;

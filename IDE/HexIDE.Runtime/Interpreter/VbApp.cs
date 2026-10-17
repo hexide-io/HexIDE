@@ -25,7 +25,8 @@ public record AppInfo(
     string LegalCopyright = "",
     string LegalTrademarks = "",
     string Comments = "",
-    bool CommonDialogReferenced = false)
+    bool CommonDialogReferenced = false,
+    string CommandLine = "")
 {
     /// <summary>A program with no project behind it — the test harness and the bare interpreter.</summary>
     public static readonly AppInfo None = new();
@@ -59,7 +60,9 @@ public record AppInfo(
             Comments: PreSectionValue(project, "VersionComments") ?? "",
             // The .vbp's Object= line, or a form's: VB6 writes both for a form that holds the control (#1084).
             CommonDialogReferenced: project.UnknownPreSectionLines.Any(l => CommonDialogConstants.IsReference(l.RawLine))
-                || project.Forms.Any(f => f.HeaderLines.Any(CommonDialogConstants.IsReference)));
+                || project.Forms.Any(f => f.HeaderLines.Any(CommonDialogConstants.IsReference)),
+            // Project Properties' "Command Line Arguments", which is what Command gives under F5, and HexIDE runs as F5 runs.
+            CommandLine: PreSectionValue(project, "Command32") ?? "");
     }
 
     /// <summary>

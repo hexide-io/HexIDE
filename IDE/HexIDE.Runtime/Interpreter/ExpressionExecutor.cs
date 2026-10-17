@@ -544,8 +544,18 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     {
         if (ctx.iCS_S_VariableOrProcedureCall() is { } varOrProcCall)
         {
-            if (varOrProcCall.typeHint() != null)
+            // `Command$` with no parentheses, the library's function with no arguments and its result a String (measured).
+            // Any other name with a type character is still refused (#742).
+            if (varOrProcCall.typeHint() is { } hint)
+            {
+                var hinted = varOrProcCall.ambiguousIdentifier().GetText();
+                if (hint.GetText() == "$" && BareDollarForms.Contains(hinted)
+                    && !env.TryGetVariableLocation(hinted, out _)
+                    && !interpreter.TryResolveProcedure(hinted, currentModule, out _, out _)
+                    && await EvaluateFunction(hinted, []) is { } bareResult)
+                    return DollarResult(bareResult, varOrProcCall);
                 throw new NotImplementedException("Type hint is not supported");
+            }
             if (varOrProcCall.dictionaryCallStmt() != null)
                 throw new NotImplementedException("dictionaryCallStmt is not supported");
             var identifier = varOrProcCall.ambiguousIdentifier().GetText();
@@ -648,9 +658,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// <summary>The library's functions that have a <c>$</c> form, every one measured to compile and answer a String.</summary>
     private static readonly HashSet<string> DollarForms = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Chr", "ChrB", "ChrW", "CurDir", "Environ", "Error", "Format", "Hex", "LCase", "Left", "LeftB", "LTrim", "Mid",
+        "Chr", "ChrB", "ChrW", "Command", "CurDir", "Environ", "Error", "Format", "Hex", "LCase", "Left", "LeftB", "LTrim", "Mid",
         "MidB", "Oct", "Right", "RightB", "RTrim", "Space", "Str", "String", "Trim", "UCase",
     };
+
+    /// <summary>The <c>$</c> forms read with no parentheses, as a variable is: measured for each.</summary>
+    private static readonly HashSet<string> BareDollarForms = new(StringComparer.OrdinalIgnoreCase) { "Command" };
 
     /// <summary>Library functions on which VB6 refuses a <c>$</c> at compile time (measured).</summary>
     private static readonly HashSet<string> DollarRefused = new(StringComparer.OrdinalIgnoreCase)
@@ -734,13 +747,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // takes no index, and reaches a default member where it does (`Controls(0)`), which HexIDE has none of yet.
         if (FormMembers.TryBare(interpreter.ExecutionContext, env, name, out var form, out var formMember))
         {
-            if (dollar)
-                throw new NotImplementedException($"{name}$ on a member of the form is not implemented (#742)");
             var formArgs = await EvaluateCallArgs(argsCtx);
+            // `Left$("abc", 1)` in a form's code is VBA's Left$, a String, as `Left("abc", 1)` is VBA's Left (measured).
+            if (dollar && !FormMembers.CallIsVbas(name, formArgs.Count))
+                throw new NotImplementedException($"{name}$ on a member of the form is not implemented (#742)");
             if (formMember.IsMethod)
                 return await interpreter.Loading((Form: form, Name: name, Args: formArgs), static s => FormMembers.Call(s.Form, s.Name, s.Args));
             if (FormMembers.CallIsVbas(name, formArgs.Count) && await EvaluateFunction(name, formArgs) is { } vbaResult)
-                return vbaResult;
+                return dollar ? DollarResult(vbaResult, procOrArrayCall) : vbaResult;
             throw new NotImplementedException($"{form.ClassName}'s {name} with arguments is not implemented{FormMembers.TrackedBy(name)}");
         }
         if (interpreter.TryResolveProcedure(name, currentModule, out _, out var procedure))
@@ -760,18 +774,17 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new NotImplementedException($"{name}$ is not implemented: what VB6 does with a $ on {name} is not measured (#742)");
         var args = await EvaluateCallArgs(argsCtx);
         if (await EvaluateFunction(name, args) is { } builtInResult)
-        {
-            // A `$` form is its plain form with the result made a String, so where the plain form passes a Null through,
-            // the `$` form raises 94 (measured on all 23).
-            if (dollar && DollarForms.Contains(name))
-                return builtInResult.IsNull
-                    ? throw new VBRunTimeException(procOrArrayCall, VBStandardError.InvalidUseOfNull)
-                    : new Vb6Value(VbDisplay.ToText(builtInResult));
-            return builtInResult;
-        }
+            return dollar && DollarForms.Contains(name) ? DollarResult(builtInResult, procOrArrayCall) : builtInResult;
 
         throw new VBSubOrFunctionNotDefinedException(name);
     }
+
+    // A `$` form is its plain form with the result made a String, so where the plain form passes a Null through, the `$`
+    // form raises 94 (measured on all 23).
+    private static Vb6Value DollarResult(Vb6Value result, Antlr4.Runtime.ParserRuleContext ctx) =>
+        result.IsNull
+            ? throw new VBRunTimeException(ctx, VBStandardError.InvalidUseOfNull)
+            : new Vb6Value(VbDisplay.ToText(result));
 
     // Resolve a namespace-qualified member reference as a VALUE (expression context): `Module1.Foo(args)`,
     // `Module1.PublicConst`, `VBA.Abs(x)`, `VBA.Math.Abs(x)`, `VBA.vbCrLf`. Library-module segments
