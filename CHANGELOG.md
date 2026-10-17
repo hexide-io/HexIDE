@@ -10,6 +10,15 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Text files** (#1145). `Open` For Input, Output and Append, `Line Input #`, `Print #`, `Close`, `FreeFile` and
+  `EOF` used to stop a run at the first of them. Now they read and write as vb6.exe does, byte for byte:
+  - lines end at CR or CR LF, and Ctrl+Z ends the file;
+  - numbers are printed with their sign's space, and commas move to 14-column zones;
+  - text is in the ANSI code page;
+  - the errors are VB6's: 52, 53, 54, 55, 62, 75 and 76.
+
+  Every rule was measured, native and p-code. Random and Binary files, `Input #`, `Write #`, and `Tab` and `Spc` in
+  `Print #` are still to come.
 - **The Line control** (#163). A form holding one used to be refused at run time, since #857. Now:
   - it loads, runs and saves byte for byte, VB6's About Dialog included;
   - it draws pixel for pixel as VB6 does: dashes, widths, and which of two lines is on top;

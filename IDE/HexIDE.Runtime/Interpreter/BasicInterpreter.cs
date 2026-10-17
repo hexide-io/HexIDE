@@ -95,6 +95,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     internal Debugging.StopExecutionSignal End()
     {
         Ending = true;
+        // End closes every file, as the end of the program does (#1145).
+        BuiltIns.Files.CloseAll();
         EndReached?.Invoke(this);
         return new Debugging.StopExecutionSignal();
     }
