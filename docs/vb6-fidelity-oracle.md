@@ -10897,3 +10897,30 @@ its `Command$` is empty.
 **In HexIDE (#742):** `Left$` with arguments in a form's code runs as VBA's `Left$`. `Command`, `Command()` and
 `Command$` give the project's `Command32`, empty where there is none. That half is chosen rather than measured: VB6
 gives `Command32` under F5, and HexIDE always runs as F5 does. A made program's own process arguments are not passed.
+
+## A form's WindowState (2026-10-17, #1152)
+
+**The probes.** Found by the Notepad demo, whose `Form_Resize` begins `If WindowState = vbMinimized Then Exit Sub`.
+Two probes, each built native and p-code, and run **in the guest's console session**. In the probe runner's session,
+which has no desktop, every change read back 0, a result about that session rather than about VB6. In the first, Form1
+sets and reads WindowState in `Form_Load`, loads and shows a Form2 whose file says `WindowState = 2 'Maximized`, then
+from a Timer, once shown, sets each state. Its `Form_Resize` logs WindowState and Width each time. In the second,
+`Form_Load` sets `vbMaximized`, and a Timer reads it once the form is shown.
+
+| Step | Logged |
+|---|---|
+| `TypeName(WindowState)` in `Form_Load` | `Integer` |
+| in `Form_Load`: read, then set 1, set 2, set 0, reading after each | 0, 0, 0, 0: a form not yet shown reads 0 |
+| set 3, set -1 | 380, "Invalid property value", for each |
+| set 1.6, set `"0"` | taken, no error |
+| set Null | 94 |
+| Form2, saved maximized: loaded, then shown | 0, then 2 |
+| Form1 shown, then set 2, 1, 0 from the Timer | 2, 1, 0, each with a Resize: Width 15600, 2400, 4740 |
+| the second probe: `vbMaximized` set in `Form_Load`, read once shown | 0 in Load, then one Resize with 2, and 2 |
+
+So a state set before the form is shown, in code or in the file, is the state it shows in, and reads 0 until then.
+2400 twips is the width Windows gives a minimized window.
+
+**In HexIDE (#1152):** WindowState reads and writes as above, on a form's window, and a form saved with a WindowState shows
+in it. Resize comes from the window's size changing, as for any resize. Not reproduced: a minimized window's 2400-twip
+Width, which Avalonia doesn't report, and what a form hidden after being shown reads, which was not measured.
