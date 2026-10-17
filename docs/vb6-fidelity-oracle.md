@@ -10286,7 +10286,8 @@ one Label at Left 120, Top 120, 360 x 360. The program logs each step under `On 
 - **Move on a control** does this, the check included. Move with an omitted argument (`Move 1, , 3`), with none, or on
   a form, is not measured, and stops the run.
 - **ScaleWidth and ScaleHeight on a form** read the client area in whole pixels, in the form's ScaleMode. Setting them
-  is #990, and so is ScaleHeight on a form with a menu bar, whose menu sits inside the client area here.
+  is #990. On a form with a menu bar they are the area below the bar, as in VB6 (#1127): the window is the form's
+  ClientHeight plus VB6's 19-pixel bar tall, so the canvas gets the whole ClientHeight.
 - **A form's Width and Height** read and set the client size, not the outer one: #1072. The fit-to-content idiom
   above still lands right, because here the difference between Width and ScaleWidth is 0.
 
@@ -10309,7 +10310,19 @@ array `mnuLevel(0 To 2)`: "&Beginner" checked, "&Intermediate" and "&Expert". `F
 
 The same form without a menu has `Height - ScaleHeight` = 375 ("Move, ScaleWidth and ScaleHeight"), and with one it
 is 660: the bar takes 285 twips, 19 pixels at 96 dpi. `ClientHeight` and `ScaleHeight` are the area below it. Hiding
-the only top-level menu changed nothing before the form was shown; what it does once shown is unmeasured.
+the only top-level menu from code changed nothing before the form was shown; what it does once shown is unmeasured.
+
+**A menu hidden at design time is no bar.** A second probe, with `ClientTop = 330`, logs in `Form_Load`, again from a
+Timer once the form is shown, and after `Height = (Height - ScaleHeight) + 2000`:
+
+| The form's top-level menus | Load | Shown | After the fit |
+|---|---|---|---|
+| none | `3420 3795` | `3420 3795` | `1995 2375` |
+| one, `Visible = False` in the .frm, with an item under it | `3420 3795` | `3420 3795` | `1995 2375` |
+| that one, and a visible File menu | `3420 4080` | `3420 4080` | `1995 2660` |
+
+Each cell is `ScaleHeight Height`. A form that keeps its only menu hidden, for `PopupMenu`, is the same size as one with
+no menu at all, so VB6 shows a bar only for a visible top-level menu.
 
 **Menus from code:**
 
@@ -10358,9 +10371,12 @@ Enabled and ignores Visible and Checked settles it.
 is ("Control arrays" above), so this is where menus and controls part. Not measured: where a loaded element sits in
 its menu when the array has gaps, and whether it copies a Shortcut.
 
-**In HexIDE:** none of this works yet. No menu has a variable at run time, so the first line naming one is "Variable
-not defined" (#1126), and a menu array's Click is called without its Index. The menu bar sits inside the window's
-client area, so a menued form loses the bar's height at the bottom, and reading ScaleHeight on it is refused (#1127).
+**In HexIDE:** the bar is above the client area, 19 pixels high, and ScaleHeight is the area below it, on a form with a
+visible top-level menu; a form whose top-level menus are all hidden has no bar (#1127). The bar is one line high
+however many menus it holds, where VB6's wraps onto a second line on a form too narrow for them, which is unmeasured.
+Showing or hiding a top-level menu from code waits on #1126. None of
+the menus-from-code rows works yet: no menu has a variable at run time, so the first line naming one is "Variable not
+defined" (#1126), and a menu array's Click is called without its Index.
 
 ## SetFocus (2026-10-15, #1061)
 

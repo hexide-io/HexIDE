@@ -73,20 +73,22 @@ internal static class ControlPositions
     /// <summary>
     /// A form's ScaleWidth or ScaleHeight (#1071): its client area in whole pixels, in the form's ScaleMode, as a Single.
     /// Measured: a 2520-twip client reads 2520 and, in pixels, 168. After a resize to 2000 twips of client height it reads
-    /// 1995, since the client is whole pixels.
+    /// 1995, since the client is whole pixels. On a form with a menu bar it is the area below the bar, which VB6 leaves
+    /// out of the client area (#1127): a 3420-twip client under a bar reads 3420.
     /// </summary>
     public static Vb6Value ScaleSize(Window form, bool vertical)
     {
         var what = vertical ? "ScaleHeight" : "ScaleWidth";
-        // The menu bar sits inside the window here, where VB6 leaves it out of the client area.
-        if (vertical && form.GetLogicalDescendants().OfType<Menu>().Any(menu => menu.ItemCount > 0))
-            throw new NotImplementedException($"{what} on a form with a menu bar is not implemented (#990)");
         var canvas = form.GetLogicalDescendants().OfType<Canvas>().FirstOrDefault();
         var mode = canvas is null ? VBScaleMode.Twip : VBProps.GetScaleMode(canvas);
         var pixels = vertical ? form.Height : form.Width;
         if (double.IsNaN(pixels))
             pixels = vertical ? form.ClientSize.Height : form.ClientSize.Width;
-        var whole = Math.Floor(pixels + 1e-9);
+        // The window holds the bar here, above the canvas, so the client area is what is left below it. The bar is
+        // visible exactly when VBLoader.HasMenuBar made the window taller for it.
+        if (vertical && form.GetLogicalDescendants().OfType<Menu>().FirstOrDefault(menu => menu.IsVisible) is { } bar)
+            pixels -= bar.Height;
+        var whole = Math.Floor(Math.Max(0, pixels) + 1e-9);
         return new Vb6Value((float)(whole * VBScaleModeExtensions.PixelToTwips / TwipsPerUnit(mode, vertical, what)));
     }
 

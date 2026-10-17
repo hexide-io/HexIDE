@@ -140,6 +140,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A form with a menu bar runs with its whole client area** (#1127). The bar sat inside the form's ClientHeight, so
+  the bar's height was cut off the bottom of the form, and reading `ScaleHeight` stopped the run. As in VB6, the bar is
+  now above the client area, 19 pixels high, and `ScaleHeight` is the area below it, so a form can fit itself to its
+  content with `Height = (Height - ScaleHeight) + needed`.
 - **A form holding a control HexIDE cannot create is refused, rather than run without it** (#857). Examples are a
   `VB.Data`, a `VB.OLE` and any ActiveX control. The form used to run with the control, and everything inside it, left
   out. Code naming it read Empty or wasn't defined, a call on it under `On Error Resume Next` was skipped with

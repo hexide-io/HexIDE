@@ -157,24 +157,46 @@ public class VBLoader
     /// </summary>
     private static void BuildMenuBar(FormDefinition element, Menu menu, List<(KeyGesture Gesture, Action Invoke)> shortcuts)
     {
-        // A menu some other menu claims as a sub-item belongs in that menu, not on the bar — the same
-        // filter the writer applies, and for the same reason.
+        foreach (var component in TopLevelMenus(element))
+            if (BuildMenuItem(component, menu, shortcuts) is { } item)
+                menu.Items.Add(item);
+
+        // An empty bar still occupies a strip at the top of the form and pushes the canvas down, so a form
+        // with no menus would be laid out differently from the same form in VB6. So does a bar whose menus are all
+        // hidden, as a form's are when it keeps them only for PopupMenu, and VB6 shows no bar then (measured, #1127).
+        menu.IsVisible = HasMenuBar(element);
+        // VB6's bar, so that the client area below it is the .frm's ClientHeight in a window HasMenuBar made taller by
+        // this much, before anything has been laid out (#1127).
+        menu.Height = MenuBarHeight;
+    }
+
+    /// <summary>
+    /// The height of a running form's menu bar, in pixels: VB6's, 285 twips at 96 dpi (measured, #1127). It is fixed
+    /// rather than measured from the theme's Menu because Form_Load reads ScaleHeight before the form is shown, so
+    /// before any layout, and because a form's client area must not change with the IDE's theme.
+    /// </summary>
+    public const double MenuBarHeight = 19;
+
+    /// <summary>
+    /// Whether the form runs with a menu bar: it has a top-level menu that is visible. In VB6 the bar is outside the
+    /// client area, so the window is the form's ClientHeight plus <see cref="MenuBarHeight"/> tall, and a form whose
+    /// top-level menus are all hidden has no bar and is no taller (measured, #1127).
+    /// </summary>
+    public static bool HasMenuBar(FormDefinition element) =>
+        TopLevelMenus(element).Any(menu => menu.GetPropertyOrDefault(VBProperties.VisibleProperty));
+
+    // The menus on the bar itself. A menu some other menu claims as a sub-item belongs in that menu, not on the bar:
+    // the same filter the writer applies, and for the same reason.
+    private static IEnumerable<ComponentInstance> TopLevelMenus(FormDefinition element)
+    {
         var claimed = new HashSet<ComponentInstance>();
         foreach (var component in element.Components)
             foreach (var child in SubItemsOf(component))
                 claimed.Add(child);
 
         foreach (var component in element.Components)
-        {
-            if (component.BaseClass is not MenuComponentClass || claimed.Contains(component))
-                continue;
-            if (BuildMenuItem(component, menu, shortcuts) is { } item)
-                menu.Items.Add(item);
-        }
-
-        // An empty bar still occupies a strip at the top of the form and pushes the canvas down, so a form
-        // with no menus would be laid out differently from the same form in VB6.
-        menu.IsVisible = menu.Items.Count > 0;
+            if (component.BaseClass is MenuComponentClass && !claimed.Contains(component))
+                yield return component;
     }
 
     /// <summary>
@@ -518,7 +540,7 @@ public class VBLoader
         Debugging.IDebugController? debugController = null)
     {
         var form = FormComponentOf(element);
-        var shown = window = ((FormComponentClass)form.BaseClass).InstantiateWindow(form);
+        var shown = window = ((FormComponentClass)form.BaseClass).InstantiateWindow(form, HasMenuBar(element));
         // Another form of the program gets a window of its own the same way (#822).
         PrepareForm(element, shown.Context, content => shown.Content = content, debugController, OpenWindow);
 
@@ -573,7 +595,7 @@ public class VBLoader
     public static IFormView OpenWindow(FormDefinition definition)
     {
         var component = FormComponentOf(definition);
-        return ((FormComponentClass)component.BaseClass).InstantiateWindow(component);
+        return ((FormComponentClass)component.BaseClass).InstantiateWindow(component, HasMenuBar(definition));
     }
 
     /// <summary>
