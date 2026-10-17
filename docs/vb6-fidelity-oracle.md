@@ -5422,6 +5422,32 @@ HexIDE had a ListBox's and ComboBox's `ForeColor` default as the button text (`&
 control's. It now overrides it to `&H80000008`. A `.frm` carrying `&H80000019&`, or a palette colour, is now kept
 as written and saved back, where it used to be dropped on save; creating a control with the first used to throw.
 
+## The fonts a form names (2026-10-17, #1132, #1133)
+
+**The probe.** A form with four Labels at Size 12, built native and run on the oracle guest's console session, and
+screenshotted:
+- "PMJKLN" in Wingdings, which the .frm records as Charset 2, SYMBOL_CHARSET;
+- "abrtu" in Marlett, Charset 2;
+- "Courier iiii" in Courier New;
+- "Times iiii" in Times New Roman.
+
+| Label | vb6.exe draws |
+|---|---|
+| Wingdings `PMJKLN` | a flag, a bomb, a smiling, a neutral and a frowning face, and a skull |
+| Marlett `abrtu` | two ticks, a cross, an up arrow and a down arrow |
+| Courier New | monospaced: each `i` takes a full cell |
+| Times New Roman | serif |
+
+So each font draws in its own family, and a symbol font's letters are its symbols. GDI does that by mapping each
+character of a SYMBOL_CHARSET font into the font's private-use range: `P` is U+F050.
+
+**In HexIDE:**
+- **The family:** fixed (#1132). Every font used to draw in one sans serif, because the family was looked up only in the
+  bundled collection, which holds no fonts. Now it is looked up among the installed fonts first.
+- **The symbols:** #1133. Wingdings `PMJKLN` still draws those letters, because nothing maps them into the private-use
+  range. Given U+F050 and so on directly, the same Label draws the flag and the bomb, so the mapping is the missing
+  piece. Marlett's private-use characters draw empty boxes, so Marlett, a hidden system font, isn't found by name.
+
 ## RGB, QBColor and MsgBox's style (2026-10-12)
 
 **The questions.** What `RGB` and `QBColor` return, and of what type, at their edges. And what `MsgBox` does with a
