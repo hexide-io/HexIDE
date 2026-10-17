@@ -163,6 +163,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Missing VB6 global objects fail explicitly** (#871). Reading `Screen`, `Clipboard`, `Printer`, `Printers` or
+  `Forms` no longer silently returns Empty without Option Explicit. Bare and member reads report an unsupported
+  object, which On Error cannot swallow; declared variables and user functions still take precedence.
+
 - **Multiple file numbers on one source line** (#1146). `Line Input #1, s: Print #2, s` and `Close #1, #2`
   now parse in both the interpreter and language server. The date-literal token no longer consumes the file statements.
 
