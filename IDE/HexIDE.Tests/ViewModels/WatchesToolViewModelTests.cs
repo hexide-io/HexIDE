@@ -11,6 +11,22 @@ namespace HexIDE.Tests.ViewModels;
 
 public class WatchesToolViewModelTests
 {
+    [Fact]
+    public void External_watch_dialog_disables_and_refuses_break_condition_types()
+    {
+        var store = new WatchService();
+        var dialog = new HexIDE.Forms.ViewModels.AddWatchDialogViewModel(_localization, store, "Caller", expressionOnly: true)
+        { Expression = "answer", IsBreakWhenTrue = true };
+        dialog.AllowsBreakConditions.Should().BeFalse();
+        dialog.OkCommand.Execute(null);
+        store.Watches.Single().Type.Should().Be(WatchType.Expression);
+        var interpreter = new HexIDE.Forms.ViewModels.AddWatchDialogViewModel(_localization, store, "Caller")
+        { Expression = "answer > 0", IsBreakWhenTrue = true };
+        interpreter.AllowsBreakConditions.Should().BeTrue();
+        interpreter.OkCommand.Execute(null);
+        store.Watches.Last().Type.Should().Be(WatchType.BreakWhenTrue);
+    }
+
     private readonly ILocalizationService _localization = Substitute.For<ILocalizationService>();
     private readonly WatchService _watchService = new();
     private readonly IDebugController _debug = Substitute.For<IDebugController>();

@@ -25,8 +25,10 @@
             <RadioButton GroupName="watchType" IsChecked="{CompiledBinding IsExpression, Mode=TwoWay}"
                          Content="{DynamicResource Str.Dialog.AddWatch.Type.Expression}" />
             <RadioButton GroupName="watchType" IsChecked="{CompiledBinding IsBreakWhenTrue, Mode=TwoWay}"
+                         IsEnabled="{CompiledBinding AllowsBreakConditions}"
                          Content="{DynamicResource Str.Dialog.AddWatch.Type.BreakTrue}" />
             <RadioButton GroupName="watchType" IsChecked="{CompiledBinding IsBreakWhenChanged, Mode=TwoWay}"
+                         IsEnabled="{CompiledBinding AllowsBreakConditions}"
                          Content="{DynamicResource Str.Dialog.AddWatch.Type.BreakChanged}" />
         </StackPanel>
 

@@ -24,12 +24,13 @@ public partial class AddWatchDialogViewModel : ObservableObject, IDialog
     public event Action<bool>? CloseRequested;
 
     public AddWatchDialogViewModel(ILocalizationService localization, WatchService watchService, string context,
-        string? presetExpression = null, WatchExpression? editing = null)
+        string? presetExpression = null, WatchExpression? editing = null, bool expressionOnly = false)
     {
         _localization = localization;
         _watchService = watchService;
         Context = context;
         _editing = editing;
+        AllowsBreakConditions = !expressionOnly;
         if (editing is not null)
         {
             _expression = editing.Expression;
@@ -47,13 +48,14 @@ public partial class AddWatchDialogViewModel : ObservableObject, IDialog
         _editing is null ? "Str.Dialog.AddWatch.Title" : "Str.Dialog.AddWatch.EditTitle");
 
     public string Context { get; }
+    public bool AllowsBreakConditions { get; }
 
     [ObservableProperty] private string _expression = string.Empty;
     [ObservableProperty] private bool _isExpression = true;
     [ObservableProperty] private bool _isBreakWhenTrue;
     [ObservableProperty] private bool _isBreakWhenChanged;
 
-    private WatchType SelectedType =>
+    private WatchType SelectedType => !AllowsBreakConditions ? WatchType.Expression :
         IsBreakWhenTrue ? WatchType.BreakWhenTrue :
         IsBreakWhenChanged ? WatchType.BreakWhenChanged :
         WatchType.Expression;

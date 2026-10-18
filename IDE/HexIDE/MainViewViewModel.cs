@@ -1168,12 +1168,11 @@ public partial class MainViewViewModel : ObservableObject
 
     // Debug → Add Watch: open the Add Watch dialog (new, empty). Edit Watch (Ctrl+W): re-open it for the Watches
     // window's selected row. Quick Watch (Shift+F9): open it pre-filled with the identifier under the caret.
-    public void AddWatch() { if (!RefuseExternalCommand()) Watches.OpenAddWatchDialog().ListenErrors(); }
-    public void EditWatch() { if (!RefuseExternalCommand()) Watches.EditSelected().ListenErrors(); }
+    public void AddWatch() => Watches.OpenAddWatchDialog().ListenErrors();
+    public void EditWatch() => Watches.EditSelected().ListenErrors();
 
     public void QuickWatch()
     {
-        if (RefuseExternalCommand()) return;
         string? expr = documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.CodeEditorViewModel code
             ? IdentifierAt(code.Document.Text, code.CaretOffset)
             : null;
