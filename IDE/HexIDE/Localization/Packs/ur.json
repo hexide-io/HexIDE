@@ -2,6 +2,8 @@
   "name": "Urdu",
   "direction": "rtl",
   "strings": {
+    "Str.Debug.External.Breakpoint": "بیرونی بریک پوائنٹ: مطلوبہ سطر {0}؛ اڈاپٹر کی سطر {1}؛ تصدیق شدہ: {2}۔\n{3}",
+    "Str.Debug.External.BreakpointPending": "بریک پوائنٹ کی تصدیق کا انتظار ہے۔",
     "Str.Tool.Immediate.Expired": "جانچ کا سیاق بدل گیا؛ جواب نظر انداز کر دیا گیا۔",
     "Str.Menu.Run.StartExternal": "بیرونی ڈیبگ سیشن شروع کریں…",
     "Str.Debug.External.Unsupported": "یہ کمانڈ بیرونی ڈیبگ سیشن کے لیے دستیاب نہیں ہے۔",

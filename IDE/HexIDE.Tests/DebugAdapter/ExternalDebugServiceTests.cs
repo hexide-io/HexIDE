@@ -18,14 +18,14 @@ public class ExternalDebugServiceTests
     private static CancellationToken Token => TestContext.Current.CancellationToken;
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
 
-    private static async Task<string> Configuration(string directory, string mode)
+    private static async Task<string> Configuration(string directory, string mode, DapSourceBreakpoints[]? breakpoints = null)
     {
         var executable = Path.GetFullPath("../../../dotnet" + (OperatingSystem.IsWindows() ? ".exe" : ""), RuntimeEnvironment.GetRuntimeDirectory());
         var file = Path.Combine(directory, "launch.json");
         await File.WriteAllTextAsync(file, JsonSerializer.Serialize(new
         {
             executable, arguments = new[] { typeof(Dap.TestAdapter.Program).Assembly.Location, mode },
-            adapterId = "fixture", launch = new { },
+            adapterId = "fixture", launch = new { }, breakpoints = breakpoints ?? [],
         }), Token);
         return file;
     }
@@ -290,6 +290,112 @@ public class ExternalDebugServiceTests
         immediate.IsPaused.Should().BeTrue();
         (await immediate.EvaluateAsync("? answer")).Should().Be("42");
         await interpreter.Received(1).EvaluateAsync("? answer");
+    }
+
+    [AvaloniaFact]
+    public async Task External_breakpoints_preserve_verification_relocation_events_and_clear_confirmations()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-breakpoints-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "Callee.bas");
+        var uri = new Uri(path).AbsoluteUri;
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log);
+        var config = await Configuration(directory, "breakpoints", [new(path, [6, 10, 20])]);
+        var saved = await File.ReadAllTextAsync(config, Token);
+        var run = service.StartAsync(config);
+        try
+        {
+            await WaitFor(service, () => service.CanEditBreakpoints && service.Variables.Count == 1);
+            var rows = service.GetBreakpoints(uri);
+            rows[0].Verified.Should().BeTrue();
+            rows[1].Relocated.Should().BeTrue();
+            rows[1].Line.Should().Be(11);
+            rows[2].Verified.Should().BeFalse();
+            rows[2].Message.Should().Be("no executable statement");
+            await service.CommandAsync("next");
+            await WaitFor(service, () => service.GetBreakpoints(uri)[2].Verified);
+            service.GetBreakpoints(uri)[2].Line.Should().Be(21);
+            service.ToggleBreakpoint(uri, 6).Should().BeTrue();
+            service.GetBreakpoints(uri).Should().OnlyContain(row => row.Pending);
+            await WaitFor(service, () => service.GetBreakpoints(uri).Count == 2 && service.GetBreakpoints(uri).All(row => !row.Pending));
+            service.ClearAllBreakpoints();
+            await WaitFor(service, () => service.GetBreakpoints(uri).Count == 0);
+            (await File.ReadAllTextAsync(config, Token)).Should().Be(saved);
+        }
+        finally
+        {
+            await service.StopAsync();
+            await run.WaitAsync(Patience, Token);
+            service.GetBreakpoints(uri).Should().BeEmpty();
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Rapid_breakpoint_edits_coalesce_and_old_replies_cannot_revert_the_latest_set(bool end)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-breakpoints-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        var uri = new Uri(Path.Combine(directory, "Callee.bas")).AbsoluteUri;
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log);
+        var pending = false;
+        service.Output += output => { if (output == "breakpoints-pending\n") pending = true; };
+        var run = service.StartAsync(await Configuration(directory, "breakpoints-delayed"));
+        try
+        {
+            await WaitFor(service, () => service.CanEditBreakpoints && service.Variables.Count == 1);
+            service.ToggleBreakpoint(uri, 30).Should().BeTrue();
+            await WaitFor(service, () => pending);
+            service.ToggleBreakpoint(uri, 31).Should().BeTrue();
+            service.ToggleBreakpoint(uri, 30).Should().BeTrue();
+            if (end)
+            {
+                await service.StopAsync();
+                await run.WaitAsync(Patience, Token);
+                service.GetBreakpoints(uri).Should().BeEmpty();
+                return;
+            }
+            await service.CommandAsync("next"); // Releases the obsolete [30] reply.
+            await WaitFor(service, () => service.GetBreakpoints(uri).Count == 1 && !service.GetBreakpoints(uri)[0].Pending);
+            service.GetBreakpoints(uri)[0].RequestedLine.Should().Be(31);
+            service.GetBreakpoints(uri)[0].Verified.Should().BeTrue();
+        }
+        finally
+        {
+            await service.StopAsync();
+            await run.WaitAsync(Patience, Token);
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Refused_clear_keeps_uncertain_breakpoints_visible_instead_of_claiming_removal()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-breakpoints-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "Callee.bas");
+        var uri = new Uri(path).AbsoluteUri;
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log);
+        var run = service.StartAsync(await Configuration(directory, "breakpoints-refuse-clear", [new(path, [6])]));
+        try
+        {
+            await WaitFor(service, () => service.CanEditBreakpoints);
+            service.ClearAllBreakpoints();
+            await WaitFor(service, () => service.GetBreakpoints(uri).Any(row => !row.Pending && !row.Verified));
+            service.GetBreakpoints(uri).Single().Message.Should().Contain("cannot clear");
+            service.GetBreakpoints(uri).Single().RequestedLine.Should().Be(6);
+        }
+        finally
+        {
+            await service.StopAsync();
+            await run.WaitAsync(Patience, Token);
+            Directory.Delete(directory, true);
+        }
     }
 
     [AvaloniaFact]

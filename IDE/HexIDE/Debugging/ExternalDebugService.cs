@@ -15,7 +15,7 @@ public sealed record ExternalVariable(string Name, string Value, string Type, in
 public sealed record ExternalEvaluation(string Text, bool Expired = false);
 
 /// <summary>One external run. Public state and events belong to the UI thread; wire reads never block it.</summary>
-public sealed class ExternalDebugService(ConversationLog capture)
+public sealed partial class ExternalDebugService(ConversationLog capture)
 {
     private DapSession? session;
     private CancellationTokenSource? cancellation;
@@ -76,6 +76,7 @@ public sealed class ExternalDebugService(ConversationLog capture)
         State = DapSessionState.Starting;
         stopping = null;
         Connection = null;
+        ResetBreakpoints();
         cancellation = new();
         Changed?.Invoke();
         Task? reader = null;
@@ -88,10 +89,12 @@ public sealed class ExternalDebugService(ConversationLog capture)
                 [], "", null, Endpoint: configuration.Executable, StateSince: DateTimeOffset.UtcNow);
             session = DapSession.Start(configuration.ProcessOptions(new(capture, id)));
             var current = session;
+            var sources = InitializeBreakpoints(configuration.Breakpoints);
             reader = ReadAsync(current);
-            var replies = await current.LaunchAsync(configuration.AdapterId, configuration.Launch, configuration.Breakpoints, cancellation.Token);
-            foreach (var reply in replies)
-                Output?.Invoke($"{reply.Command}: {reply.Body}\n");
+            var replies = await current.LaunchAsync(configuration.AdapterId, configuration.Launch, sources, cancellation.Token);
+            for (var index = 0; index < replies.Count; index++)
+                ApplyBreakpointReply(breakpointSources[sources[index].Path], sources[index].Lines, replies[index]);
+            breakpointsReady = true;
             Connection = Connection with { Capabilities = current.Capabilities };
             if (current.Snapshot.State is DapSessionState.Running or DapSessionState.Stopped)
             {
@@ -127,6 +130,7 @@ public sealed class ExternalDebugService(ConversationLog capture)
             Stop = null;
             ThreadId = null;
             ClearInspection();
+            ResetBreakpoints();
             if (State != DapSessionState.Faulted) State = DapSessionState.Ended;
             UpdateConnection();
             Changed?.Invoke();
@@ -157,6 +161,8 @@ public sealed class ExternalDebugService(ConversationLog capture)
                 if (Stop?.ThreadId is { } thread) ThreadId = thread;
                 if (update.Event?.Event == "output" && update.Event.Body is { } body && body.TryGetProperty("output", out var output))
                     Output?.Invoke(output.GetString() ?? "");
+                if (update.Event?.Event == "breakpoint" && update.Event.Body is { } breakpointEvent)
+                    ApplyBreakpointEvent(breakpointEvent);
                 if (update.Snapshot.Stop is null) ClearInspection();
                 UpdateConnection();
                 Changed?.Invoke();

@@ -2,6 +2,8 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "Eksternt stoppunkt: forespurt linje {0}; adapterlinje {1}; bekreftet: {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "Venter på bekreftelse av stoppunkt.",
     "Str.Tool.Immediate.Expired": "Evalueringskonteksten ble endret; svaret ble forkastet.",
     "Str.Menu.Run.StartExternal": "Start _ekstern feilsøkingsøkt…",
     "Str.Debug.External.Unsupported": "Denne kommandoen er ikke tilgjengelig i en ekstern feilsøkingsøkt.",

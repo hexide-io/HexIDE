@@ -2,6 +2,8 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "外部断点：请求行 {0}；适配器行 {1}；已验证：{2}。\n{3}",
+    "Str.Debug.External.BreakpointPending": "正在等待断点验证。",
     "Str.Tool.Immediate.Expired": "求值上下文已更改；已丢弃其响应。",
     "Str.Menu.Run.StartExternal": "启动外部调试会话…",
     "Str.Debug.External.Unsupported": "此命令不适用于外部调试会话。",

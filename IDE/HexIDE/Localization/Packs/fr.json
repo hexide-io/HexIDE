@@ -2,6 +2,8 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "Point d’arrêt externe : ligne demandée {0} ; ligne de l’adaptateur {1} ; vérifié : {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "En attente de vérification du point d’arrêt.",
     "Str.Tool.Immediate.Expired": "Le contexte d’évaluation a changé ; la réponse a été ignorée.",
     "Str.Menu.Run.StartExternal": "Démarrer une session de débogage _externe…",
     "Str.Debug.External.Unsupported": "Cette commande n’est pas disponible pour une session de débogage externe.",

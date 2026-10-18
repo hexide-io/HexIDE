@@ -2,6 +2,8 @@
   "name": "Persian",
   "direction": "rtl",
   "strings": {
+    "Str.Debug.External.Breakpoint": "نقطهٔ توقف خارجی: خط درخواستی {0}؛ خط آداپتور {1}؛ تأییدشده: {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "در انتظار تأیید نقطهٔ توقف.",
     "Str.Tool.Immediate.Expired": "زمینهٔ ارزیابی تغییر کرد؛ پاسخ کنار گذاشته شد.",
     "Str.Menu.Run.StartExternal": "شروع نشست اشکال‌زدایی خارجی…",
     "Str.Debug.External.Unsupported": "این فرمان برای نشست اشکال‌زدایی خارجی در دسترس نیست.",

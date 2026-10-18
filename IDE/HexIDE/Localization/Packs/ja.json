@@ -2,6 +2,8 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "外部ブレークポイント: 要求行 {0}、アダプターの行 {1}、検証済み: {2}。\n{3}",
+    "Str.Debug.External.BreakpointPending": "ブレークポイントの検証を待機しています。",
     "Str.Tool.Immediate.Expired": "評価のコンテキストが変更されたため、応答を破棄しました。",
     "Str.Menu.Run.StartExternal": "外部デバッグセッションを開始…",
     "Str.Debug.External.Unsupported": "このコマンドは外部デバッグセッションでは使用できません。",

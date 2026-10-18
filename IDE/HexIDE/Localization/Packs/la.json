@@ -2,6 +2,8 @@
   "name": "Latina",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "Punctum sistendi externum: linea petita {0}; linea adaptoris {1}; confirmatum: {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "Confirmatio puncti sistendi exspectatur.",
     "Str.Tool.Immediate.Expired": "Contextus aestimationis mutatus est; responsum omissum est.",
     "Str.Menu.Run.StartExternal": "Sessionem _externam emendationis incipe…",
     "Str.Debug.External.Unsupported": "Hoc mandatum in sessione externa emendationis praesto non est.",

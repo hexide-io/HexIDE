@@ -2,6 +2,8 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "Punto di interruzione esterno: riga richiesta {0}; riga dell’adattatore {1}; verificato: {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "In attesa della verifica del punto di interruzione.",
     "Str.Tool.Immediate.Expired": "Il contesto di valutazione è cambiato; la risposta è stata scartata.",
     "Str.Menu.Run.StartExternal": "Avvia sessione di debug _esterna…",
     "Str.Debug.External.Unsupported": "Questo comando non è disponibile per una sessione di debug esterna.",

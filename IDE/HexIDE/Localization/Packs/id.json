@@ -2,6 +2,8 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "Breakpoint eksternal: baris yang diminta {0}; baris adaptor {1}; terverifikasi: {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "Menunggu verifikasi breakpoint.",
     "Str.Tool.Immediate.Expired": "Konteks evaluasi berubah; balasannya diabaikan.",
     "Str.Menu.Run.StartExternal": "Mulai Sesi Debug _Eksternal…",
     "Str.Debug.External.Unsupported": "Perintah ini tidak tersedia untuk sesi debug eksternal.",

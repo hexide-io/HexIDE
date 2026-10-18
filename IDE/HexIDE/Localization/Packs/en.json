@@ -2,6 +2,8 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "External breakpoint: requested line {0}; adapter line {1}; verified: {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "Waiting for breakpoint verification.",
     "Str.Tool.Immediate.Expired": "The evaluation context changed; its reply was discarded.",
     "Str.Menu.Run.StartExternal": "Start _External Debug Session…",
     "Str.Debug.External.Unsupported": "This command is not available for an external debug session.",

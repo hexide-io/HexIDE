@@ -2,6 +2,8 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "Externer Haltepunkt: angeforderte Zeile {0}; Adapterzeile {1}; bestätigt: {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "Warten auf Bestätigung des Haltepunkts.",
     "Str.Tool.Immediate.Expired": "Der Auswertungskontext hat sich geändert; die Antwort wurde verworfen.",
     "Str.Menu.Run.StartExternal": "_Externe Debugsitzung starten…",
     "Str.Debug.External.Unsupported": "Dieser Befehl ist für eine externe Debugsitzung nicht verfügbar.",

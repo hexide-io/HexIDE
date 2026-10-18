@@ -2,6 +2,8 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "外部中斷點：要求行 {0}；配接器行 {1}；已驗證：{2}。\n{3}",
+    "Str.Debug.External.BreakpointPending": "正在等待中斷點驗證。",
     "Str.Tool.Immediate.Expired": "求值內容已變更；已捨棄其回應。",
     "Str.Menu.Run.StartExternal": "啟動外部偵錯工作階段…",
     "Str.Debug.External.Unsupported": "此命令不適用於外部偵錯工作階段。",

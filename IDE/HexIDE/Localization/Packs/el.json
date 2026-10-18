@@ -2,6 +2,8 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "Εξωτερικό σημείο διακοπής: ζητούμενη γραμμή {0}· γραμμή προσαρμογέα {1}· επιβεβαιώθηκε: {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "Αναμονή επιβεβαίωσης του σημείου διακοπής.",
     "Str.Tool.Immediate.Expired": "Το περιβάλλον αξιολόγησης άλλαξε· η απάντηση απορρίφθηκε.",
     "Str.Menu.Run.StartExternal": "Έναρξη εξωτερικής συνεδρίας εντοπισμού σφαλμάτων…",
     "Str.Debug.External.Unsupported": "Αυτή η εντολή δεν είναι διαθέσιμη για εξωτερική συνεδρία εντοπισμού σφαλμάτων.",

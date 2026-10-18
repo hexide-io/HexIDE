@@ -2,6 +2,8 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "Eksternt breakpoint: ønsket linje {0}; adapterlinje {1}; bekræftet: {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "Venter på bekræftelse af breakpoint.",
     "Str.Tool.Immediate.Expired": "Evalueringskonteksten blev ændret; svaret blev kasseret.",
     "Str.Menu.Run.StartExternal": "Start _ekstern fejlfinding…",
     "Str.Debug.External.Unsupported": "Denne kommando er ikke tilgængelig under ekstern fejlfinding.",

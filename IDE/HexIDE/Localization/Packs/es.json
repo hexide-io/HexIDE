@@ -2,6 +2,8 @@
   "name": "es",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "Punto de interrupción externo: línea solicitada {0}; línea del adaptador {1}; verificado: {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "Esperando la verificación del punto de interrupción.",
     "Str.Tool.Immediate.Expired": "El contexto de evaluación cambió; se descartó la respuesta.",
     "Str.Menu.Run.StartExternal": "Iniciar sesión de depuración _externa…",
     "Str.Debug.External.Unsupported": "Este comando no está disponible en una sesión de depuración externa.",
