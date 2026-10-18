@@ -144,6 +144,9 @@ jobs:
       - name: Run Runtime Tests
         run: dotnet test HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj
 
+      - name: Run container reader tests
+        run: dotnet test HexIDE.TwinBasic.Tests/HexIDE.TwinBasic.Tests.csproj
+
       # The IDE half and the server half are separate builds, and nothing in this job produced the server
       # until now. One test needs it: the only one where HexIDE's own client speaks to HexIDE's own
       # server over a real process, rather than each half being proved against a fixture spoken by hand.
@@ -309,6 +312,9 @@ jobs:
 
       - name: Run Runtime Tests
         run: dotnet test HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj
+
+      - name: Run container reader tests
+        run: dotnet test HexIDE.TwinBasic.Tests/HexIDE.TwinBasic.Tests.csproj
 
       # One test speaks to HexIDE's own server over a real process, and nothing in this job has produced
       # it yet. Without this step it skips, and the variable below turns that skip into a failure.

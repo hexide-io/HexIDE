@@ -22,6 +22,8 @@
 *.frx binary
 *.ctx binary
 *.pgx binary
+*.twinproj binary
+*.twinpack binary
 
 # The VB6 conformance corpus under /corpus is measured data, not source. Whitespace in it is
 # load-bearing — trailing spaces and tabs after a line-continuation underscore ARE several of the

@@ -1,0 +1,7 @@
+- [x] Track roadmap in #1178 and reader slice in #1179, related to #1122 and #1118.
+- [x] Implement immutable tree and version 1 stream reader with bounded parsing and diagnostics.
+- [x] Add pinned upstream project/package fixtures with independent expected manifests and licences.
+- [x] Test preservation, corruption, resource limits, stream ownership and cancellation.
+- [x] Add solution projects, binary attributes and desktop CI test steps.
+- [x] Complete local reader tests and strict OpenSpec validation.
+- [ ] Open the first PR and pause for CI and review before further implementation.
