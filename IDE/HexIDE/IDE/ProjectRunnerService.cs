@@ -35,6 +35,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
     private readonly IBreakpointService breakpointService;
     private readonly WatchService watchService;
     private readonly RunScope runScope;
+    private readonly ExternalDebugService? externalDebugger;
 
     // A Run-To-Cursor target requested while IDLE — applied AFTER the run-start Reset (which clears the controller's
     // target), so the fresh run breaks at it. Consumed once in RunProject.
@@ -44,7 +45,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
     [AlsoNotify(nameof(IsRunning), nameof(CanStartDefaultProject), nameof(CanStartDefaultProjectWithFullCompile), nameof(CanBreakProject), nameof(CanContinueProject), nameof(CanStepIntoProject), nameof(CanStepOverProject), nameof(CanStepOutProject), nameof(CanRunToCursor), nameof(CanEndProject), nameof(CanRestartProject))]
     private System.IDisposable? runHandle;
 
-    public bool IsRunning => runHandle != null;
+    public bool IsRunning => runHandle != null || externalDebugger?.IsActive == true;
 
     /// <inheritdoc />
     public event Action<string>? StartFailed;
@@ -75,7 +76,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
         IDebugController debugController,
         IBreakpointService breakpointService,
         WatchService watchService,
-        RunScope runScope)
+        RunScope runScope,
+        ExternalDebugService? externalDebugger = null)
     {
         this.eventBus = eventBus;
         this.windowManager = windowManager;
@@ -85,6 +87,13 @@ public partial class ProjectRunnerService : IProjectRunnerService
         this.breakpointService = breakpointService;
         this.watchService = watchService;
         this.runScope = runScope;
+        this.externalDebugger = externalDebugger;
+        if (externalDebugger is not null)
+            externalDebugger.Changed += () =>
+            {
+                PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsRunning)));
+                CommandManager.InvalidateRequerySuggested();
+            };
         // A running program's CommonDialog shows the IDE's own dialogs (#1084), whichever window the form runs in.
         HostDialogs.File = request => MDIStandaloneStandardLib.ShowFileDialog(windowManager, request);
         HostDialogs.Font = initial => MDIStandaloneStandardLib.ShowFontDialog(windowManager, initial);
@@ -155,6 +164,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
     public void RunProject(ProjectDefinition projectDefinition, bool stepInto = false)
     {
+        if (externalDebugger?.IsActive == true) return;
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
         // An idle Run To Cursor's target belongs to this start alone. Taken here, so a start that fails leaves
@@ -457,12 +467,14 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
     public void BreakCurrentProject()
     {
+        if (externalDebugger?.IsActive == true) { _ = externalDebugger.CommandAsync("pause"); return; }
         // Request a break: the next statement gate suspends (a no-op if the program is idle-between-events).
         debugController.Pause();
     }
 
     public void StepIntoProject()
     {
+        if (externalDebugger?.IsActive == true) { _ = externalDebugger.CommandAsync("stepIn"); return; }
         // F8 (Step Into), VB6-faithful: from idle it starts the project and breaks at the first executed
         // statement; while paused it steps one statement; while running-not-paused it breaks at the next.
         if (!IsRunning)
@@ -475,6 +487,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
     public void StepOverProject()
     {
+        if (externalDebugger?.IsActive == true) { _ = externalDebugger.CommandAsync("next"); return; }
         // Shift+F8 (Step Over): while paused, run any called procedure to completion and break at the next
         // statement in the current frame. From idle/running it behaves like Step Into (start-and-step / break next).
         if (!IsRunning)
@@ -487,6 +500,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
     public void StepOutProject()
     {
+        if (externalDebugger?.IsActive == true) { _ = externalDebugger.CommandAsync("stepOut"); return; }
         // Ctrl+Shift+F8 (Step Out): while paused, run until the current procedure returns and break in its caller.
         // From idle/running it behaves like Step Into (start-and-step / break next).
         if (!IsRunning)
@@ -499,6 +513,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
     public void RunToCursorProject(DocumentIdentity document, int line)
     {
+        if (externalDebugger?.IsActive == true) return;
         // Run To Cursor (Ctrl+F8): a one-shot break at (module, line). Paused → arm + Continue; running → arm (breaks
         // when reached); idle → start the project and arm the target after the run-start sequence (a plain run, NOT
         // start-and-step — it runs freely to the cursor line).
@@ -526,12 +541,14 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
     public void ContinueProject()
     {
+        if (externalDebugger?.IsActive == true) { _ = externalDebugger.CommandAsync("continue"); return; }
         // Resume from a break (F5 in break mode).
         debugController.Continue();
     }
 
     public void EndProject()
     {
+        if (externalDebugger?.IsActive == true) { _ = externalDebugger.StopAsync(); return; }
         // Abort first so a paused interpreter unwinds via StopExecutionSignal, then cancel the token (closes the
         // window). Order matters: Stop() releases the break gate that Dispose()'s cancel alone cannot.
         debugController.Stop();
@@ -542,21 +559,26 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
     public void RestartProject()
     {
+        if (externalDebugger?.IsActive == true) return;
         EndProject();
         RunStartupProject();
     }
 
     public bool CanStartDefaultProject => !IsRunning && projectManager.StartupProject != null;
     public bool CanStartDefaultProjectWithFullCompile => CanStartDefaultProject;
-    public bool CanBreakProject => IsRunning && debugController.State == DebugState.Running;
-    public bool CanContinueProject => IsRunning && debugController.State == DebugState.Paused;
+    public bool CanBreakProject => externalDebugger?.IsActive == true
+        ? !externalDebugger.IsBusy && externalDebugger.State == Dap.DapSessionState.Running && externalDebugger.ThreadId is not null
+        : IsRunning && debugController.State == DebugState.Running;
+    public bool CanContinueProject => externalDebugger?.IsActive == true
+        ? !externalDebugger.IsBusy && externalDebugger.State == Dap.DapSessionState.Stopped && externalDebugger.ThreadId is not null
+        : IsRunning && debugController.State == DebugState.Paused;
     // F8 works from idle (start-and-step, needs a startup project) or any running/paused state.
-    public bool CanStepIntoProject => CanStartDefaultProject || IsRunning;
-    public bool CanStepOverProject => CanStartDefaultProject || IsRunning;
-    public bool CanStepOutProject => CanStartDefaultProject || IsRunning;
-    public bool CanRunToCursor => CanStartDefaultProject || IsRunning;
+    public bool CanStepIntoProject => externalDebugger?.IsActive == true ? CanContinueProject : CanStartDefaultProject || IsRunning;
+    public bool CanStepOverProject => CanStepIntoProject;
+    public bool CanStepOutProject => CanStepIntoProject;
+    public bool CanRunToCursor => externalDebugger?.IsActive != true && (CanStartDefaultProject || IsRunning);
     public bool CanEndProject => IsRunning;
-    public bool CanRestartProject => IsRunning;
+    public bool CanRestartProject => IsRunning && externalDebugger?.IsActive != true;
 
     // As FormComponentClass.InstantiateWindow builds a desktop one, the menu bar included (#1127).
     private VBMDIFormRuntime InstantiateWindow(ComponentInstance instance, bool menuBar)

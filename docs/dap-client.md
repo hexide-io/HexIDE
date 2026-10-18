@@ -1,8 +1,9 @@
 # DAP client implementation
 
 `HexIDE.Dap` is the byte-stream client foundation for [#696](https://github.com/hexide-io/HexIDE/issues/696).
-It does not yet let the IDE launch or select an external debugger. The runtime debugger and F5 behavior
-are unchanged. The wire foundation is [#1160](https://github.com/hexide-io/HexIDE/issues/1160);
+The IDE can explicitly [launch an external debug session](debug-launch.md) from a JSON configuration and
+route its run controls and inspection windows to it. Ordinary interpreter launches remain available when no
+external session is active. The wire foundation is [#1160](https://github.com/hexide-io/HexIDE/issues/1160);
 process ownership is [#1162](https://github.com/hexide-io/HexIDE/issues/1162), and shared capture is
 [#1166](https://github.com/hexide-io/HexIDE/issues/1166). Asynchronous sessions and real-process acceptance
 are [#1168](https://github.com/hexide-io/HexIDE/issues/1168).
@@ -79,8 +80,8 @@ diagnostics are available to callers and can feed the shared capture described b
 
 Create `new DapCapture(conversationLog, connectionId)` with a distinct id per session. Pass it as the optional
 `capture` argument to `DapConnection`, or set `DapProcessOptions.Capture` to capture both process diagnostics
-and wire traffic. The caller owns the log. A later IDE session host must supply the application's shared log;
-there is no temporary launch UI or registry entry in this slice.
+and wire traffic. The caller owns the log. The IDE session host supplies the application's shared log
+and registers the latest external session in Language & Debug Servers with a distinct DAP identity.
 
 The existing inspector, queries and exports can consume the resulting records. DAP events appear as the
 shared model's Notification kind, with their event name as the method label. Requests and responses pair by
@@ -155,11 +156,9 @@ components. It is not downloaded or run by ordinary CI; the smoke executable is 
 
 ## Remaining work
 
-- Executable/configuration selection in the IDE.
-- Connect the capture and connection-registry UI to the future IDE session host.
-- Route the IDE's active-session consumers separately from interpreter-only execution hooks.
-- Workspace selection/preparation, including any VB6 project conversion.
-- UI for remote breakpoint verification, stack/scopes/variables, commands and MCP routing.
+- Rich launch settings UI and workspace preparation, including any VB6 project conversion.
+- Frame selection and multi-thread inspection.
+- Structured breakpoint verification UI and command-specific MCP routing.
 - Evaluation, live breakpoint updates, dynamic capabilities and capability-dependent UI.
 - Automated acquisition and cross-platform real-adapter acceptance in CI.
 - Add-in registration through [#891](https://github.com/hexide-io/HexIDE/issues/891).

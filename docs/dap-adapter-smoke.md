@@ -66,5 +66,28 @@ RDCore keeps the adapter alive after terminated until disconnect or transport cl
 exit without disconnect reached the smoke deadline; explicitly disconnecting completed cleanly. The session
 must distinguish program termination from adapter process completion.
 
-This is a Windows interoperability measurement, not a claim of Linux RDCore acceptance, IDE UI integration,
+This is a Windows interoperability measurement, not a claim of Linux RDCore acceptance
 or hosted form support. The independent session/wire tests run on Windows and Linux.
+
+## IDE acceptance
+
+The same revision and workspace were driven through the Windows IDE on 2026-10-18.
+Open a VB6 project containing the example source beside the prepared `.rdproj`, then choose
+**Run → Start External Debug Session…** and select a [JSON launch configuration](debug-launch.md).
+Use the adapter executable above, arguments `--dap`, `--workspace`, and the absolute workspace path,
+the prepared platform manifest environment, launch module `Module1` / entry point `Main`, and a
+breakpoint on `Module1.bas` line 6.
+
+Observed through live UI automation:
+
+- Locals displayed `answer`, `Long`, `41`; Call Stack displayed `Main`, line 6.
+- Debug → Step Over advanced to line 7 and Locals displayed `42`.
+- The Start/Continue toolbar button completed the run and Immediate displayed `42`.
+- Language & Debug Servers exposed a DAP row with initialize capabilities and stopped lifecycle state;
+  Protocol Inspector displayed the session's traffic.
+- End during a subsequent stopped session released the run, allowing another launch.
+- Closing the IDE while stopped exited the IDE and left no adapter/runtime processes.
+- A missing executable displayed its failure in Immediate and allowed another launch.
+- A second workspace with a continuous `Do` loop enabled Break; clicking it produced stop reason `pause`
+  and displayed the loop's `Double` counter in Locals. End released that session.
+- Show Next Statement revealed the loaded source with an amber current-line highlight.

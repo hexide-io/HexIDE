@@ -31,7 +31,7 @@ public partial class LocalsToolViewModel : Tool
     /// <summary>The top-level Locals rows (bound to the TreeView; each node lazily yields its children).</summary>
     [Notify] private IReadOnlyList<LocalsVariableNode> _roots = Array.Empty<LocalsVariableNode>();
 
-    public LocalsToolViewModel(ILocalizationService localization, IDebugController debugController)
+    public LocalsToolViewModel(ILocalizationService localization, IDebugController debugController, Debugging.ExternalDebugService? externalDebugger = null)
     {
         _localization = localization;
         localization.BindTitle(this, "Str.Tool.Locals.Title");
@@ -43,6 +43,21 @@ public partial class LocalsToolViewModel : Tool
         // execution, so we are already on the UI thread — same contract the CodeEditorView current-line bridge relies on.
         debugController.Stopped += _ => Refresh(debugController);
         debugController.Continued += () => Clear();
+        if (externalDebugger is not null)
+        {
+            HexIDE.Dap.DapStop? displayedStop = null;
+            IReadOnlyList<Debugging.ExternalVariable>? displayedRows = null;
+            externalDebugger.Changed += () =>
+            {
+                if (externalDebugger.Stop is not { } stop) { displayedStop = null; displayedRows = null; Clear(); return; }
+                if (displayedStop == stop && ReferenceEquals(displayedRows, externalDebugger.Variables)) return;
+                displayedStop = stop;
+                displayedRows = externalDebugger.Variables;
+                ContextLabel = externalDebugger.Frames.Count > 0
+                    ? externalDebugger.Frames[0].GetProperty("name").GetString() ?? ReadyContext : ReadyContext;
+                Roots = externalDebugger.Variables.Select(variable => new LocalsVariableNode(variable, stop, externalDebugger, localization)).ToArray();
+            };
+        }
     }
 
     // Rebuild the tree from the paused frame, PRESERVING which nodes were expanded (D10): snapshot the expanded

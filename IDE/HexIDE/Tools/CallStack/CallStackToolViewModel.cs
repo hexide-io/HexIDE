@@ -18,7 +18,7 @@ public partial class CallStackToolViewModel : Tool
     /// <summary>The call-stack rows, current frame first (marked with an arrow).</summary>
     [Notify] private IReadOnlyList<CallStackRow> _frames = Array.Empty<CallStackRow>();
 
-    public CallStackToolViewModel(ILocalizationService localization, IDebugController debugController)
+    public CallStackToolViewModel(ILocalizationService localization, IDebugController debugController, Debugging.ExternalDebugService? externalDebugger = null)
     {
         localization.BindTitle(this, "Str.Tool.CallStack.Title");
         CanPin = false;
@@ -28,6 +28,13 @@ public partial class CallStackToolViewModel : Tool
         // synchronously (same contract the Locals pane + current-line bridge rely on).
         debugController.Stopped += _ => Refresh(debugController);
         debugController.Continued += () => Frames = Array.Empty<CallStackRow>();
+        if (externalDebugger is not null)
+            externalDebugger.Changed += () =>
+            {
+                if (!externalDebugger.IsActive) { Frames = []; return; }
+                Frames = externalDebugger.Frames.Select((frame, index) => new CallStackRow(
+                    (index == 0 ? "→ " : "   ") + frame.GetProperty("name").GetString(), frame.GetProperty("line").GetInt32())).ToArray();
+            };
     }
 
     private void Refresh(IDebugController debugController)

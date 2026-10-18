@@ -2,6 +2,8 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Run.StartExternal": "Bắt đầu phiên gỡ lỗi bên _ngoài…",
+    "Str.Debug.External.Unsupported": "Lệnh này không khả dụng trong phiên gỡ lỗi bên ngoài.",
     "Str.Dialog.SourceEncoding.NothingWritten": "Không có tệp nào được ghi. {0} được giữ ở trang mã {1}, vốn không chứa được '{2}' ({3}). Ký tự đó nằm trong dòng này:\n\n{4}\n\nHexIDE giữ mỗi tệp ở đúng trang mã đã dùng khi đọc hoặc tạo tệp đó, thay vì chuyển đổi nó. Hãy đổi đoạn văn bản đó thành các ký tự mà trang mã này chứa được, hoặc, nếu dòng đó nêu tên một tệp hay thư mục, hãy chọn một tên mà trang mã chứa được. Sau đó hãy thử lại. Các thay đổi của bạn vẫn đang mở trong IDE.",
     "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} không đọc được bằng trang mã của máy tính này ({1}), nên nó đã được mở theo từng byte một, dưới dạng văn bản Tây Âu (Latin-1). Việc lưu tệp mà không thay đổi sẽ ghi lại đúng các byte ban đầu, nhưng không thể thêm vào tệp này các ký tự nằm ngoài Latin-1. Văn bản được viết bằng một trang mã khác có thể hiển thị lộn xộn.",
     "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "Các tệp này không đọc được bằng trang mã của máy tính này ({1}), nên chúng đã được mở theo từng byte một, dưới dạng văn bản Tây Âu (Latin-1):\n\n{0}\n\nViệc lưu các tệp mà không thay đổi sẽ ghi lại đúng các byte ban đầu, nhưng không thể thêm vào các tệp này các ký tự nằm ngoài Latin-1. Văn bản được viết bằng một trang mã khác có thể hiển thị lộn xộn.",

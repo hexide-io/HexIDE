@@ -2,6 +2,8 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Run.StartExternal": "Start _ekstern fejlfinding…",
+    "Str.Debug.External.Unsupported": "Denne kommando er ikke tilgængelig under ekstern fejlfinding.",
     "Str.Dialog.SourceEncoding.NothingWritten": "Intet blev skrevet. {0} lagres i tegntabel {1}, som ikke understøtter '{2}' ({3}). Tegnet står i denne linje:\n\n{4}\n\nHexIDE beholder hver fil i den tegntabel, den blev læst eller oprettet i, frem for at konvertere den. Ret teksten, så den kun indeholder tegn, som tegntabellen understøtter, eller vælg et navn, der kun består af sådanne tegn, hvis linjen angiver et fil- eller mappenavn. Prøv derefter igen. Dine ændringer er stadig åbne i IDE'et.",
     "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} kunne ikke læses i denne computers tegntabel ({1}), så kildefilen blev åbnet byte for byte som vesteuropæisk tekst (Latin-1). Hvis den gemmes uændret, skrives de samme bytes tilbage, men tegn uden for Latin-1 kan ikke tilføjes til kildefilen. Tekst, der er skrevet i en anden tegntabel, kan se forvansket ud.",
     "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "Disse filer kunne ikke læses i denne computers tegntabel ({1}), så de blev åbnet byte for byte som vesteuropæisk tekst (Latin-1):\n\n{0}\n\nHvis de gemmes uændrede, skrives de samme bytes tilbage, men tegn uden for Latin-1 kan ikke tilføjes til filerne. Tekst, der er skrevet i en anden tegntabel, kan se forvansket ud.",

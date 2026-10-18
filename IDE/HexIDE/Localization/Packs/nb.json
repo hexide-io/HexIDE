@@ -2,6 +2,8 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Run.StartExternal": "Start _ekstern feilsøkingsøkt…",
+    "Str.Debug.External.Unsupported": "Denne kommandoen er ikke tilgjengelig i en ekstern feilsøkingsøkt.",
     "Str.Dialog.SourceEncoding.NothingWritten": "Ingenting ble skrevet. {0} beholdes i tegntabell {1}, som ikke kan inneholde «{2}» ({3}). Tegnet står i denne linjen:\n\n{4}\n\nHexIDE beholder hver fil i tegntabellen den ble lest eller opprettet i, i stedet for å konvertere den. Endre den teksten til tegn som finnes i tegntabellen, eller velg et navn med slike tegn hvis linjen navngir en fil eller mappe. Prøv deretter på nytt. Endringene dine er fortsatt åpne i IDE-en.",
     "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} kunne ikke leses i denne datamaskinens tegntabell ({1}), så den ble åpnet byte for byte, som vesteuropeisk tekst (Latin-1). Lagres den uendret, skrives de samme bytene tilbake, men tegn utenfor Latin-1 kan ikke legges til i den. Tekst som er skrevet i en annen tegntabell, kan se forvansket ut.",
     "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "Disse filene kunne ikke leses i denne datamaskinens tegntabell ({1}), så de ble åpnet byte for byte, som vesteuropeisk tekst (Latin-1):\n\n{0}\n\nLagres filene uendret, skrives de samme bytene tilbake, men tegn utenfor Latin-1 kan ikke legges til i dem. Tekst som er skrevet i en annen tegntabell, kan se forvansket ut.",

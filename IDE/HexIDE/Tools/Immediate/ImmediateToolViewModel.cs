@@ -17,13 +17,15 @@ public partial class ImmediateToolViewModel : EditorToolBase
 {
     private readonly IDebugController _debugController;
     private readonly ILocalizationService _localization;
+    private readonly Debugging.ExternalDebugService? externalDebugger;
 
     public TextDocument Document { get; } = new();
 
-    public ImmediateToolViewModel(ILocalizationService localization, IDebugController debugController)
+    public ImmediateToolViewModel(ILocalizationService localization, IDebugController debugController, Debugging.ExternalDebugService? externalDebugger = null)
     {
         _localization = localization;
         _debugController = debugController;
+        this.externalDebugger = externalDebugger;
         localization.BindTitle(this, "Str.Tool.Immediate.Title");
         CanPin = false;
         CanClose = true;
@@ -33,9 +35,11 @@ public partial class ImmediateToolViewModel : EditorToolBase
     public bool IsPaused => _debugController.State == DebugState.Paused;
 
     /// <summary>The localized "available only in break mode" note the view prints when Enter is pressed while not paused.</summary>
-    public string BreakModeOnlyNote => _localization.GetString("Str.Tool.Immediate.BreakModeOnly");
+    public string BreakModeOnlyNote => _localization.GetString(externalDebugger?.IsActive == true
+        ? "Str.Debug.External.Unsupported" : "Str.Tool.Immediate.BreakModeOnly");
 
     /// <summary>Evaluate one Immediate line against the paused frame; returns the formatted result or a VB6-style
     /// error message (empty for a blank line, null when not in Break mode).</summary>
-    public Task<string?> EvaluateAsync(string line) => _debugController.EvaluateAsync(line);
+    public Task<string?> EvaluateAsync(string line) => externalDebugger?.IsActive == true
+        ? Task.FromResult<string?>(BreakModeOnlyNote) : _debugController.EvaluateAsync(line);
 }

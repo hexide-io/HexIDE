@@ -2,6 +2,8 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Run.StartExternal": "Spustit _externí ladění…",
+    "Str.Debug.External.Unsupported": "Tento příkaz není dostupný pro externí ladění.",
     "Str.Dialog.SourceEncoding.NothingWritten": "Nic nebylo zapsáno. Dokument {0} se uchovává ve znakové stránce {1}, která neobsahuje znak „{2}“ ({3}). Znak se nachází na tomto řádku:\n\n{4}\n\nHexIDE ponechává každý soubor ve znakové stránce, ve které byl načten nebo vytvořen, a nepřevádí jej. Upravte tento text tak, aby obsahoval jen znaky dostupné v této znakové stránce, nebo, pokud řádek uvádí název souboru či složky, zvolte název, který lze v této znakové stránce zapsat. Pak to zkuste znovu. Vaše změny jsou v IDE stále otevřené.",
     "Str.Dialog.SourceEncoding.ReadByteForByte": "Zdrojový soubor {0} nebylo možné přečíst ve znakové stránce tohoto počítače ({1}), proto byl otevřen bajt po bajtu jako text v západoevropském kódování (Latin-1). Uložení beze změny zapíše zpět tytéž bajty, ale do souboru nelze přidat znaky mimo Latin-1. Text zapsaný v jiné znakové stránce může vypadat zkomoleně.",
     "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "Tyto zdrojové soubory nebylo možné přečíst ve znakové stránce tohoto počítače ({1}), proto byly otevřeny bajt po bajtu jako text v západoevropském kódování (Latin-1):\n\n{0}\n\nJejich uložení beze změny zapíše zpět tytéž bajty, ale do souborů nelze přidat znaky mimo Latin-1. Text zapsaný v jiné znakové stránce může vypadat zkomoleně.",

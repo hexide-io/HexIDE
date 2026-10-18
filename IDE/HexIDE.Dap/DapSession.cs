@@ -124,6 +124,12 @@ public sealed class DapSession : IAsyncDisposable
     public bool Supports(string capability) => Capabilities.TryGetProperty(capability, out var value) && value.ValueKind == JsonValueKind.True;
 
     public Task<DapResponse> ThreadsAsync(DapStop stop, CancellationToken token = default) => Inspect(stop, "threads", new { }, token);
+    public Task<DapResponse> ThreadsAsync(CancellationToken token = default)
+    {
+        if (Snapshot.State is not (DapSessionState.Running or DapSessionState.Stopped))
+            throw new InvalidOperationException("The debug session is not active.");
+        return Request("threads", new { }, token);
+    }
     public Task<DapResponse> StackTraceAsync(DapStop stop, int threadId, CancellationToken token = default) => Inspect(stop, "stackTrace", new { threadId }, token);
     public Task<DapResponse> ScopesAsync(DapStop stop, int frameId, CancellationToken token = default) => Inspect(stop, "scopes", new { frameId }, token);
     public Task<DapResponse> VariablesAsync(DapStop stop, int variablesReference, CancellationToken token = default) => Inspect(stop, "variables", new { variablesReference }, token);
