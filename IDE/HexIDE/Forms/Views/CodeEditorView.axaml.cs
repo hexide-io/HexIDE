@@ -204,7 +204,12 @@ public partial class CodeEditorView : UserControl
                 .Subscribe(offset =>
                 {
                     if (TextEditor.CaretOffset != offset)
+                    {
                         TextEditor.CaretOffset = offset;
+                        // Navigation can arrive while this editor is already active. Moving the
+                        // caret alone does not reveal an offscreen caller or next statement.
+                        TextEditor.ScrollToLine(TextEditor.TextArea.Caret.Line);
+                    }
                 });
 
             // Sync selection from ViewModel → TextEditor. Stored in a field so it can be removed on detach — a

@@ -30,7 +30,9 @@ The call `tools.mcp__hexide__answer_next_file_dialog({path:
 `TypeError: tools.mcp__hexide__answer_next_file_dialog is not a function`; it never reached the server.
 This is missing tool discovery, not a rejected file dialog. Reconnect the MCP integration while the IDE
 is running; automatic tool rediscovery after server recovery remains a client-side improvement.
-Live verification stays pending until the schemas return; raw transport calls are not a substitute.
+Restarting the client while the IDE was running restored discovery: `dump_visual_tree` and the
+file-dialog/menu calls then succeeded, allowing live verification to resume. Raw transport calls
+are not a substitute for restoring the schemas.
 
 > **What remains is the client's, and it is narrower.** With the server stateless (#763), a shutdown no longer
 > drops anything by itself. Tool calls made while the IDE is down still can:
