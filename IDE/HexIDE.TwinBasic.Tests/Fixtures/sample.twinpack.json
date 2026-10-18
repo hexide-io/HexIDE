@@ -1,0 +1,308 @@
+[
+  {
+    "path": "",
+    "name": "CustomControlsPackage",
+    "kind": "directory",
+    "revision": 0,
+    "flags": 0,
+    "category": 0
+  },
+  {
+    "path": "CHANGELOG.md",
+    "name": "CHANGELOG.md",
+    "kind": "file",
+    "revision": 7,
+    "flags": 0,
+    "category": 0,
+    "length": 402,
+    "sha256": "460d1cf283a035c814ed4c0b42309315437dfd267ceda74837d12f4320ac7b5c",
+    "revisions": []
+  },
+  {
+    "path": "LICENCE.md",
+    "name": "LICENCE.md",
+    "kind": "file",
+    "revision": 5,
+    "flags": 0,
+    "category": 0,
+    "length": 1118,
+    "sha256": "0374eb7990a4abb9e5b53417bdbe87a14f493490227f951bae01387ee8bb2f39",
+    "revisions": []
+  },
+  {
+    "path": "Miscellaneous",
+    "name": "Miscellaneous",
+    "kind": "directory",
+    "revision": 0,
+    "flags": 0,
+    "category": 6
+  },
+  {
+    "path": "Miscellaneous/frmTextbox.png",
+    "name": "frmTextbox.png",
+    "kind": "file",
+    "revision": 322,
+    "flags": 0,
+    "category": 0,
+    "length": 1198,
+    "sha256": "0ba4d507775468eaece9f1a598c9cf4a278085ad592ac98768ab665adb47024a",
+    "revisions": []
+  },
+  {
+    "path": "Miscellaneous/frmSlider.png",
+    "name": "frmSlider.png",
+    "kind": "file",
+    "revision": 502,
+    "flags": 0,
+    "category": 0,
+    "length": 2150,
+    "sha256": "2195ad163b7853f18ef75397a8b13cc5dc4f6eb7b37d72046a82b471c4e70143",
+    "revisions": []
+  },
+  {
+    "path": "Miscellaneous/frmNow.png",
+    "name": "frmNow.png",
+    "kind": "file",
+    "revision": 520,
+    "flags": 0,
+    "category": 0,
+    "length": 1312,
+    "sha256": "346cb24682211c814764135115f80f25ce9777e16e9c41120b983d28dc9014bd",
+    "revisions": []
+  },
+  {
+    "path": "Miscellaneous/frmLabel.png",
+    "name": "frmLabel.png",
+    "kind": "file",
+    "revision": 520,
+    "flags": 0,
+    "category": 0,
+    "length": 1310,
+    "sha256": "b43b3b31dd106a9cfd3f795324c9c9fe4920fb9d7c5bc08c454d8fb74f42eee9",
+    "revisions": []
+  },
+  {
+    "path": "Miscellaneous/frmFrame.png",
+    "name": "frmFrame.png",
+    "kind": "file",
+    "revision": 938,
+    "flags": 0,
+    "category": 0,
+    "length": 1030,
+    "sha256": "47f6585ef10dbff0b358b0a8e2e9aef65da8116da3155a49dcdfcc20ee135a1a",
+    "revisions": []
+  },
+  {
+    "path": "Miscellaneous/frmGrid.png",
+    "name": "frmGrid.png",
+    "kind": "file",
+    "revision": 723,
+    "flags": 0,
+    "category": 0,
+    "length": 642,
+    "sha256": "4ac71b4f90413668c9dbd80282d1479e4877213af11e4049b164f5d5db3f9fb4",
+    "revisions": []
+  },
+  {
+    "path": "Miscellaneous/frmButton.png",
+    "name": "frmButton.png",
+    "kind": "file",
+    "revision": 521,
+    "flags": 0,
+    "category": 0,
+    "length": 1608,
+    "sha256": "82addba3f8ede06ce4e73cd2e42284284b6e623c44c6dae2d605c92a644000b6",
+    "revisions": []
+  },
+  {
+    "path": "Miscellaneous/frmTimer.png",
+    "name": "frmTimer.png",
+    "kind": "file",
+    "revision": 161,
+    "flags": 0,
+    "category": 0,
+    "length": 12720,
+    "sha256": "d88a8eca3c74a443ad6cf2daaabf74abc782cab59f3af8ec4f6dbaa6ba0579f9",
+    "revisions": []
+  },
+  {
+    "path": "ImportedTypeLibraries",
+    "name": "ImportedTypeLibraries",
+    "kind": "directory",
+    "revision": 0,
+    "flags": 0,
+    "category": 5
+  },
+  {
+    "path": "Settings",
+    "name": "Settings",
+    "kind": "file",
+    "revision": 4371,
+    "flags": 0,
+    "category": 4,
+    "length": 1175,
+    "sha256": "52abdf86934d2e15f53b765d1b06f2fc185ac87b14db93c96395cd9c2d4a5382",
+    "revisions": []
+  },
+  {
+    "path": "Sources",
+    "name": "Sources",
+    "kind": "directory",
+    "revision": 0,
+    "flags": 0,
+    "category": 3
+  },
+  {
+    "path": "Sources/zTemporarySupport.twin",
+    "name": "zTemporarySupport.twin",
+    "kind": "file",
+    "revision": 6101,
+    "flags": 0,
+    "category": 0,
+    "length": 26742,
+    "sha256": "ea73e287cfcfe01809083f119d2f5a0ed937d25579c15afd3615a701f0e02f5b",
+    "revisions": []
+  },
+  {
+    "path": "Sources/WaynesTimer.twin",
+    "name": "WaynesTimer.twin",
+    "kind": "file",
+    "revision": 300,
+    "flags": 0,
+    "category": 0,
+    "length": 2610,
+    "sha256": "1bb42f59d806723de9a93a64efe126ed0b175e740ceb5b945e628e5fe17f927f",
+    "revisions": []
+  },
+  {
+    "path": "Sources/WaynesTextBox.twin",
+    "name": "WaynesTextBox.twin",
+    "kind": "file",
+    "revision": 6159,
+    "flags": 0,
+    "category": 0,
+    "length": 26359,
+    "sha256": "500b22761e0043d980c2e626e369f8722759cfb64f6cd0744a75f00fde54811b",
+    "revisions": []
+  },
+  {
+    "path": "Sources/WaynesSlider.twin",
+    "name": "WaynesSlider.twin",
+    "kind": "file",
+    "revision": 4176,
+    "flags": 0,
+    "category": 0,
+    "length": 17913,
+    "sha256": "caae61836ae5800d1fbdb32e585ae3761a50310d78453ba68d845df7543689c8",
+    "revisions": []
+  },
+  {
+    "path": "Sources/WaynesLabel.twin",
+    "name": "WaynesLabel.twin",
+    "kind": "file",
+    "revision": 627,
+    "flags": 0,
+    "category": 0,
+    "length": 2191,
+    "sha256": "339b9ecc1a014e623177955797fa3cadf2bf025a3d9717b304caa397de92aa3f",
+    "revisions": []
+  },
+  {
+    "path": "Sources/WaynesGrid.twin",
+    "name": "WaynesGrid.twin",
+    "kind": "file",
+    "revision": 6816,
+    "flags": 0,
+    "category": 0,
+    "length": 35815,
+    "sha256": "d3f93135f1a9f0f13942f7a053f15dec8c5d00be9c9c2df8c5a5f19d5dc8abe5",
+    "revisions": []
+  },
+  {
+    "path": "Sources/WaynesFrame.twin",
+    "name": "WaynesFrame.twin",
+    "kind": "file",
+    "revision": 745,
+    "flags": 0,
+    "category": 0,
+    "length": 1971,
+    "sha256": "289723927cde52bde1363e71e9a4ab9d4c1642b6018d372839ab5ed0bc52e83c",
+    "revisions": []
+  },
+  {
+    "path": "Sources/WaynesForm.twin",
+    "name": "WaynesForm.twin",
+    "kind": "file",
+    "revision": 1350,
+    "flags": 0,
+    "category": 0,
+    "length": 3049,
+    "sha256": "a4f0727f94b7e706d2ce777eaa7f2616d9ffad7422eaff7bba1e9217a63f3f78",
+    "revisions": []
+  },
+  {
+    "path": "Sources/WaynesButton.twin",
+    "name": "WaynesButton.twin",
+    "kind": "file",
+    "revision": 1967,
+    "flags": 0,
+    "category": 0,
+    "length": 9235,
+    "sha256": "7768e98b99fe873d19d899fa7ee1aae47be613badefc38884a17f29bd7a75197",
+    "revisions": []
+  },
+  {
+    "path": "Resources",
+    "name": "Resources",
+    "kind": "directory",
+    "revision": 0,
+    "flags": 0,
+    "category": 2
+  },
+  {
+    "path": "Resources/MANIFEST",
+    "name": "MANIFEST",
+    "kind": "directory",
+    "revision": 0,
+    "flags": 0,
+    "category": 0
+  },
+  {
+    "path": "Resources/MANIFEST/#1.xml",
+    "name": "#1.xml",
+    "kind": "file",
+    "revision": 18,
+    "flags": 0,
+    "category": 0,
+    "length": 703,
+    "sha256": "5a8822c851c4d62c9a03ade0cdc122e4d3eb2ea432f69900cc6a7529da23a917",
+    "revisions": []
+  },
+  {
+    "path": "Resources/BITMAP",
+    "name": "BITMAP",
+    "kind": "directory",
+    "revision": 0,
+    "flags": 0,
+    "category": 0
+  },
+  {
+    "path": "Resources/BITMAP/twinBASIC.bmp",
+    "name": "twinBASIC.bmp",
+    "kind": "file",
+    "revision": 1668,
+    "flags": 0,
+    "category": 0,
+    "length": 2134,
+    "sha256": "0da8f6a91e482874cdf3cd54c26274d826871c57aaa9e817cf78882b47081426",
+    "revisions": []
+  },
+  {
+    "path": "Packages",
+    "name": "Packages",
+    "kind": "directory",
+    "revision": 0,
+    "flags": 0,
+    "category": 7
+  }
+]

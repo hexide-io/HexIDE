@@ -1,0 +1,171 @@
+[
+  {
+    "path": "",
+    "name": "impexp",
+    "kind": "directory",
+    "revision": 0,
+    "flags": 0,
+    "category": 0
+  },
+  {
+    "path": "ImportedTypeLibraries",
+    "name": "ImportedTypeLibraries",
+    "kind": "directory",
+    "revision": 0,
+    "flags": 0,
+    "category": 5
+  },
+  {
+    "path": "Miscellaneous",
+    "name": "Miscellaneous",
+    "kind": "directory",
+    "revision": 0,
+    "flags": 0,
+    "category": 6
+  },
+  {
+    "path": "Packages",
+    "name": "Packages",
+    "kind": "directory",
+    "revision": 0,
+    "flags": 0,
+    "category": 7
+  },
+  {
+    "path": "Resources",
+    "name": "Resources",
+    "kind": "directory",
+    "revision": 0,
+    "flags": 0,
+    "category": 2
+  },
+  {
+    "path": "Sources",
+    "name": "Sources",
+    "kind": "directory",
+    "revision": 0,
+    "flags": 0,
+    "category": 3
+  },
+  {
+    "path": "Sources/ByteBuilder.twin",
+    "name": "ByteBuilder.twin",
+    "kind": "file",
+    "revision": 2,
+    "flags": 0,
+    "category": 0,
+    "length": 1789,
+    "sha256": "a28fa178c6f516815904074447ab0b847232f1891c982812fe8d28d482a1eb07",
+    "revisions": []
+  },
+  {
+    "path": "Sources/Entry.twin",
+    "name": "Entry.twin",
+    "kind": "file",
+    "revision": 2,
+    "flags": 0,
+    "category": 0,
+    "length": 2331,
+    "sha256": "efc5e2323e8bfc19ac43a07f02320a63d57f67ea0b9ea5e12bd8a871c3b29c18",
+    "revisions": []
+  },
+  {
+    "path": "Sources/FileSys.twin",
+    "name": "FileSys.twin",
+    "kind": "file",
+    "revision": 2,
+    "flags": 0,
+    "category": 0,
+    "length": 16736,
+    "sha256": "c05c4dba9b75bb9ee8415fc4e89ac18346a4011a31275f0639cdc2d2dfc944e7",
+    "revisions": []
+  },
+  {
+    "path": "Sources/Impexp.twin",
+    "name": "Impexp.twin",
+    "kind": "file",
+    "revision": 2,
+    "flags": 0,
+    "category": 0,
+    "length": 19736,
+    "sha256": "13070d01e0f0f2f8d825bf3c64f745badcd4c77e51c9c0d74dc66f35ebd843b1",
+    "revisions": []
+  },
+  {
+    "path": "Sources/Json.twin",
+    "name": "Json.twin",
+    "kind": "file",
+    "revision": 2,
+    "flags": 0,
+    "category": 0,
+    "length": 8205,
+    "sha256": "1369afdd8c01674db160939fb6da0104f59abc84531040c3a0aeac7557d1a8a6",
+    "revisions": []
+  },
+  {
+    "path": "Sources/MainModule.twin",
+    "name": "MainModule.twin",
+    "kind": "file",
+    "revision": 2,
+    "flags": 0,
+    "category": 0,
+    "length": 13199,
+    "sha256": "154e7e12e83bde79e6e6f1bb918ce77e5465c2fd5182c63d2e2daa0699db2df0",
+    "revisions": []
+  },
+  {
+    "path": "Sources/Outcome.twin",
+    "name": "Outcome.twin",
+    "kind": "file",
+    "revision": 2,
+    "flags": 0,
+    "category": 0,
+    "length": 743,
+    "sha256": "f7446a2648993ebcc6406442d393f26fd4f604cebf143ea7a252a30f0b3de06d",
+    "revisions": []
+  },
+  {
+    "path": "Sources/ProjectFormat.twin",
+    "name": "ProjectFormat.twin",
+    "kind": "file",
+    "revision": 2,
+    "flags": 0,
+    "category": 0,
+    "length": 7231,
+    "sha256": "9f9340f89415f39b78a93e51f099886ec8fe8e5e948c99e1fab60de28e5cb90c",
+    "revisions": []
+  },
+  {
+    "path": "Sources/SelfTest.twin",
+    "name": "SelfTest.twin",
+    "kind": "file",
+    "revision": 2,
+    "flags": 0,
+    "category": 0,
+    "length": 32625,
+    "sha256": "a4a6e2500d3002739522c7b94252952cfa1cfbe903d3f6526f0c6e0bcb24324b",
+    "revisions": []
+  },
+  {
+    "path": "Sources/TextKit.twin",
+    "name": "TextKit.twin",
+    "kind": "file",
+    "revision": 2,
+    "flags": 0,
+    "category": 0,
+    "length": 5319,
+    "sha256": "43a86da5845beef15f860e9081ddab225431d8b7753b0f97c83017a1f079d972",
+    "revisions": []
+  },
+  {
+    "path": "Settings",
+    "name": "Settings",
+    "kind": "file",
+    "revision": 2,
+    "flags": 0,
+    "category": 4,
+    "length": 1846,
+    "sha256": "3242c8c2ca9a312a368650928031555848825e5fb2519fadcfe8f1349aae0787",
+    "revisions": []
+  }
+]
