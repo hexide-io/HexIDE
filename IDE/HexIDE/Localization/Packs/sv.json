@@ -2,6 +2,8 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Run.StartExternal": "Starta _extern felsökningssession…",
+    "Str.Debug.External.Unsupported": "Det här kommandot är inte tillgängligt för en extern felsökningssession.",
     "Str.Dialog.SourceEncoding.NothingWritten": "Ingenting har skrivits. {0} lagras i teckentabell {1}, som inte rymmer ”{2}” ({3}). Tecknet finns på den här raden:\n\n{4}\n\nHexIDE konverterar inte filer, utan behåller varje fil i den teckentabell den lästes eller skapades i. Ändra texten till tecken som teckentabellen rymmer, eller välj ett namn som den rymmer om raden anger en fil eller mapp. Försök sedan igen. Dina ändringar finns kvar i IDE:t.",
     "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} kunde inte läsas i den här datorns teckentabell ({1}), så den öppnades byte för byte, som västeuropeisk text (Latin-1). Om du sparar källfilen oförändrad skrivs samma byte tillbaka, men tecken utanför Latin-1 kan inte läggas till i den. Text som skrivits i en annan teckentabell kan se förvrängd ut.",
     "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "De här filerna kunde inte läsas i den här datorns teckentabell ({1}), så de öppnades byte för byte, som västeuropeisk text (Latin-1):\n\n{0}\n\nOm du sparar källfilerna oförändrade skrivs samma byte tillbaka, men tecken utanför Latin-1 kan inte läggas till i dem. Text som skrivits i en annan teckentabell kan se förvrängd ut.",

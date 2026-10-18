@@ -54,6 +54,8 @@ public partial class CodeEditorView : UserControl
     private HexIDE.Debugging.BreakpointMargin? _breakpointMargin;
     private HexIDE.Debugging.CurrentLineRenderer? _currentLineRenderer;
     private HexIDE.Runtime.Debugging.IDebugController? _debugController;
+    private HexIDE.Debugging.ExternalDebugService? _externalDebugger;
+    private Action? _onExternalDebugChanged;
     private Action<HexIDE.Runtime.Debugging.StoppedInfo>? _onDebugStopped;
     private Action? _onDebugContinued;
     private System.ComponentModel.PropertyChangedEventHandler? _vmSelectionSync;
@@ -287,6 +289,24 @@ public partial class CodeEditorView : UserControl
             TextEditor.TextArea.TextView.BackgroundRenderers.Insert(0, _currentLineRenderer);
 
             _debugController = vm.DebugController;
+            _externalDebugger = vm.ExternalDebugger;
+            if (_externalDebugger is not null)
+            {
+                _onExternalDebugChanged = () =>
+                {
+                    int? line = null;
+                    if (_externalDebugger.CurrentLocation is { } location)
+                    {
+                        if (string.Equals(location.Uri, vm.GetDocumentUriPublic(),
+                                OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                            line = location.Line;
+                    }
+                    _currentLineRenderer?.SetLine(line);
+                    if (line is > 0 && line <= TextEditor.Document.LineCount) TextEditor.ScrollToLine(line.Value);
+                };
+                _externalDebugger.Changed += _onExternalDebugChanged;
+                _onExternalDebugChanged();
+            }
             _onDebugStopped = info => ShowCurrentStatement(vm, info.Module, info.Line);
             _onDebugContinued = () => _currentLineRenderer?.SetLine(null);
             _debugController.Stopped += _onDebugStopped;
@@ -487,6 +507,10 @@ public partial class CodeEditorView : UserControl
 
         if (_debugController is not null)
         {
+            if (_externalDebugger is not null && _onExternalDebugChanged is not null)
+                _externalDebugger.Changed -= _onExternalDebugChanged;
+            _externalDebugger = null;
+            _onExternalDebugChanged = null;
             if (_onDebugStopped is not null) _debugController.Stopped -= _onDebugStopped;
             if (_onDebugContinued is not null) _debugController.Continued -= _onDebugContinued;
             _debugController = null;

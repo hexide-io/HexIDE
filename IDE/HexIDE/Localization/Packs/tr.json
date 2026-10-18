@@ -2,6 +2,8 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Menu.Run.StartExternal": "_Harici Hata Ayıklama Oturumu Başlat…",
+    "Str.Debug.External.Unsupported": "Bu komut harici hata ayıklama oturumunda kullanılamaz.",
     "Str.Dialog.SourceEncoding.NothingWritten": "Hiçbir şey yazılmadı. {0}, {1} kod sayfasında tutuluyor ve '{2}' ({3}) karakteri bu kod sayfasında saklanamaz. Karakter şu satırda geçiyor:\n\n{4}\n\nHexIDE her dosyayı dönüştürmek yerine, okunduğu veya oluşturulduğu kod sayfasında tutar. O metni bu kod sayfasında saklanabilen karakterlerle değiştirin ya da satırda bir dosya veya klasör adı geçiyorsa bu kod sayfasında saklanabilen bir ad seçin. Ardından yeniden deneyin. Değişiklikleriniz IDE'de hâlâ açık.",
     "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} bu bilgisayarın kod sayfasında ({1}) okunamadı, bu yüzden bayt bayt, Batı Avrupa (Latin-1) metni olarak açıldı. Değiştirilmeden kaydedilmesi aynı baytları geri yazar, ancak bu dosyaya Latin-1 dışındaki karakterler eklenemez. Başka bir kod sayfasında yazılmış metin bozuk görünebilir.",
     "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "Aşağıdaki dosyalar bu bilgisayarın kod sayfasında ({1}) okunamadı, bu yüzden bayt bayt, Batı Avrupa (Latin-1) metni olarak açıldı:\n\n{0}\n\nDeğiştirilmeden kaydedilmeleri aynı baytları geri yazar, ancak bu dosyalara Latin-1 dışındaki karakterler eklenemez. Başka bir kod sayfasında yazılmış metin bozuk görünebilir.",

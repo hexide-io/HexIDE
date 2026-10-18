@@ -66,6 +66,8 @@ public partial class DISetup
             .Bind().As(Singleton).To<HexIDE.Debugging.WatchService>()
             .Bind<HexIDE.Debugging.IRunScope>().Bind().As(Singleton).To<HexIDE.Debugging.RunScope>()
             .Bind<HexIDE.Runtime.Debugging.IDebugController>().As(Singleton).To<HexIDE.Runtime.Debugging.DebugController>()
+            .Bind().As(Singleton).To<HexIDE.Debugging.ExternalDebugService>()
+            .Bind<ILanguageConnectionRegistry>().As(Singleton).To<HexIDE.Debugging.ExternalDebugConnectionRegistry>()
             .Bind<IUserSidecarService>().As(Singleton).To<UserSidecarService>()
             .Bind<IFindReplaceService>().As(Singleton).To<FindReplaceService>()
             .Bind().As(Singleton).To<FocusedProjectUtil>()
@@ -117,9 +119,9 @@ public partial class DISetup
             .Bind<ILspWorkspace>().As(Singleton).To<ProjectLspWorkspace>()
             // ILspClient is the ROUTER, not one connection. It implements the same interface a single
             // server does — that interface already takes a URI and hides which server answered — so the
-            // editor and view-models gained plurality without changing a line. ILanguageConnectionRegistry
-            // is the same object seen from the other side: what is attached, and is it working.
-            .Bind<ILspClient>().Bind<ILanguageConnectionRegistry>().As(Singleton).To(ctx =>
+            // editor and view-models gained plurality without changing a line. The connection registry above
+            // combines this router's connections with the external debug session.
+            .Bind<ILspClient>().As(Singleton).To(ctx =>
             {
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
                 ctx.Inject<ILspWorkspace>(out var workspace);
@@ -212,6 +214,7 @@ public partial class DISetup
             .Root<IBookmarkService>("BookmarkService")
             .Root<HexIDE.Debugging.IBreakpointService>("BreakpointService")
             .Root<HexIDE.Runtime.Debugging.IDebugController>("DebugController")
+            .Root<HexIDE.Debugging.ExternalDebugService>("ExternalDebugger")
             .Root<IWindowStateService>("WindowStateService")
             .Root<IAddinRegistry>("AddinRegistry")
             .Root<IAddinLoader>("AddinLoader")

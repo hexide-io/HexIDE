@@ -1395,6 +1395,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
+                return new MutateResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"));
             var lookup = ResolveDocument(name, project);
             if (lookup.Document is not { } document)
                 return new MutateResult(false, lookup.Error);
@@ -1413,6 +1415,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
+                return new MutateResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"));
             var before = ctx.BreakpointService.All();
             var lines = before.Values.Sum(l => l.Count);
             ctx.BreakpointService.ClearAll();
@@ -1494,6 +1498,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
         var refused = await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
+                return new MutateResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"));
             errorBefore = ctx.RootViewModel.RuntimeErrors.Last?.Sequence;
             ctx.DebugController.Stopped += OnStopped;
             var refusal = startOnUi();
@@ -1636,6 +1642,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            if (ctx.RootViewModel.ExternalDebugger is { IsActive: true } external)
+            {
+                var frame = external.Frames.FirstOrDefault();
+                return new DebugStateResult(true, external.State == HexIDE.Dap.DapSessionState.Stopped ? "Paused" : external.State.ToString(),
+                    external.Stop?.Reason, frame.ValueKind == System.Text.Json.JsonValueKind.Object && frame.TryGetProperty("source", out var source) && source.TryGetProperty("path", out var path) ? path.GetString() : null,
+                    frame.ValueKind == System.Text.Json.JsonValueKind.Object ? frame.GetProperty("line").GetInt32() : null);
+            }
             var stop = ctx.DebugController.CurrentStop;
             // A controller that has no session reads Running until its first run ends: it starts there so the
             // headless interpreter path needs no Reset(). That is the controller's business, not the IDE's, and
@@ -1658,6 +1671,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
+                return new LocalsResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"), null, null);
             var scope = ctx.DebugController.GetLocals();
             if (scope is null)
                 return new LocalsResult(false, NotPausedRefusal("there are no locals to read"), null, null);
@@ -1698,6 +1713,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
+                return new CallStackResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"), []);
             if (ctx.DebugController.State != HexIDE.Runtime.Debugging.DebugState.Paused)
                 return new CallStackResult(
                     false, NotPausedRefusal("there is no call stack to read"), System.Array.Empty<CallStackFrameRow>());
@@ -1715,6 +1732,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
     {
         return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
+            if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
+                return new WatchesResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"), []);
             // An unrecognised value is REFUSED. It used to become Expression, so a misspelt BreakWhenTrue gave a
             // watch that never breaks, reported as though the call had done what was asked. (#546) Null and
             // empty still mean the documented default.
@@ -1748,6 +1767,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
     // Snapshot the watch list, evaluating each against the paused frame (live only while Paused).
     private async Task<WatchesResult> BuildWatchesResult()
     {
+        if (ctx.RootViewModel.ExternalDebugger?.IsActive == true)
+            return new WatchesResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"), []);
         var rows = new List<WatchRow>();
         foreach (var w in ctx.RootViewModel.Watches.Service.Watches)
         {
@@ -1763,6 +1784,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
     [Description("Runs an Immediate-window line against the paused frame. A leading ?/Print/Debug.Print (or a bare expression) EVALUATES and returns the value (variables, operators, intrinsics). A BARE assignment or Set (e.g. \"count = 7\", \"Set obj = Nothing\") is EXECUTED and mutates the paused frame (returns empty) — whereas \"?count = 7\" compares. User Sub/Function calls are still rejected (they would deadlock the paused gate). Valid only while paused (get_debug_state.state == Paused). Returns the formatted result / empty (for a statement) / a VB6-style error message.")]
     public async Task<EvaluateResult> EvaluateAsync(string expression, CancellationToken ct = default)
     {
+        if (await Dispatcher.UIThread.InvokeAsync(() => ctx.RootViewModel.ExternalDebugger?.IsActive == true))
+            return new EvaluateResult(false, ctx.Localization.GetString("Str.Debug.External.Unsupported"), null);
         string? result = await Dispatcher.UIThread.InvokeAsync(() => ctx.DebugController.EvaluateAsync(expression));
         return result is null
             ? new EvaluateResult(false, NotPausedRefusal("there is no frame to evaluate against"), null)

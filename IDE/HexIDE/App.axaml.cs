@@ -143,7 +143,7 @@ public partial class App : Application
                 // confirmed. Cancel in the dialog aborts the exit entirely, matching VB6.
                 mainWindow.Closing += (_, e) =>
                 {
-                    if (!closeConfirmed && !Static.ForceCloseWithoutPrompt)
+                    if (!closeConfirmed)
                     {
                         e.Cancel = true;
                         ConfirmThenClose();
@@ -167,7 +167,8 @@ public partial class App : Application
                     {
                         // Raises the save-changes prompt for anything dirty, saves what the user ticks,
                         // and throws OperationCanceledException if they choose Cancel.
-                        await _diSetup.ProjectService.UnloadAllProjects();
+                        if (!Static.ForceCloseWithoutPrompt) await _diSetup.ProjectService.UnloadAllProjects();
+                        await _diSetup.ExternalDebugger.StopAsync();
                     }
                     catch (OperationCanceledException)
                     {

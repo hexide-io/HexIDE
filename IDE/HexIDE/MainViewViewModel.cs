@@ -103,6 +103,8 @@ public partial class MainViewViewModel : ObservableObject
     }
 
     public DelegateCommand StartDefaultProjectCommand { get; }
+    public DelegateCommand StartExternalDebugCommand { get; }
+    public HexIDE.Debugging.ExternalDebugService? ExternalDebugger { get; }
 
     public DelegateCommand StartDefaultProjectWithFullCompileCommand { get; }
 
@@ -699,7 +701,8 @@ public partial class MainViewViewModel : ObservableObject
         AddinToolWindowService addinToolWindowService,
         IWindowStateService windowStateService,
         HexIDE.Debugging.IBreakpointService breakpointService,
-        HexIDE.Runtime.Debugging.IDebugController debugController)
+        HexIDE.Runtime.Debugging.IDebugController debugController,
+        HexIDE.Debugging.ExternalDebugService? externalDebugger = null)
     {
         Personality = personalityService;
         AddinMenuService = addinMenuService;
@@ -733,6 +736,9 @@ public partial class MainViewViewModel : ObservableObject
         this.editorService = editorService;
         this.breakpointService = breakpointService;
         this.debugController = debugController;
+        ExternalDebugger = externalDebugger;
+        StartExternalDebugCommand = new DelegateCommand(() => StartExternalDebugAsync().ListenErrors(),
+            () => externalDebugger is not null && !projectRunnerService.IsRunning);
         // When the interpreter breaks, bring the offending form/module's code editor forward. The editor view then
         // paints the amber current-statement bar and scrolls to it (it reads the controller's CurrentStop on open).
         debugController.Stopped += info => RevealBreak(info.Module);
@@ -838,6 +844,25 @@ public partial class MainViewViewModel : ObservableObject
                 Immediate.Document.Insert(Immediate.Document.TextLength, text + "\n"));
         };
 
+        if (externalDebugger is not null)
+        {
+            externalDebugger.Output += text => Immediate.Document.Insert(Immediate.Document.TextLength, text);
+            externalDebugger.Failed += message =>
+            {
+                Immediate.Document.Insert(Immediate.Document.TextLength, message + "\n");
+                OpenImmediateTool();
+            };
+            HexIDE.Dap.DapStop? revealed = null;
+            externalDebugger.Changed += () =>
+            {
+                if (externalDebugger.Stop is not { } stop || stop == revealed || externalDebugger.Frames.Count == 0) return;
+                revealed = stop;
+                OpenLocalsTool();
+                OpenCallStackTool();
+                ShowNextStatement();
+            };
+        }
+
         // F5 doubles as Continue in break mode (VB6 semantics): resume if paused, otherwise start.
         StartDefaultProjectCommand = new DelegateCommand(
             () =>
@@ -931,6 +956,7 @@ public partial class MainViewViewModel : ObservableObject
         projectRunnerService.ObservePropertyChanged(x => x.IsRunning)
             .Subscribe(_ =>
             {
+                StartExternalDebugCommand.RaiseCanExecutedChanged();
                 OnPropertyChanged(nameof(Title));
                 OnPropertyChanged(nameof(WindowTitle));
                 if (projectRunnerService.IsRunning)
@@ -1137,11 +1163,12 @@ public partial class MainViewViewModel : ObservableObject
 
     // Debug → Add Watch: open the Add Watch dialog (new, empty). Edit Watch (Ctrl+W): re-open it for the Watches
     // window's selected row. Quick Watch (Shift+F9): open it pre-filled with the identifier under the caret.
-    public void AddWatch() => Watches.OpenAddWatchDialog().ListenErrors();
-    public void EditWatch() => Watches.EditSelected().ListenErrors();
+    public void AddWatch() { if (!RefuseExternalCommand()) Watches.OpenAddWatchDialog().ListenErrors(); }
+    public void EditWatch() { if (!RefuseExternalCommand()) Watches.EditSelected().ListenErrors(); }
 
     public void QuickWatch()
     {
+        if (RefuseExternalCommand()) return;
         string? expr = documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.CodeEditorViewModel code
             ? IdentifierAt(code.Document.Text, code.CaretOffset)
             : null;
@@ -1173,7 +1200,14 @@ public partial class MainViewViewModel : ObservableObject
         }
     }
 
-    public void ClearAllBreakpoints() => breakpointService.ClearAll();
+    public void ClearAllBreakpoints() { if (!RefuseExternalCommand()) breakpointService.ClearAll(); }
+
+    private bool RefuseExternalCommand()
+    {
+        if (ExternalDebugger?.IsActive != true) return false;
+        windowManager.MessageBox(localization.GetString("Str.Debug.External.Unsupported"), icon: MessageBoxIcon.Information).ListenErrors();
+        return true;
+    }
 
     // Bring the code editor for the module the interpreter just broke in to the front (creating/activating its tab).
     private void RevealBreak(string module)
@@ -1201,6 +1235,11 @@ public partial class MainViewViewModel : ObservableObject
     // jumped into without a linearized CFG (a parked rewrite). See docs/debugger-vb6-divergences.md.
     public void SetNextStatement()
     {
+        if (ExternalDebugger?.IsActive == true)
+        {
+            windowManager.MessageBox(localization.GetString("Str.Debug.External.Unsupported"), icon: MessageBoxIcon.Information).ListenErrors();
+            return;
+        }
         if (documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.CodeEditorViewModel code)
         {
             var line = code.Document.GetLineByOffset(code.CaretOffset).LineNumber;
@@ -1217,8 +1256,28 @@ public partial class MainViewViewModel : ObservableObject
     // controller's CurrentStop on open). A no-op when not paused.
     public void ShowNextStatement()
     {
+        if (ExternalDebugger?.IsActive == true)
+        {
+            if (ExternalDebugger.CurrentLocation is { } location)
+                editorService.NavigateTo(location.Uri, location.Line, 1);
+            return;
+        }
         if (debugController.CurrentStop is { } stop)
             RevealBreak(stop.Module);
+    }
+
+    private async Task StartExternalDebugAsync()
+    {
+        if (ExternalDebugger is null || projectRunnerService.IsRunning) return;
+        var paths = await windowManager.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+        {
+            Title = localization.GetString("Str.Menu.Run.StartExternal"),
+            AllowMultiple = false,
+            FileTypeFilter = [new Avalonia.Platform.Storage.FilePickerFileType("JSON") { Patterns = ["*.json"] }],
+        });
+        if (paths?.FirstOrDefault() is not { } file || projectRunnerService.IsRunning) return;
+        OpenImmediateTool();
+        await ExternalDebugger.StartAsync(file);
     }
 
     public Task OpenGithubRepo()

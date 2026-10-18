@@ -351,6 +351,7 @@
                         <MenuItem Header="{DynamicResource Str.Menu.Run}">
                             <MenuItem Header="{DynamicResource Str.Menu.Run.Start}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Play}" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Run.StartWithFullCompile}" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectWithFullCompileCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Run.StartExternal}" Command="{CompiledBinding StartExternalDebugCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Run.Break}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Pause}" Command="{x:Static vb:ApplicationCommands.BreakProjectCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Run.End}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Stop}" Command="{x:Static vb:ApplicationCommands.EndProjectCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Run.Restart}" Command="{x:Static vb:ApplicationCommands.RestartProjectCommand}" />

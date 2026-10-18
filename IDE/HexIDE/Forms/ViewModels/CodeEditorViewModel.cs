@@ -40,6 +40,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     private readonly IBookmarkService bookmarkService;
     private readonly HexIDE.Debugging.IBreakpointService breakpointService;
     private readonly HexIDE.Runtime.Debugging.IDebugController debugController;
+    public HexIDE.Debugging.ExternalDebugService? ExternalDebugger { get; }
     private readonly ILocalizationService localization;
     protected override string ComputeTitle()
     {
@@ -114,7 +115,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// triggers the VB6 "reset your project?" prompt (the interpreter can't hot-patch a running program). Read off
     /// the debug controller (active between its run-start Reset and its run-end Stop) rather than
     /// IProjectRunnerService, which would close a DI cycle via the editor factory.</summary>
-    public bool IsProjectRunning => debugController.IsSessionActive;
+    public bool IsProjectRunning => debugController.IsSessionActive || ExternalDebugger?.IsActive == true;
 
     /// <summary>VB6-faithful Edit-and-Continue affordance: the interpreter can't apply an edit to a running program
     /// live, so editing while running/paused pops VB6's own reset prompt. Yes → request a project reset (the edit
@@ -205,7 +206,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         HexIDE.Debugging.IBreakpointService breakpointService,
         HexIDE.Runtime.Debugging.IDebugController debugController,
         HexIDE.Debugging.IRunScope runScope,
-        ILocalizationService localization)
+        ILocalizationService localization,
+        HexIDE.Debugging.ExternalDebugService? externalDebugger = null)
     {
         this.windowManager = windowManager;
         this.editorService = editorService;
@@ -216,6 +218,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         this.bookmarkService = bookmarkService;
         this.breakpointService = breakpointService;
         this.debugController = debugController;
+        ExternalDebugger = externalDebugger;
         this.runScope = runScope;
         this.statusBarService = statusBarService;
         this.localization = localization;
@@ -587,6 +590,11 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </remarks>
     public bool ToggleBreakpoint(int line)
     {
+        if (ExternalDebugger?.IsActive == true)
+        {
+            statusBarService.SetTemporaryMessage(localization.GetString("Str.Debug.External.Unsupported"), TimeSpan.FromSeconds(6));
+            return false;
+        }
         if (!breakpointService.IsBreakpoint(Identity, line) && RefuseMarkOn(line))
             return false;
         breakpointService.Toggle(Identity, line);
