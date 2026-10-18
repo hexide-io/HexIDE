@@ -55,8 +55,17 @@ During the session:
 - Language & Debug Servers displays the current or most recent DAP connection, with capabilities and shared
   protocol capture. Its previous row is replaced at the next launch; retained conversations remain in the log.
 
+During an external run, Add/Edit/Quick Watch uses a separate expression list retained until the IDE closes.
+The Watches window evaluates it in the selected Call Stack frame using the adapter's expression syntax,
+refreshes after stops, frame changes, edits and Immediate completion, and clears values on resume.
+Expandable results fetch children on demand. Adapter errors appear in the affected row (hover a truncated
+value to read it). Break When True/Changed is disabled for external watches. End restores the interpreter
+watch list; another external launch restores the external list. Neither list is copied into the other,
+and external expressions are not saved in launch JSON. These are adapter evaluations, not a guarantee
+that every adapter evaluates expressions without side effects.
+
 This integration inspects one stopped program thread. It does not implement thread selection,
-remote watches, hover values, restart, Run To Cursor or Set Next Statement.
+hover values, restart, Run To Cursor or Set Next Statement.
 Conditions and hit counts are not yet supported. Sources without a saved file path cannot receive external
 breakpoints. Editing source does not update the running backend.
 

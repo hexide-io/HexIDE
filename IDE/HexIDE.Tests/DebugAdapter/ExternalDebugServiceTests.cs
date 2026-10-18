@@ -15,6 +15,104 @@ namespace HexIDE.Tests.DebugAdapter;
 
 public class ExternalDebugServiceTests
 {
+    private static async Task WatchUpdated(Func<bool> predicate)
+    {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(Token);
+        deadline.CancelAfter(Patience);
+        while (!predicate()) await Task.Delay(10, deadline.Token);
+    }
+
+    [AvaloniaFact]
+    public async Task External_watches_follow_frames_expand_recover_and_keep_interpreter_definitions_separate()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-watches-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log);
+        var interpreter = Substitute.For<IDebugController>();
+        var saved = new WatchService();
+        saved.Add(new("interpreterOnly", WatchType.BreakWhenTrue, "Main"));
+        var watches = new WatchesToolViewModel(Substitute.For<ILocalizationService>(), saved, interpreter,
+            Substitute.For<IWindowManager>(), service);
+        watches.ExternalService.Add(new("aggregate", WatchType.Expression, "Callee"));
+        watches.ExternalService.Add(new("reject", WatchType.Expression, "Callee"));
+        watches.ExternalService.Add(new("answer", WatchType.Expression, "Callee"));
+        var config = await Configuration(directory, "evaluate");
+        var run = service.StartAsync(config);
+        try
+        {
+            await WatchUpdated(() => watches.Rows.Count == 3 && watches.Rows[2].Value == "frame:0:answer");
+            watches.Rows[0].TypeName.Should().Be("Long");
+            watches.Rows[1].Value.Should().Contain("fixture refusal");
+            watches.Rows[0].IsExpanded = true;
+            await WatchUpdated(() => watches.Rows[0].Children.Any(child => child.Expression == "callerValue"));
+            await service.SelectFrameAsync(service.Stop!, 7);
+            await WatchUpdated(() => watches.Rows[2].Value == "frame:7:answer");
+            await service.EvaluateAsync("callerValue = 99");
+            await WatchUpdated(() => watches.Rows[0].Children.Any(child => child.Value == "99"));
+            watches.SelectedRow = watches.Rows[1];
+            watches.DeleteSelected();
+            watches.ExternalService.Watches.Count.Should().Be(2);
+            await WatchUpdated(() => watches.Rows.Count == 2 && watches.Rows[1].Value == "frame:7:answer");
+            await service.StopAsync();
+            await run.WaitAsync(Patience, Token);
+            watches.Rows.Single().Expression.Should().Be("interpreterOnly");
+            saved.Watches.Single().Type.Should().Be(WatchType.BreakWhenTrue);
+            await interpreter.DidNotReceive().EvaluateWatchAsync(Arg.Any<string>());
+            run = service.StartAsync(config);
+            await WatchUpdated(() => watches.Rows.Count == 2 && watches.Rows[1].Value == "frame:0:answer");
+        }
+        finally
+        {
+            await service.StopAsync();
+            await run.WaitAsync(Patience, Token);
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Delayed_watch_cannot_replace_edited_expression_or_leak_after_end(bool end)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-watches-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log);
+        var watches = new WatchesToolViewModel(Substitute.For<ILocalizationService>(), new WatchService(),
+            Substitute.For<IDebugController>(), Substitute.For<IWindowManager>(), service);
+        var pending = false;
+        service.Output += output => { if (output == "evaluation-pending\n") pending = true; };
+        var run = service.StartAsync(await Configuration(directory, "evaluate"));
+        try
+        {
+            await WaitFor(service, () => service.Variables.Count == 1);
+            watches.ExternalService.Add(new("wait", WatchType.Expression, "Callee"));
+            await WaitFor(service, () => pending);
+            if (end)
+            {
+                await service.StopAsync();
+                await run.WaitAsync(Patience, Token);
+                watches.Rows.Should().BeEmpty();
+            }
+            else
+            {
+                watches.ExternalService.Watches[0] = new("newExpression", WatchType.Expression, "Caller");
+                await service.SelectFrameAsync(service.Stop!, 7); // scopes releases the old evaluation
+                await WatchUpdated(() => watches.Rows[0].Value == "frame:7:newExpression");
+                watches.Rows[0].Value.Should().NotContain("obsolete");
+                await service.CommandAsync("next");
+                await WatchUpdated(() => watches.Rows[0].Value == "frame:0:newExpression");
+            }
+        }
+        finally
+        {
+            await service.StopAsync();
+            await run.WaitAsync(Patience, Token);
+            Directory.Delete(directory, true);
+        }
+    }
+
     private static CancellationToken Token => TestContext.Current.CancellationToken;
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(20);
 

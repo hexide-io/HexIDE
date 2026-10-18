@@ -76,20 +76,23 @@ public class DapSessionTests
     }
 
     [Theory]
-    [InlineData(0)]
-    [InlineData(7)]
-    public async Task Evaluation_preserves_repl_syntax_and_frame_without_optional_capability(int frameId)
+    [InlineData(0, false)]
+    [InlineData(7, false)]
+    [InlineData(0, true)]
+    [InlineData(7, true)]
+    public async Task Evaluation_preserves_context_syntax_and_frame_without_optional_capability(int frameId, bool watch)
     {
         await using var peer = new Peer();
         await using var session = new DapSession(peer.Client);
         await Launch(peer, session, false);
         var stop = await Stop(peer, session);
-        var pending = session.EvaluateAsync(stop, frameId, "? callerValue + 1", Token);
+        var pending = watch ? session.EvaluateWatchAsync(stop, frameId, "? callerValue + 1", Token)
+            : session.EvaluateAsync(stop, frameId, "? callerValue + 1", Token);
         var request = await peer.Receive();
         request.GetProperty("command").GetString().Should().Be("evaluate");
         var arguments = request.GetProperty("arguments");
         arguments.GetProperty("expression").GetString().Should().Be("? callerValue + 1");
-        arguments.GetProperty("context").GetString().Should().Be("repl");
+        arguments.GetProperty("context").GetString().Should().Be(watch ? "watch" : "repl");
         arguments.GetProperty("frameId").GetInt32().Should().Be(frameId);
         await peer.Reply(request, """{"result":"43","variablesReference":123,"future":true}""");
         var reply = await pending;

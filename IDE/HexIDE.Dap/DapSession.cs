@@ -153,6 +153,13 @@ public sealed class DapSession : IAsyncDisposable
         return Inspect(stop, "evaluate", new { expression, frameId, context = "repl" }, token);
     }
 
+    /// <summary>Evaluate an expression for the Watches window, preserving adapter result metadata.</summary>
+    public Task<DapResponse> EvaluateWatchAsync(DapStop stop, int frameId, string expression, CancellationToken token = default)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        return Inspect(stop, "evaluate", new { expression, frameId, context = "watch" }, token);
+    }
+
     private async Task<DapResponse> Inspect(DapStop stop, string command, object arguments, CancellationToken token)
     {
         CheckStop(stop);
