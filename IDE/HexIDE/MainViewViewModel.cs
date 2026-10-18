@@ -853,13 +853,18 @@ public partial class MainViewViewModel : ObservableObject
                 OpenImmediateTool();
             };
             HexIDE.Dap.DapStop? revealed = null;
+            int? revealedFrame = null;
             externalDebugger.Changed += () =>
             {
-                if (externalDebugger.Stop is not { } stop || stop == revealed || externalDebugger.Frames.Count == 0) return;
+                if (externalDebugger.Stop is not { } stop || externalDebugger.SelectedFrame is not { } frame)
+                { revealed = null; revealedFrame = null; return; }
+                var frameId = frame.GetProperty("id").GetInt32();
+                if (stop == revealed && frameId == revealedFrame) return;
+                if (stop != revealed) { OpenLocalsTool(); OpenCallStackTool(); }
                 revealed = stop;
-                OpenLocalsTool();
-                OpenCallStackTool();
-                ShowNextStatement();
+                revealedFrame = frameId;
+                if (externalDebugger.SelectedLocation is { } location)
+                    editorService.NavigateTo(location.Uri, location.Line, 1);
             };
         }
 

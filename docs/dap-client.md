@@ -157,7 +157,7 @@ components. It is not downloaded or run by ordinary CI; the smoke executable is 
 ## Remaining work
 
 - Rich launch settings UI and workspace preparation, including any VB6 project conversion.
-- Frame selection and multi-thread inspection.
+- Multi-thread inspection.
 - Structured breakpoint verification UI and command-specific MCP routing.
 - Evaluation, live breakpoint updates, dynamic capabilities and capability-dependent UI.
 - Automated acquisition and cross-platform real-adapter acceptance in CI.

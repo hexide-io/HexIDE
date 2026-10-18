@@ -16,7 +16,7 @@
                        Text="{DynamicResource Str.Tool.CallStack.Column.Frame}" />
         </DockPanel>
 
-        <ListBox Grid.Row="1" ItemsSource="{CompiledBinding Frames}">
+        <ListBox Grid.Row="1" ItemsSource="{CompiledBinding Frames}" SelectedItem="{CompiledBinding SelectedFrame, Mode=TwoWay}">
             <ListBox.Styles>
                 <Style Selector="ListBoxItem">
                     <Setter Property="Padding" Value="0" />

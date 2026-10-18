@@ -292,6 +292,7 @@ public partial class CodeEditorView : UserControl
             _externalDebugger = vm.ExternalDebugger;
             if (_externalDebugger is not null)
             {
+                int? displayedExecutionLine = null;
                 _onExternalDebugChanged = () =>
                 {
                     int? line = null;
@@ -302,7 +303,9 @@ public partial class CodeEditorView : UserControl
                             line = location.Line;
                     }
                     _currentLineRenderer?.SetLine(line);
-                    if (line is > 0 && line <= TextEditor.Document.LineCount) TextEditor.ScrollToLine(line.Value);
+                    if (line != displayedExecutionLine && line is > 0 && line <= TextEditor.Document.LineCount)
+                        TextEditor.ScrollToLine(line.Value);
+                    displayedExecutionLine = line;
                 };
                 _externalDebugger.Changed += _onExternalDebugChanged;
                 _onExternalDebugChanged();
