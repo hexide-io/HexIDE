@@ -2,6 +2,7 @@
   "name": "Latina",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Immediate.Expired": "Contextus aestimationis mutatus est; responsum omissum est.",
     "Str.Menu.Run.StartExternal": "Sessionem _externam emendationis incipe…",
     "Str.Debug.External.Unsupported": "Hoc mandatum in sessione externa emendationis praesto non est.",
     "Str.Dialog.SourceEncoding.NothingWritten": "Nihil in discum scriptum est. {0} in pagina codicum {1} tenetur, quae '{2}' ({3}) capere non potest. Signum in hac linea est:\n\n{4}\n\nHexIDE quamque plicam in ea pagina codicum tenet in qua lecta aut creata est, potius quam eam in aliam convertat. Muta illum textum in signa quae pagina codicum capit, aut, ubi linea plicam vel directorium nominat, nomen elige quod pagina codicum capit. Deinde iterum conare. Mutationes tuae adhuc in IDE apertae sunt.",

@@ -75,6 +75,46 @@ public class DapSessionTests
         session.Capabilities.GetProperty("future").GetInt32().Should().Be(42);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(7)]
+    public async Task Evaluation_preserves_repl_syntax_and_frame_without_optional_capability(int frameId)
+    {
+        await using var peer = new Peer();
+        await using var session = new DapSession(peer.Client);
+        await Launch(peer, session, false);
+        var stop = await Stop(peer, session);
+        var pending = session.EvaluateAsync(stop, frameId, "? callerValue + 1", Token);
+        var request = await peer.Receive();
+        request.GetProperty("command").GetString().Should().Be("evaluate");
+        var arguments = request.GetProperty("arguments");
+        arguments.GetProperty("expression").GetString().Should().Be("? callerValue + 1");
+        arguments.GetProperty("context").GetString().Should().Be("repl");
+        arguments.GetProperty("frameId").GetInt32().Should().Be(frameId);
+        await peer.Reply(request, """{"result":"43","variablesReference":123,"future":true}""");
+        var reply = await pending;
+        reply.Body!.Value.GetProperty("variablesReference").GetInt32().Should().Be(123);
+        reply.Body.Value.GetProperty("future").GetBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Evaluation_rejects_reply_from_expired_stop_and_preserves_adapter_refusal()
+    {
+        await using var peer = new Peer();
+        await using var session = new DapSession(peer.Client);
+        await Launch(peer, session);
+        var stop = await Stop(peer, session);
+        var refused = session.EvaluateAsync(stop, 0, "bad", Token);
+        await peer.Reply(await peer.Receive(), success: false);
+        await ((Func<Task>)(() => refused)).Should().ThrowAsync<DapRequestException>();
+        var pending = session.EvaluateAsync(stop, 0, "slow", Token);
+        var request = await peer.Receive();
+        await Stop(peer, session);
+        await peer.Reply(request, """{"result":"old","variablesReference":0}""");
+        await ((Func<Task>)(() => pending)).Should().ThrowAsync<InvalidOperationException>();
+        await ((Func<Task>)(() => session.EvaluateAsync(stop, 0, "stale", Token))).Should().ThrowAsync<InvalidOperationException>();
+    }
+
     [Fact]
     public async Task Unsupported_configuration_done_is_omitted()
     {

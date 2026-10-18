@@ -2,6 +2,7 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Immediate.Expired": "Arvioinnin konteksti muuttui; vastaus hylättiin.",
     "Str.Menu.Run.StartExternal": "Aloita _ulkoinen virheenkorjausistunto…",
     "Str.Debug.External.Unsupported": "Tämä komento ei ole käytettävissä ulkoisessa virheenkorjausistunnossa.",
     "Str.Dialog.SourceEncoding.NothingWritten": "Levylle ei kirjoitettu mitään. Kohteen {0} koodisivu on {1}, eikä se tue merkkiä '{2}' ({3}). Merkki on tällä rivillä:\n\n{4}\n\nHexIDE säilyttää jokaisen tiedoston sillä koodisivulla, jolla se luettiin tai luotiin, eikä muunna sitä. Korvaa kyseinen teksti merkeillä, joita koodisivu tukee, tai jos rivillä on tiedoston tai kansion nimi, valitse nimi, jossa on vain koodisivun tukemia merkkejä. Yritä sitten uudelleen. Muutoksesi ovat yhä auki IDE:ssä.",

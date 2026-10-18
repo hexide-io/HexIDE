@@ -2,6 +2,7 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Immediate.Expired": "The evaluation context changed; its reply was discarded.",
     "Str.Menu.Run.StartExternal": "Start _External Debug Session…",
     "Str.Debug.External.Unsupported": "This command is not available for an external debug session.",
     "Str.Dialog.SourceEncoding.NothingWritten": "Nothing was written. {0} is kept in code page {1}, which cannot hold '{2}' ({3}). It is in this line:\n\n{4}\n\nHexIDE keeps each file in the code page it was read or created in, rather than converting it. Change that text to characters the code page holds, or, where the line names a file or folder, choose a name it can hold. Then try again. Your changes are still open in the IDE.",

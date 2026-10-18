@@ -2,6 +2,7 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Immediate.Expired": "O contexto de avaliação mudou; a resposta foi descartada.",
     "Str.Menu.Run.StartExternal": "Iniciar sessão de depuração _externa…",
     "Str.Debug.External.Unsupported": "Este comando não está disponível para uma sessão de depuração externa.",
     "Str.Dialog.SourceEncoding.NothingWritten": "Nada foi escrito. {0} é mantido na página de códigos {1}, que não consegue armazenar o caráter '{2}' ({3}). Encontra-se na seguinte linha:\n\n{4}\n\nO HexIDE mantém cada ficheiro na página de códigos em que foi lido ou criado, em vez de o converter. Substitua esse texto por carateres suportados pela página de códigos ou, se a linha indicar o nome de um ficheiro ou de uma pasta, escolha um nome que essa página de códigos suporte. Depois, tente novamente. As suas alterações continuam abertas no IDE.",

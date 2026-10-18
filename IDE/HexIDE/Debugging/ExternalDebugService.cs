@@ -12,6 +12,7 @@ using HexIDE.Lsp;
 namespace HexIDE.Debugging;
 
 public sealed record ExternalVariable(string Name, string Value, string Type, int Reference);
+public sealed record ExternalEvaluation(string Text, bool Expired = false);
 
 /// <summary>One external run. Public state and events belong to the UI thread; wire reads never block it.</summary>
 public sealed class ExternalDebugService(ConversationLog capture)
@@ -20,8 +21,12 @@ public sealed class ExternalDebugService(ConversationLog capture)
     private CancellationTokenSource? cancellation;
     private Task? stopping;
     private long inspectionVersion;
+    private long selectionVersion;
     public bool IsActive { get; private set; }
     public bool IsBusy { get; private set; }
+    public bool IsEvaluating { get; private set; }
+    public bool CanEvaluate => IsActive && !IsEvaluating && !IsBusy && Stop is { } stop &&
+        IsCurrent(stop) && SelectedFrame is not null;
     public DapSessionState State { get; private set; } = DapSessionState.Ended;
     public DapStop? Stop { get; private set; }
     public int? ThreadId { get; private set; }
@@ -58,6 +63,7 @@ public sealed class ExternalDebugService(ConversationLog capture)
     private void ClearInspection()
     {
         ++inspectionVersion;
+        ++selectionVersion;
         SelectedFrame = null;
         Frames = [];
         Variables = [];
@@ -117,7 +123,7 @@ public sealed class ExternalDebugService(ConversationLog capture)
             session = null;
             cancellation.Dispose();
             cancellation = null;
-            IsActive = IsBusy = false;
+            IsActive = IsBusy = IsEvaluating = false;
             Stop = null;
             ThreadId = null;
             ClearInspection();
@@ -187,8 +193,14 @@ public sealed class ExternalDebugService(ConversationLog capture)
         var frame = Frames.FirstOrDefault(item => item.GetProperty("id").GetInt32() == frameId);
         if (frame.ValueKind != JsonValueKind.Object ||
             SelectedFrame is { } selected && selected.GetProperty("id").GetInt32() == frameId) return;
-        var version = ++inspectionVersion;
+        ++selectionVersion;
         SelectedFrame = frame;
+        await RefreshSelectedFrameAsync(current, stop, frameId);
+    }
+
+    private async Task RefreshSelectedFrameAsync(DapSession current, DapStop stop, int frameId)
+    {
+        var version = ++inspectionVersion;
         Variables = [];
         Changed?.Invoke();
         bool IsSelected() => session == current && current.IsCurrent(stop) && inspectionVersion == version;
@@ -209,6 +221,39 @@ public sealed class ExternalDebugService(ConversationLog capture)
         catch (Exception exception)
         {
             if (IsSelected()) Failed?.Invoke(exception.Message);
+        }
+    }
+
+    public async Task<ExternalEvaluation> EvaluateAsync(string expression)
+    {
+        if (!CanEvaluate || session is not { } current || Stop is not { } stop || SelectedFrame is not { } frame)
+            throw new InvalidOperationException("No stopped external frame is available for evaluation.");
+        var version = selectionVersion;
+        var frameId = frame.GetProperty("id").GetInt32();
+        IsEvaluating = true;
+        Changed?.Invoke();
+        bool IsSelected() => session == current && current.IsCurrent(stop) && selectionVersion == version;
+        try
+        {
+            string text;
+            try
+            {
+                var reply = await current.EvaluateAsync(stop, frameId, expression);
+                text = reply.Body?.GetProperty("result").GetString() ?? "";
+            }
+            catch (Exception exception)
+            {
+                text = exception.Message;
+            }
+            // REPL statements can mutate variables even when they ultimately fail. Refresh whichever
+            // frame is now selected, but never publish the old reply as that frame's evaluation.
+            if (session == current && current.IsCurrent(stop) && SelectedFrame is { } selected)
+                await RefreshSelectedFrameAsync(current, stop, selected.GetProperty("id").GetInt32());
+            return IsSelected() ? new(text) : new("", Expired: true);
+        }
+        finally
+        {
+            if (session == current) { IsEvaluating = false; Changed?.Invoke(); }
         }
     }
 

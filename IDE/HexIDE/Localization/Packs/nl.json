@@ -2,6 +2,7 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Immediate.Expired": "De evaluatiecontext is gewijzigd; het antwoord is genegeerd.",
     "Str.Menu.Run.StartExternal": "_Externe foutopsporingssessie starten…",
     "Str.Debug.External.Unsupported": "Deze opdracht is niet beschikbaar voor een externe foutopsporingssessie.",
     "Str.Dialog.SourceEncoding.NothingWritten": "Er is niets weggeschreven. {0} wordt bewaard in codetabel {1}, die '{2}' ({3}) niet ondersteunt. Het teken staat in deze regel:\n\n{4}\n\nHexIDE bewaart elk bestand in de codetabel waarin het is gelezen of gemaakt, in plaats van het te converteren. Vervang die tekst door tekens die de codetabel ondersteunt, of kies, als de regel een bestand of map noemt, een naam die de codetabel wel ondersteunt. Probeer het daarna opnieuw. Uw wijzigingen staan nog open in de IDE.",

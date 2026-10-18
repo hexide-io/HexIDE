@@ -41,6 +41,8 @@ public static class Program
         using var input = Console.OpenStandardInput();
         var one = new byte[1];
         int? heldVariables = null;
+        int? heldEvaluation = null;
+        string callerValue = "42";
         while (true)
         {
             var header = new StringBuilder();
@@ -57,9 +59,26 @@ public static class Program
             catch (EndOfStreamException) { return 0; }
             using var request = JsonDocument.Parse(body);
             if (mode == "silent") continue;
-            if (mode is "session" or "frames" or "frames-delayed")
+            if (mode is "session" or "frames" or "frames-delayed" or "evaluate")
             {
                 var command = request.RootElement.GetProperty("command").GetString();
+                if (command == "evaluate")
+                {
+                    var arguments = request.RootElement.GetProperty("arguments");
+                    var expression = arguments.GetProperty("expression").GetString();
+                    var frame = arguments.GetProperty("frameId").GetInt32();
+                    if (expression == "wait")
+                    {
+                        heldEvaluation = request.RootElement.GetProperty("seq").GetInt32();
+                        await Send(new { seq = 10, type = "event", @event = "output", body = new { output = "evaluation-pending\n" } });
+                        continue;
+                    }
+                    if (expression == "callerValue = 99" && frame == 7) callerValue = "99";
+                    await Send(new { seq = 11, type = "response", request_seq = request.RootElement.GetProperty("seq").GetInt32(),
+                        command, success = expression != "reject" && arguments.GetProperty("context").GetString() == "repl",
+                        message = "fixture refusal", body = new { result = $"frame:{frame}:{expression}", variablesReference = 0 } });
+                    continue;
+                }
                 if (mode == "frames-delayed" && command == "variables" &&
                     request.RootElement.GetProperty("arguments").GetProperty("variablesReference").GetInt32() == 8)
                 {
@@ -77,7 +96,7 @@ public static class Program
                         new { id = 7, name = "Caller", line = 12, column = 1, source = new { path = Path.GetFullPath("Caller.bas") } },
                     } },
                     "scopes" when mode != "session" => new { scopes = new[] { new { name = "Locals", variablesReference = request.RootElement.GetProperty("arguments").GetProperty("frameId").GetInt32() + 1, expensive = false } } },
-                    "variables" when mode != "session" => FrameVariables(request.RootElement.GetProperty("arguments").GetProperty("variablesReference").GetInt32()),
+                    "variables" when mode != "session" => FrameVariables(request.RootElement.GetProperty("arguments").GetProperty("variablesReference").GetInt32(), callerValue),
                     "stackTrace" => new { stackFrames = new[] { new { id = 0, name = "Main", line = 6, column = 1 } } },
                     "scopes" => new { scopes = new[] { new { name = "Locals", variablesReference = 1, expensive = false } } },
                     "variables" => new { variables = new[] { new { name = "answer", value = "41", type = "Long", variablesReference = 0 } } },
@@ -97,6 +116,12 @@ public static class Program
                     await Send(new { seq = 8, type = "response", request_seq = held, command = "variables", success = true, body = FrameVariables(8) });
                     heldVariables = null;
                 }
+                if (heldEvaluation is { } evaluation && command is "scopes" or "next" or "continue" or "disconnect")
+                {
+                    await Send(new { seq = 12, type = "response", request_seq = evaluation, command = "evaluate", success = true,
+                        body = new { result = "obsolete-evaluation", variablesReference = 0 } });
+                    heldEvaluation = null;
+                }
                 if (command == "disconnect") return 0;
                 continue;
             }
@@ -111,9 +136,9 @@ public static class Program
         }
     }
 
-    private static object FrameVariables(int reference) => new
+    private static object FrameVariables(int reference, string callerValue = "42") => new
     {
-        variables = new[] { new { name = reference == 8 ? "callerValue" : "calleeValue", value = reference == 8 ? "42" : "41", type = "Long", variablesReference = 0 } },
+        variables = new[] { new { name = reference == 8 ? "callerValue" : "calleeValue", value = reference == 8 ? callerValue : "41", type = "Long", variablesReference = 0 } },
     };
 
     private static async Task Send(object value)

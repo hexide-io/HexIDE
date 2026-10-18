@@ -132,7 +132,12 @@ running state and partial-thread resumes are not implemented.
 overwrites a later stopped event on receipt of its response. A definitive refusal restores a fresh stop;
 timeout/cancellation is uncertain and ends the session rather than claiming it is still paused. `PauseAsync`
 requests a break while running; only a stopped event confirms it. Capabilities retain the initialize response.
-Dynamic capability changes, evaluation and live breakpoint replacement remain future session operations.
+`EvaluateAsync(stop, frameId, expression)` sends adapter-specific Immediate syntax with `context: repl`.
+Frame zero is valid. The raw result preserves type, variable reference and extension fields. The stop is
+validated before and after the request; callers must also validate their selected-frame identity before
+presenting the result. REPL evaluation has no optional capability flag and can have side effects. A failed
+or timed-out request is never retried. The IDE displays result text/errors and refreshes selected-frame locals.
+Dynamic capability changes and live breakpoint replacement remain future session operations.
 
 ## Verification
 
@@ -159,7 +164,7 @@ components. It is not downloaded or run by ordinary CI; the smoke executable is 
 - Rich launch settings UI and workspace preparation, including any VB6 project conversion.
 - Multi-thread inspection.
 - Structured breakpoint verification UI and command-specific MCP routing.
-- Evaluation, live breakpoint updates, dynamic capabilities and capability-dependent UI.
+- Watches/hover evaluation, live breakpoint updates, dynamic capabilities and capability-dependent UI.
 - Automated acquisition and cross-platform real-adapter acceptance in CI.
 - Add-in registration through [#891](https://github.com/hexide-io/HexIDE/issues/891).
 

@@ -2,6 +2,7 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Immediate.Expired": "求值上下文已更改；已丢弃其响应。",
     "Str.Menu.Run.StartExternal": "启动外部调试会话…",
     "Str.Debug.External.Unsupported": "此命令不适用于外部调试会话。",
     "Str.Dialog.SourceEncoding.NothingWritten": "未写入任何文件。{0} 采用代码页 {1}，该代码页无法存储“{2}”（{3}）。该字符位于以下行中：\n\n{4}\n\nHexIDE 会让每个文件沿用读取或创建它时所用的代码页，而不会将其转换为其他代码页。请将这段文本改为该代码页能够存储的字符；如果该行中是文件名或文件夹名，请改用该代码页能够存储的名称。然后重试。你所做的更改仍在 IDE 中保持打开状态。",

@@ -2,6 +2,7 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Immediate.Expired": "Kontekst obliczania zmienił się; odpowiedź została odrzucona.",
     "Str.Menu.Run.StartExternal": "Rozpocznij _zewnętrzną sesję debugowania…",
     "Str.Debug.External.Unsupported": "To polecenie jest niedostępne w zewnętrznej sesji debugowania.",
     "Str.Dialog.SourceEncoding.NothingWritten": "Niczego nie zapisano. Element {0} jest przechowywany w stronie kodowej {1}, która nie obsługuje znaku „{2}” ({3}). Znak ten występuje w tym wierszu:\n\n{4}\n\nHexIDE przechowuje każdy plik w stronie kodowej, w której został odczytany lub utworzony, zamiast go konwertować. Zmień ten tekst tak, aby zawierał tylko znaki obsługiwane przez tę stronę kodową, albo, jeśli w tym wierszu jest nazwa pliku lub folderu, wybierz nazwę złożoną z takich znaków. Następnie spróbuj ponownie. Twoje zmiany pozostają otwarte w IDE.",

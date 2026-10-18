@@ -2,6 +2,7 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Immediate.Expired": "Evalueringskonteksten blev ændret; svaret blev kasseret.",
     "Str.Menu.Run.StartExternal": "Start _ekstern fejlfinding…",
     "Str.Debug.External.Unsupported": "Denne kommando er ikke tilgængelig under ekstern fejlfinding.",
     "Str.Dialog.SourceEncoding.NothingWritten": "Intet blev skrevet. {0} lagres i tegntabel {1}, som ikke understøtter '{2}' ({3}). Tegnet står i denne linje:\n\n{4}\n\nHexIDE beholder hver fil i den tegntabel, den blev læst eller oprettet i, frem for at konvertere den. Ret teksten, så den kun indeholder tegn, som tegntabellen understøtter, eller vælg et navn, der kun består af sådanne tegn, hvis linjen angiver et fil- eller mappenavn. Prøv derefter igen. Dine ændringer er stadig åbne i IDE'et.",
