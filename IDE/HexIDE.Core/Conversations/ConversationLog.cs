@@ -66,7 +66,9 @@ public sealed class ConversationLog : IAsyncDisposable
         // The second marker, and it rides the queue for the same reason the fence does: clearing touches
         // per-connection state the pump owns, so doing it from a caller's thread would race the pump
         // rather than order against it. `ConnectionId` empty means every connection.
-        TaskCompletionSource<int>? ClearTo = null);
+        TaskCompletionSource<int>? ClearTo = null,
+        ConversationOutcome? EndOutcome = null,
+        ConversationDirection? EndOrigin = null);
 
     private readonly CaptureLimits _limits;
     private readonly TimeProvider _clock;
@@ -391,6 +393,17 @@ public sealed class ConversationLog : IAsyncDisposable
         if (!_queue.Writer.TryWrite(pending)) Interlocked.Increment(ref _queueDropped);
     }
 
+    /// <summary>Ends unanswered requests locally, ordered with captured frames. Null filters match all.</summary>
+    public void EndRequests(string connectionId, ConversationDirection? origin = null, string? correlationId = null,
+        ConversationOutcome outcome = ConversationOutcome.Abandoned)
+    {
+        if (outcome is not (ConversationOutcome.Cancelled or ConversationOutcome.Abandoned))
+            throw new ArgumentOutOfRangeException(nameof(outcome));
+        if (!_queue.Writer.TryWrite(new Pending(connectionId, default, default, default, null, correlationId,
+                0, null, null, EndOutcome: outcome, EndOrigin: origin)))
+            Interlocked.Increment(ref _queueDropped);
+    }
+
     /// <summary>Everything held, across every connection, in the order it happened.</summary>
     /// <remarks>
     /// Ordered by sequence rather than by timestamp. Connections are recorded independently and a clock has
@@ -499,6 +512,17 @@ public sealed class ConversationLog : IAsyncDisposable
         }
 
         var connection = Of(pending.ConnectionId);
+        if (pending.EndOutcome is { } outcome)
+        {
+            foreach (var (key, started) in connection.Outstanding.ToArray())
+            {
+                if (pending.EndOrigin is { } origin && key.Origin != origin) continue;
+                if (pending.CorrelationId is { } endId && key.Id != endId) continue;
+                connection.Outstanding.Remove(key);
+                connection.Ring.Complete(started.Sequence, outcome, Stopwatch.GetElapsedTime(started.StartedAt));
+            }
+            return;
+        }
         var sequence = ++_sequence;   // single reader, so no interlock needed
 
         if (TryComplete(connection, pending, sequence)) return;

@@ -23,7 +23,8 @@ public sealed class DapProcess : IAsyncDisposable
     {
         (_process, _options) = (process, options);
         ProcessId = process.Id;
-        Connection = new(process.StandardOutput.BaseStream, process.StandardInput.BaseStream, options.Connection);
+        options.Capture?.Note($"DAP process started (pid {ProcessId}).");
+        Connection = new(process.StandardOutput.BaseStream, process.StandardInput.BaseStream, options.Connection, options.Capture);
         // Read chunks rather than lines: even an adapter writing a never-ending line has bounded retention.
         _stderrReader = ReadStandardErrorAsync();
         Completion = MonitorAsync();
@@ -58,13 +59,15 @@ public sealed class DapProcess : IAsyncDisposable
             if (value is null) info.Environment.Remove(name); else info.Environment[name] = value;
 
         var process = new Process { StartInfo = info };
+        options.Capture?.Note("Starting DAP process.");
         try
         {
             if (!process.Start()) throw new IOException("Could not start the debug adapter.");
             return new(process, options);
         }
-        catch
+        catch (Exception ex)
         {
+            options.Capture?.Note($"DAP process startup failed: {ex.GetType().Name}: {ex.Message}");
             try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
             catch (InvalidOperationException) { /* Start failed, or the process already exited. */ }
             finally { process.Dispose(); }
@@ -81,6 +84,7 @@ public sealed class DapProcess : IAsyncDisposable
             {
                 var count = await _process.StandardError.ReadAsync(buffer, _stderrStop.Token).ConfigureAwait(false);
                 if (count == 0) return;
+                _options.Capture?.Note(new string(buffer, 0, count), standardError: true);
                 lock (_diagnosticsLock)
                 {
                     var combined = string.Concat(_stderr, buffer.AsSpan(0, count));
@@ -159,6 +163,9 @@ public sealed class DapProcess : IAsyncDisposable
             catch (Exception ex) { cleanupFailure ??= ex; }
             if (_stderrReader.IsCompleted) _stderrStop.Dispose();
         }
+        _options.Capture?.Note($"DAP process ended: exit code {exitCode?.ToString() ?? "unavailable"}; forced termination: {forced}.");
+        if ((cleanupFailure ?? _stderrFailure) is { } error)
+            _options.Capture?.Note($"DAP process cleanup failed: {error.GetType().Name}: {error.Message}");
         return new(exitCode, forced, connectionFailure, cleanupFailure ?? _stderrFailure,
             StandardErrorTail, DroppedStandardErrorCharacters);
     }

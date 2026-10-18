@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace HexIDE.Dap;
 
 /// <summary>DAP byte-stream framing. DAP envelopes are not JSON-RPC messages.</summary>
-internal sealed class DapFraming(Stream input, DapConnectionOptions options)
+internal sealed class DapFraming(Stream input, DapConnectionOptions options, DapCapture? capture = null)
 {
     private readonly byte[] _buffer = new byte[4096];
     private int _position;
@@ -22,7 +22,7 @@ internal sealed class DapFraming(Stream input, DapConnectionOptions options)
         return _buffer[_position++];
     }
 
-    public async Task<JsonElement> ReadAsync(CancellationToken token)
+    public async Task<(JsonElement Message, byte[] Bytes)> ReadAsync(CancellationToken token)
     {
         var header = new List<byte>();
         while (true)
@@ -63,10 +63,17 @@ internal sealed class DapFraming(Stream input, DapConnectionOptions options)
             await input.ReadExactlyAsync(bytes.AsMemory(copied), token).ConfigureAwait(false);
             using var json = JsonDocument.Parse(bytes);
             if (json.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                capture?.InvalidFrame(bytes, "DAP body is not an object.");
                 throw new InvalidDataException("A DAP message must be a JSON object.");
-            return json.RootElement.Clone();
+            }
+            return (json.RootElement.Clone(), bytes);
         }
-        catch (JsonException ex) { throw new InvalidDataException("Invalid DAP JSON message.", ex); }
+        catch (JsonException ex)
+        {
+            capture?.InvalidFrame(bytes);
+            throw new InvalidDataException("Invalid DAP JSON message.", ex);
+        }
     }
 
     public static byte[] Serialize(Action<Utf8JsonWriter> write)

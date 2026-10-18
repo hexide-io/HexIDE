@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace HexIDE.Redaction;
@@ -109,8 +110,25 @@ public sealed partial class ConversationRedactor
     {
         if (!IsPseudonymising || json.Length == 0) return json;
 
-        return DocumentUriInJson().Replace(json, match => Uri(match.Value));
+        var uris = DocumentUriInJson().Replace(json, match => Uri(match.Value));
+        // DAP Source.path is commonly a plain filesystem path, not a file URI. Match complete JSON
+        // string values so escaping is decoded correctly and the rest of the raw message is untouched.
+        // This also works for complete path fields inside an otherwise truncated/invalid JSON frame.
+        return PathInJson().Replace(uris, match =>
+        {
+            try
+            {
+                var path = JsonSerializer.Deserialize<string>(match.Groups[2].Value)!;
+                if (path.StartsWith("file:", StringComparison.OrdinalIgnoreCase) ||
+                    path.StartsWith("untitled:", StringComparison.OrdinalIgnoreCase)) return match.Value;
+                return match.Groups[1].Value + JsonSerializer.Serialize(LocalPath(path));
+            }
+            catch (JsonException) { return match.Value; }
+        });
     }
+
+    [GeneratedRegex("""("path"\s*:\s*)("(?:\\.|[^"\\])*")""")]
+    private static partial Regex PathInJson();
 
     /// <summary>
     /// One URI. A <c>file:</c> or <c>untitled:</c> URI is rewritten segment by segment; every other scheme

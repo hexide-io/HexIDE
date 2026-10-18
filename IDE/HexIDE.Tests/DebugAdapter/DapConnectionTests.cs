@@ -16,7 +16,7 @@ public class DapConnectionTests
         return document.RootElement.Clone();
     }
 
-    private sealed class Peer : IAsyncDisposable
+    internal sealed class Peer : IAsyncDisposable
     {
         private readonly Pipe _toClient = new();
         private readonly Pipe _fromClient = new();
@@ -24,12 +24,12 @@ public class DapConnectionTests
         public Stream Output { get; }
         public DapConnection Client { get; }
 
-        public Peer(DapConnectionOptions? options = null, bool slowClientWrites = false)
+        public Peer(DapConnectionOptions? options = null, bool slowClientWrites = false, DapCapture? capture = null)
         {
             Input = _fromClient.Reader.AsStream();
             Output = _toClient.Writer.AsStream();
             Stream outgoing = _fromClient.Writer.AsStream();
-            Client = new(_toClient.Reader.AsStream(), slowClientWrites ? new YieldingOutput(outgoing) : outgoing, options);
+            Client = new(_toClient.Reader.AsStream(), slowClientWrites ? new YieldingOutput(outgoing) : outgoing, options, capture);
         }
 
         public Task<DapResponse> Request(string command, JsonElement? arguments = null, CancellationToken? cancellationToken = null)

@@ -15,6 +15,7 @@ public sealed class DapConnection : IAsyncDisposable
     private readonly Stream _output;
     private readonly DapConnectionOptions _options;
     private readonly DapFraming _framing;
+    private readonly DapCapture? _capture;
     private readonly object _sync = new();
     private readonly Dictionary<int, Pending> _pending = [];
     private readonly SemaphoreSlim _writer = new(1, 1);
@@ -28,7 +29,7 @@ public sealed class DapConnection : IAsyncDisposable
     /// <param name="input">Adapter output; must support cancellation or be unblocked by disposal.</param>
     /// <param name="output">Adapter input; must support cancellation or be unblocked by disposal.</param>
     /// <param name="options">Limits copied at construction. Streams are owned after successful construction.</param>
-    public DapConnection(Stream input, Stream output, DapConnectionOptions? options = null)
+    public DapConnection(Stream input, Stream output, DapConnectionOptions? options = null, DapCapture? capture = null)
     {
         ArgumentNullException.ThrowIfNull(input);
         ArgumentNullException.ThrowIfNull(output);
@@ -36,13 +37,15 @@ public sealed class DapConnection : IAsyncDisposable
         _options = options ?? new();
         _options.Validate();
         (_input, _output) = (input, output);
-        _framing = new(input, _options);
+        _capture = capture;
+        _framing = new(input, _options, capture);
         _events = Channel.CreateBounded<DapEvent>(new BoundedChannelOptions(_options.EventCapacity)
         {
             FullMode = BoundedChannelFullMode.Wait,
             SingleWriter = true,
             AllowSynchronousContinuations = false,
         });
+        _capture?.Note("DAP connection opened.");
         _reader = Task.Run(ReadLoopAsync);
     }
 
@@ -111,6 +114,7 @@ public sealed class DapConnection : IAsyncDisposable
         finally
         {
             lock (_sync) _pending.Remove(sequence);
+            _capture?.EndRequest(sequence, cancellationToken.IsCancellationRequested);
             // A send can fail before awaiting the reply while closure faults it concurrently.
             if (reply.Task.IsFaulted) _ = reply.Task.Exception;
         }
@@ -123,6 +127,9 @@ public sealed class DapConnection : IAsyncDisposable
 
     private async Task WriteAsync(byte[] body, CancellationToken token)
     {
+        // Record before writing: an adapter can answer before WriteAsync resumes. Paired requests must
+        // already be in the log. This records an attempt; a failed write is explicitly noted below.
+        _capture?.Frame(body, sent: true);
         try { await DapFraming.WriteAsync(_output, body, token).ConfigureAwait(false); }
         catch (Exception ex)
         {
@@ -133,11 +140,18 @@ public sealed class DapConnection : IAsyncDisposable
 
     private async Task<Exception?> ReadLoopAsync()
     {
+        byte[]? unclassified = null;
         try
         {
             while (true)
             {
-                var message = await _framing.ReadAsync(_lifetime.Token).ConfigureAwait(false);
+                var (message, bytes) = await _framing.ReadAsync(_lifetime.Token).ConfigureAwait(false);
+                unclassified = bytes;
+                void RecordFrame()
+                {
+                    _capture?.Frame(bytes, sent: false, message);
+                    unclassified = null;
+                }
                 var sequence = Number(message, "seq");
                 switch (Text(message, "type"))
                 {
@@ -150,25 +164,33 @@ public sealed class DapConnection : IAsyncDisposable
                         Pending? pending;
                         lock (_sync) _pending.TryGetValue(request, out pending);
                         // A late reply to a locally cancelled request is harmless and cannot complete another request.
-                        if (pending is null) break;
-                        if (pending.Command != command)
+                        if (pending is not null && pending.Command != command)
                             throw new InvalidDataException("DAP response command does not match its request.");
+                        RecordFrame();
+                        if (pending is null) break;
                         pending.Reply.TrySetResult(new(sequence, request, command, success.GetBoolean(), message));
                         break;
                     case "event":
                         var name = Text(message, "event");
+                        RecordFrame();
                         if (!_events.Writer.TryWrite(new(sequence, name, message)))
                             throw new IOException("DAP event queue overflowed; the consumer is not keeping up.");
                         break;
                     case "request":
-                        await RejectReverseRequestAsync(sequence, Text(message, "command")).ConfigureAwait(false);
+                        var reverseCommand = Text(message, "command");
+                        RecordFrame();
+                        await RejectReverseRequestAsync(sequence, reverseCommand).ConfigureAwait(false);
                         break;
                     default:
                         throw new InvalidDataException("Unknown DAP message type.");
                 }
             }
         }
-        catch (Exception ex) { Close(ex); }
+        catch (Exception ex)
+        {
+            if (unclassified is { } bytes) _capture?.InvalidFrame(bytes, "Invalid DAP envelope: " + ex.Message);
+            Close(ex);
+        }
         lock (_sync) return _failure;
     }
 
@@ -223,6 +245,7 @@ public sealed class DapConnection : IAsyncDisposable
             _pending.Clear();
             _events.Writer.TryComplete(failure);
         }
+        _capture?.Closed(failure);
         _lifetime.Cancel();
         // Disposal also unblocks streams whose cancellation support is limited (e.g. process pipes).
         try { _input.Dispose(); } catch (IOException) { }

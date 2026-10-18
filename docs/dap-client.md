@@ -3,7 +3,8 @@
 `HexIDE.Dap` is the byte-stream client foundation for [#696](https://github.com/hexide-io/HexIDE/issues/696).
 It does not yet let the IDE launch or select an external debugger. The runtime debugger and F5 behavior
 are unchanged. The wire foundation is [#1160](https://github.com/hexide-io/HexIDE/issues/1160);
-process ownership is [#1162](https://github.com/hexide-io/HexIDE/issues/1162).
+process ownership is [#1162](https://github.com/hexide-io/HexIDE/issues/1162), and shared capture is
+[#1166](https://github.com/hexide-io/HexIDE/issues/1166).
 
 ## Available API
 
@@ -71,7 +72,30 @@ Tree termination is best effort through the operating system: it cannot contain 
 or survived a parent that already exited. It is not a process-group/job-object sandbox.
 
 The process API does not send initialize/launch, select a backend, or register an IDE connection row. Its
-diagnostics are available to callers; protocol-inspector capture remains a subsequent slice.
+diagnostics are available to callers and can feed the shared capture described below.
+
+## Protocol capture
+
+Create `new DapCapture(conversationLog, connectionId)` with a distinct id per session. Pass it as the optional
+`capture` argument to `DapConnection`, or set `DapProcessOptions.Capture` to capture both process diagnostics
+and wire traffic. The caller owns the log. A later IDE session host must supply the application's shared log;
+there is no temporary launch UI or registry entry in this slice.
+
+The existing inspector, queries and exports can consume the resulting records. DAP events appear as the
+shared model's Notification kind, with their event name as the method label. Requests and responses pair by
+direction and seq/request_seq; failed responses mark the exchange failed. Cancelled or abandoned local waits
+end their records, while late responses remain separately visible. Outbound rows explicitly record a write
+attempt, not proof of delivery, and failed writes carry a connection diagnostic.
+
+Retained bodies are the original UTF-8 JSON, including whitespace and extension fields. The shared log's
+opening-frame retention, arming, truncation and budgets apply. Queue overflow drops capture entries and
+increments its loss counter without blocking DAP. Stderr is captured in bounded chunks; process lifecycle
+does not record executable arguments or environment values.
+
+Raw local inspection preserves paths. Pseudonymised exports rewrite complete JSON `path` string fields,
+including plain DAP source paths, through the existing path policy. URI paths retain the existing URI rule.
+This does not anonymise arbitrary launch fields, evaluated values, expressions, source text or free-form
+output/diagnostics; review those before sharing, as with other protocol captures.
 
 ## Verification
 
@@ -80,6 +104,8 @@ DAP wire frames over pipes. It checks envelopes, UTF-8 framing, fragmentation, r
 preservation, reverse requests, bounds, late replies, EOF, disposal and cancellation during/around writes.
 `DapProcessTests` launches the independent `HexIDE.Dap.TestAdapter` fixture and checks launch parameters,
 stderr pressure, exit codes, final responses, pending requests and process-tree cleanup.
+`DapCaptureTests` checks correlation, exact bodies, retention, local outcomes, capture overflow, process
+diagnostics and path pseudonymisation through the shared exporter.
 
 ```text
 dotnet test IDE/HexIDE.Tests -- --filter-class "*DapConnectionTests"
@@ -92,7 +118,7 @@ debugging a real program, which remains an acceptance requirement for the later 
 ## Remaining work
 
 - Executable/configuration selection in the IDE.
-- DAP protocol capture feeding the existing inspector and connection-list UI.
+- Connect the capture and connection-registry UI to the future IDE session host.
 - Asynchronous active-session abstraction, separate from interpreter-only execution hooks.
 - Workspace preparation and launch sequencing through configurationDone.
 - Remote breakpoint verification, stack/scopes/variables, evaluation, commands and MCP routing.
