@@ -220,10 +220,12 @@ rm -f /tmp/hexide-linkcheck.$$
 #        server and says how. It records a connection that has been made and measured, at the
 #        request of that project's maintainer, and cannot be followed without the name. It must
 #        not describe that project's plans; see the rule above.
+#        dap-adapter-smoke records another measured interop fixture, including the tested revision,
+#        workspace format and component setup needed to reproduce the DAP session acceptance.
 #    Anything else is a mention nobody decided on, so this fails closed and asks for a
 #    decision. Adding a file here is a decision; a new mention inside a listed file still
 #    deserves a read.
-ALLOWED='^(IDE/HexIDE\.Runtime\.Tests/BattleshipChallenge\.cs|IDE/HexIDE\.Runtime/Interpreter/README\.md|LspServer/HexIDE\.VbLspServer\.Tests/README\.md|demo/battleship/README\.md|demo/spring-tide/README\.md|docs/vb6-grammar-fixes\.md|docs/lsp-parity-matrix\.md)$'
+ALLOWED='^(IDE/HexIDE\.Runtime\.Tests/BattleshipChallenge\.cs|IDE/HexIDE\.Runtime/Interpreter/README\.md|LspServer/HexIDE\.VbLspServer\.Tests/README\.md|demo/battleship/README\.md|demo/spring-tide/README\.md|docs/vb6-grammar-fixes\.md|docs/lsp-parity-matrix\.md|docs/dap-adapter-smoke\.md)$'
 while IFS= read -r f; do
   [ -n "$f" ] && note "third-party project named outside the agreed places: $f"
 done < <(git grep --untracked -lIiE 'twinbasic|rdcore|rubberduck' -- . "${EXCLUDE[@]}" | grep -vE "$ALLOWED")
