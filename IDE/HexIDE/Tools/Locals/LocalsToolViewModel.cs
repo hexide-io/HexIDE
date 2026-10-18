@@ -47,14 +47,17 @@ public partial class LocalsToolViewModel : Tool
         {
             HexIDE.Dap.DapStop? displayedStop = null;
             IReadOnlyList<Debugging.ExternalVariable>? displayedRows = null;
+            int? displayedFrameId = null;
             externalDebugger.Changed += () =>
             {
                 if (externalDebugger.Stop is not { } stop) { displayedStop = null; displayedRows = null; Clear(); return; }
-                if (displayedStop == stop && ReferenceEquals(displayedRows, externalDebugger.Variables)) return;
+                var selected = externalDebugger.SelectedFrame;
+                var frameId = selected?.GetProperty("id").GetInt32();
+                if (displayedStop == stop && displayedFrameId == frameId && ReferenceEquals(displayedRows, externalDebugger.Variables)) return;
                 displayedStop = stop;
+                displayedFrameId = frameId;
                 displayedRows = externalDebugger.Variables;
-                ContextLabel = externalDebugger.Frames.Count > 0
-                    ? externalDebugger.Frames[0].GetProperty("name").GetString() ?? ReadyContext : ReadyContext;
+                ContextLabel = selected?.GetProperty("name").GetString() ?? ReadyContext;
                 Roots = externalDebugger.Variables.Select(variable => new LocalsVariableNode(variable, stop, externalDebugger, localization)).ToArray();
             };
         }

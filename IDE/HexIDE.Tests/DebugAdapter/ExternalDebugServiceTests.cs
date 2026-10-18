@@ -100,6 +100,102 @@ public class ExternalDebugServiceTests
     }
 
     [AvaloniaFact]
+    public async Task Selecting_a_caller_updates_locals_and_source_but_preserves_execution_location()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-frames-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log);
+        var localization = Substitute.For<ILocalizationService>();
+        var interpreter = Substitute.For<IDebugController>();
+        var locals = new LocalsToolViewModel(localization, interpreter, service);
+        var stack = new CallStackToolViewModel(localization, interpreter, service);
+        var failures = new List<string>();
+        service.Failed += failures.Add;
+        var run = service.StartAsync(await Configuration(directory, "frames"));
+        try
+        {
+            await WaitFor(service, () => service.Variables.Count == 1);
+            var stop = service.Stop!;
+            var rows = stack.Frames;
+            stack.SelectedFrame.Should().BeSameAs(rows[0]);
+            rows[0].FrameId.Should().Be(0);
+            var execution = service.CurrentLocation;
+            stack.SelectedFrame = rows[1];
+            locals.Roots.Should().BeEmpty();
+            locals.ContextLabel.Should().Be("Caller");
+            await WaitFor(service, () => service.Variables.Count == 1);
+            locals.Roots.Single().Expression.Should().Be("callerValue");
+            locals.Roots.Single().Value.Should().Be("42");
+            service.CurrentLocation.Should().Be(execution);
+            service.SelectedLocation!.Value.Line.Should().Be(12);
+            stack.Frames.Should().BeSameAs(rows);
+            stack.SelectedFrame.Should().BeSameAs(rows[1]);
+            await service.SelectFrameAsync(stop, 999); // Not a frame in this stack.
+            stack.SelectedFrame.Should().BeSameAs(rows[1]);
+            await service.CommandAsync("next");
+            await WaitFor(service, () => service.Stop != stop && service.Variables.Count == 1);
+            stack.SelectedFrame.Should().BeSameAs(stack.Frames[0]);
+            locals.ContextLabel.Should().Be("Callee");
+            await service.SelectFrameAsync(stop, 7); // IDs from a previous stop are not selectable.
+            stack.SelectedFrame!.FrameId.Should().Be(0);
+            failures.Should().BeEmpty();
+        }
+        finally
+        {
+            await service.StopAsync();
+            await run.WaitAsync(Patience, Token);
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Late_caller_variables_cannot_repaint_after_reselection_or_resume(bool resume)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-frames-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log);
+        var locals = new LocalsToolViewModel(Substitute.For<ILocalizationService>(), Substitute.For<IDebugController>(), service);
+        var pending = false;
+        var failures = new List<string>();
+        service.Failed += failures.Add;
+        service.Output += output => { if (output == "caller-pending\n") pending = true; };
+        var run = service.StartAsync(await Configuration(directory, "frames-delayed"));
+        try
+        {
+            await WaitFor(service, () => service.Variables.Count == 1);
+            var caller = service.SelectFrameAsync(service.Stop!, 7);
+            locals.Roots.Should().BeEmpty();
+            await WaitFor(service, () => pending); // Peer has retained the caller request, no timing guesses.
+            if (resume)
+            {
+                await service.CommandAsync("continue");
+                await run.WaitAsync(Patience, Token);
+                await caller.WaitAsync(Patience, Token);
+                locals.Roots.Should().BeEmpty();
+                service.SelectedFrame.Should().BeNull();
+            }
+            else
+            {
+                await service.SelectFrameAsync(service.Stop!, 0).WaitAsync(Patience, Token);
+                await caller.WaitAsync(Patience, Token);
+                locals.Roots.Single().Expression.Should().Be("calleeValue");
+                service.SelectedFrame!.Value.GetProperty("id").GetInt32().Should().Be(0);
+            }
+            failures.Should().BeEmpty();
+        }
+        finally
+        {
+            await service.StopAsync();
+            await run.WaitAsync(Patience, Token);
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaFact]
     public async Task Ending_during_startup_and_startup_failure_both_release_active_state()
     {
         var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-ui-" + Guid.NewGuid());

@@ -29,16 +29,19 @@ During the session:
 
 - F5 continues a stopped program. Break requests a pause, End disconnects and cleans up the adapter, and
   Step Into/Over/Out send the corresponding remote commands. Starting an interpreter run is disabled.
-- Call Stack shows the stopped thread's frames; Locals shows the top frame's non-expensive scopes. Expanding
-  a remote aggregate fetches its children asynchronously. Resuming clears inspection; late results are rejected.
+- Call Stack initially selects the stopped thread's top frame. Select a caller to inspect its non-expensive
+  scopes in Locals and reveal its loaded source. Locals clears while the new request is pending; late results
+  from older selections are rejected. Expanding a remote aggregate fetches its children asynchronously.
+  Resuming clears inspection, and the next stop selects its top frame again.
 - A stop opens Call Stack and Locals. When the source is already part of a loaded IDE project, its code
-  window is revealed and marks the current line. Sources outside loaded projects are not opened automatically.
+  window is revealed and marks the current line. The amber execution highlight and Show Next Statement
+  continue to identify the top frame even when inspecting a caller. Sources outside loaded projects are not opened automatically.
 - Adapter output, breakpoint verification replies and failures appear in Immediate. A launch failure or End
   returns the IDE to its normal interpreter run commands. Closing the IDE also releases the adapter.
 - Language & Debug Servers displays the current or most recent DAP connection, with capabilities and shared
   protocol capture. Its previous row is replaced at the next launch; retained conversations remain in the log.
 
-This first integration uses one program thread and the top stack frame. It does not implement frame selection,
+This integration inspects one stopped program thread. It does not implement thread selection,
 remote evaluation, watches, hover values, restart, Run To Cursor, Set Next Statement or live breakpoint editing.
 The editor refuses live breakpoint changes during the external run. Change the launch file and start a new
 session to change its breakpoints. Editing source does not update the running backend.

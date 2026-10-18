@@ -91,3 +91,21 @@ Observed through live UI automation:
 - A second workspace with a continuous `Do` loop enabled Break; clicking it produced stop reason `pause`
   and displayed the loop's `Double` counter in Locals. End released that session.
 - Show Next Statement revealed the loaded source with an amber current-line highlight.
+
+### Selected-frame acceptance
+
+The same adapter revision was exercised on Windows on 2026-10-18 with a nested call:
+`Main` sets `callerValue = 42` and calls `Worker`; `Worker` sets `calleeValue = 41`
+and stops before printing it. The breakpoint is line 12, and the caller is line 6.
+
+- The initial stack contained `Worker` (frame ID 0) and `Main` (frame ID 1).
+- Selecting `Main` changed the Locals context to `Main`, displayed `callerValue`, `Long`, `42`,
+  and placed the caret at line 6. Selecting `Worker` restored `calleeValue`, `Long`, `41`.
+- Show Next Statement placed the caret at line 12 while retaining caller inspection.
+- Step Over while inspecting the caller returned from `Worker` and stopped at `Main` line 7.
+  The new stop selected its top frame (ID 0), with `callerValue = 42`.
+- Continue cleared Locals and Call Stack; Immediate contained `41` followed by `42`.
+
+The live check also exposed a source-reveal defect: moving the caret in an already active editor
+did not scroll it into view. The editor's view-model caret synchronization now scrolls to that line.
+A rebuilt IDE was rechecked: selecting the caller scrolled to line 6, and Show Next Statement revealed the amber line 12 while Locals retained the caller. End released the stopped session.

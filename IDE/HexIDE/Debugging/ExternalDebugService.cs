@@ -19,12 +19,14 @@ public sealed class ExternalDebugService(ConversationLog capture)
     private DapSession? session;
     private CancellationTokenSource? cancellation;
     private Task? stopping;
+    private long inspectionVersion;
     public bool IsActive { get; private set; }
     public bool IsBusy { get; private set; }
     public DapSessionState State { get; private set; } = DapSessionState.Ended;
     public DapStop? Stop { get; private set; }
     public int? ThreadId { get; private set; }
     public IReadOnlyList<JsonElement> Frames { get; private set; } = [];
+    public JsonElement? SelectedFrame { get; private set; }
     public IReadOnlyList<ExternalVariable> Variables { get; private set; } = [];
     public LanguageServerConnection? Connection { get; private set; }
     public event Action? Changed;
@@ -33,26 +35,32 @@ public sealed class ExternalDebugService(ConversationLog capture)
 
     public bool IsCurrent(DapStop stop) => session?.IsCurrent(stop) == true;
 
-    public (string Uri, int Line)? CurrentLocation
+    public (string Uri, int Line)? CurrentLocation => Stop is not null && Frames.Count > 0 ? Location(Frames[0]) : null;
+    public (string Uri, int Line)? SelectedLocation => SelectedFrame is { } frame ? Location(frame) : null;
+
+    private static (string Uri, int Line)? Location(JsonElement frame)
     {
-        get
+        if (!frame.TryGetProperty("source", out var source) || source.ValueKind != JsonValueKind.Object ||
+            !source.TryGetProperty("path", out var path) || path.ValueKind != JsonValueKind.String ||
+            !frame.TryGetProperty("line", out var line) || line.ValueKind != JsonValueKind.Number ||
+            !line.TryGetInt32(out var number) || number < 1)
+            return null;
+        try
         {
-            if (Stop is null || Frames.Count == 0) return null;
-            var frame = Frames[0];
-            if (!frame.TryGetProperty("source", out var source) || source.ValueKind != JsonValueKind.Object ||
-                !source.TryGetProperty("path", out var path) || path.ValueKind != JsonValueKind.String ||
-                !frame.TryGetProperty("line", out var line) || line.ValueKind != JsonValueKind.Number ||
-                !line.TryGetInt32(out var number) || number < 1)
-                return null;
-            try
-            {
-                var file = path.GetString();
-                return file is not null && System.IO.Path.IsPathFullyQualified(file)
-                    ? (new Uri(System.IO.Path.GetFullPath(file!)).AbsoluteUri, number) : null;
-            }
-            catch (ArgumentException) { return null; }
-            catch (UriFormatException) { return null; }
+            var file = path.GetString();
+            return file is not null && System.IO.Path.IsPathFullyQualified(file)
+                ? (new Uri(System.IO.Path.GetFullPath(file!)).AbsoluteUri, number) : null;
         }
+        catch (ArgumentException) { return null; }
+        catch (UriFormatException) { return null; }
+    }
+
+    private void ClearInspection()
+    {
+        ++inspectionVersion;
+        SelectedFrame = null;
+        Frames = [];
+        Variables = [];
     }
 
     public async Task StartAsync(string configurationFile)
@@ -112,8 +120,7 @@ public sealed class ExternalDebugService(ConversationLog capture)
             IsActive = IsBusy = false;
             Stop = null;
             ThreadId = null;
-            Frames = [];
-            Variables = [];
+            ClearInspection();
             if (State != DapSessionState.Faulted) State = DapSessionState.Ended;
             UpdateConnection();
             Changed?.Invoke();
@@ -139,12 +146,12 @@ public sealed class ExternalDebugService(ConversationLog capture)
             {
                 if (session != current) return;
                 State = update.Snapshot.State;
-                if (Stop != update.Snapshot.Stop) { Frames = []; Variables = []; }
+                if (Stop != update.Snapshot.Stop) ClearInspection();
                 Stop = update.Snapshot.Stop;
                 if (Stop?.ThreadId is { } thread) ThreadId = thread;
                 if (update.Event?.Event == "output" && update.Event.Body is { } body && body.TryGetProperty("output", out var output))
                     Output?.Invoke(output.GetString() ?? "");
-                if (update.Snapshot.Stop is null) { Frames = []; Variables = []; }
+                if (update.Snapshot.Stop is null) ClearInspection();
                 UpdateConnection();
                 Changed?.Invoke();
                 if (update.Event?.Event == "stopped" && Stop is { } stop) _ = InspectAsync(current, stop);
@@ -162,25 +169,46 @@ public sealed class ExternalDebugService(ConversationLog capture)
                 thread = (await current.ThreadsAsync(stop)).Body!.Value.GetProperty("threads")[0].GetProperty("id").GetInt32();
             var stack = await current.StackTraceAsync(stop, thread.Value);
             var frames = stack.Body!.Value.GetProperty("stackFrames").EnumerateArray().ToArray();
-            var variables = new List<ExternalVariable>();
-            if (frames.Length > 0)
-            {
-                var scopes = await current.ScopesAsync(stop, frames[0].GetProperty("id").GetInt32());
-                foreach (var scope in scopes.Body!.Value.GetProperty("scopes").EnumerateArray())
-                {
-                    if (scope.TryGetProperty("expensive", out var expensive) && expensive.ValueKind == JsonValueKind.True) continue;
-                    variables.AddRange(await LoadVariablesAsync(stop, scope.GetProperty("variablesReference").GetInt32()));
-                }
-            }
             if (session != current || !current.IsCurrent(stop)) return;
             ThreadId = thread;
             Frames = frames;
+            if (frames.Length > 0) await SelectFrameAsync(stop, frames[0].GetProperty("id").GetInt32());
+            else Changed?.Invoke();
+        }
+        catch (Exception exception)
+        {
+            if (session == current && current.IsCurrent(stop)) Failed?.Invoke(exception.Message);
+        }
+    }
+
+    public async Task SelectFrameAsync(DapStop stop, int frameId)
+    {
+        if (session is not { } current || !current.IsCurrent(stop) || Stop != stop) return;
+        var frame = Frames.FirstOrDefault(item => item.GetProperty("id").GetInt32() == frameId);
+        if (frame.ValueKind != JsonValueKind.Object ||
+            SelectedFrame is { } selected && selected.GetProperty("id").GetInt32() == frameId) return;
+        var version = ++inspectionVersion;
+        SelectedFrame = frame;
+        Variables = [];
+        Changed?.Invoke();
+        bool IsSelected() => session == current && current.IsCurrent(stop) && inspectionVersion == version;
+        try
+        {
+            var variables = new List<ExternalVariable>();
+            var scopes = await current.ScopesAsync(stop, frameId);
+            if (!IsSelected()) return;
+            foreach (var scope in scopes.Body!.Value.GetProperty("scopes").EnumerateArray())
+            {
+                if (scope.TryGetProperty("expensive", out var expensive) && expensive.ValueKind == JsonValueKind.True) continue;
+                variables.AddRange(await LoadVariablesAsync(stop, scope.GetProperty("variablesReference").GetInt32()));
+                if (!IsSelected()) return;
+            }
             Variables = variables;
             Changed?.Invoke();
         }
         catch (Exception exception)
         {
-            if (session == current && current.IsCurrent(stop)) Failed?.Invoke(exception.Message);
+            if (IsSelected()) Failed?.Invoke(exception.Message);
         }
     }
 

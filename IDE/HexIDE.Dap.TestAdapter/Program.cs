@@ -40,6 +40,7 @@ public static class Program
 
         using var input = Console.OpenStandardInput();
         var one = new byte[1];
+        int? heldVariables = null;
         while (true)
         {
             var header = new StringBuilder();
@@ -56,13 +57,27 @@ public static class Program
             catch (EndOfStreamException) { return 0; }
             using var request = JsonDocument.Parse(body);
             if (mode == "silent") continue;
-            if (mode == "session")
+            if (mode is "session" or "frames" or "frames-delayed")
             {
                 var command = request.RootElement.GetProperty("command").GetString();
+                if (mode == "frames-delayed" && command == "variables" &&
+                    request.RootElement.GetProperty("arguments").GetProperty("variablesReference").GetInt32() == 8)
+                {
+                    heldVariables = request.RootElement.GetProperty("seq").GetInt32();
+                    await Send(new { seq = 7, type = "event", @event = "output", body = new { output = "caller-pending\n" } });
+                    continue;
+                }
                 object reply = command switch
                 {
                     "initialize" => new { supportsConfigurationDoneRequest = true },
                     "threads" => new { threads = new[] { new { id = 1, name = "Main" } } },
+                    "stackTrace" when mode != "session" => new { stackFrames = new[]
+                    {
+                        new { id = 0, name = "Callee", line = 6, column = 1, source = new { path = Path.GetFullPath("Callee.bas") } },
+                        new { id = 7, name = "Caller", line = 12, column = 1, source = new { path = Path.GetFullPath("Caller.bas") } },
+                    } },
+                    "scopes" when mode != "session" => new { scopes = new[] { new { name = "Locals", variablesReference = request.RootElement.GetProperty("arguments").GetProperty("frameId").GetInt32() + 1, expensive = false } } },
+                    "variables" when mode != "session" => FrameVariables(request.RootElement.GetProperty("arguments").GetProperty("variablesReference").GetInt32()),
                     "stackTrace" => new { stackFrames = new[] { new { id = 0, name = "Main", line = 6, column = 1 } } },
                     "scopes" => new { scopes = new[] { new { name = "Locals", variablesReference = 1, expensive = false } } },
                     "variables" => new { variables = new[] { new { name = "answer", value = "41", type = "Long", variablesReference = 0 } } },
@@ -77,6 +92,11 @@ public static class Program
                     await Send(new { seq = 5, type = "event", @event = "output", body = new { output = "42\n" } });
                     await Send(new { seq = 6, type = "event", @event = "terminated" });
                 }
+                if (heldVariables is { } held && command is "variables" or "next" or "continue")
+                {
+                    await Send(new { seq = 8, type = "response", request_seq = held, command = "variables", success = true, body = FrameVariables(8) });
+                    heldVariables = null;
+                }
                 if (command == "disconnect") return 0;
                 continue;
             }
@@ -90,6 +110,11 @@ public static class Program
             if (mode == "reply-exit") return 0;
         }
     }
+
+    private static object FrameVariables(int reference) => new
+    {
+        variables = new[] { new { name = reference == 8 ? "callerValue" : "calleeValue", value = reference == 8 ? "42" : "41", type = "Long", variablesReference = 0 } },
+    };
 
     private static async Task Send(object value)
     {

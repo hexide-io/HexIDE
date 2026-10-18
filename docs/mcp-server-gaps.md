@@ -23,6 +23,17 @@ maxDepth: 14)`, not "`dump_visual_tree` returns only the tab chrome".
 
 ## 3. Three tool calls while the IDE is down drop the tools until `/mcp` (narrowed 2026-10-12)
 
+Additional client-side observation, 2026-10-18: in a later agent session, no `mcp__hexide__*` tools
+were present in the tool catalog even after launching the IDE and confirming its PID through `/health`.
+The call `tools.mcp__hexide__answer_next_file_dialog({path:
+"C:/Repos/GitHub/HexIDE/HexIDE/artifacts/dap-frames/artifacts/live/launch.json"})` failed locally with
+`TypeError: tools.mcp__hexide__answer_next_file_dialog is not a function`; it never reached the server.
+This is missing tool discovery, not a rejected file dialog. Reconnect the MCP integration while the IDE
+is running; automatic tool rediscovery after server recovery remains a client-side improvement.
+Restarting the client while the IDE was running restored discovery: `dump_visual_tree` and the
+file-dialog/menu calls then succeeded, allowing live verification to resume. Raw transport calls
+are not a substitute for restoring the schemas.
+
 > **What remains is the client's, and it is narrower.** With the server stateless (#763), a shutdown no longer
 > drops anything by itself. Tool calls made while the IDE is down still can:
 >
