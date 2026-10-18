@@ -1,6 +1,8 @@
 <Solution>
   <Folder Name="/IDE/">
     <Project Path="IDE/HexIDE.Core/HexIDE.Core.csproj" />
+    <Project Path="IDE/HexIDE.TwinBasic/HexIDE.TwinBasic.csproj" />
+    <Project Path="IDE/HexIDE.TwinBasic.Tests/HexIDE.TwinBasic.Tests.csproj" />
     <Project Path="IDE/HexIDE/HexIDE.csproj" />
     <Project Path="IDE/HexIDE.AIChat/HexIDE.AIChat.csproj" />
     <Project Path="IDE/HexIDE.TestAddin/HexIDE.TestAddin.csproj" />
