@@ -134,9 +134,11 @@ public sealed class BreakpointByNameTests : IDisposable
         using (var context = drawing.Open())
             margin.Render(context);
 
-        // The margin draws nothing but its dots. What a drawing context records for an ellipse is the platform's
-        // own geometry rather than an EllipseGeometry, so a dot is read by where its bounds are centred.
+        // Ignore the transparent rectangle that makes empty gutter space hit-testable. What a drawing
+        // context records for an ellipse is the platform's own geometry rather than an EllipseGeometry,
+        // so a visible filled dot is read by where its bounds are centred.
         return drawing.Children.OfType<GeometryDrawing>()
+            .Where(d => d.Brush is ISolidColorBrush { Color.A: > 0 })
             .Select(d => d.Geometry!.Bounds.Center.Y)
             .Select(y => textView.GetVisualLineFromVisualTop(y + textView.VerticalOffset)!.FirstDocumentLine.LineNumber)
             .ToList();
