@@ -126,3 +126,26 @@ Immediate editor using live UI automation:
 These lines use the adapter's REPL syntax. Printed values arrived as DAP output events; the corresponding
 successful evaluate responses had empty result text, which the IDE did not duplicate. Independent fixture
 tests also exercise nonempty result text, delayed replies, frame changes, resume and End during evaluation.
+
+### Session-only breakpoint acceptance
+
+On Windows, 2026-10-18, the same RDCore revision and nested-call sample were driven through live
+UI automation with a saved interpreter breakpoint at line 5 and launch JSON requesting line 12.
+
+- Launch hid the interpreter mark and displayed the pending hollow marker, then the verified solid
+  marker at line 12. Hover reported requested line 12, adapter line 12 and verified status.
+- F9 and a gutter click each installed a verified breakpoint at line 7. Continuing from Worker stopped
+  in Main at line 7 with stop reason `breakpoint`, proving the replacement reached the backend.
+- Clicking blank line 14 displayed an unverified cross. Hover reported the adapter message
+  "no statement begins on this line".
+- Clicking line 7 again removed it. Debug → Clear All Breakpoints removed the remaining external marks;
+  Continue completed with output `41` then `42`.
+- At idle the saved interpreter set was still exactly `[5]`. The launch JSON SHA-256 was unchanged.
+- Relaunch restored the JSON breakpoint at line 12 without the session-added line 7. End again
+  restored the interpreter set `[5]`.
+- A separate fixture session displayed the relocation diamond at requested line 10; hover reported
+  adapter line 11. Relocation and breakpoint-ID events are fixture evidence, not RDCore behavior.
+
+The live run exposed and fixed gutter hit-testing: empty margin space now paints a transparent hit area.
+The margin also has a control automation peer, allowing direct hover targeting. Tooltip text was checked
+through the generic hover tool's declared-tip result; synthetic pointers do not open declarative tooltips.

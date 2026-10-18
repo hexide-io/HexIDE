@@ -2,6 +2,8 @@
   "name": "Esperanto",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "Ekstera haltpunkto: petita linio {0}; adaptila linio {1}; konfirmita: {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "Atendante konfirmon de haltpunkto.",
     "Str.Tool.Immediate.Expired": "La taksada kunteksto ŝanĝiĝis; ĝia respondo estis forĵetita.",
     "Str.Menu.Run.StartExternal": "Komenci _eksteran sencimigan seancon…",
     "Str.Debug.External.Unsupported": "Ĉi tiu komando ne disponeblas por ekstera sencimiga seanco.",

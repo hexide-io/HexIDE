@@ -2,6 +2,8 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "Điểm dừng bên ngoài: dòng yêu cầu {0}; dòng bộ điều hợp {1}; đã xác minh: {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "Đang chờ xác minh điểm dừng.",
     "Str.Tool.Immediate.Expired": "Ngữ cảnh đánh giá đã thay đổi; phản hồi đã bị loại bỏ.",
     "Str.Menu.Run.StartExternal": "Bắt đầu phiên gỡ lỗi bên _ngoài…",
     "Str.Debug.External.Unsupported": "Lệnh này không khả dụng trong phiên gỡ lỗi bên ngoài.",

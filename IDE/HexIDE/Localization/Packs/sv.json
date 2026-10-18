@@ -2,6 +2,8 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "Extern brytpunkt: begärd rad {0}; adapterrad {1}; verifierad: {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "Väntar på verifiering av brytpunkten.",
     "Str.Tool.Immediate.Expired": "Utvärderingskontexten ändrades; svaret ignorerades.",
     "Str.Menu.Run.StartExternal": "Starta _extern felsökningssession…",
     "Str.Debug.External.Unsupported": "Det här kommandot är inte tillgängligt för en extern felsökningssession.",

@@ -2,6 +2,8 @@
   "name": "Hindi",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "बाहरी ब्रेकपॉइंट: अनुरोधित पंक्ति {0}; अडैप्टर की पंक्ति {1}; सत्यापित: {2}।\n{3}",
+    "Str.Debug.External.BreakpointPending": "ब्रेकपॉइंट के सत्यापन की प्रतीक्षा है।",
     "Str.Tool.Immediate.Expired": "मूल्यांकन का संदर्भ बदल गया; उत्तर छोड़ दिया गया।",
     "Str.Menu.Run.StartExternal": "बाहरी डीबग सत्र शुरू करें…",
     "Str.Debug.External.Unsupported": "यह कमांड बाहरी डीबग सत्र के लिए उपलब्ध नहीं है।",

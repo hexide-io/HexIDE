@@ -2,6 +2,8 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.Debug.External.Breakpoint": "نقطة توقف خارجية: السطر المطلوب {0}؛ سطر المحوّل {1}؛ تم التحقق: {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "في انتظار التحقق من نقطة التوقف.",
     "Str.Tool.Immediate.Expired": "تغيّر سياق التقييم؛ تم تجاهل الرد.",
     "Str.Menu.Run.StartExternal": "بدء جلسة تصحيح أخطاء خارجية…",
     "Str.Debug.External.Unsupported": "هذا الأمر غير متاح لجلسة تصحيح أخطاء خارجية.",

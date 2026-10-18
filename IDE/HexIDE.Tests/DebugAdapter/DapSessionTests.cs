@@ -116,6 +116,27 @@ public class DapSessionTests
     }
 
     [Fact]
+    public async Task Breakpoint_replacement_is_valid_while_running_and_stopped_and_empty_means_clear()
+    {
+        await using var peer = new Peer();
+        await using var session = new DapSession(peer.Client);
+        await Launch(peer, session);
+        var pending = session.SetBreakpointsAsync("/workspace/source.bas", [5, 9], Token);
+        var request = await peer.Receive();
+        request.GetProperty("command").GetString().Should().Be("setBreakpoints");
+        request.GetProperty("arguments").GetProperty("source").GetProperty("path").GetString().Should().Be("/workspace/source.bas");
+        request.GetProperty("arguments").GetProperty("breakpoints").GetArrayLength().Should().Be(2);
+        await peer.Reply(request, """{"breakpoints":[{"verified":true,"line":6,"id":0},{"verified":false,"message":"no code"}]}""");
+        (await pending).Body!.Value.GetProperty("breakpoints")[0].GetProperty("id").GetInt32().Should().Be(0);
+        await Stop(peer, session);
+        var clear = session.SetBreakpointsAsync("/workspace/source.bas", [], Token);
+        var clearing = await peer.Receive();
+        clearing.GetProperty("arguments").GetProperty("breakpoints").GetArrayLength().Should().Be(0);
+        await peer.Reply(clearing, """{"breakpoints":[]}""");
+        await clear;
+    }
+
+    [Fact]
     public async Task Unsupported_configuration_done_is_omitted()
     {
         await using var peer = new Peer();

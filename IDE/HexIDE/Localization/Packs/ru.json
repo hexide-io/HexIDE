@@ -2,6 +2,8 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "Внешняя точка останова: запрошенная строка {0}; строка адаптера {1}; подтверждена: {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "Ожидание подтверждения точки останова.",
     "Str.Tool.Immediate.Expired": "Контекст вычисления изменился; ответ отброшен.",
     "Str.Menu.Run.StartExternal": "Начать внешний сеанс отладки…",
     "Str.Debug.External.Unsupported": "Эта команда недоступна во внешнем сеансе отладки.",

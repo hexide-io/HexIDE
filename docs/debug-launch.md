@@ -23,12 +23,19 @@ strings; no shell expansion or variable substitution occurs. Argument contents a
 adapter-specific and passed unchanged, so use absolute workspace paths there. Environment entries override
 inherited variables; a null value removes a variable. Lines are one-based and include source file headers.
 Unknown top-level properties and invalid breakpoint lines are rejected. Configuration failures appear in
-the Immediate window. Only explicitly listed breakpoints are installed; editor gutter marks are not imported.
+the Immediate window. Only explicitly listed breakpoints are installed initially; saved interpreter gutter
+marks are not imported. External breakpoint edits are session-only and never rewrite the launch file.
 
 During the session:
 
 - F5 continues a stopped program. Break requests a pause, End disconnects and cleans up the adapter, and
   Step Into/Over/Out send the corresponding remote commands. Starting an interpreter run is disabled.
+- Once launch configuration completes, gutter clicks and F9 replace the external breakpoint set for that
+  source, while running or stopped. Clear All removes the external session's sets. Saved interpreter marks
+  reappear after the external session ends; the next launch reads its initial set from JSON again.
+  External markers stay on requested lines: a solid circle is verified, a diamond means the adapter moved
+  it, a hollow circle is pending, and a cross is unverified. Hover for requested/adapter lines and the adapter's
+  message. A rejected removal keeps the uncertain marker visible; inspect the failure in Immediate and retry.
 - Call Stack initially selects the stopped thread's top frame. Select a caller to inspect its non-expensive
   scopes in Locals and reveal its loaded source. Locals clears while the new request is pending; late results
   from older selections are rejected. Expanding a remote aggregate fetches its children asynchronously.
@@ -36,7 +43,7 @@ During the session:
 - A stop opens Call Stack and Locals. When the source is already part of a loaded IDE project, its code
   window is revealed and marks the current line. The amber execution highlight and Show Next Statement
   continue to identify the top frame even when inspecting a caller. Sources outside loaded projects are not opened automatically.
-- Adapter output, breakpoint verification replies and failures appear in Immediate. A launch failure or End
+- Adapter output and failures appear in Immediate. Breakpoint verification appears in the gutter. A launch failure or End
   returns the IDE to its normal interpreter run commands. Closing the IDE also releases the adapter.
 - While stopped, type an Immediate command and press Enter to evaluate it in the selected Call Stack frame.
   The line is sent unchanged with DAP's `repl` context: expression/statement syntax and permitted side effects
@@ -49,9 +56,9 @@ During the session:
   protocol capture. Its previous row is replaced at the next launch; retained conversations remain in the log.
 
 This integration inspects one stopped program thread. It does not implement thread selection,
-remote watches, hover values, restart, Run To Cursor, Set Next Statement or live breakpoint editing.
-The editor refuses live breakpoint changes during the external run. Change the launch file and start a new
-session to change its breakpoints. Editing source does not update the running backend.
+remote watches, hover values, restart, Run To Cursor or Set Next Statement.
+Conditions and hit counts are not yet supported. Sources without a saved file path cannot receive external
+breakpoints. Editing source does not update the running backend.
 
 The existing debugger MCP commands remain interpreter-oriented. During an external run, `get_debug_state`
 reports external state and `stop_project` stops it; other execution/inspection tools explicitly refuse remote

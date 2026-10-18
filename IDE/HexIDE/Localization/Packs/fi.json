@@ -2,6 +2,8 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "Ulkoinen keskeytyskohta: pyydetty rivi {0}; sovittimen rivi {1}; vahvistettu: {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "Odotetaan keskeytyskohdan vahvistusta.",
     "Str.Tool.Immediate.Expired": "Arvioinnin konteksti muuttui; vastaus hylättiin.",
     "Str.Menu.Run.StartExternal": "Aloita _ulkoinen virheenkorjausistunto…",
     "Str.Debug.External.Unsupported": "Tämä komento ei ole käytettävissä ulkoisessa virheenkorjausistunnossa.",

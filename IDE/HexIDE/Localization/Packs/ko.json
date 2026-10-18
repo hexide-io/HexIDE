@@ -2,6 +2,8 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "외부 중단점: 요청한 줄 {0}; 어댑터 줄 {1}; 확인됨: {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "중단점 확인을 기다리는 중입니다.",
     "Str.Tool.Immediate.Expired": "평가 컨텍스트가 변경되어 응답을 버렸습니다.",
     "Str.Menu.Run.StartExternal": "외부 디버그 세션 시작…",
     "Str.Debug.External.Unsupported": "외부 디버그 세션에서는 이 명령을 사용할 수 없습니다.",

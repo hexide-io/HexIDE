@@ -2,6 +2,8 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "Harici kesme noktası: istenen satır {0}; bağdaştırıcı satırı {1}; doğrulandı: {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "Kesme noktası doğrulaması bekleniyor.",
     "Str.Tool.Immediate.Expired": "Değerlendirme bağlamı değişti; yanıt atıldı.",
     "Str.Menu.Run.StartExternal": "_Harici Hata Ayıklama Oturumu Başlat…",
     "Str.Debug.External.Unsupported": "Bu komut harici hata ayıklama oturumunda kullanılamaz.",

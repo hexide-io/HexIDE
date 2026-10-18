@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.ComponentModel;
 using System.Text;
 using System.Threading;
@@ -592,6 +593,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     {
         if (ExternalDebugger?.IsActive == true)
         {
+            if (!ExternalDebugger.GetBreakpoints(GetDocumentUriPublic()).Any(row => row.RequestedLine == line) && RefuseMarkOn(line))
+                return false;
+            if (ExternalDebugger.ToggleBreakpoint(GetDocumentUriPublic(), line)) return true;
             statusBarService.SetTemporaryMessage(localization.GetString("Str.Debug.External.Unsupported"), TimeSpan.FromSeconds(6));
             return false;
         }
@@ -599,6 +603,16 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             return false;
         breakpointService.Toggle(Identity, line);
         return true;
+    }
+
+    public string? DescribeExternalBreakpoint(int line)
+    {
+        if (ExternalDebugger?.IsActive != true) return null;
+        var row = ExternalDebugger.GetBreakpoints(GetDocumentUriPublic()).FirstOrDefault(item => item.RequestedLine == line);
+        if (row is null) return null;
+        return string.Format(localization.GetString("Str.Debug.External.Breakpoint"), row.RequestedLine,
+            row.Line?.ToString() ?? "—", row.Pending ? "…" : row.Verified ? "✓" : "×",
+            row.Pending ? localization.GetString("Str.Debug.External.BreakpointPending") : row.Message);
     }
 
     /// <summary>

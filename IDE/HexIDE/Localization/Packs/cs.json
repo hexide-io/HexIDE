@@ -2,6 +2,8 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "Externí bod přerušení: požadovaný řádek {0}; řádek adaptéru {1}; ověřeno: {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "Čeká se na ověření bodu přerušení.",
     "Str.Tool.Immediate.Expired": "Kontext vyhodnocení se změnil; odpověď byla zahozena.",
     "Str.Menu.Run.StartExternal": "Spustit _externí ladění…",
     "Str.Debug.External.Unsupported": "Tento příkaz není dostupný pro externí ladění.",

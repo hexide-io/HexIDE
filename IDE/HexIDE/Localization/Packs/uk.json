@@ -2,6 +2,8 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Debug.External.Breakpoint": "Зовнішня точка зупинки: запитаний рядок {0}; рядок адаптера {1}; підтверджено: {2}.\n{3}",
+    "Str.Debug.External.BreakpointPending": "Очікування підтвердження точки зупинки.",
     "Str.Tool.Immediate.Expired": "Контекст обчислення змінився; відповідь відкинуто.",
     "Str.Menu.Run.StartExternal": "Почати зовнішній сеанс налагодження…",
     "Str.Debug.External.Unsupported": "Ця команда недоступна в зовнішньому сеансі налагодження.",

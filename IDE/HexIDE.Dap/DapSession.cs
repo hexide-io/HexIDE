@@ -134,6 +134,18 @@ public sealed class DapSession : IAsyncDisposable
     public Task<DapResponse> ScopesAsync(DapStop stop, int frameId, CancellationToken token = default) => Inspect(stop, "scopes", new { frameId }, token);
     public Task<DapResponse> VariablesAsync(DapStop stop, int variablesReference, CancellationToken token = default) => Inspect(stop, "variables", new { variablesReference }, token);
 
+    /// <summary>Replace one source's entire set, including an empty set to clear it, while running or stopped.</summary>
+    public Task<DapResponse> SetBreakpointsAsync(string path, IReadOnlyList<int> lines, CancellationToken token = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ArgumentNullException.ThrowIfNull(lines);
+        var copy = lines.ToArray();
+        if (copy.Any(line => line < 1)) throw new ArgumentOutOfRangeException(nameof(lines));
+        if (Snapshot.State is not (DapSessionState.Running or DapSessionState.Stopped))
+            throw new InvalidOperationException("The debug session is not active.");
+        return Request("setBreakpoints", new { source = new { path }, breakpoints = copy.Select(line => new { line }).ToArray() }, token);
+    }
+
     /// <summary>Execute adapter-specific Immediate syntax in a stopped frame. REPL evaluation may have side effects.</summary>
     public Task<DapResponse> EvaluateAsync(DapStop stop, int frameId, string expression, CancellationToken token = default)
     {

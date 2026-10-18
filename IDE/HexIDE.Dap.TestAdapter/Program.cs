@@ -43,6 +43,8 @@ public static class Program
         int? heldVariables = null;
         int? heldEvaluation = null;
         string callerValue = "42";
+        JsonElement? heldBreakpoints = null;
+        bool heldBreakpointsOnce = false;
         while (true)
         {
             var header = new StringBuilder();
@@ -59,9 +61,23 @@ public static class Program
             catch (EndOfStreamException) { return 0; }
             using var request = JsonDocument.Parse(body);
             if (mode == "silent") continue;
-            if (mode is "session" or "frames" or "frames-delayed" or "evaluate")
+            if (mode is "session" or "frames" or "frames-delayed" or "evaluate" or "breakpoints" or "breakpoints-delayed" or "breakpoints-refuse-clear")
             {
                 var command = request.RootElement.GetProperty("command").GetString();
+                if (command == "setBreakpoints")
+                {
+                    var lines = request.RootElement.GetProperty("arguments").GetProperty("breakpoints").EnumerateArray()
+                        .Select(item => item.GetProperty("line").GetInt32()).ToArray();
+                    if (mode == "breakpoints-delayed" && lines.Contains(30) && !heldBreakpointsOnce)
+                    {
+                        heldBreakpointsOnce = true;
+                        heldBreakpoints = request.RootElement.Clone();
+                        await Send(new { seq = 20, type = "event", @event = "output", body = new { output = "breakpoints-pending\n" } });
+                        continue;
+                    }
+                    await ReplyBreakpoints(request.RootElement, mode == "breakpoints-refuse-clear" && lines.Length == 0);
+                    continue;
+                }
                 if (command == "evaluate")
                 {
                     var arguments = request.RootElement.GetProperty("arguments");
@@ -106,6 +122,16 @@ public static class Program
                 if (command == "initialize") await Send(new { seq = 3, type = "event", @event = "initialized" });
                 if (command is "configurationDone" or "next")
                     await Send(new { seq = 4, type = "event", @event = "stopped", body = new { threadId = 1, reason = "breakpoint" } });
+                if (command == "next" && mode.StartsWith("breakpoints", StringComparison.Ordinal))
+                {
+                    await Send(new { seq = 23, type = "event", @event = "breakpoint", body = new
+                    { reason = "changed", breakpoint = new { id = 120, verified = true, line = 21, message = "now bound" } } });
+                }
+                if (heldBreakpoints is { } delayed && command is "next" or "disconnect")
+                {
+                    await ReplyBreakpoints(delayed);
+                    heldBreakpoints = null;
+                }
                 if (command == "continue")
                 {
                     await Send(new { seq = 5, type = "event", @event = "output", body = new { output = "42\n" } });
@@ -140,6 +166,17 @@ public static class Program
     {
         variables = new[] { new { name = reference == 8 ? "callerValue" : "calleeValue", value = reference == 8 ? callerValue : "41", type = "Long", variablesReference = 0 } },
     };
+
+    private static Task ReplyBreakpoints(JsonElement request, bool refuse = false) => Send(new
+    {
+        seq = 22, type = "response", request_seq = request.GetProperty("seq").GetInt32(), command = "setBreakpoints",
+        success = !refuse, message = "cannot clear fixture breakpoints",
+        body = new { breakpoints = request.GetProperty("arguments").GetProperty("breakpoints").EnumerateArray().Select(item =>
+        {
+            var line = item.GetProperty("line").GetInt32();
+            return new { id = line + 100, line = line == 10 ? 11 : line, verified = line != 20, message = line == 20 ? "no executable statement" : "" };
+        }).ToArray() }
+    });
 
     private static async Task Send(object value)
     {

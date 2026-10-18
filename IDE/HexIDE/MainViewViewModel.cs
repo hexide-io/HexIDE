@@ -1205,7 +1205,11 @@ public partial class MainViewViewModel : ObservableObject
         }
     }
 
-    public void ClearAllBreakpoints() { if (!RefuseExternalCommand()) breakpointService.ClearAll(); }
+    public void ClearAllBreakpoints()
+    {
+        if (ExternalDebugger?.IsActive == true) ExternalDebugger.ClearAllBreakpoints();
+        else breakpointService.ClearAll();
+    }
 
     private bool RefuseExternalCommand()
     {
