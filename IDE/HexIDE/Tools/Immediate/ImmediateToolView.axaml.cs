@@ -6,6 +6,7 @@ namespace HexIDE.Tools;
 
 public partial class ImmediateToolView : UserControl
 {
+    private bool evaluating;
     public ImmediateToolView()
     {
         InitializeComponent();
@@ -30,16 +31,23 @@ public partial class ImmediateToolView : UserControl
             return;   // blank line — a normal newline
 
         e.Handled = true;   // we take over Enter on a non-blank line
+        if (evaluating) return;
+        evaluating = true;
 
-        string output = vm.IsPaused
-            ? (await vm.EvaluateAsync(lineText) ?? vm.BreakModeOnlyNote)
-            : vm.BreakModeOnlyNote;
-
-        // Print the result on the next line and leave the caret on a fresh line below it (VB6 Immediate behaviour).
-        int at = caretLine.EndOffset;
-        string block = "\n" + output + "\n";
-        doc.Insert(at, block);
-        Editor.CaretOffset = at + block.Length;
-        Editor.TextArea.Caret.BringCaretToView();
+        try
+        {
+            // Output events and edits may arrive during the request. Do not retain a DocumentLine
+            // across await: it may have been deleted, and its old offset can split newer output.
+            doc.Insert(doc.TextLength, "\n");
+            Editor.CaretOffset = doc.TextLength;
+            string output = vm.IsPaused
+                ? (await vm.EvaluateAsync(lineText) ?? vm.BreakModeOnlyNote)
+                : vm.BreakModeOnlyNote;
+            if (output.Length > 0)
+                doc.Insert(doc.TextLength, (doc.TextLength > 0 && doc.GetCharAt(doc.TextLength - 1) != '\n' ? "\n" : "") + output + "\n");
+            Editor.CaretOffset = doc.TextLength;
+            Editor.TextArea.Caret.BringCaretToView();
+        }
+        finally { evaluating = false; }
     }
 }

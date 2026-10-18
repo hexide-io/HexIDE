@@ -134,6 +134,13 @@ public sealed class DapSession : IAsyncDisposable
     public Task<DapResponse> ScopesAsync(DapStop stop, int frameId, CancellationToken token = default) => Inspect(stop, "scopes", new { frameId }, token);
     public Task<DapResponse> VariablesAsync(DapStop stop, int variablesReference, CancellationToken token = default) => Inspect(stop, "variables", new { variablesReference }, token);
 
+    /// <summary>Execute adapter-specific Immediate syntax in a stopped frame. REPL evaluation may have side effects.</summary>
+    public Task<DapResponse> EvaluateAsync(DapStop stop, int frameId, string expression, CancellationToken token = default)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        return Inspect(stop, "evaluate", new { expression, frameId, context = "repl" }, token);
+    }
+
     private async Task<DapResponse> Inspect(DapStop stop, string command, object arguments, CancellationToken token)
     {
         CheckStop(stop);

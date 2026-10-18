@@ -196,6 +196,103 @@ public class ExternalDebugServiceTests
     }
 
     [AvaloniaFact]
+    public async Task Immediate_uses_selected_external_frame_refreshes_locals_and_recovers_after_refusal()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-evaluate-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log);
+        var interpreter = Substitute.For<IDebugController>();
+        var immediate = new ImmediateToolViewModel(Substitute.For<ILocalizationService>(), interpreter, service);
+        var run = service.StartAsync(await Configuration(directory, "evaluate"));
+        try
+        {
+            await WaitFor(service, () => service.Variables.Count == 1);
+            immediate.IsPaused.Should().BeTrue();
+            (await immediate.EvaluateAsync("? calleeValue")).Should().Be("frame:0:? calleeValue");
+            await service.SelectFrameAsync(service.Stop!, 7);
+            var stop = service.Stop;
+            (await immediate.EvaluateAsync("callerValue = 99")).Should().Be("frame:7:callerValue = 99");
+            service.Variables.Single().Value.Should().Be("99");
+            service.SelectedFrame!.Value.GetProperty("id").GetInt32().Should().Be(7);
+            service.Stop.Should().Be(stop);
+            (await immediate.EvaluateAsync("reject")).Should().Contain("fixture refusal");
+            service.CanEvaluate.Should().BeTrue();
+            (await immediate.EvaluateAsync("? callerValue")).Should().Be("frame:7:? callerValue");
+            await interpreter.DidNotReceiveWithAnyArgs().EvaluateAsync(default!);
+        }
+        finally
+        {
+            await service.StopAsync();
+            await run.WaitAsync(Patience, Token);
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("select")]
+    [InlineData("next")]
+    [InlineData("continue")]
+    [InlineData("end")]
+    public async Task Late_evaluation_is_discarded_and_overlapping_submission_is_refused(string action)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-evaluate-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log);
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString("Str.Tool.Immediate.Expired").Returns("expired-context");
+        localization.GetString("Str.Tool.Immediate.BreakModeOnly").Returns("not-ready");
+        var interpreter = Substitute.For<IDebugController>();
+        var immediate = new ImmediateToolViewModel(localization, interpreter, service);
+        var pending = false;
+        service.Output += output => { if (output == "evaluation-pending\n") pending = true; };
+        var run = service.StartAsync(await Configuration(directory, "evaluate"));
+        try
+        {
+            await WaitFor(service, () => service.Variables.Count == 1);
+            var evaluation = immediate.EvaluateAsync("wait");
+            await WaitFor(service, () => pending);
+            service.IsEvaluating.Should().BeTrue();
+            (await immediate.EvaluateAsync("second")).Should().Be("not-ready");
+            if (action == "select") await service.SelectFrameAsync(service.Stop!, 7);
+            else if (action == "end") await service.StopAsync();
+            else await service.CommandAsync(action);
+            (await evaluation.WaitAsync(Patience, Token)).Should().Be("expired-context");
+            if (action is "continue" or "end")
+            {
+                await run.WaitAsync(Patience, Token);
+                service.Variables.Should().BeEmpty();
+            }
+            else
+            {
+                await WaitFor(service, () => service.Variables.Count == 1 && service.CanEvaluate);
+                service.Variables.Single().Name.Should().Be(action == "select" ? "callerValue" : "calleeValue");
+            }
+            await interpreter.DidNotReceiveWithAnyArgs().EvaluateAsync(default!);
+        }
+        finally
+        {
+            await service.StopAsync();
+            await run.WaitAsync(Patience, Token);
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Immediate_without_external_run_keeps_interpreter_evaluation()
+    {
+        await using var log = new ConversationLog();
+        var interpreter = Substitute.For<IDebugController>();
+        interpreter.State.Returns(DebugState.Paused);
+        interpreter.EvaluateAsync("? answer").Returns(Task.FromResult<string?>("42"));
+        var immediate = new ImmediateToolViewModel(Substitute.For<ILocalizationService>(), interpreter, new(log));
+        immediate.IsPaused.Should().BeTrue();
+        (await immediate.EvaluateAsync("? answer")).Should().Be("42");
+        await interpreter.Received(1).EvaluateAsync("? answer");
+    }
+
+    [AvaloniaFact]
     public async Task Ending_during_startup_and_startup_failure_both_release_active_state()
     {
         var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-ui-" + Guid.NewGuid());

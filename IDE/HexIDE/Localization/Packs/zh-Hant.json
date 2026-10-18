@@ -2,6 +2,7 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Immediate.Expired": "求值內容已變更；已捨棄其回應。",
     "Str.Menu.Run.StartExternal": "啟動外部偵錯工作階段…",
     "Str.Debug.External.Unsupported": "此命令不適用於外部偵錯工作階段。",
     "Str.Dialog.SourceEncoding.NothingWritten": "未寫入任何檔案。{0} 採用字碼頁 {1}，而此字碼頁無法表示「{2}」({3})。該字元位於這一行：\n\n{4}\n\nHexIDE 會讓每個檔案沿用讀取或建立時所用的字碼頁，而不會加以轉換。請將該文字改為此字碼頁能表示的字元；若該行指的是檔案或資料夾名稱，則請改用此字碼頁能表示的名稱。然後再試一次。您的變更仍在 IDE 中保持開啟。",

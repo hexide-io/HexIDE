@@ -38,11 +38,18 @@ During the session:
   continue to identify the top frame even when inspecting a caller. Sources outside loaded projects are not opened automatically.
 - Adapter output, breakpoint verification replies and failures appear in Immediate. A launch failure or End
   returns the IDE to its normal interpreter run commands. Closing the IDE also releases the adapter.
+- While stopped, type an Immediate command and press Enter to evaluate it in the selected Call Stack frame.
+  The line is sent unchanged with DAP's `repl` context: expression/statement syntax and permitted side effects
+  belong to the adapter. For example, an adapter may accept `? callerValue` and `callerValue = 99`.
+  Results and adapter errors appear in Immediate; output events are appended independently. Locals refreshes
+  after completion, including a refused command that may have partially changed state. Only one Immediate
+  request is pending at a time. Switching frames or resuming replaces its eventual reply with an expired-context
+  message; this does not undo execution. Requests are bounded and are never retried automatically.
 - Language & Debug Servers displays the current or most recent DAP connection, with capabilities and shared
   protocol capture. Its previous row is replaced at the next launch; retained conversations remain in the log.
 
 This integration inspects one stopped program thread. It does not implement thread selection,
-remote evaluation, watches, hover values, restart, Run To Cursor, Set Next Statement or live breakpoint editing.
+remote watches, hover values, restart, Run To Cursor, Set Next Statement or live breakpoint editing.
 The editor refuses live breakpoint changes during the external run. Change the launch file and start a new
 session to change its breakpoints. Editing source does not update the running backend.
 

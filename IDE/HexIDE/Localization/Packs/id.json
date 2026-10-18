@@ -2,6 +2,7 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Immediate.Expired": "Konteks evaluasi berubah; balasannya diabaikan.",
     "Str.Menu.Run.StartExternal": "Mulai Sesi Debug _Eksternal…",
     "Str.Debug.External.Unsupported": "Perintah ini tidak tersedia untuk sesi debug eksternal.",
     "Str.Dialog.SourceEncoding.NothingWritten": "Tidak ada berkas yang ditulis. {0} tetap menggunakan halaman kode {1}, yang tidak mendukung '{2}' ({3}). Karakter itu ada di baris ini:\n\n{4}\n\nHexIDE mempertahankan setiap berkas dalam halaman kode yang dipakai saat berkas itu dibaca atau dibuat, alih-alih mengonversinya. Ganti teks tersebut dengan karakter yang didukung halaman kode itu, atau, jika baris itu menyebut nama berkas atau folder, pilih nama yang didukung halaman kode tersebut. Lalu coba lagi. Perubahan Anda masih terbuka di IDE.",

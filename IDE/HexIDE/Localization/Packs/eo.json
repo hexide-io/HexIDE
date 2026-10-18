@@ -2,6 +2,7 @@
   "name": "Esperanto",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Immediate.Expired": "La taksada kunteksto ŝanĝiĝis; ĝia respondo estis forĵetita.",
     "Str.Menu.Run.StartExternal": "Komenci _eksteran sencimigan seancon…",
     "Str.Debug.External.Unsupported": "Ĉi tiu komando ne disponeblas por ekstera sencimiga seanco.",
     "Str.Dialog.SourceEncoding.NothingWritten": "Nenio estis skribita. {0} estas tenata en kodpaĝo {1}, kiu ne povas enteni '{2}' ({3}). La signo troviĝas en ĉi tiu linio:\n\n{4}\n\nHexIDE tenas ĉiun dosieron en la kodpaĝo, en kiu ĝi estis legita aŭ kreita, anstataŭ konverti ĝin. Ŝanĝu tiun tekston al signoj, kiujn la kodpaĝo povas enteni, aŭ, se la linio nomas dosieron aŭ dosierujon, elektu nomon, kiun la kodpaĝo povas enteni. Poste provu denove. Viaj ŝanĝoj ankoraŭ estas malfermitaj en la IDE.",

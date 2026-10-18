@@ -2,6 +2,7 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Immediate.Expired": "Ngữ cảnh đánh giá đã thay đổi; phản hồi đã bị loại bỏ.",
     "Str.Menu.Run.StartExternal": "Bắt đầu phiên gỡ lỗi bên _ngoài…",
     "Str.Debug.External.Unsupported": "Lệnh này không khả dụng trong phiên gỡ lỗi bên ngoài.",
     "Str.Dialog.SourceEncoding.NothingWritten": "Không có tệp nào được ghi. {0} được giữ ở trang mã {1}, vốn không chứa được '{2}' ({3}). Ký tự đó nằm trong dòng này:\n\n{4}\n\nHexIDE giữ mỗi tệp ở đúng trang mã đã dùng khi đọc hoặc tạo tệp đó, thay vì chuyển đổi nó. Hãy đổi đoạn văn bản đó thành các ký tự mà trang mã này chứa được, hoặc, nếu dòng đó nêu tên một tệp hay thư mục, hãy chọn một tên mà trang mã chứa được. Sau đó hãy thử lại. Các thay đổi của bạn vẫn đang mở trong IDE.",

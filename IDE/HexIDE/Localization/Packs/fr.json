@@ -2,6 +2,7 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Immediate.Expired": "Le contexte d’évaluation a changé ; la réponse a été ignorée.",
     "Str.Menu.Run.StartExternal": "Démarrer une session de débogage _externe…",
     "Str.Debug.External.Unsupported": "Cette commande n’est pas disponible pour une session de débogage externe.",
     "Str.Dialog.SourceEncoding.NothingWritten": "Aucun fichier n'a été écrit. {0} est conservé dans la page de codes {1}, qui ne peut pas contenir « {2} » ({3}). Ce caractère figure dans la ligne suivante :\n\n{4}\n\nHexIDE conserve chaque fichier dans la page de codes dans laquelle il a été lu ou créé, plutôt que de le convertir. Remplacez ce texte par des caractères que cette page de codes prend en charge ou, si la ligne désigne un fichier ou un dossier, choisissez un nom que cette page de codes peut contenir. Réessayez ensuite. Tout reste ouvert dans l'EDI avec vos modifications.",

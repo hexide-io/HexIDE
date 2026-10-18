@@ -2,6 +2,7 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Immediate.Expired": "Il contesto di valutazione è cambiato; la risposta è stata scartata.",
     "Str.Menu.Run.StartExternal": "Avvia sessione di debug _esterna…",
     "Str.Debug.External.Unsupported": "Questo comando non è disponibile per una sessione di debug esterna.",
     "Str.Dialog.SourceEncoding.NothingWritten": "Non è stato scritto nulla. {0} è conservato nella tabella codici {1}, che non può rappresentare '{2}' ({3}). Il carattere si trova in questa riga:\n\n{4}\n\nHexIDE conserva ogni file nella tabella codici con cui è stato letto o creato, anziché convertirlo. Sostituisci quel testo con caratteri presenti nella tabella codici oppure, se la riga contiene il nome di un file o di una cartella, scegli un nome che la tabella codici possa rappresentare. Quindi riprova. Le tue modifiche sono ancora aperte nell'IDE.",

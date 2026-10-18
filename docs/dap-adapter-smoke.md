@@ -109,3 +109,20 @@ and stops before printing it. The breakpoint is line 12, and the caller is line 
 The live check also exposed a source-reveal defect: moving the caret in an already active editor
 did not scroll it into view. The editor's view-model caret synchronization now scrolls to that line.
 A rebuilt IDE was rechecked: selecting the caller scrolled to line 6, and Show Next Statement revealed the amber line 12 while Locals retained the caller. End released the stopped session.
+
+### Immediate acceptance
+
+On Windows, 2026-10-18, the same adapter revision and nested-call sample were driven through the
+Immediate editor using live UI automation:
+
+- With `Worker` selected, `? calleeValue` printed `41`.
+- Selecting `Main` and entering `? callerValue` printed `42`.
+- `callerValue = 99` completed without extra result text and refreshed Locals to `99`.
+- `? missingValue` displayed the adapter's refusal, "the interpreter reached something it cannot run yet".
+  A subsequent `? callerValue` printed `99`, confirming error recovery.
+- The execution highlight remained at `Worker` line 12 while inspecting and evaluating the caller.
+- Continue printed `41` followed by `99`, confirming the assignment changed the running program.
+
+These lines use the adapter's REPL syntax. Printed values arrived as DAP output events; the corresponding
+successful evaluate responses had empty result text, which the IDE did not duplicate. Independent fixture
+tests also exercise nonempty result text, delayed replies, frame changes, resume and End during evaluation.

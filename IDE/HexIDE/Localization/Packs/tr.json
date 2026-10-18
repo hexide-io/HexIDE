@@ -2,6 +2,7 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Immediate.Expired": "Değerlendirme bağlamı değişti; yanıt atıldı.",
     "Str.Menu.Run.StartExternal": "_Harici Hata Ayıklama Oturumu Başlat…",
     "Str.Debug.External.Unsupported": "Bu komut harici hata ayıklama oturumunda kullanılamaz.",
     "Str.Dialog.SourceEncoding.NothingWritten": "Hiçbir şey yazılmadı. {0}, {1} kod sayfasında tutuluyor ve '{2}' ({3}) karakteri bu kod sayfasında saklanamaz. Karakter şu satırda geçiyor:\n\n{4}\n\nHexIDE her dosyayı dönüştürmek yerine, okunduğu veya oluşturulduğu kod sayfasında tutar. O metni bu kod sayfasında saklanabilen karakterlerle değiştirin ya da satırda bir dosya veya klasör adı geçiyorsa bu kod sayfasında saklanabilen bir ad seçin. Ardından yeniden deneyin. Değişiklikleriniz IDE'de hâlâ açık.",
