@@ -149,3 +149,23 @@ UI automation with a saved interpreter breakpoint at line 5 and launch JSON requ
 The live run exposed and fixed gutter hit-testing: empty margin space now paints a transparent hit area.
 The margin also has a control automation peer, allowing direct hover targeting. Tooltip text was checked
 through the generic hover tool's declared-tip result; synthetic pointers do not open declarative tooltips.
+
+### External Watches acceptance
+
+On Windows, 2026-10-18, the same RDCore revision and nested-call sample were driven through live UI automation:
+
+- An interpreter-only watch was created before launch. External launch hid it and used an independent list.
+- Debug → Add Watch exposed only the expression watch type; both break-condition radio buttons were disabled.
+- `calleeValue` evaluated to `41`, type `Long`, context `Worker` at the line-12 stop.
+- Editing the watch to `callerValue` while still in Worker displayed the adapter refusal
+  "'callerValue' is not defined". Selecting Main refreshed the same expression to `42`, context `Main`.
+- Entering `callerValue = 99` in Immediate refreshed the watch to `99`.
+- Continue restored the interpreter-only watch unchanged. Relaunch restored the external `callerValue`
+  expression; it again displayed the refusal in Worker, rather than retaining the old frame's value.
+- A separate fixture session supplied an expandable watch result. Toggling its row chevron set IsExpanded
+  and fetched a child named `callerValue` with value `42` and type `Long`. Aggregate expansion is fixture
+  evidence; the real-adapter sample above contains scalar locals.
+
+Screenshots checked the visible expression/value/type/context layout; structured inspection checked values,
+radio-button enabled states and fetched children. A clipped Call Stack selection automation issue found
+in this run is tracked in #1182; keyboard selection reached the intended frame.

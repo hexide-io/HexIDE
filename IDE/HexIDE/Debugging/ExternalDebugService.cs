@@ -39,6 +39,22 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
     public event Action<string>? Failed;
 
     public bool IsCurrent(DapStop stop) => session?.IsCurrent(stop) == true;
+    public long WatchVersion => inspectionVersion;
+
+    public async Task<ExternalVariable> EvaluateWatchAsync(DapStop stop, int frameId, string expression)
+    {
+        var current = session ?? throw new InvalidOperationException("No external debug session.");
+        var version = selectionVersion;
+        bool IsSelected() => session == current && current.IsCurrent(stop) && selectionVersion == version &&
+            SelectedFrame?.GetProperty("id").GetInt32() == frameId;
+        if (!IsSelected() || !CanEvaluate) throw new InvalidOperationException("No stopped external frame is available for evaluation.");
+        var reply = await current.EvaluateWatchAsync(stop, frameId, expression);
+        if (!IsSelected()) throw new InvalidOperationException("This watch belongs to an expired frame.");
+        var body = reply.Body!.Value;
+        return new(expression, body.GetProperty("result").GetString() ?? "",
+            body.TryGetProperty("type", out var type) ? type.GetString() ?? "" : "",
+            body.GetProperty("variablesReference").GetInt32());
+    }
 
     public (string Uri, int Line)? CurrentLocation => Stop is not null && Frames.Count > 0 ? Location(Frames[0]) : null;
     public (string Uri, int Line)? SelectedLocation => SelectedFrame is { } frame ? Location(frame) : null;

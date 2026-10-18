@@ -83,6 +83,7 @@ public static class Program
                     var arguments = request.RootElement.GetProperty("arguments");
                     var expression = arguments.GetProperty("expression").GetString();
                     var frame = arguments.GetProperty("frameId").GetInt32();
+                    var context = arguments.GetProperty("context").GetString();
                     if (expression == "wait")
                     {
                         heldEvaluation = request.RootElement.GetProperty("seq").GetInt32();
@@ -91,8 +92,8 @@ public static class Program
                     }
                     if (expression == "callerValue = 99" && frame == 7) callerValue = "99";
                     await Send(new { seq = 11, type = "response", request_seq = request.RootElement.GetProperty("seq").GetInt32(),
-                        command, success = expression != "reject" && arguments.GetProperty("context").GetString() == "repl",
-                        message = "fixture refusal", body = new { result = $"frame:{frame}:{expression}", variablesReference = 0 } });
+                        command, success = expression != "reject" && context is "repl" or "watch",
+                        message = "fixture refusal", body = new { result = $"frame:{frame}:{expression}", type = "Long", variablesReference = expression == "aggregate" ? 8 : 0 } });
                     continue;
                 }
                 if (mode == "frames-delayed" && command == "variables" &&

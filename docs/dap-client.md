@@ -137,6 +137,9 @@ Frame zero is valid. The raw result preserves type, variable reference and exten
 validated before and after the request; callers must also validate their selected-frame identity before
 presenting the result. REPL evaluation has no optional capability flag and can have side effects. A failed
 or timed-out request is never retried. The IDE displays result text/errors and refreshes selected-frame locals.
+`EvaluateWatchAsync(stop, frameId, expression)` uses `context: watch` and preserves result text, type and
+variable references. The Watches window owns a separate external list for the IDE session and discards
+replies superseded by frame/stop changes or edits. Watch requests do not refresh Locals recursively.
 `SetBreakpointsAsync(path, lines)` replaces one source's complete set while running or stopped; an empty
 array clears it. This operation is session-scoped rather than stop-scoped. The IDE serializes/coalesces
 replacements per source, separates requested and resolved lines, and applies matching breakpoint events.
@@ -168,7 +171,7 @@ components. It is not downloaded or run by ordinary CI; the smoke executable is 
 - Rich launch settings UI and workspace preparation, including any VB6 project conversion.
 - Multi-thread inspection.
 - Command-specific MCP routing and conditional/hit-count breakpoints.
-- Watches/hover evaluation, dynamic capabilities and capability-dependent UI.
+- Hover evaluation, external break-condition watches, dynamic capabilities and capability-dependent UI.
 - Automated acquisition and cross-platform real-adapter acceptance in CI.
 - Add-in registration through [#891](https://github.com/hexide-io/HexIDE/issues/891).
 

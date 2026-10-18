@@ -33,7 +33,16 @@ public partial class DISetup
             .Bind().As(Singleton).To<FormLayoutToolViewModel>()
             .Bind().As(Singleton).To<ImmediateToolViewModel>()
             .Bind().As(Singleton).To<LocalsToolViewModel>()
-            .Bind().As(Singleton).To<WatchesToolViewModel>()
+            .Bind<WatchesToolViewModel>().As(Singleton).To(ctx =>
+            {
+                // Make the optional debugger dependency explicit instead of expanding constructor alternatives.
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<HexIDE.Debugging.WatchService>(out var watches);
+                ctx.Inject<HexIDE.Runtime.Debugging.IDebugController>(out var debugger);
+                ctx.Inject<IWindowManager>(out var windows);
+                ctx.Inject<HexIDE.Debugging.ExternalDebugService>(out var external);
+                return new WatchesToolViewModel(localization, watches, debugger, windows, external);
+            })
             .Bind().As(Singleton).To<CallStackToolViewModel>()
             .Bind().As(Singleton).To<ColorPaletteToolViewModel>()
             .Bind().As(Singleton).To<ObjectBrowserToolViewModel>()
