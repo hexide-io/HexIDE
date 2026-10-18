@@ -10,6 +10,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **DAP adapter process ownership** (#1162). The client library launches explicit adapter commands, retains
+  bounded stderr diagnostics and exit status, and cleans up unresponsive processes. Backend selection,
+  protocol-inspector capture and external debugging through the IDE remain subsequent work.
+
 - **DAP wire client foundation** (#1160). A stream-based client library supports framed requests, ordered
   events, adapter errors and bounded connection teardown. External debugger launch and IDE integration remain
   subsequent work; this does not yet change F5 or expose an external debugger in the UI.
