@@ -10,6 +10,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **DAP wire client foundation** (#1160). A stream-based client library supports framed requests, ordered
+  events, adapter errors and bounded connection teardown. External debugger launch and IDE integration remain
+  subsequent work; this does not yet change F5 or expose an external debugger in the UI.
+
 - **Text clipboard operations** (#1156). `Clipboard.Clear`, `SetText`, `GetText` and `GetFormat(vbCFText)` now
   use the host clipboard, enabling Notepad's Edit menu, Cut, Copy and Paste. Defaults, ANSI conversion, NUL
   truncation and argument errors follow measured VB6 behavior. Non-text operations remain explicitly unsupported;
