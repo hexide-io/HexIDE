@@ -4,7 +4,8 @@
 It does not yet let the IDE launch or select an external debugger. The runtime debugger and F5 behavior
 are unchanged. The wire foundation is [#1160](https://github.com/hexide-io/HexIDE/issues/1160);
 process ownership is [#1162](https://github.com/hexide-io/HexIDE/issues/1162), and shared capture is
-[#1166](https://github.com/hexide-io/HexIDE/issues/1166).
+[#1166](https://github.com/hexide-io/HexIDE/issues/1166). Asynchronous sessions and real-process acceptance
+are [#1168](https://github.com/hexide-io/HexIDE/issues/1168).
 
 ## Available API
 
@@ -97,6 +98,41 @@ including plain DAP source paths, through the existing path policy. URI paths re
 This does not anonymise arbitrary launch fields, evaluated values, expressions, source text or free-form
 output/diagnostics; review those before sharing, as with other protocol captures.
 
+## Asynchronous sessions
+
+`DapSession.Start(processOptions)` owns the adapter process; `new DapSession(connection)` owns an existing
+connection. Do not consume that connection's events or send commands independently once transferred.
+The session has a single launch and cannot be restarted. Dispose it and create a new one for another run.
+
+`LaunchAsync(adapterId, arguments, breakpoints, token)` sends initialize with one-based coordinates and
+native paths, starts launch, waits for initialized, replaces each supplied source's breakpoints, selects
+advertised default exception filters, and sends configurationDone only when supported. It awaits the launch
+response **after** configuration, since adapters may defer that response. Initialized may arrive before the
+initialize response. All startup work shares a 60-second deadline (configurable for a supplied connection),
+in addition to the wire request limits. Failed/cancelled startup releases the owned connection/process.
+The returned breakpoint responses retain verified flags, relocated lines and adapter messages.
+
+Consume the bounded `Updates` channel promptly from one background reader. Each update carries a snapshot
+and, where applicable, the original event, including output and extension fields. Overflow ends the connection
+and exposes a fault through `Snapshot`; it never silently drops live debugger state. `Completion` means the
+event reader and owned cleanup have finished. `ProcessCompletion`, available for process-backed sessions,
+retains exit code, forced termination and stderr/cleanup diagnostics. A program's terminated event sets
+Ended but does not imply the adapter process exited: call `DisconnectAsync` to send disconnect with
+terminateDebuggee and then dispose. Plain disposal is the bounded fallback, not a protocol disconnect.
+
+Stopped snapshots carry a session-specific `DapStop`. Pass it to Threads/StackTrace/Scopes/VariablesAsync.
+The raw response retains thread/frame IDs (including frame zero), source paths/references, variable
+references and unknown fields. Reads reject a stop that expired before or during the request. Call
+`IsCurrent(stop)` again **when applying a result on the UI thread**: a stop can expire after a method returns.
+The library never dispatches UI work. This first session models one globally stopped program; per-thread
+running state and partial-thread resumes are not implemented.
+
+`ResumeAsync` accepts continue, next, stepIn or stepOut. It invalidates inspection before sending and never
+overwrites a later stopped event on receipt of its response. A definitive refusal restores a fresh stop;
+timeout/cancellation is uncertain and ends the session rather than claiming it is still paused. `PauseAsync`
+requests a break while running; only a stopped event confirms it. Capabilities retain the initialize response.
+Dynamic capability changes, evaluation and live breakpoint replacement remain future session operations.
+
 ## Verification
 
 `HexIDE.Tests/DebugAdapter/DapConnectionTests.cs` provides an independent peer that reads and writes literal
@@ -106,23 +142,26 @@ preservation, reverse requests, bounds, late replies, EOF, disposal and cancella
 stderr pressure, exit codes, final responses, pending requests and process-tree cleanup.
 `DapCaptureTests` checks correlation, exact bodies, retention, local outcomes, capture overflow, process
 diagnostics and path pseudonymisation through the shared exporter.
+`DapSessionTests` checks handshake ordering, capability gating, breakpoint replies, stale inspections,
+fast stops, refused/cancelled resumes, startup deadlines, terminal state, output and overflow.
 
 ```text
 dotnet test IDE/HexIDE.Tests -- --filter-class "*DapConnectionTests"
 dotnet test IDE/HexIDE.Tests -- --filter-class "*DapProcessTests"
 ```
 
-These tests establish the wire boundary. They do not substitute for launching a real external adapter and
-debugging a real program, which remains an acceptance requirement for the later process/session integration.
+The opt-in [real adapter smoke](dap-adapter-smoke.md) launches a separately installed adapter and its real
+components. It is not downloaded or run by ordinary CI; the smoke executable is built with the IDE solution.
 
 ## Remaining work
 
 - Executable/configuration selection in the IDE.
 - Connect the capture and connection-registry UI to the future IDE session host.
-- Asynchronous active-session abstraction, separate from interpreter-only execution hooks.
-- Workspace preparation and launch sequencing through configurationDone.
-- Remote breakpoint verification, stack/scopes/variables, evaluation, commands and MCP routing.
-- Real-process interoperability tests and capability-dependent UI.
+- Route the IDE's active-session consumers separately from interpreter-only execution hooks.
+- Workspace selection/preparation, including any VB6 project conversion.
+- UI for remote breakpoint verification, stack/scopes/variables, commands and MCP routing.
+- Evaluation, live breakpoint updates, dynamic capabilities and capability-dependent UI.
+- Automated acquisition and cross-platform real-adapter acceptance in CI.
 - Add-in registration through [#891](https://github.com/hexide-io/HexIDE/issues/891).
 
 Protocol reference: [Debug Adapter Protocol specification](https://microsoft.github.io/debug-adapter-protocol/specification).
