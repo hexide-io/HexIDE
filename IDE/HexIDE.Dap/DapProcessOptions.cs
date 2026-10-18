@@ -8,6 +8,7 @@ public sealed record DapProcessOptions(string FileName)
     /// <summary>Overrides inherited environment variables; null removes a variable.</summary>
     public IReadOnlyDictionary<string, string?> Environment { get; init; } = new Dictionary<string, string?>();
     public DapConnectionOptions Connection { get; init; } = new();
+    public DapCapture? Capture { get; init; }
     /// <summary>Bound for each cleanup stage: graceful exit, forced exit, and pipe draining.</summary>
     public TimeSpan ShutdownTimeout { get; init; } = TimeSpan.FromSeconds(2);
     public int StandardErrorTailCharacters { get; init; } = 16 * 1024;

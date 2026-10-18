@@ -4,4 +4,7 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\HexIDE.Core\HexIDE.Core.csproj" />
+  </ItemGroup>
 </Project>

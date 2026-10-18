@@ -10,6 +10,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Shared DAP protocol capture** (#1166). The DAP library can record wire traffic and process diagnostics
+  in the existing inspector's conversation log, with bounded retention and source-path pseudonymisation on
+  export. A host that launches external debug sessions from the IDE remains subsequent work.
+
 - **DAP adapter process ownership** (#1162). The client library launches explicit adapter commands, retains
   bounded stderr diagnostics and exit status, and cleans up unresponsive processes. Backend selection,
   protocol-inspector capture and external debugging through the IDE remain subsequent work.
