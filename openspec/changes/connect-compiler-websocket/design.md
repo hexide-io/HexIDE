@@ -1,0 +1,17 @@
+## Context and evidence
+The previous codec slice established complete-message framing from the public documentation repository at `7b8f46be210e857a11e15a0d68ee71e2aced4878`. Its `scripts/lib/tb-wire.mjs` observes root, filesystem, language and debugger WebSockets. This slice supplies the missing transport boundary without assigning control-operation semantics.
+
+An isolated stock twinBASIC BETA1011 Community Edition instance opened a disposable copy of the published impexp fixture. The documented upstream `tb-ide.mjs` and `tb-registry.mjs` harness launched it on a private desktop with a unique WebView profile and the no-settings/no-recent-files flags. The new C# transport successfully upgraded a connection to that instance's authenticated root endpoint. No compiler command was sent. The harness stopped its owned process tree and restored its project-state entry. The user's project and paid licence were not used. This verifies the WebSocket connection only, not independent compiler launch or initialization. No vendor binary, source, passkey or licence material is committed.
+
+## Decisions
+- Accept an explicit `ws` URI with a loopback IP literal. Resolve no hostnames, use no proxy and follow no redirects; an endpoint path can contain an authentication token. HTTP upgrade failures deliberately omit underlying exception details and endpoint text.
+- Own the socket and use independent send/receive gates, allowing one operation in each direction. Queued cancellation does not interrupt another caller's I/O. An active cancellation, deadline, malformed/oversize message or connection error aborts the socket and makes the transport terminal. There is no command replay.
+- Bound each message by bytes, receive-operation count and a deadline covering the whole active operation. Defaults are 16 MiB, 4096 receives and 30 seconds. A receive operation is not necessarily one wire fragment: a large fragment may require several buffer fills. Empty fragments consume the operation budget. Allocate an 8 KiB scratch buffer and grow assembly storage only as bytes arrive, never from a peer-supplied length.
+- Preserve binary/text type and opaque bytes; higher layers select the existing codec. Closing midway discards the partial message. Returned arrays belong to the caller. Callers must keep send buffers unchanged until the send completes.
+- Disposal aborts instead of waiting for a peer close handshake. Gates remain alive so queued operations can observe disposal without a semaphore-release race. Socket abort cancellation is classified as connection failure unless the caller token or operation deadline actually expired.
+
+## Scope and next step
+The transport neither starts a compiler nor discovers its endpoint. Stock IDE startup observations show native host involvement; a standalone command-line launch contract is not yet established. The next slice must define owned process/session initialization, reply correlation, notifications and channel attachment before claiming live language-service support. The existing shared DAP client remains untouched.
+
+## Validation
+Real local TCP sockets with .NET WebSocket peers exercise fragmentation, exact/oversize bounds, empty fragment exhaustion, multiple messages, cancellation, shutdown, send serialization and byte preservation. Raw HTTP upgrade tests exercise the public connection entry point, redirect refusal, deadline and secret-free failures. These are offline CI tests; the separately recorded vendor connection smoke test is opt-in local evidence.

@@ -1,4 +1,4 @@
 - [x] Inspect pinned upstream evidence and the available local IDE without launching it; track #1194.
 - [x] Add bounded control and JSON message codecs with independent byte-vector tests.
 - [x] Verify the library on Windows/Linux and run specification/repository checks.
-- [ ] Open the codec PR and pause for CI and review before process/session work.
+- [x] Open the codec PR and pause for CI and review before process/session work.
