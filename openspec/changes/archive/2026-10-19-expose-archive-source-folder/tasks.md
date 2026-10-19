@@ -2,4 +2,4 @@
 - [x] Add selected-project routing, background synchronization and localized result dialogs.
 - [x] Translate all three messages into every shipped language.
 - [x] Verify UI behavior, production composition, desktop compilation and localization parity.
-- [ ] Validate specifications and repository guards, open a PR, then pause for CI and review.
+- [x] Validate specifications and repository guards, open a PR, then pause for CI and review (merged as #1193).
