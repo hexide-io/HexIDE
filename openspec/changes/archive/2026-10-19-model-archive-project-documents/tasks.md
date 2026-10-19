@@ -3,4 +3,4 @@
 - [x] Implement bounded strict text previews and explicit open/reload/close lifecycle.
 - [x] Test real fixture projection, identities, text, metadata, failure atomicity and no filesystem writes.
 - [x] Complete local tests, strict specification validation and repository hygiene check.
-- [ ] Open the next PR and pause for CI and review before UI integration.
+- [x] Open the next PR and pause for CI and review before UI integration.

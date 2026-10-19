@@ -31,6 +31,7 @@
     <ItemGroup>
         <ProjectReference Include="..\HexIDE.Core\HexIDE.Core.csproj" />
         <ProjectReference Include="..\HexIDE.Dap\HexIDE.Dap.csproj" />
+        <ProjectReference Include="..\HexIDE.TwinBasic\HexIDE.TwinBasic.csproj" />
         <ProjectReference Include="..\HexIDE.Runtime\HexIDE.Runtime.csproj" />
         <ProjectReference Include="..\HexIDE.Lsp\HexIDE.Lsp.csproj" />
     </ItemGroup>

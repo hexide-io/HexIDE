@@ -138,6 +138,7 @@ public class MainViewViewModelTests
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
         _projectManager.StartupProject.Returns(project);
+        _focusedProjectUtil.FocusedOrStartupProject.Returns(project);
         _windowManager.OpenFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerOpenOptions>())
             .Returns(Task.FromResult<IReadOnlyList<string>?>([path]));
         _projectService.AddExistingModule(project, path, ModuleKind.StandardModule).Returns(Task.FromResult(adopted));

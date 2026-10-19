@@ -25,6 +25,9 @@ public interface ISearchableDocument
     /// <summary>The live buffer. Live, not a snapshot: a search must see unsaved edits.</summary>
     TextDocument Document { get; }
 
+    /// <summary>A fully read-only document remains searchable, but cannot be replaced.</summary>
+    bool IsReadOnlyDocument => false;
+
     int CaretOffset { get; set; }
 
     int SelectionStart { get; set; }

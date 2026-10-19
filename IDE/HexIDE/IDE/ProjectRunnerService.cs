@@ -69,6 +69,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
         private set => runScope.RunningProject = value;
     }
 
+    private readonly HexIDE.Projects.ArchiveProjectService? archives;
+
     public ProjectRunnerService(IEventBus eventBus,
         IWindowManager windowManager,
         IProjectManager projectManager,
@@ -77,7 +79,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
         IBreakpointService breakpointService,
         WatchService watchService,
         RunScope runScope,
-        ExternalDebugService? externalDebugger = null)
+        ExternalDebugService? externalDebugger = null,
+        HexIDE.Projects.ArchiveProjectService? archives = null)
     {
         this.eventBus = eventBus;
         this.windowManager = windowManager;
@@ -88,6 +91,12 @@ public partial class ProjectRunnerService : IProjectRunnerService
         this.watchService = watchService;
         this.runScope = runScope;
         this.externalDebugger = externalDebugger;
+        this.archives = archives;
+        if (archives != null) archives.FocusChanged += () =>
+        {
+            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(CanStartDefaultProject)));
+            CommandManager.InvalidateRequerySuggested();
+        };
         if (externalDebugger is not null)
             externalDebugger.Changed += () =>
             {
@@ -459,6 +468,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
     public void RunStartupProject(bool stepInto = false)
     {
+        if (archives?.IsActive == true) return;
         if (projectManager.StartupProject is {} startupProject)
         {
             RunProject(startupProject, stepInto);
@@ -564,7 +574,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
         RunStartupProject();
     }
 
-    public bool CanStartDefaultProject => !IsRunning && projectManager.StartupProject != null;
+    public bool CanStartDefaultProject => archives?.IsActive != true && !IsRunning && projectManager.StartupProject != null;
     public bool CanStartDefaultProjectWithFullCompile => CanStartDefaultProject;
     public bool CanBreakProject => externalDebugger?.IsActive == true
         ? !externalDebugger.IsBusy && externalDebugger.State == Dap.DapSessionState.Running && externalDebugger.ThreadId is not null

@@ -22,11 +22,11 @@ public partial class FileBrowserViewModel : ObservableObject
 
     public string[] FileTypeFilters { get; } =
     [
-        "VB Project Files (*.vbp)",
+        "Project Files (*.vbp, *.vbg, *.twinproj)",
         "All Files (*.*)"
     ];
 
-    private static readonly string[] s_vbpPatterns = ["*.vbp"];
+    private static readonly string[] s_vbpPatterns = ["*.vbp", "*.vbg", "*.twinproj"];
     private static readonly string[] s_allPatterns = ["*.*"];
 
     public DelegateCommand NavigateUpCommand { get; }
