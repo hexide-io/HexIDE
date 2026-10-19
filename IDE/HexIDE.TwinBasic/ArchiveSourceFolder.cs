@@ -15,7 +15,8 @@ public sealed class ArchiveSourceFolder
 
     public ArchiveFolderResult Synchronize(string containerPath, CancellationToken cancellationToken = default)
     {
-        var source = Path.GetFullPath(containerPath);
+        var requested = Path.GetFullPath(containerPath);
+        var source = Path.Combine(ResolveProjectDirectory(Path.GetDirectoryName(requested)!), Path.GetFileName(requested));
         var name = Path.GetFileName(source);
         ValidateName(name);
         ValidateName(name + ".json");
@@ -312,6 +313,24 @@ public sealed class ArchiveSourceFolder
     }
 
     private static string MemberPath(string root, string[] segments) => Path.Combine([root, .. segments]);
+    private static string ResolveProjectDirectory(string directory)
+    {
+        // Project-location aliases (including macOS /var -> /private/var) are valid.
+        // Resolve each ancestor before deriving managed paths; links in the archive itself
+        // or beneath the resulting projection/state directories remain forbidden.
+        var root = Path.GetPathRoot(directory)!;
+        var current = root;
+        foreach (var segment in directory[root.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, segment);
+            var info = new DirectoryInfo(current);
+            if (!info.Exists) throw new DirectoryNotFoundException(current);
+            current = info.ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? current;
+        }
+        CheckAncestors(current);
+        return current;
+    }
+
     private static bool Exists(string path) => File.Exists(path) || Directory.Exists(path) || new FileInfo(path).LinkTarget != null;
     private static void CheckAncestors(string path)
     {

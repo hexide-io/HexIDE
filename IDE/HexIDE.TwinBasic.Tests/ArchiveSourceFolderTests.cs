@@ -31,7 +31,8 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         var original = File.ReadAllBytes(Source);
         var result = Sync();
         Assert.True(result.Changed);
-        Assert.Equal(Target, result.Directory);
+        Assert.EndsWith(Path.Combine(".hexide", ".twinproj", "project.twinproj"), result.Directory);
+        Assert.True(Directory.Exists(Target));
         using var input = new MemoryStream(original);
         var project = ArchiveProjectSnapshot.Read(input, Source, cancellationToken: Token);
         var entries = JsonNode.Parse(File.ReadAllText(Manifest))!["Entries"]!.AsArray();
@@ -271,7 +272,7 @@ public sealed class ArchiveSourceFolderTests : IDisposable
     }
 
     [Fact]
-    public void Linux_links_in_members_or_lock_are_refused_without_touching_targets()
+    public void Unix_links_in_members_or_lock_are_refused_without_touching_targets()
     {
         // Windows symlink creation needs privileges; Linux CI exercises links unconditionally.
         if (OperatingSystem.IsWindows()) return;
@@ -289,6 +290,27 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         File.CreateSymbolicLink(lease, outside);
         Assert.Throws<IOException>(() => Sync());
         Assert.Equal("data", File.ReadAllText(outside));
+    }
+
+    [Fact]
+    public void Unix_project_directory_alias_uses_the_same_physical_projection()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        Save(FileNode("main", "data"));
+        var first = Sync();
+        var alias = Path.Combine(directory, "alias");
+        Directory.CreateSymbolicLink(alias, directory);
+        try
+        {
+            var throughAlias = new ArchiveSourceFolder().Synchronize(Path.Combine(alias, "project.twinproj"), Token);
+            Assert.Equal(first.Directory, throughAlias.Directory);
+            Assert.False(throughAlias.Changed);
+            // Resolving parent aliases must not permit a link as the archive file itself.
+            var linkedSource = Path.Combine(directory, "linked.twinproj");
+            File.CreateSymbolicLink(linkedSource, Source);
+            Assert.Throws<IOException>(() => new ArchiveSourceFolder().Synchronize(linkedSource, Token));
+        }
+        finally { Directory.Delete(alias); }
     }
 
     [Fact]
