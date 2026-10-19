@@ -24,6 +24,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
     private readonly IDocumentDockService dock = Substitute.For<IDocumentDockService>();
     private readonly IRecentProjectsService recent = Substitute.For<IRecentProjectsService>();
     private readonly ILocalizationService localization = Substitute.For<ILocalizationService>();
+    private readonly IWindowManager windows = Substitute.For<IWindowManager>();
     private readonly List<BaseEditorWindowViewModel> tabs = [];
     private readonly ArchiveProjectService archives;
 
@@ -36,7 +37,9 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         dock.When(d => d.CloseDocument(Arg.Any<BaseEditorWindowViewModel>())).Do(call => tabs.Remove(call.Arg<BaseEditorWindowViewModel>()));
         dock.TryActivate<ArchiveDocumentViewModel>(Arg.Any<Func<ArchiveDocumentViewModel, bool>>())
             .Returns(call => tabs.OfType<ArchiveDocumentViewModel>().Any(call.Arg<Func<ArchiveDocumentViewModel, bool>>()));
-        archives = new(dock, recent, localization);
+        localization.GetString("Str.Archive.FolderReadyFormat").Returns("Ready: {0}");
+        localization.GetString("Str.Archive.FolderErrorFormat").Returns("Stopped: {0}");
+        archives = new(dock, recent, localization, windows);
     }
 
     [AvaloniaFact]
@@ -151,6 +154,85 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         dock.ActiveDocument.Returns((BaseEditorWindowViewModel?)null);
         dock.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(dock, new PropertyChangedEventArgs(nameof(dock.ActiveDocument)));
         Assert.Same(project, focus.FocusedOrStartupProject);
+    }
+
+    [AvaloniaFact]
+    public async Task Source_folder_command_uses_selected_project_saved_bytes_and_keeps_previews_read_only()
+    {
+        var manager = Substitute.For<IProjectManager>();
+        manager.LoadedProjects.Returns(Array.Empty<ProjectDefinition>());
+        var tree = new ProjectToolViewModel(manager, Substitute.For<IEventBus>(),
+            Substitute.For<IProjectService>(), Substitute.For<IEditorService>(), localization, archives);
+        Assert.False(tree.SynchronizeArchiveFolderCommand.CanExecute(null));
+        var path = Write("one.twinproj", "preview");
+        await archives.Open(path);
+        await archives.Open(Write("two.twinproj", "other"));
+        archives.OpenDocument(archives.Projects[0].Root.Children[0]);
+        var tab = Assert.IsType<ArchiveDocumentViewModel>(Assert.Single(tabs));
+        tree.SelectedItem = tree.RootItems.OfType<ArchiveTreeNode>().First().Children[0];
+        Assert.True(tree.SynchronizeArchiveFolderCommand.CanExecute(null));
+        Assert.False(Directory.Exists(Path.Combine(directory, ".hexide")));
+        Write("one.twinproj", "saved after opening");
+        var before = File.ReadAllBytes(path);
+        await tree.SynchronizeArchiveFolder();
+        var target = Path.Combine(directory, ".hexide", ".twinproj", "one.twinproj");
+        Assert.Equal("saved after opening", File.ReadAllText(Path.Combine(target, "main.twin")));
+        Assert.False(Directory.Exists(Path.Combine(directory, ".hexide", ".twinproj", "two.twinproj")));
+        Assert.Equal(before, File.ReadAllBytes(path));
+        Assert.Equal("preview", tab.Document.Text);
+        Assert.True(tab.IsReadOnlyDocument);
+        await windows.Received(1).MessageBox(Arg.Is<string>(s => s.StartsWith("Ready: ") && s.Contains("one.twinproj")),
+            "Str.Archive.SyncFolder", MessageBoxButtons.Ok, MessageBoxIcon.Information);
+        await archives.Reload(path);
+        Assert.Equal("saved after opening", tab.Document.Text);
+    }
+
+    [AvaloniaFact]
+    public async Task Source_folder_conflict_is_reported_and_closed_projects_cannot_be_exported()
+    {
+        var path = Write("one.twinproj", "saved");
+        await archives.Open(path);
+        await archives.SynchronizeFolder(path);
+        var member = Path.Combine(directory, ".hexide", ".twinproj", "one.twinproj", "main.twin");
+        File.WriteAllText(member, "user edit");
+        windows.ClearReceivedCalls();
+        await archives.SynchronizeFolder(path);
+        Assert.Equal("user edit", File.ReadAllText(member));
+        await windows.Received(1).MessageBox(Arg.Is<string>(s => s.StartsWith("Stopped: ") && s.Contains("main.twin")),
+            "Str.Archive.SyncFolder", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+        await archives.Close(path);
+        windows.ClearReceivedCalls();
+        await archives.SynchronizeFolder(path);
+        Assert.Empty(windows.ReceivedCalls());
+    }
+
+    [AvaloniaFact]
+    public async Task Source_folder_command_disables_reentry_and_result_dialog_does_not_hold_lifecycle_gate()
+    {
+        var manager = Substitute.For<IProjectManager>();
+        manager.LoadedProjects.Returns(Array.Empty<ProjectDefinition>());
+        var tree = new ProjectToolViewModel(manager, Substitute.For<IEventBus>(),
+            Substitute.For<IProjectService>(), Substitute.For<IEditorService>(), localization, archives);
+        var path = Write("one.twinproj", "saved");
+        await archives.Open(path);
+        tree.SelectedItem = Assert.Single(tree.RootItems);
+        var shown = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var dismissed = new TaskCompletionSource<MessageBoxResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        windows.MessageBox(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>())
+            .Returns(_ => { shown.TrySetResult(); return dismissed.Task; });
+        var operation = tree.SynchronizeArchiveFolder();
+        try
+        {
+            Assert.False(tree.SynchronizeArchiveFolderCommand.CanExecute(null));
+            await tree.SynchronizeArchiveFolder(); // A repeated invocation must not queue another export/dialog.
+            await shown.Task.WaitAsync(TimeSpan.FromSeconds(20));
+            await archives.Close(path).WaitAsync(TimeSpan.FromSeconds(20));
+            Assert.Empty(archives.Projects);
+        }
+        finally { dismissed.TrySetResult(default); }
+        await operation;
+        Assert.Single(windows.ReceivedCalls());
+        Assert.False(tree.SynchronizeArchiveFolderCommand.CanExecute(null));
     }
 
     [AvaloniaFact]

@@ -2,4 +2,4 @@
 - [x] Implement the bounded projection engine with retained recovery state.
 - [x] Verify byte/metadata fidelity, conflicts, cancellation, links, Git and interrupted commits on Windows and Linux.
 - [x] Validate specifications and repository guards.
-- [ ] Open the engine PR and pause for CI and review; keep #1190 open for UI integration.
+- [x] Open the engine PR and pause for CI and review (merged as #1191); keep #1190 open for UI integration.

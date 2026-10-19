@@ -131,6 +131,7 @@ xmlns:HexIDE="clr-namespace:HexIDE"
                     <MenuItem Header="{DynamicResource Str.Archive.Hidden}" ToggleType="CheckBox" IsChecked="{CompiledBinding ShowHiddenArchiveEntries, Mode=TwoWay}" />
                     <MenuItem IsVisible="{CompiledBinding HasArchiveSelection}" Header="{DynamicResource Str.Archive.Inspect}" Command="{CompiledBinding InspectArchive}" />
                     <MenuItem IsVisible="{CompiledBinding HasArchiveSelection}" Header="{DynamicResource Str.Archive.Reload}" Command="{CompiledBinding ReloadArchive}" />
+                    <MenuItem IsVisible="{CompiledBinding HasArchiveSelection}" Header="{DynamicResource Str.Archive.SyncFolder}" Command="{CompiledBinding SynchronizeArchiveFolderCommand}" />
                     <MenuItem IsVisible="{CompiledBinding HasArchiveSelection}" Header="{DynamicResource Str.Archive.Close}" Command="{CompiledBinding CloseArchive}" />
                     <MenuItem IsVisible="{CompiledBinding !!SelectedProject}" Header="{DynamicResource Str.Tool.Project.Menu.SetAsStartUp}" Command="{CompiledBinding SetAsStartUp}" />
                     <MenuItem IsVisible="{CompiledBinding !!SelectedProject}" Header="{CompiledBinding ProjectPropertiesHeader}" Command="{CompiledBinding EditProjectProperties}" />
