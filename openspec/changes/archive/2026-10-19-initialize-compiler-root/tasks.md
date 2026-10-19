@@ -4,4 +4,4 @@
 - [x] Verify independent wire vectors and failure/lifecycle cases on Windows and Linux.
 - [x] Verify the final C# session and advertised channel sockets against BETA1011 Community Edition.
 - [x] Run specification and repository checks.
-- [ ] Open the PR and pause for CI and review.
+- [x] Open the PR and pause for CI and review.
