@@ -3,4 +3,4 @@
 - [x] Verify real local WebSocket framing and HTTP upgrade behavior on Windows.
 - [x] Connect the C# transport to an isolated BETA1011 root endpoint.
 - [x] Run Linux library tests and specification/repository checks.
-- [ ] Open the transport PR and pause for CI and review.
+- [x] Open the transport PR and pause for CI and review.
