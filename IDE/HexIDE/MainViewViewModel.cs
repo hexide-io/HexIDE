@@ -905,22 +905,22 @@ public partial class MainViewViewModel : ObservableObject
 
         AddFormCommand = new DelegateCommand(
             () => AddFormAsync().ListenErrors(),
-            () => projectManager.StartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject != null);
         AddModuleCommand = new DelegateCommand(
             () => AddModuleAsync(ModuleKind.StandardModule, "Module").ListenErrors(),
-            () => projectManager.StartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject != null);
         AddClassModuleCommand = new DelegateCommand(
             () => AddModuleAsync(ModuleKind.ClassModule, "Class").ListenErrors(),
-            () => projectManager.StartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject != null);
         AddUserControlCommand = new DelegateCommand(
             () => AddUserControlAsync().ListenErrors(),
-            () => projectManager.StartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject != null);
         AddPropertyPageCommand = new DelegateCommand(
             () => AddPropertyPageAsync().ListenErrors(),
-            () => projectManager.StartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject != null);
         AddFileCommand = new DelegateCommand(
             () => AddFileAsync().ListenErrors(),
-            () => projectManager.StartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject != null);
 
         bool CanSearchActiveDocument() =>
             documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.ISearchableDocument;
@@ -1296,7 +1296,7 @@ public partial class MainViewViewModel : ObservableObject
 
     private async Task AddFormAsync()
     {
-        var p = projectManager.StartupProject!;
+        if (FocusedProjectUtil.FocusedOrStartupProject is not { } p) return;
         var name = ProjectNaming.NextFreeName(p, "Form");
         var form = await projectService.AddNewForm(p, name);
         editorService.EditForm(form);
@@ -1304,7 +1304,7 @@ public partial class MainViewViewModel : ObservableObject
 
     private async Task AddModuleAsync(ModuleKind kind, string prefix)
     {
-        var p = projectManager.StartupProject!;
+        if (FocusedProjectUtil.FocusedOrStartupProject is not { } p) return;
         var name = ProjectNaming.NextFreeName(p, prefix);
         var module = await projectService.AddNewModule(p, name, kind);
         editorService.EditCode(module);
@@ -1312,7 +1312,7 @@ public partial class MainViewViewModel : ObservableObject
 
     private async Task AddUserControlAsync()
     {
-        var p = projectManager.StartupProject!;
+        if (FocusedProjectUtil.FocusedOrStartupProject is not { } p) return;
         var name = ProjectNaming.NextFreeName(p, "UserControl");
         var module = await projectService.AddNewUserControl(p, name);
         editorService.EditForm(module.FormPart);
@@ -1320,7 +1320,7 @@ public partial class MainViewViewModel : ObservableObject
 
     private async Task AddPropertyPageAsync()
     {
-        var p = projectManager.StartupProject!;
+        if (FocusedProjectUtil.FocusedOrStartupProject is not { } p) return;
         var name = ProjectNaming.NextFreeName(p, "PropertyPage");
         var module = await projectService.AddNewPropertyPage(p, name);
         editorService.EditForm(module.FormPart);
@@ -1337,7 +1337,7 @@ public partial class MainViewViewModel : ObservableObject
     /// </summary>
     private async Task AddFileAsync()
     {
-        var p = projectManager.StartupProject!;
+        if (FocusedProjectUtil.FocusedOrStartupProject is not { } p) return;
         var files = await windowManager.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = localization.GetString("Str.AddItem.AddFile"),

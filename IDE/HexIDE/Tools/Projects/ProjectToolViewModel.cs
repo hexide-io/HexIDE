@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows.Input;
 using HexIDE.Events;
 using HexIDE.IDE;
@@ -21,12 +22,16 @@ public partial class ProjectToolViewModel : Tool
     private readonly IProjectService projectService;
     private readonly IEditorService editorService;
     private readonly ILocalizationService localization;
+    private readonly ArchiveProjectService? archives;
+    public bool HasArchiveSelection => SelectedItem is ArchiveTreeNode;
+    [Notify] private bool showHiddenArchiveEntries;
+    private void OnShowHiddenArchiveEntriesChanged() => RebuildRootItems();
     private Dictionary<ProjectDefinition, ProjectViewModel> projectToViewModel = new();
 
     public ObservableCollection<ProjectViewModel> LoadedProjects { get; } = new();
     public ObservableCollection<object> RootItems { get; } = new();
 
-    [Notify] [AlsoNotify(nameof(SelectedForm), nameof(SelectedProject), nameof(SelectedFormOrFormPart), nameof(SelectedModule), nameof(ProjectPropertiesHeader), nameof(SaveFormHeader), nameof(SaveFormAsHeader), nameof(RemoveFormHeader))] private object? selectedItem;
+    [Notify] [AlsoNotify(nameof(HasArchiveSelection), nameof(SelectedForm), nameof(SelectedProject), nameof(SelectedFormOrFormPart), nameof(SelectedModule), nameof(ProjectPropertiesHeader), nameof(SaveFormHeader), nameof(SaveFormAsHeader), nameof(RemoveFormHeader))] private object? selectedItem;
 
     public FormViewModel? SelectedForm
     {
@@ -85,16 +90,19 @@ public partial class ProjectToolViewModel : Tool
         IEventBus eventBus,
         IProjectService projectService,
         IEditorService editorService,
-        ILocalizationService localization)
+        ILocalizationService localization, ArchiveProjectService? archives = null)
     {
         this.projectManager = projectManager;
         this.eventBus = eventBus;
         this.projectService = projectService;
         this.editorService = editorService;
         this.localization = localization;
+        this.archives = archives;
+        if (archives != null) archives.Changed += RebuildRootItems;
         localization.BindTitle(this, "Str.Tool.Project.Title");
         localization.LanguageChanged += () =>
         {
+            RebuildRootItems();
             OnPropertyChanged(nameof(ProjectPropertiesHeader));
             OnPropertyChanged(nameof(SaveFormHeader));
             OnPropertyChanged(nameof(SaveFormAsHeader));
@@ -116,7 +124,8 @@ public partial class ProjectToolViewModel : Tool
                 editorService.EditCode(SelectedForm.FormDefinition);
             else if (SelectedModule != null)
                 editorService.EditCode(SelectedModule.ModuleDefinition);
-        }, () => SelectedForm != null || SelectedModule != null);
+            else if (SelectedItem is ArchiveTreeNode node) archives?.OpenDocument(node.Entry);
+        }, () => SelectedForm != null || SelectedModule != null || HasArchiveSelection);
         FormPropertiesCommand = new DelegateCommand(() =>
         {
             ViewObjectCommand.Execute(null);
@@ -150,16 +159,38 @@ public partial class ProjectToolViewModel : Tool
 
     private void RebuildRootItems()
     {
+        var previous = RootItems.OfType<ArchiveTreeNode>().SelectMany(WalkArchive).ToDictionary(n => n.Entry.Identity);
+        var selected = (SelectedItem as ArchiveTreeNode)?.Entry.Identity;
         RootItems.Clear();
         if (projectManager.CurrentGroup != null)
             RootItems.Add(new ProjectGroupViewModel(projectManager.CurrentGroup, LoadedProjects));
         else
             foreach (var p in LoadedProjects)
                 RootItems.Add(p);
+        if (archives != null)
+            foreach (var project in archives.Projects)
+            {
+                var root = new ArchiveTreeNode(project.Root, ShowHiddenArchiveEntries,
+                    string.Format(localization.GetString("Str.Archive.ProjectFormat"), project.Name));
+                foreach (var node in WalkArchive(root))
+                    if (previous.TryGetValue(node.Entry.Identity, out var old)) node.IsExpanded = old.IsExpanded;
+                RootItems.Add(root);
+            }
+        if (selected != null)
+            SelectedItem = RootItems.OfType<ArchiveTreeNode>().SelectMany(WalkArchive)
+                .FirstOrDefault(n => n.Entry.Identity.Equals(selected));
+    }
+
+    private static IEnumerable<ArchiveTreeNode> WalkArchive(ArchiveTreeNode node)
+    {
+        yield return node;
+        foreach (var child in node.Children)
+            foreach (var descendant in WalkArchive(child)) yield return descendant;
     }
 
     private void OnSelectedItemChanged()
     {
+        archives?.SelectTreeEntry(HasArchiveSelection);
         ViewObjectCommand.RaiseCanExecutedChanged();
         ViewCodeCommand.RaiseCanExecutedChanged();
         FormPropertiesCommand.RaiseCanExecutedChanged();
@@ -186,7 +217,11 @@ public partial class ProjectToolViewModel : Tool
 
     public void OpenSelected()
     {
-        if (SelectedForm != null)
+        if (selectedItem is ArchiveTreeNode archive && archive.Entry is HexIDE.TwinBasic.ArchiveProjectDocument)
+        {
+            archives?.OpenDocument(archive.Entry);
+        }
+        else if (SelectedForm != null)
         {
             editorService.EditForm(SelectedForm.FormDefinition);
         }
@@ -214,6 +249,21 @@ public partial class ProjectToolViewModel : Tool
         {
             projectTreeElement.IsExpanded = !projectTreeElement.IsExpanded;
         }
+    }
+
+    public void InspectArchive()
+    {
+        if (selectedItem is ArchiveTreeNode node) archives?.OpenDocument(node.Entry);
+    }
+
+    public void ReloadArchive()
+    {
+        if (selectedItem is ArchiveTreeNode node) archives?.Reload(node.Entry.Identity.ContainerPath).ListenErrors();
+    }
+
+    public void CloseArchive()
+    {
+        if (selectedItem is ArchiveTreeNode node) archives?.Close(node.Entry.Identity.ContainerPath).ListenErrors();
     }
 
     public void SetAsStartUp()

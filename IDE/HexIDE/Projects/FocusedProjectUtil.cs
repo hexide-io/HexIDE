@@ -12,6 +12,7 @@ public partial class FocusedProjectUtil : IFocusedProjectUtil
 {
     private readonly IDocumentDockService documentDockService;
     private readonly IProjectManager projectManager;
+    private readonly ArchiveProjectService? archives;
     [Notify] private ProjectDefinition? focusedProject;
     [Notify] private ProjectDefinition? focusedOrStartupProject;
     [Notify] private FormDefinition? focusedForm;
@@ -21,10 +22,12 @@ public partial class FocusedProjectUtil : IFocusedProjectUtil
     private System.IDisposable? activeWindowDisposable;
 
     public FocusedProjectUtil(IDocumentDockService documentDockService,
-        IProjectManager projectManager)
+        IProjectManager projectManager, ArchiveProjectService? archives = null)
     {
         this.documentDockService = documentDockService;
         this.projectManager = projectManager;
+        this.archives = archives;
+        if (archives != null) archives.FocusChanged += Update;
         documentDockService.ObservePropertyChanged(x => x.ActiveDocument)
             .Subscribe(_ => Update());
         projectManager.ObservePropertyChanged(x => x.StartupProject)
@@ -33,7 +36,12 @@ public partial class FocusedProjectUtil : IFocusedProjectUtil
 
     private void Update()
     {
-        if (documentDockService.ActiveDocument is FormEditViewModel formEdit)
+        if (archives?.IsActive == true)
+        {
+            FocusedProject = null;
+            FocusedForm = null;
+        }
+        else if (documentDockService.ActiveDocument is FormEditViewModel formEdit)
         {
             FocusedForm = formEdit.FormDefinition;
             FocusedProject = FocusedForm?.Owner;
@@ -48,10 +56,11 @@ public partial class FocusedProjectUtil : IFocusedProjectUtil
             FocusedProject = null;
             FocusedForm = null;
         }
-        FocusedOrStartupProject = FocusedProject ?? projectManager.StartupProject;
+        FocusedOrStartupProject = archives?.IsActive == true || documentDockService.ActiveDocument is ArchiveDocumentViewModel
+            ? null : FocusedProject ?? projectManager.StartupProject;
 
 
-        if (documentDockService.ActiveDocument is FormEditViewModel formEdit2)
+        if (archives?.IsActive != true && documentDockService.ActiveDocument is FormEditViewModel formEdit2)
         {
             UpdateControlPositionBinding(formEdit2);
         }

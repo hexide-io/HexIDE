@@ -9,7 +9,7 @@ namespace HexIDE.TwinBasic;
 /// </summary>
 public sealed class ArchiveEntryIdentity : IEquatable<ArchiveEntryIdentity>
 {
-    internal static StringComparer ContainerPathComparer { get; } =
+    public static StringComparer ContainerPathComparer { get; } =
         OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
 
     internal ArchiveEntryIdentity(string containerPath, ImmutableArray<string> segments)

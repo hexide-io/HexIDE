@@ -1,0 +1,6 @@
+- [x] Track the UI slice in #1187 and archive the merged model specification.
+- [x] Integrate normal project opening, hierarchy, read-only tabs, hidden inspection and reload/close.
+- [x] Guard search replacement and startup-project command fallback.
+- [x] Verify UI lifecycle, composition, command boundaries and existing regression tests.
+- [x] Run specification validation and repository checks.
+- [ ] Open a PR and pause for CI and review.
