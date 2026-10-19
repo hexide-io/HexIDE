@@ -11,7 +11,7 @@ using HexIDE.TwinBasic;
 
 namespace HexIDE.Projects;
 
-/// <summary>UI-owned archive lifecycle. Only serialized file reads run on a worker thread.</summary>
+/// <summary>UI-owned archive lifecycle. Serialized file operations run on a worker thread.</summary>
 public sealed class ArchiveProjectService
 {
     private readonly ArchiveProjectWorkspace workspace = new();
@@ -19,6 +19,7 @@ public sealed class ArchiveProjectService
     private readonly IDocumentDockService dock;
     private readonly IRecentProjectsService recent;
     private readonly ILocalizationService localization;
+    private readonly IWindowManager windows;
     private bool treeSelected;
     public IReadOnlyList<ArchiveProjectSnapshot> Projects { get; private set; } = [];
     public event Action? Changed;
@@ -26,11 +27,12 @@ public sealed class ArchiveProjectService
     public bool IsActive => treeSelected || dock.ActiveDocument is ArchiveDocumentViewModel;
 
     public ArchiveProjectService(IDocumentDockService dock, IRecentProjectsService recent,
-        ILocalizationService localization)
+        ILocalizationService localization, IWindowManager windows)
     {
         this.dock = dock;
         this.recent = recent;
         this.localization = localization;
+        this.windows = windows;
         dock.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName != nameof(dock.ActiveDocument)) return;
@@ -85,6 +87,29 @@ public sealed class ArchiveProjectService
             Publish();
         }
         finally { gate.Release(); }
+    }
+
+    public async Task SynchronizeFolder(string path)
+    {
+        path = Path.GetFullPath(path);
+        string message;
+        var icon = MessageBoxIcon.Information;
+        await gate.WaitAsync();
+        try
+        {
+            // Selection can outlive a closed tree node while waiting for another operation.
+            if (!Projects.Any(p => ArchiveEntryIdentity.ContainerPathComparer.Equals(p.ContainerPath, path))) return;
+            var result = await Task.Run(() => new ArchiveSourceFolder().Synchronize(path));
+            message = string.Format(localization.GetString("Str.Archive.FolderReadyFormat"), result.Directory);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            message = string.Format(localization.GetString("Str.Archive.FolderErrorFormat"), ex.Message);
+            icon = MessageBoxIcon.Warning;
+        }
+        finally { gate.Release(); }
+        // Do not hold the lifecycle gate while the user reads the result.
+        await windows.MessageBox(message, localization.GetString("Str.Archive.SyncFolder"), icon: icon);
     }
 
     public void OpenDocument(ArchiveProjectEntry entry)

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Input;
 using HexIDE.Events;
 using HexIDE.IDE;
@@ -23,6 +24,7 @@ public partial class ProjectToolViewModel : Tool
     private readonly IEditorService editorService;
     private readonly ILocalizationService localization;
     private readonly ArchiveProjectService? archives;
+    private bool synchronizingArchiveFolder;
     public bool HasArchiveSelection => SelectedItem is ArchiveTreeNode;
     [Notify] private bool showHiddenArchiveEntries;
     private void OnShowHiddenArchiveEntriesChanged() => RebuildRootItems();
@@ -72,6 +74,7 @@ public partial class ProjectToolViewModel : Tool
     public DelegateCommand FormPropertiesCommand { get; }
 
     public DelegateCommand AddFormCommand { get; }
+    public DelegateCommand SynchronizeArchiveFolderCommand { get; }
 
     private ProjectViewModel? GetSelectedProject()
     {
@@ -110,6 +113,8 @@ public partial class ProjectToolViewModel : Tool
         };
         CanPin = false;
         CanClose = true;
+        SynchronizeArchiveFolderCommand = new DelegateCommand(() => SynchronizeArchiveFolder().ListenErrors(),
+            () => archives != null && HasArchiveSelection && !synchronizingArchiveFolder);
 
         ViewObjectCommand = new DelegateCommand(() =>
         {
@@ -195,6 +200,7 @@ public partial class ProjectToolViewModel : Tool
         ViewCodeCommand.RaiseCanExecutedChanged();
         FormPropertiesCommand.RaiseCanExecutedChanged();
         AddFormCommand.RaiseCanExecutedChanged();
+        SynchronizeArchiveFolderCommand.RaiseCanExecutedChanged();
     }
 
     private void OnProjectLoaded(ProjectDefinition obj)
@@ -264,6 +270,19 @@ public partial class ProjectToolViewModel : Tool
     public void CloseArchive()
     {
         if (selectedItem is ArchiveTreeNode node) archives?.Close(node.Entry.Identity.ContainerPath).ListenErrors();
+    }
+
+    public async Task SynchronizeArchiveFolder()
+    {
+        if (archives == null || synchronizingArchiveFolder || selectedItem is not ArchiveTreeNode node) return;
+        synchronizingArchiveFolder = true;
+        SynchronizeArchiveFolderCommand.RaiseCanExecutedChanged();
+        try { await archives.SynchronizeFolder(node.Entry.Identity.ContainerPath); }
+        finally
+        {
+            synchronizingArchiveFolder = false;
+            SynchronizeArchiveFolderCommand.RaiseCanExecutedChanged();
+        }
     }
 
     public void SetAsStartUp()
