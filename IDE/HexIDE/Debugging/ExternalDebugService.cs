@@ -41,6 +41,28 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
     public bool IsCurrent(DapStop stop) => session?.IsCurrent(stop) == true;
     public long WatchVersion => inspectionVersion;
 
+    public bool CanEvaluateHover => CanEvaluate && session?.Supports("supportsEvaluateForHovers") == true;
+
+    /// <summary>Returns no tip when the selected inspection has changed or the adapter refuses the name.</summary>
+    public async Task<string?> EvaluateHoverAsync(string expression, CancellationToken token = default)
+    {
+        if (!CanEvaluateHover || session is not { } current || Stop is not { } stop || SelectedFrame is not { } frame)
+            return null;
+        var version = inspectionVersion;
+        var selection = selectionVersion;
+        bool IsSelected() => session == current && current.IsCurrent(stop) &&
+            version == inspectionVersion && selection == selectionVersion && CanEvaluateHover;
+        try
+        {
+            var reply = await current.EvaluateHoverAsync(stop, frame.GetProperty("id").GetInt32(), expression, token);
+            if (token.IsCancellationRequested || !IsSelected())
+                return null;
+            return reply.Body!.Value.GetProperty("result").GetString();
+        }
+        catch (DapRequestException) { return null; }
+        catch (InvalidOperationException) when (!IsSelected()) { return null; }
+    }
+
     public async Task<ExternalVariable> EvaluateWatchAsync(DapStop stop, int frameId, string expression)
     {
         var current = session ?? throw new InvalidOperationException("No external debug session.");

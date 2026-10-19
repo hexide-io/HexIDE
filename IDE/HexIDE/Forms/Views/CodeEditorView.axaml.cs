@@ -302,6 +302,10 @@ public partial class CodeEditorView : UserControl
                 int? displayedExecutionLine = null;
                 _onExternalDebugChanged = () =>
                 {
+                    _hoverCts?.Cancel();
+                    _hoverCts?.Dispose();
+                    _hoverCts = null;
+                    CloseTip();
                     _breakpointMargin?.RefreshExternal();
                     int? line = null;
                     if (_externalDebugger.CurrentLocation is { } location)
@@ -543,6 +547,7 @@ public partial class CodeEditorView : UserControl
         _hoverCts?.Cancel();
         _hoverCts?.Dispose();
         _hoverCts = null;
+        CloseTip();
 
         _completionCts?.Cancel();
         _completionCts?.Dispose();
@@ -1039,8 +1044,19 @@ public partial class CodeEditorView : UserControl
 
         CloseTip();
 
-        var tvPos = TextEditor.TextArea.TextView.GetPosition(point);
+        // GetPosition expects document coordinates, while pointer events are relative to the viewport.
+        var tvPos = TextEditor.TextArea.TextView.GetPosition(point + TextEditor.TextArea.TextView.ScrollOffset);
         if (tvPos is null) return;
+
+        if (_externalDebugger?.IsActive == true)
+        {
+            if (_externalDebugger.CanEvaluateHover)
+            {
+                var word = WordAt(TextEditor.Document.GetOffset(tvPos.Value.Line, tvPos.Value.Column));
+                if (!string.IsNullOrEmpty(word)) _ = ShowExternalDataTipAsync(word, token);
+            }
+            return;
+        }
 
         // Break-mode Auto Data Tip: hovering an identifier while the debugger is Paused shows its LIVE value
         // (evaluated against the paused frame), taking precedence over LSP quick-info — VB6's Auto Data Tips.
@@ -1056,6 +1072,22 @@ public partial class CodeEditorView : UserControl
         if (!vm.Settings.AutoQuickInfo) return;
 
         _ = HoverAfterDelayAsync(vm, lspPos, token);
+    }
+
+    private async Task ShowExternalDataTipAsync(string word, CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(400, token);
+            if (_externalDebugger is not { } debugger || token.IsCancellationRequested) return;
+            var value = await debugger.EvaluateHoverAsync(word, token);
+            if (token.IsCancellationRequested) return;
+            if (value is null) { CloseTip(); return; }
+            ToolTip.SetTip(TextEditor, $"{word} = {value}");
+            ToolTip.SetIsOpen(TextEditor, true);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { Log.Debug("[external datatip] {ErrorMessage}", ex.Message); }
     }
 
     // Evaluate the hovered identifier against the paused frame and show "identifier = value" as a data tip. Uses the

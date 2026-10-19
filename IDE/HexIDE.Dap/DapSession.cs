@@ -160,6 +160,15 @@ public sealed class DapSession : IAsyncDisposable
         return Inspect(stop, "evaluate", new { expression, frameId, context = "watch" }, token);
     }
 
+    /// <summary>Automatic data tips require the adapter's explicit hover capability.</summary>
+    public Task<DapResponse> EvaluateHoverAsync(DapStop stop, int frameId, string expression, CancellationToken token = default)
+    {
+        ArgumentNullException.ThrowIfNull(expression);
+        if (!Supports("supportsEvaluateForHovers"))
+            throw new InvalidOperationException("The adapter does not support hover evaluation.");
+        return Inspect(stop, "evaluate", new { expression, frameId, context = "hover" }, token);
+    }
+
     private async Task<DapResponse> Inspect(DapStop stop, string command, object arguments, CancellationToken token)
     {
         CheckStop(stop);

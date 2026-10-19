@@ -64,8 +64,13 @@ watch list; another external launch restores the external list. Neither list is 
 and external expressions are not saved in launch JSON. These are adapter evaluations, not a guarantee
 that every adapter evaluates expressions without side effects.
 
+While stopped, dwell over an identifier in the code editor to see its value in the selected Call Stack
+frame. This requires the adapter's hover-evaluation capability. Unresolved names show no value tip;
+frame changes, Immediate evaluation, stepping and End clear the tip. Tips inspect individual identifiers,
+not selected expressions or member chains.
+
 This integration inspects one stopped program thread. It does not implement thread selection,
-hover values, restart, Run To Cursor or Set Next Statement.
+restart, Run To Cursor or Set Next Statement.
 Conditions and hit counts are not yet supported. Sources without a saved file path cannot receive external
 breakpoints. Editing source does not update the running backend.
 
