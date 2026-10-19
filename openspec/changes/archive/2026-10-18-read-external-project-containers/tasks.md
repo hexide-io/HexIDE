@@ -4,4 +4,4 @@
 - [x] Test preservation, corruption, resource limits, stream ownership and cancellation.
 - [x] Add solution projects, binary attributes and desktop CI test steps.
 - [x] Complete local reader tests and strict OpenSpec validation.
-- [ ] Open the first PR and pause for CI and review before further implementation.
+- [x] Open the first PR and pause for CI and review before further implementation (#1181, merged).

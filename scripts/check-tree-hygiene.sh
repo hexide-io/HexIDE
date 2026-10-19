@@ -228,7 +228,7 @@ rm -f /tmp/hexide-linkcheck.$$
 ALLOWED='^(IDE/HexIDE\.Runtime\.Tests/BattleshipChallenge\.cs|IDE/HexIDE\.Runtime/Interpreter/README\.md|LspServer/HexIDE\.VbLspServer\.Tests/README\.md|demo/battleship/README\.md|demo/spring-tide/README\.md|docs/vb6-grammar-fixes\.md|docs/lsp-parity-matrix\.md|docs/dap-adapter-smoke\.md)$'
 # The maintainer requested this integration with its author's blessing (#1178). These exact files
 # implement or validate its reader; this exception permits that name only, not other project names.
-TWIN_ALLOWED='^(HexIDE\.slnx|\.github/workflows/build\.yml|IDE/HexIDE\.TwinBasic/(TwinBasicContainer|TwinBasicContainerReader)\.cs|IDE/HexIDE\.TwinBasic\.Tests/(ContainerReaderTests\.cs|HexIDE\.TwinBasic\.Tests\.csproj|Fixtures/(README\.md|LICENSE|impexp\.twinproj\.json|sample\.twinpack\.json))|openspec/changes/read-external-project-containers/design\.md)$'
+TWIN_ALLOWED='^(HexIDE\.slnx|\.github/workflows/build\.yml|IDE/HexIDE\.TwinBasic/(TwinBasicContainer|TwinBasicContainerReader|ArchiveEntryIdentity|ArchiveProjectSnapshot|ArchiveProjectWorkspace)\.cs|IDE/HexIDE\.TwinBasic\.Tests/(ContainerReaderTests\.cs|ArchiveProjectTests\.cs|HexIDE\.TwinBasic\.Tests\.csproj|Fixtures/(README\.md|LICENSE|impexp\.twinproj\.json|sample\.twinpack\.json))|openspec/changes/(archive/2026-10-18-read-external-project-containers|model-archive-project-documents)/design\.md)$'
 while IFS= read -r f; do
   if [[ "$f" =~ $TWIN_ALLOWED ]] && ! git grep --untracked -qiE 'rdcore|rubberduck' -- "$f"; then
     continue
