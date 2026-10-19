@@ -74,8 +74,14 @@ public sealed class CompilerWebSocketTransport : IDisposable
         }
     }
 
-    public async Task SendAsync(ReadOnlyMemory<byte> bytes, WebSocketMessageType type,
-        CancellationToken cancellationToken = default)
+    public Task SendAsync(ReadOnlyMemory<byte> bytes, WebSocketMessageType type,
+        CancellationToken cancellationToken = default) => SendCoreAsync(bytes, type, timeout, cancellationToken);
+
+    internal Task SendWithTimeoutAsync(ReadOnlyMemory<byte> bytes, WebSocketMessageType type,
+        TimeSpan messageTimeout, CancellationToken cancellationToken) => SendCoreAsync(bytes, type, messageTimeout, cancellationToken);
+
+    private async Task SendCoreAsync(ReadOnlyMemory<byte> bytes, WebSocketMessageType type,
+        TimeSpan messageTimeout, CancellationToken cancellationToken)
     {
         if (type is not (WebSocketMessageType.Binary or WebSocketMessageType.Text))
             throw new ArgumentOutOfRangeException(nameof(type));
@@ -86,21 +92,30 @@ public sealed class CompilerWebSocketTransport : IDisposable
         {
             ThrowIfDisposed();
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            deadline.CancelAfter(timeout);
+            deadline.CancelAfter(messageTimeout);
             try { await socket.SendAsync(bytes, type, true, deadline.Token).ConfigureAwait(false); }
             catch (Exception error) { throw Fail(error, cancellationToken, deadline.IsCancellationRequested); }
         }
         finally { sendGate.Release(); }
     }
 
-    public async Task<CompilerTransportMessage> ReceiveAsync(CancellationToken cancellationToken = default)
+    public Task<CompilerTransportMessage> ReceiveAsync(CancellationToken cancellationToken = default) =>
+        ReceiveCoreAsync(false, cancellationToken);
+
+    // Session pumps may remain idle. Start the assembly deadline after the first receive completes;
+    // an incomplete WebSocket header cannot be distinguished from idle by this API. Ownership
+    // cancellation/disposal still interrupts that first receive.
+    internal Task<CompilerTransportMessage> ReceiveNextAsync(CancellationToken cancellationToken = default, TimeSpan? messageTimeout = null) =>
+        ReceiveCoreAsync(true, cancellationToken, messageTimeout);
+
+    private async Task<CompilerTransportMessage> ReceiveCoreAsync(bool allowIdle, CancellationToken cancellationToken, TimeSpan? messageTimeout = null)
     {
         await receiveGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ThrowIfDisposed();
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            deadline.CancelAfter(timeout);
+            if (!allowIdle) deadline.CancelAfter(timeout);
             using var message = new MemoryStream();
             var buffer = new byte[Math.Min(8192, limits.MaximumMessageBytes)];
             WebSocketMessageType? type = null;
@@ -111,6 +126,7 @@ public sealed class CompilerWebSocketTransport : IDisposable
                     // One extra byte detects overflow at the exact limit without accepting it.
                     var available = (int)Math.Min(buffer.Length, (long)limits.MaximumMessageBytes - message.Length + 1);
                     var result = await socket.ReceiveAsync(buffer.AsMemory(0, available), deadline.Token).ConfigureAwait(false);
+                    if (allowIdle && operation == 0) deadline.CancelAfter(messageTimeout ?? timeout);
                     if (result.MessageType == WebSocketMessageType.Close)
                         throw new IOException("Compiler WebSocket closed before a message was available.");
                     if (type is not null && type != result.MessageType)
