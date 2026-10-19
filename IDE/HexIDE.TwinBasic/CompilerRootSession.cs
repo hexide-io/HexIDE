@@ -27,6 +27,8 @@ public sealed class CompilerRootSession : IDisposable
     private static readonly UTF8Encoding StrictUtf8 = new(false, true);
     private readonly CompilerWebSocketTransport transport;
     internal CompilerWebSocketTransport Transport => transport;
+    private int projectPreparationClaimed;
+    internal bool TryClaimProjectPreparation() => Interlocked.CompareExchange(ref projectPreparationClaimed, 1, 0) == 0;
     public CompilerRootConnectionInfo Connection { get; }
 
     private CompilerRootSession(CompilerWebSocketTransport transport, CompilerRootConnectionInfo connection)

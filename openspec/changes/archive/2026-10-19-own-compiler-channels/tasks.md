@@ -3,4 +3,4 @@
 - [x] Add bounded multiplexed I/O, idle waiting and terminal async cleanup tests.
 - [x] Investigate the live early-attachment crash and verify prepared-project ordering for 35 seconds.
 - [x] Complete Windows/Linux tests and specification/repository checks.
-- [ ] Open the PR and pause for CI/review.
+- [x] Open the PR and pause for CI/review.
