@@ -4,4 +4,7 @@
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="HexIDE.TwinBasic.Tests" />
+  </ItemGroup>
 </Project>
