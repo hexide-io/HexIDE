@@ -313,7 +313,7 @@ public sealed class ArchiveSourceFolder
     }
 
     private static string MemberPath(string root, string[] segments) => Path.Combine([root, .. segments]);
-    private static string ResolveProjectDirectory(string directory)
+    private static string ResolveProjectDirectory(string directory, int remainingLinks = 40)
     {
         // Project-location aliases (including macOS /var -> /private/var) are valid.
         // Resolve each ancestor before deriving managed paths; links in the archive itself
@@ -325,7 +325,14 @@ public sealed class ArchiveSourceFolder
             current = Path.Combine(current, segment);
             var info = new DirectoryInfo(current);
             if (!info.Exists) throw new DirectoryNotFoundException(current);
-            current = info.ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? current;
+            var target = info.ResolveLinkTarget(returnFinalTarget: false);
+            if (target != null)
+            {
+                if (remainingLinks == 0) throw Conflict("Project directory link resolution exceeds the limit", directory);
+                // A link target can itself contain linked ancestors. Resolving only the final
+                // target component leaves aliases such as /var embedded in the resulting path.
+                current = ResolveProjectDirectory(target.FullName, remainingLinks - 1);
+            }
         }
         CheckAncestors(current);
         return current;

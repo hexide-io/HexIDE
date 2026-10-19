@@ -314,6 +314,32 @@ public sealed class ArchiveSourceFolderTests : IDisposable
     }
 
     [Fact]
+    public void Unix_directory_link_target_with_linked_ancestors_is_fully_resolved()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        Save(FileNode("main", "data"));
+        var nested = Path.Combine(directory, "nested");
+        Directory.CreateDirectory(nested);
+        File.Copy(Source, Path.Combine(nested, "project.twinproj"));
+        var first = new ArchiveSourceFolder().Synchronize(Path.Combine(nested, "project.twinproj"), Token);
+        var parentAlias = Path.Combine(directory, "parent-alias");
+        var alias = Path.Combine(directory, "nested-alias");
+        Directory.CreateSymbolicLink(parentAlias, directory);
+        Directory.CreateSymbolicLink(alias, Path.Combine(parentAlias, "nested"));
+        try
+        {
+            var result = new ArchiveSourceFolder().Synchronize(Path.Combine(alias, "project.twinproj"), Token);
+            Assert.Equal(first.Directory, result.Directory);
+            Assert.False(result.Changed);
+        }
+        finally
+        {
+            Directory.Delete(alias);
+            Directory.Delete(parentAlias);
+        }
+    }
+
+    [Fact]
     public void Git_tracks_projection_and_manifest_but_ignores_local_recovery_state()
     {
         Save(FileNode("main.twin", "line one\r\nline two\n")); Sync();
