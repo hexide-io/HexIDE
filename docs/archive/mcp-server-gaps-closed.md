@@ -3763,3 +3763,15 @@ close box answers vbOK; only Yes/No and Abort/Retry/Ignore boxes refuse, as the 
 > Its review found that `ToolSource` stopped reading a description at the first piece that was not a literal. Three
 > tools end with `+ ProgramWaitNote`, so 361 characters of each were neither measured against the length cap nor
 > checked. It now reads a `const string` in the chain, and reports a chain that goes on past what it can read.
+
+## `select` reported a selection it could not read back as made (#1259)
+
+`select` reads the selection back before reporting it (#1182), but the read fell back to *selected* when the provider's
+`IsSelected` threw. A throwing peer was replied to as `selected 'X'`, and `double_click` counted its first click as a
+selection, though nothing had been read: a fail-open default in the step that exists to verify.
+
+> **Fixed.** `IsSelected` is read as selected, not selected, or unread. When it is unread, the list's own
+> `SelectionChanged` announcement decides, as it already did for a list that replaced the item. With no announcement
+> the reply says select was sent but whether it took is not known, and what the list now holds, rather than claiming
+> either outcome. No provider in the tree throws there; HexIDE implements no `ISelectionItemProvider` of its own.
+> Guarded by `SelectUnreadTests`, with a substitute provider that throws over a real `ListBox`.

@@ -745,7 +745,7 @@ public static class UiAutomationDriver
     /// nothing to read back; the selection took if the list announced it. A list that puts its selection back on a later
     /// dispatcher pass is not seen: the read is made when Select returns.
     /// </summary>
-    private static InteractOutcome? SelectVerified(Control item, ISelectionItemProvider sip, string label)
+    internal static InteractOutcome? SelectVerified(Control item, ISelectionItemProvider sip, string label)
     {
         var owner = ItemsControl.ItemsControlFromItemContainer(item) as SelectingItemsControl;
         var data = owner is null ? null : Safe(() => owner.ItemFromContainer(item), null);
@@ -756,10 +756,17 @@ public static class UiAutomationDriver
         try { sip.Select(); }
         finally { owner?.SelectionChanged -= Changed; }
 
-        if (Safe(() => sip.IsSelected, true)
-            || announced && (ItemsControl.ItemsControlFromItemContainer(item) is null || owner!.IndexFromContainer(item) < 0))
+        // Null when the provider threw: unread, which is neither outcome (#1259). It once fell back to selected, so a
+        // throwing peer was replied to as chosen without anything having been read.
+        var selected = Safe<bool?>(() => sip.IsSelected, null);
+        if (selected == true
+            || announced && (selected is null || ItemsControl.ItemsControlFromItemContainer(item) is null
+                                              || owner!.IndexFromContainer(item) < 0))
             return null;
         var now = owner is ListBox list ? $"; {SelectionSummary(list)}" : "";
+        if (selected is null)
+            return Err($"'{label}': select was sent, but its selection could not be read back and its list did not announce "
+                       + $"it, so whether it took is not known{now}. Dump the list to see what is selected");
         return Err($"'{label}' was not selected: its list did not take the selection{now}. Dump the list again, as the "
                    + "row may no longer be the one it showed, or select it with press_key, as a person would");
     }
