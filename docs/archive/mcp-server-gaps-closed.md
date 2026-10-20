@@ -3329,3 +3329,38 @@ Font dialog for Font, and say that no automation route exists yet for the `byte[
 > for a Font, and for a `byte[]` property says it has no text form and no automation route yet. A control with no
 > font of its own merges with HexIDE's default, which the designer draws it in, not its form's: HexIDE has no ambient
 > font. Guarded by `PropertyTextTests`.
+
+## Polling `list_lsp_messages` with the highest sequence seen never shows a waiting request answered
+
+**Symptom.** While re-recording [`mcp-first-contact.md`](mcp-first-contact.md) for #273 on 2026-10-13, in a fresh
+`--newproject` session, a request seen waiting never came back answered when polled as the description advises:
+
+```
+open_file {"name":"Form1"}
+list_lsp_messages {}
+→ six rows; sequence 4 is initialize, with no outcome; 6 is the highest
+list_lsp_messages {"afterSequence":6,"limit":3}
+→ rows 12, 13, 15 ("matched":7); initialize is not among them
+list_lsp_messages {"afterSequence":3}
+→ row 4 comes back "outcome":"Answered", "answerSequence":8
+```
+
+The description says to pass "the highest one already seen to poll for what is new". A reply does not add a row:
+it completes its request's row and uses up a sequence. That row's sequence is below the one a poller passes, so
+the filter (`CaptureQueries`, `envelope.Sequence <= after`) drops it. The poller sees what followed the request
+and never sees the request answered.
+
+**Workaround.** Pass a sequence below the oldest request still waiting, and read each request's row again.
+
+**Suggested fix.** Match a row that was completed after `afterSequence` as well as one recorded after it, keyed
+on the sequence its reply consumed, which exists whether or not the body was kept. Say in the description that
+a completed request comes back on its own row. [#961](https://github.com/hexide-io/HexIDE/issues/961).
+
+> **Fixed.** A request recorded before `afterSequence` and answered, cancelled or abandoned after it now comes back,
+> on its own row with its outcome: each request's row records the sequence its outcome was recorded under
+> (`CompletedSequence`), the one its reply used up whether or not the body was kept, or one an ending takes. The
+> reply carries `latestSequence`, the last sequence the listing looked at, which is what to pass next: not the
+> highest row seen, which for a request answered since is older than its answer and would return it again on every
+> poll. When `limit` cuts a listing short it keeps what changed last, so a request answered just now outranks one
+> sent just now. Both descriptions say to poll from `latestSequence`. Guarded by `CaptureQueriesTests`, which hold a
+> request unanswered, see it waiting, and poll it answered or cancelled exactly once.

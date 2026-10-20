@@ -514,12 +514,17 @@ public sealed class ConversationLog : IAsyncDisposable
         var connection = Of(pending.ConnectionId);
         if (pending.EndOutcome is { } outcome)
         {
+            // An ending takes a sequence as a reply does, once for every request it ends, so a poll after the
+            // last sequence it saw finds them ended (#961). None is taken when nothing was waiting.
+            long? ended = null;
             foreach (var (key, started) in connection.Outstanding.ToArray())
             {
                 if (pending.EndOrigin is { } origin && key.Origin != origin) continue;
                 if (pending.CorrelationId is { } endId && key.Id != endId) continue;
                 connection.Outstanding.Remove(key);
-                connection.Ring.Complete(started.Sequence, outcome, Stopwatch.GetElapsedTime(started.StartedAt));
+                ended ??= ++_sequence;
+                connection.Ring.Complete(started.Sequence, outcome, Stopwatch.GetElapsedTime(started.StartedAt),
+                    completedSequence: ended);
             }
             return;
         }
@@ -588,7 +593,9 @@ public sealed class ConversationLog : IAsyncDisposable
             kept ? sequence : null,
             // The size, by contrast, is recorded whatever the arming says — it is metadata, and the
             // envelope tier is the one that is always on.
-            pending.SizeBytes);
+            pending.SizeBytes,
+            // And where the outcome landed, kept or not, which is what a poll after a sequence asks about.
+            sequence);
 
         return true;
     }

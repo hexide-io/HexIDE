@@ -13,7 +13,9 @@ namespace HexIDE.Conversations;
 /// </param>
 /// <param name="AfterSequence">
 /// Everything newer than a sequence already seen. The cheap way to poll: exercise a feature, ask what is
-/// new since last time, and get only that.
+/// new since last time, and get only that. A request recorded before it and answered or ended since counts as
+/// new, because its row is where its reply appears (#961); pass <see cref="EnvelopePage.LatestSequence"/> from the
+/// last listing, not the highest row seen.
 /// </param>
 /// <param name="Limit">
 /// The most to return. The <em>newest</em> matches are kept rather than the oldest, because a client that
@@ -77,12 +79,18 @@ public enum CaptureEmptyReason
 /// <param name="Reason">
 /// The same fact as <paramref name="Note"/>, as a value a view can translate.
 /// </param>
+/// <param name="LatestSequence">
+/// The last sequence the listing looked at, to pass as <see cref="EnvelopeFilter.AfterSequence"/> next time; null
+/// when the record is empty. A poller cannot take it from the rows (#961): a request answered since the last poll
+/// comes back on its own, older row, and passing that row's sequence would return it again on every poll.
+/// </param>
 public sealed record EnvelopePage(
     IReadOnlyList<ConversationEnvelope> Entries,
     int Matched,
     bool Truncated,
     string? Note = null,
-    CaptureEmptyReason Reason = CaptureEmptyReason.NotEmpty);
+    CaptureEmptyReason Reason = CaptureEmptyReason.NotEmpty,
+    long? LatestSequence = null);
 
 /// <summary>One message's content, as far as it was kept.</summary>
 /// <param name="Sequence">Its place in the timeline, which is how it was asked for.</param>
@@ -145,20 +153,29 @@ public static class CaptureQueries
         await log.DrainAsync().ConfigureAwait(false);
 
         var matched = new List<ConversationEnvelope>();
+        var latest = filter.AfterSequence;
         foreach (var envelope in log.Snapshot(filter.ConnectionId))
         {
             if (Matches(envelope, filter)) matched.Add(envelope);
+            latest = Math.Max(latest ?? 0, LastChanged(envelope));
         }
 
         var limit = Math.Max(1, filter.Limit);
         var reason = matched.Count == 0 ? WhyEmpty(log, filter) : CaptureEmptyReason.NotEmpty;
         var note = matched.Count == 0 ? ExplainEmpty(log, filter) : null;
 
-        if (matched.Count <= limit) return new EnvelopePage(matched, matched.Count, false, note, reason);
+        if (matched.Count <= limit) return new EnvelopePage(matched, matched.Count, false, note, reason, latest);
 
+        // The newest by what last happened to them, so a request answered just now outranks one sent just now; still
+        // returned in the order they were recorded.
+        var kept = matched.OrderByDescending(LastChanged).Take(limit).ToHashSet();
         return new EnvelopePage(
-            matched.GetRange(matched.Count - limit, limit), matched.Count, true, note, reason);
+            [.. matched.Where(kept.Contains)], matched.Count, true, note, reason, latest);
     }
+
+    /// <summary>The last sequence that changed an envelope: its own, or the one its outcome was recorded under.</summary>
+    private static long LastChanged(ConversationEnvelope envelope) =>
+        Math.Max(envelope.Sequence, envelope.CompletedSequence ?? 0);
 
     /// <summary>
     /// One message's content, or null when the record has none for that sequence.
@@ -334,7 +351,10 @@ public static class CaptureQueries
 
     private static bool Matches(ConversationEnvelope envelope, EnvelopeFilter filter)
     {
-        if (filter.AfterSequence is { } after && envelope.Sequence <= after) return false;
+        // A request recorded before the poll's sequence and answered or ended since is new too (#961): its row is the
+        // only place its reply appears, so a filter on the row's own sequence alone never showed it answered.
+        if (filter.AfterSequence is { } after && envelope.Sequence <= after && !(envelope.CompletedSequence > after))
+            return false;
         if (filter.Direction is { } direction && envelope.Direction != direction) return false;
         if (filter.Kind is { } kind && envelope.Kind != kind) return false;
 

@@ -31,6 +31,9 @@ public class CaptureQueriesTests : IAsyncDisposable
     private readonly ConversationLog _log = new();
     private readonly List<IDisposable> _disposables = [];
 
+    // Holds "slow" unanswered until a test lets it go, so a request can be seen waiting and then answered.
+    private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
     public async ValueTask DisposeAsync()
     {
         foreach (var d in _disposables) { try { d.Dispose(); } catch { /* teardown */ } }
@@ -38,8 +41,11 @@ public class CaptureQueriesTests : IAsyncDisposable
         GC.SuppressFinalize(this);
     }
 
-    private sealed class Server
+    private sealed class Server(Task release)
     {
+        [JsonRpcMethod("slow")]
+        public async Task<int> Slow() { await release; return 1; }
+
         [JsonRpcMethod("initialize", UseSingleObjectParameterDeserialization = true)]
         public JsonElement Initialize(JsonElement _) =>
             JsonDocument.Parse("""{"capabilities":{"hoverProvider":true}}""").RootElement.Clone();
@@ -60,7 +66,7 @@ public class CaptureQueriesTests : IAsyncDisposable
 
         var peer = new JsonRpc(
             new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
-            new Server());
+            new Server(_release.Task));
         peer.StartListening();
 
         var tapped = new CapturingFormatter(new SystemTextJsonFormatter(), _log, connectionId);
@@ -285,7 +291,7 @@ public class CaptureQueriesTests : IAsyncDisposable
     {
         var client = await AConversation();
         var soFar = await CaptureQueries.ListAsync(_log, new EnvelopeFilter());
-        var latest = soFar.Entries[^1].Sequence;
+        var latest = soFar.LatestSequence;
 
         await client.InvokeWithParameterObjectAsync<JsonElement>(
             "textDocument/hover", new { line = 2 }, TestContext.Current.CancellationToken);
@@ -294,6 +300,94 @@ public class CaptureQueriesTests : IAsyncDisposable
 
         since.Entries.Should().ContainSingle(
             "exercising one thing and asking what is new is the cheap loop this exists for");
+    }
+
+    /// <summary>Sends "slow" and waits until the record holds it, unanswered.</summary>
+    private async Task<(Task<int> Reply, EnvelopePage Seen)> ARequestLeftWaiting(JsonRpc client)
+    {
+        var reply = client.InvokeAsync<int>("slow");
+        for (var i = 0; i < 250; i++)
+        {
+            var page = await CaptureQueries.ListAsync(_log, new EnvelopeFilter());
+            if (page.Entries.Any(e => e.Method == "slow")) return (reply, page);
+            await Task.Delay(20, TestContext.Current.CancellationToken);
+        }
+
+        throw new TimeoutException("slow was never recorded");
+    }
+
+    [Fact]
+    public async Task A_request_seen_waiting_comes_back_answered_to_the_next_poll()
+    {
+        // #961: a poller passing the highest sequence it had seen never saw a waiting request answered, because the
+        // reply completes the request's row, which is below that sequence.
+        var client = await AConversation();
+        var (reply, seen) = await ARequestLeftWaiting(client);
+        seen.Entries.Single(e => e.Method == "slow").Outcome.Should().Be(ConversationOutcome.None);
+
+        await client.NotifyAsync("note", "after it");
+        var meanwhile = await CaptureQueries.ListAsync(_log, new EnvelopeFilter(AfterSequence: seen.LatestSequence));
+        meanwhile.Entries.Select(e => e.Method).Should().Equal(["note"], "slow is still waiting, so it has not changed");
+
+        _release.SetResult();
+        await reply;
+        var answered = await CaptureQueries.ListAsync(_log, new EnvelopeFilter(AfterSequence: meanwhile.LatestSequence));
+
+        answered.Entries.Should().ContainSingle().Which.Should().Match<ConversationEnvelope>(e =>
+            e.Method == "slow" && e.Outcome == ConversationOutcome.Answered);
+        answered.LatestSequence.Should().BeGreaterThan(answered.Entries[0].Sequence,
+            "the row is older than the reply it now carries, so its own sequence is not where to poll from");
+        (await CaptureQueries.ListAsync(_log, new EnvelopeFilter(AfterSequence: answered.LatestSequence)))
+            .Entries.Should().BeEmpty("polling from latestSequence returns an answer once, not on every poll");
+    }
+
+    [Fact]
+    public async Task A_request_ended_unanswered_comes_back_ended_to_the_next_poll()
+    {
+        var client = await AConversation();
+        var (reply, seen) = await ARequestLeftWaiting(client);
+        try
+        {
+            _log.EndRequests("vb6", ConversationDirection.Sent, outcome: ConversationOutcome.Cancelled);
+
+            var ended = await CaptureQueries.ListAsync(_log, new EnvelopeFilter(AfterSequence: seen.LatestSequence));
+
+            ended.Entries.Should().ContainSingle().Which.Outcome.Should().Be(ConversationOutcome.Cancelled);
+            (await CaptureQueries.ListAsync(_log, new EnvelopeFilter(AfterSequence: ended.LatestSequence)))
+                .Entries.Should().BeEmpty();
+        }
+        finally
+        {
+            _release.SetResult();
+            await reply;
+        }
+    }
+
+    [Fact]
+    public async Task A_limited_poll_keeps_the_request_answered_last_over_one_recorded_before_its_answer()
+    {
+        var client = await AConversation();
+        var (reply, seen) = await ARequestLeftWaiting(client);
+        await client.NotifyAsync("note", "before the answer");
+        _release.SetResult();
+        await reply;
+
+        var page = await CaptureQueries.ListAsync(_log, new EnvelopeFilter(AfterSequence: seen.LatestSequence, Limit: 1));
+
+        page.Matched.Should().Be(2);
+        page.Entries.Should().ContainSingle().Which.Method.Should().Be("slow", "its answer is the newest thing that happened");
+    }
+
+    [Fact]
+    public async Task A_listing_names_the_last_sequence_it_looked_at_even_when_nothing_matched()
+    {
+        var client = await AConversation();
+        var all = await CaptureQueries.ListAsync(_log, new EnvelopeFilter());
+        var none = await CaptureQueries.ListAsync(_log, new EnvelopeFilter(Method: "no/such"));
+
+        none.LatestSequence.Should().Be(all.LatestSequence)
+            .And.BeGreaterThan(all.Entries[^1].Sequence, "the hover's reply used up the last sequence");
+        (await CaptureQueries.ListAsync(new ConversationLog(), new EnvelopeFilter())).LatestSequence.Should().BeNull();
     }
 
     [Fact]
@@ -417,7 +511,7 @@ public class CaptureQueriesTests : IAsyncDisposable
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
         var peer = new JsonRpc(
             new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
-            new Server());
+            new Server(_release.Task));
         peer.StartListening();
         _disposables.Add(peer);
 
