@@ -3546,17 +3546,32 @@ be reached this way".
 **Suggested fix.** `invoke_command` falling back to a public parameterless method, listed by `inspect_element`, and
 a refusal that names what it looked for. [#836](https://github.com/hexide-io/HexIDE/issues/836).
 
-> **Fixed.** `invoke_command` reaches a method a Command is bound to as well as an `ICommand` property. Given a name
-> with no property, it calls the view model's public parameterless method of that name, one returning nothing or a
-> task, as a Command binding would, and is refused when a `Can<name>(object)` method returns false. `inspect_element`
-> lists such methods as `kind: "method"`. They are limited to HexIDE's own types, so a framework base adds nothing,
-> and disposal is never listed. Its refusals now say what was looked for:
+> **Fixed.** `invoke_command` reaches a method a Command is bound to as well as an `ICommand` property. Which methods
+> are bound comes from the XAML compiler's own record: Avalonia compiles each `Command="{CompiledBinding X}"` on a
+> method into a trampoline named for the type, the method and its arity, and `XamlCommandBindings` reads those. So
+> `invoke_command` calls, and `inspect_element` lists as `kind: "method"`, exactly the methods a person can click.
 >
-> - "no ICommand property or parameterless method 'X' on T";
-> - "a method invoke_command cannot call", for one that takes parameters or returns a value;
-> - a method's own exception, or a faulted task;
-> - "still running", for a task that has not finished.
+> The first version accepted any public parameterless method. Its review found that this reached about thirty more
+> that no UI exposes, such as `OnInitialized` and every Options page's `SaveToSettings`. It also reached a
+> `MakeProject` that skips the guard on the `MakeProjectCommand` the menu binds.
 >
-> Measured on Windows through the server's HTTP endpoint: `inspect_element` on the Project Explorer lists
-> `DeleteForm` among 8 methods. `interact {"action":"invoke_command","value":"DeleteForm"}` with Form1 selected
-> removed it from the project, and `DeleteFrom` was refused by name. Guarded by `InvokeCommandMethodTests`.
+> As Avalonia does, the call is refused when a `Can<name>(object)` method of any visibility returns false. A reply
+> with no such guard says so, so the caller checks the effect. The refusals and failures name their cause:
+>
+> - a method bound with a CommandParameter, which the caller cannot supply;
+> - a method no Command is bound to;
+> - a name that is neither;
+> - an exception from the method or its Can method;
+> - a faulted or cancelled task.
+>
+> A task still running is logged if it fails later. A designer context menu that binds through another control's
+> DataContext is still not reached from the menu item, as with a command property.
+>
+> Measured on Windows through the server's HTTP endpoint:
+>
+> - The Project Explorer lists six methods, and the main window lists 32 of its 91 members.
+> - `invoke_command DeleteForm`, with Form1 selected, removed the form.
+> - `OnInitialized` was refused as unbound.
+>
+> Guarded by `InvokeCommandMethodTests`, and by `XamlCommandBindingsTests`, which read HexIDE's own assembly so an
+> Avalonia change to the names fails there.

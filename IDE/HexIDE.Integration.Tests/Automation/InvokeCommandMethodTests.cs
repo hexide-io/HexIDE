@@ -8,156 +8,138 @@ namespace HexIDE.Integration.Tests.Automation;
 
 /// <summary>
 /// invoke_command reaching a method a Command is bound to, as the Project Explorer's Remove is to DeleteForm (#836).
-/// It looked only for an ICommand property, and refused a method by saying there was no such property.
+/// It looked only for an ICommand property, and refused a method by saying there was no such property. No XAML here
+/// binds these view models, so the bindings compiled XAML would have are registered.
 /// </summary>
 public class InvokeCommandMethodTests
 {
-    private sealed class ProjectVm
+    private class ProjectVm
     {
-        public int Deleted { get; private set; }
+        public int Deleted { get; protected set; }
         public bool Allowed { get; set; } = true;
 
         public void DeleteForm() => Deleted++;
 
-        public bool CanGuarded(object? parameter) => Allowed;
+        private bool CanGuarded(object? parameter) => Allowed;
         public void Guarded() => Deleted++;
 
+        public bool CanBroken(object? parameter) => throw new InvalidOperationException("no selection model");
+        public void Broken() => Deleted++;
+
         public void Rename(string name) => Deleted--;
-        public int Count() => Deleted;
+        public void Plumbing() => Deleted = -1;
         public void Throws() => throw new InvalidOperationException("nothing selected");
         public Task Pending() => new TaskCompletionSource().Task;
         public Task Faulted() => Task.FromException(new InvalidOperationException("save failed"));
-        public void Dispose() => Deleted = -1;
-        public Task Loading => Task.CompletedTask;
+        public Task Cancelled() => Task.FromCanceled(new CancellationToken(true));
     }
 
-    private static (Window Window, Button Button) Show(ProjectVm vm)
+    private sealed class DerivedVm : ProjectVm
+    {
+        public new void DeleteForm() => Deleted += 10;
+    }
+
+    static InvokeCommandMethodTests()
+    {
+        foreach (var name in new[] { "DeleteForm", "Guarded", "Broken", "Throws", "Pending", "Faulted", "Cancelled" })
+            XamlCommandBindings.Register(typeof(ProjectVm), name, 0);
+        XamlCommandBindings.Register(typeof(ProjectVm), "Rename", 1);
+        XamlCommandBindings.Register(typeof(DerivedVm), "DeleteForm", 0);
+    }
+
+    private static InteractOutcome Invoke(ProjectVm vm, string name)
     {
         var button = new Button { Content = "Go", DataContext = vm };
         var window = new Window { Content = button, Width = 300, Height = 200 };
         window.Show();
         Dispatcher.UIThread.RunJobs();
-        return (window, button);
+        try { return UiAutomationDriver.Interact(button, "invoke_command", name); }
+        finally { window.Close(); }
     }
 
     [AvaloniaFact]
-    public void A_parameterless_method_is_called_as_a_Command_bound_to_it_would_be()
+    public void A_bound_method_is_called_and_the_reply_says_nothing_guarded_it()
     {
         var vm = new ProjectVm();
-        var (window, button) = Show(vm);
-        try
-        {
-            var outcome = UiAutomationDriver.Interact(button, "invoke_command", "DeleteForm");
 
-            outcome.Success.Should().BeTrue();
-            outcome.Detail.Should().Be("called method 'DeleteForm' on ProjectVm");
-            vm.Deleted.Should().Be(1);
-        }
-        finally { window.Close(); }
+        var outcome = Invoke(vm, "DeleteForm");
+
+        outcome.Success.Should().BeTrue();
+        outcome.Detail.Should().Be(
+            "called method 'DeleteForm' on ProjectVm; no Can method guards it, so check that it did what was meant");
+        vm.Deleted.Should().Be(1);
     }
 
     [AvaloniaFact]
-    public void A_method_whose_Can_method_says_no_is_refused_and_not_called()
+    public void A_method_whose_Can_method_says_no_is_refused_even_when_that_is_private()
     {
         var vm = new ProjectVm { Allowed = false };
-        var (window, button) = Show(vm);
-        try
-        {
-            var outcome = UiAutomationDriver.Interact(button, "invoke_command", "Guarded");
 
-            outcome.Success.Should().BeFalse();
-            outcome.Error.Should().Be("'CanGuarded'(null) on ProjectVm returned false");
-            vm.Deleted.Should().Be(0);
+        Invoke(vm, "Guarded").Error.Should().Be("'CanGuarded'(null) on ProjectVm returned false");
+        vm.Deleted.Should().Be(0);
 
-            vm.Allowed = true;
-            UiAutomationDriver.Interact(button, "invoke_command", "Guarded").Success.Should().BeTrue();
-            vm.Deleted.Should().Be(1);
-        }
-        finally { window.Close(); }
+        vm.Allowed = true;
+        Invoke(vm, "Guarded").Detail.Should().Be("called method 'Guarded' on ProjectVm", "a Can method guarded it");
+        vm.Deleted.Should().Be(1);
+    }
+
+    [AvaloniaFact]
+    public void A_Can_method_that_throws_says_what_it_threw()
+    {
+        var vm = new ProjectVm();
+
+        Invoke(vm, "Broken").Error.Should().Be("invoke_command 'Broken' threw: no selection model");
+        vm.Deleted.Should().Be(0);
     }
 
     [AvaloniaTheory]
-    [InlineData("Rename")]
-    [InlineData("Count")]
-    [InlineData("Dispose")]
-    public void A_method_a_Command_binding_would_not_call_is_refused_by_saying_why(string name)
+    [InlineData("Plumbing", "'Plumbing' on ProjectVm is a method no Command is bound to, so invoke_command does not call it")]
+    [InlineData("Rename", "'Rename' on ProjectVm is bound as a Command with a CommandParameter, which invoke_command cannot "
+                          + "supply: drive the control bound to it")]
+    [InlineData("DeleteFrom", "no ICommand property or Command-bound method 'DeleteFrom' on ProjectVm; inspect_element on "
+                              + "the control that owns the DataContext lists both")]
+    public void A_method_a_person_could_not_click_is_refused_by_saying_why(string name, string error)
     {
         var vm = new ProjectVm();
-        var (window, button) = Show(vm);
-        try
-        {
-            var outcome = UiAutomationDriver.Interact(button, "invoke_command", name);
 
-            outcome.Success.Should().BeFalse();
-            outcome.Error.Should().StartWith($"'{name}' on ProjectVm is a method invoke_command cannot call");
-            vm.Deleted.Should().Be(0);
-        }
-        finally { window.Close(); }
-    }
-
-    [AvaloniaFact]
-    public void A_name_that_is_neither_says_what_was_looked_for()
-    {
-        var (window, button) = Show(new ProjectVm());
-        try
-        {
-            UiAutomationDriver.Interact(button, "invoke_command", "DeleteFrom").Error.Should().Be(
-                "no ICommand property or parameterless method 'DeleteFrom' on ProjectVm; inspect_element on the control "
-                + "that owns the DataContext lists both");
-        }
-        finally { window.Close(); }
+        Invoke(vm, name).Error.Should().Be(error);
+        vm.Deleted.Should().Be(0);
     }
 
     [AvaloniaTheory]
     [InlineData("Throws", "invoke_command 'Throws' threw: nothing selected")]
     [InlineData("Faulted", "invoke_command 'Faulted' failed: save failed")]
+    [InlineData("Cancelled", "invoke_command 'Cancelled' was cancelled")]
     public void A_method_that_fails_says_how(string name, string error)
     {
-        var (window, button) = Show(new ProjectVm());
-        try
-        {
-            UiAutomationDriver.Interact(button, "invoke_command", name).Error.Should().Be(error);
-        }
-        finally { window.Close(); }
+        Invoke(new ProjectVm(), name).Error.Should().Be(error);
     }
 
     [AvaloniaFact]
     public void A_method_still_running_says_so()
     {
-        var (window, button) = Show(new ProjectVm());
-        try
-        {
-            UiAutomationDriver.Interact(button, "invoke_command", "Pending").Detail.Should().Be(
-                "called method 'Pending' on ProjectVm; it returned a task that is still running");
-        }
-        finally { window.Close(); }
+        Invoke(new ProjectVm(), "Pending").Detail.Should().StartWith(
+            "called method 'Pending' on ProjectVm; it returned a task that is still running");
     }
 
     [AvaloniaFact]
-    public void Inspection_lists_the_methods_invoke_command_can_call_and_no_others()
+    public void A_method_a_derived_view_model_hides_is_the_one_called()
+    {
+        var vm = new DerivedVm();
+
+        Invoke(vm, "DeleteForm").Success.Should().BeTrue();
+        vm.Deleted.Should().Be(10);
+
+        // Bound on the base type only, as XAML written against the base view model would bind it.
+        Invoke(vm, "Throws").Error.Should().Be("invoke_command 'Throws' threw: nothing selected");
+    }
+
+    [AvaloniaFact]
+    public void Inspection_lists_the_bound_methods_and_no_others()
     {
         var (members, _) = UiAutomationDriver.DescribeDataContext(new ProjectVm());
 
         members.Where(m => m.Kind == "method").Select(m => m.Name).Should().Equal(
-            "DeleteForm", "Faulted", "Guarded", "Pending", "Throws");
-    }
-
-    [AvaloniaFact]
-    public void The_Project_Explorer_s_Remove_is_listed()
-    {
-        UiAutomationDriver.CommandMethods(typeof(HexIDE.Tools.ProjectToolViewModel))
-            .Select(m => m.Name).Should().Contain("DeleteForm");
-    }
-
-    // List<T> declares Clear, Reverse, Sort and TrimExcess: a framework base's methods are not the view model's.
-    private sealed class ListVm : List<int>
-    {
-        public void Own() { }
-    }
-
-    [AvaloniaFact]
-    public void A_framework_base_s_methods_are_not_listed()
-    {
-        UiAutomationDriver.CommandMethods(typeof(ListVm)).Select(m => m.Name).Should().Equal("Own");
+            "Broken", "Cancelled", "DeleteForm", "Faulted", "Guarded", "Pending", "Throws");
     }
 }
