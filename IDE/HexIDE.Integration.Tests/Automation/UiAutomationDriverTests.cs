@@ -1085,6 +1085,152 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
+    // #907: the item's peer only set the selection, so the popup stayed open over what lay below it, and the reply
+    // said nothing. A click on the item closes it.
+    [AvaloniaFact]
+    public void Interact_Select_OnAnItemInAnOpenDropDown_ClosesItAsAClickDoes()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "A", "B" } };
+        var window = Show(combo);
+        try
+        {
+            UiAutomationDriver.Interact(combo, "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            var item = combo.GetRealizedContainers().OfType<ComboBoxItem>().Last();
+
+            var outcome = UiAutomationDriver.Interact(item, "select", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            combo.SelectedItem.Should().Be("B");
+            combo.IsDropDownOpen.Should().BeFalse();
+            outcome.Detail.Should().Be("selected 'B' and closed the dropdown, as a click does");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Select_WithAValue_OnAnOpenDropDown_ClosesIt()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "A", "B" } };
+        var window = Show(combo);
+        try
+        {
+            UiAutomationDriver.Interact(combo, "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            combo.IsDropDownOpen.Should().BeTrue();
+
+            var outcome = UiAutomationDriver.Interact(combo, "select", "B");
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            combo.SelectedItem.Should().Be("B");
+            combo.IsDropDownOpen.Should().BeFalse();
+            outcome.Detail.Should().EndWith("and closed the dropdown, as a click does");
+        }
+        finally { window.Close(); }
+    }
+
+    // A selection handler that replaces the list recycles the item's container and clears its parent, so a dropdown
+    // looked for after the selection went unfound and stayed open, with nothing said.
+    [AvaloniaFact]
+    public void Interact_Select_OnAnOpenDropDownWhoseListIsReplacedOnSelection_StillClosesIt()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "A", "B" } };
+        var replaced = false;
+        combo.SelectionChanged += (_, _) =>
+        {
+            if (replaced || combo.SelectedItem is not "B") return;
+            replaced = true;
+            combo.ItemsSource = new[] { "C", "D" };
+        };
+        var window = Show(combo);
+        try
+        {
+            UiAutomationDriver.Interact(combo, "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            var item = combo.GetRealizedContainers().OfType<ComboBoxItem>().Last();
+
+            var outcome = UiAutomationDriver.Interact(item, "select", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            combo.IsDropDownOpen.Should().BeFalse();
+            outcome.Detail.Should().EndWith("and closed the dropdown, as a click does");
+        }
+        finally { window.Close(); }
+    }
+
+    // A real double-click's first click picks the item and closes the dropdown; its second lands on what lay beneath.
+    [AvaloniaFact]
+    public void Interact_DoubleClick_OnAnItemInAnOpenDropDown_SelectsItAndClosesItWithoutADoubleTap()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "A", "B" } };
+        var doubleTapped = false;
+        combo.AddHandler(InputElement.DoubleTappedEvent, (_, _) => doubleTapped = true);
+        var window = Show(combo);
+        try
+        {
+            UiAutomationDriver.Interact(combo, "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            var item = combo.GetRealizedContainers().OfType<ComboBoxItem>().Last();
+
+            var outcome = UiAutomationDriver.Interact(item, "double_click", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            combo.SelectedItem.Should().Be("B");
+            combo.IsDropDownOpen.Should().BeFalse();
+            doubleTapped.Should().BeFalse();
+            outcome.Detail.Should().Contain("closed the dropdown").And.Contain("no double-click was raised");
+        }
+        finally { window.Close(); }
+    }
+
+    // The template's TextBox shows on an editable ComboBox, and a person's keys go to it.
+    [AvaloniaFact]
+    public void PressKey_OnAnEditableComboBox_GoesToItsTextBox()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "A", "B" }, IsEditable = true };
+        var window = Show(combo);
+        try
+        {
+            var outcome = UiAutomationDriver.PressKey(combo, "A", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Detail.Should().Contain("TextBox");
+        }
+        finally { window.Close(); }
+    }
+
+    // Found on #907's live check: every key on a ComboBox was refused, because the key target chosen was the hidden
+    // TextBox in its template rather than the ComboBox.
+    [AvaloniaFact]
+    public void PressKey_OnAComboBoxThatIsNotEditable_GoesToTheComboBox()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "A", "B" }, SelectedIndex = 0 };
+        var window = Show(combo);
+        try
+        {
+            var outcome = UiAutomationDriver.PressKey(combo, "Down", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            combo.SelectedIndex.Should().Be(1, "Down on a closed ComboBox selects the next item");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Select_OnAListItem_SaysNothingAboutADropDown()
+    {
+        var list = new ListBox { ItemsSource = new[] { "A", "B" } };
+        var window = Show(list);
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(list, "select", "B");
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Detail.Should().Be("selected 'B'");
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void Interact_UnsupportedAction_ReturnsCleanError()
     {
@@ -1424,6 +1570,39 @@ public class UiAutomationDriverTests
 
             outcome.Success.Should().BeFalse();
             outcome.Error.Should().Contain("keyboard focus");
+        }
+        finally { window.Close(); }
+    }
+
+    // A running form hides a Frame this way (VBVisibility). press_key passes over what is hidden, so it once told the
+    // caller there was nothing focusable here, while type_text on the same target said it was hidden.
+    [AvaloniaFact]
+    public void PressKey_OnAHiddenContainer_SaysItIsNotShowing()
+    {
+        var frame = new Border { Opacity = 0, IsHitTestVisible = false, Child = new TextBox { Name = "Text1" } };
+        var window = Show(frame);
+        try
+        {
+            var outcome = UiAutomationDriver.PressKey(frame, "A", null);
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("is not showing").And.NotContain("keyboard focus");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void PressKey_OnAContainerWhoseOnlyTextBoxIsHidden_NamesThatTextBox()
+    {
+        var host = new StackPanel();
+        host.Children.Add(new Border { Opacity = 0, IsHitTestVisible = false, Child = new TextBox { Name = "Text1" } });
+        var window = Show(host);
+        try
+        {
+            var outcome = UiAutomationDriver.PressKey(host, "A", null);
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("Text1").And.Contain("is not showing");
         }
         finally { window.Close(); }
     }

@@ -412,10 +412,7 @@ plausible-looking array instead of an empty one, which is the part that misleads
 
 **Workaround.** Never read `selectionItems` from a collapsed dropdown as the item list. `expand` first,
 then `dump_visual_tree(root=<combo>)` and read the `ComboBoxItem` children. Expand again immediately before
-`select` if the popup has closed, and `collapse` after it. The tool does not close the popup: where this was
-first written it closed between calls, probably because the IDE window lost focus (inferred, not measured),
-while on Linux, with nothing taking focus from the IDE, it stayed open after `select` until `collapse`
-(see "`interact` `select` on a dropdown item leaves the dropdown open", [#907](https://github.com/hexide-io/HexIDE/issues/907)).
+`select` if the popup has closed. Since #907, `select` closes the dropdown as a click does, and its reply says so.
 
 **Suggested fix.** Either omit `selectionItems` when the items are unrealized, or mark it — an
 `itemsRealized: false` alongside it would be enough. A partial list that looks complete is worse than no
@@ -1012,30 +1009,6 @@ dropdown that `invoke` left open was not measured, so check a snapshot after any
 **Suggested fix.** Do what Avalonia 12.1.4's own peer does: `collapse` on a top-level item closes the menu bar,
 and `invoke` toggles a checkable item, raises Click, then closes the menu unless `StaysOpenOnClick`. Have
 `MenuPopupTests` assert that the menu is closed after each. [#947](https://github.com/hexide-io/HexIDE/issues/947).
-
-## `interact` `select` on a dropdown item leaves the dropdown open
-
-**Symptom.** On the Object Browser's library box (Linux, openSUSE Leap 16 under XWayland, Debug build of main at
-b15c7cf, 2026-10-13):
-
-```
-interact {"target":".../List[#0]/Pane[#0]/Custom/ComboBox","action":"expand"}
-interact {"target":".../ComboBox/Pane/ComboBoxItem[VBA]","action":"select"}
-→ selected 'VBA'
-```
-
-The selection changed, but the popup stayed open over the Classes list until
-`interact {"target":".../ComboBox","action":"collapse"}`. Clicking the item closes it, and the reply does not say
-it is still open. `select` sets the selection through the item's peer, and Avalonia's ComboBox closes its popup on
-pointer, key and visibility changes, never on a selection change. The mechanism is cross-platform by code
-reading; whether a caller sees the popup linger depends on whether the IDE window keeps focus. Same family as the
-menu entry above: the driver acts on a control without the close a real gesture performs.
-
-**Workaround.** After `select` on a dropdown item, `collapse` the ComboBox. Do not rely on the popup closing
-between calls.
-
-**Suggested fix.** After selecting in an open dropdown, `select` closes it as a click does, and says so in its
-reply. [#907](https://github.com/hexide-io/HexIDE/issues/907).
 
 ## `add_to_selection` names the new selection but not its reference, so a caller learns what Align measured against only afterwards
 
