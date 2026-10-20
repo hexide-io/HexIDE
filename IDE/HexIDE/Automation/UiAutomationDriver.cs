@@ -413,16 +413,15 @@ public static class UiAutomationDriver
         // A provider or pointer action stands for something a person does to the control, and nobody can press
         // what is not showing. The peer acts regardless, so without this a hidden Approve button reported that it
         // approved (#1069). The reflection actions act on the view model, not the control, so they are exempt.
-        if (norm is not ("invokecommand" or "setproperty") && Verbs.Any(v => Normalise(v) == norm)
-            && NotShowing(control))
-            return Err($"'{Safe(() => LabelOf(control, ControlAutomationPeer.CreatePeerForElement(control)), control.GetType().Name)}' "
-                       + "is not showing (it or a container is hidden, which dump_visual_tree marks \"isHidden\": true), "
-                       + $"so no person could {action} it. "
-                       + (control is MenuItem
-                           // An item of a closed menu is the common case, and a caller who used to invoke it directly
-                           // needs the two routes that still reach it, not the generic advice.
-                           ? "It is an item of a menu that is not open: expand the menu first, or name it to invoke_menu_item, which needs no menu open"
-                           : "Target the copy that shows, or make it show first; invoke_command and set_property act on its view model and still work"));
+        if (norm is not ("invokecommand" or "setproperty") && Verbs.FirstOrDefault(v => Normalise(v) == norm) is { } verb
+            && Hidden(control) is true)
+            return Err(NotShowingRefusal(control, verb)
+                       + (verb == "scroll"
+                           // scroll reaches past its target to the nearest container that scrolls, so the container is
+                           // the useful thing to aim at, and the view model has nothing to offer.
+                           ? " Aim scroll at the container that shows; it scrolls itself or the nearest container that can"
+                           : " Target the copy that shows, or make it show first; invoke_command and set_property act on "
+                             + "its view model and still work"));
 
         AutomationPeer peer;
         try { peer = ControlAutomationPeer.CreatePeerForElement(control); }
@@ -568,17 +567,17 @@ public static class UiAutomationDriver
     }
 
     /// <summary>
-    /// Whether a person could not reach <paramref name="control"/> to act on it: it or a container is hidden, or it is
-    /// an item of a submenu that is not open.
+    /// The refusal for acting on <paramref name="control"/> through <paramref name="verb"/> while it is not showing,
+    /// shared by every tool that stands for something a person does to a control (#1069).
     /// </summary>
     /// <remarks>
-    /// Effective visibility alone answers the second case differently depending on history. An item of a menu never
-    /// opened has no popup around it yet, so it reads as visible, while the same item after its menu has opened and
-    /// closed once reads as hidden; the same call would act one moment and be refused the next.
+    /// The verb is quoted rather than used as one: "no person could set_value it" is not a sentence, and the
+    /// caller's own spelling of an action is not necessarily the canonical one.
     /// </remarks>
-    private static bool NotShowing(Control control) =>
-        Hidden(control) is true
-        || (control is MenuItem && Safe(() => control.Parent is MenuItem { IsSubMenuOpen: false }, false));
+    private static string NotShowingRefusal(Control control, string verb) =>
+        $"'{Safe(() => LabelOf(control, ControlAutomationPeer.CreatePeerForElement(control)), control.GetType().Name)}' "
+        + "is not showing: it or a container is hidden, which dump_visual_tree marks \"isHidden\": true. "
+        + $"No person could reach it, so '{verb}' was refused and nothing was done.";
 
     /// <summary>
     /// The list <paramref name="item"/> belongs to, when that list holds several selected items at once.
@@ -656,6 +655,18 @@ public static class UiAutomationDriver
         // its selectable descendants) using the SAME precedence + uniqueness as path resolution, so the two
         // addressing paths agree and an ambiguous text never silently selects the wrong row.
         var candidates = SelectableCandidates(control);
+        // Matched among the rows that show, as a person reads them: a hidden row (the Properties window hides those
+        // of a collapsed category) is neither selected by its text nor allowed to make a showing one ambiguous. One
+        // that only a hidden row matches is refused as addressing it by path is, rather than reported as missing.
+        var hiddenRows = candidates.Where(c => Hidden(c.Control) is true).ToList();
+        if (hiddenRows.Count > 0)
+        {
+            candidates = candidates.Except(hiddenRows).ToList();
+            if (MatchByDiscriminator(candidates, value).matches.Count == 0
+                && MatchByDiscriminator(hiddenRows, value).matches is [var onlyHidden, ..])
+                return Err(NotShowingRefusal(onlyHidden, "select")
+                           + " Make it show first, as a person would, for instance by expanding what holds it");
+        }
         if (candidates.Count == 0)
             return Err($"'{LabelOf(control, peer)}' has no selectable items realized — if it's a dropdown, 'expand' it first, then dump_visual_tree to read the item text");
 
@@ -1435,6 +1446,7 @@ public static class UiAutomationDriver
     /// <summary>Why a person could not type into <paramref name="surface"/> at its caret; null when they could.</summary>
     private static string? WhyNotTypable(Control surface)
     {
+        if (Hidden(surface) is true) return "is not showing (it or a container is hidden, which dump_visual_tree marks \"isHidden\": true)";
         if (!surface.IsEffectivelyEnabled) return "is disabled";
         return surface switch
         {
@@ -1462,6 +1474,11 @@ public static class UiAutomationDriver
                 return new InteractOutcome(false, "keyboard", null,
                     $"'{Describe(control)}' has nothing under it that can take keyboard focus, so a key "
                   + "press there would go nowhere. Address a focusable control, or a text surface.");
+
+            // The key is raised on the target whether or not it took focus, and Enter on a Button clicks it, so a
+            // hidden one was pressed through this tool exactly as interact used to press it (#1069).
+            if (Hidden(target) is true)
+                return new InteractOutcome(false, "keyboard", null, NotShowingRefusal(target, "press_key"));
 
             if (AreaOf(target) is { } pressedIn
                 && EditSpan(pressedIn, parsedKey, mods) is { } span
@@ -2050,9 +2067,19 @@ public static class UiAutomationDriver
     ///
     /// <para><b>Null rather than false</b> so it is absent from the overwhelmingly common case and a dump
     /// stays readable — a hidden node is the exception worth spelling out, and the tree is already long.</para>
+    ///
+    /// <para><b>Also hidden: under a container that paints nothing and takes no pointer.</b> That is how a running
+    /// VB6 form hides a Frame or PictureBox (<c>VBVisibility</c>): it stays visible to Avalonia, so that the code of
+    /// the controls inside keeps running as in VB6, at opacity zero with hit-testing off. Its children read as
+    /// effectively visible, and a hidden Command1 inside one was pressed. Either property alone is not enough: the
+    /// IDE turns hit-testing off on decorations that are drawn, and fades things it still lets a person click.</para>
     /// </remarks>
     private static bool? Hidden(Control control) =>
-        Safe(() => control.IsEffectivelyVisible, true) ? null : true;
+        Safe(() => control.IsEffectivelyVisible
+                   && !control.GetSelfAndVisualAncestors().Any(v => v.Opacity == 0 && v is InputElement { IsHitTestVisible: false }),
+                 true)
+            ? null
+            : true;
 
     // Nearest control-view children: descends transparently through non-Control visuals AND structural
     // control wrappers, collecting the closest meaningful Control descendants.

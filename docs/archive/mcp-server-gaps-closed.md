@@ -2496,16 +2496,19 @@ for its first render if it has had none. Where the hit test still finds nothing,
 and rendered yet.
 [#1065](https://github.com/hexide-io/HexIDE/issues/1065).
 
----
-
 ## `interact` acts on a control that is not on screen, and reports success — **CLOSED** (#1069, 2026-10-20)
 
-> **Fixed.** `UiAutomationDriver.Interact` refuses every provider and pointer action (`invoke`, `click`, `toggle`,
-> `select`, `set_value`, `expand`, `scroll` and the rest) on a control that is not effectively visible, before its
-> peer is asked to act. The refusal says the control is not showing, names the `"isHidden": true` flag the dump
-> already shows, and points at the reflection actions, which act on the view model and stay exempt. Guarded by
-> `UiAutomationDriverTests`: the hidden button is not clicked, the hidden box not toggled or typed into, and the
-> showing copy beside it still acts.
+> **Fixed.** Every `interact` verb except `invoke_command` and `set_property` is refused on a control that is
+> not showing, before its peer is asked to act, and so are `press_key` and `type_text`, which reached the same
+> button by other routes (Enter on a hidden Button clicked it). `select` with a text matches among the rows that
+> show, so a hidden row is neither selected nor counted against a showing one. The refusal names the verb, says
+> the control is not showing, and names the `"isHidden": true` flag the dump shows; for `scroll` it points at the
+> container instead. The two reflection actions act on the view model and stay exempt.
+>
+> "Not showing" gained a case on the way: a control under a container that paints nothing and takes no pointer.
+> A running VB6 form hides a Frame or PictureBox that way (`VBVisibility`), so that its controls' code keeps
+> running, and those controls had read as visible to both the dump and the tools. Guarded by
+> `UiAutomationDriverTests`, including a path read from the dump and resolved, as a caller addresses it.
 
 **Symptom.** Measured on 2026-10-15 in AI Chat's transcript (#273 task 3.22). Each message is templated with an
 Approve and a Reject button, shown only while that message is an approval prompt. So `dump_visual_tree` lists a
@@ -2526,4 +2529,3 @@ one without it.
 
 **Suggested fix.** Refuse a provider or pointer action on a control that is not effectively visible, saying why
 and naming the `isHidden` flag. [#1069](https://github.com/hexide-io/HexIDE/issues/1069).
-
