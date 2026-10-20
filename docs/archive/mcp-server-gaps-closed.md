@@ -3016,10 +3016,13 @@ caption is often what a program reports through. [#1076](https://github.com/hexi
 
 > **Fixed.** The default dump keeps every control a running program names, a Label among them, though it has no
 > automation provider and cannot take focus: the program may handle its Click, and its caption is often what the program
-> reports through. It shows as `Text[lblStatus]`, named by its caption, with the containers above it. A control of the
-> IDE's own is kept or left out as before. Guarded by `RunningFormNamesTests`.
+> reports through. It shows as `Text[lblStatus]`, named by its caption, with the containers above it. Belonging to a
+> running program is decided as its event dispatch decides it, by logical ancestry, so a control in an open menu counts;
+> the form designer's controls, named the same way, do not, and a Timer and a CommonDialog, which never show, are left
+> out. On a form of many Labels the default now keeps nearly everything, so `root` scopes it. Guarded by
+> `RunningFormNamesTests`.
 
-## Breakpoint gutter hover target — **CLOSED** (#1176)
+## Breakpoint gutter hover target — **CLOSED** (#1176, 2026-10-18)
 
 `dump_visual_tree {"maxDepth":24,"interactiveOnly":false}` did not expose the breakpoint margin.
 `hover {"target":"Window/Custom[MainView]/Pane[DockControl]/Pane[Root dock]/List[PART_ItemsControl]/List[#0]/Pane[#0]/Custom[Root]","x":19,"y":229,"dwellMs":500}`

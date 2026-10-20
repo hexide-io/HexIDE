@@ -2471,9 +2471,13 @@ public static class UiAutomationDriver
         return MakeNode(node, path, [.. children], parentContext, truncated);
     }
 
+    // Belonging to a running program as its event dispatch decides it, by logical ancestry, so a control in an open menu,
+    // whose popup is a window of its own, and one on an MDI child hosted in a pane count too. The form designer's
+    // controls carry the same names but no running form above them. A Timer and a CommonDialog never show at run time.
     private static bool IsProgramControl(Control control) =>
         HexIDE.Runtime.BuiltinControls.VBProps.GetName(control) is not null
-        && TopLevel.GetTopLevel(control) is HexIDE.Runtime.IModuleExecutionRoot;
+        && control is not (HexIDE.Runtime.BuiltinControls.VBTimer or HexIDE.Runtime.BuiltinControls.VBCommonDialog)
+        && control.FindLogicalAncestorOfType<HexIDE.Runtime.IModuleExecutionRoot>() is not null;
 
     private static UiNode BareNode(MeaningfulChild node, string path, object? parentContext) =>
         MakeNode(node, path, [], parentContext);

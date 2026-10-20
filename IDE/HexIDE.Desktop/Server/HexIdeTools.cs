@@ -2029,7 +2029,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
         int maxDepth = 20,
         [Description("Default true: keeps only nodes that are interactive or have an interactive descendant, and every "
                      + "control a running program names, a Label among them. Pass "
-                     + "false to see the IDE's text and labels too. A node cut off by maxDepth is kept, "
+                     + "false to also see unnamed text and parts, the IDE's and a running form's; on a large form the default "
+                     + "keeps nearly everything, so scope it with 'root'. A node cut off by maxDepth is kept, "
                      + "marked \"truncated\", since what lies below it was not looked at; it may turn out to hold "
                      + "nothing interactive.")]
         bool interactiveOnly = true,

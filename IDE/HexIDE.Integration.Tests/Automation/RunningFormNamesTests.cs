@@ -50,6 +50,11 @@ public class RunningFormNamesTests
       + "      Left            =   2400\r\n      Top             =   1560\r\n      Width           =   2000\r\n"
       + "      Begin VB.TextBox Text2 \r\n         Height          =   375\r\n         Left            =   120\r\n"
       + "         Top             =   360\r\n         Width           =   1500\r\n      End\r\n   End\r\n"
+      + "   Begin VB.Frame Frame2 \r\n      Caption         =   \"Status\"\r\n      Height          =   600\r\n"
+      + "      Left            =   120\r\n      Top             =   2400\r\n      Width           =   2000\r\n"
+      + "      Begin VB.Label Label2 \r\n         Caption         =   \"Ready\"\r\n         Height          =   255\r\n"
+      + "         Left            =   120\r\n         Top             =   240\r\n         Width           =   1200\r\n      End\r\n   End\r\n"
+      + "   Begin VB.Timer Timer1 \r\n      Interval        =   0\r\n      Left            =   3000\r\n      Top             =   3000\r\n   End\r\n"
       + "   Begin VB.Menu mnuGame \r\n      Caption         =   \"&Game\"\r\n"
       + "      Begin VB.Menu mnuNew \r\n         Caption         =   \"&New\"\r\n      End\r\n"
       + "      Begin VB.Menu mnuLevel \r\n         Caption         =   \"&Beginner\"\r\n         Index           =   0\r\n"
@@ -116,8 +121,32 @@ public class RunningFormNamesTests
             var nodes = Flatten(UiAutomationDriver.Dump(window, "Window", 10, interactiveOnly: true)).ToList();
 
             nodes.Single(n => n.Path == "Window/Text[Label1]").Name.Should().Be("Name:");
-            nodes.Select(n => n.Path).Should().Contain("Window/Group[Frame1]");
             nodes.Should().NotContain(n => n.Path.StartsWith("Window/Text[Label1]/"), "a Label's caption is its name");
+            nodes.Select(n => n.Path).Should().Contain("Window/Group[Frame2]/Text[Label2]",
+                "a container holding nothing but a Label is kept for it");
+            nodes.Should().NotContain(n => n.Path.Contains("Timer1"), "a Timer never shows at run time");
+        }
+        finally { window.Close(); }
+    }
+
+    // The form designer's controls carry their names too, but are the IDE's, not a running program's: no running form
+    // is above them, and the IDE's default dump must not fill up with them.
+    [AvaloniaFact]
+    public void A_named_control_that_no_running_form_holds_is_left_out_of_the_default_dump()
+    {
+        var label = new VBLabel { Width = 100, Height = 20 };
+        VBProps.SetName(label, "Label1");
+        Avalonia.Automation.AutomationProperties.SetAutomationId(label, "Label1");   // as the designer ids its controls (#526)
+        var window = new Window { Width = 200, Height = 100, Content = label };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var nodes = Flatten(UiAutomationDriver.Dump(window, "Window", 10, interactiveOnly: true)).ToList();
+
+            nodes.Should().NotContain(n => n.Path.Contains("Label1"));
+            Flatten(UiAutomationDriver.Dump(window, "Window", 10, interactiveOnly: false)).Select(n => n.Path)
+                .Should().Contain(p => p.Contains("Label1"), "it is there, and only the default leaves it out");
         }
         finally { window.Close(); }
     }
