@@ -554,7 +554,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
     [McpServerTool(Name = "set_control_property")]
     [Description("Sets a named property on a form or UserControl control and saves the file. The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The value is written as the Properties window shows it: text, a number with '.' for decimals, True or False, a colour literal such as &H00C0FFC0&, or an enum by number, by name, or as '1 - Opaque'; a Font as get_form_controls shows it, such as 'Tahoma, 9.75 pt, bold, charset 0': a part not given is kept, but style words given are the whole style ('regular' clears it) and a new face without a charset takes 0; a refused value's reply lists what that property takes. get_form_controls lists the controls, and with 'controlName' every property of one, its value as this tool takes it. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A rename the naming rules refuse changes nothing. The save writes the whole file, so text set earlier and not yet saved counts too: when the file's code page cannot hold a character anywhere in it, the value is set in the IDE but nothing is written and no dialog is shown, and the reply names the document, the code page, the character and the line that holds it. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' gives the value the property now holds, which can differ from the text sent, and 'project' and 'document' name the form as the IDE spells them.")]
     public async Task<MutateResult> SetControlPropertyAsync(
-        string formName, string controlName, string property, string value, string? project = null,
+        string formName,
+        [Description("The control: its name, or for an element of a control array name(index), such as lblTitle(1), as "
+                     + "get_form_controls lists it. A bare array name is refused, naming the indexes, since the save would "
+                     + "write to a guess.")]
+        string controlName, string property, string value, string? project = null,
         CancellationToken ct = default)
     {
         // What the property holds after the set, which is not always what was sent: "0 - Transparent" stores 0. (#655)
@@ -582,9 +586,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 ? (IEnumerable<ComponentInstance>)designerVm.AllComponents.Select(v => v.Instance).ToList()
                 : form.Components;
 
-            var control = components.FirstOrDefault(c =>
-                string.Equals(c.GetPropertyOrDefault(VBProperties.NameProperty), controlName,
-                    StringComparison.OrdinalIgnoreCase));
+            // An element as name(index), as get_form_controls takes it. A bare array name wrote to its first element,
+            // saved, and replied as if the caller's element was set, so it is refused, naming the indexes (#1252).
+            var control = PropertyText.NamedOne(components, controlName, out var ambiguous);
+            if (ambiguous is not null)
+                return (null, null, $"Nothing was changed: {ambiguous}");
             if (control is null)
                 return (null, null, $"No control named '{controlName}' on {document.Display}");
 
@@ -642,7 +648,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // Read back AFTER the announcement, so the reply quotes the value as it now stands rather than
             // as it stood a notification ago -- a rename in particular is only visible once the model has
             // raised it.
-            stored = $"{control.GetPropertyOrDefault(VBProperties.NameProperty)}.{propClass.Name} is now "
+            stored = $"{PropertyText.DisplayName(control)}.{propClass.Name} is now "
                      + PropertyText.Display(control.GetBoxedPropertyOrDefault(propClass)) + ", and the file is saved.";
             return (form, ownerModule, null);
         });

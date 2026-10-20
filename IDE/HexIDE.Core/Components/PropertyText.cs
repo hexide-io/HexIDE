@@ -184,17 +184,57 @@ public static partial class PropertyText
             StringComparison.OrdinalIgnoreCase));
         if (element.Success)
         {
-            var index = int.Parse(element.Groups["index"].Value, CultureInfo.InvariantCulture);
-            named = named.Where(c => ArrayIndexOf(c) == index);
+            // An index too big for an int names no element, rather than throwing.
+            int? index = int.TryParse(element.Groups["index"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var i)
+                ? i : null;
+            named = named.Where(c => index is not null && ArrayIndexOf(c) == index);
         }
         return named.ToList();
     }
+
+    /// <summary>
+    /// The one component <paramref name="name"/> names, for a tool that changes it and saves: a control by its name, or
+    /// an element by <c>name(index)</c>. A name that matches more than one is refused rather than taken as its first,
+    /// since the guess would be written to the file (#1252). Null with no refusal when nothing matches.
+    /// </summary>
+    public static ComponentInstance? NamedOne(IEnumerable<ComponentInstance> components, string name, out string? refusal)
+    {
+        refusal = null;
+        var all = components.ToList();
+        var matches = Named(all, name);
+        if (matches.Count == 0 && ArrayElement().Match(name) is { Success: true } element
+            && Named(all, element.Groups["name"].Value.Trim()) is { Count: > 0 } array)
+        {
+            // The array exists and the index does not: say which do, rather than that no such control exists.
+            refusal = $"'{name}' names no element: {array[0].GetPropertyOrDefault(VBProperties.NameProperty)} has Index "
+                      + string.Join(", ", array.Select(ArrayIndexOf).OfType<int>().Order()
+                          .Select(i => i.ToString(CultureInfo.InvariantCulture)));
+            return null;
+        }
+        if (matches.Count <= 1)
+            return matches.FirstOrDefault();
+
+        var indexes = matches.Select(ArrayIndexOf).OfType<int>().Order().ToList();
+        refusal = indexes.Count == matches.Count && indexes.Distinct().Count() == indexes.Count
+            ? $"'{name}' names a control array of {matches.Count}, Index "
+              + $"{string.Join(", ", indexes.Select(i => i.ToString(CultureInfo.InvariantCulture)))}; name one element, "
+              + $"such as {matches[0].GetPropertyOrDefault(VBProperties.NameProperty)}"
+              + $"({indexes[0].ToString(CultureInfo.InvariantCulture)})"
+            : $"'{name}' names {matches.Count} controls, which do not each have an Index of their own to tell them apart";
+        return null;
+    }
+
+    /// <summary>A control's name as a caller addresses it: <c>lblTitle(1)</c> for a control array's element.</summary>
+    public static string DisplayName(ComponentInstance component) =>
+        component.GetPropertyOrDefault(VBProperties.NameProperty)
+        + (ArrayIndexOf(component) is { } index ? $"({index.ToString(CultureInfo.InvariantCulture)})" : "");
 
     /// <summary>A control array element's Index, which HexIDE keeps as the file's own line, or null.</summary>
     public static int? ArrayIndexOf(ComponentInstance component) =>
         int.TryParse(RawOf(component, "Index"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var index) ? index : null;
 
-    [GeneratedRegex(@"^(?<name>[^()]+)\(\s*(?<index>\d+)\s*\)$")]
+    // ASCII digits only, as FontSize below: \d also matches an Arabic-Indic digit, which the invariant parse threw on.
+    [GeneratedRegex(@"^(?<name>[^()]+)\(\s*(?<index>[0-9]+)\s*\)$")]
     private static partial Regex ArrayElement();
 
     private static string? RawOf(ComponentInstance component, string name) =>

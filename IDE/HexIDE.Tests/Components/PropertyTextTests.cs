@@ -229,6 +229,77 @@ public class PropertyTextTests
         PropertyText.Named(form.Components, "lblTitle(2)").Should().BeEmpty();
     }
 
+    private const string TwoElementArrayAndAButton =
+        "   Begin VB.Label lblTitle\r\n      Index           =   3\r\n   End\r\n"
+        + "   Begin VB.Label lblTitle\r\n      Index           =   1\r\n      Caption = \"second\"\r\n   End\r\n"
+        + "   Begin VB.CommandButton cmdGo\r\n   End\r\n";
+
+    [Fact]
+    public void A_tool_that_saves_reaches_one_element_by_its_index()
+    {
+        var form = Load(TwoElementArrayAndAButton);
+
+        var element = PropertyText.NamedOne(form.Components, "lblTitle(1)", out var refusal);
+
+        refusal.Should().BeNull();
+        element!.GetPropertyOrDefault(VBProperties.CaptionProperty).Should().Be("second");
+        PropertyText.DisplayName(element).Should().Be("lblTitle(1)");
+    }
+
+    [Fact]
+    public void A_bare_array_name_is_refused_naming_its_indexes_rather_than_taken_as_its_first()
+    {
+        // set_control_property wrote to the first element, saved, and replied as though the caller's was set (#1252).
+        var form = Load(TwoElementArrayAndAButton);
+
+        PropertyText.NamedOne(form.Components, "LBLTITLE", out var refusal).Should().BeNull();
+
+        refusal.Should().Be("'LBLTITLE' names a control array of 2, Index 1, 3; name one element, such as lblTitle(1)");
+    }
+
+    [Fact]
+    public void A_single_control_is_reached_by_its_name_and_a_miss_is_not_a_refusal()
+    {
+        var form = Load(TwoElementArrayAndAButton);
+
+        var button = PropertyText.NamedOne(form.Components, "CMDGO", out var refusal);
+        refusal.Should().BeNull();
+        PropertyText.DisplayName(button!).Should().Be("cmdGo");
+
+        PropertyText.NamedOne(form.Components, "lblMissing", out refusal).Should().BeNull();
+        refusal.Should().BeNull("a miss is the caller's 'no control named', not an ambiguity");
+    }
+
+    [Fact]
+    public void An_index_the_array_does_not_have_is_refused_naming_those_it_has()
+    {
+        var form = Load(TwoElementArrayAndAButton);
+
+        PropertyText.NamedOne(form.Components, "lblTitle(2)", out var refusal).Should().BeNull();
+
+        refusal.Should().Be("'lblTitle(2)' names no element: lblTitle has Index 1, 3");
+    }
+
+    [Fact]
+    public void Two_controls_of_one_name_without_indexes_are_refused_as_such()
+    {
+        var form = Load("   Begin VB.Label lblDup\r\n   End\r\n   Begin VB.Label lblDup\r\n   End\r\n");
+
+        PropertyText.NamedOne(form.Components, "lblDup", out var refusal).Should().BeNull();
+
+        refusal.Should().Be("'lblDup' names 2 controls, which do not each have an Index of their own to tell them apart");
+    }
+
+    [Theory]
+    [InlineData("lblTitle(99999999999)")] // too big for an int, which threw
+    [InlineData("lblTitle(١)")] // an Arabic-Indic one, which the regex took as a digit and the parse threw on
+    public void An_index_that_is_no_int_names_no_element_rather_than_throwing(string name)
+    {
+        var form = Load(TwoElementArrayAndAButton);
+
+        PropertyText.Named(form.Components, name).Should().BeEmpty();
+    }
+
     [Fact]
     public void A_timer_s_size_and_visibility_are_not_settable_since_the_file_does_not_keep_them()
     {
