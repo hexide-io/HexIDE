@@ -3523,3 +3523,40 @@ holds. This is an inconsistency, not wrong data.
 > (`hexide_snapshot_20261012-093015-123Z_1.png`). The IDE log, which a tool failure points to, now writes each
 > line's offset. Guarded by `RuntimeErrorLogTests`, whose clock is UTC, so a local reading fails on any machine
 > that is not set to UTC, and by `SnapshotCapturePathTests`.
+
+## `invoke_command` reaches only an `ICommand` property, and refuses a method by saying there is no such property
+
+**Symptom.** Recorded on 2026-10-12 under the entry now archived as "A context-menu action bound to a method cannot be
+driven", and unchanged at 4789f9a by code reading. With Form1 selected in the Project Explorer:
+
+```
+interact {"target":".../Pane[Project Group - Group1]/Custom","action":"invoke_command","value":"DeleteForm"}
+→ {"success":false,"mechanism":"reflection","error":"no public property 'DeleteForm' on ProjectToolViewModel"}
+```
+
+`DeleteForm` is a public method of `ProjectToolViewModel`, which the Project Explorer's flyout binds as
+`Command="{CompiledBinding DeleteForm}"`. `invoke_command` looks only for a public property holding an `ICommand`
+(`UiAutomationDriver.ReflectInvokeCommand`), and `inspect_element` lists only commands and properties, so the method
+is not listed either. The refusal names a property, which reads as a misspelt name rather than as "a method cannot
+be reached this way".
+
+**Workaround.** Drive the control the method is bound to, as a person does. For Remove: `select` the form's node,
+`expand` the Project Explorer's tree to open its flyout, then `invoke` **Remove Form1** (measured with #947).
+
+**Suggested fix.** `invoke_command` falling back to a public parameterless method, listed by `inspect_element`, and
+a refusal that names what it looked for. [#836](https://github.com/hexide-io/HexIDE/issues/836).
+
+> **Fixed.** `invoke_command` reaches a method a Command is bound to as well as an `ICommand` property. Given a name
+> with no property, it calls the view model's public parameterless method of that name, one returning nothing or a
+> task, as a Command binding would, and is refused when a `Can<name>(object)` method returns false. `inspect_element`
+> lists such methods as `kind: "method"`. They are limited to HexIDE's own types, so a framework base adds nothing,
+> and disposal is never listed. Its refusals now say what was looked for:
+>
+> - "no ICommand property or parameterless method 'X' on T";
+> - "a method invoke_command cannot call", for one that takes parameters or returns a value;
+> - a method's own exception, or a faulted task;
+> - "still running", for a task that has not finished.
+>
+> Measured on Windows through the server's HTTP endpoint: `inspect_element` on the Project Explorer lists
+> `DeleteForm` among 8 methods. `interact {"action":"invoke_command","value":"DeleteForm"}` with Form1 selected
+> removed it from the project, and `DeleteFrom` was refused by name. Guarded by `InvokeCommandMethodTests`.

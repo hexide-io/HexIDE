@@ -846,28 +846,6 @@ flyout": `expand` opens it, and its items then appear under it in `dump_visual_t
 list, and have `collapse` with nothing open say there is nothing to close.
 [#949](https://github.com/hexide-io/HexIDE/issues/949).
 
-## `invoke_command` reaches only an `ICommand` property, and refuses a method by saying there is no such property
-
-**Symptom.** Recorded on 2026-10-12 under the entry now archived as "A context-menu action bound to a method cannot be
-driven", and unchanged at 4789f9a by code reading. With Form1 selected in the Project Explorer:
-
-```
-interact {"target":".../Pane[Project Group - Group1]/Custom","action":"invoke_command","value":"DeleteForm"}
-→ {"success":false,"mechanism":"reflection","error":"no public property 'DeleteForm' on ProjectToolViewModel"}
-```
-
-`DeleteForm` is a public method of `ProjectToolViewModel`, which the Project Explorer's flyout binds as
-`Command="{CompiledBinding DeleteForm}"`. `invoke_command` looks only for a public property holding an `ICommand`
-(`UiAutomationDriver.ReflectInvokeCommand`), and `inspect_element` lists only commands and properties, so the method
-is not listed either. The refusal names a property, which reads as a misspelt name rather than as "a method cannot
-be reached this way".
-
-**Workaround.** Drive the control the method is bound to, as a person does. For Remove: `select` the form's node,
-`expand` the Project Explorer's tree to open its flyout, then `invoke` **Remove Form1** (measured with #947).
-
-**Suggested fix.** `invoke_command` falling back to a public parameterless method, listed by `inspect_element`, and
-a refusal that names what it looked for. [#836](https://github.com/hexide-io/HexIDE/issues/836).
-
 ## `add_to_selection` names the new selection but not its reference, so a caller learns what Align measured against only afterwards
 
 **Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)

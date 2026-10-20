@@ -214,6 +214,9 @@ public static class UiAutomationDriver
                 members.Add(new VmMember(p.Name, "property", p.PropertyType.Name, p.CanWrite,
                                          ReadValue(dataContext, p)));
         }
+        // A menu item can bind its Command to a method, which invoke_command calls as Avalonia does (#836).
+        foreach (var m in CommandMethods(dataContext.GetType()))
+            members.Add(new VmMember(m.Name, "method", null, false));
         return ([.. members], omitted);
     }
 
@@ -1829,7 +1832,8 @@ public static class UiAutomationDriver
         return result;
     }
 
-    // value = the command name (a public ICommand property on the target's DataContext).
+    // value = the command name: a public ICommand property on the target's DataContext, or a public parameterless
+    // method, which is what a Command bound to a method calls (#836).
     private static InteractOutcome ReflectInvokeCommand(Control control, string? value)
     {
         try
@@ -1837,7 +1841,7 @@ public static class UiAutomationDriver
             if (NullIfEmpty(value) is not { } name) return ReflectErr("invoke_command requires 'value' = the command name");
             if (control.DataContext is not { } dc) return ReflectErr("target has no DataContext");
             if (dc.GetType().GetProperty(name, BindingFlags.Public | BindingFlags.Instance) is not { } prop)
-                return ReflectErr($"no public property '{name}' on {dc.GetType().Name}");
+                return ReflectInvokeMethod(dc, name);
             if (prop.GetValue(dc) is not System.Windows.Input.ICommand cmd)
                 return ReflectErr($"'{name}' on {dc.GetType().Name} is not an ICommand");
             if (!cmd.CanExecute(null))
@@ -1846,6 +1850,59 @@ public static class UiAutomationDriver
             return new InteractOutcome(true, "reflection", $"executed command '{name}' on {dc.GetType().Name}", null);
         }
         catch (Exception ex) { return ReflectErr($"invoke_command '{value}' threw: {ex.Message}"); }
+    }
+
+    /// <summary>
+    /// The public parameterless methods of a view model that a Command binding could call: declared by HexIDE's own
+    /// types, returning nothing or a task, and not a property accessor, an event's, or disposal.
+    /// </summary>
+    /// <remarks>
+    /// A Command bound to a method, as the Project Explorer's Remove is to <c>DeleteForm</c>, has no ICommand for
+    /// invoke_command to find, and inspect_element listed only properties, so the action could not be reached or
+    /// even seen (#836). Restricted to HexIDE's types so a framework base adds nothing, as Dock's members are left
+    /// out of the properties.
+    /// </remarks>
+    internal static IEnumerable<MethodInfo> CommandMethods(Type type) =>
+        type.GetMethods(BindingFlags.Public | BindingFlags.Instance)
+            .Where(m => !m.IsSpecialName && !m.IsGenericMethodDefinition && m.GetParameters().Length == 0
+                        && (m.ReturnType == typeof(void) || typeof(System.Threading.Tasks.Task).IsAssignableFrom(m.ReturnType))
+                        && m.DeclaringType?.Namespace is { } ns
+                        && (ns == "HexIDE" || ns.StartsWith("HexIDE.", StringComparison.Ordinal))
+                        && m.Name is not ("Dispose" or "DisposeAsync"))
+            .GroupBy(m => m.Name, StringComparer.Ordinal)
+            .Select(g => g.First())
+            .OrderBy(m => m.Name, StringComparer.Ordinal);
+
+    // A method a Command is bound to, called as Avalonia calls it: refused when its Can{name} says no.
+    private static InteractOutcome ReflectInvokeMethod(object dc, string name)
+    {
+        var type = dc.GetType().Name;
+        if (CommandMethods(dc.GetType()).FirstOrDefault(m => m.Name == name) is not { } method)
+        {
+            return ReflectErr(dc.GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance).Any(m => m.Name == name)
+                ? $"'{name}' on {type} is a method invoke_command cannot call: only a parameterless one returning nothing "
+                  + "or a task is, as a Command binding calls it"
+                : $"no ICommand property or parameterless method '{name}' on {type}; inspect_element on the control that "
+                  + "owns the DataContext lists both");
+        }
+
+        // Avalonia's own convention for a method bound as a Command: a CanX taking the parameter, null here.
+        if (dc.GetType().GetMethod("Can" + name, BindingFlags.Public | BindingFlags.Instance, [typeof(object)]) is
+                { ReturnType: var r } can && r == typeof(bool)
+            && !(bool)can.Invoke(dc, [null])!)
+            return ReflectErr($"'Can{name}'(null) on {type} returned false");
+
+        object? result;
+        try { result = method.Invoke(dc, null); }
+        catch (TargetInvocationException ex) when (ex.InnerException is { } inner)
+        {
+            return ReflectErr($"invoke_command '{name}' threw: {inner.Message}");
+        }
+        if (result is System.Threading.Tasks.Task { IsFaulted: true } failed)
+            return ReflectErr($"invoke_command '{name}' failed: {failed.Exception?.InnerException?.Message}");
+        var running = result is System.Threading.Tasks.Task { IsCompleted: false }
+            ? "; it returned a task that is still running" : "";
+        return new InteractOutcome(true, "reflection", $"called method '{name}' on {type}{running}", null);
     }
 
     // value = "PropertyName=NewValue" (split on the first '='); the value is coerced to the property type.
