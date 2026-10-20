@@ -35,6 +35,16 @@ public class OpenDialogNoteTests
     }
 
     [Fact]
+    public void The_reply_it_rewrites_keeps_its_text_as_written()
+    {
+        // Rewritten with the default encoder, every apostrophe and non-ASCII character came back escaped (#753).
+        // Given escaped, as a reply written by another encoder would be, it comes back as itself all the same.
+        var noted = OpenDialogNote.With(Reply("""{"note":"Invoked \u0027\u04161\u0027 \u2192 there."}"""), "'Найти' is open");
+
+        Text(noted).Should().Be("""{"note":"Invoked 'Ж1' → there.","modalDialog":"'Найти' is open"}""");
+    }
+
+    [Fact]
     public void A_reply_that_is_not_a_JSON_object_gains_a_block_and_keeps_whether_it_failed()
     {
         var reply = Reply("No main window");

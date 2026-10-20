@@ -52,11 +52,16 @@ namespace HexIDE.Tests.Infrastructure;
 /// </remarks>
 public class McpRestartTests
 {
+    public sealed record Described(string Detail);
+
     [McpServerToolType]
     public sealed class Tools
     {
         [McpServerTool(Name = "echo"), Description("Returns its argument.")]
         public static string Echo(string text) => text;
+
+        [McpServerTool(Name = "describe"), Description("Returns its argument in a JSON reply.")]
+        public static Described Describe(string text) => new(text);
 
         [McpServerTool(Name = "fail"), Description("Throws.")]
         public static string Fail() => throw new InvalidOperationException("the tool broke");
@@ -92,7 +97,7 @@ public class McpRestartTests
         builder.Services
             .AddMcpServer()
             .WithHttpTransport(transport)
-            .WithTools<Tools>()
+            .WithTools<Tools>(ReplyJson.Options)
             .WithRequestFilters(filters => filters.AddCallToolFilter(ToolFailures.Filter));
         var app = builder.Build();
         app.MapMcp("/mcp");
@@ -342,6 +347,17 @@ public class McpRestartTests
     }
 
     [Fact]
+    public async Task A_reply_carries_its_text_as_written_and_not_escaped_for_a_web_page()
+    {
+        // A reply is read as text, where 'Form1' had come out as \u0027Form1\u0027 and a Cyrillic name could not be
+        // read at all (#753). JSON's own escapes stay: a quote, a backslash, a line break.
+        // So does an escape for what would not be seen, such as a right-to-left override; an emoji is seen.
+        var result = await CallWithAsync("describe", new() { ["text"] = "'Ж1' → <a & b> + 😀 \"c\\d\"\n\u202E" });
+
+        TextOf(result).Should().Be("""{"detail":"'Ж1' → <a & b> + 😀 \"c\\d\"\n\u202E"}""");
+    }
+
+    [Fact]
     public void The_IDEs_server_is_built_with_this_transport()
     {
         // No test project references HexIDE.Desktop, so this reads the source, as ToolSource does. The tests
@@ -352,6 +368,7 @@ public class McpRestartTests
 
         source.Should().Contain(".WithHttpTransport(McpTransport.Configure)")
             .And.Contain("filters.AddCallToolFilter(ToolFailures.Filter)")
-            .And.Contain(".AddCallToolFilter(OpenDialogNote.Filter)");
+            .And.Contain(".AddCallToolFilter(OpenDialogNote.Filter)")
+            .And.Contain(".WithTools<HexIdeTools>(ReplyJson.Options)");
     }
 }

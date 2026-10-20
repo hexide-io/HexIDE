@@ -97,7 +97,7 @@ internal static class OpenDialogNote
         if (index >= 0 && TryParseObject(((TextContentBlock)content[index]).Text) is { } reply)
         {
             reply["modalDialog"] = note;
-            content[index] = new TextContentBlock { Text = reply.ToJsonString() };
+            content[index] = new TextContentBlock { Text = reply.ToJsonString(ReplyJson.Options) };
         }
         else
             content.Add(new TextContentBlock { Text = note });
