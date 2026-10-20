@@ -3807,3 +3807,26 @@ window had focus, as that decides the dialog's owner.
 > Guarded by `OpenDialogsTests`, `OpenDialogNoteTests` (through the filter) and `ProgramWaitTests` (the compile error
 > shown over the form unawaited as the IDE shows it, a MsgBox beside a dialog left open, twice, and a window that is not
 > a box).
+
+## `interact` reported actions done without reading them back, and acted where visibility could not be read (#1280)
+
+`select` read its result back (#1182, #1259), but `toggle`, `expand` and `collapse` through a provider, opening and
+closing a context menu or flyout, and `set_value` replied that they had acted without reading anything. A CheckBox
+whose handler put the tick back was replied to as toggled, and a TextBox that reformatted the value as set to what was
+sent. The guard that refuses to act on a hidden control (#1069) read visibility through a fallback of "shown", so a read
+that threw let a hidden control be acted on.
+
+> **Fixed.** Each of these now reads its state once the action returns, and replies with what it found:
+> - `toggle` says the state it moved to, and is refused when the state did not move;
+> - `expand` and `collapse` are refused when the state read back is not the one asked for;
+> - a context menu or flyout that did not open, or closed at once, or did not close, is refused;
+> - `set_value` is refused with what the control holds when that is not the value sent.
+>
+> Where nothing can be read, the reply says the outcome is not known, as `select` does. Visibility that cannot be read
+> refuses the action, naming the control, in `interact`, `type_text` and `press_key`; a dump, which only reports, marks
+> only what was read. A state that changes in a later dispatcher pass, as `TextChanged` does, is not seen. `IsEnabled`
+> in a dump still reads as enabled when it cannot be read, as the issue's lower item; actions are not affected.
+>
+> Measured on Windows through the server's HTTP endpoint: toggling a checkbox in Options replied `it is now off`, then
+> `it is now on`. Guarded by `ReadBackTests`, real controls that put their state back, and providers that cannot be
+> read.
