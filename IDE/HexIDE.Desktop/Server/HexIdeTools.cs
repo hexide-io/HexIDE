@@ -2702,7 +2702,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         string? connectionId = null,
         [Description("An exact method name, such as textDocument/hover; omit for every method.")]
         string? method = null,
-        [Description("True for error responses and for requests that failed, were cancelled or never came back.")]
+        [Description("True for error responses, requests that failed, were cancelled or never came back, and messages this client could not serialize (a Local NeverSent row).")]
         bool failuresOnly = false,
         [Description("Only what was recorded, answered or ended after this sequence: pass the last reply's 'latestSequence' to poll for what is new.")]
         long? afterSequence = null,

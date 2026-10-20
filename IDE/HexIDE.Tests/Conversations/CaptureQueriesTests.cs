@@ -287,6 +287,20 @@ public class CaptureQueriesTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task A_message_this_client_could_not_serialize_is_a_failure_and_a_withheld_request_is_not()
+    {
+        // #945: failuresOnly hid the one client-side defect the capture was built to expose.
+        _log.Record("vb6", ConversationDirection.Local, ConversationEntryKind.NeverSent, "$/cancelRequest", null, 0,
+            detail: "could not be serialized: no JsonTypeInfo");
+        _log.Record("vb6", ConversationDirection.Sent, ConversationEntryKind.NeverSent, "textDocument/hover", null, 0,
+            detail: "hoverProvider");
+
+        var page = await CaptureQueries.ListAsync(_log, new EnvelopeFilter(FailuresOnly: true));
+
+        page.Entries.Should().ContainSingle().Which.Method.Should().Be("$/cancelRequest");
+    }
+
+    [Fact]
     public async Task PollingForWhatIsNewReturnsOnlyThat()
     {
         var client = await AConversation();

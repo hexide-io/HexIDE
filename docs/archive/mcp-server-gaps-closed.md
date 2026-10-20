@@ -3444,3 +3444,38 @@ does not need it. [#957](https://github.com/hexide-io/HexIDE/issues/957).
 > Path-only stays the default: an image costs a few thousand tokens. Measured on Windows through the server's HTTP
 > endpoint: a 3840×2054 window came back as a 1568×838 PNG of 75 KB, and a call without `inline` has no image block.
 > Not yet run through Claude Code over a tunnel. Guarded by `InlineSnapshotTests`.
+
+## `list_lsp_messages` `failuresOnly` omits a message that could not be serialized
+
+**Symptom.** With a serialization failure at seq 183 in the record (#944) (Linux, openSUSE Leap 16 under XWayland,
+main at b15c7cf, 2026-10-13):
+
+```
+list_lsp_messages {"failuresOnly":true,"limit":20}
+→ {"messages":[],"matched":0,"note":"118 envelope(s) are recorded, and none match this filter. Drop the filters to see what is there."}
+```
+
+The record held:
+
+```
+{"sequence":183,"direction":"Local","kind":"NeverSent","method":"$/cancelRequest","detail":"could not be serialized: ..."}
+```
+
+The Protocol Inspector's Failures only filter and its failure count miss it the same
+way: both count only error responses and the Failed, Cancelled and Abandoned outcomes. So a filter for finding
+failures hides the client-side defect the capture was built to expose. Not every NeverSent row is a failure: a
+request withheld because the server did not advertise the capability is recorded as a Sent NeverSent row,
+deliberately. Cross-platform by code reading.
+
+**Workaround.** Call `list_lsp_messages {}` with no filter and look for `kind:"NeverSent"` with
+`direction:"Local"`.
+
+**Suggested fix.** Count a Local NeverSent row as a failure in `CaptureQueries.IsFailure` and
+`ProtocolInspectorRowViewModel.IsFailure`, and say so in `failuresOnly`'s description.
+[#945](https://github.com/hexide-io/HexIDE/issues/945).
+
+> **Fixed.** A message this client could not serialize, a Local NeverSent row, is a failure: `list_lsp_messages`
+> `failuresOnly` lists it, and the Protocol Inspector's Failures only filter and its failure count include it. A
+> request withheld for want of a capability, a Sent NeverSent row, is still not one. Both read one rule,
+> `ConversationFailures.IsFailure`, so they cannot disagree again. `failuresOnly`'s description says so. Guarded by
+> `CaptureQueriesTests` and `ProtocolInspectorToolViewModelTests`.

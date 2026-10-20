@@ -974,35 +974,6 @@ holds. This is an inconsistency, not wrong data.
 **Suggested fix.** `DateTimeOffset.UtcNow` in `RuntimeErrorLog`, and a test asserting a zero offset.
 [#956](https://github.com/hexide-io/HexIDE/issues/956).
 
-## `list_lsp_messages` `failuresOnly` omits a message that could not be serialized
-
-**Symptom.** With a serialization failure at seq 183 in the record (#944) (Linux, openSUSE Leap 16 under XWayland,
-main at b15c7cf, 2026-10-13):
-
-```
-list_lsp_messages {"failuresOnly":true,"limit":20}
-→ {"messages":[],"matched":0,"note":"118 envelope(s) are recorded, and none match this filter. Drop the filters to see what is there."}
-```
-
-The record held:
-
-```
-{"sequence":183,"direction":"Local","kind":"NeverSent","method":"$/cancelRequest","detail":"could not be serialized: ..."}
-```
-
-The Protocol Inspector's Failures only filter and its failure count miss it the same
-way: both count only error responses and the Failed, Cancelled and Abandoned outcomes. So a filter for finding
-failures hides the client-side defect the capture was built to expose. Not every NeverSent row is a failure: a
-request withheld because the server did not advertise the capability is recorded as a Sent NeverSent row,
-deliberately. Cross-platform by code reading.
-
-**Workaround.** Call `list_lsp_messages {}` with no filter and look for `kind:"NeverSent"` with
-`direction:"Local"`.
-
-**Suggested fix.** Count a Local NeverSent row as a failure in `CaptureQueries.IsFailure` and
-`ProtocolInspectorRowViewModel.IsFailure`, and say so in `failuresOnly`'s description.
-[#945](https://github.com/hexide-io/HexIDE/issues/945).
-
 ## A whole replacement that changes the header and a member's `Attribute` lines is told only about the header
 
 **Symptom.** Read from the code, and recorded when #273 task 4.5b was built. `set_file_content` (and an add-in's

@@ -202,6 +202,21 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
     }
 
     [Fact]
+    public void A_message_this_client_could_not_serialize_is_a_failure_and_a_withheld_request_is_not()
+    {
+        // #945: the Failures only filter and the count missed the client-side defect the capture was built to expose.
+        Frame("vb6", "$/cancelRequest", ConversationDirection.Local, ConversationEntryKind.NeverSent,
+            "could not be serialized: no JsonTypeInfo");
+        Frame("vb6", "textDocument/hover", ConversationDirection.Sent, ConversationEntryKind.NeverSent, "hoverProvider");
+
+        var vm = Sut();
+        vm.FailureCount.Should().Be(1);
+        vm.FailuresOnly = true;
+
+        vm.Rows.Should().ContainSingle().Which.Method.Should().Be("$/cancelRequest");
+    }
+
+    [Fact]
     public void NoFailuresMeansTheCounterStaysOutOfTheWay()
     {
         Frame("vb6", "fine");

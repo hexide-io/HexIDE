@@ -184,3 +184,25 @@ public sealed record ConversationEnvelope(
     long? AnswerSequence = null,
     int? AnswerSizeBytes = null,
     long? CompletedSequence = null);
+
+/// <summary>Which envelopes are failures, for every reader that singles them out.</summary>
+public static class ConversationFailures
+{
+    /// <summary>
+    /// An error response; a request that failed, was cancelled or abandoned, since never coming back is a failure even
+    /// though nothing said so; and a message this client could not serialize (#945).
+    /// </summary>
+    /// <remarks>
+    /// The last is recorded as a <see cref="ConversationEntryKind.NeverSent"/> row in the
+    /// <see cref="ConversationDirection.Local"/> direction, and is the client-side defect the capture was built to
+    /// expose: a server that connects, initializes and then answers nothing. A request withheld for want of a capability
+    /// is a <see cref="ConversationDirection.Sent"/> NeverSent row, deliberately, and is not a failure. One rule here,
+    /// so list_lsp_messages' failuresOnly and the Protocol Inspector's count cannot disagree again.
+    /// </remarks>
+    public static bool IsFailure(this ConversationEnvelope envelope) =>
+        envelope.Kind == ConversationEntryKind.ErrorResponse
+        || envelope is { Kind: ConversationEntryKind.NeverSent, Direction: ConversationDirection.Local }
+        || envelope.Outcome is ConversationOutcome.Failed
+                            or ConversationOutcome.Cancelled
+                            or ConversationOutcome.Abandoned;
+}
