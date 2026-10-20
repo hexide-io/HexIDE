@@ -772,30 +772,6 @@ the declaration line takes both, rather than pointing at the caret's own offset;
 an insertion or a forward deletion, where it moves the caller somewhere new.
 [#1042](https://github.com/hexide-io/HexIDE/issues/1042).
 
-## `type_text` writes beside a standing selection instead of over it
-
-**Symptom.** Found by the review of #273 task 4.5, which reproduced it. The calls below are #1040's reproduction,
-read in code and not run live. In a module with no `Attribute` lines, with `E` the code editor's path from
-`dump_visual_tree` and the caret after `Debug.Print 1` on the line `    Debug.Print 1, 2`:
-
-```
-press_key {"target":E,"key":"End","modifiers":"Shift"}      selects ", 2"
-type_text {"target":E,"text":", 3"}
-→ success; the line now reads "    Debug.Print 1, 2, 3"
-```
-
-A person's typing replaces the selection. `UiAutomationDriver.TypeText` inserts at the caret on every surface (a
-`TextEditor`, a `TextArea`, and a `TextBox` at its `CaretIndex`), never reads the selection, and, away from a
-described line's end, replies only with how many characters it typed. Its description says it inserts "at the
-caret", so it does what it says; what it does not do is what a person's typing does. `press_key` already judges a
-key with a selection standing as a write over it, so the two tools disagree. The code window's own Enter has the
-same shape, which is a product defect in the same issue.
-
-**Workaround.** Delete the selection first with `press_key {"target":E,"key":"Delete"}`, then call `type_text`.
-
-**Suggested fix.** Write over the selection, as a person's typing does and as `press_key` already assumes, and say
-in the reply how much was replaced. [#1040](https://github.com/hexide-io/HexIDE/issues/1040).
-
 ## `set_file_content`'s reply does not say when its save rewrote a member's attribute qualifier
 
 **Symptom.** `set_file_content` saves as the document's own Save does, and since #273 task 4.4 that save writes each
