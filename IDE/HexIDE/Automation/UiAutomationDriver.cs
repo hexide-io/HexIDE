@@ -600,6 +600,11 @@ public static class UiAutomationDriver
                         openFlyout.Hide();
                         return Ok($"closed flyout on '{LabelOf(control, peer)}'");
                     }
+                    // The popup is why expandCollapse is reported here, so a closed one is nothing to close, as with a
+                    // menu, rather than an action the control does not support (#949).
+                    if (control.ContextMenu is not null || FlyoutsOf(control).Any())
+                        return Ok($"the {(control.ContextMenu is not null ? "context menu" : "flyout")} on "
+                                  + $"'{LabelOf(control, peer)}' was not open; there is nothing to close");
                     return Unsupported("collapse");
 
                 case "setvalue":

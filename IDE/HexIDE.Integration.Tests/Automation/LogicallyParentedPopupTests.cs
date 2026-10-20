@@ -165,6 +165,43 @@ public class LogicallyParentedPopupTests
         finally { window.Close(); }
     }
 
+    [AvaloniaTheory]
+    [InlineData(true, "context menu")]
+    [InlineData(false, "flyout")]
+    public void Collapse_with_the_popup_closed_says_there_is_nothing_to_close(bool contextMenu, string popup)
+    {
+        // expandCollapse is reported because of the popup, so "does not support 'collapse'" contradicted the token
+        // still shown (#949).
+        var menu = new ContextMenu { ItemsSource = new[] { new MenuItem { Header = "Properties" } } };
+        var flyout = new MenuFlyout { ItemsSource = new[] { new MenuItem { Header = "Add Form" } } };
+        Control target = contextMenu
+            ? new Border { ContextMenu = menu, Width = 50, Height = 50 }
+            : new Button { Content = "Add", Flyout = flyout };
+        var window = Show(target);
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(target, "collapse", null);
+
+            outcome.Success.Should().BeTrue();
+            outcome.Detail.Should().StartWith($"the {popup} on '").And.EndWith("' was not open; there is nothing to close");
+            menu.IsOpen.Should().BeFalse();
+            flyout.IsOpen.Should().BeFalse();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Collapse_on_a_control_with_no_popup_is_still_unsupported()
+    {
+        var target = new Border { Width = 50, Height = 50 };
+        var window = Show(target);
+        try
+        {
+            UiAutomationDriver.Interact(target, "collapse", null).Error.Should().Be("element does not support 'collapse'");
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void A_control_owning_a_popup_advertises_expandCollapse()
     {

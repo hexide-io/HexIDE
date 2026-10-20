@@ -820,32 +820,6 @@ label fallback, but that is read in code and was not tried.
 it (`opened menu 'Tools' (ToolsMenuItem)`), and a description that says a segment may be addressed by either.
 [#948](https://github.com/hexide-io/HexIDE/issues/948).
 
-## `expand` also opens a control's context menu or flyout, and no description says so
-
-**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
-
-```
-dump_visual_tree {"maxDepth":3}
-→ Window/Custom[MainView]/None[#0]   (the menu band's StackPanel)   providers ["expandCollapse"]
-  TabItem[…]/None[PART_TabBody]      (a Border)                     providers ["expandCollapse"]
-dump_visual_tree {"root":"Window/Custom/Custom","interactiveOnly":false,"maxDepth":2}   (Options > Editor > Formatting)
-→ the Tab width TextBox                                             providers ["value","expandCollapse"]
-```
-
-The run read these as phantom tokens. They are not: each control owns a popup that `expand` opens, by design since
-#343. The StackPanel owns the Toolbars context flyout, `PART_TabBody` Dock's document context menu, and every
-TextBox the theme's Cut/Copy/Paste flyout. But `interact`'s `action` description defines expand and collapse as
-"a dropdown, tree node or expander", and `dump_visual_tree` says only "expandCollapse → expand/collapse", which
-is how #836 and its entry (now archived) came to say that no tool opens a context menu. `collapse` with the popup closed
-answers "element does not support 'collapse'" while the token is still shown. Cross-platform by code reading.
-
-**Workaround.** On a control with no expander of its own, read `expandCollapse` as "owns a context menu or
-flyout": `expand` opens it, and its items then appear under it in `dump_visual_tree`.
-
-**Suggested fix.** Say so in `interact`'s `action` description and, in a few words, in `dump_visual_tree`'s token
-list, and have `collapse` with nothing open say there is nothing to close.
-[#949](https://github.com/hexide-io/HexIDE/issues/949).
-
 ## `add_to_selection` names the new selection but not its reference, so a caller learns what Align measured against only afterwards
 
 **Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
