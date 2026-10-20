@@ -1994,6 +1994,172 @@ public static class UiAutomationDriver
     /// <summary>What <see cref="TypeText"/> reports as its mechanism: an edit through the control's own API.</summary>
     public const string TypedMechanism = "document";
 
+    /// <summary>
+    /// Types <paramref name="text"/> as a person does, a key at a time (#943): KeyDown, TextInput and KeyUp for each
+    /// character, and Enter and Tab as the keys, so what typing drives runs: the completion request a letter makes,
+    /// parameter info on <c>(</c> and <c>,</c>, the list closing on a character that cannot be part of a name,
+    /// auto-indent and the block a line break closes.
+    /// </summary>
+    /// <remarks>
+    /// <para>Each key goes where the keyboard sends it, to the focused control, with the key bindings on it and its
+    /// ancestors tried first, as Avalonia's keyboard device delivers one (<see cref="DeliverKey"/>). So a Tab that
+    /// moves focus sends the next key to the control it moved to, and an Enter bound to a command runs it.</para>
+    /// <para>After each key the code window's completion and parameter-info requests are waited for, up to
+    /// <see cref="PopupWait"/>, as a person's next key comes after the list a letter opened has appeared; a later key
+    /// otherwise overtook the server's answer, and the list opened after the typing was over (#943 review).</para>
+    /// <para>The typing stops, and says how far it got, at a key a protected line refuses, where a person's would be
+    /// dropped without a word; when a dialog opens over the window, which a person's keys would go to; when focus
+    /// leaves the window; and when the request is cancelled.</para>
+    /// </remarks>
+    public static async Task<InteractOutcome> TypeKeysAsync(
+        Control control, string text, string? controlPath = null, CancellationToken ct = default)
+    {
+        try
+        {
+            if (FindTextSurface(control) is not { } surface)
+                return new InteractOutcome(false, KeyboardMechanism, null,
+                    $"'{control.GetType().Name}' has no text surface (TextEditor/TextArea/TextBox) to type into");
+            var address = ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface);
+            var keys = KeysOf(text);
+            var start = surface is TextEditor editor ? editor.TextArea : surface;
+
+            // Judged before each key, where it goes, as the caret moves. The code window's check is the more specific,
+            // so it runs ahead of WhyNotTypable for the first key, as type_text's does.
+            InteractOutcome? Refused(Control at, int i)
+            {
+                if (AreaOf(at) is not { } area)
+                    return null;
+                var (key, mods, _) = keys[i];
+                var span = EditSpan(area, key, mods) ?? (area.Selection.IsEmpty
+                    ? new EditedSpan(area.Caret.Offset, 0, Deletes: false)
+                    : new EditedSpan(area.Selection.SurroundingSegment.Offset, area.Selection.SurroundingSegment.Length, Deletes: false));
+                return RefusedInReadOnlyRegion(area, span, "type_text", KeyboardMechanism, i == 0 ? null
+                    : $"Key {i + 1} of {keys.Count} wrote nothing, and the rest were not sent; the {i} before it went in.");
+            }
+
+            if (keys.Count > 0 && Refused(start, 0) is { } first)
+                return first;
+            if (WhyNotTypable(surface) is { } refusal)
+                return new InteractOutcome(false, KeyboardMechanism, null,
+                    $"{surface.GetType().Name}{address} {refusal}, so a person could not type there either; nothing was typed");
+            if (TopLevel.GetTopLevel(start) is not { } top)
+                return new InteractOutcome(false, KeyboardMechanism, null, $"'{Describe(start)}' is not in a window; nothing was typed");
+
+            start.Focus();
+            var dialogsBefore = (top as Window)?.OwnedWindows.Where(w => w.IsVisible).ToHashSet() ?? [];
+            var unanswered = 0;
+            Control at = start;
+            for (var i = 0; i < keys.Count; i++)
+            {
+                string Stopped(string why) =>
+                    $"typed {i} of {keys.Count} key(s) into {surface.GetType().Name}{address}, then stopped: {why}";
+                if (ct.IsCancellationRequested)
+                    return new InteractOutcome(false, KeyboardMechanism, null, Stopped("the request was cancelled"));
+                // Where the keyboard would send this key: focus, which a key before it may have moved.
+                if (top.FocusManager?.GetFocusedElement() is not Control focused || TopLevel.GetTopLevel(focused) != top)
+                    return new InteractOutcome(false, KeyboardMechanism, null,
+                        Stopped("focus has left the window, so a person's next key would not reach it"));
+                at = focused;
+                if (i > 0 && Refused(at, i) is { } refused)
+                    return refused;
+
+                var (key, mods, typed) = keys[i];
+                DeliverKey(at, key, mods, typed);
+                // The next key once what this one set off ahead of input has run, and the list or parameter info it
+                // asked the language server for has come back.
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Input);
+                if (FocusedEditor(top) is { } codeEditor && HexIDE.Forms.Views.CodeEditorView.PendingPopupsOf(codeEditor) is { } pending
+                    && await Task.WhenAny(pending, Task.Delay(PopupWait, ct)) != pending)
+                    unanswered++;
+
+                if ((top as Window)?.OwnedWindows.FirstOrDefault(w => w.IsVisible && w.IsDialog && !dialogsBefore.Contains(w)) is { } dialog)
+                    return new InteractOutcome(false, KeyboardMechanism, null,
+                        $"typed {i + 1} of {keys.Count} key(s) into {surface.GetType().Name}{address}, then stopped: "
+                        + $"'{TitleOf(dialog)}' opened over the window, and a person's next key would go to it. Answer it, "
+                        + "then send the rest");
+            }
+            var caret = AreaOf(at) is { } typedInto ? $"; the caret is at offset {typedInto.Caret.Offset}" : "";
+            var moved = ReferenceEquals(at, start) ? "" : $"; focus moved on to {Describe(at)}, where the keys after it went";
+            var slow = unanswered == 0 ? ""
+                : $"; the language server had not answered {unanswered} key(s)' completion or parameter-info request "
+                  + $"within {PopupWait.TotalMilliseconds:0} ms, so a list may still open";
+            return new InteractOutcome(true, KeyboardMechanism,
+                $"typed {keys.Count} key(s) into {surface.GetType().Name}{address} as a person types them{caret}{moved}{slow}", null);
+        }
+        catch (OperationCanceledException)
+        {
+            return new InteractOutcome(false, KeyboardMechanism, null, "type_text was cancelled part way; read the text back");
+        }
+        catch (Exception ex)
+        {
+            return new InteractOutcome(false, KeyboardMechanism, null, $"type_text threw: {ex.Message}; read the text back");
+        }
+    }
+
+    /// <summary>How long <see cref="TypeKeysAsync"/> waits after a key for the language server's completion answer.</summary>
+    internal static TimeSpan PopupWait = TimeSpan.FromSeconds(2);
+
+    // The code editor whose text area has focus, for the requests its keys make.
+    private static TextEditor? FocusedEditor(TopLevel top) =>
+        top.FocusManager?.GetFocusedElement() is TextArea area ? area.FindAncestorOfType<TextEditor>() : null;
+
+    /// <summary>
+    /// Delivers a key to <paramref name="at"/> as Avalonia's keyboard device delivers a real one: the key bindings on it
+    /// and its ancestors are tried first, nearest first, and KeyDown is raised only when none took it; then the text
+    /// it types, and KeyUp. Raising KeyDown alone skipped the bindings, so an Enter bound to a search did not search
+    /// (#943 review).
+    /// </summary>
+    private static void DeliverKey(Control at, Key key, KeyModifiers mods, string? typed)
+    {
+        if (key != Key.None)
+        {
+            var down = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = key, KeyModifiers = mods, Source = at };
+            for (Visual? v = at; v is not null && !down.Handled; v = v.GetVisualParent())
+                if (v is InputElement { KeyBindings: { Count: > 0 } bindings })
+                    foreach (var binding in bindings.ToArray())
+                    {
+                        if (down.Handled) break;
+                        binding.TryHandle(down);
+                    }
+            at.RaiseEvent(down);
+        }
+        if (typed is not null)
+            at.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = typed, Source = at });
+        if (key != Key.None)
+            at.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyUpEvent, Key = key, KeyModifiers = mods, Source = at });
+    }
+
+    /// <summary>What <see cref="TypeKeysAsync"/> reports as its mechanism: key events, as a keyboard sends them.</summary>
+    public const string KeyboardMechanism = "keyboard";
+
+    /// <summary>
+    /// The keys that type <paramref name="text"/>: a line break is Enter and a tab is Tab, which AvaloniaEdit binds as
+    /// keys and writes no TextInput for; anything else is its text, with the key a US layout types it with when there
+    /// is one, Shift for a capital, as the code window's key handlers see a person's.
+    /// </summary>
+    private static List<(Key Key, KeyModifiers Mods, string? Typed)> KeysOf(string text)
+    {
+        var keys = new List<(Key, KeyModifiers, string?)>();
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (c == '\r' && i + 1 < text.Length && text[i + 1] == '\n')
+                continue;
+            keys.Add(c switch
+            {
+                '\r' or '\n' => (Key.Enter, KeyModifiers.None, null),
+                '\t' => (Key.Tab, KeyModifiers.None, null),
+                >= 'a' and <= 'z' => (Key.A + (c - 'a'), KeyModifiers.None, c.ToString()),
+                >= 'A' and <= 'Z' => (Key.A + (c - 'A'), KeyModifiers.Shift, c.ToString()),
+                >= '0' and <= '9' => (Key.D0 + (c - '0'), KeyModifiers.None, c.ToString()),
+                ' ' => (Key.Space, KeyModifiers.None, " "),
+                _ when char.IsSurrogatePair(text, i) => (Key.None, KeyModifiers.None, text.Substring(i++, 2)),
+                _ => (Key.None, KeyModifiers.None, c.ToString()),
+            });
+        }
+        return keys;
+    }
+
     /// <summary>Why a person could not type into <paramref name="surface"/> at its caret; null when they could.</summary>
     private static string? WhyNotTypable(Control surface)
     {
@@ -2045,8 +2211,8 @@ public static class UiAutomationDriver
                 return refused;
 
             target.Focus();
-            target.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = parsedKey, KeyModifiers = mods });
-            target.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyUpEvent, Key = parsedKey, KeyModifiers = mods });
+            // As the keyboard device delivers it, key bindings first, so an Enter bound to a search searches (#943 review).
+            DeliverKey(target, parsedKey, mods, typed: null);
 
             // Naming the receiver is half the point. Both gaps this closes presented as "reports success and
             // nothing happens", and in each the answer was that the event went to a control other than the
@@ -2164,7 +2330,7 @@ public static class UiAutomationDriver
     /// <c>"keyboard"</c>: <c>type_text</c> inserts into the document rather than sending keystrokes, and
     /// saying otherwise is how a read-only gate that held was once read as one that had failed (#649).
     /// </param>
-    private static InteractOutcome? RefusedInReadOnlyRegion(TextArea area, EditedSpan span, string tool, string mechanism = "keyboard")
+    private static InteractOutcome? RefusedInReadOnlyRegion(TextArea area, EditedSpan span, string tool, string mechanism = "keyboard", string? written = null)
     {
         if (CodeWindowOf(area) is not { } editor)
             return null;
@@ -2177,7 +2343,7 @@ public static class UiAutomationDriver
                 $"{tool} refused: this file will not be saved, because HexIDE cannot yet reproduce it faithfully"
               + (editor.ReadOnlyReason is { Length: > 0 } why ? $" ({why})" : string.Empty)
               + ". Its code is part of the file, so typing in its code window is refused anywhere, as the "
-              + "window's banner says. Nothing was written.");
+              + "window's banner says. " + (written ?? "Nothing was written."));
 
         // A deletion by the window's own rule (#273 task 4.5a): one taking a described line whole takes its Attribute
         // lines with it, which a person's key does, so only what it would still change of a region refuses it.
@@ -2194,12 +2360,12 @@ public static class UiAutomationDriver
             return new InteractOutcome(false, mechanism, null,
                 $"{tool} refused: the selection from offset {span.Offset} to {span.Offset + span.Length} reaches into the "
               + "file's header or a member's Attribute lines, which only the IDE changes (the designer, a save, a "
-              + "rename), and it writes over the whole selection. Nothing was written. Select less, or collapse the "
+              + "rename), and it writes over the whole selection. " + (written ?? "Nothing was written.") + " Select less, or collapse the "
               + "selection (press_key Left or Right) and write at the caret. Offsets count from the start of the file, "
               + "in the text get_file_content returns.");
         return new InteractOutcome(false, mechanism, null,
             $"{tool} refused: offset {span.Offset} is in the file's header or a member's Attribute lines, which "
-          + "only the IDE changes (the designer, a save, a rename). Nothing was written. The nearest place "
+          + "only the IDE changes (the designer, a save, a rename). " + (written ?? "Nothing was written.") + " The nearest place "
           + $"that can be edited starts at offset {past}; put the caret there with interact set_property "
           + $"CaretOffset={past}. Offsets count from the start of the file, in the text get_file_content returns.");
     }
