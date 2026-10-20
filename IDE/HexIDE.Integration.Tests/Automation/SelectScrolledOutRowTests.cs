@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Headless.XUnit;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using HexIDE.Automation;
 
@@ -78,6 +79,46 @@ public class SelectScrolledOutRowTests
             outcome.Error.Should().StartWith("no selectable item matching 'Nowhere' among the 30 item(s)");
             list.Scroll!.Offset.Should().Be(before, "a search that found nothing must not leave the list scrolled somewhere else");
             list.SelectedItem.Should().BeNull();
+        }
+        finally { window.Close(); }
+    }
+
+    // A row the list hides is not selected by its text when scrolled in either, nor reported as scrolled to (#1256).
+    [AvaloniaFact]
+    public void A_hidden_row_out_of_view_is_refused_as_not_showing()
+    {
+        var items = new ObservableCollection<string>(Enumerable.Range(0, 30).Select(i => $"Row{i}"));
+        items[28] = "Secret";
+        var list = new ListBox
+        {
+            Height = 40,
+            ItemsSource = items,
+            ItemTemplate = new FuncDataTemplate<string>((s, _) => new Border { Height = 16, Child = new TextBlock { Text = s } }),
+        };
+        list.Styles.Add(new Style(x => x.OfType<ListBoxItem>())
+        {
+            Setters =
+            {
+                new Setter(Avalonia.Visual.IsVisibleProperty, new Avalonia.Data.Binding
+                {
+                    Converter = new Avalonia.Data.Converters.FuncValueConverter<string, bool>(s => s != "Secret"),
+                }),
+            },
+        });
+        var window = new Window { Content = list, Width = 300, Height = 200 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            list.ContainerFromIndex(28).Should().BeNull("the row must be out of view for this to test anything");
+            var before = list.Scroll!.Offset;
+
+            var outcome = UiAutomationDriver.Interact(list, "select", "Secret");
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("is not showing");
+            list.SelectedItem.Should().BeNull();
+            list.Scroll!.Offset.Should().Be(before);
         }
         finally { window.Close(); }
     }

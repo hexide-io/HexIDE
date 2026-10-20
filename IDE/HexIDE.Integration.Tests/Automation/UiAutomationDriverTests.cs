@@ -318,6 +318,12 @@ public class UiAutomationDriverTests
             refused.Success.Should().BeFalse();
             refused.Error.Should().Contain("is not showing");
             list.SelectedIndex.Should().Be(1);
+
+            // Every row has a container, so a miss scrolls nothing and says so, and counts only the row that shows (#1256).
+            var missed = UiAutomationDriver.Interact(list, "select", "Nowhere");
+            missed.Success.Should().BeFalse();
+            missed.Error.Should().StartWith("no selectable item matching 'Nowhere' among 1 realized item(s); 2 more are not showing")
+                .And.NotContain("brought into view");
         }
         finally { window.Close(); }
     }
@@ -942,6 +948,113 @@ public class UiAutomationDriverTests
             refused.Success.Should().BeFalse();
             refused.Error.Should().Contain("is not showing").And.Contain("'expand' 'Environment'");
             tree.SelectedItem.Should().BeNull();
+        }
+        finally { window.Close(); }
+    }
+
+    // The nearest collapsed node alone was named, and expanding it was refused as not showing while the one above it was
+    // collapsed too (#1256). Every collapsed node is named, outermost first, and following the advice reaches the item.
+    [AvaloniaFact]
+    public void Interact_Select_WithAValue_UnderNestedCollapsedNodes_NamesEachToExpandInOrder()
+    {
+        var leaf = new Page("Leaf", []);
+        var inner = new Page("Inner", [leaf]);
+        var outer = new Page("Outer", [inner]);
+        var tree = new TreeView
+        {
+            ItemsSource = new[] { outer },
+            ItemTemplate = new FuncTreeDataTemplate<Page>((p, _) => new TextBlock { Text = p.Title }, p => p.Children),
+        };
+        tree.Styles.Add(new Style(x => x.OfType<TreeViewItem>())
+        {
+            Setters = { new Setter(AutomationProperties.NameProperty, new Binding(nameof(Page.Title))) },
+        });
+        var window = new Window { Content = tree, Width = 300, Height = 300 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            ContainerOf(tree, outer).IsExpanded = true;
+            Dispatcher.UIThread.RunJobs();
+            ContainerOf(tree, inner).IsExpanded = true;
+            Dispatcher.UIThread.RunJobs();
+            ContainerOf(tree, inner).IsExpanded = false;
+            ContainerOf(tree, outer).IsExpanded = false;
+            Dispatcher.UIThread.RunJobs();
+
+            var refused = UiAutomationDriver.Interact(tree, "select", "Leaf");
+            refused.Success.Should().BeFalse();
+            refused.Error.Should().Contain("is not showing").And.EndWith("'expand' 'Outer', then 'Inner', which hold it");
+
+            UiAutomationDriver.Interact(ContainerOf(tree, outer), "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            UiAutomationDriver.Interact(ContainerOf(tree, inner), "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            var selected = UiAutomationDriver.Interact(tree, "select", "Leaf");
+            selected.Success.Should().BeTrue(selected.Error);
+            tree.SelectedItem.Should().BeSameAs(leaf);
+        }
+        finally { window.Close(); }
+    }
+
+    // type_text chose a ComboBox's hidden template TextBox ahead of the TextBox after it, and was refused as aimed at a
+    // hidden control, where press_key passed it over (#1256).
+    [AvaloniaFact]
+    public void Type_text_passes_over_a_dropdown_s_hidden_text_box()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "a", "b" }, Width = 100 };
+        var box = new TextBox { Width = 100 };
+        var panel = new StackPanel { Children = { combo, box } };
+        var lone = new ComboBox { ItemsSource = new[] { "a" }, Width = 100 };
+        var hiddenBox = new TextBox { Width = 100 };
+        var hiddenPanel = new StackPanel { IsVisible = false, Children = { hiddenBox } };
+        var window = new Window { Content = new StackPanel { Children = { panel, lone, hiddenPanel } }, Width = 300, Height = 300 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            UiAutomationDriver.TypeText(panel, "abc").Success.Should().BeTrue();
+            box.Text.Should().Be("abc");
+
+            var noSurface = UiAutomationDriver.TypeText(lone, "abc");
+            noSurface.Success.Should().BeFalse();
+            noSurface.Error.Should().Contain("has no text surface").And.Contain("'select'").And.NotContain("is not showing");
+
+            var hidden = UiAutomationDriver.TypeText(hiddenPanel, "abc");
+            hidden.Success.Should().BeFalse();
+            hidden.Error.Should().Contain("is not showing");
+
+            // A hidden box ahead of a showing one gives way to it; only when nothing shows is the hidden one refused.
+            hiddenPanel.IsVisible = true;
+            hiddenBox.IsVisible = false;
+            var after = new TextBox { Width = 100 };
+            hiddenPanel.Children.Add(after);
+            Dispatcher.UIThread.RunJobs();
+            UiAutomationDriver.TypeText(hiddenPanel, "xyz").Success.Should().BeTrue();
+            after.Text.Should().Be("xyz");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task Type_text_by_keys_passes_over_a_dropdown_s_hidden_text_box()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "a", "b" }, Width = 100 };
+        var box = new TextBox { Width = 100 };
+        var panel = new StackPanel { Children = { combo, box } };
+        var lone = new ComboBox { ItemsSource = new[] { "a" }, Width = 100 };
+        var window = new Window { Content = new StackPanel { Children = { panel, lone } }, Width = 300, Height = 300 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var typed = await UiAutomationDriver.TypeKeysAsync(panel, "abc");
+            typed.Success.Should().BeTrue(typed.Error);
+            box.Text.Should().Be("abc");
+
+            var noSurface = await UiAutomationDriver.TypeKeysAsync(lone, "abc");
+            noSurface.Success.Should().BeFalse();
+            noSurface.Error.Should().Contain("has no text surface").And.NotContain("is not showing");
         }
         finally { window.Close(); }
     }

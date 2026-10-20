@@ -4037,3 +4037,19 @@ no note, while the form was half way through. The same loop without `DoEvents` w
 > replies at once. The wait note in the `interact`, `type_text` and `press_key` descriptions says a loop running before
 > the action, or a Timer's, is not waited for. Guarded by `ProgramWaitTests`, with no time slice so that `DoEvents` is
 > the loop's only yield.
+
+## `select` and `type_text` applied #1069's not-showing rule unevenly (#1256)
+
+Three paths still acted on, or gave advice from, rows and template parts that do not show:
+
+- **`select` with a value on a list** looked among unrealized rows whenever the item count exceeded the rows that showed, which a hidden row (the Properties window's collapsed category) made true even with every row realized. It scrolled nothing, and the miss said the rows not on screen had been brought into view. The rows it did scroll in were matched with no hidden filter.
+- **`select` under nested collapsed tree nodes** named only the nearest collapsed node to expand, and `expand` on it was refused as not showing while the one above it was collapsed too.
+- **`type_text`** picked a non-editable ComboBox's hidden template TextBox ahead of a TextBox after it, as in the Object Browser's toolbar, and was refused as aimed at a hidden control, where `press_key` passed it over.
+
+> **Fixed.** `select` looks among unrealized rows only when a row has no container. It matches the rows it scrolls in
+> among those that show, and refuses one that only a hidden row matches as not showing. A miss says how many rows were
+> left out as not showing. Under nested collapsed nodes, the refusal names each one to expand, outermost first ("'expand'
+> 'Outer', then 'Inner', which hold it"), when the outermost shows. `type_text`, in both modes, passes over a template
+> part its own showing control hides, prefers a surface that shows, and still refuses a surface hidden by anything else
+> as not showing. A non-editable ComboBox with nothing else to type into is refused as having no text surface, with
+> `select` named. Guarded in `UiAutomationDriverTests` and `SelectScrolledOutRowTests`.
