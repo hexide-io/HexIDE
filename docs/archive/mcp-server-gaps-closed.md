@@ -3518,5 +3518,8 @@ holds. This is an inconsistency, not wrong data.
 [#956](https://github.com/hexide-io/HexIDE/issues/956).
 
 > **Fixed.** `RuntimeErrorLog` stamps an error in UTC, from a `TimeProvider`, so `get_last_runtime_error`'s `at`
-> carries `+00:00` as every other stamp on the surface does. Guarded by `RuntimeErrorLogTests`, on a clock an hour
-> east of UTC, which fails with either local reading.
+> carries `+00:00` as every other stamp on the surface does, and the tool's description says so. The review found two
+> more local times a caller meets beside it. `take_snapshot`'s file names are now UTC, with a `Z`
+> (`hexide_snapshot_20261012-093015-123Z_1.png`). The IDE log, which a tool failure points to, now writes each
+> line's offset. Guarded by `RuntimeErrorLogTests`, whose clock is UTC, so a local reading fails on any machine
+> that is not set to UTC, and by `SnapshotCapturePathTests`.

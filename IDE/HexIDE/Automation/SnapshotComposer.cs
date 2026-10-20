@@ -31,12 +31,13 @@ public static class SnapshotComposer
     /// Every capture used to go to one <c>hexide_snapshot.png</c>, so the next call overwrote the image the last
     /// one had returned, and a before/after pair read the "after" twice (#756). The count separates two captures
     /// inside one millisecond. Nothing deletes the files: they are in the temp folder, where the OS expects them.
+    /// The time is UTC and says so with a Z, so a name lines up with every stamp the tools return (#956 review).
     /// </remarks>
-    public static string NewCapturePath(string folder, DateTime now)
+    public static string NewCapturePath(string folder, DateTime utcNow)
     {
         var count = Interlocked.Increment(ref _captures);
         return System.IO.Path.Combine(folder,
-            $"hexide_snapshot_{now.ToString("yyyyMMdd-HHmmss-fff", System.Globalization.CultureInfo.InvariantCulture)}_{count}.png");
+            $"hexide_snapshot_{utcNow.ToString("yyyyMMdd-HHmmss-fff", System.Globalization.CultureInfo.InvariantCulture)}Z_{count}.png");
     }
 
     /// <summary>

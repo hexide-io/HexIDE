@@ -17,7 +17,7 @@ namespace HexIDE.Infrastructure;
 public static class LoggingSetup
 {
     private const string OutputTemplate =
-        "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {Message:lj}{NewLine}{Exception}";
+        "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}";
 
     // Three limits, multiplied, are the whole disk budget — state them together so the total is
     // deliberate rather than emergent:
