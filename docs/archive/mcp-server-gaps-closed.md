@@ -2998,6 +2998,7 @@ reading.
 and compile errors alike, and carry them through to `module` and `line` in the reply. Leave the dialog's text
 alone: what VB6 shows for a compile error met mid-run is #833's measurement.
 [#955](https://github.com/hexide-io/HexIDE/issues/955).
+
 ## A Label on a running form is left out of the default tree — **CLOSED** (#1076, 2026-10-20)
 
 **Symptom.** Measured on 2026-10-15, driving the Battleship demo (#1071), whose board is 25 Labels and a status Label:
