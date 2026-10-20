@@ -60,6 +60,12 @@ public class McpRestartTests
 
         [McpServerTool(Name = "fail"), Description("Throws.")]
         public static string Fail() => throw new InvalidOperationException("the tool broke");
+
+        [McpServerTool(Name = "flag"), Description("Returns its flag.")]
+        public static string Flag(bool on, int count = 0) => $"{on} {count}";
+
+        [McpServerTool(Name = "refuse"), Description("Throws an ArgumentException of its own.")]
+        public static string Refuse(string text) => throw new ArgumentException("the text was not wanted", nameof(text));
     }
 
     private static int FreePort()
@@ -190,6 +196,69 @@ public class McpRestartTests
         {
             await StopAsync(app);
         }
+    }
+
+    // ── Arguments the SDK could not bind are refusals, not defects (#1270) ──────
+
+    private static async Task<CallToolResult> CallWithAsync(string tool, Dictionary<string, object?> arguments)
+    {
+        var port = FreePort();
+        var app = await StartAsync(port, McpTransport.Configure);
+        try
+        {
+            await using var client = await ConnectAsync(port);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(20));
+            return await client.CallToolAsync(tool, arguments, cancellationToken: timeout.Token);
+        }
+        finally
+        {
+            await StopAsync(app);
+        }
+    }
+
+    [Fact]
+    public async Task A_missing_argument_is_refused_by_name_and_not_called_a_defect()
+    {
+        var result = await CallWithAsync("echo", new() { ["path"] = "x" });
+
+        result.IsError.Should().BeTrue();
+        TextOf(result).Should().Be("'echo' refused its arguments, and nothing was done: The arguments dictionary is missing "
+            + "a value for the required parameter 'text'; it takes no 'path' parameter. Its input schema names each "
+            + "parameter and its type.");
+    }
+
+    [Theory]
+    [InlineData("on", "true", "'on' must be boolean, not a string")]
+    [InlineData("on", 1, "'on' must be boolean, not a number")]
+    [InlineData("count", 1.5, "'count' must be integer, not a number")]
+    public async Task An_argument_of_the_wrong_type_is_refused_by_name(string name, object value, string problem)
+    {
+        var arguments = new Dictionary<string, object?> { ["on"] = true, [name] = value };
+
+        var result = await CallWithAsync("flag", arguments);
+
+        result.IsError.Should().BeTrue();
+        TextOf(result).Should().Be($"'flag' refused its arguments, and nothing was done: {problem}. Its input schema "
+            + "names each parameter and its type.");
+    }
+
+    [Fact]
+    public async Task Arguments_that_bind_still_reach_the_tool()
+    {
+        var result = await CallWithAsync("flag", new() { ["on"] = true, ["count"] = 2 });
+
+        result.IsError.Should().NotBeTrue();
+        TextOf(result).Should().Be("True 2");
+    }
+
+    [Fact]
+    public async Task An_ArgumentException_the_tool_throws_itself_is_still_a_defect()
+    {
+        var result = await CallWithAsync("refuse", new() { ["text"] = "x" });
+
+        result.IsError.Should().BeTrue();
+        TextOf(result).Should().Contain("System.ArgumentException").And.Contain("This is a defect in the tool");
     }
 
     [Fact]

@@ -3575,3 +3575,38 @@ a refusal that names what it looked for. [#836](https://github.com/hexide-io/Hex
 >
 > Guarded by `InvokeCommandMethodTests`, and by `XamlCommandBindingsTests`, which read HexIDE's own assembly so an
 > Avalonia change to the names fails there.
+
+## A missing or mistyped tool argument is reported as a defect in the tool, asking to be reported
+
+**Symptom.** (Windows, 2026-10-20.) The SDK binds a call's arguments without checking them against the schema, and
+`ToolFailures` reported what that threw as an unhandled defect:
+
+```
+inspect_element {"path":"Window"}           (the parameter is 'target')
+→ "'inspect_element' failed with an unhandled System.ArgumentException: The arguments dictionary is missing a value
+   for the required parameter 'target'. ... This is a defect in the tool, not a refusal of your arguments: please
+   report it."
+take_snapshot {"inline":"true"}
+→ "... System.Text.Json.JsonException: The JSON value could not be converted to System.Boolean ... This is a defect
+   in the tool ..."
+```
+
+The reply said the opposite of what happened and asked for a bug report, for every tool and every parameter.
+[#1270](https://github.com/hexide-io/HexIDE/issues/1270).
+
+> **Fixed.** An exception thrown from the SDK's parameter marshaller is a refusal, which a tool's own code never runs
+> in. That covers an `ArgumentException` for a missing argument and a `JsonException` for a mistyped one. The reply
+> names each problem, checked against the tool's input schema: the missing parameter, an argument the tool does not
+> take, and an argument whose JSON is not its declared type. It says nothing was done, and does not ask to be
+> reported. An `ArgumentException` a tool throws itself is still a defect. Measured on Windows through the server's
+> HTTP endpoint:
+>
+> ```
+> inspect_element {"path":"Window"}
+> → "'inspect_element' refused its arguments, and nothing was done: The arguments dictionary is missing a value
+>    for the required parameter 'target'; it takes no 'path' parameter. ..."
+> take_snapshot {"inline":"true"}
+> → "... 'inline' must be boolean, not a string. ..."
+> ```
+>
+> Guarded by `McpRestartTests`, through a real server and the SDK's client.
