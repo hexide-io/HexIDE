@@ -155,7 +155,8 @@ public static class UiAutomationDriver
             members,
             range,
             ownerPath,
-            note);
+            note,
+            control is ItemsControl items ? Safe<int?>(() => items.ItemCount, null) : null);
     }
 
     /// <summary>
@@ -3451,7 +3452,11 @@ public record UiNodeDetail(
     VmMember[] DataContextMembers,
     RangeState? Range = null,
     string? DataContextOwner = null,
-    string? DataContextNote = null);
+    string? DataContextNote = null,
+    // How many items an ItemsControl holds, its own and not those nested in them, whether or not their containers
+    // exist: SelectionItems is only what is selected, so a list lacking an item read the same as one not choosing it
+    // (#1263). Absent for anything else.
+    int? ItemCount = null);
 
 /// <summary>A range control's state: a scroll bar's or slider's position, its bounds, and whether it can be set.</summary>
 public record RangeState(double Value, double Minimum, double Maximum, bool IsReadOnly);
