@@ -351,9 +351,10 @@ public class McpRestartTests
     {
         // A reply is read as text, where 'Form1' had come out as \u0027Form1\u0027 and a Cyrillic name could not be
         // read at all (#753). JSON's own escapes stay: a quote, a backslash, a line break.
-        var result = await CallWithAsync("describe", new() { ["text"] = "'Ж1' → <a & b> + \"c\\d\"\n" });
+        // So does an escape for what would not be seen, such as a right-to-left override; an emoji is seen.
+        var result = await CallWithAsync("describe", new() { ["text"] = "'Ж1' → <a & b> + 😀 \"c\\d\"\n\u202E" });
 
-        TextOf(result).Should().Be("""{"detail":"'Ж1' → <a & b> + \"c\\d\"\n"}""");
+        TextOf(result).Should().Be("""{"detail":"'Ж1' → <a & b> + 😀 \"c\\d\"\n\u202E"}""");
     }
 
     [Fact]
