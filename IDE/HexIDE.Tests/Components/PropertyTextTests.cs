@@ -1,5 +1,6 @@
 using System.Globalization;
 using HexIDE.Runtime.BuiltinTypes;
+using HexIDE.Tests.Infrastructure;
 using HexIDE.Runtime.Components;
 
 namespace HexIDE.Tests.Components;
@@ -243,7 +244,7 @@ public class PropertyTextTests
 
         refusal.Should().BeNull();
         element!.GetPropertyOrDefault(VBProperties.CaptionProperty).Should().Be("second");
-        PropertyText.DisplayName(element).Should().Be("lblTitle(1)");
+        PropertyText.AddressedName(element).Should().Be("lblTitle(1)");
     }
 
     [Fact]
@@ -264,7 +265,7 @@ public class PropertyTextTests
 
         var button = PropertyText.NamedOne(form.Components, "CMDGO", out var refusal);
         refusal.Should().BeNull();
-        PropertyText.DisplayName(button!).Should().Be("cmdGo");
+        PropertyText.AddressedName(button!).Should().Be("cmdGo");
 
         PropertyText.NamedOne(form.Components, "lblMissing", out refusal).Should().BeNull();
         refusal.Should().BeNull("a miss is the caller's 'no control named', not an ambiguity");
@@ -288,6 +289,44 @@ public class PropertyTextTests
         PropertyText.NamedOne(form.Components, "lblDup", out var refusal).Should().BeNull();
 
         refusal.Should().Be("'lblDup' names 2 controls, which do not each have an Index of their own to tell them apart");
+    }
+
+    [Fact]
+    public void An_index_on_a_control_that_is_no_array_is_refused_as_such()
+    {
+        var form = Load(TwoElementArrayAndAButton);
+
+        PropertyText.NamedOne(form.Components, "cmdGo(0)", out var refusal).Should().BeNull();
+
+        refusal.Should().Be("'cmdGo' is not a control array, so it takes no index; name it as cmdGo");
+    }
+
+    [Fact]
+    public void A_tool_that_saves_is_told_which_indexes_there_are_when_its_index_is_too_big_for_an_int()
+    {
+        var form = Load(TwoElementArrayAndAButton);
+
+        PropertyText.NamedOne(form.Components, "lblTitle(99999999999)", out var refusal).Should().BeNull();
+
+        refusal.Should().Be("'lblTitle(99999999999)' names no element: lblTitle has Index 1, 3");
+    }
+
+    [Fact]
+    public void An_index_in_digits_other_than_ascii_names_nothing_and_is_not_read_as_an_element()
+    {
+        var form = Load(TwoElementArrayAndAButton);
+
+        PropertyText.NamedOne(form.Components, "lblTitle(١)", out var refusal).Should().BeNull();
+
+        refusal.Should().BeNull();
+    }
+
+    [Fact]
+    public void The_tools_that_change_a_named_control_resolve_it_as_one()
+    {
+        // No test project references HexIDE.Desktop, so this reads the source: both took the first match by name.
+        foreach (var tool in new[] { "set_control_property", "move_control" })
+            ToolSource.Tools.Single(t => t.Name == tool).Body.Should().Contain("PropertyText.NamedOne(", tool);
     }
 
     [Theory]

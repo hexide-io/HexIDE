@@ -203,12 +203,16 @@ public static partial class PropertyText
         var all = components.ToList();
         var matches = Named(all, name);
         if (matches.Count == 0 && ArrayElement().Match(name) is { Success: true } element
-            && Named(all, element.Groups["name"].Value.Trim()) is { Count: > 0 } array)
+            && Named(all, element.Groups["name"].Value.Trim()) is { Count: > 0 } named)
         {
-            // The array exists and the index does not: say which do, rather than that no such control exists.
-            refusal = $"'{name}' names no element: {array[0].GetPropertyOrDefault(VBProperties.NameProperty)} has Index "
-                      + string.Join(", ", array.Select(ArrayIndexOf).OfType<int>().Order()
-                          .Select(i => i.ToString(CultureInfo.InvariantCulture)));
+            // The control exists and the index does not: say which do, or that it is no array, rather than that no
+            // such control exists.
+            var bare = named[0].GetPropertyOrDefault(VBProperties.NameProperty);
+            var held = named.Select(ArrayIndexOf).OfType<int>().Order().ToList();
+            refusal = held.Count == 0
+                ? $"'{bare}' is not a control array, so it takes no index; name it as {bare}"
+                : $"'{name}' names no element: {bare} has Index "
+                  + string.Join(", ", held.Select(i => i.ToString(CultureInfo.InvariantCulture)));
             return null;
         }
         if (matches.Count <= 1)
@@ -225,7 +229,7 @@ public static partial class PropertyText
     }
 
     /// <summary>A control's name as a caller addresses it: <c>lblTitle(1)</c> for a control array's element.</summary>
-    public static string DisplayName(ComponentInstance component) =>
+    public static string AddressedName(ComponentInstance component) =>
         component.GetPropertyOrDefault(VBProperties.NameProperty)
         + (ArrayIndexOf(component) is { } index ? $"({index.ToString(CultureInfo.InvariantCulture)})" : "");
 
