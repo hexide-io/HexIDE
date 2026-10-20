@@ -119,7 +119,8 @@ public class ProgramWaitTests
             Dispatcher.UIThread.RunJobs();
     }
 
-    // The headless host keeps no list of its windows, so the tests keep their own.
+    // The headless host keeps no list of its windows, so the tests keep their own. It holds what other classes left open
+    // too, which a dialog note names, so a test looks for its own dialog in the note rather than at its start.
     private static readonly System.Collections.Generic.HashSet<Window> Shown;
 
     // Explicit, so the list starts before the first test opens anything rather than when it is first read.
@@ -401,7 +402,7 @@ public class ProgramWaitTests
             run.Window.Events!.IsIdle.Should().BeTrue();
             outcome.Detail.Should().Be("invoked Button 'Command1'");
             OpenDialogs.Note(dialogs, OpenWindows()).Should()
-                .StartWith($"'HexIDE', a modal dialog over the running form '{Caption}', opened during this call");
+                .Contain($"'HexIDE', a modal dialog over the running form '{Caption}', opened during this call");
         }
         finally
         {
@@ -434,7 +435,7 @@ public class ProgramWaitTests
 
             outcome.Detail.Should().Contain("has a window open over its form, 'Question'; a MsgBox holds its handler");
             var note = OpenDialogs.Note(dialogs, OpenWindows());
-            note.Should().StartWith($"'HexIDE', a modal dialog over the running form '{Caption}', is still open");
+            note.Should().Contain($"'HexIDE', a modal dialog over the running form '{Caption}', is still open");
             note.Should().NotContain("'Question'");
 
             // Clicked again while the MsgBox holds the program: the box, which holds it, is named, not the other dialog.
@@ -447,7 +448,7 @@ public class ProgramWaitTests
 
             outcome.Detail.Should().Contain("has a window open over its form, 'Question'; a MsgBox holds its handler");
             OpenDialogs.Note(dialogs, OpenWindows()).Should()
-                .StartWith($"'HexIDE', a modal dialog over the running form '{Caption}', is still open").And.NotContain("'Question'");
+                .Contain($"'HexIDE', a modal dialog over the running form '{Caption}', is still open").And.NotContain("'Question'");
         }
         finally
         {
