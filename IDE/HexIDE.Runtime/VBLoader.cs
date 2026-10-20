@@ -93,6 +93,7 @@ public class VBLoader
                 // form-level variable regardless of how deeply it is nested.
                 executionContext.AllocVariable(environment, name, new Vb6Value(control));
             }
+            VBProps.SetRunTimeId(control);
         }
 
         foreach (var component in TopLevelComponents(element))
@@ -108,6 +109,7 @@ public class VBLoader
                     foreach (var (property, value) in dialogBlock.Properties)
                         dialog.SetDesignTime(property, value);
                     VBProps.SetName(dialog, dialogBlock.Name);
+                    VBProps.SetRunTimeId(dialog);
                     canvas.Children.Add(dialog);
                     executionContext.AllocVariable(environment, dialogBlock.Name, new Vb6Value(dialog));
                 }
@@ -127,6 +129,7 @@ public class VBLoader
             }
             else
                 executionContext.AllocVariable(environment, name, new Vb6Value(control));
+            VBProps.SetRunTimeId(control);
         }
 
         // Bind each control-array group to its shared Name once every element is in place.

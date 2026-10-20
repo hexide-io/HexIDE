@@ -17,6 +17,15 @@ public class VBProps
     public static int? GetIndex(AvaloniaObject element) => element.GetValue(IndexProperty);
     public static void SetIndex(AvaloniaObject element, int? value) => element.SetValue(IndexProperty, value);
 
+    /// <summary>
+    /// Gives a control of a running form the name its code uses as its automation id: <c>Text1</c>, or <c>Command1(0)</c>
+    /// for an element of a control array, so that a tree shows it and a tool reaches it as <c>#Text1</c> (#954). Run time
+    /// only: the designer's controls keep the ids it gives them (#526).
+    /// </summary>
+    public static void SetRunTimeId(Control control) =>
+        Avalonia.Automation.AutomationProperties.SetAutomationId(
+            control, GetIndex(control) is { } index ? $"{GetName(control)}({index})" : GetName(control));
+
     // The ScaleMode a container gives the controls on it: the unit a program reads and writes their Left, Top, Width and
     // Height in (#933). Set on the canvas they are placed on: the form's own, and a PictureBox's child host; a Frame has
     // none, and its children stay in twips even on a pixel form (measured).

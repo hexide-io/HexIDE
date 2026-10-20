@@ -103,6 +103,7 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
         control.IsVisible = false;                                                        // oracle: loaded → hidden
         VBProps.SetName(control, Name);
         VBProps.SetIndex(control, index);
+        VBProps.SetRunTimeId(control);
         parent.Children.Add(control);
         elements[index] = control;
         hosts[index] = parent;
@@ -118,6 +119,7 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
         var item = newMenuLike!(first);
         VBProps.SetName(item, Name);
         VBProps.SetIndex(item, index);
+        VBProps.SetRunTimeId(item);
         var below = elements.Keys.Where(k => k < index).Select(k => elements[k]).LastOrDefault();
         var position = below is not null ? menu.Items.IndexOf(below) + 1 : menu.Items.IndexOf(elements[elements.Keys.First()]);
         menu.Items.Insert(position, item);

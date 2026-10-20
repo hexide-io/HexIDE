@@ -2787,3 +2787,52 @@ gone out while it was part way through. Nothing in the reply said so.
 
 **Cause.** A handler is a walk on the run's `EventPump`. `ExecuteSub` starts it and returns, and the walk gives up
 the UI thread at the debugger's 15 ms time slice (#766), so the tool's reply was sent mid-walk.
+
+## A running form's controls carry no VB6 name, and a `&` caption is named with `_` — **CLOSED** (#954, 2026-10-20)
+
+> **Fixed.** Every control on a running form carries the name its code uses as its AutomationId: `Text1`, or
+> `Command1(0)` for an element of a control array, including one `Load` adds at run time. A tree shows it as the
+> path's discriminator, `Window/Edit[Text1]`, and a tool reaches it as `Window/#Text1`. A CommandButton, CheckBox or
+> OptionButton is named by its caption as it reads: `&OK` is "OK", `E&xit` is "Exit", `Tom && Jerry` is "Tom & Jerry",
+> so `Button[Exit]` reaches it. The rule is Windows' for prefix characters, not measured on the oracle (#920 owes that).
+> Designer controls are left as they were (#526). Not covered: the constituent controls of a UserControl, which are
+> built without the loader. Guarded by `RunningFormNamesTests`.
+
+**Symptom.** Found on Linux and read in code on Windows (#954):
+
+```
+dump_visual_tree {"window":"auto"}
+→ Window/Button[_OK]          (Command1, caption "&OK")
+  Window/Edit, Window/List    (Text0, List0: no name)
+```
+
+No node carried `Command1` or `Text0`, so a caller holding names from the code or from `get_form_controls` had no
+bridge to the running form. Seen again in #1232's live check: the agent had to guess that `Window/Edit` was `txtResult`.
+
+**Cause.** The VB6 name was kept only in HexIDE's attached `VBProps.Name`, and the button's raw caption reached the
+automation peer through the `AccessText` the template draws, with `&` turned into Avalonia's `_` marker.
+
+## A running form's menu items are named with VB6's `&` — **CLOSED** (#1128, 2026-10-20)
+
+> **Fixed.** A run-time menu item is named by its caption as it reads, `&` removed and `&&` read as one `&`, and carries
+> its VB6 name as its AutomationId, so the Game menu dumps as `MenuItem[mnuGame]` named "Game" and is reached as
+> `#mnuGame` or `MenuItem[Game]`. A path written with the `&`, `MenuItem[&Game]`, no longer matches. Fixed with #954;
+> guarded by `RunningFormNamesTests`.
+
+**Symptom.** Measured on 2026-10-17, driving the Minesweeper demo's menued version (#1123, caab5bdd):
+
+```
+dump_visual_tree {}
+→ {"path":"Window/Menu/MenuItem[&Game]","controlType":"MenuItem","name":"&Game",...}
+interact {"target":"Window/Menu/MenuItem[&Game]","action":"expand"}
+→ ... {"path":"Window/Menu/MenuItem[&Game]/Pane/MenuItem[E&xit]","name":"E&xit",...}
+```
+
+The menu draws "Game" and "Exit", with the access key underlined. The name and the path carry the raw caption, so a
+caller must know VB6's caption syntax to address what it can see.
+
+**Workaround.** Put the `&` where the caption has it: `MenuItem[&Game]`, `MenuItem[E&xit]`.
+
+**Suggested fix.** Name each run-time menu item by its caption as drawn, `&` removed and `&&` read as one `&`. The IDE's
+own menus had the same fault with `_` (#578). [#1128](https://github.com/hexide-io/HexIDE/issues/1128).
+
