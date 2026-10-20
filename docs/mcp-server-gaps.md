@@ -856,4 +856,3 @@ deletable segments.
 
 **Suggested fix.** Delete what the deletable segments allow, as the key does, and say what was left and why.
 [#1055](https://github.com/hexide-io/HexIDE/issues/1055).
-

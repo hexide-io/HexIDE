@@ -3977,6 +3977,8 @@ descriptions (#815): the descriptions, and the reply's note stating the numberin
 refuses "from 0" in any description. A session that loaded it before #1245 read `[5]` as line 6.
 
 > **Fixed.** `get_bookmarks` adds a `note` to a reply that lists lines, in `set_bookmarks`' words: "Project1/Form1 has
-> bookmarks on lines 10, 11, counting from 1 at the top of the file, as the gutter does." An empty reply has none.
-> Both notes come from one helper, `LinesCounted`. Measured through the server's HTTP endpoint on a new project, and
-> guarded by `LineNumberingDescriptionTests`.
+> bookmarks on lines 10, 11, counting from 1 at the top of the file, as the gutter does." An empty reply has none, and
+> one line is "a bookmark on line 10", in both tools. The refusals that give lines, a line the file does not have or
+> one in its header, now say the same, for every mark tool. The wording is `MarkLineRules`', where tests reach it.
+> Measured through the server's HTTP endpoint on a new project, and guarded by `MarkLineRulesTests` and
+> `LineNumberingDescriptionTests`.

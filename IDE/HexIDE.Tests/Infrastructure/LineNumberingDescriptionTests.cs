@@ -46,10 +46,11 @@ public class LineNumberingDescriptionTests
     [Fact]
     public void Get_bookmarks_says_its_numbering_in_the_reply_as_set_bookmarks_does()
     {
-        // A session holding get_bookmarks' description from before #571 reads its lines counted from 0, and the reply is
-        // all that can set it right (#1261). Both tools give the lines in one form.
-        ToolSource.MethodBodies("GetBookmarksAsync").Should().ContainSingle().Which.Should().Contain("LinesCounted(lines)");
-        ToolSource.MethodBodies("Held").Should().ContainSingle().Which.Should().Contain("LinesCounted(lines)");
-        ToolSource.Source.Should().MatchRegex(@"string LinesCounted\(.*\r?\n.*counting from 1 at the top of the file, as the gutter does");
+        // A session holding get_bookmarks' description from before #1245 reads its lines counted from 0, and the reply is
+        // all that can set it right (#1261). The note is MarkLineRules', which MarkLineRulesTests read; here, that the tool
+        // passes it as the reply's note, of the lines it returns, and that set_bookmarks words its lines the same way.
+        ToolSource.MethodBodies("GetBookmarksAsync").Should().ContainSingle().Which.Should()
+            .MatchRegex(@"new BookmarksResult\([^;]*, lines, null,\s*HexIDE\.IDE\.MarkLineRules\.BookmarksNote\(document\.Display, lines\)\);");
+        ToolSource.MethodBodies("Held").Should().ContainSingle().Which.Should().Contain("MarkLineRules.Marks(what, lines)");
     }
 }
