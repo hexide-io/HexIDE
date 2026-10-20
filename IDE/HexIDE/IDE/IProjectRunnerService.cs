@@ -45,6 +45,13 @@ public interface IProjectRunnerService : INotifyPropertyChanged
     /// </summary>
     event Action<string>? RunFailed;
 
+    /// <summary>
+    /// Where the error that <see cref="StartFailed"/> or <see cref="RunFailed"/> is reporting was raised, for a handler to
+    /// read while it runs; null at any other time, and when no statement raised it, as for a syntax error found before
+    /// the run began (#955).
+    /// </summary>
+    HexIDE.Runtime.Interpreter.ErrorLocation? FailureLocation => null;
+
     /// <summary>The project currently running, or null when nothing is.</summary>
     ProjectDefinition? RunningProject { get; }
 }

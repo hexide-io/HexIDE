@@ -1147,28 +1147,6 @@ was passed, a move or resize has arrived; on timeout, reply with what the window
 Check the frame against the screens before any state change, so a refusal never has to undo a restore.
 [#946](https://github.com/hexide-io/HexIDE/issues/946).
 
-## `get_last_runtime_error` does not say which module or line raised the error
-
-**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
-
-```
-get_last_runtime_error {}
-→ {"raised":true,"message":"Compile error:...","at":"2026-10-13T03:05:25.1331302+01:00","sequence":1}
-```
-
-The dialog read "Compile error: Method or data member not found (ListCount in Right(Control))", with Debug
-disabled (#9), so once it closed neither a person nor a caller could reach the line. The reply carries text,
-time and sequence only. A run-time error's text ends with the statement but no module or line, and a compile
-error met mid-run carries neither, although the interpreter tracks both for the debugger. Cross-platform by code
-reading.
-
-**Workaround.** None beyond searching the project for an identifier the message names.
-
-**Suggested fix.** Note the module and line on the exception on the way out of the statement walk, for run-time
-and compile errors alike, and carry them through to `module` and `line` in the reply. Leave the dialog's text
-alone: what VB6 shows for a compile error met mid-run is #833's measurement.
-[#955](https://github.com/hexide-io/HexIDE/issues/955).
-
 ## `get_last_runtime_error` stamps local time, where every other timestamp on the surface is UTC
 
 **Symptom.** On a machine at +01:00 (Linux, openSUSE Leap 16, Debug build of main at b15c7cf, 2026-10-13):
