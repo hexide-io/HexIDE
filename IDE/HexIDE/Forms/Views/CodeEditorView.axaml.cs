@@ -1225,6 +1225,14 @@ public partial class CodeEditorView : UserControl
         // Armed, not raised: whether the text lands is decided after this, by the read-only section provider.
         if (e.Text is { Length: > 0 })
             ArmResetPrompt();
+        // Over a box selection the editor writes on each of its lines; written here so a fold on them cannot hang it.
+        if (e.Text is { } boxed && TextEditor.TextArea.Selection is RectangleSelection { IsEmpty: false } box)
+        {
+            WriteOverBox(TextEditor.TextArea, box, boxed);
+            e.Handled = true;
+            _completionWindow?.Close();
+            return;
+        }
         // Shift+Enter, and any other input that types a line break, at the end of a described line (#273 task 4.5).
         // Taken here because AvaloniaEdit raises this before it writes and writes nothing once it is handled.
         if (e.Text is { } typed && PlaceTypedLineBreakPastRun(typed))
@@ -1239,6 +1247,36 @@ public partial class CodeEditorView : UserControl
         var ch = e.Text[0];
         if (!char.IsLetterOrDigit(ch) && ch != '_')
             _completionWindow.Close();
+    }
+
+    /// <summary>
+    /// Writes <paramref name="text"/> over a box selection as the editor's own typing does, on each of its lines, with
+    /// any folded section on those lines opened for the write and folded again after it. AvaloniaEdit's box replacement
+    /// rebuilds the box as each line changes, which loops for ever in the text view's height tree when a folded section
+    /// starts on the box's lines, as a member's Attribute run folded under its declaration does (#1040 review).
+    /// </summary>
+    internal static void WriteOverBox(TextArea area, RectangleSelection box, string text)
+    {
+        var document = area.Document;
+        var span = box.SurroundingSegment;
+        var (first, last) = (document.GetLineByOffset(span.Offset), document.GetLineByOffset(span.EndOffset));
+        var folds = area.TextView.GetService(typeof(FoldingManager)) as FoldingManager;
+        var opened = folds?.AllFoldings
+            .Where(f => f.IsFolded && f.StartOffset <= last.EndOffset && f.EndOffset >= first.Offset)
+            .ToList() ?? [];
+        foreach (var fold in opened)
+            fold.IsFolded = false;
+        try
+        {
+            box.ReplaceSelectionWithText(text);
+        }
+        finally
+        {
+            // A fold the write took away is no longer the manager's to fold.
+            var kept = folds?.AllFoldings.ToHashSet();
+            foreach (var fold in opened.Where(f => kept?.Contains(f) == true))
+                fold.IsFolded = true;
+        }
     }
 
     // VB6-faithful Edit-and-Continue affordance: the interpreter can't apply an edit to a running program, so a code
@@ -1423,6 +1461,15 @@ public partial class CodeEditorView : UserControl
             // not taken with it. A selection reaching a region only the IDE may change takes nothing, as typing there does.
             using (TextEditor.Document.RunUpdate())
             {
+                var removed = false;
+                // A box's text goes first, each line's as the read-only sections allow, and Enter is then the caret's.
+                // The editor's own would write the line break over the box as a paste of two lines, one to a line.
+                if (TextEditor.TextArea.Selection is RectangleSelection { IsEmpty: false } box)
+                {
+                    WriteOverBox(TextEditor.TextArea, box, string.Empty);
+                    TextEditor.TextArea.ClearSelection();
+                    removed = true;
+                }
                 if (EditedSpan() is var (offset, length) && length > 0)
                 {
                     var vm = DataContext as CodeEditorViewModel;
@@ -1433,18 +1480,31 @@ public partial class CodeEditorView : UserControl
                     }
                     // At the end of a described line the break goes after the run, as Shift+Enter's does: placed with
                     // the span it replaces in hand, since taking the selection first would leave the run under nothing.
+                    // A selection within one line that leaves code before it leaves the line its run hangs from, so it
+                    // goes first and Enter is then the caret's, re-casing the line and closing its block as at its end.
                     var line = TextEditor.Document.GetLineByOffset(offset);
+                    var keepsLine = offset + length <= line.EndOffset
+                                    && !string.IsNullOrWhiteSpace(TextEditor.Document.GetText(line.Offset, offset - line.Offset));
                     var indent = VbAutoCloseProvider.GetIndentation(TextEditor.Document.GetText(line.Offset, line.Length));
-                    if (vm?.InsertLineBreakPastRun(offset, length, "\n" + indent) is { } placed)
+                    if (!keepsLine && vm?.InsertLineBreakPastRun(offset, length, "\n" + indent) is { } placed)
                     {
+                        // The replaced text's selection would otherwise carry over onto the line break.
+                        TextEditor.TextArea.ClearSelection();
                         TextEditor.TextArea.Caret.Offset = placed.End;
                         e.Handled = true;
                         return;
                     }
                     TextEditor.TextArea.Selection.ReplaceSelectionWithText(string.Empty);
+                    removed = true;
                 }
                 if (HandleEnterAutoClose())
                     e.Handled = true;
+                else if (removed)
+                {
+                    // Auto-close failed: the line break still goes in this change, not as the editor's second one.
+                    TextEditor.Document.Insert(TextEditor.CaretOffset, "\n");
+                    e.Handled = true;
+                }
             }
         }
         // F12 = go to definition

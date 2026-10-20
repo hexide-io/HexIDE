@@ -462,7 +462,8 @@ public class MemberRunFollowsItsLineTests : IDisposable
 
         Press(editor, Key.Enter);
 
-        vm.Document.Text.Should().Be(before, "the run is the IDE's to change, as typing over it finds");
+        // Refused whole, where a typed key writes over what the read-only sections let it: #1055 is that alignment.
+        vm.Document.Text.Should().Be(before, "the run is the IDE's to change, and Enter writes over the whole selection or nothing");
     }
 
     [AvaloniaTheory]
@@ -497,7 +498,103 @@ public class MemberRunFollowsItsLineTests : IDisposable
         var outcome = UiAutomationDriver.TypeText(editor, "x");
 
         outcome.Success.Should().BeFalse();
+        outcome.Error.Should().Contain("reaches into").And.Contain("Select less", "it begins where code can be edited; its reach is the trouble");
         vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public void TypeTextPastARunLeavesNoSelectionForTheNextWriteToGoOver()
+    {
+        var vm = Open(Procedure);
+        var editor = Show(vm);
+        var declaration = LineWith(editor, "Public Sub Go()");
+        editor.Select(declaration.EndOffset - 2, 2);
+
+        var typed = UiAutomationDriver.TypeText(editor, "(a)\n    Dim z");
+        typed.Success.Should().BeTrue(typed.Error);
+        editor.TextArea.Selection.IsEmpty.Should().BeTrue("the replaced text's selection does not carry over onto its replacement");
+        var next = UiAutomationDriver.TypeText(editor, "Q");
+
+        next.Detail.Should().NotContain("replacing");
+        vm.Document.Text.Should().Contain("Public Sub Go(a)\r\n" + RunText + "    Dim zQ\r\n");
+    }
+
+    // A box from a column of "Option Explicit" to the end of "Public Sub Go()": from column 8, "Explicit", nothing, "Sub Go()".
+    private static void SelectBox(TextEditor editor, int column = 8)
+    {
+        var (top, bottom) = (LineWith(editor, "Option Explicit"), LineWith(editor, "Public Sub Go()"));
+        editor.TextArea.Caret.Offset = bottom.EndOffset;
+        editor.TextArea.Selection = new AvaloniaEdit.Editing.RectangleSelection(editor.TextArea,
+            new TextViewPosition(top.LineNumber, column), new TextViewPosition(bottom.LineNumber, bottom.Length + 1));
+    }
+
+    [AvaloniaFact]
+    public void TypeTextOverABoxSelectionWritesOverTheBoxAndNothingOutsideIt()
+    {
+        var vm = Open(Procedure);
+        var editor = Show(vm);
+
+        SelectBox(editor);
+        var typed = UiAutomationDriver.TypeText(editor, "x");
+
+        typed.Success.Should().BeTrue(typed.Error);
+        typed.Detail.Should().Contain("box selection");
+        vm.Document.Text.Should().Contain("\r\nOption x\r\n").And.Contain("\r\nPublic x\r\n" + RunText,
+            "only the box is written over, so the declaration keeps what is left of it, and its run");
+    }
+
+    [AvaloniaFact]
+    public void TypingOverABoxSelectionEndingOnAFoldedDeclarationWritesAndKeepsTheFold()
+    {
+        // AvaloniaEdit's box replacement looped for ever in the text view's height tree here: the run is folded under
+        // the box's last line, so a person's key hung the IDE.
+        var vm = Open(Procedure);
+        var editor = Show(vm);
+        RunFold(editor, "Public Sub Go()")!.IsFolded.Should().BeTrue("the premise: a run is folded as it opens");
+
+        SelectBox(editor, column: 14);
+        TypeText(editor, "()");
+
+        vm.Document.Text.Should().Contain("\r\nOption Explic()\r\n").And.Contain("\r\nPublic Sub Go()\r\n" + RunText);
+        RunFold(editor, "Public Sub Go()")!.IsFolded.Should().BeTrue("the fold is closed again once written");
+    }
+
+    [AvaloniaFact]
+    public void EnterOverABoxSelectionTakesTheBoxsText()
+    {
+        var vm = Open(Procedure);
+        var editor = Show(vm);
+
+        var before = vm.Document.Text;
+        SelectBox(editor);
+        Press(editor, Key.Enter);
+
+        // It used to put the line break at the caret and leave the box's text.
+        vm.Document.Text.Should().NotContain("Explicit").And.NotContain("Sub Go()").And.Contain("\r\nOption \r\n");
+        editor.TextArea.Selection.IsEmpty.Should().BeTrue();
+        editor.Document.UndoStack.Undo();
+        vm.Document.Text.Should().Be(before, "one change, which one undo takes back");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("public sub Go() 'x", " 'x")]
+    [InlineData("public function Go() as long", " as long")]
+    public void EnterOverTheTailOfADescribedDeclarationClosesItsBlockAsEnterAtItsEndDoes(string declaration, string tail)
+    {
+        static string Module(string line) => $"Option Explicit\r\n\r\n{line}\r\nAttribute Go.VB_Description = \"Goes\"\r\n";
+        var plain = Open(Module(declaration[..^tail.Length]));
+        var plainEditor = Show(plain);
+        PutCaret(plainEditor, LineWith(plainEditor, "Go()").EndOffset);
+        Press(plainEditor, Key.Enter);
+
+        var vm = Open(Module(declaration));
+        var editor = Show(vm);
+        var line = LineWith(editor, "Go()");
+        editor.Select(line.EndOffset - tail.Length, tail.Length);
+        Press(editor, Key.Enter);
+
+        vm.Document.Text.Should().Be(plain.Document.Text, "the line it leaves is re-cased and its block closed");
+        vm.Document.Text.Should().Contain("End ");
     }
 
     [AvaloniaFact]
@@ -510,6 +607,8 @@ public class MemberRunFollowsItsLineTests : IDisposable
         Dispatcher.UIThread.RunJobs();
         box.SelectionStart = 16;
         box.SelectionEnd = 13;
+        var texts = new List<string?>();
+        box.PropertyChanged += (_, e) => { if (e.Property == TextBox.TextProperty) texts.Add(box.Text); };
 
         var outcome = UiAutomationDriver.TypeText(box, ", 3");
 
@@ -517,6 +616,7 @@ public class MemberRunFollowsItsLineTests : IDisposable
         outcome.Detail.Should().EndWith(", replacing the 3 selected char(s)");
         box.Text.Should().Be("Debug.Print 1, 3");
         box.CaretIndex.Should().Be(16);
+        texts.Should().Equal(["Debug.Print 1, 3"], "one change, so what is bound to the box sees no text in between");
     }
 
     [AvaloniaTheory]

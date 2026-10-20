@@ -1843,9 +1843,10 @@ public static class UiAutomationDriver
             // where WhyNotTypable can only say "is read-only". It returns null for every surface that is not a
             // code window, so the general check below still covers a disabled control, a read-only TextBox and
             // any other wholly read-only editor.
-            // A standing selection is what the typing writes over, so it is the span judged, as press_key judges a key.
+            // A standing selection is what the typing writes over, so it is the span judged, as press_key judges a key. A box
+            // is judged where it is written, a line at a time, by the read-only sections, as a person's typing over one is.
             if (AreaOf(surface) is { } typedInto
-                && RefusedInReadOnlyRegion(typedInto, typedInto.Selection.SurroundingSegment is { Length: > 0 } over
+                && RefusedInReadOnlyRegion(typedInto, typedInto.Selection is not RectangleSelection && typedInto.Selection.SurroundingSegment is { Length: > 0 } over
                     ? new EditedSpan(over.Offset, over.Length, Deletes: false)
                     : new EditedSpan(typedInto.Caret.Offset, 0, Deletes: false), "type_text", TypedMechanism) is { } refused)
                 return refused;
@@ -1864,11 +1865,24 @@ public static class UiAutomationDriver
             // after them, as a person's paste does there, or the run would be left hanging from the text's last line
             // (#273 task 4.5). Its line breaks are then written as the file's, as a paste's are. Placed with the
             // selection it replaces in hand, since taking the selection first would leave the run under nothing.
+            // A box selection is written over as typing writes over it, on each of its lines, by the editor's own
+            // replacement; its surrounding span is more than the box, so it is not placed past a run (#1040 review).
+            if (AreaOf(surface) is { Selection: RectangleSelection { IsEmpty: false } box } boxArea)
+            {
+                HexIDE.Forms.Views.CodeEditorView.WriteOverBox(boxArea, box, text);
+                return new InteractOutcome(true, TypedMechanism,
+                    $"typed {text.Length} char(s) into {surface.GetType().Name}"
+                    + $"{(ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface))} "
+                    + "over a box selection, on each of its lines, as typing there does", null);
+            }
+
             if (AreaOf(surface) is { } codeArea && CodeWindowOf(codeArea) is { } window
                 && (codeArea.Selection.IsEmpty ? (codeArea.Caret.Offset, 0)
                     : (codeArea.Selection.SurroundingSegment.Offset, codeArea.Selection.SurroundingSegment.Length)) is var (from, span)
                 && window.InsertLineBreakPastRun(from, span, text) is { } placed)
             {
+                // The replaced text's selection would carry over onto what replaced it, for the next write to go over.
+                codeArea.ClearSelection();
                 codeArea.Caret.Offset = placed.End;
                 var replaced = span > 0 ? $", replacing the {span} selected char(s)" : "";
                 // The count is of what was sent, as everywhere else this reports one; its line breaks may have been
@@ -1897,10 +1911,17 @@ public static class UiAutomationDriver
                     area.Document.Insert(ao, text);
                     area.Caret.Offset = ao + text.Length;
                     break;
-                case TextBox box:
-                    var at = Math.Clamp(box.CaretIndex, 0, box.Text?.Length ?? 0);
-                    box.Text = (box.Text ?? string.Empty).Insert(at, text);
-                    box.CaretIndex = at + text.Length;
+                case TextBox textBox:
+                    // One assignment, so what is bound to the box sees one change and one undo takes it back.
+                    var current = textBox.Text ?? string.Empty;
+                    var (start, end) = (Math.Clamp(Math.Min(textBox.SelectionStart, textBox.SelectionEnd), 0, current.Length),
+                                        Math.Clamp(Math.Max(textBox.SelectionStart, textBox.SelectionEnd), 0, current.Length));
+                    if (start == end)
+                        start = end = Math.Clamp(textBox.CaretIndex, 0, current.Length);
+                    textBox.Text = current.Remove(start, end - start).Insert(start, text);
+                    textBox.CaretIndex = start + text.Length;
+                    textBox.SelectionStart = textBox.SelectionEnd = start + text.Length;
+                    replacing = end > start ? $", replacing the {end - start} selected char(s)" : "";
                     break;
             }
             return new InteractOutcome(true, TypedMechanism,
@@ -1993,18 +2014,7 @@ public static class UiAutomationDriver
     /// </summary>
     private static int TakeSelection(Control surface)
     {
-        if (surface is TextBox box)
-        {
-            var (start, end) = (Math.Min(box.SelectionStart, box.SelectionEnd), Math.Max(box.SelectionStart, box.SelectionEnd));
-            var text = box.Text ?? string.Empty;
-            (start, end) = (Math.Clamp(start, 0, text.Length), Math.Clamp(end, 0, text.Length));
-            if (start == end)
-                return 0;
-            box.Text = text.Remove(start, end - start);
-            box.CaretIndex = start;
-            box.SelectionStart = box.SelectionEnd = start;
-            return end - start;
-        }
+        // A TextBox's selection is replaced with the text in one assignment, where it is written.
         if (AreaOf(surface) is not { Selection.IsEmpty: false } area)
             return 0;
         var offset = area.Selection.SurroundingSegment.Offset;
@@ -2117,6 +2127,15 @@ public static class UiAutomationDriver
             return null;
 
         var past = editor.PastReadOnlyRegion(span.Offset);
+        // A selection that begins where code can be edited and reaches into a region: where it begins is no help, how far
+        // it reaches is the trouble (#1040 review).
+        if (span.Length > 0 && past == span.Offset)
+            return new InteractOutcome(false, mechanism, null,
+                $"{tool} refused: the selection from offset {span.Offset} to {span.Offset + span.Length} reaches into the "
+              + "file's header or a member's Attribute lines, which only the IDE changes (the designer, a save, a "
+              + "rename), and it writes over the whole selection. Nothing was written. Select less, or collapse the "
+              + "selection (press_key Left or Right) and write at the caret. Offsets count from the start of the file, "
+              + "in the text get_file_content returns.");
         return new InteractOutcome(false, mechanism, null,
             $"{tool} refused: offset {span.Offset} is in the file's header or a member's Attribute lines, which "
           + "only the IDE changes (the designer, a save, a rename). Nothing was written. The nearest place "
