@@ -349,7 +349,7 @@ public static class UiAutomationDriver
     public static readonly IReadOnlyList<string> Verbs =
     [
         "invoke", "select", "add_to_selection", "remove_from_selection", "double_click", "click", "set_value",
-        "set_range_value", "toggle", "expand", "collapse", "scroll", "invoke_command", "set_property",
+        "set_range_value", "toggle", "expand", "collapse", "scroll", "invoke_command", "set_property", "close",
     ];
 
     /// <summary>
@@ -473,6 +473,9 @@ public static class UiAutomationDriver
         {
             switch (norm)
             {
+                case "close":
+                    return DoClose(control);
+
                 case "invoke":
                     // Named BEFORE the invoke. A button that closes its dialog is detached by the time the
                     // invoke returns, its styles go with it, and its name falls back to the raw caption:
@@ -737,6 +740,54 @@ public static class UiAutomationDriver
         return Err($"'{label}' was not selected: its list did not take the selection{now}. Dump the list again, as the "
                    + "row may no longer be the one it showed, or select it with press_key, as a person would");
     }
+
+    // The window's handling of its platform's close, which its title-bar button and Alt+F4 reach: a close no program
+    // asked for (IsProgrammatic false, WindowCloseReason.WindowClosing), which a MsgBox with no Cancel and a form's
+    // QueryUnload may refuse. Avalonia keeps it internal; Window.Close is the programmatic close a guard lets through.
+    private static readonly System.Reflection.PropertyInfo? PlatformClosing = typeof(Avalonia.Platform.IWindowImpl).GetProperty(
+        "Closing", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+
+    /// <summary>
+    /// Closes the window holding <paramref name="control"/> as a person does with its close box, which nothing else on
+    /// the surface can (#829): the title bar is the platform's, outside the control tree, and the platform takes Alt+F4
+    /// before a key reaches a control. Whether it closed is read by <see cref="AfterClose"/>, since a form's close box asks
+    /// the program first and closes once it has unloaded.
+    /// </summary>
+    private static InteractOutcome DoClose(Control control)
+    {
+        if ((control as Window ?? TopLevel.GetTopLevel(control) as Window) is not { } window)
+            return Err($"'{Describe(control)}' is not in a window that can be closed");
+        var title = TitleOf(window);
+        if (Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime { MainWindow: var main }
+            && ReferenceEquals(main, window))
+            return Err($"'{title}' is the IDE's main window: closing it shuts the IDE down and this server with it, so "
+                       + "close refuses it and nothing was done. shutdown_ide does that and reports how it went");
+        if (PlatformClosing?.GetValue(window.PlatformImpl) is not Func<WindowCloseReason, bool> closing)
+            return Err($"this build of Avalonia does not expose a window's close-box handling, so '{title}' cannot be "
+                       + "closed as a person closes it; nothing was done");
+        closing(WindowCloseReason.WindowClosing);
+        return Ok($"asked '{title}' to close, as its close box does");
+    }
+
+    /// <summary>
+    /// <paramref name="outcome"/> of a <c>close</c>, with whether the window it asked is still open now: read once what
+    /// the close set off has run, as a form's close box closes the form only once the program has unloaded it.
+    /// </summary>
+    public static InteractOutcome AfterClose(Control acted, InteractOutcome outcome)
+    {
+        if (!outcome.Success)
+            return outcome;
+        // A closed window has no platform window, and the controls it held are no longer in one.
+        var open = (acted as Window ?? TopLevel.GetTopLevel(acted) as Window) is { PlatformImpl: not null, IsVisible: true };
+        return outcome with
+        {
+            Detail = outcome.Detail + (open
+                ? "; it is still open: the window, or the program behind it, refused, as it may a person's close"
+                : "; it is closed"),
+        };
+    }
+
+    private static string TitleOf(Window window) => string.IsNullOrEmpty(window.Title) ? window.GetType().Name : window.Title;
 
     private static InteractOutcome DoSelect(Control control, AutomationPeer peer, string? value)
     {
