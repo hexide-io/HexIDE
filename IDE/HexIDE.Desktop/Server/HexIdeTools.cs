@@ -2003,9 +2003,14 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "take_snapshot")]
-    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. inspect_element's 'boundingRect' is in the window's device-independent units measured from its top-left, which is the image's top-left, so multiply it by 'scale' to find the control in the image. If a modal dialog is open it is captured in preference to the main window (its title is reported in 'activeDialog'); otherwise the main window is captured. 'window' selects which top-level window to address: \"auto\" (default) is the frontmost one, which while a VB6 program runs — INCLUDING while it is paused at a breakpoint — is the program's form, not the IDE; pass \"ide\" to address the IDE itself in that state, or a window's title or a running form's name to address that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them.")]
+    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. inspect_element's 'boundingRect' is in the window's device-independent units measured from its top-left, which is the image's top-left, so multiply it by 'scale' to find the control in the image. If a modal dialog is open it is captured in preference to the main window (its title is reported in 'activeDialog'); otherwise the main window is captured. 'window' selects which top-level window to address: \"auto\" (default) is the frontmost one, which while a VB6 program runs — INCLUDING while it is paused at a breakpoint — is the program's form, not the IDE; pass \"ide\" to address the IDE itself in that state, or a window's title or a running form's name to address that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them. The path is on the IDE's machine: a client attached from another, through a tunnel, passes 'inline' true to get the image itself as well.")]
     public async Task<SnapshotResult> TakeSnapshotAsync(
-        [Description(WindowParameter)] string? window = null, CancellationToken ct = default)
+        [Description(WindowParameter)] string? window = null,
+        // Read by InlineSnapshot, which adds the image to the reply once the tool has written it (#957).
+        [Description("True to return the PNG itself as image content after the reply, as well as its path, for a client "
+                     + "that cannot open a file on the IDE's machine. Default false: an image costs its size in context.")]
+        bool inline = false,
+        CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {

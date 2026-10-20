@@ -39,7 +39,8 @@ internal static class IdeServer
             // bare "An error occurred invoking" (#603).
             // A modal dialog open once a call is done is named in its reply (#681).
             .WithRequestFilters(filters => filters.AddCallToolFilter(ToolFailures.Filter)
-                .AddCallToolFilter(OpenDialogNote.Filter));
+                .AddCallToolFilter(OpenDialogNote.Filter)
+                .AddCallToolFilter(InlineSnapshot.Filter));
 
         var app = builder.Build();
 
