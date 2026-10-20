@@ -1440,8 +1440,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (lookup.Document is not { } document)
                 return new BookmarksResult(null, null, null, [], lookup.Error);
 
-            return new BookmarksResult(document.Project.Name, document.Name, DocumentWireName.For(document),
-                HexIDE.IDE.MarkLineRules.BookmarksShown(ctx.BookmarkService.GetBookmarks(document)), null);
+            var lines = HexIDE.IDE.MarkLineRules.BookmarksShown(ctx.BookmarkService.GetBookmarks(document));
+            // The numbering said in the reply, as set_bookmarks says it: a session still holding this tool's description
+            // from before #571 reads lines counted from 0, and nothing else here would set it right (#1261).
+            return new BookmarksResult(document.Project.Name, document.Name, DocumentWireName.For(document), lines, null,
+                lines.Length == 0 ? null : $"{document.Display} has bookmarks on {LinesCounted(lines)}.");
         });
     }
 
@@ -2717,8 +2720,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
             ? $"{document.Display} now has no {what}s."
             // The numbering said in the reply too, so a caller still holding a description from before #571, when
             // bookmarks counted from 0, reads that it is one out.
-            : $"{document.Display} now has {what}s on line{(lines.Count == 1 ? "" : "s")} {string.Join(", ", lines)}, "
-              + "counting from 1 at the top of the file, as the gutter does.";
+            : $"{document.Display} now has {what}s on {LinesCounted(lines)}.";
+
+    // Lines as a mark tool's note gives them, with the numbering.
+    internal static string LinesCounted(IReadOnlyList<int> lines) =>
+        $"line{(lines.Count == 1 ? "" : "s")} {string.Join(", ", lines)}, counting from 1 at the top of the file, as the gutter does";
 
     /// <summary>
     /// A name as the document tools resolve it: a form, module or class in any loaded project, else, where the
@@ -3182,7 +3188,8 @@ internal record AddControlResult(bool Success, string? ControlName, string? Erro
 /// <param name="Project">The project holding the document, by name.</param>
 /// <param name="Document">The document's own VB6 name, as the IDE spells it rather than as the call spelled it.</param>
 /// <param name="Uri">The name a language server knows this document by.</param>
-internal record BookmarksResult(string? Project, string? Document, string? Uri, int[] Lines, string? Error);
+/// <param name="Note">The lines in a sentence with their numbering, as set_bookmarks gives them; none when there are none.</param>
+internal record BookmarksResult(string? Project, string? Document, string? Uri, int[] Lines, string? Error, string? Note = null);
 
 /// <inheritdoc cref="BookmarksResult"/>
 internal record BreakpointsResult(string? Project, string? Document, string? Uri, int[] Lines, string? Error);
