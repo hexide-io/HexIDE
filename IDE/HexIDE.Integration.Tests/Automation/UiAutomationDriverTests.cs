@@ -79,6 +79,290 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
+    // #1069: a control nobody can see is a control nobody can press, so a provider or pointer action on it is
+    // refused rather than carried out, and the refusal names the flag the dump already shows.
+    [AvaloniaTheory]
+    [InlineData("invoke", null)]
+    [InlineData("click", null)]
+    [InlineData("toggle", null)]
+    [InlineData("set_value", "x")]
+    public void Interact_OnAControlInsideAHiddenContainer_IsRefused_AndActsOnNothing(string action, string? value)
+    {
+        var clicks = 0;
+        var button = new Button { Name = "Approve", Content = "Approve" };
+        button.Click += (_, _) => clicks++;
+        var check = new CheckBox { Name = "Hold" };
+        var text = new TextBox { Name = "Note", Text = "" };
+        var hidden = new StackPanel { IsVisible = false, Children = { button, check, text } };
+        var window = new Window { Content = new StackPanel { Children = { hidden } }, Width = 200, Height = 150 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            Control target = action switch { "toggle" => check, "set_value" => text, _ => button };
+            var outcome = UiAutomationDriver.Interact(target, action, value);
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("is not showing").And.Contain("isHidden");
+            clicks.Should().Be(0);
+            check.IsChecked.Should().BeFalse();
+            text.Text.Should().BeEmpty();
+        }
+        finally { window.Close(); }
+    }
+
+
+    // The refusal quotes the verb in its canonical spelling, whatever the caller typed: "no person could set_value
+    // it" is not a sentence, and "DoubleClick" is not the verb's name.
+    [AvaloniaFact]
+    public void Interact_Refusal_QuotesTheCanonicalVerb()
+    {
+        var button = new Button { Content = "Approve" };
+        var window = new Window
+        {
+            Content = new StackPanel { Children = { new StackPanel { IsVisible = false, Children = { button } } } },
+            Width = 200, Height = 150,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            UiAutomationDriver.Interact(button, "DoubleClick", null).Error.Should().Contain("'double_click' was refused");
+        }
+        finally { window.Close(); }
+    }
+
+    // Through the route a caller takes: a path read from the dump, resolved, then acted on.
+    [AvaloniaFact]
+    public void Interact_OnAHiddenNodeAddressedByItsDumpedPath_IsRefused()
+    {
+        var clicks = 0;
+        var button = new Button { Name = "Approve", Content = "Approve" };
+        button.Click += (_, _) => clicks++;
+        var window = new Window
+        {
+            Content = new StackPanel { Children = { new StackPanel { IsVisible = false, Children = { button } } } },
+            Width = 200, Height = 150,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var node = Flatten(UiAutomationDriver.Dump(window, "Window", maxDepth: 20, interactiveOnly: false))
+                .First(n => n.Name == "Approve");
+            node.IsHidden.Should().BeTrue();
+
+            var (resolved, error) = UiAutomationDriver.Resolve(window, node.Path);
+            error.Should().BeNull();
+            UiAutomationDriver.Interact(resolved!, "invoke", null).Error.Should().Contain("is not showing");
+            clicks.Should().Be(0);
+        }
+        finally { window.Close(); }
+    }
+
+    // A running VB6 form hides a Frame by painting it at opacity zero with hit-testing off, so that the code of the
+    // controls inside keeps running; Avalonia still calls them visible, and no person can reach them.
+    [AvaloniaFact]
+    public void A_control_under_a_container_hidden_as_a_VB6_Frame_is_hidden_is_marked_hidden_and_refused()
+    {
+        var clicks = 0;
+        var command = new Button { Name = "Command1", Content = "Go" };
+        command.Click += (_, _) => clicks++;
+        var frame = new Border { Opacity = 0, IsHitTestVisible = false, Child = command };
+        var window = new Window { Content = new StackPanel { Children = { frame } }, Width = 200, Height = 150 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            command.IsEffectivelyVisible.Should().BeTrue("this is the case effective visibility alone misses");
+            Flatten(UiAutomationDriver.Dump(window, "Window", maxDepth: 20, interactiveOnly: false))
+                .First(n => n.Name == "Command1").IsHidden.Should().BeTrue();
+            UiAutomationDriver.Interact(command, "invoke", null).Success.Should().BeFalse();
+            clicks.Should().Be(0);
+        }
+        finally { window.Close(); }
+    }
+
+    // Either property alone is not hiding: the IDE turns hit-testing off on decorations it draws.
+    [AvaloniaFact]
+    public void A_control_under_a_drawn_container_that_takes_no_pointer_is_not_hidden()
+    {
+        var button = new Button { Name = "Shown", Content = "Go" };
+        var window = new Window
+        {
+            Content = new StackPanel { Children = { new Border { IsHitTestVisible = false, Child = button } } },
+            Width = 200, Height = 150,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            Flatten(UiAutomationDriver.Dump(window, "Window", maxDepth: 20, interactiveOnly: false))
+                .First(n => n.Name == "Shown").IsHidden.Should().BeNull();
+        }
+        finally { window.Close(); }
+    }
+
+    // A hidden menu item, such as one a personality leaves out, is refused with the generic advice: no menu route
+    // reaches it either, so naming one would send the caller round in a circle.
+    [AvaloniaFact]
+    public void Interact_OnAHiddenItemOfAnOpenMenu_IsRefused_WithoutSendingTheCallerToAMenuRoute()
+    {
+        var clicks = 0;
+        var hidden = new MenuItem { Header = "References", IsVisible = false };
+        hidden.Click += (_, _) => clicks++;
+        var project = new MenuItem { Header = "Project", Items = { new MenuItem { Header = "Add Module" }, hidden } };
+        var window = new Window { Content = new Menu { Items = { project } }, Width = 200, Height = 150 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            project.Open();
+            Dispatcher.UIThread.RunJobs();
+
+            var outcome = UiAutomationDriver.Interact(hidden, "invoke", null);
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("is not showing").And.NotContain("invoke_menu_item");
+            clicks.Should().Be(0);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Scroll_aimed_at_a_hidden_target_is_refused_and_points_at_the_container()
+    {
+        var hidden = new Button { Content = "Approve", IsVisible = false };
+        var window = new Window
+        {
+            Content = new ScrollViewer { Content = new StackPanel { Height = 2000, Children = { hidden } } },
+            Width = 200, Height = 150,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            UiAutomationDriver.Interact(hidden, "scroll", "down").Error.Should().Contain("Aim scroll at the container");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Press_key_on_a_hidden_button_is_refused_and_does_not_click_it()
+    {
+        var clicks = 0;
+        var button = new Button { Name = "Approve", Content = "Approve" };
+        button.Click += (_, _) => clicks++;
+        var window = new Window
+        {
+            Content = new StackPanel { Children = { new StackPanel { IsVisible = false, Children = { button } } } },
+            Width = 200, Height = 150,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var outcome = UiAutomationDriver.PressKey(button, "Enter", null);
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("is not showing").And.Contain("'press_key' was refused");
+            clicks.Should().Be(0);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Type_text_into_a_hidden_text_box_is_refused_and_inserts_nothing()
+    {
+        var box = new TextBox { Name = "Note", Text = "" };
+        var window = new Window
+        {
+            Content = new StackPanel { Children = { new StackPanel { IsVisible = false, Children = { box } } } },
+            Width = 200, Height = 150,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var outcome = UiAutomationDriver.TypeText(box, "abc");
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("is not showing");
+            box.Text.Should().BeEmpty();
+        }
+        finally { window.Close(); }
+    }
+
+    // As the Properties window hides the rows of a collapsed category: select by text matches among the rows that
+    // show, so a hidden row is neither selected nor counted against a showing one.
+    [AvaloniaFact]
+    public void Select_by_text_skips_hidden_rows_and_refuses_a_row_that_only_a_hidden_one_matches()
+    {
+        var list = new ListBox
+        {
+            ItemsSource = new[] { "Caption", "Caption", "Name" },
+        };
+        var window = new Window { Content = list, Width = 200, Height = 300 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            list.ContainerFromIndex(0)!.IsVisible = false;
+            list.ContainerFromIndex(2)!.IsVisible = false;
+            Dispatcher.UIThread.RunJobs();
+
+            UiAutomationDriver.Interact(list, "select", "Caption").Success.Should().BeTrue("the hidden duplicate is not a rival");
+            list.SelectedIndex.Should().Be(1);
+
+            var refused = UiAutomationDriver.Interact(list, "select", "Name");
+            refused.Success.Should().BeFalse();
+            refused.Error.Should().Contain("is not showing");
+            list.SelectedIndex.Should().Be(1);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_OnTheShowingCopy_StillActs()
+    {
+        var clicks = 0;
+        var shown = new Button { Name = "Approve", Content = "Approve" };
+        shown.Click += (_, _) => clicks++;
+        var window = new Window
+        {
+            Content = new StackPanel
+            {
+                Children = { new StackPanel { IsVisible = false, Children = { new Button { Content = "Approve" } } }, shown },
+            },
+            Width = 200, Height = 150,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            UiAutomationDriver.Interact(shown, "invoke", null).Success.Should().BeTrue();
+            clicks.Should().Be(1);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_ReflectionActions_StillReachAHiddenControlsViewModel()
+    {
+        var vm = new SampleVm();
+        var button = new Button { Name = "Approve", Content = "Approve", DataContext = vm };
+        var window = new Window
+        {
+            Content = new StackPanel { Children = { new StackPanel { IsVisible = false, Children = { button } } } },
+            Width = 200, Height = 150,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            UiAutomationDriver.Interact(button, "set_property", "Caption=changed").Success.Should().BeTrue();
+            vm.Caption.Should().Be("changed");
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void Dump_CollapsesStructuralWrappers_IntoShortPaths()
     {
