@@ -31,8 +31,11 @@ namespace HexIDE.IDE;
 public static class ScriptedFileDialogs
 {
     private static readonly object Lock = new();
-    private static readonly Queue<string?> Answers = new();
+    // Numbered as they are armed, so a save can tell the answers armed before it from any armed while it ran (#810).
+    private static readonly Queue<(long Serial, string? Path)> Answers = new();
+    private static long _armed;
     private static long _cancelsTaken;
+    private static long _taken;
 
     /// <summary>How many answers are queued, for a tool that has to report what it armed.</summary>
     public static int Pending { get { lock (Lock) return Answers.Count; } }
@@ -47,7 +50,7 @@ public static class ScriptedFileDialogs
     /// </remarks>
     public static void AnswerNextWith(string? path)
     {
-        lock (Lock) Answers.Enqueue(string.IsNullOrWhiteSpace(path) ? null : path);
+        lock (Lock) Answers.Enqueue((++_armed, string.IsNullOrWhiteSpace(path) ? null : path));
     }
 
     /// <summary>Discards every armed answer, so a failed script cannot affect the next one.</summary>
@@ -96,11 +99,11 @@ public static class ScriptedFileDialogs
         // Only a document without a file opens a picker. Which answer the picker takes needs no peek: only a
         // cancel moves the count.
         lock (Lock)
-            return new CancelWatch(absolutePath is null, _cancelsTaken);
+            return new CancelWatch(absolutePath is null, _cancelsTaken, _taken, _armed);
     }
 
     /// <summary>Whether a save was answered by the armed cancel that was next when it began.</summary>
-    public readonly struct CancelWatch(bool armed, long takenBefore)
+    public readonly struct CancelWatch(bool armed, long takenBefore, long anyTakenBefore, long armedBefore)
     {
         /// <summary>
         /// True when the document had no file and a picker has taken an armed cancel since
@@ -113,6 +116,60 @@ public static class ScriptedFileDialogs
                 lock (Lock)
                     return armed && _cancelsTaken > takenBefore;
             }
+        }
+
+        /// <summary>
+        /// A sentence for the save's reply when answers armed before it are still pending and it took none, or ""
+        /// (#810).
+        /// </summary>
+        /// <remarks>
+        /// <para>A caller arms an answer for a save it expects to open a picker. One that needed none, because the
+        /// document already had a file, or stopped before its picker, leaves the answer for the next dialog to open,
+        /// however much later and whatever it is for, and only clear_file_dialog_answers used to show it.</para>
+        /// <para>Only answers armed before the watch count, by their numbers, so one armed while the save ran is not
+        /// put down to it. The sentence states what happened rather than what the answer was for, since a caller may
+        /// have armed it for a later step. A document without a file opens a picker unless its save stopped first, so
+        /// for one, an answer taken while the save ran is taken to be its own: a dialog elsewhere taking one in that
+        /// window, as a running program's can, reads as the save's (#810 review).</para>
+        /// </remarks>
+        public string StillArmed
+        {
+            get
+            {
+                var left = 0;
+                lock (Lock)
+                {
+                    if (armed && _taken > anyTakenBefore) return "";
+                    foreach (var answer in Answers)
+                        if (answer.Serial <= armedBefore) left++;
+                }
+
+                if (left == 0) return "";
+                var why = armed
+                    ? "this save stopped before its picker opened"
+                    : "this save opened no picker, because the document already has a file";
+                return left == 1
+                    ? $" 1 file-dialog answer armed before this call is still pending: {why}. The next file dialog to "
+                      + "open will take it, whatever it is for; if it was armed for this save, clear_file_dialog_answers "
+                      + "discards it, with any armed since."
+                    : $" {left} file-dialog answers armed before this call are still pending: {why}. The next file "
+                      + "dialogs to open will take them in turn, whatever they are for; if they were armed for this "
+                      + "save, clear_file_dialog_answers discards them, with any armed since.";
+            }
+        }
+
+        /// <summary>
+        /// <paramref name="text"/> with <see cref="StillArmed"/> after it, as one more sentence; the text alone when
+        /// there is nothing to say, and the sentence alone when there is no text.
+        /// </summary>
+        public string? After(string? text)
+        {
+            var still = StillArmed;
+            if (still.Length == 0) return text;
+            if (string.IsNullOrWhiteSpace(text)) return still.TrimStart();
+            // A message ending without a stop, as an exception's can, would otherwise run into the sentence.
+            var said = text.TrimEnd();
+            return (said.EndsWith('.') ? said : said + ".") + still;
         }
     }
 
@@ -127,7 +184,8 @@ public static class ScriptedFileDialogs
                 return false;
             }
 
-            path = Answers.Dequeue();
+            path = Answers.Dequeue().Path;
+            _taken++;
             if (path is null)
                 _cancelsTaken++;
             return true;
