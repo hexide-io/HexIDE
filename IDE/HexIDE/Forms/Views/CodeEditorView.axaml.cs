@@ -232,12 +232,26 @@ public partial class CodeEditorView : UserControl
                 {
                     if (TextEditor.CaretOffset != offset)
                     {
+                        // A caret navigated into a fold is opened onto, or it would sit unseen, or be moved off a
+                        // folded member run's end, where it was put (#700 review).
+                        if (_foldingManager is { } folds)
+                            foreach (var fold in folds.GetFoldingsContaining(offset))
+                                if (fold.IsFolded && fold.StartOffset < offset && offset <= fold.EndOffset)
+                                    fold.IsFolded = false;
                         TextEditor.CaretOffset = offset;
                         // Navigation can arrive while this editor is already active. Moving the
                         // caret alone does not reveal an offscreen caller or next statement.
                         TextEditor.ScrollToLine(TextEditor.TextArea.Caret.Line);
                     }
                 });
+            // A view made for a caret already placed, as navigating to a document not yet open places it, scrolls to
+            // it once it has been laid out: before then there is nothing to scroll, and ScrollToLine does nothing.
+            if (vm.CaretOffset > 0)
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    if (DataContext == vm)
+                        TextEditor.ScrollToLine(TextEditor.TextArea.Caret.Line);
+                }, Avalonia.Threading.DispatcherPriority.Loaded);
 
             // Sync selection from ViewModel → TextEditor. Stored in a field so it can be removed on detach — a
             // Dock document-move re-materialises the view against the SAME persistent VM, so an unremoved handler
@@ -700,18 +714,22 @@ public partial class CodeEditorView : UserControl
         manager.UpdateFoldings(Vb6FoldingAdapter.Merge(own, server ?? shown), -1);
 
         // The header's section is the one at its offsets. The manager kept the old one if it still starts at the
-        // top of the file, and nothing else can have taken it: the merge drops any other fold starting there.
+        // top of the file, and nothing else can have taken it: the merge drops any other fold starting there. A new
+        // one is left open over a caret inside it, as navigating to a header line in a document not yet open puts it
+        // there before the folds exist, which would fold it away under the caret (#700 review).
+        var caret = TextEditor.TextArea.Caret.Offset;
         if (header is not null)
         {
             foreach (var section in manager.GetFoldingsAt(header.StartOffset))
             {
                 if (section.EndOffset != header.EndOffset) continue;
+                var fresh = !ReferenceEquals(section.Tag, HeaderFoldTag);
                 section.Tag = HeaderFoldTag;
-                section.IsFolded = !vm.HeaderFoldExpanded;
+                section.IsFolded = !vm.HeaderFoldExpanded
+                                   && !(fresh && section.StartOffset < caret && caret <= section.EndOffset);
             }
         }
 
-        var caret = TextEditor.TextArea.Caret.Offset;
         foreach (var run in runs)
         {
             if (run.Key is not { } key || RunSection(run) is not { } section) continue;

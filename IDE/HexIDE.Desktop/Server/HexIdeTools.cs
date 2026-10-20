@@ -705,16 +705,18 @@ internal sealed class HexIdeTools(IdeContext ctx)
     public async Task<MutateResult> OpenFileAsync(
         string name, string? project = null,
         [Description("Where to put the caret: a 1-based line, counted from the top of the file with its header included, "
-                     + "as the code window, get_file_content and set_breakpoints count it. A form, module or class only; "
-                     + "a line past the end is refused, and the caret stays where it was.")]
+                     + "as the code window, get_file_content and set_breakpoints count it. Not for a carried file. A line "
+                     + "or column off the text is refused, and nothing is opened.")]
         int? line = null,
-        [Description("The 1-based column on 'line', 1 by default; one past the line's last character is its end.")]
+        [Description("The 1-based column on 'line', 1 by default, counted in characters as the status bar counts them, so a "
+                     + "tab is one; one past the line's last character is its end.")]
         int? column = null,
         CancellationToken ct = default)
     {
         if (column is not null && line is null)
             return new MutateResult(false, "'column' needs 'line'; nothing was opened");
-        return await FocusingTheActiveTabAsync(await Dispatcher.UIThread.InvokeAsync(() =>
+        DocumentIdentity? placedIn = null;
+        var opened = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             // Carried files are the only project members with no other route in: the Project Explorer opens
             // one on a DOUBLE-CLICK, which no interaction tool could produce when this was written, and Add
@@ -723,14 +725,21 @@ internal sealed class HexIdeTools(IdeContext ctx)
             var found = Find(name, project, carried: true);
             if (found.Document is { } document)
             {
+                // Checked against the text get_file_content returns before anything opens, so a refusal changes nothing.
+                if (line is { } wanted && HexIDE.Automation.CaretPlacement.Refusal(
+                        HexIDE.IDE.DocumentContent.TextOf(document, CodeEditorOf(document)).Text, wanted, column ?? 1) is { } refusal)
+                    return Naming(new MutateResult(false, $"Nothing was opened: in {document.Display}, {refusal}"), document);
                 if (document.Form is { } form)
                     ctx.EditorService.EditCode(form);
                 else
                     ctx.EditorService.EditCode(document.Module);
-                if (line is { } at && CaretTo(document, at, column ?? 1) is var (placed, refusal))
-                    return Naming(refusal is null
-                        ? new MutateResult(true, null, $"{TabStateNote()} {placed}")
-                        : new MutateResult(false, $"{document.Display} was opened, but {refusal}"), document);
+                if (line is { } at)
+                {
+                    if (CodeEditorOf(document) is not { } editor || !HexIDE.Automation.CaretPlacement.Place(editor, at, column ?? 1))
+                        return Naming(new MutateResult(false,
+                            $"{document.Display} was opened, but its code window could not be found to put the caret in"), document);
+                    placedIn = document;
+                }
                 return Naming(new MutateResult(true, null, TabStateNote()), document);
             }
             if (found.Carried is { } carried)
@@ -743,28 +752,17 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return Naming(new MutateResult(true, null, TabStateNote()), found);
             }
             return new MutateResult(false, found.Error);
-        }));
-    }
+        });
 
-    /// <summary>
-    /// The caret put at (<paramref name="line"/>, <paramref name="column"/>) in the code window just opened for
-    /// <paramref name="document"/>, and where it now is; or why not, with the caret left alone (#700).
-    /// </summary>
-    /// <remarks>
-    /// Placing the caret took a buffer offset, from interact set_property CaretOffset, which no read tool gave until
-    /// get_file_content returned the whole file, and a caller still had to count it out. Lines are counted as the
-    /// code window numbers them, as every tool that takes a line does, so one from get_diagnostics or a breakpoint
-    /// can be passed straight on. Refused rather than clamped: a caret quietly put somewhere else would take the
-    /// next type_text there.
-    /// </remarks>
-    private (string? Placed, string? Refusal) CaretTo(DocumentIdentity document, int line, int column)
-    {
-        var editor = ctx.DocumentDockService.OpenDocuments.OfType<CodeEditorViewModel>().FirstOrDefault(vm =>
-            (document.Module is { } module && vm.ModuleDefinition == module)
-            || (document.Form is { } form && (vm.FormDefinition == form || vm.ModuleDefinition?.FormPart == form)));
-        return editor is null
-            ? (null, "its code window could not be found to put the caret in")
-            : HexIDE.Automation.CaretPlacement.Place(editor, line, column);
+        var focused = await FocusingTheActiveTabAsync(opened);
+        if (placedIn is not { } placed || !focused.Success)
+            return focused;
+        // Read back, not echoed (#700 review): once focus and the view's first layout have run, as the view opens a fold
+        // around a caret navigated into it and the editor moves one it could not show.
+        var where = await Dispatcher.UIThread.InvokeAsync(
+            () => CodeEditorOf(placed) is { } editor ? HexIDE.Automation.CaretPlacement.Where(editor, line!.Value, column ?? 1) : null,
+            DispatcherPriority.Background);
+        return where is null ? focused : focused with { Note = $"{focused.Note} {where}" };
     }
 
     [McpServerTool(Name = "view_designer")]

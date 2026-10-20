@@ -3727,12 +3727,19 @@ column, as every tool that takes a line does. Reaching a member's `Attribute` li
 times, then Home.
 
 > **Fixed.** `open_file` takes `line` and `column`, 1-based and counted as the code window numbers them, header
-> included, so a line from `get_diagnostics`, a breakpoint or `get_file_content` can be passed straight on. The note
-> gives where the caret now is and its offset into the text `get_file_content` returns. A line or column off the text is
-> refused, with the caret left where it was and the line count or the line's length given, rather than clamped, since a
-> caret quietly put elsewhere would take the next `type_text` there; one past a line's last character is its end.
-> `column` without `line`, and a line for a carried file, which opens in the plain-text editor, are refused before
-> anything opens. Measured on Windows through the server's HTTP endpoint, on a copy of the battleship demo:
-> `open_file(frmSetup, line 94, column 5)` opened the form's code with the caret before `If optSize(2)`, and `type_text`
-> into the editor wrote there. Guarded by `CaretPlacementTests`, including a caret placed before the editor's view exists,
-> as it is for a document `open_file` has just opened.
+> included, so a line from `get_diagnostics`, a breakpoint or `get_file_content` can be passed straight on. Columns
+> count characters, as the status bar does, so a tab is one; one past a line's last character is its end. A place off
+> the text, or between the halves of one character, is refused before anything opens, rather than clamped, since a
+> caret quietly put elsewhere would take the next `type_text` there; so are `column` without `line` and a line for a
+> carried file. The note reads the caret back once focus and layout have run, rather than echoing the request, and says
+> so if the editor moved it.
+>
+> The review found three ways the caret was not where it could be seen, and the first two reached any navigation, as
+> go-to-definition into a file not yet open places the caret the same way. A view made for a caret already placed did
+> not scroll to it, as `ScrollToLine` does nothing before layout; it now scrolls once laid out. A caret placed in a
+> header before its fold existed was folded away under it; a new header fold is now left open over the caret. A caret
+> put at a folded member run's end was moved to the declaration's end, while the reply said it was where asked; a caret
+> navigated into a fold now opens it. Measured on Windows through the server's HTTP endpoint, on a copy of the
+> battleship demo with an Attribute run added to `Game.Init`: a line past the end opened nothing; `frmBoard` opened at
+> line 150 showed it; `Game` at the run's end opened the run with the caret there; and `type_text` wrote where
+> `open_file(frmSetup, line 94, column 5)` put the caret. Guarded by `CaretPlacementTests` and `OpenFileCaretTests`.
