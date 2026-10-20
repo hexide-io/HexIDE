@@ -2441,7 +2441,9 @@ public static class UiAutomationDriver
         object? parentContext)
     {
         var info = node.Info;
-        var selfInteractive = info.Providers.Length > 0 || info.Focusable;
+        // A control a running program names, a Label among them, is kept: the program may handle its Click, and its caption
+        // is often what the program reports through (#1076). It has no provider and cannot take focus.
+        var selfInteractive = info.Providers.Length > 0 || info.Focusable || IsProgramControl(node.Control);
 
         var children = new List<UiNode>();
         var atCap = depth >= maxDepth;
@@ -2468,6 +2470,14 @@ public static class UiAutomationDriver
 
         return MakeNode(node, path, [.. children], parentContext, truncated);
     }
+
+    // Belonging to a running program as its event dispatch decides it, by logical ancestry, so a control in an open menu,
+    // whose popup is a window of its own, and one on an MDI child hosted in a pane count too. The form designer's
+    // controls carry the same names but no running form above them. A Timer and a CommonDialog never show at run time.
+    private static bool IsProgramControl(Control control) =>
+        HexIDE.Runtime.BuiltinControls.VBProps.GetName(control) is not null
+        && control is not (HexIDE.Runtime.BuiltinControls.VBTimer or HexIDE.Runtime.BuiltinControls.VBCommonDialog)
+        && control.FindLogicalAncestorOfType<HexIDE.Runtime.IModuleExecutionRoot>() is not null;
 
     private static UiNode BareNode(MeaningfulChild node, string path, object? parentContext) =>
         MakeNode(node, path, [], parentContext);

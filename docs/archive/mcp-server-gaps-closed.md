@@ -2998,3 +2998,42 @@ reading.
 and compile errors alike, and carry them through to `module` and `line` in the reply. Leave the dialog's text
 alone: what VB6 shows for a compile error met mid-run is #833's measurement.
 [#955](https://github.com/hexide-io/HexIDE/issues/955).
+
+## A Label on a running form is left out of the default tree — **CLOSED** (#1076, 2026-10-20)
+
+**Symptom.** Measured on 2026-10-15, driving the Battleship demo (#1071), whose board is 25 Labels and a status Label:
+none of the 26 was in `dump_visual_tree`, even with `interactiveOnly` false, and nothing could click one but a
+coordinate.
+
+**Narrowed by #954.** A Label now carries its VB6 name and is named by its caption, so `Window/#lblStatus` reaches it,
+`inspect_element` reads its caption as the node's name, and a dump with `interactiveOnly` false shows it as
+`Text[lblStatus]`. What remains: the default dump, `interactiveOnly` true, still leaves it out, because a Label has no
+automation provider and cannot take focus, though a program may handle its Click.
+
+**Workaround.** Pass `interactiveOnly: false`, or target `Window/#lblStatus` by the name in the code.
+
+**Suggested fix.** Count a run-time Label as interactive in the default dump, or every node with a run-time id: the
+caption is often what a program reports through. [#1076](https://github.com/hexide-io/HexIDE/issues/1076).
+
+> **Fixed.** The default dump keeps every control a running program names, a Label among them, though it has no
+> automation provider and cannot take focus: the program may handle its Click, and its caption is often what the program
+> reports through. It shows as `Text[lblStatus]`, named by its caption, with the containers above it. Belonging to a
+> running program is decided as its event dispatch decides it, by logical ancestry, so a control in an open menu counts;
+> the form designer's controls, named the same way, do not, and a Timer and a CommonDialog, which never show, are left
+> out. On a form of many Labels the default now keeps nearly everything, so `root` scopes it. Guarded by
+> `RunningFormNamesTests`.
+
+## Breakpoint gutter hover target — **CLOSED** (#1176, 2026-10-18)
+
+`dump_visual_tree {"maxDepth":24,"interactiveOnly":false}` did not expose the breakpoint margin.
+`hover {"target":"Window/Custom[MainView]/Pane[DockControl]/Pane[Root dock]/List[PART_ItemsControl]/List[#0]/Pane[#0]/Custom[Root]","x":19,"y":229,"dwellMs":500}`
+resolved to TextEditor and returned "no tip opened within 500ms": its synthetic move never reached
+an unaddressable child margin's pointer handler. Clicking through the editor still hit-tests the gutter.
+The fix in #1176 exposes the margin with a control automation peer and stable `BreakpointMargin` ID,
+so callers can target its own hover handler. Declarative tooltip visibility remains subject to the
+existing synthetic-pointer limitation; assert the reported declared text.
+
+The same acceptance run found a product hit-testing defect: `interact` with the margin target,
+`action:"click", value:"7,111"` reported that the press landed on `DockPanel`, not the margin.
+Only painted marker shapes were hit-testable. F9 was a working workaround. The fix in #1176 paints
+a transparent rectangle across the whole gutter so empty lines accept clicks and real pointer hover.
