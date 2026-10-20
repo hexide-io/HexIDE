@@ -86,7 +86,8 @@ public class InteractVocabularyTests
             UiAutomationDriver.VerbsByProvider.Values.SelectMany(v => v)
                 .Should().BeSubsetOf(UiAutomationDriver.Verbs);
 
-            foreach (var verb in UiAutomationDriver.Verbs.Where(v => v != "invoke"))
+            // close is left out: it would really close the window, and every verb after it would find none.
+            foreach (var verb in UiAutomationDriver.Verbs.Where(v => v is not ("invoke" or "close")))
                 (ErrorOf((Control)window.Content!, verb) ?? string.Empty).Should().NotStartWith("unknown action", verb);
         }
         finally { window.Close(); }
