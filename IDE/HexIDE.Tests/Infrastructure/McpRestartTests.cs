@@ -231,6 +231,7 @@ public class McpRestartTests
             File.ReadAllText(Path.Combine(RepoTree.Root(), "IDE", "HexIDE.Desktop", "Server", "IdeServer.cs")));
 
         source.Should().Contain(".WithHttpTransport(McpTransport.Configure)")
-            .And.Contain("filters.AddCallToolFilter(ToolFailures.Filter)");
+            .And.Contain("filters.AddCallToolFilter(ToolFailures.Filter)")
+            .And.Contain(".AddCallToolFilter(OpenDialogNote.Filter)");
     }
 }
