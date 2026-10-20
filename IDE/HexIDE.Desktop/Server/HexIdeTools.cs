@@ -2061,7 +2061,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "take_snapshot")]
-    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. inspect_element's 'boundingRect' is in the window's device-independent units measured from its top-left, which is the image's top-left, so multiply it by 'scale' to find the control in the image. If a modal dialog is open it is captured in preference to the main window (its title is reported in 'activeDialog'); otherwise the main window is captured. 'window' selects which top-level window to address: \"auto\" (default) is the frontmost one, which while a VB6 program runs — INCLUDING while it is paused at a breakpoint — is the program's form, not the IDE; pass \"ide\" to address the IDE itself in that state, or a window's title or a running form's name to address that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them. The path is on the IDE's machine: a client attached from another machine, through a tunnel, passes 'inline' true to get the image itself as well, in a copy fitted to 1568 pixels whose 'inlineScale' takes the place of 'scale'.")]
+    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. inspect_element's 'boundingRect' is in the window's device-independent units measured from its top-left, which is the image's top-left, so multiply it by 'scale' to find the control in the image. If any window is open over the IDE's own (a dialog, a modeless IDE window such as Find, or a running program's form) it is captured in preference to the main window, and its title is reported in 'activeDialog'; otherwise the main window is captured. 'window' selects which top-level window to address: \"auto\" (default) is the frontmost one, which while a VB6 program runs — INCLUDING while it is paused at a breakpoint — is the program's form, not the IDE; pass \"ide\" to address the IDE itself in that state, or a window's title or a running form's name to address that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them. The path is on the IDE's machine: a client attached from another machine, through a tunnel, passes 'inline' true to get the image itself as well, in a copy fitted to 1568 pixels whose 'inlineScale' takes the place of 'scale'.")]
     public async Task<SnapshotResult> TakeSnapshotAsync(
         [Description(WindowParameter)] string? window = null,
         // The tool holds an inline copy, which InlineSnapshot attaches after the reply (#957).
@@ -2133,14 +2133,14 @@ internal sealed class HexIdeTools(IdeContext ctx)
         + "A form the program opened is named.";
 
     private const string WindowParameter =
-        "Which top-level window the path is resolved against: \"auto\" (default) is the frontmost, which while a VB6 "
-        + "program runs, INCLUDING while it is paused at a breakpoint, is the program's form, not the IDE; \"ide\" "
-        + "reaches the IDE in that state; a window's title, or a running form's name such as \"Form2\", reaches that "
+        "Which top-level window the path is resolved against: \"auto\" (default) is the frontmost: a window over the "
+        + "IDE's own, modal or not, such as a dialog, the Find window, or, while a VB6 program runs, INCLUDING while it "
+        + "is paused at a breakpoint, the program's form; \"ide\" reaches the IDE in that state; a window's title, or a running form's name such as \"Form2\", reaches that "
         + "window, which is how a form behind another form of the program is reached. An unknown name is refused with "
         + "the open windows listed, each form by its name and title: the name is the stable handle.";
 
     [McpServerTool(Name = "dump_visual_tree")]
-    [Description("Walks the live control tree of the active window (a visible modal dialog is preferred over the main window) and returns a structured node tree for discovering and addressing controls. Uses the UIA 'control view': layout wrappers (Panels, Borders, ContentPresenters, dock plumbing) are left out, so paths are short. Each node carries its addressing 'path' (feed it back as a target), automation ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers, and enabled/offscreen flags. The provider tokens, and the interact action each one is driven with: invoke → invoke, selection and selectionItem → select, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. A token is reported only where the action would do something, so a list that fits its viewport does not report scroll and a progress bar does not report rangeValue. A name that would only be a .NET type, such as an icon button's 'Avalonia.Controls.Shapes.Path', is not reported as a name or used in a path; the node carries it as 'typeNameAsName' instead, which marks a control with no usable name. Use this to find what is on screen before inspect_element or interact. A node carries 'isHidden': true when it is in the tree but NOT on screen (an effectively-invisible control, e.g. a collapsed banner); the field is absent when the node is showing. Presence in the tree never meant visible — check this before asserting that a banner, warning or overlay is displayed, and note it answers a different question from 'isOffscreen', which is about clipping and scroll position. Scope a large dump with 'root', or find nodes with 'match'; see 'maxDepth' and 'interactiveOnly' for what it keeps and when a node is 'truncated'. While a VB6 program runs or is paused the frontmost window is its form: pass 'window' \"ide\" to walk the IDE.")]
+    [Description("Walks the live control tree of the active window (the frontmost, as 'window' says) and returns a structured node tree for discovering and addressing controls. Uses the UIA 'control view': layout wrappers (Panels, Borders, ContentPresenters, dock plumbing) are left out, so paths are short. Each node carries its addressing 'path' (feed it back as a target), automation ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers, and enabled/offscreen flags. The provider tokens, and the interact action each one is driven with: invoke → invoke, selection and selectionItem → select, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. A token is reported only where the action would do something, so a list that fits its viewport does not report scroll and a progress bar does not report rangeValue. A name that would only be a .NET type, such as an icon button's 'Avalonia.Controls.Shapes.Path', is not reported as a name or used in a path; the node carries it as 'typeNameAsName' instead, which marks a control with no usable name. Use this to find what is on screen before inspect_element or interact. A node carries 'isHidden': true when it is in the tree but NOT on screen (an effectively-invisible control, e.g. a collapsed banner); the field is absent when the node is showing. Presence in the tree never meant visible — check this before asserting that a banner, warning or overlay is displayed, and note it answers a different question from 'isOffscreen', which is about clipping and scroll position. Scope a large dump with 'root', or find nodes with 'match'; see 'maxDepth' and 'interactiveOnly' for what it keeps and when a node is 'truncated'. While a VB6 program runs or is paused the frontmost window is its form: pass 'window' \"ide\" to walk the IDE.")]
     public async Task<VisualTreeResult> DumpVisualTreeAsync(
         [Description("A path to dump only that subtree; omit for the whole window. For deeply nested or large areas, "
                      + "scope the dump this way.")]
@@ -2189,7 +2189,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             var basePath = "Window";
             if (root is not null)
             {
-                var (resolved, resolveError) = UiAutomationDriver.Resolve(active, root);
+                var (resolved, resolveError) = ResolveIn(active, window, root);
                 if (resolved is null)
                     return new VisualTreeResult(resolveError, label, null);
                 start = resolved;
@@ -2236,7 +2236,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (active is null)
                 return new InspectResult(error, null, null);
 
-            var (control, resolveError) = UiAutomationDriver.Resolve(active, target);
+            var (control, resolveError) = ResolveIn(active, window, target);
             if (control is null)
                 return new InspectResult(resolveError, label, null);
 
@@ -2265,7 +2265,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (active is null)
                 return new InteractOutcome(false, "peer", null, error);
 
-            var (control, resolveError) = UiAutomationDriver.Resolve(active, target);
+            var (control, resolveError) = ResolveIn(active, window, target);
             if (control is null)
                 return new InteractOutcome(false, "peer", null, resolveError);
 
@@ -2330,7 +2330,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (active is null)
                 return new InteractOutcome(false, mechanism, null, error);
 
-            var (control, resolveError) = UiAutomationDriver.Resolve(active, target);
+            var (control, resolveError) = ResolveIn(active, window, target);
             if (control is null)
                 return new InteractOutcome(false, mechanism, null, resolveError);
 
@@ -2364,7 +2364,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             var (active, _, error) = ResolveActiveWindow(window);
             if (active is null) return new InteractOutcome(false, "pointer", null, error);
 
-            var (control, resolveError) = UiAutomationDriver.Resolve(active, target);
+            var (control, resolveError) = ResolveIn(active, window, target);
             if (control is null) return new InteractOutcome(false, "pointer", null, resolveError);
 
             var outcome = UiAutomationDriver.Hover(control, x, y, target, out var landed);
@@ -2465,7 +2465,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (active is null)
                 return new InteractOutcome(false, "keyboard", null, error);
 
-            var (control, resolveError) = UiAutomationDriver.Resolve(active, target);
+            var (control, resolveError) = ResolveIn(active, window, target);
             if (control is null)
                 return new InteractOutcome(false, "keyboard", null, resolveError);
 
@@ -2476,8 +2476,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
         return await UiAutomationDriver.WaitForProgramAsync(watch, outcome, ct: ct);
     }
 
-    // Active window for the automation tools: prefer a visible modal dialog over the main window
-    // (mirrors take_snapshot) so dialogs are addressable with no extra parameter.
+    // Active window for the automation tools: any visible window over the main window, modal or not, such as Find
+    // (#1264) (mirrors take_snapshot) so dialogs are addressable with no extra parameter.
     private static (Window? window, string? label, string? error) ResolveActiveWindow(string? scope = null)
     {
         var lifetime = Avalonia.Application.Current!.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
@@ -2491,6 +2491,19 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
         var label = window != mainWindow ? DescribeWindow(window) : "MainWindow";
         return (window, label, null);
+    }
+
+    /// <summary>
+    /// <paramref name="path"/> resolved in <paramref name="active"/>, with a failure naming that window when "auto" picked
+    /// one over the IDE's own. See <see cref="HexIDE.IDE.ForegroundWindow.Unresolved"/>.
+    /// </summary>
+    private static (Control? control, string? error) ResolveIn(Window active, string? scope, string path)
+    {
+        var (control, error) = UiAutomationDriver.Resolve(active, path);
+        var main = (Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+        return control is null && error is not null && main is not null
+            ? (null, HexIDE.IDE.ForegroundWindow.Unresolved(error, scope, active, main, DescribeWindow(active)))
+            : (control, error);
     }
 
     /// <summary>

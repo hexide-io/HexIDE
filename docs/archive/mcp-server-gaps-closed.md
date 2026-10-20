@@ -3847,3 +3847,53 @@ control (#1069) read visibility with a fallback of "shown", so a read that threw
 > - the Options checkboxes.
 >
 > Guarded by `ReadBackTests` and `ProgramWaitTests`.
+
+## take_snapshot's default capture picks a modeless dialog (#1264)
+
+**Was:** *take_snapshot of the IDE fails while a menu is open, and the default capture picks a modeless
+dialog.* The first half is closed. Measured for #362: `interact(target: ".../MenuItem[Edit]", action:
+"expand", window: "ide")` then `take_snapshot(window: "ide")` returned an image with the open Edit menu
+composed in. The second half, the Find dialog being preferred over the main window, was not re-tested and
+stays open. The rest of this entry is the original record.
+
+
+**Symptom.** Two halves of one gap, both hit while verifying that Edit ▸ Find greys out on a document with
+nothing to search (hexide-io/HexIDE#363). With the Edit menu expanded, `take_snapshot(window: "ide")`
+returns `An error occurred invoking 'take_snapshot'` — no path, no detail. Plain `take_snapshot()` succeeds
+but captures the modeless **Find** dialog instead, because a dialog is preferred over the main window and a
+menu popup is apparently neither.
+
+**Consequence.** A greyed-out menu item is the whole of the feedback for a disabled command, and it is the
+one thing that cannot be photographed. Both routes fail in a way that looks like a broken tool rather than
+an unsupported surface.
+
+**Workaround used.** `inspect_element` on the menu item reports `isEnabled: false`, and
+`dump_visual_tree(root: ...Edit/Pane, interactiveOnly: false)` gives the whole menu's enabled states in one
+call. That is a stronger assertion than a pixel diff, so nothing was lost here — but it means the *rendering*
+of the disabled state (does it actually look greyed?) is unverified.
+
+**Suggested fix.** Treat an open menu popup as a capturable window, and let `window` take a popup or
+overlay selector. Failing that, return a real error message saying the surface cannot be captured while a
+popup is open, rather than a bare "an error occurred".
+
+**Since #603.** A tool that throws now answers with the tool name, the exception type and its message instead
+of the bare line, and says it is a defect to report. Re-measured 2026-09-22: with the Edit menu expanded,
+`take_snapshot {"window":"ide"}` no longer throws at all and returns a path, which agrees with the narrowing
+note above. The half still open, the Find dialog being preferred, was not re-tested.
+
+**The open half stands, read in code on 2026-10-20 at 4789f9a and not run.** Find is shown modeless with no owner
+(`WindowManager.ShowWindow`, `window.Show()`), and `ForegroundWindow.Pick`, under `auto`, lets any visible window
+but the IDE's own win. So while Find is open, every tool that takes `window` resolves against it, whether or not the
+IDE's window is the active one, though `take_snapshot`'s and `dump_visual_tree`'s descriptions say only a modal
+dialog is preferred. A path that then fails to resolve says `no child matching … under 'Window'` and names no
+window. **Workaround:** pass `window: "ide"` while Find is open. **Suggested fix:** say what `auto` does, a modeless
+window included, and have a failed path under `auto` name the window it was resolved against.
+[#1264](https://github.com/hexide-io/HexIDE/issues/1264).
+
+> **Fixed.** The rule is kept and said: under `auto` any visible window over the IDE's own wins, modal or not. The
+> `window` parameter's description, `take_snapshot`'s and `dump_visual_tree`'s now say so, naming the Find window, in
+> place of "a modal dialog". A path that fails to resolve in a window `auto` picked over the IDE's own now names it and
+> says `window: "ide"` reaches the IDE, from every tool that resolves a path. Letting the main window win while it is
+> active was not done: `IsActive` is false for every window while the app is in the background and never set headlessly,
+> so a call's window would depend on the caller's desktop. Guarded by `ForegroundWindowTests`, including a modeless
+> window picked over the IDE and the failure naming it.

@@ -223,4 +223,42 @@ public class ForegroundWindowTests
         ForegroundWindow.Pick("Form1 again", main, [main, first, second]).Error.Should().Contain("is hidden");
         ForegroundWindow.Pick("Form1", main, [main, first, second]).Window.Should().BeSameAs(first, "only one is showing");
     }
+
+    [AvaloniaFact]
+    public void A_modeless_ide_window_such_as_find_is_preferred_over_the_main_window()
+    {
+        // Find is shown with Show() and no owner, a running form's shape, so "auto" picks it as it picks a form (#1264).
+        var main = Shown("HexIDE");
+        var find = Shown("Find");
+
+        ForegroundWindow.Pick(null, main, [main, find]).Window.Should().BeSameAs(find);
+    }
+
+    [AvaloniaFact]
+    public void A_path_that_fails_in_a_window_auto_picked_over_the_ide_names_that_window()
+    {
+        // A path from an earlier dump of the IDE, looked for in Find, failed naming no window (#1264).
+        var main = Shown("HexIDE");
+        var find = Shown("Find");
+        var (control, error) = HexIDE.Automation.UiAutomationDriver.Resolve(find, "Window/Custom[MainView]");
+        control.Should().BeNull();
+
+        ForegroundWindow.Unresolved(error!, null, find, main, "Find").Should().Be(
+            $"{error}. The path was looked for in 'Find', the window in front, as window \"auto\" picks; window \"ide\" "
+            + "reaches the IDE's own");
+        ForegroundWindow.Unresolved(error!, "AUTO", find, main, "Find").Should().Contain("'Find', the window in front");
+        ForegroundWindow.Unresolved(error!, " ", find, main, "Find").Should().Contain("'Find', the window in front");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("ide")]
+    [InlineData("Find")]
+    public void A_path_that_fails_in_a_window_asked_for_by_name_is_left_as_it_is(string scope)
+    {
+        var main = Shown("HexIDE");
+        var find = Shown("Find");
+
+        ForegroundWindow.Unresolved("no child", scope, find, main, "Find").Should().Be("no child");
+        ForegroundWindow.Unresolved("no child", null, main, main, "HexIDE").Should().Be("no child");
+    }
 }

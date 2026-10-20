@@ -134,4 +134,20 @@ public static class ForegroundWindow
 
         return best ?? mainWindow;
     }
+
+    /// <summary>
+    /// <paramref name="error"/>, a path's failure to resolve in <paramref name="picked"/>, with that window named when the
+    /// choice was left to <c>"auto"</c> and fell on a window other than the IDE's own (#1264).
+    /// </summary>
+    /// <remarks>
+    /// Any window over the IDE's outranks it under <c>"auto"</c>, the Find window too, which is modeless. A path from an
+    /// earlier dump of the IDE then failed with <c>no child matching 'Custom[MainView]' under 'Window'</c>, which names no
+    /// window, so a caller hunted for a wrong path rather than a wrong window.
+    /// </remarks>
+    /// <param name="pickedName">How <paramref name="picked"/> is named to a caller: its title, or what it shows.</param>
+    public static string Unresolved(string error, string? scope, Window picked, Window mainWindow, string pickedName) =>
+        picked == mainWindow || !(string.IsNullOrWhiteSpace(scope) || scope.Equals("auto", StringComparison.OrdinalIgnoreCase))
+            ? error
+            : $"{error}. The path was looked for in '{pickedName}', the window in front, as window \"auto\" picks; "
+              + "window \"ide\" reaches the IDE's own";
 }
