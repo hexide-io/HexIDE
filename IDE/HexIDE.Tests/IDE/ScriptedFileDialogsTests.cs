@@ -1,4 +1,5 @@
 using HexIDE.IDE;
+using HexIDE.Tests.Infrastructure;
 
 namespace HexIDE.Tests.IDE;
 
@@ -152,5 +153,59 @@ public class ScriptedFileDialogsTests
         ScriptedFileDialogs.TryTake(out _).Should().BeFalse();
 
         watch.Cancelled.Should().BeFalse();
+    }
+
+    // ── An answer a save left armed (#810) ──────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void A_save_that_needed_no_picker_says_the_answer_armed_for_it_is_still_pending()
+    {
+        ScriptedFileDialogs.AnswerNextWith(null);
+        var watch = ScriptedFileDialogs.WatchForCancel(@"C:\x\Form2.frm");
+
+        watch.StillArmed.Should().Be(" The armed file-dialog answer is still pending: this save needed no picker, because "
+            + "the document already has a file. The next file dialog to open will take it, whatever it is for; "
+            + "clear_file_dialog_answers discards it.");
+        ScriptedFileDialogs.Pending.Should().Be(1, "saying so must not spend it");
+    }
+
+    [Fact]
+    public void A_save_that_stopped_before_its_picker_says_why_the_answer_is_still_pending()
+    {
+        ScriptedFileDialogs.AnswerNextWith(@"C:\x\Form2.frm");
+        ScriptedFileDialogs.AnswerNextWith(null);
+        var watch = ScriptedFileDialogs.WatchForCancel(absolutePath: null);
+
+        watch.StillArmed.Should().StartWith(" All 2 armed file-dialog answers are still pending: this save stopped "
+            + "before its picker opened.").And.EndWith("will take the first, whatever it is for; "
+            + "clear_file_dialog_answers discards them.");
+    }
+
+    [Fact]
+    public void A_save_that_took_an_answer_says_nothing_of_the_ones_armed_after_it()
+    {
+        // Two armed for two saves: the first save took its own, and the second answer is the next save's.
+        ScriptedFileDialogs.AnswerNextWith(@"C:\x\Form2.frm");
+        ScriptedFileDialogs.AnswerNextWith(@"C:\x\Form3.frm");
+        var watch = ScriptedFileDialogs.WatchForCancel(absolutePath: null);
+
+        ScriptedFileDialogs.TryTake(out _);
+
+        watch.StillArmed.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void With_nothing_armed_a_save_says_nothing_of_answers()
+    {
+        ScriptedFileDialogs.WatchForCancel(@"C:\x\Form2.frm").StillArmed.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Every_tool_that_saves_through_an_armed_answer_says_when_it_left_one()
+    {
+        var saving = ToolSource.Tools.Where(t => t.Body.Contains("WatchForCancel")).ToList();
+
+        saving.Select(t => t.Name).Should().BeEquivalentTo(["set_file_content", "set_control_property", "add_control"]);
+        saving.Where(t => !t.Body.Contains("StillArmed")).Select(t => t.Name).Should().BeEmpty();
     }
 }

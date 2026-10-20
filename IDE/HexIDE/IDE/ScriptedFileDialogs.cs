@@ -33,6 +33,7 @@ public static class ScriptedFileDialogs
     private static readonly object Lock = new();
     private static readonly Queue<string?> Answers = new();
     private static long _cancelsTaken;
+    private static long _taken;
 
     /// <summary>How many answers are queued, for a tool that has to report what it armed.</summary>
     public static int Pending { get { lock (Lock) return Answers.Count; } }
@@ -96,11 +97,11 @@ public static class ScriptedFileDialogs
         // Only a document without a file opens a picker. Which answer the picker takes needs no peek: only a
         // cancel moves the count.
         lock (Lock)
-            return new CancelWatch(absolutePath is null, _cancelsTaken);
+            return new CancelWatch(absolutePath is null, _cancelsTaken, _taken);
     }
 
     /// <summary>Whether a save was answered by the armed cancel that was next when it began.</summary>
-    public readonly struct CancelWatch(bool armed, long takenBefore)
+    public readonly struct CancelWatch(bool armed, long takenBefore, long anyTakenBefore)
     {
         /// <summary>
         /// True when the document had no file and a picker has taken an armed cancel since
@@ -112,6 +113,36 @@ public static class ScriptedFileDialogs
             {
                 lock (Lock)
                     return armed && _cancelsTaken > takenBefore;
+            }
+        }
+
+        /// <summary>
+        /// A sentence for the save's reply when it took no answer and answers are still armed, or "" (#810).
+        /// </summary>
+        /// <remarks>
+        /// A caller arms an answer for a save it expects to open a picker. One that needed none, because the document
+        /// already had a file, or stopped before its picker, leaves the answer for the next dialog to open, however
+        /// much later and whatever it is for, and only clear_file_dialog_answers used to show it.
+        /// </remarks>
+        public string StillArmed
+        {
+            get
+            {
+                int pending;
+                lock (Lock)
+                {
+                    if (_taken > anyTakenBefore) return "";
+                    pending = Answers.Count;
+                }
+
+                if (pending == 0) return "";
+                var answers = pending == 1 ? "The armed file-dialog answer is" : $"All {pending} armed file-dialog answers are";
+                var why = armed
+                    ? "this save stopped before its picker opened"
+                    : "this save needed no picker, because the document already has a file";
+                return $" {answers} still pending: {why}. The next file dialog to open will take "
+                       + $"{(pending == 1 ? "it" : "the first")}, whatever it is for; clear_file_dialog_answers discards "
+                       + $"{(pending == 1 ? "it" : "them")}.";
             }
         }
     }
@@ -128,6 +159,7 @@ public static class ScriptedFileDialogs
             }
 
             path = Answers.Dequeue();
+            _taken++;
             if (path is null)
                 _cancelsTaken++;
             return true;
