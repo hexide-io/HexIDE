@@ -465,7 +465,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_form_controls")]
-    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled); with 'controlName', that one control with every property it has, in the text set_control_property takes where it takes one. Position and size are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name the form, as the IDE spells them.")]
+    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled, and a control array element's index, which name(index) takes); with 'controlName', that one control with every property it has, in the text set_control_property takes where it takes one. Position and size are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name the form, as the IDE spells them.")]
     public async Task<FormControlsResult> GetFormControlsAsync(
         string formName,
         string? project = null,
@@ -524,7 +524,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     left, top, width, height,
                     visible, enabled,
                     caption, text,
-                    container);
+                    container,
+                    PropertyText.ArrayIndexOf(c));
             }
 
             // One control, with every row the Properties window shows for it (#923): set_control_property sent
@@ -554,7 +555,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
     [McpServerTool(Name = "set_control_property")]
     [Description("Sets a named property on a form or UserControl control and saves the file. The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The value is written as the Properties window shows it: text, a number with '.' for decimals, True or False, a colour literal such as &H00C0FFC0&, or an enum by number, by name, or as '1 - Opaque'; a Font as get_form_controls shows it, such as 'Tahoma, 9.75 pt, bold, charset 0': a part not given is kept, but style words given are the whole style ('regular' clears it) and a new face without a charset takes 0; a refused value's reply lists what that property takes. get_form_controls lists the controls, and with 'controlName' every property of one, its value as this tool takes it. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A rename the naming rules refuse changes nothing. The save writes the whole file, so text set earlier and not yet saved counts too: when the file's code page cannot hold a character anywhere in it, the value is set in the IDE but nothing is written and no dialog is shown, and the reply names the document, the code page, the character and the line that holds it. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' gives the value the property now holds, which can differ from the text sent, and 'project' and 'document' name the form as the IDE spells them.")]
     public async Task<MutateResult> SetControlPropertyAsync(
-        string formName, string controlName, string property, string value, string? project = null,
+        string formName,
+        [Description("The control: its name, or for an element of a control array name(index), such as lblTitle(1), "
+                     + "with the 'index' get_form_controls lists for it. A bare array name is refused, naming the indexes, "
+                     + "since the save would write to a guess.")]
+        string controlName, string property, string value, string? project = null,
         CancellationToken ct = default)
     {
         // What the property holds after the set, which is not always what was sent: "0 - Transparent" stores 0. (#655)
@@ -582,9 +587,14 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 ? (IEnumerable<ComponentInstance>)designerVm.AllComponents.Select(v => v.Instance).ToList()
                 : form.Components;
 
-            var control = components.FirstOrDefault(c =>
-                string.Equals(c.GetPropertyOrDefault(VBProperties.NameProperty), controlName,
-                    StringComparison.OrdinalIgnoreCase));
+            // An element as name(index), as get_form_controls takes it. A bare array name wrote to its first element,
+            // saved, and replied as if the caller's element was set, so it is refused, naming the indexes (#1252).
+            var control = PropertyText.NamedOne(components, controlName, out var ambiguous);
+            if (ambiguous is not null)
+                return (null, null, $"Nothing was changed: {ambiguous}"
+                    + (string.Equals(property.Trim('(', ')'), "Name", StringComparison.OrdinalIgnoreCase)
+                        ? ". Renaming one element takes it out of the array, and nothing in the IDE joins it back yet (#1276)"
+                        : ""));
             if (control is null)
                 return (null, null, $"No control named '{controlName}' on {document.Display}");
 
@@ -607,6 +617,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     $"{(ownerModule is not null ? "UserControl" : "Form")} '{document.Name}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
 
             var before = control.GetBoxedPropertyOrDefault(propClass);
+            // A renamed element leaves its array, and nothing yet lets it join back (#1276), so the reply says so.
+            var leaves = propClass == VBProperties.NameProperty && PropertyText.ArrayIndexOf(control) is { } leaving
+                ? (Index: leaving, Others: PropertyText.Named(components, (string)before!).Count - 1)
+                : ((int Index, int Others)?)null;
 
             // A rename passes the Properties window's rules on every route. With the designer open its handler
             // enforces them as the value is set, and throws; without it nothing would, so they are asked here.
@@ -642,8 +656,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // Read back AFTER the announcement, so the reply quotes the value as it now stands rather than
             // as it stood a notification ago -- a rename in particular is only visible once the model has
             // raised it.
-            stored = $"{control.GetPropertyOrDefault(VBProperties.NameProperty)}.{propClass.Name} is now "
+            stored = $"{PropertyText.AddressedName(control)}.{propClass.Name.Trim('(', ')')} is now "
                      + PropertyText.Display(control.GetBoxedPropertyOrDefault(propClass)) + ", and the file is saved.";
+            if (leaves is { Others: > 0 } left && !string.Equals(before as string, parsed as string, StringComparison.OrdinalIgnoreCase))
+                stored += $" It was {before}({left.Index}), and has left that array, whose other {left.Others} "
+                          + $"element{(left.Others == 1 ? "" : "s")} keep the name; nothing in the IDE joins it back yet (#1276).";
             return (form, ownerModule, null);
         });
 
@@ -1104,9 +1121,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
         "Each of `left`, `top`, `width` and `height` is optional; if all are omitted, EndDrag is still called (tests the no-change path). " +
         "All four are in PIXELS, as the designer draws: a .frm and VB6's Properties window use twips, 15 to a pixel, so a VB6 value in twips must be divided by 15 here. " +
         "left/top are CONTAINER-RELATIVE, as get_form_controls and the .frm have them: for a control inside a " +
-        "Frame or PictureBox they are measured from that container, not from the form. Note that a VB6 control " +
-        "array shares one name across its elements (Options Dialog.frm has four picOptions), so a name that is " +
-        "not unique resolves to the first in document order. The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. " +
+        "Frame or PictureBox they are measured from that container, not from the form. A VB6 control " +
+        "array shares one name across its elements (Options Dialog.frm has four picOptions): name an element as " +
+        "picOptions(2), and a bare array name is refused, naming the indexes. The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. " +
         "The reply's 'note' gives the control's position and size as they now are, and says when it now lies outside its container, and 'project' and 'document' name the form as the IDE spells them.")]
     public async Task<MutateResult> MoveControlAsync(
         string formName,
@@ -1133,8 +1150,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return Naming(new MutateResult(false,
                     $"{document.Display} is not open in the visual designer — call view_designer first"), document);
 
-            var target = designer.AllComponents.FirstOrDefault(c =>
-                string.Equals(c.Name, controlName, StringComparison.OrdinalIgnoreCase));
+            // As set_control_property resolves it (#1252 review): only the first element could be reached, and a
+            // bare array name moved that one, which the next save wrote to disk.
+            var instance = PropertyText.NamedOne(designer.AllComponents.Select(c => c.Instance), controlName, out var ambiguous);
+            if (ambiguous is not null)
+                return Naming(new MutateResult(false, $"Nothing was moved: {ambiguous}"), document);
+            var target = designer.AllComponents.FirstOrDefault(c => ReferenceEquals(c.Instance, instance));
 
             if (target is null)
                 return Naming(new MutateResult(false,
@@ -1157,7 +1178,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
             var i = target.Instance;
             return Naming(new MutateResult(true, null,
-                $"{target.Name} is at Left {PropertyText.Display(i.GetPropertyOrDefault(VBProperties.LeftProperty))}, "
+                $"{PropertyText.AddressedName(target.Instance)} is at Left {PropertyText.Display(i.GetPropertyOrDefault(VBProperties.LeftProperty))}, "
                 + $"Top {PropertyText.Display(i.GetPropertyOrDefault(VBProperties.TopProperty))}, "
                 + $"Width {PropertyText.Display(i.GetPropertyOrDefault(VBProperties.WidthProperty))}, "
                 + $"Height {PropertyText.Display(i.GetPropertyOrDefault(VBProperties.HeightProperty))}, "
@@ -2995,7 +3016,10 @@ internal record ControlInfo(
     string? Text,
     // The control this one sits inside, or null when it is on the form itself. Left/Top are measured from
     // this container's client origin, exactly as the .frm records them, so the space is self-describing.
-    string? Container);
+    string? Container,
+    // A control array element's Index, which the elements' shared Name alone does not tell apart; null when it is
+    // no element. name(index) addresses it in get_form_controls, set_control_property and move_control (#1252 review).
+    int? Index = null);
 
 /// <param name="Scale">Image pixels per device-independent unit, the unit inspect_element's boundingRect is in.</param>
 internal record SnapshotResult(
