@@ -459,8 +459,8 @@ public static class UiAutomationDriver
         // what is not showing. The peer acts regardless, so without this a hidden Approve button reported that it
         // approved (#1069). The reflection actions act on the view model, not the control, so they are exempt.
         if (norm is not ("invokecommand" or "setproperty") && Verbs.FirstOrDefault(v => Normalise(v) == norm) is { } verb
-            && Hidden(control) is true)
-            return Err(NotShowingRefusal(control, verb)
+            && Shows(control) is not true and var shows)
+            return Err(NotShowingRefusal(control, verb, shows)
                        + (verb == "scroll"
                            // scroll reaches past its target to the nearest container that scrolls, so the container is
                            // the useful thing to aim at, and the view model has nothing to offer.
@@ -518,8 +518,7 @@ public static class UiAutomationDriver
                             : "a menu item has no toggle of its own: 'invoke' clicks it, and its reply says whether the "
                               + "tick moved (a running form's menu leaves the tick to its program); nothing was done");
                     if (peer.GetProvider<IToggleProvider>() is not { } tog) return Unsupported("toggle");
-                    tog.Toggle();
-                    return Ok($"toggled '{LabelOf(control, peer)}'");
+                    return ToggleVerified(tog, LabelOf(control, peer), control is RadioButton, InProgram(control));
 
                 case "expand":
                     if (peer.GetProvider<IExpandCollapseProvider>() is { } exp)
@@ -527,7 +526,7 @@ public static class UiAutomationDriver
                         if (exp.ExpandCollapseState == ExpandCollapseState.Expanded)
                             return Ok($"'{LabelOf(control, peer)}' was already expanded");
                         exp.Expand();
-                        return Ok($"expanded '{LabelOf(control, peer)}'");
+                        return ExpandedVerified(exp, LabelOf(control, peer), true);
                     }
                     if (control is TreeViewItem { ItemCount: > 0 } openNode)
                         return SetTreeNodeExpanded(openNode, peer, true);
@@ -557,7 +556,7 @@ public static class UiAutomationDriver
                             return Ok($"the context menu on '{LabelOf(control, peer)}' was already open");
                         Safe(() => control.Focus(), false);
                         contextMenu.Open(control);
-                        return Ok($"opened context menu on '{LabelOf(control, peer)}'");
+                        return PopupVerified(() => contextMenu.IsOpen, true, "context menu", LabelOf(control, peer));
                     }
                     if (FlyoutsOf(control).FirstOrDefault() is { } flyout)
                     {
@@ -565,7 +564,7 @@ public static class UiAutomationDriver
                             return Ok($"the flyout on '{LabelOf(control, peer)}' was already open");
                         Safe(() => control.Focus(), false);
                         flyout.ShowAt(control);
-                        return Ok($"opened flyout on '{LabelOf(control, peer)}'");
+                        return PopupVerified(() => IsOpenOn(flyout, control), true, "flyout", LabelOf(control, peer));
                     }
                     return Unsupported("expand");
 
@@ -575,7 +574,7 @@ public static class UiAutomationDriver
                         if (col.ExpandCollapseState == ExpandCollapseState.Collapsed)
                             return Ok($"'{LabelOf(control, peer)}' was already collapsed");
                         col.Collapse();
-                        return Ok($"collapsed '{LabelOf(control, peer)}'");
+                        return ExpandedVerified(col, LabelOf(control, peer), false);
                     }
                     if (control is TreeViewItem { ItemCount: > 0 } closeNode)
                         return SetTreeNodeExpanded(closeNode, peer, false);
@@ -603,12 +602,12 @@ public static class UiAutomationDriver
                     if (control.ContextMenu is { IsOpen: true } openContextMenu)
                     {
                         openContextMenu.Close();
-                        return Ok($"closed context menu on '{LabelOf(control, peer)}'");
+                        return PopupVerified(() => openContextMenu.IsOpen, false, "context menu", LabelOf(control, peer));
                     }
                     if (FlyoutsOf(control).FirstOrDefault(f => IsOpenOn(f, control)) is { } openFlyout)
                     {
                         openFlyout.Hide();
-                        return Ok($"closed flyout on '{LabelOf(control, peer)}'");
+                        return PopupVerified(() => IsOpenOn(openFlyout, control), false, "flyout", LabelOf(control, peer));
                     }
                     // The popup is why expandCollapse is reported here, so a closed one is nothing to close, as with a
                     // menu, rather than an action the control does not support (#949).
@@ -626,9 +625,11 @@ public static class UiAutomationDriver
                     if (peer.GetProvider<IValueProvider>() is not { } val) return Unsupported("set_value");
                     if (value is null) return Err("set_value requires 'value'");
                     val.SetValue(value);
-                    return CommitTyped(control, value) is { } committed
-                        ? Ok($"set value of '{LabelOf(control, peer)}' to '{value}'{committed}") with { Committed = true }
-                        : Ok($"set value of '{LabelOf(control, peer)}' to '{value}'");
+                    // A bound box's source may convert what it is given, and pushes the result back at once: " 90" reads
+                    // back "90", taken. Whether the source kept it is RefusedCommit's to say, once it has reacted.
+                    if (CommitTyped(control, value) is { } committed)
+                        return Ok($"set value of '{LabelOf(control, peer)}' to '{value}'{committed}") with { Committed = true };
+                    return ValueVerified(val, value, LabelOf(control, peer), InProgram(control));
 
                 case "select":
                     return DoSelect(control, peer, value);
@@ -678,10 +679,15 @@ public static class UiAutomationDriver
     /// The verb is quoted rather than used as one: "no person could set_value it" is not a sentence, and the
     /// caller's own spelling of an action is not necessarily the canonical one.
     /// </remarks>
-    private static string NotShowingRefusal(Control control, string verb) =>
+    // shows: as the guard read it, false or null; read once, as a second read could answer differently.
+    private static string NotShowingRefusal(Control control, string verb, bool? shows = false) =>
         $"'{Safe(() => LabelOf(control, ControlAutomationPeer.CreatePeerForElement(control)), control.GetType().Name)}' "
-        + "is not showing: it or a container is hidden, which dump_visual_tree marks \"isHidden\": true. "
-        + $"No person could reach it, so '{verb}' was refused and nothing was done.";
+        + (shows is null
+            // Refused all the same: a read that threw once counted as showing, and a hidden control was acted on (#1280).
+            ? "is not known to be showing: whether it or a container is hidden could not be read. "
+              + $"No person could be sure of reaching it, so '{verb}' was refused and nothing was done."
+            : "is not showing: it or a container is hidden, which dump_visual_tree marks \"isHidden\": true. "
+              + $"No person could reach it, so '{verb}' was refused and nothing was done.");
 
     /// <summary>
     /// The list <paramref name="item"/> belongs to, when that list holds several selected items at once.
@@ -781,6 +787,114 @@ public static class UiAutomationDriver
 
     /// <summary>What a refusal from <see cref="SelectVerified"/> says when the outcome could not be read either way.</summary>
     internal const string SelectionUnread = "select was sent, but its selection could not be read back";
+
+    // The read-backs below follow SelectVerified: an action is replied to with what was read once it returned, and one
+    // whose result cannot be read says so rather than claiming it (#1280). A state set in a later dispatcher pass is not
+    // seen. On a running form that is every state its program sets, as a VB event is raised through the program's
+    // queue, so there toggle and set_value are read once the wait for the program finds it idle (Settled).
+
+    /// <summary>Whether <paramref name="control"/> is on a running program's window, whose events run later.</summary>
+    private static bool InProgram(Control control) =>
+        TopLevel.GetTopLevel(control) is Window window && ProgramOf(window) is not null;
+
+    /// <summary>
+    /// Toggles through <paramref name="toggle"/> and replies with the state it moved to, read back; on a running form,
+    /// once its program has run (<paramref name="inProgram"/>).
+    /// </summary>
+    /// <remarks>
+    /// A toggle that did not move is still replied to as done: the control's Click ran, as a radio button's does though
+    /// a click never turns it off, so a caller told it failed would click again and run that twice.
+    /// </remarks>
+    internal static InteractOutcome ToggleVerified(IToggleProvider toggle, string label, bool radio = false, bool inProgram = false)
+    {
+        var was = Safe<ToggleState?>(() => toggle.ToggleState, null);
+        toggle.Toggle();
+        if (inProgram)
+            return Ok($"toggled '{label}'") with { Settled = () => Moved("the program") };
+        return Safe<ToggleState?>(() => toggle.ToggleState, null) is null || was is null
+            ? Err($"'{label}': toggle was sent, but its state could not be read back, so whether it moved is not known. "
+                  + "Dump it to see")
+            : Ok($"toggled '{label}'{Moved("its handler or a binding")}");
+
+        string Moved(string who) => (was, Safe<ToggleState?>(() => toggle.ToggleState, null)) switch
+        {
+            (null, _) or (_, null) => ", but whether it moved could not be read back",
+            var (from, to) when from != to => $": it is now {Words(to.Value)}",
+            (_, var to) => radio
+                ? $", and it is still {Words(to!.Value)}: a click does not turn a radio button off; select another to"
+                : $", but {who} put it back: it is still {Words(to!.Value)}",
+        };
+
+        static string Words(ToggleState state) => state switch
+        {
+            ToggleState.On => "on",
+            ToggleState.Off => "off",
+            _ => "neither on nor off",
+        };
+    }
+
+    /// <summary>
+    /// The reply to an expand or collapse sent through <paramref name="provider"/>, from its state read back. A
+    /// provider that took it partly, as a tree that opens one level, counts as expanded.
+    /// </summary>
+    internal static InteractOutcome ExpandedVerified(IExpandCollapseProvider provider, string label, bool expand)
+    {
+        var verb = expand ? "expanded" : "collapsed";
+        return Safe<ExpandCollapseState?>(() => provider.ExpandCollapseState, null) switch
+        {
+            null => Err($"'{label}': {(expand ? "expand" : "collapse")} was sent, but its state could not be read back, "
+                        + "so whether it took is not known. Dump it to see"),
+            ExpandCollapseState.Collapsed when expand => Err($"'{label}' was not expanded: it is still collapsed"),
+            ExpandCollapseState.LeafNode when expand => Err($"'{label}' was not expanded: it has nothing to show"),
+            ExpandCollapseState.Expanded or ExpandCollapseState.PartiallyExpanded when !expand =>
+                Err($"'{label}' was not collapsed: it is still expanded"),
+            _ => Ok($"{verb} '{label}'"),
+        };
+    }
+
+    /// <summary>
+    /// The reply to opening or closing a <paramref name="kind"/>, from <paramref name="isOpen"/> read back as the call
+    /// returns: a popup cancelled as it opened or closed is seen, one light-dismissed a moment later is not.
+    /// </summary>
+    internal static InteractOutcome PopupVerified(Func<bool> isOpen, bool open, string kind, string label) =>
+        Safe<bool?>(() => isOpen(), null) switch
+        {
+            null => Err($"{(open ? "open" : "close")} was sent to the {kind} on '{label}', but whether it is open could not "
+                        + "be read back. Dump it to see"),
+            var now when now == open => Ok($"{(open ? "opened" : "closed")} {kind} on '{label}'"),
+            _ => Err(open
+                ? $"the {kind} on '{label}' did not open: it was cancelled or closed as it opened"
+                : $"the {kind} on '{label}' did not close; press_key Escape closes it, as a person would"),
+        };
+
+    /// <summary>
+    /// The reply to a <c>set_value</c> of <paramref name="value"/> through <paramref name="provider"/>, from the value
+    /// read back: a control that limits or reformats what it is given holds something else (#1280). On a running form,
+    /// read once its program has run (<paramref name="inProgram"/>), whose Change event may rewrite it.
+    /// </summary>
+    internal static InteractOutcome ValueVerified(IValueProvider provider, string value, string label, bool inProgram = false)
+    {
+        if (inProgram)
+            return Ok($"set value of '{label}' to '{value}'") with
+            {
+                Settled = () => Read() switch
+                {
+                    (false, _) => ", but what it holds could not be read back",
+                    (_, var now) when (now ?? "") == value => null,
+                    (_, var now) => $", and the program then made it '{now}'",
+                },
+            };
+        return Read() switch
+        {
+            (false, _) => Err($"'{label}': set_value was sent, but its value could not be read back, so whether it took "
+                              + "is not known. Dump it to see"),
+            (_, var now) when (now ?? "") == value => Ok($"set value of '{label}' to '{value}'"),
+            (_, var now) => Err($"'{label}' did not take '{value}': it holds '{now}', as a control that limits or "
+                                + "reformats what it is given does"),
+        };
+
+        (bool Read, string? Value) Read() => Safe<(bool, string?)>(() => (true, provider.Value), (false, null));
+    }
 
     // The window's handling of its platform's close, which its title-bar button and Alt+F4 reach: a close no program
     // asked for (IsProgrammatic false, WindowCloseReason.WindowClosing), which a Yes/No or Abort/Retry/Ignore MsgBox
@@ -1348,7 +1462,18 @@ public static class UiAutomationDriver
                 ? ""
                 : $"; the program opened {string.Join(", ", state.Opened.Select(t => $"'{t}'"))}";
             if (state.Idle)
-                return opened.Length == 0 ? outcome : outcome with { Detail = outcome.Detail + $" ({opened[2..]})" };
+            {
+                // What the action left on the form, read only now that the program has run what it set off (#1280).
+                var settled = outcome.Settled is { } read
+                    ? await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(read, Avalonia.Threading.DispatcherPriority.Send)
+                        .GetTask().ConfigureAwait(false)
+                    : null;
+                return outcome with
+                {
+                    Detail = outcome.Detail + settled + (opened.Length == 0 ? "" : $" ({opened[2..]})"),
+                    Settled = null,
+                };
+            }
             // A program stopped in the debugger goes no further until it is continued, so the reply goes now.
             if (state.Stop is { } stop)
                 return outcome with
@@ -2297,7 +2422,8 @@ public static class UiAutomationDriver
     /// <summary>Why a person could not type into <paramref name="surface"/> at its caret; null when they could.</summary>
     private static string? WhyNotTypable(Control surface)
     {
-        if (Hidden(surface) is true) return "is not showing (it or a container is hidden, which dump_visual_tree marks \"isHidden\": true)";
+        if (Shows(surface) is not { } shows) return "is not known to be showing (whether it or a container is hidden could not be read)";
+        if (!shows) return "is not showing (it or a container is hidden, which dump_visual_tree marks \"isHidden\": true)";
         if (!surface.IsEffectivelyEnabled) return "is disabled";
         return surface switch
         {
@@ -2324,8 +2450,8 @@ public static class UiAutomationDriver
             // FindKeyTarget passes over what is hidden, so a hidden container, or one whose only key targets are
             // hidden, would otherwise be told it holds nothing focusable, sending the caller looking for a control
             // that isn't there. Say what is hidden instead, as type_text does.
-            if (Hidden(control) is true)
-                return new InteractOutcome(false, "keyboard", null, NotShowingRefusal(control, "press_key"));
+            if (Shows(control) is not true and var shows)
+                return new InteractOutcome(false, "keyboard", null, NotShowingRefusal(control, "press_key", shows));
             if (FindKeyTarget(control) is not { } target)
                 return new InteractOutcome(false, "keyboard", null,
                     control.GetVisualDescendants().OfType<Control>()
@@ -2336,8 +2462,8 @@ public static class UiAutomationDriver
 
             // The key is raised on the target whether or not it took focus, and Enter on a Button clicks it, so a
             // hidden one was pressed through this tool exactly as interact used to press it (#1069).
-            if (Hidden(target) is true)
-                return new InteractOutcome(false, "keyboard", null, NotShowingRefusal(target, "press_key"));
+            if (Shows(target) is not true and var targetShows)
+                return new InteractOutcome(false, "keyboard", null, NotShowingRefusal(target, "press_key", targetShows));
 
             if (AreaOf(target) is { } pressedIn
                 && EditSpan(pressedIn, parsedKey, mods) is { } span
@@ -2985,12 +3111,17 @@ public static class UiAutomationDriver
     /// effectively visible, and a hidden Command1 inside one was pressed. Either property alone is not enough: the
     /// IDE turns hit-testing off on decorations that are drawn, and fades things it still lets a person click.</para>
     /// </remarks>
-    private static bool? Hidden(Control control) =>
-        Safe(() => control.IsEffectivelyVisible
-                   && !control.GetSelfAndVisualAncestors().Any(v => v.Opacity == 0 && v is InputElement { IsHitTestVisible: false }),
-                 true)
-            ? null
-            : true;
+    private static bool? Hidden(Control control) => Shows(control) is false ? true : null;
+
+    /// <summary>
+    /// Whether <paramref name="control"/> shows, as <see cref="Hidden"/> reads it, or null when that could not be read.
+    /// The guards that refuse to act on what is hidden (#1069) refuse on null too: a read that threw once counted as
+    /// showing, so a hidden control could be acted on (#1280). A dump, which only reports, marks only what was read.
+    /// </summary>
+    private static bool? Shows(Control control) =>
+        Safe<bool?>(() => control.IsEffectivelyVisible
+                          && !control.GetSelfAndVisualAncestors().Any(v => v.Opacity == 0 && v is InputElement { IsHitTestVisible: false }),
+                    null);
 
     // Nearest control-view children: descends transparently through non-Control visuals AND structural
     // control wrappers, collecting the closest meaningful Control descendants. With firstOnly it stops at the
@@ -3342,10 +3473,15 @@ public record VmMember(string Name, string Kind, string? TypeName, bool CanWrite
 /// The second part of an action that comes in two, still to be done: a <c>click</c>'s release, which
 /// <see cref="UiAutomationDriver.FinishAsync"/> raises and whose outcome is the reply. Not part of the reply.
 /// </param>
+/// <param name="Settled">
+/// What the action left on a running form, read once the program has run what it set off: a clause for the detail, or
+/// null for none. <see cref="UiAutomationDriver.WaitForProgramAsync"/> reads it when it finds the program idle (#1280).
+/// </param>
 public record InteractOutcome(
     bool Success,
     string Mechanism,
     string? Detail,
     string? Error,
     [property: System.Text.Json.Serialization.JsonIgnore] bool Committed = false,
-    [property: System.Text.Json.Serialization.JsonIgnore] Func<InteractOutcome>? Release = null);
+    [property: System.Text.Json.Serialization.JsonIgnore] Func<InteractOutcome>? Release = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] Func<string?>? Settled = null);
