@@ -105,7 +105,6 @@ the old `docs/TODO.md` MCP section; this consolidates it.)*
 > tests therefore cover the overlay path (the composer must not draw an already-rendered popup twice) and
 > the desktop path is verified against the running IDE.
 
-
 **Symptom.** Verifying that a running form's menus render correctly, `take_snapshot` shows the menu *bar*
 but never a dropped-down menu, and `dump_visual_tree` reports every top-level `MenuItem` with
 `"children": []`. `interact` refuses both `expand` and `invoke` on a top-level `MenuItem`
@@ -156,7 +155,6 @@ half, since a popup that cannot be opened cannot be captured either.
 > gives `projectStopped: true, dialogsClosed: 0` (ending the project takes its dialog with it), and an
 > open Tools ▸ Options modal gives `projectStopped: false, dialogsClosed: 1`. `/health` stops answering
 > within a second in both cases, the process is gone, and the build that used to fail on a lock succeeds.
-
 
 **Symptom.** With a running VB6 program showing a `MsgBox`, `shutdown_ide` returned without error and the
 process stayed alive. The next `dotnet build` then failed on a file lock:
@@ -229,7 +227,6 @@ double-click action, which is the general form of the problem.
 > nothing under the target can take keyboard focus. The reply names the receiving control whenever it is
 > not the one addressed, so a no-op is attributable. Pinned by `UiAutomationDriverTests.PressKey_*`.
 
-
 **Symptom.** `press_key` against the document pane path returned `{"success":true,"detail":"pressed A"}` and
 nothing happened — for **both** a read-only form and an editable one. Taken at face value that looks like
 "read-only is working"; it is actually "the key went nowhere", and the two are indistinguishable from the
@@ -256,7 +253,6 @@ resolves to the nearest editor, and report which control actually received the e
 > that wraps it), falls back to the first focusable descendant, and FAILS rather than succeeding when
 > nothing under the target can take keyboard focus. The reply names the receiving control whenever it is
 > not the one addressed, so a no-op is attributable. Pinned by `UiAutomationDriverTests.PressKey_*`.
-
 
 **Symptom.** `press_key` reports `{"success":true,"mechanism":"keyboard","detail":"pressed F12"}` and nothing
 happens. No exception, no log line, no visible effect — indistinguishable from a feature that is bound and
@@ -323,7 +319,6 @@ that the handler is on the event's route **before** concluding anything about th
 > cannot say *which* form once a project shows more than one. An unrecognised value is named rather than
 > quietly treated as `"auto"` — a caller passing this at all wants a window the default would not give them.
 
-
 **Symptom.** While a VB6 program is *running* — including when the **interpreter is paused at a breakpoint** —
 `take_snapshot` captures the `VBFormRuntime` window, not the IDE main window (`activeDialog` reports the form).
 So the IDE's **paused-state editor** — the amber current-statement bar and the red breakpoint gutter as they
@@ -385,7 +380,6 @@ pane (Locals, Call Stack, and future Watches/data-tips).
 
 ## 15. `dump_visual_tree` showed a hidden element as though it were on screen — **CLOSED** (#341, 2026-09-08)
 
-
 > **Fixed.** A node carries `"isHidden": true` when it is in the tree but not on screen; the field is
 > absent when it is showing. `inspect_element` reports the same on a single control.
 >
@@ -411,7 +405,6 @@ pane (Locals, Call Stack, and future Watches/data-tips).
 > Its visible siblings in the same dump carry no `isHidden` at all. The entry had gone on misleading after
 > it was written, too: the same banner appeared in every dump taken while investigating #334 and was read,
 > again, as a form being held unsaveable.
-
 
 **Symptom.** The read-only banner `TextBlock` appears in the tree for a form that is *not* read-only, with
 `isOffscreen: false` and no other flag distinguishing it from a rendered element:
@@ -439,7 +432,6 @@ scroll position and clipping, and it does not answer this question. Without it t
 assert the absence of a warning, which is exactly the assertion a fidelity gate needs.
 
 ## A runtime error dialog could be missed entirely, and its text could not be read — **CLOSED** (#342, 2026-09-08)
-
 
 > **Fixed, in both halves.**
 >
@@ -491,7 +483,6 @@ only for as long as a modal is on screen.
 
 ## inspect_element listed a property but never its value — **CLOSED** (#342, 2026-09-08)
 
-
 > **Fixed.** `dataContextMembers` now carries each property's current `value` where it can be read as text.
 >
 > **Only recognised types are called at all** — strings, primitives, enums, `decimal`, the date/time types,
@@ -538,7 +529,6 @@ layout, so it does not actually enlarge the pane.
 
 ## A MenuFlyout on a toolbar Button opened blind, and its items were invisible — **CLOSED** (#343, 2026-09-08)
 
-
 > **Fixed — and the entry was wrong about why, in the direction that sends the next reader looking for the
 > wrong fix.** Corrections first, because they were measured:
 >
@@ -574,7 +564,6 @@ layout, so it does not actually enlarge the pane.
 > Not merely observable: driven end-to-end. And `MDI Form` reporting `isEnabled:false` answers the
 > Consequence's "not even *observed* to be enabled or disabled".
 
-
 **Symptom.** The Add Item toolbar button (`Standard.AddForm`) carries a `MenuFlyout` holding eight
 Add commands. None of it is reachable:
 
@@ -603,7 +592,6 @@ cannot be walked only moves the problem.
 
 ## A context menu opened but was invisible to both `take_snapshot` and `dump_visual_tree` — **CLOSED** (#343, 2026-09-08)
 
-
 > **Fixed, same cause as the MenuFlyout entry above — one parenting problem wearing two faces, exactly as
 > this entry predicted.** The Project Explorer's menu turned out to be a `MenuFlyout` on
 > **`TreeView.ContextFlyout`** (Tools/Projects/ProjectToolView.axaml:125) — not a `ContextMenu`, and not on
@@ -631,7 +619,6 @@ cannot be walked only moves the problem.
 >
 > **Still transient across calls.** Snapshot it in the call straight after opening: an intervening
 > `dump_visual_tree` was enough for it to dismiss before the picture was taken.
-
 
 **Symptom.** A context menu can be opened — and then neither tool can see it. `take_snapshot` returns the
 window with no menu in it, and `dump_visual_tree` returns the ordinary window tree with no popup root. The
@@ -681,7 +668,6 @@ target being focusable and on Avalonia's own key handling — but it is a conven
 
 ## 11. `add_control` mutated the designer but never persisted — **CLOSED** (#344, 2026-09-09)
 
-
 > **Fixed.** `add_control` now saves the form, like its sibling `set_control_property` always did. The pair
 > disagreed about whether a designer edit was durable, and the one that did **not** save is the one that
 > creates things — which is why nine controls could exist, be reported as added, and not survive a crash.
@@ -694,7 +680,6 @@ target being focusable and on Avalonia's own key handling — but it is a conven
 >
 > Measured live: `add_control(Form1, CommandButton, 40, 40, 100, 30)` → `Command0`, and the `.frm` on disk
 > carried `Begin VB.CommandButton Command0` immediately, with no further call.
-
 
 **Symptom.** Nine controls were added successfully via `add_control`; the IDE then crashed and **all of
 them were lost** — `frmOrders.frm` on disk still held only the bare form. `set_control_property` saves;
@@ -751,7 +736,6 @@ an explicit `save_form` tool so a caller can batch adds and commit once.
 >        disk: Attribute VB_Name = "Form1" survives, body is "two"
 > set …  "VERSION 5.00 / Begin VB.Form … "                       → refused; disk unchanged
 > ```
-
 
 **Symptom.** Writing a fresh body to a form removes its attribute block:
 
@@ -909,7 +893,6 @@ there under its title) before concluding that the command did nothing.
 > and refused at the same time. Those phantom tokens also kept 40 otherwise-inert nodes in the default
 > tree. With the action added and the token reported only where something would actually scroll, the
 > default tree of a fresh Standard EXE project went from 256 nodes to 198.
-
 
 **Symptom.** The Language Servers window (#259) lists every attached server, one card each, so its content
 is routinely taller than the pane. `take_snapshot` captures what is painted, and there is no way to scroll
@@ -1495,7 +1478,6 @@ The negative dwell had been clamped to 0 but was reported as given.
 > does not commit: [#625](https://github.com/hexide-io/HexIDE/issues/625), with its own entry in
 > `docs/mcp-server-gaps.md`.
 
-
 **Symptom.** `set_control_property(formName: "Form1", controlName: "Command1", property: "Name", value:
 "Command0")` answers `Property 'Name' not found on VB.CommandButton`. The same call against the form's own
 root answers `Property 'Name' not found on VB.Form`. `Name` is the first row of the Properties window and
@@ -1532,7 +1514,6 @@ the obvious verb sees success and no rename.
 > - Height `tall` → `…, but after committing it shows '300': the change was refused or rewritten…`, with the
 >   Invalid property value box open.
 > - `(Name)` `1st` → `…shows 'Form1'…`.
-
 
 **Symptom.** `interact` with `set_value` on a Properties row's `Edit` (e.g.
 `…/Pane[Properties]/Custom/Tab[TabProperties]/List[AlphabeticProperties]/Pane[PART_ScrollViewer]/ListItem[Caption]/Edit`,
@@ -2025,7 +2006,6 @@ control reports the `multiSelectItem` token that promises them. Measured with th
 now: Command0, Command2`; `invoke_format_command(command: "AlignLefts")` then moved Command2 to Command0's
 Left (120) and left Command1 at 600.
 
-
 **Symptom.** A control placed with `add_control` is created and auto-selected, but there is no way to (a) select a
 *different, existing* control, (b) delete a control, or (c) exercise undo/redo of a designer edit through MCP. The
 controls drawn on the designer canvas are **not individual nodes in `dump_visual_tree`** (the canvas paints them; the
@@ -2466,7 +2446,6 @@ than one.
 > Pinned in `InteractClickTests`. A window shown and laid out in the same dispatcher job is refused by the synchronous
 > path, as #1065 saw, and clicked by the waiting one. A zero wait gives the new refusal, and `invoke` doesn't wait at all.
 
-
 **Symptom.** (Windows 11, Debug build of #1063's branch at c69ad5b, 2026-10-14.) A running program's Form1 button
 shows Form2 modally. The click on Form2 came straight after the one that opened it, in the same turn:
 
@@ -2564,3 +2543,39 @@ node shown, with its path as `root`, a larger `maxDepth` and `interactiveOnly: f
 **Suggested fix.** At the cap, check for children without recursing and mark a node whose children were not
 walked `truncated: true`; under `interactiveOnly`, keep such a node instead of pruning it. Say so in the
 `maxDepth` and `interactiveOnly` parameter descriptions. [#953](https://github.com/hexide-io/HexIDE/issues/953).
+
+## `select` on a tree item reports success and leaves the tree's selection where it was — **CLOSED** (#714, 2026-10-20)
+
+> **Fixed.** The cause was not the one first recorded below. Avalonia 12's `TreeViewItem` peer has no
+> `ISelectionItemProvider`, so `select` always went through `TrySelectThroughOwningTree`, which set the item's
+> `IsSelected` and read that back. Avalonia turns that into `SelectedItems.Add`, and moves `SelectedItem` only
+> when nothing was selected. With a selection already there, both items were highlighted, the bound property
+> stayed put, and the read-back said yes. Any tree with a selection was affected, and `double_click` pre-selects
+> the same way, so on the Project Explorer it would have opened the node selected beforehand.
+>
+> The driver now sets the owning tree's `SelectedItem` and reads that back, as it does for a grid row. `select`
+> with a `value` now considers tree items, which it had dropped for lacking the provider, and an empty tree's
+> refusal no longer talks about dropdowns. The Options, Locals and Watches trees name their items after their
+> text, as the Project Explorer's already did, so a reply names what it selected and a path can say
+> `TreeItem[Theme]`. Guarded by `UiAutomationDriverTests`, which start from a selection already made.
+
+**Symptom (2026-10-02, during #273 task 3.15's live check).** In Tools → Options, the page tree's items each
+advertise `selectionItem`. `interact {"target":"Window/Custom/Tree/Pane/TreeItem[#0]/TreeItem[#1]","action":"select"}`
+(the Theme item) replies `{"success":true,"mechanism":"peer","detail":"selected 'TreeItem'"}`, and nothing has
+changed: `inspect_element {"target":"Window"}` still has the same `SelectedNode`, and the page beside the tree
+is still `EnvironmentGeneralPageView`. Seen on three launches. Selecting by text fails differently:
+`interact {"target":"Window/Custom/Tree","action":"select","value":"Theme"}` replies `'Tree' has no selectable
+items realized`, although `dump_visual_tree {"root":"Window/Custom/Tree/Pane/TreeItem[#0]","interactiveOnly":false,"maxDepth":4}`
+shows every item realized, with its text in a child `Text[Theme]`. The items have no automation name of their
+own, which is also why the success reply calls the item `'TreeItem'`.
+
+**Workaround.** Keyboard: `press_key {"target":"Window/Custom/Tree/Pane/TreeItem[#0]/TreeItem[#0]","key":"Down"}`
+moves from General to Theme and the page follows. A theme is then switched by `interact expand` on
+`Window/Custom/Custom/ComboBox`, `interact select` with the theme's name as `value`, and `interact invoke` on
+`Window/Custom/Button[OK]`.
+
+**Suggested fix.** `DoSelect` takes the item peer's `Select()` as done. It should read the selection back, from
+the item and from its owning tree, fall back to `TrySelectThroughOwningTree` when it did not take, and say so
+when neither did, rather than reporting a selection it never checked. Naming a tree item after its header text
+would let `select` with a `value` find it, and would let the reply name what it selected. Filed as
+[#714](https://github.com/hexide-io/HexIDE/issues/714).

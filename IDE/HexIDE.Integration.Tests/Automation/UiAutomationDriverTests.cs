@@ -6,8 +6,11 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Styling;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -701,6 +704,130 @@ public class UiAutomationDriverTests
             // Without this a handler would act on whatever was selected before — the wrong document,
             // and silently, which is the failure mode the verb exists to avoid.
             tree.SelectedItem.Should().BeSameAs(root);
+        }
+        finally { window.Close(); }
+    }
+
+    // ── #714: selecting in a tree that already has a selection ───────────────────────────────────────
+    // Every test above starts from an empty selection, the one case where setting IsSelected moved
+    // SelectedItem. With a selection already there it only added to SelectedItems, so select reported
+    // success, two nodes were highlighted, and the bound property stayed where it was.
+
+    private sealed record Page(string Title, List<Page> Children);
+
+    /// <summary>
+    /// A tree bound to data, as the Options dialog's is: items named after their title by a style, and
+    /// General already selected.
+    /// </summary>
+    private static (Window Window, TreeView Tree, Page General, Page Theme) BuildBoundTreeWindow()
+    {
+        var general = new Page("General", []);
+        var theme = new Page("Theme", []);
+        var environment = new Page("Environment", [general, theme]);
+
+        var tree = new TreeView
+        {
+            ItemsSource = new[] { environment },
+            ItemTemplate = new FuncTreeDataTemplate<Page>(
+                (p, _) => new TextBlock { Text = p.Title }, p => p.Children),
+        };
+        tree.Styles.Add(new Style(x => x.OfType<TreeViewItem>())
+        {
+            Setters =
+            {
+                new Setter(TreeViewItem.IsExpandedProperty, true),
+                new Setter(AutomationProperties.NameProperty, new Binding(nameof(Page.Title))),
+            },
+        });
+
+        var window = new Window { Content = tree, Width = 300, Height = 200 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        tree.SelectedItem = general;
+        Dispatcher.UIThread.RunJobs();
+        return (window, tree, general, theme);
+    }
+
+    private static TreeViewItem ContainerOf(TreeView tree, object data) =>
+        tree.GetVisualDescendants().OfType<TreeViewItem>().Single(i => ReferenceEquals(i.DataContext, data));
+
+    [AvaloniaFact]
+    public void Interact_Select_OnATreeNode_MovesTheSelectionFromTheNodeAlreadySelected()
+    {
+        var (window, tree, _, theme) = BuildBoundTreeWindow();
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(ContainerOf(tree, theme), "select", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            tree.SelectedItem.Should().BeSameAs(theme);
+            tree.SelectedItems.Count.Should().Be(1, "a click replaces the selection, it does not add to it");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Select_WithAValue_OnATree_SelectsTheNamedNode()
+    {
+        var (window, tree, _, theme) = BuildBoundTreeWindow();
+        try
+        {
+            // Refused before as "no selectable items realized": tree items have no ISelectionItemProvider,
+            // so the candidate filter dropped every one of them.
+            var outcome = UiAutomationDriver.Interact(tree, "select", "Theme");
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            tree.SelectedItem.Should().BeSameAs(theme);
+            tree.SelectedItems.Count.Should().Be(1);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Select_WithAValue_OnATree_NamesWhatItCouldNotFind()
+    {
+        var (window, tree, general, _) = BuildBoundTreeWindow();
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(tree, "select", "Fonts");
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("no selectable item matching 'Fonts'");
+            tree.SelectedItem.Should().BeSameAs(general);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Select_WithAValue_OnAnEmptyTree_DoesNotTalkAboutDropdowns()
+    {
+        var tree = new TreeView { Name = "Empty" };
+        var window = Show(tree);
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(tree, "select", "Theme");
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("has no items to select").And.NotContain("dropdown");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_DoubleClick_OnATreeNode_WithAnotherSelected_ActsOnTheNodeClicked()
+    {
+        var (window, tree, _, theme) = BuildBoundTreeWindow();
+        try
+        {
+            // The Project Explorer's handler opens whatever is selected. Before #714 it would have opened
+            // the node selected beforehand, since the pre-select never moved SelectedItem.
+            object? selectedWhenHandled = null;
+            tree.DoubleTapped += (_, _) => selectedWhenHandled = tree.SelectedItem;
+
+            var outcome = UiAutomationDriver.Interact(ContainerOf(tree, theme), "double_click", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            selectedWhenHandled.Should().BeSameAs(theme);
         }
         finally { window.Close(); }
     }

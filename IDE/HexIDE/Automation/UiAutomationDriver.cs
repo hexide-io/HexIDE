@@ -668,7 +668,9 @@ public static class UiAutomationDriver
                            + " Make it show first, as a person would, for instance by expanding what holds it");
         }
         if (candidates.Count == 0)
-            return Err($"'{LabelOf(control, peer)}' has no selectable items realized — if it's a dropdown, 'expand' it first, then dump_visual_tree to read the item text");
+            return Err(control is TreeView
+                ? $"'{LabelOf(control, peer)}' has no items to select"
+                : $"'{LabelOf(control, peer)}' has no selectable items realized — if it's a dropdown, 'expand' it first, then dump_visual_tree to read the item text");
 
         var (matches, facet) = MatchByDiscriminator(candidates, value);
         var broughtIntoView = false;
@@ -733,22 +735,6 @@ public static class UiAutomationDriver
         return ([], "", false);
     }
 
-    /// <summary>
-    /// Selects a <see cref="DataGridRow"/> the only way there is: through the grid that owns it.
-    /// </summary>
-    /// <remarks>
-    /// <b>A DataGridRow's automation peer exposes no providers at all</b>, so <c>select</c> refused on
-    /// every grid row in the IDE and there was no second route: the reflection actions set a VM property
-    /// by name and coerce from a string, and a selected row is an object no string names. That left the
-    /// protocol inspector's central gesture — click a row, read its body — undrivable, and a UI surface an
-    /// automation client can read but not operate is not a surface.
-    ///
-    /// <para>
-    /// The grid is found by walking up rather than through <c>DataGridRow.OwningGrid</c>, which is
-    /// internal. Setting <c>SelectedItem</c> is what a click does; the return value is read back rather
-    /// than assumed, because a grid in single-selection mode can decline.
-    /// </para>
-    /// </remarks>
     /// <summary>
     /// Double-clicks a control: raises <c>DoubleTapped</c>, which bubbles the way a real one does.
     /// </summary>
@@ -1273,18 +1259,43 @@ public static class UiAutomationDriver
     }
 
     /// <summary>
-    /// Selects a <see cref="TreeViewItem"/>. Setting <c>IsSelected</c> is what the tree itself does; the
-    /// owning <see cref="TreeView"/> reflects it into <c>SelectedItem</c>, which is what a view model is
-    /// bound to and therefore what a caller is actually trying to change.
+    /// Selects a <see cref="TreeViewItem"/> through the tree that owns it, as a click does, and reads the
+    /// tree's <c>SelectedItem</c> back.
     /// </summary>
+    /// <remarks>
+    /// <c>SelectedItem</c> is what a view model is bound to, so it is what a caller is trying to change.
+    /// Setting <c>item.IsSelected</c> instead looked right and was not: Avalonia adds the item to
+    /// <c>SelectedItems</c> and moves <c>SelectedItem</c> only when nothing was selected, so with a
+    /// selection already there, both items were highlighted, the bound property stayed put, and the item's
+    /// own <c>IsSelected</c> read back true (#714). The item's peer offers no
+    /// <see cref="ISelectionItemProvider"/>, so this is the only route.
+    /// </remarks>
     private static bool TrySelectThroughOwningTree(Control control)
     {
         if (control is not TreeViewItem item) return false;
+        if (item.FindAncestorOfType<TreeView>() is not { } tree) return false;
+        if (tree.TreeItemFromContainer(item) is not { } data) return false;
 
-        item.IsSelected = true;
-        return item.IsSelected;
+        tree.SelectedItem = data;
+        return ReferenceEquals(tree.SelectedItem, data);
     }
 
+    /// <summary>
+    /// Selects a <see cref="DataGridRow"/> the only way there is: through the grid that owns it.
+    /// </summary>
+    /// <remarks>
+    /// <b>A DataGridRow's automation peer exposes no providers at all</b>, so <c>select</c> refused on
+    /// every grid row in the IDE and there was no second route: the reflection actions set a VM property
+    /// by name and coerce from a string, and a selected row is an object no string names. That left the
+    /// protocol inspector's central gesture — click a row, read its body — undrivable, and a UI surface an
+    /// automation client can read but not operate is not a surface.
+    ///
+    /// <para>
+    /// The grid is found by walking up rather than through <c>DataGridRow.OwningGrid</c>, which is
+    /// internal. Setting <c>SelectedItem</c> is what a click does; the return value is read back rather
+    /// than assumed, because a grid in single-selection mode can decline.
+    /// </para>
+    /// </remarks>
     private static bool TrySelectThroughOwningGrid(Control control)
     {
         if (control is not DataGridRow row) return false;
@@ -1296,7 +1307,8 @@ public static class UiAutomationDriver
     }
 
     // Realized selectable items reachable from a container: the container itself if it exposes
-    // ISelectionItemProvider, plus every descendant that does.
+    // ISelectionItemProvider, plus every descendant that does. Grid rows and tree items expose none, and are
+    // selected through their owner, so they count too, as DescribeProviders already advertises.
     private static List<MeaningfulChild> SelectableCandidates(Control container)
     {
         var result = new List<MeaningfulChild>();
@@ -1304,7 +1316,7 @@ public static class UiAutomationDriver
         {
             var info = Classify(c);
             if (info.Peer is not null
-                && (info.Peer.GetProvider<ISelectionItemProvider>() is not null || c is DataGridRow))
+                && (info.Peer.GetProvider<ISelectionItemProvider>() is not null || c is DataGridRow or TreeViewItem))
             {
                 result.Add(new MeaningfulChild(c, info));
             }
