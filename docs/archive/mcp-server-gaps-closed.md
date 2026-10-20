@@ -3810,23 +3810,40 @@ window had focus, as that decides the dialog's owner.
 
 ## `interact` reported actions done without reading them back, and acted where visibility could not be read (#1280)
 
-`select` read its result back (#1182, #1259), but `toggle`, `expand` and `collapse` through a provider, opening and
-closing a context menu or flyout, and `set_value` replied that they had acted without reading anything. A CheckBox
-whose handler put the tick back was replied to as toggled, and a TextBox that reformatted the value as set to what was
-sent. The guard that refuses to act on a hidden control (#1069) read visibility through a fallback of "shown", so a read
-that threw let a hidden control be acted on.
+`select` read its result back (#1182, #1259), but these replied that they had acted without reading anything:
+- `toggle`;
+- `expand` and `collapse` through a provider;
+- opening and closing a context menu or flyout;
+- `set_value`.
 
-> **Fixed.** Each of these now reads its state once the action returns, and replies with what it found:
-> - `toggle` says the state it moved to, and is refused when the state did not move;
-> - `expand` and `collapse` are refused when the state read back is not the one asked for;
-> - a context menu or flyout that did not open, or closed at once, or did not close, is refused;
-> - `set_value` is refused with what the control holds when that is not the value sent.
+A TextBox that reformatted the value was replied to as set to what was sent. The guard that refuses to act on a hidden
+control (#1069) read visibility with a fallback of "shown", so a read that threw let a hidden control be acted on.
+
+> **Fixed.** Each of these now reads its state back and replies with what it found:
+> - `toggle` says the state it moved to. One that did not move is still replied to as done, saying why: a click does
+>   not turn a radio button off, or a handler or binding put it back. The control's Click ran, and a caller told
+>   otherwise would click again and run it twice.
+> - `expand` and `collapse` are refused when the state read back is not the one asked for.
+> - A context menu or flyout cancelled as it opened, or one that did not close, is refused. One light-dismissed a
+>   moment later is not seen.
+> - `set_value` on an unbound control is refused with what the control holds, when that is not the value sent.
+>   - A bound box is not judged here. Its source may convert the value and push the result back at once, so `" 90"`
+>     reads `"90"`, taken. `RefusedCommit` says whether the source kept it, as before.
+>
+> On a running form, the program's events run later, through its queue. There `toggle` and `set_value` are read once
+> the wait for the program finds it idle, as a close is: "set value of 'Edit' to 'abc', and the program then made it
+> 'ABC'". When the wait comes back early, its own note says the form may still change.
 >
 > Where nothing can be read, the reply says the outcome is not known, as `select` does. Visibility that cannot be read
-> refuses the action, naming the control, in `interact`, `type_text` and `press_key`; a dump, which only reports, marks
-> only what was read. A state that changes in a later dispatcher pass, as `TextChanged` does, is not seen. `IsEnabled`
-> in a dump still reads as enabled when it cannot be read, as the issue's lower item; actions are not affected.
+> refuses the action, naming the control, in `interact`, `type_text` and `press_key`. A dump, which only reports, marks
+> only what was read, and `IsEnabled` in a dump still reads as enabled when it cannot be read; actions are not affected.
 >
 > Measured on Windows through the server's HTTP endpoint: toggling a checkbox in Options replied `it is now off`, then
-> `it is now on`. Guarded by `ReadBackTests`, real controls that put their state back, and providers that cannot be
-> read.
+> `it is now on`. The review's live probe confirmed the IDE's own surfaces read back as done:
+> - toolbar and Project Explorer flyouts;
+> - the shared TextBox flyout;
+> - the ObjectSelector ComboBox;
+> - tree chevrons;
+> - the Options checkboxes.
+>
+> Guarded by `ReadBackTests` and `ProgramWaitTests`.

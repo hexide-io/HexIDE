@@ -349,6 +349,27 @@ public class ProgramWaitTests
                                    + "runs on, and the form may change, once the program continues)");
     }
 
+    // A VB event runs through the program's queue, after interact returns, so what its Change handler makes of the
+    // value is read once the wait finds the program idle; read at once, the reply named a value already rewritten (#1280).
+    [AvaloniaFact]
+    public async Task A_value_the_program_rewrites_is_read_once_it_has_run()
+    {
+        using var run = Start("""
+            Private Sub Text1_Change()
+                If Text1.Text <> UCase(Text1.Text) Then Text1.Text = UCase(Text1.Text)
+            End Sub
+            """);
+        var watch = run.Watch();
+        var outcome = UiAutomationDriver.Interact(run.Named("Text1"), "set_value", "abc");
+        outcome.Settled.Should().NotBeNull("a running form's value is read once its program has run");
+
+        outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Be("set value of 'Edit' to 'abc', and the program then made it 'ABC'");
+        run.Text.Should().Be("ABC");
+    }
+
     [AvaloniaFact]
     public async Task A_compile_error_from_a_click_is_named_though_it_leaves_the_program_idle()
     {

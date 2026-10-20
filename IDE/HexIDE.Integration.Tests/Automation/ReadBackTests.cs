@@ -37,15 +37,61 @@ public class ReadBackTests
     }
 
     [AvaloniaFact]
-    public void A_toggle_the_control_put_back_is_refused_as_not_taken()
+    public void A_toggle_the_control_put_back_is_done_and_says_it_was_put_back()
     {
         var box = Shown(new CheckBox { Name = "Wrap", Content = "Wrap" });
         box.IsCheckedChanged += (_, _) => { if (box.IsChecked == true) box.IsChecked = false; };
 
         var outcome = UiAutomationDriver.Interact(box, "toggle", null);
 
-        outcome.Success.Should().BeFalse();
-        outcome.Error.Should().Be("'Wrap' was not toggled: it is still off");
+        // Done all the same: its Click ran, and a caller told otherwise would click again and run it twice.
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Be("toggled 'Wrap', but its handler or a binding put it back: it is still off");
+    }
+
+    [AvaloniaFact]
+    public void A_toggle_on_a_radio_button_already_on_is_done_and_says_a_click_leaves_it_on()
+    {
+        var radio = Shown(new RadioButton { Name = "Public", Content = "Public", IsChecked = true });
+
+        var outcome = UiAutomationDriver.Interact(radio, "toggle", null);
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Be("toggled 'Public', and it is still on: a click does not turn a radio button off; "
+                                   + "select another to");
+    }
+
+    [AvaloniaFact]
+    public void A_toggle_whose_state_before_cannot_be_read_says_whether_it_moved_is_not_known()
+    {
+        var toggle = Substitute.For<IToggleProvider>();
+        toggle.ToggleState.Returns(_ => throw new InvalidOperationException("not yet"), _ => ToggleState.On);
+
+        UiAutomationDriver.ToggleVerified(toggle, "Wrap").Error.Should()
+            .StartWith("'Wrap': toggle was sent, but its state could not be read back");
+    }
+
+    // The source converts what it is given and pushes the result back at once, so " 90" reads back "90", taken; the
+    // review saw it refused, with the change made and on the undo stack. Whether the source kept it is RefusedCommit's.
+    [AvaloniaFact]
+    public void A_bound_box_whose_source_reformats_the_value_is_not_refused()
+    {
+        var model = new GridModel();
+        var box = Shown(new TextBox { Name = "Grid", DataContext = model });
+        box.Bind(TextBox.TextProperty, new Avalonia.Data.Binding(nameof(GridModel.Width))
+            { Mode = Avalonia.Data.BindingMode.TwoWay, UpdateSourceTrigger = Avalonia.Data.UpdateSourceTrigger.LostFocus });
+        Dispatcher.UIThread.RunJobs();
+
+        var outcome = UiAutomationDriver.Interact(box, "set_value", " 90");
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Committed.Should().BeTrue();
+        model.Width.Should().Be(90);
+    }
+
+    private sealed class GridModel
+    {
+        public int Width { get; set; } = 120;
     }
 
     [AvaloniaFact]
@@ -141,7 +187,7 @@ public class ReadBackTests
         var outcome = UiAutomationDriver.PopupVerified(() => throw new InvalidOperationException("gone"), true, "flyout", "Add");
 
         outcome.Success.Should().BeFalse();
-        outcome.Error.Should().StartWith("the flyout on 'Add' was opened, but whether it is open could not be read back");
+        outcome.Error.Should().StartWith("open was sent to the flyout on 'Add', but whether it is open could not be read back");
     }
 
     [AvaloniaFact]
@@ -177,13 +223,13 @@ public class ReadBackTests
         var provider = Substitute.For<IValueProvider>();
         provider.Value.Returns(_ => throw new InvalidOperationException("peer gone"));
 
-        var outcome = UiAutomationDriver.ValueVerified(provider, "abc", "Code", "");
+        var outcome = UiAutomationDriver.ValueVerified(provider, "abc", "Code");
 
         outcome.Success.Should().BeFalse();
         outcome.Error.Should().StartWith("'Code': set_value was sent, but its value could not be read back");
     }
 
-    // Read off the UI thread, every property of the control throws, as a read of a control being torn down can.
+    // Read off the UI thread, every property of the control throws: the one way the test host has to make the read fail.
     [AvaloniaFact]
     public async Task A_control_whose_visibility_cannot_be_read_is_not_acted_on()
     {
