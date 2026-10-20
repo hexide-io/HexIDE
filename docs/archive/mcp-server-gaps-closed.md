@@ -3394,10 +3394,15 @@ the write did not use the answer.
 note, naming why (the document already had a file) and that `clear_file_dialog_answers` discards it.
 [#810](https://github.com/hexide-io/HexIDE/issues/810).
 
-> **Fixed.** `set_file_content`, `set_control_property` and `add_control` say so when their save took no armed
-> answer and one is still pending, in the note on success and in the error otherwise: that the save needed no
-> picker because the document already has a file, or stopped before its picker opened; that the next file dialog
-> to open will take it, whatever it is for; and that `clear_file_dialog_answers` discards it. A save that took an
-> answer says nothing of others armed after it, which are a later save's. `answer_next_file_dialog`'s description
-> says the write tools report it. Guarded by `ScriptedFileDialogsTests`, which also checks that every tool that
-> saves through an armed answer reads the sentence; that each of its reply paths carries it is by reading.
+> **Fixed.** `set_file_content`, `set_control_property` and `add_control` say so when answers armed before the call
+> are still pending after their save and it took none: in the note on success, and in the error when the save
+> failed. The sentence states what happened, not what the answer was for, since a caller may have armed it for a
+> later step: how many are pending, that the save opened no picker because the document already has a file, or
+> stopped before its picker opened, that the next dialogs will take them, and that `clear_file_dialog_answers`
+> discards them if they were armed for this save. Answers are numbered as they are armed, so one armed while the
+> save ran is not put down to it. A refusal before the save, such as a name not found, leaves the answer for the
+> retry and says nothing. Not covered: a save reached through a menu, by `invoke_menu_item` or `interact`, which
+> does not wait for the save to finish; `answer_next_file_dialog`'s description says so and points to
+> `clear_file_dialog_answers`. For a document without a file, an answer a dialog elsewhere takes while the save runs,
+> as a running program's can, reads as the save's. Guarded by `ScriptedFileDialogsTests`, which also checks that
+> every reply a saving tool builds after its save goes through the sentence.
