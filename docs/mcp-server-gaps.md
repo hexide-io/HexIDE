@@ -393,53 +393,6 @@ reachable mid-session, or have the launcher expose a readiness signal the client
 client's to do. The advice it ended with, to start the IDE *after* the session, is superseded: `/mcp`
 reconnect attaches either way.
 
-## A collapsed ComboBox reports only its selected item, which reads as "the item is missing"
-
-**Symptom.** `inspect_element` on a closed dropdown returns a `selectionItems` array containing just the
-current selection:
-
-```
-"selectionItems": ["Form1"],
-"value": "Form1"
-```
-
-The control had two items. `expand` then `dump_visual_tree` shows both:
-
-```
-ComboBoxItem[Sub Main]
-ComboBoxItem[Form1]
-```
-
-**How it bit.** Verifying that `Sub Main` had been added to the Project Properties → Startup Object list
-(#210). The inspection said the list held only `Form1`, which is exactly what a change that had failed to
-take effect would look like — and the build had just been rebuilt and relaunched, so "the binary is stale"
-was the obvious next hypothesis. The feature was working the whole time.
-
-`interact(action: "select")` is honest about this — it fails with *"has no selectable items realized — if
-it's a dropdown, 'expand' it first"* — and `dump_visual_tree`'s own description warns that virtualized
-dropdown items are not addressable until realized. `inspect_element` carries no such warning and reports a
-plausible-looking array instead of an empty one, which is the part that misleads.
-
-**Workaround.** Never read `selectionItems` from a collapsed dropdown as the item list. `expand` first,
-then `dump_visual_tree(root=<combo>)` and read the `ComboBoxItem` children. Expand again immediately before
-`select` if the popup has closed. Since #907, `select` closes the dropdown as a click does, and its reply says so.
-
-**Corrected 2026-10-20: `selectionItems` is the selection, not a partial list of items.** Read in code at 4789f9a,
-not run. `inspect_element` fills it from the selection provider's `GetSelection()` (`UiAutomationDriver.Inspect`), as
-it has since the first commit, so it holds what is selected whether the dropdown is open or closed: Avalonia
-12.0.4's ComboBox peer reports a closed box's selected item through a stand-in peer (`UnrealizedSelectionPeer`, read
-by reflection). `["Form1"]` was the right answer to another question. What misled is that the name reads as the
-list's items and nothing in the reply says how many items there are, so the fix first suggested below aims at a
-mechanism that is not there.
-
-**Suggested fix, as first written.** Either omit `selectionItems` when the items are unrealized, or mark it — an
-`itemsRealized: false` alongside it would be enough. A partial list that looks complete is worse than no
-list, because it supports a confident wrong conclusion; an empty array with a flag supports none.
-
-**Suggested fix.** Say in `inspect_element`'s description that `selectionItems` is what is selected, not the list,
-and report an `itemCount` for a list or dropdown, which counts its items whether or not they are realized.
-[#1263](https://github.com/hexide-io/HexIDE/issues/1263).
-
 ## shutdown_ide can kill the MCP server and leave the IDE running
 
 **Symptom.** `shutdown_ide` replied `Unable to connect. Is the computer able to access the url?`. The
@@ -789,7 +742,7 @@ interact {"target":"Window/.../List[ControlsContainer]/ListItem[Command1]","acti
 
 Only the next `invoke_format_command` reply, "…, aligned to Command0", named the reference, the control every
 Align and Make Same command measures against. A snapshot between the two showed Command0 with the solid handles.
-The reply lists the selection in index order, as does `inspect_element`'s `selection`, so no read names the
+The reply lists the selection in index order, as does `inspect_element`'s `selectionItems`, so no read names the
 reference before a command runs, which the form-designer spec requires of the designer. The same goes for
 `remove_from_selection`. Cross-platform by code reading.
 
