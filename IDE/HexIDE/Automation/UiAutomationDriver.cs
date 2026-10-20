@@ -2360,7 +2360,7 @@ public static class UiAutomationDriver
             return new InteractOutcome(false, mechanism, null,
                 $"{tool} refused: the selection from offset {span.Offset} to {span.Offset + span.Length} reaches into the "
               + "file's header or a member's Attribute lines, which only the IDE changes (the designer, a save, a "
-              + "rename), and it writes over the whole selection. Nothing was written. Select less, or collapse the "
+              + "rename), and it writes over the whole selection. " + (written ?? "Nothing was written.") + " Select less, or collapse the "
               + "selection (press_key Left or Right) and write at the caret. Offsets count from the start of the file, "
               + "in the text get_file_content returns.");
         return new InteractOutcome(false, mechanism, null,
