@@ -2013,7 +2013,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         + "the open windows listed, each form by its name and title: the name is the stable handle.";
 
     [McpServerTool(Name = "dump_visual_tree")]
-    [Description("Walks the live control tree of the active window (a visible modal dialog is preferred over the main window) and returns a structured node tree for discovering and addressing controls. Uses the UIA 'control view': structural layout wrappers (Panels, Borders, ContentPresenters, dock plumbing) are collapsed away, so the tree is shallow and paths are short. Each node carries its addressing 'path' (feed it back as a target), automation ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers, and enabled/offscreen flags. The provider tokens, and the interact action each one is driven with: invoke → invoke, selection and selectionItem → select, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse, rangeValue → set_range_value, scroll → scroll. A token is reported only where the action would do something, so a list that fits its viewport does not report scroll and a progress bar does not report rangeValue. A name that would only be a .NET type, such as an icon button's 'Avalonia.Controls.Shapes.Path', is not reported as a name or used in a path; the node carries it as 'typeNameAsName' instead, which marks a control with no usable name. Use this to find what is on screen before inspect_element or interact. A node carries 'isHidden': true when it is in the tree but NOT on screen (an effectively-invisible control, e.g. a collapsed banner); the field is absent when the node is showing. Presence in the tree never meant visible — check this before asserting that a banner, warning or overlay is displayed, and note it answers a different question from 'isOffscreen', which is about clipping and scroll position. Scope a large dump with 'root', and see 'maxDepth' and 'interactiveOnly' for what it keeps and when a node is 'truncated'. While a VB6 program runs or is paused the frontmost window is its form: pass 'window' \"ide\" to walk the IDE.")]
+    [Description("Walks the live control tree of the active window (a visible modal dialog is preferred over the main window) and returns a structured node tree for discovering and addressing controls. Uses the UIA 'control view': structural layout wrappers (Panels, Borders, ContentPresenters, dock plumbing) are collapsed away, so the tree is shallow and paths are short. Each node carries its addressing 'path' (feed it back as a target), automation ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers, and enabled/offscreen flags. The provider tokens, and the interact action each one is driven with: invoke → invoke, selection and selectionItem → select, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse, rangeValue → set_range_value, scroll → scroll. A token is reported only where the action would do something, so a list that fits its viewport does not report scroll and a progress bar does not report rangeValue. A name that would only be a .NET type, such as an icon button's 'Avalonia.Controls.Shapes.Path', is not reported as a name or used in a path; the node carries it as 'typeNameAsName' instead, which marks a control with no usable name. Use this to find what is on screen before inspect_element or interact. A node carries 'isHidden': true when it is in the tree but NOT on screen (an effectively-invisible control, e.g. a collapsed banner); the field is absent when the node is showing. Presence in the tree never meant visible — check this before asserting that a banner, warning or overlay is displayed, and note it answers a different question from 'isOffscreen', which is about clipping and scroll position. Scope a large dump with 'root', or find nodes with 'match'; see 'maxDepth' and 'interactiveOnly' for what it keeps and when a node is 'truncated'. While a VB6 program runs or is paused the frontmost window is its form: pass 'window' \"ide\" to walk the IDE.")]
     public async Task<VisualTreeResult> DumpVisualTreeAsync(
         [Description("A path to dump only that subtree; omit for the whole window. For deeply nested or large areas, "
                      + "scope the dump this way.")]
@@ -2032,12 +2032,21 @@ internal sealed class HexIdeTools(IdeContext ctx)
         bool interactiveOnly = true,
         [Description(WindowParameter)]
         string? window = null,
+        [Description("Text to find instead of the tree: returns, as 'matches', the nodes whose Name, AutomationId, ClassName "
+                     + "or ControlType contains it, ignoring case, or whose DataContext type does where that type starts "
+                     + "(not on every node below that inherits it); each with its path and without its subtree, up to "
+                     + "50. Use it to find a path to start from, as 'TextEditor' finds each code editor and "
+                     + "'PropertiesTool' the Properties window. Every node is searched, interactive or not, to "
+                     + "'maxDepth' below 'root'; the reply's 'note' says how many matched and what was not searched.")]
+        string? match = null,
         CancellationToken ct = default)
     {
         // Below 1 the start node itself is the cut-off, so it comes back truncated with nothing walked, and the
         // advice to dump again from its path would give the same reply forever.
         if (maxDepth < 1)
             return new VisualTreeResult($"maxDepth must be at least 1; it was {maxDepth}", null, null);
+        if (match is not null && string.IsNullOrWhiteSpace(match))
+            return new VisualTreeResult("'match' is empty, which every node would match; omit it for the whole tree.", null, null);
 
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -2056,9 +2065,33 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 basePath = root;
             }
 
-            var node = UiAutomationDriver.Dump(start, basePath, maxDepth, interactiveOnly);
-            return new VisualTreeResult(null, label, node);
+            if (match is null)
+                return new VisualTreeResult(null, label, UiAutomationDriver.Dump(start, basePath, maxDepth, interactiveOnly));
+
+            // Every node, interactive or not: a Label or a pane is as much an answer as a button.
+            var (matches, total, unsearched) = UiAutomationDriver.Find(
+                UiAutomationDriver.Dump(start, basePath, maxDepth, interactiveOnly: false), match, MatchLimit);
+            return new VisualTreeResult(null, label, null, [.. matches], MatchNote(match, total, unsearched));
         });
+    }
+
+    // Enough to choose from; past it the caller is told to narrow the text or the root, not handed the whole tree again.
+    private const int MatchLimit = 50;
+
+    private static string MatchNote(string match, int total, int unsearched)
+    {
+        var note = total switch
+        {
+            0 => $"Nothing matches '{match}'. Name, AutomationId, ClassName, the DataContext type and the ControlType are "
+                 + "searched, as text that contains it, ignoring case.",
+            1 => $"1 node matches '{match}'.",
+            _ when total > MatchLimit => $"{total} nodes match '{match}'; the first {MatchLimit}, in tree order, are listed. "
+                                         + "Narrow 'match', or scope with 'root'.",
+            _ => $"{total} nodes match '{match}'.",
+        };
+        return unsearched == 0 ? note
+            : note + $" {unsearched} {(unsearched == 1 ? "branch" : "branches")} stopped at maxDepth and {(unsearched == 1 ? "was" : "were")} "
+              + "not searched: raise maxDepth, or search again from a truncated node's path as 'root'.";
     }
 
     [McpServerTool(Name = "inspect_element")]
@@ -2998,6 +3031,6 @@ internal record RuntimeErrorResult(bool Raised, string? Message, string? At, int
 /// <param name="Pending">How many answers are still armed, so a stale one is visible rather than latent.</param>
 internal record FileDialogAnsweredResult(bool Success, string? Path, int Pending, string Note);
 
-internal record VisualTreeResult(string? Error, string? Window, UiNode? Root);
+internal record VisualTreeResult(string? Error, string? Window, UiNode? Root, UiNode[]? Matches = null, string? Note = null);
 
 internal record InspectResult(string? Error, string? Window, UiNodeDetail? Element);

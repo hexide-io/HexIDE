@@ -633,23 +633,6 @@ that change.
 document is written, or keep new documents unsaved on purpose and say so in `get_file_content`'s
 description.
 
-## A whole-window `dump_visual_tree` overflows the caller's output limit
-
-**Symptom (2026-09-25).** `dump_visual_tree {"maxDepth":12}` with an IDE showing three document tabs and
-the usual tool windows returned 58,264 characters. That is over the client's limit, so it was written to a
-file instead of being returned. The only way to find the code editor's path was to parse that file outside
-the tool. The description does say to scope a large dump with `root`, but a first-time caller does not yet
-know any path to scope it with.
-
-**Workaround.** Since #953, walk down instead: dump the whole window with a small `maxDepth` (3 or 4), then dump
-again with a node's path as `root` wherever it carries `"truncated": true`. Each step stays small, and a cut-off
-subtree is marked rather than silently dropped. Dumping once to a file and extracting paths with a script still
-works when a question needs the whole tree at once.
-
-**Suggested fix.** A filter on class name, view-model type or name, returning matching nodes with their
-paths and no subtrees. This is the question a first call usually asks: where is the code editor? Filed as
-[#699](https://github.com/hexide-io/HexIDE/issues/699).
-
 ## The code window's gutters are not in the control tree, so a gutter click cannot be driven
 
 **Symptom (2026-10-01, during #273 task 3.12's live check).**

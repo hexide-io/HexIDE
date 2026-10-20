@@ -38,6 +38,41 @@ public static class UiAutomationDriver
 {
     // ── discovery ─────────────────────────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// The nodes of <paramref name="tree"/> that answer to <paramref name="match"/>, each without its subtree, the first
+    /// <paramref name="limit"/> in tree order; with how many answer in all, and how many nodes the walk cut off at its
+    /// depth, whose subtrees were not searched. A node answers when its Name, AutomationId, ClassName, DataContext type or
+    /// ControlType contains the text, ignoring case, and by its DataContext type only where that differs from its parent's:
+    /// the question a first call asks, such as where the code editor is, before it has a path to scope a dump with (#699).
+    /// </summary>
+    public static (List<UiNode> Matches, int Total, int Unsearched) Find(UiNode tree, string match, int limit)
+    {
+        var matches = new List<UiNode>();
+        int total = 0, unsearched = 0;
+        var pending = new Stack<(UiNode Node, string? Inherited)>([(tree, null)]);
+        while (pending.TryPop(out var at))
+        {
+            var (node, inherited) = at;
+            if (Answers(node, match, inherited) && total++ < limit)
+                matches.Add(node with { Children = [] });
+            if (node.Truncated == true)
+                unsearched++;
+            for (var i = node.Children.Length - 1; i >= 0; i--)
+                pending.Push((node.Children[i], node.DataContextType));
+        }
+        return (matches, total, unsearched);
+    }
+
+    // By its DataContext type only where that context starts: every node below a view inherits it, and the Properties
+    // window's scroll bar parts all answered to 'Properties' with it.
+    private static bool Answers(UiNode node, string match, string? inherited) =>
+        new[]
+            {
+                node.Name, node.AutomationId, node.ClassName, node.ControlType, node.TypeNameAsName,
+                node.DataContextType == inherited ? null : node.DataContextType,
+            }
+            .Any(f => f?.Contains(match, StringComparison.OrdinalIgnoreCase) == true);
+
     /// <summary>Builds the control-view node tree rooted at <paramref name="root"/>. <paramref name="basePath"/>
     /// is the path of the root node (e.g. "Window", or a resolved subtree path) so emitted child paths
     /// round-trip.</summary>
