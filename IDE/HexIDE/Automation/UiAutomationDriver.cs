@@ -1994,6 +1994,110 @@ public static class UiAutomationDriver
     /// <summary>What <see cref="TypeText"/> reports as its mechanism: an edit through the control's own API.</summary>
     public const string TypedMechanism = "document";
 
+    /// <summary>
+    /// Types <paramref name="text"/> as a person does, a key at a time (#943): KeyDown, TextInput and KeyUp for each
+    /// character, and Enter and Tab as the keys, so what typing drives runs: the completion list that opens on a
+    /// letter and filters as it goes, parameter info on <c>(</c> and <c>,</c>, the list closing on a character that
+    /// cannot be part of a name, auto-indent and the block a line break closes. Each key goes in its own turn of the
+    /// dispatcher, after what the one before set off at a higher priority, as a person's keys arrive.
+    /// </summary>
+    /// <remarks>
+    /// A key the code window would refuse, in the header or a member's Attribute lines, stops the typing there and
+    /// says how much went in, where a person's key would be dropped without a word.
+    /// </remarks>
+    public static async Task<InteractOutcome> TypeKeysAsync(Control control, string text, string? controlPath = null)
+    {
+        if (FindTextSurface(control) is not { } surface)
+            return new InteractOutcome(false, KeyboardMechanism, null,
+                $"'{control.GetType().Name}' has no text surface (TextEditor/TextArea/TextBox) to type into");
+        var address = ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface);
+        var keys = KeysOf(text);
+        var target = surface is TextEditor editor ? editor.TextArea : surface;
+
+        // Judged before each key, as the caret moves: a refused key stops the rest, which would land elsewhere. The code
+        // window's check is the more specific, so it runs ahead of WhyNotTypable for the first key, as type_text's does.
+        InteractOutcome? Refused(int i)
+        {
+            if (AreaOf(target) is not { } area)
+                return null;
+            var (key, mods, _) = keys[i];
+            var span = EditSpan(area, key, mods) ?? (area.Selection.IsEmpty
+                ? new EditedSpan(area.Caret.Offset, 0, Deletes: false)
+                : new EditedSpan(area.Selection.SurroundingSegment.Offset, area.Selection.SurroundingSegment.Length, Deletes: false));
+            if (RefusedInReadOnlyRegion(area, span, "type_text", KeyboardMechanism) is not { Error: { } why } refused)
+                return null;
+            return i == 0 ? refused : refused with
+            {
+                Error = why.Replace("Nothing was written.",
+                    $"Key {i + 1} of {keys.Count} wrote nothing, and the rest were not sent; the {i} before it went in."),
+            };
+        }
+
+        if (keys.Count > 0 && Refused(0) is { } first)
+            return first;
+        if (WhyNotTypable(surface) is { } refusal)
+            return new InteractOutcome(false, KeyboardMechanism, null,
+                $"{surface.GetType().Name}{address} {refusal}, so a person could not type there either; nothing was typed");
+
+        target.Focus();
+        for (var i = 0; i < keys.Count; i++)
+        {
+            if (i > 0 && Refused(i) is { } refused)
+                return refused;
+            var (key, mods, typed) = keys[i];
+            try
+            {
+                if (key != Key.None)
+                    target.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = key, KeyModifiers = mods });
+                if (typed is not null)
+                    target.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = typed });
+                if (key != Key.None)
+                    target.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyUpEvent, Key = key, KeyModifiers = mods });
+            }
+            catch (Exception ex)
+            {
+                return new InteractOutcome(false, KeyboardMechanism, null,
+                    $"type_text threw on key {i + 1} of {keys.Count}: {ex.Message}");
+            }
+            // The next key in a turn of its own, once what this one queued ahead of input has run.
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => { }, Avalonia.Threading.DispatcherPriority.Input);
+        }
+        var caret = AreaOf(target) is { } typedInto ? $"; the caret is at offset {typedInto.Caret.Offset}" : "";
+        return new InteractOutcome(true, KeyboardMechanism,
+            $"typed {keys.Count} key(s) into {surface.GetType().Name}{address} as a person types them{caret}", null);
+    }
+
+    /// <summary>What <see cref="TypeKeysAsync"/> reports as its mechanism: key events, as a keyboard sends them.</summary>
+    public const string KeyboardMechanism = "keyboard";
+
+    /// <summary>
+    /// The keys that type <paramref name="text"/>: a line break is Enter and a tab is Tab, which AvaloniaEdit binds as
+    /// keys and writes no TextInput for; anything else is its text, with the key a US layout types it with when there
+    /// is one, Shift for a capital, as the code window's key handlers see a person's.
+    /// </summary>
+    private static List<(Key Key, KeyModifiers Mods, string? Typed)> KeysOf(string text)
+    {
+        var keys = new List<(Key, KeyModifiers, string?)>();
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (c == '\r' && i + 1 < text.Length && text[i + 1] == '\n')
+                continue;
+            keys.Add(c switch
+            {
+                '\r' or '\n' => (Key.Enter, KeyModifiers.None, null),
+                '\t' => (Key.Tab, KeyModifiers.None, null),
+                >= 'a' and <= 'z' => (Key.A + (c - 'a'), KeyModifiers.None, c.ToString()),
+                >= 'A' and <= 'Z' => (Key.A + (c - 'A'), KeyModifiers.Shift, c.ToString()),
+                >= '0' and <= '9' => (Key.D0 + (c - '0'), KeyModifiers.None, c.ToString()),
+                ' ' => (Key.Space, KeyModifiers.None, " "),
+                _ when char.IsHighSurrogate(c) && i + 1 < text.Length => (Key.None, KeyModifiers.None, text.Substring(i++, 2)),
+                _ => (Key.None, KeyModifiers.None, c.ToString()),
+            });
+        }
+        return keys;
+    }
+
     /// <summary>Why a person could not type into <paramref name="surface"/> at its caret; null when they could.</summary>
     private static string? WhyNotTypable(Control surface)
     {

@@ -992,30 +992,6 @@ a row.
 window shows for that control, under its name there and in the text form `set_control_property` accepts, and a
 corrected `set_control_property` description. [#923](https://github.com/hexide-io/HexIDE/issues/923).
 
-## No tool types as a person does, so anything driven by TextInput is out of reach
-
-**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
-
-```
-type_text {"target":"Window/Custom[MainView]/Pane[DockControl]/Pane[Root dock]/List[PART_ItemsControl]/List[#0]/Pane[#0]/Custom[Root]/None[TextEditor]","text":"Ms"}
-→ didChange seq 151, and no completion request
-```
-
-A person typing `M` triggers one. `type_text` inserts through the document API by design (#649), and `press_key`
-raises only KeyDown and KeyUp, which AvaloniaEdit does not turn into text. Nothing on the surface raises
-TextInput, so these are out of reach: the list that opens as you type, parameter info on `(` and `,` and its
-closing on `)`, the list closing on a character that cannot be part of a name, and the edit-while-running reset
-prompt for a printable character. Both tools do what they say; this is a missing capability, as #829's was.
-Cross-platform by code reading.
-
-**Workaround.** For completion and parameter info, the explicit commands: `press_key` with Ctrl+Space, Ctrl+J or
-Ctrl+Shift+I on the TextArea. A list opened that way cannot be seen either (next entry). There is no workaround
-for the typed-character paths.
-
-**Suggested fix.** A keyboard typing mode, a `type_keys` tool or `mode:"keyboard"` on `type_text`, that raises
-KeyDown, TextInput and KeyUp per character on the focused TextArea and reports mechanism "keyboard".
-[#943](https://github.com/hexide-io/HexIDE/issues/943).
-
 ## `take_snapshot` and `dump_visual_tree` cannot see the code editor's completion list or parameter-info popup
 
 **Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
