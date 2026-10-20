@@ -21,8 +21,9 @@ namespace HexIDE.IDE;
 /// error twice. The counter only ever increases, so a caller that notes it before a run can tell exactly
 /// whether that run added anything.</para>
 /// </remarks>
-public sealed class RuntimeErrorLog
+public sealed class RuntimeErrorLog(TimeProvider? clock = null)
 {
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
     private readonly object _gate = new();
     private string? _message;
     private HexIDE.Runtime.Interpreter.ErrorLocation? _where;
@@ -36,7 +37,9 @@ public sealed class RuntimeErrorLog
         {
             _message = message;
             _where = where;
-            _at = DateTimeOffset.Now;
+            // UTC, as every other stamp on the automation surface is: a local one could be lined up against
+            // list_lsp_messages only by converting offsets by hand (#956).
+            _at = _clock.GetUtcNow();
             _sequence++;
         }
     }

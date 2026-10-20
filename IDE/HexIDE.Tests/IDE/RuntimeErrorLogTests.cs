@@ -70,4 +70,24 @@ public class RuntimeErrorLogTests
         log.Last!.Value.Sequence.Should().Be(first + 1,
             "identical text is why the sequence exists at all");
     }
+
+    // A machine an hour east of UTC, where the stamp used to come back "+01:00" (#956).
+    private sealed class EastOfUtc(DateTimeOffset utc) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => utc;
+        public override TimeZoneInfo LocalTimeZone { get; } =
+            TimeZoneInfo.CreateCustomTimeZone("UTC+1", TimeSpan.FromHours(1), "UTC+1", "UTC+1");
+    }
+
+    [Fact]
+    public void An_error_is_stamped_in_UTC_as_every_other_stamp_on_the_surface_is()
+    {
+        var at = new DateTimeOffset(2026, 10, 13, 2, 5, 25, TimeSpan.Zero);
+        var log = new RuntimeErrorLog(new EastOfUtc(at));
+
+        log.Record("Overflow");
+
+        log.Last!.Value.At.Should().Be(at);
+        log.Last!.Value.At.Offset.Should().Be(TimeSpan.Zero);
+    }
 }

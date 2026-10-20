@@ -953,27 +953,6 @@ was passed, a move or resize has arrived; on timeout, reply with what the window
 Check the frame against the screens before any state change, so a refusal never has to undo a restore.
 [#946](https://github.com/hexide-io/HexIDE/issues/946).
 
-## `get_last_runtime_error` stamps local time, where every other timestamp on the surface is UTC
-
-**Symptom.** On a machine at +01:00 (Linux, openSUSE Leap 16, Debug build of main at b15c7cf, 2026-10-13):
-
-```
-get_last_runtime_error {}
-→ "at":"2026-10-13T03:05:25.1331302+01:00"
-/health
-→ "timestamp":"2026-10-13T04:07:50.0894348+00:00"
-```
-
-`list_lsp_messages`, the conversation export, the connection list and `/health` all stamp UTC, so lining an error
-up against the LSP record means converting offsets by hand. Invisible on a machine whose zone is UTC, CI
-included. Cross-platform by code reading, and the archived #342 entry quotes the same `+01:00`.
-
-**Workaround.** Compare the stamps as instants, not as text: each carries its offset, so the comparison still
-holds. This is an inconsistency, not wrong data.
-
-**Suggested fix.** `DateTimeOffset.UtcNow` in `RuntimeErrorLog`, and a test asserting a zero offset.
-[#956](https://github.com/hexide-io/HexIDE/issues/956).
-
 ## A whole replacement that changes the header and a member's `Attribute` lines is told only about the header
 
 **Symptom.** Read from the code, and recorded when #273 task 4.5b was built. `set_file_content` (and an add-in's
