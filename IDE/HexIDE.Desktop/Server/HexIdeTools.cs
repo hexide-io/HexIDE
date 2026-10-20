@@ -466,15 +466,18 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_form_controls")]
-    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled); with 'controlName', that one control with every property the Properties window shows, in the text set_control_property takes. Position and size are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name the form, as the IDE spells them.")]
+    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled); with 'controlName', that one control with every property it has, in the text set_control_property takes where it takes one. Position and size are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name the form, as the IDE spells them.")]
     public async Task<FormControlsResult> GetFormControlsAsync(
         string formName,
         string? project = null,
-        [Description("One control's name, or the form's own: the reply then lists that control alone, with 'properties' "
-                     + "holding every row the Properties window shows for it, by the name there and with its value as "
-                     + "the row shows it: an enum as \"1 - Opaque\", a colour as its literal, a number with '.'. "
+        [Description("One control's name, or the form's own, without regard to case; a control array's element as "
+                     + "name(index). The reply then lists that control alone, with 'properties' holding every property "
+                     + "the Properties window shows for it, by the name there, with its value as text: an enum as "
+                     + "\"1 - Opaque\", a colour as its literal, a number with '.'; a font and a picture as a summary. "
                      + "'settable' says whether set_control_property takes that text back; a font, a picture and the "
-                     + "like are set in the Properties window. Matched without regard to case.")]
+                     + "like are set in the Properties window. Properties the file holds that HexIDE does not model, or "
+                     + "could not read, are rows too, with the file's text, not settable, and a 'note' saying which. "
+                     + "A control array named without an index is its first element, and the reply's 'note' says so.")]
         string? controlName = null,
         CancellationToken ct = default)
     {
@@ -530,13 +533,20 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (controlName is not null)
             {
                 var all = components.ToList();
-                if (all.FirstOrDefault(c => string.Equals(c.GetPropertyOrDefault(VBProperties.NameProperty), controlName,
-                        StringComparison.OrdinalIgnoreCase)) is not { } control)
+                var matches = PropertyText.Named(all, controlName);
+                if (matches.Count == 0)
                     return new FormControlsResult(
                         $"No control named '{controlName}' on {document.Display}; its controls are "
-                        + string.Join(", ", all.Select(c => c.GetPropertyOrDefault(VBProperties.NameProperty))), []);
+                        + string.Join(", ", all.Select(c => c.GetPropertyOrDefault(VBProperties.NameProperty)).Distinct(StringComparer.OrdinalIgnoreCase)),
+                        [], document.Project.Name, document.Name);
+                var control = matches[0];
+                // A control array's elements share the name; say so rather than answer for one of them silently.
+                var note = matches.Count == 1 ? null
+                    : $"'{controlName}' names a control array of {matches.Count}; this is its first, Index "
+                      + $"{PropertyText.ArrayIndexOf(control)?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown"}. "
+                      + $"Name one as {controlName}(n) for another.";
                 return new FormControlsResult(null, [Info(control)], document.Project.Name, document.Name,
-                    PropertyText.Rows(control));
+                    PropertyText.Rows(control), note);
             }
             return new FormControlsResult(null, components.Select(Info).ToArray(), document.Project.Name, document.Name);
         });
@@ -2921,7 +2931,9 @@ internal record FileContentResult(
 internal record FormControlsResult(
     string? Error, ControlInfo[] Controls, string? Project = null, string? Document = null,
     // Every row the Properties window shows for the one control asked for by name (#923), else null.
-    PropertyRow[]? Properties = null);
+    PropertyRow[]? Properties = null,
+    // What the reply alone would not say, such as that the name is a control array's.
+    string? Note = null);
 
 internal record ControlInfo(
     string Name,

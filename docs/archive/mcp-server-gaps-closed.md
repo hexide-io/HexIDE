@@ -3211,10 +3211,16 @@ a row.
 window shows for that control, under its name there and in the text form `set_control_property` accepts, and a
 corrected `set_control_property` description. [#923](https://github.com/hexide-io/HexIDE/issues/923).
 
-> **Fixed.** `get_form_controls` takes `controlName`, a control's name or the form's own, and replies with that
-> control alone and `properties`: every row the Properties window shows for it, by the name there, with its value as
-> the row shows it (an enum as `1 - Opaque`, a colour as its literal, a number with `.` in any culture, a font as its
-> face, size and style, a picture as its size or `(None)`), and `settable`, whether `set_control_property` takes that
-> text back. Every row marked settable, on every built-in control, sets the value it shows; a font and a picture are
-> set through their dialogs, so they are marked not settable. `set_control_property`'s description now sends callers
-> to `controlName` rather than claiming the list has every property. Guarded by `PropertyTextTests`.
+> **Fixed.** `get_form_controls` takes `controlName`, a control's name, the form's own, or a control array's element
+> as `name(index)`. The reply lists that control alone, with `properties`: every property the Properties window
+> shows for it, by the name there, with its value as text (an enum as `1 - Opaque`, a colour as its literal, a
+> number with `.` in any culture; a font as its face, size, weight and style, a picture as its size or `(None)`)
+> and `settable`, whether `set_control_property` takes that text back. Every row marked settable, on every built-in
+> control, the Line and the Menu, sets the value it shows; a font and a picture are set through their dialogs.
+> What the window's rows alone would hide is in the reply too, each not settable and with a `note`: a value the
+> file holds that HexIDE could not read (a palette colour, #786), given as the file's text rather than the default
+> the window shows; a property HexIDE does not model (a TextBox's MultiLine, a control array's Index), as a row of
+> its own; and a Timer's Width, Height and Visible, which the file does not keep. A control array named without an
+> index answers with its first element, and the reply's `note` says so. A Menu no longer has Left, Top, Width or
+> Height, which a caller could set and the save wrote under names VB6 gives no menu. `set_control_property`'s
+> description now sends callers to `controlName`. Guarded by `PropertyTextTests`.
