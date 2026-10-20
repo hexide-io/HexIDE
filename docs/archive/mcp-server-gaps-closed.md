@@ -2757,11 +2757,21 @@ a refusal that names what it looked for rather than a property. An action to ope
 
 ## An action on a running form replies before the program's handler has finished — **CLOSED** (#1232, 2026-10-20)
 
-> **Fixed.** `interact`, `press_key` and `type_text` on a running form's window, or on a dialog it owns, now wait for
-> the program to finish what the action set off, up to 3 seconds. If a handler is still running at the limit, the
-> reply names it: `(the program was still running Command1_Click 3s later, so the form may still change; a breakpoint
-> also holds a handler there)`. If the program has a window open over the form, a MsgBox most often, the reply says so
-> at once rather than waiting out the limit, and names the window. Guarded by `ProgramWaitTests`.
+> **Fixed.** `interact`, `press_key` and `type_text` on a running program's form, on a window it owns, or on its
+> MsgBox or InputBox, now wait until the program has finished what the action set off and is waiting for input again,
+> up to 3 seconds. A handler parked in `Show vbModal` or at `DoEvents` counts as waiting for input. The program is
+> found before the action, as a MsgBox that the action answers has closed and lost its owner by the time the action
+> returns. A reply that comes back sooner ends with a note saying why:
+>
+> - the program is paused in the debugger: `(the program is paused at Form1 line 23 (Breakpoint), with Command1_Click
+>   not finished; it runs on, and the form may change, once the program continues)`;
+> - it has a window that is not one of its forms open over the form, a MsgBox most often: `(the program is still
+>   running Command1_Click, and has a window open over its form, 'Question'; a MsgBox holds its handler until it is
+>   answered, so the form may change after that)`;
+> - it was still running at the limit: `(the program was still running Command1_Click 3s later, so the form may still
+>   change)`.
+>
+> A form the program opened is named: `(the program opened 'Form2')`. Guarded by `ProgramWaitTests`.
 
 **Symptom.** Found during #947's live check (Windows, Debug, 2026-10-20). On the running Minesweeper demo:
 

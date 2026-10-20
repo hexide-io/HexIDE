@@ -1998,6 +1998,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     /// <summary>The 'window' parameter as the tree tools describe it, in the parameter's own schema entry.</summary>
+    // The reply's wait for a running program (#1232), shared by the tools that act on its forms.
+    private const string ProgramWaitNote =
+        "On a running VB6 program's form or its MsgBox, the reply waits up to 3 s for the program to finish what the "
+        + "action set off and wait for input again. If it cannot, the reply ends with a note in parentheses saying why: "
+        + "the program is paused (where), has a MsgBox or other window open over the form, or was still running at 3 s. "
+        + "A form the program opened is named.";
+
     private const string WindowParameter =
         "Which top-level window the path is resolved against: \"auto\" (default) is the frontmost, which while a VB6 "
         + "program runs, INCLUDING while it is paused at a breakpoint, is the program's form, not the IDE; \"ide\" "
@@ -2074,7 +2081,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "interact")]
-    [Description("Drives a live control addressed by 'target' (a path from dump_visual_tree) through its UI Automation provider — one verb, 'action', instead of a tool per interaction. The 'action' parameter lists every verb and what it does, and 'value' what each one takes. A provider action needs the provider dump_visual_tree reports for the target and fails with \"element does not support '<action>'\" without it — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, releasing 50 ms later as input of its own, as a person does, so what the press set off runs first; it waits up to a second for the window to draw its next frame first, since a press is hit-tested against what was drawn and a window opened a moment ago has drawn nothing; its reply names the button, the keys held, the point in the target's and the window's coordinates, and the control the press landed on when that is not the target; a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation (the server is DEBUG-only), but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two act on its view model. Use dump_visual_tree/inspect_element first to find the target and confirm what it supports. While a VB6 program runs or is paused the frontmost window is its form: pass 'window' \"ide\" to act on the IDE.")]
+    [Description("Drives a live control addressed by 'target' (a path from dump_visual_tree) through its UI Automation provider — one verb, 'action', instead of a tool per interaction. The 'action' parameter lists every verb and what it does, and 'value' what each one takes. A provider action needs the provider dump_visual_tree reports for the target and fails with \"element does not support '<action>'\" without it — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, releasing 50 ms later as input of its own, as a person does, so what the press set off runs first; it waits up to a second for the window to draw its next frame first, since a press is hit-tested against what was drawn and a window opened a moment ago has drawn nothing; its reply names the button, the keys held, the point in the target's and the window's coordinates, and the control the press landed on when that is not the target; a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation (the server is DEBUG-only), but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two act on its view model. Use dump_visual_tree/inspect_element first to find the target and confirm what it supports. While a VB6 program runs or is paused the frontmost window is its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
     public async Task<InteractOutcome> InteractAsync(
         [Description("A path from dump_visual_tree.")]
         string target,
@@ -2087,7 +2094,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         CancellationToken ct = default)
     {
         Control? acted = null;
-        Window? actedIn = null;
+        UiAutomationDriver.ProgramWatch? watch = null;
         var outcome = await Dispatcher.UIThread.InvokeAsync(async () =>
         {
             var (active, _, error) = ResolveActiveWindow(window);
@@ -2099,7 +2106,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return new InteractOutcome(false, "peer", null, resolveError);
 
             acted = control;
-            actedIn = active;
+            // Read before the action: a MsgBox it answers closes, and loses what ties it to the program (#1232).
+            watch = UiAutomationDriver.WatchProgram(active, () => ctx.DebugController.CurrentStop);
             // A click waits for its window's next frame, which a window opened a moment ago has yet to draw (#1065).
             return await UiAutomationDriver.InteractAsync(control, action, value);
         });
@@ -2117,15 +2125,15 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 outcome = UiAutomationDriver.WithRefusal(outcome, refused);
         }
         // A running form's handler gives up the thread part way through, so the reply waits for it (#1232).
-        return await UiAutomationDriver.WaitForProgramAsync(actedIn, outcome);
+        return await UiAutomationDriver.WaitForProgramAsync(watch, outcome, ct: ct);
     }
 
     [McpServerTool(Name = "type_text")]
-    [Description("Types text into the control at 'target' (a path from dump_visual_tree) by inserting at the caret via the control's own API, reported as mechanism \"document\" because it is an edit and not key events; a read-only or disabled surface is refused, as a person's typing would be — works on the code editor (AvaloniaEdit), which has no value provider for 'interact set_value'. If 'target' isn't itself a text surface, the nearest descendant editor/textbox is used (the AvaloniaEdit editor is preferred over incidental textboxes). When that happens the reply gives the path of the surface that took the text. Multi-line text is inserted verbatim (include \\n for new lines); exact, reliable, and not altered by live auto-indent/IntelliSense. For a typing cadence, call this once per line. Use press_key for Enter/Tab/commands. In a code window it is also refused while the caret is in the file's header or a member's Attribute lines, which only the IDE changes; the reply says where the editable code starts, as an offset into the whole file, which is the text get_file_content returns. At the end of a declaration whose Attribute lines follow it, the text from its first line break on goes after those lines, with its line breaks written as the file's, as a person's paste does there; the reply says so and gives the caret's new offset. 'window' picks the top-level window the path is resolved against; its own description lists the values.")]
+    [Description("Types text into the control at 'target' (a path from dump_visual_tree) by inserting at the caret via the control's own API, reported as mechanism \"document\" because it is an edit and not key events; a read-only or disabled surface is refused, as a person's typing would be — works on the code editor (AvaloniaEdit), which has no value provider for 'interact set_value'. If 'target' isn't itself a text surface, the nearest descendant editor/textbox is used (the AvaloniaEdit editor is preferred over incidental textboxes). When that happens the reply gives the path of the surface that took the text. Multi-line text is inserted verbatim (include \\n for new lines); exact, reliable, and not altered by live auto-indent/IntelliSense. For a typing cadence, call this once per line. Use press_key for Enter/Tab/commands. In a code window it is also refused while the caret is in the file's header or a member's Attribute lines, which only the IDE changes; the reply says where the editable code starts, as an offset into the whole file, which is the text get_file_content returns. At the end of a declaration whose Attribute lines follow it, the text from its first line break on goes after those lines, with its line breaks written as the file's, as a person's paste does there; the reply says so and gives the caret's new offset. 'window' picks the top-level window the path is resolved against; its own description lists the values. " + ProgramWaitNote)]
     public async Task<InteractOutcome> TypeTextAsync(
         string target, string text, [Description(WindowParameter)] string? window = null, CancellationToken ct = default)
     {
-        Window? typedIn = null;
+        UiAutomationDriver.ProgramWatch? watch = null;
         var outcome = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var (active, _, error) = ResolveActiveWindow(window);
@@ -2136,10 +2144,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (control is null)
                 return new InteractOutcome(false, UiAutomationDriver.TypedMechanism, null, resolveError);
 
-            typedIn = active;
+            // Read before the action: a MsgBox it answers closes, and loses what ties it to the program (#1232).
+            watch = UiAutomationDriver.WatchProgram(active, () => ctx.DebugController.CurrentStop);
             return UiAutomationDriver.TypeText(control, text, target);
         });
-        return await UiAutomationDriver.WaitForProgramAsync(typedIn, outcome);
+        return await UiAutomationDriver.WaitForProgramAsync(watch, outcome, ct: ct);
     }
 
     [McpServerTool(Name = "hover")]
@@ -2252,12 +2261,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
             ? text.Trim()
             : null;
     [McpServerTool(Name = "press_key")]
-    [Description("Presses a key on the control at 'target' (a path from dump_visual_tree) by raising real KeyDown/KeyUp events — for navigation and commands that type_text doesn't cover: Enter, Tab, Back(space), Delete, Escape, arrow keys, etc., optionally with modifiers. 'key' is an Avalonia Key name (Enter, Tab, Back, Escape, Down, S, ...). 'modifiers' is an optional combo like 'Ctrl', 'Ctrl+Shift', 'Alt'. Resolves to the DEEPEST input surface under 'target' — for the code editor that is AvaloniaEdit's TextArea, where its key handling lives — because a routed event reaches only the element it is raised on and its ancestors, never anything below. Falls back to the first focusable descendant, and FAILS rather than reporting success when nothing under 'target' can take keyboard focus. When the key went to a control other than the one addressed, the reply names it and gives its path, as dump_visual_tree would print it, so it can be used as a target. In a code window, a key that would change text (Enter, Tab, Back, Delete, Ctrl+V/X/D) is refused when what it changes is in the file's header or a member's Attribute lines, which only the IDE changes; the reply says where the editable code starts, as an offset into the whole file, which is the text get_file_content returns. A key deleting the whole of a declaration's line deletes its Attribute lines with it, as the code window's own keys do, and is not refused for it. Navigation keys are never refused. 'window' picks the top-level window the path is resolved against; its own description lists the values.")]
+    [Description("Presses a key on the control at 'target' (a path from dump_visual_tree) by raising real KeyDown/KeyUp events — for navigation and commands that type_text doesn't cover: Enter, Tab, Back(space), Delete, Escape, arrow keys, etc., optionally with modifiers. 'key' is an Avalonia Key name (Enter, Tab, Back, Escape, Down, S, ...). 'modifiers' is an optional combo like 'Ctrl', 'Ctrl+Shift', 'Alt'. Resolves to the DEEPEST input surface under 'target' — for the code editor that is AvaloniaEdit's TextArea, where its key handling lives — because a routed event reaches only the element it is raised on and its ancestors, never anything below. Falls back to the first focusable descendant, and FAILS rather than reporting success when nothing under 'target' can take keyboard focus. When the key went to a control other than the one addressed, the reply names it and gives its path, as dump_visual_tree would print it, so it can be used as a target. In a code window, a key that would change text (Enter, Tab, Back, Delete, Ctrl+V/X/D) is refused when what it changes is in the file's header or a member's Attribute lines, which only the IDE changes; the reply says where the editable code starts, as an offset into the whole file, which is the text get_file_content returns. A key deleting the whole of a declaration's line deletes its Attribute lines with it, as the code window's own keys do, and is not refused for it. Navigation keys are never refused. 'window' picks the top-level window the path is resolved against; its own description lists the values. " + ProgramWaitNote)]
     public async Task<InteractOutcome> PressKeyAsync(
         string target, string key, string? modifiers = null, [Description(WindowParameter)] string? window = null,
         CancellationToken ct = default)
     {
-        Window? pressedIn = null;
+        UiAutomationDriver.ProgramWatch? watch = null;
         var outcome = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var (active, _, error) = ResolveActiveWindow(window);
@@ -2268,10 +2277,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (control is null)
                 return new InteractOutcome(false, "keyboard", null, resolveError);
 
-            pressedIn = active;
+            // Read before the action: a MsgBox it answers closes, and loses what ties it to the program (#1232).
+            watch = UiAutomationDriver.WatchProgram(active, () => ctx.DebugController.CurrentStop);
             return UiAutomationDriver.PressKey(control, key, modifiers, target);
         });
-        return await UiAutomationDriver.WaitForProgramAsync(pressedIn, outcome);
+        return await UiAutomationDriver.WaitForProgramAsync(watch, outcome, ct: ct);
     }
 
     // Active window for the automation tools: prefer a visible modal dialog over the main window

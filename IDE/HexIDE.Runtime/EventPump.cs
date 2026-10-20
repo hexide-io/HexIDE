@@ -77,6 +77,8 @@ public sealed class EventPump
     private readonly List<Func<Task>> whenIdle = [];
     private readonly Dictionary<string, int> running = new(StringComparer.OrdinalIgnoreCase);
     private int topLevel;
+    // Walks held by a suspension WhileSuspended brackets: a time slice, a breakpoint, an awaited built-in (#1232).
+    private int held;
     private int posting;
     private bool closed;
 
@@ -93,10 +95,15 @@ public sealed class EventPump
     internal int WaitingCount => queue.Count;
 
     /// <summary>
-    /// Whether nothing is running or waiting: no handler part way through, however it is suspended, no event queued
-    /// behind one, and nothing waiting for idle. What an automation reply waits for (#1232).
+    /// Whether the program is waiting for input: no handler executing, none held at a time slice, a breakpoint or an
+    /// awaited built-in such as MsgBox, and no event queued. A walk parked in <c>Show vbModal</c>'s loop or at
+    /// <c>DoEvents</c> counts as waiting, as that is the program's message loop; work waiting for idle cannot run under
+    /// one, so it counts only when nothing is parked. What an automation reply waits for (#1232). It rests on every
+    /// suspension that is not a park being bracketed by <see cref="WhileSuspended(ValueTask)"/>, which the class already
+    /// requires.
     /// </summary>
-    public bool IsIdle => closed || topLevel == 0 && Current is null && queue.Count == 0 && whenIdle.Count == 0;
+    public bool IsIdle => closed
+        || Current is null && queue.Count == 0 && held == 0 && (topLevel > 0 || whenIdle.Count == 0);
 
     /// <summary>The handlers part way through, then those waiting, by name: what a reply names when it cannot wait.</summary>
     public IReadOnlyList<string> Busy =>
@@ -215,11 +222,31 @@ public sealed class EventPump
     /// returned to, and once it resumes it is the walk again.
     /// </summary>
     public ValueTask WhileSuspended(ValueTask pending) =>
-        pending.IsCompleted ? pending : new ValueTask(Suspended(Current, pending.AsTask()));
+        pending.IsCompleted ? pending : new ValueTask(Held(Current, pending.AsTask()));
 
     /// <inheritdoc cref="WhileSuspended(ValueTask)"/>
     public Task<T> WhileSuspended<T>(Task<T> pending) =>
-        pending.IsCompleted ? pending : SuspendedFor(Current, pending);
+        pending.IsCompleted ? pending : HeldFor(Current, pending);
+
+    // A suspension the walk did not choose as a place to wait for input: what IsIdle counts as the program still busy.
+    private async Task Held(Walk? walk, Task pending)
+    {
+        held++;
+        try
+        {
+            await Suspended(walk, pending);
+        }
+        finally
+        {
+            held--;
+        }
+    }
+
+    private async Task<T> HeldFor<T>(Walk? walk, Task<T> pending)
+    {
+        await Held(walk, pending);
+        return await pending;
+    }
 
     /// <summary>
     /// Wait for every handler the running walk raised that has not finished, before its next statement: the raiser does
