@@ -84,6 +84,39 @@ public static partial class PropertyText
         _ => value.ToString() ?? "",
     };
 
+    /// <summary>
+    /// A stored value as the Properties window shows it, and so as <see cref="TryParse"/> takes it back where that
+    /// property can be set from text (#923): an enum as "1 - Opaque", a colour as its literal, a number with '.'.
+    /// A font reads as its face, size and style; a picture or other binary value as its size, or "(None)".
+    /// </summary>
+    public static string Shown(PropertyClass property, object? value) => value switch
+    {
+        _ when property.PropertyType == typeof(byte[]) =>
+            value is byte[] { Length: > 0 } bytes ? $"({bytes.Length} bytes)" : "(None)",
+        null => "",
+        Enum member => $"{Convert.ToInt64(member, CultureInfo.InvariantCulture)} - {DisplayName(member)}",
+        bool flag => flag ? "True" : "False",
+        VBFont font => string.Join(", ", new[]
+            {
+                font.FontFamilyName, $"{font.Size.ToString(CultureInfo.InvariantCulture)} pt",
+                font.Bold ? "bold" : null, font.Italic ? "italic" : null,
+                font.Underline ? "underline" : null, font.Strikethrough ? "strikethrough" : null,
+            }.Where(part => part is not null)),
+        IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+        _ => value.ToString() ?? "",
+    };
+
+    /// <summary>
+    /// Every property the Properties window shows for <paramref name="component"/>, in its order, each with its value
+    /// as <see cref="Shown"/> writes it and whether that text can be sent back to set it (#923).
+    /// </summary>
+    public static PropertyRow[] Rows(ComponentInstance component) =>
+        component.BaseClass.Properties.OrderBy(p => p.Name).Select(p =>
+        {
+            var shown = Shown(p, component.GetBoxedPropertyOrDefault(p));
+            return new PropertyRow(p.Name, shown, TryParse(p, shown, out _));
+        }).ToArray();
+
     private static bool TryParseEnum(Type type, string text, out object? value)
     {
         value = null;
@@ -120,3 +153,9 @@ public static partial class PropertyText
         return ok;
     }
 }
+
+/// <summary>
+/// A row of the Properties window, as an automation client reads it (#923): the property's name there, its value as
+/// the row shows it, and whether that text is one <see cref="PropertyText.TryParse"/> accepts, so it can be set back.
+/// </summary>
+public sealed record PropertyRow(string Name, string Value, bool Settable);

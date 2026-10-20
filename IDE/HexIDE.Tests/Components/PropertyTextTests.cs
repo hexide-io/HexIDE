@@ -100,4 +100,74 @@ public class PropertyTextTests
         PropertyText.Display(true).Should().Be("True");
         PropertyText.Display(null).Should().Be("(none)");
     }
+
+    // ── read back as the Properties window shows it, and set again from that text (#923) ────────────────────────
+
+    [Fact]
+    public void A_label_s_rows_are_every_property_the_properties_window_shows()
+    {
+        var label = new ComponentInstance(LabelComponentClass.Instance, "Label1");
+
+        var rows = PropertyText.Rows(label);
+
+        rows.Select(r => r.Name).Should().Equal(LabelComponentClass.Instance.Properties.Select(p => p.Name).OrderBy(n => n));
+        // What get_form_controls left out, and the gap had to infer from a caption.
+        rows.Select(r => r.Name).Should().Contain(["Alignment", "AutoSize", "WordWrap", "BorderStyle", "UseMnemonic", "Font"]);
+    }
+
+    [Fact]
+    public void A_value_is_shown_as_its_row_shows_it()
+    {
+        var label = new ComponentInstance(LabelComponentClass.Instance, "Label1");
+        label.SetUntypedProperty(VBProperties.BackStyleProperty, BackStyles.Opaque);
+        label.SetUntypedProperty(VBProperties.BackColorProperty, VBColor.FromColor(0xC0, 0xFF, 0xC0));
+        label.SetUntypedProperty(VBProperties.FontProperty, new VBFont("Tahoma", 9.75, bold: true, italic: true));
+
+        var rows = PropertyText.Rows(label).ToDictionary(r => r.Name);
+
+        rows["BackStyle"].Should().Be(new PropertyRow("BackStyle", "1 - Opaque", Settable: true));
+        rows["BackColor"].Should().Be(new PropertyRow("BackColor", "&H00C0FFC0&", Settable: true));
+        rows["(Name)"].Should().Be(new PropertyRow("(Name)", "Label1", Settable: true));
+        rows["Font"].Should().Be(new PropertyRow("Font", "Tahoma, 9.75 pt, bold, italic", Settable: false),
+            "a font is set through its dialog, so its text is to read, not to send back");
+    }
+
+    [Fact]
+    public void A_picture_is_shown_as_its_size_or_none()
+    {
+        PropertyText.Shown(VBProperties.PictureProperty, null).Should().Be("(None)");
+        PropertyText.Shown(VBProperties.PictureProperty, new byte[] { 1, 2, 3 }).Should().Be("(3 bytes)");
+        PropertyText.TryParse(VBProperties.PictureProperty, "(None)", out _).Should().BeFalse("a picture is loaded through a dialog");
+    }
+
+    [Fact]
+    public void A_number_is_shown_with_a_point_whatever_the_machine_culture()
+    {
+        var before = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+            PropertyText.Shown(VBProperties.LeftProperty, 1.5).Should().Be("1.5");
+        }
+        finally { CultureInfo.CurrentCulture = before; }
+    }
+
+    public static TheoryData<string> Classes() =>
+        new(new HexIDE.IDE.ComponentRegistry().Components.Select(c => c.VBTypeName));
+
+    [Theory]
+    [MemberData(nameof(Classes))]
+    public void Every_row_marked_settable_sets_the_value_it_shows(string vbType)
+    {
+        var type = new HexIDE.IDE.ComponentRegistry().Components.Single(c => c.VBTypeName == vbType);
+        var control = new ComponentInstance(type, "Control1");
+
+        foreach (var row in PropertyText.Rows(control).Where(r => r.Settable))
+        {
+            var property = type.Properties.Single(p => p.Name == row.Name);
+            PropertyText.TryParse(property, row.Value, out var back).Should().BeTrue(row.Name);
+            (back ?? "").Should().Be(control.GetBoxedPropertyOrDefault(property) ?? "",
+                $"{vbType}.{row.Name} shown as '{row.Value}' sets the value it holds");
+        }
+    }
 }

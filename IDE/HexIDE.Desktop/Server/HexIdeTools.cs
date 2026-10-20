@@ -466,8 +466,17 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_form_controls")]
-    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled). Position and size are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name the form, as the IDE spells them.")]
-    public async Task<FormControlsResult> GetFormControlsAsync(string formName, string? project = null, CancellationToken ct = default)
+    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled); with 'controlName', that one control with every property the Properties window shows, in the text set_control_property takes. Position and size are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name the form, as the IDE spells them.")]
+    public async Task<FormControlsResult> GetFormControlsAsync(
+        string formName,
+        string? project = null,
+        [Description("One control's name, or the form's own: the reply then lists that control alone, with 'properties' "
+                     + "holding every row the Properties window shows for it, by the name there and with its value as "
+                     + "the row shows it: an enum as \"1 - Opaque\", a colour as its literal, a number with '.'. "
+                     + "'settable' says whether set_control_property takes that text back; a font, a picture and the "
+                     + "like are set in the Properties window. Matched without regard to case.")]
+        string? controlName = null,
+        CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -484,9 +493,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 ? (IEnumerable<ComponentInstance>)designerVm.AllComponents.Select(v => v.Instance).ToList()
                 : form.Components;
 
-            var controls = components.Select(c =>
+            ControlInfo Info(ComponentInstance c)
             {
-                var controlName = c.GetPropertyOrDefault(VBProperties.NameProperty) ?? "";
+                var name    = c.GetPropertyOrDefault(VBProperties.NameProperty) ?? "";
                 var left    = c.GetPropertyOrDefault(VBProperties.LeftProperty);
                 var top     = c.GetPropertyOrDefault(VBProperties.TopProperty);
                 var width   = c.GetPropertyOrDefault(VBProperties.WidthProperty);
@@ -508,20 +517,33 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     : null;
 
                 return new ControlInfo(
-                    controlName,
+                    name,
                     typeName,
                     left, top, width, height,
                     visible, enabled,
                     caption, text,
                     container);
-            }).ToArray();
+            }
 
-            return new FormControlsResult(null, controls, document.Project.Name, document.Name);
+            // One control, with every row the Properties window shows for it (#923): set_control_property sent
+            // callers here for a control's properties, and only eight were listed.
+            if (controlName is not null)
+            {
+                var all = components.ToList();
+                if (all.FirstOrDefault(c => string.Equals(c.GetPropertyOrDefault(VBProperties.NameProperty), controlName,
+                        StringComparison.OrdinalIgnoreCase)) is not { } control)
+                    return new FormControlsResult(
+                        $"No control named '{controlName}' on {document.Display}; its controls are "
+                        + string.Join(", ", all.Select(c => c.GetPropertyOrDefault(VBProperties.NameProperty))), []);
+                return new FormControlsResult(null, [Info(control)], document.Project.Name, document.Name,
+                    PropertyText.Rows(control));
+            }
+            return new FormControlsResult(null, components.Select(Info).ToArray(), document.Project.Name, document.Name);
         });
     }
 
     [McpServerTool(Name = "set_control_property")]
-    [Description("Sets a named property on a form or UserControl control and saves the file. The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The value is written as the Properties window shows it: text, a number with '.' for decimals, True or False, a colour literal such as &H00C0FFC0&, or an enum by number, by name, or as '1 - Opaque'; a refused value's reply lists what that property takes. Use get_form_controls to see available controls and properties. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A rename the naming rules refuse changes nothing. The save writes the whole file, so text set earlier and not yet saved counts too: when the file's code page cannot hold a character anywhere in it, the value is set in the IDE but nothing is written and no dialog is shown, and the reply names the document, the code page, the character and the line that holds it. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' gives the value the property now holds, which can differ from the text sent, and 'project' and 'document' name the form as the IDE spells them.")]
+    [Description("Sets a named property on a form or UserControl control and saves the file. The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The value is written as the Properties window shows it: text, a number with '.' for decimals, True or False, a colour literal such as &H00C0FFC0&, or an enum by number, by name, or as '1 - Opaque'; a refused value's reply lists what that property takes. get_form_controls lists the controls, and with 'controlName' every property of one, its value as this tool takes it. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A rename the naming rules refuse changes nothing. The save writes the whole file, so text set earlier and not yet saved counts too: when the file's code page cannot hold a character anywhere in it, the value is set in the IDE but nothing is written and no dialog is shown, and the reply names the document, the code page, the character and the line that holds it. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' gives the value the property now holds, which can differ from the text sent, and 'project' and 'document' name the form as the IDE spells them.")]
     public async Task<MutateResult> SetControlPropertyAsync(
         string formName, string controlName, string property, string value, string? project = null,
         CancellationToken ct = default)
@@ -2896,7 +2918,10 @@ internal record FileContentResult(
     string? Content, bool HasUnsavedChanges, string? Error, string? Project = null, string? Document = null);
 
 /// <inheritdoc cref="FileContentResult"/>
-internal record FormControlsResult(string? Error, ControlInfo[] Controls, string? Project = null, string? Document = null);
+internal record FormControlsResult(
+    string? Error, ControlInfo[] Controls, string? Project = null, string? Document = null,
+    // Every row the Properties window shows for the one control asked for by name (#923), else null.
+    PropertyRow[]? Properties = null);
 
 internal record ControlInfo(
     string Name,
