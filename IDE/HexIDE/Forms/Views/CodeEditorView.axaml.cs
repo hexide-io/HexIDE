@@ -1418,8 +1418,34 @@ public partial class CodeEditorView : UserControl
         // Enter = auto-close block + auto-indent
         if (e.Key == Key.Return && e.KeyModifiers == KeyModifiers.None)
         {
-            if (HandleEnterAutoClose())
-                e.Handled = true;
+            // Over a selection, Enter writes over it, as typing does and as Shift+Enter did (#1040): the selection goes,
+            // and the line break goes where it was, as one change. Typing is not a deletion, so a described line's run is
+            // not taken with it. A selection reaching a region only the IDE may change takes nothing, as typing there does.
+            using (TextEditor.Document.RunUpdate())
+            {
+                if (EditedSpan() is var (offset, length) && length > 0)
+                {
+                    var vm = DataContext as CodeEditorViewModel;
+                    if (vm is not null && vm.RefusesTyping(offset, length))
+                    {
+                        e.Handled = true;
+                        return;
+                    }
+                    // At the end of a described line the break goes after the run, as Shift+Enter's does: placed with
+                    // the span it replaces in hand, since taking the selection first would leave the run under nothing.
+                    var line = TextEditor.Document.GetLineByOffset(offset);
+                    var indent = VbAutoCloseProvider.GetIndentation(TextEditor.Document.GetText(line.Offset, line.Length));
+                    if (vm?.InsertLineBreakPastRun(offset, length, "\n" + indent) is { } placed)
+                    {
+                        TextEditor.TextArea.Caret.Offset = placed.End;
+                        e.Handled = true;
+                        return;
+                    }
+                    TextEditor.TextArea.Selection.ReplaceSelectionWithText(string.Empty);
+                }
+                if (HandleEnterAutoClose())
+                    e.Handled = true;
+            }
         }
         // F12 = go to definition
         else if (e.Key == Key.F12 && e.KeyModifiers == KeyModifiers.None)

@@ -1843,8 +1843,11 @@ public static class UiAutomationDriver
             // where WhyNotTypable can only say "is read-only". It returns null for every surface that is not a
             // code window, so the general check below still covers a disabled control, a read-only TextBox and
             // any other wholly read-only editor.
+            // A standing selection is what the typing writes over, so it is the span judged, as press_key judges a key.
             if (AreaOf(surface) is { } typedInto
-                && RefusedInReadOnlyRegion(typedInto, new EditedSpan(typedInto.Caret.Offset, 0, Deletes: false), "type_text", TypedMechanism) is { } refused)
+                && RefusedInReadOnlyRegion(typedInto, typedInto.Selection.SurroundingSegment is { Length: > 0 } over
+                    ? new EditedSpan(over.Offset, over.Length, Deletes: false)
+                    : new EditedSpan(typedInto.Caret.Offset, 0, Deletes: false), "type_text", TypedMechanism) is { } refused)
                 return refused;
 
             if (WhyNotTypable(surface) is { } refusal)
@@ -1854,24 +1857,34 @@ public static class UiAutomationDriver
 
             surface.Focus();
 
+            // A person's typing writes over a standing selection (#1040), as one change.
+            using var change = AreaOf(surface)?.Document.RunUpdate();
+
             // At the end of a line a member's Attribute lines describe, the text from its first line break on goes
             // after them, as a person's paste does there, or the run would be left hanging from the text's last line
-            // (#273 task 4.5). Its line breaks are then written as the file's, as a paste's are.
+            // (#273 task 4.5). Its line breaks are then written as the file's, as a paste's are. Placed with the
+            // selection it replaces in hand, since taking the selection first would leave the run under nothing.
             if (AreaOf(surface) is { } codeArea && CodeWindowOf(codeArea) is { } window
-                && window.InsertLineBreakPastRun(codeArea.Caret.Offset, 0, text) is { } placed)
+                && (codeArea.Selection.IsEmpty ? (codeArea.Caret.Offset, 0)
+                    : (codeArea.Selection.SurroundingSegment.Offset, codeArea.Selection.SurroundingSegment.Length)) is var (from, span)
+                && window.InsertLineBreakPastRun(from, span, text) is { } placed)
             {
                 codeArea.Caret.Offset = placed.End;
+                var replaced = span > 0 ? $", replacing the {span} selected char(s)" : "";
                 // The count is of what was sent, as everywhere else this reports one; its line breaks may have been
                 // written in a newline of another length.
                 return new InteractOutcome(true, TypedMechanism,
                     $"typed {text.Length} char(s) into {surface.GetType().Name}"
-                    + $"{(ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface))}. "
+                    + $"{(ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface))}{replaced}. "
                     + $"The caret was at the end of the declaration of {placed.Run.Member?.Name}, so the text from its "
                     + "first line break on went after that member's Attribute lines, which follow the line they "
                     + $"describe; its line breaks were written as the file's. The caret is now at offset {placed.End}.",
                     null);
             }
 
+            // Anywhere else the selection goes first, and the text goes where it was.
+            var taken = TakeSelection(surface);
+            var replacing = taken > 0 ? $", replacing the {taken} selected char(s)" : "";
             switch (surface)
             {
                 case TextEditor editor:
@@ -1891,7 +1904,7 @@ public static class UiAutomationDriver
                     break;
             }
             return new InteractOutcome(true, TypedMechanism,
-                $"typed {text.Length} char(s) into {surface.GetType().Name}{(ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface))}", null);
+                $"typed {text.Length} char(s) into {surface.GetType().Name}{(ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface))}{replacing}", null);
         }
         catch (Exception ex) { return new InteractOutcome(false, TypedMechanism, null, $"type_text threw: {ex.Message}"); }
     }
@@ -1972,6 +1985,34 @@ public static class UiAutomationDriver
         TextArea area => area,
         _ => null,
     };
+
+    /// <summary>
+    /// Takes <paramref name="surface"/>'s selection out, leaving the caret where it began, ahead of typing that writes
+    /// over it (#1040). Typing is not a deletion, so in a code window a described line's Attribute lines stay, as a
+    /// person's typing over it leaves them. The number of characters taken; 0 with nothing selected.
+    /// </summary>
+    private static int TakeSelection(Control surface)
+    {
+        if (surface is TextBox box)
+        {
+            var (start, end) = (Math.Min(box.SelectionStart, box.SelectionEnd), Math.Max(box.SelectionStart, box.SelectionEnd));
+            var text = box.Text ?? string.Empty;
+            (start, end) = (Math.Clamp(start, 0, text.Length), Math.Clamp(end, 0, text.Length));
+            if (start == end)
+                return 0;
+            box.Text = text.Remove(start, end - start);
+            box.CaretIndex = start;
+            box.SelectionStart = box.SelectionEnd = start;
+            return end - start;
+        }
+        if (AreaOf(surface) is not { Selection.IsEmpty: false } area)
+            return 0;
+        var offset = area.Selection.SurroundingSegment.Offset;
+        var before = area.Document.TextLength;
+        area.Selection.ReplaceSelectionWithText(string.Empty);
+        area.Caret.Offset = offset;
+        return before - area.Document.TextLength;
+    }
 
     /// <summary>
     /// The span a key would change in a text area: the selection when there is one, otherwise what that key

@@ -398,6 +398,127 @@ public class MemberRunFollowsItsLineTests : IDisposable
         vm.MemberRunsNow.Should().ContainSingle().Which.Kind.Should().Be(MemberRunKind.Orphan);
     }
 
+    // ── Enter and type_text over a selection write over it, as typing does (#1040) ─────────────────────────────
+
+    private const string Foo = "Option Explicit\r\n\r\nPrivate Sub Foo()\r\n    Debug.Print 1, 2\r\nEnd Sub\r\n";
+
+    // Selects ", 2", with the caret at the end of the line or before the comma, as Shift+End or Shift+Left leaves it.
+    private static void SelectTwo(TextEditor editor, bool caretAtEnd)
+    {
+        var line = LineWith(editor, "    Debug.Print 1, 2");
+        var (from, to) = (line.EndOffset - 3, line.EndOffset);
+        editor.TextArea.Caret.Offset = caretAtEnd ? to : from;
+        editor.TextArea.Selection = AvaloniaEdit.Editing.Selection.Create(editor.TextArea, caretAtEnd ? from : to, caretAtEnd ? to : from);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void EnterOverASelectionReplacesItAsOneChange(bool caretAtEnd)
+    {
+        // It used to put the line break at the caret, one end of the selection, and leave the selection's text: under
+        // the line with the caret at its end, or split off onto a line of its own with the caret before it.
+        var vm = Open(Foo);
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        SelectTwo(editor, caretAtEnd);
+
+        Press(editor, Key.Enter);
+
+        // Compared as lines: a plain Enter writes "\n" whatever the file's line breaks, with or without a selection (#530).
+        vm.Document.Text.ReplaceLineEndings("\n").Should().Be(before.Replace("1, 2\r\n", "1\r\n    \r\n").ReplaceLineEndings("\n"));
+        editor.TextArea.Caret.Offset.Should().Be(LineWith(editor, "End Sub").Offset - 2, "on the new line, indented");
+        editor.Document.UndoStack.Undo();
+        vm.Document.Text.Should().Be(before, "one change, which one undo takes back");
+    }
+
+    [AvaloniaFact]
+    public void EnterOverASelectedDescribedDeclarationIsTheReplacementShiftEnterMakes()
+    {
+        var shifted = Open(Procedure);
+        var shiftedEditor = Show(shifted);
+        var declaration = LineWith(shiftedEditor, "Public Sub Go()");
+        shiftedEditor.Select(declaration.Offset, declaration.Length);
+        Press(shiftedEditor, Key.Enter, KeyModifiers.Shift);
+
+        var vm = Open(Procedure);
+        var editor = Show(vm);
+        declaration = LineWith(editor, "Public Sub Go()");
+        editor.Select(declaration.Offset, declaration.Length);
+        Press(editor, Key.Enter);
+
+        vm.Document.Text.ReplaceLineEndings("\n").Should().Be(shifted.Document.Text.ReplaceLineEndings("\n"),
+            "typing over a selection does not take the run, as a delete does");
+    }
+
+    [AvaloniaFact]
+    public void EnterOverASelectionReachingARunWritesNothing()
+    {
+        var vm = Open(Procedure);
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        var declaration = LineWith(editor, "Public Sub Go()");
+        editor.Select(declaration.Offset, LineWith(editor, "Attribute Go.VB_UserMemId").Offset + 5 - declaration.Offset);
+
+        Press(editor, Key.Enter);
+
+        vm.Document.Text.Should().Be(before, "the run is the IDE's to change, as typing over it finds");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void TypeTextOverASelectionReplacesItAndSaysHowMuch(bool caretAtEnd)
+    {
+        var vm = Open(Foo);
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        SelectTwo(editor, caretAtEnd);
+
+        var outcome = UiAutomationDriver.TypeText(editor, ", 3");
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Be("typed 3 char(s) into TextEditor, replacing the 3 selected char(s)");
+        vm.Document.Text.Should().Be(before.Replace("1, 2", "1, 3"));
+        editor.TextArea.Selection.IsEmpty.Should().BeTrue();
+        editor.Document.UndoStack.Undo();
+        vm.Document.Text.Should().Be(before, "one change, which one undo takes back");
+    }
+
+    [AvaloniaFact]
+    public void TypeTextOverASelectionReachingARunIsRefused()
+    {
+        var vm = Open(Procedure);
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        var declaration = LineWith(editor, "Public Sub Go()");
+        editor.Select(declaration.Offset, LineWith(editor, "Attribute Go.VB_UserMemId").Offset + 5 - declaration.Offset);
+
+        var outcome = UiAutomationDriver.TypeText(editor, "x");
+
+        outcome.Success.Should().BeFalse();
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public void TypeTextOverATextBoxSelectionReplacesIt()
+    {
+        var box = new TextBox { Text = "Debug.Print 1, 2", Width = 300 };
+        var window = new Window { Width = 400, Height = 100, Content = box };
+        windows.Add(window);
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        box.SelectionStart = 16;
+        box.SelectionEnd = 13;
+
+        var outcome = UiAutomationDriver.TypeText(box, ", 3");
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().EndWith(", replacing the 3 selected char(s)");
+        box.Text.Should().Be("Debug.Print 1, 3");
+        box.CaretIndex.Should().Be(16);
+    }
+
     [AvaloniaTheory]
     [InlineData(Key.Back)]
     [InlineData(Key.Delete)]
