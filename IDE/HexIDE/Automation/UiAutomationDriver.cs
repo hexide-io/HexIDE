@@ -88,7 +88,7 @@ public static class UiAutomationDriver
     }
 
     /// <summary>Deep single-node inspection: identity, provider state, and the DataContext's reflectable
-    /// command/property members (the surface the Phase-7 reflection actions target).</summary>
+    /// command, Command-bound method and property members (the surface the Phase-7 reflection actions target).</summary>
     /// <param name="root">The window <paramref name="path"/> was resolved against. With it, a control whose
     /// DataContext is inherited names the control that owns it instead of repeating its members.</param>
     public static UiNodeDetail Inspect(Control control, string path, Control? root = null)
@@ -183,7 +183,7 @@ public static class UiAutomationDriver
         return owner;
     }
 
-    /// <summary>Reflects the public instance command/property members of a control's DataContext.</summary>
+    /// <summary>Reflects the command, Command-bound method and property members of a control's DataContext.</summary>
     public static VmMember[] ReflectDataContextMembers(object? dataContext) => DescribeDataContext(dataContext).Members;
 
     /// <summary>
@@ -214,6 +214,9 @@ public static class UiAutomationDriver
                 members.Add(new VmMember(p.Name, "property", p.PropertyType.Name, p.CanWrite,
                                          ReadValue(dataContext, p)));
         }
+        // A menu item can bind its Command to a method, which invoke_command calls as Avalonia does (#836).
+        foreach (var m in CommandMethods(dataContext.GetType()))
+            members.Add(new VmMember(m.Name, "method", null, false));
         return ([.. members], omitted);
     }
 
@@ -1829,7 +1832,8 @@ public static class UiAutomationDriver
         return result;
     }
 
-    // value = the command name (a public ICommand property on the target's DataContext).
+    // value = the command name: a public ICommand property on the target's DataContext, or a public parameterless
+    // method, which is what a Command bound to a method calls (#836).
     private static InteractOutcome ReflectInvokeCommand(Control control, string? value)
     {
         try
@@ -1837,7 +1841,7 @@ public static class UiAutomationDriver
             if (NullIfEmpty(value) is not { } name) return ReflectErr("invoke_command requires 'value' = the command name");
             if (control.DataContext is not { } dc) return ReflectErr("target has no DataContext");
             if (dc.GetType().GetProperty(name, BindingFlags.Public | BindingFlags.Instance) is not { } prop)
-                return ReflectErr($"no public property '{name}' on {dc.GetType().Name}");
+                return ReflectInvokeMethod(dc, name);
             if (prop.GetValue(dc) is not System.Windows.Input.ICommand cmd)
                 return ReflectErr($"'{name}' on {dc.GetType().Name} is not an ICommand");
             if (!cmd.CanExecute(null))
@@ -1846,6 +1850,77 @@ public static class UiAutomationDriver
             return new InteractOutcome(true, "reflection", $"executed command '{name}' on {dc.GetType().Name}", null);
         }
         catch (Exception ex) { return ReflectErr($"invoke_command '{value}' threw: {ex.Message}"); }
+    }
+
+    /// <summary>
+    /// The view-model methods compiled XAML binds as a Command with no parameter: what a person can click, and so what
+    /// invoke_command calls and inspect_element lists (#836).
+    /// </summary>
+    /// <remarks>
+    /// A Command bound to a method, as the Project Explorer's Remove is to <c>DeleteForm</c>, has no ICommand for
+    /// invoke_command to find, and inspect_element listed only properties. Which methods are bound comes from the
+    /// XAML compiler's own record, <see cref="XamlCommandBindings"/>; a filter by shape reached plumbing no UI exposes.
+    /// </remarks>
+    internal static IEnumerable<MethodInfo> CommandMethods(Type type) =>
+        type.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+            .Where(m => m.GetParameters().Length == 0 && XamlCommandBindings.Arity(type, m.Name) == 0)
+            .GroupBy(m => m.Name, StringComparer.Ordinal)
+            .Select(g => g.OrderByDescending(m => Depth(m.DeclaringType)).First())
+            .OrderBy(m => m.Name, StringComparer.Ordinal);
+
+    // How far down the hierarchy a type is, so a method a derived type declares wins over the one it hides.
+    private static int Depth(Type? type)
+    {
+        var depth = 0;
+        for (; type is not null; type = type.BaseType) depth++;
+        return depth;
+    }
+
+    // A method a Command is bound to, called as Avalonia calls it: refused when its Can{name}(object) says no.
+    private static InteractOutcome ReflectInvokeMethod(object dc, string name)
+    {
+        var type = dc.GetType().Name;
+        if (CommandMethods(dc.GetType()).FirstOrDefault(m => m.Name == name) is not { } method)
+        {
+            return ReflectErr(XamlCommandBindings.Arity(dc.GetType(), name) == 1
+                ? $"'{name}' on {type} is bound as a Command with a CommandParameter, which invoke_command cannot supply: "
+                  + "drive the control bound to it"
+                : dc.GetType().GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance).Any(m => m.Name == name)
+                    ? $"'{name}' on {type} is a method no Command is bound to, so invoke_command does not call it"
+                    : $"no ICommand property or Command-bound method '{name}' on {type}; inspect_element on the control "
+                      + "that owns the DataContext lists both");
+        }
+
+        // Avalonia's convention: a bool Can{name}(object) on the type or a base, of any visibility, given the
+        // CommandParameter, which is null here.
+        var can = dc.GetType().GetMethod("Can" + name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
+            [typeof(object)]);
+        try
+        {
+            if (can is { ReturnType: var r } && r == typeof(bool) && !(bool)can.Invoke(dc, [null])!)
+                return ReflectErr($"'Can{name}'(null) on {type} returned false");
+
+            var result = method.Invoke(dc, null);
+            var guarded = can is null ? "; no Can method guards it, so check that it did what was meant" : "";
+            switch (result)
+            {
+                case System.Threading.Tasks.Task { IsFaulted: true } failed:
+                    return ReflectErr($"invoke_command '{name}' failed: {failed.Exception?.InnerException?.Message}");
+                case System.Threading.Tasks.Task { IsCanceled: true }:
+                    return ReflectErr($"invoke_command '{name}' was cancelled");
+                case System.Threading.Tasks.Task { IsCompleted: false } running:
+                    // A failure after the reply is logged, as a Command's would be.
+                    running.ListenErrors();
+                    return new InteractOutcome(true, "reflection",
+                        $"called method '{name}' on {type}; it returned a task that is still running{guarded}", null);
+                default:
+                    return new InteractOutcome(true, "reflection", $"called method '{name}' on {type}{guarded}", null);
+            }
+        }
+        catch (TargetInvocationException ex) when (ex.InnerException is { } inner)
+        {
+            return ReflectErr($"invoke_command '{name}' threw: {inner.Message}");
+        }
     }
 
     // value = "PropertyName=NewValue" (split on the first '='); the value is coerced to the property type.
