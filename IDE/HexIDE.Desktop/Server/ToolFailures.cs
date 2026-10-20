@@ -35,6 +35,9 @@ internal static class ToolFailures
         McpRequestHandler<CallToolRequestParams, CallToolResult> next) =>
         async (request, ct) =>
         {
+            var tool = request.Params?.Name ?? "(unnamed)";
+            if (ArgumentCheck.Problems(request.Params?.Arguments, SchemaOf(request)) is { Count: > 0 } problems)
+                return Refused(tool, problems);
             try
             {
                 return await next(request, ct);
@@ -42,19 +45,11 @@ internal static class ToolFailures
             catch (Exception ex) when (ex is not McpException
                                        && !(ex is OperationCanceledException && ct.IsCancellationRequested))
             {
-                var tool = request.Params?.Name ?? "(unnamed)";
                 var reported = ex is AggregateException { InnerExceptions.Count: 1 } single
                     ? single.InnerExceptions[0]
                     : ex;
                 if (IsArgumentBinding(reported))
-                {
-                    Log.Information("MCP tool {Tool} refused its arguments: {Message}", tool, reported.Message);
-                    return new CallToolResult
-                    {
-                        IsError = true,
-                        Content = [new TextContentBlock { Text = Refusal(tool, reported, request.Params?.Arguments, SchemaOf(request)) }],
-                    };
-                }
+                    return Refused(tool, BindingProblems(reported, request.Params?.Arguments));
 
                 Log.Error(ex, "MCP tool {Tool} failed with an unhandled {ExceptionType}", tool, reported.GetType().Name);
                 return new CallToolResult
@@ -66,77 +61,55 @@ internal static class ToolFailures
         };
 
     /// <summary>
-    /// True when the SDK could not bind the call's arguments to the tool's parameters, so the tool never ran: a missing
-    /// required argument, or one whose JSON is not the parameter's type (#1270).
+    /// True when the SDK could not bind an argument that <see cref="ArgumentCheck"/> passed, so the tool never ran: a
+    /// required one missing where the schema could not be read, or JSON the parameter's type cannot hold, such as an
+    /// integer too big for it (#1270).
     /// </summary>
     /// <remarks>
-    /// The SDK binds without checking the schema, and both throw from its parameter marshaller, which a tool's own code
-    /// never runs in, and is off the stack by the time a tool runs. So the throw's frames decide it: an ArgumentException a tool
-    /// throws itself is still a defect. Calling these a defect told a caller to report a bug and not to fix its call.
+    /// Both throw from the SDK's parameter marshaller, and the missing one names its parameter as <c>arguments</c>. A
+    /// service the SDK resolves for a parameter also throws there, with another name, and stays a defect. Calling these
+    /// a defect told a caller to report a bug and not to fix its call.
     /// </remarks>
     internal static bool IsArgumentBinding(Exception ex) =>
-        ex is ArgumentException or System.Text.Json.JsonException
+        ex is ArgumentException { ParamName: "arguments" } and not ArgumentNullException or System.Text.Json.JsonException
         && ex.StackTrace?.Contains("GetParameterMarshaller", StringComparison.Ordinal) == true;
 
-    /// <summary>What a caller is told when its arguments could not be bound: which, and why, and that nothing was done.</summary>
-    internal static string Refusal(
-        string tool, Exception ex, IDictionary<string, System.Text.Json.JsonElement>? arguments,
-        System.Text.Json.JsonElement? schema)
+    private static CallToolResult Refused(string tool, List<string> problems)
     {
-        var problems = new List<string>();
-        var properties = schema is { ValueKind: System.Text.Json.JsonValueKind.Object } s
-                         && s.TryGetProperty("properties", out var p) && p.ValueKind == System.Text.Json.JsonValueKind.Object
-            ? p : (System.Text.Json.JsonElement?)null;
-        if (ex is ArgumentException { ParamName: { } param } argument)
-            problems.Add(argument.Message.Replace($" (Parameter '{param}')", "", StringComparison.Ordinal));
-        foreach (var (name, value) in arguments ?? new Dictionary<string, System.Text.Json.JsonElement>())
-        {
-            if (properties is not { } known) break;
-            if (!known.TryGetProperty(name, out var declared))
-                problems.Add($"it takes no '{name}' parameter");
-            else if (Types(declared) is { Count: > 0 } types && !types.Any(t => Fits(value, t)))
-                problems.Add($"'{name}' must be {string.Join(" or ", types.Where(t => t != "null"))}, not {Kind(value)}");
-        }
-        if (ex is not ArgumentException && problems.Count == 0)
-            problems.Add(WithoutProfile(ex.Message));
+        var text = Refusal(tool, problems);
+        Log.Information("MCP tool {Tool} refused its arguments: {Refusal}", tool, text);
+        return new CallToolResult { IsError = true, Content = [new TextContentBlock { Text = text }] };
+    }
 
-        return $"'{tool}' refused its arguments, and nothing was done: {string.Join("; ", problems.Select(p => p.TrimEnd('.')))}. Its input schema "
-               + "names each parameter and its type.";
+    /// <summary>What a caller is told when its arguments could not be bound: which, and why, and that nothing was done.</summary>
+    internal static string Refusal(string tool, IEnumerable<string> problems) =>
+        $"'{tool}' refused its arguments, and nothing was done: {string.Join("; ", problems.Select(p => p.TrimEnd('.')))}. "
+        + "Its input schema names each parameter and its type.";
+
+    /// <summary>The problem a binding failure names, which never leaves the refusal saying nothing.</summary>
+    internal static List<string> BindingProblems(Exception ex, IDictionary<string, System.Text.Json.JsonElement>? arguments)
+    {
+        if (ex is ArgumentException argument)
+            return [argument.Message.Replace(" (Parameter 'arguments')", "", StringComparison.Ordinal)];
+
+        // The serializer's message names neither the parameter nor anything useful past its type ("Path: $ |
+        // LineNumber: 0"). Every integer parameter is an int, so one out of its range is the likely cause.
+        var tooBig = (arguments ?? new Dictionary<string, System.Text.Json.JsonElement>())
+            .Where(a => a.Value.ValueKind == System.Text.Json.JsonValueKind.Number
+                        && a.Value.TryGetInt64(out var n) && n is > int.MaxValue or < int.MinValue)
+            .Select(a => $"'{a.Key}' is {a.Value.GetRawText()}, outside the range of a 32-bit integer")
+            .ToList();
+        if (tooBig.Count > 0)
+            return tooBig;
+        var message = ex.Message;
+        var cut = message.IndexOf(" Path: ", StringComparison.Ordinal);
+        return [WithoutProfile(cut > 0 ? message[..cut] : message)];
     }
 
     private static System.Text.Json.JsonElement? SchemaOf(RequestContext<CallToolRequestParams> request) =>
         (request.MatchedPrimitive as McpServerTool)?.ProtocolTool.InputSchema
         ?? (request.Params?.Name is { } name && request.Server.ServerOptions.ToolCollection is { } tools
             && tools.TryGetPrimitive(name, out var tool) ? tool.ProtocolTool.InputSchema : null);
-
-    private static List<string> Types(System.Text.Json.JsonElement declared) =>
-        !declared.TryGetProperty("type", out var type) ? []
-        : type.ValueKind == System.Text.Json.JsonValueKind.String ? [type.GetString()!]
-        : type.ValueKind == System.Text.Json.JsonValueKind.Array
-            ? [.. type.EnumerateArray().Where(t => t.ValueKind == System.Text.Json.JsonValueKind.String).Select(t => t.GetString()!)]
-            : [];
-
-    private static bool Fits(System.Text.Json.JsonElement value, string type) => type switch
-    {
-        "boolean" => value.ValueKind is System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False,
-        "integer" => value.ValueKind == System.Text.Json.JsonValueKind.Number && value.TryGetInt64(out _),
-        "number" => value.ValueKind == System.Text.Json.JsonValueKind.Number,
-        "string" => value.ValueKind == System.Text.Json.JsonValueKind.String,
-        "array" => value.ValueKind == System.Text.Json.JsonValueKind.Array,
-        "object" => value.ValueKind == System.Text.Json.JsonValueKind.Object,
-        "null" => value.ValueKind == System.Text.Json.JsonValueKind.Null,
-        _ => true,
-    };
-
-    private static string Kind(System.Text.Json.JsonElement value) => value.ValueKind switch
-    {
-        System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False => "a boolean",
-        System.Text.Json.JsonValueKind.Number => "a number",
-        System.Text.Json.JsonValueKind.String => "a string",
-        System.Text.Json.JsonValueKind.Array => "an array",
-        System.Text.Json.JsonValueKind.Object => "an object",
-        _ => "null",
-    };
 
     internal static string Describe(string tool, Exception ex) =>
         $"'{tool}' failed with an unhandled {ex.GetType().FullName}: {WithoutProfile(ex.Message)} "

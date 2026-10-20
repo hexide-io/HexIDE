@@ -3594,19 +3594,31 @@ take_snapshot {"inline":"true"}
 The reply said the opposite of what happened and asked for a bug report, for every tool and every parameter.
 [#1270](https://github.com/hexide-io/HexIDE/issues/1270).
 
-> **Fixed.** An exception thrown from the SDK's parameter marshaller is a refusal, which a tool's own code never runs
-> in. That covers an `ArgumentException` for a missing argument and a `JsonException` for a mistyped one. The reply
-> names each problem, checked against the tool's input schema: the missing parameter, an argument the tool does not
-> take, and an argument whose JSON is not its declared type. It says nothing was done, and does not ask to be
-> reported. An `ArgumentException` a tool throws itself is still a defect. Measured on Windows through the server's
-> HTTP endpoint:
+> **Fixed.** Before a tool runs, `ArgumentCheck` checks the call's arguments against the tool's input schema, which the
+> SDK never does, and refuses with every problem it finds:
+>
+> - each required parameter that is missing;
+> - JSON of the wrong type, including null where the parameter cannot hold it, and an array item, named by position;
+> - an argument the tool does not take, named only beside a real problem, as the likely misspelling, because the SDK
+>   ignores it otherwise.
+>
+> The check is no stricter than the binding: a number in a string passes, as the SDK's serializer reads it. What the
+> schema cannot see, such as an integer too big for an `int`, still fails in the SDK's binding. `ToolFailures` turns
+> that into a refusal too, naming the argument out of range. In both cases the reply says nothing was done and does
+> not ask to be reported. An `ArgumentException` a tool throws itself is still a defect.
+>
+> The first version classified only what the binding threw. Its review found that a null for a non-null parameter
+> bound and failed inside the tool, still asking to be reported. It also found that a numeric string was flagged though
+> it binds, and that array items and overflow fell back to the serializer's raw message.
+>
+> Measured on Windows through the server's HTTP endpoint:
 >
 > ```
 > inspect_element {"path":"Window"}
-> → "'inspect_element' refused its arguments, and nothing was done: The arguments dictionary is missing a value
->    for the required parameter 'target'; it takes no 'path' parameter. ..."
-> take_snapshot {"inline":"true"}
-> → "... 'inline' must be boolean, not a string. ..."
+> → "'inspect_element' refused its arguments, and nothing was done: 'target' is required; it takes no 'path'
+>    parameter. ..."
+> set_bookmarks {"name":"Form1","lines":null}
+> → "... 'lines' must be array, not null. ..."
 > ```
 >
 > Guarded by `McpRestartTests`, through a real server and the SDK's client.
