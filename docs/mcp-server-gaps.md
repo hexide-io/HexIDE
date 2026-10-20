@@ -915,26 +915,6 @@ then `add_to_selection`. Read "at least one" as true only of SizeToGrid, CenterH
 names the rule and points to `add_to_selection`, and the no-op note generated from the same table, so the prose
 cannot drift from the code again. [#930](https://github.com/hexide-io/HexIDE/issues/930).
 
-## `take_snapshot` returns only a path on the IDE's machine, so a client attached from elsewhere cannot see the image
-
-**Symptom.** Driving a Debug build of b15c7cf in an openSUSE Leap 16 VM from a Windows host, through an SSH tunnel
-to the VM's MCP port (2026-10-13):
-
-```
-take_snapshot {}
-→ {"path":"/tmp/hexide_snapshot_20261013-004254-281_1.png","width":1920,"height":1011,"scale":1}
-```
-
-The path is in the VM's `/tmp`, which the client cannot open. The description says the tool "returns the file
-path so the caller can read the image", which holds only for a caller on the same machine. The server answers
-loopback only, so a tunnel is how another machine reaches it. Not Linux-specific: any remote attach has it.
-
-**Workaround.** Copy the file across by hand; every snapshot in that run was fetched with `scp`.
-
-**Suggested fix.** An optional `inline` parameter, default false, that returns the image as MCP image content
-(`image/png`) beside the same JSON. Keep path-only as the default: an inline image costs every local caller that
-does not need it. [#957](https://github.com/hexide-io/HexIDE/issues/957).
-
 ## `set_window_state` replies with the window's state from before the change on Linux
 
 **Symptom.** Each call followed by `get_window_state {}` (Linux, openSUSE Leap 16 under XWayland, Debug build of
