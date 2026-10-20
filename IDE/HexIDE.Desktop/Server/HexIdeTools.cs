@@ -701,9 +701,19 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "open_file")]
-    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was opened, as the IDE spells them. A carried file is also found by its filename, which differs from its name when VB6 carried it on a code line (`Module=Notes; Notes.md` is named Notes). The editor gets keyboard focus, as opening it by hand gives it. The reply's 'note' names the tab now active and how many are open.")]
-    public async Task<MutateResult> OpenFileAsync(string name, string? project = null, CancellationToken ct = default)
+    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was opened, as the IDE spells them. A carried file is also found by its filename, which differs from its name when VB6 carried it on a code line (`Module=Notes; Notes.md` is named Notes). The editor gets keyboard focus, as opening it by hand gives it. The reply's 'note' names the tab now active and how many are open. Pass 'line', and 'column' if wanted, to put the caret there, as the code window numbers them, so type_text and press_key act at that point with no offset to work out; the note then gives the caret's line, column and offset.")]
+    public async Task<MutateResult> OpenFileAsync(
+        string name, string? project = null,
+        [Description("Where to put the caret: a 1-based line, counted from the top of the file with its header included, "
+                     + "as the code window, get_file_content and set_breakpoints count it. A form, module or class only; "
+                     + "a line past the end is refused, and the caret stays where it was.")]
+        int? line = null,
+        [Description("The 1-based column on 'line', 1 by default; one past the line's last character is its end.")]
+        int? column = null,
+        CancellationToken ct = default)
     {
+        if (column is not null && line is null)
+            return new MutateResult(false, "'column' needs 'line'; nothing was opened");
         return await FocusingTheActiveTabAsync(await Dispatcher.UIThread.InvokeAsync(() =>
         {
             // Carried files are the only project members with no other route in: the Project Explorer opens
@@ -717,15 +727,44 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     ctx.EditorService.EditCode(form);
                 else
                     ctx.EditorService.EditCode(document.Module);
+                if (line is { } at && CaretTo(document, at, column ?? 1) is var (placed, refusal))
+                    return Naming(refusal is null
+                        ? new MutateResult(true, null, $"{TabStateNote()} {placed}")
+                        : new MutateResult(false, $"{document.Display} was opened, but {refusal}"), document);
                 return Naming(new MutateResult(true, null, TabStateNote()), document);
             }
             if (found.Carried is { } carried)
             {
+                if (line is not null)
+                    return Naming(new MutateResult(false,
+                        $"'{carried.Name}' is a carried file, which opens in the plain-text editor, where this does not put the "
+                        + "caret; nothing was opened"), found);
                 ctx.EditorService.EditRelatedDocument(carried);
                 return Naming(new MutateResult(true, null, TabStateNote()), found);
             }
             return new MutateResult(false, found.Error);
         }));
+    }
+
+    /// <summary>
+    /// The caret put at (<paramref name="line"/>, <paramref name="column"/>) in the code window just opened for
+    /// <paramref name="document"/>, and where it now is; or why not, with the caret left alone (#700).
+    /// </summary>
+    /// <remarks>
+    /// Placing the caret took a buffer offset, from interact set_property CaretOffset, which no read tool gave until
+    /// get_file_content returned the whole file, and a caller still had to count it out. Lines are counted as the
+    /// code window numbers them, as every tool that takes a line does, so one from get_diagnostics or a breakpoint
+    /// can be passed straight on. Refused rather than clamped: a caret quietly put somewhere else would take the
+    /// next type_text there.
+    /// </remarks>
+    private (string? Placed, string? Refusal) CaretTo(DocumentIdentity document, int line, int column)
+    {
+        var editor = ctx.DocumentDockService.OpenDocuments.OfType<CodeEditorViewModel>().FirstOrDefault(vm =>
+            (document.Module is { } module && vm.ModuleDefinition == module)
+            || (document.Form is { } form && (vm.FormDefinition == form || vm.ModuleDefinition?.FormPart == form)));
+        return editor is null
+            ? (null, "its code window could not be found to put the caret in")
+            : HexIDE.Automation.CaretPlacement.Place(editor, line, column);
     }
 
     [McpServerTool(Name = "view_designer")]

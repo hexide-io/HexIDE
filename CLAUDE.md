@@ -346,7 +346,7 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 | `activate_document_tab(title)` | Make a tab active by title |
 | `close_document_tab(title)` | Close a tab by title |
 | `get_diagnostics` | LSP errors and warnings |
-| `open_file(name)` | Open a form, module or carried file in the code editor (creates or activates tab) |
+| `open_file(name, line?, column?)` | Open a form, module or carried file in the code editor (creates or activates tab). With `line` (and `column`), 1-based as the code window numbers them, put the caret there; the note gives its offset |
 | `view_designer(name)` | Open a form or UserControl in the visual designer (creates or activates tab; use before `take_snapshot`) |
 | `run_project` | Start the VB6 runtime |
 | `stop_project` | Stop the running project |

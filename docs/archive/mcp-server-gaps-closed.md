@@ -3718,3 +3718,21 @@ the file, and replied as though the caller's element had been set.
 > the rows apart before naming one. A name with an index on a control that is no array says so. Renaming one element
 > still takes it out of its array with no way back, as the Properties window does; the reply says so, and #1276 holds the
 > fix. A source test checks that both tools resolve with `NamedOne`.
+
+## Putting the caret on a line still took offset arithmetic (#700)
+
+Once `get_file_content` returned the whole file (#273 task 3.18), a caller could at least count out the buffer
+offset `interact set_property CaretOffset=N` takes, but it still had to count: there was no way to name a line and
+column, as every tool that takes a line does. Reaching a member's `Attribute` line meant `press_key` Ctrl+End, Up three
+times, then Home.
+
+> **Fixed.** `open_file` takes `line` and `column`, 1-based and counted as the code window numbers them, header
+> included, so a line from `get_diagnostics`, a breakpoint or `get_file_content` can be passed straight on. The note
+> gives where the caret now is and its offset into the text `get_file_content` returns. A line or column off the text is
+> refused, with the caret left where it was and the line count or the line's length given, rather than clamped, since a
+> caret quietly put elsewhere would take the next `type_text` there; one past a line's last character is its end.
+> `column` without `line`, and a line for a carried file, which opens in the plain-text editor, are refused before
+> anything opens. Measured on Windows through the server's HTTP endpoint, on a copy of the battleship demo:
+> `open_file(frmSetup, line 94, column 5)` opened the form's code with the caret before `If optSize(2)`, and `type_text`
+> into the editor wrote there. Guarded by `CaretPlacementTests`, including a caret placed before the editor's view exists,
+> as it is for a document `open_file` has just opened.
