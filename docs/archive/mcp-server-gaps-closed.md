@@ -3002,8 +3002,16 @@ alone: what VB6 shows for a compile error met mid-run is #833's measurement.
 ## A Label on a running form is left out of the default tree — **CLOSED** (#1076, 2026-10-20)
 
 **Symptom.** Measured on 2026-10-15, driving the Battleship demo (#1071), whose board is 25 Labels and a status Label:
-none of the 26 was in `dump_visual_tree`, even with `interactiveOnly` false, and nothing could click one but a
-coordinate.
+
+```
+dump_visual_tree {"interactiveOnly":false,"maxDepth":20}
+→ {"window":"Battleship - Admiral","root":{"path":"Window",...,"children":[{"path":"Window/Menu",...,"isHidden":true,
+   "children":[]}]}}
+```
+
+None of the 26 Labels is there, with `interactiveOnly` false (the default is true). A pointer reaches them, so they
+are on screen: `interact {"target":"Window","action":"click","value":"20,20"}` replies "landing on its part 'VBLabel'".
+Nothing in the reply says controls were left out.
 
 **Narrowed by #954.** A Label now carries its VB6 name and is named by its caption, so `Window/#lblStatus` reaches it,
 `inspect_element` reads its caption as the node's name, and a dump with `interactiveOnly` false shows it as

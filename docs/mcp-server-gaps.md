@@ -309,6 +309,16 @@ reach. Calling `ToolTip.SetIsOpen(control, true)` directly would make the popup 
 would report a tip for a control that a real hover might never show one for, which is a false green of exactly
 the kind this document exists to prevent.
 
+**Re-read on 2026-10-20, at 4789f9a on Avalonia 12.0.4: still open, and a route may exist.** `hover` still raises
+`PointerEntered` and `PointerMoved` on the element (`UiAutomationDriver.Hover`). Avalonia 12.0.4's `ToolTipService`
+is internal and handles raw input as the input manager processes it (it declares
+`InputManager_OnProcess(RawInputEventArgs)`, read by reflection), which an event raised on the element never passes
+through, so the conclusion above holds whatever drives `IsPointerOver`. A window can be handed raw input:
+`TopLevel.PlatformImpl.Input` is public, though marked unstable, and takes a `RawPointerEventArgs`, whose public
+constructor needs the window's input root. In 12.0.4 that root is the non-public `TopLevel.InputRoot`, reachable only
+by reflection, as `close` already reaches the window's own close handling. Not tried.
+[#1265](https://github.com/hexide-io/HexIDE/issues/1265).
+
 ---
 
 ## 10. A crashed IDE is indistinguishable from a slow tool call (narrowed 2026-09-22)
@@ -414,9 +424,21 @@ plausible-looking array instead of an empty one, which is the part that misleads
 then `dump_visual_tree(root=<combo>)` and read the `ComboBoxItem` children. Expand again immediately before
 `select` if the popup has closed. Since #907, `select` closes the dropdown as a click does, and its reply says so.
 
-**Suggested fix.** Either omit `selectionItems` when the items are unrealized, or mark it — an
+**Corrected 2026-10-20: `selectionItems` is the selection, not a partial list of items.** Read in code at 4789f9a,
+not run. `inspect_element` fills it from the selection provider's `GetSelection()` (`UiAutomationDriver.Inspect`), as
+it has since the first commit, so it holds what is selected whether the dropdown is open or closed: Avalonia
+12.0.4's ComboBox peer reports a closed box's selected item through a stand-in peer (`UnrealizedSelectionPeer`, read
+by reflection). `["Form1"]` was the right answer to another question. What misled is that the name reads as the
+list's items and nothing in the reply says how many items there are, so the fix first suggested below aims at a
+mechanism that is not there.
+
+**Suggested fix, as first written.** Either omit `selectionItems` when the items are unrealized, or mark it — an
 `itemsRealized: false` alongside it would be enough. A partial list that looks complete is worse than no
 list, because it supports a confident wrong conclusion; an empty array with a flag supports none.
+
+**Suggested fix.** Say in `inspect_element`'s description that `selectionItems` is what is selected, not the list,
+and report an `itemCount` for a list or dropdown, which counts its items whether or not they are realized.
+[#1263](https://github.com/hexide-io/HexIDE/issues/1263).
 
 ## take_snapshot's default capture picks a modeless dialog (narrowed 2026-09-22)
 
@@ -451,6 +473,15 @@ of the bare line, and says it is a defect to report. Re-measured 2026-09-22: wit
 `take_snapshot {"window":"ide"}` no longer throws at all and returns a path, which agrees with the narrowing
 note above. The half still open, the Find dialog being preferred, was not re-tested.
 
+**The open half stands, read in code on 2026-10-20 at 4789f9a and not run.** Find is shown modeless with no owner
+(`WindowManager.ShowWindow`, `window.Show()`), and `ForegroundWindow.Pick`, under `auto`, lets any visible window
+but the IDE's own win. So while Find is open, every tool that takes `window` resolves against it, whether or not the
+IDE's window is the active one, though `take_snapshot`'s and `dump_visual_tree`'s descriptions say only a modal
+dialog is preferred. A path that then fails to resolve says `no child matching … under 'Window'` and names no
+window. **Workaround:** pass `window: "ide"` while Find is open. **Suggested fix:** say what `auto` does, a modeless
+window included, and have a failed path under `auto` name the window it was resolved against.
+[#1264](https://github.com/hexide-io/HexIDE/issues/1264).
+
 ## shutdown_ide can kill the MCP server and leave the IDE running
 
 **Symptom.** `shutdown_ide` replied `Unable to connect. Is the computer able to access the url?`. The
@@ -466,7 +497,8 @@ fallback for an MCP disconnect, but reached here *because of* the shutdown rathe
 
 **Suggested fix.** Send the reply before tearing the host down (or stop the host last), so the caller gets
 the confirmation the tool promises. Either way, do not leave a window up with no server behind it: if the
-shutdown cannot complete, keep the server alive so the next call can say why.
+shutdown cannot complete, keep the server alive so the next call can say why. Not reproduced since 2026-09-22, so
+what sets it off is unknown. [#644](https://github.com/hexide-io/HexIDE/issues/644).
 
 ---
 
@@ -814,6 +846,28 @@ flyout": `expand` opens it, and its items then appear under it in `dump_visual_t
 list, and have `collapse` with nothing open say there is nothing to close.
 [#949](https://github.com/hexide-io/HexIDE/issues/949).
 
+## `invoke_command` reaches only an `ICommand` property, and refuses a method by saying there is no such property
+
+**Symptom.** Recorded on 2026-10-12 under the entry now archived as "A context-menu action bound to a method cannot be
+driven", and unchanged at 4789f9a by code reading. With Form1 selected in the Project Explorer:
+
+```
+interact {"target":".../Pane[Project Group - Group1]/Custom","action":"invoke_command","value":"DeleteForm"}
+→ {"success":false,"mechanism":"reflection","error":"no public property 'DeleteForm' on ProjectToolViewModel"}
+```
+
+`DeleteForm` is a public method of `ProjectToolViewModel`, which the Project Explorer's flyout binds as
+`Command="{CompiledBinding DeleteForm}"`. `invoke_command` looks only for a public property holding an `ICommand`
+(`UiAutomationDriver.ReflectInvokeCommand`), and `inspect_element` lists only commands and properties, so the method
+is not listed either. The refusal names a property, which reads as a misspelt name rather than as "a method cannot
+be reached this way".
+
+**Workaround.** Drive the control the method is bound to, as a person does. For Remove: `select` the form's node,
+`expand` the Project Explorer's tree to open its flyout, then `invoke` **Remove Form1** (measured with #947).
+
+**Suggested fix.** `invoke_command` falling back to a public parameterless method, listed by `inspect_element`, and
+a refusal that names what it looked for. [#836](https://github.com/hexide-io/HexIDE/issues/836).
+
 ## `add_to_selection` names the new selection but not its reference, so a caller learns what Align measured against only afterwards
 
 **Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
@@ -1009,3 +1063,17 @@ deletable segments.
 
 **Suggested fix.** Delete what the deletable segments allow, as the key does, and say what was left and why.
 [#1055](https://github.com/hexide-io/HexIDE/issues/1055).
+
+## `get_bookmarks` returns bare line numbers, so a session holding its old description reads them one line out
+
+**Symptom.** Read in code at 4789f9a, not run. Since #1245, the bookmark tools count lines from 1 rather than 0.
+`set_bookmarks`' note says so ("counting from 1 at the top of the file, as the gutter does"). `get_bookmarks`
+returns `project`, `document`, `uri` and `lines` and no note, and its description says "1-based" without saying that
+this changed; `LineNumberingDescriptionTests` refuses "0-based" or "from 0" in any description. A session that
+loaded the tool's schema before the rebuild keeps "Lines are 0-based" (the schema entry above), so it reads `[5]` as
+the gutter's line 6, and nothing in the reply says otherwise.
+
+**Workaround.** After a rebuild onto #1245, use the bookmark tools from a new session, as the schema entry advises.
+
+**Suggested fix.** A `note` on a `get_bookmarks` reply that lists lines, stating the numbering in the words
+`set_bookmarks` uses. [#1261](https://github.com/hexide-io/HexIDE/issues/1261).
