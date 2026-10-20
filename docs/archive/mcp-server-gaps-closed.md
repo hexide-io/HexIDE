@@ -2845,25 +2845,31 @@ own menus had the same fault with `_` (#578). [#1128](https://github.com/hexide-
 
 ## No reply mentions a modal dialog, whether it was already open or the action opened it — **CLOSED** (#681, 2026-10-20)
 
-> **Fixed.** Every tool's reply names a modal dialog open once the call is done, in a `modalDialog` field (a block of
+> **Fixed.** A tool's reply names each modal dialog open once the call is done, in a `modalDialog` field (a block of
 > its own when the reply is not a JSON object). The call still acts; refusing would also stop a caller answering the
-> dialog through the same tools. Measured with a cold agent on a Debug build:
+> dialog through the same tools. Measured with a cold agent on a Debug build, in the wording since tightened at its
+> request:
 >
-> - `invoke_menu_item Tools/Add Procedure...` → `"modalDialog":"This call opened a modal dialog, 'Add Procedure', over
->   'Ask - HexIDE [design]'. Until it is answered a person can use nothing behind it: dump_visual_tree {} shows it, and
->   interact answers it."`
-> - `get_file_content` and `set_breakpoints` under it → `"… was open before this call and still is, so the call acted
->   on what lies behind it, which a person could not reach. …"`
+> - `invoke_menu_item Tools/Add Procedure...` → `"modalDialog":"'Add Procedure', a modal dialog over 'Ask - HexIDE
+>   [design]', opened during this call and waits for an answer. dump_visual_tree with 'window' set to its title shows
+>   it, and interact answers it."`
+> - `get_file_content`, `set_breakpoints` and `dump_visual_tree {"window":"ide"}` under it → `"… is still open and
+>   waits for an answer; this call reached past it, as a person could not. …"`
 > - `continue_program` into a division by zero → `"note":"Running; no pause within 2 s. It raised Run-time error '11'
->   …","modalDialog":"This call opened a modal dialog, 'HexIDE', over the running form 'Ask'. …"`
+>   …","modalDialog":"'HexIDE', a modal dialog over the running form 'Ask', opened during this call …"`, and
+>   `get_debug_state` after it, still `Running`, names the same dialog.
 >
-> A dialog already open is not named to `interact`, `type_text`, `press_key`, `hover`, `inspect_element`,
-> `dump_visual_tree` or `take_snapshot` left to the frontmost window, which is the dialog: they act in it or report
-> it. Sent to `"ide"` or to a window by name, they act behind it, and it is named. A program's own dialog, a MsgBox
-> over its form, is left to those tools' wait for the program (#1232). Only windows shown with `ShowDialog` count; a
-> tool window such as Find does not. The `take_snapshot` half of the suggested fix, preferring a modal with
-> `window: "ide"`, is not done: the note now names it, and `"ide"` asks for the IDE's own window. Guarded by
-> `OpenDialogsTests` and `OpenDialogNoteTests`.
+> Which dialogs are named follows the window the call acts in, resolved as the tools resolve it: the IDE's, or for a
+> window tool the one its `window` argument picks. The dialog the call acted in, and any under it, are not named, so
+> `dump_visual_tree {}` and `interact` left to the frontmost window, which is the dialog, get no note. "Reached past
+> it" is said only when the dialog blocks that window; a program's MsgBox over its form is named as open, since it
+> does not stop a person using the IDE. A program's dialog is left to `interact`, `type_text` and `press_key` when they
+> wait for that program (#1232), which names it. A program's MsgBox or InputBox over a hidden form, as from
+> `Form_Load`, waits in a window of its own that is not shown as a dialog, and is counted too; a tool window such as
+> Find is not. Each look at the windows is bounded at 500 ms, and one that fails, as after `shutdown_ide`, leaves the
+> reply as the tool gave it. A tool that throws gets no note. The `take_snapshot` half of the suggested fix, preferring
+> a modal with `window: "ide"`, is not done: the note now names it, and `"ide"` asks for the IDE's own window. Guarded
+> by `OpenDialogsTests` and `OpenDialogNoteTests`.
 
 
 **Symptom.** (Windows 11, Debug build of #838's branch, merged with main at 2047857, 2026-10-13.) Paused at a

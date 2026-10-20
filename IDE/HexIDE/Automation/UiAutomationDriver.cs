@@ -1191,7 +1191,7 @@ public static class UiAutomationDriver
     /// program's box over the active window, so a box is matched to the run by what it is, and its form is the run's
     /// first open one. Null for any other window.
     /// </summary>
-    private static (HexIDE.Runtime.EventPump Pump, Window? Form)? ProgramOf(Window window)
+    internal static (HexIDE.Runtime.EventPump Pump, Window? Form)? ProgramOf(Window window)
     {
         for (var at = window; at is not null; at = at.Owner as Window)
             if (at is HexIDE.Runtime.IModuleExecutionRoot { Events: { } events })
