@@ -3997,3 +3997,19 @@ dialog.
 > The reply names where the dialog opened: "'Reset?' opened over the running form 'Form1'", "over the window" for its
 > own, or "in a window of its own". It records the dialog as named, so the reply's note of open dialogs does not name it
 > a second time. `type_text`'s `mode` description says so. Guarded by `TypeKeysTests`.
+
+## `invoke` on a running form's menu item read the tick before the program's Click ran (#1255)
+
+`interact invoke` on a menu item adds "(now ticked)" or "(now unticked)" when the tick moved, read straight after
+raising Click. On a running form, `VBMenu` puts the tick back to the program's `Checked` before Click, and the
+program's handler runs later, through its queue, yielding at the debugger's time slice before its first statement.
+So the reply was built before `mnuLevel(i).Checked = (i = Index)` ran: Game > Intermediate replied with no tick note,
+and Intermediate ended up ticked. The `toggle` refusal on a menu item tells a caller that invoke's reply says whether
+the tick moved, so a reply with none read as "it did not move".
+
+> **Fixed.** A running form's menu item names no tick when it is clicked. Its tick is read once the wait for the
+> program finds it idle, through the `Settled` read #1280 added: "invoked MenuItem 'Grid'; the program ticked it", or
+> "unticked it". A reply whose wait came back early says the form may still change, and names no tick. The IDE's own
+> checkable items, such as View > Minimap, keep the immediate read, which is right for them. The `toggle` refusal says
+> the tick is reported once the program has run. Guarded by `ProgramWaitTests`, with a handler that ticks and one that
+> does not, and the click alone on an item whose Click ticks it at once.

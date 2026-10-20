@@ -55,6 +55,9 @@ public class ProgramWaitTests
       + "      Top             =   840\r\n"
       + "      Width           =   1215\r\n"
       + "   End\r\n"
+      + "   Begin VB.Menu mnuGrid \r\n"
+      + "      Caption         =   \"&Grid\"\r\n"
+      + "   End\r\n"
       + "End\r\n"
       + $"Attribute VB_Name = \"{name}\"\r\n";
 
@@ -461,6 +464,47 @@ public class ProgramWaitTests
             }
             earlier.Close();
         }
+    }
+
+    // A running form's tick is the program's to set, in a Click that runs through its queue after the item is clicked:
+    // read at once, the reply said nothing while the program ticked it (#1255). It is read once the program is idle.
+    [AvaloniaTheory]
+    [InlineData("mnuGrid.Checked = Not mnuGrid.Checked", "invoked MenuItem 'Grid'; the program ticked it", true)]
+    [InlineData("Text1.Text = \"clicked\"", "invoked MenuItem 'Grid'", false)]
+    public async Task A_running_form_s_menu_tick_is_read_once_the_program_has_run(string body, string reply, bool ticked)
+    {
+        using var run = Start($"""
+            Private Sub mnuGrid_Click()
+                Text1.Text = "before"
+                {body}
+            End Sub
+            """);
+        var item = (MenuItem)run.Named("mnuGrid");
+        var watch = run.Watch();
+
+        var outcome = UiAutomationDriver.Interact(item, "invoke", null);
+        outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Be(reply);
+        item.IsChecked.Should().Be(ticked);
+    }
+
+    // Whatever the program's Click has done by the time the click returns, the click itself names no tick on a running
+    // form's item: the wait reads it once the program is idle, and a tick named here too would be named twice.
+    [AvaloniaFact]
+    public void Clicking_a_running_form_s_menu_item_names_no_tick_of_its_own()
+    {
+        var item = new HexIDE.Runtime.BuiltinControls.VBMenu { Header = "Grid", ToggleType = MenuItemToggleType.CheckBox };
+        item.Click += (_, _) => item.Checked = true;
+        var window = new Window { Content = new Menu { Items = { item } } };
+        window.Show();
+        try
+        {
+            UiAutomationDriver.ClickMenuItem(item).Should().NotContain("ticked");
+            item.IsChecked.Should().BeTrue();
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaFact]

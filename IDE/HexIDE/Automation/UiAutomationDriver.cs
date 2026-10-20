@@ -507,19 +507,30 @@ public static class UiAutomationDriver
                                            ? ". Its command acts where keyboard focus is: if it belongs to a document, "
                                              + "open_file, view_designer or activate_document_tab put focus there"
                                            : ""));
+                        // A running form's tick is its program's to set, in a Click that runs later, through the program's
+                        // queue, so it is read once the wait for the program finds it idle (#1255).
+                        if (clickItem is HexIDE.Runtime.BuiltinControls.VBMenu programItem)
+                        {
+                            var wasTicked = programItem.IsChecked;
+                            return Ok($"invoked MenuItem '{invoked}'{ClickMenuItem(clickItem)}") with
+                            {
+                                Settled = () => Safe(() => programItem.IsChecked, wasTicked) == wasTicked ? null
+                                    : programItem.IsChecked ? "; the program ticked it" : "; the program unticked it",
+                            };
+                        }
                         return Ok($"invoked MenuItem '{invoked}'{ClickMenuItem(clickItem)}");
                     }
                     return Unsupported("invoke");
 
                 case "toggle":
                     // A menu item has no toggle of its own; only a click moves its tick. A running form's menu leaves the
-                    // tick to its program, so the hint promises no more than invoke's reply reports.
+                    // tick to its program, which invoke's reply reports once the program has run (#1255).
                     if (peer.GetProvider<IToggleProvider>() is null && control is MenuItem toggleItem)
                         return Err(toggleItem.ToggleType == MenuItemToggleType.None
                             ? $"'{LabelOf(control, peer)}' has no tick to toggle, and 'invoke' would run it as a click "
                               + "does; nothing was done"
                             : "a menu item has no toggle of its own: 'invoke' clicks it, and its reply says whether the "
-                              + "tick moved (a running form's menu leaves the tick to its program); nothing was done");
+                              + "tick moved, on a running form's menu once its program has run; nothing was done");
                     if (peer.GetProvider<IToggleProvider>() is not { } tog) return Unsupported("toggle");
                     return ToggleVerified(tog, LabelOf(control, peer), control is RadioButton, InProgram(control));
 
@@ -1202,7 +1213,10 @@ public static class UiAutomationDriver
 
         item.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
 
-        var tick = item.ToggleType == MenuItemToggleType.None || item.IsChecked == wasChecked ? ""
+        // A running form's item is put back before its Click, and the program sets its tick when it runs, which the caller
+        // reads once it has (#1255): read now, it said the tick stayed where the program was about to move it.
+        var tick = item is HexIDE.Runtime.BuiltinControls.VBMenu || item.ToggleType == MenuItemToggleType.None
+                   || item.IsChecked == wasChecked ? ""
             : item.IsChecked ? " (now ticked)" : " (now unticked)";
         return tick + (CloseMenu(menu) ? " and closed the menu, as a click does" : "");
     }
