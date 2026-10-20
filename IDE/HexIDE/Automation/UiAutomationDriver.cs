@@ -765,8 +765,9 @@ public static class UiAutomationDriver
     }
 
     // The window's handling of its platform's close, which its title-bar button and Alt+F4 reach: a close no program
-    // asked for (IsProgrammatic false, WindowCloseReason.WindowClosing), which a MsgBox with no Cancel and a form's
-    // QueryUnload may refuse. Avalonia keeps it internal; Window.Close is the programmatic close a guard lets through.
+    // asked for (IsProgrammatic false, WindowCloseReason.WindowClosing), which a Yes/No or Abort/Retry/Ignore MsgBox
+    // refuses and a form's QueryUnload may refuse. Avalonia keeps it internal; Window.Close is the programmatic close a
+    // guard lets through.
     private static readonly System.Reflection.PropertyInfo? PlatformClosing = typeof(Avalonia.Platform.IWindowImpl).GetProperty(
         "Closing", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
 

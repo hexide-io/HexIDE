@@ -3139,9 +3139,10 @@ Windows only, and outside the surface a caller has.
 [#829](https://github.com/hexide-io/HexIDE/issues/829).
 
 > **Fixed.** `interact` has a `close` action, which closes the target's window, or the window holding the target, as its
-> close box does: through the window's own handling of its platform's close, a close no program asked for, which a MsgBox
-> with no Cancel and a form's QueryUnload (UnloadMode 0, vbFormControlMenu) may refuse. The reply says what became of the
-> window, read once the program has run what the close set off, since a form's close box closes it only once the program
+> close box does: through the window's own handling of its platform's close, a close no program asked for, which a
+> Yes/No or Abort/Retry/Ignore MsgBox refuses and a form's QueryUnload (UnloadMode 0, vbFormControlMenu) may refuse.
+> The reply says what became of the window, read once the program has run what the close set off, since a form's
+> close box closes it only once the program
 > has unloaded it: closed; hidden, not closed, when QueryUnload hid it; still open while the program decides, when it is
 > still running (a QueryUnload asking a MsgBox); or still open because it refused. A window with a modal dialog open over
 > it is refused, as its close box does nothing for a person until the dialog is answered. The IDE's main window is
@@ -3743,3 +3744,22 @@ times, then Home.
 > battleship demo with an Attribute run added to `Game.Init`: a line past the end opened nothing; `frmBoard` opened at
 > line 150 showed it; `Game` at the run's end opened the run with the caret there; and `type_text` wrote where
 > `open_file(frmSetup, line 94, column 5)` put the caret. Guarded by `CaretPlacementTests` and `OpenFileCaretTests`.
+
+## Two parameter descriptions told a caller something other than what was meant (#1258)
+
+`type_text`'s `mode` was written as a regular C# literal, so its `\n` and `\t` reached a caller as a line feed and a tab.
+The sentence that tells a caller how keyboard mode types several lines read "per character, (a line break) as Enter and
+(a gap) as Tab". `interact`'s `close` said a MsgBox with no Cancel may refuse. An OK-only box has no Cancel, yet its
+close box answers vbOK; only Yes/No and Abort/Retry/Ignore boxes refuse, as the oracle measured.
+
+> **Fixed.** `mode` names the two characters. `close` names the boxes that refuse, Yes/No and Abort/Retry/Ignore, and
+> that a form's QueryUnload may, in fewer characters than before, since the `action` description sits just under the
+> 2048 a client delivers. CLAUDE.md gives the whole list, a modal form over the window included.
+>
+> `ToolDescriptionTextTests` holds every tool and parameter description to no control, format, line or paragraph
+> separator character, except a blank line between paragraphs, which five descriptions use. It fails on the text this
+> replaces, and pins both corrected sentences.
+>
+> Its review found that `ToolSource` stopped reading a description at the first piece that was not a literal. Three
+> tools end with `+ ProgramWaitNote`, so 361 characters of each were neither measured against the length cap nor
+> checked. It now reads a `const string` in the chain, and reports a chain that goes on past what it can read.
