@@ -4007,9 +4007,13 @@ So the reply was built before `mnuLevel(i).Checked = (i = Index)` ran: Game > In
 and Intermediate ended up ticked. The `toggle` refusal on a menu item tells a caller that invoke's reply says whether
 the tick moved, so a reply with none read as "it did not move".
 
-> **Fixed.** A running form's menu item names no tick when it is clicked. Its tick is read once the wait for the
-> program finds it idle, through the `Settled` read #1280 added: "invoked MenuItem 'Grid'; the program ticked it", or
-> "unticked it". A reply whose wait came back early says the form may still change, and names no tick. The IDE's own
-> checkable items, such as View > Minimap, keep the immediate read, which is right for them. The `toggle` refusal says
-> the tick is reported once the program has run. Guarded by `ProgramWaitTests`, with a handler that ticks and one that
-> does not, and the click alone on an item whose Click ticks it at once.
+> **Fixed.** A running form's menu item names no tick when it is clicked. The ticks of every item in its menu are read
+> once the wait for the program finds it idle, through the `Settled` read #1280 added, so a level menu's change is named
+> whole: "invoked MenuItem 'Intermediate' …; the program ticked 'Intermediate' and unticked 'Beginner'". When the wait
+> comes back early, at a breakpoint, a dialog or the time limit, the reply says the form may still change and names no
+> tick. `inspect_element` now reads any checkable menu item's tick as `toggleState`, which it did not before, so the tick
+> can be read back then too. The IDE's own checkable items, such as View > Minimap, keep the immediate read, which is
+> right for them. On a running form's item, `toggle` no longer points a caller at `invoke` for the tick: an item such as
+> Exit would run. It says the program sets the tick in the item's Click, and where to read it. Guarded by
+> `ProgramWaitTests`, with handlers that tick, untick, do both and do neither, and the click alone on an item whose Click
+> ticks it at once.

@@ -58,6 +58,10 @@ public class ProgramWaitTests
       + "   Begin VB.Menu mnuGrid \r\n"
       + "      Caption         =   \"&Grid\"\r\n"
       + "   End\r\n"
+      + "   Begin VB.Menu mnuRows \r\n"
+      + "      Caption         =   \"&Rows\"\r\n"
+      + "      Checked         =   -1  'True\r\n"
+      + "   End\r\n"
       + "End\r\n"
       + $"Attribute VB_Name = \"{name}\"\r\n";
 
@@ -467,16 +471,20 @@ public class ProgramWaitTests
     }
 
     // A running form's tick is the program's to set, in a Click that runs through its queue after the item is clicked:
-    // read at once, the reply said nothing while the program ticked it (#1255). It is read once the program is idle.
+    // read at once, the reply said nothing while the program ticked it (#1255). It is read once the program is idle, across
+    // the form's menu, as a level menu ticks one item and unticks another, and inspect_element reads each tick back.
     [AvaloniaTheory]
-    [InlineData("mnuGrid.Checked = Not mnuGrid.Checked", "invoked MenuItem 'Grid'; the program ticked it", true)]
-    [InlineData("Text1.Text = \"clicked\"", "invoked MenuItem 'Grid'", false)]
-    public async Task A_running_form_s_menu_tick_is_read_once_the_program_has_run(string body, string reply, bool ticked)
+    [InlineData("mnuGrid.Checked = True", "; the program ticked 'Grid'", true, true)]
+    [InlineData("mnuRows.Checked = False", "; the program unticked 'Rows'", false, false)]
+    [InlineData("mnuGrid.Checked = True: mnuRows.Checked = False", "; the program ticked 'Grid' and unticked 'Rows'", true, false)]
+    [InlineData("", "", false, true)]
+    public async Task A_running_form_s_menu_ticks_are_read_once_the_program_has_run(
+        string body, string said, bool grid, bool rows)
     {
         using var run = Start($"""
             Private Sub mnuGrid_Click()
-                Text1.Text = "before"
                 {body}
+                Text1.Text = "ran"
             End Sub
             """);
         var item = (MenuItem)run.Named("mnuGrid");
@@ -486,8 +494,12 @@ public class ProgramWaitTests
         outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
 
         outcome.Success.Should().BeTrue(outcome.Error);
-        outcome.Detail.Should().Be(reply);
-        item.IsChecked.Should().Be(ticked);
+        outcome.Detail.Should().Be("invoked MenuItem 'Grid'" + said);
+        run.Text.Should().Be("ran");
+        UiAutomationDriver.Inspect(item, "Window/Menu/Grid").ToggleState.Should().Be(grid);
+        UiAutomationDriver.Inspect(run.Named("mnuRows"), "Window/Menu/Rows").ToggleState.Should().Be(rows);
+        UiAutomationDriver.Interact(item, "toggle", null).Error.Should()
+            .Contain("its program sets the tick").And.Contain("inspect_element reads the tick");
     }
 
     // Whatever the program's Click has done by the time the click returns, the click itself names no tick on a running

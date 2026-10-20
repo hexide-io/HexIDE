@@ -112,6 +112,10 @@ public static class UiAutomationDriver
                 ToggleState.Off => false,
                 _ => null,
             }, null);
+        // A checkable menu item's tick, which its peer offers no toggle for: the only read of it, since a running form's
+        // program can move ticks a reply does not name, as one answering a dialog does (#1255 review).
+        else if (control is MenuItem { ToggleType: not MenuItemToggleType.None } checkable)
+            toggle = Safe<bool?>(() => checkable.IsChecked, null);
 
         // The range's own state, so a caller of set_range_value can read back what it set and learn the bounds
         // without provoking a refusal to find them. Reported the way the value provider's text is. (#550)
@@ -507,16 +511,12 @@ public static class UiAutomationDriver
                                            ? ". Its command acts where keyboard focus is: if it belongs to a document, "
                                              + "open_file, view_designer or activate_document_tab put focus there"
                                            : ""));
-                        // A running form's tick is its program's to set, in a Click that runs later, through the program's
-                        // queue, so it is read once the wait for the program finds it idle (#1255).
+                        // A running form's ticks are its program's to set, in a Click that runs later, through the program's
+                        // queue, so they are read once the wait for the program finds it idle (#1255).
                         if (clickItem is HexIDE.Runtime.BuiltinControls.VBMenu programItem)
                         {
-                            var wasTicked = programItem.IsChecked;
-                            return Ok($"invoked MenuItem '{invoked}'{ClickMenuItem(clickItem)}") with
-                            {
-                                Settled = () => Safe(() => programItem.IsChecked, wasTicked) == wasTicked ? null
-                                    : programItem.IsChecked ? "; the program ticked it" : "; the program unticked it",
-                            };
+                            var moved = TicksMoved(programItem);
+                            return Ok($"invoked MenuItem '{invoked}'{ClickMenuItem(clickItem)}") with { Settled = moved };
                         }
                         return Ok($"invoked MenuItem '{invoked}'{ClickMenuItem(clickItem)}");
                     }
@@ -524,13 +524,18 @@ public static class UiAutomationDriver
 
                 case "toggle":
                     // A menu item has no toggle of its own; only a click moves its tick. A running form's menu leaves the
-                    // tick to its program, which invoke's reply reports once the program has run (#1255).
+                    // tick to its program, in its Click, so the refusal does not steer a caller to run an item such as Exit
+                    // for its tick, and says where the tick is read (#1255 review).
+                    if (peer.GetProvider<IToggleProvider>() is null && control is HexIDE.Runtime.BuiltinControls.VBMenu)
+                        return Err("a running form's menu item has no toggle of its own: its program sets the tick, in the "
+                                   + "item's Click, which 'invoke' runs as a click does. inspect_element reads the tick as "
+                                   + "toggleState; nothing was done");
                     if (peer.GetProvider<IToggleProvider>() is null && control is MenuItem toggleItem)
                         return Err(toggleItem.ToggleType == MenuItemToggleType.None
                             ? $"'{LabelOf(control, peer)}' has no tick to toggle, and 'invoke' would run it as a click "
                               + "does; nothing was done"
                             : "a menu item has no toggle of its own: 'invoke' clicks it, and its reply says whether the "
-                              + "tick moved, on a running form's menu once its program has run; nothing was done");
+                              + "tick moved; nothing was done");
                     if (peer.GetProvider<IToggleProvider>() is not { } tog) return Unsupported("toggle");
                     return ToggleVerified(tog, LabelOf(control, peer), control is RadioButton, InProgram(control));
 
@@ -1219,6 +1224,32 @@ public static class UiAutomationDriver
                    || item.IsChecked == wasChecked ? ""
             : item.IsChecked ? " (now ticked)" : " (now unticked)";
         return tick + (CloseMenu(menu) ? " and closed the menu, as a click does" : "");
+    }
+
+    /// <summary>
+    /// Reads the tick of every item in the running form's menu that <paramref name="item"/> is in, and returns what says,
+    /// once its program has run, which ticks it moved: "; the program ticked 'Intermediate' and unticked 'Beginner'", or
+    /// null when it moved none.
+    /// </summary>
+    /// <remarks>
+    /// The whole menu, not the item alone: a level menu ticks the chosen item and unticks the others, and naming only the
+    /// chosen one left the others' change unsaid (#1255 review).
+    /// </remarks>
+    private static Func<string?> TicksMoved(HexIDE.Runtime.BuiltinControls.VBMenu item)
+    {
+        HexIDE.Runtime.BuiltinControls.VBMenu[] items = MenuHolding(item) is { } menu
+            ? [.. menu.GetLogicalDescendants().OfType<HexIDE.Runtime.BuiltinControls.VBMenu>()]
+            : [item];
+        var was = items.Select(i => i.IsChecked).ToArray();
+        return () =>
+        {
+            var now = items.Select((i, at) => Safe(() => i.IsChecked, was[at])).ToArray();
+            string Named(bool ticked) => string.Join(", ", items.Where((_, at) => now[at] != was[at] && now[at] == ticked)
+                .Select(i => $"'{LabelOf(i, ControlAutomationPeer.CreatePeerForElement(i))}'"));
+            string[] said = [.. new[] { ("ticked", Named(true)), ("unticked", Named(false)) }
+                .Where(p => p.Item2.Length > 0).Select(p => $"{p.Item1} {p.Item2}")];
+            return said.Length == 0 ? null : $"; the program {string.Join(" and ", said)}";
+        };
     }
 
     /// <summary>The menu bar, context menu or flyout menu an item is in, or null.</summary>
