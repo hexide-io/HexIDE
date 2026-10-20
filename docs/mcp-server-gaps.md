@@ -526,28 +526,6 @@ by re-reading prose that had just been written. That half is the first-contact e
 
 ---
 
-## The bookmark tools count lines from 0; every other line-taking tool, and the gutter, count from 1
-
-**Symptom.** `set_bookmarks {"name":"Module1","lines":[1]}` (`project` left at null) answers `Carried/Module1
-now has bookmarks on 1.`, and the bookmark is drawn on gutter line **2**. `get_breakpoints`,
-`set_breakpoints`, `run_to_cursor`, `set_next_statement`, `get_debug_state` and `get_call_stack` all number
-lines from 1, and so does the gutter. Both bookmark descriptions do say "0-based". A caller who has just used
-any other line tool, or read a line number off a snapshot, is still one line out.
-
-**Workaround.** Subtract one before calling `set_bookmarks`, and add one to what `get_bookmarks` returns.
-
-**Since #273 both numberings count from the top of the file, header included** (task 3.12), as every line tool
-now counts, and a line of the header or of a member's Attribute lines is refused, with where the code starts given
-in the tool's own numbering. So being one out near the top is sometimes refused rather than placed. Measured in
-task 3.16's live check (2026-10-01), on a class added through the IDE whose header is lines 1 to 13:
-`set_breakpoints` with `[13]` was refused with "its code starts at 14", and `set_bookmarks` with `[13]` was
-accepted, which counting from 0 is the gutter's line 14. One number, refused by one tool and accepted by the
-other. Below the header the difference is as silent as it was.
-
-**Suggested fix.** Undecided, and filed as needs-decision:
-[#571](https://github.com/hexide-io/HexIDE/issues/571). Either convert at the tool boundary, which changes
-the contract, or keep 0-based and have the descriptions say the gutter shows N+1.
-
 ## Every automation route to a new document saves it, so the pathless state cannot be reached
 
 **Symptom.** `add_file` says, in its own description, "Adds a new form or module to the startup project, or to

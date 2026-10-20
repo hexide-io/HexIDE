@@ -331,7 +331,7 @@ public class UserSidecarService : IUserSidecarService
     /// and only the designer block of a form, UserControl or PropertyPage, whose old window already began at its
     /// <c>Attribute</c> lines: shifting by the whole header would put every mark on a form five lines too low.
     /// It is re-keyed to the document's name and leaves the old keys. Bookmarks stay 0-based and breakpoints
-    /// 1-based, as the automation tools state them.
+    /// 1-based, as the stores hold them; the bookmark tools count from 1 and convert at their edge (#571).
     /// </para>
     /// <para>
     /// <b>An entry for a name the project does not own is left exactly as it is</b>, under whichever key it was

@@ -90,6 +90,22 @@ public static class MarkLineRules
         return (kept, dropped);
     }
 
+    /// <summary>
+    /// Stored bookmarks as a caller numbers lines: from 1, as the gutter and every other tool that takes a line
+    /// count (#571).
+    /// </summary>
+    /// <remarks>
+    /// The bookmark store counts from 0, as the sidecar has always written it, and the breakpoint store from 1.
+    /// The bookmark tools stated 0 and every other line tool 1, so a caller who had just set a breakpoint, or read
+    /// a line off a snapshot, put a bookmark one line low; near the header one number was refused by one tool and
+    /// taken by the other. The tools now count from 1 and convert here, at their edge, leaving the store and the
+    /// files it writes as they were.
+    /// </remarks>
+    public static int[] BookmarksShown(IEnumerable<int> stored) => stored.Select(l => l + 1).ToArray();
+
+    /// <summary>A caller's bookmark lines, counted from 1, as the store keeps them. See <see cref="BookmarksShown"/>.</summary>
+    public static int[] BookmarksStored(IEnumerable<int> shown) => shown.Select(l => l - 1).ToArray();
+
     private static string Listed(List<int> lines) => string.Join(", ", lines);
 
     private static string IsAre(List<int> lines) => lines.Count == 1 ? "is" : "are";

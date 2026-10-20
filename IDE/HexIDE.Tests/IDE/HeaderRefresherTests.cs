@@ -116,8 +116,8 @@ public class HeaderRefresherTests
     [Fact]
     public void TheTwoStoresDisagreeAboutTheBaseAndTheShiftRespectsThat()
     {
-        // Breakpoints are 1-based and bookmarks 0-based, both stated to callers on the shipped automation
-        // tools and both written raw into the same .user.hexproj. The same source line is therefore a
+        // Breakpoints are 1-based and bookmarks 0-based as stored (the bookmark tools add one at their edge,
+        // #571), and both are written raw into the same .user.hexproj. The same source line is therefore a
         // different integer in each store, and a shift that used one rule for both would move one of them
         // off by one -- onto the wrong statement, which for a breakpoint means it never fires.
         var form = Deserialize(OneLabel);
