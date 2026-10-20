@@ -101,21 +101,46 @@ public class OpenDialogsTests
         finally { box.Close(); form.Close(); ide.Close(); }
     }
 
-    // The wait for the program names a box over its form (#1232); a tool that does not wait for it names the box here.
+    // The wait for the program names a box over its form while the program is held on it, as a MsgBox holds it (#1232);
+    // a tool that does not wait for it names the box here.
     [AvaloniaFact]
-    public void A_programs_dialog_is_left_only_to_a_wait_for_that_program()
+    public void A_held_programs_dialog_is_left_only_to_a_wait_for_that_program()
     {
         var form = Shown(new FormWindow(), "Ask");
+        var answer = new TaskCompletionSource();
         try
         {
             var waited = OpenDialogs.Watch([form], form, waitsForProgram: true);
             var notWaited = OpenDialogs.Watch([form], form, waitsForProgram: false);
+            form.Events!.Raise("Command1_Click", async () => await form.Events.WhileSuspended(new ValueTask(answer.Task)));
             var box = Dialog("Question", form);
+            form.Events.IsIdle.Should().BeFalse("the handler is held on the box, as on a MsgBox");
             try
             {
                 OpenDialogs.Note(waited, [form, box]).Should().BeNull();
                 OpenDialogs.Note(notWaited, [form, box]).Should()
                     .StartWith("'Question', a modal dialog over the running form 'Ask', opened during this call");
+            }
+            finally { box.Close(); }
+        }
+        finally { answer.SetResult(); form.Close(); }
+    }
+
+    // A compile error reached from a click shows its dialog over the form without holding the program, so the wait,
+    // which returns at idle naming only forms, never named it, and the reply came back clean (#1253).
+    [AvaloniaFact]
+    public void An_idle_programs_dialog_is_named_though_the_call_waited_for_the_program()
+    {
+        var form = Shown(new FormWindow(), "Ask");
+        try
+        {
+            var waited = OpenDialogs.Watch([form], form, waitsForProgram: true);
+            var box = Dialog("Sub or Function not defined", form);
+            form.Events!.IsIdle.Should().BeTrue();
+            try
+            {
+                OpenDialogs.Note(waited, [form, box]).Should().Be("'Sub or Function not defined', a modal dialog over the "
+                    + "running form 'Ask', opened during this call and waits for an answer." + Tail);
             }
             finally { box.Close(); }
         }

@@ -23,8 +23,8 @@ public static class OpenDialogs
     /// <summary>
     /// Read on the UI thread before a call: the dialogs open, and <paramref name="target"/>, the window the call acts in
     /// (the IDE's, unless it addresses a window itself). <paramref name="waitsForProgram"/> is true for a tool that waits
-    /// for the program behind its window (#1232); when that window is a program's, its dialogs are left to that wait,
-    /// which names them.
+    /// for the program behind its window (#1232); when that window is a program's, its dialogs are left to that wait
+    /// while the program is held, as the wait names them then.
     /// </summary>
     public static DialogWatch Watch(IEnumerable<Window> windows, Window? target, bool waitsForProgram)
     {
@@ -34,8 +34,9 @@ public static class OpenDialogs
 
     /// <summary>
     /// What the reply should say of the modal dialogs open once the call is done, read on the UI thread, or null when there
-    /// are none to name. Not named: the window the call acted in, a dialog under it, and a program's dialog the wait for
-    /// the program names.
+    /// are none to name. Not named: the window the call acted in, a dialog under it, and the dialog of a program still held,
+    /// which the wait for the program names. An idle program's is named here: the wait returns at idle naming only forms, and
+    /// a compile error reached from a click shows its dialog without holding the program, so a clean reply hid it (#1253).
     /// </summary>
     public static string? Note(DialogWatch watch, IEnumerable<Window> windows)
     {
@@ -44,7 +45,7 @@ public static class OpenDialogs
             known.Add(at);
         var named = Among(windows)
             .Where(d => !known.Contains(d)
-                        && !(watch.Program is { } pump && UiAutomationDriver.ProgramOf(d)?.Pump == pump))
+                        && !(watch.Program is { IsIdle: false } pump && UiAutomationDriver.ProgramOf(d)?.Pump == pump))
             .ToList();
         if (named.Count == 0)
             return null;

@@ -329,6 +329,45 @@ public class ProgramWaitTests
     }
 
     [AvaloniaFact]
+    public async Task A_compile_error_from_a_click_is_named_though_it_leaves_the_program_idle()
+    {
+        // The IDE shows a compile error over the form and does not await it, so the walk ends and the program is idle
+        // with the dialog up; the wait returns at idle naming only forms, and the reply came back clean (#1253).
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Text1.Text = "before"
+                NoSuchSub
+            End Sub
+            """);
+        Window? shown = null;
+        void Report(VBWindowContext context, HexIDE.Runtime.Interpreter.VBCompileErrorException e)
+        {
+            shown = new Window { Title = "HexIDE", Content = e.Message };
+            _ = shown.ShowDialog(run.Window);
+        }
+        VBWindowContext.CompileError += Report;
+        try
+        {
+            var dialogs = OpenDialogs.Watch(OpenWindows(), run.Window, waitsForProgram: true);
+            var watch = run.Watch();
+            var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+            outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome);
+            Pump();
+
+            shown.Should().NotBeNull("the click reaches the call to a Sub that does not exist");
+            run.Window.Events!.IsIdle.Should().BeTrue();
+            outcome.Detail.Should().Be("invoked Button 'Command1'");
+            OpenDialogs.Note(dialogs, OpenWindows()).Should()
+                .StartWith($"'HexIDE', a modal dialog over the running form '{Caption}', opened during this call");
+        }
+        finally
+        {
+            VBWindowContext.CompileError -= Report;
+            shown?.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public async Task A_refused_action_does_not_wait()
     {
         using var run = Start(SlowClick);

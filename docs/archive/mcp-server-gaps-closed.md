@@ -3778,3 +3778,18 @@ selection, though nothing had been read: a fail-open default in the step that ex
 > selected first, rather than that it did not. No provider in the tree throws there; HexIDE implements no
 > `ISelectionItemProvider` of its own. Guarded by `SelectUnreadTests`, with a substitute provider that throws over a
 > real `ListBox`. The review listed the driver's other reads that report success unread, which #1280 holds.
+
+## A dialog over an idle running form was named by neither the reply's note nor the wait (#1253)
+
+`interact`, `type_text` and `press_key` on a running form leave the program's dialogs to the wait for the program
+(#1232), and the dialog note (#681) skipped them, as the wait names them. But the wait names a dialog only while the
+program is held on it, and returns at idle naming only forms. A compile error reached from a click shows its dialog over
+the form without holding the program, so `invoke` on the button replied `invoked Button 'Command1'`, clean, with the
+error dialog open over the form, and the caller's next action landed behind it. Whether the note named it depended on
+which window had focus, as that decides the dialog's owner.
+
+> **Fixed.** A program's dialog is left to the wait only while the program is held, when the wait names it; an idle
+> program's is named by the note in its usual words, the text `continue_program` already gets for this dialog. A held
+> program's MsgBox is still named once, by the wait. Guarded by `OpenDialogsTests`, held and idle, and
+> `ProgramWaitTests`, which runs the click to a call to a Sub that does not exist, with the compile error shown over the
+> form unawaited as the IDE shows it, and finds the dialog named.
