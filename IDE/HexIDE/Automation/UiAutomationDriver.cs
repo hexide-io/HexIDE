@@ -446,16 +446,32 @@ public static class UiAutomationDriver
                     }
                     // MenuItemAutomationPeer exposes NO providers at all — not invoke, not
                     // expandCollapse — so every verb failed on a menu and none of it was reachable.
-                    // Raising Click is what a real click does: MenuItem's class handler for the event
-                    // executes Command, so both plain Click handlers and bound commands fire once.
+                    // ClickMenuItem clicks it as Avalonia's menu does: it moves a checkable item's tick, raises
+                    // Click, whose class handler executes Command, so plain Click handlers and bound commands
+                    // fire once, then closes the menu. Raising Click alone was the #947 defect.
                     if (control is MenuItem clickItem)
                     {
-                        clickItem.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
-                        return Ok($"invoked MenuItem '{invoked}'");
+                        // A routed command is disabled wherever focus has nothing for it to act on, so say where to
+                        // put focus, as invoke_menu_item does (#678).
+                        if (!clickItem.IsEffectivelyEnabled)
+                            return Err($"'{invoked}' is disabled, so a click on it does nothing; nothing was done"
+                                       + (clickItem.IsEnabled && clickItem.Command is Avalonia.Labs.Input.RoutedCommand
+                                           ? ". Its command acts where keyboard focus is: if it belongs to a document, "
+                                             + "open_file, view_designer or activate_document_tab put focus there"
+                                           : ""));
+                        return Ok($"invoked MenuItem '{invoked}'{ClickMenuItem(clickItem)}");
                     }
                     return Unsupported("invoke");
 
                 case "toggle":
+                    // A menu item has no toggle of its own; only a click moves its tick. A running form's menu leaves the
+                    // tick to its program, so the hint promises no more than invoke's reply reports.
+                    if (peer.GetProvider<IToggleProvider>() is null && control is MenuItem toggleItem)
+                        return Err(toggleItem.ToggleType == MenuItemToggleType.None
+                            ? $"'{LabelOf(control, peer)}' has no tick to toggle, and 'invoke' would run it as a click "
+                              + "does; nothing was done"
+                            : "a menu item has no toggle of its own: 'invoke' clicks it, and its reply says whether the "
+                              + "tick moved (a running form's menu leaves the tick to its program); nothing was done");
                     if (peer.GetProvider<IToggleProvider>() is not { } tog) return Unsupported("toggle");
                     tog.Toggle();
                     return Ok($"toggled '{LabelOf(control, peer)}'");
@@ -510,8 +526,24 @@ public static class UiAutomationDriver
                         return SetTreeNodeExpanded(closeNode, peer, false);
                     if (control is MenuItem { HasSubMenu: true } closeMenu)
                     {
+                        // A menu bar's header closes the bar with it, as a second click on the header does, so the
+                        // header is not left lit with the bar still taking keys (#947). A submenu closes alone.
+                        // Each reply says what was open, so an already-closed menu is not reported as closed (#949).
+                        var closing = LabelOf(control, peer);
+                        var wasOpen = closeMenu.IsSubMenuOpen;
+                        if (closeMenu.Parent is Menu)
+                        {
+                            if (!CloseMenuHolding(closeMenu))
+                                return Ok($"menu '{closing}' was already closed, and the menu bar was not open; there "
+                                          + "is nothing to close");
+                            return Ok(wasOpen
+                                ? $"closed menu '{closing}' and left the menu bar"
+                                : $"menu '{closing}' was not open, but the menu bar was; left the menu bar");
+                        }
                         closeMenu.Close();
-                        return Ok($"closed menu '{LabelOf(control, peer)}'");
+                        return Ok(wasOpen
+                            ? $"closed menu '{closing}'"
+                            : $"menu '{closing}' was already closed; there is nothing to close");
                     }
                     if (control.ContextMenu is { IsOpen: true } openContextMenu)
                     {
@@ -842,6 +874,68 @@ public static class UiAutomationDriver
             : "";
         return Ok($"double-clicked '{LabelOf(control, peer)}'{note}");
     }
+
+    /// <summary>
+    /// Clicks a menu item as Avalonia's menu does when a person clicks it: a checkable item's tick moves, Click is raised,
+    /// which runs the item's command, and the menu closes unless the item stays open on click. Returns what a reply adds
+    /// for those: the tick's new state when it moved, and the menu's closing; "" when neither happened.
+    /// </summary>
+    /// <remarks>
+    /// Raising Click alone, as this once did, skipped the other two (#947): a checkable item such as View > Minimap
+    /// changed nothing, and the menu stayed open over what lay below it. The order is Avalonia 12's own, in
+    /// <c>DefaultMenuInteractionHandler.Click</c>. An item with a submenu only raises Click: a click on it opens it.
+    /// The menu is found before the click, since a command can rebuild the menu and leave the item without a parent.
+    /// </remarks>
+    public static string ClickMenuItem(MenuItem item)
+    {
+        var menu = item.HasSubMenu || item.StaysOpenOnClick ? null : MenuHolding(item);
+        var wasChecked = item.IsChecked;
+        if (!item.HasSubMenu && item.ToggleType == MenuItemToggleType.CheckBox)
+            item.SetCurrentValue(MenuItem.IsCheckedProperty, !item.IsChecked);
+        else if (!item.HasSubMenu && item.ToggleType == MenuItemToggleType.Radio && !item.IsChecked)
+            item.SetCurrentValue(MenuItem.IsCheckedProperty, true);
+
+        item.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+
+        var tick = item.ToggleType == MenuItemToggleType.None || item.IsChecked == wasChecked ? ""
+            : item.IsChecked ? " (now ticked)" : " (now unticked)";
+        return tick + (CloseMenu(menu) ? " and closed the menu, as a click does" : "");
+    }
+
+    /// <summary>The menu bar, context menu or flyout menu an item is in, or null.</summary>
+    private static MenuBase? MenuHolding(MenuItem item)
+    {
+        for (var at = item.Parent; at is not null; at = at.Parent)
+            if (at is MenuBase menu) return menu;
+        return null;
+    }
+
+    /// <summary>
+    /// Closes the menu a header or an item is in, whole, as Avalonia's menu does after a click; false when it was not
+    /// open.
+    /// </summary>
+    /// <remarks>
+    /// Closing only the header's own submenu, as <c>collapse</c> once did, left the bar open: the header stayed lit and
+    /// the bar kept taking keys (#947). <c>Menu.Close</c> does nothing to a bar that does not count itself open, so the
+    /// headers are closed and unlit here as well.
+    /// </remarks>
+    private static bool CloseMenu(MenuBase? menu)
+    {
+        if (menu is null) return false;
+        var items = menu.GetRealizedContainers().OfType<MenuItem>().ToList();
+        if (!menu.IsOpen && !items.Any(i => i.IsSubMenuOpen) && menu.FindLogicalAncestorOfType<Popup>() is not { IsOpen: true })
+            return false;
+        menu.Close();
+        foreach (var header in items)
+        {
+            if (header.IsSubMenuOpen) header.Close();
+            header.SetCurrentValue(SelectingItemsControl.IsSelectedProperty, false);
+        }
+        return true;
+    }
+
+    /// <summary>Closes the menu a header belongs to, whole: <see cref="CloseMenu"/> on its <see cref="MenuHolding"/>.</summary>
+    private static bool CloseMenuHolding(MenuItem header) => CloseMenu(MenuHolding(header));
 
     /// <summary>What <c>click</c>'s value may hold, quoted in its refusals and in the tool's description.</summary>
     public const string ClickValue =

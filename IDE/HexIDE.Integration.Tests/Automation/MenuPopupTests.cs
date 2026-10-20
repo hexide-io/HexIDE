@@ -16,6 +16,9 @@ namespace HexIDE.Integration.Tests.Automation;
 ///
 /// And it could not be opened either: `MenuItem` exposes no ExpandCollapse provider, so `interact expand`
 /// failed outright. The two halves compound — a menu that cannot be opened has nothing to look inside.
+///
+/// And driving one did less than a click (#947): invoke left the menu open and moved no tick, and collapse on a bar
+/// header left the bar lit and taking keys.
 /// </summary>
 public class MenuPopupTests
 {
@@ -116,6 +119,186 @@ public class MenuPopupTests
 
         outcome.Success.Should().BeTrue();
         file.IsSubMenuOpen.Should().BeFalse();
+    }
+
+    // #947: the menu, and its bar, stayed open after invoke, and collapse left the header lit with the bar taking keys.
+    // A real click on an item closes the whole menu; a second click on a header closes the bar.
+
+    [AvaloniaFact]
+    public void Expand_on_a_header_opens_the_bar_as_a_click_does()
+    {
+        var (_, menu, file) = BuildMenuWindow();
+
+        UiAutomationDriver.Interact(file, "expand", null).Success.Should().BeTrue();
+
+        menu.IsOpen.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public void Invoke_on_an_item_closes_the_whole_menu_as_a_click_does()
+    {
+        var (_, menu, file) = BuildMenuWindow();
+        UiAutomationDriver.Interact(file, "expand", null);
+        var open = file.Items.OfType<MenuItem>().First();
+
+        var outcome = UiAutomationDriver.Interact(open, "invoke", null);
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Be("invoked MenuItem 'Open' and closed the menu, as a click does");
+        file.IsSubMenuOpen.Should().BeFalse();
+        menu.IsOpen.Should().BeFalse();
+        file.IsSelected.Should().BeFalse("the header is not left lit");
+    }
+
+    [AvaloniaFact]
+    public void Invoke_on_an_item_that_stays_open_on_click_leaves_the_menu_open()
+    {
+        var (_, _, file) = BuildMenuWindow();
+        var sticky = new MenuItem { Header = "Sticky", StaysOpenOnClick = true };
+        file.Items.Add(sticky);
+        UiAutomationDriver.Interact(file, "expand", null);
+
+        var outcome = UiAutomationDriver.Interact(sticky, "invoke", null);
+
+        outcome.Detail.Should().Be("invoked MenuItem 'Sticky'");
+        file.IsSubMenuOpen.Should().BeTrue();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, "(now ticked)")]
+    [InlineData(true, "(now unticked)")]
+    public void Invoke_on_a_checkable_item_moves_its_tick_as_a_click_does(bool wasChecked, string said)
+    {
+        var (_, _, file) = BuildMenuWindow();
+        var minimap = new MenuItem { Header = "Minimap", ToggleType = MenuItemToggleType.CheckBox, IsChecked = wasChecked };
+        file.Items.Add(minimap);
+        UiAutomationDriver.Interact(file, "expand", null);
+
+        var outcome = UiAutomationDriver.Interact(minimap, "invoke", null);
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        minimap.IsChecked.Should().Be(!wasChecked);
+        outcome.Detail.Should().Be($"invoked MenuItem 'Minimap' {said} and closed the menu, as a click does");
+    }
+
+    [AvaloniaFact]
+    public void Invoke_on_a_disabled_item_is_refused_and_raises_no_click()
+    {
+        var (_, _, file) = BuildMenuWindow();
+        var disabled = new MenuItem { Header = "Disabled", IsEnabled = false };
+        var clicked = false;
+        disabled.Click += (_, _) => clicked = true;
+        file.Items.Add(disabled);
+        UiAutomationDriver.Interact(file, "expand", null);
+
+        var outcome = UiAutomationDriver.Interact(disabled, "invoke", null);
+
+        outcome.Success.Should().BeFalse();
+        outcome.Error.Should().Contain("disabled");
+        clicked.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void Toggle_on_a_menu_item_says_to_invoke_it()
+    {
+        var (_, _, file) = BuildMenuWindow();
+        var minimap = new MenuItem { Header = "Minimap", ToggleType = MenuItemToggleType.CheckBox };
+        file.Items.Add(minimap);
+        UiAutomationDriver.Interact(file, "expand", null);
+
+        var outcome = UiAutomationDriver.Interact(minimap, "toggle", null);
+
+        outcome.Success.Should().BeFalse();
+        outcome.Error.Should().Contain("'invoke' clicks it");
+        minimap.IsChecked.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void Toggle_on_a_menu_item_with_no_tick_says_so_and_runs_nothing()
+    {
+        var (_, _, file) = BuildMenuWindow();
+        UiAutomationDriver.Interact(file, "expand", null);
+        var open = file.Items.OfType<MenuItem>().First();
+        var clicked = false;
+        open.Click += (_, _) => clicked = true;
+
+        var outcome = UiAutomationDriver.Interact(open, "toggle", null);
+
+        outcome.Success.Should().BeFalse();
+        outcome.Error.Should().Contain("has no tick to toggle");
+        clicked.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void Collapse_on_a_header_leaves_the_bar_as_a_second_click_does()
+    {
+        var (_, menu, file) = BuildMenuWindow();
+        UiAutomationDriver.Interact(file, "expand", null);
+
+        var outcome = UiAutomationDriver.Interact(file, "collapse", null);
+
+        outcome.Detail.Should().Be("closed menu 'File' and left the menu bar");
+        menu.IsOpen.Should().BeFalse();
+        file.IsSelected.Should().BeFalse("the header is not left lit");
+    }
+
+    [AvaloniaFact]
+    public void Collapse_on_a_closed_header_says_there_is_nothing_to_close()
+    {
+        var (_, _, file) = BuildMenuWindow();
+
+        var outcome = UiAutomationDriver.Interact(file, "collapse", null);
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Contain("was already closed").And.Contain("nothing to close");
+    }
+
+    // Alt opens the bar with no menu showing.
+    [AvaloniaFact]
+    public void Collapse_on_a_header_of_an_active_bar_says_it_left_the_bar_not_that_it_closed_the_menu()
+    {
+        var (_, menu, file) = BuildMenuWindow();
+        menu.Open();
+
+        var outcome = UiAutomationDriver.Interact(file, "collapse", null);
+
+        outcome.Detail.Should().Be("menu 'File' was not open, but the menu bar was; left the menu bar");
+        menu.IsOpen.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void Collapse_on_a_submenu_closes_only_that_submenu()
+    {
+        var (_, menu, file) = BuildMenuWindow();
+        UiAutomationDriver.Interact(file, "expand", null);
+        var recent = file.Items.OfType<MenuItem>().Single(i => (string?)i.Header == "Recent");
+        UiAutomationDriver.Interact(recent, "expand", null);
+
+        var outcome = UiAutomationDriver.Interact(recent, "collapse", null);
+
+        outcome.Detail.Should().Be("closed menu 'Recent'");
+        recent.IsSubMenuOpen.Should().BeFalse();
+        file.IsSubMenuOpen.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public void Invoke_on_a_context_menu_item_closes_the_context_menu()
+    {
+        var copy = new MenuItem { Header = "Copy" };
+        var owner = new Border { Width = 50, Height = 50, ContextMenu = new ContextMenu { Items = { copy } } };
+        var window = new Window { Content = owner };
+        window.Show();
+        try
+        {
+            UiAutomationDriver.Interact(owner, "expand", null).Success.Should().BeTrue();
+            owner.ContextMenu!.IsOpen.Should().BeTrue();
+
+            var outcome = UiAutomationDriver.Interact(copy, "invoke", null);
+
+            outcome.Detail.Should().EndWith("and closed the menu, as a click does");
+            owner.ContextMenu.IsOpen.Should().BeFalse();
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaFact]

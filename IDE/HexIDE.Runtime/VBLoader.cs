@@ -319,7 +319,7 @@ public class VBLoader
             return separator;
         }
 
-        var item = (MenuItem)((ComponentBaseClass)component.BaseClass).Instantiate(component);
+        var item = (VBMenu)((ComponentBaseClass)component.BaseClass).Instantiate(component);
         built.Add((component, item, parent));
 
         var name = component.GetPropertyOrDefault(VBProperties.NameProperty);
@@ -367,9 +367,9 @@ public class VBLoader
     {
         if (live is not VBMenu first)
             return new VBMenuSeparator { IsVisible = live.IsVisible };
-        var item = (MenuItem)((ComponentBaseClass)component.BaseClass).Instantiate(component);
+        var item = (VBMenu)((ComponentBaseClass)component.BaseClass).Instantiate(component);
         item.Header = first.Header;
-        item.IsChecked = first.IsChecked;
+        item.Checked = first.Checked;
         item.IsEnabled = first.IsEnabled;
         item.IsVisible = first.IsVisible;
         if (component.GetPropertyOrDefault(VBProperties.NameProperty) is { } name)

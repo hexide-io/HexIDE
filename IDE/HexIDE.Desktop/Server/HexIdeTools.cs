@@ -2382,7 +2382,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "invoke_menu_item")]
-    [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Each segment is the text the menu displays, matched case-insensitively: 'Project/Add Module' reaches the item whose header is 'Add _Module' (the underscore marks the access key, wherever it falls), and a trailing '...' may be left off, so 'Tools/Options' reaches 'Options...'. A menu need not be open first. If a segment is not found, the error names the menu it looked in and every item that menu holds. Most built-in items are routed commands, which act on the control that has keyboard focus, as a real click does: one that belongs to a document (Tools/Add Procedure to a code window) needs focus in that document, which open_file, view_designer and activate_document_tab give it, as opening it by hand does; the refusal names what has focus instead. Returns an error if the path cannot be resolved or the item cannot execute. The reply's 'note' names the item invoked, as its menu shows it.")]
+    [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Each segment is the text the menu displays, matched case-insensitively: 'Project/Add Module' reaches the item whose header is 'Add _Module' (the underscore marks the access key, wherever it falls), and a trailing '...' may be left off, so 'Tools/Options' reaches 'Options...'. A menu need not be open first. If a segment is not found, the error names the menu it looked in and every item that menu holds. Most built-in items are routed commands, which act on the control that has keyboard focus, as a real click does: one that belongs to a document (Tools/Add Procedure to a code window) needs focus in that document, which open_file, view_designer and activate_document_tab give it, as opening it by hand does; the refusal names what has focus instead. A checkable item with no command of its own, such as View/Minimap, is ticked or unticked, as a click does. Returns an error if the path cannot be resolved or the item cannot execute. The reply's 'note' names the item invoked, as its menu shows it.")]
     public async Task<MutateResult> InvokeMenuItemAsync(string path, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -2402,6 +2402,16 @@ internal sealed class HexIdeTools(IdeContext ctx)
             var found = MenuPath.Resolve(menu.Items, path);
             if (found.Error is not null)
                 return new MutateResult(false, found.Error);
+
+            // A checkable item such as View/Minimap has no command: a click moves its tick, which its binding carries
+            // to the setting (#947).
+            if (found.Command is null && found.Item is { HasSubMenu: false, ToggleType: not MenuItemToggleType.None } checkable)
+            {
+                if (!checkable.IsEffectivelyEnabled)
+                    return new MutateResult(false, $"'{path}' cannot execute now: the item is disabled.");
+                var ticked = UiAutomationDriver.ClickMenuItem(checkable);
+                return new MutateResult(true, null, $"Invoked '{found.Header ?? path}'{ticked}.");
+            }
 
             if (found.Command is not { } command)
                 return new MutateResult(false, $"'{path}' is a submenu or has no command");

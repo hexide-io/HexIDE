@@ -25,8 +25,8 @@ public class MenuComponentClass : ComponentBaseClass
             // this for the button, check box and option button.
             HeaderTemplate = AccessTextDataTemplate.Access,
             IsEnabled = instance.GetPropertyOrDefault(EnabledProperty),
-            IsChecked = instance.GetPropertyOrDefault(CheckedProperty),
-            // Every item can be ticked from code (#1126), so every item draws its tick when IsChecked; VBMenu keeps a click
+            Checked = instance.GetPropertyOrDefault(CheckedProperty),
+            // Every item can be ticked from code (#1126), so every item draws its tick when Checked; VBMenu keeps a click
             // from toggling it.
             ToggleType = MenuItemToggleType.CheckBox,
             IsVisible = instance.GetPropertyOrDefault(VisibleProperty)

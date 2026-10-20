@@ -11,15 +11,31 @@ namespace HexIDE.Runtime.BuiltinControls;
 /// </summary>
 public class VBMenu : MenuItem
 {
+    private bool _checked;
+
     protected override Type StyleKeyOverride => typeof(MenuItem);
+
+    /// <summary>
+    /// The item's tick as the program, or the form file, last set it. Set this rather than <c>IsChecked</c>: a click puts
+    /// <c>IsChecked</c> back to it.
+    /// </summary>
+    public bool Checked
+    {
+        get => _checked;
+        set
+        {
+            _checked = value;
+            IsChecked = value;
+        }
+    }
 
     protected override void OnClick(RoutedEventArgs e)
     {
-        // MenuItem.OnClick flips IsChecked for a CheckBox toggle. Keep what the program set, and raise Click as before.
-        var isChecked = IsChecked;
+        // Avalonia's menu flips a CheckBox item's IsChecked before it raises Click, so by now the tick has already moved
+        // (#947). Put back what the program set before its Click runs, so that a Click setting Checked has the last word.
+        if (IsChecked != _checked)
+            SetCurrentValue(IsCheckedProperty, _checked);
         base.OnClick(e);
-        if (IsChecked != isChecked)
-            SetCurrentValue(IsCheckedProperty, isChecked);
     }
 }
 

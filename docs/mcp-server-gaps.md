@@ -733,41 +733,6 @@ Windows only, and outside the surface a caller has.
 (`WindowCloseReason.WindowClosing`, not programmatic), and replying whether the window is still open.
 [#829](https://github.com/hexide-io/HexIDE/issues/829).
 
-## A context-menu action bound to a method cannot be driven
-
-**Symptom.** Live-checking #831 needed a project with no startup form, so Form1 had to be removed. Both of the UI's
-routes are out of reach:
-
-```
-invoke_menu_item {"path":"Project/Remove Form1"}
-→ {"success":false,"error":"'Project/Remove Form1' is a submenu or has no command"}
-interact {"target":".../Pane[Project Group - Group1]/Custom/Tree/Pane/TreeItem[Project1 (Project1.vbp)]/TreeItem[Form1 (Form1.frm)]","action":"select"}
-→ {"success":true, ... "selected 'Form1 (Form1.frm)'"}
-interact {"target":".../Pane[Project Group - Group1]/Custom","action":"invoke_command","value":"DeleteForm"}
-→ {"success":false,"mechanism":"reflection","error":"no public property 'DeleteForm' on ProjectToolViewModel"}
-```
-
-The Project menu's item is inert, which is a product defect (#835). The Project Explorer's context menu binds
-**Remove Form1** to a method, `ProjectToolViewModel.DeleteForm()`, rather than to an `ICommand`. So `inspect_element`
-does not list it and `invoke_command` cannot reach it. This entry first said that no tool opens a context menu; that
-was wrong (below). The refusal also names a *property* when a command was asked for.
-
-**Corrected 2026-10-13: `expand` opens the context menu.** `interact` `expand` on a control that owns a ContextMenu
-or flyout opens it, and this tree's flyout was measured that way when #343 closed (`interact expand …/Custom/Tree →
-"opened flyout on 'Tree'"`, in the archive). No tool description says so, which is how this entry missed it
-([#949](https://github.com/hexide-io/HexIDE/issues/949)). Remove binds `Command="{CompiledBinding DeleteForm}"`,
-which Avalonia turns into a command, so `invoke` on that item with the flyout open should run it, and, through today's
-menu fallback, leave the flyout open afterwards (#947). That is read in code, not run. Remove acts on the selected form
-and asks nothing, so check that `select`'s reply names that form, and that the item's header reads **Remove** and its
-name, before invoking it. Until the route is checked live, the workaround below stands.
-
-**Workaround.** Load a `.vbp` whose `Startup` names no form in the project, by passing it as the positional argument
-at launch.
-
-**Suggested fix.** `invoke_command` falling back to a public parameterless method, listed by `inspect_element`, and
-a refusal that names what it looked for rather than a property. An action to open a context menu is not needed:
-`expand` is it. [#836](https://github.com/hexide-io/HexIDE/issues/836).
-
 ## Polling `list_lsp_messages` with the highest sequence seen never shows a waiting request answered
 
 **Symptom.** While re-recording [`mcp-first-contact.md`](mcp-first-contact.md) for #273 on 2026-10-13, in a fresh
@@ -976,7 +941,7 @@ The run read these as phantom tokens. They are not: each control owns a popup th
 #343. The StackPanel owns the Toolbars context flyout, `PART_TabBody` Dock's document context menu, and every
 TextBox the theme's Cut/Copy/Paste flyout. But `interact`'s `action` description defines expand and collapse as
 "a dropdown, tree node or expander", and `dump_visual_tree` says only "expandCollapse → expand/collapse", which
-is how #836 and its entry here came to say that no tool opens a context menu. `collapse` with the popup closed
+is how #836 and its entry (now archived) came to say that no tool opens a context menu. `collapse` with the popup closed
 answers "element does not support 'collapse'" while the token is still shown. Cross-platform by code reading.
 
 **Workaround.** On a control with no expander of its own, read `expandCollapse` as "owns a context menu or
@@ -985,30 +950,6 @@ flyout": `expand` opens it, and its items then appear under it in `dump_visual_t
 **Suggested fix.** Say so in `interact`'s `action` description and, in a few words, in `dump_visual_tree`'s token
 list, and have `collapse` with nothing open say there is nothing to close.
 [#949](https://github.com/hexide-io/HexIDE/issues/949).
-
-## `interact` on a menu skips what a real gesture does: `collapse` leaves the menu bar active, `invoke` leaves the menu open
-
-**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
-
-```
-interact {"target":"Window/Custom[MainView]/None[#0]/Menu[MenuBar]/MenuItem[Format]","action":"collapse"}
-→ closed menu 'Format'
-```
-
-The Format header stayed highlighted in every later snapshot until
-`press_key {"target":"Window/Custom[MainView]/None[#0]/Menu[MenuBar]","key":"Escape"}`. `interact` `invoke` on the
-Project menu's `MenuItem[Remove Form2]` left the Project dropdown open, still drawn over the Object Browser after
-`activate_document_tab`. `collapse` closes only the submenu, not the menu bar, and `invoke` only raises Click,
-where a real click also toggles a checkable item and closes the menu. So, read in code and not run, `invoke` on
-the eight checkable items (the toolbar band's flyout, View > Toolbars and Minimap) changes nothing, and `toggle`
-and `invoke_menu_item` refuse them. Cross-platform by code reading.
-
-**Workaround.** `press_key` Escape on the MenuBar clears a header that `collapse` left active. What closes a
-dropdown that `invoke` left open was not measured, so check a snapshot after any menu `invoke`.
-
-**Suggested fix.** Do what Avalonia 12.1.4's own peer does: `collapse` on a top-level item closes the menu bar,
-and `invoke` toggles a checkable item, raises Click, then closes the menu unless `StaysOpenOnClick`. Have
-`MenuPopupTests` assert that the menu is closed after each. [#947](https://github.com/hexide-io/HexIDE/issues/947).
 
 ## `add_to_selection` names the new selection but not its reference, so a caller learns what Align measured against only afterwards
 
@@ -1422,28 +1363,6 @@ caller must know VB6's caption syntax to address what it can see.
 
 **Suggested fix.** Name each run-time menu item by its caption as drawn, `&` removed and `&&` read as one `&`. The IDE's
 own menus had the same fault with `_` (#578). [#1128](https://github.com/hexide-io/HexIDE/issues/1128).
-
-## Invoking a runtime menu item can leave a checkmark it did not request
-
-**Symptom (2026-10-18, #1156 live verification).** On the running Notepad form, these calls succeeded:
-
-```text
-interact {"window":"frmNotepad","target":"Window/Menu/MenuItem[&Edit]","action":"expand"}
-interact {"window":"frmNotepad","target":"Window/Menu/MenuItem[&Edit]/Pane/MenuItem[&Copy]","action":"invoke"}
-```
-
-After invoking Copy and Select All, `take_snapshot {"window":"frmNotepad"}` showed checkmarks beside both items.
-Neither handler sets Checked and neither menu is declared checked. The VBMenu click override normally preserves
-Checked, so the automation peer's invocation path needs checking against the ordinary click path. A breakpoint
-confirmed a subsequent Copy invocation did reach `mnuEditCopy_Click`; the unexpected tick is separate from dispatch.
-
-**Workaround.** Drive the runtime menu shortcut with `press_key`, for example
-`{"window":"frmNotepad","target":"Window/Edit[#1]","key":"C","modifiers":"Ctrl"}`. Select text first and
-use a breakpoint to distinguish the VB6 handler from a TextBox's own shortcut handling. For opening a menu,
-`expand` only opens it; explicitly invoke its parent when testing that parent's VB6 Click handler.
-
-**Suggested fix.** Make the runtime menu's automation invocation preserve the program's Checked value, as its
-pointer click path does, and cover both paths with a regression test.
 
 ### Breakpoint gutter hover target (#1176, fixed in this slice)
 
