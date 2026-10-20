@@ -124,7 +124,9 @@ first bytes reach the server. A message serialized and then held somewhere on it
 look exactly like a server that received it and said nothing
 ([#390](https://github.com/hexide-io/HexIDE/issues/390)).
 
-To see what has changed since, pass a sequence already seen. It has to be one below `initialize`'s:
+To see what has changed since, pass the last reply's `latestSequence` as `afterSequence`. The replies here were
+recorded before that field existed (#961), so they lack it, and so does each completed row's `completedSequence`.
+What they show instead is the workaround of the time: a sequence below `initialize`'s own row.
 
 ```mcp
 list_lsp_messages {"afterSequence": 3}
@@ -153,30 +155,10 @@ Asked a moment later:
 ```
 
 `initialize`'s row came back completed by its reply, with `outcome` and `answerSequence` filled in. It came
-back because 4 is above the 3 passed. Polled with the highest sequence already seen, as the description
-advises, a request that was waiting never comes back answered:
-
-```mcp
-list_lsp_messages {"afterSequence": 6, "limit": 3}
-```
-
-```json
-{
-  "messages": [
-    {"sequence": 12, "connectionId": "hexide.vb6", "at": "2026-10-13T13:42:44.4564030+00:00", "direction": "Sent", "kind": "Request", "method": "textDocument/foldingRange", "id": "3", "sizeBytes": 203, "outcome": "Answered", "elapsedMs": 834.5468, "hasBody": true, "answerSizeBytes": 64, "answerSequence": 14},
-    {"sequence": 13, "connectionId": "hexide.vb6", "at": "2026-10-13T13:42:45.1392468+00:00", "direction": "Received", "kind": "Notification", "method": "textDocument/publishDiagnostics", "sizeBytes": 202, "hasBody": true},
-    {"sequence": 15, "connectionId": "hexide.vb6", "at": "2026-10-13T13:42:45.6206673+00:00", "direction": "Sent", "kind": "Request", "method": "textDocument/documentSymbol", "id": "4", "sizeBytes": 205, "outcome": "Answered", "elapsedMs": 89.6947, "hasBody": true, "answerSizeBytes": 223}
-  ],
-  "matched": 7,
-  "truncated": true,
-  "framesDropped": 0
-}
-```
-
-Seven rows came after 6, and `initialize` was not one of them. That is a defect in the tool, not in the
-caller: the reply that completed it used up sequence 8, but the filter reads only the row's own sequence
-([#961](https://github.com/hexide-io/HexIDE/issues/961)). Until it is fixed, pass a sequence below the
-oldest request still waiting.
+back because 4 is above the 3 passed. Until #961 that was the only way it could: polled with the highest
+sequence seen, 6, it never came back answered, because a reply completes its request's row rather than adding
+one. Now a request answered or ended after `afterSequence` comes back on its own row, carrying the
+`completedSequence` its outcome was recorded under, and each reply's `latestSequence` is the cursor to pass next.
 
 There is no `Unconsumed` row, because this client uses everything the bundled server advertises. A
 server that offers something the client does not use gets one here, between `initialized` and the first
@@ -211,8 +193,8 @@ opening is always kept.
 
 | Looks like | Is |
 |---|---|
-| Sequence numbers skip 8 and 14 | Not a loss. A reply consumes a sequence number and completes its request's row instead of adding one. `framesDropped` is the only report of real loss. |
+| Sequence numbers skip 8 and 14 | Not a loss. A reply consumes a sequence number, as does a request's cancellation or abandonment, and completes its request's row instead of adding one. `framesDropped` is the only report of real loss. |
 | The documentSymbol request is `Answered` with `answerSizeBytes` but no `answerSequence` | Not a loss. Its reply's body was not retained, since nothing was armed and the opening allowance was spent. A row with `answerSequence` can always be read; one without it cannot. |
 | `get_lsp_message` returns the complete body in a field called `head` | Not truncation. `truncated` is false and `trueLength` matches. A body over the per-frame limit comes back as `head` plus `tail`. |
 | `initialize` without an `outcome` on the first ask | Not a lost reply. It was still waiting, and asking again shows it answered. |
-| `initialize` missing from a poll with `afterSequence` 6, though it was answered | A defect: [#961](https://github.com/hexide-io/HexIDE/issues/961). A completed request comes back only for an `afterSequence` below its own row. |
+| `initialize` missing from a poll with `afterSequence` 6, though it was answered | Fixed by [#961](https://github.com/hexide-io/HexIDE/issues/961): a request answered or ended after `afterSequence` comes back on its own row. Poll from the reply's `latestSequence`. |

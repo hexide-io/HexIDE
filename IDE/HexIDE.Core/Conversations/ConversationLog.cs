@@ -61,7 +61,8 @@ public sealed class ConversationLog : IAsyncDisposable
         // A marker rather than an entry. The pump reads strictly in order, so a fence completing proves
         // everything written before it has been processed — which polling a queue length does not, since
         // an item can be out of the queue and still in flight.
-        TaskCompletionSource? Fence = null,
+        // Completed with the last sequence taken when the pump reached it: everything at or below it is recorded.
+        TaskCompletionSource<long>? Fence = null,
 
         // The second marker, and it rides the queue for the same reason the fence does: clearing touches
         // per-connection state the pump owns, so doing it from a caller's thread would race the pump
@@ -438,7 +439,10 @@ public sealed class ConversationLog : IAsyncDisposable
         return (connection.Ring.Dropped, connection.Bodies.DroppedBodies, connection.Bodies.RefusedBodies);
     }
 
-    /// <summary>Waits until everything recorded so far has been processed. For tests, and for export.</summary>
+    /// <summary>
+    /// Waits until everything recorded so far has been processed, and returns the last sequence taken by then: every
+    /// envelope and outcome at or below it is in the record. For tests, export, and a poll's cursor (#961).
+    /// </summary>
     /// <remarks>
     /// Sends a fence through the queue rather than watching its length. An item can be out of the queue and
     /// still being processed, so a length of zero proves nothing; a fence cannot be reached until
@@ -455,9 +459,9 @@ public sealed class ConversationLog : IAsyncDisposable
     /// thousand, on a CI runner, against a deliberately tiny queue.
     /// </para>
     /// </remarks>
-    public async Task DrainAsync()
+    public async Task<long> DrainAsync()
     {
-        var fence = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var fence = new TaskCompletionSource<long>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         try
         {
@@ -468,10 +472,10 @@ public sealed class ConversationLog : IAsyncDisposable
         {
             // The log is being disposed. There is nothing left to drain towards, and dispose releases any
             // fence it finds still queued, so nobody is left waiting either way.
-            return;
+            return Interlocked.Read(ref _sequence);
         }
 
-        await fence.Task.ConfigureAwait(false);
+        return await fence.Task.ConfigureAwait(false);
     }
 
     private Connection Of(string connectionId)
@@ -501,7 +505,7 @@ public sealed class ConversationLog : IAsyncDisposable
     {
         if (pending.Fence is { } fence)
         {
-            fence.TrySetResult();
+            fence.TrySetResult(_sequence);
             return;
         }
 
@@ -637,7 +641,7 @@ public sealed class ConversationLog : IAsyncDisposable
         try { await _pump; } catch (Exception) { /* shutting down */ }
 
         // Anything still waiting on a fence that was never reached is released rather than left hanging.
-        while (_queue.Reader.TryRead(out var leftover)) leftover.Fence?.TrySetResult();
+        while (_queue.Reader.TryRead(out var leftover)) leftover.Fence?.TrySetResult(Interlocked.Read(ref _sequence));
 
         lock (_connectionsLock)
         {

@@ -3357,10 +3357,16 @@ on the sequence its reply consumed, which exists whether or not the body was kep
 a completed request comes back on its own row. [#961](https://github.com/hexide-io/HexIDE/issues/961).
 
 > **Fixed.** A request recorded before `afterSequence` and answered, cancelled or abandoned after it now comes back,
-> on its own row with its outcome: each request's row records the sequence its outcome was recorded under
-> (`CompletedSequence`), the one its reply used up whether or not the body was kept, or one an ending takes. The
-> reply carries `latestSequence`, the last sequence the listing looked at, which is what to pass next: not the
-> highest row seen, which for a request answered since is older than its answer and would return it again on every
-> poll. When `limit` cuts a listing short it keeps what changed last, so a request answered just now outranks one
-> sent just now. Both descriptions say to poll from `latestSequence`. Guarded by `CaptureQueriesTests`, which hold a
-> request unanswered, see it waiting, and poll it answered or cancelled exactly once.
+> on its own row with its outcome and the `completedSequence` that outcome was recorded under: the sequence its
+> reply used up, kept or not, or one an ending takes. The reply carries `latestSequence`, the cursor to pass next,
+> rather than leaving the poller to take the highest row seen, which for a request answered since is older than its
+> answer and would return it again on every poll. The cursor is the pump's watermark at the drain, and the listing
+> is read as it stood there: the snapshot reads one ring at a time while the pump carries on, so a cursor taken from
+> what was read skipped rows another connection recorded meanwhile, hundreds in two hundred thousand. A poll cut
+> short by `limit` keeps the earliest changes, and its cursor continues from them, so following it pages through
+> without loss; a listing that is not a poll still keeps the newest rows. A cursor beyond anything recorded, from an
+> earlier run of the IDE, lists this run from its start and says why. `get_lsp_message` on a sequence a request was
+> answered or ended under says so rather than calling it missing. Both descriptions and the walkthrough in
+> `mcp-first-contact.md` say to poll from `latestSequence`. Guarded by `CaptureQueriesTests`, including a
+> three-connection stress poll that the old cursor fails. That an outcome recorded after the watermark is held back
+> to the next poll, rather than shown now and again then, is by reading.

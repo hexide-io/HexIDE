@@ -19,7 +19,9 @@ namespace HexIDE.Conversations;
 /// </param>
 /// <param name="Limit">
 /// The most to return. The <em>newest</em> matches are kept rather than the oldest, because a client that
-/// has just exercised something is asking about the end of the conversation, not its beginning.
+/// has just exercised something is asking about the end of the conversation, not its beginning. A poll, with
+/// <see cref="AfterSequence"/>, is the exception: it keeps the earliest changes, so that following
+/// <see cref="EnvelopePage.LatestSequence"/> pages through the rest rather than skipping it.
 /// </param>
 public sealed record EnvelopeFilter(
     string? ConnectionId = null,
@@ -80,9 +82,11 @@ public enum CaptureEmptyReason
 /// The same fact as <paramref name="Note"/>, as a value a view can translate.
 /// </param>
 /// <param name="LatestSequence">
-/// The last sequence the listing looked at, to pass as <see cref="EnvelopeFilter.AfterSequence"/> next time; null
-/// when the record is empty. A poller cannot take it from the rows (#961): a request answered since the last poll
-/// comes back on its own, older row, and passing that row's sequence would return it again on every poll.
+/// Where the listing is complete to, to pass as <see cref="EnvelopeFilter.AfterSequence"/> next time: the last
+/// sequence recorded when it was read, or for a poll cut short by its limit, the last change it returned. Null when
+/// nothing has been recorded and no cursor was given. A poller cannot take it from the rows (#961): a request
+/// answered since the last poll comes back on its own, older row, and passing that row's sequence would return it
+/// again on every poll.
 /// </param>
 public sealed record EnvelopePage(
     IReadOnlyList<ConversationEnvelope> Entries,
@@ -147,31 +151,66 @@ public sealed record PayloadView(
 /// </remarks>
 public static class CaptureQueries
 {
-    /// <summary>Envelopes matching a filter, newest kept when there are more than asked for.</summary>
+    /// <summary>
+    /// Envelopes matching a filter. When there are more than asked for, the newest are kept, except in a poll, which
+    /// keeps the earliest changes so that its <see cref="EnvelopePage.LatestSequence"/> pages on without losing any.
+    /// </summary>
+    /// <remarks>
+    /// <b>The record is read as it stood at the drain's watermark (#961 review).</b> The snapshot reads one ring at a
+    /// time while the pump carries on, so a ring read late holds what an earlier one missed. A cursor taken from what
+    /// was read would skip that for good: measured, hundreds of rows in two hundred thousand across two connections.
+    /// Everything at or below the watermark is in the record, so a row above it is left for the next poll, and an
+    /// outcome above it is not shown yet.
+    /// </remarks>
     public static async Task<EnvelopePage> ListAsync(ConversationLog log, EnvelopeFilter filter)
     {
-        await log.DrainAsync().ConfigureAwait(false);
+        var watermark = await log.DrainAsync().ConfigureAwait(false);
+
+        // A cursor beyond anything recorded is from an earlier run, since sequences start again with the IDE. Ignoring
+        // it lists this run from its start; keeping it would list nothing until the count passed it.
+        var stale = filter.AfterSequence > watermark;
+        var asked = stale ? filter with { AfterSequence = 0 } : filter;
 
         var matched = new List<ConversationEnvelope>();
-        var latest = filter.AfterSequence;
-        foreach (var envelope in log.Snapshot(filter.ConnectionId))
+        foreach (var recorded in log.Snapshot(filter.ConnectionId))
         {
-            if (Matches(envelope, filter)) matched.Add(envelope);
-            latest = Math.Max(latest ?? 0, LastChanged(envelope));
+            if (recorded.Sequence > watermark) continue;
+            var envelope = recorded.CompletedSequence > watermark ? Waiting(recorded) : recorded;
+            if (Matches(envelope, asked)) matched.Add(envelope);
         }
 
         var limit = Math.Max(1, filter.Limit);
-        var reason = matched.Count == 0 ? WhyEmpty(log, filter) : CaptureEmptyReason.NotEmpty;
-        var note = matched.Count == 0 ? ExplainEmpty(log, filter) : null;
+        var reason = matched.Count == 0 ? WhyEmpty(log, asked) : CaptureEmptyReason.NotEmpty;
+        var note = matched.Count == 0 ? ExplainEmpty(log, asked) : null;
+        if (stale)
+        {
+            note = $"afterSequence {filter.AfterSequence} is beyond the last sequence recorded, {watermark}: sequences "
+                   + "start again when the IDE does, so this lists the record from its start." + (note is null ? "" : " " + note);
+        }
 
+        long? latest = watermark > 0 || filter.AfterSequence is not null ? watermark : null;
         if (matched.Count <= limit) return new EnvelopePage(matched, matched.Count, false, note, reason, latest);
 
-        // The newest by what last happened to them, so a request answered just now outranks one sent just now; still
-        // returned in the order they were recorded.
-        var kept = matched.OrderByDescending(LastChanged).Take(limit).ToHashSet();
-        return new EnvelopePage(
-            [.. matched.Where(kept.Contains)], matched.Count, true, note, reason, latest);
+        if (asked.AfterSequence is null)
+            return new EnvelopePage(matched.GetRange(matched.Count - limit, limit), matched.Count, true, note, reason, latest);
+
+        // A poll pages forward: the earliest changes, and a cursor at the last of them, so the next poll takes up the
+        // rest. An ending shares its sequence among the requests it ends, so they are kept or left together.
+        var byChange = matched.OrderBy(LastChanged).ToList();
+        var through = LastChanged(byChange[limit - 1]);
+        var kept = byChange.TakeWhile(e => LastChanged(e) <= through).ToHashSet();
+        return new EnvelopePage([.. matched.Where(kept.Contains)], matched.Count, true, note, reason, through);
     }
+
+    /// <summary>A request as it stood before its outcome was recorded.</summary>
+    private static ConversationEnvelope Waiting(ConversationEnvelope request) => request with
+    {
+        Outcome = ConversationOutcome.None,
+        Elapsed = null,
+        AnswerSequence = null,
+        AnswerSizeBytes = null,
+        CompletedSequence = null,
+    };
 
     /// <summary>The last sequence that changed an envelope: its own, or the one its outcome was recorded under.</summary>
     private static long LastChanged(ConversationEnvelope envelope) =>
@@ -299,6 +338,18 @@ public static class CaptureQueries
                  + "was listed. Answers have no entry of their own; the request names where theirs is kept.";
         }
 
+        // A reply never kept, or an ending, uses up a sequence that has no entry and no body: often the latestSequence
+        // a poll hands back, so a client may well ask for it (#961 review).
+        if (FindByCompletion(log, connectionId, sequence) is { } completed)
+        {
+            return completed.Outcome is ConversationOutcome.Answered or ConversationOutcome.Failed
+                ? $"Sequence {sequence} is where request {completed.Sequence} ({completed.Method ?? "no method"}) was "
+                  + "answered, and no body was kept for the answer, so there is nothing to fetch; its size is on the "
+                  + "request's row."
+                :$"Sequence {sequence} is where request {completed.Sequence} ({completed.Method ?? "no method"}) was "
+                  + $"{completed.Outcome.ToString().ToLowerInvariant()}. An ending has no body.";
+        }
+
         if (FindEnvelope(log, connectionId, sequence) is null)
         {
             // A sequence is unique across the whole record, not per connection, so the likeliest mistake
@@ -332,6 +383,18 @@ public static class CaptureQueries
         foreach (var envelope in log.Snapshot(connectionId))
         {
             if (envelope.Sequence == sequence) return envelope;
+        }
+
+        return null;
+    }
+
+    /// <summary>The request whose outcome was recorded under <paramref name="sequence"/>, if one was.</summary>
+    private static ConversationEnvelope? FindByCompletion(
+        ConversationLog log, string connectionId, long sequence)
+    {
+        foreach (var envelope in log.Snapshot(connectionId))
+        {
+            if (envelope.CompletedSequence == sequence) return envelope;
         }
 
         return null;
