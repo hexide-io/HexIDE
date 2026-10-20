@@ -101,7 +101,7 @@ public class PropertyTextTests
         PropertyText.Display(null).Should().Be("(none)");
     }
 
-    // ── read back as the Properties window shows it, and set again from that text (#923) ────────────────────────
+    // ââ read back as the Properties window shows it, and set again from that text (#923) ââââââââââââââââââââââââ
 
     [Fact]
     public void A_label_s_rows_are_every_property_the_properties_window_shows()
@@ -128,8 +128,7 @@ public class PropertyTextTests
         rows["BackStyle"].Should().Be(new PropertyRow("BackStyle", "1 - Opaque", Settable: true));
         rows["BackColor"].Should().Be(new PropertyRow("BackColor", "&H00C0FFC0&", Settable: true));
         rows["(Name)"].Should().Be(new PropertyRow("(Name)", "Label1", Settable: true));
-        rows["Font"].Should().Be(new PropertyRow("Font", "Tahoma, 9.75 pt, bold, italic", Settable: false),
-            "a font is set through its dialog, so its text is to read, not to send back");
+        rows["Font"].Should().Be(new PropertyRow("Font", "Tahoma, 9.75 pt, bold, italic, charset 0", Settable: true));
     }
 
     [Fact]
@@ -177,7 +176,7 @@ public class PropertyTextTests
         }
     }
 
-    // ── what the window's rows alone would hide (#923 review) ───────────────────────────────────────────────────
+    // ââ what the window's rows alone would hide (#923 review) âââââââââââââââââââââââââââââââââââââââââââââââââââ
 
     private sealed class NullSink : HexIDE.Runtime.Serialization.IDeserializeErrorSink
     {
@@ -252,5 +251,122 @@ public class PropertyTextTests
     {
         PropertyText.Shown(VBProperties.FontProperty, new VBFont("Arial", 10, weight: 600, charset: 204))
             .Should().Be("Arial, 10 pt, weight 600, charset 204");
+    }
+
+    // ââ a font set from text, as get_form_controls shows it (#952) âââââââââââââââââââââââââââââââââââââââââââââââ
+
+    private static readonly VBFont Tahoma = new("Tahoma", 9.75, bold: true, italic: true, charset: 204);
+
+    private static VBFont Font(string text, VBFont? current = null)
+    {
+        PropertyText.TryParse(VBProperties.FontProperty, text, out var value, current ?? Tahoma).Should().BeTrue(text);
+        return value.Should().BeOfType<VBFont>().Subject;
+    }
+
+    [Fact]
+    public void A_font_s_shown_text_sets_that_font()
+    {
+        var fonts = new[]
+        {
+            Tahoma, VBFont.Default, new VBFont("Arial", 10, weight: 600, underline: true, strikethrough: true),
+            new VBFont("Courier New", 12, charset: 2),
+        };
+        foreach (var font in fonts)
+            Font(PropertyText.Shown(VBProperties.FontProperty, font), current: new VBFont("Wingdings", 30, bold: true, charset: 2))
+                .Should().Be(font, "every part is in the text, a charset of 0 too");
+    }
+
+    [Fact]
+    public void A_font_given_in_part_keeps_the_rest()
+    {
+        Font("DejaVu Sans").Should().Be(new VBFont("DejaVu Sans", 9.75, bold: true, italic: true), "the face, as the gap sent it, with the charset a new face takes, as the Font dialog gives it");
+        Font("12 pt").Should().Be(new VBFont("Tahoma", 12, bold: true, italic: true, charset: 204));
+        Font("12").Should().Be(new VBFont("Tahoma", 12, bold: true, italic: true, charset: 204));
+        Font("charset 0").Should().Be(new VBFont("Tahoma", 9.75, bold: true, italic: true));
+    }
+
+    [Fact]
+    public void Style_words_given_are_the_whole_style()
+    {
+        Font("underline").Should().Be(new VBFont("Tahoma", 9.75, underline: true, charset: 204), "bold and italic are not given");
+        Font("Tahoma, regular").Should().Be(new VBFont("Tahoma", 9.75, charset: 204));
+        Font("BOLD").Weight.Should().Be(VBFont.BoldWeight);
+        Font("weight 300").Should().Match<VBFont>(f => f.Weight == 300 && !f.Italic);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("Tahoma, ")]
+    [InlineData("Tahoma, 0 pt")]
+    [InlineData("Tahoma, -3 pt")]
+    [InlineData("Tahoma, bold, Arial")]
+    [InlineData("Tahoma, weight 0")]
+    [InlineData("Tahoma, charset 300")]
+    // The review's: digits the invariant parse threw on, or beyond an int.
+    [InlineData("Tahoma, ８ pt")]
+    [InlineData("Tahoma, ٣ pt")]
+    [InlineData("Tahoma, weight 99999999999")]
+    [InlineData("Tahoma, charset 99999999999")]
+    // A part given twice, as a comma decimal splits a size into two.
+    [InlineData("Tahoma, 9,75 pt")]
+    [InlineData("Tahoma, 10 pt, 12 pt")]
+    [InlineData("Tahoma, bold, weight 300")]
+    [InlineData("Tahoma, bold, regular")]
+    [InlineData("Tahoma, italic, italic")]
+    [InlineData("Tahoma, charset 0, charset 2")]
+    // A size or a style mistyped as the first part, which was taken for a face.
+    [InlineData("bold italic")]
+    [InlineData("Arial 12")]
+    [InlineData("Tahoma bold")]
+    [InlineData("12px")]
+    [InlineData("12 points")]
+    [InlineData("-3 pt")]
+    [InlineData(".5 pt")]
+    [InlineData("+12 pt")]
+    [InlineData("1e2 pt")]
+    // Beyond VB6: past 2160 points, finer than four decimals, a face GDI or the .frm cannot hold.
+    [InlineData("Tahoma, 2161 pt")]
+    [InlineData("Tahoma, 99999999999999999999 pt")]
+    [InlineData("Tahoma, 9.12345 pt")]
+    [InlineData("Ta\"homa")]
+    [InlineData("Tahoma\nEnd")]
+    [InlineData("A Face Name Longer Than Thirty One")]
+    public void A_font_text_that_does_not_say_one_font_is_refused(string text)
+    {
+        PropertyText.TryParse(VBProperties.FontProperty, text, out _, Tahoma).Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_refusal_names_the_text_a_font_and_a_picture_take()
+    {
+        PropertyText.Accepted(VBProperties.FontProperty).Should().Contain("\"Tahoma, 9.75 pt, bold, italic, charset 0\"").And.Contain("regular");
+        PropertyText.Accepted(VBProperties.PictureProperty).Should().StartWith("no text").And.Contain("no automation route");
+    }
+
+    [Theory]
+    [InlineData("8514oem")]
+    [InlineData("Segoe UI Light")]
+    [InlineData("Arial Black")]
+    [InlineData("Bold Font Name")]
+    public void A_face_that_starts_with_a_digit_or_holds_a_style_word_is_still_a_face(string face)
+    {
+        Font(face).FontFamilyName.Should().Be(face);
+    }
+
+    [Fact]
+    public void A_reply_shows_the_whole_font_not_its_face()
+    {
+        PropertyText.Display(Tahoma).Should().Be("Tahoma, 9.75 pt, bold, italic, charset 204");
+    }
+
+    [Fact]
+    public void A_font_row_is_settable_only_when_its_text_sets_that_font_back()
+    {
+        // A face holding a comma, as a file may: "Foo, italic, 8 pt, regular, charset 0" parses, as an italic Foo, which is
+        // not the font the control has.
+        var label = new ComponentInstance(LabelComponentClass.Instance, "Label1");
+        label.SetUntypedProperty(VBProperties.FontProperty, new VBFont("Foo, italic", 8));
+
+        PropertyText.Rows(label).Single(r => r.Name == "Font").Settable.Should().BeFalse();
     }
 }
