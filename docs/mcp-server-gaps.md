@@ -1237,18 +1237,3 @@ deletable segments.
 
 **Suggested fix.** Delete what the deletable segments allow, as the key does, and say what was left and why.
 [#1055](https://github.com/hexide-io/HexIDE/issues/1055).
-
-## Clipped Call Stack selection reports success without changing the frame (#1182)
-
-During #1180 acceptance on Windows, this call reported success but Watches remained in Worker and refused
-`callerValue`; the intended caller frame was not selected:
-
-```json
-{"target":"Window/Custom[MainView]/Pane[DockControl]/Pane[Root dock]/List[PART_ItemsControl]/List[#0]/TitleBar[Call Stack]/Pane[Call Stack]/Custom/List/Pane[PART_ScrollViewer]/ListItem[CallStackRow { Frame =    Main, Line = 6, Stop = DapStop { SessionId = 0734e6a8-bc5a-48fe-a5d4-b685c2a2aa05, Generation = 3, ThreadId = 1, Reason = breakpoint }, FrameId = 1 }]","action":"select"}
-```
-
-The path came from `dump_visual_tree` with `interactiveOnly:false`. Tool panes were clipped in a small window.
-Workaround: hide unused panels, resize, then use
-`press_key {"target":"Window/Custom[MainView]/Pane[DockControl]/Pane[Root dock]/List[PART_ItemsControl]/List[#0]/TitleBar[Call Stack]/Pane[Call Stack]/Custom/List","key":"End"}`.
-This selected Main and its watch returned 42. Investigate provider dispatch and virtualization; selection
-replies should verify/report the resulting model selection. The underlying cause is not yet established.

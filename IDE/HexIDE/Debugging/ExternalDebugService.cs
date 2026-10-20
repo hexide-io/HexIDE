@@ -209,6 +209,14 @@ public sealed partial class ExternalDebugService(ConversationLog capture)
         }
     }
 
+    /// <summary>
+    /// Whether <see cref="SelectFrameAsync"/> would take <paramref name="frameId"/> of <paramref name="stop"/>: a frame of
+    /// the stop the session is at now. False for a row of a stop it has moved on from, which it declines.
+    /// </summary>
+    public bool CanSelectFrame(DapStop stop, int frameId) =>
+        session is { } current && current.IsCurrent(stop) && Stop == stop
+        && Frames.Any(item => item.GetProperty("id").GetInt32() == frameId);
+
     public async Task SelectFrameAsync(DapStop stop, int frameId)
     {
         if (session is not { } current || !current.IsCurrent(stop) || Stop != stop) return;
