@@ -862,7 +862,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_last_runtime_error")]
-    [Description("Returns the last runtime error the running program raised, WITH ITS TEXT, and keeps it after the error dialog has been dismissed. That includes a compile error met while it ran, and the reason a start never became a run; a line such an error names counts from the top of the file, header included, as the code window numbers it. Use it after any run that might raise: stop_project and shutdown_ide both close open dialogs, so a run whose form silently did nothing is otherwise indistinguishable from a run whose error dialog was dismissed a moment earlier. run_project clears the message first, so a result here belongs to the most recent run. 'sequence' only ever increases and is not cleared — compare it across runs to tell 'no error' from 'the same error again', which message text cannot do. 'module' and 'line' say where it was raised, the line counted as the code window numbers it, when a statement of the program raised it; a start that never became a run has neither. Returns raised:false when the current run has raised nothing.")]
+    [Description("Returns the last runtime error the running program raised, WITH ITS TEXT, and keeps it after the error dialog has been dismissed. That includes a compile error met while it ran, and the reason a start never became a run; a line such an error names counts from the top of the file, header included, as the code window numbers it. Use it after any run that might raise: stop_project and shutdown_ide both close open dialogs, so a run whose form silently did nothing is otherwise indistinguishable from a run whose error dialog was dismissed a moment earlier. run_project clears the message first, so a result here belongs to the most recent run. 'sequence' only ever increases and is not cleared — compare it across runs to tell 'no error' from 'the same error again', which message text cannot do. 'module' and 'line' say where it was raised, the line counted as the code window numbers it, when a statement of the program raised it; a start that never became a run has neither. 'at' is when it was raised, in UTC like every other stamp the tools return. Returns raised:false when the current run has raised nothing.")]
     public async Task<RuntimeErrorResult> GetLastRuntimeErrorAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -2033,7 +2033,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return new SnapshotResult(null, "Window has no size", activeDialog);
 
             // A file per capture, so the path an earlier call returned still holds its image (#756).
-            var path = HexIDE.Automation.SnapshotComposer.NewCapturePath(System.IO.Path.GetTempPath(), DateTime.Now);
+            var path = HexIDE.Automation.SnapshotComposer.NewCapturePath(System.IO.Path.GetTempPath(), DateTime.UtcNow);
             bitmap.Save(path);
 
             // The composer renders at the window's desktop scaling, with the window at the image's origin. (#646)
