@@ -100,8 +100,23 @@ public class DapCaptureTests
         await log.DrainAsync();
         var invalid = log.Snapshot(Id).Single(e => e.Kind == ConversationEntryKind.Note);
         Body(log, invalid.Sequence).Should().Be("invalid JSON");
+        invalid.Fault.Should().BeTrue("a frame this client cannot read is a failure (#945)");
         log.Snapshot(Id).Single(e => e.Kind == ConversationEntryKind.Request).Outcome.Should().Be(ConversationOutcome.Abandoned);
         log.Snapshot(Id).Should().Contain(e => e.Kind == ConversationEntryKind.Lifecycle && e.Detail!.Contains("InvalidDataException"));
+    }
+
+    [Fact]
+    public async Task An_adapter_that_cannot_start_is_a_fault()
+    {
+        await using var log = new ConversationLog();
+        var missing = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "missing");
+
+        var start = () => DapProcess.Start(new DapProcessOptions(missing) { Capture = new(log, Id) });
+
+        start.Should().Throw<System.ComponentModel.Win32Exception>();
+        await log.DrainAsync();
+        log.Snapshot(Id).Select(e => (e.Detail!.Split(':')[0], e.Fault)).Should().Equal(
+            ("Starting DAP process.", false), ("DAP process startup failed", true));
     }
 
     [Fact]

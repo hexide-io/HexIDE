@@ -2696,13 +2696,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
     [DescribesEnum(typeof(ConversationEntryKind))]
     [DescribesEnum(typeof(ConversationDirection))]
     [DescribesEnum(typeof(ConversationOutcome), "None")]
-    [Description("Lists recorded language-server message envelopes — time, direction, method, id, size, outcome and latency — without content: 'was this request even sent', 'what came back', 'how long did it take'. Envelopes are recorded always, armed or not; call it with no arguments for the whole timeline.\n\nIF THE ANSWER IS EMPTY, READ 'note': it says which reason applies. The commonest is that no server has started, because a server starts on the first document of a language it claims, so open a file first.\n\n'direction' is Sent, Received (including a line the server wrote to standard error) or Local (observed, not exchanged). 'kind' is Request, Response, ErrorResponse or Notification on the wire, plus five found nowhere else: Lifecycle (a process starting or stopping, and its exit code), StandardError (a line the server wrote there, verbatim, often its only word on a crash), NeverSent (a request this client declined or could not serialize, and why), Unconsumed (a capability the server advertised that this client does not use) and Note (the capture's own remarks, such as a frame it could not decode). 'detail' carries their text. 'outcome', on a request, is Answered, Failed (an error object), Cancelled (by this client) or Abandoned (the connection went away first); absent while it waits.\n\nSequence numbers have GAPS that are not lost frames: a reply or an ending completes its request's row and uses up the sequence in 'completedSequence'. 'framesDropped' is the only report of real loss.\n\nA REQUEST'S REPLY IS ON THE REQUEST'S ROW: 'answerSizeBytes' is its size, and 'answerSequence', present only when its body was kept, is what get_lsp_message reads it by.\n\nNarrow with 'connectionId', 'method' and 'failuresOnly'. TO POLL, pass the last reply's 'latestSequence' as 'afterSequence': you get what was recorded since and, on their own rows, requests answered or ended since. 'truncated' and 'matched' say what 'limit' left out. Nothing returns bodies in bulk: list, then get_lsp_message.")]
+    [Description("Lists recorded language-server message envelopes — time, direction, method, id, size, outcome and latency — without content: 'was this request even sent', 'what came back', 'how long did it take'. Envelopes are recorded always, armed or not; call it with no arguments for the whole timeline.\n\nIF THE ANSWER IS EMPTY, READ 'note': it says which reason applies. The commonest is that no server has started, because a server starts on the first document of a language it claims, so open a file first.\n\n'direction' is Sent, Received (including a line the server wrote to standard error) or Local (observed, not exchanged). 'kind' is Request, Response, ErrorResponse or Notification on the wire, plus five found nowhere else: Lifecycle (a process starting or stopping, and its exit code), StandardError (a line the server wrote there, verbatim, often its only word on a crash), NeverSent (a message this client declined or could not serialize, and why), Unconsumed (a capability the server advertised that this client does not use) and Note (the capture's own remarks, such as a frame it could not decode). 'detail' carries their text. 'outcome', on a request, is Answered, Failed (an error object), Cancelled (by this client) or Abandoned (the connection went away first); absent while it waits.\n\nSequence numbers have GAPS that are not lost frames: a reply or an ending completes its request's row and uses up the sequence in 'completedSequence'. 'framesDropped' is the only report of real loss.\n\nA REQUEST'S REPLY IS ON THE REQUEST'S ROW: 'answerSizeBytes' is its size, and 'answerSequence', present only when its body was kept, is what get_lsp_message reads it by.\n\nNarrow with 'connectionId', 'method' and 'failuresOnly'. TO POLL, pass the last reply's 'latestSequence' as 'afterSequence': you get what was recorded since and, on their own rows, requests answered or ended since. 'truncated' and 'matched' say what 'limit' left out. Nothing returns bodies in bulk: list, then get_lsp_message.")]
     public async Task<LspMessagesResult> ListLspMessagesAsync(
         [Description("One server's connection, as get_lsp_capture_state lists them; omit for every connection.")]
         string? connectionId = null,
         [Description("An exact method name, such as textDocument/hover; omit for every method.")]
         string? method = null,
-        [Description("True for error responses, requests that failed, were cancelled or never came back, and messages this client could not serialize (a Local NeverSent row).")]
+        [Description("True for error responses, requests that failed, were cancelled or never came back, and rows marked 'fault': a message this client could not serialize or decode, a connection it could not make, a server that went away unasked or exited non-zero.")]
         bool failuresOnly = false,
         [Description("Only what was recorded, answered or ended after this sequence: pass the last reply's 'latestSequence' to poll for what is new.")]
         long? afterSequence = null,
@@ -2732,7 +2732,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
             HasBody: ctx.Capture.Body(e.ConnectionId, e.Sequence) is not null,
             AnswerSizeBytes: e.AnswerSizeBytes,
             AnswerSequence: e.AnswerSequence,
-            CompletedSequence: e.CompletedSequence)).ToArray();
+            CompletedSequence: e.CompletedSequence,
+            Fault: e.Fault ? true : null)).ToArray();
 
         return new LspMessagesResult(
             rows, page.Matched, page.Truncated, ctx.Capture.QueueDropped, page.Note, page.LatestSequence);
@@ -2933,7 +2934,9 @@ internal record LspMessageRow(
     int? AnswerSizeBytes = null,
     long? AnswerSequence = null,
     // Where its outcome was recorded, kept or not: why an older row came back to a poll (#961 review).
-    long? CompletedSequence = null);
+    long? CompletedSequence = null,
+    // True on a row that is a failure without being a request's outcome, which failuresOnly lists (#945).
+    bool? Fault = null);
 
 internal record LspMessageBodyResult(
     long Sequence,

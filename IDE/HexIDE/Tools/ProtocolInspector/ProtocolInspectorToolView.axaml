@@ -184,7 +184,7 @@
                                 <TextBlock Classes="machine" Margin="4,0" VerticalAlignment="Center"
                                            TextTrimming="CharacterEllipsis"
                                            Classes.failure="{CompiledBinding IsFailure}"
-                                           Classes.note="{CompiledBinding IsLocal}"
+                                           Classes.note="{CompiledBinding ReadsAsNote}"
                                            Text="{CompiledBinding Method}" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>

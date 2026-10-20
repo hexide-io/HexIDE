@@ -79,13 +79,13 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
         string connectionId, string method,
         ConversationDirection direction = ConversationDirection.Sent,
         ConversationEntryKind kind = ConversationEntryKind.Notification,
-        string? detail = null)
+        string? detail = null, bool fault = false)
     {
         var body = Encoding.UTF8.GetBytes($"{{\"jsonrpc\":\"2.0\",\"method\":\"{method}\"}}");
         var keep = _capture.ShouldKeepBody(connectionId);
 
         _capture.Record(connectionId, direction, kind, method, null, body.Length,
-            keep ? body : null, detail);
+            keep ? body : null, detail, fault);
 
         _capture.DrainAsync().GetAwaiter().GetResult();
     }
@@ -206,14 +206,26 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
     {
         // #945: the Failures only filter and the count missed the client-side defect the capture was built to expose.
         Frame("vb6", "$/cancelRequest", ConversationDirection.Local, ConversationEntryKind.NeverSent,
-            "could not be serialized: no JsonTypeInfo");
-        Frame("vb6", "textDocument/hover", ConversationDirection.Sent, ConversationEntryKind.NeverSent, "hoverProvider");
+            "could not be serialized: no JsonTypeInfo", fault: true);
+        Frame("vb6", "textDocument/hover", ConversationDirection.Sent, ConversationEntryKind.NeverSent,
+            "not asked: the server did not advertise 'hoverProvider'");
 
         var vm = Sut();
         vm.FailureCount.Should().Be(1);
         vm.FailuresOnly = true;
 
         vm.Rows.Should().ContainSingle().Which.Method.Should().Be("$/cancelRequest");
+    }
+
+    [Fact]
+    public void A_local_row_that_is_a_failure_is_not_drawn_as_a_faint_note()
+    {
+        Frame("vb6", "", ConversationDirection.Local, ConversationEntryKind.Lifecycle, "could not connect: refused", fault: true);
+        Frame("vb6", "", ConversationDirection.Local, ConversationEntryKind.Lifecycle, "connecting");
+
+        var rows = Sut().Rows;
+
+        rows.Select(r => (r.IsFailure, r.ReadsAsNote)).Should().Equal((true, false), (false, true));
     }
 
     [Fact]

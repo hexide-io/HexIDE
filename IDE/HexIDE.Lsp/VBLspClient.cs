@@ -176,10 +176,11 @@ public sealed class VBLspClient : ILspClient
 
     /// <summary>Records one thing, if anything is listening. Never throws into a caller.</summary>
     private void Note(
-        ConversationDirection direction, ConversationEntryKind kind, string? method, string? detail)
+        ConversationDirection direction, ConversationEntryKind kind, string? method, string? detail,
+        bool fault = false)
     {
         if (_capture is not { } capture || _connectionId is not { } id) return;
-        try { capture.Record(id, direction, kind, method, null, 0, null, detail); }
+        try { capture.Record(id, direction, kind, method, null, 0, null, detail, fault); }
         catch (Exception) { /* a capture is never worth breaking a connection for */ }
     }
 
@@ -254,7 +255,7 @@ public sealed class VBLspClient : ILspClient
         if (handler is null)
         {
             Note(ConversationDirection.Local, ConversationEntryKind.Lifecycle, null,
-                $"could not connect: {_transport.LastFailure ?? "no reason given"}");
+                $"could not connect: {_transport.LastFailure ?? "no reason given"}", fault: true);
             // No server/endpoint available — run with LSP features disabled. `null` is the transport's
             // whole vocabulary for failure, so the reason comes from the transport itself.
             _attempt = attempt.StoppedAt(LanguageConnectionStage.Connecting, _transport.LastFailure);
@@ -386,7 +387,8 @@ public sealed class VBLspClient : ILspClient
         Note(ConversationDirection.Local, ConversationEntryKind.Lifecycle, null,
             _stopping
                 ? "disconnected: shutting down"
-                : $"disconnected: {e.Reason} ({e.Description ?? "no description"})");
+                : $"disconnected: {e.Reason} ({e.Description ?? "no description"})",
+            fault: !_stopping);
 
         RaiseStateChanged();
         if (_stopping) return;
@@ -1625,7 +1627,8 @@ public sealed class VBLspClient : ILspClient
             ? (ConversationDirection.Received, ConversationEntryKind.StandardError)
             : (ConversationDirection.Local, ConversationEntryKind.Lifecycle);
 
-        Note(direction, kind, null, notice.Text);
+        // A non-zero exit is a fault unless this client was stopping it, when killing it can give one (#945).
+        Note(direction, kind, null, notice.Text, fault: notice.Fault && !_stopping);
     }
 
     private void OnTransportClosed(object? sender, EventArgs e)

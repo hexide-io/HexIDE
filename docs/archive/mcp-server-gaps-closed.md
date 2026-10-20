@@ -3474,8 +3474,24 @@ deliberately. Cross-platform by code reading.
 `ProtocolInspectorRowViewModel.IsFailure`, and say so in `failuresOnly`'s description.
 [#945](https://github.com/hexide-io/HexIDE/issues/945).
 
-> **Fixed.** A message this client could not serialize, a Local NeverSent row, is a failure: `list_lsp_messages`
-> `failuresOnly` lists it, and the Protocol Inspector's Failures only filter and its failure count include it. A
-> request withheld for want of a capability, a Sent NeverSent row, is still not one. Both read one rule,
-> `ConversationFailures.IsFailure`, so they cannot disagree again. `failuresOnly`'s description says so. Guarded by
-> `CaptureQueriesTests` and `ProtocolInspectorToolViewModelTests`.
+> **Fixed.** A failure is now one rule, `ConversationFailures.IsFailure`, read by both `list_lsp_messages`
+> `failuresOnly` and the Protocol Inspector's Failures only filter and count, so they cannot disagree again. Besides
+> error responses and the Failed, Cancelled and Abandoned outcomes, it counts an envelope its recorder marked
+> `Fault`. The marked cases are:
+>
+> - a message this client could not serialize;
+> - a frame it could not decode, though not the note saying a frame was repaired;
+> - a connection it could not make;
+> - a server that disconnected while the client was not stopping it;
+> - a process that exited non-zero, unless this client was stopping it;
+> - a debug adapter that could not start, or sent a frame this client could not read.
+>
+> The review found that keying the rule on direction was fragile: a withheld-capability row is filed as Local in two
+> test fixtures and as Sent in production. It also found the same blind spot for undecodable frames and crashes. So
+> the flag is set where each fault is known, and the row's direction and wording decide nothing.
+>
+> A row now carries `fault: true`, and so does an export's envelope. The inspector draws a failed local row in full
+> rather than faint. `failuresOnly`'s description and the protocol-inspector spec list what counts. A debug adapter's
+> connection that closed on an error is not marked, because a deliberate stop can close it the same way. Guarded by `ConversationFailuresTests`,
+> `TheRecordSeesTheProcessTests` (each fault site through a real client, including stopping), `CaptureQueriesTests`,
+> `ProtocolInspectorToolViewModelTests`, `ConversationExportTests`, `DapCaptureTests` and the process-notice tests.

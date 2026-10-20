@@ -116,13 +116,17 @@ public sealed class ProtocolInspectorRowViewModel(
     /// <remarks>
     /// Marked in place rather than split into a second view, because a failure's meaning is almost always
     /// in what preceded it. A request that was cancelled or abandoned counts: never coming back is a
-    /// failure even though nothing said so, and so does a message this client could not serialize: the rule is
+    /// failure even though nothing said so, and so does a row its recorder marked a fault, such as a message this
+    /// client could not serialize or a server that went away unasked: the rule is
     /// <see cref="ConversationFailures.IsFailure"/>, shared with list_lsp_messages (#945).
     /// </remarks>
     public bool IsFailure { get; } = envelope.IsFailure();
 
     /// <summary>True for the capture's own notes, which are not traffic and should not read as traffic.</summary>
     public bool IsLocal { get; } = envelope.Direction == ConversationDirection.Local;
+
+    /// <summary>A local row drawn as a note: faint, unless it is a failure, which must not be the faintest row (#945).</summary>
+    public bool ReadsAsNote => IsLocal && !IsFailure;
 
     /// <summary>
     /// True for the entries that are not messages, and so have no body by their nature rather than

@@ -291,9 +291,9 @@ public class CaptureQueriesTests : IAsyncDisposable
     {
         // #945: failuresOnly hid the one client-side defect the capture was built to expose.
         _log.Record("vb6", ConversationDirection.Local, ConversationEntryKind.NeverSent, "$/cancelRequest", null, 0,
-            detail: "could not be serialized: no JsonTypeInfo");
-        _log.Record("vb6", ConversationDirection.Sent, ConversationEntryKind.NeverSent, "textDocument/hover", null, 0,
-            detail: "hoverProvider");
+            detail: "could not be serialized: no JsonTypeInfo", fault: true);
+        _log.Record("vb6", ConversationDirection.Sent, ConversationEntryKind.NeverSent, null, null, 0,
+            detail: "not asked: the server did not advertise 'hoverProvider'");
 
         var page = await CaptureQueries.ListAsync(_log, new EnvelopeFilter(FailuresOnly: true));
 
