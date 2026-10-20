@@ -650,8 +650,9 @@ public static class UiAutomationDriver
             {
                 // Named before the dropdown closes over it, as invoke names a button before it closes its dialog.
                 var label = LabelOf(control, peer);
+                var dropDown = OpenDropDownHolding(control);
                 selfSip.Select();
-                return Ok($"selected '{label}'{CloseDropDownHolding(control)}");
+                return Ok($"selected '{label}'{CloseDropDown(dropDown)}");
             }
 
             if (TrySelectThroughOwningGrid(control))
@@ -725,8 +726,9 @@ public static class UiAutomationDriver
         var namesake = hiddenNamesake ? $" (another '{value}' is not showing and was left alone)" : "";
         if (ControlAutomationPeer.CreatePeerForElement(matches[0]).GetProvider<ISelectionItemProvider>() is { } sip)
         {
+            var dropDown = OpenDropDownHolding(matches[0]);
             sip.Select();
-            return Ok($"selected '{value}'{scrolled}{namesake}{CloseDropDownHolding(matches[0])}");
+            return Ok($"selected '{value}'{scrolled}{namesake}{CloseDropDown(dropDown)}");
         }
 
         if (TrySelectThroughOwningGrid(matches[0]))
@@ -800,6 +802,17 @@ public static class UiAutomationDriver
     {
         if (TopLevel.GetTopLevel(control) is not { } topLevel)
             return Err("the control is not attached to a window, so it cannot be clicked");
+
+        // A real double-click's first click picks a dropdown item and closes the dropdown, so the second lands on
+        // whatever lay beneath and no DoubleTapped reaches the item. Do that first half and say the rest didn't happen.
+        if (OpenDropDownHolding(control) is not null && peer.GetProvider<ISelectionItemProvider>() is not null)
+        {
+            var picked = DoSelect(control, peer, null);
+            return picked.Success
+                ? Ok($"{picked.Detail}; no double-click was raised, as a real one's second click lands on what lay "
+                   + "beneath the dropdown")
+                : picked;
+        }
 
         var treeRefusal = "";
         var selected = control is TreeViewItem
@@ -1360,8 +1373,16 @@ public static class UiAutomationDriver
         control.GetVisualAncestors().OfType<TreeViewItem>().FirstOrDefault(n => !n.IsExpanded);
 
     /// <summary>
-    /// Closes the open dropdown an item was just selected in, as clicking the item does, and says so for the reply;
-    /// "" when the item is not in an open dropdown.
+    /// The open dropdown <paramref name="item"/> is in, or null. Found before the item is selected: a selection
+    /// handler that replaces the list recycles the item's container and clears its parent, and the dropdown would then
+    /// go unfound and stay open with nothing said.
+    /// </summary>
+    private static ComboBox? OpenDropDownHolding(Control item) =>
+        ItemsControl.ItemsControlFromItemContainer(item) as ComboBox is { IsDropDownOpen: true } combo ? combo : null;
+
+    /// <summary>
+    /// Closes the dropdown an item was just selected in, as clicking the item does, and says so for the reply; ""
+    /// when there was none, or it has closed already.
     /// </summary>
     /// <remarks>
     /// The item's peer sets the ComboBox's selection and nothing else. Avalonia's ComboBox closes its popup from
@@ -1370,9 +1391,9 @@ public static class UiAutomationDriver
     /// keeping focus: a light-dismiss popup closes when its window deactivates, which is why it was first recorded
     /// as closing between calls.
     /// </remarks>
-    private static string CloseDropDownHolding(Control item)
+    private static string CloseDropDown(ComboBox? combo)
     {
-        if (ItemsControl.ItemsControlFromItemContainer(item) is not ComboBox { IsDropDownOpen: true } combo) return "";
+        if (combo is not { IsDropDownOpen: true }) return "";
         combo.SetCurrentValue(ComboBox.IsDropDownOpenProperty, false);
         return combo.IsDropDownOpen
             ? " (the dropdown is still open; 'collapse' the ComboBox to close it)"
@@ -1581,10 +1602,18 @@ public static class UiAutomationDriver
             if (!TryParseModifiers(modifiers, out var mods, out var modError))
                 return new InteractOutcome(false, "keyboard", null, modError);
 
+            // FindKeyTarget passes over what is hidden, so a hidden container, or one whose only key targets are
+            // hidden, would otherwise be told it holds nothing focusable, sending the caller looking for a control
+            // that isn't there. Say what is hidden instead, as type_text does.
+            if (Hidden(control) is true)
+                return new InteractOutcome(false, "keyboard", null, NotShowingRefusal(control, "press_key"));
             if (FindKeyTarget(control) is not { } target)
                 return new InteractOutcome(false, "keyboard", null,
-                    $"'{Describe(control)}' has nothing under it that can take keyboard focus, so a key "
-                  + "press there would go nowhere. Address a focusable control, or a text surface.");
+                    control.GetVisualDescendants().OfType<Control>()
+                            .FirstOrDefault(c => c is TextArea or TextEditor or TextBox || c.Focusable) is { } hidden
+                        ? NotShowingRefusal(hidden, "press_key")
+                        : $"'{Describe(control)}' has nothing under it that can take keyboard focus, so a key "
+                        + "press there would go nowhere. Address a focusable control, or a text surface.");
 
             // The key is raised on the target whether or not it took focus, and Enter on a Button clicks it, so a
             // hidden one was pressed through this tool exactly as interact used to press it (#1069).
