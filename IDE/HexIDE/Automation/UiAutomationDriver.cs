@@ -2441,7 +2441,9 @@ public static class UiAutomationDriver
         object? parentContext)
     {
         var info = node.Info;
-        var selfInteractive = info.Providers.Length > 0 || info.Focusable;
+        // A control a running program names, a Label among them, is kept: the program may handle its Click, and its caption
+        // is often what the program reports through (#1076). It has no provider and cannot take focus.
+        var selfInteractive = info.Providers.Length > 0 || info.Focusable || IsProgramControl(node.Control);
 
         var children = new List<UiNode>();
         var atCap = depth >= maxDepth;
@@ -2468,6 +2470,10 @@ public static class UiAutomationDriver
 
         return MakeNode(node, path, [.. children], parentContext, truncated);
     }
+
+    private static bool IsProgramControl(Control control) =>
+        HexIDE.Runtime.BuiltinControls.VBProps.GetName(control) is not null
+        && TopLevel.GetTopLevel(control) is HexIDE.Runtime.IModuleExecutionRoot;
 
     private static UiNode BareNode(MeaningfulChild node, string path, object? parentContext) =>
         MakeNode(node, path, [], parentContext);

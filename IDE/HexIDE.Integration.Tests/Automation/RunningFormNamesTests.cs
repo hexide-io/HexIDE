@@ -105,6 +105,23 @@ public class RunningFormNamesTests
         finally { window.Close(); }
     }
 
+    // The default dump keeps what a program names, a Label among them, though nothing about it is interactive to UI
+    // Automation: a program may handle its Click, and its caption is often what the program reports through (#1076).
+    [AvaloniaFact]
+    public void The_default_dump_keeps_a_Label_and_the_container_it_shares_with_named_controls()
+    {
+        var window = Run();
+        try
+        {
+            var nodes = Flatten(UiAutomationDriver.Dump(window, "Window", 10, interactiveOnly: true)).ToList();
+
+            nodes.Single(n => n.Path == "Window/Text[Label1]").Name.Should().Be("Name:");
+            nodes.Select(n => n.Path).Should().Contain("Window/Group[Frame1]");
+            nodes.Should().NotContain(n => n.Path.StartsWith("Window/Text[Label1]/"), "a Label's caption is its name");
+        }
+        finally { window.Close(); }
+    }
+
     // The caption still reaches a control, as it reads: a mid-word access key used to leave E_xit, which Exit missed.
     [AvaloniaFact]
     public void A_captioned_control_is_named_as_its_caption_reads()

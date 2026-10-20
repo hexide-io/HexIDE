@@ -2027,8 +2027,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
                      + "are not interactive, such as a button's caption, are left out; pass interactiveOnly false to "
                      + "see them.")]
         int maxDepth = 20,
-        [Description("Default true: keeps only nodes that are interactive or have an interactive descendant. Pass "
-                     + "false to see text and labels that nothing can click. A node cut off by maxDepth is kept, "
+        [Description("Default true: keeps only nodes that are interactive or have an interactive descendant, and every "
+                     + "control a running program names, a Label among them. Pass "
+                     + "false to see the IDE's text and labels too. A node cut off by maxDepth is kept, "
                      + "marked \"truncated\", since what lies below it was not looked at; it may turn out to hold "
                      + "nothing interactive.")]
         bool interactiveOnly = true,
