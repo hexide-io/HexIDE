@@ -2172,16 +2172,18 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "type_text")]
-    [Description("Types text into the control at 'target' (a path from dump_visual_tree) by inserting at the caret via the control's own API, writing over a standing selection as a person's typing does (the reply says how many characters it replaced), reported as mechanism \"document\" because it is an edit and not key events ('mode' \"keyboard\" sends key events instead, as a person types); a read-only or disabled surface is refused, as a person's typing would be — works on the code editor (AvaloniaEdit), which has no value provider for 'interact set_value'. If 'target' isn't itself a text surface, the nearest descendant editor/textbox is used (the AvaloniaEdit editor is preferred over incidental textboxes). When that happens the reply gives the path of the surface that took the text. Multi-line text is inserted verbatim (include \\n for new lines); exact, reliable, and not altered by live auto-indent/IntelliSense. For a typing cadence, call this once per line. Use press_key for Enter/Tab/commands. In a code window it is also refused while the caret, or a selection it would write over, is in the file's header or a member's Attribute lines, which only the IDE changes; the reply says where the editable code starts, as an offset into the whole file, which is the text get_file_content returns. At the end of a declaration whose Attribute lines follow it, the text from its first line break on goes after those lines, with its line breaks written as the file's, as a person's paste does there; the reply says so and gives the caret's new offset. 'window' picks the top-level window the path is resolved against; its own description lists the values. " + ProgramWaitNote)]
+    [Description("Types text into the control at 'target' (a path from dump_visual_tree) by inserting at the caret via the control's own API, writing over a standing selection as a person's typing does (the reply says how many characters it replaced), reported as mechanism \"document\" because it is an edit and not key events ('mode' \"keyboard\" sends key events instead, as a person types); a read-only or disabled surface is refused, as a person's typing would be — works on the code editor (AvaloniaEdit), which has no value provider for 'interact set_value'. If 'target' isn't itself a text surface, the nearest descendant editor/textbox is used (the AvaloniaEdit editor is preferred over incidental textboxes). When that happens the reply gives the path of the surface that took the text. In the default mode multi-line text is inserted verbatim (include \\n for new lines); exact, reliable, and not altered by live auto-indent/IntelliSense. For a typing cadence, call this once per line. Use press_key for Enter/Tab/commands. In a code window it is also refused while the caret, or a selection it would write over, is in the file's header or a member's Attribute lines, which only the IDE changes; the reply says where the editable code starts, as an offset into the whole file, which is the text get_file_content returns. At the end of a declaration whose Attribute lines follow it, the text from its first line break on goes after those lines, with its line breaks written as the file's, as a person's paste does there; the reply says so and gives the caret's new offset. 'window' picks the top-level window the path is resolved against; its own description lists the values. " + ProgramWaitNote)]
     public async Task<InteractOutcome> TypeTextAsync(
         string target, string text, [Description(WindowParameter)] string? window = null,
         [Description("\"document\" (the default) inserts the text at the caret in one edit, exact and untouched by "
-                     + "auto-indent, completion or auto-close. \"keyboard\" types it as a person does, a key at a time: "
-                     + "KeyDown, TextInput and KeyUp per character, \\n as Enter and \\t as Tab, so what typing drives "
-                     + "runs. In a code window that is the completion list opening on a letter and filtering as you go, "
-                     + "Tab or Enter taking its item, parameter info on ( and , and auto-indent and the End a line break "
-                     + "adds; the text that lands may differ from what was sent, so read it back. Its mechanism is "
-                     + "\"keyboard\", and a key a protected line refuses stops the rest, the reply says after how many.")]
+                     + "auto-indent, completion or auto-close. \"keyboard\" types it as a person does, a key at a time, to "
+                     + "the focused control: KeyDown, TextInput and KeyUp per character, \n as Enter and \t as Tab, with "
+                     + "key bindings tried first, so what typing drives runs. In a code window that is the completion "
+                     + "request a letter makes, parameter info on ( and , and auto-indent and the End a line break adds; "
+                     + "after each key the language server's answer is waited for, up to 2 s. The text that lands may "
+                     + "differ from what was sent, so read it back. A Tab that moves focus sends the rest to where focus "
+                     + "went. The typing stops, and the reply says after how many keys, at a key a protected line refuses, "
+                     + "or when a dialog opens over the window. Its mechanism is \"keyboard\".")]
         string? mode = null,
         CancellationToken ct = default)
     {
@@ -2210,7 +2212,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // Read before the action: a MsgBox it answers closes, and loses what ties it to the program (#1232).
             watch = UiAutomationDriver.WatchProgram(active, () => ctx.DebugController.CurrentStop);
             return keyboard.Value
-                ? await UiAutomationDriver.TypeKeysAsync(control, text, target)
+                ? await UiAutomationDriver.TypeKeysAsync(control, text, target, ct)
                 : UiAutomationDriver.TypeText(control, text, target);
         });
         return await UiAutomationDriver.WaitForProgramAsync(watch, outcome, ct: ct);

@@ -6,8 +6,10 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using AvaloniaEdit;
+using AvaloniaEdit.CodeCompletion;
 using HexIDE.Automation;
 using HexIDE.Bookmarks;
 using HexIDE.Debugging;
@@ -161,5 +163,134 @@ public class TypeKeysTests : IDisposable
         typed.Success.Should().BeTrue(typed.Error);
         typed.Detail.Should().Contain("TextBox").And.NotContain("caret");
         box.Text.Should().Be("Ab 1");
+    }
+
+    // ── as a person's keys arrive: after the list a letter asked for, to the focused control, bindings first ──────
+
+    private static CompletionWindow? OpenList(TextEditor editor) =>
+        typeof(CodeEditorView).GetField("_completionWindow", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+            .GetValue(editor.FindLogicalAncestorOfType<CodeEditorView>()) as CompletionWindow is { IsOpen: true } open ? open : null;
+
+    [AvaloniaFact]
+    public async Task The_list_a_letter_asks_for_is_open_before_the_reply_as_a_person_sees_it_before_the_next_key()
+    {
+        // The server answers off the UI thread, after a later key had already gone in: the list opened after the typing.
+        lsp.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(async _ =>
+        {
+            await Task.Delay(150);
+            return new[] { new CompletionItem("MsgBox", CompletionItemKind.Function) };
+        });
+        var editor = Show(Body);
+        PutCaretAfter(editor, "Foo()\r\n    ");
+
+        var typed = await UiAutomationDriver.TypeKeysAsync(editor, "M");
+
+        typed.Success.Should().BeTrue(typed.Error);
+        typed.Detail.Should().NotContain("had not answered");
+        OpenList(editor).Should().NotBeNull("the list the letter asked for is open when the reply comes");
+    }
+
+    [AvaloniaFact]
+    public async Task A_server_slower_than_the_wait_is_named_in_the_reply()
+    {
+        var gate = new TaskCompletionSource<CompletionItem[]>();
+        lsp.RequestCompletionAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(_ => gate.Task);
+        var editor = Show(Body);
+        PutCaretAfter(editor, "Foo()\r\n    ");
+        var wait = UiAutomationDriver.PopupWait;
+        UiAutomationDriver.PopupWait = TimeSpan.FromMilliseconds(100);
+        try
+        {
+            var typed = await UiAutomationDriver.TypeKeysAsync(editor, "M");
+
+            typed.Detail.Should().EndWith("; the language server had not answered 1 key(s)' completion or parameter-info "
+                                          + "request within 100 ms, so a list may still open");
+        }
+        finally
+        {
+            UiAutomationDriver.PopupWait = wait;
+            gate.SetResult([]);
+        }
+    }
+
+    private Window ShowBoxes(params Control[] controls)
+    {
+        var panel = new StackPanel();
+        foreach (var c in controls) panel.Children.Add(c);
+        var window = new Window { Width = 400, Height = 300, Content = panel };
+        windows.Add(window);
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        return window;
+    }
+
+    [AvaloniaFact]
+    public async Task A_Tab_that_moves_focus_sends_the_keys_after_it_where_focus_went()
+    {
+        var (a, b) = (new TextBox { Width = 200 }, new TextBox { Width = 200 });
+        ShowBoxes(a, b);
+
+        var typed = await UiAutomationDriver.TypeKeysAsync(a, "x\ty");
+
+        typed.Success.Should().BeTrue(typed.Error);
+        (a.Text, b.Text).Should().Be(("x", "y"), "a person's y goes to the box the Tab moved to");
+        typed.Detail.Should().Contain("focus moved on to");
+    }
+
+    [AvaloniaFact]
+    public async Task An_Enter_bound_to_a_command_runs_it_as_a_person_s_does()
+    {
+        var searched = 0;
+        var box = new TextBox { Width = 200 };
+        box.KeyBindings.Add(new KeyBinding { Gesture = new KeyGesture(Key.Enter), Command = new RelayCommand(() => searched++) });
+        ShowBoxes(box);
+
+        (await UiAutomationDriver.TypeKeysAsync(box, "foo\n")).Success.Should().BeTrue();
+        searched.Should().Be(1, "the binding on the box takes the Enter, as the Object Browser's search box's does");
+
+        UiAutomationDriver.PressKey(box, "Enter", null).Success.Should().BeTrue();
+        searched.Should().Be(2, "press_key delivers a key the same way");
+    }
+
+    private sealed class RelayCommand(Action run) : System.Windows.Input.ICommand
+    {
+        public event EventHandler? CanExecuteChanged { add { } remove { } }
+        public bool CanExecute(object? parameter) => true;
+        public void Execute(object? parameter) => run();
+    }
+
+    [AvaloniaFact]
+    public async Task A_dialog_opening_over_the_window_stops_the_typing_and_says_where()
+    {
+        var box = new TextBox { Width = 200 };
+        var window = ShowBoxes(box);
+        Window? prompt = null;
+        box.TextChanged += (_, _) =>
+        {
+            if (prompt is not null) return;
+            prompt = new Window { Title = "Reset?", Width = 100, Height = 50 };
+            _ = prompt.ShowDialog(window);
+        };
+        try
+        {
+            var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
+
+            typed.Success.Should().BeFalse();
+            typed.Error.Should().StartWith("typed 1 of 3 key(s) into TextBox, then stopped: 'Reset?' opened over the window");
+            box.Text.Should().Be("a", "the rest would have gone to the dialog");
+        }
+        finally { prompt?.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task A_character_beyond_the_basic_plane_is_one_key_and_a_lone_surrogate_takes_nothing_with_it()
+    {
+        var box = new TextBox { Width = 200 };
+        ShowBoxes(box);
+
+        var typed = await UiAutomationDriver.TypeKeysAsync(box, "a\U0001F600b\uD800c");
+
+        typed.Detail.Should().StartWith("typed 5 key(s)", "a, the emoji, b, the lone surrogate, c");
+        box.Text.Should().EndWith("c");
     }
 }

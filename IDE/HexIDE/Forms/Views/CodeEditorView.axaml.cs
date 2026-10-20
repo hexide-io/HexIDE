@@ -49,6 +49,21 @@ public partial class CodeEditorView : UserControl
     private CancellationTokenSource? _completionCts;
     private OverloadInsightWindow? _insightWindow;
     private CancellationTokenSource? _signatureCts;
+    // The last completion and parameter-info requests, as far as showing what came back.
+    private Task _completionShown = Task.CompletedTask;
+    private Task _signatureShown = Task.CompletedTask;
+
+    /// <summary>
+    /// What the completion list and parameter info <paramref name="editor"/> last asked the language server for are
+    /// still waiting on, null when nothing is: type_text's keyboard mode waits for it after each key, as a person's next
+    /// key comes after the list a letter opened has appeared (#943 review). A request a later key superseded ends then.
+    /// </summary>
+    internal static Task? PendingPopupsOf(TextEditor editor) =>
+        Avalonia.LogicalTree.LogicalExtensions.FindLogicalAncestorOfType<CodeEditorView>(editor) is { } view
+        && ReferenceEquals(view.TextEditor, editor)
+        && !(view._completionShown.IsCompleted && view._signatureShown.IsCompleted)
+            ? Task.WhenAll(view._completionShown, view._signatureShown)
+            : null;
     private DocumentHighlightRenderer? _highlightRenderer;
     private CancellationTokenSource? _highlightCts;
     private HexIDE.Debugging.BreakpointMargin? _breakpointMargin;
@@ -1915,7 +1930,7 @@ public partial class CodeEditorView : UserControl
 
         var caret = TextEditor.TextArea.Caret.Position;
         var lspPos = new Position(caret.Line - 1, caret.Column - 1);
-        _ = ShowCompletionAsync(vm, lspPos, token);
+        _completionShown = ShowCompletionAsync(vm, lspPos, token);
     }
 
     private async Task ShowCompletionAsync(CodeEditorViewModel vm, Position position, CancellationToken token)
@@ -1961,7 +1976,7 @@ public partial class CodeEditorView : UserControl
 
         var caret = TextEditor.TextArea.Caret.Position;
         var lspPos = new Position(caret.Line - 1, caret.Column - 1);
-        _ = ShowSignatureHelpAsync(vm, lspPos, token);
+        _signatureShown = ShowSignatureHelpAsync(vm, lspPos, token);
     }
 
     private void CloseInsightWindowIfBalanced()
