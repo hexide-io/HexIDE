@@ -3743,3 +3743,15 @@ times, then Home.
 > battleship demo with an Attribute run added to `Game.Init`: a line past the end opened nothing; `frmBoard` opened at
 > line 150 showed it; `Game` at the run's end opened the run with the caret there; and `type_text` wrote where
 > `open_file(frmSetup, line 94, column 5)` put the caret. Guarded by `CaretPlacementTests` and `OpenFileCaretTests`.
+
+## Two parameter descriptions told a caller something other than what was meant (#1258)
+
+`type_text`'s `mode` was written as a regular C# literal, so its `\n` and `\t` reached a caller as a line feed and a tab.
+The sentence that tells a caller how keyboard mode types several lines read "per character, (a line break) as Enter and
+(a gap) as Tab". `interact`'s `close` said a MsgBox with no Cancel may refuse. An OK-only box has no Cancel, yet its
+close box answers vbOK; only Yes/No and Abort/Retry/Ignore boxes refuse, as the oracle measured.
+
+> **Fixed.** `mode` writes `\n` and `\t`. `close` names the boxes that refuse, in fewer characters than before, since
+> the `action` description sits two short of the 2048 a client delivers. `ToolDescriptionTextTests` holds every tool and
+> parameter description to no control character but a blank line, which five descriptions use as a paragraph break. It
+> also pins both corrected sentences. The guard fails on the text this replaces.
