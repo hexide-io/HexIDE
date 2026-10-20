@@ -136,8 +136,8 @@ without it. A bookmark or breakpoint on a read-only line of its document — a l
 
 Such a mark is drawn nowhere and never hit, so keeping it helps nobody. Yet it is reported by every query and
 written back on every save. It arises from a document shortened outside the IDE, from a hand-edited sidecar,
-or from a version that did not check lines before storing them. Lines are counted as the editor numbers them:
-bookmarks from 0 and breakpoints from 1, from the top of the file, its header included. A mark in a sidecar
+or from a version that did not check lines before storing them. Lines are counted as the stores hold them:
+bookmarks from 0 and breakpoints from 1 (the editor and the tools show both from 1), from the top of the file, its header included. A mark in a sidecar
 written before lines were counted that way is checked in the numbering it was written in, over the document's
 code, before it is moved: a line before the first would otherwise be moved into the header, and judged there
 as a line the document has. A mark is dropped rather than moved, because nothing records which line it was

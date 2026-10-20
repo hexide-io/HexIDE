@@ -175,7 +175,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_file_content")]
-    [Description("Returns the current text of a named form, module or carried file: the open editor's text if it is open, otherwise the IDE's copy (for a carried file, the file on disk). For a form, module or class that is its WHOLE FILE, open or not: a form's VERSION line and designer block, a class's header and the leading Attribute lines come first, then the code. So line 1 is the file's first line, as set_breakpoints, get_diagnostics and the debugger tools count it (get_bookmarks and set_bookmarks count the same lines from 0), and an editor offset (interact set_property CaretOffset, or the offset a type_text or press_key refusal gives) indexes this text. set_file_content takes it back as it is, or the code alone. A form created in this session and not yet saved or changed in the designer has no header yet, so its text is its code alone. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was read, as the IDE spells them. hasUnsavedChanges is true when saving would change the file on disk — edits typed in the editor, controls added, removed or reordered in the designer, or any other change to the IDE's copy since it was last loaded or saved. A document with no file yet always has unsaved changes.")]
+    [Description("Returns the current text of a named form, module or carried file: the open editor's text if it is open, otherwise the IDE's copy (for a carried file, the file on disk). For a form, module or class that is its WHOLE FILE, open or not: a form's VERSION line and designer block, a class's header and the leading Attribute lines come first, then the code. So line 1 is the file's first line, as set_breakpoints, set_bookmarks, get_diagnostics and the debugger tools count it, and an editor offset (interact set_property CaretOffset, or the offset a type_text or press_key refusal gives) indexes this text. set_file_content takes it back as it is, or the code alone. A form created in this session and not yet saved or changed in the designer has no header yet, so its text is its code alone. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was read, as the IDE spells them. hasUnsavedChanges is true when saving would change the file on disk — edits typed in the editor, controls added, removed or reordered in the designer, or any other change to the IDE's copy since it was last loaded or saved. A document with no file yet always has unsaved changes.")]
     public async Task<FileContentResult> GetFileContentAsync(string name, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1373,7 +1373,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_bookmarks")]
-    [Description("Returns the bookmarked line numbers for a form or module, named by its own VB6 name in any loaded project (case does not matter). Lines are 0-based and counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them. Empty array if none. The reply's 'project' and 'document' name it as the IDE spells them, and 'uri' is the name a language server knows it by: its file: URI, or untitled:<project>/<name>.<ext> while it has no file, as get_diagnostics reports it.")]
+    [Description("Returns the bookmarked line numbers for a form or module, named by its own VB6 name in any loaded project (case does not matter). Lines are 1-based, as the gutter and every other line tool count them, and counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them. Empty array if none. The reply's 'project' and 'document' name it as the IDE spells them, and 'uri' is the name a language server knows it by: its file: URI, or untitled:<project>/<name>.<ext> while it has no file, as get_diagnostics reports it.")]
     public async Task<BookmarksResult> GetBookmarksAsync(string name, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1383,12 +1383,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return new BookmarksResult(null, null, null, [], lookup.Error);
 
             return new BookmarksResult(document.Project.Name, document.Name, DocumentWireName.For(document),
-                [.. ctx.BookmarkService.GetBookmarks(document)], null);
+                HexIDE.IDE.MarkLineRules.BookmarksShown(ctx.BookmarkService.GetBookmarks(document)), null);
         });
     }
 
     [McpServerTool(Name = "set_bookmarks")]
-    [Description("Replaces all bookmarks for a form or module with the supplied 0-based line numbers, counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them. Named by its own VB6 name in any loaded project (case does not matter); pass `project` to say which when a group holds two of one name. Pass an empty array to clear them. A line the document does not have is refused, and so is a new bookmark on a line of the header or of a member's Attribute lines, which never run; then nothing is changed, and the reply says where the code starts. The note reports what the document holds afterwards, and 'project' and 'document' name it as the IDE spells them.")]
+    [Description("Replaces all bookmarks for a form or module with the supplied 1-based line numbers, as the gutter and every other line tool count them, counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them. Named by its own VB6 name in any loaded project (case does not matter); pass `project` to say which when a group holds two of one name. Pass an empty array to clear them. A line the document does not have is refused, and so is a new bookmark on a line of the header or of a member's Attribute lines, which never run; then nothing is changed, and the reply says where the code starts. The note reports what the document holds afterwards, and 'project' and 'document' name it as the IDE spells them.")]
     public async Task<MutateResult> SetBookmarksAsync(string name, int[] lines, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1397,11 +1397,15 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (lookup.Document is not { } document)
                 return new MutateResult(false, lookup.Error);
 
-            if (OutsideDocument(document, lines, first: 0, "bookmark", ctx.BookmarkService.GetBookmarks(document)) is { } outside)
+            // Counted from 1 here and from 0 in the store (#571); MarkLineRules converts both ways.
+            var (outside, toStore) = HexIDE.IDE.MarkLineRules.BookmarkRequest(
+                HexIDE.IDE.DocumentContent.TextOf(document, CodeEditorOf(document)), document.Display, lines,
+                ctx.BookmarkService.GetBookmarks(document));
+            if (outside is not null)
                 return Naming(new MutateResult(false, outside), document);
 
-            ctx.BookmarkService.SetBookmarks(document, lines);
-            return Naming(new MutateResult(true, null, Held(document, ctx.BookmarkService.GetBookmarks(document), "bookmark")), document);
+            ctx.BookmarkService.SetBookmarks(document, toStore);
+            return Naming(new MutateResult(true, null, Held(document, HexIDE.IDE.MarkLineRules.BookmarksShown(ctx.BookmarkService.GetBookmarks(document)), "bookmark")), document);
         });
     }
 
@@ -2609,7 +2613,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
     private static string Held(DocumentIdentity document, IReadOnlyList<int> lines, string what) =>
         lines.Count == 0
             ? $"{document.Display} now has no {what}s."
-            : $"{document.Display} now has {what}s on {string.Join(", ", lines)}.";
+            // The numbering said in the reply too, so a caller still holding a description from before #571, when
+            // bookmarks counted from 0, reads that it is one out.
+            : $"{document.Display} now has {what}s on line{(lines.Count == 1 ? "" : "s")} {string.Join(", ", lines)}, "
+              + "counting from 1 at the top of the file, as the gutter does.";
 
     /// <summary>
     /// A name as the document tools resolve it: a form, module or class in any loaded project, else, where the
