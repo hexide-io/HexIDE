@@ -760,6 +760,7 @@ public class UiAutomationDriverTests
             var outcome = UiAutomationDriver.Interact(ContainerOf(tree, theme), "select", null);
 
             outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Detail.Should().Be("selected 'Theme'", "the item is named after its text, not called 'TreeItem'");
             tree.SelectedItem.Should().BeSameAs(theme);
             tree.SelectedItems.Count.Should().Be(1, "a click replaces the selection, it does not add to it");
         }
@@ -828,6 +829,143 @@ public class UiAutomationDriverTests
 
             outcome.Success.Should().BeTrue(outcome.Error);
             selectedWhenHandled.Should().BeSameAs(theme);
+        }
+        finally { window.Close(); }
+    }
+
+    /// <summary>
+    /// Two roots, Environment (General, Theme) and Editor (General), nodes collapsed as a tree starts, items named
+    /// after their title.
+    /// </summary>
+    private static (Window Window, TreeView Tree, Page Environment, Page Editor) BuildCollapsibleTreeWindow()
+    {
+        var environment = new Page("Environment", [new Page("General", []), new Page("Theme", [])]);
+        var editor = new Page("Editor", [new Page("General", [])]);
+
+        var tree = new TreeView
+        {
+            ItemsSource = new[] { environment, editor },
+            ItemTemplate = new FuncTreeDataTemplate<Page>(
+                (p, _) => new TextBlock { Text = p.Title }, p => p.Children),
+        };
+        tree.Styles.Add(new Style(x => x.OfType<TreeViewItem>())
+        {
+            Setters = { new Setter(AutomationProperties.NameProperty, new Binding(nameof(Page.Title))) },
+        });
+
+        var window = new Window { Content = tree, Width = 300, Height = 300 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        return (window, tree, environment, editor);
+    }
+
+    [AvaloniaFact]
+    public void Interact_ExpandAndCollapse_OnATreeNode_SetItsState()
+    {
+        var (window, tree, environment, _) = BuildCollapsibleTreeWindow();
+        try
+        {
+            // The node's peer offers no ExpandCollapse provider, so both refused before.
+            var node = ContainerOf(tree, environment);
+
+            var expanded = UiAutomationDriver.Interact(node, "expand", null);
+            expanded.Success.Should().BeTrue(expanded.Error);
+            expanded.Detail.Should().Be("expanded 'Environment'");
+            node.IsExpanded.Should().BeTrue();
+
+            UiAutomationDriver.Interact(node, "expand", null).Detail.Should().Be("'Environment' was already expanded");
+
+            var collapsed = UiAutomationDriver.Interact(node, "collapse", null);
+            collapsed.Success.Should().BeTrue(collapsed.Error);
+            node.IsExpanded.Should().BeFalse();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void DescribeProviders_TreeNode_AdvertisesExpandCollapse_OnlyWhereItHasChildren()
+    {
+        var (window, tree, environment, _) = BuildCollapsibleTreeWindow();
+        try
+        {
+            var node = ContainerOf(tree, environment);
+            UiAutomationDriver.DescribeProviders(ControlAutomationPeer.CreatePeerForElement(node), node)
+                .Should().Contain("expandCollapse");
+
+            node.IsExpanded = true;
+            Dispatcher.UIThread.RunJobs();
+            var leaf = ContainerOf(tree, environment.Children[1]);
+            UiAutomationDriver.DescribeProviders(ControlAutomationPeer.CreatePeerForElement(leaf), leaf)
+                .Should().NotContain("expandCollapse", "a leaf has nothing to expand, and would refuse");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Select_WithAValue_UnderANodeNeverExpanded_NamesTheNodeToExpand()
+    {
+        var (window, tree, environment, _) = BuildCollapsibleTreeWindow();
+        try
+        {
+            // Theme has no container until Environment is first expanded, so no dump shows it; telling the caller
+            // to check the spelling would send it the wrong way.
+            var refused = UiAutomationDriver.Interact(tree, "select", "Theme");
+
+            refused.Success.Should().BeFalse();
+            refused.Error.Should().Contain("'Environment'").And.Contain("'expand'").And.NotContain("exact text");
+
+            UiAutomationDriver.Interact(ContainerOf(tree, environment), "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            var selected = UiAutomationDriver.Interact(tree, "select", "Theme");
+
+            selected.Success.Should().BeTrue(selected.Error);
+            tree.SelectedItem.Should().BeSameAs(environment.Children[1]);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Select_WithAValue_UnderACollapsedNode_NamesTheNodeToExpand()
+    {
+        var (window, tree, environment, _) = BuildCollapsibleTreeWindow();
+        try
+        {
+            // Expanded once and collapsed again: the children exist, hidden, so this is the not-showing refusal.
+            var node = ContainerOf(tree, environment);
+            node.IsExpanded = true;
+            Dispatcher.UIThread.RunJobs();
+            node.IsExpanded = false;
+            Dispatcher.UIThread.RunJobs();
+
+            var refused = UiAutomationDriver.Interact(tree, "select", "Theme");
+
+            refused.Success.Should().BeFalse();
+            refused.Error.Should().Contain("is not showing").And.Contain("'expand' 'Environment'");
+            tree.SelectedItem.Should().BeNull();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Select_WithAValue_SaysWhenAHiddenItemOfTheSameNameWasLeftAlone()
+    {
+        var (window, tree, environment, editor) = BuildCollapsibleTreeWindow();
+        try
+        {
+            // Both Generals realized, then Editor collapsed: a person sees one General and clicks it.
+            var environmentNode = ContainerOf(tree, environment);
+            var editorNode = ContainerOf(tree, editor);
+            environmentNode.IsExpanded = true;
+            editorNode.IsExpanded = true;
+            Dispatcher.UIThread.RunJobs();
+            editorNode.IsExpanded = false;
+            Dispatcher.UIThread.RunJobs();
+
+            var outcome = UiAutomationDriver.Interact(tree, "select", "General");
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            tree.SelectedItem.Should().BeSameAs(environment.Children[0]);
+            outcome.Detail.Should().Contain("another 'General' is not showing and was left alone");
         }
         finally { window.Close(); }
     }

@@ -761,8 +761,8 @@ or flyout opens it, and this tree's flyout was measured that way when #343 close
 ([#949](https://github.com/hexide-io/HexIDE/issues/949)). Remove binds `Command="{CompiledBinding DeleteForm}"`,
 which Avalonia turns into a command, so `invoke` on that item with the flyout open should run it, and, through today's
 menu fallback, leave the flyout open afterwards (#947). That is read in code, not run. Remove acts on the selected form
-and asks nothing, so read the item's header before invoking it (#714). Until the route is checked live, the workaround
-below stands.
+and asks nothing, so check that `select`'s reply names that form, and that the item's header reads **Remove** and its
+name, before invoking it. Until the route is checked live, the workaround below stands.
 
 **Workaround.** Load a `.vbp` whose `Startup` names no form in the project, by passing it as the positional argument
 at launch.

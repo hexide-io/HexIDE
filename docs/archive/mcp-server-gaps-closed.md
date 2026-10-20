@@ -2579,6 +2579,15 @@ walked `truncated: true`; under `interactiveOnly`, keep such a node instead of p
 > refusal no longer talks about dropdowns. The Options, Locals and Watches trees name their items after their
 > text, as the Project Explorer's already did, so a reply names what it selected and a path can say
 > `TreeItem[Theme]`. Guarded by `UiAutomationDriverTests`, which start from a selection already made.
+>
+> Review found that once tree items could be selected by text, an item under a collapsed node had no way to be shown:
+> the node's peer offers no ExpandCollapse provider either, so `expand` refused. `expand` and `collapse` now set a
+> node's `IsExpanded` and read it back, and the dump advertises `expandCollapse` on a node with children. A text that
+> matches only an item under a collapsed node names that node to expand. One under a node never expanded matches
+> nothing, since its item is not created until then, so the refusal lists the collapsed nodes instead of telling the
+> caller to check the spelling. The read-back confirms the tree took the item, not that a bound view model accepted
+> it. Avalonia cannot tell those apart, and the one tree whose view model refuses, Watches for its child nodes, is
+> filed as #1229.
 
 **Symptom (2026-10-02, during #273 task 3.15's live check).** In Tools → Options, the page tree's items each
 advertise `selectionItem`. `interact {"target":"Window/Custom/Tree/Pane/TreeItem[#0]/TreeItem[#1]","action":"select"}`
