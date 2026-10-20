@@ -15,6 +15,9 @@ public class VBMenu : MenuItem
 
     protected override Type StyleKeyOverride => typeof(MenuItem);
 
+    // Named as the caption reads, not with the & that marks its access key (#1128).
+    static VBMenu() => VBCaption.NameByCaption<VBMenu>(HeaderProperty);
+
     /// <summary>
     /// The item's tick as the program, or the form file, last set it. Set this rather than <c>IsChecked</c>: a click puts
     /// <c>IsChecked</c> back to it.

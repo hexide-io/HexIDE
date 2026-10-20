@@ -63,5 +63,7 @@ public class VBCheckBox : CheckBox
             };
         });
         ContentTemplateProperty.OverrideDefaultValue<VBCheckBox>(AccessTextDataTemplate.Access);
+        // Named as the caption reads, not with the _ the drawn text marks its access key with (#954).
+        VBCaption.NameByCaption<VBCheckBox>(ContentProperty);
     }
 }
