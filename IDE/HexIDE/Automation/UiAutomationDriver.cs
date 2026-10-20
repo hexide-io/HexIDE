@@ -1276,6 +1276,7 @@ public static class UiAutomationDriver
             HexIDE.Runtime.EventPump pump, Window? form, HashSet<Window> before, Func<HexIDE.Runtime.Debugging.StoppedInfo?> paused)
         {
             Pump = pump;
+            IdleBefore = pump.IsIdle;
             Form = form;
             Before = before;
             Paused = paused;
@@ -1284,6 +1285,8 @@ public static class UiAutomationDriver
         internal HexIDE.Runtime.EventPump Pump { get; }
         internal Window? Form { get; }
         internal HashSet<Window> Before { get; }
+        // A program idle before the action held on nothing open then: only a window the action opened can hold it.
+        internal bool IdleBefore { get; }
         internal Func<HexIDE.Runtime.Debugging.StoppedInfo?> Paused { get; }
     }
 
@@ -1325,13 +1328,20 @@ public static class UiAutomationDriver
             // Read at Send priority and waited off the UI thread: a handler that yields at its time slice keeps the
             // dispatcher busy at its own priority for as long as it runs, and a check queued behind it, or a delay that
             // resumes on that thread, would wait for it and never reach the limit.
-            var state = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => new
+            var state = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    Idle = watch.Pump.IsIdle,
-                    Busy = string.Join(", ", watch.Pump.Busy.Distinct()),
-                    Stop = watch.Paused(),
-                    Dialog = DialogOf(watch),
-                    Opened = OpenedForms(watch),
+                    var dialog = DialogOf(watch);
+                    return new
+                    {
+                        Idle = watch.Pump.IsIdle,
+                        Busy = string.Join(", ", watch.Pump.Busy.Distinct()),
+                        Stop = watch.Paused(),
+                        Dialog = dialog,
+                        Title = dialog?.Title,
+                        // A program's own box holds its handler; another window, such as the IDE's compile error, may not.
+                        Box = dialog?.Content is HexIDE.Runtime.Dialogs.MessageBox or HexIDE.Runtime.Dialogs.InputBox,
+                        Opened = OpenedForms(watch),
+                    };
                 },
                 Avalonia.Threading.DispatcherPriority.Send).GetTask().ConfigureAwait(false);
             var opened = state.Opened.Count == 0
@@ -1350,12 +1360,18 @@ public static class UiAutomationDriver
             // A handler held by a window it opened, a MsgBox most often, waits for an answer, not for time, so the reply
             // goes now. Worded to hold for a window that is not modal too, such as a form the handler showed.
             if (state.Dialog is { } dialog)
+            {
+                // Named here, so the reply's note of open dialogs leaves it out (#1253).
+                OpenDialogs.NamedByWait(dialog);
                 return outcome with
                 {
                     Detail = outcome.Detail + $" (the program is still running {state.Busy}, and has a window open over "
-                             + "its form, " + (string.IsNullOrEmpty(dialog) ? "with no title" : $"'{dialog}'")
-                             + $"; a MsgBox holds its handler until it is answered, so the form may change after that{opened})",
+                             + "its form, " + (string.IsNullOrEmpty(state.Title) ? "with no title" : $"'{state.Title}'")
+                             + (state.Box ? "; a MsgBox holds its handler until it is answered, so the form may change after that"
+                                 : "; it may hold the program until it is answered, so the form may change after that")
+                             + $"{opened})",
                 };
+            }
             if (Environment.TickCount64 >= deadline)
                 return outcome with
                 {
@@ -1401,16 +1417,19 @@ public static class UiAutomationDriver
     }
 
     /// <summary>
-    /// The title of a window, not one of the program's forms, open over the form: one the form owns, or one that opened
-    /// since the action began, such as a MsgBox when the startup form that owns it is not this one. A form of the program
-    /// is left out: a form shown modally is the program waiting for input once its own events have run, which the wait
-    /// sees, and one shown otherwise holds nothing. Null when there is none.
+    /// A window, not one of the program's forms, open over the form: one that opened since the action began, such as a
+    /// MsgBox when the startup form that owns it is not this one, else one the form owns, the program's own box first, as
+    /// that is what holds a handler. One open before the action is left out when the program was idle then, as it held
+    /// nothing: an error dialog an earlier call left open was named in place of the MsgBox the action raised, before that
+    /// had opened (#1253). A form of the program is left out: a form shown modally is the program waiting for input once
+    /// its own events have run, which the wait sees, and one shown otherwise holds nothing. Null when there is none.
     /// </summary>
-    private static string? DialogOf(ProgramWatch watch) =>
-        (watch.Form?.OwnedWindows ?? []).Concat(OpenWindows().Where(w => !watch.Before.Contains(w)))
-            .FirstOrDefault(w => w.IsVisible && w != watch.Form && w is not HexIDE.Runtime.IModuleExecutionRoot) is { } dialog
-            ? dialog.Title ?? ""
-            : null;
+    private static Window? DialogOf(ProgramWatch watch) =>
+        OpenWindows().Where(w => !watch.Before.Contains(w))
+            .Concat((watch.Form?.OwnedWindows ?? []).OrderBy(w => w.Content is HexIDE.Runtime.Dialogs.MessageBox
+                                                                       or HexIDE.Runtime.Dialogs.InputBox ? 0 : 1))
+            .FirstOrDefault(w => w.IsVisible && w != watch.Form && w is not HexIDE.Runtime.IModuleExecutionRoot
+                                 && !(watch.IdleBefore && watch.Before.Contains(w)));
 
     /// <summary>The titles of the program's forms that have opened since the action began.</summary>
     private static List<string> OpenedForms(ProgramWatch watch) =>

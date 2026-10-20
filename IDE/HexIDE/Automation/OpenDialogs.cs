@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Avalonia.Controls;
 
 namespace HexIDE.Automation;
@@ -20,23 +21,29 @@ public static class OpenDialogs
         [.. windows.Where(w => w.IsVisible
             && (w.IsDialog || w.Content is HexIDE.Runtime.Dialogs.MessageBox or HexIDE.Runtime.Dialogs.InputBox))];
 
+    // The watch of the call under way, for the wait for a program to record the dialog it named.
+    private static readonly AsyncLocal<DialogWatch?> Current = new();
+
     /// <summary>
     /// Read on the UI thread before a call: the dialogs open, and <paramref name="target"/>, the window the call acts in
-    /// (the IDE's, unless it addresses a window itself). <paramref name="waitsForProgram"/> is true for a tool that waits
-    /// for the program behind its window (#1232); when that window is a program's, its dialogs are left to that wait
-    /// while the program is held, as the wait names them then.
+    /// (the IDE's, unless it addresses a window itself).
     /// </summary>
-    public static DialogWatch Watch(IEnumerable<Window> windows, Window? target, bool waitsForProgram)
-    {
-        var program = waitsForProgram && target is not null ? UiAutomationDriver.ProgramOf(target)?.Pump : null;
-        return new DialogWatch(Among(windows), target, program);
-    }
+    public static DialogWatch Watch(IEnumerable<Window> windows, Window? target) => new(Among(windows), target);
+
+    /// <summary>
+    /// Makes <paramref name="watch"/> the one the rest of this async flow reports to: a wait for a program (#1232) that
+    /// names a dialog in its reply records it here, through <see cref="NamedByWait"/>, so the note does not name it again.
+    /// </summary>
+    public static void During(DialogWatch watch) => Current.Value = watch;
+
+    /// <summary>Records that the reply already names <paramref name="dialog"/>, as the wait for a program does.</summary>
+    internal static void NamedByWait(Window dialog) => Current.Value?.Named.Add(dialog);
 
     /// <summary>
     /// What the reply should say of the modal dialogs open once the call is done, read on the UI thread, or null when there
-    /// are none to name. Not named: the window the call acted in, a dialog under it, and the dialog of a program still held,
-    /// which the wait for the program names. An idle program's is named here: the wait returns at idle naming only forms, and
-    /// a compile error reached from a click shows its dialog without holding the program, so a clean reply hid it (#1253).
+    /// are none to name. Not named: the window the call acted in, a dialog under it, and one the wait for a program named.
+    /// Exactly that one: the wait names a dialog only while the program is busy, and names one at most, so a dialog over an
+    /// idle program, as a compile error reached from a click leaves, or one beside another, was named by neither (#1253).
     /// </summary>
     public static string? Note(DialogWatch watch, IEnumerable<Window> windows)
     {
@@ -44,9 +51,7 @@ public static class OpenDialogs
         for (var at = watch.Target; at is not null; at = at.Owner as Window)
             known.Add(at);
         var named = Among(windows)
-            .Where(d => !known.Contains(d)
-                        && !(watch.Program is { IsIdle: false } pump && UiAutomationDriver.ProgramOf(d)?.Pump == pump))
-            .ToList();
+            .Where(d => !known.Contains(d) && !watch.Named.Contains(d)).ToList();
         if (named.Count == 0)
             return null;
 
@@ -77,14 +82,14 @@ public static class OpenDialogs
 /// <summary>The dialogs open before a call, and where it acts: see <see cref="OpenDialogs.Watch"/>.</summary>
 public sealed class DialogWatch
 {
-    internal DialogWatch(List<Window> before, Window? target, HexIDE.Runtime.EventPump? program)
+    internal DialogWatch(List<Window> before, Window? target)
     {
         Before = before;
         Target = target;
-        Program = program;
     }
 
     internal List<Window> Before { get; }
     internal Window? Target { get; }
-    internal HexIDE.Runtime.EventPump? Program { get; }
+    // Written by the wait off the UI thread and read by the note on it, one after the other.
+    internal HashSet<Window> Named { get; } = [];
 }

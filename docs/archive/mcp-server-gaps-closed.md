@@ -2863,8 +2863,8 @@ own menus had the same fault with `_` (#578). [#1128](https://github.com/hexide-
 > window tool the one its `window` argument picks. The dialog the call acted in, and any under it, are not named, so
 > `dump_visual_tree {}` and `interact` left to the frontmost window, which is the dialog, get no note. "Reached past
 > it" is said only when the dialog blocks that window; a program's MsgBox over its form is named as open, since it
-> does not stop a person using the IDE. A program's dialog is left to `interact`, `type_text` and `press_key` when they
-> wait for that program (#1232), which names it. A program's MsgBox or InputBox over a hidden form, as from
+> does not stop a person using the IDE. A dialog the wait for a program (#1232) named in the reply is not named again;
+> every other is, the program's included (#1253). A program's MsgBox or InputBox over a hidden form, as from
 > `Form_Load`, waits in a window of its own that is not shown as a dialog, and is counted too; a tool window such as
 > Find is not. Each look at the windows is bounded at 500 ms, and one that fails, as after `shutdown_ide`, leaves the
 > reply as the tool gave it. A tool that throws gets no note. The `take_snapshot` half of the suggested fix, preferring
@@ -3783,13 +3783,27 @@ selection, though nothing had been read: a fail-open default in the step that ex
 
 `interact`, `type_text` and `press_key` on a running form leave the program's dialogs to the wait for the program
 (#1232), and the dialog note (#681) skipped them, as the wait names them. But the wait names a dialog only while the
-program is held on it, and returns at idle naming only forms. A compile error reached from a click shows its dialog over
-the form without holding the program, so `invoke` on the button replied `invoked Button 'Command1'`, clean, with the
-error dialog open over the form, and the caller's next action landed behind it. Whether the note named it depended on
-which window had focus, as that decides the dialog's owner.
+program is busy, and returns at idle naming only forms. A compile error reached from a click shows its dialog over the
+form without holding the program, so `invoke` on the button replied `invoked Button 'Command1'`, clean, with the error
+dialog open over the form, and the caller's next action landed behind it. Whether the note named it depended on which
+window had focus, as that decides the dialog's owner.
 
-> **Fixed.** A program's dialog is left to the wait only while the program is held, when the wait names it; an idle
-> program's is named by the note in its usual words, the text `continue_program` already gets for this dialog. A held
-> program's MsgBox is still named once, by the wait. Guarded by `OpenDialogsTests`, held and idle, and
-> `ProgramWaitTests`, which runs the click to a call to a Sub that does not exist, with the compile error shown over the
-> form unawaited as the IDE shows it, and finds the dialog named.
+> **Fixed.** The wait records the dialog it names, and the note leaves out exactly that one, every other dialog
+> included, whatever the program is doing by the time the note looks. A first fix that left a program's dialogs to
+> the wait only while the program was held still lost the dialog when a Timer's tick made the program busy as the note
+> looked: the reviewer saw 5 of 15 replies with no note. It also hid a second dialog, as the wait names one at most.
+>
+> The wait now picks the window it names better:
+> - a dialog open before the action is left out when the program was idle then, as it held nothing, so an error
+>   dialog left open by an earlier call is not named in place of the MsgBox the action raised;
+> - among windows the form already owned, the program's own box comes first, as that is what holds a handler;
+> - a window that is not the program's box is said to *may* hold the program, not to be a MsgBox holding it.
+>
+> Measured on Windows through the server's HTTP endpoint, with a 40 ms Timer looping 3000 times:
+> - a click reaching `NoSuchSub` was named in the note in 10 of 10 calls;
+> - with that error dialog left open, a click raising a MsgBox named the MsgBox in the wait's text and the error dialog
+>   in the note, as "still open".
+>
+> Guarded by `OpenDialogsTests`, `OpenDialogNoteTests` (through the filter) and `ProgramWaitTests` (the compile error
+> shown over the form unawaited as the IDE shows it, a MsgBox beside a dialog left open, twice, and a window that is not
+> a box).

@@ -42,7 +42,7 @@ public class OpenDialogsTests
     public void A_dialog_the_call_opened_is_named_with_what_it_is_over()
     {
         var ide = Shown(new Window(), "HexIDE");
-        var watch = OpenDialogs.Watch([ide], ide, waitsForProgram: false);
+        var watch = OpenDialogs.Watch([ide], ide);
         var box = Dialog("Set Next Statement", ide);
         try
         {
@@ -59,7 +59,7 @@ public class OpenDialogsTests
         var addProcedure = Dialog("Add Procedure", ide);
         try
         {
-            var watch = OpenDialogs.Watch([ide, addProcedure], ide, waitsForProgram: false);
+            var watch = OpenDialogs.Watch([ide, addProcedure], ide);
 
             OpenDialogs.Note(watch, [ide, addProcedure]).Should().Be(
                 "'Add Procedure', a modal dialog over 'HexIDE', is still open and waits for an answer; this call reached past "
@@ -77,7 +77,7 @@ public class OpenDialogsTests
         var confirm = Dialog("Confirm", options);
         try
         {
-            var watch = OpenDialogs.Watch([ide, options, confirm], confirm, waitsForProgram: false);
+            var watch = OpenDialogs.Watch([ide, options, confirm], confirm);
 
             OpenDialogs.Note(watch, [ide, options, confirm]).Should().BeNull();
         }
@@ -93,7 +93,7 @@ public class OpenDialogsTests
         var box = Dialog("Question", form);
         try
         {
-            var watch = OpenDialogs.Watch([ide, form, box], ide, waitsForProgram: false);
+            var watch = OpenDialogs.Watch([ide, form, box], ide);
 
             OpenDialogs.Note(watch, [ide, form, box]).Should().Be(
                 "'Question', a modal dialog over the running form 'Ask', is open and waits for an answer." + Tail);
@@ -101,42 +101,47 @@ public class OpenDialogsTests
         finally { box.Close(); form.Close(); ide.Close(); }
     }
 
-    // The wait for the program names a box over its form while the program is held on it, as a MsgBox holds it (#1232);
-    // a tool that does not wait for it names the box here.
+    // The wait for the program names a box over its form while the program is held on it, as a MsgBox holds it (#1232),
+    // and records it, so the note leaves out that box and no other.
     [AvaloniaFact]
-    public void A_held_programs_dialog_is_left_only_to_a_wait_for_that_program()
+    public void A_dialog_the_wait_named_is_left_out_of_the_note_and_only_that_one()
     {
         var form = Shown(new FormWindow(), "Ask");
-        var answer = new TaskCompletionSource();
+        var earlier = Dialog("HexIDE", form);
         try
         {
-            var waited = OpenDialogs.Watch([form], form, waitsForProgram: true);
-            var notWaited = OpenDialogs.Watch([form], form, waitsForProgram: false);
-            form.Events!.Raise("Command1_Click", async () => await form.Events.WhileSuspended(new ValueTask(answer.Task)));
+            var waited = OpenDialogs.Watch([form, earlier], form);
+            var other = OpenDialogs.Watch([form, earlier], form);
+            OpenDialogs.During(waited);
             var box = Dialog("Question", form);
-            form.Events.IsIdle.Should().BeFalse("the handler is held on the box, as on a MsgBox");
             try
             {
-                OpenDialogs.Note(waited, [form, box]).Should().BeNull();
-                OpenDialogs.Note(notWaited, [form, box]).Should()
-                    .StartWith("'Question', a modal dialog over the running form 'Ask', opened during this call");
+                OpenDialogs.NamedByWait(box);
+
+                OpenDialogs.Note(waited, [form, earlier, box]).Should().Be("'HexIDE', a modal dialog over the running form "
+                    + "'Ask', is still open and waits for an answer; this call reached past it, as a person could not." + Tail);
+                OpenDialogs.Note(other, [form, earlier, box]).Should().Contain("'Question'");
             }
             finally { box.Close(); }
         }
-        finally { answer.SetResult(); form.Close(); }
+        finally { earlier.Close(); form.Close(); }
     }
 
     // A compile error reached from a click shows its dialog over the form without holding the program, so the wait,
-    // which returns at idle naming only forms, never named it, and the reply came back clean (#1253).
+    // which returns at idle naming only forms, never named it, and the reply came back clean (#1253). Whether the program
+    // is busy by the time the note looks, as a Timer's tick makes it, is no part of it: only what the wait named counts.
     [AvaloniaFact]
-    public void An_idle_programs_dialog_is_named_though_the_call_waited_for_the_program()
+    public void A_dialog_the_wait_did_not_name_is_named_though_the_program_is_busy_when_the_note_looks()
     {
         var form = Shown(new FormWindow(), "Ask");
+        var tick = new TaskCompletionSource();
         try
         {
-            var waited = OpenDialogs.Watch([form], form, waitsForProgram: true);
+            var waited = OpenDialogs.Watch([form], form);
+            OpenDialogs.During(waited);
             var box = Dialog("Sub or Function not defined", form);
-            form.Events!.IsIdle.Should().BeTrue();
+            form.Events!.Raise("Timer1_Timer", async () => await form.Events.WhileSuspended(new ValueTask(tick.Task)));
+            form.Events.IsIdle.Should().BeFalse("a tick is under way");
             try
             {
                 OpenDialogs.Note(waited, [form, box]).Should().Be("'Sub or Function not defined', a modal dialog over the "
@@ -144,7 +149,7 @@ public class OpenDialogsTests
             }
             finally { box.Close(); }
         }
-        finally { form.Close(); }
+        finally { tick.SetResult(); form.Close(); }
     }
 
     [AvaloniaFact]
@@ -152,7 +157,7 @@ public class OpenDialogsTests
     {
         var ide = Shown(new Window(), "HexIDE");
         var form = Shown(new FormWindow(), "Ask");
-        var watch = OpenDialogs.Watch([ide, form], ide, waitsForProgram: false);
+        var watch = OpenDialogs.Watch([ide, form], ide);
         var addProcedure = Dialog("Add Procedure", ide);
         var box = Dialog("Question", form);
         try

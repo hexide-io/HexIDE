@@ -33,9 +33,6 @@ internal static class OpenDialogNote
     internal static readonly HashSet<string> WindowTools =
         ["interact", "type_text", "press_key", "hover", "inspect_element", "dump_visual_tree", "take_snapshot"];
 
-    // These wait for the program behind their window, and name its dialogs (#1232).
-    internal static readonly HashSet<string> ProgramWaitTools = ["interact", "type_text", "press_key"];
-
     private static readonly TimeSpan Look = TimeSpan.FromMilliseconds(500);
 
     /// <summary>The windows to look at, and the IDE's own. Replaced by a test, whose host keeps no list of windows.</summary>
@@ -52,12 +49,14 @@ internal static class OpenDialogNote
     internal static async ValueTask<CallToolResult> NoteAsync(
         CallToolRequestParams? call, Func<ValueTask<CallToolResult>> next, CancellationToken ct)
     {
-        var tool = call?.Name ?? "";
         var watch = await OnUiThread(() =>
         {
             var (windows, main) = Windows();
-            return OpenDialogs.Watch(windows, TargetOf(call, windows, main), ProgramWaitTools.Contains(tool));
+            return OpenDialogs.Watch(windows, TargetOf(call, windows, main));
         }, ct);
+        // So a wait for the program that names a dialog in the reply keeps it out of the note (#1253).
+        if (watch is not null)
+            OpenDialogs.During(watch);
         var result = await next();
         if (watch is null)
             return result;
