@@ -2869,8 +2869,9 @@ public static class UiAutomationDriver
         // and left a dump rooted AT the button reporting no children at all, because the button's own
         // popup was never considered. Here they are children of their owner, which is both where they
         // appear on screen and what makes the path round-trip.
-        if (parent is Control owner && AttachedPopupOf(owner) is { } attached)
-            CollectPopupChildren(attached, acc, firstOnly);
+        if (parent is Control owner)
+            foreach (var attached in AttachedPopupsOf(owner))
+                CollectPopupChildren(attached, acc, firstOnly);
 
         foreach (var v in parent.GetVisualChildren())
         {
@@ -2934,21 +2935,27 @@ public static class UiAutomationDriver
     /// </remarks>
 
     /// <summary>
-    /// <see cref="AttachedPopupOf"/>, for the snapshot composer: the same question, asked by the code that
+    /// <see cref="AttachedPopupsOf"/>, for the snapshot composer: the same question, asked by the code that
     /// renders rather than the code that walks. One definition, so a popup a caller can address is always a
     /// popup they can also see.
     /// </summary>
-    internal static Popup? AttachedPopupOfPublic(Control c) => AttachedPopupOf(c);
+    internal static IReadOnlyList<Popup> AttachedPopupsOfPublic(Control c) => AttachedPopupsOf(c);
 
-    private static Popup? AttachedPopupOf(Control c)
+    // One popup for a menu or a flyout; the code window can have two open at once, its completion list under the
+    // parameter info of the call being typed into, and reporting only the list left the signature unseen (#942 review).
+    private static IReadOnlyList<Popup> AttachedPopupsOf(Control c)
     {
         if (c.ContextMenu is { IsOpen: true } menu)
-            return menu.GetLogicalParent() as Popup;
+            return menu.GetLogicalParent() is Popup menuPopup ? [menuPopup] : [];
+
+        // The code window's completion list and parameter info are the editor's own popups, held by its view.
+        if (c is TextEditor editor && HexIDE.Forms.Views.CodeEditorView.OpenPopupsOf(editor) is { Count: > 0 } editorPopups)
+            return editorPopups;
 
         foreach (var f in FlyoutsOf(c))
             if (f is PopupFlyoutBase { IsOpen: true } open)
-                return open.Popup;
-        return null;
+                return [open.Popup];
+        return [];
     }
 
     /// <summary>
@@ -2992,8 +2999,9 @@ public static class UiAutomationDriver
                 yield return c;
                 // Same crossing as the control-view walk: without it #SomeId finds an item on the menu bar
                 // but never one inside an open context menu or toolbar flyout.
-                if (AttachedPopupOf(c) is { Child: Visual attached })
-                    foreach (var d in Descendants(attached)) yield return d;
+                foreach (var attachedPopup in AttachedPopupsOf(c))
+                    if (attachedPopup is { Child: Visual attached })
+                        foreach (var d in Descendants(attached)) yield return d;
                 foreach (var d in Descendants(c)) yield return d;
             }
             else

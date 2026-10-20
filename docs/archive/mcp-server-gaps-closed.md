@@ -3256,3 +3256,37 @@ the contract, or keep 0-based and have the descriptions say the gutter shows N+1
 > says "counting from 1 at the top of the file", which reaches a caller still holding an old description. Guarded
 > by `MarkLineRulesTests` and `LineNumberingDescriptionTests`, which refuses any tool description saying lines are
 > counted from 0, in any of its usual spellings, and checks both tool bodies still convert.
+
+## `take_snapshot` and `dump_visual_tree` cannot see the code editor's completion list or parameter-info popup — **CLOSED** (#942, 2026-10-20)
+
+**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
+
+```
+press_key {"target":"Window/Custom[MainView]/Pane[DockControl]/Pane[Root dock]/List[PART_ItemsControl]/List[#0]/Pane[#0]/Custom[Root]/None[TextEditor]","key":"Space","modifiers":"Ctrl"}
+take_snapshot {}                     → the code window, with no list
+dump_visual_tree {"window":"auto"}   → MainWindow only
+```
+
+The run concluded that no list opens, and that was wrong: a Tab sent straight after was swallowed with no
+didChange, which needs an open list, and a headless reproduction confirms the list is open there (#941). Both
+tools answer the same whether or not a list is open. AvaloniaEdit's completion and insight windows are Popups
+parented only logically to the TopLevel, and the routes the tools use find visual-child popups plus open
+ContextMenus and flyouts. Cross-platform by code reading.
+
+**Workaround.** Do not read an empty snapshot as "no list". Infer the list from its effect: `press_key` Down then
+Tab, then read `get_file_content`, or the next `textDocument/didChange` in `list_lsp_messages`. Until #941 is
+fixed, Tab appends the item instead of replacing the prefix.
+
+**Suggested fix.** Expose CodeEditorView's completion and insight windows through an internal accessor, and return
+the open one from `AttachedPopupOf` for a CodeEditorView owner, so the snapshot and the tree both reach it.
+[#942](https://github.com/hexide-io/HexIDE/issues/942).
+
+> **Fixed.** The code window's open completion list and parameter info are the editor's attached popups:
+> `dump_visual_tree` and `find` list them under the `TextEditor` that opened them, both at once when typing an
+> argument has opened a list under the call's parameter info, and `take_snapshot` composes them into the image, by
+> the same route that reaches a context menu or a flyout. A list's items are named by their text, so a path reads
+> `ListItem[MsgBox]` and `interact` `select` with a value picks one by name. A closed list is not reported. Guarded
+> by `CodeEditorPopupTests`. The snapshot's composition follows from that route and is not exercised headless, where
+> a popup is drawn in the window's own overlay; there the walk also meets each popup a second time under `Window`,
+> as it does a context menu. Still out of reach: the description tooltip beside a list item, and committing an item
+> by `double_click`, which the list takes on a press; select it, then `press_key` Tab or Enter, which is #941's.

@@ -64,6 +64,18 @@ public partial class CodeEditorView : UserControl
         && !(view._completionShown.IsCompleted && view._signatureShown.IsCompleted)
             ? Task.WhenAll(view._completionShown, view._signatureShown)
             : null;
+
+    /// <summary>
+    /// The completion list and parameter info open over <paramref name="editor"/>, the list first, for the automation
+    /// surface (#942). Both are popups parented only logically, to the window, so neither the visual walk nor the routes
+    /// to a control's menus and flyouts reaches them, and a list that was open read as none. Both can be open at once,
+    /// as typing an argument opens a list under the call's parameter info, and then both are returned (#942 review).
+    /// </summary>
+    internal static IReadOnlyList<Avalonia.Controls.Primitives.Popup> OpenPopupsOf(TextEditor editor) =>
+        Avalonia.LogicalTree.LogicalExtensions.FindLogicalAncestorOfType<CodeEditorView>(editor) is { } view && ReferenceEquals(view.TextEditor, editor)
+            ? new Avalonia.Controls.Primitives.Popup?[] { view._completionWindow, view._insightWindow }
+                .Where(p => p is { IsOpen: true }).Select(p => p!).ToList()
+            : [];
     private DocumentHighlightRenderer? _highlightRenderer;
     private CancellationTokenSource? _highlightCts;
     private HexIDE.Debugging.BreakpointMargin? _breakpointMargin;
@@ -2280,6 +2292,10 @@ internal sealed class VbCompletionData(CompletionItem item, Func<int, int, bool>
 {
     public string Text => item.Label;
     public object Content => item.Label;
+
+    // What an item reads as to the automation surface, whose ListBoxItem holds this object rather than the text: an item
+    // was named by its position alone, and selecting one by its text found none (#942 review).
+    public override string ToString() => Text;
     public object? Description => item.Detail;
     public double Priority => 0;
     public IImage? Image => null;

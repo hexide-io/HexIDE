@@ -127,8 +127,9 @@ public static class SnapshotComposer
             // Attached first, because the owner is an ordinary control the visual walk lands on and its
             // popup is not a visual child of anything: a context menu and a toolbar flyout are parented
             // LOGICALLY, so composing only visual-child popups drew a window with the menu missing.
-            if (child is Control owner && UiAutomationDriver.AttachedPopupOfPublic(owner) is { IsOpen: true } attached)
-                AddPopupRoot(attached, window, acc);
+            if (child is Control owner)
+                foreach (var attached in UiAutomationDriver.AttachedPopupsOfPublic(owner).Where(p => p.IsOpen))
+                    AddPopupRoot(attached, window, acc);
 
             if (child is Popup { IsOpen: true } popup)
             {
