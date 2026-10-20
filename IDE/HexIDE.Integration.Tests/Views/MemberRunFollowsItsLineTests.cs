@@ -539,8 +539,12 @@ public class MemberRunFollowsItsLineTests : IDisposable
 
         typed.Success.Should().BeTrue(typed.Error);
         typed.Detail.Should().Contain("box selection");
-        vm.Document.Text.Should().Contain("\r\nOption x\r\n").And.Contain("\r\nPublic x\r\n" + RunText,
+        // Matched, not spelled out: a box is a span of the view's x, so which characters it covers on each line depends on
+        // the font, which is not monospaced on every headless host.
+        vm.Document.Text.Should().MatchRegex(
+            @"\r\nOption [^\r\n]*x[^\r\n]*\r\n[^\r\n]*\r\nPublic [^\r\n]*x\r\n" + System.Text.RegularExpressions.Regex.Escape(RunText),
             "only the box is written over, so the declaration keeps what is left of it, and its run");
+        vm.Document.Text.Should().NotContain("Go()", "the box reaches the end of the declaration's line");
     }
 
     [AvaloniaFact]
