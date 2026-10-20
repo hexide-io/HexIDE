@@ -2643,3 +2643,66 @@ between calls.
 
 **Suggested fix.** After selecting in an open dropdown, `select` closes it as a click does, and says so in its
 reply. [#907](https://github.com/hexide-io/HexIDE/issues/907).
+
+## `interact` on a menu skips what a real gesture does: `collapse` leaves the menu bar active, `invoke` leaves the menu open — **CLOSED** (#947, 2026-10-20)
+
+> **Fixed.** `interact` on a menu now does what a click does, in the order Avalonia 12's own menu handling uses.
+> `invoke` on an item moves a checkable item's tick, raises Click, and closes the whole menu, bar included, unless
+> the item stays open on click. Its reply says so: `invoked MenuItem 'Minimap' (now unticked) and closed the menu, as
+> a click does`. Context menus and flyouts close the same way. `collapse` on a menu bar's header closes the bar with
+> it: `closed menu 'Format' and left the menu bar`. A disabled item is refused rather than clicked, `toggle` on a menu
+> item says to `invoke` it, and `invoke_menu_item` moves the tick of a checkable item that has no command, such as
+> View/Minimap, where it used to refuse. Guarded by `MenuPopupTests`.
+
+
+**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
+
+```
+interact {"target":"Window/Custom[MainView]/None[#0]/Menu[MenuBar]/MenuItem[Format]","action":"collapse"}
+→ closed menu 'Format'
+```
+
+The Format header stayed highlighted in every later snapshot until
+`press_key {"target":"Window/Custom[MainView]/None[#0]/Menu[MenuBar]","key":"Escape"}`. `interact` `invoke` on the
+Project menu's `MenuItem[Remove Form2]` left the Project dropdown open, still drawn over the Object Browser after
+`activate_document_tab`. `collapse` closes only the submenu, not the menu bar, and `invoke` only raises Click,
+where a real click also toggles a checkable item and closes the menu. So, read in code and not run, `invoke` on
+the eight checkable items (the toolbar band's flyout, View > Toolbars and Minimap) changes nothing, and `toggle`
+and `invoke_menu_item` refuse them. Cross-platform by code reading.
+
+**Workaround.** `press_key` Escape on the MenuBar clears a header that `collapse` left active. What closes a
+dropdown that `invoke` left open was not measured, so check a snapshot after any menu `invoke`.
+
+**Suggested fix.** Do what Avalonia 12.1.4's own peer does: `collapse` on a top-level item closes the menu bar,
+and `invoke` toggles a checkable item, raises Click, then closes the menu unless `StaysOpenOnClick`. Have
+`MenuPopupTests` assert that the menu is closed after each. [#947](https://github.com/hexide-io/HexIDE/issues/947).
+
+## Invoking a runtime menu item can leave a checkmark it did not request — **CLOSED** (#947, 2026-10-20)
+
+> **Fixed.** The cause was in the running form's menu, and a person's click had it too. Avalonia's menu flips a
+> CheckBox item's `IsChecked` before it raises Click, and every run-time menu item is a CheckBox item so that code
+> can tick it. `VBMenu` read `IsChecked` inside its Click handling to keep the program's value, so it kept the
+> flipped one, and a click ticked or unticked the item. `VBMenu` now holds the program's `Checked` and puts it back
+> before the item's Click runs, so a Click that sets Checked still has the last word. Guarded by `RuntimeMenuTests`,
+> by pointer and through `interact` `invoke`.
+
+
+**Symptom (2026-10-18, #1156 live verification).** On the running Notepad form, these calls succeeded:
+
+```text
+interact {"window":"frmNotepad","target":"Window/Menu/MenuItem[&Edit]","action":"expand"}
+interact {"window":"frmNotepad","target":"Window/Menu/MenuItem[&Edit]/Pane/MenuItem[&Copy]","action":"invoke"}
+```
+
+After invoking Copy and Select All, `take_snapshot {"window":"frmNotepad"}` showed checkmarks beside both items.
+Neither handler sets Checked and neither menu is declared checked. The VBMenu click override normally preserves
+Checked, so the automation peer's invocation path needs checking against the ordinary click path. A breakpoint
+confirmed a subsequent Copy invocation did reach `mnuEditCopy_Click`; the unexpected tick is separate from dispatch.
+
+**Workaround.** Drive the runtime menu shortcut with `press_key`, for example
+`{"window":"frmNotepad","target":"Window/Edit[#1]","key":"C","modifiers":"Ctrl"}`. Select text first and
+use a breakpoint to distinguish the VB6 handler from a TextBox's own shortcut handling. For opening a menu,
+`expand` only opens it; explicitly invoke its parent when testing that parent's VB6 Click handler.
+
+**Suggested fix.** Make the runtime menu's automation invocation preserve the program's Checked value, as its
+pointer click path does, and cover both paths with a regression test.
