@@ -3055,10 +3055,12 @@ replies should verify/report the resulting model selection. The underlying cause
 
 > **Fixed.** `select` reads the selection back before it reports one: an item its list did not take is refused as "'Main'
 > was not selected: its list did not take the selection; 1 item is selected now: Worker", where it used to be reported as
-> selected. Both ways the provider's Select can come to nothing are covered: an item its list cannot place, and a list
-> that puts its selection back. A list its selection handler replaces lets the item go, so a selection the list
-> announced there still counts. A Call Stack row is named as it reads, `Caller, line 12`, where its name was the row
-> record's text, which carried the debug session's id and stop generation and so went stale at every stop.
-> Not reproduced: with the fixture adapter, a select on a caller row by its path moves the debugger to that frame, and a
-> row clipped out of view has no container, so no path reaches it. What made the original select come to nothing was not
-> established; it is now reported, not claimed. Guarded by `SelectVerifiedTests`.
+> selected. Three ways a select could come to nothing are covered: an item its list cannot place, a list that puts its
+> selection back, and, on the Call Stack, a row of a stop the debugger has already left, which the debugger declines and
+> the list now gives back. A list its selection handler replaces lets the item go, so a selection the list announced
+> there still counts; one put back on a later dispatcher pass is not seen. `double_click`'s selection is read back too. A
+> Call Stack row is named as it reads, `Caller, line 12`, where its name was the row record's text, which carried the
+> debug session's id and stop generation and so went stale at every stop; and each row is its own, so a recursive call's
+> deeper row can be selected. Not reproduced: with the fixture adapter, a select on a caller row by its path moves the
+> debugger, and a row clipped out of view has no container, so no path reaches it. The closest match found is the
+> declined row, which needs a select made while the session has moved on. Guarded by `SelectVerifiedTests`.

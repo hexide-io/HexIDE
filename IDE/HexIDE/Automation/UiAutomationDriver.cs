@@ -716,7 +716,8 @@ public static class UiAutomationDriver
     /// refusal saying so. The provider's Select does nothing for an item its list cannot place, and a list may put its
     /// selection back, so a select that reported success without looking once named a Call Stack frame as chosen while
     /// the debugger stayed in another (#1182). A list its selection handler replaced has let the item go, so there is
-    /// nothing to read back; the selection took if the list announced it.
+    /// nothing to read back; the selection took if the list announced it. A list that puts its selection back on a later
+    /// dispatcher pass is not seen: the read is made when Select returns.
     /// </summary>
     private static InteractOutcome? SelectVerified(Control item, ISelectionItemProvider sip, string label)
     {
@@ -925,8 +926,11 @@ public static class UiAutomationDriver
             : TrySelectThroughOwningGrid(control);
         if (!selected && control is not TreeViewItem && peer.GetProvider<ISelectionItemProvider>() is { } sip)
         {
-            sip.Select();
-            selected = true;
+            // Read back as select reads it (#1182 review): a selection its list did not take is said, not claimed.
+            if (SelectVerified(control, sip, LabelOf(control, peer)) is { Error: { } unselected })
+                treeRefusal = unselected;
+            else
+                selected = true;
         }
 
         var centre = new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);

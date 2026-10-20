@@ -1,6 +1,7 @@
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using HexIDE.Automation;
 using HexIDE.Conversations;
 using HexIDE.Debugging;
@@ -83,6 +84,73 @@ public class SelectVerifiedTests
             await run.WaitAsync(Patience);
             Directory.Delete(directory, true);
         }
+    }
+
+    [AvaloniaFact]
+    public async Task Selecting_a_row_of_a_stop_the_debugger_has_left_is_refused_and_the_list_goes_back()
+    {
+        // The list took the row and the debugger declined it, and the reply said the frame was chosen (#1182 review).
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-select-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log);
+        var stack = new CallStackToolViewModel(
+            NSubstitute.Substitute.For<ILocalizationService>(), NSubstitute.Substitute.For<IDebugController>(), service);
+        var window = new Window { Width = 300, Height = 300, Content = new CallStackToolView { DataContext = stack } };
+        window.Show();
+        var run = service.StartAsync(await Configuration(directory, "frames"));
+        try
+        {
+            await Until(() => service.Variables.Count == 1 && stack.Frames.Count == 2);
+            var rows = Flatten(UiAutomationDriver.Dump(window, "Window", 20, interactiveOnly: true))
+                .Where(n => n.Path.Contains("ListItem")).ToList();
+            var caller = UiAutomationDriver.Resolve(window, rows[1].Path).control!;
+            var stop = service.Stop;
+
+            // Stepping moves the session on at once; the rows of the stop it left are still showing.
+            var stepping = service.CommandAsync("next");
+            service.CanSelectFrame(stop!, 7).Should().BeFalse("the premise: the session has left that stop");
+            var outcome = UiAutomationDriver.Interact(caller, "select", null);
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().StartWith("'Caller, line 12' was not selected");
+            stack.SelectedFrame?.FrameId.Should().NotBe(7);
+            await stepping;
+        }
+        finally
+        {
+            window.Close();
+            await service.StopAsync();
+            await run.WaitAsync(Patience);
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [AvaloniaFact]
+    public void A_recursive_call_s_deeper_row_is_selected_by_its_path()
+    {
+        // The same procedure and line twice: the rows were equal records, and the list selected the first for the second.
+        var controller = NSubstitute.Substitute.For<IDebugController>();
+        controller.GetCallStack().Returns(new[]
+        {
+            new CallStackFrame("Fact", "Module1", 3), new CallStackFrame("Fact", "Module1", 5),
+            new CallStackFrame("Fact", "Module1", 5), new CallStackFrame("Main", "Module1", 10),
+        });
+        var stack = new CallStackToolViewModel(NSubstitute.Substitute.For<ILocalizationService>(), controller);
+        var window = new Window { Width = 300, Height = 300, Content = new CallStackToolView { DataContext = stack } };
+        window.Show();
+        controller.Stopped += NSubstitute.Raise.Event<Action<StoppedInfo>>(new StoppedInfo(StopReason.Breakpoint, "Module1", 3));
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var deeper = window.GetVisualDescendants().OfType<ListBoxItem>().Single(i => ReferenceEquals(i.DataContext, stack.Frames[2]));
+
+            var outcome = UiAutomationDriver.Interact(deeper, "select", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            stack.SelectedFrame.Should().BeSameAs(stack.Frames[2]);
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaTheory]

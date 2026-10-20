@@ -57,8 +57,22 @@ public partial class CallStackToolViewModel : Tool
 
     private void OnSelectedFrameChanged()
     {
-        if (!synchronizingSelection && externalDebugger is not null && SelectedFrame is { Stop: { } stop, FrameId: { } id })
+        if (synchronizingSelection || externalDebugger is null || SelectedFrame is not { Stop: { } stop, FrameId: { } id })
+            return;
+        if (externalDebugger.CanSelectFrame(stop, id))
+        {
             _ = externalDebugger.SelectFrameAsync(stop, id);
+            return;
+        }
+        // A row of a stop the debugger has moved on from, which it declines: the list goes back to the frame the
+        // debugger is in, so it shows what the debugger uses, and a select of the row reads back as not taken (#1182).
+        synchronizingSelection = true;
+        try
+        {
+            var current = externalDebugger.SelectedFrame?.GetProperty("id").GetInt32();
+            SelectedFrame = current is null ? null : Frames.FirstOrDefault(row => row.FrameId == current && row.Stop == externalDebugger.Stop);
+        }
+        finally { synchronizingSelection = false; }
     }
 
     private void Refresh(IDebugController debugController)
@@ -76,4 +90,9 @@ public sealed record CallStackRow(string Frame, int Line, HexIDE.Dap.DapStop? St
     // The name a row is shown and addressed by in dump_visual_tree: "Main, line 6". The record's own text carried the
     // debug session's id and stop generation, so a row's path went stale at every stop (#1182).
     public override string ToString() => $"{Frame.TrimStart('→', ' ')}, line {Line}";
+
+    // Each row is its own frame: a recursive call shows the same procedure and line twice, and a list told the two were
+    // equal selected the first for the second (#1182 review).
+    public bool Equals(CallStackRow? other) => ReferenceEquals(this, other);
+    public override int GetHashCode() => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this);
 }
