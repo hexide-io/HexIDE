@@ -3850,7 +3850,7 @@ control (#1069) read visibility with a fallback of "shown", so a read that threw
 
 ## take_snapshot's default capture picks a modeless dialog (#1264)
 
-**Was:** *take_snapshot of the IDE fails while a menu is open, and the default capture picks a modeless
+**Was:** (both halves closed now; see the note at the end) *take_snapshot of the IDE fails while a menu is open, and the default capture picks a modeless
 dialog.* The first half is closed. Measured for #362: `interact(target: ".../MenuItem[Edit]", action:
 "expand", window: "ide")` then `take_snapshot(window: "ide")` returned an image with the open Edit menu
 composed in. The second half, the Find dialog being preferred over the main window, was not re-tested and
@@ -3890,10 +3890,25 @@ window. **Workaround:** pass `window: "ide"` while Find is open. **Suggested fix
 window included, and have a failed path under `auto` name the window it was resolved against.
 [#1264](https://github.com/hexide-io/HexIDE/issues/1264).
 
-> **Fixed.** The rule is kept and said: under `auto` any visible window over the IDE's own wins, modal or not. The
-> `window` parameter's description, `take_snapshot`'s and `dump_visual_tree`'s now say so, naming the Find window, in
-> place of "a modal dialog". A path that fails to resolve in a window `auto` picked over the IDE's own now names it and
-> says `window: "ide"` reaches the IDE, from every tool that resolves a path. Letting the main window win while it is
-> active was not done: `IsActive` is false for every window while the app is in the background and never set headlessly,
-> so a call's window would depend on the caller's desktop. Guarded by `ForegroundWindowTests`, including a modeless
-> window picked over the IDE and the failure naming it.
+> **Fixed.** Both halves are now closed. The rule is kept and stated: under `auto`, any visible window other than the
+> IDE's own wins, whether or not it is on top, among them a dialog, the Find window, or a running form. Among several, a
+> dialog wins, then the one with focus, then the one opened last. The `window` parameter's description, `take_snapshot`'s
+> and `dump_visual_tree`'s now say so, in place of "a modal dialog" and "the frontmost".
+>
+> A well-formed path that fails in a window `auto` picked over the IDE's own now names that window. If the path resolves
+> in the IDE's own window, the reply also says `window: "ide"` reaches it. The IDE's own window is probed only on failure,
+> and only read, so a typo, or a path into a running form while Find was picked, is not sent the wrong way. A path that
+> is not one at all is refused as before, without naming a window.
+>
+> Letting the main window win while it is active was not done. `IsActive` is false for every window while the app is in
+> the background, and never set headlessly, so a call's window would depend on the caller's desktop. The review found
+> that this dependence already exists among other windows: with a program running and Find open, the one with focus
+> wins. The descriptions now give that order and point to a form's name as the stable handle.
+>
+> Measured on Windows through the server's HTTP endpoint, on a new project with Edit ▸ Find open:
+> - `inspect_element(Window/Custom[MainView])` named Find and pointed to `"ide"`;
+> - `Custom[MainVeiw]` named Find without the pointer;
+> - `Find/x` was refused as not a path.
+>
+> Guarded by `ForegroundWindowTests`, which resolve real paths in two windows through `ForegroundWindow.Resolve`. The
+> server's six path-taking call sites go through that method.
