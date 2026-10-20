@@ -1163,6 +1163,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 return await ConditionHolds(condition, statement);
             }
+            // Located at the condition, where a halt stops (#955): the statement loop around it would say the statement's line.
+            catch (Exception ex) when (ErrorLocation.Note(ex, currentModule.Name, (condition as Antlr4.Runtime.ParserRuleContext ?? statement).Start.Line))
+            {
+                throw;
+            }
             catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
             {
                 interpreter.Err.Capture(ex);
@@ -3102,7 +3107,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             catch (ResumeSignal r)
             {
                 if (faultPc < 0)
-                    throw new VBRunTimeException(r.Context, VBStandardError.ResumeWithoutError);   // Error 20
+                    throw Raised(new VBRunTimeException(r.Context, VBStandardError.ResumeWithoutError));   // Error 20
                 inHandler = false;
                 pc = r.Kind switch
                 {
@@ -3169,20 +3174,25 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private async Task<bool> Halt(VBRunTimeException error, int line)
     {
         currentLine = line;
+        ErrorLocation.Note(error, currentModule.Name, line);
         var halt = interpreter.DebugController!.HaltAsync(error, line, currentModule.Name, this).AsTask();
         return interpreter.Events is { } events ? await events.WhileSuspended(halt) : await halt;
     }
 
     // Notes where an error passing out of stmt was raised (#955), and never catches: the first catch of each statement
-    // loop, so the innermost statement notes it before a handler or a halt sees it. The line is the statement's, or the
-    // line within it its context starts on, as an ElseIf's condition does.
-    private bool Locate(Exception error, ParserRuleContext stmt) =>
-        ErrorLocation.Note(error, currentModule.Name,
-            error is VBRunTimeException { Context.Start: { } at } && at.InputStream == stmt.Start.InputStream
-            && at.Line >= stmt.Start.Line && at.Line <= stmt.Stop.Line ? at.Line : stmt.Start.Line);
+    // loop, so the innermost statement notes it before a handler or a halt sees it. At the statement's line, where a
+    // halt stops; a condition notes its own first (ConditionMet).
+    private bool Locate(Exception error, ParserRuleContext stmt) => ErrorLocation.Note(error, currentModule.Name, stmt.Start.Line);
 
-    private static int ResolveLabel(Dictionary<string, int> labels, string label) =>
-        labels.TryGetValue(label, out var idx) ? idx : throw new VBCompileErrorException("Label not defined: " + label);
+    // An error raised in a statement loop's own catch, which that loop's Locate cannot see: at the statement running.
+    private T Raised<T>(T error) where T : Exception
+    {
+        ErrorLocation.Note(error, currentModule.Name, currentLine);
+        return error;
+    }
+
+    private int ResolveLabel(Dictionary<string, int> labels, string label) =>
+        labels.TryGetValue(label, out var idx) ? idx : throw Raised(new VBCompileErrorException("Label not defined: " + label));
 
     // Internal control signals (not VB runtime errors — never trapped by On Error).
     private sealed class GoToSignal(string label, Antlr4.Runtime.ParserRuleContext context) : Exception

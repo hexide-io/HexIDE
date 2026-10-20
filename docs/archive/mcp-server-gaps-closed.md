@@ -2957,11 +2957,13 @@ paths and no subtrees. This is the question a first call usually asks: where is 
 
 ## `get_last_runtime_error` does not say which module or line raised the error — **CLOSED** (#955, 2026-10-20)
 
-> **Fixed.** An error carries the module and line it was raised at: the innermost statement it passes out of notes
-> them, the line counted as the code window numbers it, or the line within the statement its context starts on, as an
-> ElseIf's condition's does. `get_last_runtime_error` returns them as `module` and `line`, and a run tool's note names
-> them. Run-time errors, compile errors met mid-run and constructs HexIDE does not implement carry them alike, from a
-> form's event, a halt, or Sub Main. Measured with a cold agent on a Debug build, a click that divides by zero:
+> **Fixed.** An error carries the module and line it was raised at, the line counted as the code window numbers it,
+> header included, and the one the debugger halts on: the innermost statement's, or a condition's own, as an ElseIf's
+> or a Loop Until's. The innermost statement it passes out of notes them; a condition, a halt, and an error a statement
+> loop raises itself (Resume without an error, a label that is not defined) note them where they are.
+> `get_last_runtime_error` returns them as `module` and `line`, and a run tool's note names them. Run-time errors,
+> compile errors met mid-run and constructs HexIDE does not implement carry them alike, from a form's event, a halt, or
+> Sub Main. Measured with a cold agent on a Debug build, a click that divides by zero:
 >
 > ```
 > continue_program {}

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using HexIDE.Runtime.Interpreter;
 
@@ -59,6 +60,47 @@ public class ErrorLocationTests : BaseVBTestFixture
         var at = await RaisedAt(() => Run("Dim i As Integer\ni = CInt(40000)\n"));
 
         at.Should().Be(new ErrorLocation("Module1", 2));
+    }
+
+    // As the IDE runs, with a halt for an error nothing handles: placed on the line the debugger stops on.
+    private async Task<ErrorLocation?> HaltedAt(string code)
+    {
+        var (vb, dbg) = NewDebuggable(code);
+        var halts = new List<ErrorLocation?>();
+        dbg.HaltHost = e =>
+        {
+            halts.Add(ErrorLocation.Of(e));
+            return Task.FromResult(false);   // End
+        };
+        try { await vb.RunStartupSubMain(); }
+        catch (Exception) { /* End unwinds the run */ }
+        return halts.Should().ContainSingle().Subject;
+    }
+
+    [Theory]
+    [InlineData("    Debug.Print 1 \\ d\n", 3)]
+    [InlineData("    If 1 / d > 0 Then\n        d = 1\n    End If\n", 3)]
+    [InlineData("    If False Then\n        d = 1\n    ElseIf 1 / d > 0 Then\n        d = 2\n    End If\n", 5)]
+    [InlineData("    If 1 / d Then d = 1\n", 3)]
+    [InlineData("    Do While 1 / d\n    Loop\n", 3)]
+    [InlineData("    Do\n        d = d\n    Loop Until 1 / d\n", 5)]
+    [InlineData("    Debug.Print 1 + _\n        1 \\ d\n", 3)]
+    public async Task A_halted_error_is_placed_where_the_debugger_stops(string body, int line)
+    {
+        var at = await HaltedAt("Sub Main()\n    Dim d As Integer\n" + body + "End Sub\n");
+
+        at.Should().Be(new ErrorLocation("Module1", line));
+    }
+
+    // Raised from a statement loop's own catch, where its filter cannot see it: a handler reached by falling into it.
+    [Fact]
+    public async Task Resume_without_an_error_is_placed_on_the_Resume_not_at_the_call()
+    {
+        var at = await RaisedAt(() => RunModules(
+            "Dim n As Integer\nModule2.Fall\n",
+            ("Module2", "Public Sub Fall()\n    Dim n As Integer\n    Resume Next\nEnd Sub\n")));
+
+        at.Should().Be(new ErrorLocation("Module2", 3));
     }
 
     [Fact]
