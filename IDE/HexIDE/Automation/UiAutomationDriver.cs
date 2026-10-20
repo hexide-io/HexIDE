@@ -2012,12 +2012,13 @@ public static class UiAutomationDriver
         var selfInteractive = info.Providers.Length > 0 || info.Focusable;
 
         var children = new List<UiNode>();
+        var atCap = depth >= maxDepth;
         var metas = new List<MeaningfulChild>();
-        CollectMeaningfulChildren(node.Control, metas);
+        CollectMeaningfulChildren(node.Control, metas, firstOnly: atCap);
         // A node at the cap still has its children counted, without walking them. An empty list there read as a
         // leaf, and under interactiveOnly as "nothing interactive below", which pruned the node and every
         // non-interactive ancestor in turn: the designer pane dumped as a bare tab strip (#953).
-        var truncated = depth >= maxDepth && metas.Count > 0;
+        var truncated = atCap && metas.Count > 0;
         if (!truncated)
         {
             foreach (var m in metas)
@@ -2088,8 +2089,9 @@ public static class UiAutomationDriver
             : true;
 
     // Nearest control-view children: descends transparently through non-Control visuals AND structural
-    // control wrappers, collecting the closest meaningful Control descendants.
-    private static void CollectMeaningfulChildren(Visual parent, List<MeaningfulChild> acc)
+    // control wrappers, collecting the closest meaningful Control descendants. With firstOnly it stops at the
+    // first one, for a caller asking only whether there are any: the dump at its maxDepth cut-off (#953).
+    private static void CollectMeaningfulChildren(Visual parent, List<MeaningfulChild> acc, bool firstOnly = false)
     {
         // Asked of the PARENT, not of each child, and the difference is where the items end up. A flyout's
         // popup is not a visual child of its button, so grafting it while iterating the button's siblings
@@ -2098,23 +2100,24 @@ public static class UiAutomationDriver
         // popup was never considered. Here they are children of their owner, which is both where they
         // appear on screen and what makes the path round-trip.
         if (parent is Control owner && AttachedPopupOf(owner) is { } attached)
-            CollectPopupChildren(attached, acc);
+            CollectPopupChildren(attached, acc, firstOnly);
 
         foreach (var v in parent.GetVisualChildren())
         {
+            if (firstOnly && acc.Count > 0) return;
             if (v is Popup popup)
             {
-                CollectPopupChildren(popup, acc);
+                CollectPopupChildren(popup, acc, firstOnly);
             }
             else if (v is Control c)
             {
                 var info = Classify(c);
-                if (info.Structural) CollectMeaningfulChildren(c, acc);
+                if (info.Structural) CollectMeaningfulChildren(c, acc, firstOnly);
                 else acc.Add(new MeaningfulChild(c, info));
             }
             else
             {
-                CollectMeaningfulChildren(v, acc);
+                CollectMeaningfulChildren(v, acc, firstOnly);
             }
         }
     }
@@ -2127,12 +2130,12 @@ public static class UiAutomationDriver
     // Grafting the popup's content in at the popup's own position keeps paths reading the way the UI
     // looks — Window/Menu/MenuItem[File]/MenuItem[Open] — and, because Resolve walks through this same
     // collector, those paths round-trip straight back to the live control for interact/press_key.
-    private static void CollectPopupChildren(Popup popup, List<MeaningfulChild> acc)
+    private static void CollectPopupChildren(Popup popup, List<MeaningfulChild> acc, bool firstOnly = false)
     {
         // A closed popup has no realised content: its items genuinely do not exist yet, so there is
         // nothing to report and nothing to address. Open it first (interact expand).
         if (!popup.IsOpen) return;
-        if (popup.Child is Visual content) CollectMeaningfulChildren(content, acc);
+        if (popup.Child is Visual content) CollectMeaningfulChildren(content, acc, firstOnly);
     }
 
 

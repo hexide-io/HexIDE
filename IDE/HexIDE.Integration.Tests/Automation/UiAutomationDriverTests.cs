@@ -366,7 +366,7 @@ public class UiAutomationDriverTests
     // #953: Window -> UserControl -> UserControl -> Button, the intermediates not focusable and with no provider.
     private static (Window window, UserControl outer) BuildDeepWindow()
     {
-        var inner = new UserControl { Name = "Inner", Focusable = false, Content = new Button { Name = "Deep", Content = "x" } };
+        var inner = new UserControl { Name = "Inner", Focusable = false, Content = new Button { Name = "Deep" } };
         var outer = new UserControl { Name = "Outer", Focusable = false, Content = inner };
         var window = new Window { Content = outer, Width = 200, Height = 150 };
         window.Show();
@@ -396,6 +396,25 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
+    [AvaloniaFact]
+    public void Dump_KeepsTheNonInteractiveAncestorsOfATruncatedNode()
+    {
+        var (window, _) = BuildDeepWindow();
+        try
+        {
+            // Window(0) -> Outer(1) -> Inner(2): Inner is cut off, and Outer, between it and the root, has nothing
+            // interactive of its own. Before #953 the prune climbed from Inner through Outer.
+            var tree = UiAutomationDriver.Dump(window, "Window", maxDepth: 2, interactiveOnly: true);
+            var outer = Flatten(tree).Single(n => n.Name == "Outer");
+
+            outer.Truncated.Should().BeNull("Outer's own children were walked");
+            var inner = outer.Children.Should().ContainSingle().Which;
+            inner.Name.Should().Be("Inner");
+            inner.Truncated.Should().BeTrue();
+            inner.Children.Should().BeEmpty();
+        }
+        finally { window.Close(); }
+    }
     [AvaloniaFact]
     public void Dump_DeepEnough_MarksNothingTruncated()
     {

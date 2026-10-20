@@ -2006,23 +2006,32 @@ internal sealed class HexIdeTools(IdeContext ctx)
         + "the open windows listed, each form by its name and title: the name is the stable handle.";
 
     [McpServerTool(Name = "dump_visual_tree")]
-    [Description("Walks the live control tree of the active window (a visible modal dialog is preferred over the main window) and returns a structured node tree for discovering and addressing controls. Uses the UIA 'control view': structural layout wrappers (Panels, Borders, ContentPresenters, dock plumbing) are collapsed away, so the tree is shallow and paths are short. Each node carries its addressing 'path' (feed it back as a target), automation ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers, and enabled/offscreen flags. The provider tokens, and the interact action each one is driven with: invoke → invoke, selection and selectionItem → select, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse, rangeValue → set_range_value, scroll → scroll. A token is reported only where the action would do something, so a list that fits its viewport does not report scroll and a progress bar does not report rangeValue. A name that would only be a .NET type, such as an icon button's 'Avalonia.Controls.Shapes.Path', is not reported as a name or used in a path; the node carries it as 'typeNameAsName' instead, which marks a control with no usable name. Use this to find what is on screen before inspect_element or interact. A node carries 'isHidden': true when it is in the tree but NOT on screen (an effectively-invisible control, e.g. a collapsed banner); the field is absent when the node is showing. Presence in the tree never meant visible — check this before asserting that a banner, warning or overlay is displayed, and note it answers a different question from 'isOffscreen', which is about clipping and scroll position. Scope a large dump with 'root', and see 'maxDepth' and 'interactiveOnly' for what it keeps. While a VB6 program runs or is paused the frontmost window is its form: pass 'window' \"ide\" to walk the IDE.")]
+    [Description("Walks the live control tree of the active window (a visible modal dialog is preferred over the main window) and returns a structured node tree for discovering and addressing controls. Uses the UIA 'control view': structural layout wrappers (Panels, Borders, ContentPresenters, dock plumbing) are collapsed away, so the tree is shallow and paths are short. Each node carries its addressing 'path' (feed it back as a target), automation ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers, and enabled/offscreen flags. The provider tokens, and the interact action each one is driven with: invoke → invoke, selection and selectionItem → select, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse, rangeValue → set_range_value, scroll → scroll. A token is reported only where the action would do something, so a list that fits its viewport does not report scroll and a progress bar does not report rangeValue. A name that would only be a .NET type, such as an icon button's 'Avalonia.Controls.Shapes.Path', is not reported as a name or used in a path; the node carries it as 'typeNameAsName' instead, which marks a control with no usable name. Use this to find what is on screen before inspect_element or interact. A node carries 'isHidden': true when it is in the tree but NOT on screen (an effectively-invisible control, e.g. a collapsed banner); the field is absent when the node is showing. Presence in the tree never meant visible — check this before asserting that a banner, warning or overlay is displayed, and note it answers a different question from 'isOffscreen', which is about clipping and scroll position. Scope a large dump with 'root', and see 'maxDepth' and 'interactiveOnly' for what it keeps and when a node is 'truncated'. While a VB6 program runs or is paused the frontmost window is its form: pass 'window' \"ide\" to walk the IDE.")]
     public async Task<VisualTreeResult> DumpVisualTreeAsync(
         [Description("A path to dump only that subtree; omit for the whole window. For deeply nested or large areas, "
                      + "scope the dump this way.")]
         string? root = null,
-        [Description("How many levels to walk, counted in control-view levels rather than raw visuals. Default 20. "
-                     + "A node whose children lie below the cut-off carries \"truncated\": true and an empty children "
-                     + "list, so an empty list is a leaf only without it: dump again with its path as root to see them.")]
+        [Description("How many levels to walk, counted in control-view levels rather than raw visuals; at least 1. "
+                     + "Default 20. A node whose children lie below the cut-off carries \"truncated\": true and an "
+                     + "empty children list: dump again with its path as root to see them. Without \"truncated\", an "
+                     + "empty list means the walk reached everything below, but under interactiveOnly the parts that "
+                     + "are not interactive, such as a button's caption, are left out; pass interactiveOnly false to "
+                     + "see them.")]
         int maxDepth = 20,
         [Description("Default true: keeps only nodes that are interactive or have an interactive descendant. Pass "
                      + "false to see text and labels that nothing can click. A node cut off by maxDepth is kept, "
-                     + "marked \"truncated\", since what lies below it was not looked at.")]
+                     + "marked \"truncated\", since what lies below it was not looked at; it may turn out to hold "
+                     + "nothing interactive.")]
         bool interactiveOnly = true,
         [Description(WindowParameter)]
         string? window = null,
         CancellationToken ct = default)
     {
+        // Below 1 the start node itself is the cut-off, so it comes back truncated with nothing walked, and the
+        // advice to dump again from its path would give the same reply forever.
+        if (maxDepth < 1)
+            return new VisualTreeResult($"maxDepth must be at least 1; it was {maxDepth}", null, null);
+
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var (active, label, error) = ResolveActiveWindow(window);

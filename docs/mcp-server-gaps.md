@@ -644,7 +644,10 @@ file instead of being returned. The only way to find the code editor's path was 
 the tool. The description does say to scope a large dump with `root`, but a first-time caller does not yet
 know any path to scope it with.
 
-**Workaround.** Dump once to a file and extract paths with a script. After that, always pass `root`.
+**Workaround.** Since #953, walk down instead: dump the whole window with a small `maxDepth` (3 or 4), then dump
+again with a node's path as `root` wherever it carries `"truncated": true`. Each step stays small, and a cut-off
+subtree is marked rather than silently dropped. Dumping once to a file and extracting paths with a script still
+works when a question needs the whole tree at once.
 
 **Suggested fix.** A filter on class name, view-model type or name, returning matching nodes with their
 paths and no subtrees. This is the question a first call usually asks: where is the code editor? Filed as
