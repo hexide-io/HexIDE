@@ -148,6 +148,12 @@ public enum ConversationOutcome
 /// four kilobytes" and "answered in 38ms with an empty result" are different findings, and an unarmed
 /// connection could distinguish them in neither direction before.
 /// </param>
+/// <param name="CompletedSequence">
+/// The sequence its outcome was recorded under: the one its reply used up, kept or not, or one taken when it was
+/// cancelled or abandoned. Null while it waits. A poll asking what is new after a sequence matches a request
+/// completed after it too, which it could not before: the row is below the number a poller passes, so a request
+/// seen waiting never came back answered (#961).
+/// </param>
 /// <remarks>
 /// <b>An answer is half of this entry and used to be nothing else, which cost the one body most worth
 /// reading.</b> A response completes the request it answers rather than becoming an entry of its own —
@@ -176,4 +182,5 @@ public sealed record ConversationEnvelope(
     TimeSpan? Elapsed = null,
     string? Detail = null,
     long? AnswerSequence = null,
-    int? AnswerSizeBytes = null);
+    int? AnswerSizeBytes = null,
+    long? CompletedSequence = null);

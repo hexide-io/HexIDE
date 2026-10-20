@@ -63,7 +63,7 @@ public class ToolSourceTests
         // LspMessagesResult's parameter list is interleaved with comments. Their last words, 'total' and
         // 'remove' among them, used to be read as fields.
         ToolSource.FieldsOf("LspMessagesResult")!.Select(f => f.Name)
-            .Should().Equal("messages", "matched", "truncated", "framesDropped", "note");
+            .Should().Equal("messages", "matched", "truncated", "framesDropped", "note", "latestSequence");
     }
 
     [Fact]
