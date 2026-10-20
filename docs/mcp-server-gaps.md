@@ -742,7 +742,7 @@ interact {"target":"Window/.../List[ControlsContainer]/ListItem[Command1]","acti
 
 Only the next `invoke_format_command` reply, "…, aligned to Command0", named the reference, the control every
 Align and Make Same command measures against. A snapshot between the two showed Command0 with the solid handles.
-The reply lists the selection in index order, as does `inspect_element`'s `selection`, so no read names the
+The reply lists the selection in index order, as does `inspect_element`'s `selectionItems`, so no read names the
 reference before a command runs, which the form-designer spec requires of the designer. The same goes for
 `remove_from_selection`. Cross-platform by code reading.
 

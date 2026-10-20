@@ -47,4 +47,40 @@ public class InspectItemCountTests
         }
         finally { window.Close(); }
     }
+    // A ListBox's and a TabControl's peers offer no selection provider, so selectionItems was [] on every one, which the
+    // description's "what is selected" would read as nothing selected (#1263 review). They are read from the list.
+    [AvaloniaFact]
+    public void A_list_box_and_a_tab_control_report_what_is_selected_and_how_many_items()
+    {
+        var list = new ListBox { ItemsSource = new[] { "one", "two", "three" }, SelectedIndex = 1 };
+        var tabs = new TabControl { Items = { new TabItem { Header = "General" }, new TabItem { Header = "Make" } }, SelectedIndex = 1 };
+        var window = new Window { Width = 300, Height = 300, Content = new StackPanel { Children = { list, tabs } } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var l = UiAutomationDriver.Inspect(list, "Window/List", window);
+            l.SelectionItems.Should().Equal("two");
+            l.ItemCount.Should().Be(3);
+            var t = UiAutomationDriver.Inspect(tabs, "Window/Tab", window);
+            t.SelectionItems.Should().Equal("Make");
+            t.ItemCount.Should().Be(2);
+        }
+        finally { window.Close(); }
+    }
+
+    // A menu counts separators and hidden items a dump does not show, so its count could not be reconciled with the dump.
+    [AvaloniaFact]
+    public void A_menu_reports_no_count()
+    {
+        var file = new MenuItem { Header = "File", Items = { new MenuItem { Header = "New" }, new Separator(), new MenuItem { Header = "Exit" } } };
+        var window = new Window { Content = new Menu { Items = { file } } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            UiAutomationDriver.Inspect(file, "Window/Menu/File", window).ItemCount.Should().BeNull();
+        }
+        finally { window.Close(); }
+    }
 }

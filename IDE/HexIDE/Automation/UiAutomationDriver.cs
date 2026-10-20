@@ -99,6 +99,8 @@ public static class UiAutomationDriver
         string[] selection = [];
         if (peer.GetProvider<ISelectionProvider>() is { } sel)
             selection = Safe(() => sel.GetSelection().Select(p => p.GetName()).ToArray(), []);
+        else if (control is SelectingItemsControl selecting and not (MenuItem or MenuBase))
+            selection = Safe(() => SelectedNames(selecting).ToArray(), []);
 
         string? value = peer.GetProvider<IValueProvider>() is { } vp ? Safe<string?>(() => vp.Value, null) : null;
 
@@ -156,7 +158,7 @@ public static class UiAutomationDriver
             range,
             ownerPath,
             note,
-            control is ItemsControl items ? Safe<int?>(() => items.ItemCount, null) : null);
+            control is SelectingItemsControl items and not (MenuItem or MenuBase) ? Safe<int?>(() => items.ItemCount, null) : null);
     }
 
     /// <summary>
@@ -728,14 +730,21 @@ public static class UiAutomationDriver
         return Ok($"{change}; {SelectionSummary(owner)}");
     }
 
+    /// <summary>
+    /// What <paramref name="owner"/> has selected, by the names its rows carry in dump_visual_tree, or an item's own text
+    /// where its row does not exist. Read from the list itself: a ListBox's or TabControl's peer offers no selection
+    /// provider, so inspect_element reported nothing selected on every one of them (#1263).
+    /// </summary>
+    private static List<string> SelectedNames(SelectingItemsControl owner) =>
+        [.. (owner is ListBox list ? list.Selection.SelectedIndexes : owner.SelectedIndex >= 0 ? [owner.SelectedIndex] : [])
+            .Select(i => owner.ContainerFromIndex(i) is Control c
+                ? LabelOf(c, ControlAutomationPeer.CreatePeerForElement(c))
+                : owner.Items[i]?.ToString() ?? $"#{i}")];
+
     /// <summary>What a multi-select list now holds, by the names its rows carry in dump_visual_tree.</summary>
     private static string SelectionSummary(ListBox owner)
     {
-        var names = owner.Selection.SelectedIndexes
-            .Select(i => owner.ContainerFromIndex(i) is Control c
-                ? LabelOf(c, ControlAutomationPeer.CreatePeerForElement(c))
-                : owner.Items[i]?.ToString() ?? $"#{i}")
-            .ToList();
+        var names = SelectedNames(owner);
         return names.Count switch
         {
             0 => "nothing is selected now",
@@ -3453,9 +3462,9 @@ public record UiNodeDetail(
     RangeState? Range = null,
     string? DataContextOwner = null,
     string? DataContextNote = null,
-    // How many items an ItemsControl holds, its own and not those nested in them, whether or not their containers
-    // exist: SelectionItems is only what is selected, so a list lacking an item read the same as one not choosing it
-    // (#1263). Absent for anything else.
+    // How many items a list, dropdown or tab control holds, whether or not their containers exist, hidden ones too:
+    // SelectionItems is only what is selected, so a list lacking an item read the same as one not choosing it (#1263).
+    // Absent for anything else: a menu or the dock's lists count separators and splitters a dump does not show.
     int? ItemCount = null);
 
 /// <summary>A range control's state: a scroll bar's or slider's position, its bounds, and whether it can be set.</summary>

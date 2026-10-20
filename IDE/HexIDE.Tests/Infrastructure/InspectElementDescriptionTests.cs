@@ -10,6 +10,6 @@ public class InspectElementDescriptionTests
     public void The_description_says_selectionItems_is_the_selection_and_names_itemCount()
     {
         ToolSource.Tools.Single(t => t.Name == "inspect_element").Description.Should()
-            .Contain("'selectionItems' (what is selected, not the list's items").And.Contain("'itemCount'");
+            .Contain("'selectionItems', what is selected, not the list's items").And.Contain("'itemCount', how many items");
     }
 }

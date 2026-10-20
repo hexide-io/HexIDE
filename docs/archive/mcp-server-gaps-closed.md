@@ -3960,7 +3960,11 @@ list, because it supports a confident wrong conclusion; an empty array with a fl
 and report an `itemCount` for a list or dropdown, which counts its items whether or not they are realized.
 [#1263](https://github.com/hexide-io/HexIDE/issues/1263).
 
-> **Fixed.** `inspect_element` now reports `itemCount` for a list, dropdown or any other `ItemsControl`, from its
-> `ItemCount`, which counts its own items whether or not their containers exist; it is absent for anything else. Its
-> description says `selectionItems` is what is selected, not the list's items, and that a dropdown's items are read by
-> expanding it and dumping it. Guarded by `InspectItemCountTests`, a ComboBox closed and open.
+> **Fixed.** `inspect_element` now reports `itemCount` for a list, dropdown or tab control, from its `ItemCount`, which
+> counts its items whether or not their containers exist, hidden ones too. It is absent for anything else: a menu or the
+> dock's lists count separators and splitters that a dump does not show. Its description says `selectionItems` is what is
+> selected, not the list's items, and that a dropdown's items are read by expanding it and dumping it. A ListBox's and a
+> TabControl's peers offer no selection provider, so `selectionItems` was `[]` on every one of them, which "what is
+> selected" would have read as nothing selected. It is now read from the list itself, by the names the dump gives its
+> rows. Guarded by `InspectItemCountTests` (a ComboBox closed and open, a ListBox, a TabControl, a menu and a button) and
+> `InspectElementDescriptionTests`.
