@@ -2954,6 +2954,7 @@ works when a question needs the whole tree at once.
 **Suggested fix.** A filter on class name, view-model type or name, returning matching nodes with their
 paths and no subtrees. This is the question a first call usually asks: where is the code editor? Filed as
 [#699](https://github.com/hexide-io/HexIDE/issues/699).
+
 ## `get_last_runtime_error` does not say which module or line raised the error — **CLOSED** (#955, 2026-10-20)
 
 > **Fixed.** An error carries the module and line it was raised at: the innermost statement it passes out of notes
