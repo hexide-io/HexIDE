@@ -711,6 +711,32 @@ public static class UiAutomationDriver
         };
     }
 
+    /// <summary>
+    /// Selects <paramref name="item"/> through its provider and reads the result back: null when it took, else the
+    /// refusal saying so. The provider's Select does nothing for an item its list cannot place, and a list may put its
+    /// selection back, so a select that reported success without looking once named a Call Stack frame as chosen while
+    /// the debugger stayed in another (#1182). A list its selection handler replaced has let the item go, so there is
+    /// nothing to read back; the selection took if the list announced it.
+    /// </summary>
+    private static InteractOutcome? SelectVerified(Control item, ISelectionItemProvider sip, string label)
+    {
+        var owner = ItemsControl.ItemsControlFromItemContainer(item) as SelectingItemsControl;
+        var data = owner is null ? null : Safe(() => owner.ItemFromContainer(item), null);
+        var announced = false;
+        void Changed(object? sender, SelectionChangedEventArgs e) =>
+            announced |= data is not null && e.AddedItems.Contains(data);
+        owner?.SelectionChanged += Changed;
+        try { sip.Select(); }
+        finally { owner?.SelectionChanged -= Changed; }
+
+        if (Safe(() => sip.IsSelected, true)
+            || announced && (ItemsControl.ItemsControlFromItemContainer(item) is null || owner!.IndexFromContainer(item) < 0))
+            return null;
+        var now = owner is ListBox list ? $"; {SelectionSummary(list)}" : "";
+        return Err($"'{label}' was not selected: its list did not take the selection{now}. Dump the list again, as the "
+                   + "row may no longer be the one it showed, or select it with press_key, as a person would");
+    }
+
     private static InteractOutcome DoSelect(Control control, AutomationPeer peer, string? value)
     {
         // value absent (treating "" as absent, like "omit if the target is the item") → select the target.
@@ -722,7 +748,11 @@ public static class UiAutomationDriver
                 // Named before the dropdown closes over it, as invoke names a button before it closes its dialog.
                 var label = LabelOf(control, peer);
                 var dropDown = OpenDropDownHolding(control);
-                selfSip.Select();
+                if (SelectVerified(control, selfSip, label) is { } refused)
+                {
+                    CloseDropDown(dropDown);
+                    return refused;
+                }
                 return Ok($"selected '{label}'{CloseDropDown(dropDown)}");
             }
 
@@ -798,7 +828,11 @@ public static class UiAutomationDriver
         if (ControlAutomationPeer.CreatePeerForElement(matches[0]).GetProvider<ISelectionItemProvider>() is { } sip)
         {
             var dropDown = OpenDropDownHolding(matches[0]);
-            sip.Select();
+            if (SelectVerified(matches[0], sip, value) is { } refused)
+            {
+                CloseDropDown(dropDown);
+                return refused;
+            }
             return Ok($"selected '{value}'{scrolled}{namesake}{CloseDropDown(dropDown)}");
         }
 

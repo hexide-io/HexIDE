@@ -71,4 +71,9 @@ public partial class CallStackToolViewModel : Tool
 }
 
 /// <summary>One Call Stack row: the frame ("Module.Procedure", current marked) and its 1-based line.</summary>
-public sealed record CallStackRow(string Frame, int Line, HexIDE.Dap.DapStop? Stop = null, int? FrameId = null);
+public sealed record CallStackRow(string Frame, int Line, HexIDE.Dap.DapStop? Stop = null, int? FrameId = null)
+{
+    // The name a row is shown and addressed by in dump_visual_tree: "Main, line 6". The record's own text carried the
+    // debug session's id and stop generation, so a row's path went stale at every stop (#1182).
+    public override string ToString() => $"{Frame.TrimStart('→', ' ')}, line {Line}";
+}
