@@ -701,10 +701,22 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "open_file")]
-    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was opened, as the IDE spells them. A carried file is also found by its filename, which differs from its name when VB6 carried it on a code line (`Module=Notes; Notes.md` is named Notes). The editor gets keyboard focus, as opening it by hand gives it. The reply's 'note' names the tab now active and how many are open.")]
-    public async Task<MutateResult> OpenFileAsync(string name, string? project = null, CancellationToken ct = default)
+    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name what was opened, as the IDE spells them. A carried file is also found by its filename, which differs from its name when VB6 carried it on a code line (`Module=Notes; Notes.md` is named Notes). The editor gets keyboard focus, as opening it by hand gives it. The reply's 'note' names the tab now active and how many are open. Pass 'line', and 'column' if wanted, to put the caret there, as the code window numbers them, so type_text and press_key act at that point with no offset to work out; the note then gives the caret's line, column and offset.")]
+    public async Task<MutateResult> OpenFileAsync(
+        string name, string? project = null,
+        [Description("Where to put the caret: a 1-based line, counted from the top of the file with its header included, "
+                     + "as the code window, get_file_content and set_breakpoints count it. Not for a carried file. A line "
+                     + "or column off the text is refused, and nothing is opened.")]
+        int? line = null,
+        [Description("The 1-based column on 'line', 1 by default, counted in characters as the status bar counts them, so a "
+                     + "tab is one; one past the line's last character is its end.")]
+        int? column = null,
+        CancellationToken ct = default)
     {
-        return await FocusingTheActiveTabAsync(await Dispatcher.UIThread.InvokeAsync(() =>
+        if (column is not null && line is null)
+            return new MutateResult(false, "'column' needs 'line'; nothing was opened");
+        DocumentIdentity? placedIn = null;
+        var opened = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             // Carried files are the only project members with no other route in: the Project Explorer opens
             // one on a DOUBLE-CLICK, which no interaction tool could produce when this was written, and Add
@@ -713,19 +725,44 @@ internal sealed class HexIdeTools(IdeContext ctx)
             var found = Find(name, project, carried: true);
             if (found.Document is { } document)
             {
+                // Checked against the text get_file_content returns before anything opens, so a refusal changes nothing.
+                if (line is { } wanted && HexIDE.Automation.CaretPlacement.Refusal(
+                        HexIDE.IDE.DocumentContent.TextOf(document, CodeEditorOf(document)).Text, wanted, column ?? 1) is { } refusal)
+                    return Naming(new MutateResult(false, $"Nothing was opened: in {document.Display}, {refusal}"), document);
                 if (document.Form is { } form)
                     ctx.EditorService.EditCode(form);
                 else
                     ctx.EditorService.EditCode(document.Module);
+                if (line is { } at)
+                {
+                    if (CodeEditorOf(document) is not { } editor || !HexIDE.Automation.CaretPlacement.Place(editor, at, column ?? 1))
+                        return Naming(new MutateResult(false,
+                            $"{document.Display} was opened, but its code window could not be found to put the caret in"), document);
+                    placedIn = document;
+                }
                 return Naming(new MutateResult(true, null, TabStateNote()), document);
             }
             if (found.Carried is { } carried)
             {
+                if (line is not null)
+                    return Naming(new MutateResult(false,
+                        $"'{carried.Name}' is a carried file, which opens in the plain-text editor, where this does not put the "
+                        + "caret; nothing was opened"), found);
                 ctx.EditorService.EditRelatedDocument(carried);
                 return Naming(new MutateResult(true, null, TabStateNote()), found);
             }
             return new MutateResult(false, found.Error);
-        }));
+        });
+
+        var focused = await FocusingTheActiveTabAsync(opened);
+        if (placedIn is not { } placed || !focused.Success)
+            return focused;
+        // Read back, not echoed (#700 review): once focus and the view's first layout have run, as the view opens a fold
+        // around a caret navigated into it and the editor moves one it could not show.
+        var where = await Dispatcher.UIThread.InvokeAsync(
+            () => CodeEditorOf(placed) is { } editor ? HexIDE.Automation.CaretPlacement.Where(editor, line!.Value, column ?? 1) : null,
+            DispatcherPriority.Background);
+        return where is null ? focused : focused with { Note = $"{focused.Note} {where}" };
     }
 
     [McpServerTool(Name = "view_designer")]
