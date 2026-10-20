@@ -223,4 +223,95 @@ public class ForegroundWindowTests
         ForegroundWindow.Pick("Form1 again", main, [main, first, second]).Error.Should().Contain("is hidden");
         ForegroundWindow.Pick("Form1", main, [main, first, second]).Window.Should().BeSameAs(first, "only one is showing");
     }
+
+    [AvaloniaFact]
+    public void A_modeless_ide_window_such_as_find_is_preferred_over_the_main_window()
+    {
+        // Find is shown with Show() and no owner, a running form's shape, so "auto" picks it as it picks a form (#1264).
+        var main = Shown("HexIDE");
+        var find = Shown("Find");
+
+        ForegroundWindow.Pick(null, main, [main, find]).Window.Should().BeSameAs(find);
+    }
+
+
+    private static IEnumerable<HexIDE.Automation.UiNode> Flatten(HexIDE.Automation.UiNode node) =>
+        node.Children.SelectMany(Flatten).Prepend(node);
+
+    // A path to the control named name, as a dump gives it.
+    private static string PathTo(Window window, string name) =>
+        Flatten(HexIDE.Automation.UiAutomationDriver.Dump(window, "Window", 10, interactiveOnly: false))
+            .First(n => n.Path.EndsWith("[" + name + "]", StringComparison.Ordinal)).Path;
+
+    // The IDE's window holds a button, Find a text box: a path into one is no path into the other.
+    private static (Window Main, Window Find) IdeWithFind()
+    {
+        var main = new Window { Title = "HexIDE", Content = new Button { Name = "Go" } };
+        main.Show();
+        var find = new Window { Title = "Find", Content = new TextBox { Name = "FindWhat" } };
+        find.Show();
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+        return (main, find);
+    }
+
+    [AvaloniaFact]
+    public void A_path_into_the_ide_that_fails_in_a_window_auto_picked_names_it_and_points_to_ide()
+    {
+        // A path from an earlier dump of the IDE, looked for in Find, failed naming no window (#1264).
+        var (main, find) = IdeWithFind();
+        var go = PathTo(main, "Go");
+        HexIDE.Automation.UiAutomationDriver.Resolve(main, go).control.Should().NotBeNull();
+        var (_, bare) = HexIDE.Automation.UiAutomationDriver.Resolve(find, go);
+
+        var (control, error) = ForegroundWindow.Resolve(go, null, find, main, "Find");
+
+        control.Should().BeNull();
+        error.Should().Be($"{bare}. The path was looked for in 'Find', the window \"auto\" picked over the IDE's own; it "
+                          + "resolves in the IDE's own window, which window \"ide\" reaches");
+        ForegroundWindow.Resolve(go, "AUTO", find, main, "Find").Error.Should().Be(error);
+        ForegroundWindow.Resolve(go, " ", find, main, "Find").Error.Should().Be(error);
+    }
+
+    [AvaloniaFact]
+    public void A_path_that_resolves_nowhere_names_the_window_auto_picked_and_does_not_point_to_ide()
+    {
+        // A typo, or a path into a running form while Find was picked: "ide" would send the caller the wrong way.
+        var (main, find) = IdeWithFind();
+        var (_, bare) = HexIDE.Automation.UiAutomationDriver.Resolve(find, "Window/Button[Gone]");
+
+        ForegroundWindow.Resolve("Window/Button[Gone]", null, find, main, "Find").Error.Should()
+            .Be($"{bare}. The path was looked for in 'Find', the window \"auto\" picked over the IDE's own");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("")]
+    [InlineData("Find/x")]
+    public void A_path_that_is_not_one_is_refused_without_naming_a_window(string path)
+    {
+        var (main, find) = IdeWithFind();
+        var (_, bare) = HexIDE.Automation.UiAutomationDriver.Resolve(find, path);
+
+        ForegroundWindow.Resolve(path, null, find, main, "Find").Error.Should().Be(bare);
+    }
+
+    [AvaloniaFact]
+    public void A_path_that_fails_in_a_window_asked_for_by_name_or_in_the_ide_s_own_is_left_as_it_is()
+    {
+        var (main, find) = IdeWithFind();
+        var (go, findWhat) = (PathTo(main, "Go"), PathTo(find, "FindWhat"));
+        var (_, inFind) = HexIDE.Automation.UiAutomationDriver.Resolve(find, go);
+        var (_, inMain) = HexIDE.Automation.UiAutomationDriver.Resolve(main, findWhat);
+
+        ForegroundWindow.Resolve(go, "Find", find, main, "Find").Error.Should().Be(inFind);
+        ForegroundWindow.Resolve(findWhat, null, main, main, "HexIDE").Error.Should().Be(inMain);
+    }
+
+    [AvaloniaFact]
+    public void A_path_that_resolves_in_the_window_auto_picked_reaches_its_control()
+    {
+        var (main, find) = IdeWithFind();
+        var findWhat = PathTo(find, "FindWhat");
+
+        ForegroundWindow.Resolve(findWhat, null, find, main, "Find").Control.Should().BeOfType<TextBox>();
+    }
 }
