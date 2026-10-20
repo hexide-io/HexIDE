@@ -1431,7 +1431,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_bookmarks")]
-    [Description("Returns the bookmarked line numbers for a form or module, named by its own VB6 name in any loaded project (case does not matter). Lines are 1-based, as the gutter and every other line tool count them, and counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them. Empty array if none. The reply's 'project' and 'document' name it as the IDE spells them, and 'uri' is the name a language server knows it by: its file: URI, or untitled:<project>/<name>.<ext> while it has no file, as get_diagnostics reports it.")]
+    [Description("Returns the bookmarked line numbers for a form or module, named by its own VB6 name in any loaded project (case does not matter). Lines are 1-based, as the gutter and every other line tool count them, and counted from the top of the file with its header included (a form's designer block, a class's header and the Attribute lines), as the code window numbers them. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them. Empty array if none. A reply that lists lines gives them in its 'note' too, with their numbering. The reply's 'project' and 'document' name it as the IDE spells them, and 'uri' is the name a language server knows it by: its file: URI, or untitled:<project>/<name>.<ext> while it has no file, as get_diagnostics reports it.")]
     public async Task<BookmarksResult> GetBookmarksAsync(string name, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1440,8 +1440,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (lookup.Document is not { } document)
                 return new BookmarksResult(null, null, null, [], lookup.Error);
 
-            return new BookmarksResult(document.Project.Name, document.Name, DocumentWireName.For(document),
-                HexIDE.IDE.MarkLineRules.BookmarksShown(ctx.BookmarkService.GetBookmarks(document)), null);
+            var lines = HexIDE.IDE.MarkLineRules.BookmarksShown(ctx.BookmarkService.GetBookmarks(document));
+            // The numbering said in the reply, as set_bookmarks says it: a session still holding this tool's description
+            // from before #1245 reads lines counted from 0, and nothing else here would set it right (#1261).
+            return new BookmarksResult(document.Project.Name, document.Name, DocumentWireName.For(document), lines, null,
+                HexIDE.IDE.MarkLineRules.BookmarksNote(document.Display, lines));
         });
     }
 
@@ -2715,10 +2718,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
     private static string Held(DocumentIdentity document, IReadOnlyList<int> lines, string what) =>
         lines.Count == 0
             ? $"{document.Display} now has no {what}s."
-            // The numbering said in the reply too, so a caller still holding a description from before #571, when
+            // The numbering said in the reply too, so a caller still holding a description from before #1245, when
             // bookmarks counted from 0, reads that it is one out.
-            : $"{document.Display} now has {what}s on line{(lines.Count == 1 ? "" : "s")} {string.Join(", ", lines)}, "
-              + "counting from 1 at the top of the file, as the gutter does.";
+            : $"{document.Display} now has {HexIDE.IDE.MarkLineRules.Marks(what, lines)}.";
 
     /// <summary>
     /// A name as the document tools resolve it: a form, module or class in any loaded project, else, where the
@@ -3182,9 +3184,12 @@ internal record AddControlResult(bool Success, string? ControlName, string? Erro
 /// <param name="Project">The project holding the document, by name.</param>
 /// <param name="Document">The document's own VB6 name, as the IDE spells it rather than as the call spelled it.</param>
 /// <param name="Uri">The name a language server knows this document by.</param>
-internal record BookmarksResult(string? Project, string? Document, string? Uri, int[] Lines, string? Error);
+/// <param name="Note">The lines in a sentence with their numbering, as set_bookmarks gives them; none when there are none.</param>
+internal record BookmarksResult(string? Project, string? Document, string? Uri, int[] Lines, string? Error, string? Note = null);
 
-/// <inheritdoc cref="BookmarksResult"/>
+/// <param name="Project">The project holding the document, by name.</param>
+/// <param name="Document">The document's own VB6 name, as the IDE spells it rather than as the call spelled it.</param>
+/// <param name="Uri">The name a language server knows this document by.</param>
 internal record BreakpointsResult(string? Project, string? Document, string? Uri, int[] Lines, string? Error);
 
 /// <param name="Project">

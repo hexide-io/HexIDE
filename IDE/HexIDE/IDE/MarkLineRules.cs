@@ -13,6 +13,24 @@ namespace HexIDE.IDE;
 public static class MarkLineRules
 {
     /// <summary>
+    /// How every mark tool's reply states its numbering. A session holds a tool's description until it is restarted
+    /// (#815), so one that loaded the bookmark tools before #1245, when they counted from 0, learns it only here.
+    /// </summary>
+    public const string Counting = "counting from 1 at the top of the file, as the gutter does";
+
+    /// <summary>
+    /// <paramref name="lines"/> as a mark tool's note gives them: "a bookmark on line 10, counting from 1 ..." or
+    /// "bookmarks on lines 10, 11, counting from 1 ...". <paramref name="what"/> is the mark, in the singular.
+    /// </summary>
+    public static string Marks(string what, IReadOnlyList<int> lines) => lines.Count == 1
+        ? $"a {what} on line {lines[0]}, {Counting}"
+        : $"{what}s on lines {string.Join(", ", lines)}, {Counting}";
+
+    /// <summary>The note on a get_bookmarks reply: its lines with their numbering, or null for none (#1261).</summary>
+    public static string? BookmarksNote(string display, IReadOnlyList<int> lines) =>
+        lines.Count == 0 ? null : $"{display} has {Marks("bookmark", lines)}.";
+
+    /// <summary>
     /// Why <paramref name="lines"/> cannot be marked in a document, or null when every one can.
     /// </summary>
     /// <param name="text">The document as its code window numbers it.</param>
@@ -52,8 +70,7 @@ public static class MarkLineRules
         var outside = lines.Where(l => l < first || l > last).Distinct().Order().ToList();
         if (outside.Count > 0)
             return $"{Listed(outside)} {IsAre(outside)} not a line of {display}, which has {lineCount} " +
-                   $"line{(lineCount == 1 ? "" : "s")}: {what}s are numbered {first}..{last}" +
-                   ", from the top of the file. Nothing was changed.";
+                   $"line{(lineCount == 1 ? "" : "s")}: {what}s are numbered {first}..{last}, {Counting}. Nothing was changed.";
 
         var readOnly = lines.Where(l => !held.Contains(l) && text.IsReadOnlyLine(l - first + 1))
             .Distinct().Order().ToList();
@@ -68,7 +85,7 @@ public static class MarkLineRules
         var consequence = what == "line" ? "execution can never stop there" : $"no {what} can go there";
         return $"{Listed(readOnly)} {IsAre(readOnly)} in a read-only part of {display}: {where}. Neither ever " +
                $"runs, so {consequence}" +
-               $"{(header == 0 ? "" : $"; its code starts at {first + header}, counting from the top of the file")}. " +
+               $"{(header == 0 ? "" : $"; its code starts at {first + header}, {Counting}")}. " +
                "Nothing was changed.";
     }
 

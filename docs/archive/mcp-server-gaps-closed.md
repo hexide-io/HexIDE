@@ -3968,3 +3968,17 @@ and report an `itemCount` for a list or dropdown, which counts its items whether
 > selected" would have read as nothing selected. It is now read from the list itself, by the names the dump gives its
 > rows. Guarded by `InspectItemCountTests` (a ComboBox closed and open, a ListBox, a TabControl, a menu and a button) and
 > `InspectElementDescriptionTests`.
+
+## `get_bookmarks` did not say its lines count from 1 (#1261)
+
+#1245 made the bookmark tools count lines from 1, relying on two things to reach a session still holding the old
+descriptions (#815): the descriptions, and the reply's note stating the numbering. `set_bookmarks`' note says it;
+`get_bookmarks` had no note, and its description cannot name the old numbering, as `LineNumberingDescriptionTests`
+refuses "from 0" in any description. A session that loaded it before #1245 read `[5]` as line 6.
+
+> **Fixed.** `get_bookmarks` adds a `note` to a reply that lists lines, in `set_bookmarks`' words: "Project1/Form1 has
+> bookmarks on lines 10, 11, counting from 1 at the top of the file, as the gutter does." An empty reply has none, and
+> one line is "a bookmark on line 10", in both tools. The refusals that give lines, a line the file does not have or
+> one in its header, now say the same, for every mark tool. The wording is `MarkLineRules`', where tests reach it.
+> Measured through the server's HTTP endpoint on a new project, and guarded by `MarkLineRulesTests` and
+> `LineNumberingDescriptionTests`.

@@ -856,17 +856,3 @@ deletable segments.
 
 **Suggested fix.** Delete what the deletable segments allow, as the key does, and say what was left and why.
 [#1055](https://github.com/hexide-io/HexIDE/issues/1055).
-
-## `get_bookmarks` returns bare line numbers, so a session holding its old description reads them one line out
-
-**Symptom.** Read in code at 4789f9a, not run. Since #1245, the bookmark tools count lines from 1 rather than 0.
-`set_bookmarks`' note says so ("counting from 1 at the top of the file, as the gutter does"). `get_bookmarks`
-returns `project`, `document`, `uri` and `lines` and no note, and its description says "1-based" without saying that
-this changed; `LineNumberingDescriptionTests` refuses "0-based" or "from 0" in any description. A session that
-loaded the tool's schema before the rebuild keeps "Lines are 0-based" (the schema entry above), so it reads `[5]` as
-the gutter's line 6, and nothing in the reply says otherwise.
-
-**Workaround.** After a rebuild onto #1245, use the bookmark tools from a new session, as the schema entry advises.
-
-**Suggested fix.** A `note` on a `get_bookmarks` reply that lists lines, stating the numbering in the words
-`set_bookmarks` uses. [#1261](https://github.com/hexide-io/HexIDE/issues/1261).
