@@ -3064,6 +3064,7 @@ replies should verify/report the resulting model selection. The underlying cause
 > deeper row can be selected. Not reproduced: with the fixture adapter, a select on a caller row by its path moves the
 > debugger, and a row clipped out of view has no container, so no path reaches it. The closest match found is the
 > declined row, which needs a select made while the session has moved on. Guarded by `SelectVerifiedTests`.
+
 ## `type_text` writes beside a standing selection instead of over it — **CLOSED** (#1040, 2026-10-20)
 
 **Symptom.** Found by the review of #273 task 4.5, which reproduced it. The calls below are #1040's reproduction,
