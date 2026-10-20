@@ -350,4 +350,89 @@ public class ProgramWaitTests
         }
         finally { window.Close(); }
     }
+
+    // ── close, as the server runs it: the close, the program's wait, then whether the window is still open (#829) ──
+
+    private static async Task<InteractOutcome> CloseAsync(Run run, Window window)
+    {
+        var watch = run.Watch(window);
+        var outcome = UiAutomationDriver.Interact(window, "close", null);
+        outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
+        return UiAutomationDriver.AfterClose(window, outcome, watch);
+    }
+
+    [AvaloniaFact]
+    public async Task A_close_the_program_is_still_deciding_is_not_reported_as_refused()
+    {
+        using var run = Start("""
+            Private Sub Form_QueryUnload(Cancel As Integer, UnloadMode As Integer)
+                If MsgBox("Quit?", vbYesNo, "Ask") = vbNo Then Cancel = 1
+            End Sub
+            """);
+
+        var outcome = await CloseAsync(run, run.Window);
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Contain("'Ask'").And.EndWith("; it is still open while the program decides, as the note says");
+        Pump();
+        var box = OpenWindows().Single(w => w.Content is HexIDE.Runtime.Dialogs.MessageBox);
+        var yes = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(box).OfType<Button>()
+            .First(b => b.Content?.ToString()?.Replace("_", "") == "Yes");
+        UiAutomationDriver.Interact(yes, "invoke", null).Success.Should().BeTrue();
+        Pump();
+        run.Window.IsVisible.Should().BeFalse("Yes lets the close through, once the program has decided");
+    }
+
+    [AvaloniaFact]
+    public async Task A_form_its_QueryUnload_hides_is_reported_hidden_not_closed()
+    {
+        using var run = Start("""
+            Private Sub Form_QueryUnload(Cancel As Integer, UnloadMode As Integer)
+                Me.Hide
+                Cancel = 1
+            End Sub
+            """);
+
+        var outcome = await CloseAsync(run, run.Window);
+
+        outcome.Detail.Should().EndWith("; it is hidden, not closed: the program behind it hid it, and it is still loaded");
+    }
+
+    [AvaloniaFact]
+    public async Task A_form_that_unloads_is_reported_closed()
+    {
+        using var run = Start("""
+            Private Sub Form_Unload(Cancel As Integer)
+                Debug.Print "unloading"
+            End Sub
+            """);
+
+        var outcome = await CloseAsync(run, run.Window);
+
+        outcome.Detail.Should().EndWith("; it is closed");
+        run.Window.IsVisible.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public async Task A_form_with_a_MsgBox_open_over_it_refuses_close_as_a_person_finds()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                MsgBox "Busy", vbOKOnly, "Busy"
+            End Sub
+            """);
+        UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+        Pump();
+
+        var outcome = await CloseAsync(run, run.Window);
+
+        outcome.Success.Should().BeFalse();
+        outcome.Error.Should().Contain("'Busy'").And.Contain("nothing was done");
+        run.Window.IsVisible.Should().BeTrue();
+        var box = OpenWindows().Single(w => w.Content is HexIDE.Runtime.Dialogs.MessageBox);
+        box.IsVisible.Should().BeTrue("the dialog is not closed with its owner");
+        Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(box).OfType<Button>().First()
+            .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+        Pump();
+    }
 }

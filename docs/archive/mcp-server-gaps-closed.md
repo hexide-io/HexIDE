@@ -3132,9 +3132,11 @@ Windows only, and outside the surface a caller has.
 
 > **Fixed.** `interact` has a `close` action, which closes the target's window, or the window holding the target, as its
 > close box does: through the window's own handling of its platform's close, a close no program asked for, which a MsgBox
-> with no Cancel and a form's QueryUnload (UnloadMode 0, vbFormControlMenu) may refuse. The reply says whether the window
-> is still open, read once the program has run what the close set off, since a form's close box closes it only once the
-> program has unloaded it: "asked 'Form1' to close, as its close box does; it is closed". The IDE's main window is
+> with no Cancel and a form's QueryUnload (UnloadMode 0, vbFormControlMenu) may refuse. The reply says what became of the
+> window, read once the program has run what the close set off, since a form's close box closes it only once the program
+> has unloaded it: closed; hidden, not closed, when QueryUnload hid it; still open while the program decides, when it is
+> still running (a QueryUnload asking a MsgBox); or still open because it refused. A window with a modal dialog open over
+> it is refused, as its close box does nothing for a person until the dialog is answered. The IDE's main window is
 > refused, since closing it takes this server down with it; `shutdown_ide` closes the IDE. The handling is internal to
 > Avalonia and is reached by reflection, so an Avalonia that hides it fails `CloseWindowTests` rather than closing from
-> code. Guarded by `CloseWindowTests`.
+> code. Guarded by `CloseWindowTests` and `ProgramWaitTests`.

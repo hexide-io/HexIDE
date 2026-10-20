@@ -69,6 +69,32 @@ public class CloseWindowTests
         finally { window.Close(); }
     }
 
+    [AvaloniaFact]
+    public void A_window_under_a_modal_dialog_is_refused_and_the_dialog_can_be_closed()
+    {
+        var owner = new Window { Title = "Owner", Width = 300, Height = 200 };
+        owner.Show();
+        var dialog = new Window { Title = "Settings", Width = 200, Height = 100 };
+        var shown = dialog.ShowDialog(owner);
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var refused = Close(owner);
+
+            refused.Success.Should().BeFalse();
+            refused.Error.Should().Contain("'Settings'").And.Contain("nothing was done");
+            (owner.IsVisible, dialog.IsVisible).Should().Be((true, true), "a person's close box does nothing there");
+
+            Close(dialog).Detail.Should().EndWith("; it is closed");
+            shown.IsCompleted.Should().BeTrue("the dialog's caller hears it closed");
+        }
+        finally
+        {
+            if (dialog.IsVisible) dialog.Close();
+            owner.Close();
+        }
+    }
+
     private static Window RunForm(string code)
     {
         var frm = "VERSION 5.00\r\nBegin VB.Form Form1 \r\n   Caption         =   \"Form1\"\r\n   ClientHeight    =   3000\r\n"

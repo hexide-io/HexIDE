@@ -761,7 +761,13 @@ public static class UiAutomationDriver
         if (Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime { MainWindow: var main }
             && ReferenceEquals(main, window))
             return Err($"'{title}' is the IDE's main window: closing it shuts the IDE down and this server with it, so "
-                       + "close refuses it and nothing was done. shutdown_ide does that and reports how it went");
+                       + "close refuses it and nothing was done. shutdown_ide does that and reports how it went. A "
+                       + "docked pane is part of that window: its own close button closes it, with invoke");
+        // A window with a modal dialog over it takes no close-box click or Alt+F4 until the dialog is answered, so a
+        // person cannot close it, and a close from here would close the dialog with it (#829 review).
+        if (window.OwnedWindows.FirstOrDefault(w => w.IsDialog && w.IsVisible) is { } over)
+            return Err($"'{title}' has a dialog open over it, '{TitleOf(over)}', and takes no close until that is "
+                       + "answered, as a person finds; nothing was done. Answer or close that dialog first");
         if (PlatformClosing?.GetValue(window.PlatformImpl) is not Func<WindowCloseReason, bool> closing)
             return Err($"this build of Avalonia does not expose a window's close-box handling, so '{title}' cannot be "
                        + "closed as a person closes it; nothing was done");
@@ -773,19 +779,23 @@ public static class UiAutomationDriver
     /// <paramref name="outcome"/> of a <c>close</c>, with whether the window it asked is still open now: read once what
     /// the close set off has run, as a form's close box closes the form only once the program has unloaded it.
     /// </summary>
-    public static InteractOutcome AfterClose(Control acted, InteractOutcome outcome)
+    public static InteractOutcome AfterClose(Control acted, InteractOutcome outcome, ProgramWatch? watch = null)
     {
         if (!outcome.Success)
             return outcome;
-        // A closed window has no platform window, and the controls it held are no longer in one.
-        var open = (acted as Window ?? TopLevel.GetTopLevel(acted) as Window) is { PlatformImpl: not null, IsVisible: true };
-        return outcome with
-        {
-            Detail = outcome.Detail + (open
-                ? "; it is still open: the window, or the program behind it, refused, as it may a person's close"
-                : "; it is closed"),
-        };
+        // A closed window has no platform window, and the controls it held are no longer in one. A hidden one keeps its
+        // platform window: a form's QueryUnload may hide it, which leaves it loaded and its program running.
+        var window = acted as Window ?? TopLevel.GetTopLevel(acted) as Window;
+        var state = window is not { PlatformImpl: not null } ? "; it is closed"
+            : !window.IsVisible ? "; it is hidden, not closed: the program behind it hid it, and it is still loaded"
+            // A program the wait left running has not decided yet: a QueryUnload asking a MsgBox, or paused in it.
+            : watch is { Pump.IsIdle: false } ? "; it is still open while the program decides, as the note says"
+            : "; it is still open: the window, or the program behind it, refused, as it may a person's close";
+        return outcome with { Detail = outcome.Detail + state };
     }
+
+    /// <summary>Whether <paramref name="action"/> names <paramref name="verb"/>, read as <see cref="Interact"/> reads it.</summary>
+    public static bool IsVerb(string? action, string verb) => Normalise(action) == Normalise(verb);
 
     private static string TitleOf(Window window) => string.IsNullOrEmpty(window.Title) ? window.GetType().Name : window.Title;
 
