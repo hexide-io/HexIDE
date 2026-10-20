@@ -3678,7 +3678,24 @@ list, and have `collapse` with nothing open say there is nothing to close.
 [#949](https://github.com/hexide-io/HexIDE/issues/949).
 
 > **Fixed.** `interact`'s `action` description lists, under expand and collapse, a menu, or else the context menu or
-> flyout the control owns. `dump_visual_tree`'s token list says the same of `expandCollapse` on a control with no
-> expander of its own. `collapse` with that popup closed answers that it was not open and there is nothing to close,
-> as a closed menu's already did, rather than "element does not support 'collapse'". Both descriptions stay under
-> 2048 characters, because each lost a clause that repeated another. Guarded by `LogicallyParentedPopupTests`.
+> flyout the control owns. `dump_visual_tree`'s token list says the same of `expandCollapse`, and CLAUDE.md adds that
+> the popup's items then appear under the control. Room in the two descriptions came from shorter wording of `scroll`'s
+> reply and of the opening of `dump_visual_tree`'s. Tests pin the new text, so a later trim cannot drop it unseen.
+>
+> Every reply says what was already the case:
+>
+> - `collapse` with the popup closed says it was not open and there is nothing to close, as a closed menu's did,
+>   rather than "element does not support 'collapse'";
+> - `expand` on an open popup, menu or dropdown says it was already open;
+> - `collapse` on a closed dropdown says it was already collapsed.
+>
+> Its review found three more problems, now fixed:
+>
+> - `collapse` on the code editor with the completion list open said its flyout had nothing to close, while the dump
+>   showed the list under it. That is now refused, pointing to `press_key Escape`.
+> - The theme's TextBox context flyout is one instance shared by every box. An open one was closed, and listed in the
+>   dump, under every box. Both now go by the flyout's target.
+> - `expand` prefers a ContextMenu to a flyout, which `FlyoutsOf` now records.
+>
+> Guarded by `LogicallyParentedPopupTests`, which cover the four routes to a popup, `CodeEditorPopupTests`,
+> `MenuPopupTests` and `InteractClickDescriptionTests`.

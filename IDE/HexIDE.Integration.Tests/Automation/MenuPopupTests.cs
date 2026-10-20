@@ -243,6 +243,19 @@ public class MenuPopupTests
     }
 
     [AvaloniaFact]
+    public void Expand_on_an_open_menu_says_it_was_already_open()
+    {
+        var (_, _, file) = BuildMenuWindow();
+        UiAutomationDriver.Interact(file, "expand", null).Detail.Should().Be("opened menu 'File'");
+
+        var outcome = UiAutomationDriver.Interact(file, "expand", null);
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Be("menu 'File' was already open");
+        file.IsSubMenuOpen.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
     public void Collapse_on_a_closed_header_says_there_is_nothing_to_close()
     {
         var (_, _, file) = BuildMenuWindow();

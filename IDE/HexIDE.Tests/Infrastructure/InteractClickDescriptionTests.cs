@@ -30,6 +30,22 @@ public class InteractClickDescriptionTests
     }
 
     [Fact]
+    public void Expand_and_collapse_say_they_reach_a_controls_own_popup()
+    {
+        // Without it, expandCollapse on a TextBox read as a phantom and eight toolbar commands were recorded as
+        // unreachable (#949). Both descriptions sit near the length cap, so a trim could drop it unseen.
+        Interact.Parameters.Single(p => p.Name == "action").Description.Should().Contain("or else the context menu or flyout the control owns");
+        ToolSource.Tools.Single(t => t.Name == "dump_visual_tree").Description.Should()
+            .Contain("expandCollapse → expand/collapse (also a context menu or flyout the control owns)");
+    }
+
+    [Fact]
+    public void The_action_description_says_only_click_presses()
+    {
+        Interact.Parameters.Single(p => p.Name == "action").Description.Should().Contain("the only verb that presses");
+    }
+
+    [Fact]
     public void Value_stays_optional_on_the_wire()
     {
         // click with no value is a left click at the centre, so the parameter must not become required.

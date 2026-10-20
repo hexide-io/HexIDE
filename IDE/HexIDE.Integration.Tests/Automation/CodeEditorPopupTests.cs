@@ -125,6 +125,22 @@ public class CodeEditorPopupTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void Collapse_on_the_editor_does_not_call_an_open_completion_list_nothing_to_close()
+    {
+        // The editor owns a context flyout, so collapse on it answered "the flyout was not open; there is nothing to
+        // close" while the dump showed the list open under it (#949 review).
+        var (_, view, editor) = Show();
+        view.TriggerCompletion();
+        Pump();
+
+        var outcome = UiAutomationDriver.Interact(editor, "collapse", null);
+
+        outcome.Success.Should().BeFalse();
+        outcome.Error.Should().EndWith("has a popup open that collapse does not close, such as the completion list; press_key Escape closes it");
+        CodeEditorView.OpenPopupsOf(editor).Should().NotBeEmpty();
+    }
+
+    [AvaloniaFact]
     public void Open_parameter_info_is_in_the_tree_under_its_editor()
     {
         var (window, _, editor) = Show();

@@ -524,6 +524,8 @@ public static class UiAutomationDriver
                 case "expand":
                     if (peer.GetProvider<IExpandCollapseProvider>() is { } exp)
                     {
+                        if (exp.ExpandCollapseState == ExpandCollapseState.Expanded)
+                            return Ok($"'{LabelOf(control, peer)}' was already expanded");
                         exp.Expand();
                         return Ok($"expanded '{LabelOf(control, peer)}'");
                     }
@@ -534,6 +536,8 @@ public static class UiAutomationDriver
                     // either, since its items are only realised once the popup is up.
                     if (control is MenuItem { HasSubMenu: true } openMenu)
                     {
+                        if (openMenu.IsSubMenuOpen)
+                            return Ok($"menu '{LabelOf(control, peer)}' was already open");
                         openMenu.Open();
                         return Ok($"opened menu '{LabelOf(control, peer)}'");
                     }
@@ -549,12 +553,16 @@ public static class UiAutomationDriver
                     // trap as the transient tooltip, one layer up.
                     if (control.ContextMenu is { } contextMenu)
                     {
+                        if (contextMenu.IsOpen)
+                            return Ok($"the context menu on '{LabelOf(control, peer)}' was already open");
                         Safe(() => control.Focus(), false);
                         contextMenu.Open(control);
                         return Ok($"opened context menu on '{LabelOf(control, peer)}'");
                     }
                     if (FlyoutsOf(control).FirstOrDefault() is { } flyout)
                     {
+                        if (IsOpenOn(flyout, control))
+                            return Ok($"the flyout on '{LabelOf(control, peer)}' was already open");
                         Safe(() => control.Focus(), false);
                         flyout.ShowAt(control);
                         return Ok($"opened flyout on '{LabelOf(control, peer)}'");
@@ -564,6 +572,8 @@ public static class UiAutomationDriver
                 case "collapse":
                     if (peer.GetProvider<IExpandCollapseProvider>() is { } col)
                     {
+                        if (col.ExpandCollapseState == ExpandCollapseState.Collapsed)
+                            return Ok($"'{LabelOf(control, peer)}' was already collapsed");
                         col.Collapse();
                         return Ok($"collapsed '{LabelOf(control, peer)}'");
                     }
@@ -595,13 +605,18 @@ public static class UiAutomationDriver
                         openContextMenu.Close();
                         return Ok($"closed context menu on '{LabelOf(control, peer)}'");
                     }
-                    if (FlyoutsOf(control).FirstOrDefault(f => f.IsOpen) is { } openFlyout)
+                    if (FlyoutsOf(control).FirstOrDefault(f => IsOpenOn(f, control)) is { } openFlyout)
                     {
                         openFlyout.Hide();
                         return Ok($"closed flyout on '{LabelOf(control, peer)}'");
                     }
                     // The popup is why expandCollapse is reported here, so a closed one is nothing to close, as with a
                     // menu, rather than an action the control does not support (#949).
+                    // But the code window's completion list and parameter info are listed under its editor and are not
+                    // the editor's flyout, so with one open, "nothing to close" would deny what the dump shows.
+                    if (AttachedPopupsOf(control).Count > 0)
+                        return Err($"'{LabelOf(control, peer)}' has a popup open that collapse does not close, such as "
+                                   + "the completion list; press_key Escape closes it");
                     if (control.ContextMenu is not null || FlyoutsOf(control).Any())
                         return Ok($"the {(control.ContextMenu is not null ? "context menu" : "flyout")} on "
                                   + $"'{LabelOf(control, peer)}' was not open; there is nothing to close");
@@ -3033,10 +3048,15 @@ public static class UiAutomationDriver
             return editorPopups;
 
         foreach (var f in FlyoutsOf(c))
-            if (f is PopupFlyoutBase { IsOpen: true } open)
+            if (f is PopupFlyoutBase open && IsOpenOn(open, c))
                 return [open.Popup];
         return [];
     }
+
+    // One flyout can serve many controls: the theme's TextBox ContextFlyout is a single shared resource, open on
+    // whichever box opened it, so open is asked of this control (#949 review).
+    private static bool IsOpenOn(FlyoutBase flyout, Control control) =>
+        flyout.IsOpen && (flyout.Target is null || ReferenceEquals(flyout.Target, control));
 
     /// <summary>
     /// Every flyout a control owns, in the order <c>expand</c> should prefer them.
@@ -3049,6 +3069,8 @@ public static class UiAutomationDriver
     /// (Tools/Projects/ProjectToolView.axaml:125), not a <c>ContextMenu</c> at all. Omitting that one made
     /// an open, plainly visible menu report nothing, which reads exactly like a menu that never opened —
     /// and was twice diagnosed that way before the AXAML was checked.
+    /// <c>expand</c> opens a <c>ContextMenu</c> before any of these, so a Button with both a Flyout and a ContextMenu
+    /// opens the ContextMenu, and only the first flyout here is ever opened by it.
     /// </remarks>
     private static IEnumerable<FlyoutBase> FlyoutsOf(Control c)
     {

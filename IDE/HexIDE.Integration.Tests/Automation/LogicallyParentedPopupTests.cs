@@ -1,5 +1,6 @@
 using System.Linq;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using HexIDE.Automation;
@@ -165,27 +166,116 @@ public class LogicallyParentedPopupTests
         finally { window.Close(); }
     }
 
+    public enum PopupRoute { ContextMenu, ContextFlyout, AttachedFlyout, ButtonFlyout }
+
+    private static (Control Target, Func<bool> IsOpen) Owning(PopupRoute route)
+    {
+        var items = new[] { new MenuItem { Header = "Properties" } };
+        switch (route)
+        {
+            case PopupRoute.ContextMenu:
+                var menu = new ContextMenu { ItemsSource = items };
+                return (new Border { ContextMenu = menu, Width = 50, Height = 50 }, () => menu.IsOpen);
+            case PopupRoute.ContextFlyout:
+                var context = new MenuFlyout { ItemsSource = items };
+                return (new Border { ContextFlyout = context, Width = 50, Height = 50 }, () => context.IsOpen);
+            case PopupRoute.AttachedFlyout:
+                var attached = new MenuFlyout { ItemsSource = items };
+                var border = new Border { Width = 50, Height = 50 };
+                FlyoutBase.SetAttachedFlyout(border, attached);
+                return (border, () => attached.IsOpen);
+            default:
+                var flyout = new MenuFlyout { ItemsSource = items };
+                return (new Button { Content = "Add", Flyout = flyout }, () => flyout.IsOpen);
+        }
+    }
+
     [AvaloniaTheory]
-    [InlineData(true, "context menu")]
-    [InlineData(false, "flyout")]
-    public void Collapse_with_the_popup_closed_says_there_is_nothing_to_close(bool contextMenu, string popup)
+    [InlineData(PopupRoute.ContextMenu, "context menu")]
+    [InlineData(PopupRoute.ContextFlyout, "flyout")]
+    [InlineData(PopupRoute.AttachedFlyout, "flyout")]
+    [InlineData(PopupRoute.ButtonFlyout, "flyout")]
+    public void Each_reply_says_whether_the_popup_was_already_open_or_closed(PopupRoute route, string popup)
     {
         // expandCollapse is reported because of the popup, so "does not support 'collapse'" contradicted the token
-        // still shown (#949).
-        var menu = new ContextMenu { ItemsSource = new[] { new MenuItem { Header = "Properties" } } };
-        var flyout = new MenuFlyout { ItemsSource = new[] { new MenuItem { Header = "Add Form" } } };
-        Control target = contextMenu
-            ? new Border { ContextMenu = menu, Width = 50, Height = 50 }
-            : new Button { Content = "Add", Flyout = flyout };
+        // still shown, and a second expand was reported as opening what was open (#949).
+        var (target, isOpen) = Owning(route);
         var window = Show(target);
         try
         {
-            var outcome = UiAutomationDriver.Interact(target, "collapse", null);
+            Detail(UiAutomationDriver.Interact(target, "collapse", null)).Should().MatchRegex($"^the {popup} on '.*' was not open; there is nothing to close$");
 
-            outcome.Success.Should().BeTrue();
-            outcome.Detail.Should().StartWith($"the {popup} on '").And.EndWith("' was not open; there is nothing to close");
-            menu.IsOpen.Should().BeFalse();
+            Detail(UiAutomationDriver.Interact(target, "expand", null)).Should().StartWith($"opened {popup} on '");
+            Dispatcher.UIThread.RunJobs();
+            isOpen().Should().BeTrue();
+            Detail(UiAutomationDriver.Interact(target, "expand", null)).Should().MatchRegex($"^the {popup} on '.*' was already open$");
+
+            Detail(UiAutomationDriver.Interact(target, "collapse", null)).Should().StartWith($"closed {popup} on '");
+            Dispatcher.UIThread.RunJobs();
+            isOpen().Should().BeFalse();
+            Detail(UiAutomationDriver.Interact(target, "collapse", null)).Should().MatchRegex($"^the {popup} on '.*' was not open; there is nothing to close$");
+        }
+        finally { window.Close(); }
+    }
+
+    private static string? Detail(InteractOutcome outcome)
+    {
+        outcome.Success.Should().BeTrue(outcome.Error);
+        return outcome.Detail;
+    }
+
+    [AvaloniaFact]
+    public void Collapse_closes_an_open_context_flyout_beside_a_closed_context_menu()
+    {
+        // "Not open" is a success, so checking the context menu alone would report the open flyout as nothing to close.
+        var flyout = new MenuFlyout { ItemsSource = new[] { new MenuItem { Header = "Cut" } } };
+        var target = new Border { ContextMenu = new ContextMenu(), ContextFlyout = flyout, Width = 50, Height = 50 };
+        var window = Show(target);
+        try
+        {
+            flyout.ShowAt(target);
+            Dispatcher.UIThread.RunJobs();
+
+            Detail(UiAutomationDriver.Interact(target, "collapse", null)).Should().StartWith("closed flyout on '");
             flyout.IsOpen.Should().BeFalse();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void A_shared_flyout_open_on_one_control_is_not_closed_from_another()
+    {
+        // The theme's TextBox ContextFlyout is one instance for every box, so IsOpen alone is true on all of them.
+        var flyout = new MenuFlyout { ItemsSource = new[] { new MenuItem { Header = "Cut" } } };
+        var a = new Button { Content = "A", ContextFlyout = flyout };
+        var b = new Button { Content = "B", ContextFlyout = flyout };
+        var window = Show(new StackPanel { Children = { a, b } });
+        try
+        {
+            flyout.ShowAt(a);
+            Dispatcher.UIThread.RunJobs();
+
+            Detail(UiAutomationDriver.Interact(b, "collapse", null)).Should().EndWith("was not open; there is nothing to close");
+            flyout.IsOpen.Should().BeTrue();
+            var paths = UiAutomationDriver.Find(UiAutomationDriver.Dump(window, "Window", 20, false), "Cut", 50).Matches.Select(m => m.Path).ToList();
+            paths.Should().Contain(p => p.Contains("Button[A]/"), "the flyout is listed under the control it is open on");
+            paths.Should().NotContain(p => p.Contains("Button[B]/"), "and not under another that shares it");
+            Detail(UiAutomationDriver.Interact(a, "collapse", null)).Should().StartWith("closed flyout on '");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void A_dropdown_already_closed_or_open_says_so()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "One", "Two" }, Width = 100 };
+        var window = Show(combo);
+        try
+        {
+            Detail(UiAutomationDriver.Interact(combo, "collapse", null)).Should().EndWith("was already collapsed");
+            Detail(UiAutomationDriver.Interact(combo, "expand", null)).Should().StartWith("expanded '");
+            Dispatcher.UIThread.RunJobs();
+            Detail(UiAutomationDriver.Interact(combo, "expand", null)).Should().EndWith("was already expanded");
         }
         finally { window.Close(); }
     }
