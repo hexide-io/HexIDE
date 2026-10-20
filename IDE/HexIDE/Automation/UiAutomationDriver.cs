@@ -648,8 +648,10 @@ public static class UiAutomationDriver
         {
             if (peer.GetProvider<ISelectionItemProvider>() is { } selfSip)
             {
+                // Named before the dropdown closes over it, as invoke names a button before it closes its dialog.
+                var label = LabelOf(control, peer);
                 selfSip.Select();
-                return Ok($"selected '{LabelOf(control, peer)}'");
+                return Ok($"selected '{label}'{CloseDropDownHolding(control)}");
             }
 
             if (TrySelectThroughOwningGrid(control))
@@ -724,7 +726,7 @@ public static class UiAutomationDriver
         if (ControlAutomationPeer.CreatePeerForElement(matches[0]).GetProvider<ISelectionItemProvider>() is { } sip)
         {
             sip.Select();
-            return Ok($"selected '{value}'{scrolled}{namesake}");
+            return Ok($"selected '{value}'{scrolled}{namesake}{CloseDropDownHolding(matches[0])}");
         }
 
         if (TrySelectThroughOwningGrid(matches[0]))
@@ -1358,6 +1360,26 @@ public static class UiAutomationDriver
         control.GetVisualAncestors().OfType<TreeViewItem>().FirstOrDefault(n => !n.IsExpanded);
 
     /// <summary>
+    /// Closes the open dropdown an item was just selected in, as clicking the item does, and says so for the reply;
+    /// "" when the item is not in an open dropdown.
+    /// </summary>
+    /// <remarks>
+    /// The item's peer sets the ComboBox's selection and nothing else. Avalonia's ComboBox closes its popup from
+    /// pointer, key and visibility handling, never from a selection change, so the popup stayed open over whatever
+    /// lay below it, and the reply did not say so (#907). Whether a caller noticed depended on the IDE window
+    /// keeping focus: a light-dismiss popup closes when its window deactivates, which is why it was first recorded
+    /// as closing between calls.
+    /// </remarks>
+    private static string CloseDropDownHolding(Control item)
+    {
+        if (ItemsControl.ItemsControlFromItemContainer(item) is not ComboBox { IsDropDownOpen: true } combo) return "";
+        combo.SetCurrentValue(ComboBox.IsDropDownOpenProperty, false);
+        return combo.IsDropDownOpen
+            ? " (the dropdown is still open; 'collapse' the ComboBox to close it)"
+            : " and closed the dropdown, as a click does";
+    }
+
+    /// <summary>
     /// Selects a <see cref="DataGridRow"/> the only way there is: through the grid that owns it.
     /// </summary>
     /// <remarks>
@@ -1863,7 +1885,10 @@ public static class UiAutomationDriver
         if (control is TextArea or TextBox) return control;
         if (control is TextEditor outer) return outer.TextArea;
 
-        var descendants = control.GetVisualDescendants().OfType<Control>().ToList();
+        // Only what shows. A ComboBox that is not editable keeps a TextBox in its template, hidden, and choosing that
+        // over the ComboBox had every key refused as aimed at a hidden control, once #1069 refused those; a person's
+        // key goes to the ComboBox.
+        var descendants = control.GetVisualDescendants().OfType<Control>().Where(c => Hidden(c) is not true).ToList();
 
         // An AvaloniaEdit surface, innermost first: its TextArea is where key handling lives.
         if (descendants.FirstOrDefault(c => c is TextArea) is { } area) return area;
@@ -1874,7 +1899,7 @@ public static class UiAutomationDriver
         // Nothing text-shaped: any focusable descendant will at least receive the event, and the caller is
         // told which one. Falling back to the addressed control is last, and only when it can take focus —
         // returning a container that cannot is what made a dead key press look like a successful one.
-        return descendants.FirstOrDefault(c => c.Focusable && c.IsEffectivelyVisible)
+        return descendants.FirstOrDefault(c => c.Focusable)
             ?? (control.Focusable ? control : null);
     }
 

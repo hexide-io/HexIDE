@@ -1085,6 +1085,81 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
+    // #907: the item's peer only set the selection, so the popup stayed open over what lay below it, and the reply
+    // said nothing. A click on the item closes it.
+    [AvaloniaFact]
+    public void Interact_Select_OnAnItemInAnOpenDropDown_ClosesItAsAClickDoes()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "A", "B" } };
+        var window = Show(combo);
+        try
+        {
+            UiAutomationDriver.Interact(combo, "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            var item = combo.GetRealizedContainers().OfType<ComboBoxItem>().Last();
+
+            var outcome = UiAutomationDriver.Interact(item, "select", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            combo.SelectedItem.Should().Be("B");
+            combo.IsDropDownOpen.Should().BeFalse();
+            outcome.Detail.Should().Be("selected 'B' and closed the dropdown, as a click does");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Select_WithAValue_OnAnOpenDropDown_ClosesIt()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "A", "B" } };
+        var window = Show(combo);
+        try
+        {
+            UiAutomationDriver.Interact(combo, "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+
+            var outcome = UiAutomationDriver.Interact(combo, "select", "B");
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            combo.SelectedItem.Should().Be("B");
+            combo.IsDropDownOpen.Should().BeFalse();
+            outcome.Detail.Should().EndWith("and closed the dropdown, as a click does");
+        }
+        finally { window.Close(); }
+    }
+
+    // Found on #907's live check: every key on a ComboBox was refused, because the key target chosen was the hidden
+    // TextBox in its template rather than the ComboBox.
+    [AvaloniaFact]
+    public void PressKey_OnAComboBoxThatIsNotEditable_GoesToTheComboBox()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "A", "B" }, SelectedIndex = 0 };
+        var window = Show(combo);
+        try
+        {
+            var outcome = UiAutomationDriver.PressKey(combo, "Down", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            combo.SelectedIndex.Should().Be(1, "Down on a closed ComboBox selects the next item");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Select_OnAListItem_SaysNothingAboutADropDown()
+    {
+        var list = new ListBox { ItemsSource = new[] { "A", "B" } };
+        var window = Show(list);
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(list, "select", "B");
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Detail.Should().Be("selected 'B'");
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void Interact_UnsupportedAction_ReturnsCleanError()
     {
