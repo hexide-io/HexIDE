@@ -34,7 +34,7 @@ internal static class IdeServer
             .AddMcpServer()
             // Stateless, so a client attached before a relaunch is still answered after it. See McpTransport.
             .WithHttpTransport(McpTransport.Configure)
-            .WithTools<HexIdeTools>()
+            .WithTools<HexIdeTools>(ReplyJson.Options)
             // An exception a tool did not catch is reported with its type and message rather than the SDK's
             // bare "An error occurred invoking" (#603).
             // A modal dialog open once a call is done is named in its reply (#681).

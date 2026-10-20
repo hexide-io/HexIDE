@@ -3622,3 +3622,22 @@ The reply said the opposite of what happened and asked for a bug report, for eve
 > ```
 >
 > Guarded by `McpRestartTests`, through a real server and the SDK's client.
+
+## Replies escaped every apostrophe and non-ASCII character, as if bound for a web page (#753)
+
+A tool's reply was written with `System.Text.Json`'s default encoder. That encoder escapes `'`, `+`, `<`, `>`, `&` and
+anything outside ASCII, so JSON can sit safely in a web page. The text a caller read was full of `'`, which the
+replies use to quote every name. A module named `Ж1` arrived as `Ж1`. #729's code-page refusal names the one
+character the code page cannot hold, and that character arrived escaped.
+
+> **Fixed.** Tool results, and the reply `OpenDialogNote` rewrites to add an open dialog, are written with
+> `ReplyJson.Options`: the SDK's options with `JavaScriptEncoder.UnsafeRelaxedJsonEscaping`. JSON's own escapes stay.
+> Measured on Windows through the server's HTTP endpoint:
+>
+> ```
+> add_file {"name":"Ж1","type":"Module"}
+> → {"success":false,"error":"'Ж1' was not added: Ж1 is kept in code page 1252, which cannot hold 'Ж' (U+0416), …"}
+> ```
+>
+> Guarded by `McpRestartTests`, through a real server and the SDK's client, and `OpenDialogNoteTests`. A source test
+> holds the IDE's server to the same options.
