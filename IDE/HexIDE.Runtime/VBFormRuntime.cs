@@ -16,6 +16,8 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
     private VBWindowContext windowContext;
 
     public VBWindowContext Context => windowContext;
+
+    public EventPump Events => windowContext.Events;
     
     public VBFormRuntime()
     {

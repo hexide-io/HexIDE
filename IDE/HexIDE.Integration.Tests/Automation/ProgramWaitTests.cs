@@ -1,0 +1,353 @@
+using System;
+using System.Linq;
+using System.Threading.Tasks;
+using Avalonia.Controls;
+using Avalonia.Headless.XUnit;
+using Avalonia.LogicalTree;
+using Avalonia.Threading;
+using HexIDE.Automation;
+using HexIDE.Debugging;
+using HexIDE.Events;
+using HexIDE.IDE;
+using HexIDE.Localization;
+using HexIDE.Runtime;
+using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Runtime.Debugging;
+using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Serialization;
+
+namespace HexIDE.Integration.Tests.Automation;
+
+/// <summary>
+/// An action on a running form replies once the program has finished what it set off and is waiting for input again
+/// (#1232). A handler gives up the UI thread at the debugger's time slice (#766), so the reply used to go out part way
+/// through it: after Minesweeper's Game > Intermediate, a snapshot showed the new field with the old mine count.
+/// </summary>
+/// <remarks>
+/// Each case runs through the IDE's own F5 path under a time slice of <c>-1</c>, which yields at every statement, so the
+/// handler is sure to be part way through when the action returns.
+/// </remarks>
+public class ProgramWaitTests
+{
+    private const string Caption = "ProgramWaitTests";
+
+    private sealed class NullSink : IDeserializeErrorSink
+    {
+        public void LogError(string _) { }
+    }
+
+    private static string FormText(string name, string caption) =>
+        "VERSION 5.00\r\n"
+      + $"Begin VB.Form {name} \r\n"
+      + $"   Caption         =   \"{caption}\"\r\n"
+      + "   ClientHeight    =   3000\r\n"
+      + "   ClientWidth     =   4000\r\n"
+      + "   Begin VB.CommandButton Command1 \r\n"
+      + "      Caption         =   \"Command1\"\r\n"
+      + "      Height          =   495\r\n"
+      + "      Left            =   120\r\n"
+      + "      Top             =   120\r\n"
+      + "      Width           =   1215\r\n"
+      + "   End\r\n"
+      + "   Begin VB.TextBox Text1 \r\n"
+      + "      Height          =   375\r\n"
+      + "      Left            =   120\r\n"
+      + "      Top             =   840\r\n"
+      + "      Width           =   1215\r\n"
+      + "   End\r\n"
+      + "End\r\n"
+      + $"Attribute VB_Name = \"{name}\"\r\n";
+
+    private sealed class Run : IDisposable
+    {
+        public required ProjectRunnerService Runner { get; init; }
+        public required DebugController Controller { get; init; }
+        public required VBFormRuntime Window { get; init; }
+
+        public Control Named(string name) => Named(Window, name);
+
+        public static Control Named(Window window, string name) =>
+            window.GetLogicalDescendants().OfType<Control>().First(c => VBProps.GetName(c) == name);
+
+        public string Text => ((TextBox)Named("Text1")).Text ?? "";
+
+        public UiAutomationDriver.ProgramWatch? Watch(Window? window = null) =>
+            UiAutomationDriver.WatchProgram(window ?? Window, () => Controller.CurrentStop);
+
+        public void Dispose()
+        {
+            if (Controller.State == DebugState.Paused)
+                Controller.Continue();
+            Runner.EndProject();
+            Pump();
+        }
+    }
+
+    private static Run Start(string code, string? form2Code = null)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        // The code follows the header in one file, so a breakpoint's line counts the header, as the code window does.
+        var form = new FormDeserializer().Deserialize(
+            project, FormText("Form1", Caption) + code.ReplaceLineEndings("\r\n"), new NullSink())!;
+        project.AddForm(form);
+        if (form2Code is not null)
+            project.AddForm(new FormDeserializer().Deserialize(
+                project, FormText("Form2", "Form2") + form2Code.ReplaceLineEndings("\r\n"), new NullSink())!);
+
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>() + ": {0}");
+        var controller = new DebugController { TimeSliceMs = -1 };
+        var runner = new ProjectRunnerService(
+            Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), Substitute.For<IProjectManager>(),
+            localization, controller, Substitute.For<IBreakpointService>(), new WatchService(), new RunScope());
+
+        VBFormRuntime? window = null;
+        using var opened = Avalonia.Controls.Window.WindowOpenedEvent.AddClassHandler<VBFormRuntime>((w, _) =>
+        {
+            if (w.Title == Caption)
+                window = w;
+        });
+        runner.RunProject(project);
+        Pump();
+        window.Should().NotBeNull("the startup form opens before anything is clicked");
+        return new Run { Runner = runner, Controller = controller, Window = window! };
+    }
+
+    private static void Pump()
+    {
+        for (var i = 0; i < 20; i++)
+            Dispatcher.UIThread.RunJobs();
+    }
+
+    // The headless host keeps no list of its windows, so the tests keep their own.
+    private static readonly System.Collections.Generic.HashSet<Window> Shown;
+
+    // Explicit, so the list starts before the first test opens anything rather than when it is first read.
+    static ProgramWaitTests() => Shown = Track();
+
+    private static System.Collections.Generic.HashSet<Window> Track()
+    {
+        var shown = new System.Collections.Generic.HashSet<Window>();
+        Avalonia.Controls.Window.WindowOpenedEvent.AddClassHandler<Window>((w, _) => shown.Add(w));
+        Avalonia.Controls.Window.WindowClosedEvent.AddClassHandler<Window>((w, _) => shown.Remove(w));
+        return shown;
+    }
+
+    private static Window[] OpenWindows() => [.. Shown.Where(w => w.IsVisible)];
+
+    private static int LineOf(string code, string marker)
+    {
+        var headerLines = FormText("Form1", Caption).Split("\r\n").Length - 1;
+        var index = code.ReplaceLineEndings("\n").Split('\n').ToList().FindIndex(l => l.Contains(marker));
+        index.Should().BeGreaterThanOrEqualTo(0, $"the code holds '{marker}'");
+        return headerLines + index + 1;
+    }
+
+    // The handler's last statement is what a caller reads next.
+    private const string SlowClick = """
+        Private Sub Command1_Click()
+            Dim i As Integer
+            For i = 1 To 20
+                Text1.Text = "working " & i
+            Next i
+            Text1.Text = "done"
+        End Sub
+        """;
+
+    // Runs on well past a short limit, then ends of itself.
+    private const string LongClick = """
+        Private Sub Command1_Click()
+            Dim t As Single, i As Long
+            t = Timer
+            Do While Timer < t + 2
+                i = i + 1
+            Loop
+        End Sub
+        """;
+
+    [AvaloniaFact]
+    public async Task An_action_replies_once_the_handler_it_set_off_has_finished()
+    {
+        using var run = Start(SlowClick);
+        var watch = run.Watch();
+        var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+        run.Text.Should().NotBe("done", "the handler yields at every statement, so it is part way through");
+
+        outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome);
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        run.Text.Should().Be("done");
+        outcome.Detail.Should().Be("invoked Button 'Command1'");
+    }
+
+    [AvaloniaFact]
+    public async Task A_handler_still_running_at_the_limit_is_named_in_the_reply()
+    {
+        using var run = Start(LongClick);
+        var watch = run.Watch();
+        var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+
+        outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromMilliseconds(200));
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Be("invoked Button 'Command1' (the program was still running Command1_Click 0.2s later, "
+                                   + "so the form may still change)");
+    }
+
+    // A MsgBox holds its handler until it is answered, so the click that raised it is answered at once; and the click
+    // that answers it waits for the rest of the handler, though the box has closed and lost its owner by then.
+    [AvaloniaFact]
+    public async Task A_MsgBox_is_reported_at_once_and_answering_it_waits_for_the_rest_of_the_handler()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Text1.Text = "asking"
+                MsgBox "Proceed?", vbOKOnly, "Question"
+                Dim i As Integer
+                For i = 1 To 20
+                    Text1.Text = "answered " & i
+                Next i
+            End Sub
+            """);
+        var watch = run.Watch();
+        var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+
+        var started = System.Diagnostics.Stopwatch.StartNew();
+        outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
+
+        started.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10));
+        outcome.Detail.Should().Be("invoked Button 'Command1' (the program is still running Command1_Click, and has a "
+                                   + "window open over its form, 'Question'; a MsgBox holds its handler until it is "
+                                   + "answered, so the form may change after that)");
+
+        Pump();
+        var box = OpenWindows().Single(w => w.Content is HexIDE.Runtime.Dialogs.MessageBox);
+        var ok = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(box).OfType<Button>().First();
+        var answering = run.Watch(box);
+        outcome = UiAutomationDriver.Interact(ok, "invoke", null);
+        box.IsVisible.Should().BeFalse("the box closes as its button is clicked");
+
+        outcome = await UiAutomationDriver.WaitForProgramAsync(answering, outcome, TimeSpan.FromSeconds(30));
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().NotContain("(");
+        run.Text.Should().Be("answered 20");
+    }
+
+    // A form shown modally is the program waiting for input, so an action on it is not held to the limit, and the
+    // action that showed it says it opened.
+    [AvaloniaFact]
+    public async Task A_form_shown_modally_is_named_and_actions_on_it_do_not_wait_out_the_limit()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Form2.Show vbModal
+                Text1.Text = "back"
+            End Sub
+            """, form2Code: """
+            Private Sub Command1_Click()
+                Text1.Text = "clicked"
+            End Sub
+            """);
+        var watch = run.Watch();
+        var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+
+        var started = System.Diagnostics.Stopwatch.StartNew();
+        outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
+
+        started.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10));
+        outcome.Detail.Should().Be("invoked Button 'Command1' (the program opened 'Form2')");
+
+        var form2 = OpenWindows().OfType<VBFormRuntime>().Single(w => w.Title == "Form2");
+        var onForm2 = run.Watch(form2);
+        outcome = UiAutomationDriver.Interact(Run.Named(form2, "Command1"), "invoke", null);
+        started.Restart();
+        outcome = await UiAutomationDriver.WaitForProgramAsync(onForm2, outcome, TimeSpan.FromSeconds(30));
+
+        started.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10));
+        outcome.Detail.Should().Be("invoked Button 'Command1'");
+        ((TextBox)Run.Named(form2, "Text1")).Text.Should().Be("clicked");
+        run.Text.Should().NotBe("back", "Form2 is still up");
+    }
+
+    // A handler that loops on DoEvents is the program's message loop: what an action sets off runs inside it.
+    [AvaloniaFact]
+    public async Task A_handler_looping_on_DoEvents_does_not_hold_a_reply_to_the_limit()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Do
+                    DoEvents
+                Loop Until Text1.Text = "stop"
+            End Sub
+
+            Private Sub Text1_Change()
+                Command1.Caption = "changed"
+            End Sub
+            """);
+        var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+        outcome.Success.Should().BeTrue(outcome.Error);
+        // Not Pump(): a DoEvents loop keeps the dispatcher's queue from ever running dry.
+        await Task.Delay(100);
+        try
+        {
+            var watch = run.Watch();
+            outcome = UiAutomationDriver.Interact(run.Named("Text1"), "set_value", "typed");
+            var started = System.Diagnostics.Stopwatch.StartNew();
+            outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
+
+            started.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10), "the loop goes on, but it is waiting for input");
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Detail.Should().NotContain("(");
+            ((Button)run.Named("Command1")).Content.Should().Be("changed", "the change ran inside the loop's DoEvents");
+        }
+        finally { ((TextBox)run.Named("Text1")).Text = "stop"; }
+    }
+
+    // A program stopped at a breakpoint goes no further until it is continued, so the reply says where at once.
+    [AvaloniaFact]
+    public async Task A_handler_stopped_at_a_breakpoint_is_reported_at_once_with_where()
+    {
+        const string code = """
+            Private Sub Command1_Click()
+                Text1.Text = "before"
+                Text1.Text = "after" ' break here
+            End Sub
+            """;
+        using var run = Start(code);
+        run.Controller.SetBreakpoints("Form1", [LineOf(code, "' break here")]);
+        var watch = run.Watch();
+        var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+
+        var started = System.Diagnostics.Stopwatch.StartNew();
+        outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
+
+        started.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10));
+        outcome.Detail.Should().Be($"invoked Button 'Command1' (the program is paused at Form1 line "
+                                   + $"{LineOf(code, "' break here")} (Breakpoint), with Command1_Click not finished; it "
+                                   + "runs on, and the form may change, once the program continues)");
+    }
+
+    [AvaloniaFact]
+    public async Task A_refused_action_does_not_wait()
+    {
+        using var run = Start(SlowClick);
+        var refused = new InteractOutcome(false, "peer", null, "refused");
+
+        var outcome = await UiAutomationDriver.WaitForProgramAsync(run.Watch(), refused, TimeSpan.FromSeconds(30));
+
+        outcome.Should().Be(refused);
+    }
+
+    [AvaloniaFact]
+    public void A_window_that_is_not_the_programs_is_not_watched()
+    {
+        var window = new Window();
+        window.Show();
+        try
+        {
+            UiAutomationDriver.WatchProgram(window).Should().BeNull();
+        }
+        finally { window.Close(); }
+    }
+}
