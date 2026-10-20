@@ -3250,8 +3250,9 @@ the contract, or keep 0-based and have the descriptions say the gutter shows N+1
 > **Fixed.** Decided and done under [#571](https://github.com/hexide-io/HexIDE/issues/571): the bookmark tools count
 > from 1, as the gutter and every other line tool do. `get_bookmarks` returns, and `set_bookmarks` takes and
 > refuses, lines numbered 1..N from the top of the file, so one number means one line on every tool. The store
-> and the `.user.hexproj` it writes still count bookmarks from 0; the tools convert at their edge
-> (`MarkLineRules.BookmarksShown` and `BookmarksStored`). Both descriptions say so, and say these two counted from
-> 0 before #571; the reply's note says "counting from 1 at the top of the file", so a caller still holding an
-> old description reads that it is one out. Guarded by `MarkLineRulesTests` and `LineNumberingDescriptionTests`,
-> which also refuses any tool description saying "0-based".
+> and the `.user.hexproj` it writes still count bookmarks from 0; `MarkLineRules.BookmarkRequest` judges a request
+> and converts it, the held set included, so a bookmark read off a header line can be written back. Both
+> descriptions say 1-based, `get_file_content` no longer says the bookmark tools count from 0, and the reply's note
+> says "counting from 1 at the top of the file", which reaches a caller still holding an old description. Guarded
+> by `MarkLineRulesTests` and `LineNumberingDescriptionTests`, which refuses any tool description saying lines are
+> counted from 0, in any of its usual spellings, and checks both tool bodies still convert.

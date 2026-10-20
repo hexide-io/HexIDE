@@ -22,7 +22,10 @@ public static class MarkLineRules
     /// The lines already marked, in the same numbering. A read-only line among them is let through, so that a
     /// caller who reads a document's marks and writes the same set back is never refused for it.
     /// </param>
-    /// <param name="first">The number of the file's first line: 0 for bookmarks, 1 for everything else.</param>
+    /// <param name="first">
+    /// The number of the file's first line, 1 for every tool. Bookmarks, which the store counts from 0, are converted
+    /// at the tools' edge first (<see cref="BookmarkRequest"/>).
+    /// </param>
     /// <param name="what">What a line is being asked for, in the singular: "breakpoint", "bookmark", "line".</param>
     /// <remarks>
     /// <para>
@@ -50,7 +53,7 @@ public static class MarkLineRules
         if (outside.Count > 0)
             return $"{Listed(outside)} {IsAre(outside)} not a line of {display}, which has {lineCount} " +
                    $"line{(lineCount == 1 ? "" : "s")}: {what}s are numbered {first}..{last}" +
-                   $"{(first == 0 ? ", counting from 0" : "")}, from the top of the file. Nothing was changed.";
+                   ", from the top of the file. Nothing was changed.";
 
         var readOnly = lines.Where(l => !held.Contains(l) && text.IsReadOnlyLine(l - first + 1))
             .Distinct().Order().ToList();
@@ -105,6 +108,21 @@ public static class MarkLineRules
 
     /// <summary>A caller's bookmark lines, counted from 1, as the store keeps them. See <see cref="BookmarksShown"/>.</summary>
     public static int[] BookmarksStored(IEnumerable<int> shown) => shown.Select(l => l - 1).ToArray();
+
+    /// <summary>
+    /// The bookmarks a caller asks set_bookmarks for, counted from 1, judged against the document and the bookmarks
+    /// the store holds, counted from 0: why they cannot be set, or the lines to store.
+    /// </summary>
+    /// <remarks>
+    /// Here rather than in the tool, which no test can reach, so that each conversion is tested where it is made:
+    /// a held bookmark compared in the store's numbering with a caller's in the tools' would refuse a read-then-write
+    /// back of one on a header line (#571 review).
+    /// </remarks>
+    public static (string? Refusal, int[] ToStore) BookmarkRequest(
+        CodeWindowText text, string display, IReadOnlyCollection<int> shown, IReadOnlyCollection<int> storedHeld) =>
+        Refusal(text, display, shown, BookmarksShown(storedHeld), first: 1, "bookmark") is { } refusal
+            ? (refusal, [])
+            : (null, BookmarksStored(shown));
 
     private static string Listed(List<int> lines) => string.Join(", ", lines);
 

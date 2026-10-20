@@ -94,20 +94,6 @@ public class MarkLineRulesTests
     }
 
     [Fact]
-    public void BookmarksCountFromZero()
-    {
-        MarkLineRules.Refusal(Form, "P/frmOrders", [9, 15], [], first: 0, "bookmark")
-            .Should().BeNull("0-based 9 is the file's tenth line, the first of code, and 15 its last");
-
-        MarkLineRules.Refusal(Form, "P/frmOrders", [8], [], first: 0, "bookmark")
-            .Should().Contain("its header (0..8)").And.Contain("its code starts at 9")
-            .And.Contain("no bookmark can go there");
-
-        MarkLineRules.Refusal(Form, "P/frmOrders", [16], [], first: 0, "bookmark")
-            .Should().Contain("numbered 0..15, counting from 0");
-    }
-
-    [Fact]
     public void ADocumentWithNoHeaderDoesNotTalkAboutOne()
     {
         var text = new CodeWindowText(
@@ -151,13 +137,30 @@ public class MarkLineRulesTests
         MarkLineRules.BookmarksStored([10]).Should().Equal([9], "the store's 9 is the gutter's 10");
     }
 
+
     [Fact]
     public void A_bookmark_held_on_the_header_can_be_written_back_as_read()
     {
-        // A sidecar from before the header was protected can hold one there; reading the set and writing it back
-        // is never refused, in the tools' numbering as in the store's.
-        var held = MarkLineRules.BookmarksShown([2]);
+        // A sidecar from before the header was protected can hold one there: stored 2, the gutter's 3. Reading the
+        // set and writing it back is never refused; compared in two numberings, the store's 2 is not the caller's 3,
+        // and the 3 was refused as a new bookmark on the header.
+        var held = new[] { 2 };
+        var read = MarkLineRules.BookmarksShown(held);
 
-        MarkLineRules.Refusal(Form, "P/frmOrders", held, held, first: 1, "bookmark").Should().BeNull();
+        var (refusal, stored) = MarkLineRules.BookmarkRequest(Form, "P/frmOrders", read, held);
+        refusal.Should().BeNull();
+        stored.Should().Equal(2);
+    }
+
+    [Fact]
+    public void A_bookmark_request_is_judged_and_stored_in_the_two_numberings()
+    {
+        var (refusal, stored) = MarkLineRules.BookmarkRequest(Form, "P/frmOrders", [10, 13], []);
+        refusal.Should().BeNull();
+        stored.Should().Equal(9, 12);
+
+        MarkLineRules.BookmarkRequest(Form, "P/frmOrders", [3], []).Refusal.Should().Contain("its code starts at 10");
+        MarkLineRules.BookmarkRequest(Form, "P/frmOrders", [17], []).Refusal.Should().Contain("numbered 1..16");
+        MarkLineRules.BookmarkRequest(Form, "P/frmOrders", [17], []).ToStore.Should().BeEmpty();
     }
 }
