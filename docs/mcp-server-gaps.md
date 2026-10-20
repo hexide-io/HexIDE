@@ -910,56 +910,6 @@ then `add_to_selection`. Read "at least one" as true only of SizeToGrid, CenterH
 names the rule and points to `add_to_selection`, and the no-op note generated from the same table, so the prose
 cannot drift from the code again. [#930](https://github.com/hexide-io/HexIDE/issues/930).
 
-<<<<<<< HEAD
-## `set_control_property` cannot set Font, and its refusal implies a text form that does not exist
-=======
-## `take_snapshot` and `dump_visual_tree` cannot see the code editor's completion list or parameter-info popup
->>>>>>> 69701d2 (Set a font from text with set_control_property (#952))
-
-**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
-
-```
-<<<<<<< HEAD
-set_control_property {"formName":"Form1","controlName":"Label0","property":"Font","value":"DejaVu Sans"}
-→ {"success":false,"error":"Cannot set 'Font' to 'DejaVu Sans': it takes a value the Properties window accepts for a VBFont"}
-```
-
-The Properties window's Font row read "DejaVu Sans", the string refused, and that row is read-only beside a "..."
-button, so the set of values it accepts is empty. The description promises that a refused value's reply lists
-what the property takes, and here it does not. By code reading every `byte[]` property (Picture, Icon,
-MouseIcon, DragIcon, OleObjectBlob, List, ItemData) falls through the same way, refused as "...accepts for a
-Byte[]". Cross-platform by code reading.
-
-**Workaround.** For Font, the Properties window: select the control, `interact` `invoke` on the Font row's
-`PART_OpenFontWindowButton`, then drive the Font dialog, which the run did successfully. For the `byte[]`
-properties none is known: the grid gives them only a generic text box, and what it does with a typed value was
-not checked.
-
-**Suggested fix.** Accept Font as the grid shows it (a family, optionally a size and style words), merged with the
-current font so what is not given is kept. Never let a refusal promise a text form the parser refuses: name the
-Font dialog for Font, and say that no automation route exists yet for the `byte[]` properties.
-[#952](https://github.com/hexide-io/HexIDE/issues/952).
-=======
-press_key {"target":"Window/Custom[MainView]/Pane[DockControl]/Pane[Root dock]/List[PART_ItemsControl]/List[#0]/Pane[#0]/Custom[Root]/None[TextEditor]","key":"Space","modifiers":"Ctrl"}
-take_snapshot {}                     → the code window, with no list
-dump_visual_tree {"window":"auto"}   → MainWindow only
-```
-
-The run concluded that no list opens, and that was wrong: a Tab sent straight after was swallowed with no
-didChange, which needs an open list, and a headless reproduction confirms the list is open there (#941). Both
-tools answer the same whether or not a list is open. AvaloniaEdit's completion and insight windows are Popups
-parented only logically to the TopLevel, and the routes the tools use find visual-child popups plus open
-ContextMenus and flyouts. Cross-platform by code reading.
-
-**Workaround.** Do not read an empty snapshot as "no list". Infer the list from its effect: `press_key` Down then
-Tab, then read `get_file_content`, or the next `textDocument/didChange` in `list_lsp_messages`. Until #941 is
-fixed, Tab appends the item instead of replacing the prefix.
-
-**Suggested fix.** Expose CodeEditorView's completion and insight windows through an internal accessor, and return
-the open one from `AttachedPopupOf` for a CodeEditorView owner, so the snapshot and the tree both reach it.
-[#942](https://github.com/hexide-io/HexIDE/issues/942).
->>>>>>> 69701d2 (Set a font from text with set_control_property (#952))
-
 ## `take_snapshot` returns only a path on the IDE's machine, so a client attached from elsewhere cannot see the image
 
 **Symptom.** Driving a Debug build of b15c7cf in an openSUSE Leap 16 VM from a Windows host, through an SSH tunnel

@@ -3317,10 +3317,15 @@ Font dialog for Font, and say that no automation route exists yet for the `byte[
 [#952](https://github.com/hexide-io/HexIDE/issues/952).
 
 > **Fixed.** `set_control_property` sets Font from the text `get_form_controls` shows for it: parts separated by
-> commas, the face first, such as `Tahoma, 9.75 pt, bold, italic`, with `regular`, `underline`, `strikethrough`,
-> `weight N` and `charset N` too. A part not given keeps the current font's, so `DejaVu Sans`, as the run sent it,
-> changes the face alone and `12 pt` the size; when any style word is given, the words given are the whole style,
-> so a font read off one control sets another to that font and `regular` clears every style. A regular font's text
-> now ends in `regular`, so its `settable` row is `true` and round-trips. A refusal names that form for a Font, and
-> for a `byte[]` property says it has no text form and no automation route yet, rather than promising one. Guarded
-> by `PropertyTextTests`.
+> commas, the face first, such as `Tahoma, 9.75 pt, bold, italic, charset 0`, with `regular`, `underline`,
+> `strikethrough` and `weight N` too, each at most once. A part not given keeps the current font's, so `12 pt`
+> changes the size alone; a new face without a charset takes charset 0, as the Font dialog gives it, so `DejaVu Sans`,
+> as the run sent it, is that face in the ANSI charset; and when any style word is given, the words given are the
+> whole style, so `regular` clears it. The text `get_form_controls` shows names every part, so it sets another
+> control to exactly that font, and its row is `settable` only when it does. Anything that does not say one font is
+> refused rather than read as some font: a part given twice (`9,75 pt` is two sizes), a size or a style mistyped as
+> the face (`Arial 12`, `bold italic`), a size past VB6's 2160 points or finer than four decimals, a face longer than
+> 31 characters or holding a quote. The reply's note gives the whole font, not its face. A refusal names this form
+> for a Font, and for a `byte[]` property says it has no text form and no automation route yet. A control with no
+> font of its own merges with HexIDE's default, which the designer draws it in, not its form's: HexIDE has no ambient
+> font. Guarded by `PropertyTextTests`.
