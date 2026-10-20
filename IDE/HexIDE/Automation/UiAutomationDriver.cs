@@ -446,20 +446,32 @@ public static class UiAutomationDriver
                     }
                     // MenuItemAutomationPeer exposes NO providers at all — not invoke, not
                     // expandCollapse — so every verb failed on a menu and none of it was reachable.
-                    // Raising Click is what a real click does: MenuItem's class handler for the event
-                    // executes Command, so both plain Click handlers and bound commands fire once.
+                    // ClickMenuItem clicks it as Avalonia's menu does: it moves a checkable item's tick, raises
+                    // Click, whose class handler executes Command, so plain Click handlers and bound commands
+                    // fire once, then closes the menu. Raising Click alone was the #947 defect.
                     if (control is MenuItem clickItem)
                     {
+                        // A routed command is disabled wherever focus has nothing for it to act on, so say where to
+                        // put focus, as invoke_menu_item does (#678).
                         if (!clickItem.IsEffectivelyEnabled)
-                            return Err($"'{invoked}' is disabled, so a click on it does nothing; nothing was done");
+                            return Err($"'{invoked}' is disabled, so a click on it does nothing; nothing was done"
+                                       + (clickItem.IsEnabled && clickItem.Command is Avalonia.Labs.Input.RoutedCommand
+                                           ? ". Its command acts where keyboard focus is: if it belongs to a document, "
+                                             + "open_file, view_designer or activate_document_tab put focus there"
+                                           : ""));
                         return Ok($"invoked MenuItem '{invoked}'{ClickMenuItem(clickItem)}");
                     }
                     return Unsupported("invoke");
 
                 case "toggle":
-                    if (peer.GetProvider<IToggleProvider>() is null && control is MenuItem)
-                        return Err("a menu item is ticked by clicking it, so 'invoke' it: that moves a checkable item's "
-                                   + "tick and closes the menu, as a click does; nothing was done");
+                    // A menu item has no toggle of its own; only a click moves its tick. A running form's menu leaves the
+                    // tick to its program, so the hint promises no more than invoke's reply reports.
+                    if (peer.GetProvider<IToggleProvider>() is null && control is MenuItem toggleItem)
+                        return Err(toggleItem.ToggleType == MenuItemToggleType.None
+                            ? $"'{LabelOf(control, peer)}' has no tick to toggle, and 'invoke' would run it as a click "
+                              + "does; nothing was done"
+                            : "a menu item has no toggle of its own: 'invoke' clicks it, and its reply says whether the "
+                              + "tick moved (a running form's menu leaves the tick to its program); nothing was done");
                     if (peer.GetProvider<IToggleProvider>() is not { } tog) return Unsupported("toggle");
                     tog.Toggle();
                     return Ok($"toggled '{LabelOf(control, peer)}'");
@@ -516,13 +528,22 @@ public static class UiAutomationDriver
                     {
                         // A menu bar's header closes the bar with it, as a second click on the header does, so the
                         // header is not left lit with the bar still taking keys (#947). A submenu closes alone.
+                        // Each reply says what was open, so an already-closed menu is not reported as closed (#949).
+                        var closing = LabelOf(control, peer);
+                        var wasOpen = closeMenu.IsSubMenuOpen;
                         if (closeMenu.Parent is Menu)
                         {
-                            CloseMenuHolding(closeMenu);
-                            return Ok($"closed menu '{LabelOf(control, peer)}' and left the menu bar");
+                            if (!CloseMenuHolding(closeMenu))
+                                return Ok($"menu '{closing}' was already closed, and the menu bar was not open; there "
+                                          + "is nothing to close");
+                            return Ok(wasOpen
+                                ? $"closed menu '{closing}' and left the menu bar"
+                                : $"menu '{closing}' was not open, but the menu bar was; left the menu bar");
                         }
                         closeMenu.Close();
-                        return Ok($"closed menu '{LabelOf(control, peer)}'");
+                        return Ok(wasOpen
+                            ? $"closed menu '{closing}'"
+                            : $"menu '{closing}' was already closed; there is nothing to close");
                     }
                     if (control.ContextMenu is { IsOpen: true } openContextMenu)
                     {

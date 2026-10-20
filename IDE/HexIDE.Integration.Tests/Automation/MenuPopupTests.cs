@@ -16,6 +16,9 @@ namespace HexIDE.Integration.Tests.Automation;
 ///
 /// And it could not be opened either: `MenuItem` exposes no ExpandCollapse provider, so `interact expand`
 /// failed outright. The two halves compound — a menu that cannot be opened has nothing to look inside.
+///
+/// And driving one did less than a click (#947): invoke left the menu open and moved no tick, and collapse on a bar
+/// header left the bar lit and taking keys.
 /// </summary>
 public class MenuPopupTests
 {
@@ -206,8 +209,24 @@ public class MenuPopupTests
         var outcome = UiAutomationDriver.Interact(minimap, "toggle", null);
 
         outcome.Success.Should().BeFalse();
-        outcome.Error.Should().Contain("'invoke' it");
+        outcome.Error.Should().Contain("'invoke' clicks it");
         minimap.IsChecked.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void Toggle_on_a_menu_item_with_no_tick_says_so_and_runs_nothing()
+    {
+        var (_, _, file) = BuildMenuWindow();
+        UiAutomationDriver.Interact(file, "expand", null);
+        var open = file.Items.OfType<MenuItem>().First();
+        var clicked = false;
+        open.Click += (_, _) => clicked = true;
+
+        var outcome = UiAutomationDriver.Interact(open, "toggle", null);
+
+        outcome.Success.Should().BeFalse();
+        outcome.Error.Should().Contain("has no tick to toggle");
+        clicked.Should().BeFalse();
     }
 
     [AvaloniaFact]
@@ -221,6 +240,30 @@ public class MenuPopupTests
         outcome.Detail.Should().Be("closed menu 'File' and left the menu bar");
         menu.IsOpen.Should().BeFalse();
         file.IsSelected.Should().BeFalse("the header is not left lit");
+    }
+
+    [AvaloniaFact]
+    public void Collapse_on_a_closed_header_says_there_is_nothing_to_close()
+    {
+        var (_, _, file) = BuildMenuWindow();
+
+        var outcome = UiAutomationDriver.Interact(file, "collapse", null);
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Contain("was already closed").And.Contain("nothing to close");
+    }
+
+    // Alt opens the bar with no menu showing.
+    [AvaloniaFact]
+    public void Collapse_on_a_header_of_an_active_bar_says_it_left_the_bar_not_that_it_closed_the_menu()
+    {
+        var (_, menu, file) = BuildMenuWindow();
+        menu.Open();
+
+        var outcome = UiAutomationDriver.Interact(file, "collapse", null);
+
+        outcome.Detail.Should().Be("menu 'File' was not open, but the menu bar was; left the menu bar");
+        menu.IsOpen.Should().BeFalse();
     }
 
     [AvaloniaFact]

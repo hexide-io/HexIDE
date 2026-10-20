@@ -733,41 +733,6 @@ Windows only, and outside the surface a caller has.
 (`WindowCloseReason.WindowClosing`, not programmatic), and replying whether the window is still open.
 [#829](https://github.com/hexide-io/HexIDE/issues/829).
 
-## A context-menu action bound to a method cannot be driven
-
-**Symptom.** Live-checking #831 needed a project with no startup form, so Form1 had to be removed. Both of the UI's
-routes are out of reach:
-
-```
-invoke_menu_item {"path":"Project/Remove Form1"}
-→ {"success":false,"error":"'Project/Remove Form1' is a submenu or has no command"}
-interact {"target":".../Pane[Project Group - Group1]/Custom/Tree/Pane/TreeItem[Project1 (Project1.vbp)]/TreeItem[Form1 (Form1.frm)]","action":"select"}
-→ {"success":true, ... "selected 'Form1 (Form1.frm)'"}
-interact {"target":".../Pane[Project Group - Group1]/Custom","action":"invoke_command","value":"DeleteForm"}
-→ {"success":false,"mechanism":"reflection","error":"no public property 'DeleteForm' on ProjectToolViewModel"}
-```
-
-The Project menu's item is inert, which is a product defect (#835). The Project Explorer's context menu binds
-**Remove Form1** to a method, `ProjectToolViewModel.DeleteForm()`, rather than to an `ICommand`. So `inspect_element`
-does not list it and `invoke_command` cannot reach it. This entry first said that no tool opens a context menu; that
-was wrong (below). The refusal also names a *property* when a command was asked for.
-
-**Corrected 2026-10-13: `expand` opens the context menu.** `interact` `expand` on a control that owns a ContextMenu
-or flyout opens it, and this tree's flyout was measured that way when #343 closed (`interact expand …/Custom/Tree →
-"opened flyout on 'Tree'"`, in the archive). No tool description says so, which is how this entry missed it
-([#949](https://github.com/hexide-io/HexIDE/issues/949)). Remove binds `Command="{CompiledBinding DeleteForm}"`,
-which Avalonia turns into a command, so `invoke` on that item with the flyout open should run it and, since #947, close
-the flyout as a click does. That is read in code, not run. Remove acts on the selected form
-and asks nothing, so check that `select`'s reply names that form, and that the item's header reads **Remove** and its
-name, before invoking it. Until the route is checked live, the workaround below stands.
-
-**Workaround.** Load a `.vbp` whose `Startup` names no form in the project, by passing it as the positional argument
-at launch.
-
-**Suggested fix.** `invoke_command` falling back to a public parameterless method, listed by `inspect_element`, and
-a refusal that names what it looked for rather than a property. An action to open a context menu is not needed:
-`expand` is it. [#836](https://github.com/hexide-io/HexIDE/issues/836).
-
 ## Polling `list_lsp_messages` with the highest sequence seen never shows a waiting request answered
 
 **Symptom.** While re-recording [`mcp-first-contact.md`](mcp-first-contact.md) for #273 on 2026-10-13, in a fresh
@@ -976,7 +941,7 @@ The run read these as phantom tokens. They are not: each control owns a popup th
 #343. The StackPanel owns the Toolbars context flyout, `PART_TabBody` Dock's document context menu, and every
 TextBox the theme's Cut/Copy/Paste flyout. But `interact`'s `action` description defines expand and collapse as
 "a dropdown, tree node or expander", and `dump_visual_tree` says only "expandCollapse → expand/collapse", which
-is how #836 and its entry here came to say that no tool opens a context menu. `collapse` with the popup closed
+is how #836 and its entry (now archived) came to say that no tool opens a context menu. `collapse` with the popup closed
 answers "element does not support 'collapse'" while the token is still shown. Cross-platform by code reading.
 
 **Workaround.** On a control with no expander of its own, read `expandCollapse` as "owns a context menu or
