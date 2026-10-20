@@ -957,7 +957,6 @@ current font so what is not given is kept. Never let a refusal promise a text fo
 Font dialog for Font, and say that no automation route exists yet for the `byte[]` properties.
 [#952](https://github.com/hexide-io/HexIDE/issues/952).
 
-
 ## `take_snapshot` and `dump_visual_tree` cannot see the code editor's completion list or parameter-info popup
 
 **Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
