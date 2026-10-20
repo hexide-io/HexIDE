@@ -165,9 +165,11 @@ internal static class ToolSource
                 .Select(m => (m.Groups["type"].Value,
                     Literal.Matches(m.Groups["rest"].Value).Select(l => l.Groups["text"].Value).ToArray()))
                 .ToList();
-            var description = DescriptionOf(header);
+            var description = DescriptionOf(header, constants, out var cut);
             if (description.Length == 0)
                 unparsed.Add($"HexIdeTools.cs:{line}: {name.Groups["name"].Value} has no [Description] this can read");
+            else if (cut is not null)
+                unparsed.Add($"HexIdeTools.cs:{line}: {name.Groups["name"].Value}'s [Description] goes on past what this can read: {cut}");
 
             var body = BodyAt(code, starts[i].Index + signature.Index + signature.Length - 1);
             if (body is null)
@@ -319,21 +321,47 @@ internal static class ToolSource
     }
 
     /// <summary>The description's text: every literal in the attribute, joined as the compiler joins a `+` chain.</summary>
-    private static string DescriptionOf(string header)
+    private static string DescriptionOf(string header, IReadOnlyDictionary<string, string> constants, out string? cut)
     {
+        cut = null;
         if (DescriptionStart.Match(header) is not { Success: true } start) return "";
-        return LiteralChainAt(header, start.Index + start.Length);
+        return LiteralChainAt(header, start.Index + start.Length, constants, out cut);
     }
 
-    /// <summary>The string literals starting at <paramref name="position"/>, joined across <c>+</c>.</summary>
-    private static string LiteralChainAt(string text, int position)
+    private static readonly Regex Identifier = new(@"\G[A-Za-z_]\w*\b(?!\s*[.(])");
+
+    /// <summary>
+    /// The string literals and <c>const string</c>s starting at <paramref name="position"/>, joined across <c>+</c>.
+    /// </summary>
+    /// <remarks>
+    /// A chain that goes on past something else, such as an interpolated string or a call, sets <paramref name="cut"/>
+    /// to it, so the text is not taken for the whole: three tools end with <c>+ ProgramWaitNote</c>, and reading only
+    /// up to it left 361 characters unmeasured and unchecked (#1258 review).
+    /// </remarks>
+    private static string LiteralChainAt(
+        string text, int position, IReadOnlyDictionary<string, string> constants, out string? cut)
     {
+        cut = null;
         var joined = new StringBuilder();
-        while (Literal.Match(text, position) is { Success: true } literal
-               && string.IsNullOrWhiteSpace(text[position..literal.Index]))
+        while (true)
         {
-            joined.Append(Regex.Unescape(literal.Groups["text"].Value));
-            position = literal.Index + literal.Length;
+            var at = text.Length - text[position..].TrimStart().Length;
+            if (Literal.Match(text, at) is { Success: true } literal && literal.Index == at)
+            {
+                joined.Append(Regex.Unescape(literal.Groups["text"].Value));
+                position = literal.Index + literal.Length;
+            }
+            else if (Identifier.Match(text, at) is { Success: true } name && constants.TryGetValue(name.Value, out var value))
+            {
+                joined.Append(value);
+                position = at + name.Length;
+            }
+            else
+            {
+                if (joined.Length > 0)
+                    cut = new string(text[at..].TakeWhile(c => c is not ('\r' or '\n')).Take(40).ToArray());
+                break;
+            }
             var rest = text[position..].TrimStart();
             if (!rest.StartsWith('+')) break;
             position = text.Length - rest.Length + 1;
@@ -349,7 +377,7 @@ internal static class ToolSource
     private static IReadOnlyDictionary<string, string> ConstantStrings(string source) =>
         ConstantString.Matches(source).ToDictionary(
             m => m.Groups["name"].Value,
-            m => LiteralChainAt(source, m.Index + m.Length),
+            m => LiteralChainAt(source, m.Index + m.Length, new Dictionary<string, string>(), out _),
             StringComparer.Ordinal);
 
     /// <summary>
@@ -358,7 +386,7 @@ internal static class ToolSource
     /// </summary>
     private static Parameter? ParameterOf(string part, IReadOnlyDictionary<string, string> constants)
     {
-        var description = DescriptionOf(part);
+        var description = DescriptionOf(part, constants, out _);
         if (description.Length == 0 && DescriptionConstant.Match(part) is { Success: true } named)
             description = constants.GetValueOrDefault(named.Groups["name"].Value, "");
         // Attributes are skipped with string literals respected, since a description may contain a bracket.

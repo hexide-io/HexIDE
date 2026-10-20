@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
+
 namespace HexIDE.Tests.Infrastructure;
 
 /// <summary>
@@ -15,8 +18,13 @@ public class ToolDescriptionTextTests
         ToolSource.Tools.SelectMany(t => t.Parameters.Select(p => ($"{t.Name}.{p.Name}", p.Description))
             .Prepend((t.Name, t.Description)));
 
+    private static readonly Regex ParagraphBreak = new(@"(?<=\S)\n\n(?=\S)");
+
+    // Control, and also what is as unseen and as disruptive: a format character such as a zero-width space or a
+    // direction override, and a line or paragraph separator, which a renderer breaks the line on.
     internal static bool HasStrayControl(string text) =>
-        text.Replace("\n\n", "", StringComparison.Ordinal).Any(char.IsControl);
+        ParagraphBreak.Replace(text, " ").Any(c => char.GetUnicodeCategory(c) is UnicodeCategory.Control
+            or UnicodeCategory.Format or UnicodeCategory.LineSeparator or UnicodeCategory.ParagraphSeparator);
 
     [Fact]
     public void No_description_holds_a_control_character_but_a_paragraph_break()
@@ -31,10 +39,33 @@ public class ToolDescriptionTextTests
     [InlineData("a gap\tthere", true)]
     [InlineData("one paragraph.\n\nThe next.", false)]
     [InlineData("three\n\n\nbreaks", true)]
+    [InlineData("two\n\n\n\nblank lines", true)]
+    [InlineData("\n\nleading", true)]
+    [InlineData("trailing\n\n", true)]
+    [InlineData("one\r\nline", true)]
     [InlineData("per character, \\n as Enter", false)]
-    public void Only_a_blank_line_is_allowed(string text, bool stray)
+    public void Only_a_blank_line_between_paragraphs_is_allowed(string text, bool stray)
     {
         HasStrayControl(text).Should().Be(stray);
+    }
+
+    [Theory]
+    [InlineData(0x2028)] // line separator
+    [InlineData(0x200B)] // zero-width space
+    [InlineData(0x202E)] // right-to-left override
+    [InlineData(0xFEFF)] // byte order mark
+    public void A_character_a_reader_cannot_see_is_stray(int unseen)
+    {
+        HasStrayControl("a" + (char)unseen + "b").Should().BeTrue();
+    }
+
+    [Fact]
+    public void A_description_is_read_past_a_constant_it_appends()
+    {
+        // interact, type_text and press_key end with + ProgramWaitNote, which was neither measured nor checked.
+        ToolSource.Tools.Where(t => t.Name is "interact" or "type_text" or "press_key")
+            .Should().HaveCount(3).And.OnlyContain(t => t.Description.EndsWith("A form the program opened is named.", StringComparison.Ordinal));
+        ToolSource.Unparsed.Should().BeEmpty();
     }
 
     [Fact]
