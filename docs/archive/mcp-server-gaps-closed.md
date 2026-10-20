@@ -3332,7 +3332,7 @@ Font dialog for Font, and say that no automation route exists yet for the `byte[
 
 ## Polling `list_lsp_messages` with the highest sequence seen never shows a waiting request answered
 
-**Symptom.** While re-recording [`mcp-first-contact.md`](mcp-first-contact.md) for #273 on 2026-10-13, in a fresh
+**Symptom.** While re-recording [`mcp-first-contact.md`](../mcp-first-contact.md) for #273 on 2026-10-13, in a fresh
 `--newproject` session, a request seen waiting never came back answered when polled as the description advises:
 
 ```
