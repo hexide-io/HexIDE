@@ -2843,3 +2843,69 @@ caller must know VB6's caption syntax to address what it can see.
 **Suggested fix.** Name each run-time menu item by its caption as drawn, `&` removed and `&&` read as one `&`. The IDE's
 own menus had the same fault with `_` (#578). [#1128](https://github.com/hexide-io/HexIDE/issues/1128).
 
+## No reply mentions a modal dialog, whether it was already open or the action opened it — **CLOSED** (#681, 2026-10-20)
+
+> **Fixed.** Every tool's reply names a modal dialog open once the call is done, in a `modalDialog` field (a block of
+> its own when the reply is not a JSON object). The call still acts; refusing would also stop a caller answering the
+> dialog through the same tools. Measured with a cold agent on a Debug build:
+>
+> - `invoke_menu_item Tools/Add Procedure...` → `"modalDialog":"This call opened a modal dialog, 'Add Procedure', over
+>   'Ask - HexIDE [design]'. Until it is answered a person can use nothing behind it: dump_visual_tree {} shows it, and
+>   interact answers it."`
+> - `get_file_content` and `set_breakpoints` under it → `"… was open before this call and still is, so the call acted
+>   on what lies behind it, which a person could not reach. …"`
+> - `continue_program` into a division by zero → `"note":"Running; no pause within 2 s. It raised Run-time error '11'
+>   …","modalDialog":"This call opened a modal dialog, 'HexIDE', over the running form 'Ask'. …"`
+>
+> A dialog already open is not named to `interact`, `type_text`, `press_key`, `hover`, `inspect_element`,
+> `dump_visual_tree` or `take_snapshot` left to the frontmost window, which is the dialog: they act in it or report
+> it. Sent to `"ide"` or to a window by name, they act behind it, and it is named. A program's own dialog, a MsgBox
+> over its form, is left to those tools' wait for the program (#1232). Only windows shown with `ShowDialog` count; a
+> tool window such as Find does not. The `take_snapshot` half of the suggested fix, preferring a modal with
+> `window: "ide"`, is not done: the note now names it, and `"ide"` asks for the IDE's own window. Guarded by
+> `OpenDialogsTests` and `OpenDialogNoteTests`.
+
+
+**Symptom.** (Windows 11, Debug build of #838's branch, merged with main at 2047857, 2026-10-13.) Paused at a
+breakpoint on line 3 of a module, with the caret moved to line 2, an `Attribute` line:
+
+```
+invoke_menu_item {"path":"Debug/Set Next Statement"}
+→ {"success":true,"note":"Invoked 'Set Next Statement'."}
+take_snapshot {"window":"ide"}
+→ {"path":"…_3.png","width":1920,"height":974,"scale":1.5}
+dump_visual_tree {"maxDepth":3,"interactiveOnly":false}
+→ {"window":"HexIDE","root":{… "className":"MessageBox" … "Can't set the next statement here — only a
+   top-level statement of the currently paused procedure is supported …" … "Button[OK]"}}
+take_snapshot {}
+→ {"path":"…_4.png","activeDialog":"HexIDE","width":642,"height":172,"scale":1.5}
+```
+
+The command refused the move and opened a message box saying so. The first reply reads as if the move had
+happened. The second is the main window with no `activeDialog`, and the box is not in the image, although
+`window: "ide"` is the documented way to reach the IDE while a program is paused, and the tool's description
+says an open modal is captured in preference to the main window. Only the default window finds it. #681
+measured the first half with Tools/Add Procedure left open; this is a modal raised by the action itself, which
+[its Linux comment](https://github.com/hexide-io/HexIDE/issues/681#issuecomment-6146516046) describes.
+
+**Workaround.** After any action that might open a dialog, `dump_visual_tree {}` and read its `window`. A
+`take_snapshot {}` with no `window` captures the dialog.
+
+**Suggested fix.** #681's decision, for the replies. For `take_snapshot` with `window: "ide"`, prefer a modal
+the IDE owns, as `auto` does, or at least name it in `activeDialog`.
+[#681](https://github.com/hexide-io/HexIDE/issues/681).
+
+**Seen again with #1011's halt** (2026-10-15, Debug build of `fix/1011-halt-on-error`). A click divides by zero, and the
+program halts at the run-time error dialog. After Debug, a Continue without a fix retries the statement, which halts again:
+
+```
+continue_program {}
+→ {"success":true,"note":"Running; no pause within 2 s. It raised Run-time error '11': Division by zero at 10 \ d;
+   get_last_runtime_error has it."}
+get_debug_state {}
+→ {"running":true,"state":"Running"}
+```
+
+Both replies say Running. The program is held at a dialog that waits for End or Debug, and nothing of it runs. Naming
+the error helps, but neither reply says the program is waiting for an answer. `dump_visual_tree {}` finds the dialog, as
+above.
