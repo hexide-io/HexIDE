@@ -3435,9 +3435,12 @@ loopback only, so a tunnel is how another machine reaches it. Not Linux-specific
 (`image/png`) beside the same JSON. Keep path-only as the default: an inline image costs every local caller that
 does not need it. [#957](https://github.com/hexide-io/HexIDE/issues/957).
 
-> **Fixed.** `take_snapshot` takes `inline`, default false. Passed true, the reply carries the PNG itself as MCP image
-> content (`image/png`) after its JSON, which is unchanged, path included. The image is read from the file the tool
-> has just written, by a call-tool filter as `OpenDialogNote` is, so it is the image the path names; a file that
-> cannot be read leaves the reply as it was, with a block saying why. Path-only stays the default, since an image
-> costs a caller on the IDE's machine its size in context. Measured on Windows through the server's HTTP endpoint: the
-> inlined bytes equal the file's, and a call without `inline` has no image block. Guarded by `InlineSnapshotTests`.
+> **Fixed.** `take_snapshot` takes `inline`, default false. Passed true, the reply carries the image itself as MCP
+> image content (`image/png`) after its JSON, which keeps its shape and its path. The copy is encoded by the tool from
+> the image in hand and attached by a call-tool filter, as `OpenDialogNote`'s note is, so nothing is read back from a
+> file another local user could swap. It is fitted to 1568 pixels on its longest side, since a model sees an image at
+> about that size, a request holding many images refuses one over 2000 pixels, and a 4K PNG is several times the bytes;
+> `inlineWidth`, `inlineHeight` and `inlineScale` describe it, so `boundingRect × inlineScale` finds a control in it.
+> Path-only stays the default: an image costs a few thousand tokens. Measured on Windows through the server's HTTP
+> endpoint: a 3840×2054 window came back as a 1568×838 PNG of 75 KB, and a call without `inline` has no image block.
+> Not yet run through Claude Code over a tunnel. Guarded by `InlineSnapshotTests`.
