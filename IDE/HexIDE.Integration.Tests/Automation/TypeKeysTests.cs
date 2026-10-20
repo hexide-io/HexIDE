@@ -282,6 +282,153 @@ public class TypeKeysTests : IDisposable
         finally { prompt?.Close(); }
     }
 
+    // The reset prompt a key opens during a run is owned by whichever window is active, often a running form, and the
+    // typing looked only at its own window's dialogs: the next key went into the code under a prompt a person's key would
+    // have gone to, and the stop blamed focus (#1257). A dialog over any window stops it, named with where it opened.
+    [AvaloniaFact]
+    public async Task A_dialog_opening_over_another_window_stops_the_typing_and_names_that_window()
+    {
+        var box = new TextBox { Width = 200 };
+        ShowBoxes(box);
+        var form = new Window { Title = "Form1", Width = 200, Height = 100 };
+        form.Show();
+        Window? prompt = null;
+        box.TextChanged += (_, _) =>
+        {
+            if (prompt is not null) return;
+            prompt = new Window { Title = "Reset?", Width = 100, Height = 50 };
+            _ = prompt.ShowDialog(form);
+        };
+        try
+        {
+            var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
+
+            typed.Success.Should().BeFalse();
+            typed.Error.Should().StartWith("typed 1 of 3 key(s) into TextBox, then stopped: 'Reset?' opened over 'Form1', "
+                                           + "and a person's next key would go to it");
+            box.Text.Should().Be("a", "the rest would have gone to the dialog");
+        }
+        finally
+        {
+            prompt?.Close();
+            form.Close();
+        }
+    }
+
+    // A dialog already open when the typing starts is not one the typing opened, wherever it is. Headless, the dialog takes
+    // focus once shown, so the typing stops on focus after the first key, without naming the dialog as opened by it.
+    [AvaloniaFact]
+    public async Task A_dialog_open_before_the_typing_is_not_named_as_opened_by_it()
+    {
+        var box = new TextBox { Width = 200 };
+        ShowBoxes(box);
+        var form = new Window { Title = "Form1", Width = 200, Height = 100 };
+        form.Show();
+        var open = new Window { Title = "Already", Width = 100, Height = 50 };
+        _ = open.ShowDialog(form);
+        try
+        {
+            var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
+
+            typed.Error.Should().Be("typed 1 of 3 key(s) into TextBox, then stopped: focus has left the window, so a "
+                                    + "person's next key would not reach it");
+            box.Text.Should().Be("a");
+        }
+        finally
+        {
+            open.Close();
+            form.Close();
+        }
+    }
+
+    // The stop names the dialog, so the reply's note of open dialogs leaves it out rather than naming it twice, and in
+    // other words (#1257 review).
+    [AvaloniaFact]
+    public async Task A_dialog_the_typing_stopped_for_is_left_out_of_the_reply_s_note()
+    {
+        var box = new TextBox { Width = 200 };
+        var window = ShowBoxes(box);
+        var form = new Window { Title = "Form1", Width = 200, Height = 100 };
+        form.Show();
+        Window? prompt = null;
+        box.TextChanged += (_, _) =>
+        {
+            if (prompt is not null) return;
+            prompt = new Window { Title = "Reset?", Width = 100, Height = 50 };
+            _ = prompt.ShowDialog(form);
+        };
+        try
+        {
+            var watch = OpenDialogs.Watch([window, form], window);
+            OpenDialogs.During(watch);
+
+            var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
+
+            typed.Error.Should().Contain("'Reset?' opened over 'Form1'");
+            OpenDialogs.Note(watch, [window, form, prompt!]).Should().BeNull();
+        }
+        finally
+        {
+            prompt?.Close();
+            form.Close();
+        }
+    }
+
+    // A program's MsgBox shown with no form to sit over has a window of its own, and "over no window" said nothing.
+    [AvaloniaFact]
+    public async Task A_box_in_a_window_of_its_own_is_named_so()
+    {
+        var box = new TextBox { Width = 200 };
+        ShowBoxes(box);
+        Window? shown = null;
+        box.TextChanged += (_, _) =>
+        {
+            if (shown is not null) return;
+            shown = new Window { Title = "Project1", Content = new HexIDE.Runtime.Dialogs.MessageBox() };
+            shown.Show();
+        };
+        try
+        {
+            var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
+
+            typed.Error.Should().StartWith("typed 1 of 3 key(s) into TextBox, then stopped: 'Project1' opened in a window "
+                                           + "of its own, and a person's next key would go to it");
+        }
+        finally { shown?.Close(); }
+    }
+
+    // A MsgBox whose form is hidden moves to a window of its own: the same box in a new window, not a new dialog.
+    [AvaloniaFact]
+    public async Task A_box_moving_to_a_new_window_does_not_stop_the_typing()
+    {
+        var box = new TextBox { Width = 200 };
+        ShowBoxes(box);
+        var message = new HexIDE.Runtime.Dialogs.MessageBox();
+        var first = new Window { Title = "Project1", Content = message };
+        first.Show();
+        Window? second = null;
+        box.TextChanged += (_, _) =>
+        {
+            if (second is not null) return;
+            first.Content = null;
+            first.Close();
+            second = new Window { Title = "Project1", Content = message };
+            second.Show();
+            box.Focus();
+        };
+        try
+        {
+            var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
+
+            (typed.Error ?? "").Should().NotContain("'Project1' opened");
+        }
+        finally
+        {
+            first.Close();
+            second?.Close();
+        }
+    }
+
     [AvaloniaFact]
     public async Task A_character_beyond_the_basic_plane_is_one_key_and_a_lone_surrogate_takes_nothing_with_it()
     {

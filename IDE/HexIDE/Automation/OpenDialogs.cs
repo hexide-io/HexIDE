@@ -32,12 +32,13 @@ public static class OpenDialogs
 
     /// <summary>
     /// Makes <paramref name="watch"/> the one the rest of this async flow reports to: a wait for a program (#1232) that
-    /// names a dialog in its reply records it here, through <see cref="NamedByWait"/>, so the note does not name it again.
+    /// names a dialog in its reply records it here, through <see cref="NamedInReply"/>, so the note does not name it again.
+    /// So does typing that stops for a dialog (#1257).
     /// </summary>
     public static void During(DialogWatch watch) => Current.Value = watch;
 
-    /// <summary>Records that the reply already names <paramref name="dialog"/>, as the wait for a program does.</summary>
-    internal static void NamedByWait(Window dialog) => Current.Value?.Named.Add(dialog);
+    /// <summary>Records that the reply already names <paramref name="dialog"/>, as the wait for a program and typing do.</summary>
+    internal static void NamedInReply(Window dialog) => Current.Value?.Named.Add(dialog);
 
     /// <summary>
     /// What the reply should say of the modal dialogs open once the call is done, read on the UI thread, or null when there
@@ -71,7 +72,7 @@ public static class OpenDialogs
         return false;
     }
 
-    private static string OwnerOf(Window dialog) => dialog.Owner switch
+    internal static string OwnerOf(Window dialog) => dialog.Owner switch
     {
         HexIDE.Runtime.IModuleExecutionRoot and Window form => $"the running form '{form.Title}'",
         Window owner => $"'{owner.Title}'",

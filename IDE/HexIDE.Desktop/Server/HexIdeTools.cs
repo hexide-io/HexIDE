@@ -2312,7 +2312,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
                      + "after each key the language server's answer is waited for, up to 2 s. The text that lands may "
                      + "differ from what was sent, so read it back. A Tab that moves focus sends the rest to where focus "
                      + "went. The typing stops, and the reply says after how many keys, at a key a protected line refuses, "
-                     + "or when a dialog opens over the window. Its mechanism is \"keyboard\".")]
+                     + "or when a dialog opens, over this window or another. Its mechanism is \"keyboard\".")]
         string? mode = null,
         CancellationToken ct = default)
     {

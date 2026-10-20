@@ -3982,3 +3982,18 @@ refuses "from 0" in any description. A session that loaded it before #1245 read 
 > one in its header, now say the same, for every mark tool. The wording is `MarkLineRules`', where tests reach it.
 > Measured through the server's HTTP endpoint on a new project, and guarded by `MarkLineRulesTests` and
 > `LineNumberingDescriptionTests`.
+
+## `type_text` in keyboard mode stopped only for a dialog over its own window (#1257)
+
+Keyboard mode stops when a dialog opens, since a person's next key would go to it. It looked only at the dialogs owned
+by the window it typed into. The one dialog typing itself raises, the Edit-and-Continue reset prompt, is shown over
+whichever window is active, often the running form. Headless, with the dialog over a second window, a second key went
+into the text under it, and the typing stopped a key late on the focus check, with a reason that did not name the
+dialog.
+
+> **Fixed.** The typing records the modal dialogs open over every window before the first key, as the dialog note
+> does, and stops after any key that opens a new one, wherever it opens. A program's own MsgBox that opens as the keys
+> go in counts too. A MsgBox that moves to a window of its own when its form is hidden is the same box, not a new one.
+> The reply names where the dialog opened: "'Reset?' opened over the running form 'Form1'", "over the window" for its
+> own, or "in a window of its own". It records the dialog as named, so the reply's note of open dialogs does not name it
+> a second time. `type_text`'s `mode` description says so. Guarded by `TypeKeysTests`.

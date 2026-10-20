@@ -119,7 +119,7 @@ public class OpenDialogNoteTests
 
         var reply = await CallAsync("interact", during: () =>
         {
-            HexIDE.Automation.OpenDialogs.NamedByWait(ide.Open("Question"));
+            HexIDE.Automation.OpenDialogs.NamedInReply(ide.Open("Question"));
             ide.Open("Add Procedure");
         });
 
