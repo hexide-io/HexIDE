@@ -317,17 +317,16 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 : module is not null ? ctx.ProjectService.SaveModule(module, false, interactive: false) : Task.FromResult(false));
             if (refused is not null)
                 // Not "the new code was refused": the character can be anywhere in the file. The message quotes its line.
-                return Naming(new MutateResult(false, $"The new code is in the IDE, but the file was not written. {refused.Message}"), target);
+                return Naming(new MutateResult(false, cancel.After($"The new code is in the IDE, but the file was not written. {refused.Message}")), target);
             return Naming(written
-                ? new MutateResult(true, null, await Dispatcher.UIThread.InvokeAsync(() => WrittenNote(target!))
+                ? new MutateResult(true, null, cancel.After(await Dispatcher.UIThread.InvokeAsync(() => WrittenNote(target!))
                     + (restoredHeader
                         ? " Kept the form's Attribute header, which the content omitted. VB_Name is the form's "
                           + "identity; without this the write would have destroyed it. Call get_file_content "
                           + "first and edit what it returns, which includes the header."
-                        : "")
-                    )
-                : new MutateResult(false, "HexIDE cannot reproduce this file faithfully, so it was not "
-                                        + "written and the copy on disk is unchanged."), target);
+                        : "")))
+                : new MutateResult(false, cancel.After("HexIDE cannot reproduce this file faithfully, so it was not "
+                                        + "written and the copy on disk is unchanged.")), target);
         }
         catch (OperationCanceledException) when (cancel.Cancelled)
         {
@@ -340,7 +339,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         catch (Exception ex)
         {
             // The edit is already in the IDE by now; a bare exception message would read as though it were not.
-            return Naming(new MutateResult(false, $"The new code is in the IDE but was not written: {ToolFailures.WithoutProfile(ex.Message)}"), target);
+            return Naming(new MutateResult(false, cancel.After($"The new code is in the IDE but was not written: {ToolFailures.WithoutProfile(ex.Message)}")), target);
         }
     }
 
@@ -662,12 +661,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 ? ctx.ProjectService.SaveModule(ownerModule, false, interactive: false)
                 : ctx.ProjectService.SaveForm(form!, false, interactive: false));
             if (refused is not null)
-                return Naming(new MutateResult(false, $"'{property}' is set in the IDE, but the file was not written. {refused.Message}"), target);
+                return Naming(new MutateResult(false, cancel.After($"'{property}' is set in the IDE, but the file was not written. {refused.Message}")), target);
             // See the note on the other write tool: a refusal must not come back as success. (#147)
             return Naming(written
-                ? new MutateResult(true, null, stored)
-                : new MutateResult(false, "HexIDE cannot reproduce this file faithfully, so it was not "
-                                        + "written and the copy on disk is unchanged."), target);
+                ? new MutateResult(true, null, cancel.After(stored))
+                : new MutateResult(false, cancel.After("HexIDE cannot reproduce this file faithfully, so it was not "
+                                        + "written and the copy on disk is unchanged.")), target);
         }
         catch (OperationCanceledException) when (cancel.Cancelled)
         {
@@ -680,7 +679,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         {
             // The property is already set in the IDE by now; a bare exception message would read as though it
             // were not.
-            return Naming(new MutateResult(false, $"'{property}' is set in the IDE but was not written: {ToolFailures.WithoutProfile(ex.Message)}"), target);
+            return Naming(new MutateResult(false, cancel.After($"'{property}' is set in the IDE but was not written: {ToolFailures.WithoutProfile(ex.Message)}")), target);
         }
     }
 
@@ -1261,22 +1260,22 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return spawned with
                 {
                     Success = false, Form = null, Note = null,
-                    Error = $"'{spawned.ControlName}' was added to the designer, but the file was NOT written. {refused.Message} "
+                    Error = cancel.After($"'{spawned.ControlName}' was added to the designer, but the file was NOT written. {refused.Message} "
                             + "Once that text is changed, set_control_property or set_file_content writes the file, "
-                            + $"'{spawned.ControlName}' included.",
+                            + $"'{spawned.ControlName}' included."),
                 };
 
             // A refusal must not come back as success. (#147) The control is real and in the designer --
             // saying otherwise would be its own wrong answer -- but the file on disk does not have it, and
             // a caller who is told "saved" will not find out until something else reads that file.
             return written
-                ? spawned with { Form = null }
+                ? spawned with { Form = null, Note = cancel.After(spawned.Note) }
                 : spawned with
                 {
                     Success = false, Form = null, Note = null,
-                    Error = $"'{spawned.ControlName}' was added to the designer but NOT written: HexIDE cannot reproduce "
+                    Error = cancel.After($"'{spawned.ControlName}' was added to the designer but NOT written: HexIDE cannot reproduce "
                             + "this form faithfully, so the copy on disk is unchanged. Undo the add or the designer "
-                            + "and the file will stay out of step.",
+                            + $"and the file will stay out of step."),
                 };
         }
         catch (OperationCanceledException) when (cancel.Cancelled)
@@ -1291,7 +1290,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             return spawned with
             {
                 Success = false, Form = null, Note = null,
-                Error = $"'{spawned.ControlName}' was added to the designer but the save failed: {ToolFailures.WithoutProfile(ex.Message)}",
+                Error = cancel.After($"'{spawned.ControlName}' was added to the designer but the save failed: {ToolFailures.WithoutProfile(ex.Message)}"),
             };
         }
     }
@@ -2760,7 +2759,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
 
     [McpServerTool(Name = "answer_next_file_dialog")]
-    [Description("Pre-answers the next file dialog the IDE opens, so a Save As / Open / Export flow can be driven end to end. A file picker is a NATIVE operating-system dialog: it is outside the control tree, dump_visual_tree cannot see it, interact cannot address it, and a modal one stops this server answering at all — so without this every feature ending in a file dialog needed a person to click.\n\nPass the absolute path the dialog should return as `path`. Omit `path` (or pass an empty one) to answer as CANCELLED, which is a distinct path through most of these flows and the one least likely to have been exercised by hand. The answer is consumed by ONE dialog and is not sticky: arm it immediately before the action that opens the picker, or it will be spent by whichever dialog opens first.\n\nThis does not simulate the dialog. Everything downstream of the picker — the writing, the naming, the refusals — is the same code a real click reaches; only the part a person performs is skipped. Nothing is created: name a path in a directory that exists, or the flow under test will report the failure it would really report.")]
+    [Description("Pre-answers the next file dialog the IDE opens, so a Save As / Open / Export flow can be driven end to end. A file picker is a NATIVE operating-system dialog: it is outside the control tree, dump_visual_tree cannot see it, interact cannot address it, and a modal one stops this server answering at all — so without this every feature ending in a file dialog needed a person to click.\n\nPass the absolute path the dialog should return as `path`. Omit `path` (or pass an empty one) to answer as CANCELLED, which is a distinct path through most of these flows and the one least likely to have been exercised by hand. The answer is consumed by ONE dialog and is not sticky: arm it immediately before the action that opens the picker, or it will be spent by whichever dialog opens first. set_file_content, set_control_property and add_control say in their reply when their save took no answer and one armed before the call is still pending; a save reached through a menu, by invoke_menu_item or interact, does not, so check with clear_file_dialog_answers.\n\nThis does not simulate the dialog. Everything downstream of the picker — the writing, the naming, the refusals — is the same code a real click reaches; only the part a person performs is skipped. Nothing is created: name a path in a directory that exists, or the flow under test will report the failure it would really report.")]
     public Task<FileDialogAnsweredResult> AnswerNextFileDialogAsync(
         string? path = null, CancellationToken ct = default)
     {

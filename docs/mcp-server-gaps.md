@@ -678,29 +678,6 @@ it, as for any fold. An offset at the run's very end does not: the window moves 
 run's box to the end of the declaration, in front of the box (`CodeEditorView.KeepCaretOffFoldedRunsEnd`), and the
 run stays folded.
 
-## A write tool that needed no picker leaves an armed file-dialog answer pending, and says nothing
-
-**Symptom.** On the project `--newproject` creates, Project > Add Form adds `Form2` with a file already, because
-that project lives in a temp folder:
-
-```
-answer_next_file_dialog {}
-add_control {"formName":"Form2","type":"CommandButton","x":20,"y":20,"width":81,"height":33}
-→ {"success":true,"controlName":"Command0","note":"Command0 is at Left 20, Top 20, Width 81, Height 33, in pixels."}
-clear_file_dialog_answers {}
-→ {"success":true,"pending":0,"note":"Discarded 1 armed answer(s); the next file dialog will be shown for real."}
-```
-
-The save wrote the form's file and never opened a picker, so the cancel armed for it is still pending. The next
-dialog to open takes it, however much later and whatever it is for. Only `clear_file_dialog_answers` showed it.
-
-**Workaround.** After any write that was armed for, call `clear_file_dialog_answers`. A count above zero means
-the write did not use the answer.
-
-**Suggested fix.** When a write tool finishes with an answer armed before the call still pending, say so in its
-note, naming why (the document already had a file) and that `clear_file_dialog_answers` discards it.
-[#810](https://github.com/hexide-io/HexIDE/issues/810).
-
 ## A refused edit's reply sends a Backspace back to the caret it was refused at, and does not say whose lines are in the way
 
 **Symptom.** Found in #273's live check (task 4.8) on 2026-10-14, with a class whose `Public Function Total()` has
