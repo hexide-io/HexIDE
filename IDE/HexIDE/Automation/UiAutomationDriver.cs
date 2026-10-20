@@ -2075,7 +2075,7 @@ public static class UiAutomationDriver
                 if ((top as Window)?.OwnedWindows.FirstOrDefault(w => w.IsVisible && w.IsDialog && !dialogsBefore.Contains(w)) is { } dialog)
                     return new InteractOutcome(false, KeyboardMechanism, null,
                         $"typed {i + 1} of {keys.Count} key(s) into {surface.GetType().Name}{address}, then stopped: "
-                        + $"'{(string.IsNullOrEmpty(dialog.Title) ? dialog.GetType().Name : dialog.Title)}' opened over the window, and a person's next key would go to it. Answer it, "
+                        + $"'{TitleOf(dialog)}' opened over the window, and a person's next key would go to it. Answer it, "
                         + "then send the rest");
             }
             var caret = AreaOf(at) is { } typedInto ? $"; the caret is at offset {typedInto.Caret.Offset}" : "";

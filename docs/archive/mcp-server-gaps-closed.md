@@ -3166,7 +3166,12 @@ KeyDown, TextInput and KeyUp per character on the focused TextArea and reports m
 [#943](https://github.com/hexide-io/HexIDE/issues/943).
 
 > **Fixed.** `type_text` takes `mode:"keyboard"`, which types as a person does, a key at a time: KeyDown, TextInput and
-> KeyUp per character, with a line break as Enter and a tab as Tab, each key in its own turn of the dispatcher. So what
-> typing drives runs: the completion request on a letter, parameter info on `(` and `,`, auto-indent, and the block a
-> line break closes. The reply's mechanism is "keyboard"; a key the header or a member's Attribute lines refuse stops
-> the rest, and the reply says after how many. The default `document` mode is unchanged. Guarded by `TypeKeysTests`.
+> KeyUp per character, with a line break as Enter and a tab as Tab. Each key goes where the keyboard sends it, to the
+> focused control, with key bindings tried first as Avalonia's keyboard device tries them, so a Tab that moves focus
+> sends the rest to where it went and an Enter bound to a command runs it; `press_key` now delivers its key the same
+> way. After each key the code window's completion and parameter-info requests are waited for, up to 2 s, so the list a
+> letter asks for is open before the next key, as a person sees it before typing on; a slower server is named in the
+> reply. So what typing drives runs: the completion request on a letter, parameter info on `(` and `,`, auto-indent and
+> the block a line break closes. The typing stops, and the reply says after how many keys, at a key the header or a
+> member's Attribute lines refuse, when a dialog opens over the window, when focus leaves it, or on cancellation. The
+> default `document` mode is unchanged. Guarded by `TypeKeysTests`.
