@@ -60,6 +60,15 @@ public class McpRestartTests
 
         [McpServerTool(Name = "fail"), Description("Throws.")]
         public static string Fail() => throw new InvalidOperationException("the tool broke");
+
+        [McpServerTool(Name = "flag"), Description("Returns its flag.")]
+        public static string Flag(bool on, int count = 0) => $"{on} {count}";
+
+        [McpServerTool(Name = "refuse"), Description("Throws an ArgumentException of its own.")]
+        public static string Refuse(string text) => throw new ArgumentException("the text was not wanted", nameof(text));
+
+        [McpServerTool(Name = "marks"), Description("Returns its lines.")]
+        public static string Marks(string name, int[] lines, string? note = null) => $"{name} {string.Join(",", lines)} {note}";
     }
 
     private static int FreePort()
@@ -190,6 +199,117 @@ public class McpRestartTests
         {
             await StopAsync(app);
         }
+    }
+
+    // ── Arguments the SDK could not bind are refusals, not defects (#1270) ──────
+
+    private static async Task<CallToolResult> CallWithAsync(string tool, Dictionary<string, object?> arguments)
+    {
+        var port = FreePort();
+        var app = await StartAsync(port, McpTransport.Configure);
+        try
+        {
+            await using var client = await ConnectAsync(port);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(20));
+            return await client.CallToolAsync(tool, arguments, cancellationToken: timeout.Token);
+        }
+        finally
+        {
+            await StopAsync(app);
+        }
+    }
+
+    [Fact]
+    public async Task Missing_arguments_are_refused_by_name_and_not_called_a_defect()
+    {
+        var result = await CallWithAsync("marks", new() { ["path"] = "x" });
+
+        result.IsError.Should().BeTrue();
+        TextOf(result).Should().Be("'marks' refused its arguments, and nothing was done: 'name' is required; 'lines' is "
+            + "required; it takes no 'path' parameter. Its input schema names each parameter and its type.");
+    }
+
+    [Theory]
+    [InlineData("on", "true", "'on' must be boolean, not \"true\"")]
+    [InlineData("on", 1, "'on' must be boolean, not 1")]
+    [InlineData("count", 1.5, "'count' must be integer, not 1.5")]
+    [InlineData("count", "five", "'count' must be integer, not \"five\"")]
+    [InlineData("on", null, "'on' must be boolean, not null")]
+    public async Task An_argument_of_the_wrong_type_is_refused_by_name(string name, object? value, string problem)
+    {
+        var arguments = new Dictionary<string, object?> { ["on"] = true, [name] = value };
+
+        var result = await CallWithAsync("flag", arguments);
+
+        result.IsError.Should().BeTrue();
+        TextOf(result).Should().Be($"'flag' refused its arguments, and nothing was done: {problem}. Its input schema "
+            + "names each parameter and its type.");
+    }
+
+    [Theory]
+    [InlineData(new object?[] { 1, "x" }, "'lines' item 1 must be integer, not \"x\"")]
+    [InlineData(new object?[] { 1.5 }, "'lines' item 0 must be integer, not 1.5")]
+    public async Task An_array_item_of_the_wrong_type_is_refused_by_position(object?[] lines, string problem)
+    {
+        var result = await CallWithAsync("marks", new() { ["name"] = "Form1", ["lines"] = lines });
+
+        TextOf(result).Should().Be($"'marks' refused its arguments, and nothing was done: {problem}. Its input schema "
+            + "names each parameter and its type.");
+    }
+
+    [Fact]
+    public async Task Null_is_refused_where_the_parameter_cannot_hold_it_and_taken_where_it_can()
+    {
+        // A null the binding accepts reached the tool, which failed in its own code and asked to be reported.
+        TextOf(await CallWithAsync("marks", new() { ["name"] = "Form1", ["lines"] = null })).Should().Be(
+            "'marks' refused its arguments, and nothing was done: 'lines' must be array, not null. Its input schema names "
+            + "each parameter and its type.");
+        TextOf(await CallWithAsync("marks", new() { ["name"] = "Form1", ["lines"] = new[] { 3 }, ["note"] = null }))
+            .Should().Be("Form1 3 ");
+    }
+
+    [Fact]
+    public async Task A_number_in_a_string_binds_as_the_SDK_reads_it_and_is_not_named_beside_a_real_problem()
+    {
+        TextOf(await CallWithAsync("flag", new() { ["on"] = true, ["count"] = "5" })).Should().Be("True 5");
+        TextOf(await CallWithAsync("flag", new() { ["on"] = "no", ["count"] = "5", ["cuont"] = 1 })).Should().Be(
+            "'flag' refused its arguments, and nothing was done: 'on' must be boolean, not \"no\"; it takes no 'cuont' "
+            + "parameter. Its input schema names each parameter and its type.");
+    }
+
+    [Fact]
+    public async Task An_argument_the_tool_does_not_take_is_ignored_as_the_SDK_does_when_nothing_else_is_wrong()
+    {
+        TextOf(await CallWithAsync("flag", new() { ["on"] = true, ["extra"] = 1 })).Should().Be("True 0");
+    }
+
+    [Fact]
+    public async Task An_integer_the_schema_allows_but_the_parameter_cannot_hold_is_refused_by_name()
+    {
+        var result = await CallWithAsync("flag", new() { ["on"] = true, ["count"] = 3_000_000_000L });
+
+        result.IsError.Should().BeTrue();
+        TextOf(result).Should().Be("'flag' refused its arguments, and nothing was done: 'count' is 3000000000, outside "
+            + "the range of a 32-bit integer. Its input schema names each parameter and its type.");
+    }
+
+    [Fact]
+    public async Task Arguments_that_bind_still_reach_the_tool()
+    {
+        var result = await CallWithAsync("flag", new() { ["on"] = true, ["count"] = 2 });
+
+        result.IsError.Should().NotBeTrue();
+        TextOf(result).Should().Be("True 2");
+    }
+
+    [Fact]
+    public async Task An_ArgumentException_the_tool_throws_itself_is_still_a_defect()
+    {
+        var result = await CallWithAsync("refuse", new() { ["text"] = "x" });
+
+        result.IsError.Should().BeTrue();
+        TextOf(result).Should().Contain("System.ArgumentException").And.Contain("This is a defect in the tool");
     }
 
     [Fact]
