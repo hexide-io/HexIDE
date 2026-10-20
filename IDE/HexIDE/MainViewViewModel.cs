@@ -778,7 +778,7 @@ public partial class MainViewViewModel : ObservableObject
             // Recorded BEFORE the dialog, and deliberately not tied to its lifetime: stop_project and
             // shutdown_ide both close open dialogs, so anything that only exists while the modal is up is
             // gone by the time a caller looks. (docs/mcp-server-gaps.md)
-            ReportRuntimeError(RunErrorText.For(e));
+            ReportRuntimeError(RunErrorText.For(e), HexIDE.Runtime.Interpreter.ErrorLocation.Of(e));
         };
 
         // A startup form that cannot be built is reported the way a runtime error is, so the person sees it and
@@ -789,9 +789,9 @@ public partial class MainViewViewModel : ObservableObject
         // error Sub Main did not handle. Those reached only the log or an unrecorded message box (#754).
         projectRunnerService.RunFailed += ReportEndedRun;
 
-        void ReportRuntimeError(string message)
+        void ReportRuntimeError(string message, HexIDE.Runtime.Interpreter.ErrorLocation? where)
         {
-            RuntimeErrors.Record(message);
+            RuntimeErrors.Record(message, where);
             EndIfAsked(new RuntimeErrorViewModel(message)).ListenErrors();
         }
 
@@ -800,7 +800,7 @@ public partial class MainViewViewModel : ObservableObject
         // run is live when the dialog closes, which can be a later one started meanwhile by run_project.
         void ReportEndedRun(string message)
         {
-            RuntimeErrors.Record(message);
+            RuntimeErrors.Record(message, projectRunnerService.FailureLocation);
             windowManager.ShowDialog(new RuntimeErrorViewModel(message)).ListenErrors();
         }
 
@@ -821,7 +821,7 @@ public partial class MainViewViewModel : ObservableObject
         debugController.HaltHost = async error =>
         {
             var message = RunErrorText.For(error);
-            RuntimeErrors.Record(message);
+            RuntimeErrors.Record(message, HexIDE.Runtime.Interpreter.ErrorLocation.Of(error));
             if (!await windowManager.ShowDialog(new RuntimeErrorViewModel(message, canDebug: true)))
                 return true;
             if (projectRunnerService.CanEndProject)
@@ -835,7 +835,7 @@ public partial class MainViewViewModel : ObservableObject
         // meets, rather than VB6's separate compile-error box with OK and Help, because #754 already sends Sub
         // Main's compile errors through this dialog and two routes would answer the same error differently.
         // The run carries on, with the handler abandoned, as it does after a run-time error.
-        VBWindowContext.CompileError += (_, e) => ReportRuntimeError(e.Message);
+        VBWindowContext.CompileError += (_, e) => ReportRuntimeError(e.Message, HexIDE.Runtime.Interpreter.ErrorLocation.Of(e));
 
         // Route `Debug.Print` output from the running program into the Immediate pane (VB6's Immediate window).
         VBDebugConsole.Output += text =>

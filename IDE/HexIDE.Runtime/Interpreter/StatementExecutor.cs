@@ -368,6 +368,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     await interpreter.FlushFrame(stmtFrames.Pop());
                 }
             }
+            catch (Exception ex) when (Locate(ex, stmt)) { throw; }
             catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
             {
                 // On Error Resume Next: a runtime error unwinds the C# stack to the innermost enclosing block;
@@ -1213,6 +1214,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     flow = await Visit(stmt);
                     break;
                 }
+                catch (Exception ex) when (Locate(ex, stmt)) { throw; }
                 catch (VBRunTimeException ex) when (errorMode != ErrorMode.ResumeNext && HaltsHere())
                 {
                     // The statement alone runs again, not the statements before it on the line (#1011).
@@ -3092,6 +3094,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     await interpreter.FlushFrame(stmtFrames.Pop());
                 }
             }
+            catch (Exception ex) when (Locate(ex, stmts[pc])) { throw; }
             catch (GoToSignal g)
             {
                 pc = ResolveLabel(labels, g.Label);
@@ -3169,6 +3172,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var halt = interpreter.DebugController!.HaltAsync(error, line, currentModule.Name, this).AsTask();
         return interpreter.Events is { } events ? await events.WhileSuspended(halt) : await halt;
     }
+
+    // Notes where an error passing out of stmt was raised (#955), and never catches: the first catch of each statement
+    // loop, so the innermost statement notes it before a handler or a halt sees it. The line is the statement's, or the
+    // line within it its context starts on, as an ElseIf's condition does.
+    private bool Locate(Exception error, ParserRuleContext stmt) =>
+        ErrorLocation.Note(error, currentModule.Name,
+            error is VBRunTimeException { Context.Start: { } at } && at.InputStream == stmt.Start.InputStream
+            && at.Line >= stmt.Start.Line && at.Line <= stmt.Stop.Line ? at.Line : stmt.Start.Line);
 
     private static int ResolveLabel(Dictionary<string, int> labels, string label) =>
         labels.TryGetValue(label, out var idx) ? idx : throw new VBCompileErrorException("Label not defined: " + label);
