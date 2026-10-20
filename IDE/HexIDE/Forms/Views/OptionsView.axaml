@@ -20,6 +20,8 @@
                 <TreeView.Styles>
                     <Style Selector="TreeViewItem">
                         <Setter Property="IsExpanded" Value="{CompiledBinding IsExpanded, Mode=TwoWay}" x:DataType="options:OptionsNodeViewModel" />
+                        <!-- Named after the page, so automation can address and select it by its text (#714). -->
+                        <Setter Property="AutomationProperties.Name" Value="{CompiledBinding Title}" x:DataType="options:OptionsNodeViewModel" />
                     </Style>
                 </TreeView.Styles>
                 <TreeView.DataTemplates>

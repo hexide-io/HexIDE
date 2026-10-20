@@ -391,6 +391,9 @@ public static class UiAutomationDriver
         // all. Selecting a node is the precondition for its context menu, its toolbar and every
         // SelectedForm/SelectedModule/SelectedProject command, and none of that was reachable.
         if (control is TreeViewItem && !list.Contains("selectionItem")) list.Add("selectionItem");
+        // Nor expand or collapse, so a collapsed node's children, once realized and then hidden, were out of reach
+        // except by keyboard. Only on a node that has children, as for a menu item with a submenu.
+        if (control is TreeViewItem { ItemCount: > 0 } && !list.Contains("expandCollapse")) list.Add("expandCollapse");
 
         return [.. list];
     }
@@ -463,6 +466,8 @@ public static class UiAutomationDriver
                         exp.Expand();
                         return Ok($"expanded '{LabelOf(control, peer)}'");
                     }
+                    if (control is TreeViewItem { ItemCount: > 0 } openNode)
+                        return SetTreeNodeExpanded(openNode, peer, true);
                     // A MenuItem exposes no ExpandCollapse provider, so without this a menu could not be
                     // opened through automation at all — and a menu that cannot be opened cannot be read
                     // either, since its items are only realised once the popup is up.
@@ -501,6 +506,8 @@ public static class UiAutomationDriver
                         col.Collapse();
                         return Ok($"collapsed '{LabelOf(control, peer)}'");
                     }
+                    if (control is TreeViewItem { ItemCount: > 0 } closeNode)
+                        return SetTreeNodeExpanded(closeNode, peer, false);
                     if (control is MenuItem { HasSubMenu: true } closeMenu)
                     {
                         closeMenu.Close();
@@ -645,8 +652,12 @@ public static class UiAutomationDriver
                 return Ok($"selected '{LabelOf(control, peer)}'");
             }
 
-            if (TrySelectThroughOwningGrid(control) || TrySelectThroughOwningTree(control))
+            if (TrySelectThroughOwningGrid(control))
                 return Ok($"selected '{LabelOf(control, peer)}'");
+            if (control is TreeViewItem)
+                return TrySelectThroughOwningTree(control, out var refusal)
+                    ? Ok($"selected '{LabelOf(control, peer)}'")
+                    : Err(refusal);
 
             return Unsupported("select");
         }
@@ -659,16 +670,25 @@ public static class UiAutomationDriver
         // of a collapsed category) is neither selected by its text nor allowed to make a showing one ambiguous. One
         // that only a hidden row matches is refused as addressing it by path is, rather than reported as missing.
         var hiddenRows = candidates.Where(c => Hidden(c.Control) is true).ToList();
+        var hiddenNamesake = false;
         if (hiddenRows.Count > 0)
         {
             candidates = candidates.Except(hiddenRows).ToList();
-            if (MatchByDiscriminator(candidates, value).matches.Count == 0
-                && MatchByDiscriminator(hiddenRows, value).matches is [var onlyHidden, ..])
+            var hiddenMatches = MatchByDiscriminator(hiddenRows, value).matches;
+            hiddenNamesake = hiddenMatches.Count > 0;
+            if (MatchByDiscriminator(candidates, value).matches.Count == 0 && hiddenMatches is [var onlyHidden, ..])
                 return Err(NotShowingRefusal(onlyHidden, "select")
-                           + " Make it show first, as a person would, for instance by expanding what holds it");
+                           + (CollapsedNodeHolding(onlyHidden) is { } holder
+                               ? $" Make it show first, as a person would: 'expand' '{LabelOf(holder)}', which holds it"
+                               : " Make it show first, as a person would, for instance by expanding what holds it"));
         }
         if (candidates.Count == 0)
-            return Err($"'{LabelOf(control, peer)}' has no selectable items realized — if it's a dropdown, 'expand' it first, then dump_visual_tree to read the item text");
+            return Err(control switch
+            {
+                TreeView { ItemCount: 0 } => $"'{LabelOf(control, peer)}' has no items to select",
+                TreeView tree => $"'{LabelOf(control, peer)}' has {tree.ItemCount} item(s), and none of them is showing",
+                _ => $"'{LabelOf(control, peer)}' has no selectable items realized — if it's a dropdown, 'expand' it first, then dump_visual_tree to read the item text",
+            });
 
         var (matches, facet) = MatchByDiscriminator(candidates, value);
         var broughtIntoView = false;
@@ -681,19 +701,38 @@ public static class UiAutomationDriver
                            + "the list was put back where it was; check the exact text via dump_visual_tree");
         }
         if (matches.Count == 0)
+        {
+            // A tree node's children do not exist until it is first expanded, so a name under a node never opened
+            // matches nothing and no dump shows it either. Checking the spelling would get nowhere.
+            var unopened = candidates.Select(c => c.Control)
+                .OfType<TreeViewItem>().Where(n => n is { IsExpanded: false, ItemCount: > 0 }).ToList();
+            if (unopened.Count > 0)
+                return Err($"no item matching '{value}' among the {candidates.Count} showing in '{LabelOf(control, peer)}'. "
+                           + $"{unopened.Count} collapsed node(s) hold items that are not created until the node is expanded: "
+                           + string.Join(", ", unopened.Take(5).Select(n => $"'{LabelOf(n)}'"))
+                           + (unopened.Count > 5 ? ", …" : "")
+                           + ". 'expand' the one that holds it, then select again");
             return Err($"no selectable item matching '{value}' among {candidates.Count} realized item(s) — check the exact text via dump_visual_tree");
+        }
         if (matches.Count > 1)
             return Err($"ambiguous select '{value}' ({matches.Count} {facet} matches); target the item directly by path instead");
 
         var scrolled = broughtIntoView ? " (it was scrolled out of view, so the list was scrolled to it first)" : "";
+        // A hidden item of the same name was left out of the match, as a person would not see it; say so, so that a
+        // caller who meant that one knows to make it show and address it by path.
+        var namesake = hiddenNamesake ? $" (another '{value}' is not showing and was left alone)" : "";
         if (ControlAutomationPeer.CreatePeerForElement(matches[0]).GetProvider<ISelectionItemProvider>() is { } sip)
         {
             sip.Select();
-            return Ok($"selected '{value}'{scrolled}");
+            return Ok($"selected '{value}'{scrolled}{namesake}");
         }
 
-        if (TrySelectThroughOwningGrid(matches[0]) || TrySelectThroughOwningTree(matches[0]))
-            return Ok($"selected '{value}'{scrolled}");
+        if (TrySelectThroughOwningGrid(matches[0]))
+            return Ok($"selected '{value}'{scrolled}{namesake}");
+        if (matches[0] is TreeViewItem)
+            return TrySelectThroughOwningTree(matches[0], out var refusal)
+                ? Ok($"selected '{value}'{scrolled}{namesake}")
+                : Err(refusal);
 
         return Unsupported("select");
     }
@@ -734,22 +773,6 @@ public static class UiAutomationDriver
     }
 
     /// <summary>
-    /// Selects a <see cref="DataGridRow"/> the only way there is: through the grid that owns it.
-    /// </summary>
-    /// <remarks>
-    /// <b>A DataGridRow's automation peer exposes no providers at all</b>, so <c>select</c> refused on
-    /// every grid row in the IDE and there was no second route: the reflection actions set a VM property
-    /// by name and coerce from a string, and a selected row is an object no string names. That left the
-    /// protocol inspector's central gesture — click a row, read its body — undrivable, and a UI surface an
-    /// automation client can read but not operate is not a surface.
-    ///
-    /// <para>
-    /// The grid is found by walking up rather than through <c>DataGridRow.OwningGrid</c>, which is
-    /// internal. Setting <c>SelectedItem</c> is what a click does; the return value is read back rather
-    /// than assumed, because a grid in single-selection mode can decline.
-    /// </para>
-    /// </remarks>
-    /// <summary>
     /// Double-clicks a control: raises <c>DoubleTapped</c>, which bubbles the way a real one does.
     /// </summary>
     /// <remarks>
@@ -776,8 +799,11 @@ public static class UiAutomationDriver
         if (TopLevel.GetTopLevel(control) is not { } topLevel)
             return Err("the control is not attached to a window, so it cannot be clicked");
 
-        var selected = TrySelectThroughOwningTree(control) || TrySelectThroughOwningGrid(control);
-        if (!selected && peer.GetProvider<ISelectionItemProvider>() is { } sip)
+        var treeRefusal = "";
+        var selected = control is TreeViewItem
+            ? TrySelectThroughOwningTree(control, out treeRefusal)
+            : TrySelectThroughOwningGrid(control);
+        if (!selected && control is not TreeViewItem && peer.GetProvider<ISelectionItemProvider>() is { } sip)
         {
             sip.Select();
             selected = true;
@@ -796,7 +822,9 @@ public static class UiAutomationDriver
 
         control.RaiseEvent(new TappedEventArgs(InputElement.DoubleTappedEvent, pointerArgs));
 
-        var note = selected ? " (selected it first, as a real double-click does)" : "";
+        var note = selected ? " (selected it first, as a real double-click does)"
+            : treeRefusal.Length > 0 ? $" (but it was not selected first: {treeRefusal})"
+            : "";
         return Ok($"double-clicked '{LabelOf(control, peer)}'{note}");
     }
 
@@ -1273,18 +1301,78 @@ public static class UiAutomationDriver
     }
 
     /// <summary>
-    /// Selects a <see cref="TreeViewItem"/>. Setting <c>IsSelected</c> is what the tree itself does; the
-    /// owning <see cref="TreeView"/> reflects it into <c>SelectedItem</c>, which is what a view model is
-    /// bound to and therefore what a caller is actually trying to change.
+    /// Expands or collapses a tree node, as its own arrow keys and double-tap do, and reads the state back.
     /// </summary>
-    private static bool TrySelectThroughOwningTree(Control control)
+    /// <remarks>
+    /// The node's peer offers no <see cref="IExpandCollapseProvider"/>. <c>SetCurrentValue</c>, as the node's own
+    /// handlers use, keeps a TwoWay style binding of <c>IsExpanded</c> to the view model (the Project Explorer's,
+    /// Options') alive; a local value would cut it.
+    /// </remarks>
+    private static InteractOutcome SetTreeNodeExpanded(TreeViewItem node, AutomationPeer peer, bool expanded)
     {
-        if (control is not TreeViewItem item) return false;
-
-        item.IsSelected = true;
-        return item.IsSelected;
+        var label = LabelOf(node, peer);
+        var was = node.IsExpanded;
+        node.SetCurrentValue(TreeViewItem.IsExpandedProperty, expanded);
+        var verb = expanded ? "expanded" : "collapsed";
+        if (node.IsExpanded != expanded) return Err($"'{label}' was not {verb}; it is still {(was ? "expanded" : "collapsed")}");
+        return Ok(was == expanded ? $"'{label}' was already {verb}" : $"{verb} '{label}'");
     }
 
+    /// <summary>
+    /// Selects a <see cref="TreeViewItem"/> through the tree that owns it, as a click does, and reads the
+    /// tree's <c>SelectedItem</c> back.
+    /// </summary>
+    /// <remarks>
+    /// <c>SelectedItem</c> is what a view model is bound to, so it is what a caller is trying to change.
+    /// Setting <c>item.IsSelected</c> instead looked right and was not: Avalonia adds the item to
+    /// <c>SelectedItems</c> and moves <c>SelectedItem</c> only when nothing was selected, so with a
+    /// selection already there, both items were highlighted, the bound property stayed put, and the item's
+    /// own <c>IsSelected</c> read back true (#714). The item's peer offers no
+    /// <see cref="ISelectionItemProvider"/>, so this is the only route.
+    /// <para>
+    /// The read-back confirms the tree took the item, and no more. Avalonia's <c>SelectedItem</c> setter keeps
+    /// what it was given even when a TwoWay-bound view model refuses it, and the binding's own record of the
+    /// source moves only when the source raises a change, so neither can tell a refusal from an accepted value
+    /// on a property that raises nothing. No tree in the IDE has a view model that refuses, except Watches for its
+    /// child nodes (#1229), which is a bug in that view model rather than something to report around here.
+    /// </para>
+    /// </remarks>
+    private static bool TrySelectThroughOwningTree(Control control, out string refusal)
+    {
+        refusal = "";
+        if (control is not TreeViewItem item || item.FindAncestorOfType<TreeView>() is not { } tree
+            || tree.TreeItemFromContainer(item) is not { } data)
+        {
+            refusal = $"'{Describe(control)}' is not an item of a tree, so it cannot be selected through one";
+            return false;
+        }
+
+        tree.SelectedItem = data;
+        if (ReferenceEquals(tree.SelectedItem, data)) return true;
+        refusal = $"the tree did not take '{LabelOf(item)}' as its selection";
+        return false;
+    }
+
+    // The nearest collapsed tree node above a control, which a person would expand to show it.
+    private static TreeViewItem? CollapsedNodeHolding(Control control) =>
+        control.GetVisualAncestors().OfType<TreeViewItem>().FirstOrDefault(n => !n.IsExpanded);
+
+    /// <summary>
+    /// Selects a <see cref="DataGridRow"/> the only way there is: through the grid that owns it.
+    /// </summary>
+    /// <remarks>
+    /// <b>A DataGridRow's automation peer exposes no providers at all</b>, so <c>select</c> refused on
+    /// every grid row in the IDE and there was no second route: the reflection actions set a VM property
+    /// by name and coerce from a string, and a selected row is an object no string names. That left the
+    /// protocol inspector's central gesture — click a row, read its body — undrivable, and a UI surface an
+    /// automation client can read but not operate is not a surface.
+    ///
+    /// <para>
+    /// The grid is found by walking up rather than through <c>DataGridRow.OwningGrid</c>, which is
+    /// internal. Setting <c>SelectedItem</c> is what a click does; the return value is read back rather
+    /// than assumed, because a grid in single-selection mode can decline.
+    /// </para>
+    /// </remarks>
     private static bool TrySelectThroughOwningGrid(Control control)
     {
         if (control is not DataGridRow row) return false;
@@ -1296,7 +1384,8 @@ public static class UiAutomationDriver
     }
 
     // Realized selectable items reachable from a container: the container itself if it exposes
-    // ISelectionItemProvider, plus every descendant that does.
+    // ISelectionItemProvider, plus every descendant that does. Grid rows and tree items expose none, and are
+    // selected through their owner, so they count too, as DescribeProviders already advertises.
     private static List<MeaningfulChild> SelectableCandidates(Control container)
     {
         var result = new List<MeaningfulChild>();
@@ -1304,7 +1393,7 @@ public static class UiAutomationDriver
         {
             var info = Classify(c);
             if (info.Peer is not null
-                && (info.Peer.GetProvider<ISelectionItemProvider>() is not null || c is DataGridRow))
+                && (info.Peer.GetProvider<ISelectionItemProvider>() is not null || c is DataGridRow or TreeViewItem))
             {
                 result.Add(new MeaningfulChild(c, info));
             }
@@ -1829,6 +1918,8 @@ public static class UiAutomationDriver
     }
 
     private static string LabelOf(Control control, AutomationPeer peer) => NameOf(control, peer) ?? ControlTypeOf(peer);
+
+    private static string LabelOf(Control control) => LabelOf(control, ControlAutomationPeer.CreatePeerForElement(control));
 
     private static InteractOutcome Ok(string detail) => new(true, "peer", detail, null);
     private static InteractOutcome Err(string error) => new(false, "peer", null, error);
