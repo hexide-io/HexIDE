@@ -473,9 +473,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
         [Description("One control's name, or the form's own, without regard to case; a control array's element as "
                      + "name(index). The reply then lists that control alone, with 'properties' holding every property "
                      + "the Properties window shows for it, by the name there, with its value as text: an enum as "
-                     + "\"1 - Opaque\", a colour as its literal, a number with '.'; a font and a picture as a summary. "
-                     + "'settable' says whether set_control_property takes that text back; a font, a picture and the "
-                     + "like are set in the Properties window. Properties the file holds that HexIDE does not model, or "
+                     + "\"1 - Opaque\", a colour as its literal, a number with '.', a font as \"Tahoma, 9.75 pt, bold\"; a "
+                     + "picture as a summary. 'settable' says whether set_control_property takes that text back; a "
+                     + "picture and the like are set in the Properties window. Properties the file holds that HexIDE does not model, or "
                      + "could not read, are rows too, with the file's text, not settable, and a 'note' saying which. "
                      + "A control array named without an index is its first element, and the reply's 'note' says so.")]
         string? controlName = null,
@@ -553,7 +553,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "set_control_property")]
-    [Description("Sets a named property on a form or UserControl control and saves the file. The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The value is written as the Properties window shows it: text, a number with '.' for decimals, True or False, a colour literal such as &H00C0FFC0&, or an enum by number, by name, or as '1 - Opaque'; a refused value's reply lists what that property takes. get_form_controls lists the controls, and with 'controlName' every property of one, its value as this tool takes it. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A rename the naming rules refuse changes nothing. The save writes the whole file, so text set earlier and not yet saved counts too: when the file's code page cannot hold a character anywhere in it, the value is set in the IDE but nothing is written and no dialog is shown, and the reply names the document, the code page, the character and the line that holds it. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' gives the value the property now holds, which can differ from the text sent, and 'project' and 'document' name the form as the IDE spells them.")]
+    [Description("Sets a named property on a form or UserControl control and saves the file. The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The value is written as the Properties window shows it: text, a number with '.' for decimals, True or False, a colour literal such as &H00C0FFC0&, or an enum by number, by name, or as '1 - Opaque'; a Font as get_form_controls shows it, such as 'Tahoma, 9.75 pt, bold', where a part not given is kept; a refused value's reply lists what that property takes. get_form_controls lists the controls, and with 'controlName' every property of one, its value as this tool takes it. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A rename the naming rules refuse changes nothing. The save writes the whole file, so text set earlier and not yet saved counts too: when the file's code page cannot hold a character anywhere in it, the value is set in the IDE but nothing is written and no dialog is shown, and the reply names the document, the code page, the character and the line that holds it. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' gives the value the property now holds, which can differ from the text sent, and 'project' and 'document' name the form as the IDE spells them.")]
     public async Task<MutateResult> SetControlPropertyAsync(
         string formName, string controlName, string property, string value, string? project = null,
         CancellationToken ct = default)
@@ -598,7 +598,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return (null, null, $"Property '{property}' not found on {control.BaseClass.VBTypeName}");
 
             // Any spelling the Properties window shows for a value; colours and enums were refused outright. (#641)
-            if (!PropertyText.TryParse(propClass, value, out var parsed))
+            // With the value it holds, so a font given in part keeps the rest (#952).
+            if (!PropertyText.TryParse(propClass, value, out var parsed, control.GetBoxedPropertyOrDefault(propClass)))
                 return (null, null, $"Cannot set '{propClass.Name}' to '{value}': it takes {PropertyText.Accepted(propClass)}");
 
             // Refused BEFORE the property is set, for the same reason as set_file_content. (#538)

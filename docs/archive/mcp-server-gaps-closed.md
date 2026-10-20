@@ -3290,3 +3290,37 @@ the open one from `AttachedPopupOf` for a CodeEditorView owner, so the snapshot 
 > a popup is drawn in the window's own overlay; there the walk also meets each popup a second time under `Window`,
 > as it does a context menu. Still out of reach: the description tooltip beside a list item, and committing an item
 > by `double_click`, which the list takes on a press; select it, then `press_key` Tab or Enter, which is #941's.
+
+## `set_control_property` cannot set Font, and its refusal implies a text form that does not exist
+
+**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
+
+```
+set_control_property {"formName":"Form1","controlName":"Label0","property":"Font","value":"DejaVu Sans"}
+→ {"success":false,"error":"Cannot set 'Font' to 'DejaVu Sans': it takes a value the Properties window accepts for a VBFont"}
+```
+
+The Properties window's Font row read "DejaVu Sans", the string refused, and that row is read-only beside a "..."
+button, so the set of values it accepts is empty. The description promises that a refused value's reply lists
+what the property takes, and here it does not. By code reading every `byte[]` property (Picture, Icon,
+MouseIcon, DragIcon, OleObjectBlob, List, ItemData) falls through the same way, refused as "...accepts for a
+Byte[]". Cross-platform by code reading.
+
+**Workaround.** For Font, the Properties window: select the control, `interact` `invoke` on the Font row's
+`PART_OpenFontWindowButton`, then drive the Font dialog, which the run did successfully. For the `byte[]`
+properties none is known: the grid gives them only a generic text box, and what it does with a typed value was
+not checked.
+
+**Suggested fix.** Accept Font as the grid shows it (a family, optionally a size and style words), merged with the
+current font so what is not given is kept. Never let a refusal promise a text form the parser refuses: name the
+Font dialog for Font, and say that no automation route exists yet for the `byte[]` properties.
+[#952](https://github.com/hexide-io/HexIDE/issues/952).
+
+> **Fixed.** `set_control_property` sets Font from the text `get_form_controls` shows for it: parts separated by
+> commas, the face first, such as `Tahoma, 9.75 pt, bold, italic`, with `regular`, `underline`, `strikethrough`,
+> `weight N` and `charset N` too. A part not given keeps the current font's, so `DejaVu Sans`, as the run sent it,
+> changes the face alone and `12 pt` the size; when any style word is given, the words given are the whole style,
+> so a font read off one control sets another to that font and `regular` clears every style. A regular font's text
+> now ends in `regular`, so its `settable` row is `true` and round-trips. A refusal names that form for a Font, and
+> for a `byte[]` property says it has no text form and no automation route yet, rather than promising one. Guarded
+> by `PropertyTextTests`.

@@ -23,7 +23,10 @@ public static partial class PropertyText
     private static partial Regex LeadingNumber();
 
     /// <summary>Parses <paramref name="text"/> as a value of <paramref name="property"/>'s type.</summary>
-    public static bool TryParse(PropertyClass property, string text, out object? value)
+    /// <param name="current">
+    /// The value the property holds now, for a text that changes part of one: a font's size alone keeps its face.
+    /// </param>
+    public static bool TryParse(PropertyClass property, string text, out object? value, object? current = null)
     {
         var type = property.PropertyType;
         var invariant = CultureInfo.InvariantCulture;
@@ -39,6 +42,8 @@ public static partial class PropertyText
             return Parsed(bool.TryParse(text.Trim(), out var b), b, out value);
         if (type.IsEnum)
             return TryParseEnum(type, text, out value);
+        if (type == typeof(VBFont))
+            return TryParseFont(text, current is VBFont font ? font : VBFont.Default, out value);
 
         try
         {
@@ -65,6 +70,13 @@ public static partial class PropertyText
         if (type == typeof(VBColor))
             return "a VB6 colour literal as the Properties window shows it, such as &H00C0FFC0& for a colour or "
                    + "&H8000000F& for a system colour";
+        if (type == typeof(VBFont))
+            return "a font as get_form_controls shows it, parts separated by commas, such as \"Tahoma, 9.75 pt, bold, "
+                   + "italic\": a face, a size in points, and style words (regular, bold, italic, underline, "
+                   + "strikethrough, weight N, charset N). A part not given keeps the current font's; when any style "
+                   + "word is given, the words given are the whole style, so \"regular\" clears it";
+        if (type == typeof(byte[]))
+            return "no text: it is loaded through the Properties window's dialog, and no automation route reaches it yet";
         if (type == typeof(bool))
             return "True or False";
         if (type == typeof(int))
@@ -87,8 +99,8 @@ public static partial class PropertyText
     /// <summary>
     /// A stored value as text <see cref="TryParse"/> takes back, where that property can be set from text (#923): an
     /// enum as the Properties window's dropdown shows it, "1 - Opaque", a colour as its literal, a number with '.' in
-    /// any culture. What is set through a dialog reads as a summary instead: a font as its face, size and style, a
-    /// picture or other binary value as its size, or "(None)".
+    /// any culture, a font as its face, size and style (#952). A picture or other binary value, which is loaded through
+    /// a dialog, reads as a summary instead: its size, or "(None)".
     /// </summary>
     public static string Shown(PropertyClass property, object? value) => value switch
     {
@@ -103,6 +115,8 @@ public static partial class PropertyText
                 font.Weight switch { VBFont.NormalWeight => null, VBFont.BoldWeight => "bold", var w => $"weight {w}" },
                 font.Italic ? "italic" : null,
                 font.Underline ? "underline" : null, font.Strikethrough ? "strikethrough" : null,
+                // So the text names the whole style, and sent back it clears one another font had (#952).
+                font is { Weight: VBFont.NormalWeight, Italic: false, Underline: false, Strikethrough: false } ? "regular" : null,
                 font.Charset == 0 ? null : $"charset {font.Charset}",
             }.Where(part => part is not null)),
         IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
@@ -184,6 +198,81 @@ public static partial class PropertyText
         raw.Lines is [var line] && line.IndexOf('=') is var eq and >= 0
             ? line[(eq + 1)..].Trim()
             : string.Join("\n", raw.Lines.Select(l => l.Trim()));
+
+    [GeneratedRegex(@"^(?<size>\d+(?:\.\d+)?)\s*(?:pt)?$", RegexOptions.IgnoreCase)]
+    private static partial Regex FontSize();
+
+    [GeneratedRegex(@"^(?<what>weight|charset)\s+(?<n>\d+)$", RegexOptions.IgnoreCase)]
+    private static partial Regex FontNumber();
+
+    /// <summary>
+    /// A font as <see cref="Shown"/> writes it, "Tahoma, 9.75 pt, bold, italic", merged with <paramref name="current"/>
+    /// (#952): set_control_property refused every Font, and its refusal named a text form that did not exist.
+    /// </summary>
+    /// <remarks>
+    /// Parts are separated by commas, in any order but the face first. A part not given keeps <paramref
+    /// name="current"/>'s, so "12 pt" changes the size alone and "DejaVu Sans" the face. Style words are taken as a
+    /// set: when any is given, the words given are the whole style, so a font read off one control and sent to
+    /// another is that font, and "regular" clears every style. Charset is kept unless given, since the text of a
+    /// font with the default charset leaves it out.
+    /// </remarks>
+    private static bool TryParseFont(string text, VBFont current, out object? value)
+    {
+        value = null;
+        var parts = text.Split(',').Select(p => p.Trim()).ToList();
+        if (parts.Count == 0 || parts.Any(p => p.Length == 0))
+            return false;
+
+        var (face, size, charset) = (current.FontFamilyName, current.Size, current.Charset);
+        int? weight = null;
+        bool italic = false, underline = false, strikethrough = false, styled = false;
+        for (var i = 0; i < parts.Count; i++)
+        {
+            var part = parts[i];
+            if (FontSize().Match(part) is { Success: true } sized)
+            {
+                size = double.Parse(sized.Groups["size"].Value, CultureInfo.InvariantCulture);
+                if (size <= 0) return false;
+            }
+            else if (FontNumber().Match(part) is { Success: true } numbered)
+            {
+                var n = int.Parse(numbered.Groups["n"].Value, CultureInfo.InvariantCulture);
+                if (numbered.Groups["what"].Value.Equals("charset", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (n > 255) return false;
+                    charset = n;
+                }
+                else
+                {
+                    if (n is < 1 or > 1000) return false;
+                    (weight, styled) = (n, true);
+                }
+            }
+            else
+            {
+                switch (part.ToLowerInvariant())
+                {
+                    case "regular": styled = true; break;
+                    case "bold": (weight, styled) = (VBFont.BoldWeight, true); break;
+                    case "italic": (italic, styled) = (true, true); break;
+                    case "underline": (underline, styled) = (true, true); break;
+                    case "strikethrough": (strikethrough, styled) = (true, true); break;
+                    // Anything else is the face, which comes first; a word later is a mistake, not a face.
+                    default:
+                        if (i != 0) return false;
+                        face = part;
+                        break;
+                }
+            }
+        }
+
+        value = styled
+            ? new VBFont(face, size, charset: charset, italic: italic, underline: underline, strikethrough: strikethrough,
+                weight: weight ?? VBFont.NormalWeight)
+            : new VBFont(face, size, charset: charset, italic: current.Italic, underline: current.Underline,
+                strikethrough: current.Strikethrough, weight: current.Weight);
+        return true;
+    }
 
     private static bool TryParseEnum(Type type, string text, out object? value)
     {

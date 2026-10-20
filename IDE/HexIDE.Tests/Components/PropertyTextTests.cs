@@ -128,8 +128,7 @@ public class PropertyTextTests
         rows["BackStyle"].Should().Be(new PropertyRow("BackStyle", "1 - Opaque", Settable: true));
         rows["BackColor"].Should().Be(new PropertyRow("BackColor", "&H00C0FFC0&", Settable: true));
         rows["(Name)"].Should().Be(new PropertyRow("(Name)", "Label1", Settable: true));
-        rows["Font"].Should().Be(new PropertyRow("Font", "Tahoma, 9.75 pt, bold, italic", Settable: false),
-            "a font is set through its dialog, so its text is to read, not to send back");
+        rows["Font"].Should().Be(new PropertyRow("Font", "Tahoma, 9.75 pt, bold, italic", Settable: true));
     }
 
     [Fact]
@@ -252,5 +251,68 @@ public class PropertyTextTests
     {
         PropertyText.Shown(VBProperties.FontProperty, new VBFont("Arial", 10, weight: 600, charset: 204))
             .Should().Be("Arial, 10 pt, weight 600, charset 204");
+    }
+
+    // ── a font set from text, as get_form_controls shows it (#952) ───────────────────────────────────────────────
+
+    private static readonly VBFont Tahoma = new("Tahoma", 9.75, bold: true, italic: true, charset: 204);
+
+    private static VBFont Font(string text, VBFont? current = null)
+    {
+        PropertyText.TryParse(VBProperties.FontProperty, text, out var value, current ?? Tahoma).Should().BeTrue(text);
+        return value.Should().BeOfType<VBFont>().Subject;
+    }
+
+    [Fact]
+    public void A_font_s_shown_text_sets_that_font()
+    {
+        var fonts = new[]
+        {
+            Tahoma, VBFont.Default, new VBFont("Arial", 10, weight: 600, underline: true, strikethrough: true),
+            new VBFont("Courier New", 12, charset: 2),
+        };
+        foreach (var font in fonts)
+            Font(PropertyText.Shown(VBProperties.FontProperty, font), current: new VBFont("Wingdings", 30, bold: true, charset: 2))
+                .Should().Be(new VBFont(font.FontFamilyName, font.Size, italic: font.Italic, charset: font.Charset == 0 ? 2 : font.Charset,
+                        underline: font.Underline, strikethrough: font.Strikethrough, weight: font.Weight),
+                    "every part but a default charset is in the text, and that one is kept");
+    }
+
+    [Fact]
+    public void A_font_given_in_part_keeps_the_rest()
+    {
+        Font("DejaVu Sans").Should().Be(new VBFont("DejaVu Sans", 9.75, bold: true, italic: true, charset: 204), "the face alone, as the gap sent it");
+        Font("12 pt").Should().Be(new VBFont("Tahoma", 12, bold: true, italic: true, charset: 204));
+        Font("12").Should().Be(new VBFont("Tahoma", 12, bold: true, italic: true, charset: 204));
+        Font("charset 0").Should().Be(new VBFont("Tahoma", 9.75, bold: true, italic: true));
+    }
+
+    [Fact]
+    public void Style_words_given_are_the_whole_style()
+    {
+        Font("underline").Should().Be(new VBFont("Tahoma", 9.75, underline: true, charset: 204), "bold and italic are not given");
+        Font("Tahoma, regular").Should().Be(new VBFont("Tahoma", 9.75, charset: 204));
+        Font("BOLD").Weight.Should().Be(VBFont.BoldWeight);
+        Font("weight 300").Should().Match<VBFont>(f => f.Weight == 300 && !f.Italic);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("Tahoma, ")]
+    [InlineData("Tahoma, 0 pt")]
+    [InlineData("Tahoma, -3 pt")]
+    [InlineData("Tahoma, bold, Arial")]
+    [InlineData("Tahoma, weight 0")]
+    [InlineData("Tahoma, charset 300")]
+    public void A_font_text_that_does_not_say_one_font_is_refused(string text)
+    {
+        PropertyText.TryParse(VBProperties.FontProperty, text, out _, Tahoma).Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_refusal_names_the_text_a_font_and_a_picture_take()
+    {
+        PropertyText.Accepted(VBProperties.FontProperty).Should().Contain("\"Tahoma, 9.75 pt, bold, italic\"").And.Contain("regular");
+        PropertyText.Accepted(VBProperties.PictureProperty).Should().StartWith("no text").And.Contain("no automation route");
     }
 }
