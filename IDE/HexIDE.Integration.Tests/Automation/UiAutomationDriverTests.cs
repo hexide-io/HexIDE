@@ -363,6 +363,66 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
+    // #953: Window -> UserControl -> UserControl -> Button, the intermediates not focusable and with no provider.
+    private static (Window window, UserControl outer) BuildDeepWindow()
+    {
+        var inner = new UserControl { Name = "Inner", Focusable = false, Content = new Button { Name = "Deep", Content = "x" } };
+        var outer = new UserControl { Name = "Outer", Focusable = false, Content = inner };
+        var window = new Window { Content = outer, Width = 200, Height = 150 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        return (window, outer);
+    }
+
+    [AvaloniaFact]
+    public void Dump_KeepsANodeCutOffByMaxDepth_MarkedTruncated_EvenUnderInteractiveOnly()
+    {
+        var (window, _) = BuildDeepWindow();
+        try
+        {
+            var tree = UiAutomationDriver.Dump(window, "Window", maxDepth: 1, interactiveOnly: true);
+            var outer = Flatten(tree).Single(n => n.Name == "Outer");
+
+            outer.Truncated.Should().BeTrue();
+            outer.Children.Should().BeEmpty();
+            tree.Truncated.Should().BeNull("the window's own children were walked");
+
+            // Dumping again from the truncated node's path reaches what was below it.
+            var (resolved, error) = UiAutomationDriver.Resolve(window, outer.Path);
+            error.Should().BeNull();
+            Flatten(UiAutomationDriver.Dump(resolved!, outer.Path, maxDepth: 20, interactiveOnly: true))
+                .Should().Contain(n => n.Name == "Deep");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Dump_DeepEnough_MarksNothingTruncated()
+    {
+        var (window, _) = BuildDeepWindow();
+        try
+        {
+            var all = Flatten(UiAutomationDriver.Dump(window, "Window", maxDepth: 20, interactiveOnly: false)).ToList();
+            all.Should().Contain(n => n.Name == "Deep");
+            all.Should().OnlyContain(n => n.Truncated == null);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Dump_ALeafAtTheCutOff_IsNotTruncated()
+    {
+        var (window, _) = BuildDeepWindow();
+        try
+        {
+            // Window(0) -> Outer(1) -> Inner(2) -> Deep(3): the button sits exactly at the cap and has nothing below.
+            var deep = Flatten(UiAutomationDriver.Dump(window, "Window", maxDepth: 3, interactiveOnly: true))
+                .Single(n => n.Name == "Deep");
+            deep.Truncated.Should().BeNull();
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void Dump_CollapsesStructuralWrappers_IntoShortPaths()
     {

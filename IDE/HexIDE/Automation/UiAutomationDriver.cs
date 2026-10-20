@@ -2012,10 +2012,14 @@ public static class UiAutomationDriver
         var selfInteractive = info.Providers.Length > 0 || info.Focusable;
 
         var children = new List<UiNode>();
-        if (depth < maxDepth)
+        var metas = new List<MeaningfulChild>();
+        CollectMeaningfulChildren(node.Control, metas);
+        // A node at the cap still has its children counted, without walking them. An empty list there read as a
+        // leaf, and under interactiveOnly as "nothing interactive below", which pruned the node and every
+        // non-interactive ancestor in turn: the designer pane dumped as a bare tab strip (#953).
+        var truncated = depth >= maxDepth && metas.Count > 0;
+        if (!truncated)
         {
-            var metas = new List<MeaningfulChild>();
-            CollectMeaningfulChildren(node.Control, metas);
             foreach (var m in metas)
             {
                 UiNode? child;
@@ -2025,15 +2029,16 @@ public static class UiAutomationDriver
             }
         }
 
-        if (interactiveOnly && !selfInteractive && children.Count == 0)
+        // Kept when its children were not walked: whether anything interactive lies below is unknown, not absent.
+        if (interactiveOnly && !selfInteractive && children.Count == 0 && !truncated)
             return null;
 
-        return MakeNode(node, path, [.. children]);
+        return MakeNode(node, path, [.. children], truncated);
     }
 
     private static UiNode BareNode(MeaningfulChild node, string path) => MakeNode(node, path, []);
 
-    private static UiNode MakeNode(MeaningfulChild node, string path, UiNode[] children)
+    private static UiNode MakeNode(MeaningfulChild node, string path, UiNode[] children, bool truncated = false)
     {
         var info = node.Info;
         return new UiNode(
@@ -2048,7 +2053,8 @@ public static class UiAutomationDriver
             info.Peer is not null && Safe(() => info.Peer.IsOffscreen(), false),
             Hidden(node.Control),
             children,
-            TypeNameAsNameOf(info.Peer));
+            TypeNameAsNameOf(info.Peer),
+            truncated ? true : null);
     }
 
 
@@ -2364,7 +2370,10 @@ public record UiNode(
     bool IsOffscreen,
     bool? IsHidden,
     UiNode[] Children,
-    string? TypeNameAsName = null);
+    string? TypeNameAsName = null,
+    // True when the node has children the walk did not reach because it stopped at maxDepth; absent otherwise, so
+    // an empty Children is a leaf only when this is absent (#953).
+    bool? Truncated = null);
 
 /// <summary>Deep single-node inspection from <see cref="UiAutomationDriver.Inspect"/>.</summary>
 public record UiNodeDetail(

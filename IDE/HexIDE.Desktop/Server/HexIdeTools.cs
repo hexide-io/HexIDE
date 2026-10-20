@@ -2011,10 +2011,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
         [Description("A path to dump only that subtree; omit for the whole window. For deeply nested or large areas, "
                      + "scope the dump this way.")]
         string? root = null,
-        [Description("How many levels to walk, counted in control-view levels rather than raw visuals. Default 20.")]
+        [Description("How many levels to walk, counted in control-view levels rather than raw visuals. Default 20. "
+                     + "A node whose children lie below the cut-off carries \"truncated\": true and an empty children "
+                     + "list, so an empty list is a leaf only without it: dump again with its path as root to see them.")]
         int maxDepth = 20,
         [Description("Default true: keeps only nodes that are interactive or have an interactive descendant. Pass "
-                     + "false to see text and labels that nothing can click.")]
+                     + "false to see text and labels that nothing can click. A node cut off by maxDepth is kept, "
+                     + "marked \"truncated\", since what lies below it was not looked at.")]
         bool interactiveOnly = true,
         [Description(WindowParameter)]
         string? window = null,
