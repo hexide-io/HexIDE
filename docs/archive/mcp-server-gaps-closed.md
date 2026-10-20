@@ -2792,11 +2792,18 @@ the UI thread at the debugger's 15 ms time slice (#766), so the tool's reply was
 
 > **Fixed.** Every control on a running form carries the name its code uses as its AutomationId: `Text1`, or
 > `Command1(0)` for an element of a control array, including one `Load` adds at run time. A tree shows it as the
-> path's discriminator, `Window/Edit[Text1]`, and a tool reaches it as `Window/#Text1`. A CommandButton, CheckBox or
-> OptionButton is named by its caption as it reads: `&OK` is "OK", `E&xit` is "Exit", `Tom && Jerry` is "Tom & Jerry",
-> so `Button[Exit]` reaches it. The rule is Windows' for prefix characters, not measured on the oracle (#920 owes that).
-> Designer controls are left as they were (#526). Not covered: the constituent controls of a UserControl, which are
-> built without the loader. Guarded by `RunningFormNamesTests`.
+> path's discriminator, `Window/Edit[Text1]`, and a tool reaches it as `Window/#Text1` at any depth. A CommandButton,
+> CheckBox, OptionButton or Frame is named by its caption as it reads: `&OK` is "OK", `E&xit` is "Exit", `Tom && Jerry`
+> is "Tom & Jerry", so `Button[Exit]` reaches it. A Label is too, its `&` dropped only where UseMnemonic marks a key.
+> The rule is Windows' documented one for prefix characters, not measured on the oracle (#920 owes that); a trailing
+> `&`, which Microsoft does not document, is kept.
+>
+> The id makes a node of a container the tree used to fold away, so the tree now follows the form's containment: a
+> control in a Frame is `Window/Group[Frame1]/Button[cmdOK]`, in a PictureBox `Window/Pane[Picture1]/...`, where both
+> used to sit directly under `Window`. A Label is `Text[Label1]` and an Image `Image[Image1]`; a Timer, Shape, Line or
+> CommonDialog has no type of its own and shows as `None[Timer1]`. Designer controls are left as they were (#526). Not
+> covered: the constituent controls of a UserControl, which are built without the loader. Guarded by
+> `RunningFormNamesTests`.
 
 **Symptom.** Found on Linux and read in code on Windows (#954):
 

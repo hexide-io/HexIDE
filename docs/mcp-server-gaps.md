@@ -1323,27 +1323,21 @@ deletable segments.
 **Suggested fix.** Delete what the deletable segments allow, as the key does, and say what was left and why.
 [#1055](https://github.com/hexide-io/HexIDE/issues/1055).
 
-## A Label on a running form is missing from the tree, so no tool can click it or read its caption
+## A Label on a running form is left out of the default tree (narrowed 2026-10-20)
 
 **Symptom.** Measured on 2026-10-15, driving the Battleship demo (#1071), whose board is 25 Labels and a status Label:
+none of the 26 was in `dump_visual_tree`, even with `interactiveOnly` false, and nothing could click one but a
+coordinate.
 
-```
-dump_visual_tree {"interactiveOnly":false,"maxDepth":20}
-→ {"window":"Battleship - Admiral","root":{"path":"Window",...,"children":[{"path":"Window/Menu",...,"isHidden":true,
-   "children":[]}]}}
-```
+**Narrowed by #954.** A Label now carries its VB6 name and is named by its caption, so `Window/#lblStatus` reaches it,
+`inspect_element` reads its caption as the node's name, and a dump with `interactiveOnly` false shows it as
+`Text[lblStatus]`. What remains: the default dump, `interactiveOnly` true, still leaves it out, because a Label has no
+automation provider and cannot take focus, though a program may handle its Click.
 
-None of the 26 Labels is there, with `interactiveOnly` false (the default is true). A pointer reaches them, so they
-are on screen: `interact {"target":"Window","action":"click","value":"20,20"}` replies "landing on its part 'VBLabel'".
-Nothing in the reply says controls were left out.
+**Workaround.** Pass `interactiveOnly: false`, or target `Window/#lblStatus` by the name in the code.
 
-**Workaround.** Click the form at a point: `interact {"target":"Window","action":"click","value":"x,y"}`, with `x,y` worked
-out from the control's twips at 15 to a pixel, in device-independent units from the client area's top-left. Read a
-caption with `take_snapshot`.
-
-**Suggested fix.** A peer for each built-in control that has none, `VBLabel` first, naming it by its caption. No control
-in `BuiltinControls/` overrides `OnCreateAutomationPeer`, which is the likely cause and isn't verified.
-[#1076](https://github.com/hexide-io/HexIDE/issues/1076).
+**Suggested fix.** Count a run-time Label as interactive in the default dump, or every node with a run-time id: the
+caption is often what a program reports through. [#1076](https://github.com/hexide-io/HexIDE/issues/1076).
 
 ### Breakpoint gutter hover target (#1176, fixed in this slice)
 

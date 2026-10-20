@@ -13,7 +13,10 @@ namespace HexIDE.Runtime.BuiltinControls;
 /// </summary>
 public static class VBCaption
 {
-    /// <summary><paramref name="caption"/> as shown: <c>E&amp;xit</c> is <c>Exit</c>, <c>Tom &amp;&amp; Jerry</c> is <c>Tom &amp; Jerry</c>.</summary>
+    /// <summary>
+    /// <paramref name="caption"/> as shown: <c>E&amp;xit</c> is <c>Exit</c>, <c>Tom &amp;&amp; Jerry</c> is <c>Tom &amp; Jerry</c>. A
+    /// trailing <c>&amp;</c>, which Microsoft does not document, is kept.
+    /// </summary>
     public static string AsShown(string caption)
     {
         if (!caption.Contains('&'))
@@ -21,9 +24,10 @@ public static class VBCaption
         var shown = new StringBuilder(caption.Length);
         for (var i = 0; i < caption.Length; i++)
         {
-            if (caption[i] != '&')
+            // An & marks the character after it, so a trailing one, with none to mark, is drawn.
+            if (caption[i] != '&' || i + 1 == caption.Length)
                 shown.Append(caption[i]);
-            else if (i + 1 < caption.Length && caption[i + 1] == '&')
+            else if (caption[i + 1] == '&')
                 shown.Append(caption[++i]);
         }
         return shown.ToString();

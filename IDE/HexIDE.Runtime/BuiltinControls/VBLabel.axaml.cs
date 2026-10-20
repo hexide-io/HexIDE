@@ -88,6 +88,16 @@ public class VBLabel : TemplatedControl
         UpdateStyle();
     }
 
+    // Named as its caption reads, the access key's & dropped only where UseMnemonic marks one (#954).
+    private void UpdateAutomationName()
+    {
+        var shown = Text is { } text && RecognizesAccessKey ? VBCaption.AsShown(text) : Text;
+        if (shown is { Length: > 0 })
+            SetValue(Avalonia.Automation.AutomationProperties.NameProperty, shown);
+        else
+            ClearValue(Avalonia.Automation.AutomationProperties.NameProperty);
+    }
+
     static VBLabel()
     {
         AffectsRender<VBLabel>(BackColorProperty, BackStyleProperty);
@@ -95,8 +105,8 @@ public class VBLabel : TemplatedControl
         BorderStyleProperty.Changed.AddClassHandler<VBLabel>((label, e) => label.UpdateStyle());
         AlignmentProperty.Changed.AddClassHandler<VBLabel>((label, e) => label.UpdateStyle());
         WordWrapProperty.Changed.AddClassHandler<VBLabel>((label, e) => label.UpdateStyle());
-        RecognizesAccessKeyProperty.Changed.AddClassHandler<VBLabel>((label, e) => label.UpdateStyle());
-        TextProperty.Changed.AddClassHandler<VBLabel>((label, e) => label.UpdateStyle());
+        RecognizesAccessKeyProperty.Changed.AddClassHandler<VBLabel>((label, e) => { label.UpdateStyle(); label.UpdateAutomationName(); });
+        TextProperty.Changed.AddClassHandler<VBLabel>((label, e) => { label.UpdateStyle(); label.UpdateAutomationName(); });
         SymbolFontText.SymbolGlyphsProperty.Changed.AddClassHandler<VBLabel>((label, e) => label.UpdateStyle());
 
         // Before Click, so MouseUp comes first, as VB6 raises them (#974).
