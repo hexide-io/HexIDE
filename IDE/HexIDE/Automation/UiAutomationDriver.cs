@@ -410,6 +410,20 @@ public static class UiAutomationDriver
         var norm = Normalise(action);
         if (norm.Length == 0) return Err("action is required");
 
+        // A provider or pointer action stands for something a person does to the control, and nobody can press
+        // what is not showing. The peer acts regardless, so without this a hidden Approve button reported that it
+        // approved (#1069). The reflection actions act on the view model, not the control, so they are exempt.
+        if (norm is not ("invokecommand" or "setproperty") && Verbs.Any(v => Normalise(v) == norm)
+            && NotShowing(control))
+            return Err($"'{Safe(() => LabelOf(control, ControlAutomationPeer.CreatePeerForElement(control)), control.GetType().Name)}' "
+                       + "is not showing (it or a container is hidden, which dump_visual_tree marks \"isHidden\": true), "
+                       + $"so no person could {action} it. "
+                       + (control is MenuItem
+                           // An item of a closed menu is the common case, and a caller who used to invoke it directly
+                           // needs the two routes that still reach it, not the generic advice.
+                           ? "It is an item of a menu that is not open: expand the menu first, or name it to invoke_menu_item, which needs no menu open"
+                           : "Target the copy that shows, or make it show first; invoke_command and set_property act on its view model and still work"));
+
         AutomationPeer peer;
         try { peer = ControlAutomationPeer.CreatePeerForElement(control); }
         catch (Exception ex) { return Err($"could not create automation peer: {ex.Message}"); }
@@ -552,6 +566,19 @@ public static class UiAutomationDriver
             return Err($"action '{norm}' threw: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// Whether a person could not reach <paramref name="control"/> to act on it: it or a container is hidden, or it is
+    /// an item of a submenu that is not open.
+    /// </summary>
+    /// <remarks>
+    /// Effective visibility alone answers the second case differently depending on history. An item of a menu never
+    /// opened has no popup around it yet, so it reads as visible, while the same item after its menu has opened and
+    /// closed once reads as hidden; the same call would act one moment and be refused the next.
+    /// </remarks>
+    private static bool NotShowing(Control control) =>
+        Hidden(control) is true
+        || (control is MenuItem && Safe(() => control.Parent is MenuItem { IsSubMenuOpen: false }, false));
 
     /// <summary>
     /// The list <paramref name="item"/> belongs to, when that list holds several selected items at once.

@@ -2495,3 +2495,35 @@ works.
 for its first render if it has had none. Where the hit test still finds nothing, say whether the window has been laid out
 and rendered yet.
 [#1065](https://github.com/hexide-io/HexIDE/issues/1065).
+
+---
+
+## `interact` acts on a control that is not on screen, and reports success — **CLOSED** (#1069, 2026-10-20)
+
+> **Fixed.** `UiAutomationDriver.Interact` refuses every provider and pointer action (`invoke`, `click`, `toggle`,
+> `select`, `set_value`, `expand`, `scroll` and the rest) on a control that is not effectively visible, before its
+> peer is asked to act. The refusal says the control is not showing, names the `"isHidden": true` flag the dump
+> already shows, and points at the reflection actions, which act on the view model and stay exempt. Guarded by
+> `UiAutomationDriverTests`: the hidden button is not clicked, the hidden box not toggled or typed into, and the
+> showing copy beside it still acts.
+
+**Symptom.** Measured on 2026-10-15 in AI Chat's transcript (#273 task 3.22). Each message is templated with an
+Approve and a Reject button, shown only while that message is an approval prompt. So `dump_visual_tree` lists a
+pair per message, each one `"isHidden": true` except the pair of the prompt awaiting a decision. Invoking a
+hidden one:
+
+```
+interact {"target":".../TitleBar[AI Chat]/Pane[AI Chat]/Custom/Custom/Pane[Scroller]/List/Button[#0]","action":"invoke"}
+→ {"success":true,"mechanism":"peer","detail":"invoked Button 'Approve'"}
+```
+
+Nothing happened: that message was never a prompt, and its view model ignores the decision. No person can press a
+button that is not shown, and a caller who takes the first `Approve` in the tree reads that it approved the
+pending call. A control whose handler has no such guard would act out of sight.
+
+**Workaround.** Pick the node without `isHidden`. In AI Chat's transcript, the pending prompt's pair is the only
+one without it.
+
+**Suggested fix.** Refuse a provider or pointer action on a control that is not effectively visible, saying why
+and naming the `isHidden` flag. [#1069](https://github.com/hexide-io/HexIDE/issues/1069).
+

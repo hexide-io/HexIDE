@@ -79,6 +79,115 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
+    // #1069: a control nobody can see is a control nobody can press, so a provider or pointer action on it is
+    // refused rather than carried out, and the refusal names the flag the dump already shows.
+    [AvaloniaTheory]
+    [InlineData("invoke", null)]
+    [InlineData("click", null)]
+    [InlineData("toggle", null)]
+    [InlineData("set_value", "x")]
+    public void Interact_OnAControlInsideAHiddenContainer_IsRefused_AndActsOnNothing(string action, string? value)
+    {
+        var clicks = 0;
+        var button = new Button { Name = "Approve", Content = "Approve" };
+        button.Click += (_, _) => clicks++;
+        var check = new CheckBox { Name = "Hold" };
+        var text = new TextBox { Name = "Note", Text = "" };
+        var hidden = new StackPanel { IsVisible = false, Children = { button, check, text } };
+        var window = new Window { Content = new StackPanel { Children = { hidden } }, Width = 200, Height = 150 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            Control target = action switch { "toggle" => check, "set_value" => text, _ => button };
+            var outcome = UiAutomationDriver.Interact(target, action, value);
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("is not showing").And.Contain("isHidden");
+            clicks.Should().Be(0);
+            check.IsChecked.Should().BeFalse();
+            text.Text.Should().BeEmpty();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_OnAnItemOfAClosedMenu_IsRefused_AndNamesTheRoutesThatReachIt()
+    {
+        var clicks = 0;
+        var item = new MenuItem { Header = "Options" };
+        item.Click += (_, _) => clicks++;
+        var tools = new MenuItem { Header = "Tools", Items = { item } };
+        var window = new Window { Content = new Menu { Items = { tools } }, Width = 200, Height = 150 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(item, "invoke", null);
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("menu that is not open").And.Contain("invoke_menu_item");
+            clicks.Should().Be(0);
+
+            // Opened, as a person opens it, the same item acts.
+            UiAutomationDriver.Interact(tools, "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            UiAutomationDriver.Interact(item, "invoke", null).Success.Should().BeTrue();
+            clicks.Should().Be(1);
+
+            // And closed again it is refused again, rather than depending on whether it was ever opened.
+            tools.Close();
+            Dispatcher.UIThread.RunJobs();
+            UiAutomationDriver.Interact(item, "invoke", null).Success.Should().BeFalse();
+            clicks.Should().Be(1);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_OnTheShowingCopy_StillActs()
+    {
+        var clicks = 0;
+        var shown = new Button { Name = "Approve", Content = "Approve" };
+        shown.Click += (_, _) => clicks++;
+        var window = new Window
+        {
+            Content = new StackPanel
+            {
+                Children = { new StackPanel { IsVisible = false, Children = { new Button { Content = "Approve" } } }, shown },
+            },
+            Width = 200, Height = 150,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            UiAutomationDriver.Interact(shown, "invoke", null).Success.Should().BeTrue();
+            clicks.Should().Be(1);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_ReflectionActions_StillReachAHiddenControlsViewModel()
+    {
+        var vm = new SampleVm();
+        var button = new Button { Name = "Approve", Content = "Approve", DataContext = vm };
+        var window = new Window
+        {
+            Content = new StackPanel { Children = { new StackPanel { IsVisible = false, Children = { button } } } },
+            Width = 200, Height = 150,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            UiAutomationDriver.Interact(button, "set_property", "Caption=changed").Success.Should().BeTrue();
+            vm.Caption.Should().Be("changed");
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void Dump_CollapsesStructuralWrappers_IntoShortPaths()
     {
