@@ -194,6 +194,27 @@ public class ProgramWaitTests
                                    + "so the form may still change)");
     }
 
+    // A window over the form that is not the program's own box, such as the IDE's compile error from another event, may
+    // not hold the handler, so it is not said to (#1253).
+    [AvaloniaFact]
+    public async Task A_window_over_a_busy_form_that_is_not_a_MsgBox_is_not_said_to_hold_the_handler()
+    {
+        using var run = Start(LongClick);
+        var watch = run.Watch();
+        var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+        var shown = new Window { Title = "HexIDE" };
+        _ = shown.ShowDialog(run.Window);
+        try
+        {
+            outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
+
+            outcome.Detail.Should().Be("invoked Button 'Command1' (the program is still running Command1_Click, and has a "
+                                       + "window open over its form, 'HexIDE'; it may hold the program until it is "
+                                       + "answered, so the form may change after that)");
+        }
+        finally { shown.Close(); }
+    }
+
     // A MsgBox holds its handler until it is answered, so the click that raised it is answered at once; and the click
     // that answers it waits for the rest of the handler, though the box has closed and lost its owner by then.
     [AvaloniaFact]
@@ -326,6 +347,98 @@ public class ProgramWaitTests
         outcome.Detail.Should().Be($"invoked Button 'Command1' (the program is paused at Form1 line "
                                    + $"{LineOf(code, "' break here")} (Breakpoint), with Command1_Click not finished; it "
                                    + "runs on, and the form may change, once the program continues)");
+    }
+
+    [AvaloniaFact]
+    public async Task A_compile_error_from_a_click_is_named_though_it_leaves_the_program_idle()
+    {
+        // The IDE shows a compile error over the form and does not await it, so the walk ends and the program is idle
+        // with the dialog up; the wait returns at idle naming only forms, and the reply came back clean (#1253).
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Text1.Text = "before"
+                NoSuchSub
+            End Sub
+            """);
+        Window? shown = null;
+        void Report(VBWindowContext context, HexIDE.Runtime.Interpreter.VBCompileErrorException e)
+        {
+            shown = new Window { Title = "HexIDE", Content = e.Message };
+            _ = shown.ShowDialog(run.Window);
+        }
+        VBWindowContext.CompileError += Report;
+        try
+        {
+            var dialogs = OpenDialogs.Watch(OpenWindows(), run.Window);
+            OpenDialogs.During(dialogs);
+            var watch = run.Watch();
+            var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+            outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome);
+            Pump();
+
+            shown.Should().NotBeNull("the click reaches the call to a Sub that does not exist");
+            run.Window.Events!.IsIdle.Should().BeTrue();
+            outcome.Detail.Should().Be("invoked Button 'Command1'");
+            OpenDialogs.Note(dialogs, OpenWindows()).Should()
+                .StartWith($"'HexIDE', a modal dialog over the running form '{Caption}', opened during this call");
+        }
+        finally
+        {
+            VBWindowContext.CompileError -= Report;
+            shown?.Close();
+        }
+    }
+
+    // An error dialog an earlier call left open over the form, and a MsgBox this click raised: the wait names the MsgBox,
+    // which holds the handler, and the note the dialog; each once (#1253).
+    [AvaloniaFact]
+    public async Task A_MsgBox_raised_beside_a_dialog_left_open_is_named_by_the_wait_and_the_dialog_by_the_note()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                MsgBox "Proceed?", vbOKOnly, "Question"
+            End Sub
+            """);
+        var earlier = new Window { Title = "HexIDE" };
+        _ = earlier.ShowDialog(run.Window);
+        Pump();
+        try
+        {
+            var dialogs = OpenDialogs.Watch(OpenWindows(), run.Window);
+            OpenDialogs.During(dialogs);
+            var watch = run.Watch();
+            var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+            outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
+            Pump();
+
+            outcome.Detail.Should().Contain("has a window open over its form, 'Question'; a MsgBox holds its handler");
+            var note = OpenDialogs.Note(dialogs, OpenWindows());
+            note.Should().StartWith($"'HexIDE', a modal dialog over the running form '{Caption}', is still open");
+            note.Should().NotContain("'Question'");
+
+            // Clicked again while the MsgBox holds the program: the box, which holds it, is named, not the other dialog.
+            dialogs = OpenDialogs.Watch(OpenWindows(), run.Window);
+            OpenDialogs.During(dialogs);
+            watch = run.Watch();
+            outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+            outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
+            Pump();
+
+            outcome.Detail.Should().Contain("has a window open over its form, 'Question'; a MsgBox holds its handler");
+            OpenDialogs.Note(dialogs, OpenWindows()).Should()
+                .StartWith($"'HexIDE', a modal dialog over the running form '{Caption}', is still open").And.NotContain("'Question'");
+        }
+        finally
+        {
+            // Closing the box lets the second click run, and raise a box of its own.
+            for (var i = 0; i < 10 && OpenWindows().Any(w => w.Content is HexIDE.Runtime.Dialogs.MessageBox); i++)
+            {
+                foreach (var box in OpenWindows().Where(w => w.Content is HexIDE.Runtime.Dialogs.MessageBox))
+                    box.Close();
+                Pump();
+            }
+            earlier.Close();
+        }
     }
 
     [AvaloniaFact]

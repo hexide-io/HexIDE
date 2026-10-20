@@ -61,7 +61,7 @@ public class OpenDialogNoteTests
     {
         var tools = ToolSource.Tools.Select(t => t.Name).ToList();
 
-        tools.Should().Contain(OpenDialogNote.WindowTools).And.Contain(OpenDialogNote.ProgramWaitTools);
+        tools.Should().Contain(OpenDialogNote.WindowTools);
     }
 
     // Through the filter itself, over windows of the test's own.
@@ -109,6 +109,22 @@ public class OpenDialogNoteTests
     }
 
     private static string? ModalDialog(string reply) => JsonNode.Parse(reply)!["modalDialog"]?.GetValue<string>();
+
+    // The wait for a running program names in the reply the dialog its handler is held on (#1232), and the note leaves
+    // out that one and only that one (#1253).
+    [AvaloniaFact]
+    public async Task A_dialog_the_call_s_own_reply_named_is_left_out_of_the_note()
+    {
+        using var ide = new Ide();
+
+        var reply = await CallAsync("interact", during: () =>
+        {
+            HexIDE.Automation.OpenDialogs.NamedByWait(ide.Open("Question"));
+            ide.Open("Add Procedure");
+        });
+
+        ModalDialog(reply).Should().StartWith(Note).And.NotContain("'Question'");
+    }
 
     [AvaloniaFact]
     public async Task A_dialog_a_call_opens_is_named_in_its_reply()
