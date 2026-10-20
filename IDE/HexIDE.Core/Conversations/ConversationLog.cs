@@ -69,7 +69,8 @@ public sealed class ConversationLog : IAsyncDisposable
         // rather than order against it. `ConnectionId` empty means every connection.
         TaskCompletionSource<int>? ClearTo = null,
         ConversationOutcome? EndOutcome = null,
-        ConversationDirection? EndOrigin = null);
+        ConversationDirection? EndOrigin = null,
+        bool Fault = false);
 
     private readonly CaptureLimits _limits;
     private readonly TimeProvider _clock;
@@ -386,10 +387,11 @@ public sealed class ConversationLog : IAsyncDisposable
         string? correlationId,
         int sizeBytes,
         byte[]? body = null,
-        string? detail = null)
+        string? detail = null,
+        bool fault = false)
     {
         var pending = new Pending(
-            connectionId, _clock.GetUtcNow(), direction, kind, method, correlationId, sizeBytes, body, detail);
+            connectionId, _clock.GetUtcNow(), direction, kind, method, correlationId, sizeBytes, body, detail, Fault: fault);
 
         if (!_queue.Writer.TryWrite(pending)) Interlocked.Increment(ref _queueDropped);
     }
@@ -545,7 +547,8 @@ public sealed class ConversationLog : IAsyncDisposable
             pending.Method,
             pending.CorrelationId,
             pending.SizeBytes,
-            Detail: pending.Detail));
+            Detail: pending.Detail,
+            Fault: pending.Fault));
 
         if (pending.Kind == ConversationEntryKind.Request && pending.CorrelationId is { } id)
             connection.Outstanding[(pending.Direction, id)] = (sequence, Stopwatch.GetTimestamp());

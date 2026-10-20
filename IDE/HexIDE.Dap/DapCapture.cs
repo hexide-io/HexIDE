@@ -53,18 +53,18 @@ public sealed class DapCapture
         try
         {
             _log.Record(ConnectionId, ConversationDirection.Received, ConversationEntryKind.Note, null, null,
-                bytes.Length, _log.ShouldKeepBody(ConnectionId) ? bytes : null, detail);
+                bytes.Length, _log.ShouldKeepBody(ConnectionId) ? bytes : null, detail, fault: true);
         }
         catch (Exception) { }
     }
 
-    internal void Note(string text, bool standardError = false)
+    internal void Note(string text, bool standardError = false, bool fault = false)
     {
         try
         {
             _log.Record(ConnectionId, standardError ? ConversationDirection.Received : ConversationDirection.Local,
                 standardError ? ConversationEntryKind.StandardError : ConversationEntryKind.Lifecycle,
-                null, null, 0, detail: text);
+                null, null, 0, detail: text, fault: fault);
         }
         catch (Exception) { }
     }

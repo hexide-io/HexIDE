@@ -67,7 +67,7 @@ public sealed class DapProcess : IAsyncDisposable
         }
         catch (Exception ex)
         {
-            options.Capture?.Note($"DAP process startup failed: {ex.GetType().Name}: {ex.Message}");
+            options.Capture?.Note($"DAP process startup failed: {ex.GetType().Name}: {ex.Message}", fault: true);
             try { if (!process.HasExited) process.Kill(entireProcessTree: true); }
             catch (InvalidOperationException) { /* Start failed, or the process already exited. */ }
             finally { process.Dispose(); }

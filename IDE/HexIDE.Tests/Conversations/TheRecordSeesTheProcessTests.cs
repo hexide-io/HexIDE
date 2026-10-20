@@ -66,6 +66,8 @@ public class TheRecordSeesTheProcessTests : IAsyncDisposable
         entries[0].Kind.Should().Be(ConversationEntryKind.Note,
             "it is not a message: it has no method, no id, and no direction the protocol would recognise");
         entries[0].Detail.Should().Contain("undecodable frame");
+        entries[0].Fault.Should().BeTrue("a frame this client cannot read is a failure, whoever is at fault (#945)");
+        entries[0].IsFailure().Should().BeTrue();
     }
 
     [Fact]
@@ -131,6 +133,9 @@ public class TheRecordSeesTheProcessTests : IAsyncDisposable
         entries[0].Method.Should().Be("textDocument/hover",
             "the method is what a reader scans for, and it survives even when the bytes do not");
         entries[0].Detail.Should().Contain("could not be serialized");
+        entries[0].Direction.Should().Be(ConversationDirection.Local, "it never reached the wire");
+        entries[0].Fault.Should().BeTrue("the client-side defect the capture was built to expose (#945)");
+        entries[0].IsFailure().Should().BeTrue();
     }
 
     /// <summary>A type System.Text.Json refuses, standing in for one missing from the context.</summary>
@@ -213,11 +218,104 @@ public class TheRecordSeesTheProcessTests : IAsyncDisposable
             "it arrived after everything the connection had said, and the record has to show that");
     }
 
+    // ── Faults: failures that are not a request's outcome (#945) ────────────
+
+    [Fact]
+    public async Task A_frame_repaired_after_a_null_params_is_a_fault_and_its_repair_is_not()
+    {
+        using var formatter = Formatter();
+
+        formatter.Deserialize(new ReadOnlySequence<byte>(
+            Encoding.UTF8.GetBytes("""{"jsonrpc":"2.0","method":"window/logMessage","params":null}""")));
+
+        var notes = (await EntriesAsync()).Where(e => e.Kind == ConversationEntryKind.Note).ToList();
+        notes.Should().HaveCount(2);
+        notes[0].Fault.Should().BeTrue("the server sent a frame JSON-RPC does not permit");
+        notes[1].Detail.Should().StartWith("recovered:");
+        notes[1].Fault.Should().BeFalse("the repair is the capture's remark, not a second failure");
+    }
+
+    [Fact]
+    public async Task A_non_zero_exit_is_a_fault_and_an_exit_without_one_is_not()
+    {
+        await using var connection = await Connected("vb6");
+
+        connection.Transport.Say(TransportNoticeKind.Lifecycle, "process exited with code 1", fault: true);
+        connection.Transport.Say(TransportNoticeKind.Lifecycle, "process exited");
+
+        (await connection.WaitForAsync(ConversationEntryKind.Lifecycle, "process exited with code 1")).Fault.Should().BeTrue();
+        (await connection.WaitForAsync(ConversationEntryKind.Lifecycle, "process exited")).Fault.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task A_non_zero_exit_while_this_client_stops_the_server_is_not_a_fault()
+    {
+        // Stopping can kill the process, which gives a non-zero code that is no failure of the server's.
+        var transport = new NoticingFakeTransport { HoldShutdown = true };
+        var connection = await Connected("vb6", transport);
+        var stopping = connection.Client.StopAsync();
+        await transport.ShutdownArrived.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+        transport.Say(TransportNoticeKind.Lifecycle, "process exited with code 137", fault: true);
+        transport.Release.TrySetResult();
+        await stopping;
+
+        await _log.DrainAsync();
+        _log.Snapshot("vb6").Single(e => e.Detail == "process exited with code 137").Fault.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task A_server_that_goes_away_unasked_is_a_fault()
+    {
+        await using var connection = await Connected("vb6");
+
+        connection.Transport.Hangup();
+
+        var gone = await connection.WaitForAsync(
+            e => e.Kind == ConversationEntryKind.Lifecycle && e.Detail?.StartsWith("disconnected:", StringComparison.Ordinal) == true,
+            "disconnection");
+        gone.Fault.Should().BeTrue();
+        gone.IsFailure().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task A_server_that_goes_away_while_this_client_stops_it_is_not_a_fault()
+    {
+        var transport = new NoticingFakeTransport { HoldShutdown = true };
+        var connection = await Connected("vb6", transport);
+        var stopping = connection.Client.StopAsync();
+        await transport.ShutdownArrived.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+        var gone = connection.WaitForAsync(
+            e => e.Kind == ConversationEntryKind.Lifecycle && e.Detail?.StartsWith("disconnected:", StringComparison.Ordinal) == true,
+            "disconnection");
+        transport.Hangup();
+
+        (await gone).Fault.Should().BeFalse();
+        await stopping;
+    }
+
+    [Fact]
+    public async Task A_connection_that_cannot_be_made_is_a_fault()
+    {
+        var client = new VBLspClient(
+            new NoticingFakeTransport { Refuse = true }, Substitute.For<ILogger<VBLspClient>>(), "vb6",
+            capture: _log, connectionId: "vb6");
+        await client.StartAsync(TestContext.Current.CancellationToken);
+        await client.DisposeAsync();
+
+        await _log.DrainAsync();
+        var refused = _log.Snapshot("vb6").Single(e => e.Detail?.StartsWith("could not connect:", StringComparison.Ordinal) == true);
+        refused.Fault.Should().BeTrue();
+        _log.Snapshot("vb6").Where(e => e.Detail == "connecting").Should().ContainSingle()
+            .Which.Fault.Should().BeFalse();
+    }
+
     // ── The fake the client half needs ───────────────────────────────────────
 
-    private async Task<Connection> Connected(string connectionId)
+    private async Task<Connection> Connected(string connectionId, NoticingFakeTransport? transport = null)
     {
-        var transport = new NoticingFakeTransport();
+        transport ??= new NoticingFakeTransport();
         var client = new VBLspClient(
             transport, Substitute.For<ILogger<VBLspClient>>(), connectionId,
             capture: _log, connectionId: connectionId);
@@ -237,21 +335,24 @@ public class TheRecordSeesTheProcessTests : IAsyncDisposable
         /// the notice is raised from whichever thread the transport was on, so reading straight after
         /// saying something is a race the transport would lose about half the time.
         /// </summary>
-        public async Task<ConversationEnvelope> WaitForAsync(ConversationEntryKind kind, string? detail = null)
+        public Task<ConversationEnvelope> WaitForAsync(ConversationEntryKind kind, string? detail = null) =>
+            WaitForAsync(e => e.Kind == kind && (detail is null || e.Detail == detail),
+                $"{kind} entry{(detail is null ? "" : $" saying '{detail}'")}");
+
+        /// <summary>Waits for one entry that <paramref name="match"/> accepts, as the overload by kind does.</summary>
+        public async Task<ConversationEnvelope> WaitForAsync(Func<ConversationEnvelope, bool> match, string what)
         {
             // 30s to match the rest of this suite: 10s was the outlier that flaked on CI (#503).
             var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
             while (DateTime.UtcNow < deadline)
             {
                 await Log.DrainAsync();
-                var found = Entries().LastOrDefault(
-                    e => e.Kind == kind && (detail is null || e.Detail == detail));
+                var found = Entries().LastOrDefault(match);
                 if (found is not null) return found;
                 await Task.Delay(10, TestContext.Current.CancellationToken);
             }
 
-            throw new InvalidOperationException(
-                $"no {kind} entry{(detail is null ? "" : $" saying '{detail}'")} reached the record for '{Id}'");
+            throw new InvalidOperationException($"no {what} reached the record for '{Id}'");
         }
 
         public async ValueTask DisposeAsync() => await Client.DisposeAsync();
@@ -271,7 +372,16 @@ public class TheRecordSeesTheProcessTests : IAsyncDisposable
         private Stream? _clientSide;
 
         public bool IsAlive => true;
-        public string? LastFailure => null;
+        public string? LastFailure => Refuse ? "refused by the test" : null;
+
+        /// <summary>Whether connecting fails, as a server that is not there does.</summary>
+        public bool Refuse { get; init; }
+
+        /// <summary>Whether the server holds its answer to shutdown until <see cref="Release"/>, so a test can act while the client stops.</summary>
+        public bool HoldShutdown { get; init; }
+
+        public TaskCompletionSource ShutdownArrived { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public bool CanReconnect => false;
         public string? Unobservable => null;
 
@@ -279,18 +389,27 @@ public class TheRecordSeesTheProcessTests : IAsyncDisposable
         public event EventHandler<TransportNotice>? Notice;
 
         /// <summary>Says what a process would have said.</summary>
-        public void Say(TransportNoticeKind kind, string text) =>
-            Notice?.Invoke(this, new TransportNotice(kind, text));
+        public void Say(TransportNoticeKind kind, string text, bool fault = false) =>
+            Notice?.Invoke(this, new TransportNotice(kind, text, fault));
+
+        /// <summary>Goes away, as a server that falls over does.</summary>
+        public void Hangup()
+        {
+            Release.TrySetResult();
+            foreach (var rpc in _rpcs) rpc.Dispose();
+        }
 
         public Task<IJsonRpcMessageHandler?> ConnectAsync(
             IJsonRpcMessageFormatter formatter, CancellationToken cancellationToken = default)
         {
+            if (Refuse) return Task.FromResult<IJsonRpcMessageHandler?>(null);
+
             var (clientSide, serverSide) = FullDuplexStream.CreatePair();
             _clientSide = clientSide;
 
             var serverRpc = new JsonRpc(
                 new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
-                new AnswersTheHandshake());
+                new AnswersTheHandshake(this));
             _rpcs.Add(serverRpc);
             serverRpc.StartListening();
 
@@ -307,8 +426,16 @@ public class TheRecordSeesTheProcessTests : IAsyncDisposable
     }
 
     /// <summary>The least a server can do and still be connected to.</summary>
-    private sealed class AnswersTheHandshake
+    private sealed class AnswersTheHandshake(NoticingFakeTransport transport)
     {
+        [JsonRpcMethod("shutdown")]
+        public async Task<object?> Shutdown()
+        {
+            transport.ShutdownArrived.TrySetResult();
+            if (transport.HoldShutdown) await transport.Release.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            return null;
+        }
+
         [JsonRpcMethod("initialize", UseSingleObjectParameterDeserialization = true)]
         public JsonElement Initialize(JsonElement _) =>
             JsonDocument.Parse("""{"capabilities":{}}""").RootElement.Clone();

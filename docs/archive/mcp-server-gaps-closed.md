@@ -3444,3 +3444,54 @@ does not need it. [#957](https://github.com/hexide-io/HexIDE/issues/957).
 > Path-only stays the default: an image costs a few thousand tokens. Measured on Windows through the server's HTTP
 > endpoint: a 3840×2054 window came back as a 1568×838 PNG of 75 KB, and a call without `inline` has no image block.
 > Not yet run through Claude Code over a tunnel. Guarded by `InlineSnapshotTests`.
+
+## `list_lsp_messages` `failuresOnly` omits a message that could not be serialized
+
+**Symptom.** With a serialization failure at seq 183 in the record (#944) (Linux, openSUSE Leap 16 under XWayland,
+main at b15c7cf, 2026-10-13):
+
+```
+list_lsp_messages {"failuresOnly":true,"limit":20}
+→ {"messages":[],"matched":0,"note":"118 envelope(s) are recorded, and none match this filter. Drop the filters to see what is there."}
+```
+
+The record held:
+
+```
+{"sequence":183,"direction":"Local","kind":"NeverSent","method":"$/cancelRequest","detail":"could not be serialized: ..."}
+```
+
+The Protocol Inspector's Failures only filter and its failure count miss it the same
+way: both count only error responses and the Failed, Cancelled and Abandoned outcomes. So a filter for finding
+failures hides the client-side defect the capture was built to expose. Not every NeverSent row is a failure: a
+request withheld because the server did not advertise the capability is recorded as a Sent NeverSent row,
+deliberately. Cross-platform by code reading.
+
+**Workaround.** Call `list_lsp_messages {}` with no filter and look for `kind:"NeverSent"` with
+`direction:"Local"`.
+
+**Suggested fix.** Count a Local NeverSent row as a failure in `CaptureQueries.IsFailure` and
+`ProtocolInspectorRowViewModel.IsFailure`, and say so in `failuresOnly`'s description.
+[#945](https://github.com/hexide-io/HexIDE/issues/945).
+
+> **Fixed.** A failure is now one rule, `ConversationFailures.IsFailure`, read by both `list_lsp_messages`
+> `failuresOnly` and the Protocol Inspector's Failures only filter and count, so they cannot disagree again. Besides
+> error responses and the Failed, Cancelled and Abandoned outcomes, it counts an envelope its recorder marked
+> `Fault`. The marked cases are:
+>
+> - a message this client could not serialize;
+> - a frame it could not decode, though not the note saying a frame was repaired;
+> - a connection it could not make;
+> - a server that disconnected while the client was not stopping it;
+> - a process that exited non-zero, unless this client was stopping it;
+> - a debug adapter that could not start, or sent a frame this client could not read.
+>
+> The review found that keying the rule on direction was fragile: a withheld-capability row is filed as Local in two
+> test fixtures and as Sent in production. It also found the same blind spot for undecodable frames and crashes. So
+> the flag is set where each fault is known, and the row's direction and wording decide nothing.
+>
+> A row now carries `fault: true`, and so does an export's envelope. The inspector draws a failed local row in full
+> rather than faint. `failuresOnly`'s description and the protocol-inspector spec list what counts. A debug adapter's
+> connection that closed on an error is not marked, because a deliberate stop can close it the same way. Guarded by `ConversationFailuresTests`,
+> `TheRecordSeesTheProcessTests` (each fault site through a real client, including stopping), `CaptureQueriesTests`,
+> `ProtocolInspectorToolViewModelTests`, `ConversationExportTests`, `DapCaptureTests` and the process-notice tests.

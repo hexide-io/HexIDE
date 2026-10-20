@@ -429,22 +429,8 @@ public static class CaptureQueries
             return false;
         }
 
-        if (filter.FailuresOnly && !IsFailure(envelope)) return false;
+        if (filter.FailuresOnly && !envelope.IsFailure()) return false;
 
         return true;
     }
-
-    /// <summary>
-    /// Whether an entry is one a client chasing a problem would want.
-    /// </summary>
-    /// <remarks>
-    /// An error response is a failure whatever its outcome says, and a request that was cancelled or
-    /// abandoned is one too — a request that never came back is invisible in a record that only counts
-    /// replies, which is exactly the case worth surfacing.
-    /// </remarks>
-    private static bool IsFailure(ConversationEnvelope envelope) =>
-        envelope.Kind == ConversationEntryKind.ErrorResponse
-        || envelope.Outcome is ConversationOutcome.Failed
-                            or ConversationOutcome.Cancelled
-                            or ConversationOutcome.Abandoned;
 }

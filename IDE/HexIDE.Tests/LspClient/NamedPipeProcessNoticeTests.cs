@@ -113,6 +113,7 @@ public class NamedPipeProcessNoticeTests
         lock (gate) exit = seen.Last(n => n.Kind == TransportNoticeKind.Lifecycle);
 
         exit.Text.Should().Be("process exited with code 3");
+        exit.Fault.Should().BeTrue("a non-zero exit is a failure (#945)");
     }
 
     [Fact]

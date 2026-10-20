@@ -15,7 +15,8 @@ public enum TransportNoticeKind
 /// <summary>Something the server's process said or did that is not a protocol message.</summary>
 /// <param name="Kind">Which of the two channels this came from.</param>
 /// <param name="Text">Verbatim. A stderr line as written, or a lifecycle fact in plain words.</param>
-public sealed record TransportNotice(TransportNoticeKind Kind, string Text);
+/// <param name="Fault">A lifecycle fact that is a failure: the process exiting with a non-zero code (#945).</param>
+public sealed record TransportNotice(TransportNoticeKind Kind, string Text, bool Fault = false);
 
 /// <summary>
 /// A platform-specific connection to the LSP server. The transport owns the underlying channel

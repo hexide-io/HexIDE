@@ -361,6 +361,8 @@ public static class ConversationExporter
             // standard error. The redactor catches a `file:` URI in it and nothing else — a bare path in a
             // crash stack is not recognised, because recognising one would mean the content-agnostic sweep
             // this design rejects. A real limit, and the preview is what is meant to catch it.
+            if (envelope.Fault) writer.WriteBoolean("fault", true);
+
             if (envelope.Detail is { } detail) writer.WriteString("detail", redactor.Body(detail));
 
             writer.WriteEndObject();
