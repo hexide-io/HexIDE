@@ -738,14 +738,17 @@ public static class UiAutomationDriver
     }
 
     /// <summary>
+    /// <summary>
     /// Selects <paramref name="item"/> through its provider and reads the result back: null when it took, else the
     /// refusal saying so. The provider's Select does nothing for an item its list cannot place, and a list may put its
     /// selection back, so a select that reported success without looking once named a Call Stack frame as chosen while
     /// the debugger stayed in another (#1182). A list its selection handler replaced has let the item go, so there is
-    /// nothing to read back; the selection took if the list announced it. A list that puts its selection back on a later
-    /// dispatcher pass is not seen: the read is made when Select returns.
+    /// nothing to read back; the selection took if the list announced it. A provider that cannot be read is read through
+    /// its list instead, for a row the list still holds; with neither, the refusal says whether it took is not known
+    /// (#1259). A list that puts its selection back on a later dispatcher pass is not seen: the read is made when Select
+    /// returns.
     /// </summary>
-    private static InteractOutcome? SelectVerified(Control item, ISelectionItemProvider sip, string label)
+    internal static InteractOutcome? SelectVerified(Control item, ISelectionItemProvider sip, string label)
     {
         var owner = ItemsControl.ItemsControlFromItemContainer(item) as SelectingItemsControl;
         var data = owner is null ? null : Safe(() => owner.ItemFromContainer(item), null);
@@ -756,13 +759,28 @@ public static class UiAutomationDriver
         try { sip.Select(); }
         finally { owner?.SelectionChanged -= Changed; }
 
-        if (Safe(() => sip.IsSelected, true)
-            || announced && (ItemsControl.ItemsControlFromItemContainer(item) is null || owner!.IndexFromContainer(item) < 0))
+        // Null when the provider threw: unread, which is neither outcome (#1259). It once fell back to selected, so a
+        // throwing peer was replied to as chosen without anything having been read. A row its list still holds is read
+        // from the list's own mark on it, which is all Avalonia's peer reads.
+        var listed = owner is not null && ItemsControl.ItemsControlFromItemContainer(item) is not null
+                                       && owner.IndexFromContainer(item) >= 0;
+        var selected = Safe<bool?>(() => sip.IsSelected, null)
+                       ?? (listed ? item.GetValue(SelectingItemsControl.IsSelectedProperty) : null);
+        if (selected == true || announced && !listed)
             return null;
         var now = owner is ListBox list ? $"; {SelectionSummary(list)}" : "";
+        if (selected is null)
+            return Err($"'{label}': {SelectionUnread}, and "
+                       + (owner is null
+                           ? "it has no list that reports its selection, so whether it took is not known. Dump it to see"
+                           : $"its list no longer holds it and did not announce it, so whether it took is not known{now}. "
+                             + "Dump the list to see what is selected"));
         return Err($"'{label}' was not selected: its list did not take the selection{now}. Dump the list again, as the "
                    + "row may no longer be the one it showed, or select it with press_key, as a person would");
     }
+
+    /// <summary>What a refusal from <see cref="SelectVerified"/> says when the outcome could not be read either way.</summary>
+    internal const string SelectionUnread = "select was sent, but its selection could not be read back";
 
     // The window's handling of its platform's close, which its title-bar button and Alt+F4 reach: a close no program
     // asked for (IsProgrammatic false, WindowCloseReason.WindowClosing), which a Yes/No or Abort/Retry/Ignore MsgBox
@@ -1032,6 +1050,7 @@ public static class UiAutomationDriver
         control.RaiseEvent(new TappedEventArgs(InputElement.DoubleTappedEvent, pointerArgs));
 
         var note = selected ? " (selected it first, as a real double-click does)"
+            : treeRefusal.Contains(SelectionUnread, StringComparison.Ordinal) ? $" (whether it was selected first is not known: {treeRefusal})"
             : treeRefusal.Length > 0 ? $" (but it was not selected first: {treeRefusal})"
             : "";
         return Ok($"double-clicked '{LabelOf(control, peer)}'{note}");
