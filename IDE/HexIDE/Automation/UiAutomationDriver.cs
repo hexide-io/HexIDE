@@ -1082,6 +1082,91 @@ public static class UiAutomationDriver
         return await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(release, Avalonia.Threading.DispatcherPriority.Input);
     }
 
+    /// <summary>How long a reply waits, by default, for a running program to finish what an action set off.</summary>
+    public static readonly TimeSpan ProgramWait = TimeSpan.FromSeconds(3);
+
+    /// <summary>
+    /// Once an action on a running form's window, or on a dialog it owns, has been raised, waits for the program to
+    /// finish the handlers it set off, up to <paramref name="limit"/> (<see cref="ProgramWait"/> when omitted). A reply
+    /// that comes back sooner says the program
+    /// is still running, and what.
+    /// </summary>
+    /// <remarks>
+    /// A handler gives up the UI thread at the debugger's time slice (#766), so without this a reply went out while the
+    /// handler was part way through: after Game > Intermediate, a snapshot showed the new field with the old mine count
+    /// (#1232). A handler waiting on a MsgBox or stopped at a breakpoint never finishes here, which is why the wait has a
+    /// limit and the reply names both.
+    /// </remarks>
+    public static async Task<InteractOutcome> WaitForProgramAsync(Window? window, InteractOutcome outcome, TimeSpan? limit = null)
+    {
+        if (!outcome.Success || window is null)
+            return outcome;
+        var program = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+            () => ProgramOf(window), Avalonia.Threading.DispatcherPriority.Send).GetTask().ConfigureAwait(false);
+        if (program is not var (pump, form))
+            return outcome;
+        var before = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+            () => OpenWindows().ToHashSet(), Avalonia.Threading.DispatcherPriority.Send).GetTask().ConfigureAwait(false);
+
+        var wait = limit ?? ProgramWait;
+        var deadline = Environment.TickCount64 + (long)wait.TotalMilliseconds;
+        while (true)
+        {
+            // Read at Send priority and waited off the UI thread: a handler that yields at its time slice keeps the
+            // dispatcher busy at its own priority for as long as it runs, and a check queued behind it, or a delay that
+            // resumes on that thread, would wait for it and never reach the limit.
+            var state = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(
+                () => pump.IsIdle ? null : new { Busy = pump.Busy.Distinct().ToList(), Dialog = DialogOf(form, before) },
+                Avalonia.Threading.DispatcherPriority.Send).GetTask().ConfigureAwait(false);
+            if (state is null)
+                return outcome;
+            var running = string.Join(", ", state.Busy);
+            // A handler held by a window it opened, a MsgBox most often, waits for an answer, not for time, so the reply
+            // goes now. Worded to hold for a window that is not modal too, such as a form the handler showed.
+            if (state.Dialog is { } dialog)
+                return outcome with
+                {
+                    Detail = outcome.Detail + $" (the program is still running {running}, and has a window open over the "
+                             + "form, " + (string.IsNullOrEmpty(dialog) ? "with no title, which 'auto' reaches" : $"'{dialog}'")
+                             + "; a MsgBox holds its handler until it is answered, so the form may change after that)",
+                };
+            if (Environment.TickCount64 >= deadline)
+                return outcome with
+                {
+                    Detail = outcome.Detail + $" (the program was still running {running} {wait.TotalSeconds:0.#}s later, "
+                             + "so the form may still change; a breakpoint also holds a handler there)",
+                };
+            await Task.Delay(20).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// The event queue of the program behind a running form's window, or behind the dialog it owns, with that form's
+    /// window; or null.
+    /// </summary>
+    private static (HexIDE.Runtime.EventPump Pump, Window Form)? ProgramOf(Window window)
+    {
+        for (var at = window; at is not null; at = at.Owner as Window)
+            if (at is HexIDE.Runtime.IModuleExecutionRoot { Events: { } events })
+                return (events, at);
+        return null;
+    }
+
+    private static IEnumerable<Window> OpenWindows() =>
+        (Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)
+        ?.Windows.Where(w => w.IsVisible) ?? [];
+
+    /// <summary>
+    /// The title of a window the program has open over <paramref name="form"/>: one the form owns, or one that opened
+    /// while the reply waited. A run in the IDE puts its MsgBox over the IDE rather than the form, so ownership alone
+    /// misses it. Null when there is none.
+    /// </summary>
+    private static string? DialogOf(Window form, HashSet<Window> before) =>
+        form.OwnedWindows.Concat(OpenWindows().Where(w => !before.Contains(w)))
+            .FirstOrDefault(w => w.IsVisible && w != form) is { } dialog
+            ? dialog.Title ?? ""
+            : null;
+
     // `click`'s value: an optional point, a button and the keys held, in any order (ClickValue).
     private static bool TryParseClick(string? value, out Point? at, out MouseButton button, out KeyModifiers keys, out string problem)
     {

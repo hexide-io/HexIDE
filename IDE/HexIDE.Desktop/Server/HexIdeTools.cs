@@ -2087,6 +2087,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         CancellationToken ct = default)
     {
         Control? acted = null;
+        Window? actedIn = null;
         var outcome = await Dispatcher.UIThread.InvokeAsync(async () =>
         {
             var (active, _, error) = ResolveActiveWindow(window);
@@ -2098,6 +2099,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return new InteractOutcome(false, "peer", null, resolveError);
 
             acted = control;
+            actedIn = active;
             // A click waits for its window's next frame, which a window opened a moment ago has yet to draw (#1065).
             return await UiAutomationDriver.InteractAsync(control, action, value);
         });
@@ -2114,7 +2116,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (refused is not null)
                 outcome = UiAutomationDriver.WithRefusal(outcome, refused);
         }
-        return outcome;
+        // A running form's handler gives up the thread part way through, so the reply waits for it (#1232).
+        return await UiAutomationDriver.WaitForProgramAsync(actedIn, outcome);
     }
 
     [McpServerTool(Name = "type_text")]
@@ -2122,7 +2125,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
     public async Task<InteractOutcome> TypeTextAsync(
         string target, string text, [Description(WindowParameter)] string? window = null, CancellationToken ct = default)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        Window? typedIn = null;
+        var outcome = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var (active, _, error) = ResolveActiveWindow(window);
             if (active is null)
@@ -2132,8 +2136,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (control is null)
                 return new InteractOutcome(false, UiAutomationDriver.TypedMechanism, null, resolveError);
 
+            typedIn = active;
             return UiAutomationDriver.TypeText(control, text, target);
         });
+        return await UiAutomationDriver.WaitForProgramAsync(typedIn, outcome);
     }
 
     [McpServerTool(Name = "hover")]
@@ -2251,7 +2257,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
         string target, string key, string? modifiers = null, [Description(WindowParameter)] string? window = null,
         CancellationToken ct = default)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        Window? pressedIn = null;
+        var outcome = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var (active, _, error) = ResolveActiveWindow(window);
             if (active is null)
@@ -2261,8 +2268,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (control is null)
                 return new InteractOutcome(false, "keyboard", null, resolveError);
 
+            pressedIn = active;
             return UiAutomationDriver.PressKey(control, key, modifiers, target);
         });
+        return await UiAutomationDriver.WaitForProgramAsync(pressedIn, outcome);
     }
 
     // Active window for the automation tools: prefer a visible modal dialog over the main window

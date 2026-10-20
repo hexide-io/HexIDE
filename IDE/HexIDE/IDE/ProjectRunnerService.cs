@@ -671,6 +671,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
         public bool Handles(string name) => windowContext.Handles(name);
 
+        public EventPump Events => windowContext.Events;
+
         public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None) =>
             windowContext.ExecuteEvent(name, args, coalescing);
 

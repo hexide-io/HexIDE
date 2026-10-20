@@ -36,4 +36,10 @@ public interface IModuleExecutionRoot
     /// </summary>
     System.Threading.Tasks.Task<bool> UnloadAsync(int mode) =>
         throw new NotImplementedException("Unload of a form is not implemented here");
+
+    /// <summary>
+    /// The run's event queue, which says whether a handler is running, or null for a root with none. An automation
+    /// reply waits on it, so that it does not come back while the program is part way through what it did (#1232).
+    /// </summary>
+    EventPump? Events => null;
 }

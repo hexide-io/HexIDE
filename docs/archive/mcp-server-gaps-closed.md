@@ -2754,3 +2754,26 @@ at launch.
 **Suggested fix.** `invoke_command` falling back to a public parameterless method, listed by `inspect_element`, and
 a refusal that names what it looked for rather than a property. An action to open a context menu is not needed:
 `expand` is it. [#836](https://github.com/hexide-io/HexIDE/issues/836).
+
+## An action on a running form replies before the program's handler has finished — **CLOSED** (#1232, 2026-10-20)
+
+> **Fixed.** `interact`, `press_key` and `type_text` on a running form's window, or on a dialog it owns, now wait for
+> the program to finish what the action set off, up to 3 seconds. If a handler is still running at the limit, the
+> reply names it: `(the program was still running Command1_Click 3s later, so the form may still change; a breakpoint
+> also holds a handler there)`. If the program has a window open over the form, a MsgBox most often, the reply says so
+> at once rather than waiting out the limit, and names the window. Guarded by `ProgramWaitTests`.
+
+**Symptom.** Found during #947's live check (Windows, Debug, 2026-10-20). On the running Minesweeper demo:
+
+```
+interact {"window":"frmMines","target":"Window/Menu/MenuItem[&Game]/Pane/MenuItem[&Intermediate]","action":"invoke"}
+→ invoked MenuItem '&Intermediate' and closed the menu, as a click does
+take_snapshot {"window":"frmMines"}
+→ the 16×16 field, with the mine counter still reading 010
+```
+
+A later snapshot read `040`. `mnuLevel_Click` sets the counter last, after rebuilding the field, and the reply had
+gone out while it was part way through. Nothing in the reply said so.
+
+**Cause.** A handler is a walk on the run's `EventPump`. `ExecuteSub` starts it and returns, and the walk gives up
+the UI thread at the debugger's 15 ms time slice (#766), so the tool's reply was sent mid-walk.

@@ -93,6 +93,16 @@ public sealed class EventPump
     internal int WaitingCount => queue.Count;
 
     /// <summary>
+    /// Whether nothing is running or waiting: no handler part way through, however it is suspended, no event queued
+    /// behind one, and nothing waiting for idle. What an automation reply waits for (#1232).
+    /// </summary>
+    public bool IsIdle => closed || topLevel == 0 && Current is null && queue.Count == 0 && whenIdle.Count == 0;
+
+    /// <summary>The handlers part way through, then those waiting, by name: what a reply names when it cannot wait.</summary>
+    public IReadOnlyList<string> Busy =>
+        [.. running.Where(r => r.Value > 0).Select(r => r.Key), .. queue.Select(w => w.Name)];
+
+    /// <summary>
     /// Raise an event, whose handler is <paramref name="work"/>: nested in the running walk if one is, else at once if
     /// nothing runs, else queued.
     /// </summary>
