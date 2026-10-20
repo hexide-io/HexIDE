@@ -41,35 +41,36 @@ public static class UiAutomationDriver
     /// <summary>
     /// The nodes of <paramref name="tree"/> that answer to <paramref name="match"/>, each without its subtree, the first
     /// <paramref name="limit"/> in tree order; with how many answer in all, and how many nodes the walk cut off at its
-    /// depth, whose subtrees were not searched. A node answers when its Name, AutomationId, ClassName, DataContext type or
-    /// ControlType contains the text, ignoring case, and by its DataContext type only where that differs from its parent's:
-    /// the question a first call asks, such as where the code editor is, before it has a path to scope a dump with (#699).
+    /// depth, whose subtrees were not searched. A node answers when its Name, AutomationId, ClassName, ControlType or
+    /// type-name-as-name contains the text, ignoring case, or its DataContext type does where that context starts, not
+    /// where the node inherits it: the question a first call asks, such as where the code editor is, before it has a path
+    /// to scope a dump with (#699).
     /// </summary>
     public static (List<UiNode> Matches, int Total, int Unsearched) Find(UiNode tree, string match, int limit)
     {
         var matches = new List<UiNode>();
         int total = 0, unsearched = 0;
-        var pending = new Stack<(UiNode Node, string? Inherited)>([(tree, null)]);
-        while (pending.TryPop(out var at))
+        var pending = new Stack<UiNode>([tree]);
+        while (pending.TryPop(out var node))
         {
-            var (node, inherited) = at;
-            if (Answers(node, match, inherited) && total++ < limit)
-                matches.Add(node with { Children = [] });
+            // Without its subtree, and so without the mark that one was cut off below it.
+            if (Answers(node, match) && total++ < limit)
+                matches.Add(node with { Children = [], Truncated = null });
             if (node.Truncated == true)
                 unsearched++;
             for (var i = node.Children.Length - 1; i >= 0; i--)
-                pending.Push((node.Children[i], node.DataContextType));
+                pending.Push(node.Children[i]);
         }
         return (matches, total, unsearched);
     }
 
     // By its DataContext type only where that context starts: every node below a view inherits it, and the Properties
     // window's scroll bar parts all answered to 'Properties' with it.
-    private static bool Answers(UiNode node, string match, string? inherited) =>
+    private static bool Answers(UiNode node, string match) =>
         new[]
             {
                 node.Name, node.AutomationId, node.ClassName, node.ControlType, node.TypeNameAsName,
-                node.DataContextType == inherited ? null : node.DataContextType,
+                node.InheritsDataContext ? null : node.DataContextType,
             }
             .Any(f => f?.Contains(match, StringComparison.OrdinalIgnoreCase) == true);
 
@@ -79,8 +80,11 @@ public static class UiAutomationDriver
     public static UiNode Dump(Control root, string basePath, int maxDepth, bool interactiveOnly)
     {
         var rootNode = new MeaningfulChild(root, Classify(root));
-        try { return BuildNode(rootNode, basePath, 0, maxDepth, interactiveOnly) ?? BareNode(rootNode, basePath); }
-        catch { return BareNode(rootNode, basePath); }
+        // The context the root was handed, compared by identity, so a subtree dumped from a node that inherits its
+        // DataContext does not answer to it as if it started there.
+        var handed = (Avalonia.VisualTree.VisualExtensions.GetVisualParent(root) as Control)?.DataContext;
+        try { return BuildNode(rootNode, basePath, 0, maxDepth, interactiveOnly, handed) ?? BareNode(rootNode, basePath, handed); }
+        catch { return BareNode(rootNode, basePath, handed); }
     }
 
     /// <summary>Deep single-node inspection: identity, provider state, and the DataContext's reflectable
@@ -2433,7 +2437,8 @@ public static class UiAutomationDriver
 
     // ── control-view tree walk ──────────────────────────────────────────────────────────────────────
 
-    private static UiNode? BuildNode(MeaningfulChild node, string path, int depth, int maxDepth, bool interactiveOnly)
+    private static UiNode? BuildNode(MeaningfulChild node, string path, int depth, int maxDepth, bool interactiveOnly,
+        object? parentContext)
     {
         var info = node.Info;
         var selfInteractive = info.Providers.Length > 0 || info.Focusable;
@@ -2451,7 +2456,7 @@ public static class UiAutomationDriver
             foreach (var m in metas)
             {
                 UiNode? child;
-                try { child = BuildNode(m, path + "/" + BestSegment(m, metas), depth + 1, maxDepth, interactiveOnly); }
+                try { child = BuildNode(m, path + "/" + BestSegment(m, metas), depth + 1, maxDepth, interactiveOnly, node.Control.DataContext); }
                 catch { child = null; }   // one pathological control must not abort the whole dump
                 if (child is not null) children.Add(child);
             }
@@ -2461,12 +2466,14 @@ public static class UiAutomationDriver
         if (interactiveOnly && !selfInteractive && children.Count == 0 && !truncated)
             return null;
 
-        return MakeNode(node, path, [.. children], truncated);
+        return MakeNode(node, path, [.. children], parentContext, truncated);
     }
 
-    private static UiNode BareNode(MeaningfulChild node, string path) => MakeNode(node, path, []);
+    private static UiNode BareNode(MeaningfulChild node, string path, object? parentContext) =>
+        MakeNode(node, path, [], parentContext);
 
-    private static UiNode MakeNode(MeaningfulChild node, string path, UiNode[] children, bool truncated = false)
+    private static UiNode MakeNode(MeaningfulChild node, string path, UiNode[] children, object? parentContext,
+        bool truncated = false)
     {
         var info = node.Info;
         return new UiNode(
@@ -2482,7 +2489,8 @@ public static class UiAutomationDriver
             Hidden(node.Control),
             children,
             TypeNameAsNameOf(info.Peer),
-            truncated ? true : null);
+            truncated ? true : null,
+            node.Control.DataContext is { } context && ReferenceEquals(context, parentContext));
     }
 
 
@@ -2803,7 +2811,10 @@ public record UiNode(
     string? TypeNameAsName = null,
     // True when the node has children the walk did not reach because it stopped at maxDepth; absent otherwise, so
     // an empty Children is a leaf only when this is absent (#953).
-    bool? Truncated = null);
+    bool? Truncated = null,
+    // True when the node's DataContext is the same object as its parent's in the tree, so a search by its type finds
+    // where a context starts, as a nested tree item's own of the same type does (#699). Not part of the reply.
+    [property: System.Text.Json.Serialization.JsonIgnore] bool InheritsDataContext = false);
 
 /// <summary>Deep single-node inspection from <see cref="UiAutomationDriver.Inspect"/>.</summary>
 public record UiNodeDetail(

@@ -2032,12 +2032,14 @@ internal sealed class HexIdeTools(IdeContext ctx)
         bool interactiveOnly = true,
         [Description(WindowParameter)]
         string? window = null,
-        [Description("Text to find instead of the tree: returns, as 'matches', the nodes whose Name, AutomationId, ClassName "
-                     + "or ControlType contains it, ignoring case, or whose DataContext type does where that type starts "
-                     + "(not on every node below that inherits it); each with its path and without its subtree, up to "
-                     + "50. Use it to find a path to start from, as 'TextEditor' finds each code editor and "
-                     + "'PropertiesTool' the Properties window. Every node is searched, interactive or not, to "
-                     + "'maxDepth' below 'root'; the reply's 'note' says how many matched and what was not searched.")]
+        [Description("Text to find instead of the tree: returns, as 'matches', the nodes whose Name, AutomationId, ClassName, "
+                     + "ControlType or typeNameAsName contains it, ignoring case, or whose DataContext type does where "
+                     + "that context starts (not on every node below that inherits it); each with its path and without "
+                     + "its subtree, up to 50. Use it to find a path to start from: 'TextEditor' finds the text editors "
+                     + "on screen, the selected code tab's and the Immediate window's among them, and 'PropertiesTool' "
+                     + "the Properties window. Only what is in the tree is found, so not a document in a tab that is not "
+                     + "selected. Every node is searched, interactive or not, to 'maxDepth' below 'root'; the reply's "
+                     + "'note' says how many matched and what was not searched.")]
         string? match = null,
         CancellationToken ct = default)
     {
@@ -2082,8 +2084,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
     {
         var note = total switch
         {
-            0 => $"Nothing matches '{match}'. Name, AutomationId, ClassName, the DataContext type and the ControlType are "
-                 + "searched, as text that contains it, ignoring case.",
+            0 => $"Nothing matches '{match}'. Name, AutomationId, ClassName, ControlType, typeNameAsName and the "
+                 + "DataContext type are searched, as text that contains it, ignoring case.",
             1 => $"1 node matches '{match}'.",
             _ when total > MatchLimit => $"{total} nodes match '{match}'; the first {MatchLimit}, in tree order, are listed. "
                                          + "Narrow 'match', or scope with 'root'.",

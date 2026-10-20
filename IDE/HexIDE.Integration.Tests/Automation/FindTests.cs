@@ -72,6 +72,48 @@ public class FindTests
         finally { window.Close(); }
     }
 
+    // A tree item's own context, of the type its parent item's has: Locals and Options nest them so.
+    [AvaloniaFact]
+    public void A_context_of_the_same_type_that_starts_again_below_answers_and_a_subtree_dumped_below_one_does_not()
+    {
+        var outer = new StackPanel { DataContext = new PropertiesViewModel() };
+        AutomationProperties.SetAutomationId(outer, "Outer");
+        var inner = new StackPanel { DataContext = new PropertiesViewModel() };
+        AutomationProperties.SetAutomationId(inner, "Inner");
+        var apply = Named("Apply", "ApplyButton");
+        inner.Children.Add(apply);
+        outer.Children.Add(inner);
+        var window = Shown(outer);
+        try
+        {
+            var tree = UiAutomationDriver.Dump(window, "Window", 20, interactiveOnly: false);
+            UiAutomationDriver.Find(tree, "PropertiesViewModel", 50).Matches.Select(n => n.AutomationId)
+                .Should().Equal("Outer", "Inner");
+
+            var subtree = UiAutomationDriver.Dump(apply, "Window/#ApplyButton", 20, interactiveOnly: false);
+            UiAutomationDriver.Find(subtree, "PropertiesViewModel", 50).Total
+                .Should().Be(0, "the button inherits the context it was handed, though the dump starts there");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Matches_come_in_tree_order_a_nested_one_before_a_later_sibling()
+    {
+        var group = new StackPanel();
+        AutomationProperties.SetAutomationId(group, "Group");
+        group.Children.Add(Named("Item nested", "ItemNested"));
+        var window = Shown(group, Named("Item after", "ItemAfter"));
+        try
+        {
+            var tree = UiAutomationDriver.Dump(window, "Window", 20, interactiveOnly: false);
+
+            UiAutomationDriver.Find(tree, "Item", 50).Matches.Select(n => n.AutomationId)
+                .Should().Equal("ItemNested", "ItemAfter");
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void Past_the_limit_the_first_matches_in_tree_order_are_listed_and_all_are_counted()
     {
@@ -103,6 +145,10 @@ public class FindTests
 
             matches.Should().BeEmpty();
             unsearched.Should().Be(1);
+
+            // The cut-off node itself is searched, and comes back as every match does, without its subtree or the mark.
+            var cut = UiAutomationDriver.Find(shallow, "Inner", 50).Matches.Should().ContainSingle().Subject;
+            cut.Truncated.Should().BeNull();
         }
         finally { window.Close(); }
     }
