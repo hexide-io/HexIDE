@@ -315,6 +315,66 @@ public class TypeKeysTests : IDisposable
         }
     }
 
+    // A dialog open over the window disables it, and a person's keys go to the dialog; the window's focus stays where it
+    // was, so the keys went in under the reset prompt (#1290). Refused before a key is sent, naming the dialog, and the
+    // reply's note leaves it out. press_key is refused the same way.
+    [AvaloniaFact]
+    public async Task A_dialog_open_over_the_window_refuses_the_typing_and_names_it()
+    {
+        var box = new TextBox { Width = 200 };
+        var window = ShowBoxes(box);
+        window.Title = "Project1 - HexIDE";
+        var open = new Window { Title = "Reset?", Width = 100, Height = 50 };
+        _ = open.ShowDialog(window);
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var watch = OpenDialogs.Watch(OpenDialogs.Among(windows.Append(open)), window);
+            OpenDialogs.During(watch);
+            var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
+
+            typed.Error.Should().Be("'Reset?', a modal dialog over 'Project1 - HexIDE', is open and waits for an answer, so a "
+                                    + "person's keys would go to it, not to TextBox; nothing was typed. Answer it first: "
+                                    + "dump_visual_tree with 'window' set to its title shows it, and interact answers it");
+            box.Text.Should().BeNullOrEmpty();
+            OpenDialogs.Note(watch, windows.Append(open)).Should().BeNull("the refusal names it");
+
+            var pressed = UiAutomationDriver.PressKey(box, "A", null);
+            pressed.Error.Should().StartWith("'Reset?', a modal dialog over 'Project1 - HexIDE', is open and waits for an "
+                                             + "answer, so a person's keys would go to it, not to TextBox; nothing was pressed.");
+            box.Text.Should().BeNullOrEmpty();
+        }
+        finally { open.Close(); }
+    }
+
+    // Typing in a dialog that has a dialog of its own open over it: the one over it takes the keys.
+    [AvaloniaFact]
+    public async Task A_dialog_over_the_dialog_typed_in_refuses_the_typing()
+    {
+        var host = new Window { Title = "Host", Width = 300, Height = 200 };
+        windows.Add(host);
+        host.Show();
+        var box = new TextBox { Width = 200 };
+        var dialog = new Window { Title = "Options", Width = 250, Height = 150, Content = box };
+        _ = dialog.ShowDialog(host);
+        var over = new Window { Title = "Sure?", Width = 100, Height = 50 };
+        Dispatcher.UIThread.RunJobs();
+        _ = over.ShowDialog(dialog);
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
+
+            typed.Error.Should().StartWith("'Sure?', a modal dialog over 'Options', is open");
+            box.Text.Should().BeNullOrEmpty();
+        }
+        finally
+        {
+            over.Close();
+            dialog.Close();
+        }
+    }
+
     // A dialog already open when the typing starts is not one the typing opened, wherever it is. Headless, the dialog takes
     // focus once shown, so the typing stops on focus after the first key, without naming the dialog as opened by it.
     [AvaloniaFact]

@@ -153,7 +153,7 @@ public class WindowManager : IWindowManager
             throw new NotImplementedException();
     }
 
-    public async Task<MessageBoxResult> MessageBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
+    public async Task<MessageBoxResult> MessageBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon, Window? owner)
     {
         caption ??= "HexIDE";
         if (Static.SingleView)
@@ -188,7 +188,7 @@ public class WindowManager : IWindowManager
             // its owner keeps waiting (see ShowAndWait).
             var messageBox = new MessageBox { Text = text, Buttons = buttons, Icon = icon };
             var window = MakeDialogWindow(caption, messageBox);
-            return await messageBox.ShowAndWait(window, GetTopWindow(desktop));
+            return await messageBox.ShowAndWait(window, owner ?? GetTopWindow(desktop));
         }
         else
             throw new NotImplementedException();

@@ -1405,7 +1405,7 @@ public partial class CodeEditorView : UserControl
     {
         try
         {
-            var reset = await vm.ConfirmResetWhileRunningAsync();
+            var reset = await vm.ConfirmResetWhileRunningAsync(TopLevel.GetTopLevel(this) is Window { IsVisible: true } window ? window : null);
             // No → undo every edit made since the prompt opened, back to the pre-edit code. Yes → keep the edit
             // (the run reset was already requested), matching VB6. The code alone goes back, never the whole
             // buffer: the header may have been rewritten while the prompt was open (see RevertBodyTo).

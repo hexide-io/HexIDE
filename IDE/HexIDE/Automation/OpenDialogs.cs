@@ -64,7 +64,7 @@ public static class OpenDialogs
     }
 
     // A dialog disables its owner, which, if a dialog itself, has disabled its own.
-    private static bool Blocks(Window dialog, Window? target)
+    internal static bool Blocks(Window dialog, Window? target)
     {
         for (var at = dialog.Owner as Window; at is not null; at = at.Owner as Window)
             if (at == target)
