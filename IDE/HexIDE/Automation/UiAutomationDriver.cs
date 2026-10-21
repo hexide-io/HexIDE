@@ -2833,8 +2833,8 @@ public static class UiAutomationDriver
     /// </para>
     ///
     /// <para>
-    /// Raises <c>PointerEntered</c> then <c>PointerMoved</c>: the first is what a tooltip service waits
-    /// for, the second is what the editor's own handler listens to. Neither the dwell nor whatever the
+    /// Sends a move through the window's input, as a real one arrives, so the tooltip service sees it and the editor's
+    /// own handler gets its <c>PointerMoved</c>; else raises <c>PointerEntered</c> then <c>PointerMoved</c> on the control. Neither the dwell nor whatever the
     /// tip needs afterwards happens here — this returns as soon as the events are delivered, and the
     /// caller waits.
     /// </para>
@@ -2865,16 +2865,43 @@ public static class UiAutomationDriver
                 return new InteractOutcome(false, "pointer", null,
                     $"could not translate ({local.X:0.#}, {local.Y:0.#}) on '{Describe(target)}' into window coordinates");
 
-            // Through the window's input first, as the platform delivers a real move: hit-tested, routed, and seen by the
-            // input manager, which a declared ToolTip.Tip opens from (#1265). Events raised on the control reach its
-            // handlers, the code editor's quick info among them, but never the tooltip service.
-            // Only when the target saw it: a window not drawn yet is hit-tested against nothing, and something drawn over
-            // the point takes the move, so the move is then raised on the target as before.
-            var missed = MissedThroughWindowInput(topLevel, atTopLevel, target);
-            if (missed is null)
+            // Through the window's input, as the platform delivers a real move: hit-tested against what was drawn, routed,
+            // and seen by the input manager, which a declared ToolTip.Tip opens from (#1265). Events raised on the control
+            // reach its own handlers, the code editor's quick info among them, but never the tooltip service, so they are
+            // only the fallback: for a window with nothing drawn at the point, or an Avalonia without the members a move
+            // through its input needs.
+            var enabled = target.IsEffectivelyEnabled;
+            // What it hit is what the window routed it to, as seen at the window: Avalonia's own hit test is not asked, as it
+            // answers from the layout and the input from what was drawn, and on a window not drawn yet they disagree.
+            Control? hit = null;
+            void Saw(object? sender, PointerEventArgs e) =>
+                hit ??= (e.Source as Visual)?.GetSelfAndVisualAncestors().OfType<Control>().FirstOrDefault();
+            topLevel.AddHandler(InputElement.PointerMovedEvent, Saw, Avalonia.Interactivity.RoutingStrategies.Tunnel,
+                handledEventsToo: true);
+            bool sent;
+            try { sent = RawPointer.Move(topLevel, atTopLevel); }
+            finally { topLevel.RemoveHandler(InputElement.PointerMovedEvent, Saw); }
+
+            string missed;
+            if (!sent)
+                missed = "could not be sent, as Avalonia's members for it could not be reached";
+            else if (hit is null)
+                missed = "found nothing drawn at the point, which is outside the window or not drawn yet";
+            else
             {
-                landing = new HoverLanding(target, local, ThroughWindowInput: true);
-                return new InteractOutcome(true, "pointer", $"hovered ({local.X:0.#}, {local.Y:0.#}){Where()}", null);
+                // What the pointer is over is what a person's would be: the target, or whatever is drawn over it there. A
+                // disabled target is never hit, as the input goes to its nearest enabled ancestor, so it is taken as reached.
+                var reached = !enabled || ReferenceEquals(hit, target) || target.IsVisualAncestorOf(hit);
+                landing = reached
+                    ? new HoverLanding(target, local, ThroughWindowInput: true)
+                    : new HoverLanding(hit, topLevel.TranslatePoint(atTopLevel, hit) ?? local, ThroughWindowInput: true);
+                var landed = reached
+                    ? enabled ? string.Empty : "; the target is disabled, so it takes no pointer input and shows a tip only "
+                                               + "when it sets ToolTip.ShowOnDisabled"
+                    : $"; it landed on {Describe(hit)}, not the target, as that is what is drawn at the point, so it is what a "
+                      + "person's pointer there would be over";
+                return new InteractOutcome(true, "pointer",
+                    $"hovered ({local.X:0.#}, {local.Y:0.#}){Where()} through the window's input{landed}", null);
             }
 
             var pointer = new Avalonia.Input.Pointer(
@@ -2900,49 +2927,80 @@ public static class UiAutomationDriver
         catch (Exception ex) { return new InteractOutcome(false, "pointer", null, $"hover threw: {ex.Message}"); }
     }
 
-    // The members a move through a window's input needs. None is public in Avalonia 12.0.4: the reference assemblies
-    // hide the platform's input callback and the constructors of the raw event and the mouse device, and the window's input root is non-public. So
-    // each is found by reflection, once, and a hover without one of them falls back to events raised on the control.
-    private static readonly System.Reflection.PropertyInfo? TopLevelInputRoot = typeof(TopLevel).GetProperty(
-        "InputRoot", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
-    private static readonly System.Reflection.PropertyInfo? PlatformInput =
-        typeof(Avalonia.Platform.ITopLevelImpl).GetProperty("Input");
-    private static readonly System.Reflection.ConstructorInfo? NewMouse = typeof(MouseDevice).GetConstructors()
-        .FirstOrDefault(c => c.GetParameters() is [{ ParameterType: var p }] && p == typeof(Avalonia.Input.Pointer));
-    private static readonly System.Reflection.ConstructorInfo? RawMove =
-        typeof(Avalonia.Input.Raw.RawPointerEventArgs).GetConstructors().FirstOrDefault(c => c.GetParameters() is
-            [_, { ParameterType: var t }, _, _, { ParameterType: var p }, _] && t == typeof(ulong) && p == typeof(Point));
+    /// <summary>
+    /// Ends a hover that went through the window's input: the pointer leaves the window, as a person's does when they
+    /// move away, so the tip closes and nothing is left pointer-over. A later click, snapshot or hover then finds the
+    /// window as a person would, with no tip over it.
+    /// </summary>
+    public static void EndHover(Control control)
+    {
+        if (TopLevel.GetTopLevel(control) is { } topLevel)
+            RawPointer.Leave(topLevel);
+    }
 
     /// <summary>
-    /// Moves the pointer to <paramref name="at"/>, in the window's coordinates, through the window's own input, as the
-    /// platform delivers a real move. Null when <paramref name="target"/> saw it; else why not, to finish "the move through the
-    /// window's input …".
+    /// Pointer input sent through a window's own input, as the platform sends it. None of what this needs is public in
+    /// Avalonia 12.0.4: the reference assemblies hide the platform's input callback and the constructors of the raw event
+    /// and the mouse device, and the window's input root is non-public. So each is found by reflection, in a class of its
+    /// own, so that an Avalonia that has changed them fails only this, and a hover falls back to raising on the control.
     /// </summary>
-    private const string Unreachable = "could not be sent, as Avalonia's members for it could not be reached";
-
-    private static string? MissedThroughWindowInput(TopLevel topLevel, Point at, Control target)
+    private static class RawPointer
     {
-        var seen = false;
-        void Saw(object? sender, PointerEventArgs e) => seen = true;
-        target.AddHandler(InputElement.PointerMovedEvent, Saw, Avalonia.Interactivity.RoutingStrategies.Tunnel | Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
-        try
+        // Found when first used, inside the catch below: the static constructor keeps the lookups from running any earlier,
+        // where what one threw would escape it.
+        private static class Members
         {
-            if (RawMove is null || NewMouse is null || topLevel.PlatformImpl is not { } impl
-                || PlatformInput?.GetValue(impl) is not Action<Avalonia.Input.Raw.RawInputEventArgs> input
-                || TopLevelInputRoot?.GetValue(topLevel) is not IInputRoot root)
-                return Unreachable;
-            var mouse = NewMouse.Invoke([new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true)]);
-            input((Avalonia.Input.Raw.RawInputEventArgs)RawMove.Invoke(
-                [mouse, (ulong)Environment.TickCount64, root, Avalonia.Input.Raw.RawPointerEventType.Move, at, RawInputModifiers.None]));
-            return seen ? null : "did not reach it: nothing is drawn there yet, or something is drawn over it";
+            private const System.Reflection.BindingFlags Instance =
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public;
+
+            public static readonly System.Reflection.PropertyInfo? InputRoot = typeof(TopLevel).GetProperty("InputRoot", Instance);
+            public static readonly System.Reflection.PropertyInfo? PlatformInput =
+                typeof(Avalonia.Platform.ITopLevelImpl).GetProperty("Input");
+            public static readonly System.Reflection.ConstructorInfo? NewMouse = typeof(MouseDevice).GetConstructors()
+                .FirstOrDefault(c => c.GetParameters() is [{ ParameterType: var p }] && p == typeof(Avalonia.Input.Pointer));
+            public static readonly System.Reflection.ConstructorInfo? NewEvent =
+                typeof(Avalonia.Input.Raw.RawPointerEventArgs).GetConstructors().FirstOrDefault(c => c.GetParameters() is
+                    [_, { ParameterType: var t }, _, _, { ParameterType: var p }, _] && t == typeof(ulong) && p == typeof(Point));
+
+            static Members() { }
         }
-        catch
+
+        // One device for every hover. A new device is a different pointer, and the window tells whatever the last one was
+        // over that it has left: the code editor closed its tip, and a second hover at the same point was then taken for
+        // jitter and opened none (#1265 review).
+        private static IInputDevice? mouse;
+
+        /// <summary>Sends a move to <paramref name="at"/>, in the window's coordinates. False, having sent nothing, when a
+        /// member it needs cannot be reached.</summary>
+        public static bool Move(TopLevel topLevel, Point at) => Send(topLevel, Avalonia.Input.Raw.RawPointerEventType.Move, at);
+
+        public static void Leave(TopLevel topLevel) => Send(topLevel, Avalonia.Input.Raw.RawPointerEventType.LeaveWindow, default);
+
+        private static bool Send(TopLevel topLevel, Avalonia.Input.Raw.RawPointerEventType type, Point at)
         {
-            return Unreachable;
-        }
-        finally
-        {
-            target.RemoveHandler(InputElement.PointerMovedEvent, Saw);
+            Action<Avalonia.Input.Raw.RawInputEventArgs> input;
+            Avalonia.Input.Raw.RawInputEventArgs args;
+            try
+            {
+                if (Members.NewEvent is not { } newEvent || Members.NewMouse is not { } newMouse
+                    || topLevel.PlatformImpl is not { } impl
+                    || Members.PlatformInput?.GetValue(impl) is not Action<Avalonia.Input.Raw.RawInputEventArgs> found
+                    || Members.InputRoot?.GetValue(topLevel) is not IInputRoot root)
+                    return false;
+                mouse ??= (IInputDevice)newMouse.Invoke(
+                    [new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true)]);
+                input = found;
+                args = (Avalonia.Input.Raw.RawInputEventArgs)newEvent.Invoke(
+                    [mouse, (ulong)Environment.TickCount64, root, type, at, RawInputModifiers.None]);
+            }
+            catch (Exception ex) when (ex is System.Reflection.TargetInvocationException or TypeInitializationException
+                                           or MemberAccessException or InvalidCastException or ArgumentException)
+            {
+                return false;
+            }
+            // Outside the catch: what a handler throws is the program's, and is reported as any other action reports it.
+            input(args);
+            return true;
         }
     }
 

@@ -4259,13 +4259,17 @@ constructor needs the window's input root. In 12.0.4 that root is the non-public
 by reflection, as `close` already reaches the window's own close handling. Not tried.
 [#1265](https://github.com/hexide-io/HexIDE/issues/1265).
 
-> **Fixed (#1265).** `hover` sends its move through the window's own input, as the platform delivers a real one:
-> `TopLevel.PlatformImpl.Input`, with the window's non-public input root and a raw pointer event, each reached by
-> reflection, since Avalonia 12.0.4's reference assemblies hide the callback and the constructors of the raw event and
-> the mouse device. So the move is hit-tested and routed as a real one, and the tooltip service sees it: a declared
-> `ToolTip.Tip` opens, and the code editor's own handler still gets its `PointerMoved`. The tool waits for the window's
-> next frame first, as `click` does, since a move is hit-tested against what was drawn. When the target does not see
-> the move (nothing drawn there yet, something drawn over it) or a member cannot be reached, the move is raised on the
-> target as before, and the reply says so and why. Guarded by `UiAutomationDriverTests`: a declared tip opens, and a
-> covered button falls back with its note. Measured headless only; where a tip opens in a running IDE, and whether it
-> now stays open, are not yet measured live, so the placement measurements above describe the old route.
+> **Fixed (#1265), measured headless; the live run is [#1303](https://github.com/hexide-io/HexIDE/issues/1303).** `hover`
+> sends its move through the window's own input, as the platform delivers a real one: `TopLevel.PlatformImpl.Input`,
+> with the window's non-public input root, a raw pointer event and one mouse device for every hover, each reached by
+> reflection, since Avalonia 12.0.4's reference assemblies hide the callback and the constructors. So the move is
+> hit-tested against what was drawn and routed as a real one, and the tooltip service sees it: a declared `ToolTip.Tip`
+> opens, and the code editor's own handler still gets its `PointerMoved`. The tool waits for the window's next frame
+> first, as `click` does. What the move lands on is what the window routed it to, so a control drawn over the target is reported
+> by name, with its tip, as that is what a person would be shown; a disabled target is said to be disabled. Only when
+> the move hits nothing, or Avalonia's members cannot be reached, is it raised on the target as before, and the reply
+> says why. After the watch the pointer leaves the window, closing the tip, so the next click is not covered by it.
+> The review found the editor's quick info failing on a second hover at the same point (a new device per hover told
+> the editor the pointer had left, and the repeat was taken for jitter); one device, and the editor forgetting its
+> hover on exit, fixed that. Guarded by `HoverThroughWindowInputTests`. The placement measurements above describe the
+> old route.
