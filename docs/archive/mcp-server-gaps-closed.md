@@ -4087,8 +4087,12 @@ code window stayed usable under it; and its focus manager still reported the cod
 focus passed. #1257 stops the typing for a dialog that opens during it, not one already open.
 
 > **Fixed.** The reset prompt is shown over the code editor's own window, which it holds, as VB6's prompt holds the IDE
-> (`IWindowManager.MessageBox` takes an owner). Keyboard `type_text` and `press_key` are refused before a key is sent
-> while a modal dialog is open over the window they act in, or over a window that holds it: "'Reset?', a modal dialog
+> (`IWindowManager.MessageBox` takes an owner), unless that window is minimized, which would hide it. Keyboard
+> `type_text` and `press_key` are refused before a key is sent, ahead of their other checks, while a modal dialog is open
+> over the window they act in, directly or through dialogs between; a control in a native popup counts as in the window
+> the popup opened from. The refusal names the dialog on top, which takes the keys: "'Reset?', a modal dialog
 > over 'Project1 - HexIDE', is open and waits for an answer, so a person's keys would go to it, not to TextArea; nothing
 > was typed. Answer it first: …". The reply's note of open dialogs leaves it out. A dialog over another window is left
-> to that note, as a person could click past it. Guarded by `TypeKeysTests` and `ResetPromptTests`.
+> to that note, as a person could click past it. The `type_text` and `press_key` descriptions say so. Guarded by
+> `TypeKeysTests` and `ResetPromptTests`; the prompt's owner in a running IDE, and the native popup case, were read from
+> the code, not run.

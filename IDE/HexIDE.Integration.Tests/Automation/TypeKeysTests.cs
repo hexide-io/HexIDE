@@ -347,6 +347,51 @@ public class TypeKeysTests : IDisposable
         finally { open.Close(); }
     }
 
+    // Dialogs stacked over the window: the one on top takes the keys, and the one under it cannot be answered first, so the
+    // refusal names the top one (#1290 review).
+    [AvaloniaFact]
+    public async Task Under_stacked_dialogs_the_refusal_names_the_one_on_top()
+    {
+        var box = new TextBox { Width = 200 };
+        var window = ShowBoxes(box);
+        window.Title = "Main";
+        var outer = new Window { Title = "Outer", Width = 200, Height = 100 };
+        _ = outer.ShowDialog(window);
+        Dispatcher.UIThread.RunJobs();
+        var inner = new Window { Title = "Inner", Width = 100, Height = 50 };
+        _ = inner.ShowDialog(outer);
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
+
+            typed.Error.Should().StartWith("'Inner', a modal dialog over 'Outer', is open");
+        }
+        finally
+        {
+            inner.Close();
+            outer.Close();
+        }
+    }
+
+    // Under a dialog a key goes to the dialog, whatever the control would have done with it: a read-only box is not the
+    // reason given (#1290 review).
+    [AvaloniaFact]
+    public async Task A_dialog_over_the_window_is_named_ahead_of_what_the_control_would_refuse()
+    {
+        var box = new TextBox { Width = 200, IsReadOnly = true };
+        var window = ShowBoxes(box);
+        window.Title = "Main";
+        var open = new Window { Title = "Reset?", Width = 100, Height = 50 };
+        _ = open.ShowDialog(window);
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            (await UiAutomationDriver.TypeKeysAsync(box, "abc")).Error.Should().StartWith("'Reset?', a modal dialog over 'Main'");
+        }
+        finally { open.Close(); }
+    }
+
     // Typing in a dialog that has a dialog of its own open over it: the one over it takes the keys.
     [AvaloniaFact]
     public async Task A_dialog_over_the_dialog_typed_in_refuses_the_typing()
