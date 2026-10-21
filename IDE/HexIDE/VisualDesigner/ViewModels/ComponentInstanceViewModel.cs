@@ -306,4 +306,10 @@ public partial class ComponentInstanceViewModel : ObservableObject
 
     public string BaseClassName => instance.BaseClass.Name;
 
+    /// <summary>
+    /// The control's name: what a dropdown of these, the Properties window's object selector, is named by in automation,
+    /// which reads an item by its ToString. Its type name told a caller nothing of which control was selected (#1288).
+    /// </summary>
+    public override string ToString() => Name;
+
 }

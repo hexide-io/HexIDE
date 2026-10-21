@@ -4069,7 +4069,11 @@ On the Properties window's object selector, `inspect_element` gave `selectionIte
 peer names it by, not the text the dropdown shows. A caller could not tell which control was selected without expanding
 it and dumping it.
 
-> **Fixed.** For a dropdown, a selection or value that is only a type name is read as the closed box shows it: the text
-> of the presenter that shows its selection box item, through its item template. A name that is not a type name, the
-> one its row carries, is kept, whatever the template shows. Open, the row already names it. Guarded by
-> `InspectItemCountTests`.
+> **Fixed.** `ComponentInstanceViewModel` names itself by the control's name, as `ConflictedFileViewModel` and others do,
+> so the object selector reads "Command1" closed and open, its rows are named in the dump, and `select` by value finds
+> them; its template shows the name and the class, "Command1 CommandButton", which names no control. For any dropdown,
+> a selection or value that is only the text an item gives with no `ToString` of its own, its type, generic arguments
+> and all, or a record's members, is read as the closed box shows it: the visible text of the presenter of its
+> selection box item. An item's own text is kept, whatever the template shows. Guarded by `InspectItemCountTests`, one
+> on the real `PropertiesToolView`. A list box's unrealized rows, and rows a multi-block template leaves unnamed (the
+> Object Browser's lists), are #1299.

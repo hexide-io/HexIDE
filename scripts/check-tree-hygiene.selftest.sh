@@ -60,9 +60,9 @@ checks=0
 # The two failure totals differ by exactly two, and that difference IS the point of run D: staging
 # `planted.key` and `planted.pfx` moves them from the warn branch to the fail branch, because git has
 # stopped standing between them and a push.
-EXPECTED_CHECKS=65
-FAILURES_UNTRACKED=17
-FAILURES_STAGED=19
+EXPECTED_CHECKS=67
+FAILURES_UNTRACKED=18
+FAILURES_STAGED=20
 
 # Built rather than written, so the comparison is against the same bytes the guard emits and this file
 # needs no particular encoding to survive.
@@ -79,6 +79,7 @@ ACCENTED="caf$(printf '\xC3\xA9')"
 PEM_RSA="$(printf -- '-----BEGIN RSA PRIVATE %s-----' KEY)"
 PEM_PKCS8="$(printf -- '-----BEGIN PRIVATE %s-----' KEY)"
 MACHINE_PATH="$(printf 'C:\\%s\\somebody\\notes.txt' Users)"
+SCRATCH_PATH="$(printf 'C:/%s/.hexide-%s/err.txt' Work sessions)"
 NEIGHBOUR_A="$(printf 'twin%s' BASIC)"
 NEIGHBOUR_B="$(printf 'RD%s' Core)"
 NEIGHBOUR_C="$(printf 'Rubber%s' Duck)"
@@ -166,6 +167,7 @@ plant() {
   printf '%s\nnot a real key\n' "$PEM_PKCS8"                > "$PROBE/secret8.txt"   # 1b PEM, PKCS#8
   printf 'MZ not a real binary\n'                           > "$PROBE/planted.exe"   # 2
   printf 'see %s\n' "$MACHINE_PATH"                         > "$PROBE/paths.md"      # 3
+  printf 'File.WriteAllText("%s");\n' "$SCRATCH_PATH"       > "$PROBE/scratch.cs"    # 3b
   printf '%s\n' "$IDENTITY_IN_FILE"                         > "$PROBE/identity.md"   # 4
   printf '# planted\n\nSee [nothing](./no-such-file.md).\n' > "$PROBE/planted.md"    # 5
   printf 'A note about %s.\n' "$NEIGHBOUR_A"                > "$PROBE/neighbour1.md" # 6, one per alternative
@@ -203,6 +205,7 @@ assert_every_scan_reported() {
   seen "1b. a PKCS#8 block FAILS (no algorithm)"     "$FAILMARK PEM private-key block: $PROBE/secret8.txt"
   seen "2.  a build artefact FAILS"                  "$FAILMARK build artefact / backup in the tree: $PROBE/planted.exe"
   seen "3.  a machine-specific absolute path FAILS"  "$FAILMARK machine-specific absolute path: $PROBE/paths.md:1:"
+  seen "3b. this machine's working folders FAIL"    "$FAILMARK machine-specific absolute path: $PROBE/scratch.cs:1:"
   seen "4.  an armed identity scan FAILS, any case"  "$FAILMARK personal-identity reference: $PROBE/identity.md:1:"
   seen "5.  a dangling link in Markdown FAILS"       "$FAILMARK dangling relative link: $PROBE/planted.md->./no-such-file.md"
   seen "6.  an unagreed third-party name FAILS"      "$FAILMARK third-party project named outside the agreed places: $PROBE/neighbour1.md"
