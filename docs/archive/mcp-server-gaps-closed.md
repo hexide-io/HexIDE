@@ -4118,6 +4118,6 @@ drops a type name, so such a row had no name, `select` by value could not find i
 selection "ListItem". The Object Browser's class, member and search lists were all of this shape.
 
 > **Fixed.** `OBClassViewModel`, `OBMemberViewModel` and `OBSearchResultViewModel` name themselves by their names, as
-> `OBLibraryViewModel` beside them already did. And a list row its peer gives no usable name is named by the text it
-> shows, so a view model added later without a `ToString` still reads as a person reads it. Guarded by
-> `ListRowNameTests`.
+> `OBLibraryViewModel` beside them already did. A survey of the IDE's lists found no other rows of this shape. A
+> driver fallback naming such a row by the text it shows was tried and dropped: paths and `select` match on the peer's
+> name, so the dump would have shown a name no tool accepts. Guarded by `ListRowNameTests`.

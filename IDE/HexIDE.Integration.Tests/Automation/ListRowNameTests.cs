@@ -10,7 +10,8 @@ namespace HexIDE.Integration.Tests.Automation;
 
 /// <summary>
 /// A list row whose item has no ToString of its own: its peer names it by the item's type, which the dump drops, so the
-/// row had no name, select by value could not find it, and inspect_element named the selection "ListItem" (#1299).
+/// row had no name, select by value could not find it, and inspect_element named the selection "ListItem" (#1299). The
+/// Object Browser's rows were all of that shape.
 /// </summary>
 public class ListRowNameTests
 {
@@ -48,28 +49,7 @@ public class ListRowNameTests
             var selected = UiAutomationDriver.Interact(list, "select", "Module1");
             selected.Success.Should().BeTrue(selected.Error);
             UiAutomationDriver.Inspect(list, "Window/ListBox", window).SelectionItems.Should().Equal("Module1");
-        }
-        finally { window.Close(); }
-    }
-
-    public sealed class Plain(string name)
-    {
-        public string Name { get; } = name;
-    }
-
-    // An item with no ToString of its own: the row is named by the text it shows, as a person reads it, where it had none.
-    [AvaloniaFact]
-    public void A_row_whose_item_names_itself_by_its_type_is_named_by_the_text_it_shows()
-    {
-        var (window, list) = Show(new[] { new Plain("Alpha"), new Plain("Beta") }, _ => "*", p => p?.Name ?? "");
-        try
-        {
-            Flatten(UiAutomationDriver.Dump(window, "Window", 12, false)).Where(n => n.ControlType == "ListItem")
-                .Select(n => n.Name).Should().Equal("* Alpha", "* Beta");
-
-            list.SelectedIndex = 1;
-            Dispatcher.UIThread.RunJobs();
-            UiAutomationDriver.Inspect(list, "Window/ListBox", window).SelectionItems.Should().Equal("* Beta");
+            new OBMemberViewModel("Caption", OBMemberKind.Property, "Property Caption As String").ToString().Should().Be("Caption");
         }
         finally { window.Close(); }
     }
