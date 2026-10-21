@@ -2349,7 +2349,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "hover")]
-    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) by raising real PointerEntered/PointerMoved events, watches for a tip, and reports its text. WORKS for tips a control raises from its OWN pointer handler — LSP quick-info and the debugger's Auto Data Tips in the code editor. Does NOT work for a declarative ToolTip.Tip: Avalonia's ToolTipService ignores a synthetic pointer, so a toolbar button's tooltip stays shut. 'x'/'y' are optional and relative to the target's own top-left; omit them and the point is the CARET for a code editor (position it first with interact set_property CaretOffset, an offset into the whole file get_file_content returns, which is how you hover a particular identifier) and the centre of anything else. A target that is not a code editor but contains one is hovered at that editor, the first under it, and the reply then names the editor and gives its path, as dump_visual_tree would print it. 'dwellMs' is how long to watch. When no tip opens, the reply adds the 'declared tip' of the control under the hovered point or its nearest ancestor that sets one, which is the text a human would be shown there. The tip is TRANSIENT (a synthetic pointer never sets IsPointerOver, so it closes again shortly after opening), which is why this polls rather than looking once, and it is placed AT THE REAL POINTER — wherever it last crossed this window — and not under the target: the editor opens quick-info with PlacementMode.Pointer, which anchors to a position Avalonia tracks per window and a synthetic event never updates. Measured: with the mouse parked over the Toolbox, hovering the caret opened the tip beside the Toolbox; on a fresh window at screen (300,250) that no pointer had crossed, it opened at screen (0,15). So assert the reported text, never a snapshot. 'window' picks the top-level window the path is resolved against; its own description lists the values.")]
+    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) by sending a mouse move through the window's own input, as the platform delivers a real one, watches for a tip, and reports its text: a declared ToolTip.Tip, such as a toolbar button's, and a tip a control raises from its own pointer handler, such as LSP quick-info and the debugger's Auto Data Tips in the code editor. The move is hit-tested as a real one is: when something else is drawn at the point the reply says what it landed on, and reports that control's tip, as that is what a person would be shown; a disabled target shows a tip only with ToolTip.ShowOnDisabled, and the reply says it is disabled. When nothing is drawn at the point, or Avalonia's input cannot be reached, the move is raised on the control instead, which opens only the second kind, and the reply says so. 'x'/'y' are optional and relative to the target's own top-left; omit them and the point is the CARET for a code editor (position it first with interact set_property CaretOffset, an offset into the whole file get_file_content returns, which is how you hover a particular identifier) and the centre of anything else. A target that is not a code editor but contains one is hovered at that editor, the first under it, and the reply then names the editor and gives its path, as dump_visual_tree would print it. 'dwellMs' is how long to watch. When no tip opens, the reply adds the 'declared tip' of the control under the hovered point or its nearest ancestor that sets one, which is the text a human would be shown there. The pointer then leaves the window, closing the tip, so the next action finds nothing over the window; assert the reported text, not a snapshot. Measured headless only. 'window' picks the top-level window the path is resolved against; its own description lists the values.")]
     public async Task<InteractOutcome> HoverAsync(
         string target, double? x = null, double? y = null,
         [Description("How long to watch for a tip, in milliseconds: default 1500, from 0 to 10000. It must exceed the "
@@ -2364,15 +2364,22 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
         UiAutomationDriver.HoverLanding? landing = null;
 
-        var raised = await Dispatcher.UIThread.InvokeAsync(() =>
+        // The move is hit-tested against what the window last drew, as click's press is: a window opened a moment ago has
+        // drawn nothing, so its next frame is waited for first (#1265).
+        var resolved = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var (active, _, error) = ResolveActiveWindow(window);
-            if (active is null) return new InteractOutcome(false, "pointer", null, error);
-
+            if (active is null) return (null, error);
             var (control, resolveError) = ResolveIn(active, window, target);
-            if (control is null) return new InteractOutcome(false, "pointer", null, resolveError);
+            return (control, resolveError);
+        });
+        if (resolved.Item1 is not { } found)
+            return new InteractOutcome(false, "pointer", null, resolved.Item2);
+        await Dispatcher.UIThread.InvokeAsync(() => UiAutomationDriver.NextFrameDrawnAsync(found, UiAutomationDriver.ClickFrameWait));
 
-            var outcome = UiAutomationDriver.Hover(control, x, y, target, out var landed);
+        var raised = await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            var outcome = UiAutomationDriver.Hover(found, x, y, target, out var landed);
             landing = landed;
             return outcome;
         });
@@ -2380,39 +2387,55 @@ internal sealed class HexIdeTools(IdeContext ctx)
         if (!raised.Success || landing is not { } at) return raised;
         var hovered = at.Receiver;
 
-        // POLLED, and measured to need it. A synthetic pointer never sets IsPointerOver, so Avalonia closes
-        // the tip again shortly after the editor opens it: the tip is real, visible, and transient. Looking
-        // once when the dwell expires reports "no tip" for a tip a human plainly sees on screen.
+        // POLLED. A tip opens after a dwell, and the move raised on the control in the fallback never set the pointer
+        // over anything, so Avalonia closed the editor's tip again shortly after it opened: looking once when the dwell
+        // expired reported "no tip" for a tip a human plainly saw on screen.
         //
         // Waited off the UI thread throughout: every tip this exists to surface comes from an async
         // continuation -- a 400ms dwell, then an await -- so holding the dispatcher would stop the very
         // thing being waited for and then report, accurately, that nothing happened.
         string? tip = null;
-        var deadline = Environment.TickCount64 + dwellMs;
-        while (tip is null && Environment.TickCount64 < deadline)
+        string? declared = null;
+        var enabled = true;
+        try
         {
-            await Task.Delay(50, ct);
-            tip = await Dispatcher.UIThread.InvokeAsync(() => DescribeOpenToolTip(hovered));
+            var deadline = Environment.TickCount64 + dwellMs;
+            while (tip is null && Environment.TickCount64 < deadline)
+            {
+                await Task.Delay(50, ct);
+                tip = await Dispatcher.UIThread.InvokeAsync(() => DescribeOpenToolTip(hovered));
+            }
+
+            // Nothing OPENED. Say so plainly -- and then, separately, say what the control declares, because the
+            // caller's real question is usually "has this button the right tooltip?" and that is answerable from the
+            // attached property even when Avalonia will not show it. The two are reported under different words on
+            // purpose: "tip:" means a popup was observed open, "declared tip:" means only that the text is set.
+            // Collapsing them would turn a limitation into a passing assertion.
+            if (tip is null)
+                (declared, enabled) = await Dispatcher.UIThread.InvokeAsync(
+                    () => (UiAutomationDriver.DeclaredToolTipAt(at.Receiver, at.Point), at.Receiver.IsEffectivelyEnabled));
+        }
+        finally
+        {
+            // The pointer then leaves, closing the tip, so the next action finds the window with nothing over it: a tip
+            // left open covered what a click was aimed at, and the click's press, raised on the control, never closed it.
+            if (at.ThroughWindowInput)
+                await Dispatcher.UIThread.InvokeAsync(() => UiAutomationDriver.EndHover(hovered));
         }
 
         if (tip is not null)
             return raised with { Detail = raised.Detail + "; tip: " + tip };
 
-        // Nothing OPENED. Say so plainly -- and then, separately, say what the control declares, because
-        // the caller's real question is usually "has this button the right tooltip?" and that is answerable
-        // from the attached property even when Avalonia will not show it. The two are reported under
-        // different words on purpose: "tip:" means a popup was observed open, "declared tip:" means only
-        // that the text is set. Collapsing them would turn a limitation into a passing assertion.
-        var declared = await Dispatcher.UIThread.InvokeAsync(
-            () => UiAutomationDriver.DeclaredToolTipAt(at.Receiver, at.Point));
         var unopened = raised.Detail + "; no tip opened within " + dwellMs + "ms";
         return raised with
         {
             Detail = declared is null
                 ? unopened
                 : unopened
-                  + " (Avalonia's ToolTipService opens a declarative tip from IsPointerOver, which a"
-                  + " synthetic pointer never sets); declared tip: " + declared,
+                  + (!at.ThroughWindowInput
+                      ? " (the move was raised on the control, which Avalonia's ToolTipService never sees)"
+                      : enabled ? " (its ToolTip.ShowDelay may be longer than the watch)" : string.Empty)
+                  + "; declared tip: " + declared,
         };
     }
 

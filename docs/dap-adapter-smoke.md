@@ -148,7 +148,8 @@ UI automation with a saved interpreter breakpoint at line 5 and launch JSON requ
 
 The live run exposed and fixed gutter hit-testing: empty margin space now paints a transparent hit area.
 The margin also has a control automation peer, allowing direct hover targeting. Tooltip text was checked
-through the generic hover tool's declared-tip result; synthetic pointers do not open declarative tooltips.
+through the generic hover tool's declared-tip result; synthetic pointers did not then open declarative tooltips
+(#1265 has since changed that).
 
 ### External Watches acceptance
 

@@ -1160,7 +1160,11 @@ public partial class CodeEditorView : UserControl
 
     private void OnPointerExited(object? sender, PointerEventArgs e)
     {
+        // Forgotten, not just cancelled: a pointer coming back to the same point is a new hover, not jitter in the last one,
+        // which the move handler took it for, so it opened no tip (#1265 review).
         _hoverCts?.Cancel();
+        _hoverCts?.Dispose();
+        _hoverCts = null;
         CloseTip();
     }
 
