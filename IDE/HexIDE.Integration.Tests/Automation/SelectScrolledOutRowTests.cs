@@ -105,7 +105,12 @@ public class SelectScrolledOutRowTests
         {
             Height = 40,
             ItemsSource = rows,
-            ItemTemplate = new FuncDataTemplate<Row>((r, _) => new Border { Height = 16, Child = new TextBlock { Text = r?.Name } }),
+            ItemTemplate = new FuncDataTemplate<Row>((r, _) =>
+            {
+                var text = new TextBlock { Text = r?.Name };
+                Avalonia.Automation.AutomationProperties.SetAutomationId(text, $"txt_{r?.Name}");
+                return new Border { Height = 16, Child = text };
+            }),
         };
         list.Styles.Add(new Style(x => x.OfType<ListBoxItem>())
         {
@@ -163,30 +168,54 @@ public class SelectScrolledOutRowTests
 
     private static IEnumerable<UiNode> Flatten(UiNode node) => node.Children.SelectMany(Flatten).Prepend(node);
 
-    // The scroll a select made and put back leaves a released row in the tree, still holding the item it last showed and
-    // still showing by its bound visibility. The dump listed it as a row: a second copy of an item, or a row for one out of
-    // view (#1292). It lists only the rows the list holds.
+    // The scroll a select made and put back leaves a released row in the tree, holding the item it last showed, and once
+    // that item shows again so does the row, by its bound visibility. The dump listed it as a row, a second copy of an
+    // item or a row for one out of view, and a path or an id reached it (#1292). It lists only the rows the list holds.
     [AvaloniaFact]
     public void The_dump_leaves_out_a_row_the_list_has_let_go_of()
     {
-        var (window, list, _) = ScrolledRows(28);
+        var (window, list, rows) = ScrolledRows(28);
         try
         {
             UiAutomationDriver.Interact(list, "select", "Row28").Success.Should().BeFalse();
+            rows[28].Visible = true;
             Dispatcher.UIThread.RunJobs();
             var released = list.GetVisualDescendants().OfType<ListBoxItem>().Where(i => list.IndexFromContainer(i) < 0).ToList();
-            released.Should().NotBeEmpty("the scroll must have left a released row for this to test anything");
+            released.Should().Contain(i => i.IsEffectivelyVisible, "a released row must show for this to test anything");
 
             var dump = Flatten(UiAutomationDriver.Dump(window, "Window", 12, false)).ToList();
-            var rows = dump.Where(n => n.ControlType == "ListItem").Select(n => n.Name).ToList();
+            var rowNames = dump.Where(n => n.ControlType == "ListItem").Select(n => n.Name).ToList();
 
             var held = Enumerable.Range(0, list.ItemCount).Where(i => list.ContainerFromIndex(i) is not null)
                 .Select(i => $"Row{i}").ToList();
-            rows.Should().BeEquivalentTo(held, "the dump lists the rows the list holds, each once");
+            rowNames.Should().BeEquivalentTo(held, "the dump lists the rows the list holds, each once");
             dump.Should().NotContain(n => n.Name == "Row28", "nothing of the released row is listed, its text included");
             var heldPath = dump.Single(n => n.ControlType == "ListItem" && n.Name == "Row0").Path;
             UiAutomationDriver.Resolve(window, heldPath).control.Should().NotBeNull("a held row's path resolves");
             UiAutomationDriver.Resolve(window, heldPath.Replace("Row0", "Row28")).control.Should().BeNull("a path cannot reach it either");
+            UiAutomationDriver.Resolve(window, "Window/#txt_Row0").control.Should().NotBeNull("a held row's text is found by its id");
+            UiAutomationDriver.Resolve(window, "Window/#txt_Row28").control.Should().BeNull("nor can an id");
+        }
+        finally { window.Close(); }
+    }
+
+    // A container written into a template, or set as content, is no list's row, and no list let it go: it is listed, with
+    // what it holds (#1292 review).
+    [AvaloniaFact]
+    public void A_container_a_template_holds_is_listed()
+    {
+        var items = new ItemsControl
+        {
+            ItemsSource = new[] { "I0", "I1" },
+            ItemTemplate = new FuncDataTemplate<string>((s, _) => new ListBoxItem { Content = new Button { Content = $"btn {s}" } }),
+        };
+        var window = new Window { Content = items, Width = 300, Height = 200 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            Flatten(UiAutomationDriver.Dump(window, "Window", 12, false)).Select(n => n.Name)
+                .Should().Contain(["btn I0", "btn I1"]);
         }
         finally { window.Close(); }
     }

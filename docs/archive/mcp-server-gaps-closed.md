@@ -4104,7 +4104,9 @@ A list whose rows bind their visibility to the item, as the Properties window's 
 item it showed, and showing by its binding. #1256 stopped `select` matching one; the dump still listed it as a row, a
 second copy of an item or a row for one out of view, and a path to it resolved.
 
-> **Fixed.** The control view's collector, which the dump and path resolution share, leaves out a released row and
-> everything in it, by #1256's `Released` test. Guarded by `SelectScrolledOutRowTests`: after a `select` scrolls and
-> puts the list back, the dump lists the rows the list holds, each once, and a path to the released row does not
-> resolve.
+> **Fixed.** The control view's collector, which the dump and path resolution share, and the `#AutomationId` search
+> leave out a released row and everything in it, by #1256's `Released` test, now held to an items panel's own children,
+> so a container written into a template or set as content is still listed. Rows declared in `Items` and scrolled out of
+> view are left out with the rest, as generated rows out of view always were. Guarded by `SelectScrolledOutRowTests`:
+> after a `select` scrolls and puts the list back, and the released row's item shows again, the dump lists the rows the
+> list holds, each once, and neither a path nor an id reaches the released row.

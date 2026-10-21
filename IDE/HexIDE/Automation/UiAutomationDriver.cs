@@ -2150,9 +2150,11 @@ public static class UiAutomationDriver
 
     // A row container its list has let go of: a virtualizing panel keeps one it recycled, holding the last item it showed,
     // with no owner and no index, and a visibility bound to that item, as the Properties window's rows are, keeps it
-    // showing. Only containers: a control inside a row has no index of its own either.
+    // showing. Only containers: a control inside a row has no index of its own either. Only an items panel's own children:
+    // a container written into a template, or set as content, is no list's row and no list released it (#1292 review).
     private static bool Released(Control c) =>
         c is ListBoxItem or TreeViewItem or TabItem
+        && c.GetVisualParent() is Panel { IsItemsHost: true }
         && (ItemsControl.ItemsControlFromItemContainer(c) ?? c.FindAncestorOfType<ItemsControl>()) is { } owner
         && owner.IndexFromContainer(c) < 0;
 
@@ -3495,6 +3497,10 @@ public static class UiAutomationDriver
             {
                 if (popup.Child is Visual content)
                     foreach (var d in Descendants(content)) yield return d;
+            }
+            // As the control-view walk leaves it out: a released row reached by its id was the row the dump no longer lists (#1292 review).
+            else if (v is Control released && Released(released))
+            {
             }
             else if (v is Control c)
             {
