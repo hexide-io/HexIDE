@@ -1877,6 +1877,30 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
+    // A hover through the window's input moves the window's pointer, so the control the last hover left it over is told the
+    // pointer has gone, as it would be by a real one, and is not left pointer-over (#1265).
+    [AvaloniaFact]
+    public void A_hover_moves_the_pointer_off_the_control_the_last_one_left_it_over()
+    {
+        var first = new Button { Content = "First", Width = 120, Height = 40 };
+        var second = new Button { Content = "Second", Width = 120, Height = 40 };
+        var window = Show(new StackPanel { Children = { first, second } });
+        try
+        {
+            Avalonia.Headless.AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+
+            UiAutomationDriver.Hover(first, null, null, null, out var landed).Success.Should().BeTrue();
+            landed!.Value.ThroughWindowInput.Should().BeTrue();
+            first.IsPointerOver.Should().BeTrue();
+            UiAutomationDriver.Hover(second, null, null, null, out _).Success.Should().BeTrue();
+
+            first.IsPointerOver.Should().BeFalse("the pointer moved on to the second button");
+            second.IsPointerOver.Should().BeTrue();
+        }
+        finally { window.Close(); }
+    }
+
     // Something drawn over the point takes a move through the window's input, as it would a real one, and the target never
     // sees it. The move is then raised on the target, as before #1265, and the reply says why a declared tip will not open.
     [AvaloniaFact]
