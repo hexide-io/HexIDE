@@ -2440,6 +2440,9 @@ public static class UiAutomationDriver
                     : $"Key {i + 1} of {keys.Count} wrote nothing, and the rest were not sent; the {i} before it went in.");
             }
 
+            // Ahead of the rest: under a dialog the key goes to the dialog, whatever the line or the control (#1290 review).
+            if (KeysTakenBy(start, $"{surface.GetType().Name}{address}", "typed") is { } held)
+                return new InteractOutcome(false, KeyboardMechanism, null, held);
             if (keys.Count > 0 && Refused(start, 0) is { } first)
                 return first;
             if (WhyNotTypable(surface) is { } refusal)
@@ -2449,9 +2452,9 @@ public static class UiAutomationDriver
                 return new InteractOutcome(false, KeyboardMechanism, null, $"'{Describe(start)}' is not in a window; nothing was typed");
 
             start.Focus();
-            // Every window's dialogs, not the typing window's alone: the reset prompt a key opens during a run is owned by
-            // whichever window is active, often the running form, and a program's own MsgBox may open as the keys go in.
-            // A person's next key would go to either, so the typing stops for both (#1257).
+            // Every window's dialogs, not the typing window's alone: a program's own MsgBox may open over its form as the keys
+            // go in, and a person's next key would go to it, as to the reset prompt over this window, so the typing stops for
+            // both (#1257). The reset prompt was owned by whichever window was active, often the running form, until #1290.
             // Known by what they show: a MsgBox whose form is hidden moves to a window of its own, which is no new dialog.
             static object Shown(Window dialog) => dialog.Content ?? dialog;
             var dialogsBefore = OpenDialogs.Among(OpenWindows()).Select(Shown).ToHashSet();
@@ -2620,6 +2623,8 @@ public static class UiAutomationDriver
             if (Shows(target) is not true and var targetShows)
                 return new InteractOutcome(false, "keyboard", null, NotShowingRefusal(target, "press_key", targetShows));
 
+            if (KeysTakenBy(target, Describe(target), "pressed") is { } held)
+                return new InteractOutcome(false, "keyboard", null, held);
             if (AreaOf(target) is { } pressedIn
                 && EditSpan(pressedIn, parsedKey, mods) is { } span
                 && RefusedInReadOnlyRegion(pressedIn, span, "press_key") is { } refused)
@@ -2639,6 +2644,29 @@ public static class UiAutomationDriver
             return new InteractOutcome(true, "keyboard", $"pressed {chord}{parsedKey}{where}", null);
         }
         catch (Exception ex) { return new InteractOutcome(false, "keyboard", null, $"press_key threw: {ex.Message}"); }
+    }
+
+    /// <summary>
+    /// Why a person's keys would not reach <paramref name="at"/>: a modal dialog open over its window, or over a window that
+    /// holds it, disables the window and takes the keys. Null when none is. The window's focus stays where it was, so a
+    /// check on focus passes: keys went into the code under the reset prompt, to be reverted with it (#1290). A dialog over
+    /// another window is left to the reply's note, as a person could click past it. The dialog is recorded as named.
+    /// </summary>
+    private static string? KeysTakenBy(Control at, string what, string done)
+    {
+        // A control in a native popup, a completion list or a dropdown, is in the window the popup opened from.
+        if ((TopLevel.GetTopLevel(at) as Window ?? at.FindLogicalAncestorOfType<Window>()) is not { } window)
+            return null;
+        // The one on top, which no other open dialog holds: a person's keys go to it, and the one under it cannot be
+        // answered before it is (#1290 review).
+        var open = OpenDialogs.Among(OpenWindows());
+        if (open.Where(d => OpenDialogs.Blocks(d, window)).FirstOrDefault(d => !open.Any(o => OpenDialogs.Blocks(o, d)))
+            is not { } holding)
+            return null;
+        OpenDialogs.NamedInReply(holding);
+        return $"'{TitleOf(holding)}', a modal dialog over {OpenDialogs.OwnerOf(holding)}, is open and waits for an answer, so "
+            + $"a person's keys would go to it, not to {what}; nothing was {done}. Answer it first: dump_visual_tree with "
+            + "'window' set to its title shows it, and interact answers it";
     }
 
     /// <summary>The code editor's text area behind a surface, when it is one.</summary>

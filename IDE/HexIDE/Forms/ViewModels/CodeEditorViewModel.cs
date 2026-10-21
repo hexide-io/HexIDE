@@ -123,11 +123,13 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// then stands); No → the edit is left cancelled and the run continues. Returns true if a reset was requested.
     /// The reset goes through the event bus (ProjectRunnerService handles EndProjectRequestedEvent) to avoid a
     /// direct dependency on the runner, which would cycle.</summary>
-    public async Task<bool> ConfirmResetWhileRunningAsync()
+    /// <param name="over">The window of the editor that asks, which the prompt holds, as VB6's does: shown over the active
+    /// window, often the running form, the prompt left the code window usable under it, and an automated key went in (#1290).</param>
+    public async Task<bool> ConfirmResetWhileRunningAsync(Avalonia.Controls.Window? over = null)
     {
         var result = await windowManager.MessageBox(
             localization.GetString("Str.ProjectRunner.EditWhileRunningConfirm"),
-            buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning);
+            buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning, owner: over);
         if (result != MessageBoxResult.Yes)
             return false;
         eventBus.Publish(new EndProjectRequestedEvent());
