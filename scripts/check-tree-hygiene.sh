@@ -149,6 +149,12 @@ while IFS= read -r hit; do
   [ -n "$hit" ] && note "machine-specific absolute path: $hit"
 done < <(git grep --untracked -nIF 'C:\Users\' -- . "${EXCLUDE[@]}")
 
+# 3b. This machine's own working folders: where the worktrees live, and the scratch folder the sessions
+#     working on it share. A test once wrote its debug output there, and passed only on this machine.
+while IFS= read -r hit; do
+  [ -n "$hit" ] && note "machine-specific absolute path: $hit"
+done < <(git grep --untracked -nIi -e 'hexide-sessions' -e 'C:[\/]Work[\/]' -- . "${EXCLUDE[@]}")
+
 # 4. Personal-identity references. The pattern is supplied from outside the repository
 #    and is deliberately NOT written here: a literal in this file would publish the exact
 #    string the check exists to find, which is the opposite of the point. CI passes it in

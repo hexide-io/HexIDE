@@ -4061,3 +4061,19 @@ Three paths still acted on, or gave advice from, rows and template parts that do
 >   select its item.
 >
 > Guarded in `UiAutomationDriverTests` and `SelectScrolledOutRowTests`.
+
+## inspect_element named a templated dropdown's selection by its view model's type (#1288)
+
+On the Properties window's object selector, `inspect_element` gave `selectionItems` and `value` as
+`["HexIDE.VisualDesigner.ComponentInstanceViewModel"]`: the selected item's `ToString()`, which the closed dropdown's
+peer names it by, not the text the dropdown shows. A caller could not tell which control was selected without expanding
+it and dumping it.
+
+> **Fixed.** `ComponentInstanceViewModel` names itself by the control's name, as `ConflictedFileViewModel` and others do,
+> so the object selector reads "Command1" closed and open, its rows are named in the dump, and `select` by value finds
+> them; its template shows the name and the class, "Command1 CommandButton", which names no control. For any dropdown,
+> a selection or value that is only the text an item gives with no `ToString` of its own, its type, generic arguments
+> and all, or a record's members, is read as the closed box shows it: the visible text of the presenter of its
+> selection box item. An item's own text is kept, whatever the template shows. Guarded by `InspectItemCountTests`, one
+> on the real `PropertiesToolView`. A list box's unrealized rows, and rows a multi-block template leaves unnamed (the
+> Object Browser's lists), are #1299.
