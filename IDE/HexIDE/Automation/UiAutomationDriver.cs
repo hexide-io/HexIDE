@@ -1627,6 +1627,12 @@ public static class UiAutomationDriver
 
     private static readonly HashSet<Window> Opened = Track();
 
+    /// <summary>
+    /// Starts tracking the windows that open, beside the lifetime's list, which a host without a classic desktop lifetime has
+    /// not got: a window shown before the first call to the driver went untracked there. For such a host to call at its start.
+    /// </summary>
+    internal static void TrackWindows() => _ = Opened;
+
     private static HashSet<Window> Track()
     {
         var opened = new HashSet<Window>();
