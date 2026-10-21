@@ -103,6 +103,14 @@ public static class UiAutomationDriver
             selection = Safe(() => SelectedNames(selecting).ToArray(), []);
 
         string? value = peer.GetProvider<IValueProvider>() is { } vp ? Safe<string?>(() => vp.Value, null) : null;
+        // A closed dropdown's peer names its selection, and gives its value, by the item's ToString, which for a view model
+        // shown through a template is its type name: read as the box shows it instead (#1288). Open, its row names it.
+        if (control is ComboBox dropdown && ShownSelectionOf(dropdown) is { } shown)
+        {
+            selection = [.. selection.Select(s => IsTypeName(s) ? shown : s)];
+            if (value is not null && IsTypeName(value))
+                value = shown;
+        }
 
         bool? toggle = null;
         if (peer.GetProvider<IToggleProvider>() is { } tp)
@@ -756,6 +764,17 @@ public static class UiAutomationDriver
             .Select(i => owner.ContainerFromIndex(i) is Control c
                 ? LabelOf(c, ControlAutomationPeer.CreatePeerForElement(c))
                 : owner.Items[i]?.ToString() ?? $"#{i}")];
+
+    /// <summary>
+    /// The text <paramref name="box"/> shows for its selection while closed: the text blocks of the presenter that shows
+    /// its selection box item, through its item template. Null with nothing selected, or no text to read.
+    /// </summary>
+    private static string? ShownSelectionOf(ComboBox box) =>
+        box.SelectionBoxItem is { } item
+        && box.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>().FirstOrDefault(p => ReferenceEquals(p.Content, item)) is { } presenter
+            ? NullIfEmpty(string.Join(" ", presenter.GetVisualDescendants().OfType<TextBlock>()
+                .Where(t => t.IsVisible && !string.IsNullOrWhiteSpace(t.Text)).Select(t => t.Text)))
+            : null;
 
     /// <summary>What a multi-select list now holds, by the names its rows carry in dump_visual_tree.</summary>
     private static string SelectionSummary(ListBox owner)

@@ -83,4 +83,67 @@ public class InspectItemCountTests
         }
         finally { window.Close(); }
     }
+
+    /// <summary>A view model whose ToString is its type name, as ComponentInstanceViewModel's is.</summary>
+    public sealed class Component(string name)
+    {
+        public string Name { get; } = name;
+    }
+
+    private static ComboBox TemplatedDropdown(int selected) => new()
+    {
+        ItemsSource = new[] { new Component("Form1"), new Component("Command1") },
+        SelectedIndex = selected,
+        ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<Component>(
+            (c, _) => new TextBlock { Text = c?.Name }),
+    };
+
+    // A dropdown whose items are view models shown through a template: the peer names the selection, and gives its value,
+    // by the item's ToString, its type name. Read as the dropdown shows it instead, closed and open (#1288).
+    [AvaloniaFact]
+    public void A_templated_dropdown_s_selection_and_value_are_the_text_it_shows()
+    {
+        var combo = TemplatedDropdown(1);
+        var window = new Window { Width = 300, Height = 200, Content = combo };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var closed = UiAutomationDriver.Inspect(combo, "Window/ComboBox", window);
+            System.IO.File.WriteAllText("C:/Work/.hexide-sessions/err.txt",
+                $"closed sel=[{string.Join("|", closed.SelectionItems)}] value={closed.Value}\n");
+            combo.IsDropDownOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            var open = UiAutomationDriver.Inspect(combo, "Window/ComboBox", window);
+            System.IO.File.AppendAllText("C:/Work/.hexide-sessions/err.txt",
+                $"open sel=[{string.Join("|", open.SelectionItems)}] value={open.Value}\n");
+
+            closed.SelectionItems.Should().Equal("Command1");
+            closed.Value.Should().Be("Command1");
+            open.SelectionItems.Should().Equal("Command1");
+            open.Value.Should().Be("Command1");
+        }
+        finally { window.Close(); }
+    }
+
+    // A selection the peer names by its own text keeps that name, the one its row carries, though the template shows more.
+    [AvaloniaFact]
+    public void A_dropdown_of_text_keeps_its_items_names_whatever_its_template_shows()
+    {
+        var combo = new ComboBox
+        {
+            ItemsSource = new[] { "Sub Main", "Form1" },
+            SelectedIndex = 1,
+            ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<string>((s, _) => new TextBlock { Text = $"Startup: {s}" }),
+        };
+        var window = new Window { Width = 300, Height = 200, Content = combo };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var closed = UiAutomationDriver.Inspect(combo, "Window/ComboBox", window);
+            closed.SelectionItems.Should().Equal("Form1");
+        }
+        finally { window.Close(); }
+    }
 }

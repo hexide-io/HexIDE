@@ -4061,3 +4061,15 @@ Three paths still acted on, or gave advice from, rows and template parts that do
 >   select its item.
 >
 > Guarded in `UiAutomationDriverTests` and `SelectScrolledOutRowTests`.
+
+## inspect_element named a templated dropdown's selection by its view model's type (#1288)
+
+On the Properties window's object selector, `inspect_element` gave `selectionItems` and `value` as
+`["HexIDE.VisualDesigner.ComponentInstanceViewModel"]`: the selected item's `ToString()`, which the closed dropdown's
+peer names it by, not the text the dropdown shows. A caller could not tell which control was selected without expanding
+it and dumping it.
+
+> **Fixed.** For a dropdown, a selection or value that is only a type name is read as the closed box shows it: the text
+> of the presenter that shows its selection box item, through its item template. A name that is not a type name, the
+> one its row carries, is kept, whatever the template shows. Open, the row already names it. Guarded by
+> `InspectItemCountTests`.
