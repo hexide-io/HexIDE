@@ -79,6 +79,11 @@ public sealed class EventPump
     private int topLevel;
     // Walks held by a suspension WhileSuspended brackets: a time slice, a breakpoint, an awaited built-in (#1232).
     private int held;
+    // Walks parked at DoEvents. The program counts as waiting for input there, but a reply waits for a walk its action
+    // started all the same, as for one with no DoEvents (#1254).
+    private readonly HashSet<Walk> atDoEvents = [];
+    // Every walk started and not finished, for a reply to tell the walks its action started from those it found.
+    private readonly HashSet<Walk> live = [];
     private int posting;
     private bool closed;
 
@@ -98,12 +103,27 @@ public sealed class EventPump
     /// Whether the program is waiting for input: no handler executing, none held at a time slice, a breakpoint or an
     /// awaited built-in such as MsgBox, and no event queued. A walk parked in <c>Show vbModal</c>'s loop or at
     /// <c>DoEvents</c> counts as waiting, as that is the program's message loop; work waiting for idle cannot run under
-    /// one, so it counts only when nothing is parked. What an automation reply waits for (#1232). It rests on every
+    /// one, so it counts only when nothing is parked. A reply to an action waits on for a walk parked at <c>DoEvents</c> that
+    /// was not parked there before the action, through <see cref="AtDoEvents"/>: a loop the action started is the action's
+    /// work, where one it found running is the program's message loop (#1254). What an automation reply waits for (#1232). It rests on every
     /// suspension that is not a park being bracketed by <see cref="WhileSuspended(ValueTask)"/>, which the class already
     /// requires.
     /// </summary>
     public bool IsIdle => closed
         || Current is null && queue.Count == 0 && held == 0 && (topLevel > 0 || whenIdle.Count == 0);
+
+    /// <summary>
+    /// The walks parked at <c>DoEvents</c> now, as tokens to compare with <see cref="Live"/>: a reply records the live walks
+    /// before its action, and counts the program idle only while every walk parked here was one of them (#1254). Walks, not
+    /// names, so a click that re-enters a handler parked under the same name is told apart from it.
+    /// </summary>
+    public IReadOnlyCollection<object> AtDoEvents => atDoEvents;
+
+    /// <summary>
+    /// Every walk started and not finished, as tokens. Recorded whole, not only those parked at <c>DoEvents</c> then: a loop
+    /// caught between two DoEvents is the same loop, and recorded as not parked it read as one the action started.
+    /// </summary>
+    public IReadOnlyCollection<object> Live => live;
 
     /// <summary>The handlers part way through, then those waiting, by name: what a reply names when it cannot wait.</summary>
     public IReadOnlyList<string> Busy =>
@@ -263,13 +283,22 @@ public sealed class EventPump
     public async Task DoEvents()
     {
         var walk = Current;
-        await Suspended(walk, YieldToInput());
-        while (Dequeue() is { } next)
+        var parked = walk is not null && atDoEvents.Add(walk);
+        try
         {
-            var started = Start(next.Name, next.Work);
-            if (!started.IsCompleted)
-                await Suspended(walk, started);
-            await started;
+            await Suspended(walk, YieldToInput());
+            while (Dequeue() is { } next)
+            {
+                var started = Start(next.Name, next.Work);
+                if (!started.IsCompleted)
+                    await Suspended(walk, started);
+                await started;
+            }
+        }
+        finally
+        {
+            if (parked)
+                atDoEvents.Remove(walk!);
         }
     }
 
@@ -375,6 +404,7 @@ public sealed class EventPump
     {
         var walk = new Walk(name) { ReturnsTo = Current };
         Current = walk;
+        live.Add(walk);
         running[name] = (running.TryGetValue(name, out var count) ? count : 0) + 1;
         try
         {
@@ -397,6 +427,7 @@ public sealed class EventPump
         finally
         {
             running[name]--;
+            live.Remove(walk);
             Current = walk.ReturnsTo;
         }
     }

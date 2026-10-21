@@ -4017,3 +4017,19 @@ the tick moved, so a reply with none read as "it did not move".
 > Exit would run. It says the program sets the tick in the item's Click, and where to read it. Guarded by
 > `ProgramWaitTests`, with handlers that tick, untick, do both and do neither, and the click alone on an item whose Click
 > ticks it at once.
+
+## An action that started a DoEvents loop was replied to at its first DoEvents, with no note (#1254)
+
+The wait for a running program (#1232) counts a handler parked at `DoEvents` as the program waiting for input, which
+#1233 settled for an action taken under a DoEvents loop already running. It counted the same for a loop the action itself
+started: a Click that loops with a `DoEvents` per pass got `invoked Button 'Command1'` back at its first `DoEvents`, with
+no note, while the form was half way through. The same loop without `DoEvents` was waited for.
+
+> **Fixed.** The pump keeps the walks parked at `DoEvents`, and every walk started and not finished. A reply records the
+> live walks before its action, and counts the program idle only while every walk parked at `DoEvents` was one of them.
+> A loop the action found running is still the program's message loop, wherever the action finds it, between two
+> `DoEvents` included. A loop the action started is waited for as one with no `DoEvents` is, up to the limit, and
+> outlasting the limit gets the usual note: "(the program was still running Command1_Click 3s later, so the form may
+> still change)". Walks, not handler names, so a click that re-enters a handler parked under the same name is told apart
+> from it. A `Show vbModal` park is unchanged, so an action that opens a modal form still replies at once. Guarded by
+> `ProgramWaitTests`, with no time slice so that `DoEvents` is the loop's only yield.

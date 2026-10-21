@@ -1446,6 +1446,7 @@ public static class UiAutomationDriver
         {
             Pump = pump;
             IdleBefore = pump.IsIdle;
+            LiveBefore = [.. pump.Live];
             Form = form;
             Before = before;
             Paused = paused;
@@ -1456,6 +1457,9 @@ public static class UiAutomationDriver
         internal HashSet<Window> Before { get; }
         // A program idle before the action held on nothing open then: only a window the action opened can hold it.
         internal bool IdleBefore { get; }
+        // The walks running before the action: one of them parked at DoEvents is the program waiting for input, but a walk
+        // the action started is its own work, waited for at DoEvents as a loop with no DoEvents is (#1254).
+        internal HashSet<object> LiveBefore { get; }
         internal Func<HexIDE.Runtime.Debugging.StoppedInfo?> Paused { get; }
     }
 
@@ -1502,7 +1506,7 @@ public static class UiAutomationDriver
                     var dialog = DialogOf(watch);
                     return new
                     {
-                        Idle = watch.Pump.IsIdle,
+                        Idle = watch.Pump.IsIdle && watch.Pump.AtDoEvents.All(watch.LiveBefore.Contains),
                         Busy = string.Join(", ", watch.Pump.Busy.Distinct()),
                         Stop = watch.Paused(),
                         Dialog = dialog,

@@ -90,7 +90,8 @@ public class ProgramWaitTests
         }
     }
 
-    private static Run Start(string code, string? form2Code = null)
+    // The time slice is -1 by default, so every statement yields and is held; null leaves DoEvents a loop's only yield.
+    private static Run Start(string code, string? form2Code = null, int? timeSliceMs = -1)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         // The code follows the header in one file, so a breakpoint's line counts the header, as the code window does.
@@ -103,7 +104,7 @@ public class ProgramWaitTests
 
         var localization = Substitute.For<ILocalizationService>();
         localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>() + ": {0}");
-        var controller = new DebugController { TimeSliceMs = -1 };
+        var controller = new DebugController { TimeSliceMs = timeSliceMs };
         var runner = new ProjectRunnerService(
             Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), Substitute.For<IProjectManager>(),
             localization, controller, Substitute.For<IBreakpointService>(), new WatchService(), new RunScope());
@@ -329,6 +330,97 @@ public class ProgramWaitTests
             outcome.Success.Should().BeTrue(outcome.Error);
             outcome.Detail.Should().NotContain("(");
             ((Button)run.Named("Command1")).Content.Should().Be("changed", "the change ran inside the loop's DoEvents");
+        }
+        finally { ((TextBox)run.Named("Text1")).Text = "stop"; }
+    }
+
+    // A loop the action started is the action's work, DoEvents or not: replied to at its first DoEvents, with no note,
+    // the reply read as a finished handler while the form was half way through (#1254). With no time slice, DoEvents is
+    // the loop's only yield, so the wait cannot land on a held one by luck.
+    [AvaloniaFact]
+    public async Task A_DoEvents_loop_the_action_started_is_waited_for()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Dim i As Integer
+                For i = 1 To 200
+                    Text1.Text = "working " & i
+                    DoEvents
+                Next i
+                Text1.Text = "done"
+            End Sub
+            """, timeSliceMs: null);
+        var watch = run.Watch();
+
+        var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+        outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Be("invoked Button 'Command1'");
+        run.Text.Should().Be("done");
+    }
+
+    // One that outlasts the limit gets the note a loop with no DoEvents gets.
+    [AvaloniaFact]
+    public async Task A_DoEvents_loop_the_action_started_that_outlasts_the_limit_is_noted()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Do
+                    DoEvents
+                Loop Until Text1.Text = "stop"
+            End Sub
+            """, timeSliceMs: null);
+        var watch = run.Watch();
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+            outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromMilliseconds(200));
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Detail.Should().Be("invoked Button 'Command1' (the program was still running Command1_Click 0.2s later, "
+                                       + "so the form may still change)");
+        }
+        finally { ((TextBox)run.Named("Text1")).Text = "stop"; }
+    }
+
+    // A loop the action found running is the program's message loop wherever the action finds it: caught between two
+    // DoEvents, it is the same loop when it parks at the next, not one the action started (#1254).
+    [AvaloniaFact]
+    public async Task A_DoEvents_loop_caught_between_two_DoEvents_is_still_the_program_s_loop()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Dim n As Long
+                Do
+                    n = n + 1
+                    n = n + 1
+                    n = n + 1
+                    n = n + 1
+                    DoEvents
+                Loop Until Text1.Text = "stop"
+            End Sub
+
+            Private Sub Text1_Change()
+                Command1.Caption = "changed"
+            End Sub
+            """);
+        UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null).Success.Should().BeTrue();
+        await Task.Delay(100);
+        try
+        {
+            var watch = run.Watch()!;
+            while (watch.Pump.AtDoEvents.Count > 0)
+            {
+                await Task.Delay(1);
+                watch = run.Watch()!;
+            }
+            var outcome = UiAutomationDriver.Interact(run.Named("Text1"), "set_value", "typed");
+            var started = System.Diagnostics.Stopwatch.StartNew();
+            outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
+
+            started.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10), "the loop goes on, but it is waiting for input");
+            outcome.Detail.Should().NotContain("(");
         }
         finally { ((TextBox)run.Named("Text1")).Text = "stop"; }
     }
