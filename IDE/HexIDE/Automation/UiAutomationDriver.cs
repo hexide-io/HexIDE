@@ -1457,8 +1457,8 @@ public static class UiAutomationDriver
         return outcome;
     }
 
-    // Whether the control's window drew a frame within the wait: the next batch the compositor commits, once rendered.
-    private static async Task<bool> NextFrameDrawnAsync(Control control, TimeSpan wait)
+    /// <summary>Whether the control's window drew a frame within the wait: the next batch the compositor commits, once rendered.</summary>
+    public static async Task<bool> NextFrameDrawnAsync(Control control, TimeSpan wait)
     {
         if (TopLevel.GetTopLevel(control) is not { } topLevel
             || Avalonia.Rendering.Composition.ElementComposition.GetElementVisual(topLevel)?.Compositor is not { } compositor)
@@ -2842,8 +2842,9 @@ public static class UiAutomationDriver
     public static InteractOutcome Hover(Control control, double? x, double? y) =>
         Hover(control, x, y, null, out _);
 
-    /// <summary>Where a hover landed: the control the pointer events were raised on, and the point on it.</summary>
-    public readonly record struct HoverLanding(Control Receiver, Point Point);
+    /// <summary>Where a hover landed: the control the pointer events were raised on, and the point on it, and whether the
+    /// move went through the window's input, as a real one does, or was raised on the control.</summary>
+    public readonly record struct HoverLanding(Control Receiver, Point Point, bool ThroughWindowInput = false);
 
     /// <inheritdoc cref="Hover(Control, double?, double?)"/>
     /// <param name="controlPath">The path <paramref name="control"/> was resolved from. When the pointer goes to
@@ -2864,6 +2865,18 @@ public static class UiAutomationDriver
                 return new InteractOutcome(false, "pointer", null,
                     $"could not translate ({local.X:0.#}, {local.Y:0.#}) on '{Describe(target)}' into window coordinates");
 
+            // Through the window's input first, as the platform delivers a real move: hit-tested, routed, and seen by the
+            // input manager, which a declared ToolTip.Tip opens from (#1265). Events raised on the control reach its
+            // handlers, the code editor's quick info among them, but never the tooltip service.
+            // Only when the target saw it: a window not drawn yet is hit-tested against nothing, and something drawn over
+            // the point takes the move, so the move is then raised on the target as before.
+            var missed = MissedThroughWindowInput(topLevel, atTopLevel, target);
+            if (missed is null)
+            {
+                landing = new HoverLanding(target, local, ThroughWindowInput: true);
+                return new InteractOutcome(true, "pointer", $"hovered ({local.X:0.#}, {local.Y:0.#}){Where()}", null);
+            }
+
             var pointer = new Avalonia.Input.Pointer(
                 Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
             var props = new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.Other);
@@ -2876,13 +2889,61 @@ public static class UiAutomationDriver
             }
 
             landing = new HoverLanding(target, local);
-            var where = ReferenceEquals(target, control)
+            return new InteractOutcome(true, "pointer",
+                $"hovered ({local.X:0.#}, {local.Y:0.#}){Where()} (raised on the control, as the move through the window's input "
+                + $"{missed}, so a declared tooltip will not open)", null);
+
+            string Where() => ReferenceEquals(target, control)
                 ? string.Empty
                 : $" on {Describe(target)}{AddressOf(control, controlPath, target)}";
-            return new InteractOutcome(true, "pointer",
-                $"hovered ({local.X:0.#}, {local.Y:0.#}){where}", null);
         }
         catch (Exception ex) { return new InteractOutcome(false, "pointer", null, $"hover threw: {ex.Message}"); }
+    }
+
+    // The members a move through a window's input needs. None is public in Avalonia 12.0.4: the reference assemblies
+    // hide the platform's input callback and the constructors of the raw event and the mouse device, and the window's input root is non-public. So
+    // each is found by reflection, once, and a hover without one of them falls back to events raised on the control.
+    private static readonly System.Reflection.PropertyInfo? TopLevelInputRoot = typeof(TopLevel).GetProperty(
+        "InputRoot", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+    private static readonly System.Reflection.PropertyInfo? PlatformInput =
+        typeof(Avalonia.Platform.ITopLevelImpl).GetProperty("Input");
+    private static readonly System.Reflection.ConstructorInfo? NewMouse = typeof(MouseDevice).GetConstructors()
+        .FirstOrDefault(c => c.GetParameters() is [{ ParameterType: var p }] && p == typeof(Avalonia.Input.Pointer));
+    private static readonly System.Reflection.ConstructorInfo? RawMove =
+        typeof(Avalonia.Input.Raw.RawPointerEventArgs).GetConstructors().FirstOrDefault(c => c.GetParameters() is
+            [_, { ParameterType: var t }, _, _, { ParameterType: var p }, _] && t == typeof(ulong) && p == typeof(Point));
+
+    /// <summary>
+    /// Moves the pointer to <paramref name="at"/>, in the window's coordinates, through the window's own input, as the
+    /// platform delivers a real move. Null when <paramref name="target"/> saw it; else why not, to finish "the move through the
+    /// window's input …".
+    /// </summary>
+    private const string Unreachable = "could not be sent, as Avalonia's members for it could not be reached";
+
+    private static string? MissedThroughWindowInput(TopLevel topLevel, Point at, Control target)
+    {
+        var seen = false;
+        void Saw(object? sender, PointerEventArgs e) => seen = true;
+        target.AddHandler(InputElement.PointerMovedEvent, Saw, Avalonia.Interactivity.RoutingStrategies.Tunnel | Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
+        try
+        {
+            if (RawMove is null || NewMouse is null || topLevel.PlatformImpl is not { } impl
+                || PlatformInput?.GetValue(impl) is not Action<Avalonia.Input.Raw.RawInputEventArgs> input
+                || TopLevelInputRoot?.GetValue(topLevel) is not IInputRoot root)
+                return Unreachable;
+            var mouse = NewMouse.Invoke([new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true)]);
+            input((Avalonia.Input.Raw.RawInputEventArgs)RawMove.Invoke(
+                [mouse, (ulong)Environment.TickCount64, root, Avalonia.Input.Raw.RawPointerEventType.Move, at, RawInputModifiers.None]));
+            return seen ? null : "did not reach it: nothing is drawn there yet, or something is drawn over it";
+        }
+        catch
+        {
+            return Unreachable;
+        }
+        finally
+        {
+            target.RemoveHandler(InputElement.PointerMovedEvent, Saw);
+        }
     }
 
     /// <summary>
