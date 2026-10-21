@@ -4047,9 +4047,17 @@ Three paths still acted on, or gave advice from, rows and template parts that do
 - **`type_text`** picked a non-editable ComboBox's hidden template TextBox ahead of a TextBox after it, as in the Object Browser's toolbar, and was refused as aimed at a hidden control, where `press_key` passed it over.
 
 > **Fixed.** `select` looks among unrealized rows only when a row has no container. It matches the rows it scrolls in
-> among those that show, and refuses one that only a hidden row matches as not showing. A miss says how many rows were
-> left out as not showing. Under nested collapsed nodes, the refusal names each one to expand, outermost first ("'expand'
-> 'Outer', then 'Inner', which hold it"), when the outermost shows. `type_text`, in both modes, passes over a template
-> part its own showing control hides, prefers a surface that shows, and still refuses a surface hidden by anything else
-> as not showing. A non-editable ComboBox with nothing else to type into is refused as having no text surface, with
-> `select` named. Guarded in `UiAutomationDriverTests` and `SelectScrolledOutRowTests`.
+> among those that show. One that only a hidden row matches is refused as not showing, worded as it is found, since
+> the container is recycled for another row once the list scrolls on. A miss counts the rows that show and says how
+> many more do not, those scrolled in included. A row container a virtualizing panel has let go of, which keeps the
+> last item it showed and, with its visibility bound to that item, shows, no longer stands in for the item. Under nested
+> collapsed nodes, the refusal names each one to expand, outermost first ("'expand' 'Outer', then 'Inner', which hold
+> it"), when the outermost shows. `type_text`, in both modes:
+> - passes over a template part hidden within its own control's template, whatever that control's own state;
+> - prefers a surface that shows, and still refuses one hidden by anything else as not showing;
+> - refuses a target holding more than one surface of the kind it would pick, naming them, rather than typing into the
+>   first (aimed at the Properties pane, that renamed the form);
+> - refuses a non-editable ComboBox with nothing else to type into as having no text surface, saying to expand it and
+>   select its item.
+>
+> Guarded in `UiAutomationDriverTests` and `SelectScrolledOutRowTests`.

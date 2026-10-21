@@ -1018,7 +1018,7 @@ public class UiAutomationDriverTests
 
             var noSurface = UiAutomationDriver.TypeText(lone, "abc");
             noSurface.Success.Should().BeFalse();
-            noSurface.Error.Should().Contain("has no text surface").And.Contain("'select'").And.NotContain("is not showing");
+            noSurface.Error.Should().Contain("has no text surface").And.Contain("'expand' it, then 'select'").And.NotContain("is not showing");
 
             var hidden = UiAutomationDriver.TypeText(hiddenPanel, "abc");
             hidden.Success.Should().BeFalse();
@@ -1032,6 +1032,49 @@ public class UiAutomationDriverTests
             Dispatcher.UIThread.RunJobs();
             UiAutomationDriver.TypeText(hiddenPanel, "xyz").Success.Should().BeTrue();
             after.Text.Should().Be("xyz");
+        }
+        finally { window.Close(); }
+    }
+
+    // With two boxes that show under the target, the first took the text: aimed at the Properties pane, the form was renamed
+    // (#1256 review). Neither is chosen; both are named.
+    [AvaloniaFact]
+    public void Type_text_refuses_a_target_holding_two_boxes_that_show_and_names_them()
+    {
+        var first = new TextBox { Width = 100 };
+        var second = new TextBox { Width = 100 };
+        var panel = new StackPanel { Children = { first, second } };
+        var window = new Window { Content = panel, Width = 300, Height = 300 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var outcome = UiAutomationDriver.TypeText(panel, "abc");
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("holds 2 text boxes that show").And.Contain("nothing was typed");
+            first.Text.Should().BeNullOrEmpty();
+            second.Text.Should().BeNullOrEmpty();
+        }
+        finally { window.Close(); }
+    }
+
+    // A dropdown's own hidden part is left out whatever the dropdown's state, so in a hidden pane the surface found, and
+    // refused as not showing, is the pane's box, not the dropdown's part (#1256 review).
+    [AvaloniaFact]
+    public void In_a_hidden_pane_the_surface_found_is_its_box_not_a_dropdown_s_part()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "a" }, Width = 100 };
+        var box = new TextBox { Width = 100 };
+        var pane = new StackPanel { Children = { combo, box } };
+        var window = new Window { Content = pane, Width = 300, Height = 300 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            pane.IsVisible = false;
+            Dispatcher.UIThread.RunJobs();
+            UiAutomationDriver.FindTextSurface(pane).Should().BeSameAs(box);
         }
         finally { window.Close(); }
     }
