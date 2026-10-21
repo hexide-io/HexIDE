@@ -116,7 +116,7 @@ public class OpenDialogsTests
             var box = Dialog("Question", form);
             try
             {
-                OpenDialogs.NamedByWait(box);
+                OpenDialogs.NamedInReply(box);
 
                 OpenDialogs.Note(waited, [form, earlier, box]).Should().Be("'HexIDE', a modal dialog over the running form "
                     + "'Ask', is still open and waits for an answer; this call reached past it, as a person could not." + Tail);

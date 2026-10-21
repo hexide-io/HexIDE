@@ -1497,7 +1497,7 @@ public static class UiAutomationDriver
             if (state.Dialog is { } dialog)
             {
                 // Named here, so the reply's note of open dialogs leaves it out (#1253).
-                OpenDialogs.NamedByWait(dialog);
+                OpenDialogs.NamedInReply(dialog);
                 return outcome with
                 {
                     Detail = outcome.Detail + $" (the program is still running {state.Busy}, and has a window open over "
@@ -2277,8 +2277,8 @@ public static class UiAutomationDriver
     /// <see cref="PopupWait"/>, as a person's next key comes after the list a letter opened has appeared; a later key
     /// otherwise overtook the server's answer, and the list opened after the typing was over (#943 review).</para>
     /// <para>The typing stops, and says how far it got, at a key a protected line refuses, where a person's would be
-    /// dropped without a word; when a dialog opens over the window, which a person's keys would go to; when focus
-    /// leaves the window; and when the request is cancelled.</para>
+    /// dropped without a word; when a dialog opens, over this window or another, which a person's keys would go to;
+    /// when focus leaves the window; and when the request is cancelled.</para>
     /// </remarks>
     public static async Task<InteractOutcome> TypeKeysAsync(
         Control control, string text, string? controlPath = null, CancellationToken ct = default)
@@ -2315,7 +2315,12 @@ public static class UiAutomationDriver
                 return new InteractOutcome(false, KeyboardMechanism, null, $"'{Describe(start)}' is not in a window; nothing was typed");
 
             start.Focus();
-            var dialogsBefore = (top as Window)?.OwnedWindows.Where(w => w.IsVisible).ToHashSet() ?? [];
+            // Every window's dialogs, not the typing window's alone: the reset prompt a key opens during a run is owned by
+            // whichever window is active, often the running form, and a program's own MsgBox may open as the keys go in.
+            // A person's next key would go to either, so the typing stops for both (#1257).
+            // Known by what they show: a MsgBox whose form is hidden moves to a window of its own, which is no new dialog.
+            static object Shown(Window dialog) => dialog.Content ?? dialog;
+            var dialogsBefore = OpenDialogs.Among(OpenWindows()).Select(Shown).ToHashSet();
             var unanswered = 0;
             Control at = start;
             for (var i = 0; i < keys.Count; i++)
@@ -2341,11 +2346,17 @@ public static class UiAutomationDriver
                     && await Task.WhenAny(pending, Task.Delay(PopupWait, ct)) != pending)
                     unanswered++;
 
-                if ((top as Window)?.OwnedWindows.FirstOrDefault(w => w.IsVisible && w.IsDialog && !dialogsBefore.Contains(w)) is { } dialog)
+                if (OpenDialogs.Among(OpenWindows()).FirstOrDefault(d => !dialogsBefore.Contains(Shown(d))) is { } dialog)
+                {
+                    // Named here, so the reply's note of open dialogs does not name it a second time (#1257 review).
+                    OpenDialogs.NamedInReply(dialog);
+                    var where = dialog.Owner is null ? "in a window of its own"
+                        : ReferenceEquals(dialog.Owner, top) ? "over the window" : $"over {OpenDialogs.OwnerOf(dialog)}";
                     return new InteractOutcome(false, KeyboardMechanism, null,
                         $"typed {i + 1} of {keys.Count} key(s) into {surface.GetType().Name}{address}, then stopped: "
-                        + $"'{TitleOf(dialog)}' opened over the window, and a person's next key would go to it. Answer it, "
-                        + "then send the rest");
+                        + $"'{TitleOf(dialog)}' opened {where}, and a person's next key would go to it. Answer it, then "
+                        + "send the rest");
+                }
             }
             var caret = AreaOf(at) is { } typedInto ? $"; the caret is at offset {typedInto.Caret.Offset}" : "";
             var moved = ReferenceEquals(at, start) ? "" : $"; focus moved on to {Describe(at)}, where the keys after it went";
