@@ -1447,6 +1447,7 @@ public static class UiAutomationDriver
             Pump = pump;
             IdleBefore = pump.IsIdle;
             LiveBefore = [.. pump.Live];
+            LoopsBefore = [.. pump.Loops];
             Form = form;
             Before = before;
             Paused = paused;
@@ -1457,8 +1458,11 @@ public static class UiAutomationDriver
         internal HashSet<Window> Before { get; }
         // A program idle before the action held on nothing open then: only a window the action opened can hold it.
         internal bool IdleBefore { get; }
-        // The walks running before the action: one of them parked at DoEvents is the program waiting for input, but a walk
-        // the action started is its own work, waited for at DoEvents as a loop with no DoEvents is (#1254).
+        // The loops running before the action: one of them parked at DoEvents is the program waiting for input, but a loop
+        // the action started, or set going by answering a box its handler waited at, is its own work, waited for as a loop
+        // with no DoEvents is (#1254).
+        internal HashSet<object> LoopsBefore { get; }
+        // Every walk running before the action, which a reply that cannot wait leaves unnamed (#1254 review).
         internal HashSet<object> LiveBefore { get; }
         internal Func<HexIDE.Runtime.Debugging.StoppedInfo?> Paused { get; }
     }
@@ -1506,7 +1510,8 @@ public static class UiAutomationDriver
                     var dialog = DialogOf(watch);
                     return new
                     {
-                        Idle = watch.Pump.IsIdle && watch.Pump.AtDoEvents.All(watch.LiveBefore.Contains),
+                        Idle = watch.Pump.IsIdle && watch.Pump.AtDoEvents.All(watch.LoopsBefore.Contains),
+                        Started = string.Join(", ", watch.Pump.BusySince(watch.LiveBefore).Distinct()),
                         Busy = string.Join(", ", watch.Pump.Busy.Distinct()),
                         Stop = watch.Paused(),
                         Dialog = dialog,
@@ -1559,7 +1564,7 @@ public static class UiAutomationDriver
             if (Environment.TickCount64 >= deadline)
                 return outcome with
                 {
-                    Detail = outcome.Detail + $" (the program was still running {state.Busy} {wait.TotalSeconds:0.#}s "
+                    Detail = outcome.Detail + $" (the program was still running {state.Started} {wait.TotalSeconds:0.#}s "
                              + $"later, so the form may still change{opened})",
                 };
             await Task.Delay(20, ct).ConfigureAwait(false);

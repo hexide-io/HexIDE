@@ -2131,9 +2131,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
     // The reply's wait for a running program (#1232), shared by the tools that act on its forms.
     private const string ProgramWaitNote =
         "On a running VB6 program's form or its MsgBox, the reply waits up to 3 s for the program to finish what the "
-        + "action set off and wait for input again. If it cannot, the reply ends with a note in parentheses saying why: "
-        + "the program is paused (where), has a MsgBox or other window open over the form, or was still running at 3 s. "
-        + "A form the program opened is named.";
+        + "action set off; a DoEvents loop already running, or a Timer's, is waiting for input. If it cannot, a note in "
+        + "parentheses says why: paused (where), a window open over the form, or still running at 3 s. A form the program "
+        + "opened is named.";
 
     private const string WindowParameter =
         "Which top-level window the path is resolved against: \"auto\" (default) is any visible window other than the "

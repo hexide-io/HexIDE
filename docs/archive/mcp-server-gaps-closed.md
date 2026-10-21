@@ -4025,11 +4025,15 @@ The wait for a running program (#1232) counts a handler parked at `DoEvents` as 
 started: a Click that loops with a `DoEvents` per pass got `invoked Button 'Command1'` back at its first `DoEvents`, with
 no note, while the form was half way through. The same loop without `DoEvents` was waited for.
 
-> **Fixed.** The pump keeps the walks parked at `DoEvents`, and every walk started and not finished. A reply records the
-> live walks before its action, and counts the program idle only while every walk parked at `DoEvents` was one of them.
-> A loop the action found running is still the program's message loop, wherever the action finds it, between two
-> `DoEvents` included. A loop the action started is waited for as one with no `DoEvents` is, up to the limit, and
-> outlasting the limit gets the usual note: "(the program was still running Command1_Click 3s later, so the form may
-> still change)". Walks, not handler names, so a click that re-enters a handler parked under the same name is told apart
-> from it. A `Show vbModal` park is unchanged, so an action that opens a modal form still replies at once. Guarded by
-> `ProgramWaitTests`, with no time slice so that `DoEvents` is the loop's only yield.
+> **Fixed.** The pump marks each walk that parks at `DoEvents` as a loop, and keeps every walk started and not finished.
+> A reply records the loops running before its action, and counts the program idle only while every walk parked at
+> `DoEvents` was one of them. A loop the action found running is still the program's message loop, wherever the action
+> finds it, between two `DoEvents` included. A loop the action started is waited for as one with no `DoEvents` is, up to
+> the limit. So is one set going by answering a MsgBox, or closing a modal form, its handler waited at, since a handler
+> waiting there had not looped. A Timer's tick is no action's work, so its loop does not hold a reply. A loop outlasting
+> the limit gets the usual note, naming only what the action set off: "(the program was still running Command1_Click 3s
+> later, so the form may still change)". Walks, not handler names, so a click that re-enters a handler parked under the
+> same name is told apart from it. A `Show vbModal` park is unchanged, so an action that opens a modal form still
+> replies at once. The wait note in the `interact`, `type_text` and `press_key` descriptions says a loop running before
+> the action, or a Timer's, is not waited for. Guarded by `ProgramWaitTests`, with no time slice so that `DoEvents` is
+> the loop's only yield.

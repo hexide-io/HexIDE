@@ -410,8 +410,10 @@ public class ProgramWaitTests
         try
         {
             var watch = run.Watch()!;
+            var deadline = System.Diagnostics.Stopwatch.StartNew();
             while (watch.Pump.AtDoEvents.Count > 0)
             {
+                deadline.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10), "the loop spends most of its time between DoEvents");
                 await Task.Delay(1);
                 watch = run.Watch()!;
             }
@@ -421,6 +423,100 @@ public class ProgramWaitTests
 
             started.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(10), "the loop goes on, but it is waiting for input");
             outcome.Detail.Should().NotContain("(");
+        }
+        finally { ((TextBox)run.Named("Text1")).Text = "stop"; }
+    }
+
+    // A handler waiting at a MsgBox is running before the answer, but it is not a loop: the DoEvents loop the answer sets
+    // going is the answer's work, waited for, where it was replied to at its first DoEvents (#1254 review).
+    [AvaloniaFact]
+    public async Task A_DoEvents_loop_set_going_by_answering_a_MsgBox_is_waited_for()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                MsgBox "Go?", vbOKOnly, "Question"
+                Dim i As Integer
+                For i = 1 To 200
+                    Text1.Text = "working " & i
+                    DoEvents
+                Next i
+                Text1.Text = "done"
+            End Sub
+            """, timeSliceMs: null);
+        var watch = run.Watch();
+        var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+        await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(30));
+
+        Pump();
+        var box = OpenWindows().Single(w => w.Content is HexIDE.Runtime.Dialogs.MessageBox);
+        var ok = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(box).OfType<Button>().First();
+        var answering = run.Watch(box);
+        outcome = UiAutomationDriver.Interact(ok, "invoke", null);
+        outcome = await UiAutomationDriver.WaitForProgramAsync(answering, outcome, TimeSpan.FromSeconds(30));
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().NotContain("(");
+        run.Text.Should().Be("done");
+    }
+
+    // A Timer's tick is no action's work, though it may come after one: its DoEvents loop does not hold the reply to the
+    // limit, as it did once a reply waited for loops it had not found running (#1254 review). Raised on the pump directly,
+    // as a Timer raises it: a headless Timer does not tick within a click.
+    [AvaloniaFact]
+    public async Task A_Timer_s_DoEvents_loop_that_starts_after_the_action_does_not_hold_the_reply()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Text1.Text = "clicked"
+            End Sub
+            """, timeSliceMs: null);
+        var stop = false;
+        try
+        {
+            var watch = run.Watch()!;
+            var outcome = UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null);
+            watch.Pump.Raise("Timer1_Timer", async () =>
+            {
+                while (!stop)
+                    await watch.Pump.DoEvents();
+            }, HexIDE.Runtime.EventCoalescing.Timer);
+            outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromSeconds(2));
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Detail.Should().Be("invoked Button 'Command1'");
+            watch.Pump.Busy.Should().Contain("Timer1_Timer", "the tick's loop runs on");
+        }
+        finally { stop = true; }
+    }
+
+    // A loop the action started inside a loop already running outlasts the limit: the note names what the action set off,
+    // not the loop it found, a game loop say, which would be named on every reply (#1254 review).
+    [AvaloniaFact]
+    public async Task A_note_names_the_loop_the_action_started_not_the_one_it_found()
+    {
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Do
+                    DoEvents
+                Loop Until Text1.Text = "stop"
+            End Sub
+
+            Private Sub Text1_Change()
+                If Text1.Text <> "go" Then Exit Sub
+                Do
+                    DoEvents
+                Loop Until Text1.Text = "stop"
+            End Sub
+            """, timeSliceMs: null);
+        UiAutomationDriver.Interact(run.Named("Command1"), "invoke", null).Success.Should().BeTrue();
+        await Task.Delay(100);
+        try
+        {
+            var watch = run.Watch();
+            var outcome = UiAutomationDriver.Interact(run.Named("Text1"), "set_value", "go");
+            outcome = await UiAutomationDriver.WaitForProgramAsync(watch, outcome, TimeSpan.FromMilliseconds(300));
+
+            outcome.Detail.Should().EndWith("(the program was still running Text1_Change 0.3s later, so the form may still change)");
         }
         finally { ((TextBox)run.Named("Text1")).Text = "stop"; }
     }
