@@ -4110,3 +4110,14 @@ second copy of an item or a row for one out of view, and a path to it resolved.
 > view are left out with the rest, as generated rows out of view always were. Guarded by `SelectScrolledOutRowTests`:
 > after a `select` scrolls and puts the list back, and the released row's item shows again, the dump lists the rows the
 > list holds, each once, and neither a path nor an id reaches the released row.
+
+## List rows of view models with no ToString were named by their type, or not at all (#1299)
+
+A row's peer names it by its item's `ToString()`, which for a view model with none of its own is its type name; the dump
+drops a type name, so such a row had no name, `select` by value could not find it, and `inspect_element` named the
+selection "ListItem". The Object Browser's class, member and search lists were all of this shape.
+
+> **Fixed.** `OBClassViewModel`, `OBMemberViewModel` and `OBSearchResultViewModel` name themselves by their names, as
+> `OBLibraryViewModel` beside them already did. A survey of the IDE's lists found no other rows of this shape. A
+> driver fallback naming such a row by the text it shows was tried and dropped: paths and `select` match on the peer's
+> name, so the dump would have shown a name no tool accepts. Guarded by `ListRowNameTests`.

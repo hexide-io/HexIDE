@@ -6,6 +6,9 @@ namespace HexIDE.Tools.ObjectBrowser;
 public class OBClassViewModel
 {
     public string Name { get; }
+
+    /// <summary>The name: what a list of these is read by in automation, which names a row by its item's ToString (#1299).</summary>
+    public override string ToString() => Name;
     public OBClassKind Kind { get; }
     public string LibraryName { get; }
 
