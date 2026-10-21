@@ -69,6 +69,12 @@ public sealed class EventPump
 
         /// <summary>Handlers this walk's code raised that have not finished. Its next statement waits for them.</summary>
         public List<Task>? Raised;
+
+        /// <summary>Whether this walk has parked at <c>DoEvents</c>: a loop, which a reply finds running or starts (#1254).</summary>
+        public bool Looped;
+
+        /// <summary>A Timer's tick, which no action starts, so its loop is never the action's work (#1254 review).</summary>
+        public bool ByTimer;
     }
 
     private sealed record Waiting(string Name, Func<Task> Work, EventCoalescing Coalescing);
@@ -79,6 +85,11 @@ public sealed class EventPump
     private int topLevel;
     // Walks held by a suspension WhileSuspended brackets: a time slice, a breakpoint, an awaited built-in (#1232).
     private int held;
+    // Walks parked at DoEvents. The program counts as waiting for input there, but a reply waits for a walk its action
+    // started all the same, as for one with no DoEvents (#1254).
+    private readonly HashSet<Walk> atDoEvents = [];
+    // Every walk started and not finished, for a reply to tell the walks its action started from those it found.
+    private readonly HashSet<Walk> live = [];
     private int posting;
     private bool closed;
 
@@ -98,12 +109,44 @@ public sealed class EventPump
     /// Whether the program is waiting for input: no handler executing, none held at a time slice, a breakpoint or an
     /// awaited built-in such as MsgBox, and no event queued. A walk parked in <c>Show vbModal</c>'s loop or at
     /// <c>DoEvents</c> counts as waiting, as that is the program's message loop; work waiting for idle cannot run under
-    /// one, so it counts only when nothing is parked. What an automation reply waits for (#1232). It rests on every
+    /// one, so it counts only when nothing is parked. What an automation reply waits for (#1232); a reply also waits on for
+    /// a loop its action started (<see cref="AtDoEvents"/>, <see cref="Loops"/>, #1254). It rests on every
     /// suspension that is not a park being bracketed by <see cref="WhileSuspended(ValueTask)"/>, which the class already
     /// requires.
     /// </summary>
     public bool IsIdle => closed
         || Current is null && queue.Count == 0 && held == 0 && (topLevel > 0 || whenIdle.Count == 0);
+
+    /// <summary>
+    /// The walks parked at <c>DoEvents</c> now, other than a Timer's, as tokens to compare with <see cref="Loops"/>: a reply
+    /// records the loops before its action, and counts the program idle only while every walk parked here was one of them
+    /// (#1254). A loop the action found running is the program's message loop; one it started is its work. Walks, not names,
+    /// so a click that re-enters a handler parked under the same name is told apart from it. A Timer's tick is left out: no
+    /// action starts it, though it may tick after one (#1254 review).
+    /// </summary>
+    public IReadOnlyCollection<object> AtDoEvents => [.. atDoEvents.Where(w => !w.ByTimer)];
+
+    /// <summary>
+    /// The walks not finished that have parked at <c>DoEvents</c>, as tokens: loops. A loop caught between two DoEvents is one,
+    /// where recording only the walks parked then read it as started by the action. A walk waiting at a MsgBox, or under a
+    /// modal form, that has not looped is not one, so a loop it starts once the action answers the box is the action's work
+    /// (#1254 review).
+    /// </summary>
+    public IReadOnlyCollection<object> Loops => [.. live.Where(w => w.Looped)];
+
+    /// <summary>Every walk started and not finished, as tokens: for a reply to name the handlers its action started.</summary>
+    public IReadOnlyCollection<object> Live => live;
+
+    /// <summary>
+    /// <see cref="Busy"/>, less the walks in <paramref name="before"/>: what an action set off that is still running, named in a
+    /// reply that cannot wait for it, as a handler running before the action, a game loop, is no part of it (#1254 review).
+    /// All of <see cref="Busy"/> when that leaves nothing.
+    /// </summary>
+    public IReadOnlyList<string> BusySince(IReadOnlyCollection<object> before)
+    {
+        List<string> since = [.. live.Where(w => !before.Contains(w)).Select(w => w.Name), .. queue.Select(w => w.Name)];
+        return since.Count > 0 ? since : Busy;
+    }
 
     /// <summary>The handlers part way through, then those waiting, by name: what a reply names when it cannot wait.</summary>
     public IReadOnlyList<string> Busy =>
@@ -125,7 +168,7 @@ public sealed class EventPump
         }
         if (Current is { } raiser)
         {
-            var started = Start(name, work);
+            var started = Start(name, work, coalescing == EventCoalescing.Timer);
             if (!started.IsCompleted)
                 (raiser.Raised ??= []).Add(started);
             return;
@@ -263,13 +306,24 @@ public sealed class EventPump
     public async Task DoEvents()
     {
         var walk = Current;
-        await Suspended(walk, YieldToInput());
-        while (Dequeue() is { } next)
+        var parked = walk is not null && atDoEvents.Add(walk);
+        if (walk is not null)
+            walk.Looped = true;
+        try
         {
-            var started = Start(next.Name, next.Work);
-            if (!started.IsCompleted)
-                await Suspended(walk, started);
-            await started;
+            await Suspended(walk, YieldToInput());
+            while (Dequeue() is { } next)
+            {
+                var started = Start(next.Name, next.Work, next.Coalescing == EventCoalescing.Timer);
+                if (!started.IsCompleted)
+                    await Suspended(walk, started);
+                await started;
+            }
+        }
+        finally
+        {
+            if (parked)
+                atDoEvents.Remove(walk!);
         }
     }
 
@@ -287,7 +341,7 @@ public sealed class EventPump
         {
             if (Dequeue() is { } next)
             {
-                var started = Start(next.Name, next.Work);
+                var started = Start(next.Name, next.Work, next.Coalescing == EventCoalescing.Timer);
                 if (!started.IsCompleted)
                     await Suspended(walk, started);
                 await started;
@@ -342,7 +396,7 @@ public sealed class EventPump
             topLevel++;
             try
             {
-                await Start(next.Name, next.Work);
+                await Start(next.Name, next.Work, next.Coalescing == EventCoalescing.Timer);
             }
             finally
             {
@@ -371,10 +425,11 @@ public sealed class EventPump
         }
     }
 
-    private async Task Start(string name, Func<Task> work)
+    private async Task Start(string name, Func<Task> work, bool byTimer = false)
     {
-        var walk = new Walk(name) { ReturnsTo = Current };
+        var walk = new Walk(name) { ReturnsTo = Current, ByTimer = byTimer };
         Current = walk;
+        live.Add(walk);
         running[name] = (running.TryGetValue(name, out var count) ? count : 0) + 1;
         try
         {
@@ -397,6 +452,7 @@ public sealed class EventPump
         finally
         {
             running[name]--;
+            live.Remove(walk);
             Current = walk.ReturnsTo;
         }
     }
