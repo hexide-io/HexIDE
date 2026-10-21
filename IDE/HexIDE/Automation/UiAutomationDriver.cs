@@ -781,9 +781,13 @@ public static class UiAutomationDriver
     private static string? ShownSelectionOf(ComboBox box) =>
         box.SelectionBoxItem is { } item
         && box.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.ContentPresenter>().FirstOrDefault(p => ReferenceEquals(p.Content, item)) is { } presenter
-            ? NullIfEmpty(string.Join(" ", presenter.GetVisualDescendants().OfType<TextBlock>()
-                .Where(t => t.IsEffectivelyVisible && !string.IsNullOrWhiteSpace(t.Text)).Select(t => t.Text)))
+            ? VisibleTextOf(presenter)
             : null;
+
+    /// <summary>The text of the text blocks showing under <paramref name="visual"/>, in order; null when there is none.</summary>
+    private static string? VisibleTextOf(Visual visual) =>
+        NullIfEmpty(string.Join(" ", visual.GetVisualDescendants().OfType<TextBlock>()
+            .Where(t => t.IsEffectivelyVisible && !string.IsNullOrWhiteSpace(t.Text)).Select(t => t.Text)));
 
     /// <summary>What a multi-select list now holds, by the names its rows carry in dump_visual_tree.</summary>
     private static string SelectionSummary(ListBox owner)
@@ -3595,7 +3599,14 @@ public static class UiAutomationDriver
         => Safe(() => peer.GetAutomationControlType().ToString(), "Control");
 
     private static string? NameOf(Control control, AutomationPeer peer)
-        => NullIfEmpty(control.Name) ?? MeaningfulLabelOf(peer);
+        => NullIfEmpty(control.Name) ?? MeaningfulLabelOf(peer) ?? ShownTextOfRow(control);
+
+    /// <summary>
+    /// The text a list row shows, for one its peer gives no name worth the name: an item with no ToString of its own is named
+    /// by its type, which is dropped, so such a row had no name, select by value could not find it, and a selection read as
+    /// "ListItem" (#1299). Null for any other control.
+    /// </summary>
+    private static string? ShownTextOfRow(Control control) => control is ListBoxItem row ? VisibleTextOf(row) : null;
 
     /// <summary>The peer's automation name, unless all it says is the .NET type of the control's content.</summary>
     /// <remarks>
