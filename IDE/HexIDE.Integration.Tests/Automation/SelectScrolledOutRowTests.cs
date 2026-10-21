@@ -4,6 +4,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Headless.XUnit;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using HexIDE.Automation;
 
 namespace HexIDE.Integration.Tests.Automation;
@@ -156,6 +157,36 @@ public class SelectScrolledOutRowTests
             outcome.Success.Should().BeFalse();
             outcome.Error.Should().StartWith("no selectable item matching 'Nowhere' among the 27 item(s) showing in ")
                 .And.Contain("; 3 more are not showing and were not matched —");
+        }
+        finally { window.Close(); }
+    }
+
+    private static IEnumerable<UiNode> Flatten(UiNode node) => node.Children.SelectMany(Flatten).Prepend(node);
+
+    // The scroll a select made and put back leaves a released row in the tree, still holding the item it last showed and
+    // still showing by its bound visibility. The dump listed it as a row: a second copy of an item, or a row for one out of
+    // view (#1292). It lists only the rows the list holds.
+    [AvaloniaFact]
+    public void The_dump_leaves_out_a_row_the_list_has_let_go_of()
+    {
+        var (window, list, _) = ScrolledRows(28);
+        try
+        {
+            UiAutomationDriver.Interact(list, "select", "Row28").Success.Should().BeFalse();
+            Dispatcher.UIThread.RunJobs();
+            var released = list.GetVisualDescendants().OfType<ListBoxItem>().Where(i => list.IndexFromContainer(i) < 0).ToList();
+            released.Should().NotBeEmpty("the scroll must have left a released row for this to test anything");
+
+            var dump = Flatten(UiAutomationDriver.Dump(window, "Window", 12, false)).ToList();
+            var rows = dump.Where(n => n.ControlType == "ListItem").Select(n => n.Name).ToList();
+
+            var held = Enumerable.Range(0, list.ItemCount).Where(i => list.ContainerFromIndex(i) is not null)
+                .Select(i => $"Row{i}").ToList();
+            rows.Should().BeEquivalentTo(held, "the dump lists the rows the list holds, each once");
+            dump.Should().NotContain(n => n.Name == "Row28", "nothing of the released row is listed, its text included");
+            var heldPath = dump.Single(n => n.ControlType == "ListItem" && n.Name == "Row0").Path;
+            UiAutomationDriver.Resolve(window, heldPath).control.Should().NotBeNull("a held row's path resolves");
+            UiAutomationDriver.Resolve(window, heldPath.Replace("Row0", "Row28")).control.Should().BeNull("a path cannot reach it either");
         }
         finally { window.Close(); }
     }

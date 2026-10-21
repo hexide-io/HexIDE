@@ -3370,6 +3370,11 @@ public static class UiAutomationDriver
             {
                 CollectPopupChildren(popup, acc, firstOnly);
             }
+            // A row its list has let go of is no row of it, though it still shows the item it last held: listed, it was a
+            // second copy of an item, or a row for one out of view, and a path to it reached a row no person sees (#1292).
+            else if (v is Control released && Released(released))
+            {
+            }
             else if (v is Control c)
             {
                 var info = Classify(c);

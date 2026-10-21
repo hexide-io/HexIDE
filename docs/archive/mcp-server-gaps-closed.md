@@ -4096,3 +4096,15 @@ focus passed. #1257 stops the typing for a dialog that opens during it, not one 
 > to that note, as a person could click past it. The `type_text` and `press_key` descriptions say so. Guarded by
 > `TypeKeysTests` and `ResetPromptTests`; the prompt's owner in a running IDE, and the native popup case, were read from
 > the code, not run.
+
+## dump_visual_tree listed a row its list had let go of (#1292)
+
+A list whose rows bind their visibility to the item, as the Properties window's Categorized list does, keeps a recycled
+`ListBoxItem` in the visual tree once its virtualizing panel has scrolled: no owner, no index, still holding the last
+item it showed, and showing by its binding. #1256 stopped `select` matching one; the dump still listed it as a row, a
+second copy of an item or a row for one out of view, and a path to it resolved.
+
+> **Fixed.** The control view's collector, which the dump and path resolution share, leaves out a released row and
+> everything in it, by #1256's `Released` test. Guarded by `SelectScrolledOutRowTests`: after a `select` scrolls and
+> puts the list back, the dump lists the rows the list holds, each once, and a path to the released row does not
+> resolve.
