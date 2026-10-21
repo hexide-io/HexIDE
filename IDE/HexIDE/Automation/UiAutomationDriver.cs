@@ -1026,8 +1026,10 @@ public static class UiAutomationDriver
             hiddenNamesake = hiddenMatches.Count > 0;
             if (MatchByDiscriminator(candidates, value).matches.Count == 0 && hiddenMatches is [var onlyHidden, ..])
                 return Err(NotShowingRefusal(onlyHidden, "select")
-                           + (CollapsedNodeHolding(onlyHidden) is { } holder
-                               ? $" Make it show first, as a person would: 'expand' '{LabelOf(holder)}', which holds it"
+                           + (CollapsedNodesHolding(onlyHidden) is [var outermost, ..] holders && Shows(outermost) is true
+                               ? $" Make it show first, as a person would: 'expand' "
+                                 + string.Join(", then ", holders.Select(h => $"'{LabelOf(h)}'"))
+                                 + (holders.Count == 1 ? ", which holds it" : ", which hold it")
                                : " Make it show first, as a person would, for instance by expanding what holds it"));
         }
         if (candidates.Count == 0)
@@ -1040,13 +1042,20 @@ public static class UiAutomationDriver
 
         var (matches, facet) = MatchByDiscriminator(candidates, value);
         var broughtIntoView = false;
-        if (matches.Count == 0 && control is ListBox virtualized && virtualized.ItemCount > candidates.Count)
+        // Only where a row has no container: the item count holds the hidden rows too, so comparing it with the rows that
+        // show sent every miss in a list with a hidden row here, to scroll nothing and say it had (#1256).
+        if (matches.Count == 0 && control is ListBox virtualized
+            && Enumerable.Range(0, virtualized.ItemCount).Any(i => virtualized.ContainerFromIndex(i) is null))
         {
-            (matches, facet, broughtIntoView) = MatchAmongUnrealized(virtualized, value);
+            HashSet<int> hidden = [.. hiddenRows.Select(r => virtualized.IndexFromContainer(r.Control)).Where(i => i >= 0)];
+            (matches, facet, broughtIntoView, var hiddenRefusal) = MatchAmongUnrealized(virtualized, value, hidden);
+            if (hiddenRefusal is not null)
+                return Err(hiddenRefusal + " Make it show first, as a person would, for instance by expanding what holds it");
             if (matches.Count == 0)
-                return Err($"no selectable item matching '{value}' among the {virtualized.ItemCount} item(s) in "
-                           + $"'{LabelOf(control, peer)}' — the ones not on screen were brought into view to check, and "
-                           + "the list was put back where it was; check the exact text via dump_visual_tree");
+                return Err($"no selectable item matching '{value}' among the {virtualized.ItemCount - hidden.Count} item(s) "
+                           + $"showing in '{LabelOf(control, peer)}'{HiddenNote(hidden.Count)} — the ones not on screen were "
+                           + "brought into view to check, and the list was put back where it was; check the exact text via "
+                           + "dump_visual_tree");
         }
         if (matches.Count == 0)
         {
@@ -1056,11 +1065,12 @@ public static class UiAutomationDriver
                 .OfType<TreeViewItem>().Where(n => n is { IsExpanded: false, ItemCount: > 0 }).ToList();
             if (unopened.Count > 0)
                 return Err($"no item matching '{value}' among the {candidates.Count} showing in '{LabelOf(control, peer)}'. "
-                           + $"{unopened.Count} collapsed node(s) hold items that are not created until the node is expanded: "
+                           + $"{unopened.Count} collapsed node(s) hold items that do not show, and may not exist yet, until "
+                           + "the node is expanded: "
                            + string.Join(", ", unopened.Take(5).Select(n => $"'{LabelOf(n)}'"))
                            + (unopened.Count > 5 ? ", …" : "")
                            + ". 'expand' the one that holds it, then select again");
-            return Err($"no selectable item matching '{value}' among {candidates.Count} realized item(s) — check the exact text via dump_visual_tree");
+            return Err($"no selectable item matching '{value}' among {candidates.Count} realized item(s){HiddenNote(hiddenRows.Count)} — check the exact text via dump_visual_tree");
         }
         if (matches.Count > 1)
             return Err($"ambiguous select '{value}' ({matches.Count} {facet} matches); target the item directly by path instead");
@@ -1103,18 +1113,30 @@ public static class UiAutomationDriver
     /// what path addressing and <see cref="MatchByDiscriminator"/> use, so there is no second notion of what
     /// an item is called.
     /// </remarks>
-    private static (List<Control> Matches, string Facet, bool BroughtIntoView) MatchAmongUnrealized(
-        ListBox list, string value)
+    /// Matched among the rows that show, as <see cref="DoSelect"/> matches the ones on screen (#1256): a hidden row is not
+    /// selected by its text. When only hidden ones match, the refusal of the first is returned, worded as it is found:
+    /// once the list scrolls on, its container is recycled for another row, and a refusal read later named that one. The
+    /// index of each row seen not to show is added to <paramref name="hidden"/>, for a miss to count.
+    private static (List<Control> Matches, string Facet, bool BroughtIntoView, string? HiddenRefusal) MatchAmongUnrealized(
+        ListBox list, string value, HashSet<int> hidden)
     {
         var scroller = list.Scroll as ScrollViewer;
         var original = scroller?.Offset;
+        string? hiddenRefusal = null;
         for (var index = 0; index < list.ItemCount; index++)
         {
             if (list.ContainerFromIndex(index) is not null) continue;
             list.ScrollIntoView(index);
             list.UpdateLayout();
-            var (matches, facet) = MatchByDiscriminator(SelectableCandidates(list), value);
-            if (matches.Count > 0) return (matches, facet, true);
+            var rows = SelectableCandidates(list);
+            var notShowing = rows.Where(c => Shows(c.Control) is not true).ToList();
+            foreach (var row in notShowing)
+                if (list.IndexFromContainer(row.Control) is >= 0 and var at)
+                    hidden.Add(at);
+            var (matches, facet) = MatchByDiscriminator([.. rows.Except(notShowing)], value);
+            if (matches.Count > 0) return (matches, facet, true, null);
+            if (hiddenRefusal is null && MatchByDiscriminator(notShowing, value).matches is [var only, ..])
+                hiddenRefusal = NotShowingRefusal(only, "select", Shows(only));
         }
 
         if (scroller is not null && original is { } offset)
@@ -1122,8 +1144,16 @@ public static class UiAutomationDriver
             scroller.Offset = offset;
             list.UpdateLayout();
         }
-        return ([], "", false);
+        return ([], "", false, hiddenRefusal);
     }
+
+    // What a miss says of the rows left out as not showing.
+    private static string HiddenNote(int count) => count switch
+    {
+        0 => "",
+        1 => "; 1 more is not showing and was not matched",
+        _ => $"; {count} more are not showing and were not matched",
+    };
 
     /// <summary>
     /// Double-clicks a control: raises <c>DoubleTapped</c>, which bubbles the way a real one does.
@@ -2004,9 +2034,10 @@ public static class UiAutomationDriver
         return false;
     }
 
-    // The nearest collapsed tree node above a control, which a person would expand to show it.
-    private static TreeViewItem? CollapsedNodeHolding(Control control) =>
-        control.GetVisualAncestors().OfType<TreeViewItem>().FirstOrDefault(n => !n.IsExpanded);
+    // The collapsed tree nodes above a control, outermost first: what a person would expand, in order, to show it. The
+    // nearest alone was refused as not showing when one above it was collapsed too (#1256).
+    private static List<TreeViewItem> CollapsedNodesHolding(Control control) =>
+        [.. control.GetVisualAncestors().OfType<TreeViewItem>().Where(n => !n.IsExpanded).Reverse()];
 
     /// <summary>
     /// The open dropdown <paramref name="item"/> is in, or null. Found before the item is selected: a selection
@@ -2072,13 +2103,24 @@ public static class UiAutomationDriver
         {
             var info = Classify(c);
             if (info.Peer is not null
-                && (info.Peer.GetProvider<ISelectionItemProvider>() is not null || c is DataGridRow or TreeViewItem))
+                && (info.Peer.GetProvider<ISelectionItemProvider>() is not null || c is DataGridRow or TreeViewItem)
+                // A row a list has let go of, as scrolling leaves a recycled one holding the last item it showed: it
+                // stood in for that item, so a select refused it, or found it twice (#1256 review).
+                && !Released(c))
             {
                 result.Add(new MeaningfulChild(c, info));
             }
         }
         return result;
     }
+
+    // A row container its list has let go of: a virtualizing panel keeps one it recycled, holding the last item it showed,
+    // with no owner and no index, and a visibility bound to that item, as the Properties window's rows are, keeps it
+    // showing. Only containers: a control inside a row has no index of its own either.
+    private static bool Released(Control c) =>
+        c is ListBoxItem or TreeViewItem or TabItem
+        && (ItemsControl.ItemsControlFromItemContainer(c) ?? c.FindAncestorOfType<ItemsControl>()) is { } owner
+        && owner.IndexFromContainer(c) < 0;
 
     // value = the command name: a public ICommand property on the target's DataContext, or a public parameterless
     // method, which is what a Command bound to a method calls (#836).
@@ -2220,7 +2262,9 @@ public static class UiAutomationDriver
         {
             if (FindTextSurface(control) is not { } surface)
                 return new InteractOutcome(false, TypedMechanism, null,
-                    $"'{control.GetType().Name}' has no text surface (TextEditor/TextArea/TextBox) to type into");
+                    NoTextSurface(control));
+            if (AmbiguousSurface(control, surface, controlPath) is { } ambiguous)
+                return new InteractOutcome(false, TypedMechanism, null, ambiguous);
 
             // The code window's check runs first because it is the more specific of the two: it names the
             // header and gives the nearest offset that can be edited, or says why the whole file refuses typing,
@@ -2341,7 +2385,9 @@ public static class UiAutomationDriver
         {
             if (FindTextSurface(control) is not { } surface)
                 return new InteractOutcome(false, KeyboardMechanism, null,
-                    $"'{control.GetType().Name}' has no text surface (TextEditor/TextArea/TextBox) to type into");
+                    NoTextSurface(control));
+            if (AmbiguousSurface(control, surface, controlPath) is { } ambiguous)
+                return new InteractOutcome(false, KeyboardMechanism, null, ambiguous);
             var address = ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface);
             var keys = KeysOf(text);
             var start = surface is TextEditor editor ? editor.TextArea : surface;
@@ -2889,14 +2935,56 @@ public static class UiAutomationDriver
     // a plain TextBox descendant (editor surfaces are preferred over incidental TextBoxes like combo edits).
     // Used by type_text, which drives each surface's own insert API — see FindKeyTarget for why press_key
     // must not share this.
-    private static Control? FindTextSurface(Control control)
+    internal static Control? FindTextSurface(Control control)
     {
         if (control is TextEditor or TextArea or TextBox) return control;
-        var descendants = control.GetVisualDescendants().OfType<Control>().ToList();
-        return descendants.FirstOrDefault(c => c is TextEditor)
-            ?? descendants.FirstOrDefault(c => c is TextArea)
-            ?? descendants.FirstOrDefault(c => c is TextBox);
+        // One that shows first. A surface hidden by anything but its own template is still found, last, so the refusal
+        // names it as not showing.
+        var surfaces = TextSurfacesUnder(control);
+        return PickSurface(surfaces.Where(c => Shows(c) is true)) ?? PickSurface(surfaces);
     }
+
+    private static Control? PickSurface(IEnumerable<Control> found) =>
+        found.FirstOrDefault(c => c is TextEditor) ?? found.FirstOrDefault(c => c is TextArea) ?? found.FirstOrDefault(c => c is TextBox);
+
+    // The text surfaces under a control, less a part its own template hides, which is no surface: a ComboBox that is not
+    // editable keeps a TextBox in its template, hidden, and choosing it had type_text refused as aimed at a hidden
+    // control, where press_key passed it over (#1256).
+    private static List<Control> TextSurfacesUnder(Control control) =>
+        [.. control.GetVisualDescendants().OfType<Control>()
+            .Where(c => c is TextEditor or TextArea or TextBox && !HiddenByItsTemplate(c))];
+
+    // Hidden within its own control's template, whatever that control's own state: read on the chain from the part up to
+    // the control, so a hidden pane holding a dropdown still has its dropdown's part left out (#1256 review).
+    private static bool HiddenByItsTemplate(Control part) =>
+        part.TemplatedParent is Visual owner && part.GetVisualAncestors().Any(v => ReferenceEquals(v, owner))
+        && part.GetSelfAndVisualAncestors().TakeWhile(v => !ReferenceEquals(v, owner)).Any(v => !v.IsVisible);
+
+    /// <summary>
+    /// A refusal when <paramref name="control"/> is not a text surface itself and more than one of the kind chosen shows
+    /// under it, or null. The first was typed into: the Properties pane's first row took a form's new name that way, and
+    /// the form was renamed when focus left it (#1256 review). A person clicks the one they mean first.
+    /// </summary>
+    private static string? AmbiguousSurface(Control control, Control surface, string? controlPath)
+    {
+        if (ReferenceEquals(surface, control) || Shows(surface) is not true)
+            return null;
+        var rivals = TextSurfacesUnder(control).Where(c => Kind(c) == Kind(surface) && Shows(c) is true).ToList();
+        if (rivals.Count < 2)
+            return null;
+        var named = rivals.Take(5).Select(c => AddressOf(control, controlPath, c) is { Length: > 0 } at ? at[", at ".Length..] : Describe(c));
+        return $"'{Describe(control)}' holds {rivals.Count} {Kind(surface) switch { 0 => "code editors", 1 => "text areas", _ => "text boxes" }} that show, so which one to type into is "
+               + $"not clear; nothing was typed. Address the one you mean: {string.Join(", ", named)}"
+               + (rivals.Count > 5 ? ", …" : "");
+
+        static int Kind(Control c) => c switch { TextEditor => 0, TextArea => 1, _ => 2 };
+    }
+
+    // Why there is nothing to type into: a dropdown that is not editable takes its text by select, once it is open.
+    private static string NoTextSurface(Control control) =>
+        $"'{control.GetType().Name}' has no text surface (TextEditor/TextArea/TextBox) to type into"
+        + (control is ComboBox { IsEditable: false }
+            ? "; it is a dropdown that is not editable: 'expand' it, then 'select' its item by text" : "");
 
     private static bool TryParseModifiers(string? modifiers, out KeyModifiers result, out string? error)
     {
