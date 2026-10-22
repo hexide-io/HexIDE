@@ -340,6 +340,18 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         SpawnControlAt(baseClass, rect);
     }
 
+    /// <summary>
+    /// The TabIndex a control added or pasted takes: the next after the highest on the form, counting only the classes
+    /// that have one, as VB6's designer gives it (measured, #925). So the first is 0, a Timer neither takes one nor uses
+    /// one up, and a Label's or a Frame's counts. A paste takes a new one for each control, its container's first.
+    /// </summary>
+    private int NextTabIndex() =>
+        AllComponents.Where(c => HasTabIndex(c.Instance.BaseClass))
+            .Select(c => c.Instance.GetPropertyOrDefault(VBProperties.TabIndexProperty))
+            .DefaultIfEmpty(-1).Max() + 1;
+
+    private static bool HasTabIndex(IComponentClass type) => type.Properties.Contains(VBProperties.TabIndexProperty);
+
     public void SpawnControlAt(ComponentBaseClass baseClass, Rect rect)
     {
         // Name = base + the LOWEST unused index, so a name freed by a delete is reused and we never collide with an
@@ -352,8 +364,9 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         var newName = baseClass.Name + index;
         Log.Debug("FormEditViewModel: Spawning {ControlType} as {ControlName} at ({Left},{Top} {Width}x{Height})",
             baseClass.Name, newName, rect.Left, rect.Top, rect.Width, rect.Height);
-        var instance = new ComponentInstance(baseClass, newName)
-            .SetProperty(VBProperties.TabIndexProperty, AllComponents.Select(x => x.Instance.GetPropertyOrDefault(VBProperties.TabIndexProperty)).DefaultIfEmpty().Max() + 1);
+        var instance = new ComponentInstance(baseClass, newName);
+        if (HasTabIndex(baseClass))
+            instance.SetProperty(VBProperties.TabIndexProperty, NextTabIndex());
         // A drawn control starts with its name as its Caption, or as its Text: VB6's designer writes Text = "Text1" for a
         // TextBox and Text = "Combo1" for a ComboBox (measured, #926). Only where the class has the property.
         if (baseClass.Properties.Contains(VBProperties.CaptionProperty))
@@ -883,6 +896,9 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
                 else
                     newInstance.SetUntypedProperty(kvp.Key, kvp.Value);
             }
+            // Its own place in the tab order, not its source's, which would put two controls at one TabIndex (#925).
+            if (HasTabIndex(entry.BaseClass))
+                newInstance.SetProperty(VBProperties.TabIndexProperty, NextTabIndex());
             if (container is not null)
                 newInstance.SetContainer(container);
 
