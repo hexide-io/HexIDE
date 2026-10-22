@@ -395,12 +395,8 @@ public static class AvaloniaInteroperability
     private static int EnumValue(Type type, Vb6Value value)
     {
         var number = System.Convert.ToInt32(Coerce(value, Vb6Value.ValueType.Integer));
-        // MousePointer accepts every value from 0 to 15, and 99 (measured). VBCursorType leaves out 4, 5, 13 and 14
-        // (#120), so its own members cannot say which are valid.
-        var valid = type == typeof(VBCursorType)
-            ? number is >= 0 and <= 15 or 99
-            : Enum.IsDefined(type, number);
-        return valid ? number : throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+        // MousePointer's members are exactly what VB6 accepts, 0 to 15 and 99, measured (#768, #120).
+        return Enum.IsDefined(type, number) ? number : throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
     }
 
     /// <summary>
