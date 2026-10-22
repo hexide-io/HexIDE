@@ -185,6 +185,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Save Project As to another folder no longer cuts off the members the project keeps only as a line** (#737). A
+  form whose file is missing, one that failed to load, or a UserDocument is kept in the project file without being
+  loaded, and its line was written back as it was read. From a new folder that line named a file beside the new
+  project file, where there is none, and the next open lost the member. It now names the same file from wherever the
+  project file is written, as do the original lines of carried files.
+
 - **A quote inside a form's string property is read and written as VB6 does** (#218). VB6 writes a quote inside a
   caption, tag or text doubled, and reads the pair back as one. HexIDE kept both quotes on read, so a VB6 form's
   `"He said ""hi"""` showed as `He said ""hi""`. It wrote a lone quote single, which vb6.exe refuses: the whole form
