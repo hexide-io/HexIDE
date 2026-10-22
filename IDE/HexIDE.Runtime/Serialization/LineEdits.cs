@@ -53,6 +53,7 @@ public static class LineEdits
         var @new = Split(after);
         var newline = before.Contains("\r\n", StringComparison.Ordinal) ? "\r\n"
             : before.Contains('\n') ? "\n"
+            : before.Contains('\r') ? "\r"
             : after.Contains("\r\n", StringComparison.Ordinal) ? "\r\n" : "\n";
 
         var kept = new List<TextChange>();
@@ -136,12 +137,9 @@ public static class LineEdits
         var pos = 0;
         while (pos < text.Length)
         {
-            var newline = text.IndexOf('\n', pos);
-            var next = newline < 0 ? text.Length : newline + 1;
-            var end = newline < 0 ? text.Length : newline;
-            if (end > pos && text[end - 1] == '\r')
-                end--;
-            lines.Add(new Line(text[pos..end], pos, next, newline >= 0));
+            // By the rule ReadOnlyRegions draws its regions with, so a region's edge is a line's edge here too.
+            var (end, next) = SourceLines.LineAt(text, pos);
+            lines.Add(new Line(text[pos..end], pos, next, end < text.Length));
             pos = next;
         }
         return lines;

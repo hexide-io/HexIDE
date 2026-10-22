@@ -91,7 +91,7 @@ public static class ModuleFileFormat
     /// <summary>Whether any line of <paramref name="text"/> is an <c>Attribute VB_Name</c> line.</summary>
     private static bool CarriesVbName(string text)
     {
-        foreach (var line in text.Split('\n'))
+        foreach (var line in SourceLines.Split(text))
             if (line.TrimStart().StartsWith("Attribute VB_Name", StringComparison.OrdinalIgnoreCase))
                 return true;
         return false;
@@ -130,7 +130,7 @@ public static class ModuleFileFormat
     /// </summary>
     private static string RetargetVbName(string header, string name)
     {
-        var lines = header.Replace("\r\n", "\n").Split('\n');
+        var lines = SourceLines.Split(header);
         for (var i = 0; i < lines.Length; i++)
         {
             if (!lines[i].TrimStart().StartsWith("Attribute VB_Name", StringComparison.OrdinalIgnoreCase))
@@ -157,7 +157,7 @@ public static class ModuleFileFormat
         if (!HandlesHeader(kind) || string.IsNullOrEmpty(fileContent))
             return ("", fileContent);
 
-        var lines = fileContent.Replace("\r\n", "\n").Split('\n');
+        var lines = SourceLines.Split(fileContent);
 
         // Blank lines above the header belong to it, so the header is found below them and written back with them
         // (#472). Recognition used to test line 0 alone, so one blank line left the whole file in the body, and the

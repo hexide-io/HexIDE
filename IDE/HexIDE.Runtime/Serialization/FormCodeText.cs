@@ -43,19 +43,18 @@ public static class FormCodeText
     {
         var end = 0;
         var pos = 0;
-        foreach (var raw in Lines(code))
+        while (pos < code.Length)
         {
-            // Advance against the original string so CRLF endings are not
-            // under-counted (Lines() normalises to LF; slicing uses `code`).
-            var nl = code.IndexOf('\n', pos);
-            var next = nl < 0 ? code.Length : nl + 1;
-            var line = raw.Trim();
+            // Walked against the original string, so a CRLF ending is not under-counted and the block is sliced from
+            // `code` as it is.
+            var (textEnd, next) = SourceLines.LineAt(code, pos);
+            var line = code.AsSpan(pos, textEnd - pos).Trim();
             if (line.Length == 0) { pos = next; continue; }
             if (!line.StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase)) break;
             pos = next;
             end = pos;
         }
-        return end == 0 ? "" : code[..Math.Min(end, code.Length)];
+        return end == 0 ? "" : code[..end];
     }
 
     /// <summary>
@@ -81,11 +80,7 @@ public static class FormCodeText
         var pos = 0;
         while (pos < code.Length)
         {
-            var newline = code.IndexOf('\n', pos);
-            var next = newline < 0 ? code.Length : newline + 1;
-            var end = newline < 0 ? code.Length : newline;
-            if (end > pos && code[end - 1] == '\r')
-                end--;
+            var (end, next) = SourceLines.LineAt(code, pos);
 
             var line = code.AsSpan(pos, end - pos).Trim();
             if (line.Length > 0)
@@ -229,22 +224,15 @@ public static class FormCodeText
     /// land on another statement.
     /// </para>
     /// <para>
-    /// Counts <c>'\n'</c> rather than splitting on <c>Environment.NewLine</c>. A <c>.frm</c> is a Windows-native
-    /// format and is CRLF-terminated wherever it came from, but a prefix is also composed from text HexIDE
-    /// itself produced, and <c>build-ide</c> runs on <c>ubuntu-latest</c>: a count that asked the host what a
-    /// line ending is would answer differently there and move every mark on the wrong machine.
+    /// Counts line ends by <see cref="SourceLines"/>' rule rather than splitting on <c>Environment.NewLine</c>. A
+    /// <c>.frm</c> is a Windows-native format and is CRLF-terminated wherever it came from, but a prefix is also composed
+    /// from text HexIDE itself produced, and <c>build-ide</c> runs on <c>ubuntu-latest</c>: a count that asked the host
+    /// what a line ending is would answer differently there and move every mark on the wrong machine. A lone CR counts,
+    /// as it does for the code window and for <see cref="ReadOnlyRegions.HeaderLineCount(string, int)"/>
+    /// (hexide-io/HexIDE#1020).
     /// </para>
     /// </remarks>
-    public static int LineBreaks(string text)
-    {
-        var count = 0;
-        foreach (var c in text)
-        {
-            if (c == '\n')
-                count++;
-        }
-        return count;
-    }
+    public static int LineBreaks(string text) => SourceLines.Count(text);
 
     /// <summary>
     /// The body of a composed buffer: everything after the prefix it was composed with.
@@ -337,10 +325,4 @@ public static class FormCodeText
     /// </para>
     /// </remarks>
     public static string WholeFile(ModuleDefinition module) => Prefix(module) + module.Code;
-
-    private static IEnumerable<string> Lines(string text)
-    {
-        foreach (var line in text.Replace("\r\n", "\n").Split('\n'))
-            yield return line;
-    }
 }
