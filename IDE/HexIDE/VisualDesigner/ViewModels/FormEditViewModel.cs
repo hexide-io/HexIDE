@@ -343,11 +343,13 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// <summary>
     /// The TabIndex a control added or pasted takes: the next after the highest on the form, counting only the classes
     /// that have one, as VB6's designer gives it (measured, #925). So the first is 0, a Timer neither takes one nor uses
-    /// one up, and a Label's or a Frame's counts. A paste takes a new one for each control, its container's first.
+    /// one up, and a Label's or a Frame's counts. A paste takes a new one for each control, its container's first. A
+    /// control HexIDE does not model counts too, read from the text it is carried as.
     /// </summary>
     private int NextTabIndex() =>
         AllComponents.Where(c => HasTabIndex(c.Instance.BaseClass))
             .Select(c => c.Instance.GetPropertyOrDefault(VBProperties.TabIndexProperty))
+            .Concat(AllComponents.SelectMany(c => c.Instance.PreservedChildSubtrees).SelectMany(b => PreservedControlText.TabIndexes(b.Text)))
             .DefaultIfEmpty(-1).Max() + 1;
 
     private static bool HasTabIndex(IComponentClass type) => type.Properties.Contains(VBProperties.TabIndexProperty);

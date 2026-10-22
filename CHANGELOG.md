@@ -214,6 +214,10 @@ there isn't one yet. Anything may change between 0.x releases.
   as VB6 does: `c(3) = x` past the end is 9, and `c("zz") = x` with no such key is 5. Only an item that is there gives
   424, and late-bound it is 451 or 438, by form, as measured.
 
+- **A control added or pasted no longer takes the TabIndex of a control HexIDE does not model** (#925).
+  Such a control, an OCX's Toolbar for one, is carried as text, and its TabIndex went uncounted, so a new control could
+  be given the same number. It now counts, nested ones included.
+
 - **VB6's Collection runs** (#1471). There was none, so a program that made one stopped at `New Collection`. Now
   `Add`, `Item`, `Remove`, `Count`, For Each and `c!key` give vb6.exe's answers and errors, each measured native and
   p-code. That includes the two that surprise people:
