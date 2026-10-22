@@ -93,6 +93,7 @@ public class VBLoader
                 // form-level variable regardless of how deeply it is nested.
                 executionContext.AllocVariable(environment, name, new Vb6Value(control));
             }
+            VBProps.SetRunTimeId(control);
         }
 
         foreach (var component in TopLevelComponents(element))
@@ -108,6 +109,7 @@ public class VBLoader
                     foreach (var (property, value) in dialogBlock.Properties)
                         dialog.SetDesignTime(property, value);
                     VBProps.SetName(dialog, dialogBlock.Name);
+                    VBProps.SetRunTimeId(dialog);
                     canvas.Children.Add(dialog);
                     executionContext.AllocVariable(environment, dialogBlock.Name, new Vb6Value(dialog));
                 }
@@ -127,6 +129,7 @@ public class VBLoader
             }
             else
                 executionContext.AllocVariable(environment, name, new Vb6Value(control));
+            VBProps.SetRunTimeId(control);
         }
 
         // Bind each control-array group to its shared Name once every element is in place.
@@ -319,7 +322,7 @@ public class VBLoader
             return separator;
         }
 
-        var item = (MenuItem)((ComponentBaseClass)component.BaseClass).Instantiate(component);
+        var item = (VBMenu)((ComponentBaseClass)component.BaseClass).Instantiate(component);
         built.Add((component, item, parent));
 
         var name = component.GetPropertyOrDefault(VBProperties.NameProperty);
@@ -331,7 +334,7 @@ public class VBLoader
             {
                 // Displays right-aligned in the item, as VB6 draws it.
                 item.InputGesture = gesture;
-                shortcuts.Add((gesture, () => RaiseMenuClick(item, name, menu)));
+                shortcuts.Add((gesture, () => RaiseShortcut(item, name, menu)));
             }
         }
 
@@ -342,21 +345,55 @@ public class VBLoader
         return item;
     }
 
-    private static void WireMenuClick(MenuItem item, string name, Menu menu) =>
+    private static void WireMenuClick(MenuItem item, string name, Menu menu)
+    {
+        // Click bubbles, so a submenu click reaches every ancestor item too, where VB6 raises the chosen item's alone.
         item.Click += (_, e) =>
         {
-            // Click bubbles, so a submenu click reaches every ancestor item too. VB6 raises Click on the
-            // item the user chose and on nothing above it — a parent with sub-items just opens.
-            if (!ReferenceEquals(e.Source, item))
-                return;
-            RaiseMenuClick(item, name, menu);
+            if (ReferenceEquals(e.Source, item))
+                RaiseMenuClick(item, name, menu);
         };
+        // A menu that holds items raises its Click as they open, a submenu as much as a top-level one, so a program can
+        // enable and disable them first (measured, #1344). Avalonia raises Click only for an item with none. Opening
+        // bubbles too, so a submenu opening reaches its parent, which raised its own when it opened.
+        item.SubmenuOpened += (_, e) =>
+        {
+            if (ReferenceEquals(e.Source, item))
+                RaiseMenuClick(item, name, menu);
+        };
+    }
 
     // The item's Click, with its Index first when it is an element of a menu control array: `mnuLevel_Click(Index As
     // Integer)` (#1126).
     private static void RaiseMenuClick(Control item, string name, Menu menu) =>
-        menu.FindAncestorOfType<IModuleExecutionRoot>()?.ExecuteSub($"{name}_Click",
-            VBProps.GetIndex(item) is { } index ? [new Vb6Value(index)] : null);
+        menu.FindAncestorOfType<IModuleExecutionRoot>()?.ExecuteSub($"{name}_Click", MenuArgs(item));
+
+    private static Vb6Value[]? MenuArgs(Control item) => VBProps.GetIndex(item) is { } index ? [new Vb6Value(index)] : null;
+
+    /// <summary>
+    /// A menu shortcut, as vb6.exe raises it (measured, #1344): the Click of each menu from the top-level one down to the
+    /// item, stopping at the first that is disabled or hidden, whose Click is not raised. So nothing is raised under a
+    /// disabled or hidden top-level menu, only Top's under a disabled Sub, and Top's and Sub's for a disabled item.
+    /// </summary>
+    /// <remarks>
+    /// Each is asked at its turn, after the Clicks above it have run: vb6.exe raised an item a parent's Click had just
+    /// enabled. That a menu between the two is asked late as well is assumed rather than measured.
+    /// </remarks>
+    private static void RaiseShortcut(VBMenu item, string name, Menu menu)
+    {
+        if (menu.FindAncestorOfType<IModuleExecutionRoot>() is not { } root)
+            return;
+        var chain = new List<VBMenu> { item };
+        for (var parent = item.Parent as VBMenu; parent is not null; parent = parent.Parent as VBMenu)
+            chain.Insert(0, parent);
+        for (var i = 0; i < chain.Count; i++)
+        {
+            var reached = chain.GetRange(0, i + 1);
+            var linkName = i == chain.Count - 1 ? name : VBProps.GetName(chain[i]);
+            if (linkName is not null)
+                root.ExecuteSubIf($"{linkName}_Click", MenuArgs(chain[i]), () => reached.TrueForAll(m => m.IsEnabled && m.IsVisible));
+        }
+    }
 
     /// <summary>
     /// A new element of a menu control array, for <c>Load mnuRecent(n)</c>: a copy of the array's first element as it
@@ -367,9 +404,9 @@ public class VBLoader
     {
         if (live is not VBMenu first)
             return new VBMenuSeparator { IsVisible = live.IsVisible };
-        var item = (MenuItem)((ComponentBaseClass)component.BaseClass).Instantiate(component);
+        var item = (VBMenu)((ComponentBaseClass)component.BaseClass).Instantiate(component);
         item.Header = first.Header;
-        item.IsChecked = first.IsChecked;
+        item.Checked = first.Checked;
         item.IsEnabled = first.IsEnabled;
         item.IsVisible = first.IsVisible;
         if (component.GetPropertyOrDefault(VBProperties.NameProperty) is { } name)

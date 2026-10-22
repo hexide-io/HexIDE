@@ -51,6 +51,10 @@
         <PackageReference Include="ModelContextProtocol.AspNetCore" />
         <Compile Include="..\HexIDE.Desktop\Server\McpTransport.cs" Link="Infrastructure\McpTransport.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\ToolFailures.cs" Link="Infrastructure\ToolFailures.cs" />
+        <Compile Include="..\HexIDE.Desktop\Server\ArgumentCheck.cs" Link="Infrastructure\ArgumentCheck.cs" />
+        <Compile Include="..\HexIDE.Desktop\Server\OpenDialogNote.cs" Link="Infrastructure\OpenDialogNote.cs" />
+        <Compile Include="..\HexIDE.Desktop\Server\ReplyJson.cs" Link="Infrastructure\ReplyJson.cs" />
+        <Compile Include="..\HexIDE.Desktop\Server\InlineSnapshot.cs" Link="Infrastructure\InlineSnapshot.cs" />
     </ItemGroup>
 
 </Project>

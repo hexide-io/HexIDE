@@ -41,7 +41,7 @@ internal static class MenuMembers
         if (ReferenceEquals(property, VBProperties.CaptionProperty))
             value = new Vb6Value(menu is VBMenu item ? item.Header as string ?? "" : "-");
         else if (ReferenceEquals(property, VBProperties.CheckedProperty))
-            value = new Vb6Value(menu is VBMenu { IsChecked: true });
+            value = new Vb6Value(menu is VBMenu { Checked: true });
         else if (ReferenceEquals(property, VBProperties.EnabledProperty) && menu is VBMenuSeparator)
             value = new Vb6Value(true);
         else if (ReferenceEquals(property, VBProperties.WindowListProperty))
@@ -74,7 +74,7 @@ internal static class MenuMembers
             var isChecked = (bool)AvaloniaInteroperability.ConvertForAssignment(property, value)!;
             if (menu is not VBMenu item || item.ItemCount > 0)
                 throw CantSet("Checked");
-            item.IsChecked = isChecked;
+            item.Checked = isChecked;
             return true;
         }
         if (ReferenceEquals(property, VBProperties.EnabledProperty) && menu is VBMenuSeparator)

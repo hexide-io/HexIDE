@@ -148,6 +148,17 @@ public enum ConversationOutcome
 /// four kilobytes" and "answered in 38ms with an empty result" are different findings, and an unarmed
 /// connection could distinguish them in neither direction before.
 /// </param>
+/// <param name="CompletedSequence">
+/// The sequence its outcome was recorded under: the one its reply used up, kept or not, or one taken when it was
+/// cancelled or abandoned. Null while it waits. A poll asking what is new after a sequence matches a request
+/// completed after it too, which it could not before: the row is below the number a poller passes, so a request
+/// seen waiting never came back answered (#961).
+/// </param>
+/// <param name="Fault">
+/// Set by the recorder on a row that is not a request's outcome but is a failure all the same: a message this client
+/// could not serialize or decode, a connection that could not be made, a server that went away unasked or exited with
+/// a non-zero code (#945). Marked where it is known rather than read back from the detail's wording or the direction.
+/// </param>
 /// <remarks>
 /// <b>An answer is half of this entry and used to be nothing else, which cost the one body most worth
 /// reading.</b> A response completes the request it answers rather than becoming an entry of its own —
@@ -176,4 +187,28 @@ public sealed record ConversationEnvelope(
     TimeSpan? Elapsed = null,
     string? Detail = null,
     long? AnswerSequence = null,
-    int? AnswerSizeBytes = null);
+    int? AnswerSizeBytes = null,
+    long? CompletedSequence = null,
+    bool Fault = false);
+
+/// <summary>Which envelopes are failures, for every reader that singles them out.</summary>
+public static class ConversationFailures
+{
+    /// <summary>
+    /// An error response; a request that failed, was cancelled or abandoned, since never coming back is a failure even
+    /// though nothing said so; and a row its recorder marked a <see cref="ConversationEnvelope.Fault"/> (#945).
+    /// </summary>
+    /// <remarks>
+    /// The faults are what a failures filter that counted only replies hid: a message this client could not serialize,
+    /// the client-side defect the capture was built to expose, and a frame it could not decode, a connection that
+    /// could not be made, a server that went away unasked. A request withheld for want of a capability is a
+    /// <see cref="ConversationEntryKind.NeverSent"/> row too, and is not a failure. One rule here, so list_lsp_messages'
+    /// failuresOnly and the Protocol Inspector's count cannot disagree again.
+    /// </remarks>
+    public static bool IsFailure(this ConversationEnvelope envelope) =>
+        envelope.Kind == ConversationEntryKind.ErrorResponse
+        || envelope.Fault
+        || envelope.Outcome is ConversationOutcome.Failed
+                            or ConversationOutcome.Cancelled
+                            or ConversationOutcome.Abandoned;
+}

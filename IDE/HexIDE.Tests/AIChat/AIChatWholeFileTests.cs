@@ -82,6 +82,19 @@ public class AIChatWholeFileTests : IDisposable
         return (JsonObject)JsonNode.Parse(message.Content)!;
     }
 
+    [Fact]
+    public async Task AToolReplyCarriesTheFilesTextAsWrittenAndNotEscapedForAWebPage()
+    {
+        // The chat model reads the reply as text, where every apostrophe had come out as an escape and a Cyrillic
+        // string could not be read at all (#753).
+        const string code = "Attribute VB_Name = \"Module1\"\r\nSub Go() ' it's here\r\n    Debug.Print \"Ж → 😀\"\r\nEnd Sub\r\n";
+        editor.GetActiveDocument().Returns(new AddinDocument("Module1", @"C:\p\Module1.bas", code, AddinDocumentKind.Module, "Orders"));
+
+        var reply = await new IdeToolExecutor(host).ExecuteAsync(new ToolCall("call_1", "get_active_file", "{}"));
+
+        reply.Should().Contain("""Sub Go() ' it's here\r\n    Debug.Print \"Ж → 😀\"\r\n""");
+    }
+
     // ── The ai-chat delta's scenarios ───────────────────────────────────────────────────────────────────────
 
     [AvaloniaFact]

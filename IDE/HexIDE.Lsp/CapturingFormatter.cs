@@ -69,10 +69,10 @@ internal sealed class CapturingFormatter(
     /// </summary>
     private void Note(
         ConversationDirection direction, ConversationEntryKind kind,
-        string? method, string? id, int size, byte[]? body, string? detail = null)
+        string? method, string? id, int size, byte[]? body, string? detail = null, bool fault = false)
     {
         if (log is null || connectionId is null) return;
-        try { log.Record(connectionId, direction, kind, method, id, size, body, detail); }
+        try { log.Record(connectionId, direction, kind, method, id, size, body, detail, fault); }
         catch (Exception) { /* a capture is never worth breaking anything for */ }
     }
 
@@ -105,7 +105,7 @@ internal sealed class CapturingFormatter(
             // So the attempt goes on the record. Nothing crossed the wire, which is exactly the finding.
             Note(
                 ConversationDirection.Local, ConversationEntryKind.NeverSent,
-                MethodOf(message), null, 0, null, $"could not be serialized: {ex.Message}");
+                MethodOf(message), null, 0, null, $"could not be serialized: {ex.Message}", fault: true);
 
             throw;
         }
@@ -167,7 +167,7 @@ internal sealed class CapturingFormatter(
             // and no direction the protocol would recognise. The bytes travel with it.
             Note(
                 ConversationDirection.Received, ConversationEntryKind.Note,
-                null, null, length, copy, $"undecodable frame: {ex.Message}");
+                null, null, length, copy, $"undecodable frame: {ex.Message}", fault: true);
 
             // One repair, tried once, before spending the connection on it. See RepairNullParams.
             if (RepairNullParams(contentBuffer) is { } repaired)

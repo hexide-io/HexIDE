@@ -6,8 +6,11 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Styling;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -75,6 +78,375 @@ public class UiAutomationDriverTests
             all.First(n => n.Name == "TheButton").Providers.Should().Contain("invoke");
             all.First(n => n.Name == "TheText").Providers.Should().Contain("value");
             all.First(n => n.Name == "TheCheck").Providers.Should().Contain("toggle");
+        }
+        finally { window.Close(); }
+    }
+
+    // #1069: a control nobody can see is a control nobody can press, so a provider or pointer action on it is
+    // refused rather than carried out, and the refusal names the flag the dump already shows.
+    [AvaloniaTheory]
+    [InlineData("invoke", null)]
+    [InlineData("click", null)]
+    [InlineData("toggle", null)]
+    [InlineData("set_value", "x")]
+    public void Interact_OnAControlInsideAHiddenContainer_IsRefused_AndActsOnNothing(string action, string? value)
+    {
+        var clicks = 0;
+        var button = new Button { Name = "Approve", Content = "Approve" };
+        button.Click += (_, _) => clicks++;
+        var check = new CheckBox { Name = "Hold" };
+        var text = new TextBox { Name = "Note", Text = "" };
+        var hidden = new StackPanel { IsVisible = false, Children = { button, check, text } };
+        var window = new Window { Content = new StackPanel { Children = { hidden } }, Width = 200, Height = 150 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            Control target = action switch { "toggle" => check, "set_value" => text, _ => button };
+            var outcome = UiAutomationDriver.Interact(target, action, value);
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("is not showing").And.Contain("isHidden");
+            clicks.Should().Be(0);
+            check.IsChecked.Should().BeFalse();
+            text.Text.Should().BeEmpty();
+        }
+        finally { window.Close(); }
+    }
+
+
+    // The refusal quotes the verb in its canonical spelling, whatever the caller typed: "no person could set_value
+    // it" is not a sentence, and "DoubleClick" is not the verb's name.
+    [AvaloniaFact]
+    public void Interact_Refusal_QuotesTheCanonicalVerb()
+    {
+        var button = new Button { Content = "Approve" };
+        var window = new Window
+        {
+            Content = new StackPanel { Children = { new StackPanel { IsVisible = false, Children = { button } } } },
+            Width = 200, Height = 150,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            UiAutomationDriver.Interact(button, "DoubleClick", null).Error.Should().Contain("'double_click' was refused");
+        }
+        finally { window.Close(); }
+    }
+
+    // Through the route a caller takes: a path read from the dump, resolved, then acted on.
+    [AvaloniaFact]
+    public void Interact_OnAHiddenNodeAddressedByItsDumpedPath_IsRefused()
+    {
+        var clicks = 0;
+        var button = new Button { Name = "Approve", Content = "Approve" };
+        button.Click += (_, _) => clicks++;
+        var window = new Window
+        {
+            Content = new StackPanel { Children = { new StackPanel { IsVisible = false, Children = { button } } } },
+            Width = 200, Height = 150,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var node = Flatten(UiAutomationDriver.Dump(window, "Window", maxDepth: 20, interactiveOnly: false))
+                .First(n => n.Name == "Approve");
+            node.IsHidden.Should().BeTrue();
+
+            var (resolved, error) = UiAutomationDriver.Resolve(window, node.Path);
+            error.Should().BeNull();
+            UiAutomationDriver.Interact(resolved!, "invoke", null).Error.Should().Contain("is not showing");
+            clicks.Should().Be(0);
+        }
+        finally { window.Close(); }
+    }
+
+    // A running VB6 form hides a Frame by painting it at opacity zero with hit-testing off, so that the code of the
+    // controls inside keeps running; Avalonia still calls them visible, and no person can reach them.
+    [AvaloniaFact]
+    public void A_control_under_a_container_hidden_as_a_VB6_Frame_is_hidden_is_marked_hidden_and_refused()
+    {
+        var clicks = 0;
+        var command = new Button { Name = "Command1", Content = "Go" };
+        command.Click += (_, _) => clicks++;
+        var frame = new Border { Opacity = 0, IsHitTestVisible = false, Child = command };
+        var window = new Window { Content = new StackPanel { Children = { frame } }, Width = 200, Height = 150 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            command.IsEffectivelyVisible.Should().BeTrue("this is the case effective visibility alone misses");
+            Flatten(UiAutomationDriver.Dump(window, "Window", maxDepth: 20, interactiveOnly: false))
+                .First(n => n.Name == "Command1").IsHidden.Should().BeTrue();
+            UiAutomationDriver.Interact(command, "invoke", null).Success.Should().BeFalse();
+            clicks.Should().Be(0);
+        }
+        finally { window.Close(); }
+    }
+
+    // Either property alone is not hiding: the IDE turns hit-testing off on decorations it draws.
+    [AvaloniaFact]
+    public void A_control_under_a_drawn_container_that_takes_no_pointer_is_not_hidden()
+    {
+        var button = new Button { Name = "Shown", Content = "Go" };
+        var window = new Window
+        {
+            Content = new StackPanel { Children = { new Border { IsHitTestVisible = false, Child = button } } },
+            Width = 200, Height = 150,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            Flatten(UiAutomationDriver.Dump(window, "Window", maxDepth: 20, interactiveOnly: false))
+                .First(n => n.Name == "Shown").IsHidden.Should().BeNull();
+        }
+        finally { window.Close(); }
+    }
+
+    // A hidden menu item, such as one a personality leaves out, is refused with the generic advice: no menu route
+    // reaches it either, so naming one would send the caller round in a circle.
+    [AvaloniaFact]
+    public void Interact_OnAHiddenItemOfAnOpenMenu_IsRefused_WithoutSendingTheCallerToAMenuRoute()
+    {
+        var clicks = 0;
+        var hidden = new MenuItem { Header = "References", IsVisible = false };
+        hidden.Click += (_, _) => clicks++;
+        var project = new MenuItem { Header = "Project", Items = { new MenuItem { Header = "Add Module" }, hidden } };
+        var window = new Window { Content = new Menu { Items = { project } }, Width = 200, Height = 150 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            project.Open();
+            Dispatcher.UIThread.RunJobs();
+
+            var outcome = UiAutomationDriver.Interact(hidden, "invoke", null);
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("is not showing").And.NotContain("invoke_menu_item");
+            clicks.Should().Be(0);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Scroll_aimed_at_a_hidden_target_is_refused_and_points_at_the_container()
+    {
+        var hidden = new Button { Content = "Approve", IsVisible = false };
+        var window = new Window
+        {
+            Content = new ScrollViewer { Content = new StackPanel { Height = 2000, Children = { hidden } } },
+            Width = 200, Height = 150,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            UiAutomationDriver.Interact(hidden, "scroll", "down").Error.Should().Contain("Aim scroll at the container");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Press_key_on_a_hidden_button_is_refused_and_does_not_click_it()
+    {
+        var clicks = 0;
+        var button = new Button { Name = "Approve", Content = "Approve" };
+        button.Click += (_, _) => clicks++;
+        var window = new Window
+        {
+            Content = new StackPanel { Children = { new StackPanel { IsVisible = false, Children = { button } } } },
+            Width = 200, Height = 150,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var outcome = UiAutomationDriver.PressKey(button, "Enter", null);
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("is not showing").And.Contain("'press_key' was refused");
+            clicks.Should().Be(0);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Type_text_into_a_hidden_text_box_is_refused_and_inserts_nothing()
+    {
+        var box = new TextBox { Name = "Note", Text = "" };
+        var window = new Window
+        {
+            Content = new StackPanel { Children = { new StackPanel { IsVisible = false, Children = { box } } } },
+            Width = 200, Height = 150,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var outcome = UiAutomationDriver.TypeText(box, "abc");
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("is not showing");
+            box.Text.Should().BeEmpty();
+        }
+        finally { window.Close(); }
+    }
+
+    // As the Properties window hides the rows of a collapsed category: select by text matches among the rows that
+    // show, so a hidden row is neither selected nor counted against a showing one.
+    [AvaloniaFact]
+    public void Select_by_text_skips_hidden_rows_and_refuses_a_row_that_only_a_hidden_one_matches()
+    {
+        var list = new ListBox
+        {
+            ItemsSource = new[] { "Caption", "Caption", "Name" },
+        };
+        var window = new Window { Content = list, Width = 200, Height = 300 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            list.ContainerFromIndex(0)!.IsVisible = false;
+            list.ContainerFromIndex(2)!.IsVisible = false;
+            Dispatcher.UIThread.RunJobs();
+
+            UiAutomationDriver.Interact(list, "select", "Caption").Success.Should().BeTrue("the hidden duplicate is not a rival");
+            list.SelectedIndex.Should().Be(1);
+
+            var refused = UiAutomationDriver.Interact(list, "select", "Name");
+            refused.Success.Should().BeFalse();
+            refused.Error.Should().Contain("is not showing");
+            list.SelectedIndex.Should().Be(1);
+
+            // Every row has a container, so a miss scrolls nothing and says so, and counts only the row that shows (#1256).
+            var missed = UiAutomationDriver.Interact(list, "select", "Nowhere");
+            missed.Success.Should().BeFalse();
+            missed.Error.Should().StartWith("no selectable item matching 'Nowhere' among 1 realized item(s); 2 more are not showing")
+                .And.NotContain("brought into view");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_OnTheShowingCopy_StillActs()
+    {
+        var clicks = 0;
+        var shown = new Button { Name = "Approve", Content = "Approve" };
+        shown.Click += (_, _) => clicks++;
+        var window = new Window
+        {
+            Content = new StackPanel
+            {
+                Children = { new StackPanel { IsVisible = false, Children = { new Button { Content = "Approve" } } }, shown },
+            },
+            Width = 200, Height = 150,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            UiAutomationDriver.Interact(shown, "invoke", null).Success.Should().BeTrue();
+            clicks.Should().Be(1);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_ReflectionActions_StillReachAHiddenControlsViewModel()
+    {
+        var vm = new SampleVm();
+        var button = new Button { Name = "Approve", Content = "Approve", DataContext = vm };
+        var window = new Window
+        {
+            Content = new StackPanel { Children = { new StackPanel { IsVisible = false, Children = { button } } } },
+            Width = 200, Height = 150,
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            UiAutomationDriver.Interact(button, "set_property", "Caption=changed").Success.Should().BeTrue();
+            vm.Caption.Should().Be("changed");
+        }
+        finally { window.Close(); }
+    }
+
+    // #953: Window -> UserControl -> UserControl -> Button, the intermediates not focusable and with no provider.
+    private static (Window window, UserControl outer) BuildDeepWindow()
+    {
+        var inner = new UserControl { Name = "Inner", Focusable = false, Content = new Button { Name = "Deep" } };
+        var outer = new UserControl { Name = "Outer", Focusable = false, Content = inner };
+        var window = new Window { Content = outer, Width = 200, Height = 150 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        return (window, outer);
+    }
+
+    [AvaloniaFact]
+    public void Dump_KeepsANodeCutOffByMaxDepth_MarkedTruncated_EvenUnderInteractiveOnly()
+    {
+        var (window, _) = BuildDeepWindow();
+        try
+        {
+            var tree = UiAutomationDriver.Dump(window, "Window", maxDepth: 1, interactiveOnly: true);
+            var outer = Flatten(tree).Single(n => n.Name == "Outer");
+
+            outer.Truncated.Should().BeTrue();
+            outer.Children.Should().BeEmpty();
+            tree.Truncated.Should().BeNull("the window's own children were walked");
+
+            // Dumping again from the truncated node's path reaches what was below it.
+            var (resolved, error) = UiAutomationDriver.Resolve(window, outer.Path);
+            error.Should().BeNull();
+            Flatten(UiAutomationDriver.Dump(resolved!, outer.Path, maxDepth: 20, interactiveOnly: true))
+                .Should().Contain(n => n.Name == "Deep");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Dump_KeepsTheNonInteractiveAncestorsOfATruncatedNode()
+    {
+        var (window, _) = BuildDeepWindow();
+        try
+        {
+            // Window(0) -> Outer(1) -> Inner(2): Inner is cut off, and Outer, between it and the root, has nothing
+            // interactive of its own. Before #953 the prune climbed from Inner through Outer.
+            var tree = UiAutomationDriver.Dump(window, "Window", maxDepth: 2, interactiveOnly: true);
+            var outer = Flatten(tree).Single(n => n.Name == "Outer");
+
+            outer.Truncated.Should().BeNull("Outer's own children were walked");
+            var inner = outer.Children.Should().ContainSingle().Which;
+            inner.Name.Should().Be("Inner");
+            inner.Truncated.Should().BeTrue();
+            inner.Children.Should().BeEmpty();
+        }
+        finally { window.Close(); }
+    }
+    [AvaloniaFact]
+    public void Dump_DeepEnough_MarksNothingTruncated()
+    {
+        var (window, _) = BuildDeepWindow();
+        try
+        {
+            var all = Flatten(UiAutomationDriver.Dump(window, "Window", maxDepth: 20, interactiveOnly: false)).ToList();
+            all.Should().Contain(n => n.Name == "Deep");
+            all.Should().OnlyContain(n => n.Truncated == null);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Dump_ALeafAtTheCutOff_IsNotTruncated()
+    {
+        var (window, _) = BuildDeepWindow();
+        try
+        {
+            // Window(0) -> Outer(1) -> Inner(2) -> Deep(3): the button sits exactly at the cap and has nothing below.
+            var deep = Flatten(UiAutomationDriver.Dump(window, "Window", maxDepth: 3, interactiveOnly: true))
+                .Single(n => n.Name == "Deep");
+            deep.Truncated.Should().BeNull();
         }
         finally { window.Close(); }
     }
@@ -342,6 +714,418 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
+    // ── #714: selecting in a tree that already has a selection ───────────────────────────────────────
+    // Every test above starts from an empty selection, the one case where setting IsSelected moved
+    // SelectedItem. With a selection already there it only added to SelectedItems, so select reported
+    // success, two nodes were highlighted, and the bound property stayed where it was.
+
+    private sealed record Page(string Title, List<Page> Children);
+
+    /// <summary>
+    /// A tree bound to data, as the Options dialog's is: items named after their title by a style, and
+    /// General already selected.
+    /// </summary>
+    private static (Window Window, TreeView Tree, Page General, Page Theme) BuildBoundTreeWindow()
+    {
+        var general = new Page("General", []);
+        var theme = new Page("Theme", []);
+        var environment = new Page("Environment", [general, theme]);
+
+        var tree = new TreeView
+        {
+            ItemsSource = new[] { environment },
+            ItemTemplate = new FuncTreeDataTemplate<Page>(
+                (p, _) => new TextBlock { Text = p.Title }, p => p.Children),
+        };
+        tree.Styles.Add(new Style(x => x.OfType<TreeViewItem>())
+        {
+            Setters =
+            {
+                new Setter(TreeViewItem.IsExpandedProperty, true),
+                new Setter(AutomationProperties.NameProperty, new Binding(nameof(Page.Title))),
+            },
+        });
+
+        var window = new Window { Content = tree, Width = 300, Height = 200 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        tree.SelectedItem = general;
+        Dispatcher.UIThread.RunJobs();
+        return (window, tree, general, theme);
+    }
+
+    private static TreeViewItem ContainerOf(TreeView tree, object data) =>
+        tree.GetVisualDescendants().OfType<TreeViewItem>().Single(i => ReferenceEquals(i.DataContext, data));
+
+    [AvaloniaFact]
+    public void Interact_Select_OnATreeNode_MovesTheSelectionFromTheNodeAlreadySelected()
+    {
+        var (window, tree, _, theme) = BuildBoundTreeWindow();
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(ContainerOf(tree, theme), "select", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Detail.Should().Be("selected 'Theme'", "the item is named after its text, not called 'TreeItem'");
+            tree.SelectedItem.Should().BeSameAs(theme);
+            tree.SelectedItems.Count.Should().Be(1, "a click replaces the selection, it does not add to it");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Select_WithAValue_OnATree_SelectsTheNamedNode()
+    {
+        var (window, tree, _, theme) = BuildBoundTreeWindow();
+        try
+        {
+            // Refused before as "no selectable items realized": tree items have no ISelectionItemProvider,
+            // so the candidate filter dropped every one of them.
+            var outcome = UiAutomationDriver.Interact(tree, "select", "Theme");
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            tree.SelectedItem.Should().BeSameAs(theme);
+            tree.SelectedItems.Count.Should().Be(1);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Select_WithAValue_OnATree_NamesWhatItCouldNotFind()
+    {
+        var (window, tree, general, _) = BuildBoundTreeWindow();
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(tree, "select", "Fonts");
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("no selectable item matching 'Fonts'");
+            tree.SelectedItem.Should().BeSameAs(general);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Select_WithAValue_OnAnEmptyTree_DoesNotTalkAboutDropdowns()
+    {
+        var tree = new TreeView { Name = "Empty" };
+        var window = Show(tree);
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(tree, "select", "Theme");
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("has no items to select").And.NotContain("dropdown");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_DoubleClick_OnATreeNode_WithAnotherSelected_ActsOnTheNodeClicked()
+    {
+        var (window, tree, _, theme) = BuildBoundTreeWindow();
+        try
+        {
+            // The Project Explorer's handler opens whatever is selected. Before #714 it would have opened
+            // the node selected beforehand, since the pre-select never moved SelectedItem.
+            object? selectedWhenHandled = null;
+            tree.DoubleTapped += (_, _) => selectedWhenHandled = tree.SelectedItem;
+
+            var outcome = UiAutomationDriver.Interact(ContainerOf(tree, theme), "double_click", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            selectedWhenHandled.Should().BeSameAs(theme);
+        }
+        finally { window.Close(); }
+    }
+
+    /// <summary>
+    /// Two roots, Environment (General, Theme) and Editor (General), nodes collapsed as a tree starts, items named
+    /// after their title.
+    /// </summary>
+    private static (Window Window, TreeView Tree, Page Environment, Page Editor) BuildCollapsibleTreeWindow()
+    {
+        var environment = new Page("Environment", [new Page("General", []), new Page("Theme", [])]);
+        var editor = new Page("Editor", [new Page("General", [])]);
+
+        var tree = new TreeView
+        {
+            ItemsSource = new[] { environment, editor },
+            ItemTemplate = new FuncTreeDataTemplate<Page>(
+                (p, _) => new TextBlock { Text = p.Title }, p => p.Children),
+        };
+        tree.Styles.Add(new Style(x => x.OfType<TreeViewItem>())
+        {
+            Setters = { new Setter(AutomationProperties.NameProperty, new Binding(nameof(Page.Title))) },
+        });
+
+        var window = new Window { Content = tree, Width = 300, Height = 300 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        return (window, tree, environment, editor);
+    }
+
+    [AvaloniaFact]
+    public void Interact_ExpandAndCollapse_OnATreeNode_SetItsState()
+    {
+        var (window, tree, environment, _) = BuildCollapsibleTreeWindow();
+        try
+        {
+            // The node's peer offers no ExpandCollapse provider, so both refused before.
+            var node = ContainerOf(tree, environment);
+
+            var expanded = UiAutomationDriver.Interact(node, "expand", null);
+            expanded.Success.Should().BeTrue(expanded.Error);
+            expanded.Detail.Should().Be("expanded 'Environment'");
+            node.IsExpanded.Should().BeTrue();
+
+            UiAutomationDriver.Interact(node, "expand", null).Detail.Should().Be("'Environment' was already expanded");
+
+            var collapsed = UiAutomationDriver.Interact(node, "collapse", null);
+            collapsed.Success.Should().BeTrue(collapsed.Error);
+            node.IsExpanded.Should().BeFalse();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void DescribeProviders_TreeNode_AdvertisesExpandCollapse_OnlyWhereItHasChildren()
+    {
+        var (window, tree, environment, _) = BuildCollapsibleTreeWindow();
+        try
+        {
+            var node = ContainerOf(tree, environment);
+            UiAutomationDriver.DescribeProviders(ControlAutomationPeer.CreatePeerForElement(node), node)
+                .Should().Contain("expandCollapse");
+
+            node.IsExpanded = true;
+            Dispatcher.UIThread.RunJobs();
+            var leaf = ContainerOf(tree, environment.Children[1]);
+            UiAutomationDriver.DescribeProviders(ControlAutomationPeer.CreatePeerForElement(leaf), leaf)
+                .Should().NotContain("expandCollapse", "a leaf has nothing to expand, and would refuse");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Select_WithAValue_UnderANodeNeverExpanded_NamesTheNodeToExpand()
+    {
+        var (window, tree, environment, _) = BuildCollapsibleTreeWindow();
+        try
+        {
+            // Theme has no container until Environment is first expanded, so no dump shows it; telling the caller
+            // to check the spelling would send it the wrong way.
+            var refused = UiAutomationDriver.Interact(tree, "select", "Theme");
+
+            refused.Success.Should().BeFalse();
+            refused.Error.Should().Contain("'Environment'").And.Contain("'expand'").And.NotContain("exact text");
+
+            UiAutomationDriver.Interact(ContainerOf(tree, environment), "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            var selected = UiAutomationDriver.Interact(tree, "select", "Theme");
+
+            selected.Success.Should().BeTrue(selected.Error);
+            tree.SelectedItem.Should().BeSameAs(environment.Children[1]);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Select_WithAValue_UnderACollapsedNode_NamesTheNodeToExpand()
+    {
+        var (window, tree, environment, _) = BuildCollapsibleTreeWindow();
+        try
+        {
+            // Expanded once and collapsed again: the children exist, hidden, so this is the not-showing refusal.
+            var node = ContainerOf(tree, environment);
+            node.IsExpanded = true;
+            Dispatcher.UIThread.RunJobs();
+            node.IsExpanded = false;
+            Dispatcher.UIThread.RunJobs();
+
+            var refused = UiAutomationDriver.Interact(tree, "select", "Theme");
+
+            refused.Success.Should().BeFalse();
+            refused.Error.Should().Contain("is not showing").And.Contain("'expand' 'Environment'");
+            tree.SelectedItem.Should().BeNull();
+        }
+        finally { window.Close(); }
+    }
+
+    // The nearest collapsed node alone was named, and expanding it was refused as not showing while the one above it was
+    // collapsed too (#1256). Every collapsed node is named, outermost first, and following the advice reaches the item.
+    [AvaloniaFact]
+    public void Interact_Select_WithAValue_UnderNestedCollapsedNodes_NamesEachToExpandInOrder()
+    {
+        var leaf = new Page("Leaf", []);
+        var inner = new Page("Inner", [leaf]);
+        var outer = new Page("Outer", [inner]);
+        var tree = new TreeView
+        {
+            ItemsSource = new[] { outer },
+            ItemTemplate = new FuncTreeDataTemplate<Page>((p, _) => new TextBlock { Text = p.Title }, p => p.Children),
+        };
+        tree.Styles.Add(new Style(x => x.OfType<TreeViewItem>())
+        {
+            Setters = { new Setter(AutomationProperties.NameProperty, new Binding(nameof(Page.Title))) },
+        });
+        var window = new Window { Content = tree, Width = 300, Height = 300 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            ContainerOf(tree, outer).IsExpanded = true;
+            Dispatcher.UIThread.RunJobs();
+            ContainerOf(tree, inner).IsExpanded = true;
+            Dispatcher.UIThread.RunJobs();
+            ContainerOf(tree, inner).IsExpanded = false;
+            ContainerOf(tree, outer).IsExpanded = false;
+            Dispatcher.UIThread.RunJobs();
+
+            var refused = UiAutomationDriver.Interact(tree, "select", "Leaf");
+            refused.Success.Should().BeFalse();
+            refused.Error.Should().Contain("is not showing").And.EndWith("'expand' 'Outer', then 'Inner', which hold it");
+
+            UiAutomationDriver.Interact(ContainerOf(tree, outer), "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            UiAutomationDriver.Interact(ContainerOf(tree, inner), "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            var selected = UiAutomationDriver.Interact(tree, "select", "Leaf");
+            selected.Success.Should().BeTrue(selected.Error);
+            tree.SelectedItem.Should().BeSameAs(leaf);
+        }
+        finally { window.Close(); }
+    }
+
+    // type_text chose a ComboBox's hidden template TextBox ahead of the TextBox after it, and was refused as aimed at a
+    // hidden control, where press_key passed it over (#1256).
+    [AvaloniaFact]
+    public void Type_text_passes_over_a_dropdown_s_hidden_text_box()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "a", "b" }, Width = 100 };
+        var box = new TextBox { Width = 100 };
+        var panel = new StackPanel { Children = { combo, box } };
+        var lone = new ComboBox { ItemsSource = new[] { "a" }, Width = 100 };
+        var hiddenBox = new TextBox { Width = 100 };
+        var hiddenPanel = new StackPanel { IsVisible = false, Children = { hiddenBox } };
+        var window = new Window { Content = new StackPanel { Children = { panel, lone, hiddenPanel } }, Width = 300, Height = 300 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            UiAutomationDriver.TypeText(panel, "abc").Success.Should().BeTrue();
+            box.Text.Should().Be("abc");
+
+            var noSurface = UiAutomationDriver.TypeText(lone, "abc");
+            noSurface.Success.Should().BeFalse();
+            noSurface.Error.Should().Contain("has no text surface").And.Contain("'expand' it, then 'select'").And.NotContain("is not showing");
+
+            var hidden = UiAutomationDriver.TypeText(hiddenPanel, "abc");
+            hidden.Success.Should().BeFalse();
+            hidden.Error.Should().Contain("is not showing");
+
+            // A hidden box ahead of a showing one gives way to it; only when nothing shows is the hidden one refused.
+            hiddenPanel.IsVisible = true;
+            hiddenBox.IsVisible = false;
+            var after = new TextBox { Width = 100 };
+            hiddenPanel.Children.Add(after);
+            Dispatcher.UIThread.RunJobs();
+            UiAutomationDriver.TypeText(hiddenPanel, "xyz").Success.Should().BeTrue();
+            after.Text.Should().Be("xyz");
+        }
+        finally { window.Close(); }
+    }
+
+    // With two boxes that show under the target, the first took the text: aimed at the Properties pane, the form was renamed
+    // (#1256 review). Neither is chosen; both are named.
+    [AvaloniaFact]
+    public void Type_text_refuses_a_target_holding_two_boxes_that_show_and_names_them()
+    {
+        var first = new TextBox { Width = 100 };
+        var second = new TextBox { Width = 100 };
+        var panel = new StackPanel { Children = { first, second } };
+        var window = new Window { Content = panel, Width = 300, Height = 300 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var outcome = UiAutomationDriver.TypeText(panel, "abc");
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("holds 2 text boxes that show").And.Contain("nothing was typed");
+            first.Text.Should().BeNullOrEmpty();
+            second.Text.Should().BeNullOrEmpty();
+        }
+        finally { window.Close(); }
+    }
+
+    // A dropdown's own hidden part is left out whatever the dropdown's state, so in a hidden pane the surface found, and
+    // refused as not showing, is the pane's box, not the dropdown's part (#1256 review).
+    [AvaloniaFact]
+    public void In_a_hidden_pane_the_surface_found_is_its_box_not_a_dropdown_s_part()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "a" }, Width = 100 };
+        var box = new TextBox { Width = 100 };
+        var pane = new StackPanel { Children = { combo, box } };
+        var window = new Window { Content = pane, Width = 300, Height = 300 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            pane.IsVisible = false;
+            Dispatcher.UIThread.RunJobs();
+            UiAutomationDriver.FindTextSurface(pane).Should().BeSameAs(box);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task Type_text_by_keys_passes_over_a_dropdown_s_hidden_text_box()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "a", "b" }, Width = 100 };
+        var box = new TextBox { Width = 100 };
+        var panel = new StackPanel { Children = { combo, box } };
+        var lone = new ComboBox { ItemsSource = new[] { "a" }, Width = 100 };
+        var window = new Window { Content = new StackPanel { Children = { panel, lone } }, Width = 300, Height = 300 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var typed = await UiAutomationDriver.TypeKeysAsync(panel, "abc");
+            typed.Success.Should().BeTrue(typed.Error);
+            box.Text.Should().Be("abc");
+
+            var noSurface = await UiAutomationDriver.TypeKeysAsync(lone, "abc");
+            noSurface.Success.Should().BeFalse();
+            noSurface.Error.Should().Contain("has no text surface").And.NotContain("is not showing");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Select_WithAValue_SaysWhenAHiddenItemOfTheSameNameWasLeftAlone()
+    {
+        var (window, tree, environment, editor) = BuildCollapsibleTreeWindow();
+        try
+        {
+            // Both Generals realized, then Editor collapsed: a person sees one General and clicks it.
+            var environmentNode = ContainerOf(tree, environment);
+            var editorNode = ContainerOf(tree, editor);
+            environmentNode.IsExpanded = true;
+            editorNode.IsExpanded = true;
+            Dispatcher.UIThread.RunJobs();
+            editorNode.IsExpanded = false;
+            Dispatcher.UIThread.RunJobs();
+
+            var outcome = UiAutomationDriver.Interact(tree, "select", "General");
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            tree.SelectedItem.Should().BeSameAs(environment.Children[0]);
+            outcome.Detail.Should().Contain("another 'General' is not showing and was left alone");
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void ReflectDataContextMembers_ListsCommandsAndProperties()
     {
@@ -453,6 +1237,152 @@ public class UiAutomationDriverTests
             combo.IsDropDownOpen.Should().BeTrue();
             UiAutomationDriver.Interact(combo, "collapse", null).Success.Should().BeTrue();
             combo.IsDropDownOpen.Should().BeFalse();
+        }
+        finally { window.Close(); }
+    }
+
+    // #907: the item's peer only set the selection, so the popup stayed open over what lay below it, and the reply
+    // said nothing. A click on the item closes it.
+    [AvaloniaFact]
+    public void Interact_Select_OnAnItemInAnOpenDropDown_ClosesItAsAClickDoes()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "A", "B" } };
+        var window = Show(combo);
+        try
+        {
+            UiAutomationDriver.Interact(combo, "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            var item = combo.GetRealizedContainers().OfType<ComboBoxItem>().Last();
+
+            var outcome = UiAutomationDriver.Interact(item, "select", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            combo.SelectedItem.Should().Be("B");
+            combo.IsDropDownOpen.Should().BeFalse();
+            outcome.Detail.Should().Be("selected 'B' and closed the dropdown, as a click does");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Select_WithAValue_OnAnOpenDropDown_ClosesIt()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "A", "B" } };
+        var window = Show(combo);
+        try
+        {
+            UiAutomationDriver.Interact(combo, "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            combo.IsDropDownOpen.Should().BeTrue();
+
+            var outcome = UiAutomationDriver.Interact(combo, "select", "B");
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            combo.SelectedItem.Should().Be("B");
+            combo.IsDropDownOpen.Should().BeFalse();
+            outcome.Detail.Should().EndWith("and closed the dropdown, as a click does");
+        }
+        finally { window.Close(); }
+    }
+
+    // A selection handler that replaces the list recycles the item's container and clears its parent, so a dropdown
+    // looked for after the selection went unfound and stayed open, with nothing said.
+    [AvaloniaFact]
+    public void Interact_Select_OnAnOpenDropDownWhoseListIsReplacedOnSelection_StillClosesIt()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "A", "B" } };
+        var replaced = false;
+        combo.SelectionChanged += (_, _) =>
+        {
+            if (replaced || combo.SelectedItem is not "B") return;
+            replaced = true;
+            combo.ItemsSource = new[] { "C", "D" };
+        };
+        var window = Show(combo);
+        try
+        {
+            UiAutomationDriver.Interact(combo, "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            var item = combo.GetRealizedContainers().OfType<ComboBoxItem>().Last();
+
+            var outcome = UiAutomationDriver.Interact(item, "select", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            combo.IsDropDownOpen.Should().BeFalse();
+            outcome.Detail.Should().EndWith("and closed the dropdown, as a click does");
+        }
+        finally { window.Close(); }
+    }
+
+    // A real double-click's first click picks the item and closes the dropdown; its second lands on what lay beneath.
+    [AvaloniaFact]
+    public void Interact_DoubleClick_OnAnItemInAnOpenDropDown_SelectsItAndClosesItWithoutADoubleTap()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "A", "B" } };
+        var doubleTapped = false;
+        combo.AddHandler(InputElement.DoubleTappedEvent, (_, _) => doubleTapped = true);
+        var window = Show(combo);
+        try
+        {
+            UiAutomationDriver.Interact(combo, "expand", null).Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            var item = combo.GetRealizedContainers().OfType<ComboBoxItem>().Last();
+
+            var outcome = UiAutomationDriver.Interact(item, "double_click", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            combo.SelectedItem.Should().Be("B");
+            combo.IsDropDownOpen.Should().BeFalse();
+            doubleTapped.Should().BeFalse();
+            outcome.Detail.Should().Contain("closed the dropdown").And.Contain("no double-click was raised");
+        }
+        finally { window.Close(); }
+    }
+
+    // The template's TextBox shows on an editable ComboBox, and a person's keys go to it.
+    [AvaloniaFact]
+    public void PressKey_OnAnEditableComboBox_GoesToItsTextBox()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "A", "B" }, IsEditable = true };
+        var window = Show(combo);
+        try
+        {
+            var outcome = UiAutomationDriver.PressKey(combo, "A", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Detail.Should().Contain("TextBox");
+        }
+        finally { window.Close(); }
+    }
+
+    // Found on #907's live check: every key on a ComboBox was refused, because the key target chosen was the hidden
+    // TextBox in its template rather than the ComboBox.
+    [AvaloniaFact]
+    public void PressKey_OnAComboBoxThatIsNotEditable_GoesToTheComboBox()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "A", "B" }, SelectedIndex = 0 };
+        var window = Show(combo);
+        try
+        {
+            var outcome = UiAutomationDriver.PressKey(combo, "Down", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            combo.SelectedIndex.Should().Be(1, "Down on a closed ComboBox selects the next item");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Select_OnAListItem_SaysNothingAboutADropDown()
+    {
+        var list = new ListBox { ItemsSource = new[] { "A", "B" } };
+        var window = Show(list);
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(list, "select", "B");
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Detail.Should().Be("selected 'B'");
         }
         finally { window.Close(); }
     }
@@ -796,6 +1726,39 @@ public class UiAutomationDriverTests
 
             outcome.Success.Should().BeFalse();
             outcome.Error.Should().Contain("keyboard focus");
+        }
+        finally { window.Close(); }
+    }
+
+    // A running form hides a Frame this way (VBVisibility). press_key passes over what is hidden, so it once told the
+    // caller there was nothing focusable here, while type_text on the same target said it was hidden.
+    [AvaloniaFact]
+    public void PressKey_OnAHiddenContainer_SaysItIsNotShowing()
+    {
+        var frame = new Border { Opacity = 0, IsHitTestVisible = false, Child = new TextBox { Name = "Text1" } };
+        var window = Show(frame);
+        try
+        {
+            var outcome = UiAutomationDriver.PressKey(frame, "A", null);
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("is not showing").And.NotContain("keyboard focus");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void PressKey_OnAContainerWhoseOnlyTextBoxIsHidden_NamesThatTextBox()
+    {
+        var host = new StackPanel();
+        host.Children.Add(new Border { Opacity = 0, IsHitTestVisible = false, Child = new TextBox { Name = "Text1" } });
+        var window = Show(host);
+        try
+        {
+            var outcome = UiAutomationDriver.PressKey(host, "A", null);
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("Text1").And.Contain("is not showing");
         }
         finally { window.Close(); }
     }

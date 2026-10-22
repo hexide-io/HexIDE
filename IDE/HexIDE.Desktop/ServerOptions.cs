@@ -225,7 +225,9 @@ internal static class ServerOptions
                 if (option.Apply(value) && value is not null) i++;
             }
             else if (!arg.StartsWith('-') && !arg.StartsWith('/') &&
-                     arg.EndsWith(".vbp", StringComparison.OrdinalIgnoreCase))
+                     (arg.EndsWith(".vbp", StringComparison.OrdinalIgnoreCase) ||
+                      arg.EndsWith(".vbg", StringComparison.OrdinalIgnoreCase) ||
+                      arg.EndsWith(".twinproj", StringComparison.OrdinalIgnoreCase)))
             {
                 ProjectPath = Path.GetFullPath(arg, _invocationDirectory);
             }
@@ -254,7 +256,7 @@ internal static class ServerOptions
             "HexIDE - an open, cross-platform IDE for Visual Basic 6 & VBA.",
             "",
             "Usage:",
-            "  HexIDE.Desktop [options] [<project>.vbp]",
+            "  HexIDE.Desktop [options] [<project>.vbp|.vbg|.twinproj]",
             "",
             "Options:",
             .. Options.Select(o => $"  {Spelling(o).PadRight(width)}  {o.Summary}"),

@@ -10,8 +10,9 @@
 #
 # Fails (exit 1) on: a private key git would currently let you commit, build artefacts and
 # editor backups in the tree, dangling relative links in Markdown, machine-specific absolute
-# paths, personal-identity references, a third-party project named outside the places we
-# agreed it may be, and unresolved merge-conflict markers. Warns (exit 0) on TWO things, both
+# paths, C# code that writes to a fixed absolute path, personal-identity references, a
+# third-party project named outside the places we agreed it may be, and unresolved
+# merge-conflict markers. Warns (exit 0) on TWO things, both
 # expected and neither blocking: key material .gitignore already covers, and the
 # upstream-attribution mention. Exits 2, having scanned nothing, when git cannot read the tree.
 #
@@ -149,6 +150,21 @@ while IFS= read -r hit; do
   [ -n "$hit" ] && note "machine-specific absolute path: $hit"
 done < <(git grep --untracked -nIF 'C:\Users\' -- . "${EXCLUDE[@]}")
 
+# 3b. C# code that writes to a fixed absolute path. A test once wrote its debug output to a folder that
+#     existed on one developer's disk, and CI caught it only because that folder was missing on the runners. A
+#     test that creates the folder first, or writes somewhere every runner has, passes CI and writes outside the
+#     build. So this looks for the shape of the mistake, not for anyone's folder names: a file-writing call whose
+#     first argument is a rooted literal, Windows (`C:\`, `C:/`, or C#'s escaped `C:\\`) or POSIX (`/tmp/...`).
+#     A rooted path that code only passes around, such as a VB6 path in an InlineData, is not a write and is left
+#     alone, and so is prose. File.Copy, Move and Replace are matched on their first argument, the source, so a
+#     rooted path read there is reported too, which ties the code to one disk just as much. A path built in a
+#     variable first is not seen: this is a backstop, not a proof. -E is pinned, so a local grep.patternType
+#     cannot change what the pattern means.
+WRITE_TO_ROOTED='(File\.(WriteAll(Text|Bytes|Lines)|AppendAll(Text|Lines)|AppendText|CreateText|Create|Copy|Move|Replace|OpenWrite)(Async)?|Directory\.(CreateDirectory|Move)|new +(System\.IO\.)?(StreamWriter|FileStream))\( *[$@]{0,2}"([A-Za-z]:[\\/]|/)'
+while IFS= read -r hit; do
+  [ -n "$hit" ] && note "fixed absolute path in a call that writes files, which ties the code to one machine's disk (use Path.GetTempPath() instead): $hit"
+done < <(git grep --untracked -nIE "$WRITE_TO_ROOTED" -- '*.cs' "${EXCLUDE[@]}")
+
 # 4. Personal-identity references. The pattern is supplied from outside the repository
 #    and is deliberately NOT written here: a literal in this file would publish the exact
 #    string the check exists to find, which is the opposite of the point. CI passes it in
@@ -228,7 +244,7 @@ rm -f /tmp/hexide-linkcheck.$$
 ALLOWED='^(IDE/HexIDE\.Runtime\.Tests/BattleshipChallenge\.cs|IDE/HexIDE\.Runtime/Interpreter/README\.md|LspServer/HexIDE\.VbLspServer\.Tests/README\.md|demo/battleship/README\.md|demo/spring-tide/README\.md|docs/vb6-grammar-fixes\.md|docs/lsp-parity-matrix\.md|docs/dap-adapter-smoke\.md)$'
 # The maintainer requested this integration with its author's blessing (#1178). These exact files
 # implement or validate its reader; this exception permits that name only, not other project names.
-TWIN_ALLOWED='^(HexIDE\.slnx|\.github/workflows/build\.yml|IDE/HexIDE\.TwinBasic/(TwinBasicContainer|TwinBasicContainerReader)\.cs|IDE/HexIDE\.TwinBasic\.Tests/(ContainerReaderTests\.cs|HexIDE\.TwinBasic\.Tests\.csproj|Fixtures/(README\.md|LICENSE|impexp\.twinproj\.json|sample\.twinpack\.json))|openspec/changes/read-external-project-containers/design\.md)$'
+TWIN_ALLOWED='^(IDE/HexIDE/HexIDE\.csproj|IDE/HexIDE/(Projects/ArchiveProjectService|Forms/ViewModels/ArchiveDocumentViewModel|Tools/Projects/(ArchiveTreeNode|ProjectToolViewModel))\.cs|IDE/HexIDE\.Integration\.Tests/Views/ArchiveProjectBrowsingTests\.cs|HexIDE\.slnx|\.github/workflows/build\.yml|IDE/HexIDE\.TwinBasic/HexIDE\.TwinBasic\.csproj|IDE/HexIDE\.TwinBasic/(TwinBasicContainer|TwinBasicContainerReader|ArchiveEntryIdentity|ArchiveProjectSnapshot|ArchiveProjectWorkspace|ArchiveSourceFolder|CompilerWireCodec|CompilerWebSocketTransport|CompilerRootSession|CompilerChannelSession|CompilerPackageProvider|CompilerProjectPreparation)\.cs|IDE/HexIDE\.TwinBasic\.Tests/(ContainerReaderTests\.cs|ArchiveProjectTests\.cs|ArchiveSourceFolderTests\.cs|CompilerWireCodecTests\.cs|CompilerWebSocketTransportTests\.cs|CompilerRootSessionTests\.cs|CompilerChannelSessionTests\.cs|CompilerProjectPreparationTests\.cs|HexIDE\.TwinBasic\.Tests\.csproj|Fixtures/(README\.md|LICENSE|impexp\.twinproj\.json|sample\.twinpack\.json))|openspec/changes/(archive/2026-10-18-read-external-project-containers|archive/2026-10-19-model-archive-project-documents|archive/2026-10-19-browse-archive-projects|archive/2026-10-19-synchronize-archive-source-folder|archive/2026-10-19-decode-compiler-wire|archive/2026-10-19-connect-compiler-websocket|archive/2026-10-19-initialize-compiler-root|archive/2026-10-19-own-compiler-channels|prepare-compiler-project)/design\.md)$'
 while IFS= read -r f; do
   if [[ "$f" =~ $TWIN_ALLOWED ]] && ! git grep --untracked -qiE 'rdcore|rubberduck' -- "$f"; then
     continue

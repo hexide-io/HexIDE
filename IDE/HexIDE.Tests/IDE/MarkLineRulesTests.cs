@@ -54,7 +54,7 @@ public class MarkLineRulesTests
 
         refusal.Should().Contain("17 is not a line of P/frmOrders, which has 16 lines")
             .And.Contain("numbered 1..16")
-            .And.Contain("from the top of the file")
+            .And.Contain(MarkLineRules.Counting)
             .And.EndWith("Nothing was changed.");
     }
 
@@ -94,20 +94,6 @@ public class MarkLineRulesTests
     }
 
     [Fact]
-    public void BookmarksCountFromZero()
-    {
-        MarkLineRules.Refusal(Form, "P/frmOrders", [9, 15], [], first: 0, "bookmark")
-            .Should().BeNull("0-based 9 is the file's tenth line, the first of code, and 15 its last");
-
-        MarkLineRules.Refusal(Form, "P/frmOrders", [8], [], first: 0, "bookmark")
-            .Should().Contain("its header (0..8)").And.Contain("its code starts at 9")
-            .And.Contain("no bookmark can go there");
-
-        MarkLineRules.Refusal(Form, "P/frmOrders", [16], [], first: 0, "bookmark")
-            .Should().Contain("numbered 0..15, counting from 0");
-    }
-
-    [Fact]
     public void ADocumentWithNoHeaderDoesNotTalkAboutOne()
     {
         var text = new CodeWindowText(
@@ -126,5 +112,76 @@ public class MarkLineRulesTests
 
         kept.Should().Equal([1, 3, 16], "a header line is kept: an unmigrated sidecar counts from the code");
         dropped.Should().Equal([0, 17]);
+    }
+
+    // ── bookmarks, stored from 0, counted from 1 at the tools' edge (#571) ──────────────────────────────────────
+
+    [Fact]
+    public void A_bookmark_is_shown_one_higher_than_stored_and_stored_one_lower_than_sent()
+    {
+        MarkLineRules.BookmarksShown([0, 9, 12]).Should().Equal(1, 10, 13);
+        MarkLineRules.BookmarksStored([1, 10, 13]).Should().Equal(0, 9, 12);
+    }
+
+    [Fact]
+    public void A_bookmark_takes_the_line_number_a_breakpoint_takes()
+    {
+        // Line 10 is the first line of code. Counting from 0, set_bookmarks took 9, the last Attribute line, and
+        // was refused; or it took 10 and bookmarked the blank line below the code a breakpoint at 10 marks.
+        string? Bookmarks(params int[] lines) =>
+            MarkLineRules.Refusal(Form, "P/frmOrders", lines, [], first: 1, "bookmark");
+
+        Bookmarks(10).Should().BeNull().And.Be(Breakpoints(10));
+        Bookmarks(9).Should().Contain("its code starts at 10");
+        Bookmarks(0).Should().Contain("bookmarks are numbered 1..16").And.NotContain("counting from 0");
+        MarkLineRules.BookmarksStored([10]).Should().Equal([9], "the store's 9 is the gutter's 10");
+    }
+
+
+    [Fact]
+    public void A_bookmark_held_on_the_header_can_be_written_back_as_read()
+    {
+        // A sidecar from before the header was protected can hold one there: stored 2, the gutter's 3. Reading the
+        // set and writing it back is never refused; compared in two numberings, the store's 2 is not the caller's 3,
+        // and the 3 was refused as a new bookmark on the header.
+        var held = new[] { 2 };
+        var read = MarkLineRules.BookmarksShown(held);
+
+        var (refusal, stored) = MarkLineRules.BookmarkRequest(Form, "P/frmOrders", read, held);
+        refusal.Should().BeNull();
+        stored.Should().Equal(2);
+    }
+
+    [Fact]
+    public void A_bookmark_request_is_judged_and_stored_in_the_two_numberings()
+    {
+        var (refusal, stored) = MarkLineRules.BookmarkRequest(Form, "P/frmOrders", [10, 13], []);
+        refusal.Should().BeNull();
+        stored.Should().Equal(9, 12);
+
+        MarkLineRules.BookmarkRequest(Form, "P/frmOrders", [3], []).Refusal.Should().Contain("its code starts at 10");
+        MarkLineRules.BookmarkRequest(Form, "P/frmOrders", [17], []).Refusal.Should().Contain("numbered 1..16");
+        MarkLineRules.BookmarkRequest(Form, "P/frmOrders", [17], []).ToStore.Should().BeEmpty();
+    }
+
+    // A session holding a bookmark tool's description from before #1245 reads lines counted from 0; every reply that
+    // gives a line says how they are counted, the refusals too (#1261).
+    [Fact]
+    public void Get_bookmarks_note_gives_its_lines_with_their_numbering_and_none_when_there_are_none()
+    {
+        MarkLineRules.BookmarksNote("P/Form1", [10, 11]).Should()
+            .Be("P/Form1 has bookmarks on lines 10, 11, counting from 1 at the top of the file, as the gutter does.");
+        MarkLineRules.BookmarksNote("P/Form1", [10]).Should()
+            .Be("P/Form1 has a bookmark on line 10, counting from 1 at the top of the file, as the gutter does.");
+        MarkLineRules.BookmarksNote("P/Form1", []).Should().BeNull();
+    }
+
+    [Fact]
+    public void A_refusal_that_gives_lines_says_how_they_are_counted()
+    {
+        MarkLineRules.BookmarkRequest(Form, "P/frmOrders", [3], []).Refusal.Should()
+            .Contain($"its code starts at 10, {MarkLineRules.Counting}");
+        MarkLineRules.BookmarkRequest(Form, "P/frmOrders", [17], []).Refusal.Should()
+            .Contain($"numbered 1..16, {MarkLineRules.Counting}. Nothing was changed.");
     }
 }

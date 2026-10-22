@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
@@ -226,8 +227,8 @@ public class RuntimeMenuTests
     {
         var (bar, _, root) = Run(MenuForm);
 
-        // Click bubbles, so without a source check the parent menu's handler runs too — and in VB6 a menu
-        // with sub-items has no Click of its own to run, it just opens.
+        // Click bubbles, so without a source check the parent menu's handler runs too. VB6 raises a menu's Click as it
+        // opens (measured, #1344), not when one of its items is chosen, and nothing opened Help here.
         Item(Item(bar, "&Help"), "&About").RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
         Dispatcher.UIThread.RunJobs();
 
@@ -248,6 +249,55 @@ public class RuntimeMenuTests
         Dispatcher.UIThread.RunJobs();
 
         root.Executed.Should().ContainSingle();
+    }
+
+    // VB6 leaves Checked to the program. Avalonia's menu flips a CheckBox item's IsChecked before it raises Click, so a
+    // guard that read IsChecked inside OnClick read the flipped value and kept it: a person's click ticked the item.
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ClickingAMenuItemWithThePointer_LeavesItsCheckedAsTheProgramSetIt(bool programChecked)
+    {
+        var (bar, _, root) = Run(MenuForm);
+        var file = Item(bar, "&File");
+        var newItem = Item(file, "&New");
+        ((HexIDE.Runtime.BuiltinControls.VBMenu)newItem).Checked = programChecked;
+        file.Open();
+        Dispatcher.UIThread.RunJobs();
+        var popupRoot = TopLevel.GetTopLevel(newItem)!;
+        var centre = newItem.TranslatePoint(new Point(newItem.Bounds.Width / 2, newItem.Bounds.Height / 2), popupRoot)!.Value;
+
+        Avalonia.Headless.HeadlessWindowExtensions.MouseDown(popupRoot, centre, MouseButton.Left);
+        Avalonia.Headless.HeadlessWindowExtensions.MouseUp(popupRoot, centre, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        // File's Click as it opened, as VB6 raises it (measured, #1344), then the item's.
+        root.Executed.Should().Equal("mnuFile_Click", "mnuFileNew_Click");
+        newItem.IsChecked.Should().Be(programChecked);
+    }
+
+    // interact invoke clicks as Avalonia's menu does, tick included, so it meets the same guard (#947).
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void InvokingAMenuItemThroughAutomation_LeavesItsCheckedAsTheProgramSetIt(bool programChecked)
+    {
+        var (bar, _, root) = Run(MenuForm);
+        var file = Item(bar, "&File");
+        var newItem = (HexIDE.Runtime.BuiltinControls.VBMenu)Item(file, "&New");
+        newItem.Checked = programChecked;
+        HexIDE.Automation.UiAutomationDriver.Interact(file, "expand", null);
+        Dispatcher.UIThread.RunJobs();
+
+        var outcome = HexIDE.Automation.UiAutomationDriver.Interact(newItem, "invoke", null);
+        Dispatcher.UIThread.RunJobs();
+
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().NotContain("ticked");
+        // Expanding File raised its Click, as opening it does in VB6 (measured, #1344).
+        root.Executed.Should().Equal("mnuFile_Click", "mnuFileNew_Click");
+        newItem.IsChecked.Should().Be(programChecked);
+        file.IsSubMenuOpen.Should().BeFalse();
     }
 
     // ── shortcuts ────────────────────────────────────────────────────────────────────────────────
@@ -284,7 +334,8 @@ public class RuntimeMenuTests
         });
         Dispatcher.UIThread.RunJobs();
 
-        root.Executed.Should().Equal("mnuFileNew_Click");
+        // The menu above the item first, as vb6.exe raises a shortcut's Clicks (measured, #1344).
+        root.Executed.Should().Equal("mnuFile_Click", "mnuFileNew_Click");
     }
 
     [Theory]

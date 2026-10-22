@@ -69,5 +69,7 @@ public class VBOptionButton : RadioButton
         });
 
         ContentTemplateProperty.OverrideDefaultValue<VBOptionButton>(AccessTextDataTemplate.Access);
+        // Named as the caption reads, not with the _ the drawn text marks its access key with (#954).
+        VBCaption.NameByCaption<VBOptionButton>(ContentProperty);
     }
 }

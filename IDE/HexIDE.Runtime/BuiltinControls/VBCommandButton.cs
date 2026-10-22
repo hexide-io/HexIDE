@@ -14,5 +14,7 @@ public class VBCommandButton : Button
         // MouseUp follows Click, which the Button raised in its own release handler (measured, #974).
         AttachedEvents.AttachMouse<VBCommandButton>();
         ContentTemplateProperty.OverrideDefaultValue<VBCommandButton>(AccessTextDataTemplate.Access);
+        // Named as the caption reads, not with the _ the drawn text marks its access key with (#954).
+        VBCaption.NameByCaption<VBCommandButton>(ContentProperty);
     }
 }

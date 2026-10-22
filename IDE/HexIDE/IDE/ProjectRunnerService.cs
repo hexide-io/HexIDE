@@ -53,6 +53,17 @@ public partial class ProjectRunnerService : IProjectRunnerService
     /// <inheritdoc />
     public event Action<string>? RunFailed;
 
+    /// <inheritdoc />
+    public ErrorLocation? FailureLocation { get; private set; }
+
+    // Raises a failure event, with where its error was raised readable while the handlers run (#955).
+    private void Report(Action<string>? failed, string text, Exception? cause)
+    {
+        FailureLocation = ErrorLocation.Of(cause);
+        try { failed?.Invoke(text); }
+        finally { FailureLocation = null; }
+    }
+
     /// <summary>
     /// The project currently running, or null when nothing is.
     /// </summary>
@@ -69,6 +80,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
         private set => runScope.RunningProject = value;
     }
 
+    private readonly HexIDE.Projects.ArchiveProjectService? archives;
+
     public ProjectRunnerService(IEventBus eventBus,
         IWindowManager windowManager,
         IProjectManager projectManager,
@@ -77,7 +90,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
         IBreakpointService breakpointService,
         WatchService watchService,
         RunScope runScope,
-        ExternalDebugService? externalDebugger = null)
+        ExternalDebugService? externalDebugger = null,
+        HexIDE.Projects.ArchiveProjectService? archives = null)
     {
         this.eventBus = eventBus;
         this.windowManager = windowManager;
@@ -88,6 +102,12 @@ public partial class ProjectRunnerService : IProjectRunnerService
         this.watchService = watchService;
         this.runScope = runScope;
         this.externalDebugger = externalDebugger;
+        this.archives = archives;
+        if (archives != null) archives.FocusChanged += () =>
+        {
+            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(CanStartDefaultProject)));
+            CommandManager.InvalidateRequerySuggested();
+        };
         if (externalDebugger is not null)
             externalDebugger.Changed += () =>
             {
@@ -264,7 +284,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
                         // comes before the start call returns, as its contract says.
                         debugController.Stop();
                         RunningProject = null;
-                        StartFailed?.Invoke(DescribeFailedStart(e, form.Name));
+                        Report(StartFailed, DescribeFailedStart(e, form.Name), e);
                         return;
                     }
 
@@ -287,7 +307,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
                 // Reported once the run is over, so the dialog never appears beside a run that still looks live.
                 if (fault is not null)
-                    RunFailed?.Invoke(RunErrorText.ForFault(fault, localization));
+                    Report(RunFailed, RunErrorText.ForFault(fault, localization), fault);
             }
             WindowTask().ListenErrors();
         }
@@ -377,6 +397,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
             // as running while the dialog is up. These used to be MessageBox calls of their own, which no
             // record kept, so get_last_runtime_error never saw an error from Sub Main (#754).
             string? failure = null;
+            Exception? failedWith = null;
             var tokenSource = new CancellationTokenSource();
 
             // A fault in an event procedure of a form Main showed ends the run, as on the form path (#754).
@@ -417,7 +438,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 {
                     debugController.Stop();
                     RunningProject = null;
-                    StartFailed?.Invoke(DescribeFailedStart(e, formName: null));
+                    Report(StartFailed, DescribeFailedStart(e, formName: null), e);
                     return;
                 }
 
@@ -438,6 +459,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 if (e is not (VBCompileErrorException or VBRunTimeException))
                     Serilog.Log.Error(e, "Sub Main stopped on a fault");
                 failure = Describe(e);
+                failedWith = e;
             }
             finally
             {
@@ -449,9 +471,9 @@ public partial class ProjectRunnerService : IProjectRunnerService
             }
 
             if (fault is not null)
-                RunFailed?.Invoke(RunErrorText.ForFault(fault, localization));
+                Report(RunFailed, RunErrorText.ForFault(fault, localization), fault);
             else if (failure is not null)
-                RunFailed?.Invoke(failure);
+                Report(RunFailed, failure, failedWith);
         }
 
         MainTask().ListenErrors();
@@ -459,6 +481,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
     public void RunStartupProject(bool stepInto = false)
     {
+        if (archives?.IsActive == true) return;
         if (projectManager.StartupProject is {} startupProject)
         {
             RunProject(startupProject, stepInto);
@@ -564,7 +587,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
         RunStartupProject();
     }
 
-    public bool CanStartDefaultProject => !IsRunning && projectManager.StartupProject != null;
+    public bool CanStartDefaultProject => archives?.IsActive != true && !IsRunning && projectManager.StartupProject != null;
     public bool CanStartDefaultProjectWithFullCompile => CanStartDefaultProject;
     public bool CanBreakProject => externalDebugger?.IsActive == true
         ? !externalDebugger.IsBusy && externalDebugger.State == Dap.DapSessionState.Running && externalDebugger.ThreadId is not null

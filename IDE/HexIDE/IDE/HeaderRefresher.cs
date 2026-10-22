@@ -246,8 +246,8 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
     /// honest answer rather than a clamp.
     /// </para>
     /// <para>
-    /// The two stores disagree about the base — breakpoints are 1-based and bookmarks 0-based, both stated
-    /// to callers on the shipped automation tools — so the comparison differs by one between them and the
+    /// The two stores disagree about the base — breakpoints are 1-based and bookmarks 0-based, as each is
+    /// stored (the bookmark tools add one at their edge, #571) — so the comparison differs by one between them and the
     /// shift does not.
     /// </para>
     /// </remarks>

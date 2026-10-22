@@ -103,7 +103,7 @@ counts — the interactive session is established once instead of per step; an `
 the rig itself be changed without another reboot; and the heartbeat distinguishes *the agent is not running*
 from *the action ran and did nothing*, which the task route could not.
 
-Two traps in the agent, both measured:
+Three traps in the agent, all measured:
 
 - **Register exactly one autostart.** A Startup-folder shim *and* an `HKCU\…\Run` value both fire, and two
   pollers then race for the same action file.
@@ -118,6 +118,22 @@ Two traps in the agent, both measured:
   So every baseline loaded empty and the first diff reported every file on the machine as new. That reads as
   a dramatic result and measures nothing. The rig now logs *N files in, N read back* and says loudly when the
   two disagree.
+- **A window started within 200 seconds of the last input never gets the foreground** (measured 2026-10-22,
+  #1340). That is Windows' `ForegroundLockTimeout`, which is 200000 ms by default. A probe that drives itself with
+  `SendKeys` then types into whatever had the foreground, so it gets **nothing, and no error**. Its log shows
+  every step and none of the events the keys should have raised. The probe's own `AppActivate` doesn't help, and
+  neither does WScript.Shell's from the agent, since the agent has no window of its own and can't hand over a
+  foreground it doesn't hold. A batch of probes run back to back shows it plainly: the first works, and the rest,
+  each started within 200 s of the one before, log nothing. `SystemParametersInfo(SPI_SETFOREGROUNDLOCKTIMEOUT)`
+  fails for the same reason. So the value is set in the account's registry instead, which takes effect at the
+  next sign-in:
+
+  ```powershell
+  Set-ItemProperty 'HKCU:\Control Panel\Desktop' -Name ForegroundLockTimeout -Value 0 -Type DWord
+  ```
+
+  It was set on 2026-10-22, from an `exec:` action in the console session. Until the guest has signed in again,
+  leave 200 s without input before each probe that sends keys.
 
 Two details of the scheduled-task route are kept, because they cost a run each and the route is still worth
 having for a genuine one-shot: the user must be domain-qualified (`COMPUTER\account`, backslash included) or
@@ -10509,7 +10525,7 @@ its menu when the array has gaps, and whether it copies a Shortcut.
   with Count, LBound, UBound and an Index on its Click, and Caption, Checked, Enabled, Visible and Tag read and write
   with the 387 and 395 refusals. Load copies the first element as it stands, Visible included, and places the new one
   after the element below it; Unload removes it; and the 340, 361 and 362 refusals hold. Choosing an item no longer
-  toggles its tick, which is the program's to set. `TypeName` gives Menu, and Object for the array.
+  toggles its tick, which is the program's to set, by pointer, Enter or automation alike (#1158, measured below). `TypeName` gives Menu, and Object for the array.
 - **Not yet:** a menu's default member, Enabled, so `mnuNew = False` and a bare `mnuNew` read; giving a separator a
   caption, which makes it an item, refused as not implemented; and setting WindowList, refused the same way.
 - **The bar appearing or going away from code is refused** as not implemented (#1140): hiding the last visible
@@ -10521,6 +10537,77 @@ its menu when the array has gaps, and whether it copies a Shortcut.
 - **The text of 340** names the element in vb6.exe, "Control array element '5' doesn't exist", and doesn't here.
   The "Control arrays" rows above give it without the index, which looks abbreviated rather than measured; not
   rechecked.
+
+## When a menu's Click is raised (2026-10-22, #1344)
+
+**The probe.** Found by the Notepad demo, whose `mnuEdit_Click` enables Cut, Copy and Delete when there is a selection,
+and which never ran. The probe's menus:
+- **Top**, which holds three items:
+  - Alpha, shortcut Ctrl+Q;
+  - Sub, which holds Leaf, shortcut Ctrl+W;
+  - Dis, shortcut Ctrl+E, disabled at design time.
+- **Solo**, a top-level menu with no items.
+
+Each Click logs its name, and Top's logs whether Dis is enabled. A Timer sends one set of keys each tick with
+`SendKeys`, and changes Enabled or Visible first where the step says so. Built native and p-code, and run **in the
+guest's console session**, each build at least 200 s after the last input, since the guest gives a newly started window
+no foreground within 200 s of any input (`ForegroundLockTimeout`), and its keys then reach nothing. Every row agreed.
+
+| Keys | Clicks raised, in order |
+|---|---|
+| Alt+T, opening Top | Top |
+| Alt+T, then S, opening Sub | Top, Sub |
+| Alt+T, then Enter, choosing Alpha | Top, Alpha |
+| Alt+O, choosing Solo | Solo |
+| Ctrl+Q | Top, Alpha |
+| Ctrl+W | Top, Sub, Leaf |
+| Ctrl+E, with Dis disabled | Top |
+| Ctrl+E, with Top's Click setting `mnuDis.Enabled = True` | Top, Dis |
+| Ctrl+Q, with Top disabled | none |
+| Ctrl+Q, with Top hidden | none |
+| Ctrl+Q, with Alpha hidden | Top |
+| Ctrl+W, with Sub disabled | Top |
+| Ctrl+W, with Sub hidden | Top |
+| Ctrl+W, with Leaf disabled | Top, Sub |
+
+So:
+- A menu that holds items raises Click as it opens, a submenu as much as a top-level one.
+- A shortcut raises the Click of each menu from the top-level one down to its item.
+- It stops at the first menu that is disabled or hidden, without raising that one's Click.
+- The item's Enabled is read only after the Clicks above it have run. That is what lets a parent's Click enable its items
+  and have their shortcuts work, the pattern every Edit menu uses.
+
+The comment that stood in `VBLoader`, that VB6 raises Click "on nothing above" the chosen item, was a guess, and this
+table overturns it.
+
+**In HexIDE (#1344):** as the table says. Opening a menu that holds items raises its Click, Avalonia's `SubmenuOpened`
+being the moment, so `interact` with `expand` raises it too. A shortcut queues each Click in order, and each is asked at
+its turn whether it, and every menu above it, is still enabled and visible. Not measured, and assumed to match: whether
+a menu between the top and the item is also asked late, and opening a menu with the mouse.
+
+## Choosing a menu item leaves Checked to the program (2026-10-18, #1158; measured by #1159)
+
+**The probe**, written and run by #1159 (Codex) and kept here because it measures something nothing else in this file
+does. A shown Form1 with a Root menu and two children, Plain and Toggle. A one-shot Timer finds each child's native
+menu ID with `GetMenuItemID(GetSubMenu(GetMenu(Me.hwnd), 0), position)` and dispatches it with
+`SendMessage Me.hwnd, &H111, id, 0` (WM_COMMAND), first with each child's Checked set False, then True. Each Click logs
+Checked as it enters, and Toggle's also runs `mnuToggle.Checked = Not mnuToggle.Checked`. The Timer logs Checked once
+SendMessage returns. Built native and p-code in the oracle guest, and both runs agreed, with Err.Number 0.
+
+| Handler | Checked before | At Click entry | After dispatch |
+|---|---|---|---|
+| Plain, logging only | False | False | False |
+| Plain, logging only | True | True | True |
+| Toggle, `Checked = Not Checked` | False | False | True |
+| Toggle, `Checked = Not Checked` | True | True | False |
+
+So choosing an item never changes its tick, and the program's Click sees the tick as it was. This is VB6's menu command
+dispatch, not a physical mouse gesture and not the VB6 IDE.
+
+**In HexIDE:** Avalonia's menu ticks a CheckBox item before it raises Click, by pointer and by Enter alike. VBMenu puts
+the tick back in its class handler for Click, which runs before any handler of the program's (#1231, for #947). #1159's
+twelve cases, pointer, Enter and automation from both starting states, with and without a handler that changes Checked,
+run in `MenuMembersTests` and pass, so #1158 no longer reproduces.
 
 ## SetFocus (2026-10-15, #1061)
 
@@ -11178,3 +11265,49 @@ A function also shadows Clipboard when it supplies the object of a member chain.
 `Function Clipboard() As Box: Set Clipboard = New Box: End Function` (each statement on its own line), evaluating
 `Clipboard.GetText` returned `shadow`, **String**, native and p-code. The member-lead resolver must check that
 function before returning the host Clipboard object.
+
+## A TextBox's MultiLine and ScrollBars (2026-10-22, #1340)
+
+**The probe.** Found by the Notepad demo: Enter added nothing to its text, and Word Wrap, which swaps a box that has a
+horizontal scroll bar for one that has none, changed nothing. A form with a control array of six TextBoxes, each 3000 by
+1100 twips: single-line, then MultiLine with ScrollBars 0, 1, 2 and 3, then single-line with ScrollBars 3. `Form_Load`
+reads both properties and tries to set them. A Timer then reads each box's window style with `GetWindowLong` and its
+line count with `EM_GETLINECOUNT`, for a 368-character line with spaces in it and for `"a" & vbCrLf & "b" & vbLf & "c"
+& vbCr & "d"`. Last, it types into the boxes with `SendKeys`, logging KeyDown and KeyPress. Built native and p-code,
+and every row agreed. The styles and line counts came out the same in the probe runner's session and the console
+session, but the keys reach nothing without a desktop, so they were run in the console session (see the
+`ForegroundLockTimeout` trap above).
+
+| Box | Window style | Lines for the long line | Lines for the CR, LF, CR LF string |
+|---|---|---|---|
+| single-line | `&H540100C0`: `ES_AUTOHSCROLL`, `ES_AUTOVSCROLL` | 1 | 1 |
+| MultiLine, ScrollBars 0 | `&H54010044`: `ES_MULTILINE`, `ES_AUTOVSCROLL` | 18 | 2 |
+| MultiLine, ScrollBars 1 (horizontal) | `&H541100C4`: and `ES_AUTOHSCROLL`, `WS_HSCROLL` | 1 | 2 |
+| MultiLine, ScrollBars 2 (vertical) | `&H54210044`: and `WS_VSCROLL` | 18 | 2 |
+| MultiLine, ScrollBars 3 (both) | `&H543100C4`: and both scroll bars | 1 | 2 |
+| single-line, ScrollBars 3 | `&H540100C0`, the same as the first | 1 | 1 |
+
+So a MultiLine box wraps unless it has a horizontal scroll bar, and a single-line box ignores ScrollBars. Only CR LF
+breaks a line. A lone LF or CR doesn't, and `Text` reads back all 8 characters in every box. No box has
+`ES_WANTRETURN`, so Enter is VB6's own handling, below, not the edit control's.
+
+| Step | Logged |
+|---|---|
+| `TypeName` of MultiLine and ScrollBars | `Boolean`, `Integer` |
+| `o.MultiLine = False` with `o` an `Object` holding the box | **382**, "'MultiLine' property cannot be set at run time"; still True |
+| `o.ScrollBars = 0` | **382**, "'ScrollBars' property cannot be set at run time"; unchanged |
+| `Text1.MultiLine = True`, early-bound | the compile error "Can't assign to read-only property"; the build fails |
+| `x`, Enter, `y` in the single-line box | KeyDown 13, KeyPress 13; `xy` |
+| `x`, Enter, `y` in a MultiLine box | KeyDown 13, KeyPress 13; `x` CR LF `y` |
+| `x`, Tab, `y` in a MultiLine box | the `y` went to the next box: focus moved, no tab inserted |
+| a Default CommandButton, then `x`, Enter, `y` in a MultiLine box | the button's Click, no KeyDown or KeyPress for the Enter; `xy` |
+| the same, with Ctrl+Enter | KeyDown 13 with Shift 2, KeyPress **10**; `x` CR LF `y` |
+
+**In HexIDE (#1340):** a box is laid out from its file's MultiLine and ScrollBars as the first table says. Enter and
+Ctrl+Enter break a MultiLine box's line with CR LF on every host, a bar VB6 asks for is drawn even with nothing to
+scroll, and a direction with no bar is either scrolled without one or not at all, which also keeps a single-line box
+from showing part of a vertical bar (#914). Both read back with their types, and setting either is the 382 with VB6's
+text, raised when the statement runs, also where VB6 refuses it at compile time. Not reproduced:
+- a CommandButton's `Default`, which HexIDE doesn't model, so Enter always breaks the line;
+- KeyDown and KeyPress, which a TextBox doesn't raise here yet;
+- a lone LF or CR, which Avalonia draws as a line break where VB6 draws none. `Text` still reads back as set.

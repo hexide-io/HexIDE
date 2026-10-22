@@ -1,0 +1,31 @@
+## Context and evidence
+The previous root-session design records the pinned public documentation and BETA1011 IDE hash. This slice tested the final channel engine through the same isolated native-host harness, with Community Edition and a disposable copy of the published impexp fixture.
+
+**Important correction to the prior socket smoke test:** accepting a connection does not establish that attaching at that point is safe. Attaching all service sockets immediately after root initialization produced debugger output reporting native access violations in the compiler DLL, followed by premature socket closure after roughly one second. This was not our message deadline: the underlying sockets closed without cancellation. The engine detected the failure and terminated its other channels.
+
+Inspection of the stock IDE's `allProjectsLoaded` sequence showed that project loading and command 3 (`RequestAllProjectsLoaded`) precede filesystem, language and debugger attachment. A revised local probe sent load command 1 for the disposable copy, answered notification 243 with the stock additional-compiler settings response (command 24, int32 zero and empty text), and answered four package-data requests (notification 255, response command 4) using the isolated IDE native host. After successful load and command-3 replies, it handed the prepared root to the final channel engine. All four sockets remained connected for 35 seconds with a one-second message-assembly timeout; async disposal joined all readers successfully.
+
+The preparation probe is evidence, not a production loader. It depends on native package resolution and uses a known fixture/configuration. It is not committed, and no package bytes, proprietary code, credentials or vendor executables are added. The harness stops its owned process tree and restores its project-state entry. Original project files are not used. Loading in the probe may trigger the compiler's ordinary background analysis; no build, run, save or add-in-load command is sent.
+
+## Boundary and ownership
+`CompilerChannelSession` and its DTOs are internal. Its entry point takes ownership of a root for which project loading and readiness acknowledgement have already completed. The caller must stop using that root after handoff. There is deliberately no public factory that initializes a bare root and immediately attaches services. Production project loading, reverse-request handling, native startup and package resolution must be implemented before exposing the connection workflow.
+
+Service endpoints preserve the escaped authentication path and loopback host, replacing only the final `root` segment and advertised port. Attach filesystem, language and debugger sockets sequentially under one deadline. Failure/cancellation closes the root and every socket already acquired; no reconnect or command replay occurs. Form-image/live-backup ports remain metadata, not owned channels.
+
+## Message flow and bounds
+Each socket has one receive pump. Messages carry channel identity, text/binary type and owned read-only bytes; ordering is preserved within each channel, with no cross-channel order promised. Root initialization notifications remain in the root metadata and precede ongoing messages. This layer does not interpret control replies, JSON, reverse requests or debugger operations.
+
+The queue defaults to 256 messages and 32 MiB, with a 16 MiB per-message limit. Both count and aggregate bytes are enforced under one lock. Reading releases byte budget. Overflow terminates the session instead of dropping messages or waiting indefinitely behind a slow consumer. These are queue bounds; each receive pump also has its own bounded assembly storage. On termination queued messages are discarded, pending consumers wake, and future operations report failure/disposal. A future diagnostics layer should consume debugger output promptly rather than relying on post-failure queue draining.
+
+Consumer cancellation only stops that consumer. A pre-cancelled send does no I/O; cancellation/failure after dispatch is terminal because delivery cannot be established reliably. Outgoing buffers must remain unchanged until the send completes. Concurrent sends use the transport's per-socket serialization.
+
+## Idle and timeout behavior
+Existing public `ReceiveAsync` still bounds the entire active receive, preserving the root-handshake contract. Internal session readers wait indefinitely for the first receive result, then start the assembly deadline for that message; empty non-final fragments also start it. Idle waiting is interrupted by disposal. The WebSocket API cannot distinguish a peer stalling inside its first frame header from a quiet connection, so the assembly deadline begins at the first completed receive rather than the first network byte. This limitation is explicit and bounded by session ownership, not disguised as a proven network-level slow-peer timeout.
+
+Attachment and active message timeouts are separate (30 seconds each by default). The session applies its message timeout uniformly to root and service sends/assembly, irrespective of the earlier root handshake's timeout. The prepared root's existing transport receive limit may be stricter than the session maximum; the session additionally enforces its own maximum.
+
+## Terminal state
+First termination wins. It aborts every owned socket and clears/completes the message queue. `Completion` returns a small termination value without faulting an unobserved background task; messages exclude peer text and authentication paths. Synchronous disposal signals shutdown; async disposal also joins all four reader tasks and waits for terminal cleanup. It never terminates the externally owned compiler process.
+
+## Validation
+Real loopback WebSocket peers cover endpoint derivation, channel identity/order, opaque sends, partial attachment rollback, attachment timeout/cancellation, closure of each channel, queue count/byte limits, released budgets, consumer cancellation, idle waiting, incomplete-message deadlines and idempotent async disposal. These tests establish lifecycle behavior independently of the compiler. The prepared-project live test establishes the limited BETA1011 sequence above, not a production project loader or standalone launcher.

@@ -134,4 +134,33 @@ public static class ForegroundWindow
 
         return best ?? mainWindow;
     }
+
+    /// <summary>
+    /// <paramref name="path"/> resolved in <paramref name="picked"/>, as the automation tools resolve one, with a failure naming
+    /// that window when the choice was left to <c>"auto"</c> and fell on a window other than the IDE's own (#1264).
+    /// </summary>
+    /// <remarks>
+    /// Any other window outranks the IDE's under <c>"auto"</c>, whether or not it is on top, the modeless Find window too.
+    /// A path from an earlier dump of the IDE then failed with <c>no child matching 'Custom[MainView]' under 'Window'</c>,
+    /// which names no window, so a caller hunted for a wrong path rather than a wrong window. Window <c>"ide"</c> is
+    /// offered only for a path that resolves there: a typo, or a path into a running form while Find was picked, would
+    /// be sent the wrong way.
+    /// </remarks>
+    /// <param name="pickedName">How <paramref name="picked"/> is named to a caller: its title, or what it shows.</param>
+    public static (Control? Control, string? Error) Resolve(
+        string path, string? scope, Window picked, Window mainWindow, string pickedName)
+    {
+        var (control, error) = HexIDE.Automation.UiAutomationDriver.Resolve(picked, path);
+        if (control is not null || error is null || picked == mainWindow
+            || !(string.IsNullOrWhiteSpace(scope) || scope.Equals("auto", StringComparison.OrdinalIgnoreCase)))
+            return (control, error);
+        // A path that is not one fails alike in every window, before any is looked in, so which window it was is no part
+        // of why. These are the two such refusals Resolve makes.
+        if (error == "empty target path" || error.StartsWith("path must start with", StringComparison.Ordinal))
+            return (null, error);
+        // Probed against the IDE's own only on failure, and only read: it says whether "ide" would have reached it.
+        var inMain = HexIDE.Automation.UiAutomationDriver.Resolve(mainWindow, path).control is not null;
+        return (null, $"{error}. The path was looked for in '{pickedName}', the window \"auto\" picked over the IDE's own"
+                      + (inMain ? "; it resolves in the IDE's own window, which window \"ide\" reaches" : ""));
+    }
 }

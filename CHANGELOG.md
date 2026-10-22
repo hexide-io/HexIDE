@@ -27,6 +27,11 @@ there isn't one yet. Anything may change between 0.x releases.
   truncation and argument errors follow measured VB6 behavior. Non-text operations remain explicitly unsupported;
   setting text over non-text formats is refused until they can be preserved (call Clear first).
 
+- **A TextBox's `MultiLine` and `ScrollBars`** (#1340). They were kept in the file and ignored, so Enter added
+  nothing, no long line wrapped and no box drew a scroll bar. Now a MultiLine box takes Enter as a CR LF on every host,
+  wraps unless it has a horizontal scroll bar, and draws the bars it asks for. A single-line box draws none, which also
+  ends the vertical bar fragment a short one showed (#914). Both read back at run time and refuse a write with 382, as
+  vb6.exe measured.
 - **A TextBox's `SelStart`, `SelLength` and `SelText`** (#1150). They raised 438. They now read and write as vb6.exe
   measured: setting SelStart drops the selection, positions past the end clamp, a negative one is 380, and SelText
   leaves the caret after what it put in.
@@ -197,6 +202,11 @@ there isn't one yet. Anything may change between 0.x releases.
   its ticks, cross and arrows. Labels, CommandButtons, CheckBoxes and OptionButtons are covered. The caption still reads
   back as the letters. On a machine without the font, as Linux and macOS are for Wingdings, the letters are drawn as
   before.
+- **A menu's Click as it opens, and a shortcut's parents' Clicks** (#1344). A menu that holds items never raised its
+  Click, so a program could not enable or disable the items before they showed: Notepad's Edit menu offered Cut with
+  nothing selected. A shortcut raised its own item's Click alone, even for an item disabled or hidden. Now opening a menu
+  raises its Click, and a shortcut raises each menu's from the top down to its item's, stopping at the first that is
+  disabled or hidden, with each asked after the Clicks above it have run, as vb6.exe measured.
 - **A program can use its menus** (#1126). Naming one in code stopped the run with "Variable not defined", so
   `mnuFile.Enabled = False` or a ticked level menu couldn't run, and choosing an element of a menu array called its
   Click without the Index. Now each menu has its name, a menu array works like a control array, Index on its Click
