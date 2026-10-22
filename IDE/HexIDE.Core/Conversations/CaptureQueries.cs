@@ -21,7 +21,8 @@ namespace HexIDE.Conversations;
 /// The most to return. The <em>newest</em> matches are kept rather than the oldest, because a client that
 /// has just exercised something is asking about the end of the conversation, not its beginning. A poll, with
 /// <see cref="AfterSequence"/>, is the exception: it keeps the earliest changes, so that following
-/// <see cref="EnvelopePage.LatestSequence"/> pages through the rest rather than skipping it.
+/// <see cref="EnvelopePage.LatestSequence"/> pages through the rest rather than skipping it. A poll also keeps requests
+/// ended together together, since one ending takes one sequence for all of them, so it can return more than this.
 /// </param>
 public sealed record EnvelopeFilter(
     string? ConnectionId = null,
@@ -64,7 +65,8 @@ public enum CaptureEmptyReason
 /// <param name="Matched">How many matched the filter in total.</param>
 /// <param name="Truncated">
 /// True when the limit cut the answer short. Stated rather than inferred, for the same reason a truncated
-/// message body states its true length: a list that quietly stops reads exactly like a complete one.
+/// message body states its true length: a list that quietly stops reads exactly like a complete one. It says whether
+/// anything matched was left out, not whether more came back than the limit, which a poll can do (#1313).
 /// </param>
 /// <param name="Note">
 /// Why the answer looks the way it does, when it would otherwise need guessing at. Present for an empty
@@ -195,11 +197,13 @@ public static class CaptureQueries
             return new EnvelopePage(matched.GetRange(matched.Count - limit, limit), matched.Count, true, note, reason, latest);
 
         // A poll pages forward: the earliest changes, and a cursor at the last of them, so the next poll takes up the
-        // rest. An ending shares its sequence among the requests it ends, so they are kept or left together.
+        // rest. An ending shares its sequence among the requests it ends, so they are kept or left together, which can
+        // return more than the limit; truncated says whether anything was left out, not whether the limit was passed
+        // (#1313).
         var byChange = matched.OrderBy(LastChanged).ToList();
         var through = LastChanged(byChange[limit - 1]);
         var kept = byChange.TakeWhile(e => LastChanged(e) <= through).ToHashSet();
-        return new EnvelopePage([.. matched.Where(kept.Contains)], matched.Count, true, note, reason, through);
+        return new EnvelopePage([.. matched.Where(kept.Contains)], matched.Count, kept.Count < matched.Count, note, reason, through);
     }
 
     /// <summary>A request as it stood before its outcome was recorded.</summary>
@@ -310,6 +314,14 @@ public static class CaptureQueries
                  + "crossed the wire yet, or the record was cleared.";
         }
 
+        // A quiet poll, the ordinary end of the polling loop: the filter would match without its cursor, so nothing is
+        // wrong with it but the time. Told to drop its filters, a poller re-listed what it had already seen (#1313).
+        if (filter.AfterSequence is { } after
+            && log.Snapshot(filter.ConnectionId).Any(e => Matches(e, filter with { AfterSequence = null })))
+        {
+            return $"Nothing was recorded, answered or ended after {after}. Poll again from latestSequence.";
+        }
+
         return $"{total} envelope(s) are recorded, and none match this filter. Drop the filters to see "
              + "what is there.";
     }
@@ -357,10 +369,24 @@ public static class CaptureQueries
             // pass and turns a dead end into an answer.
             foreach (var other in log.ConnectionIds)
             {
-                if (!string.Equals(other, connectionId, StringComparison.Ordinal)
-                    && FindEnvelope(log, other, sequence) is not null)
+                if (string.Equals(other, connectionId, StringComparison.Ordinal)) continue;
+                if (FindEnvelope(log, other, sequence) is not null)
                 {
                     return $"Envelope {sequence} belongs to connection '{other}', not '{connectionId}'. "
+                         + "Sequence numbers are unique across the whole record rather than per connection.";
+                }
+
+                // A reply or an ending has no row of its own, so it is found by the request it belongs to: a poll scoped
+                // to one connection hands back the record's one counter, which can be another connection's (#1313). A
+                // kept answer's sequence is the one its request was completed under, so one search finds both.
+                if (FindByCompletion(log, other, sequence) is { } owner)
+                {
+                    var what = owner.AnswerSequence == sequence
+                        ? $"the answer to request {owner.Sequence} ({owner.Method ?? "no method"})"
+                        : $"where request {owner.Sequence} ({owner.Method ?? "no method"}) was "
+                          + (owner.Outcome is ConversationOutcome.Answered or ConversationOutcome.Failed
+                              ? "answered" : owner.Outcome.ToString().ToLowerInvariant());
+                    return $"Sequence {sequence} belongs to connection '{other}', not '{connectionId}': it is {what}. "
                          + "Sequence numbers are unique across the whole record rather than per connection.";
                 }
             }

@@ -2815,7 +2815,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         bool failuresOnly = false,
         [Description("Only what was recorded, answered or ended after this sequence: pass the last reply's 'latestSequence' to poll for what is new.")]
         long? afterSequence = null,
-        [Description("How many rows at most, the newest when more match; a poll keeps the earliest changes instead, and its latestSequence continues from them. Default 200.")]
+        [Description("How many rows at most, the newest when more match; a poll keeps the earliest changes instead, and its latestSequence continues from them. A poll keeps requests ended together together, since one ending takes one sequence for all of them, so it can return more rows than this; 'truncated' says whether any were left out. Default 200.")]
         int? limit = null,
         CancellationToken ct = default)
     {
