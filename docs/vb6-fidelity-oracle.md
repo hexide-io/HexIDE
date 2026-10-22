@@ -13437,6 +13437,7 @@ The procedures used below are:
 | `Mid(F("string", "abcdef"), Length:=F("length", 2), Start:=F("start", 3))` | string, start, length; "cd" |
 | `Replace(Replace:=F(…), Find:=F(…), Expression:=F(…))` | expression, find, replace |
 | `Left(Length:=F(…), String:=F(…))`; `Round(NumDigitsAfterDecimal:=F(…), Number:=F(…))` | string, length; number, digits |
+| `IIf(FalsePart:=F("false", 2), TruePart:=F("true", 1), Expression:=F("expression", False))` | expression, true, false; 2 |
 | `Mid(String:="abcdef", Start:=2, Length:=3)`; `Mid(Start:=2, String:="abcdef")` | "bcd"; "bcdef" |
 | `Left(String:="abc", Length:=2)`; `Replace(Expression:="aXbX", Find:="X", Replace:="-")` | "ab"; "a-b-" |
 | `Format(Expression:=1.5, Format:="0.00")`; `DateSerial(Year:=2003, Month:=2, Day:=1)` | "1.50"; 2003-02-01 |

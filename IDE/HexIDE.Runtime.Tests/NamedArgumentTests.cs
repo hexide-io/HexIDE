@@ -153,6 +153,9 @@ public class NamedArgumentTests : BaseVBTestFixture
             x = Replace(Replace:=F("replace", "-"), Find:=F("find", "X"), Expression:=F("expression", "aXb")): Debug.Print "  = " & x
             Debug.Print "Mid(F, Length:=F, Start:=F)"
             x = Mid(F("string", "abcdef"), Length:=F("length", 2), Start:=F("start", 3)): Debug.Print "  = " & x
+            x = IIf(Expression:=True, TruePart:=1, FalsePart:=2): Debug.Print "IIf = " & x
+            Debug.Print "IIf(FalsePart:=F, TruePart:=F, Expression:=F)"
+            x = IIf(FalsePart:=F("false", 2), TruePart:=F("true", 1), Expression:=F("expression", False)): Debug.Print "  = " & x
 
             """);
 
@@ -185,6 +188,12 @@ public class NamedArgumentTests : BaseVBTestFixture
               evaluated start
               evaluated length
               = cd
+            IIf = 1
+            IIf(FalsePart:=F, TruePart:=F, Expression:=F)
+              evaluated expression
+              evaluated true
+              evaluated false
+              = 2
             """));
     }
 
