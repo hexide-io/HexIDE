@@ -66,28 +66,6 @@ public class CorpusBehaviourTests
         // ---- WRONG VALUE, SILENTLY. The most serious thing this gate can find, and the reason it -----
         // ---- exists: every one of these parses, runs, raises nothing, and answers differently. -------
 
-        // DECLARED-TYPE-ON-STORE. A UDT field declared `As Long` (or `As Double`) does not coerce the
-        // stored value to its declared width, so reading it back gives an Integer. Eleven cases, one
-        // cause, and now the largest wrong-value cluster in the corpus.
-        //
-        // It was already known: ModuleScopeTests pins one instance in an assertion with a comment saying
-        // it is wrong ("NB Integer, not Long … asserted as it behaves so this test measures the one thing
-        // it is for"). What changed is that it is now GATED rather than noted — every one of these cases
-        // was measured against vb6.exe long ago and sat unchecked because its entry point is Sub Main.
-        // The fix belongs with VbNumeric.CoerceOnStore, which already implements exactly this rule for a
-        // declared scalar; a UDT field is simply not routed through it.
-        ["aggregate-visibility/two-private-types-same-name"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Long",
-        ["aggregate-visibility/public-and-private-type-same-name"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Long",
-        ["aggregate-visibility/two-foreign-public-types-and-no-local-one"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Long",
-        ["aggregate-visibility/ambiguous-type-disambiguated-by-module-name"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Long",
-        ["aggregate-visibility/unambiguous-type-still-reachable-by-module-name"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Long",
-        ["aggregate-visibility/local-type-still-wins-when-unqualified"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Long",
-        ["aggregate-visibility/module-prefix-overrides-a-local-declaration"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Double",
-        ["gap-fill/with-block-colon-tight-against-dot-and-end"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Long",
-        ["separator-basics/sep-udt-one-line"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Long",
-        ["separator-with-declarations/type-member-continued-before-as"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Long",
-        ["separator-with-declarations/type-members-colon-joined"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Long",
-
         // DECLARE-NOT-CALLABLE. A `Declare` naming an external DLL entry point is parsed but the call
         // does nothing, so a probe that reports whether the API succeeded prints False where VB6 prints
         // True. Platform, not language — these need a real P/Invoke and are Windows-gated, which

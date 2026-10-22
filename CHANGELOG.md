@@ -208,6 +208,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A store into a UDT field converts into the field's type** (#221). `u.l = 5`, with `l As Long`, read back as an
+  Integer, `u.dt = "1/2/2003"` stayed a String, and `u.i = 40000` with `i As Integer` stored 40000 with no error. Each
+  now converts as a store into a variable of the type does, as VB6 does, and eleven corpus cases that measured it match.
 - **A typed parameter converts what it is given** (#874). `Sub S(ByVal x As String)` called with `5` received an
   Integer, `B "abc"` with `ByVal x As Boolean` ran with a String where VB6 raises 13 at the call, and `NI "12"` with
   `ByVal x As Integer` received 0. A parameter, ByVal or ByRef given a literal, and an Optional default now convert as a

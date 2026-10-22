@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Antlr4.Runtime;
 
 namespace HexIDE.Runtime.Interpreter;
 
@@ -47,16 +48,18 @@ public sealed class VbUdt
 
     // How a read of each field reads (#987, measured): a field declared with a scalar type is typed (`u.n * 7000` with
     // `n As Integer` holding 5 is 6), and a Variant field a Variant's (`u.x * 7000` is 35000), whatever was stored in it.
-    // A nested Type, an Enum or anything else is in neither set and reads as it was stored.
-    private readonly IReadOnlySet<string> typedFields;
+    // A nested Type or anything else is in neither and reads as it was stored. A typed field's declared type is also what a
+    // store into it converts into (#221).
+    private readonly IReadOnlyDictionary<string, Vb6Value.ValueType> typedFields;
     private readonly IReadOnlySet<string> variantFields;
 
     public VbUdt(string typeName, Dictionary<string, Vb6Value> fields)
-        : this(typeName, fields, new HashSet<string>(), new HashSet<string>())
+        : this(typeName, fields, new Dictionary<string, Vb6Value.ValueType>(), new HashSet<string>())
     {
     }
 
-    public VbUdt(string typeName, Dictionary<string, Vb6Value> fields, IReadOnlySet<string> typedFields, IReadOnlySet<string> variantFields)
+    public VbUdt(string typeName, Dictionary<string, Vb6Value> fields, IReadOnlyDictionary<string, Vb6Value.ValueType> typedFields,
+        IReadOnlySet<string> variantFields)
     {
         this.typedFields = typedFields;
         this.variantFields = variantFields;
@@ -68,7 +71,7 @@ public sealed class VbUdt
     {
         if (!fields.TryGetValue(field, out value))
             return false;
-        value = typedFields.Contains(field) ? value.AsFixedType()
+        value = typedFields.ContainsKey(field) ? value.AsFixedType()
             : variantFields.Contains(field) ? value.AsVariant()
             : value;
         return true;
@@ -78,9 +81,16 @@ public sealed class VbUdt
     /// typedef's insertion order (fields are never removed). Read-only; used by the debugger's Locals inspector.</summary>
     public IEnumerable<KeyValuePair<string, Vb6Value>> EnumerateFields() => fields;
 
-    public bool TrySet(string field, Vb6Value value)
+    /// <summary>
+    /// Store into a field, converted into its declared type as a store into a variable of that type is (measured, #221:
+    /// `u.l = 5` with `l As Long` is a Long, `u.dt = "1/2/2003"` a Date, `u.s = 5` the String "5", and `u.i = 40000` with
+    /// `i As Integer` is 6). A value that will not convert raises before the store, so the field keeps what it held.
+    /// </summary>
+    public bool TrySet(string field, Vb6Value value, ParserRuleContext? ctx = null)
     {
         if (!fields.ContainsKey(field)) return false;
+        if (typedFields.TryGetValue(field, out var declared))
+            value = VbNumeric.CoerceOnStore(value, declared, ctx);
         fields[field] = value;
         return true;
     }
