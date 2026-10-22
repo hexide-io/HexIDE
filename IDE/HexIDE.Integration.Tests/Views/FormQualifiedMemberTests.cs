@@ -150,10 +150,11 @@ public class FormQualifiedMemberTests
         End Sub
         """;
 
-    private static (List<string> Printed, List<Exception> Errors) Run(string form2)
+    private static (List<string> Printed, List<Exception> Errors) Run(string form2, string? form1Code = null)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "Probe");
-        var form1 = new FormDeserializer().Deserialize(project, Form1.ReplaceLineEndings("\r\n"), new NullSink())!;
+        var source1 = form1Code is null ? Form1 : Form1[..Form1.IndexOf("Option Explicit", StringComparison.Ordinal)] + form1Code;
+        var form1 = new FormDeserializer().Deserialize(project, source1.ReplaceLineEndings("\r\n"), new NullSink())!;
         project.AddForm(form1);
         project.AddForm(new FormDeserializer().Deserialize(project, form2.ReplaceLineEndings("\r\n"), new NullSink())!);
         var class1 = new ModuleDefinition(project, "Class1", ModuleKind.ClassModule);
@@ -244,5 +245,41 @@ public class FormQualifiedMemberTests
 
         printed.Should().BeEmpty();
         errors.Should().ContainSingle().Which.Message.Should().Contain("#1435");
+    }
+
+
+    // In the form's own code, an element that isn't there: VB6's 340 names the index, read, written or unloaded, and from
+    // a String index too (measured).
+    [AvaloniaFact]
+    public void A_missing_element_s_340_names_its_index_as_vb6_exe_s_does()
+    {
+        var (printed, errors) = Run(StoppingForm2, """
+            Option Explicit
+            Private Sub Form_Load()
+                Dim v As Variant
+                On Error Resume Next
+                v = Text1(9).Text
+                Debug.Print "Text1(9).Text " & Err.Number & " " & Err.Description: Err.Clear
+                Text1(9).Text = "x"
+                Debug.Print "set Text1(9).Text " & Err.Number & " " & Err.Description: Err.Clear
+                v = Text1(300).Text
+                Debug.Print "Text1(300).Text " & Err.Number & " " & Err.Description: Err.Clear
+                v = Me.Text1(9).Text
+                Debug.Print "Me.Text1(9).Text " & Err.Number & " " & Err.Description: Err.Clear
+                Unload Text1(9)
+                Debug.Print "Unload Text1(9) " & Err.Number & " " & Err.Description: Err.Clear
+                v = Text1("9").Text
+                Debug.Print "Text1(""9"").Text " & Err.Number & " " & Err.Description: Err.Clear
+            End Sub
+            """);
+
+        errors.Should().BeEmpty();
+        printed.Should().Equal(
+            "Text1(9).Text 340 Control array element '9' doesn't exist",
+            "set Text1(9).Text 340 Control array element '9' doesn't exist",
+            "Text1(300).Text 340 Control array element '300' doesn't exist",
+            "Me.Text1(9).Text 340 Control array element '9' doesn't exist",
+            "Unload Text1(9) 340 Control array element '9' doesn't exist",
+            "Text1(\"9\").Text 340 Control array element '9' doesn't exist");
     }
 }
