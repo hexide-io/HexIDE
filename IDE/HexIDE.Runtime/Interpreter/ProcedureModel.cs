@@ -138,6 +138,8 @@ public sealed record ParamInfo(
 /// An evaluated argument at a call site: its value plus, when the argument is a caller lvalue, the caller
 /// memory slot it lives in (so a ByRef parameter can alias it). <c>Location</c> is null for rvalues. A UDT field
 /// (`u.l`, #1451) or an array element (`a(1)`, #1455) has no slot, so it carries the target itself instead, which a ByRef
-/// parameter aliases the same way.
+/// parameter aliases the same way. A named argument (`c:=5`, #1465) carries its <c>Name</c> and is not evaluated yet:
+/// <c>Deferred</c> evaluates it, once binding has placed it, so named arguments are evaluated in parameter order as in VB6.
 /// </summary>
-public readonly record struct CallArg(Vb6Value Value, int? Location, IByRefTarget? Ref = null);
+public readonly record struct CallArg(Vb6Value Value, int? Location, IByRefTarget? Ref = null, string? Name = null,
+    Func<Task<CallArg>>? Deferred = null);

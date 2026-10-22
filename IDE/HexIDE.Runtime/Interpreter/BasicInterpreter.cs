@@ -1073,9 +1073,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             return await RunProcedure(owner, proc, args, callerFrames: callerFrames);
         }
 
-        var flat = new List<Vb6Value>(args.Count);
-        foreach (var a in args)
-            flat.Add(a.Value);
+        var flat = await VB6BuiltIns.ArrangeIntrinsicArguments(name, args);
         if (await CallBuiltIn(name, flat) is { } result)
             return result;
         if (!ignoreMissing)
@@ -1127,6 +1125,17 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // pathological NESTING — that is ParseDepthGuard, at parse time, on a different axis.
         if (!RuntimeHelpers.TryEnsureSufficientExecutionStack())
             throw new VBRunTimeException(VBStandardError.OutOfStackSpace);
+
+        // Named arguments go to their parameters, and are evaluated in parameter order (#1465), before anything of the call is
+        // set up, so one that raises leaves nothing to undo.
+        if (NamedArguments.Any(args))
+        {
+            var names = new List<string>(proc.Parameters.Count);
+            foreach (var parameter in proc.Parameters)
+                names.Add(parameter.Name);
+            args = await NamedArguments.Arrange(args, names, i => proc.Parameters[i] is { Optional: false, ParamArray: false },
+                i => proc.Parameters[i].ParamArray);
+        }
 
         var callee = (baseEnv ?? owner.ModuleEnv).Clone();
         // Object-holding slots this activation OWNS and must Release at scope-exit: ByVal object params (added by

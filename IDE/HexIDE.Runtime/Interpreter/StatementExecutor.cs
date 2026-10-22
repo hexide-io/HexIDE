@@ -1962,6 +1962,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // Evaluated even when no sink is bound: VB6 evaluates RaiseEvent arg expressions regardless (oracle-
         // verified — a side-effecting arg still runs), then the no-sink case is a dispatch no-op.
         var args = context.argsCall() is { } ac ? await expressionExecutor.ResolveCallArgs(ac) : new List<CallArg>();
+        // An event's arguments cannot be named: `RaiseEvent E(b:=1, a:=2)` and `RaiseEvent E(1, b:=5)` are VB6's "Syntax
+        // error" (measured, #1465).
+        if (NamedArguments.Any(args))
+            throw new VBCompileErrorException("Syntax error");
         if (source.Sinks.Count == 0)
             return ControlFlow.Nothing;
 
@@ -3082,7 +3086,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // A library-qualified intrinsic invoked as a statement — evaluate and discard the result. An unknown
             // member errors (mirroring the expression path), rather than silently no-op'ing; a known constant
             // used as a bare statement is a harmless no-op.
-            var args = await expressionExecutor.EvaluateCallArgs(argsCall);
+            var args = await expressionExecutor.EvaluateIntrinsicArgs(memberName, argsCall);
             if (await expressionExecutor.EvaluateFunction(memberName, args) is null
                 && !(args.Count == 0 && interpreter.BuiltIns.TryGetBuiltInConstant(memberName, out _)))
                 throw new VBRunTimeException((Antlr4.Runtime.ParserRuleContext?)null, VBStandardError.MethodOrDataMemberNotFound, memberName);
@@ -3128,7 +3132,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         else
         {
-            List<Vb6Value> builtinArgs = await expressionExecutor.EvaluateCallArgs(context.argsCall());
+            List<Vb6Value> builtinArgs = await expressionExecutor.EvaluateIntrinsicArgs(subName, context.argsCall());
             // EvaluateFunction answers null for a name the registry does not have. Discarding that made an
             // unimplemented statement-form intrinsic a silent no-op: `Shell "notepad.exe", vbNormalFocus`
             // ran, launched nothing, and continued as though it had. (#191)
