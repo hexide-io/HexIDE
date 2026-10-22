@@ -37,9 +37,17 @@ public class DebugPrintListTests : BaseVBTestFixture
     [InlineData("Debug.Print \"a\"; Spc(0); \"b\"", "ab")]
     [InlineData("Debug.Print 1;\nDebug.Print 2", " 1  2 ")]
     [InlineData("Debug.Print CByte(5); CLng(-7); CInt(0)", " 5 -7  0 ")]
-    // Measured as `"a",`, then `,` alone, then `"b"`. A Debug.Print of a comma alone does not parse here (the grammar's argument list
-    // needs an item), so the same line is reached with the second comma in front of "b".
-    [InlineData("Debug.Print \"a\",\nDebug.Print , \"b\"", "a                           b")]
+    [InlineData("Debug.Print \"a\",\nDebug.Print ,\nDebug.Print \"b\"", "a                           b")]
+    // Separators alone (#1409).
+    [InlineData("Debug.Print \"a\";\nDebug.Print ;\nDebug.Print \"b\"", "ab")]
+    [InlineData("Debug.Print ;\nDebug.Print \"x\"", "x")]
+    [InlineData("Debug.Print , ,\nDebug.Print \"y\"", "                            y")]
+    [InlineData("Debug.Print \"a\";\nDebug.Print ;;\nDebug.Print \"b\"", "ab")]
+    [InlineData("Debug.Print ,;\nDebug.Print \"z\"", "              z")]
+    [InlineData("Debug.Print ;,\nDebug.Print \"w\"", "              w")]
+    [InlineData("Debug.Print \"abc\";\nDebug.Print ,\nDebug.Print \"v\"", "abc           v")]
+    [InlineData("Debug.Print ;\"u\"", "u")]
+    [InlineData("Debug.Print ; \"t\";\nDebug.Print \"--10\"", "t--10")]
     public async Task A_line_is_what_the_Immediate_window_showed(string code, string expected)
     {
         await Run(code + "\n");
@@ -75,6 +83,18 @@ public class DebugPrintListTests : BaseVBTestFixture
         await RunModules("Debug.Print \"abc\";\nMore\n", ("Module2", "Sub More()\n    Debug.Print , \"x\"\nEnd Sub\n"));
 
         Lines().Should().Equal("abc           x");
+    }
+
+    [Theory]
+    [InlineData("Foo ,")]
+    [InlineData("Foo , ,")]
+    [InlineData("Foo ;")]
+    public async Task Another_call_of_separators_alone_is_a_syntax_error(string statement)
+    {
+        // vb6.exe's "Syntax error", native and p-code, where `Foo , 2` builds (#1409).
+        var act = () => Run("Sub Foo(Optional a, Optional b, Optional c)\nEnd Sub\nSub Main()\n    " + statement + "\nEnd Sub\n");
+
+        await act.Should().ThrowAsync<VBCompileErrorException>();
     }
 
     [Fact]

@@ -2874,16 +2874,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitICS_B_MemberProcedureCall(VB6Parser.ICS_B_MemberProcedureCallContext context)
     {
+        // `x.Print` followed by separators alone has its own alternative, with no argument list (#1409).
+        var identifier = context.ambiguousIdentifier()?.GetText() ?? context.PRINT().GetText();
+
         // A namespace-qualified statement call (`Module1.Foo args`, `VBA.MsgBox "x"`) — base is a module/library
         // qualifier, not a value. Object member calls fall through to the value path below.
-        if (await TryQualifiedStatementCall(context.implicitCallStmt_InStmt(), context.ambiguousIdentifier().GetText(), context.argsCall()))
+        if (await TryQualifiedStatementCall(context.implicitCallStmt_InStmt(), identifier, context.argsCall()))
             return ControlFlow.Nothing;
 
         // A leading dot (`.Method args`) has no base — resolve it against the innermost With target.
         var value = context.implicitCallStmt_InStmt() is { } baseExpr
             ? await expressionExecutor.EvaluateValue(baseExpr)
             : WithTargetOrError(context);
-        var identifier = context.ambiguousIdentifier().GetText() ?? throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Empty method identifier");
 
         // A user class-instance method call (`obj.Method args`) — dispatch into the interpreter on the instance
         // (Me bound, args by-ref-capable). Nothing → Error 91.
@@ -2909,6 +2911,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             if (context.argsCall() is { } list)
                 await PrintList(list.children, debug, debug.Printed);
+            else if (context.PRINT() is not null)
+                await PrintList(context.children, debug, debug.Printed);   // separators alone, `Debug.Print ,` (#1409)
             else
                 debug.PrintBlankLine();
             return default;

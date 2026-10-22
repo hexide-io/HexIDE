@@ -207,6 +207,9 @@ there isn't one yet. Anything may change between 0.x releases.
   - a statement ending in `;` or `,` leaves its line open for the next, even in the next run.
 
   `Spc(n)` and `Tab(n)` now work in both, where `Print #` refused them.
+- **`Debug.Print ,` and `Debug.Print ;` load and run** (#1409). A `Debug.Print` of separators alone was a syntax error,
+  so a module holding one could not load at all. Now it prints as VB6 does: each comma moves to the next zone, and the
+  line stays open. A call of an ordinary procedure with separators alone, `Foo ,`, is still a syntax error, as in VB6.
 
 - **Save Project As to another folder no longer cuts off the members the project keeps only as a line** (#737). A
   form whose file is missing, one that failed to load, or a UserDocument is kept in the project file without being
