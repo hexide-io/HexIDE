@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using HexIDE.Localization;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
@@ -47,8 +48,9 @@ public static class ComponentNaming
         // For a genuine rename the check stands, and it stays strict on purpose. VB6's real rule is
         // uniqueness per name AND Index; Index is not modelled yet, so a rename that would JOIN an
         // existing array cannot be told apart from a collision, and refusing is the recoverable answer.
-        if (formComponents.Any(c => !ReferenceEquals(c, target)
-                                    && c.GetPropertyOrDefault(VBProperties.NameProperty) == proposed))
+        // Every name on the form counts, a preserved control's too, in any case (#854). The target's own is left out,
+        // so a change of case alone still passes, unless an array sibling keeps the name.
+        if (NamesInUse(formComponents, except: target).Contains(proposed))
             return "Name must be unique in form";
 
         // Renaming the ROOT renames the document, so the project's rule applies on top of the form's: a form
@@ -59,4 +61,37 @@ public static class ComponentNaming
 
         return null;
     }
+
+    /// <summary>
+    /// The names in use on a form, compared without regard to case: every component's, and every control the form keeps
+    /// as preserved text (#854). <paramref name="except"/>'s own name is left out; its preserved children still count.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Without regard to case</b>, because vb6.exe loads a form that way: <c>Begin VB.TextBox timer1</c> after a
+    /// Timer1 is logged as "control timer1 already exists", and the program is built without either control (measured,
+    /// the oracle's "Two controls of one name").
+    /// </para>
+    /// <para>
+    /// <b>Preserved controls</b> have no <see cref="ComponentInstance"/> (#157). Their names are read from the
+    /// <c>Begin</c> lines of the text kept on their container, nested ones included, which the deserializer writes in one
+    /// shape. <c>BeginProperty</c> is not a control.
+    /// </para>
+    /// </remarks>
+    public static HashSet<string> NamesInUse(IEnumerable<ComponentInstance> formComponents, ComponentInstance? except = null)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var component in formComponents)
+        {
+            if (!ReferenceEquals(component, except)
+                && component.GetPropertyOrDefault(VBProperties.NameProperty) is { Length: > 0 } name)
+                names.Add(name);
+            foreach (var preserved in component.PreservedChildSubtrees)
+                foreach (Match begin in BeginLine.Matches(preserved.Text))
+                    names.Add(begin.Groups["name"].Value);
+        }
+        return names;
+    }
+
+    private static readonly Regex BeginLine = new(@"^\s*Begin\s+\S+\s+(?<name>\S+)", RegexOptions.Multiline);
 }

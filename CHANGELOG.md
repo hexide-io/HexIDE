@@ -185,6 +185,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A control can no longer be given a name already on its form** (#854). The designer checked a new name only
+  against the controls it models, and mostly with case. A rename, a control drawn from the toolbox, or a paste could
+  take the name of a control HexIDE keeps as preserved text, such as a Data or OLE control, or a sibling's name in
+  another case. vb6.exe builds such a form without either control, and logs nothing a build would stop on. Every name
+  on the form now counts, compared without regard to case, as vb6.exe compares them.
 - **A form's own Click runs** (#1364). A click on the form's area, over no control, ran `Form_MouseDown` and
   `Form_MouseUp` and never `Form_Click`. Now Click follows MouseUp, for the left, right and middle buttons, as
   vb6.exe does with real input. As in VB6, a press released over a control or outside the form gives no Click. A
