@@ -226,6 +226,9 @@ public class FormQualifiedMemberTests
             (await dbg.EvaluateAsync("? Form1.Text1(1).Text; Len(Form1.Text1(1).Text)")).Should().Be("second 6 ");
             (await dbg.EvaluateAsync("? Form1.Text1.Count")).Should().Be(" 2 ");
             (await dbg.EvaluateAsync("? n")).Should().Be(" 7 ");
+            // A compile error raised as the line is evaluated says what it is; only a line that doesn't parse is a syntax error.
+            (await dbg.EvaluateAsync("? Form1.Nope")).Should().Contain("Method or data member not found");
+            (await dbg.EvaluateAsync("? n +")).Should().Be("Syntax error");
         }
         finally
         {

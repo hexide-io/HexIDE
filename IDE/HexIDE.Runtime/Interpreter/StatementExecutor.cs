@@ -130,7 +130,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (forcedExpression && PrintListOf(expr) is { } printList)
                 return await PrintToText(printList);
 
-            var tree = interpreter.ParseValueStmt(expr);
+            VB6Parser.ValueStmtContext tree;
+            try { tree = interpreter.ParseValueStmt(expr); }
+            catch (VBCompileErrorException) { return "Syntax error"; }             // the line doesn't parse
             // A FRESH statement-temp frame (omit stmtFrames — it defaults to a new stack), so an eval temp is never
             // adopted into / terminated by the PAUSED statement's frame.
             var evaluator = new ExpressionExecutor(interpreter, currentEnv, currentModule, withTargets);
@@ -139,7 +141,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         catch (Debugging.ImmediateEvalException ex) { return ex.Message; }        // user-call / New rejection
         catch (VBRunTimeException ex) { return FlattenError(ex.Message); }        // VB6 runtime error (e.g. Error 91)
-        catch (VBCompileErrorException) { return "Syntax error"; }               // parse failure
+        // A compile error raised while evaluating, "Method or data member not found" among them, says so: answered as a
+        // syntax error, it sent #1386 to look at the parser.
+        catch (VBCompileErrorException ex) { return FlattenError(ex.Message); }
         catch (Exception ex) { return FlattenError(ex.Message); }               // defensive (e.g. unsupported expr)
         finally
         {
