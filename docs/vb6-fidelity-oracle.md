@@ -10101,6 +10101,71 @@ After `Me.Show` in Form_Load, each list is filled with `a`, `bc`, `b`, `c`, `b`,
 - **`Text = s` raises Click and changes nothing else**, whatever `s` is: no item is selected or focused, even one whose text is `s`.
 - The errors are MultiSelect 0's: 381, 6, 94 and 13, for the same statements.
 
+**With real input** (#1413). A second probe has `List1` with MultiSelect 1 and `List2` with MultiSelect 2, each holding `a` to `f`, and every handler logs the list's state as above. It ran in the guest's console session, driven by `SetCursorPos`, `mouse_event` and `keybd_event`. It was built native and p-code, and **all 117 lines agree**. Each row follows the one above it, on the same list. "Click" is the list's Click, which comes between MouseDown and MouseUp, as with MultiSelect 0.
+
+MultiSelect 1, Simple:
+
+| Input | Events | Selected after | `ListIndex` |
+|---|---|---|---|
+| click `a` | MouseDown, Click, MouseUp; `a` is already selected inside MouseDown | `a` | 0 |
+| click `c` | the same | `a`, `c` | 2 |
+| click `a` again | the same | `c` | 0 |
+| Shift+click `e` | the same: Shift does nothing | `c`, `e` | 4 |
+| Ctrl+click `f` | the same: Ctrl does nothing | `c`, `e`, `f` | 5 |
+| Up | KeyDown, Click | unchanged: only the focus moves | 4 |
+| Space | KeyDown, Click | `e` toggled off: `c`, `f` | 4 |
+| Down, then Space | Click each time | `f` toggled off: `c` | 5 |
+| Shift+Up | KeyDown for each key, then Click | unchanged | 4 |
+| double click `b` | MouseDown, Click, MouseUp, DblClick, MouseUp | `b` toggled once: `b`, `c` | 1 |
+| press `d`, drag to `f`, release | MouseDown, then Click with `ListIndex` 5, then MouseUp | `d` toggled at the press, and nothing else: `b`, `c`, `d` | 5 |
+| click below the items | MouseDown, MouseUp, no Click | unchanged | 5 |
+| right click `e` | MouseDown and MouseUp with Button 2, no Click | unchanged | 5 |
+
+MultiSelect 2, Extended:
+
+| Input | Events | Selected after | `ListIndex` |
+|---|---|---|---|
+| click `a` | MouseDown, Click, MouseUp | `a` alone | 0 |
+| click `c` | the same | `c` alone | 2 |
+| Ctrl+click `e` | the same | `c`, `e` | 4 |
+| Ctrl+click `c` | the same | `e` | 2 |
+| Shift+click `f` | inside MouseDown nothing is selected; then Click and MouseUp | **`d`, `e`, `f`** | 5 |
+| Up | KeyDown, Click | `e` alone | 4 |
+| Shift+Up | KeyDown for each key, then Click | `d`, `e` | 3 |
+| Ctrl+Up | KeyDown for each key, then Click | `c` alone, as Up alone would give | 2 |
+| Ctrl+Space | KeyDown for each key, then Click | unchanged | 2 |
+| Space | KeyDown, Click | unchanged | 2 |
+| press `a`, drag to `d`, release | MouseDown with `a` alone, then Click, then MouseUp | `a` to `d` | 3 |
+| double click `b` | MouseDown, Click, MouseUp, DblClick, MouseUp | `b` alone | 1 |
+| click below the items | MouseDown, MouseUp, no Click | unchanged | 1 |
+| right click `e` | MouseDown and MouseUp with Button 2, no Click | unchanged | 1 |
+
+So:
+- **A left press on an item always raises Click, at the release.** A press below the items and a right press change nothing and raise none, as with MultiSelect 0.
+- **Simple toggles the item pressed** and ignores Shift and Ctrl. A drag moves only the focus, and the arrow keys move only the focus. Space toggles the focused item.
+- **Extended selects the item pressed alone.** Ctrl toggles it. A drag selects from the item pressed to the one released over. Up and Down select the next item alone, and Shift with either extends the selection.
+- **Every key the list takes raises Click**, whether or not anything changed: Up on a Simple list, and Space on an Extended one. With MultiSelect 0 a key raises Click only when the selection moves (*A ListBox's Click*).
+- **The Shift+click looked unexplained, and a third probe explained it.** After Ctrl+click `c` had removed `c`, leaving `e`, Shift+click `f` selected `d` to `f`. That is neither `c` to `f`, from the last item clicked, nor `e` to `f`, from the one still selected. The rule, from the probe below, is that the range runs from the anchor and the anchor keeps its own state. Ctrl+Up selecting `c` alone is measured too, not inferred.
+
+**The anchor** (a third probe, the second's form with `ListIndex` and `Text` logged before any `AddItem`). It was driven the same way, on the Extended list only, and **native and p-code agree**. Each group starts from a plain click:
+
+| Input | Inside MouseDown | Selected after | `ListIndex` |
+|---|---|---|---|
+| click `c`, Shift+click `f` | `c` | `c` to `f` | 5 |
+| click `a`, Ctrl+click `c`, Shift+click `f` | `c`: `a` is cleared at the press | `c` to `f` | 5 |
+| click `c`, Ctrl+click `c`, so nothing is selected, then Shift+click `a` | nothing | **`a`, `b`**: the range stops short of `c` | 0 |
+| click `c`, Ctrl+click `e`, Ctrl+click `c`, Shift+click `f` | nothing | **`d` to `f`**, as before | 5 |
+| click `e`, Shift+click `b` | `e` | `b` to `e` | 1 |
+| click `b`, Shift+Down, Shift+Down, Shift+Up | | `b`, `c`; then `b` to `d`; then `b`, `c` | 2, 3, 2 |
+| click `a`, Ctrl+click `d`, Shift+click `f` | `d` | `d` to `f`: `a` is cleared | 5 |
+| then Ctrl+Shift+click `b` | `d`: `e` and `f` are cleared at the press | `b` to `d` | 1 |
+
+So **Shift selects from the anchor to the item and clears the rest.** The anchor is the last item pressed or reached without Shift: by a click, a Ctrl+click or a plain arrow key. The anchor keeps its own state: when Ctrl+click has just deselected it, the range is every item from the anchor to the one clicked, less the anchor. The press leaves only the anchor's own state, and the range appears by the Click at the release. Ctrl+Shift+click gave the same range as Shift+click here, with nothing else selected to show whether it would have kept other items.
+
+**Before any `AddItem`** a multi list's `ListIndex` is already 0, on both lists, and `Text` is `""`.
+
+**`MultiSelect` itself.** `List1.MultiSelect` reads 1, an Integer, and `List2.MultiSelect` 2. Assigning it, `List1.MultiSelect = 0`, is the compile error "Can't assign to read-only property", built as p-code. A form re-saved by the VB6 IDE, with hexide-frm's #120 recipe (bare values, the code dirtied, then Ctrl+S), writes `MultiSelect     =   1  'Simple` and `MultiSelect     =   2  'Extended`, after `Left` and before `TabIndex`. A list given `MultiSelect = 0` has the line dropped.
+
 ## One handler at a time (2026-10-14, #766)
 
 Can an event handler start while another is still running, and what does `DoEvents` change? Two `/make` probes, each
@@ -12240,3 +12305,32 @@ VB6 remain:
   has not moved, the path is the same one VB6 writes.
 - **`Path32` is kept without an `ExeName32`,** where VB6 drops it. The line does nothing without a target, so this is
   left alone.
+
+## Where and how VB6 writes a project's description (2026-10-22, #42)
+
+**The question.** Project Properties sets a project's description, and HexIDE wrote it nowhere. Which key does VB6 write
+it under, where among the other keys, and how? No `.vbp` in `corpus/` or `demo/` carries one, and the position matters as
+much as the name: `ProjectSerializer` places the lines it does not model by counting the keys it does, in VB6's order.
+
+**The probe.** Two copies of one project: a form, a reference to `stdole2.tlb`, and the keys `Startup`, `Command32`,
+`Name="probe"`, `HelpContextID="0"`, `CompatibleMode="0"` and the three version numbers. `none.vbp` has no description.
+`quoted.vbp` adds `Description="He said ""hi"""` after `HelpContextID`. The VB6 IDE (6.00.8176 SP6) opened each, and
+File > Save Project As saved it to a new name. The saved files were read back.
+
+| Read | Written by Save Project As |
+|---|---|
+| `none.vbp`, no `Description` line | `Name="probe"`, `HelpContextID="0"`, `CompatibleMode="0"`: no `Description` line |
+| `quoted.vbp`, `Description="He said ""hi"""` | `Name="probe"`, `HelpContextID="0"`, `Description="He said ""hi"""`, `CompatibleMode="0"` |
+
+**What it shows:**
+- **The key is `Description`,** written quoted, with a quote inside doubled, as `Name` is.
+- **It sits after `HelpContextID` and before `CompatibleMode`.** The VB98 Template agrees: `Addin.vbp` and
+  `DHTML Application.vbp` carry it there, after `Name` and `HelpContextID`.
+- **No description, no line.** VB6 does not write an empty `Description=""`. The Template's four other projects
+  have no line.
+
+HexIDE now reads `Description` into the project and writes it there. A file read without one has room made for the line
+after its `HelpContextID`, so a description typed in later lands where VB6 puts it. One case is inferred, not measured:
+a project HexIDE created has no `HelpContextID` line, so HexIDE writes `Description` straight after `Name`. That is
+VB6's order with the missing line left out. What VB6 itself writes when it saves such a file, presumably a
+`HelpContextID="0"` of its own, was not probed.

@@ -84,8 +84,9 @@ public class ReadOnlyRegionsTests
     [Fact]
     public void AModuleWhoseFirstLineIsBlankStillHasItsAttributeLinesProtected()
     {
-        // hexide-io/HexIDE#472: the header reader tests only line 0, so a leading blank line leaves the whole
-        // file in Code. The blank line goes into the region with the run it precedes.
+        // The text alone decides, whatever the model split off: a module's header reader now takes a blank line above
+        // the run as part of its header (hexide-io/HexIDE#472). The blank line goes into the region with the run it
+        // precedes.
         const string text = "\r\nAttribute VB_Name = \"Module1\"\r\nOption Explicit\r\n";
 
         ReadOnlyRegions.Of(text, 0).Should().Equal(new TextRegion(0, text.IndexOf("Option", StringComparison.Ordinal)));

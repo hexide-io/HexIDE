@@ -330,10 +330,10 @@ public static class FormCodeText
     /// </para>
     /// <para>
     /// <b>This used to say a <c>.bas</c> or <c>.cls</c> composed through
-    /// <see cref="ModuleFileFormat.ToFileContent"/>.</b> It does not, and the difference is the last case:
-    /// <c>ToFileContent</c> writes the canonical literal in front of a body that is already the whole file,
-    /// which is hexide-io/HexIDE#472. So for exactly those files this is the text the code window shows, and a
-    /// save writes something else.
+    /// <see cref="ModuleFileFormat.ToFileContent"/>.</b> It does not. The two differ only for a file with no
+    /// <c>VB_Name</c> at all, whose next save adds the canonical literal that the code window does not show. For a
+    /// file whose header the reader did not recognise, they agree, since a save adds no second header to a body
+    /// that carries one (hexide-io/HexIDE#472).
     /// </para>
     /// </remarks>
     public static string WholeFile(ModuleDefinition module) => Prefix(module) + module.Code;

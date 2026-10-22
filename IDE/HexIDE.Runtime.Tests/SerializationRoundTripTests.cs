@@ -264,6 +264,32 @@ public class SerializationRoundTripTests
         timerBlock.Should().NotContain("Visible");
     }
 
+    [Fact]
+    public void FormSerializer_ListBox_MultiSelect_RoundTripsAsVb6WroteIt()
+    {
+        // The three lists of a form the VB6 IDE re-saved (#1413): it wrote 1 and 2 with their names, between Left and
+        // TabIndex, and dropped 0. Each list's block is written back as it was read.
+        const string lists = "   Begin VB.ListBox List3 \r\n      Height          =   1815\r\n      Left            =   4000\r\n"
+                           + "      TabIndex        =   2\r\n      Top             =   120\r\n      Width           =   1500\r\n   End\r\n"
+                           + "   Begin VB.ListBox List2 \r\n      Height          =   1815\r\n      Left            =   2000\r\n"
+                           + "      MultiSelect     =   2  'Extended\r\n      TabIndex        =   1\r\n      Top             =   120\r\n"
+                           + "      Width           =   1500\r\n   End\r\n"
+                           + "   Begin VB.ListBox List1 \r\n      Height          =   1815\r\n      Left            =   120\r\n"
+                           + "      MultiSelect     =   1  'Simple\r\n      TabIndex        =   0\r\n      Top             =   120\r\n"
+                           + "      Width           =   1500\r\n   End\r\n";
+        var frm = "VERSION 5.00\r\nBegin VB.Form Form1 \r\n   Caption         =   \"Save\"\r\n   ClientHeight    =   2400\r\n"
+                  + "   ClientLeft      =   60\r\n   ClientTop       =   405\r\n   ClientWidth     =   6000\r\n   LinkTopic       =   \"Form1\"\r\n"
+                  + "   ScaleHeight     =   2400\r\n   ScaleWidth      =   6000\r\n" + lists + "End\r\nAttribute VB_Name = \"Form1\"\r\n";
+        var p = MakeProject();
+        var form = new FormDeserializer().Deserialize(p, frm, NullSink.Instance)!;
+
+        var (written, _) = new FormSerializer().Serialize(form, "Form1.frm");
+
+        written.Should().Contain(lists);
+        form.Components.Single(c => c.GetPropertyOrDefault(VBProperties.NameProperty) == "List2")
+            .GetPropertyOrDefault(VBProperties.MultiSelectProperty).Should().Be(VBMultiSelect.Extended);
+    }
+
     // ── Unknown preservation: .vbp ────────────────────────────────────────────
 
     private static ProjectDefinition ProjectFromSerialized(SerializedProject sp)
@@ -276,6 +302,7 @@ public class SerializationRoundTripTests
         p.UnknownPreSectionLines.AddRange(sp.UnknownPreSectionLines);
         p.PreservedItemLines.AddRange(sp.PreservedItemLines);
         p.StartupFormName = sp.StartupFormName;
+        p.Description = sp.Description ?? "";
         p.ExtensionTail = sp.ExtensionTail;
         return p;
     }

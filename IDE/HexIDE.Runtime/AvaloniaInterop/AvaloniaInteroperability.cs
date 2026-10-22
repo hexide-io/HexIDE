@@ -146,7 +146,12 @@ public static class AvaloniaInteroperability
         Register<VBTimer, int>(VBProperties.IntervalProperty, VBTimer.IntervalProperty);
 
         Register<ComboBox, int>(VBProperties.ListIndexProperty, SelectingItemsControl.SelectedIndexProperty);
-        Register<ListBox, int>(VBProperties.ListIndexProperty, SelectingItemsControl.SelectedIndexProperty);
+        // A multi-select list's ListIndex is its focused item, not a selected one (#1413).
+        Register<ListBox, int>(VBProperties.ListIndexProperty, l => l is VBListBox v ? v.ListIndex : l.SelectedIndex,
+            (l, index) => l.SelectedIndex = index);
+        // Read-only to a program: TrySet refuses it before it gets here.
+        Register<VBListBox, VBMultiSelect>(VBProperties.MultiSelectProperty, l => l.MultiSelect,
+            (_, _) => throw new VBCompileErrorException("Can't assign to read-only property"));
 
         // A Line's members are read and written by LineMembers, which types and checks them as VB6 does (#163). They are
         // bound here as well so that the Locals window lists them, as it lists every bound property.
@@ -208,6 +213,10 @@ public static class AvaloniaInteroperability
             return lineMember;
         if (MenuMembers.IsMenu(control) && MenuMembers.TrySet(control, property, value) is { } menuMember)
             return menuMember;
+
+        // VB6 refuses it at compile time, whatever the value (measured, #1413).
+        if (ReferenceEquals(property, VBProperties.MultiSelectProperty))
+            throw new VBCompileErrorException("Can't assign to read-only property");
 
         // VB6 accepts this and resets BackColor to the appearance's default (measured, #795). Setting the property
         // alone would leave the old BackColor, a wrong value; failing to find it would be a trappable 461 that On

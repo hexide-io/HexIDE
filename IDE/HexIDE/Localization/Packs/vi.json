@@ -588,6 +588,7 @@
     "Str.PropDesc.Checked": "Có dấu kiểm bên cạnh mục trình đơn hay không.",
     "Str.PropDesc.WindowList": "Trình đơn này có liệt kê các cửa sổ con MDI đang mở hay không.",
     "Str.PropDesc.Locked": "Nội dung của điều khiển có thể chỉnh sửa hay không.",
+    "Str.PropDesc.MultiSelect": "Có thể chọn nhiều mục hay không, và chọn như thế nào.",
     "Str.PropDesc.StartUpPosition": "Vị trí đặt biểu mẫu trên màn hình khi mở lần đầu.",
     "Str.PropDesc.ShowInTaskbar": "Biểu mẫu có xuất hiện trên thanh tác vụ hay không.",
     "Str.PropDesc.TabIndex": "Vị trí của điều khiển trong thứ tự Tab của biểu mẫu.",

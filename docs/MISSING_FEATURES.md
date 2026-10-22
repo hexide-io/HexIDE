@@ -337,7 +337,7 @@
 | CheckBox | Done | |
 | OptionButton | Done | |
 | ComboBox | Done | `ListCount`, `List(i)`, `AddItem` with an index and `RemoveItem` as vb6.exe gives them (#821). No `Text` (#926), `Style` or `Sorted` |
-| ListBox | Done | Click comes where vb6.exe raises it: on a left press on an item, before MouseUp, and when code or an arrow key moves the selection (#1374). `ListCount`, `List(i)`, `AddItem` with an index and `RemoveItem` as vb6.exe gives them (#821). `Selected(i)`, `SelCount` and `Text`, read and written, as vb6.exe gives them on a single-select list (#1395). No `MultiSelect`: such a list runs single-select, and refuses those three (#1413). No `Sorted` |
+| ListBox | Done | Click comes where vb6.exe raises it: on a left press on an item, before MouseUp, and when code or an arrow key moves the selection (#1374). `ListCount`, `List(i)`, `AddItem` with an index and `RemoveItem` as vb6.exe gives them (#821). `Selected(i)`, `SelCount` and `Text`, read and written, as vb6.exe gives them on a single-select list (#1395). `MultiSelect`, Simple and Extended, with vb6.exe's mouse, keys and code, `ListIndex` the focused item (#1413). No `Sorted` |
 | HScrollBar | Done | |
 | VScrollBar | Done | |
 | Timer | Done | |
