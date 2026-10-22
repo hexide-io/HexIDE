@@ -11253,8 +11253,9 @@ below is one or more `Debug.Print` statements, then the line they print:
 | `; "t";`, then `"--10"` | `t--10`: the line stays open |
 
 So a statement of separators alone is an ordinary output list, as `Print #` reads one. A procedure's call is another
-matter. In a `/make` probe with `Sub Foo(Optional a, Optional b, Optional c)`, `Foo ,`, `Foo , ,` and `Foo ;` are each
-the compile error "Syntax error", native and p-code. `Foo , 2` builds and runs, with `a` and `c` missing. A list of
+matter. In a `/make` probe with `Sub Foo(Optional a, Optional b, Optional c)`, `Foo ,` is the compile error "Syntax
+error", native and p-code, and so are `Foo , ,` and `Foo ;`, built as p-code. `Foo , 2` builds and runs, with `a` and
+`c` missing. A list of
 separators alone belongs to Print only.
 - **`1.5E-10`, a Double, prints as `0.00000000015`,** most likely just its text. *Turning a number or a date into
   text* keeps a Double fixed while its digits fit, as `0.000012345` is, and goes to E notation for `0.00001 / 3`.
