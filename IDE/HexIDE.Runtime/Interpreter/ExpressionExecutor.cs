@@ -312,10 +312,16 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             }
             if (arg.PARAMARRAY() != null)
                 throw new NotImplementedException("ParamArray arguments are not yet supported");
-            var value = await EvaluateValue(arg.valueStmt());
             // A call-site ByVal keyword (or a non-lvalue like a literal / (x)) forces a copy.
+            if (arg.BYVAL() == null && await TryGetArgElement(arg.valueStmt()) is var (elementValue, element))
+            {
+                result.Add(new CallArg(elementValue, null, element));
+                continue;
+            }
+            var value = await EvaluateValue(arg.valueStmt());
             int? location = arg.BYVAL() != null ? null : TryGetArgLocation(arg.valueStmt());
-            result.Add(new CallArg(value, location));
+            var field = arg.BYVAL() != null || location is not null ? null : TryGetArgField(arg.valueStmt());
+            result.Add(new CallArg(value, location, field));
         }
         return result;
     }
@@ -334,6 +340,59 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             && !interpreter.ExecutionContext.State.IsReadOnly(loc))
             return loc;
         return null;
+    }
+
+    // A UDT field written as an argument (`u.l`, `u.inner.y`): the Type instance holding it and its name, so a ByRef
+    // parameter can alias it (#1451). Not a field reached through an index, a With or anything but a variable.
+    private UdtFieldRef? TryGetArgField(VB6Parser.ValueStmtContext valueStmt)
+    {
+        if (valueStmt is not VB6Parser.VsICSContext ics
+            || ics.implicitCallStmt_InStmt()?.iCS_S_MembersCall() is not { } membersCall
+            || membersCall.iCS_S_VariableOrProcedureCall() is not { } lead
+            || lead.typeHint() != null || lead.dictionaryCallStmt() != null
+            || membersCall.dictionaryCallStmt() != null
+            || !env.TryGetVariableLocation(lead.ambiguousIdentifier().GetText(), out var loc))
+            return null;
+        var current = interpreter.ExecutionContext.State[loc];
+        var chain = membersCall.iCS_S_MemberCall();
+        for (int i = 0; i < chain.Length; i++)
+        {
+            if (current.Value is not VbUdt bag
+                || chain[i].iCS_S_VariableOrProcedureCall() is not { } part
+                || part.typeHint() != null || part.dictionaryCallStmt() != null)
+                return null;
+            var name = part.ambiguousIdentifier().GetText();
+            if (i == chain.Length - 1)
+                return bag.Has(name) ? new UdtFieldRef(bag, name) : null;
+            if (!bag.TryGet(name, out current))
+                return null;
+        }
+        return null;
+    }
+
+    // An array element written as an argument (`a(1)`, `m(i, j)`, `al(0 + 0)`), with its value, so a ByRef parameter can alias
+    // it (#1455). The subscripts are evaluated here, once, which is when VB6 evaluates them (measured). Not an element reached
+    // through a member or a With, nor a control array's.
+    private async Task<(Vb6Value Value, ArrayElementRef Ref)?> TryGetArgElement(VB6Parser.ValueStmtContext valueStmt)
+    {
+        if (valueStmt is not VB6Parser.VsICSContext ics
+            || ics.implicitCallStmt_InStmt()?.iCS_S_ProcedureOrArrayCall() is not { } call
+            || call.ambiguousIdentifier() is not { } id
+            || call.baseType() != null || call.iCS_S_NestedProcedureCall() != null
+            || call.typeHint() != null || call.dictionaryCallStmt() != null
+            || call.argsCall().Length != 1
+            || !interpreter.ExecutionContext.TryGetVariable(env, id.GetText(), out var holder)
+            || !holder.Type.IsArray || holder.Value is not VBArray array)
+            return null;
+        var index = Subscripts(await EvaluateCallArgs(call.argsCall(0)));
+        try
+        {
+            return (ElementAsRead(holder, array, array.GetValue(index)), new ArrayElementRef(array, index, holder.HeldAsVariant));
+        }
+        catch (IndexOutOfRangeException)
+        {
+            throw new VBRunTimeException(call, VBStandardError.SubscriptOutOfRange);
+        }
     }
 
     public async Task<string> ExtractIdentifier(VB6Parser.ICS_S_VariableOrProcedureCallContext context)

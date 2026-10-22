@@ -413,6 +413,14 @@ public class VBArray
     public bool IsDefined => bounds.Count > 0;
 
     /// <summary>
+    /// How many running calls hold one of its elements ByRef (#1455). While any does, ReDim, Erase and a store into a variable
+    /// holding the array raise 10 (<see cref="IsLocked"/>).
+    /// </summary>
+    public int LockCount { get; set; }
+
+    public bool IsLocked => LockCount > 0;
+
+    /// <summary>
     /// The copy an assignment makes (#970). VB6 copies an array where HexIDE shared it: on a Let, into a dynamic array or
     /// a Variant, at a ByVal argument, into an element and into a For Each variable, all measured. The copy is dynamic,
     /// since only a dynamic array or a Variant can be assigned one, so it can be ReDimmed although the original is fixed

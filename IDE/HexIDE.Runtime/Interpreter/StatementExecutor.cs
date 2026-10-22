@@ -766,6 +766,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Variable " + name + " is not declared");
             if (!v.Type.IsArray || v.Value is not VBArray arr)
                 throw new VBCompileErrorException("Array required in Erase");
+            // An array one of whose elements a running call holds ByRef is locked (measured, #1455).
+            if (arr.IsLocked)
+                throw new VBRunTimeException(context, VBStandardError.ThisArrayIsFixedOrTemporarilyLocked);
             if (arr.IsDynamic)
                 arr.Free();
             else
@@ -2486,7 +2489,21 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     public override async Task<ControlFlow> VisitRedimStmt(VB6Parser.RedimStmtContext context)
     {
         if (context.PRESERVE() != null)
+        {
+            // Not implemented, except where VB6 would refuse it anyway: an array one of whose elements a running call holds
+            // ByRef is locked, and ReDim Preserve on it is 10 and leaves it as it was (measured, #1455). Its bounds are converted
+            // first, so `ReDim Preserve d("x")` is 13, and an inverted range is 10, as for a plain ReDim (measured). That check
+            // must stay ahead of any resize when Preserve is built, or the element's parameter would go on writing the old storage.
+            foreach (var redim in context.redimSubStmt())
+                if (redim.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } preserved
+                    && interpreter.ExecutionContext.TryGetVariable(currentEnv, preserved.ambiguousIdentifier().GetText(), out var held)
+                    && held.Value is VBArray { IsLocked: true })
+                {
+                    await ExtractDimensions(redim.subscripts());
+                    throw new VBRunTimeException(context, VBStandardError.ThisArrayIsFixedOrTemporarilyLocked);
+                }
             throw new NotImplementedException("PRESERVE not implemented");
+        }
 
         foreach (var redim in context.redimSubStmt())
         {
@@ -2535,6 +2552,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     throw new VBRunTimeException(context, VBStandardError.ThisArrayIsFixedOrTemporarilyLocked);
                 throw new VBCompileErrorException("Array already dimensioned");
             }
+            // So is a dynamic array one of whose elements a running call holds ByRef, and a Variant holding one, until the
+            // call returns (measured, #1455: `ReDim d(5)` inside `PRD d(1)` is 10 and leaves UBound 2, and ReDim after works).
+            if (value.Value is VBArray { IsLocked: true })
+                throw new VBRunTimeException(context, VBStandardError.ThisArrayIsFixedOrTemporarilyLocked);
 
             // An upper bound below its lower raises 9, and an array is left erased, typed as it was. Measured: ReDim
             // b(-1), b(5 To 2) and b(0 To -1) each raise 9, and UBound(b) then raises 9 too, for a declared array and

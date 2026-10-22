@@ -213,6 +213,15 @@ there isn't one yet. Anything may change between 0.x releases.
   properties HexIDE does not model. The next save left them all out, with nothing said. They now go with the control,
   with the companion records they cite. A copy takes the properties too. It still leaves the controls inside a
   container behind, because their names would repeat the originals' (#1458).
+
+- **An array element passed ByRef is the element itself** (#1455). `Swap s(0), s(1)` swapped nothing, so a sort written
+  the usual way ran to the end and left its array as it was. The element is now passed by reference, as in VB6, and
+  while the call runs its array is locked: ReDim, ReDim Preserve, Erase, or a store into the array's variable raises 10.
+
+- **A UDT field passed ByRef is the field itself** (#1451). `PL u.l`, with `PL(x As Long)` storing `x = "9"`, left `u.l`
+  unchanged: the field was copied in and never written back. A procedure that fills in a record through ByRef
+  parameters now fills it in, as in VB6, and a store through the parameter converts into the field's type.
+
 - **A store into a UDT field converts into the field's type** (#221). `u.l = 5`, with `l As Long`, read back as an
   Integer, `u.dt = "1/2/2003"` stayed a String, and `u.i = 40000` with `i As Integer` stored 40000 with no error. Each
   now converts as a store into a variable of the type does, as VB6 does, and eleven corpus cases that measured it match.

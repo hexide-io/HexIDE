@@ -150,9 +150,44 @@ public class ExecutionState
     /// <summary>Whether a slot is known to be a Variant (<see cref="MarkVariant"/>).</summary>
     public bool IsVariant(int location) => variantLocations.Contains(location);
 
+    // A ByRef parameter given a UDT field (#1451) or an array element (#1455): its slot reads and writes the target itself,
+    // for as long as the call runs.
+    private readonly Dictionary<int, IByRefTarget> refSlots = new();
+
+    /// <summary>Whether any call is running with a ByRef parameter given a field or an element, so an array may be locked.</summary>
+    public bool HasRefSlots => refSlots.Count > 0;
+
+    /// <summary>
+    /// A slot that stands for <paramref name="target"/>, as a ByRef parameter's slot stands for its caller's. It is declared
+    /// as the target is, so a read through it is typed or a Variant's as a read of the target is (#987), and a store converts
+    /// there. An element's array is locked until <see cref="ReleaseRef"/>.
+    /// </summary>
+    public int AllocRef(IByRefTarget target)
+    {
+        var loc = Alloc(target.Read(), target.DeclaredType);
+        if (target.IsVariant)
+            MarkVariant(loc);
+        refSlots[loc] = target;
+        target.Lock();
+        return loc;
+    }
+
+    /// <summary>Ends <see cref="AllocRef"/>'s link, when the call that made it returns.</summary>
+    public void ReleaseRef(int location)
+    {
+        if (refSlots.Remove(location, out var target))
+            target.Unlock();
+    }
+
     public Vb6Value this[int location]
     {
-        get => memory[location];
-        set => memory[location] = value;
+        get => refSlots.Count > 0 && refSlots.TryGetValue(location, out var target) ? target.Read() : memory[location];
+        set
+        {
+            if (refSlots.Count > 0 && refSlots.TryGetValue(location, out var target))
+                target.Write(value);
+            else
+                memory[location] = value;
+        }
     }
 }

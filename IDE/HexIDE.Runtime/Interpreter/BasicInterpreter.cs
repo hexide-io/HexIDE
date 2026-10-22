@@ -1139,7 +1139,19 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             ExecutionContext.AllocVariable(callee, "Me", m);
             if (countMe) AddRef(m);   // a running (non-lifecycle) method holds Me → defers a last-ref drop to return
         }
-        await BindParameters(proc, args, callee, owner, ownedSlots);
+        // The slots that stand for a UDT field (#1451) or an array element (#1455) a ByRef parameter was given, unlinked when
+        // the call returns, which also unlocks an element's array.
+        var refSlots = new List<int>();
+        try
+        {
+            await BindParameters(proc, args, callee, owner, ownedSlots, refSlots);
+        }
+        catch
+        {
+            foreach (var slot in refSlots)
+                ExecutionContext.State.ReleaseRef(slot);
+            throw;
+        }
         // The return slot is typed as the declaration says, as a Dim's is, so a store into the name converts there, and a
         // failure is raised in the Function, where its own handler traps it (measured, #1444: `FI = 40000` in a Function
         // As Integer is 6 inside it, `FD = "0.5"` As Date is 00:05, `FS = 5` As String "5", and `FB = "abc"` As Boolean 13).
@@ -1196,6 +1208,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         }
         finally
         {
+            foreach (var slot in refSlots)
+                ExecutionContext.State.ReleaseRef(slot);
             // Scope-exit release: this activation's owned holds (ByVal params + Dim locals, Dim locals among
             // themselves in declaration order), then Me. In a `finally` so an unhandled-error unwind still
             // terminates locals (faithful stack teardown). The return object is deliberately NOT released here on
@@ -1399,7 +1413,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     private static Vb6Value.ValueType? DeclaredSlotType(ParamInfo p) =>
         p.DeclaredType is { } dt && VbNumeric.IsDeclarableScalar(dt) ? dt : null;
 
-    private async Task BindParameters(ProcedureInfo proc, IReadOnlyList<CallArg> args, ExecutionEnvironment callee, ModuleInfo owner, List<int> ownedSlots)
+    private async Task BindParameters(ProcedureInfo proc, IReadOnlyList<CallArg> args, ExecutionEnvironment callee, ModuleInfo owner,
+        List<int> ownedSlots, List<int> refSlots)
     {
         for (int i = 0; i < proc.Parameters.Count; i++)
         {
@@ -1429,9 +1444,21 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 bool aliasable = p.ByRef && arg.Location is not null
                     && (p.DeclaredType is null || p.DeclaredType == Vb6Value.ValueType.EmptyVariant
                         || p.DeclaredType == arg.Value.Type);
+                // A UDT field (#1451) or an array element (#1455) is shared the same way, by a slot that reads and writes it
+                // for the whole call: given to a ByRef parameter of its type, or an untyped or Variant one. One of another type
+                // is VB6's compile error "ByRef argument type mismatch" (measured), and is copied here, as a variable is.
+                bool refAliasable = !aliasable && p.ByRef && arg.Ref is { } target
+                    && (p.DeclaredType is null || p.DeclaredType == Vb6Value.ValueType.EmptyVariant
+                        || p.DeclaredType == target.DeclaredType);
                 if (aliasable)
                     callee.DefineVariable(p.Name, arg.Location!.Value);            // ByRef: share the caller's slot
                                                                                    // (NOT counted — the caller's slot already holds the ref)
+                else if (refAliasable)
+                {
+                    var slot = ExecutionContext.State.AllocRef(arg.Ref!);
+                    refSlots.Add(slot);
+                    callee.DefineVariable(p.Name, slot);
+                }
                 else
                 {
                     // ByVal / rvalue: copy, coerced to the parameter's declared type (banker's round + range-check).
