@@ -13117,7 +13117,62 @@ A Type's typed fields carry their declared types, and `VbUdt.TrySet`, the one st
 except these, which HexIDE does not reach yet:
 - a `String * 5` field, which HexIDE refuses as not implemented (#179);
 - an array field, which it refuses the same way, and an array of a Type, whose element is not found (#178);
-- `PL u.l`, which leaves the field at 7, because a field argument is copied and never written back (#1451).
+- `PL u.l` left the field at 7 until #1451, because a field argument was copied and never written back (*A UDT field
+  passed ByRef*).
 
 The eleven corpus cases recorded as `DECLARED-TYPE-ON-STORE` now match `vb6.exe` and are gated, and the four
 `ModuleScopeTests` that pinned the Integer read a Long.
+
+## A UDT field passed ByRef (2026-10-22, #1451)
+
+**The question.** HexIDE copied a UDT field given to a ByRef parameter and never wrote the copy back, so `PL u.l`, with
+`PL(x As Long)` storing `x = "9"`, left `u.l` at 7. Does VB6 pass the field itself, or copy it in and out? The two differ
+while the procedure runs, and when it fails after storing.
+
+**The probe.** A Sub Main, under `On Error Resume Next`, passes fields of `Private Type T` (`l As Long`, `s As String`,
+`v As Variant`, and a nested Type with `y As Long`) to Subs that store into their parameter, and logs each field after the
+call. One Sub stores into its parameter and then reads the module-level variable the field belongs to. Made native and
+p-code under en-GB; every line was identical.
+
+| Call | The procedure | The field after |
+|---|---|---|
+| `PL u.l`, `u.l` 7 | `PL(x As Long)`: `x = "9"` | Long 9 |
+| `PS u.s`, `u.s` "a" | `PS(x As String)`: `x = x & "!"` | String "a!" |
+| `PV u.l` | `PV(x As Variant)`: `x = 12` | Long 12 |
+| `PVS u.l` | `PVS(x As Variant)`: `x = "hello"` | 13, and `u.l` keeps 7 |
+| `PVS u.v` | the same, given a Variant field | String "hello" |
+| `PU u.l` | `PU(x)`, untyped: reads `x`, then `x = 2.5` | it reads Long 7; then Long 2 |
+| `PL u.inner.y` | `PL`, given a nested Type's field | Long 9 |
+| `PE u.l` | `PE(x As Long)`: `x = 5`, then `Err.Raise 5` | Long 5, and 5 |
+| `PA g.l`, `g` a module's `T` | `PA(x As Long)`: `x = 3`, then reads `g.l` | it reads 3 inside; Long 3 |
+| `PBV u.l` | `PBV(ByVal x As Long)`: `x = 99` | Long 7 |
+| `PL (u.l)` | `PL`, the argument in parentheses | Long 7 |
+| `PL2 u.l` | `PL2(y As Long)`: `PL y` | Long 9 |
+| `PI u.l` | `PI(x As Integer)` | compile error, "ByRef argument type mismatch" |
+
+**What it shows:**
+- **VB6 passes the field itself.** A store through the parameter is in the field at once: the procedure reads it back
+  through the module's variable while it is still running. The store survives an error raised after it.
+- **A store through the parameter converts into the field's type,** whatever the parameter's: a Variant parameter given a
+  Long field stores 12 as a Long and 2.5 as 2, and refuses "hello" with 13.
+- **ByVal, or the argument in parentheses, passes a copy.** A parameter of another type is refused at compile time, as it
+  is for a variable.
+
+The same probe, for an array element, native and p-code:
+
+| Call | The element after |
+|---|---|
+| `PL a(1)`, `a` a Long array, `a(1)` 7 | Long 9 |
+| `PV w(1)`, `w` a Variant array | String "v" |
+| `PV a(1)`, the Long array | 13, and `a(1)` keeps 7 |
+| `PV v(1)`, `v` a Variant holding `Array(1, 2, 3)` | String "v" |
+
+So an array element is passed by reference too, and converts into the array's element type the same way.
+
+### In HexIDE (#1451)
+
+A field argument carries the Type instance holding it and its name. A ByRef parameter of the field's type, or an untyped
+or Variant one, gets a slot that reads and writes the field itself, linked for as long as the call runs, so every store
+converts through the field's own `TrySet`. Every field row above is pinned in `ByRefFieldTests`. `PI u.l` is copied rather
+than refused, as a variable of another type is. Not done here: a field reached through `With`, an index or an array of a
+Type (#178), and the array-element rows, which are their own issue.
