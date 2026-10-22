@@ -208,6 +208,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Center in Form, Align Centers and Make Equal spacing put a control where VB6 does** (#929). They worked in
+  fractional pixels, so a control centred on an odd difference landed half a pixel off, and a save wrote it as
+  `Left = 4192.5`. Each now works as VB6's does, measured in its IDE: in whole twips, halving each size on its own and
+  truncating. Make Equal truncates the gap and leaves the last control where it was. A control added by
+  double-clicking a tool is centred the same way, then put on the nearest grid line when Align to Grid is on.
+
 - **IIf and Choose run** (#1461, #1464). Neither existed, so a program that called either stopped there. Both now give
   vb6.exe's answers, including the two that surprise people: IIf evaluates both parts, so `IIf(n <> 0, 1 / n, 0)` still
   divides by zero, and Choose truncates its index, so `Choose(1.6, "a", "b")` is "a".

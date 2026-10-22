@@ -112,8 +112,8 @@
 | Size to Grid | — | Done | Snaps all selected controls to grid |
 | Horizontal Spacing (submenu) | — | Done | Make Equal / Increase / Decrease / Remove |
 | Vertical Spacing (submenu) | — | Done | Make Equal / Increase / Decrease / Remove |
-| Center in Form > Horizontally | — | Done | Single-control centering |
-| Center in Form > Vertically | — | Done | Single-control centering |
+| Center in Form > Horizontally | — | Done | Single-control centering, in whole twips as VB6 centres: ScaleWidth - Width (#929, measured) |
+| Center in Form > Vertically | — | Done | Single-control centering, in whole twips as VB6 centres (#929, measured) |
 | Order > Bring to Front | — | Done | |
 | Order > Send to Back | — | Done | |
 | Lock Controls | — | Done | Toggles drag/resize; persisted in .frm (LockControls = -1) |
@@ -269,9 +269,9 @@
 | Font picker (via Property grid) | Done | |
 | Form resize | Partial | Bottom, right, and bottom-right handles present; top and left edges not resizable |
 | Multi-select | Done | Rubber-band and Ctrl+click; group drag; primary/secondary handles |
-| Alignment commands (align left/right/top/bottom) | Done | Full set via Format > Align; Form Editor toolbar |
+| Alignment commands (align left/right/top/bottom) | Done | Full set via Format > Align; Form Editor toolbar. Centers and Middles land where VB6's do, in whole twips (#929, measured) |
 | Make Same Size commands | Done | Same Width / Height / Size via Format > Make Same Size |
-| Spacing commands | Done | Horizontal and Vertical spacing submenus fully implemented |
+| Spacing commands | Done | Horizontal and Vertical spacing submenus fully implemented. Make Equal truncates the gap to a whole twip and leaves the outermost controls, as VB6 does (#929, measured across) |
 | Copy / Paste controls | Done | Ctrl+C/V duplicates selected control(s) with offset; multi-paste accumulates offset. A control's properties HexIDE does not model are copied with it (#1453). A copied container is pasted without the controls in it HexIDE does not model, whose names would repeat the originals' ([#1458](https://github.com/hexide-io/HexIDE/issues/1458)) |
 | Cut control | Done | Ctrl+X removes selected controls; Ctrl+V restores at offset, with what HexIDE carries without modelling: a control's own unknown properties, and the controls inside a container, with the companion records they cite. Before [#1453](https://github.com/hexide-io/HexIDE/issues/1453) both were left out, and the next save lost them. Cut into another form, the controls inside go only if that form declares the libraries the first one did (#1458) |
 | Undo / Redo | Partial | Phase 1: structural ops (add/delete/cut/paste/z-order/lock) undoable via Ctrl+Z. Phase 2: move/resize via drag undoable. Phase 3 (properties/format) pending. |

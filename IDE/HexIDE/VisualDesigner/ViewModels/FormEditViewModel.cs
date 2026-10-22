@@ -15,6 +15,7 @@ using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Projects;
+using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
@@ -298,10 +299,37 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         ToolsBoxToolViewModel = null!;
     }
 
+    /// <summary>
+    /// A control added by double-clicking its tool: centred on the form as Center in Form centres one, then put on the
+    /// nearest grid line when Align to Grid is on, as VB6 puts it (measured, #929: a 1215 x 495 button on a 6000 x 4500
+    /// form went to 2400, 2040, where its centre is 2392.5, 2002.5). A position exactly between two lines was not measured.
+    /// </summary>
     public void SpawnControlCenter(ComponentBaseClass componentClass)
     {
-        SpawnControlAt(componentClass, new Rect(0, 0, Form.Width, Form.Height).CenterRect(new Rect(0, 0, 50, 50)));
+        const double size = 50;
+        var left = Twips(Form.Width) / 2 - Twips(size) / 2;
+        var top = Twips(Form.Height) / 2 - Twips(size) / 2;
+        if (settingsService.AlignToGrid)
+        {
+            left = OnGrid(left, settingsService.GridWidth);
+            top = OnGrid(top, settingsService.GridHeight);
+        }
+        SpawnControlAt(componentClass, new Rect(Pixels(left), Pixels(top), size, size));
+
+        static long OnGrid(long twips, int gridPixels)
+        {
+            var grid = Twips(gridPixels);
+            return grid <= 0 ? twips : (long)Math.Round(twips / (double)grid) * grid;
+        }
     }
+
+    // The Format commands that halve or divide a distance work as VB6's do, in whole twips, halving each size on its own
+    // and truncating (measured, #929). In fractional pixels a control centred on an odd difference landed at x.5 px, which
+    // a save wrote as a fractional twip VB6 never holds. A designer pixel is 15 twips, so a whole twip is a whole number
+    // of fifteenths of a pixel, and the save writes it back exactly.
+    private static long Twips(double pixels) => (long)Math.Round(pixels * VBScaleModeExtensions.PixelToTwips);
+
+    private static double Pixels(long twips) => twips / (double)VBScaleModeExtensions.PixelToTwips;
 
     public void SpawnControl(Rect rect)
     {
@@ -458,16 +486,18 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     {
         if (selectedComponent == null) return;
         var target = selectedComponent;
+        // ScaleWidth\2 - Width\2: 4680 and 1215 give 2340 - 607 = 1733, where the exact answer is 1732.5 (measured).
         PushBatch($"Center H: {target.Name}", [target], [VBProperties.LeftProperty],
-            () => target.Left = Form.Width / 2 - target.Width / 2);
+            () => target.Left = Pixels(Twips(Form.Width) / 2 - Twips(target.Width) / 2));
     }
 
     public void CenterVertically()
     {
         if (selectedComponent == null) return;
         var target = selectedComponent;
+        // 3195 and 510 give 1597 - 255 = 1342: the exact 1342.5 goes down, where 1732.5 went up across (measured).
         PushBatch($"Center V: {target.Name}", [target], [VBProperties.TopProperty],
-            () => target.Top = Form.Height / 2 - target.Height / 2);
+            () => target.Top = Pixels(Twips(Form.Height) / 2 - Twips(target.Height) / 2));
     }
 
     public void AlignLefts()
@@ -512,7 +542,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Align Centers H: {targets.Count} controls", targets, [VBProperties.LeftProperty],
-            () => { foreach (var c in targets) c.Left = primary.Left + (primary.Width - c.Width) / 2; });
+            () => { foreach (var c in targets) c.Left = primary.Left + Pixels(Twips(primary.Width) / 2 - Twips(c.Width) / 2); });
     }
 
     public void AlignCentersV()
@@ -521,7 +551,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Align Centers V: {targets.Count} controls", targets, [VBProperties.TopProperty],
-            () => { foreach (var c in targets) c.Top = primary.Top + (primary.Height - c.Height) / 2; });
+            () => { foreach (var c in targets) c.Top = primary.Top + Pixels(Twips(primary.Height) / 2 - Twips(c.Height) / 2); });
     }
 
     public void MakeSameWidth()
@@ -559,13 +589,15 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     {
         var sorted = SelectedComponents.OrderBy(c => c.Left).ToList();
         if (sorted.Count < 2) return;
+        // The gap is truncated, and the last control stays where it was, its gap taking what is left over: Lefts 300, 2000
+        // and 4005, 1200 wide, become 300, 2152 and 4005 (measured).
         PushBatch($"Equal H-Spacing: {sorted.Count} controls", sorted, [VBProperties.LeftProperty], () =>
         {
-            double totalSpan = sorted[^1].Left + sorted[^1].Width - sorted[0].Left;
-            double totalWidth = sorted.Sum(c => c.Width);
-            double gap = (totalSpan - totalWidth) / (sorted.Count - 1);
-            double cursor = sorted[0].Left;
-            foreach (var c in sorted) { c.Left = cursor; cursor += c.Width + gap; }
+            long start = Twips(sorted[0].Left);
+            long span = Twips(sorted[^1].Left) + Twips(sorted[^1].Width) - start;
+            long gap = (span - sorted.Sum(c => Twips(c.Width))) / (sorted.Count - 1);
+            long cursor = start;
+            foreach (var c in sorted.Take(sorted.Count - 1)) { c.Left = Pixels(cursor); cursor += Twips(c.Width) + gap; }
         });
     }
 
@@ -616,13 +648,14 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     {
         var sorted = SelectedComponents.OrderBy(c => c.Top).ToList();
         if (sorted.Count < 2) return;
+        // As across: the gap truncated, the last control left where it was.
         PushBatch($"Equal V-Spacing: {sorted.Count} controls", sorted, [VBProperties.TopProperty], () =>
         {
-            double totalSpan = sorted[^1].Top + sorted[^1].Height - sorted[0].Top;
-            double totalHeight = sorted.Sum(c => c.Height);
-            double gap = (totalSpan - totalHeight) / (sorted.Count - 1);
-            double cursor = sorted[0].Top;
-            foreach (var c in sorted) { c.Top = cursor; cursor += c.Height + gap; }
+            long start = Twips(sorted[0].Top);
+            long span = Twips(sorted[^1].Top) + Twips(sorted[^1].Height) - start;
+            long gap = (span - sorted.Sum(c => Twips(c.Height))) / (sorted.Count - 1);
+            long cursor = start;
+            foreach (var c in sorted.Take(sorted.Count - 1)) { c.Top = Pixels(cursor); cursor += Twips(c.Height) + gap; }
         });
     }
 
