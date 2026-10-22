@@ -43,7 +43,9 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
     and the program together. The program is paused in break mode anyway, and run mode offers no prompt.
   - **HexIDE:** the code window's own window owns it (#1298), and only that window is disabled. With the code window
     docked, that is the IDE's main window, while the running form keeps running and taking clicks. With the IDE
-    minimized, the fallback owner is the running form, and the IDE stays enabled.
+    minimized, the fallback owner is the running form, and the IDE stays enabled. Linux, docked, agrees: the prompt is
+    over the IDE's main window and the running form takes clicks. Minimized was not reachable there under Xvfb with
+    no window manager, and macOS is unchecked.
   - **The difference:** HexIDE can't hold the whole IDE and program together while it asks in run mode. A modal over
     one window is all Avalonia offers, and the program isn't paused. Floating a code window, which would split the
     IDE's windows further, currently hides it instead (#1361).

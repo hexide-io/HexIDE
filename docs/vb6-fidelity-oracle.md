@@ -11391,7 +11391,16 @@ to VB6.
 | IDE window minimized | Form1, the top window, through the fallback | Form1 only. The minimized IDE stays enabled | The Timer runs on (42 to 65), and Form1 takes no input |
 | Code window floated | Not reached. Float hides the code window instead of floating it (#1361) | | |
 
-- **Yes ended the run and kept the edit. No kept the run and put the code back.** Each left every window enabled.
+- **Measured live, Linux, the openSUSE VM** (a Debug build of main 01d990c under Xvfb, with no window manager). There is
+  no Win32 state to read there, so these come from the tools alone:
+  - **Docked:** the prompt was modal over the IDE's main window, and the running form took a click under it (its
+    `Form_MouseDown` ran).
+  - **Minimized:** not reachable. With no window manager the window never minimized, so the case repeated the docked
+    one.
+  - **Floated:** the code window vanished from every tool, as on Windows (#1361).
+  - That run also found that a form's own `Form_Click` never runs here (#1364).
+- **Yes ended the run and kept the edit. No kept the run and put the code back.** Each left every window enabled, on
+  both platforms.
 - **So HexIDE's prompt holds less than VB6's.** VB6's holds the IDE and the program together. HexIDE's holds whichever
   one window owns it, and the program keeps running under it.
 - **Two differences in when it asks.** HexIDE asks in run mode as well as in break mode, where VB6's code window takes

@@ -836,3 +836,18 @@ running.
 and a session header from `.mcp.json`. An IDE started with `--session` then answers any other session's
 `tools/call` with an error result that names whose IDE it is.
 [#1306](https://github.com/hexide-io/HexIDE/issues/1306).
+
+## A reply names a waiting dialog only by its title, and two of the IDE's dialogs share one
+
+**Symptom (2026-10-22, #1329, Windows and the openSUSE VM).** During a run, both the reset prompt and the run-time error
+dialog appear in a reply's note as `"'HexIDE', a modal dialog over 'Project1 - HexIDE [run]', is open and waits for an
+answer…"`. One holds a `MessageBox` with Yes and No, and the other a `RuntimeErrorView` with Continue, End, Debug and
+Help. Only `dump_visual_tree {"window":"HexIDE","maxDepth":3}` tells them apart, through class names. Separately, the
+only call found that lists the open windows was one naming a window that doesn't exist, `window: "x"`, which is refused
+with the list.
+
+**Workaround.** Dump the dialog before answering it, and read its buttons. Name an unknown window to get the list.
+
+**Suggested fix.** Have the note give the dialog's first line of text or its kind beside its title, and give the open
+windows on request, or say in the `window` description that an unknown name lists them.
+[#1365](https://github.com/hexide-io/HexIDE/issues/1365).
