@@ -41,4 +41,11 @@ public static class VBFontExtensions
 
     public static FontStyle ToFontStyle(this VBFont font) =>
         font.Italic ? FontStyle.Italic : FontStyle.Normal;
+
+    /// <summary>
+    /// The size to draw at, in device-independent pixels. A VB6 size is in points, and Avalonia's FontSize is in pixels at
+    /// 96 to the inch, so 12 points draw at 16. Handing the points straight over drew every VB6 font a quarter too small
+    /// (#910).
+    /// </summary>
+    public static double ToFontSize(this VBFont font) => font.Size * 96.0 / 72.0;
 }

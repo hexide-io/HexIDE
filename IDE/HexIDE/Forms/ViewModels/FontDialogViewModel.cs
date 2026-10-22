@@ -13,9 +13,15 @@ public partial class FontDialogViewModel
     [Notify] private string _selectedStyle;
     [Notify] private double _selectedSize;
 
+    /// <summary>The sample's size in pixels: the dialog's sizes are points, 12 drawing at 16 (#910).</summary>
+    public double PreviewFontSize => _selectedSize * 96.0 / 72.0;
+
     public IReadOnlyList<string> FontFamilies { get; }
     public IReadOnlyList<string> FontStyles { get; } = ["Regular", "Bold", "Italic", "Bold Italic"];
-    public IReadOnlyList<double> FontSizes { get; } = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
+    private static readonly double[] StandardSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
+
+    /// <summary>The sizes offered, with the font's own among them when it is not one of the usual, as 8.25 or 9.6 (#910).</summary>
+    public IReadOnlyList<double> FontSizes { get; }
 
     public FontStyle PreviewFontStyle =>
         _selectedStyle.Contains("Italic") ? FontStyle.Italic : FontStyle.Normal;
@@ -35,6 +41,7 @@ public partial class FontDialogViewModel
 
         _selectedFamily = initial?.Family.Name ?? "Arial";
         _selectedSize   = initial?.Size ?? 12;
+        FontSizes = StandardSizes.Contains(_selectedSize) ? StandardSizes : [.. StandardSizes.Append(_selectedSize).Order()];
         _selectedStyle  = initial != null ? ToStyleName(initial.Style, initial.Weight) : "Regular";
     }
 

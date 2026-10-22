@@ -180,6 +180,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A font's size is drawn in points** (#910). It was drawn as pixels, so every VB6 font came out a quarter too small:
+  a Label in 12-point Arial drew at 12 pixels instead of 16. The default font was held as 11, the pixels
+  VB6's 8.25 points draw at, and the designer's Font dialog wrote that into a .frm as `Size = 11`. It also turned 8.25
+  and 9.6 into 8 and 9, and reset the charset, underline, strikethrough and weight on OK. Now sizes are points
+  throughout, the default is 8.25, and the dialog keeps what it has no say over. A control on the default font draws
+  as it did.
 - **Missing VB6 global objects fail explicitly** (#871). Reading `Screen`, `Clipboard`, `Printer`, `Printers` or
   `Forms` no longer silently returns Empty without Option Explicit. Bare and member reads report an unsupported
   object, which On Error cannot swallow; declared variables and user functions still take precedence.
