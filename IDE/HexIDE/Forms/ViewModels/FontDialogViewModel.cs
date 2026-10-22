@@ -13,8 +13,11 @@ public partial class FontDialogViewModel
     [Notify] private string _selectedStyle;
     [Notify] private double _selectedSize;
 
+    // The previews read the generated properties, never their fields: the generator raises a dependent property's
+    // change only for a read of the property, so a preview reading `_selectedSize` was never redrawn.
+
     /// <summary>The sample's size in pixels: the dialog's sizes are points, 12 drawing at 16 (#910).</summary>
-    public double PreviewFontSize => _selectedSize * 96.0 / 72.0;
+    public double PreviewFontSize => SelectedSize * 96.0 / 72.0;
 
     public IReadOnlyList<string> FontFamilies { get; }
     public IReadOnlyList<string> FontStyles { get; } = ["Regular", "Bold", "Italic", "Bold Italic"];
@@ -24,10 +27,10 @@ public partial class FontDialogViewModel
     public IReadOnlyList<double> FontSizes { get; }
 
     public FontStyle PreviewFontStyle =>
-        _selectedStyle.Contains("Italic") ? FontStyle.Italic : FontStyle.Normal;
+        SelectedStyle.Contains("Italic") ? FontStyle.Italic : FontStyle.Normal;
 
     public FontWeight PreviewFontWeight =>
-        _selectedStyle.Contains("Bold") ? FontWeight.Bold : FontWeight.Normal;
+        SelectedStyle.Contains("Bold") ? FontWeight.Bold : FontWeight.Normal;
 
     public event Action<FontDialogResult?>? AcceptRequested;
     public event Action? CancelRequested;

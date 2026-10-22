@@ -117,5 +117,18 @@ public class FontSizeInPointsTests
         var usual = new FontDialogViewModel(new FontDialogResult(new FontFamily("Arial"), FontStyle.Normal, FontWeight.Normal, 12));
         usual.FontSizes.Should().Equal(8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72);
         usual.PreviewFontSize.Should().Be(16);
+
+        // And the sample redraws when another size or style is chosen. A preview that read its property's field was
+        // never told of the change, so the sample kept the size and style the dialog opened with.
+        var raised = new System.Collections.Generic.List<string?>();
+        usual.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+        usual.SelectedSize = 24;
+        usual.SelectedStyle = "Bold Italic";
+        raised.Should().Contain(nameof(FontDialogViewModel.PreviewFontSize))
+            .And.Contain(nameof(FontDialogViewModel.PreviewFontStyle))
+            .And.Contain(nameof(FontDialogViewModel.PreviewFontWeight));
+        usual.PreviewFontSize.Should().Be(32);
+        usual.PreviewFontStyle.Should().Be(FontStyle.Italic);
+        usual.PreviewFontWeight.Should().Be(FontWeight.Bold);
     }
 }
