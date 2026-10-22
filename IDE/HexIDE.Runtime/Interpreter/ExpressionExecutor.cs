@@ -1553,10 +1553,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     }
 
     // `name:=value` is a named argument, which a call to a procedure or an intrinsic places (#1465). Reaching here, it was
-    // given to something that does not place them yet: a control's or a form's method, an object's, or an array.
+    // given to something that does not place them yet: a control's or a form's method, or an object's (#1474).
     public override Task<object?> VisitVsAssign(VB6Parser.VsAssignContext context) =>
         throw new NotImplementedException("A named argument (" + context.implicitCallStmt_InStmt().GetText()
-            + ":=) is not implemented here yet (#1465)");
+            + ":=) is not implemented here yet (#1474)");
 
     public override async Task<object?> VisitVsMid(VB6Parser.VsMidContext context)
     {

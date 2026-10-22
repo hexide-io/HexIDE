@@ -107,7 +107,7 @@ public partial class VB6BuiltIns
                 args = await NamedArguments.Arrange(args, parameters.Names, i => i < parameters.Required,
                     notOptional: parameters.OmittedIsSyntaxError ? "Syntax error" : "Argument not optional");
             else if (Builtins.ContainsKey(name) || VbIntrinsicNames.IsIntrinsic(name))
-                throw new NotImplementedException($"Named arguments to {name} are not implemented yet (#1465)");
+                throw new NotImplementedException($"Named arguments to {name} are not implemented yet (#1475)");
         }
         var values = new List<Vb6Value>(args.Count);
         foreach (var arg in args)

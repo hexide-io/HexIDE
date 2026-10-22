@@ -13325,3 +13325,166 @@ Run through HexIDE, the probes gave VB6's answer on every row above except two: 
 does not reach yet (#178), and the `For Each` row, which is #1460. `RedimPreserveTests` pins the rows its three programs
 cover, and the compile errors. One row is worth noting: `GVV(x As Variant)` gives VB6's answer although a plain ReDim through
 a `v As Variant` parameter resizes only the parameter (#970), because Preserve resizes the shared array in place.
+
+## Named arguments (2026-10-22, #1465)
+
+**The obvious guess is that named arguments are evaluated in the order they are written. They are evaluated in parameter
+order.**
+- `Foo c:=F("c", 3), a:=F("a", 1)` calls `F("a", …)` first.
+- This holds into the program's own Subs, its Functions and its class methods, and into intrinsics:
+  - `Mid(Start:=F(…), String:=F(…))` evaluates String first.
+  - `Replace(Replace:=…, Find:=…, Expression:=…)` evaluates Expression, then Find, then Replace.
+- Positional arguments come before every named one, and they fill the first parameters. So parameter order is the order of
+  the whole call.
+
+**The second guess worth recording is that a name the editor's signature help shows is one VB6 takes.** For twenty
+intrinsics it is not. `Len(Expression:="abc")` does not compile, and neither does any named argument to `Abs`, the `C…`
+conversions, `InStr` or `UBound`, although signature help names their parameters (list below).
+
+**The question.** HexIDE stopped at every `name:=value` with "Assign is not implemented". #1465 asked:
+- how a named argument binds, beside positional ones and beside a skipped one, with `IsMissing`;
+- which compile errors VB6 gives;
+- what an intrinsic, a class method and an event take.
+
+**The probe.**
+- **52 projects of one statement each.** One project per row, so that a compile error names its own row. These were Sub
+  Main programs whose helpers log what they were given, and an `F(tag, v)` that logs its tag and returns `v`, to show the
+  order.
+- **79 compile-only projects, one per intrinsic.** Each took an intrinsic that has a signature entry whose parameter names
+  are plain identifiers, and named every parameter.
+- **132 projects on the required parameters.** For each intrinsic that compiled, one project named only the parameters
+  claimed to be required, and one more left out each of those in turn.
+- **Three RaiseEvent projects**, and four that give more positional arguments than there are parameters.
+
+Every project was made native and p-code under en-GB, and every line was identical. The 28 programs that
+`NamedArgumentTests` runs were then made the same way. They logged exactly what the tests pin, and gave exactly the compile
+errors the tests expect.
+
+The procedures used below are:
+- `Foo(a As Integer, Optional b As Integer = 2, Optional c)`, which logs `a`, `b`, and `c` or "c missing";
+- `G(a As Long, b As Long) As Long`, which returns `a - b`;
+- `Inc(n As Long)`, which adds 1;
+- `M(x As Integer, Optional y As Integer = 5)` and `Twice(Optional ByVal n As Long = 1) As Long`, both methods of a class.
+
+| Call | VB6 |
+|---|---|
+| `Foo 1, c:=5` | a=1 b=2 c=5 |
+| `Foo a:=1` | a=1 b=2, c missing (`IsMissing` True) |
+| `Foo c:=3, a:=1` | a=1 b=2 c=3 |
+| `Foo 1, b:=4` | a=1 b=4, c missing |
+| `Foo B:=7, A:=8` | a=8 b=7: a name matches in any case |
+| `Foo 1, , c:=9` | a=1 b=2 c=9 |
+| `Call Foo(c:=1, a:=2)` | a=2 b=2 c=1 |
+| `x = G(b:=2, a:=10)`, and `G(b:=2, a:=10)` inside an expression | 8, both |
+| `Inc n:=v`, `v` 4 | `v` 5: ByRef through a name |
+| `k.M y:=1, x:=2`; `k.Twice(n:=21)`, also inside an expression | M x=2 y=1; 42 |
+| `Bar 1`, `Bar a:=1`, `Bar 1, c:=2`, with `Bar(a As Integer, Optional c)` | `IsMissing(c)` True, True, False |
+| `Foo c:=F("c", 3), a:=F("a", 1)` | evaluates a, then c |
+| `Foo F("a", 1), c:=F("c", 3), b:=F("b", 2)` | a, b, c |
+| `x = G(b:=F("b", 2), a:=F("a", 10))`; `k.M y:=F("y", 1), x:=F("x", 2)` | a, then b; x, then y |
+| `Mid(Start:=F("start", 2), String:=F("string", "abcdef"))` | string, start; "bcdef" |
+| `Mid(F("string", "abcdef"), Length:=F("length", 2), Start:=F("start", 3))` | string, start, length; "cd" |
+| `Replace(Replace:=F(…), Find:=F(…), Expression:=F(…))` | expression, find, replace |
+| `Left(Length:=F(…), String:=F(…))`; `Round(NumDigitsAfterDecimal:=F(…), Number:=F(…))` | string, length; number, digits |
+| `Mid(String:="abcdef", Start:=2, Length:=3)`; `Mid(Start:=2, String:="abcdef")` | "bcd"; "bcdef" |
+| `Left(String:="abc", Length:=2)`; `Replace(Expression:="aXbX", Find:="X", Replace:="-")` | "ab"; "a-b-" |
+| `Format(Expression:=1.5, Format:="0.00")`; `DateSerial(Year:=2003, Month:=2, Day:=1)` | "1.50"; 2003-02-01 |
+| `DateAdd(Interval:="d", Number:=1, Date:=#2/1/2003#)`; `Round(Number:=2.567, NumDigitsAfterDecimal:=1)` | 2003-02-02; 2.6 |
+| `Trim(String:=" a ")`, `UCase(String:="abc")`, `Chr(CharCode:=65)`, `Val(String:="12")` | "a", "ABC", "A", 12 |
+| `String(Number:=3, Character:="z")`, `Space(Number:=2)`, `InStrRev(StringCheck:="abcabc", StringMatch:="b")` | "zzz", two spaces, 5 |
+| `IIf(Expression:=True, TruePart:=1, FalsePart:=2)`; `Split(Expression:="a b c")(1)` | 1; "b" |
+| `MsgBox` with all five of its names; `InputBox` with all seven of its own | compile (being modal, these were not run) |
+
+**The compile errors:**
+
+| Call | VB6's compile error |
+|---|---|
+| `Foo d:=1` | Named argument not found |
+| `Foo a:=1, a:=2`; `Foo 1, a:=2`; `Foo 1, , b:=4` | Named argument already specified |
+| `Foo b:=3`, with the required `a` left out | Argument not optional |
+| `Foo a:=1, 2`, positional after named; `Foo a:=1, , c:=3`, a blank after named | Syntax error |
+| `Foo 1, 2, 3, 4, c:=5`, and `Foo 1, 2, 3, 4`; `Mid("abc", 1, 1, 1, Start:=1)`, and `Mid("abc", 1, 1, 1)` | Wrong number of arguments or invalid property assignment |
+| `Pa 1, x:=2`, with `Pa(a As Integer, ParamArray x())`; `Array(ArgList:=1)`; `Choose(Index:=1, Choice:="a")` | Argument in ParamArray may not be named |
+| `RaiseEvent E(b:=1, a:=2)`, and `RaiseEvent E(1, b:=5)` | Syntax error |
+| `Left(Str:="abc", Length:=2)`; `MsgBox Message:="x"` | Named argument not found |
+| `Mid(String:="abc", Length:=2)` | Argument not optional |
+| `String(Number:=3)`, and `String(Character:="z")` | **Syntax error**, where every other intrinsic missing a required parameter gives "Argument not optional" |
+| `Bar a:=1` and `x = Baz(a:=1)`, neither defined; `CLDbl(Expression:=x)` | Sub or Function not defined |
+
+**The intrinsics that take names.** Every intrinsic with an entry in the language server's `VbSignatures.cs` was named in
+full. These 57 compile, with exactly the names the signature table gives, and require the number shown:
+
+| Names, in order | Required | Intrinsics |
+|---|---:|---|
+| `Number` | 1 | Atn, Cos, Exp, Log, Sin, Space, Sqr, Tan |
+| `Number` | 0 | Rnd |
+| `String` | 1 | Asc, AscW, LCase, LTrim, RTrim, Trim, UCase |
+| `CharCode` | 1 | Chr, ChrW |
+| `Date` | 1 | Day, Month, Year |
+| `Time` | 1 | Hour, Minute, Second |
+| `Expression` | 1 | Environ, IsDate, IsEmpty, IsError, IsNull, IsNumeric, IsObject, StrReverse |
+| `VarName` | 1 | IsArray, TypeName, VarType |
+| `ArgName` | 1 | IsMissing |
+| `Color` | 1 | QBColor |
+| `Class, ServerName` | 1 | CreateObject |
+| `Pathname, Class` | 0 | GetObject |
+| `Pathname, WindowStyle` | 1 | Shell |
+| `Interval, Number, Date` | 3 | DateAdd |
+| `Interval, Date1, Date2, FirstDayOfWeek, FirstWeekOfYear` | 3 | DateDiff |
+| `Interval, Date, FirstDayOfWeek, FirstWeekOfYear` | 2 | DatePart |
+| `Year, Month, Day` | 3 | DateSerial |
+| `Hour, Minute, Second` | 3 | TimeSerial |
+| `Date, FirstDayOfWeek` | 1 | Weekday |
+| `Expression, Format, FirstDayOfWeek, FirstWeekOfYear` | 1 | Format |
+| `Expression, TruePart, FalsePart` | 3 | IIf |
+| `Prompt, Buttons, Title, HelpFile, Context` | 1 | MsgBox |
+| `Prompt, Title, Default, XPos, YPos, HelpFile, Context` | 1 | InputBox |
+| `String, Length` | 2 | Left, Right |
+| `String, Start, Length` | 2 | Mid |
+| `StringCheck, StringMatch, Start, Compare` | 2 | InStrRev |
+| `Expression, Find, Replace, Start, Count, Compare` | 3 | Replace |
+| `Red, Green, Blue` | 3 | RGB |
+| `Number, Character` | 2 | String |
+
+**The intrinsics that refuse every name.** Any named argument to these 20 is "Syntax error": Abs, CBool, CByte, CCur, CDate,
+CDbl, CInt, CLng, CSng, CStr, CVar, CVErr, Fix, InStr, Int, LBound, Len, Sgn, StrComp and UBound. Each has a full parameter
+tooltip, with names.
+
+Val (`String`), Round (`Number, NumDigitsAfterDecimal`) and Split (`Expression`) took names in the single-row projects,
+but they have no signature entry, so their required counts were not measured (#1475).
+
+**What resisted explanation.**
+- **Why those twenty refuse**, and no rule I would defend. Most of them are the conversions and the numeric primitives,
+  which suggests intrinsics compiled inline rather than called through the library's type information. But that reading
+  leaves InStr and StrComp unexplained, so I record the list and not a rule.
+- **Why String alone gives "Syntax error"** for a missing required parameter, which is the same oddity.
+
+**Not measured:**
+- a `Property` with arguments, which HexIDE refuses with or without names;
+- the methods of controls, forms and other objects (#1474).
+
+### In HexIDE (#1465)
+
+**How a call takes its arguments:**
+- **The program's own Subs, Functions and class methods.** A named argument reaches the call unevaluated, as its name and
+  a thunk. At the top of `RunProcedure`, before anything of the call is set up, `NamedArguments.Arrange` raises VB6's
+  compile errors from the table above, as the statement runs. Then it evaluates the named arguments in parameter order,
+  in the caller, and leaves an omitted Optional to bind as it always has.
+- **Intrinsics.** These take their names from `VB6BuiltIns.NamedParameters.cs`, the 57 above. The twenty above that
+  refuse every name give "Syntax error", Array and Choose give the ParamArray error, and any other intrinsic stops the run
+  naming #1475. A name that is no procedure and no intrinsic is "Sub or Function not defined", as before.
+- **RaiseEvent** gives "Syntax error" for any named argument.
+- **A control's, a form's or an object's method** stops the run naming #1474.
+
+**The two tables.** The editor's signature help and the runtime keep separate tables. The runtime's is the one that runs.
+`NamedParameterParityTests` reads `VbSignatures.cs` as text and fails closed:
+- every intrinsic the runtime takes names for must have an entry there, with the same names in the same order;
+- the file must yield entries at all.
+
+It checks one direction only, because the tooltip shows names for the twenty that VB6 refuses.
+
+**Checked against the tests and the corpus.**
+- **The tests.** Three mutants each fail the tests they should: a renamed parameter in the runtime table, evaluating named
+  arguments as written, and a reshaped `VbSignatures.cs`.
+- **The corpus.** Two corpus cases that carried a line continuation inside a named argument now run as VB6 ran them. They
+  were removed from `KnownDivergences`.

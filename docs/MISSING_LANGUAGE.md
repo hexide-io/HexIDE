@@ -117,11 +117,11 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Operators | 0 | 0 | 3 | 18 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 63 | 41 | 1 | 48 | 153 |
 | Keywords and modifiers | 0 | 0 | 11 | 19 | 1 | 20 | 51 |
-| Literals, types and suffixes | 6 | 1 | 5 | 13 | 0 | 25 | 50 |
+| Literals, types and suffixes | 6 | 1 | 4 | 14 | 0 | 25 | 50 |
 | Compiler directives and options | 0 | 1 | 9 | 9 | 20 | 8 | 47 |
 | In-box objects | 0 | 0 | 93 | 12 | 0 | 18 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **8** | **4** | **233** | **403** | **22** | **512** | **1182** |
+| **Total** | **8** | **4** | **232** | **404** | **22** | **512** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -301,8 +301,9 @@ gap is a build failure rather than a bug report. It compares inventories, though
 accepts, which is how the suffixed `Function` got past it: both grammars have a `functionStmt`, and only
 the LSP server's lets a type character follow the name.
 
-Worth noting what is *not* here: `#If` parses fine and throws, and so does the named-argument operator
-`:=` — both are execution gaps rather than grammar gaps, which is the cheaper kind to close.
+Worth noting what is *not* here: `#If` parses fine and throws, an execution gap rather than a grammar gap,
+which is the cheaper kind to close. The named-argument operator `:=` was the other, and runs since
+[#1465](https://github.com/hexide-io/HexIDE/issues/1465).
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -313,7 +314,7 @@ Worth noting what is *not* here: `#If` parses fine and throws, and so does the n
 | `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 
-## Dies mid-run — 227 names
+## Dies mid-run — 226 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -329,7 +330,6 @@ most of the in-box object model.
 | `#If` | **Dies** | throws `"Conditional compilation (#If / #Const) is not supported"` — throws - with two different exceptions depending on where it sits. At module level PrePass hits it first: '' (PrePass.cs), under the comment… | PrePass.cs |
 | `#n` | **Dies** | `FILENUMBER : HASH LETTERORDIGIT +` is a lexer token listed in the `literal` rule — then throws at run time, because `VisitVsLiteralCore` has no FILENUMBER branch and falls into `throw new… | ExpressionExecutor.cs |
 | `,` | **Dies** | The 14-column print-zone comma is grammar-level only: `outputList : outputList_Expression (WS? (SEMICOLON \| COMMA) WS? outputList_Expression?)* \| outputList_Expression? (WS? (SEMICOLON \|… | StatementExecutor.cs |
-| `:= (named argument)` | **Dies** | throws `"Assign is not implemented"` — `implicitCallStmt_InStmt WS? ASSIGN WS? valueStmt # vsAssign` with `ASSIGN : ':='` — then throws at run time: `public override Task<object?>… | ExpressionExecutor.cs |
 | `Access` | **Dies** | ACCESS is a real lexer token and the clause is in the grammar - `openStmt : OPEN WS valueStmt WS FOR WS (APPEND\|BINARY\|INPUT\|OUTPUT\|RANDOM) (WS ACCESS WS (READ\|WRITE\|READ_WRITE))?… | StatementExecutor.cs |
 | `AddressOf` | **Dies** | throws `"ADDRESSOF is not implemented"` — (`ADDRESSOF WS valueStmt # vsAddressOf`) then throws at run time: `public override Task<object?> VisitVsAddressOf(VB6Parser.VsAddressOfContext… | ExpressionExecutor.cs |
 | `AmbientProperties` | **Dies** | Measured for `Dim a As AmbientProperties`: VBCompileErrorException: "User-defined type not defined: AmbientProperties" (StatementExecutor.cs). The route to a real instance is gone too:… | StatementExecutor.cs |
@@ -957,7 +957,7 @@ missing.
 | `Wend` | Supported | Closes whileWendStmt (VB6.g4); structural only. WhileWendTests covers accumulate, zero-iteration and Exit-Sub-from-inside cases. | VB6.g4 |
 | `WithEvents` | Supported | **[#822](https://github.com/hexide-io/HexIDE/issues/822):** a form's WithEvents variable binds, as a class's does, now that a form is an instance with a real `Me` (measured rows pinned; [#972](https://github.com/hexide-io/HexIDE/issues/972)). PrePass records each WithEvents name as an event sink and hoists the slot to Nothing; the runtime VisitVariableStmt re-seeds it per instance at New; the Set path detects a WithEvents field… | PrePass.cs, StatementExecutor.cs |
 
-### Literals, types and suffixes — 50 names (6 silently wrong, 6 absent, 13 partial, 25 supported)
+### Literals, types and suffixes — 50 names (6 silently wrong, 5 absent, 14 partial, 25 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -973,7 +973,7 @@ missing.
 | `#` | **Dies** | and it is the one piece of this batch that fails even outside a file statement. `#1` lexes as its own token, `FILENUMBER : HASH LETTERORDIGIT+` (Grammar/VB6.g4), and FILENUMBER is an… | ExpressionExecutor.cs |
 | `#n` | **Dies** | `FILENUMBER : HASH LETTERORDIGIT +` is a lexer token listed in the `literal` rule — then throws at run time, because `VisitVsLiteralCore` has no FILENUMBER branch and falls into `throw new… | ExpressionExecutor.cs |
 | `,` | **Dies** | The 14-column print-zone comma is grammar-level only: `outputList : outputList_Expression (WS? (SEMICOLON \| COMMA) WS? outputList_Expression?)* \| outputList_Expression? (WS? (SEMICOLON \|… | StatementExecutor.cs |
-| `:= (named argument)` | **Dies** | throws `"Assign is not implemented"` — `implicitCallStmt_InStmt WS? ASSIGN WS? valueStmt # vsAssign` with `ASSIGN : ':='` — then throws at run time: `public override Task<object?>… | ExpressionExecutor.cs |
+| `:= (named argument)` | Partial | **[#1465](https://github.com/hexide-io/HexIDE/issues/1465):** a named argument goes to the parameter of its name, in any case, after the positional ones. This works in a call to the program's own Sub, Function or class method, and to the 57 intrinsics VB6 takes names for, with VB6's compile errors raised as the statement runs (measured: an unknown name is "Named argument not found", one given twice "Named argument already specified", a positional argument after a named one "Syntax error", and a ParamArray "Argument in ParamArray may not be named"). **Named arguments are evaluated in parameter order, not the order written** (measured: `Foo c:=F("c"), a:=F("a")` evaluates `a` first, and `Mid(Start:=…, String:=…)` evaluates String first). Twenty intrinsics refuse every name, as VB6 does ("Syntax error"): Abs, the `C…` conversions, CVErr, Fix, InStr, Int, LBound, Len, Sgn, StrComp and UBound. `RaiseEvent` refuses them too. Still refused, naming their issues: a named argument to a control's, a form's or an object's method ([#1474](https://github.com/hexide-io/HexIDE/issues/1474)), and to Val, Round, Split or any other intrinsic signature help has no entry for ([#1475](https://github.com/hexide-io/HexIDE/issues/1475)). | NamedArguments.cs, VB6BuiltIns.NamedParameters.cs |
 | `;` | Partial | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** in `Print #`, it joins two items, and at the end of the statement it keeps the line open, as measured. In `Write #` it still dies, with `Write #` itself. | StatementExecutor.cs |
 | `ErrObject` | **Dies** | as a complexType, throws at run time. BaseTypeMapper.Map has no ErrObject case and it is not a user class/UDT/Enum, so DeclareLocal falls to the final else. Measured verbatim:… | StatementExecutor.cs |
 | `Decimal` | Partial | `Decimal` has no token in the grammar's `baseType` rule (BOOLEAN, BYTE, COLLECTION, CURRENCY, DATE, DOUBLE, INTEGER, LONG, OBJECT, SINGLE, STRING, VARIANT), so `As Decimal` parses as a… | VB6.g4 |
@@ -1339,6 +1339,15 @@ file's names with the interpreter's registry, not by hand.
 Worse than a plain gap, because the IDE vouches for the call before the user makes it. Closing the gap
 between those two lists — implement it, or stop advertising it — is cheap and disproportionately improves
 how the IDE feels.
+
+**A name the tooltip shows is not one VB6 takes by name, either**
+([#1465](https://github.com/hexide-io/HexIDE/issues/1465)). Twenty intrinsics refuse every named argument, as a
+"Syntax error", although signature help names their parameters: `Len(Expression:="abc")` does not compile (oracle,
+"Named arguments"). So the interpreter keeps its own table of the names it takes, `VB6BuiltIns.NamedParameters.cs`,
+measured, and `NamedParameterParityTests` holds it to `VbSignatures.cs` in one direction. Every name the interpreter
+takes must be the name the tooltip shows, in the tooltip's order; the tooltip may show names VB6 refuses. Val, Round and
+Split take names in VB6 and have no tooltip, so the interpreter refuses theirs
+([#1475](https://github.com/hexide-io/HexIDE/issues/1475)).
 
 **Autocomplete itself is not the culprit**, contrary to an earlier draft of this section. Completion is
 served from a different list (`VbKeywords.All`), and none of the thirteen appears in it. The trap is
