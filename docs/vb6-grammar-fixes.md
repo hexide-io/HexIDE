@@ -113,7 +113,8 @@ sooner. That is the behaviour of every other block rule here, not a regression o
 the one-line fix. It would also have accepted `Foo ,` for an ordinary procedure, which `vb6.exe` refuses as "Syntax
 error", native and p-code, while `Foo , 2` builds (hexide-io/HexIDE#1409). Separators alone belong to Print's
 output list, which VB6 reads as `Print #` reads its own, so the alternative is keyed on the `PRINT` token after the
-dot. That also covers a form's and the Printer's `Print`, which take the same list. Provenance: measured against
+dot. It admits `Form1.Print ,` too, whose VB6 behaviour is not measured and which HexIDE cannot run, since a form's
+`Print` method is not implemented. Provenance: measured against
 `vb6.exe` and its IDE's Immediate window (the oracle's "Sequential files", under "Separators with no item").
 
 ## Open gaps (found, not yet fixed)
