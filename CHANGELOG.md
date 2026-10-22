@@ -185,6 +185,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A quote inside a form's string property is read and written as VB6 does** (#218). VB6 writes a quote inside a
+  caption, tag or text doubled, and reads the pair back as one. HexIDE kept both quotes on read, so a VB6 form's
+  `"He said ""hi"""` showed as `He said ""hi""`. It wrote a lone quote single, which vb6.exe refuses: the whole form
+  fails to load, and the build fails.
+
 - **A Label's, an Image's, a Frame's and a PictureBox's Click needs the release over them** (#1373). A press on one,
   dragged off and released on the form or another control, still raised Click, so dragging off a control never
   cancelled its click as it does in VB6. Now Click comes only for a release over the control again, as vb6.exe
