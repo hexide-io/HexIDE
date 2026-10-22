@@ -141,10 +141,13 @@ public partial class CodeEditorView : UserControl
         }, () => true);
         // A paste at the end of a described line is the window's own, so a line break in it can go past the run
         // (task 4.5); the library's paste puts the text wherever the caret is, and only the text says whether it may.
+        // A paste over a box is the window's own too, written as typing over it is, because the library's hangs (#1251).
         Paste = new DelegateCommand(() =>
         {
             AskBeforeClipboardEdit(paste: true);
-            if (SelectionEndsWhereARunHangs())
+            if (TextEditor.TextArea.Selection is RectangleSelection { IsEmpty: false })
+                _ = PasteOverBoxAsync();
+            else if (SelectionEndsWhereARunHangs())
                 _ = PasteAtTheEndOfADescribedLineAsync();
             else
                 TextEditor.Paste();
@@ -1892,16 +1895,7 @@ public partial class CodeEditorView : UserControl
     /// </remarks>
     private async Task PasteAtTheEndOfADescribedLineAsync()
     {
-        string? text;
-        try
-        {
-            text = TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard ? await clipboard.TryGetTextAsync() : null;
-        }
-        catch (Exception ex)
-        {
-            Log.Debug("[paste] {ErrorMessage}", ex.Message);
-            return;
-        }
+        var text = await ClipboardTextAsync();
         if (string.IsNullOrEmpty(text) || DataContext is not CodeEditorViewModel vm)
             return;
 
@@ -1919,6 +1913,46 @@ public partial class CodeEditorView : UserControl
                 TextUtilities.NormalizeNewLines(text, TextUtilities.GetNewLineFromDocument(area.Document, area.Caret.Line)));
         }
         area.Caret.BringCaretToView();
+    }
+
+    /// <summary>
+    /// A paste over a box selection, written by <see cref="WriteOverBox"/> as typing over the box is: the library's paste
+    /// replaces the box with the folds on its lines closed, and a folded run there hangs it (#1251).
+    /// </summary>
+    /// <remarks>
+    /// The text is made what the library's paste makes it, in the module's newline and with tabs as spaces when the
+    /// editor converts them. The selection is read again once the clipboard has answered, and one that is no longer a
+    /// box is written over as the library's paste would write it.
+    /// </remarks>
+    private async Task PasteOverBoxAsync()
+    {
+        var text = await ClipboardTextAsync();
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        var area = TextEditor.TextArea;
+        text = TextUtilities.NormalizeNewLines(text, TextUtilities.GetNewLineFromDocument(area.Document, area.Caret.Line));
+        if (area.Options.ConvertTabsToSpaces)
+            text = text.Replace("\t", new string(' ', area.Options.IndentationSize));
+        if (area.Selection is RectangleSelection { IsEmpty: false } box)
+            WriteOverBox(area, box, text);
+        else
+            area.Selection.ReplaceSelectionWithText(text);
+        area.Caret.BringCaretToView();
+    }
+
+    /// <summary>The clipboard's text, or null when there is none or it cannot be read.</summary>
+    private async Task<string?> ClipboardTextAsync()
+    {
+        try
+        {
+            return TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard ? await clipboard.TryGetTextAsync() : null;
+        }
+        catch (Exception ex)
+        {
+            Log.Debug("[paste] {ErrorMessage}", ex.Message);
+            return null;
+        }
     }
 
     /// <summary>
