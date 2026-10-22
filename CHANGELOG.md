@@ -208,6 +208,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **ReDim Preserve runs** (#1459). It was refused as not implemented, so a program that grows an array as it goes stopped
+  at the first one. It now keeps the elements in range and changes only the last dimension's upper bound, and refuses
+  everything else as vb6.exe does, each case measured: another bound changing is 9, too big is 7, and a Variant holding
+  no array is 13, each leaving the array as it was.
+
 - **Cutting and pasting a control keeps what HexIDE carries without modelling** (#1453). A Frame or PictureBox cut
   and pasted lost the controls inside it that HexIDE does not model, such as an ImageList, and any control lost its own
   properties HexIDE does not model. The next save left them all out, with nothing said. They now go with the control,
