@@ -1534,6 +1534,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // A list's ListCount, which is read-only (#821), and a ListBox's Text (#1395).
             if (ListMembers.TrySet(control, memberIdentifier, value))
                 return default;
+            // Any control's Name and Index, which are read-only at run time (#1431).
+            if (IdentityMembers.TrySet(control, memberIdentifier))
+                return default;
 
             throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} type {variable.Type} doesn't have member {memberIdentifier}");
         }
