@@ -122,6 +122,18 @@ public class ByRefElementTests : BaseVBTestFixture
                 ReDim Preserve d(5)
                 Debug.Print "ReDim Preserve inside: err " & Err.Number & " ubound " & UBound(d)
                 Err.Clear
+                ReDim Preserve d("x")
+                Debug.Print "Preserve, bound ""x"": err " & Err.Number
+                Err.Clear
+                ReDim Preserve d(5 To 2)
+                Debug.Print "Preserve, inverted: err " & Err.Number
+                Err.Clear
+                ReDim d("x")
+                Debug.Print "ReDim, bound ""x"": err " & Err.Number
+                Err.Clear
+                ReDim d(5 To 2)
+                Debug.Print "ReDim, inverted: err " & Err.Number
+                Err.Clear
                 d = e
                 Debug.Print "d = e inside: err " & Err.Number & " ubound " & UBound(d)
                 x = 9
@@ -144,6 +156,10 @@ public class ByRefElementTests : BaseVBTestFixture
             ReDim inside: err 10 ubound 2
             Erase inside: err 10
             ReDim Preserve inside: err 10 ubound 2
+            Preserve, bound "x": err 13
+            Preserve, inverted: err 10
+            ReDim, bound "x": err 13
+            ReDim, inverted: err 10
             d = e inside: err 10 ubound 2
             PRD d(1): 9 ubound 2
             ReDim after the call: err 0 ubound 4
