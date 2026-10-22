@@ -163,9 +163,12 @@ public sealed class DapProcess : IAsyncDisposable
             catch (Exception ex) { cleanupFailure ??= ex; }
             if (_stderrReader.IsCompleted) _stderrStop.Dispose();
         }
-        _options.Capture?.Note($"DAP process ended: exit code {exitCode?.ToString() ?? "unavailable"}; forced termination: {forced}.");
+        // Failures by the rule the IDE tells the user by (ExternalDebugService), so the capture's failures filter and
+        // the user see the same exit: a non-zero code, a kill HexIDE had to make, a cleanup that failed (#1314).
+        _options.Capture?.Note($"DAP process ended: exit code {exitCode?.ToString() ?? "unavailable"}; forced termination: {forced}.",
+            fault: exitCode is not (null or 0) || forced);
         if ((cleanupFailure ?? _stderrFailure) is { } error)
-            _options.Capture?.Note($"DAP process cleanup failed: {error.GetType().Name}: {error.Message}");
+            _options.Capture?.Note($"DAP process cleanup failed: {error.GetType().Name}: {error.Message}", fault: true);
         return new(exitCode, forced, connectionFailure, cleanupFailure ?? _stderrFailure,
             StandardErrorTail, DroppedStandardErrorCharacters);
     }

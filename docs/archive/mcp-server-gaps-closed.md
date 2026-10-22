@@ -3509,6 +3509,12 @@ deliberately. Cross-platform by code reading.
 > connection that closed on an error is not marked, because a deliberate stop can close it the same way. Guarded by `ConversationFailuresTests`,
 > `TheRecordSeesTheProcessTests` (each fault site through a real client, including stopping), `CaptureQueriesTests`,
 > `ProtocolInspectorToolViewModelTests`, `ConversationExportTests`, `DapCaptureTests` and the process-notice tests.
+>
+> **Corrected later.** Two exits stayed out of the rule ([#1314](https://github.com/hexide-io/HexIDE/issues/1314)).
+> A language server's non-zero exit while this client stopped it was excused as a kill, but no transport reports a kill
+> it makes, so the excuse hid only the server's own exit code, which LSP makes its account of the stop. And a debug
+> adapter's exit was never marked, though the IDE tells the user of a non-zero code, a kill and a failed cleanup.
+> Both now count, by the rule the IDE tells the user by.
 
 ## `get_last_runtime_error` stamps local time, where every other timestamp on the surface is UTC
 

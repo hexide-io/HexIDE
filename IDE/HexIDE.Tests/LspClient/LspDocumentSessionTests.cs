@@ -140,6 +140,22 @@ public class LspDocumentSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task AChangeWhileNoServerIsRunningIsStillHandedOn()
+    {
+        // Not gated either, for the open's reason. The client and the registry each record a change before
+        // their own gate, so the open that follows a server's start carries it. Dropped here, an edit made
+        // while a server was starting reached nothing and was recorded nowhere (hexide-io/HexIDE#719).
+        _client.IsRunning.Returns(false);
+        var session = Session("a");
+        session.Start();
+        _document.Insert(0, "'");
+
+        await session.FlushAsync(TestContext.Current.CancellationToken);
+
+        await _client.Received(1).ChangeDocumentAsync(Uri, Arg.Any<int>(), "'a", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task DisposingClosesTheDocument()
     {
         var session = Session("# hi");
