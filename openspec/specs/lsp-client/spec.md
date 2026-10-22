@@ -11,11 +11,10 @@ own syntactic server today, and the seam exists so an external backend with deep
 later without the editor noticing.
 
 > **Known divergences.** The requirements below state intended behaviour. One is not always met: full
-> synchronization requires a document's versions to rise from its open, and three paths can still send one
-> that does not. They are an edit made while a server is starting, a debounced change crossing the flush that
-> superseded it, and two editors holding one name. Tracked in
-> [#719](https://github.com/hexide-io/HexIDE/issues/719), [#720](https://github.com/hexide-io/HexIDE/issues/720)
-> and [#721](https://github.com/hexide-io/HexIDE/issues/721).
+> synchronization requires a document's versions to rise from its open, and two paths can still send one
+> that does not. They are a debounced change crossing the flush that superseded it, and two editors holding one
+> name. Tracked in [#720](https://github.com/hexide-io/HexIDE/issues/720) and
+> [#721](https://github.com/hexide-io/HexIDE/issues/721).
 
 ## Requirements
 
@@ -100,6 +99,11 @@ The version is the server's only way to order what it receives, and a server may
 later than what it holds. The open counts: a first change that repeated the open's version was lost to such a
 server (hexide-io/HexIDE#470).
 
+A change made while a server is still starting SHALL NOT be lost. That server SHALL be opened on the document once,
+before any change to it, with the text as it stands when the open is sent. Starting a server takes long enough to
+type in, and an edit dropped in that window left the server analysing the text from before it until the next
+edit (hexide-io/HexIDE#719).
+
 #### Scenario: Editing a document
 - **WHEN** the developer edits an open document
 - **THEN** the complete new text is sent with a version that increases
@@ -108,6 +112,11 @@ server (hexide-io/HexIDE#470).
 - **WHEN** a document has been opened and is then changed for the first time, by an edit or by a save that
   sends its text
 - **THEN** the change carries a later version than the open did
+
+#### Scenario: An edit while a server is starting
+- **WHEN** a document is edited, or saved, while a server it is opened to is still starting
+- **THEN** that server is opened on the document once, before any change to it, with the text as edited
+- **AND** every later message about the document carries a later version than the one before
 
 #### Scenario: Closing a document
 - **WHEN** a document is closed

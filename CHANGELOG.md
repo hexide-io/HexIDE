@@ -185,6 +185,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **An edit made while a language server starts reaches it** (#719). It was dropped, and the server analysed the
+  text from before the edit until the next edit or a save. With two servers on one language, the second was also
+  opened twice, the second time at a lower version with the older text. A change made during a start is now
+  recorded and carried by the open the server receives, which is sent once and before any change.
+
 - **Missing VB6 global objects fail explicitly** (#871). Reading `Screen`, `Clipboard`, `Printer`, `Printers` or
   `Forms` no longer silently returns Empty without Option Explicit. Bare and member reads report an unsupported
   object, which On Error cannot swallow; declared variables and user functions still take precedence.

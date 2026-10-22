@@ -456,6 +456,40 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task AChangeWhileTheMoveStopsTheOldServersIsWhatTheOpenSends()
+    {
+        // The same gap for the document whose open moved the workspace. Its change arrives while the old
+        // servers are still stopping, so no connection can record it and the registry is the only thing that
+        // can. The open that follows sent the text it captured when it began, from before the edit, and nothing
+        // resent the edit (hexide-io/HexIDE#719).
+        var workspace = new FixedWorkspace("/projects/a");
+        var created = new List<ILspClient>();
+        var stopping = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var sut = new LspClientRegistry(
+            [new LanguageServerRegistration("s", "s", [".bas"], "vb6", () =>
+            {
+                var c = RunningServer();
+                if (created.Count == 0) c.StopAsync().Returns(stopping.Task);
+                created.Add(c);
+                return c;
+            })],
+            Substitute.For<ILogger<LspClientRegistry>>(),
+            workspace);
+        _disposables.Add(sut);
+
+        await sut.OpenDocumentAsync("file:///projects/a/M.bas", "m", TestContext.Current.CancellationToken);
+
+        workspace.Directory = "/projects/b";
+        var opening = sut.OpenDocumentAsync("file:///projects/b/New.bas", "before", TestContext.Current.CancellationToken);
+        await sut.ChangeDocumentAsync("file:///projects/b/New.bas", 2, "after", TestContext.Current.CancellationToken);
+        stopping.SetResult();
+        await opening.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        await created[1].Received(1).OpenDocumentAsync(
+            "file:///projects/b/New.bas", "after", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task AClosedDocumentIsNotReopenedByARestart()
     {
         // The record has to be forgotten on close, or a restart resurrects documents the developer shut —
