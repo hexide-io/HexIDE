@@ -185,6 +185,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A control-array element renamed out of its array can be renamed back** (#1276). Renaming `optSize(0)` to
+  `optBoard` worked, but every way back was refused as a duplicate name, so the array stayed split. A name is now
+  taken by name and Index together, as in VB6: an element may take an array's name where its Index is free there.
 - **A control can no longer be given a name already on its form** (#854). The designer checked a new name only
   against the controls it models, and mostly with case. A rename, a control drawn from the toolbox, or a paste could
   take the name of a control HexIDE keeps as preserved text, such as a Data or OLE control, or a sibling's name in

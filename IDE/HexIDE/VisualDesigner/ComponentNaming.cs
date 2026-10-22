@@ -45,12 +45,11 @@ public static class ComponentNaming
         if (!ProjectNaming.IsValidName(proposed))
             return string.Format(localization.GetString("Str.Naming.Msg.NotAVb6Name"), proposed);
 
-        // For a genuine rename the check stands, and it stays strict on purpose. VB6's real rule is
-        // uniqueness per name AND Index; Index is not modelled yet, so a rename that would JOIN an
-        // existing array cannot be told apart from a collision, and refusing is the recoverable answer.
-        // Every name on the form counts, a preserved control's too, in any case (#854). The target's own is left out,
-        // so a change of case alone still passes, unless an array sibling keeps the name.
-        if (NamesInUse(formComponents, except: target).Contains(proposed))
+        // Every name on the form counts, a preserved control's too, in any case (#854). The target's own is left out, so
+        // a change of case alone passes. VB6's rule is uniqueness by name AND Index, so a name already held is taken only
+        // where the rename would not join an array: an element may take an array's name when its Index is free there
+        // (#1276), which is how an element renamed out of its array is renamed back.
+        if (NamesInUse(formComponents, except: target).Contains(proposed) && !JoinsAnArray(target, proposed, formComponents))
             return "Name must be unique in form";
 
         // Renaming the ROOT renames the document, so the project's rule applies on top of the form's: a form
@@ -60,6 +59,26 @@ public static class ComponentNaming
             return string.Format(localization.GetString("Str.Naming.Msg.DocumentNameTaken"), proposed);
 
         return null;
+    }
+
+    /// <summary>
+    /// Whether naming <paramref name="target"/> <paramref name="proposed"/> makes it an element of an array of that name:
+    /// it has an Index, every control already holding the name has one, and none holds its Index (#1276).
+    /// </summary>
+    /// <remarks>
+    /// A preserved control holding the name refuses it: its Index is in text HexIDE does not read. A control with no Index
+    /// does not join an array, and an array does not take a control with none: in VB6 that offers to make a new array,
+    /// which is not measured, so it stays a refusal.
+    /// </remarks>
+    private static bool JoinsAnArray(ComponentInstance target, string proposed, IEnumerable<ComponentInstance> formComponents)
+    {
+        if (PropertyText.ArrayIndexOf(target) is not { } index)
+            return false;
+        if (PreservedNames(formComponents).Contains(proposed, StringComparer.OrdinalIgnoreCase))
+            return false;
+        var holders = formComponents.Where(c => !ReferenceEquals(c, target)
+            && string.Equals(c.GetPropertyOrDefault(VBProperties.NameProperty), proposed, StringComparison.OrdinalIgnoreCase)).ToList();
+        return holders.Count > 0 && holders.All(c => PropertyText.ArrayIndexOf(c) is { } held && held != index);
     }
 
     /// <summary>
@@ -86,12 +105,16 @@ public static class ComponentNaming
             if (!ReferenceEquals(component, except)
                 && component.GetPropertyOrDefault(VBProperties.NameProperty) is { Length: > 0 } name)
                 names.Add(name);
-            foreach (var preserved in component.PreservedChildSubtrees)
-                foreach (Match begin in BeginLine.Matches(preserved.Text))
-                    names.Add(begin.Groups["name"].Value);
         }
+        names.UnionWith(PreservedNames(formComponents));
         return names;
     }
+
+    /// <summary>The names on the <c>Begin</c> lines of every block preserved on <paramref name="formComponents"/>.</summary>
+    private static IEnumerable<string> PreservedNames(IEnumerable<ComponentInstance> formComponents) =>
+        formComponents.SelectMany(c => c.PreservedChildSubtrees)
+            .SelectMany(preserved => BeginLine.Matches(preserved.Text))
+            .Select(begin => begin.Groups["name"].Value);
 
     private static readonly Regex BeginLine = new(@"^\s*Begin\s+\S+\s+(?<name>\S+)", RegexOptions.Multiline);
 }
