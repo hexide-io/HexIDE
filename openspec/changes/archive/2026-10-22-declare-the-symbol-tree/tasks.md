@@ -15,7 +15,8 @@
 
 ## 3. Record
 
-- [x] 3.1 The lsp-client spec gains a requirement for the reply shapes the client declares.
+- [x] 3.1 The lsp-client spec gains a requirement for the reply shapes the client declares, which
+  `definition.linkSupport` already meets by going undeclared.
 - [x] 3.2 `docs/lsp-client.md`'s protocol table notes the declaration.
 - [x] 3.3 The document-symbol shape tests no longer say the shape is not negotiable.
 - [x] 3.4 CHANGELOG.

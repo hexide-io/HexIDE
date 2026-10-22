@@ -21,12 +21,16 @@ server that sends the tree unconditionally and a client that never declares it c
   in `documentSymbol` is declared. Without `symbolKind`, a server keeps to the kinds from `File` to `Array`, as
   it did when the client declared nothing there. So the declaration changes the shape of the answer and nothing
   else.
-- **A requirement for what the client declares.** The lsp-client spec states that the client declares every
-  reply shape it reads, where a declaration decides the shape, and no shape it cannot read.
+- **A requirement for what the client declares.** Where a declaration decides a reply's shape, the client
+  declares a shape it reads whenever the undeclared shape carries less of what it keeps, and declares no shape
+  it cannot read.
 
 ## Not changed
 
 - **The reader.** It already normalises both answers.
+- **`definition.linkSupport`.** The client reads a `LocationLink`, but keeps only its target and target
+  selection range, which is the `Location` a server sends without the declaration. Declaring it would change
+  nothing the client keeps, so the requirement does not ask for it.
 - **The neighbours the issue names.** `completion`, `signatureHelp`, `definition` and `foldingRange` are still
   undeclared. For the first three, the defaults are the plain forms the client reads. For `foldingRange`,
   `lineFoldingOnly` would change what a server sends: clangd ends a function's fold a line earlier when it is
