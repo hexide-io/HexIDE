@@ -12838,7 +12838,9 @@ native and p-code; every log and every refusal was identical.
 - **Two numbers that are no day and month either way round are a month and a year, or failing that a year and a month.** A year below 100 is in the regional window.
   - `"1,000"`, `"1,00"` and `"1 000"` are January 2000, `"12,345"` is December 345, and `"0,5"` is May 2000.
   - `"31,13"` is neither, so it is the number 3113.
-  - That order is the rule these rows fit, not one measured exhaustively.
+  - The order holds across 24 more pairs (below): `"31,2"` and `"2,31"` are both February 2031, `"29,2"` is February
+    2029 because 29 February this year does not exist, `"1,50"` is 1950 and `"5,100"` May 100. `"0,13"`, `"13,13"` and
+    `"0,0"` are neither, so they are the numbers 13, 1313 and 0.
 - **`IsDate` is True exactly when the date reading succeeds.** A number is never a date to it, but a dotted time is: `IsDate("0.5")` is True, and `CDate("0.5")` is 00:05, not noon.
 
 | String | `CDate(s)`, and `d = s` with `d` a Date | `IsDate(s)` |
@@ -12945,6 +12947,35 @@ native and p-code; every log and every refusal was identical.
 | `"1.5,2003"` | `31/12/1899 12:28:51 (1.52003)`, a Date (HexIDE: Err 13, #1446) | False |
 | `"5,1.5"` | `19/02/1900 12:00:00 (51.5)`, a Date | False |
 | `"1,5 PM"` | Err 13 | False |
+
+**Two numbers,** measured afterwards for the review, native and p-code identical:
+
+| String | `CDate(s)`, and `d = s` with `d` a Date | `IsDate(s)` |
+|---|---|---|
+| `"31,2"` | `01/02/2031 (47880)`, a Date | True |
+| `"31/2"` | `01/02/2031 (47880)`, a Date | True |
+| `"32,12"` | `01/12/2032 (48549)`, a Date | True |
+| `"5,0"` | `01/05/2000 (36647)`, a Date | True |
+| `"0,13"` | `12/01/1900 (13)`, a Date | False |
+| `"13/2003"` | Err 13 | False |
+| `"2,31"` | `01/02/2031 (47880)`, a Date | True |
+| `"2/31"` | `01/02/2031 (47880)`, a Date | True |
+| `"12,99"` | `01/12/1999 (36495)`, a Date | True |
+| `"1,50"` | `01/01/1950 (18264)`, a Date | True |
+| `"6 99"` | `01/06/1999 (36312)`, a Date | True |
+| `"13,5"` | `13/05/2026 (46155)`, a Date | True |
+| `"31,1"` | `31/01/2026 (46053)`, a Date | True |
+| `"45,6"` | `01/06/2045 (53114)`, a Date | True |
+| `"99,12"` | `01/12/1999 (36495)`, a Date | True |
+| `"100,5"` | `01/05/100 (-657314)`, a Date | True |
+| `"5,100"` | `01/05/100 (-657314)`, a Date | True |
+| `"0,0"` | `00:00:00 (0)`, a Date | False |
+| `"0/1"` | `01/01/2000 (36526)`, a Date | True |
+| `"1/0"` | `01/01/2000 (36526)`, a Date | True |
+| `"13,13"` | `05/08/1903 (1313)`, a Date | False |
+| `"29,2"` | `01/02/2029 (47150)`, a Date | True |
+| `"2,29"` | `01/02/2029 (47150)`, a Date | True |
+| `"30 2"` | `01/02/2030 (47515)`, a Date | True |
 
 `"£5"` was sent as cp1252 byte 0xA3, and the guest's log shows it as `?`. Both VB6 and HexIDE give 13.
 
