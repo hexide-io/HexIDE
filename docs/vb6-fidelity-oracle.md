@@ -11914,6 +11914,45 @@ to VB6.
 - **Two differences in when it asks.** HexIDE asks in run mode as well as in break mode, where VB6's code window takes
   no typing while the program runs. And it asks for every edit, where VB6 applies most edits live (D2).
 
+## A form whose two names disagree (2026-10-22, #473)
+
+**The question.** A `.frm` names its form twice: on the designer block's `Begin` line and in `Attribute VB_Name`. VB6
+writes the two equal. HexIDE renamed only the first until #1059 fixed #473, so files saved before that can disagree.
+Which name does VB6 honour? #473 recorded that for a module VB6 binds on `VB_Name` (see the `Folder1\Module1.bas`
+probes), and nobody had asked for a form.
+
+**The probe.** A Standard EXE starting from `Sub Main`, built with `vb6.exe /make` as p-code (6.00.8176 SP6). Its form
+was `Begin VB.Form frmRenamed` with `Attribute VB_Name = "Form1"`, in `Form1.frm`, listed as `Form=Form1.frm`. The
+module had no `Option Explicit`, so whichever name was not the form compiled as an implicit Variant. `Sub Main`
+printed `TypeName` of each name, each `.Name`, `Forms(0).Name`, and the `Me.Name` that `Form_Load` saw.
+
+**The `Begin` line wins, and VB6 says so.**
+- The build succeeds and exits 0. The `/out` log reads `Conflicting names were found in '…\Form1.frm'.  The name
+  'frmRenamed' will be used.`, then that the build succeeded.
+- At run time:
+  - `TypeName(frmRenamed)` is `frmRenamed`, its `.Name` is `frmRenamed`, and `Me.Name` in `Form_Load` is `frmRenamed`;
+  - `Forms(0).Name` is `frmRenamed`;
+  - `TypeName(Form1)` is `Empty`: it is an implicit variable.
+- The VB6 IDE, opening the project, shows the same message in a dialog with OK and Help. Its Project Explorer lists
+  `frmRenamed (Form1.frm)`.
+- After OK, a one-line code change, and Ctrl+S, the IDE wrote `Attribute VB_Name = "frmRenamed"`. It repaired the
+  attribute to the `Begin` line's name. `LinkTopic = "Form1"` was left as it was.
+
+So for a form, the opposite of a module: the designer block's name is the form's name, and `VB_Name` follows it.
+
+**Case alone is a disagreement.** With `Begin VB.Form frmRenamed` and `Attribute VB_Name = "FRMRENAMED"`, `/make`
+logs the same warning, "The name 'frmRenamed' will be used.", and builds.
+
+**A UserControl and a PropertyPage follow the same rule.** The probe was an ActiveX control project:
+- `UserControl=Gauge.ctl` holding `Begin VB.UserControl ucBegin` and `Attribute VB_Name = "Gauge"`;
+- `PropertyPage=Page1.pag` holding `Begin VB.PropertyPage ppBegin` and `Attribute VB_Name = "Page1"`.
+
+`/make` logs `Conflicting names were found in '…\Gauge.ctl'.  The name 'ucBegin' will be used.`, and the same for the
+page naming `ppBegin`, and builds the OCX. What a form using such a control writes was not measured.
+
+HexIDE takes a form's name from the `Begin` line too, so a program runs the same. It neither warns nor repairs on
+load, and that is #1407. A UserControl or PropertyPage it names after its file instead, which is #1411.
+
 ## A quote inside a .frm string (2026-10-22, #218)
 
 **The question.** How does VB6 read and write a `"` inside a string property of a `.frm`? HexIDE kept both quotes of
