@@ -819,7 +819,7 @@ escape or refuse such a string before sending it.
 the server has answered an argument the SDK cannot bind since #1270: refused, naming the parameter and the problem,
 and saying nothing was done. [#1337](https://github.com/hexide-io/HexIDE/issues/1337).
 
-## A session can reach an IDE that is not its own, and nothing in a reply says so
+## Two sessions that set neither variable reach the same IDE, and nothing in a reply says so (narrowed 2026-10-22)
 
 **Symptom.** Measured 2026-10-22 with two Debug IDEs, one on port 5128 with a new project and one on 5130 with
 `SpringTide.vbp`. A headless session started with `HEXIDE_MCP_PORT=5128` called `get_project_info` and got
@@ -832,7 +832,28 @@ way, the replies look exactly as they would from the session's own build.
 PID of the process it started, and stop it with `shutdown_ide` or `scripts/dev-ide.ps1 -Stop` rather than leaving it
 running.
 
-**Suggested fix.** Tie an IDE to the session that started it: a DEBUG-only `--session <name>`, echoed by `/health`,
-and a session header from `.mcp.json`. An IDE started with `--session` then answers any other session's
-`tools/call` with an error result that names whose IDE it is.
-[#1306](https://github.com/hexide-io/HexIDE/issues/1306).
+**Narrowed by #1306.** An IDE started with `--session <name>`, as `scripts/dev-ide.ps1` starts one whenever
+`HEXIDE_SESSION` is set, serves a tool call only when the client's `X-HexIDE-Session` header names that session, and an
+IDE started without one refuses a client that names a session. Each refusal is an error result naming the IDE's session,
+PID and build directory, so it never counts towards the client's three connection errors. Guarded by
+`SessionGuardTests`. What is left is the case with no names at all: two sessions that both set neither variable both
+reach 5123, and an IDE there serves both, since neither names itself.
+
+**Suggested fix.** None that needs no setup: telling two unnamed clients apart needs something a client sends
+unasked, and Claude Code sends nothing per session to an HTTP MCP server. Start every session with its variables;
+CLAUDE.md's *Parallel sessions* section says how, and tells a session to check them before launching an IDE.
+
+## A reply names a waiting dialog only by its title, and two of the IDE's dialogs share one
+
+**Symptom (2026-10-22, #1329, Windows and the openSUSE VM).** During a run, both the reset prompt and the run-time error
+dialog appear in a reply's note as `"'HexIDE', a modal dialog over 'Project1 - HexIDE [run]', is open and waits for an
+answer…"`. One holds a `MessageBox` with Yes and No, and the other a `RuntimeErrorView` with Continue, End, Debug and
+Help. Only `dump_visual_tree {"window":"HexIDE","maxDepth":3}` tells them apart, through class names. Separately, the
+only call found that lists the open windows was one naming a window that doesn't exist, `window: "x"`, which is refused
+with the list.
+
+**Workaround.** Dump the dialog before answering it, and read its buttons. Name an unknown window to get the list.
+
+**Suggested fix.** Have the note give the dialog's first line of text or its kind beside its title, and give the open
+windows on request, or say in the `window` description that an unknown name lists them.
+[#1365](https://github.com/hexide-io/HexIDE/issues/1365).
