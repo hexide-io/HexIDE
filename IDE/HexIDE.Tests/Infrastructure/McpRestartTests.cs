@@ -366,8 +366,10 @@ public class McpRestartTests
         var source = ToolSource.WithoutComments(
             File.ReadAllText(Path.Combine(RepoTree.Root(), "IDE", "HexIDE.Desktop", "Server", "IdeServer.cs")));
 
+        // ToolFilters registers the session guard and then ToolFailures (#1306). It is compiled in here, so
+        // SessionGuardTests drive that order for real; this proves the IDE registers through it.
         source.Should().Contain(".WithHttpTransport(McpTransport.Configure)")
-            .And.Contain("filters.AddCallToolFilter(ToolFailures.Filter)")
+            .And.Contain("ToolFilters.Register(")
             .And.Contain(".AddCallToolFilter(OpenDialogNote.Filter)")
             .And.Contain(".WithTools<HexIdeTools>(ReplyJson.Options)");
     }

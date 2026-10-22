@@ -12,7 +12,10 @@
                         IDE agree. Unset, it is 5123, which is what a single developer gets with no setup.
       HEXIDE_SESSION    A name for the session. When set, the IDE keeps its settings, layout, recents and
                         lsp-servers.json in <LocalApplicationData>/HexIDE/sessions/<name>, so no two sessions share
-                        a profile and none touches the user's own. Unset, the user's own profile, as before.
+                        a profile and none touches the user's own, and it is started with --session <name>, so it
+                        refuses tool calls from any other session's client (hexide-io/HexIDE#1306). .mcp.json
+                        names the caller's session in a header from the same variable. Unset, the user's own
+                        profile and an IDE that serves every caller, as before.
 
     Set both where the session is started, so the session, its shell and the IDE it launches all see them.
 
@@ -35,8 +38,8 @@
 
 .PARAMETER IdeArguments
     Anything after the script's own parameters is passed to HexIDE, in place of the default --newproject, so pass
-    --newproject again along with other flags if you still want it. --server-port is refused (set
-    HEXIDE_MCP_PORT), and so is --user-data-dir while HEXIDE_SESSION is set. From Git Bash, use the -- forms of
+    --newproject again along with other flags if you still want it. --server-port and --session are refused (set
+    HEXIDE_MCP_PORT and HEXIDE_SESSION), and so is --user-data-dir while HEXIDE_SESSION is set. From Git Bash, use the -- forms of
     HexIDE's flags: it rewrites an argument such as /newproject into a Windows path before the script sees it.
 
 .EXAMPLE
@@ -183,6 +186,10 @@ foreach ($argument in $IdeArguments) {
         throw "HEXIDE_SESSION already puts this session's files in $profileDirectory. Drop --user-data-dir, or " +
             "unset HEXIDE_SESSION to choose the directory yourself."
     }
+    if ($argument -match '^(--|/)session\z') {
+        throw "Set HEXIDE_SESSION instead of passing --session: .mcp.json names the session's client from the " +
+            "variable, so an IDE given another name by the flag would refuse that client's every call."
+    }
 }
 
 if (-not $Exe) {
@@ -199,13 +206,14 @@ if (-not (Test-Path $Exe -PathType Leaf)) {
 # Before launching, not after: a second IDE on a held port exits with code 3, and a caller that missed the exit
 # would carry on driving whichever process does hold it.
 if ($answering = Get-Health) {
-    throw "Port $port already answers, as HexIDE PID $($answering.pid). If it is yours, call shutdown_ide or run " +
+    $whose = if ($answering.session) { " for session '$($answering.session)'" } else { '' }
+    throw "Port $port already answers, as HexIDE PID $($answering.pid)$whose. If it is yours, call shutdown_ide or run " +
         "'scripts/dev-ide.ps1 -Stop'. If it is not, it belongs to another session: set HEXIDE_MCP_PORT to your own port."
 }
 
 $arguments = @('--server-port', "$port")
 if ($profileDirectory) {
-    $arguments += '--user-data-dir', $profileDirectory
+    $arguments += '--user-data-dir', $profileDirectory, '--session', $session
 }
 $arguments += if ($IdeArguments) { $IdeArguments } else { @('--newproject') }
 

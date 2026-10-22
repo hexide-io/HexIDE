@@ -48,6 +48,15 @@ sealed class Program
             return;
         }
 
+        if (ServerOptions.SessionMissing)
+        {
+            ConsoleOutput.Write(
+                "--session needs the name of an agent session after it. HexIDE has not started, rather than start an "
+              + "automation server that answers every session's client." + Environment.NewLine);
+            Environment.ExitCode = 2;
+            return;
+        }
+
         if (ServerOptions.AnsiCodePageInvalid is { } badCodePage)
         {
             ConsoleOutput.Write(

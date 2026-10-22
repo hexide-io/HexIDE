@@ -64,6 +64,17 @@ internal static class ServerOptions
     /// </remarks>
     public static string? ServerPortInvalid { get; private set; }
 
+    /// <summary><c>--session</c>: the agent session this IDE serves automation to, or null to serve every
+    /// caller.</summary>
+    public static string? Session { get; private set; }
+
+    /// <summary><c>--session</c> was given with nothing after it that could be a session's name.</summary>
+    /// <remarks>
+    /// Refused rather than skipped, as <see cref="UserDataDirectoryMissing"/> is: the flag is given so that no other
+    /// session's client is served, and ignoring it would serve every one of them (hexide-io/HexIDE#1306).
+    /// </remarks>
+    public static bool SessionMissing { get; private set; }
+
     /// <summary>
     /// Where HexIDE was started from, captured before startup moves the working directory to the
     /// executable's folder, and what every path argument is relative to.
@@ -181,6 +192,21 @@ internal static class ServerOptions
                 else
                     ServerPortInvalid = value ?? "";
                 return value is not null;
+            }),
+
+        // A value beginning `--` is the next flag, not a name, as for --user-data-dir.
+        new("session", "<name>",
+            "Serve automation only to this agent session. Debug builds only.",
+            value =>
+            {
+                if (string.IsNullOrWhiteSpace(value) || value.StartsWith("--", StringComparison.Ordinal))
+                {
+                    SessionMissing = true;
+                    return false;
+                }
+
+                Session = value.Trim();
+                return true;
             }),
 
         new("developer-mode", null,
