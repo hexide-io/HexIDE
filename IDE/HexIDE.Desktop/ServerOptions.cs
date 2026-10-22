@@ -45,8 +45,8 @@ internal static class ServerOptions
 
     /// <summary><c>--user-data-dir</c> was given with nothing after it that could be a directory.</summary>
     /// <remarks>
-    /// <b>One of two flags here that refuse to start rather than being skipped</b>, with
-    /// <see cref="ServerPortInvalid"/>. Every other malformed
+    /// <b>One of the few flags here that refuse to start rather than being skipped</b>, with
+    /// <see cref="ServerPortInvalid"/>, <see cref="SessionMissing"/> and <see cref="AnsiCodePageInvalid"/>. Every other malformed
     /// argument is ignored and the IDE starts normally, which is harmless when the flag was a convenience.
     /// This one is asked for precisely to keep a session away from the user's real settings, so ignoring it
     /// would quietly do the one thing it was given to prevent: a demo or an automation run writing into
@@ -63,6 +63,17 @@ internal static class ServerOptions
     /// client can reach this IDE, and skipping it opens one that looks normal and serves nothing.
     /// </remarks>
     public static string? ServerPortInvalid { get; private set; }
+
+    /// <summary><c>--session</c>: the agent session this IDE serves automation to, or null to serve every
+    /// caller.</summary>
+    public static string? Session { get; private set; }
+
+    /// <summary><c>--session</c> was given with nothing after it that could be a session's name.</summary>
+    /// <remarks>
+    /// Refused rather than skipped, as <see cref="UserDataDirectoryMissing"/> is: the flag is given so that no other
+    /// session's client is served, and ignoring it would serve every one of them (hexide-io/HexIDE#1306).
+    /// </remarks>
+    public static bool SessionMissing { get; private set; }
 
     /// <summary>
     /// Where HexIDE was started from, captured before startup moves the working directory to the
@@ -181,6 +192,22 @@ internal static class ServerOptions
                 else
                     ServerPortInvalid = value ?? "";
                 return value is not null;
+            }),
+
+        // A value beginning `-` or `/` is the next flag, not a name. Unlike --user-data-dir, whose value may be a Unix
+        // path, a session's name never begins with `/`, and `/newproject` is a spelling this parser accepts.
+        new("session", "<name>",
+            "Serve automation only to this agent session. Debug builds only.",
+            value =>
+            {
+                if (string.IsNullOrWhiteSpace(value) || value.TrimStart().StartsWith('-') || value.TrimStart().StartsWith('/'))
+                {
+                    SessionMissing = true;
+                    return false;
+                }
+
+                Session = value.Trim();
+                return true;
             }),
 
         new("developer-mode", null,

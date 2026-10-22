@@ -16,7 +16,8 @@ namespace HexIDE.Tests.LspClient;
 /// <para>
 /// <b>The request has two legal replies and they share no field.</b> <c>DocumentSymbol[]</c> is a tree with
 /// <c>range</c>, <c>selectionRange</c> and <c>children</c>; <c>SymbolInformation[]</c> is flat and carries a
-/// <c>location</c> instead. Servers choose freely, and the choice is not negotiable through any capability —
+/// <c>location</c> instead. Declaring the tree lets a server send it but does not oblige it to, and a server
+/// told nothing should send the flat form (see HierarchicalSymbolsNegotiationTests) —
 /// so a client supporting one shape is broken against half the ecosystem, silently, because deserializing
 /// the wrong shape produces objects rather than an error.
 /// </para>

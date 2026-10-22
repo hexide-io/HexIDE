@@ -83,7 +83,7 @@ internal static class DesktopStartup
                 {
                     try
                     {
-                        await IdeServer.RunAsync(port, ctx, cts.Token);
+                        await IdeServer.RunAsync(port, ServerOptions.Session, ctx, cts.Token);
                     }
                     // Fatal, and said aloud. Carrying on would leave an IDE that looks normal and serves
                     // nothing, while a client goes on driving whichever process still holds the port --
