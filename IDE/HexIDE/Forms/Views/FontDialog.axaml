@@ -36,7 +36,7 @@
                        FontFamily="{CompiledBinding SelectedFamily}"
                        FontStyle="{CompiledBinding PreviewFontStyle}"
                        FontWeight="{CompiledBinding PreviewFontWeight}"
-                       FontSize="{CompiledBinding SelectedSize}"
+                       FontSize="{CompiledBinding PreviewFontSize}"
                        VerticalAlignment="Center"
                        TextTrimming="CharacterEllipsis" />
         </Border>

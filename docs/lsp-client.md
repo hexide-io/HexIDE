@@ -182,10 +182,19 @@ connection's open rather than going ahead of it. Before this, the change was dro
 and a second server still starting was opened twice, the second time at a lower version with the text from
 before the edit ([#719](https://github.com/hexide-io/HexIDE/issues/719)).
 
-Two paths can still send a version that does not rise, both filed:
-- a debounced change crossing the flush that superseded it, with identical text
-  ([#720](https://github.com/hexide-io/HexIDE/issues/720));
-- two editors holding one name ([#721](https://github.com/hexide-io/HexIDE/issues/721)).
+**Every window holding one name holds one document.** One file shared by two projects of a group opens two code
+windows that both name it by its file, and a server has one document for that name. So the windows' sessions share
+it, per client: the first window to hold it opens it, every window draws its versions from one sequence, and the
+last window to let go closes it. A rename closes the old name only for its last holder and opens the new one only
+for its first. A window that joins an open document sends nothing of its own, because its copy as it opened could
+undo another window's unsaved edits on the server. It shows what was last published for the document, and its own
+edits reach the server as the next versions. The sequence is drawn where the edits are made, as above, so a send
+cannot renumber older text. Before this, each window kept its own count, the server was opened twice and discarded
+whichever count was behind, and either window's close closed the document for both
+([#721](https://github.com/hexide-io/HexIDE/issues/721)).
+
+One path can still send a version that does not rise, and it is filed: a debounced change crossing the flush
+that superseded it, with identical text ([#720](https://github.com/hexide-io/HexIDE/issues/720)).
 
 **On reconnect, tracked documents are replayed** through the same code path as a first open, carrying the
 version this connection has been tracking rather than `1`. Resetting to `1` would put the client's count

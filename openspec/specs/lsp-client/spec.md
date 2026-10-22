@@ -11,10 +11,9 @@ own syntactic server today, and the seam exists so an external backend with deep
 later without the editor noticing.
 
 > **Known divergences.** The requirements below state intended behaviour. One is not always met: full
-> synchronization requires a document's versions to rise from its open, and two paths can still send one
-> that does not. They are a debounced change crossing the flush that superseded it, and two editors holding one
-> name. Tracked in [#720](https://github.com/hexide-io/HexIDE/issues/720) and
-> [#721](https://github.com/hexide-io/HexIDE/issues/721).
+> synchronization requires a document's versions to rise from its open, and one path can still send one that
+> does not: a debounced change crossing the flush that superseded it. Tracked in
+> [#720](https://github.com/hexide-io/HexIDE/issues/720).
 
 ## Requirements
 
@@ -104,6 +103,11 @@ before any change to it, with the text as it stands when the open is sent. Start
 type in, and an edit dropped in that window left the server analysing the text from before it until the next
 edit (hexide-io/HexIDE#719).
 
+A document SHALL be one document to a server however many editors hold its name. Its first holder SHALL open
+it, every holder SHALL draw its versions from one sequence, and its last holder SHALL close it. Two windows over one
+file kept two version counts, so a server discarded whichever was behind, and either window's close closed the
+document for both (hexide-io/HexIDE#721).
+
 #### Scenario: Editing a document
 - **WHEN** the developer edits an open document
 - **THEN** the complete new text is sent with a version that increases
@@ -117,6 +121,12 @@ edit (hexide-io/HexIDE#719).
 - **WHEN** a document is edited, or saved, while a server it is opened to is still starting
 - **THEN** that server is opened on the document once, before any change to it, with the text as edited
 - **AND** every later message about the document carries a later version than the one before
+
+#### Scenario: Two editors holding one name
+- **WHEN** a second editor opens a document whose name another editor already holds, and either then edits it
+- **THEN** the server has been opened on the document once, and every change carries a later version than the one
+  before, whichever editor it came from
+- **AND** closing one editor leaves the document open for the other, and closing the last closes it
 
 #### Scenario: Closing a document
 - **WHEN** a document is closed

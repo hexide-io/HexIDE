@@ -455,12 +455,65 @@ public class CaptureQueriesTests : IAsyncDisposable
             ended.Entries.Should().HaveCount(2).And.OnlyContain(e => e.Outcome == ConversationOutcome.Abandoned);
             ended.Entries.Select(e => e.CompletedSequence).Distinct().Should().ContainSingle();
             ended.LatestSequence.Should().Be(ended.Entries[0].CompletedSequence);
+            // Both matches came back, so nothing was left out; a literal true sent the caller paging for nothing (#1313).
+            ended.Truncated.Should().BeFalse();
         }
         finally
         {
             _release.SetResult();
             await Task.WhenAll(first, second);
         }
+    }
+
+    [Fact]
+    public async Task A_quiet_poll_says_nothing_changed_since_its_cursor_rather_than_to_drop_its_filters()
+    {
+        // The ordinary end of the advertised loop. Told to drop its filters, a poller re-listed the whole timeline it
+        // had already seen (#1313).
+        await AConversation();
+        var first = await CaptureQueries.ListAsync(_log, new EnvelopeFilter());
+
+        var quiet = await CaptureQueries.ListAsync(_log, new EnvelopeFilter(AfterSequence: first.LatestSequence));
+
+        quiet.Entries.Should().BeEmpty();
+        quiet.Note.Should().NotContain("Drop the filters")
+            .And.Contain($"after {first.LatestSequence}").And.Contain("latestSequence");
+        quiet.Reason.Should().Be(CaptureEmptyReason.FilteredOut, "the Protocol Inspector never polls, so it needs no new reason");
+        quiet.LatestSequence.Should().Be(first.LatestSequence);
+
+        // A filter that matches nothing even without the cursor still says so.
+        (await CaptureQueries.ListAsync(_log, new EnvelopeFilter(Method: "no/such", AfterSequence: first.LatestSequence)))
+            .Note.Should().Contain("none match this filter");
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task An_answer_or_ending_named_under_another_connection_says_whose_it_is(bool bodyKept)
+    {
+        // A poll scoped to one connection still hands back the record's one counter, so its latestSequence can be another
+        // connection's reply or ending. Those have no row, and only a row's own sequence was looked for elsewhere (#1313).
+        if (bodyKept)
+        {
+            await AConversation("vb6"); // the opening is kept whether or not the connection is armed
+        }
+        else
+        {
+            _log.Record("vb6", ConversationDirection.Sent, ConversationEntryKind.Request, "textDocument/hover", "7", 90);
+            _log.Record("vb6", ConversationDirection.Received, ConversationEntryKind.Response, null, "7", 40);
+        }
+        _log.Record("latex", ConversationDirection.Sent, ConversationEntryKind.Notification, "note", null, 10);
+        var hover = (await CaptureQueries.ListAsync(_log, new EnvelopeFilter(ConnectionId: "vb6", Limit: int.MaxValue)))
+            .Entries.Last(e => e.Method == "textDocument/hover");
+        (hover.AnswerSequence is not null).Should().Be(bodyKept, "the premise");
+        var sequence = hover.AnswerSequence ?? hover.CompletedSequence!.Value;
+
+        var explained = await CaptureQueries.ExplainMissingBodyAsync(_log, "latex", sequence);
+
+        explained.Should().Contain("connection 'vb6'").And.Contain($"request {hover.Sequence}")
+            .And.NotContain("may never have existed");
+        explained.Should().Contain(bodyKept ? "the answer to request" : "was answered",
+            "a kept answer can be fetched there, and an answer with no body cannot");
     }
 
     [Fact]
