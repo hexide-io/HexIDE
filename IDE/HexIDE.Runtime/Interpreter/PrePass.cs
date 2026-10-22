@@ -189,6 +189,7 @@ public class PrePass : VB6BaseVisitor<object?>
                 // `Dim o As Object`, `Dim c As Collection`: an object slot, Nothing until Set (#1010 review). An array of
                 // them is still refused below, as it is in a procedure.
                 var objectSlot = false;
+                string? declaredClass = null;
                 if (subStmt.asTypeClause() != null)
                 {
                     if (subStmt.asTypeClause().NEW() != null)
@@ -204,7 +205,11 @@ public class PrePass : VB6BaseVisitor<object?>
                     }
                     else if (!isArray && subStmt.asTypeClause().type().baseType() is { } objectType
                              && (objectType.OBJECT() != null || objectType.COLLECTION() != null))
+                    {
                         objectSlot = true;
+                        if (objectType.COLLECTION() != null)
+                            declaredClass = "Collection";
+                    }
                     else
                     {
                         type = BaseTypeMapper.Map(subStmt.asTypeClause().type().baseType())
@@ -217,7 +222,7 @@ public class PrePass : VB6BaseVisitor<object?>
                 var value = objectSlot ? Vb6Value.Nothing
                     : dimensions != null ? new Vb6Value(type, dimensions) : new Vb6Value(type);
                 if (dimensions != null && value.Value is VBArray fixedArr) fixedArr.IsDynamic = false;   // `Dim a(N)` = fixed
-                var location = state.Alloc(value);
+                var location = state.Alloc(value, null, declaredClass);
                 if (isArray)
                 {
                     state.MarkDeclaredArray(location);

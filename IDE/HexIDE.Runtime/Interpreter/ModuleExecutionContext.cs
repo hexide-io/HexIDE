@@ -47,6 +47,10 @@ public class ModuleExecutionContext
                 && value.Value is VbObject incoming
                 && !VbInterface.IsAssignableTo(incoming, declaredClass))
                 throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
+            // A Collection, likewise, goes only into a Collection-typed slot of the class-typed ones (measured, #1471).
+            if (state.DeclaredClassOf(loc) is { } classTyped && value.Value is VbCollection
+                && !ExpressionExecutor.IsCollectionType(classTyped))
+                throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
             state[loc] = value;
             return true;
         }

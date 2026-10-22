@@ -855,7 +855,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, identifier);
         }
 
-        var callArgs = await expressionExecutor.EvaluateCallArgs(context.argsCall());
+        if (value.Value is VbCollection)
+        {
+            await ExpressionExecutor.AsBound(value, identifier, async () =>
+                await interpreter.CallProxy((ICSharpProxy)value.Value!, identifier,
+                    await expressionExecutor.EvaluateMemberArgs(value.Value, identifier, context.argsCall())));
+            return ControlFlow.Nothing;
+        }
+        var callArgs = await expressionExecutor.EvaluateMemberArgs(value.Value, identifier, context.argsCall());
 
         if (value.Type == Vb6Value.ValueType.CSharpProxyObject)
             await interpreter.CallProxy((ICSharpProxy)value.Value!, identifier, callArgs);
@@ -899,6 +906,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             interpreter.Err.Capture(ex);
             return await RunUninitialisedForEach(context, varName, empties);
         }
+
+        if (collection.Value is VbCollection items)
+            return await ForEachItem(context, varName, items);
 
         if (collection.Value is not VBArray { IsDefined: true } array)
         {
@@ -947,6 +957,80 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         await interpreter.ReleaseRef(last);
         return ControlFlow.Nothing;
     }
+
+    /// <summary>
+    /// For Each over a Collection (#1471), measured. The loop reaches the items in order, as they are when it reaches them:
+    /// an item removed before it is reached is not, and one added after the item it is on is (VbCollection.Cursor). Each
+    /// is bound as an array's element is. A loop that runs out leaves a Variant Empty and an object variable Nothing;
+    /// Exit For leaves it holding the item it reached. The variable must be a Variant or an object: a Long or a String is
+    /// VB6's compile error, and an item that is no object, given to an object variable, is 424. Under Resume Next, that
+    /// 424 on the first item goes on into the body, and on a later one, raised by Next, ends the loop (measured).
+    /// </summary>
+    private async Task<ControlFlow> ForEachItem(VB6Parser.ForEachStmtContext context, string varName, VbCollection items)
+    {
+        currentEnv.TryGetVariableLocation(varName, out var location);
+        var state = interpreter.ExecutionContext.State;
+        if (state.DeclaredTypeOf(location) is not null)
+            throw new VBCompileErrorException("For Each control variable must be Variant or Object");
+        interpreter.ExecutionContext.TryGetVariable(currentEnv, varName, out var initial);
+        var objectVariable = !state.IsVariant(location) && !currentEnv.VariantParameters.Contains(varName)
+            && (state.DeclaredClassOf(location) is not null || IsObjectReference(initial));
+
+        var block = context.block();
+        var cursor = items.StartEnumeration();
+        try
+        {
+            var first = true;
+            while (items.TryNext(cursor, out var item))
+            {
+                try
+                {
+                    if (objectVariable && !IsObjectReference(item))
+                        throw new VBRunTimeException(context, VBStandardError.ObjectRequired);
+                    interpreter.ExecutionContext.TryGetVariable(currentEnv, varName, out var previous);
+                    var bound = interpreter.CopyForStore(item);
+                    interpreter.AddRef(bound);
+                    try
+                    {
+                        interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, bound, context);
+                    }
+                    catch
+                    {
+                        await interpreter.ReleaseRef(bound);
+                        throw;
+                    }
+                    await interpreter.ReleaseRef(previous);
+                }
+                catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+                {
+                    interpreter.Err.Capture(ex);
+                    if (!first)
+                        return ControlFlow.Nothing;
+                }
+                first = false;
+
+                if (block == null)
+                    continue;
+                var result = await Visit(block);
+                if (result == ControlFlow.ExitFor)
+                    return ControlFlow.Nothing;
+                if (result != ControlFlow.Nothing)
+                    return result;
+            }
+        }
+        finally
+        {
+            items.EndEnumeration(cursor);
+        }
+        interpreter.ExecutionContext.TryGetVariable(currentEnv, varName, out var last);
+        interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, objectVariable ? Vb6Value.Nothing : Vb6Value.Variant);
+        await interpreter.ReleaseRef(last);
+        return ControlFlow.Nothing;
+    }
+
+    // An object reference, or Nothing: what an object variable can hold.
+    private static bool IsObjectReference(Vb6Value v) =>
+        v.Type == Vb6Value.ValueType.Object || v.Type == Vb6Value.ValueType.Control || v.Type == Vb6Value.ValueType.CSharpProxyObject;
 
     public override async Task<ControlFlow> VisitForNextStmt(VB6Parser.ForNextStmtContext context)
     {
@@ -1422,6 +1506,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         if (context.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } varOrProcCall)
         {
+            // `c!key = x`: a Collection's item is read-only, 424 (measured, #1471). No other default member takes it yet.
+            if (varOrProcCall.dictionaryCallStmt() is not null)
+            {
+                interpreter.ExecutionContext.TryGetVariable(currentEnv, varOrProcCall.ambiguousIdentifier().GetText(), out var bangTarget);
+                throw bangTarget.Value is VbCollection
+                    ? new VBRunTimeException(context, VBStandardError.ObjectRequired)
+                    : new NotImplementedException($"`{varOrProcCall.GetText()} = …` is supported only on a Collection, which refuses it");
+            }
             var identifier = varOrProcCall.GetText() ?? throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Null variable name");
             // A UDT is a value type: `b = a` stores an independent deep copy so mutating b never touches a.
             if (!interpreter.TryReadNow(currentEnv, identifier, out var letFound, out var oldLet, out var letFoundNeed))
@@ -1445,6 +1537,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     throw new VBVariableNotDefinedException(identifier);
                 AllocImplicitVariant(identifier);
                 interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out oldLet);
+            }
+            // A Let into a variable declared As Collection assigns its default member, which needs an index: VB6's "Argument
+            // not optional". Into an Object holding one it is 438, and a Variant simply takes the value (measured, #1471).
+            if (currentEnv.TryGetVariableLocation(identifier, out var letSlot)
+                && !interpreter.ExecutionContext.State.IsVariant(letSlot) && !currentEnv.VariantParameters.Contains(identifier))
+            {
+                if (interpreter.ExecutionContext.State.DeclaredClassOf(letSlot) is { } letClass && ExpressionExecutor.IsCollectionType(letClass))
+                    throw new VBCompileErrorException("Argument not optional");
+                if (oldLet.Value is VbCollection)
+                    throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
             }
             if (checkedArrayReturn is { } declaredReturn && string.Equals(identifier, procName, StringComparison.OrdinalIgnoreCase))
                 CheckArrayReturn(declaredReturn, value, context);
@@ -1578,6 +1680,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
             var memberIdentifier = members[0].GetText().TrimStart('.') ?? throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Null member name");
 
+            // A Collection's members can't be assigned (measured, #1471): `c.Item(1) = x` is 424, and `c.Count = 5` is VB6's
+            // compile error. Any other is 438, as reading it is.
+            if (variable.Value is VbCollection)
+                throw UdtFieldName(members[0]).ToLowerInvariant() switch
+                {
+                    "item" => new VBRunTimeException(context, VBStandardError.ObjectRequired),
+                    "count" => new VBCompileErrorException("Function call on left-hand side of assignment must return Variant or Object"),
+                    _ => new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
+                };
+
             // A CSharp property bag (e.g. Err.Number = …) handles its own get/set by name.
             if (variable.Value is ICSharpPropertyBag propertyBag && propertyBag.TrySetProperty(memberIdentifier, value))
                 return default;
@@ -1639,6 +1751,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     VB6BuiltIns.MidStatementReplace(midTarget, startVal, lenVal, value));
                 return default;
             }
+
+            // A Collection's item is read-only: `c(1) = x` is 424 (measured, #1471).
+            if (interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out var held) && held.Value is VbCollection)
+                throw new VBRunTimeException(context, VBStandardError.ObjectRequired);
 
             var indexes = await expressionExecutor.EvaluateCallArgs(procedureOrArrayCall.argsCall(0));
             var indexesAsInt = Subscripts(indexes);
@@ -2356,7 +2472,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // Assign the new reference to the slot BEFORE releasing the old one (oracle-verified): a Class_Terminate
             // fired by the release observes the NEW value — `g` points to the new object, not the dying old one — and
             // a reassignment of the slot inside that Terminate is not clobbered by a late slot-write.
-            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, id, value);
+            // A Set the slot refuses (13, a class instance into an As Collection, measured) lets go of the hold it took, so
+            // a `New` given to it ends with the statement, as in VB6 (#1471).
+            try
+            {
+                interpreter.ExecutionContext.TryUpdateVariable(currentEnv, id, value);
+            }
+            catch
+            {
+                await interpreter.ReleaseRef(value);
+                throw;
+            }
             // Advise the new source (RaiseEvent on it now reaches this listener).
             if (evtListener != null && value.Value is VbObject newSrc)
                 newSrc.AddSink(new EventSink(evtMe, id));
@@ -2420,6 +2546,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             var identifier = arrCall.ambiguousIdentifier().GetText()
                 ?? throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Null array name");
+            // `Set c(1) = x`, a Collection's item, is 424 (measured, #1471).
+            if (interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out var held) && held.Value is VbCollection)
+                throw new VBRunTimeException(context, VBStandardError.ObjectRequired);
             var indexes = Subscripts(await expressionExecutor.EvaluateCallArgs(arrCall.argsCall(0)));
             if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out var arrayVal))
                 throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Variable " + identifier + " is not declared");
@@ -2737,6 +2866,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         value = Vb6Value.Nothing;
                         declaredClass = classMod.Name;   // the module's own casing, not the Dim's
                     }
+                    else if (ExpressionExecutor.IsCollectionType(ct.GetText()))
+                    {
+                        value = Vb6Value.Nothing;
+                        declaredClass = "Collection";
+                    }
                     else if (IsObjectTypeWithoutClass(qualifier, typeName, out var aliasScalar))
                     {
                         // An object of a type the interpreter has no class for: VB's own (`As Form`, `As Control`,
@@ -2751,8 +2885,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 else if (!isArray && asType?.NEW() == null && asType?.type()?.baseType() is { } objectType
                          && (objectType.OBJECT() != null || objectType.COLLECTION() != null))
                 {
-                    // `Dim o As Object`, `Dim c As Collection`: an object slot, Nothing until Set (#822 review).
+                    // `Dim o As Object`, `Dim c As Collection`: an object slot, Nothing until Set (#822 review). A Collection's
+                    // records its type, so it refuses a class instance (13, measured, #1471).
                     value = Vb6Value.Nothing;
+                    if (objectType.COLLECTION() != null)
+                        declaredClass = "Collection";
                 }
                 else
                 {
@@ -3050,7 +3187,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return default;
         }
 
-        var callArgs = await expressionExecutor.EvaluateCallArgs(context.argsCall());
+        if (value.Value is VbCollection)
+        {
+            await ExpressionExecutor.AsBound(value, identifier, async () =>
+                await interpreter.CallProxy((ICSharpProxy)value.Value!, identifier,
+                    await expressionExecutor.EvaluateMemberArgs(value.Value, identifier, context.argsCall())));
+            return ControlFlow.Nothing;
+        }
+        var callArgs = await expressionExecutor.EvaluateMemberArgs(value.Value, identifier, context.argsCall());
 
         if (value.Type == Vb6Value.ValueType.CSharpProxyObject)
         {
