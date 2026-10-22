@@ -185,6 +185,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Collapsing a language server's fold no longer hides its closing line** (#1363). The editor folds a server's
+  range by whole lines but never said so, so a server could end a fold part-way along its closing line. clangd
+  ends each fold just before its closing brace, and collapsing the fold hid the brace. The client now declares
+  `lineFoldingOnly`, and such a server ends the fold on the line before.
+
 - **A language server that waits to be told sends document symbols as a tree** (#463). HexIDE read the tree
   but never declared that it could, so a server that honours the declaration, clangd among them, sent the flat
   form and every outline from it lost its nesting.

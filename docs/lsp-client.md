@@ -729,7 +729,7 @@ than inferred.
 | ✅ | `textDocument/documentHighlight` | → |  |
 | ○ | `textDocument/documentLink` | → |  |
 | ✅ | `textDocument/documentSymbol` | → | Both answers are read. The client declares `hierarchicalDocumentSymbolSupport`, because a server that honours it sends the flat form to a client that does not, and the outline loses its nesting ([#463](https://github.com/hexide-io/HexIDE/issues/463)) |
-| ✅ | `textDocument/foldingRange` | → | Asked when an editor attaches, 500 ms after a change, and when a server comes up — the first of those runs before the first server of a session has initialized |
+| ✅ | `textDocument/foldingRange` | → | Asked when an editor attaches, 500 ms after a change, and when a server comes up — the first of those runs before the first server of a session has initialized. The client declares `lineFoldingOnly`, because a fold is read by whole lines: told nothing, clangd ends a fold part-way along its closing line, and collapsing it hid the closing brace ([#1363](https://github.com/hexide-io/HexIDE/issues/1363)) |
 | ✅ | `textDocument/formatting` | → |  |
 | ✅ | `textDocument/hover` | → |  |
 | ○ | `textDocument/implementation` | → |  |

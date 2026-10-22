@@ -24,6 +24,12 @@ public static class Vb6FoldingAdapter
     /// <remarks>
     /// A fold must span lines: one that starts and ends on the same line, or names a line the document does
     /// not have, is skipped.
+    ///
+    /// <para>
+    /// <b>By whole lines, and the client says so.</b> A fold's characters are not read, and the client declares
+    /// <c>lineFoldingOnly</c> because of it, so a server ends a fold on the line before its closing line. Reading the
+    /// characters means removing that declaration in the same change (hexide-io/HexIDE#1363, #1022).
+    /// </para>
     /// </remarks>
     public static List<NewFolding> FromServer(TextDocument document, FoldingRange[] ranges)
     {
