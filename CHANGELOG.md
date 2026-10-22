@@ -208,6 +208,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A typed Function or Property Get converts what is stored into its name** (#1444). `FS = 5`, in a Function
+  `As String`, returned an Integer, `FD = "0.5"` `As Date` a String, and `FI = 40000` `As Integer` raised its Overflow in
+  the caller, after the Function had returned. Each now converts at the store, as VB6 does, so a failure is trapped by
+  the procedure's own handler.
+
 - **A String stored into a Date reads as VB6 reads it** (#967, #800). `d = "1/2/2003"` was Type mismatch, and
   `CDate("36526")` was too. Now `CDate`, a store into a Date, a Date `Const` and the date functions share one reading: a
   date or time in the program's locale first, then a serial. Under en-GB, a dot between digits separates a time's parts
