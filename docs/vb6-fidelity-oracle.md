@@ -11237,6 +11237,25 @@ What these add to the table above:
   `         xg`: the copy step's own Ctrl+G typed a `g` at the caret, which a screenshot taken before it does not show.
   That probe's first attempt also copied nothing. It ran again with 15 seconds for VB6 to open, and the Immediate
   window opened from the View menu before F5.
+
+**Separators with no item** (2026-10-22, #1409). A third IDE probe ran with F5 and was copied the same way. Each case
+below is one or more `Debug.Print` statements, then the line they print:
+
+| Statements | Line |
+|---|---|
+| `"a";`, then `;`, then `"b"` | `ab`: `;` alone writes nothing, and the line stays open |
+| `;`, then `"x"` | `x`: nor does it end a line, even at the start of one |
+| `, ,`, then `"y"` | `y` at column 29: one zone for each comma |
+| `"a";`, then `;;`, then `"b"` | `ab` |
+| `,;`, then `"z"` / `;,`, then `"w"` | `z` / `w` at column 15 |
+| `"abc";`, then `,`, then `"v"` | `v` at column 15 |
+| `;"u"` | `u` |
+| `; "t";`, then `"--10"` | `t--10`: the line stays open |
+
+So a statement of separators alone is an ordinary output list, as `Print #` reads one. A procedure's call is another
+matter. In a `/make` probe with `Sub Foo(Optional a, Optional b, Optional c)`, `Foo ,`, `Foo , ,` and `Foo ;` are each
+the compile error "Syntax error", native and p-code. `Foo , 2` builds and runs, with `a` and `c` missing. A list of
+separators alone belongs to Print only.
 - **`1.5E-10`, a Double, prints as `0.00000000015`,** most likely just its text. *Turning a number or a date into
   text* keeps a Double fixed while its digits fit, as `0.000012345` is, and goes to E notation for `0.00001 / 3`.
   HexIDE's `CStr` gives `0.00000000015` too, but `CStr` of this value was not measured on vb6.exe.
