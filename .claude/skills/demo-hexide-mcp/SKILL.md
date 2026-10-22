@@ -112,8 +112,11 @@ Teleport an organic AI-Chat line at each turn.
 - HexIDE running with the MCP server + a project (`get_project_info` works).
 - **Exactly one instance, and you're driving the right one.** A second launch on an already-bound
   `--server-port` says the port is in use and exits with code 3 — so a relaunch that did not take leaves you
-  unknowingly driving the *stale* instance, which is still answering. After
-  any (re)launch: kill **all** `HexIDE.Desktop` and **wait for the port to free** before launching one; then
+  unknowingly driving the *stale* instance, which is still answering. Launch with `pwsh scripts/dev-ide.ps1`,
+  which refuses while your port already answers and returns only once the process it started is the one
+  answering; stop a stale one with `pwsh scripts/dev-ide.ps1 -Stop`, which stops only this session's HexIDE on
+  your port.
+  Never kill **all** `HexIDE.Desktop`: other agent sessions on the machine run their own. Then
   confirm `get_project_info` is blank (no leftover forms/modules) and the control names start fresh
   (`Timer0`, `Class1`) — proof you're on the new instance, not a previous run's.
 - **VB6 installed & findable** (`$VB6_EXE` or default `…\VB98\VB6.EXE`); else `MakeWithVb6Command.CanExecute`
