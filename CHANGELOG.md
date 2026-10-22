@@ -191,6 +191,17 @@ there isn't one yet. Anything may change between 0.x releases.
   does, in range and out: `List(i)` reads "" outside the list, a write at `ListCount` or -1 appends, an index out of
   range is 5 or 381, and the selection follows its item.
 
+- **A ListBox raises Click where VB6 does** (#1374). It raised Click after MouseUp on every release, and never when
+  code set `ListIndex` or an arrow key moved the selection. Now a left press on an item raises Click before MouseUp,
+  the selection follows the pointer while the button is held, `ListIndex = n` and an arrow key raise it when the
+  selection moves, and a right or middle click, or a press below the items, selects nothing and raises none, as
+  vb6.exe does with real input.
+
+- **MousePointer has all seventeen of VB6's values** (#120). Icon (4), Size (5), Arrow and Hourglass (13) and Arrow and
+  Question (14) were missing. A form using one saved it without the name VB6 writes beside it, the Properties window
+  showed a blank, and the control drew the default pointer. All four now carry their names and draw the pointers
+  vb6.exe draws, as measured.
+
 - **DblClick runs** (#1031). It was declared nowhere and raised by nothing, so a `List1_DblClick` or `Form_DblClick`
   never ran. Now a double click raises it on the form and on each control VB6 gives one, in vb6.exe's order with real
   input: MouseDown, MouseUp, Click, DblClick, MouseUp, with no MouseDown for the second press. An OptionButton raises

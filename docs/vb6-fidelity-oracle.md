@@ -1332,7 +1332,7 @@ conversion comes before the range check. Nothing is changed when either step ref
   separator, and VB6 skips it. HexIDE's string-to-number rule allows none and raises 13 (#770). Not probed: a
   locale whose decimal separator is the comma.
 - **`MousePointer` 4, 5, 13 and 14 are accepted.** `VBCursorType`'s comment called them gaps in VB6's numbering.
-  They are not (#120).
+  They are not (#120). Their names and pointers are measured under "MousePointer's names and pointers".
 - **`Tag` is a String.** HexIDE declared it as an object and stored whatever it was given.
 - **`CStr` of a Date leaves out what is zero.** A midnight date has no time, and a time has no date. HexIDE wrote
   both (#771). A Single shows seven significant digits and a Double fifteen. HexIDE showed more (#772). Both were
@@ -5645,6 +5645,46 @@ VB6's and the shades are the palette's. Window frame had no colour at all, so `v
 now Windows 10's `646464`. That is the Windows 10 measurement inside an otherwise Win98-era palette, whose window frame
 would be black, which is why black was the obvious guess.
 
+## MousePointer's names and pointers (2026-10-22, #120)
+
+**Names.** A form gave seventeen Labels one MousePointer value each, 0 to 15 and 99, written bare (`MousePointer = 4`
+with no comment). The VB6 IDE opened the project in the guest's console session. Driven by keys, it opened the form's
+code window, added a comment line so the form was changed, and saved it with Ctrl+S. The file it wrote:
+
+| Value | Written | Value | Written |
+|---|---|---|---|
+| 0 | not written: the default | 9 | `9  'Size W E` |
+| 1 | `1  'Arrow` | 10 | `10  'Up Arrow` |
+| 2 | `2  'Cross` | 11 | `11  'Hourglass` |
+| 3 | `3  'I-Beam` | 12 | `12  'No Drop` |
+| **4** | **`4  'Icon`** | **13** | **`13  'Arrow and Hourglass`** |
+| **5** | **`5  'Size`** | **14** | **`14  'Arrow and Question`** |
+| 6 | `6  'Size NE SW` | 15 | `15  'Size All` |
+| 7 | `7  'Size N S` | 99 | `99  'Custom` |
+| 8 | `8  'Size NW SE` | | |
+
+The four in bold had no member in HexIDE (#120). The other thirteen match the names it already had, which were
+mined from VB98's Template tree or carried without a measurement until now.
+
+**Pointers.** The same form, built as p-code and run in the console session. The pointer was moved to the middle of
+each Label, and `GetCursorInfo`'s handle was compared with the shared handles `LoadCursor` gives for Windows' standard
+cursors:
+
+| Value | Cursor | Value | Cursor |
+|---|---|---|---|
+| 0 Default | `IDC_ARROW` | 9 | `IDC_SIZEWE` |
+| 1 | `IDC_ARROW` | 10 | `IDC_UPARROW` |
+| 2 | `IDC_CROSS` | 11 | `IDC_WAIT` |
+| 3 | `IDC_IBEAM` | 12 | `IDC_NO` |
+| **4 Icon** | **`IDC_ARROW`** | **13** | **`IDC_APPSTARTING`** |
+| **5 Size** | **`IDC_SIZEALL`** | **14** | **`IDC_HELP`** |
+| 6 | `IDC_SIZENESW` | 15 | `IDC_SIZEALL` |
+| 7 | `IDC_SIZENS` | 99, no MouseIcon | `IDC_ARROW` |
+| 8 | `IDC_SIZENWSE` | | |
+
+On this Windows 10, `LoadCursor` returns nothing for `IDC_ICON` and `IDC_SIZE`. Both are obsolete. So Icon draws the
+plain arrow, and Size draws the same pointer as Size All. Another Windows version may differ; that is not measured.
+
 ## RGB, QBColor and MsgBox's style (2026-10-12)
 
 **The questions.** What `RGB` and `QBColor` return, and of what type, at their edges. And what `MsgBox` does with a
@@ -9850,9 +9890,97 @@ control VB6 gives one: a Label, an Image, a PictureBox, a TextBox, a Frame, a Li
 
 What it still does not do:
 - **A ComboBox and a FileListBox** have a DblClick in VB6, and HexIDE has neither control's events yet.
-- **A press on a Label, an Image, a PictureBox, a TextBox or a ListBox** raises that control's Click wherever the
-  release lands. Only a CommandButton, through Avalonia's own Button, checks (#1373).
-- **A ListBox raises Click after MouseUp** (#1374).
+- **A press on a Label, an Image, a PictureBox or a TextBox** raises that control's Click wherever the release lands.
+  Only a CommandButton, through Avalonia's own Button, checks (#1373).
+- **A ListBox raises Click after MouseUp** (#1374). Since #1374 it raises it before: *A ListBox's Click* below.
+
+## A ListBox's Click: a left press on an item, or code or a key that moves the selection (2026-10-22, #1374)
+
+Where does a ListBox raise Click? Four `/make` probes, each built native and p-code, all eight builds agreeing line for
+line. Each holds List1, 2400 by 1200 twips at (120, 120) on a twips form, given `a`, `b` and `c` in Form_Load. With
+integral height the list draws five rows of 13 pixels, so its client area ends 65 pixels down and the empty part below
+`c` starts at 39. Every handler appends its name and `ListIndex` to a file.
+
+**Code**, in Form_Load, after `Me.Show` unless the row says otherwise, with `ListIndex` 1 to start:
+
+| Statement | VB6 |
+|---|---|
+| `ListIndex = 1`, before `Me.Show`, from -1 | **Click**, `ListIndex` 1 inside it |
+| `ListIndex = 2` | Click, 2 inside it |
+| `ListIndex = 2` again | no Click |
+| `ListIndex = -1` | Click, -1 inside it |
+| `ListIndex = -1` again | no Click |
+| `AddItem "z", 0`, with `c` selected at 2 | no Click; `ListIndex` 3 after: the selection follows its item |
+| `RemoveItem 0`, then | no Click; `ListIndex` 2 after |
+| `RemoveItem 2`, the selected item | no Click; `ListIndex` -1 after |
+| `ListIndex = 0` (Click), then `Clear` | no Click from `Clear`; `ListIndex` -1 after |
+| `Selected(1) = True`, from -1 | Click, 1 inside it; Err 0 |
+| `Selected(1) = False`, the selected item | Click, -1 inside it |
+| `Text = "x"`, from -1, `x` the first item | Click, 0 inside it |
+| `ListIndex = 5`, with two items | Err 380, no Click, `ListIndex` unchanged |
+
+**The keyboard**, the list focused, with `c` selected at 2:
+
+| Input | VB6 |
+|---|---|
+| Up arrow | KeyDown 38, **Click** (1), KeyUp |
+| Up arrow again | KeyDown, Click (0), KeyUp |
+| Up arrow on the first item | KeyDown, KeyUp: no Click |
+
+**The mouse**, real input in the console session, as in *A click with real input*:
+
+| Input | VB6 |
+|---|---|
+| left click on `a`, nothing selected | MouseDown (`ListIndex` already 0), **Click**, MouseUp |
+| left click on `a` again, already selected | MouseDown, Click, MouseUp: Click though nothing changed |
+| left click in the empty area below `c`, 52 pixels down | MouseDown, MouseUp: no Click, selection unchanged |
+| left click 65 pixels down, on the list's bottom edge | nothing at all, on the list or the form |
+| press on `a`, move to `c`, release | MouseDown (0), MouseMove (**2**), Click (2), MouseUp (2) |
+| press on `c`, move into the empty area, release | MouseDown (2), MouseMove (2), Click (2), MouseUp (2) |
+| press in the empty area, move onto `a`, release | MouseDown (2), MouseMove (2), MouseUp (2): no Click, and `a` not selected |
+| right click on `a`, nothing selected | MouseDown `2` (`ListIndex` -1), MouseUp: no Click, nothing selected |
+| right click on `b`, selected; on `c`, not selected | MouseDown, MouseUp: no Click, the selection stays on `b` |
+| middle click on `a` | MouseDown `4`, MouseUp: no Click |
+| left double click on `a` | MouseDown (0), Click, MouseUp, DblClick, MouseMove, MouseUp |
+
+What these show:
+- **From code or a key, Click follows the selection.** It comes when `ListIndex`, `Selected` or `Text` moves it, and
+  when an arrow key does, with `ListIndex` already the new value; it does not come when the value is set again, or
+  when the key can go no further.
+- **AddItem, RemoveItem and Clear never raise it,** though each can shift or empty the selection.
+- **From the mouse, Click follows a left press on an item, not the selection.** It comes on the release, before
+  MouseUp, whether or not the selection changed and wherever the release lands. The press selects at once, so MouseDown
+  already reads the new index, and the selection follows the pointer over the items while the button is held.
+- **A left press in the empty area, and any right or middle press,** raises MouseDown and MouseUp only. It selects
+  nothing, and the selection does not follow it onto an item.
+
+What resisted explanation:
+- **A click on the bottom edge raised nothing anywhere,** not even the form's MouseDown. The point is just past the
+  client area, on what is presumably the list's border, but no rule here says why that border swallows a click.
+- **The double click's MouseMove** with the button held, between DblClick and the last MouseUp, has no matching move
+  in the driver, which sets the cursor once before both clicks. It was logged in all four builds.
+
+### HexIDE
+
+Before #1374, a ListBox raised Click on every release, after MouseUp: for a press in the empty area and a right or
+middle click too, and never from code or a key. A right press selected the item under it.
+
+Since #1374, `VBListBox` raises Click from the two places VB6 does.
+- **A left press on an item** is remembered, and its release raises Click before MouseUp, unless it is a double click's
+  second (#1031). While the button is held, the item under the pointer is selected. The release may land anywhere,
+  off the list included, as VB6's may (measured in *And a press released somewhere else*, #1373).
+- **A right or middle press** is marked handled on its way down, so Avalonia's ListBox selects nothing for it. Its
+  MouseDown and MouseUp still come, since those take handled presses.
+- **An arrow key** raises Click when the selection it leaves differs from the one it found.
+- **`ListIndex` set from code** raises Click when the value changes. A selection change in general does not raise it,
+  so AddItem and Clear raise none.
+- **Pinned** in `MouseEventTests`: a click on an item and again on it, a click below the items, a press moved onto
+  another item, off the items, and from below them onto one, a right and a middle click on an item, the double click,
+  and the arrow keys. `ListBoxClickTests` pins the `ListIndex` rows, a plain `AddItem` and `Clear`.
+
+What it still does not do:
+- **`RemoveItem` and `AddItem`'s index** are #821's, and **`Selected(i)` and `Text`** #1395's, so their rows wait on
+  those.
 
 ## One handler at a time (2026-10-14, #766)
 
