@@ -1641,10 +1641,28 @@ Click and Change logged its name, and each row was read under `On Error Resume N
 
 What these show:
 - **A Style 0 or 1 combo's Text is its edit box's,** free of the list. Setting it to an item's text selects nothing, and
-  every assignment here raised Change. None set the Text it already had, so whether that raises Change is not measured.
+  every assignment here raised Change. The second probe, below, asks what this one did not.
 - **A Style 2 combo's Text is its selected item.** Setting it selects the first item whose whole text matches without
   regard to case, and raises Click every time. With no match it is 383, "'Text' property is read-only".
 - **Moving `ListIndex` changes a Style 0 combo's Text** without raising Change.
+
+**A second probe,** the same way, on a Style 0 and a Style 1 combo filled with `apple`, `Banana` and `cherry`. The two
+styles gave the same rows, and native and p-code the same logs:
+
+| Statement | VB6 |
+|---|---|
+| `Text = Text`, unchanged | nothing: **no Change**, `ListIndex` -1 still |
+| `ListIndex = 1` | Text `Banana`, Click |
+| `Text = "zz"`, with item 1 selected | Text `zz`, **`ListIndex` -1**, Change |
+| `Text = "cherry"`, another item's text, with item 1 selected | Text `cherry`, **`ListIndex` -1**: it selects nothing; Change |
+| `Text = "Banana"`, the selected item's own text | **nothing**: `ListIndex` 1 still, no Change |
+| `Text = "banana"`, that text in other case | Text `banana`, **`ListIndex` -1**, Change |
+| `ListIndex = 2`, then `ListIndex = 2` again | Click the first time, **none the second** |
+| `Text = "cherry"`, with item 2, `cherry`, selected | nothing |
+| `Clear` | Text `""`, `ListIndex` -1 |
+
+So **a Style 0 or 1 combo's `Text = s` does nothing when `s` is its Text already,** compared exactly. Otherwise it puts `s`
+in the edit box, clears the selection and raises Change.
 
 What resisted explanation:
 - **`Text = Null` is 13, Type mismatch,** where a TextBox's `SelText = Null` and the list's `List(Null)` are 94.
