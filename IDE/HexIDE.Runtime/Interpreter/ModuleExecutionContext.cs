@@ -33,6 +33,10 @@ public class ModuleExecutionContext
             if (state.IsReadOnly(loc) || state.IsConstant(loc) && !fillingConstant)
                 throw new VBCompileErrorException($"Assignment to constant not permitted ({name})");
 
+            // A variable holding an array one of whose elements a running call holds ByRef is locked: `d = e`, and `v = 5` for a
+            // Variant holding the array, raise 10 and leave it as it was (measured, #1455).
+            if (state.HasRefSlots && state[loc].Value is VBArray { IsLocked: true })
+                throw new VBRunTimeException(ctx, VBStandardError.ThisArrayIsFixedOrTemporarilyLocked);
             if (state.DeclaredTypeOf(loc) is { } declared)
                 value = VbNumeric.CoerceOnStore(value, declared, ctx);
             // A class-typed slot enforces its name: the object must BE that class or implement it as an

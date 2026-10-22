@@ -312,8 +312,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             }
             if (arg.PARAMARRAY() != null)
                 throw new NotImplementedException("ParamArray arguments are not yet supported");
-            var value = await EvaluateValue(arg.valueStmt());
             // A call-site ByVal keyword (or a non-lvalue like a literal / (x)) forces a copy.
+            if (arg.BYVAL() == null && await TryGetArgElement(arg.valueStmt()) is var (elementValue, element))
+            {
+                result.Add(new CallArg(elementValue, null, element));
+                continue;
+            }
+            var value = await EvaluateValue(arg.valueStmt());
             int? location = arg.BYVAL() != null ? null : TryGetArgLocation(arg.valueStmt());
             var field = arg.BYVAL() != null || location is not null ? null : TryGetArgField(arg.valueStmt());
             result.Add(new CallArg(value, location, field));
@@ -363,6 +368,31 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 return null;
         }
         return null;
+    }
+
+    // An array element written as an argument (`a(1)`, `m(i, j)`, `al(0 + 0)`), with its value, so a ByRef parameter can alias
+    // it (#1455). The subscripts are evaluated here, once, which is when VB6 evaluates them (measured). Not an element reached
+    // through a member or a With, nor a control array's.
+    private async Task<(Vb6Value Value, ArrayElementRef Ref)?> TryGetArgElement(VB6Parser.ValueStmtContext valueStmt)
+    {
+        if (valueStmt is not VB6Parser.VsICSContext ics
+            || ics.implicitCallStmt_InStmt()?.iCS_S_ProcedureOrArrayCall() is not { } call
+            || call.ambiguousIdentifier() is not { } id
+            || call.baseType() != null || call.iCS_S_NestedProcedureCall() != null
+            || call.typeHint() != null || call.dictionaryCallStmt() != null
+            || call.argsCall().Length != 1
+            || !interpreter.ExecutionContext.TryGetVariable(env, id.GetText(), out var holder)
+            || !holder.Type.IsArray || holder.Value is not VBArray array)
+            return null;
+        var index = Subscripts(await EvaluateCallArgs(call.argsCall(0)));
+        try
+        {
+            return (ElementAsRead(holder, array, array.GetValue(index)), new ArrayElementRef(array, index, holder.HeldAsVariant));
+        }
+        catch (IndexOutOfRangeException)
+        {
+            throw new VBRunTimeException(call, VBStandardError.SubscriptOutOfRange);
+        }
     }
 
     public async Task<string> ExtractIdentifier(VB6Parser.ICS_S_VariableOrProcedureCallContext context)
