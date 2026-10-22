@@ -10101,6 +10101,54 @@ After `Me.Show` in Form_Load, each list is filled with `a`, `bc`, `b`, `c`, `b`,
 - **`Text = s` raises Click and changes nothing else**, whatever `s` is: no item is selected or focused, even one whose text is `s`.
 - The errors are MultiSelect 0's: 381, 6, 94 and 13, for the same statements.
 
+**With real input** (#1413). A second probe has `List1` with MultiSelect 1 and `List2` with MultiSelect 2, each holding `a` to `f`, and every handler logs the list's state as above. It ran in the guest's console session, driven by `SetCursorPos`, `mouse_event` and `keybd_event`. It was built native and p-code, and **all 117 lines agree**. Each row follows the one above it, on the same list. "Click" is the list's Click, which comes between MouseDown and MouseUp, as with MultiSelect 0.
+
+MultiSelect 1, Simple:
+
+| Input | Events | Selected after | `ListIndex` |
+|---|---|---|---|
+| click `a` | MouseDown, Click, MouseUp; `a` is already selected inside MouseDown | `a` | 0 |
+| click `c` | the same | `a`, `c` | 2 |
+| click `a` again | the same | `c` | 0 |
+| Shift+click `e` | the same: Shift does nothing | `c`, `e` | 4 |
+| Ctrl+click `f` | the same: Ctrl does nothing | `c`, `e`, `f` | 5 |
+| Up | KeyDown, Click | unchanged: only the focus moves | 4 |
+| Space | KeyDown, Click | `e` toggled off: `c`, `f` | 4 |
+| Down, then Space | Click each time | `f` toggled off: `c` | 5 |
+| Shift+Up | KeyDown for each key, then Click | unchanged | 4 |
+| double click `b` | MouseDown, Click, MouseUp, DblClick, MouseUp | `b` toggled once: `b`, `c` | 1 |
+| press `d`, drag to `f`, release | MouseDown, then Click with `ListIndex` 5, then MouseUp | `d` toggled at the press, and nothing else: `b`, `c`, `d` | 5 |
+| click below the items | MouseDown, MouseUp, no Click | unchanged | 5 |
+| right click `e` | MouseDown and MouseUp with Button 2, no Click | unchanged | 5 |
+
+MultiSelect 2, Extended:
+
+| Input | Events | Selected after | `ListIndex` |
+|---|---|---|---|
+| click `a` | MouseDown, Click, MouseUp | `a` alone | 0 |
+| click `c` | the same | `c` alone | 2 |
+| Ctrl+click `e` | the same | `c`, `e` | 4 |
+| Ctrl+click `c` | the same | `e` | 2 |
+| Shift+click `f` | inside MouseDown nothing is selected; then Click and MouseUp | **`d`, `e`, `f`** | 5 |
+| Up | KeyDown, Click | `e` alone | 4 |
+| Shift+Up | KeyDown for each key, then Click | `d`, `e` | 3 |
+| Ctrl+Up | KeyDown for each key, then Click | `c` alone, as Up alone would give | 2 |
+| Ctrl+Space | KeyDown for each key, then Click | unchanged | 2 |
+| Space | KeyDown, Click | unchanged | 2 |
+| press `a`, drag to `d`, release | MouseDown with `a` alone, then Click, then MouseUp | `a` to `d` | 3 |
+| double click `b` | MouseDown, Click, MouseUp, DblClick, MouseUp | `b` alone | 1 |
+| click below the items | MouseDown, MouseUp, no Click | unchanged | 1 |
+| right click `e` | MouseDown and MouseUp with Button 2, no Click | unchanged | 1 |
+
+So:
+- **A left press on an item always raises Click, at the release.** A press below the items and a right press change nothing and raise none, as with MultiSelect 0.
+- **Simple toggles the item pressed** and ignores Shift and Ctrl. A drag moves only the focus, and the arrow keys move only the focus. Space toggles the focused item.
+- **Extended selects the item pressed alone.** Ctrl toggles it. A drag selects from the item pressed to the one released over. Up and Down select the next item alone, and Shift with either extends the selection.
+- **Every key the list takes raises Click**, whether or not anything changed: Up on a Simple list, and Space on an Extended one. With MultiSelect 0 a key raises Click only when the selection moves (*A ListBox's Click*).
+- **Resisted explanation:** the Shift+click. After Ctrl+click `c` had removed `c`, leaving `e`, Shift+click `f` selected `d` to `f`, neither `c` to `f` from the last item clicked nor `e` to `f` from the one still selected. Ctrl+Up selecting `c` alone is measured too, not inferred. A HexIDE that reproduces only the rows above, and refuses nothing, is the most this probe supports.
+
+**`MultiSelect` itself.** `List1.MultiSelect` reads 1, an Integer, and `List2.MultiSelect` 2. Assigning it, `List1.MultiSelect = 0`, is the compile error "Can't assign to read-only property", built as p-code. A form re-saved by the VB6 IDE, with hexide-frm's #120 recipe (bare values, the code dirtied, then Ctrl+S), writes `MultiSelect     =   1  'Simple` and `MultiSelect     =   2  'Extended`, after `Left` and before `TabIndex`. A list given `MultiSelect = 0` has the line dropped.
+
 ## One handler at a time (2026-10-14, #766)
 
 Can an event handler start while another is still running, and what does `DoEvents` change? Two `/make` probes, each
