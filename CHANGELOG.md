@@ -185,6 +185,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A language server that waits to be told sends document symbols as a tree** (#463). HexIDE read the tree
+  but never declared that it could, so a server that honours the declaration, clangd among them, sent the flat
+  form and every outline from it lost its nesting.
+
 - **An edit made while a language server starts reaches it** (#719). It was dropped, and the server analysed the
   text from before the edit until the next edit or a save. With two servers on one language, the second was also
   opened twice, the second time at a lower version with the older text. A change made during a start is now
