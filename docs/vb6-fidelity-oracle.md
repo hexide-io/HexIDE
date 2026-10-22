@@ -11220,6 +11220,56 @@ So a number has a space before it where its sign would go and one after, and a d
 Boolean and Null have none. A comma moves to the next 14-column zone, and a statement ending in `;` or `,` writes no
 line break.
 
+**`Debug.Print` is the same Print** (2026-10-22, #1380). A compiled program drops `Debug.Print`, so it was measured in the
+IDE. In the guest's console session VB6 opened a project whose Sub Main prints 25 cases, each after a marker line, and
+ran it with F5. Ctrl+G, Ctrl+Home, Ctrl+Shift+End and Ctrl+C then copied the Immediate window to the clipboard. The
+first attempt copied nothing; with screenshots between the keys, the second copied all of it. The same 25 cases went
+through `Print #` to a file in a compiled probe, native and p-code. **All three agree line for line**, apart from the
+Immediate window's own two empty lines at its end.
+
+| Statement | Line, between brackets |
+|---|---|
+| `1; "a"; 2` | `[ 1 a 2 ]` |
+| `1, 2` | `[ 1             2 ]` |
+| `"x";` then `"y"` | `[xy]` |
+| `"p",` then `"q"` | `[p             q]` |
+| `-1; -2.5; 3` | `[-1 -2.5  3 ]` |
+| `True; False` | `[TrueFalse]` |
+| `#1/2/2003#; "d"` | `[02/01/2003 d]` |
+| `Null; Empty; "e"` | `[Nulle]` |
+| `"a", "b", "c"` | `[a             b             c]` |
+| `"123456789012345", "z"` | `[123456789012345             z]`: column 16 moves to 29 |
+| `CCur(1.5); CSng(0.1); CDbl(1E+20)` | `[ 1.5  0.1  1E+20 ]` |
+| `CByte(5); CLng(-7); CInt(0)` | `[ 5 -7  0 ]` |
+| `1.5E-10` | **`[ 0.00000000015 ]`** |
+| nothing | `[]` |
+| `, "lead"` | `[              lead]`: a leading comma moves to column 15 |
+| `"a",` then `,` then `"b"` | `[a                           b]`: two zones, to column 29 |
+| `1;` then `2` | `[ 1  2 ]` |
+| `Spc(3); "x"; Tab(10); "y"` | `[   x     y]`: `x` at column 4, `y` at 10 |
+| `Tab(5); "x"` | `[    x]` |
+| `"a"; Tab; "b"` | `[a             b]`: `Tab` alone is a comma |
+| `"a"; Spc(0); "b"` | `[ab]` |
+| `"abc"; Tab(2); "d"` | `[abc]`, then `[ d]`: a column already passed **starts a new line** |
+| `"x"; Tab(0); "y"` | `[x]`, then `[y]`: `Tab(0)` is column 1, passed too |
+
+What these add to the table above:
+- **`Debug.Print` formats as `Print #` does,** zones, spacing and an open line included.
+- **`Tab(n)` moves to column n**, and to n on the next line when the line is already past it. `Spc(n)` writes n spaces.
+- **A line a run leaves open stays open for the next run, column and all.** A second probe ran one Sub Main twice
+  with F5: `Debug.Print "abc"; Tab(10); "x";`. The Immediate window then held `abc      xabc` and `         x`. The
+  second run's `abc` continued the first run's line, and its `Tab(10)` found the column at 13, past 10, so it went to
+  the next line. A column restarted for each run would have given `abc      xabc      x`. The copy read
+  `         xg`: the copy step's own Ctrl+G typed a `g` at the caret, which a screenshot taken before it does not show.
+  That probe's first attempt also copied nothing. It ran again with 15 seconds for VB6 to open, and the Immediate
+  window opened from the View menu before F5.
+- **`1.5E-10`, a Double, prints as `0.00000000015`,** most likely just its text. *Turning a number or a date into
+  text* keeps a Double fixed while its digits fit, as `0.000012345` is, and goes to E notation for `0.00001 / 3`.
+  HexIDE's `CStr` gives `0.00000000015` too, but `CStr` of this value was not measured on vb6.exe.
+- **`CDbl(1E+20)` has its sign space,** ` 1E+20 `. The row above gives it as `1E+20 `, starting its zone, but its own
+  hex dump, pinned in `SequentialFileTests`, has ten spaces after ` 0.1 `: nine to reach column 29, then the sign. So the
+  two are one result, read two ways.
+
 **Opening, numbering and closing:**
 
 | Probe | Result |
@@ -11948,10 +11998,30 @@ logs the same warning, "The name 'frmRenamed' will be used.", and builds.
 - `PropertyPage=Page1.pag` holding `Begin VB.PropertyPage ppBegin` and `Attribute VB_Name = "Page1"`.
 
 `/make` logs `Conflicting names were found in '…\Gauge.ctl'.  The name 'ucBegin' will be used.`, and the same for the
-page naming `ppBegin`, and builds the OCX. What a form using such a control writes was not measured.
+page naming `ppBegin`, and builds the OCX. Which name a form must use for such a control is measured below.
 
 HexIDE takes a form's name from the `Begin` line too, so a program runs the same. It neither warns nor repairs on
 load, and that is #1407. A UserControl or PropertyPage it names after its file instead, which is #1411.
+
+**Which name a form uses for a UserControl (#1411).** The probes were five Standard EXEs called `probe`, each with a
+private UserControl and a form holding one instance of it, `Begin probe.<name> uc1`, built with `/make` as p-code:
+
+| File | `Begin` | `VB_Name` | The form says | `/make` |
+|---|---|---|---|---|
+| `Gauge.ctl` | `ctlDial` | `ctlDial` | `probe.ctlDial` | builds |
+| `Gauge.ctl` | `ctlDial` | `ctlDial` | `probe.Gauge` | fails |
+| `Dial.ctl` | `ucBegin` | `Gauge` | `probe.ucBegin` | builds, after the conflicting-names warning |
+| `Dial.ctl` | `ucBegin` | `Gauge` | `probe.Gauge` | fails |
+| `Dial.ctl` | `ucBegin` | `Gauge` | `probe.Dial` | fails |
+
+Each failure logs `Line 11: Class probe.<name> of control uc1 was not a loaded control class.` in `Form1.log`, and the
+form "could not be loaded". So the control's class is its `Begin` line's name and nothing else: not its file's, and
+not its `VB_Name`, even when the two agree with each other.
+
+**The IDE repairs a UserControl as it repairs a form.** It opened the third project with the dialog "Conflicting names
+were found in '…\Dial.ctl'.  The name 'ucBegin' will be used." After a one-line change to the control's code, Ctrl+S
+wrote `Attribute VB_Name = "ucBegin"` into `Dial.ctl`, which kept its file name. The project file still read
+`UserControl=Dial.ctl`.
 
 ## A quote inside a .frm string (2026-10-22, #218)
 

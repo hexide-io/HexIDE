@@ -7,6 +7,8 @@ namespace HexIDE.Runtime.Tests;
 public abstract class BaseVBTestFixture
 {
     protected List<Vb6Value> debug = new();
+    // What Debug.Print wrote, as the Immediate window would show it (#1380).
+    protected readonly System.Text.StringBuilder written = new();
     protected  ModuleExecutionContext context;
     protected ExecutionEnvironment rootEnv;
 
@@ -85,7 +87,7 @@ public abstract class BaseVBTestFixture
 
     protected async Task Run(string code) => await Dumped([("Module1", false, code)], async () =>
     {
-        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, code);
+        var vb = new BasicInterpreter(new MockStdLib(debug, written), context, rootEnv, code);
         await vb.Execute();
     });
 
@@ -123,7 +125,7 @@ public abstract class BaseVBTestFixture
         string code, string moduleName = "Module1", params (string Name, string Code)[] classModules)
     {
         var dbg = new DebugController();
-        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, code, moduleName, null,
+        var vb = new BasicInterpreter(new MockStdLib(debug, written), context, rootEnv, code, moduleName, null,
             classModules.Length == 0 ? null : classModules) { DebugController = dbg };
         return (vb, dbg);
     }
@@ -133,7 +135,7 @@ public abstract class BaseVBTestFixture
     protected async Task RunModules(string primaryCode, params (string Name, string Code)[] modules) =>
         await Dumped([("Module1", false, primaryCode), .. modules.Select(m => (m.Name, false, m.Code))], async () =>
         {
-            var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, primaryCode, "Module1", modules);
+            var vb = new BasicInterpreter(new MockStdLib(debug, written), context, rootEnv, primaryCode, "Module1", modules);
             await vb.Execute();
         });
 
@@ -142,12 +144,36 @@ public abstract class BaseVBTestFixture
     protected async Task RunClasses(string primaryCode, params (string Name, string Code)[] classModules) =>
         await Dumped([("Module1", false, primaryCode), .. classModules.Select(m => (m.Name, true, m.Code))], async () =>
         {
-            var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, primaryCode, "Module1", null, classModules);
+            var vb = new BasicInterpreter(new MockStdLib(debug, written), context, rootEnv, primaryCode, "Module1", null, classModules);
             await vb.Execute();
         });
 
-    protected class MockStdLib(List<Vb6Value> debug) : IBasicStandardLibrary
+    protected class MockStdLib(List<Vb6Value> debug, System.Text.StringBuilder? written = null) : IBasicStandardLibrary
     {
+        public void DebugWrite(string text)
+        {
+            if (written is not null)
+                lock (written) written.Append(text);
+        }
+
+        // The characters after the last line break of the fixture's text, which outlives one Run, as the Immediate window
+        // outlives one run of the program.
+        public int DebugColumn
+        {
+            get
+            {
+                if (written is null)
+                    return 0;
+                lock (written)
+                {
+                    var i = written.Length;
+                    while (i > 0 && written[i - 1] != '\n')
+                        i--;
+                    return written.Length - i;
+                }
+            }
+        }
+
         public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon) => default;
         public async Task<string?> InputBox(string prompt, string? title, string defaultText) => default;
         // Locked, because two interpreter walks really can reach here at once.

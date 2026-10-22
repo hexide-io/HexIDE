@@ -80,6 +80,26 @@ public class SequentialFileTests : BaseVBTestFixture, IDisposable
     }
 
     [Fact]
+    public async Task Print_moves_with_Spc_and_Tab_as_vb6_exe_does()
+    {
+        // Measured with Debug.Print's cases, which Print # wrote line for line the same (#1380).
+        await Run($$"""
+            Dim f As Integer
+            f = FreeFile
+            Open "{{PathOf("tab.txt")}}" For Output As #f
+            Print #f, Spc(3); "x"; Tab(10); "y"
+            Print #f, Tab(5); "x"
+            Print #f, "a"; Tab; "b"
+            Print #f, "abc"; Tab(2); "d"
+            Print #f, "x"; Tab(0); "y"
+            Close #f
+            """);
+
+        File.ReadAllText(PathOf("tab.txt")).Split("\r\n").Should().Equal(
+            "   x     y", "    x", "a             b", "abc", " d", "x", "y", "");
+    }
+
+    [Fact]
     public async Task Print_writes_the_bytes_vb6_exe_wrote()
     {
         await Run($$"""

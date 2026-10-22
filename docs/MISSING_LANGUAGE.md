@@ -115,13 +115,13 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 2 | 2 | 42 | 30 | 0 | 29 | 105 |
 | Operators | 0 | 0 | 3 | 18 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 66 | 39 | 1 | 47 | 153 |
+| Intrinsic functions | 0 | 0 | 64 | 41 | 1 | 47 | 153 |
 | Keywords and modifiers | 0 | 0 | 11 | 19 | 1 | 20 | 51 |
 | Literals, types and suffixes | 6 | 1 | 5 | 13 | 0 | 25 | 50 |
 | Compiler directives and options | 0 | 1 | 9 | 9 | 20 | 8 | 47 |
 | In-box objects | 0 | 0 | 93 | 12 | 0 | 18 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **8** | **4** | **237** | **401** | **22** | **510** | **1182** |
+| **Total** | **8** | **4** | **235** | **403** | **22** | **510** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -313,7 +313,7 @@ Worth noting what is *not* here: `#If` parses fine and throws, and so does the n
 | `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 
-## Dies mid-run — 231 names
+## Dies mid-run — 229 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -527,14 +527,12 @@ most of the in-box object model.
 | `SetAttr` | **Dies** | `setattrStmt : SETATTR WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `SetAttr "a.txt", 0` -> NotImplementedException: "Setattr not… | StatementExecutor.cs |
 | `Shared` | **Dies** | SHARED is a lexer token, one of openStmt's lock-clause alternatives `(SHARED \| LOCK_READ \| LOCK_WRITE \| LOCK_READ_WRITE)` (Grammar/VB6.g4). Probed `Open "z.txt" For Random Access Read… | StatementExecutor.cs |
 | `SLN` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (SLN)". Named in the deferral list at docs/interpreter-gaps.md:77. | VB6BuiltIns.cs |
-| `Spc` | **Dies** | in both positions, but is implemented in neither. The grammar gives it a dedicated slot - `outputList_Expression : (SPC \| TAB) (WS? LPAREN WS? argsCall WS? RPAREN)? \| valueStmt`… | StatementExecutor.cs |
 | `Static` | **Dies** | throws `"non dim variables not supported"` — Two distinct forms, both broken, in different ways. (a) The LOCAL form parses (`variableStmt : (DIM \| STATIC \| visibility) WS ...`) and throws at… | StatementExecutor.cs, PrePass.cs, VB6.g4 |
 | `StrComp` | **Dies** | Not registered (VB6BuiltIns.cs; no occurrence of "StrComp" under IDE/HexIDE.Runtime). `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (StrComp)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `StrConv` | **Dies** | Not registered (VB6BuiltIns.cs; no occurrence of "StrConv" under IDE/HexIDE.Runtime, nor in VbSignatures.cs). `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not… | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `StrPtr` | **Dies** | Zero hits anywhere in IDE/ outside obj/bin — not registered, not in the grammar, not in editor metadata; ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined… | VB6BuiltIns.cs |
 | `Switch` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. `x = Switch(c1, v1, c2, v2)` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (Switch)". Named in… | ExpressionExecutor.cs |
 | `SYD` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (SYD)". Named in the deferral list at docs/interpreter-gaps.md:77. | VB6BuiltIns.cs |
-| `Tab` | **Dies** | in both positions, implemented in neither - identical shape to Spc. `outputList_Expression : (SPC \| TAB) ...` (Grammar/VB6.g4); probed `Print #1, Tab(5); "a"` -> NotImplementedException… | StatementExecutor.cs |
 | `Unlock` | **Dies** | `unlockStmt : UNLOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Unlock #1, 1 To 2` -> NotImplementedException:… | StatementExecutor.cs |
 | `VarPtr` | **Dies** | Zero hits anywhere in IDE/ outside obj/bin — not registered, not in the grammar, not in editor metadata; ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined… | VB6BuiltIns.cs |
 | `VB_PredeclaredId` | **Dies** | but is silently discarded - no throw, and no behaviour. Emitted in the canonical class header (ModuleFileFormat.cs) and preserved verbatim, but a repo-wide grep for a consumer across… | ModuleFileFormat.cs |
@@ -600,7 +598,7 @@ missing.
 | `On...GoTo` | **Dies** | throws `"OnGoTo not implemented"` — (onGoToStmt, VB6.g4) and throws at run time. Verbatim: Measured: `On i GoTo L1, L2` -> NotImplementedException: OnGoTo not implemented. | StatementExecutor.cs |
 | `Open` | Partial | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** For Input, Output and Append run as measured: Output truncates, a missing Input file is 53, a number in use or a second Output of one file is 55, `""` is 75 and `#0` is 52. `Access` is taken; a `Lock` keeps the file from this program only. For Random and For Binary are refused as not implemented. | StatementExecutor.cs, VbFiles.cs |
 | `Preserve` | **Dies** | throws `"PRESERVE not implemented"` — (`redimStmt : REDIM WS (PRESERVE WS)? redimSubStmt ...`) and throws on the first line of the visitor: Measured: `Dim a() / ReDim a(2) / ReDim… | StatementExecutor.cs |
-| `Print #` | Partial | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** writes in the ANSI code page as vb6.exe measured: numbers with a space for the sign and one after, dates with one after, Booleans, strings and Null as they read, `;` joining, `,` moving to the next 14-column zone, and CR LF unless the statement ends in either. `Tab` and `Spc` in it are refused as not implemented. | StatementExecutor.cs |
+| `Print #` | Partial | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** writes in the ANSI code page as vb6.exe measured: numbers with a space for the sign and one after, dates with one after, Booleans, strings and Null as they read, `;` joining, `,` moving to the next 14-column zone, and CR LF unless the statement ends in either. `Tab` and `Spc` move as measured ([#1380](https://github.com/hexide-io/HexIDE/issues/1380)). | StatementExecutor.cs |
 | `Put` | **Dies** | `putStmt : PUT WS valueStmt WS? COMMA WS? valueStmt? WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Put #1, 1, v` -> NotImplementedException: "Put not… | StatementExecutor.cs |
 | `Reset` | **Dies** | `resetStmt : RESET` (Grammar/VB6.g4) - a bare keyword with no operands; the visitor body is the throw. Probed `Reset` -> NotImplementedException: "Reset not implemented". | StatementExecutor.cs |
 | `Return` | **Dies** | throws `"Return not implemented"` — (returnStmt, VB6.g4) and throws at run time. Verbatim: | StatementExecutor.cs |
@@ -709,7 +707,7 @@ missing.
 | `TypeOf ... Is` | Supported | `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (66 absent, 39 partial, 47 supported)
+### Intrinsic functions — 153 names (64 absent, 41 partial, 47 supported)
 
 
 **array** (3)
@@ -783,8 +781,8 @@ missing.
 | `Loc` | **Dies** | fails at name resolution: unregistered. Probed `Debug.Print Loc(1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined (Loc)". docs/interpreter-gaps.md:83. | ExpressionExecutor.cs |
 | `LOF` | **Dies** | fails at name resolution: unregistered. Probed `Debug.Print LOF(1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined (LOF)". docs/interpreter-gaps.md:83. | ExpressionExecutor.cs |
 | `Seek` | **Dies** | fails at name resolution: SEEK is a lexer keyword but is listed in `ambiguousKeyword`, so `Seek(1)` parses as a call. Probed `Debug.Print Seek(1)` -> VBSubOrFunctionNotDefinedException:… | ExpressionExecutor.cs |
-| `Spc` | **Dies** | in both positions, but is implemented in neither. The grammar gives it a dedicated slot - `outputList_Expression : (SPC \| TAB) (WS? LPAREN WS? argsCall WS? RPAREN)? \| valueStmt`… | StatementExecutor.cs |
-| `Tab` | **Dies** | in both positions, implemented in neither - identical shape to Spc. `outputList_Expression : (SPC \| TAB) ...` (Grammar/VB6.g4); probed `Print #1, Tab(5); "a"` -> NotImplementedException… | StatementExecutor.cs |
+| `Spc` | Partial | **[#1380](https://github.com/hexide-io/HexIDE/issues/1380):** in `Print #` and `Debug.Print`, `Spc(n)` writes n spaces, as vb6.exe measured. `Spc` with no count is refused ("Spc with no count is not implemented"), and a negative count, unmeasured, writes nothing. A form's `Print` method is not implemented, so neither is `Spc` in it. | VbPrint.cs |
+| `Tab` | Partial | **[#1380](https://github.com/hexide-io/HexIDE/issues/1380):** in `Print #` and `Debug.Print`, `Tab(n)` moves to column n, on the next line when the line is past it, and a bare `Tab` moves to the next zone, as vb6.exe measured. A form's `Print` method is not implemented, so neither is `Tab` in it. | VbPrint.cs |
 
 **inspection** (15)
 
@@ -1173,7 +1171,7 @@ missing.
 | `App.ProductName` | Partial | Resolves, but is hardwired to the empty string regardless of the project - it is not read from AppInfo at all. VbApp.cs is: case "productname": value = ""; return true; | VbApp.cs |
 | `ClipBoardConstants` | Partial | The nine MEMBER constants are all registered in the built-in constant table and resolve as bare names - vbCFBitmap=2, vbCFDIB=8, vbCFEMetafile=14, vbCFFiles=15, vbCFLink=-16640… | VB6BuiltIns.cs |
 | `Debug` | Partial | Seeded as a program-global CSharpProxy in every module env (BasicInterpreter.cs). DebugProxy.Call implements exactly one member, `Print`, matched in any case. Every other member falls to `throw… | DebugProxy.cs |
-| `Debug.Print` | Partial | A class instance or App raises 438, as VB6's does (measured in the IDE, where Debug.Print runs, for a class, App and Screen; HexIDE has no Screen), or is refused naming #174 for a class with a default member, or prints Err's Number, where it printed the CLR type name. **A control still prints its .NET type name** (#790). DebugProxy.Call routes to IBasicStandardLibrary.DebugPrint - the Immediate window in the IDE, a capture list under test - preserving the typed Vb6Value. A bare `Debug.Print` prints a blank… | DebugProxy.cs |
+| `Debug.Print` | Partial | A class instance or App raises 438, as VB6's does (measured in the IDE, where Debug.Print runs, for a class, App and Screen; HexIDE has no Screen), or is refused naming #174 for a class with a default member, or prints Err's Number, where it printed the CLR type name. **A control still prints its .NET type name** (#790). **[#1380](https://github.com/hexide-io/HexIDE/issues/1380):** prints every item, formatted as `Print #` formats it (spacing, zones, `Spc`, `Tab`, a line left open by `;` or `,`), which is what the VB6 IDE's Immediate window showed, line for line. A line a run leaves open stays open for the next run, with its column, as measured. A list of separators alone, `Debug.Print ,`, does not parse ([#1409](https://github.com/hexide-io/HexIDE/issues/1409)). Each item also reaches IBasicStandardLibrary.DebugPrint as its typed Vb6Value, which the tests assert on, and a bare `Debug.Print` prints a blank line. | DebugProxy.cs |
 | `Err` | Partial | **#840:** used as a value, Err is its Number (measured: `"v=" & Err`, `x = Err`, `Err + 1`, `VarType(Err)` is 3). So is it as a condition: `If Err Then`, `While Err`, `Do While Err` and `Loop While Err` each read the Number (measured, one pass each in the loops). — One program-global VbErr shared by every module env (BasicInterpreter.cs, BasicInterpreter.cs). Number/Description/Source are readable and writable through ICSharpPropertyBag; Clear and… | VbErr.cs |
 | `Err.Raise` | Partial | VbErr.Call `case "raise"` forwards only the first three arguments - `Raise(ToLong(args[0]), args.Count >= 2 ? ... : null, args.Count >= 3 ? ... : null)`. Arguments 4 (HelpFile) and 5… | VbErr.cs |
 | `Err.Source` | Partial | Readable and writable (VbErr.cs, VbErr.cs) and set by Err.Raise when a Source argument is supplied - measured `Err.Raise 5, "src", "desc"` -> Source "src". But Capture deliberately does NOT… | VbErr.cs |
