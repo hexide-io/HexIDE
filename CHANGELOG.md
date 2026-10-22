@@ -185,6 +185,37 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A form's own Click runs** (#1364). A click on the form's area, over no control, ran `Form_MouseDown` and
+  `Form_MouseUp` and never `Form_Click`. Now Click follows MouseUp, for the left, right and middle buttons, as
+  vb6.exe does with real input. As in VB6, a press released over a control or outside the form gives no Click. A
+  double click gives one Click, not two, though DblClick itself is still to come (#1031).
+
+- **Collapsing a language server's fold no longer hides its closing line** (#1363). The editor folds a server's
+  range by whole lines but never said so, so a server could end a fold part-way along its closing line. clangd
+  ends each fold just before its closing brace, and collapsing the fold hid the brace. The client now declares
+  `lineFoldingOnly`, and such a server ends the fold on the line before.
+
+- **`FontSize`, `FontBold`, `FontItalic`, `FontUnderline` and `FontStrikethru`, and a TextBox's own Font** (#1343,
+  #915). The five members stopped a run at the first read or write, and a TextBox had no Font of its own, so Notepad's
+  Format > Font stopped at its first line. Now every control with a font, and the form, reads and writes them as
+  vb6.exe measured: sizes snap to whole pixels, and GDI's bitmap fonts to the heights they have, turning into Arial past
+  a size of their own; the Booleans coerce and refuse as VB6's do. A TextBox draws in its own font, and its Font block
+  saves byte for byte.
+- **The Font dialog's sample draws in the face chosen** (#1353). It always drew in the default face, because a family's
+  name was bound where a FontFamily was wanted.
+
+- **A form the Project Explorer adds is saved into the project** (#1359). Closing the IDE wrote the form's file and
+  left the project file without it, so the next open had no such form, even after Yes to everything in the save
+  prompt. A project holding a form or module that has never been saved now counts as changed, so closing saves its
+  file listing them.
+- **A project is not saved without its never-saved forms** (#497). With the project ticked in the save prompt and a
+  never-saved form not, closing wrote a project file without the form. Where that was the startup form, vb6.exe
+  built the file in silence into a program that starts at `Sub Main`. Now nothing is written, a warning names the
+  files, and the project stays open.
+- **Add Form and Add Module no longer write over a file already in the folder** (#738). A new member's file replaced
+  any file of its name there, such as another project's `Module1.bas` in a shared folder. The Add commands now skip
+  to a number whose file is free, and automation's `add_file` refuses a name whose file is taken.
+
 - **A language server that waits to be told sends document symbols as a tree** (#463). HexIDE read the tree
   but never declared that it could, so a server that honours the declaration, clangd among them, sent the flat
   form and every outline from it lost its nesting.
