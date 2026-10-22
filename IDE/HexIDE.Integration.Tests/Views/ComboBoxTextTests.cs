@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Headless.XUnit;
+using Avalonia.VisualTree;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Projects;
@@ -136,6 +137,31 @@ public class ComboBoxTextTests
 
         (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should()
             .Contain("Style is 2").And.Contain("#1428");
+    }
+
+    // At a combo's height, a TextBox's own padding cut its text off and showed the top of a vertical scroll bar, on the
+    // running form and in the designer, which draws the same control. Its edit box scrolls only sideways, as a single-line
+    // TextBox does (#914).
+    [AvaloniaFact]
+    public void A_combo_s_edit_box_fits_its_height_and_never_scrolls_down()
+    {
+        var combo = new HexIDE.Runtime.BuiltinControls.VBComboBox { Width = 145, Height = 21, Text = "Banana" };
+        var window = new Avalonia.Controls.Window { Content = combo, Width = 300, Height = 100 };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            var box = combo.GetVisualDescendants().OfType<Avalonia.Controls.TextBox>().Single(b => b.Name == "PART_EditableTextBox");
+
+            Avalonia.Controls.ScrollViewer.GetVerticalScrollBarVisibility(box).Should().Be(Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled);
+            box.Bounds.Height.Should().BeLessThanOrEqualTo(combo.Bounds.Height);
+            box.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ScrollBar>().Where(b => b.IsVisible)
+                .Should().NotContain(b => b.Orientation == Avalonia.Layout.Orientation.Vertical);
+        }
+        finally
+        {
+            window.Close();
+        }
     }
 
     private sealed class NullSink : IDeserializeErrorSink { public void LogError(string _) { } }

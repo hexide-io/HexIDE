@@ -1,6 +1,8 @@
 using System;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Layout;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 
@@ -29,6 +31,20 @@ public class VBComboBox : ComboBox
     {
         ComboStyle = comboStyle;
         IsEditable = !IsDropdownList;
+    }
+
+    // The edit box is one line, at a combo's height, which is too short for a TextBox's own padding: its text was cut off
+    // and it showed the top of a vertical scroll bar. It scrolls only sideways, as a single-line TextBox does (#914).
+    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
+    {
+        base.OnApplyTemplate(e);
+        if (e.NameScope.Find<TextBox>("PART_EditableTextBox") is not { } box)
+            return;
+        box.MinHeight = 0;
+        box.Padding = new Thickness(2, 0);
+        box.VerticalContentAlignment = VerticalAlignment.Center;
+        ScrollViewer.SetVerticalScrollBarVisibility(box, ScrollBarVisibility.Disabled);
+        ScrollViewer.SetHorizontalScrollBarVisibility(box, ScrollBarVisibility.Hidden);
     }
 
     /// <summary>0 Dropdown Combo, 1 Simple Combo, 2 Dropdown List. Design-time only, as in VB6.</summary>
