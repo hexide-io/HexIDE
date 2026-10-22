@@ -194,6 +194,18 @@ there isn't one yet. Anything may change between 0.x releases.
 - **The Font dialog's sample draws in the face chosen** (#1353). It always drew in the default face, because a family's
   name was bound where a FontFamily was wanted.
 
+- **A form the Project Explorer adds is saved into the project** (#1359). Closing the IDE wrote the form's file and
+  left the project file without it, so the next open had no such form, even after Yes to everything in the save
+  prompt. A project holding a form or module that has never been saved now counts as changed, so closing saves its
+  file listing them.
+- **A project is not saved without its never-saved forms** (#497). With the project ticked in the save prompt and a
+  never-saved form not, closing wrote a project file without the form. Where that was the startup form, vb6.exe
+  built the file in silence into a program that starts at `Sub Main`. Now nothing is written, a warning names the
+  files, and the project stays open.
+- **Add Form and Add Module no longer write over a file already in the folder** (#738). A new member's file replaced
+  any file of its name there, such as another project's `Module1.bas` in a shared folder. The Add commands now skip
+  to a number whose file is free, and automation's `add_file` refuses a name whose file is taken.
+
 - **A language server that waits to be told sends document symbols as a tree** (#463). HexIDE read the tree
   but never declared that it could, so a server that honours the declaration, clangd among them, sent the flat
   form and every outline from it lost its nesting.

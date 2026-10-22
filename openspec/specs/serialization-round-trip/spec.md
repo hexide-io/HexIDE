@@ -465,6 +465,12 @@ into a program that starts at `Sub Main` (#497).
 - **WHEN** it is closed, and only the project is chosen to be saved
 - **THEN** nothing is written, the warning names `Form1`, and the project stays open
 
+#### Scenario: A saved project that gains a form with no file
+
+- **GIVEN** a saved project to which the Project Explorer has added `Form1`, which has no file yet
+- **WHEN** it is closed, and everything the prompt lists is saved
+- **THEN** the prompt lists the project as well as `Form1`, and the saved project file lists `Form1`
+
 ### Requirement: Files earlier versions of the IDE wrote as UTF-8 SHALL be read as UTF-8
 
 Earlier versions of the IDE wrote a source file as UTF-8 without a byte-order mark exactly when its text held
