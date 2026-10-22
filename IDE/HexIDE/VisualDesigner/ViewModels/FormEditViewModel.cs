@@ -302,7 +302,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// <summary>
     /// A control added by double-clicking its tool: centred on the form as Center in Form centres one, then put on the
     /// nearest grid line when Align to Grid is on, as VB6 puts it (measured, #929: a 1215 x 495 button on a 6000 x 4500
-    /// form went to 2400, 2040, where its centre is 2392.5, 2002.5). A position exactly between two lines was not measured.
+    /// form went to 2400, 2040, where its centre is 2392.5, 2002.5). A position exactly between two lines goes to the
+    /// higher: 12.5 grid units became 13 (measured), where the default to-even rounding gives 12.
     /// </summary>
     public void SpawnControlCenter(ComponentBaseClass componentClass)
     {
@@ -319,7 +320,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         static long OnGrid(long twips, int gridPixels)
         {
             var grid = Twips(gridPixels);
-            return grid <= 0 ? twips : (long)Math.Round(twips / (double)grid) * grid;
+            return grid <= 0 ? twips : (long)Math.Round(twips / (double)grid, MidpointRounding.AwayFromZero) * grid;
         }
     }
 

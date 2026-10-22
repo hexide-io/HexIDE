@@ -168,6 +168,20 @@ public class FormatCommandTwipsTests
     }
 
     [AvaloniaFact]
+    public void An_added_control_centred_exactly_between_two_grid_lines_goes_to_the_higher()
+    {
+        // VB6 put a button whose centre was 12.5 grid units down at 13 (measured). On a 4230-twip square form, HexIDE's
+        // 750-twip control centres at 2115 - 375 = 1740, 14.5 units of 120: the higher line is 1800, and to-even gives 1680.
+        var (vm, form) = Open(Form(4230, 4230));
+
+        vm.SpawnControlCenter(CommandButtonComponentClass.Instance);
+
+        var name = vm.AllComponents.Single(c => c.Instance.BaseClass is CommandButtonComponentClass).Name;
+        Saved(vm, form, name, "Left").Should().Be("1800");
+        Saved(vm, form, name, "Top").Should().Be("1800");
+    }
+
+    [AvaloniaFact]
     public void Without_Align_to_Grid_the_added_control_is_centred_in_whole_twips()
     {
         var (vm, form) = Open(Form(6000, 4500), alignToGrid: false);
