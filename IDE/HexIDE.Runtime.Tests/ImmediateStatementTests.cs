@@ -39,7 +39,7 @@ public class ImmediateStatementTests : BaseVBTestFixture
         var (_, dbg, run) = await BreakWithLocals();
 
         (await dbg.EvaluateAsync("count = 100")).Should().BeEmpty();     // a statement — no echo
-        (await dbg.EvaluateAsync("?count")).Should().Be("100");          // the frame WAS mutated
+        (await dbg.EvaluateAsync("?count")).Should().Be(" 100 ");          // the frame WAS mutated
         (await dbg.EvaluateAsync("greeting = \"Bea\"")).Should().BeEmpty();
         (await dbg.EvaluateAsync("?greeting")).Should().Be("Bea");
 
@@ -53,7 +53,7 @@ public class ImmediateStatementTests : BaseVBTestFixture
         var (_, dbg, run) = await BreakWithLocals();
 
         (await dbg.EvaluateAsync("count = count + 8")).Should().BeEmpty();   // reads then writes count
-        (await dbg.EvaluateAsync("?count")).Should().Be("50");
+        (await dbg.EvaluateAsync("?count")).Should().Be(" 50 ");
 
         dbg.Stop();
         await run.Guarded();
@@ -66,7 +66,7 @@ public class ImmediateStatementTests : BaseVBTestFixture
 
         // `?count = 5` is an EXPRESSION (comparison): count is 42 -> False, and it must NOT assign.
         (await dbg.EvaluateAsync("?count = 5")).Should().Be("False");
-        (await dbg.EvaluateAsync("?count")).Should().Be("42");   // unchanged
+        (await dbg.EvaluateAsync("?count")).Should().Be(" 42 ");   // unchanged
 
         dbg.Stop();
         await run.Guarded();
@@ -78,7 +78,7 @@ public class ImmediateStatementTests : BaseVBTestFixture
         var (_, dbg, run) = await BreakWithLocals();
 
         (await dbg.EvaluateAsync("count = Calc()")).Should().Contain("Immediate");   // user function rejected
-        (await dbg.EvaluateAsync("?count")).Should().Be("42");                        // not mutated
+        (await dbg.EvaluateAsync("?count")).Should().Be(" 42 ");                        // not mutated
 
         dbg.Stop();
         await run.Guarded();

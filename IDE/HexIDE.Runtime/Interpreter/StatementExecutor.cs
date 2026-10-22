@@ -126,16 +126,24 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return string.Empty;
             }
 
-            var tree = interpreter.ParseValueStmt(expr);
+            // Several items, `? a; b`, are Print's output list, which no expression parses as (#1386).
+            if (forcedExpression && PrintListOf(expr) is { } printList)
+                return await PrintToText(printList);
+
+            VB6Parser.ValueStmtContext tree;
+            try { tree = interpreter.ParseValueStmt(expr); }
+            catch (VBCompileErrorException) { return "Syntax error"; }             // the line doesn't parse
             // A FRESH statement-temp frame (omit stmtFrames — it defaults to a new stack), so an eval temp is never
             // adopted into / terminated by the PAUSED statement's frame.
             var evaluator = new ExpressionExecutor(interpreter, currentEnv, currentModule, withTargets);
-            var result = await evaluator.EvaluateValue(tree);
-            return FormatEvalResult(ImmediateValue(result));
+            var result = ImmediateValue(await evaluator.EvaluateValue(tree));
+            return forcedExpression && IsPrintable(result) ? VbPrint.ItemText(result) : FormatEvalResult(result);
         }
         catch (Debugging.ImmediateEvalException ex) { return ex.Message; }        // user-call / New rejection
         catch (VBRunTimeException ex) { return FlattenError(ex.Message); }        // VB6 runtime error (e.g. Error 91)
-        catch (VBCompileErrorException) { return "Syntax error"; }               // parse failure
+        // A compile error raised while evaluating, "Method or data member not found" among them, says so: answered as a
+        // syntax error, it sent #1386 to look at the parser.
+        catch (VBCompileErrorException ex) { return FlattenError(ex.Message); }
         catch (Exception ex) { return FlattenError(ex.Message); }               // defensive (e.g. unsupported expr)
         finally
         {
@@ -274,6 +282,63 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         VbObject or VbErr or VbApp => ObjectAsValue.Scalar(v, null),
         _ => v,
     };
+
+    /// <summary>
+    /// The output list of a <c>?</c> line with more than one item, or separators, as <c>Debug.Print</c> would read it;
+    /// null for a single expression, which <see cref="Debugging.IDebugFrame.EvaluateAsync"/> evaluates itself.
+    /// <para>
+    /// A <c>?</c> line is Print to the Immediate window: the VB6 IDE prints <c>? 5</c> as <c> 5 </c>, and <c>? 1; "a"; 2</c>
+    /// as <c> 1 a 2 </c>, exactly as <c>Debug.Print</c> prints them (measured, #1386).
+    /// </para>
+    /// </summary>
+    private IList<IParseTree>? PrintListOf(string expr)
+    {
+        if (interpreter.TryParseStatement("Debug.Print " + expr) is not { } statement
+            || FirstOfType<VB6Parser.ICS_B_MemberProcedureCallContext>(statement) is not { } call)
+            return null;
+        var children = call.argsCall() is { } list ? list.children : call.PRINT() is not null ? call.children : null;
+        var items = children?.Count(c => c is VB6Parser.ArgCallContext or VB6Parser.OutputList_ExpressionContext) ?? 0;
+        var separated = children?.Any(c => c is ITerminalNode { Symbol.Type: VB6Parser.SEMICOLON or VB6Parser.COMMA }) ?? false;
+        return items > 1 || separated ? children : null;
+    }
+
+    private static T? FirstOfType<T>(IParseTree tree) where T : class, IParseTree
+    {
+        if (tree is T found)
+            return found;
+        for (var i = 0; i < tree.ChildCount; i++)
+            if (FirstOfType<T>(tree.GetChild(i)) is { } inChild)
+                return inChild;
+        return null;
+    }
+
+    /// <summary>Prints an output list as text, from column 1, without the line break it ends with.</summary>
+    private async Task<string> PrintToText(IList<IParseTree> list)
+    {
+        var target = new TextTarget();
+        stmtFrames.Push(new List<Vb6Value>());
+        try { await PrintList(list, target, _ => { }); }
+        finally { await interpreter.FlushFrame(stmtFrames.Pop()); }
+        var text = target.Text;
+        return (text.EndsWith("\r\n", StringComparison.Ordinal) ? text[..^2] : text).Replace("\r\n", "\n");
+    }
+
+    private sealed class TextTarget : VbPrint.ITarget
+    {
+        private readonly System.Text.StringBuilder text = new();
+        public int Column { get; private set; }
+        public string Text => text.ToString();
+
+        public void Write(string written)
+        {
+            Column = VbPrint.ColumnAfter(Column, written);
+            text.Append(written);
+        }
+    }
+
+    // A value Print formats itself. An object, an array and a UDT keep the name FormatEvalResult gives them.
+    private static bool IsPrintable(Vb6Value v) =>
+        v.Type != Vb6Value.ValueType.Object && v.Value is not (VbUdt or Avalonia.Controls.Control or ICSharpProxy) && !v.Type.IsArray;
 
     private static string FormatEvalResult(Vb6Value v)
     {

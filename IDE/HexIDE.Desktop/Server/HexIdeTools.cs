@@ -1892,7 +1892,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "evaluate")]
-    [Description("Runs an Immediate-window line against the paused frame. A leading ?/Print/Debug.Print (or a bare expression) EVALUATES and returns the value (variables, operators, intrinsics). A BARE assignment or Set (e.g. \"count = 7\", \"Set obj = Nothing\") is EXECUTED and mutates the paused frame (returns empty) — whereas \"?count = 7\" compares. User Sub/Function calls are still rejected (they would deadlock the paused gate). Valid only while paused (get_debug_state.state == Paused). Returns the formatted result / empty (for a statement) / a VB6-style error message.")]
+    [Description("Runs an Immediate-window line against the paused frame. A leading ?/Print/Debug.Print EVALUATES and returns what the VB6 Immediate window prints for it, Print formatting and all: \"?count\" gives \" 42 \", a number with a space where its sign would go and one after, and \"?a; b\" or \"?a, b\" prints the list as Debug.Print does. A bare expression returns the value alone (\"count\" gives \"42\"); use it, or add_watch and get_watches, to compare values. A BARE assignment or Set (e.g. \"count = 7\", \"Set obj = Nothing\") is EXECUTED and mutates the paused frame (returns empty) — whereas \"?count = 7\" compares. User Sub/Function calls are still rejected (they would deadlock the paused gate). Valid only while paused (get_debug_state.state == Paused). Returns the formatted result / empty (for a statement) / a VB6-style error message.")]
     public async Task<EvaluateResult> EvaluateAsync(string expression, CancellationToken ct = default)
     {
         if (await Dispatcher.UIThread.InvokeAsync(() => ctx.RootViewModel.ExternalDebugger?.IsActive == true))
