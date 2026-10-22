@@ -190,6 +190,12 @@ there isn't one yet. Anything may change between 0.x releases.
   cancelled its click as it does in VB6. Now Click comes only for a release over the control again, as vb6.exe
   measured; a TextBox and a ListBox, which VB6 lets click wherever the release lands, are unchanged.
 
+- **A control can no longer be given a name already on its form** (#854). The designer checked a new name only
+  against the controls it models, and mostly with case. A rename, a control drawn from the toolbox, or a paste could
+  take the name of a control HexIDE keeps as preserved text, such as a Data or OLE control, or a sibling's name in
+  another case. vb6.exe builds such a form without either control, and logs nothing a build would stop on. Every name
+  on the form now counts, compared without regard to case, as vb6.exe compares them.
+
 - **A list's `ListCount`, `List(i)`, `RemoveItem` and `AddItem`'s index work** (#821), on a ListBox and a ComboBox.
   `ListCount` and `List(i)` were "Method or data member not found", `RemoveItem` ended the run as not implemented, and
   `AddItem "x", 0` appended, leaving the list in another order than the program built. Each now does what vb6.exe
