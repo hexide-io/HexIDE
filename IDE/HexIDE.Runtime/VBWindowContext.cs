@@ -423,6 +423,13 @@ public class VBWindowContext : IModuleExecutionRoot
     }
 
     /// <inheritdoc/>
+    public void ExecuteSubIf(string name, IReadOnlyList<Vb6Value>? args, Func<bool> when)
+    {
+        var argList = args is null ? null : new List<Vb6Value>(args);
+        Raise(name, () => argList, when: when);
+    }
+
+    /// <inheritdoc/>
     public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None) =>
         Raise(name, args, coalescing);
 
@@ -439,7 +446,7 @@ public class VBWindowContext : IModuleExecutionRoot
     }
 
     private void Raise(string name, Func<IReadOnlyList<Vb6Value>?> args,
-        EventCoalescing coalescing = EventCoalescing.None, string? key = null)
+        EventCoalescing coalescing = EventCoalescing.None, string? key = null, Func<bool>? when = null)
     {
         // An event raised before SetCode has no code to run, as when a form's controls fail to build and the
         // run is abandoned half way. It used to reach here anyway and log a NullReferenceException after the
@@ -455,6 +462,9 @@ public class VBWindowContext : IModuleExecutionRoot
             // An event that waited while the run ended runs nothing, and neither does one for a form that has unloaded,
             // whose window and controls VB6 has destroyed, or, in a program, one not loaded yet, which has none (#822).
             if (RunIsOver() || form.FormUnloaded || Program is not null && !form.FormLoaded)
+                return;
+            // Asked at its turn, not when it was raised (#1344).
+            if (when is not null && !when())
                 return;
             await Dispatch(async () =>
             {
