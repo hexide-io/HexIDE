@@ -9901,6 +9901,28 @@ What these add:
 - **An OptionButton raises Click only when it becomes selected,** before MouseUp, as a CheckBox does. A click on one
   already selected raises none.
 
+**And a press released somewhere else** (2026-10-22, #1373). One more probe the same way, native and p-code agreeing
+line for line, holding a windowless Label1, an Image1 with no picture, a TextBox Text1, a Frame1, a PictureBox Picture1
+and a ListBox List1 with three items. Each was clicked, then pressed and released on the form's empty area:
+
+| Input | VB6 |
+|---|---|
+| click on Label1, Image1, Text1, Frame1, Picture1 | MouseDown, MouseUp, Click |
+| press on Label1, Image1, Frame1 or Picture1, release on the form | MouseDown, MouseUp from the control's origin (Label1 `5580 2430`); **no Click** |
+| press on Text1, release on the form | MouseDown, MouseUp (`5550 1080`), **Click** |
+| press on List1's first item, release on the form | MouseDown, **Click**, MouseUp (`2070 2400`) |
+| press on Label1, move onto the form, back onto Label1, release | MouseDown, MouseUp, Click |
+| press on Text1, move onto the form, back onto Text1, release | MouseDown, MouseUp, Click |
+| press on Label1, release on Text1 | Label1 MouseDown, Label1 MouseUp (`480 1470`); no Click, and nothing on Text1 |
+
+What these add:
+- **A Label, an Image, a Frame and a PictureBox raise Click only for a release over them**, whether or not the pointer
+  left them on the way, as the form does.
+- **A TextBox and a ListBox raise Click wherever the release lands.** The obvious guess, that a TextBox checks as a
+  Label does, was wrong. Both are controls that keep the pointer for a drag of their own, a text selection or a
+  list selection, which may be why, but that is a guess.
+- **MouseUp always goes to the pressed control,** in its own coordinates.
+
 ### HexIDE
 
 Before #1364, nothing raised the form's own Click.
@@ -9925,7 +9947,11 @@ control VB6 gives one: a Label, an Image, a PictureBox, a TextBox, a Frame, a Li
 What it still does not do:
 - **A ComboBox and a FileListBox** have a DblClick in VB6, and HexIDE has neither control's events yet.
 - **A press on a Label, an Image, a PictureBox or a TextBox** raises that control's Click wherever the release lands.
-  Only a CommandButton, through Avalonia's own Button, checks (#1373).
+  Only a CommandButton, through Avalonia's own Button, checks (#1373). Since #1373, a Label, an Image, a Frame and a
+  PictureBox raise it only for a release over them: `AttachClick` with `ClickRelease.OverTheControl` hit-tests the
+  release through the window, since the pressed control has the pointer. A TextBox keeps `Anywhere`, as measured, and
+  so does a ListBox (*A ListBox's Click* below). Pinned in `MouseEventTests`, one case per row of *And a press released
+  somewhere else*.
 - **A ListBox raises Click after MouseUp** (#1374). Since #1374 it raises it before: *A ListBox's Click* below.
 
 ## A ListBox's Click: a left press on an item, or code or a key that moves the selection (2026-10-22, #1374)

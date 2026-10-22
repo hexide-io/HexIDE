@@ -185,6 +185,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A Label's, an Image's, a Frame's and a PictureBox's Click needs the release over them** (#1373). A press on one,
+  dragged off and released on the form or another control, still raised Click, so dragging off a control never
+  cancelled its click as it does in VB6. Now Click comes only for a release over the control again, as vb6.exe
+  measured; a TextBox and a ListBox, which VB6 lets click wherever the release lands, are unchanged.
+
 - **A control can no longer be given a name already on its form** (#854). The designer checked a new name only
   against the controls it models, and mostly with case. A rename, a control drawn from the toolbox, or a paste could
   take the name of a control HexIDE keeps as preserved text, such as a Data or OLE control, or a sibling's name in
