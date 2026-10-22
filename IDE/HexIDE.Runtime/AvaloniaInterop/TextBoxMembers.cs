@@ -124,12 +124,12 @@ internal static class TextBoxMembers
         return (Math.Min(a, b), Math.Abs(b - a));
     }
 
+    // Avalonia keeps its caret at the selection's anchor, SelectionStart, and moves SelectionEnd, so the caret goes there
+    // first: CaretIndex clears the selection. A caret left anywhere else misleads its keys. At the end of the text, Ctrl+End
+    // found nothing to move and collapsed the selection to its start, so a paste after it went in at 0 (#1385).
     private static void Select(TextBox box, int start, int end)
     {
-        box.SelectionStart = start;
-        box.SelectionEnd = end;
-        box.CaretIndex = end;
-        // CaretIndex clears the selection in Avalonia, so it is put back after.
+        box.CaretIndex = start;
         box.SelectionStart = start;
         box.SelectionEnd = end;
         set.AddOrUpdate(box, new Set(start, end, box.SelectionStart, box.SelectionEnd));

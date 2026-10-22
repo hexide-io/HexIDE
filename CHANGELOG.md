@@ -191,6 +191,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Ctrl+End after a selection made in code goes to the end of the text** (#1385). After code selected text that ran
+  to the end, such as the Notepad demo's Select All, Ctrl+End put the caret at the start, so a paste went in there and
+  Find Up searched from the middle. Ctrl+End and Ctrl+Home now land where VB6's do, measured with real keys.
+
 - **A project's description is saved in its project file** (#42). Project Properties set it, and nothing wrote it,
   so a description typed there was lost at the next save. It is now read from and written to the `.vbp` as VB6
   writes it: `Description="..."` with a quote inside doubled, after `HelpContextID`, and no line when there is
