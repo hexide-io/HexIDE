@@ -13157,6 +13157,17 @@ p-code under en-GB; every line was identical.
   Long field stores 12 as a Long and 2.5 as 2, and refuses "hello" with 13.
 - **ByVal, or the argument in parentheses, passes a copy.** A parameter of another type is refused at compile time, as it
   is for a variable.
+- **The parameter reads as the field does.** A second probe, under the same conditions, passed fields holding 5 to Subs
+  that evaluate `x * 7000` under `On Error Resume Next`:
+
+  | Argument | `PI(x As Integer)` | `PV(x As Variant)` | `PU(x)` |
+  |---|---|---|---|
+  | `u.i`, `i As Integer` | 6 | 35000 | 35000 |
+  | `u.v`, `v As Variant` | refused | 35000 | 35000 |
+  | `n`, `Dim n As Integer` | 6 | 35000 | not probed |
+
+  So a typed parameter given a typed field is typed, as it is given a variable, and a Variant parameter reads a Variant's
+  either way (#1001).
 
 The same probe, for an array element, native and p-code:
 
@@ -13173,7 +13184,8 @@ So an array element is passed by reference too, and converts into the array's el
 
 A field argument carries the Type instance holding it and its name. A ByRef parameter of the field's type, or an untyped
 or Variant one, gets a slot that reads and writes the field itself, linked for as long as the call runs, so every store
-converts through the field's own `TrySet`. Every field row above is pinned in `ByRefFieldTests`. `PI u.l` is copied rather
+converts through the field's own `TrySet`. The slot is declared as the field is, typed or a Variant, which is what makes
+`x * 7000` overflow in `PI u.i`. Every field row above is pinned in `ByRefFieldTests`. `PI u.l` is copied rather
 than refused, as a variable of another type is. Not done here: a field reached through `With`, an index or an array of a
 Type (#178), and the array-element rows, which HexIDE copies (#1455). `PL2 u.l` is 9, the field passed on through a second ByRef
 parameter.
