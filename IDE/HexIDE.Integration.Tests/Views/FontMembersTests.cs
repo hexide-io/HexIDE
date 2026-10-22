@@ -91,7 +91,8 @@ public class FontMembersTests
         + "Private Sub Form_Load()\r\n"
         + "    Dim v As Variant\r\n"
         + "    On Error Resume Next\r\n"
-        + code
+        // The code comes from raw strings, whose lines end as the checkout ends them, and a .frm's end in CR-LF.
+        + code.ReplaceLineEndings("\r\n")
         + "End Sub\r\n"
         + "\r\n";
 
@@ -130,7 +131,7 @@ public class FontMembersTests
                 Debug.Print "design Label3 Arial 10 -> " & Label3.FontSize & "; Label4 MS Sans Serif 10 -> " & Label4.FontSize _
                     & "; Label5 Arial 0.1 -> " & Label5.FontSize & "; Label6 weight 600 bold=" & Label6.FontBold
 
-            """.Replace("\n", "\r\n")).Should().Equal(
+            """).Should().Equal(
             "types String Single Boolean Boolean Boolean Boolean",
             "design Text1 [Arial 9.75 b=False i=False u=False s=False] Label1 [MS Sans Serif 8.25 b=False i=False u=False s=False]"
             + " Label2 [Tahoma 12 b=True i=True u=False s=False] Form [MS Sans Serif 8.25 b=False i=False u=False s=False]",
@@ -150,7 +151,7 @@ public class FontMembersTests
                 Sizes Label1, "Label1/MSSansSerif", Array(9, 10, 11, 12, 13, 14, 16, 7.5, 36, 0.5)
                 Sizes Me, "Form/MSSansSerif", Array(9, 13)
 
-            """.Replace("\n", "\r\n")).Should().Equal(
+            """).Should().Equal(
             "Text1/Arial FontSize=Integer 8 -> 8.25 err=0",
             "Text1/Arial FontSize=Integer 9 -> 9 err=0",
             "Text1/Arial FontSize=Integer 10 -> 9.75 err=0",
@@ -225,7 +226,7 @@ public class FontMembersTests
                 Me.FontSize = 13
                 Debug.Print "form 13 " & D(Me) & " Text1 " & D(Text1)
 
-            """.Replace("\n", "\r\n")).Should().Equal(
+            """).Should().Equal(
             "FontBold=Boolean True -> True err=0",
             "FontBold=Boolean False -> False err=0",
             "FontBold=Integer 1 -> True err=0",
@@ -286,7 +287,7 @@ public class FontMembersTests
                 Label1.FontName = "MS Sans Serif"
                 Debug.Print "then MS Sans Serif -> " & Label1.FontName & " " & Label1.FontSize
 
-            """.Replace("\n", "\r\n")).Should().Equal(
+            """).Should().Equal(
             "Arial 9 -> 9",
             "then MS Sans Serif -> 8.25",
             "then Arial -> 8.25",
@@ -304,7 +305,7 @@ public class FontMembersTests
                 Text1.FontSize = 12
                 Text1.FontBold = True
 
-            """.Replace("\n", "\r\n"), controls =>
+            """, controls =>
         {
             var box = controls["Text1"];
             box.FontFamily.Name.Should().Be("Arial");
