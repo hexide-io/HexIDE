@@ -121,11 +121,18 @@ public class ProjectSerializer
         // carry. Worth naming rather than hiding — but note the file this affects is corrupted outright
         // today (an `Attribute VB_Name` header prepended to it on any Save Project), so a reordered line is
         // a long way up from where it starts.
+        // A line kept as it was read names its file relative to the folder it was read in. Written to a project file in
+        // another folder, by Save Project As or a save to a directory, it names the same file from there (#737).
+        var keptFrom = project.ItemLinesDirectory
+                       ?? (project.AbsolutePath is { } current ? Path.GetDirectoryName(current) : null);
+        var writtenIn = Path.GetDirectoryName(projectPath) ?? "";
+        string Kept(string line) => keptFrom is null ? line : SerializedProject.RebaseItemLine(line, keptFrom, writtenIn);
+
         foreach (var document in project.RelatedDocuments)
         {
             if (document.OriginalItemLine is { } original)
             {
-                WriteKnownLine(original);
+                WriteKnownLine(Kept(original));
                 continue;
             }
             if (document.AbsolutePath == null)
@@ -144,7 +151,7 @@ public class ProjectSerializer
         // position out. ActiveX Document Dll.vbp is the corpus case: its Name= came back ahead of the
         // HelpFile= and Command32= lines that had preceded it.
         foreach (var preserved in project.PreservedItemLines)
-            WriteKnownLine(preserved);
+            WriteKnownLine(Kept(preserved));
 
         // Startup form name survives even when the form itself couldn't be loaded (missing .frm), so the
         // Startup= line is never dropped. The live StartupForm (if any) takes precedence over the fallback.

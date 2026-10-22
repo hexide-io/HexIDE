@@ -185,6 +185,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Save Project As to another folder no longer cuts off the members the project keeps only as a line** (#737). A
+  form whose file is missing, one that failed to load, or a UserDocument is kept in the project file without being
+  loaded, and its line was written back as it was read. From a new folder that line named a file beside the new
+  project file, where there is none, and the next open lost the member. It now names the same file from wherever the
+  project file is written, as do the original lines of carried files.
 - **DblClick runs** (#1031). It was declared nowhere and raised by nothing, so a `List1_DblClick` or `Form_DblClick`
   never ran. Now a double click raises it on the form and on each control VB6 gives one, in vb6.exe's order with real
   input: MouseDown, MouseUp, Click, DblClick, MouseUp, with no MouseDown for the second press. An OptionButton raises
