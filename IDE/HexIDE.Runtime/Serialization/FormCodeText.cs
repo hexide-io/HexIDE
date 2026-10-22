@@ -34,7 +34,7 @@ public static class FormCodeText
     /// The leading <c>Attribute</c> block of a code section, with its line endings, or <c>""</c> if absent.
     /// </summary>
     /// <remarks>
-    /// Leading blank lines are carried into the block so restoring it cannot introduce or lose one. Only a
+    /// Leading blank lines are carried into the block, so the block and what follows it are the code exactly. Only a
     /// LEADING run counts: an <c>Attribute</c> line further down describes a member — the procedure or variable
     /// declared above it — and is that member's read-only run (<see cref="ReadOnlyRegions"/>), not part of the
     /// file's identity.
@@ -56,33 +56,6 @@ public static class FormCodeText
             end = pos;
         }
         return end == 0 ? "" : code[..Math.Min(end, code.Length)];
-    }
-
-    /// <summary>
-    /// <paramref name="incoming"/> with <paramref name="existing"/>'s attribute block restored when the
-    /// incoming text has none of its own. Returns <paramref name="incoming"/> unchanged otherwise.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>No production caller.</b> <c>set_file_content</c> was the last, and stopped calling this when it went
-    /// through <see cref="GuardedContent"/> (hexide-io/HexIDE#273 task 3.9). That keeps the document's whole
-    /// header in front of code sent alone, designer block and this block together, and refuses content that
-    /// would change it, so it is the rule now; only this method's own tests reach it.
-    /// </para>
-    /// <para>
-    /// It preserved rather than refused, because omitting the block is what a caller does when they mean
-    /// exactly what they said — "replace the code" — and, while the code window still opened on the block as
-    /// ordinary code, the block was not treated as code. The alternative, silently accepting a body that
-    /// destroys the form's identity, is the one behaviour that should not exist, and the guarded path keeps
-    /// that half of the reasoning.
-    /// </para>
-    /// </remarks>
-    public static string PreserveAttributes(string incoming, string existing)
-    {
-        if (AttributeBlock(incoming).Length > 0) return incoming;
-
-        var block = AttributeBlock(existing);
-        return block.Length == 0 ? incoming : block + incoming;
     }
 
     /// <summary>

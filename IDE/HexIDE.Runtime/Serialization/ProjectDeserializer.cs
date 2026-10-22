@@ -277,6 +277,11 @@ public class SerializedProject
     public const string UserDocumentKey = "UserDocument";
     public const string RelatedDocKey = "RelatedDoc";
 
+    // Keys HexIDE does not model, kept as unknown lines, whose value is a path VB6's Save As names from the new folder.
+    public const string DesignerKey = "Designer";
+    public const string ResFileKey = "ResFile32";
+    public const string MakePathKey = "Path32";
+
     // ── A VB6 path is a Windows path, on every host ───────────────────────────────────────────────────
     //
     // A .vbp is a Windows-native format: every path inside one is backslash-separated, whatever machine
@@ -331,10 +336,14 @@ public class SerializedProject
                         .Replace(System.IO.Path.AltDirectorySeparatorChar, '\\');
 
     /// <summary>
-    /// Where the file a member's project-file line names sits in the line: after <c>Name;</c> on a <c>Module=</c> or
-    /// <c>Class=</c> line, the whole value on the bare-path keys. Null for a key that names no member file, and for a
-    /// line whose value is empty.
+    /// Where the path a project-file line names sits in the line: after <c>Name;</c> on a <c>Module=</c> or
+    /// <c>Class=</c> line, inside the quotes on <c>ResFile32=</c> and <c>Path32=</c>, the whole value on the bare-path
+    /// keys. Null for a key whose path does not follow the project file, and for a line whose path is empty.
     /// </summary>
+    /// <remarks>
+    /// <c>HelpFile=</c> names a path too, but VB6's Save As writes it as it was typed (measured, #1406), so it is not one
+    /// of these.
+    /// </remarks>
     public static (string Key, int Start, int Length)? ItemLineFile(string line)
     {
         var eq = line.IndexOf('=');
@@ -353,7 +362,10 @@ public class SerializedProject
                  && !key.Equals(UserControlKey, StringComparison.OrdinalIgnoreCase)
                  && !key.Equals(PropertyPageKey, StringComparison.OrdinalIgnoreCase)
                  && !key.Equals(UserDocumentKey, StringComparison.OrdinalIgnoreCase)
-                 && !key.Equals(RelatedDocKey, StringComparison.OrdinalIgnoreCase))
+                 && !key.Equals(RelatedDocKey, StringComparison.OrdinalIgnoreCase)
+                 && !key.Equals(DesignerKey, StringComparison.OrdinalIgnoreCase)
+                 && !key.Equals(ResFileKey, StringComparison.OrdinalIgnoreCase)
+                 && !key.Equals(MakePathKey, StringComparison.OrdinalIgnoreCase))
             return null;
 
         var end = line.Length;
@@ -361,6 +373,14 @@ public class SerializedProject
             start++;
         while (end > start && char.IsWhiteSpace(line[end - 1]))
             end--;
+        if (key.Equals(ResFileKey, StringComparison.OrdinalIgnoreCase) || key.Equals(MakePathKey, StringComparison.OrdinalIgnoreCase))
+        {
+            // Quoted, as VB6 writes both. A value without its quotes is left as it is.
+            if (end - start < 2 || line[start] != '"' || line[end - 1] != '"')
+                return null;
+            start++;
+            end--;
+        }
         return end > start ? (key, start, end - start) : null;
     }
 
@@ -378,14 +398,27 @@ public class SerializedProject
             return line;
 
         var path = line.Substring(file.Start, file.Length);
+        var rebased = RebasePath(path, fromDirectory, toDirectory);
+        return ReferenceEquals(rebased, path) ? line : line[..file.Start] + rebased + line[(file.Start + file.Length)..];
+    }
+
+    /// <summary>
+    /// <paramref name="path"/>, written in a project file in <paramref name="fromDirectory"/>, as one in
+    /// <paramref name="toDirectory"/> must write it to name the same file. <paramref name="path"/> itself when the folders
+    /// are one, when it is empty, and when it names a drive or starts at a root.
+    /// </summary>
+    public static string RebasePath(string path, string fromDirectory, string toDirectory)
+    {
+        if (path.Length == 0 || fromDirectory.Length == 0 || toDirectory.Length == 0
+            || SameDirectory(fromDirectory, toDirectory))
+            return path;
         // Tested on the path as the file wrote it, not the host's reading of it: on Linux `C:\x` is not rooted, and
         // joining it to a folder would invent a file.
         if (path[0] is '\\' or '/' || (path.Length >= 2 && path[1] == ':'))
-            return line;
+            return path;
 
         var resolved = System.IO.Path.GetFullPath(System.IO.Path.Join(fromDirectory, ToHostPath(path)));
-        var rebased = ToProjectFilePath(System.IO.Path.GetRelativePath(toDirectory, resolved));
-        return line[..file.Start] + rebased + line[(file.Start + file.Length)..];
+        return ToProjectFilePath(System.IO.Path.GetRelativePath(toDirectory, resolved));
     }
 
     private static bool SameDirectory(string a, string b) =>

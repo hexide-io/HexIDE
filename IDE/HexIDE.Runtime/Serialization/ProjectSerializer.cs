@@ -39,11 +39,20 @@ public class ProjectSerializer
         int knownKeyCount = 0;
         int unknownIdx = 0;
 
+        // A line kept as it was read names its file relative to the folder it was read in. Written to a project file in
+        // another folder, by Save Project As or a save to a directory, it names the same file from there: a member kept
+        // as its line, a carried file's original line (#737), and the paths VB6's own Save As rebases among the lines
+        // HexIDE does not model, Designer=, ResFile32= and Path32= (#1406). HelpFile= is left as it was, as VB6 leaves it.
+        var keptFrom = project.ItemLinesDirectory
+                       ?? (project.AbsolutePath is { } current ? Path.GetDirectoryName(current) : null);
+        var writtenIn = Path.GetDirectoryName(projectPath) ?? "";
+        string Kept(string line) => keptFrom is null ? line : SerializedProject.RebaseItemLine(line, keptFrom, writtenIn);
+
         void WriteKnownLine(string line)
         {
             // Interleave unknown lines whose position hint falls at or before this known key
             while (unknownIdx < unknowns.Count && unknowns[unknownIdx].PositionHint <= knownKeyCount)
-                writer.WriteLine(unknowns[unknownIdx++].RawLine);
+                writer.WriteLine(Kept(unknowns[unknownIdx++].RawLine));
             writer.WriteLine(line);
             knownKeyCount++;
         }
@@ -65,7 +74,11 @@ public class ProjectSerializer
             // VB6 reference format: *\G{GUID}#Version#LCID#LibPath#Name. The trailing Name is REQUIRED:
             // vb6.exe /make reports "could not be loaded" for a name-less reference even when the GUID
             // resolves via the registry. LibPath may be empty — VB6 then resolves the typelib from the GUID.
-            var libPath = r.LibPath ?? "";
+            //
+            // A relative LibPath is named from the folder the project file is written in, as VB6's Save As writes it
+            // (#1406). VB6 re-derives the path from the registry; this keeps the one the file had, which is the same
+            // path wherever the type library has not moved.
+            var libPath = keptFrom is null ? r.LibPath ?? "" : SerializedProject.RebasePath(r.LibPath ?? "", keptFrom, writtenIn);
             var refName = r.Name ?? "";
             WriteKnownLine($"{SerializedProject.ReferenceKey}=*\\G{r.Guid}#{r.Version}#{r.Lcid}#{libPath}#{refName}");
         }
@@ -121,13 +134,6 @@ public class ProjectSerializer
         // carry. Worth naming rather than hiding — but note the file this affects is corrupted outright
         // today (an `Attribute VB_Name` header prepended to it on any Save Project), so a reordered line is
         // a long way up from where it starts.
-        // A line kept as it was read names its file relative to the folder it was read in. Written to a project file in
-        // another folder, by Save Project As or a save to a directory, it names the same file from there (#737).
-        var keptFrom = project.ItemLinesDirectory
-                       ?? (project.AbsolutePath is { } current ? Path.GetDirectoryName(current) : null);
-        var writtenIn = Path.GetDirectoryName(projectPath) ?? "";
-        string Kept(string line) => keptFrom is null ? line : SerializedProject.RebaseItemLine(line, keptFrom, writtenIn);
-
         foreach (var document in project.RelatedDocuments)
         {
             if (document.OriginalItemLine is { } original)
@@ -175,7 +181,7 @@ public class ProjectSerializer
 
         // Emit any remaining unknown lines that appeared after all known keys
         while (unknownIdx < unknowns.Count)
-            writer.WriteLine(unknowns[unknownIdx++].RawLine);
+            writer.WriteLine(Kept(unknowns[unknownIdx++].RawLine));
 
         // Append the extension tail (third-party [SectionName]...EOF content)
         if (!string.IsNullOrEmpty(project.ExtensionTail))
