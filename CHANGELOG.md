@@ -208,6 +208,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A typed parameter converts what it is given** (#874). `Sub S(ByVal x As String)` called with `5` received an
+  Integer, `B "abc"` with `ByVal x As Boolean` ran with a String where VB6 raises 13 at the call, and `NI "12"` with
+  `ByVal x As Integer` received 0. A parameter, ByVal or ByRef given a literal, and an Optional default now convert as a
+  store into a variable of the type does.
+
 - **A typed Function or Property Get converts what is stored into its name** (#1444). `FS = 5`, in a Function
   `As String`, returned an Integer, `FD = "0.5"` `As Date` a String, and `FI = 40000` `As Integer` raised its Overflow in
   the caller, after the Function had returned. Each now converts at the store, as VB6 does, so a failure is trapped by

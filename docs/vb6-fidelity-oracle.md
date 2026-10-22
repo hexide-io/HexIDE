@@ -8140,6 +8140,22 @@ runs. HexIDE passes the ByVal Boolean and String cases through unconverted (run 
 Integer, and `B "abc"` runs with a String where VB6 raises 13), and its code sends the Date and ByRef cases down the
 same branch. #874 is the fix.
 
+**HexIDE, since #874.** A copied argument and an Optional default convert into the parameter's declared type through
+the conversion a store into a variable uses, and the parameter's slot is typed, so a store into it converts too. Every
+row above is pinned in `TypedParameterTests`, with a second probe, native and p-code identical under en-GB:
+
+| Call or store | VB6 |
+|---|---|
+| `NI "12"` / `NI "2.5"` / `NI "abc"` / `NI "40000"`, `ByVal x As Integer` | Integer 12 / 2 / 13 at the call / 6 at the call |
+| `NIR "12"`, `x As Integer`, ByRef | Integer 12 |
+| `ND "1.5"` / `ND "&H10"`, `ByVal x As Double` | Double 1.5 / 16 |
+| `Optional x As String = 5` / `As Date = "1/2/2003"` / `As Boolean = 1` / `As Integer = 2.5`, omitted | String "5" / Date 01/02/2003 / Boolean True / Integer 2 |
+| `x = 5` in a `ByVal x As String` parameter / `x = "0.5"` in `ByVal x As Date` | String "5" / Date 00:05:00 |
+| `x = "abc"` in a `ByVal x As Boolean` parameter, under Resume Next | 13, and `x` keeps True |
+
+A numeric parameter given a String was read as 0: `Narrow` takes a String's number as 0, and only `CoerceOnStore`
+parses it. So `NI "12"` was 0 here, a wrong value #874's own table did not reach.
+
 ## A member call inside While...Wend (2026-10-13, #882)
 
 **The question.** Whether each shape of member call runs as one statement in a `While...Wend` body. HexIDE parsed
@@ -13015,7 +13031,8 @@ So every door that converts a String into a Date reads it as `CDate` does. The e
 - **Every row above matches,** pinned in `StringToDateTests` and `ConstAsTypeTests`, except these:
   - `"1,5 10:30"` is 13 (#1445).
   - `"1.5,2003"` is 13 (#1446).
-  - A `ByVal` Date parameter (#874), a UDT's Date field (#221) and a Date Function's return (#1444) still keep the String as it was given.
+  - A UDT's Date field still keeps the String as it was given (#221). A `ByVal` Date parameter and a Date Function's
+    return convert it since #874 and #1444.
 - **Not measured:**
   - A locale whose date separator is a dot, or whose decimal separator is a comma. HexIDE leaves those to .NET's reading.
   - A month-first locale.
