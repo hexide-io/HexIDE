@@ -185,6 +185,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A Label's, an Image's, a Frame's and a PictureBox's Click needs the release over them** (#1373). A press on one,
+  dragged off and released on the form or another control, still raised Click, so dragging off a control never
+  cancelled its click as it does in VB6. Now Click comes only for a release over the control again, as vb6.exe
+  measured; a TextBox and a ListBox, which VB6 lets click wherever the release lands, are unchanged.
+
 - **DblClick runs** (#1031). It was declared nowhere and raised by nothing, so a `List1_DblClick` or `Form_DblClick`
   never ran. Now a double click raises it on the form and on each control VB6 gives one, in vb6.exe's order with real
   input: MouseDown, MouseUp, Click, DblClick, MouseUp, with no MouseDown for the second press. An OptionButton raises
