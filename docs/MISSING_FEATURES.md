@@ -292,7 +292,7 @@
 | View Code | Done | |
 | View Object | Done | |
 | Set as Startup Project | Done | |
-| Add Form (context menu) | Done | |
+| Add Form (context menu) | Done | The same operation as Project > Add Form: the form's file is written and its designer opens (#468). It used to add a form with no file and open nothing. |
 | Remove Form | Done | |
 | Project Properties (context menu) | Done | |
 | Toggle folders | Removed | VB6's button toggled the virtual type folders; both removed with the filesystem-hierarchy rendering (labelled commit, Classic-fork revertible) — [project-explorer](../openspec/specs/project-explorer/spec.md) Phase 1 |
