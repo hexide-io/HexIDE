@@ -199,6 +199,13 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A control's Name and Index can be read at run time** (#1431). Reading `Combo1.Name`, or `ctl.Name` in a generic
+  handler, stopped the program with a compile error that `On Error` couldn't trap, and so did an element's `Index`. Both
+  now read as vb6.exe's do, measured on every kind of control:
+  - **Name** is the control's name, its array's for an element, and a menu's too.
+  - **Index** is an element's index, and 343, "Object not an array", for any other control.
+  - **Assigning either** is VB6's 382, "property cannot be set at run time", which `On Error` can trap.
+
 - **Ctrl+End after a selection made in code goes to the end of the text** (#1385). After code selected text that ran
   to the end, such as the Notepad demo's Select All, Ctrl+End put the caret at the start, so a paste went in there and
   Find Up searched from the middle. Ctrl+End and Ctrl+Home now land where VB6's do, measured with real keys.
