@@ -24,10 +24,18 @@ public class SnapshotCapturePathTests
     }
 
     [Fact]
-    public void A_capture_is_named_for_its_time_and_count()
+    public void A_capture_is_named_for_its_UTC_time_and_count()
     {
-        var path = SnapshotComposer.NewCapturePath(Path.GetTempPath(), new DateTime(2026, 10, 12, 9, 30, 15, 123));
+        var path = SnapshotComposer.NewCapturePath(Path.GetTempPath(), new DateTime(2026, 10, 12, 9, 30, 15, 123, DateTimeKind.Utc));
 
-        Path.GetFileName(path).Should().MatchRegex(@"^hexide_snapshot_20261012-093015-123_\d+\.png$");
+        Path.GetFileName(path).Should().MatchRegex(@"^hexide_snapshot_20261012-093015-123Z_\d+\.png$");
+    }
+
+    [Fact]
+    public void The_tool_names_a_capture_by_the_UTC_clock()
+    {
+        // Local time with no offset could not be lined up against the tools' UTC stamps (#956 review).
+        HexIDE.Tests.Infrastructure.ToolSource.Tools.Single(t => t.Name == "take_snapshot").Body
+            .Should().Contain("NewCapturePath(System.IO.Path.GetTempPath(), DateTime.UtcNow)");
     }
 }

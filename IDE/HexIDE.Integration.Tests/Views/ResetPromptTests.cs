@@ -46,7 +46,7 @@ public class ResetPromptTests : IDisposable
         // A run is in progress, so an edit asks whether to reset it, and the answer waits until a test gives it:
         // the prompt stays open for as long as the test needs, as a modal dialog would.
         debugController.IsSessionActive.Returns(true);
-        windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>())
+        windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>(), Arg.Any<Window?>())
             .Returns(_ => answer.Task);
     }
 
@@ -164,6 +164,22 @@ public class ResetPromptTests : IDisposable
 
         Prompts().Should().Be(1);
         vm.Document.Text.Should().Contain("xUnload Me", "VB6 lets the edit appear while it asks");
+    }
+
+    // Asked over the editor's own window, which it holds, as VB6's prompt holds the IDE: over the active window, often the
+    // running form when a tool typed the key, it left the code usable under it, and the next keys went in, to be reverted
+    // with the edit (#1290).
+    [AvaloniaFact]
+    public void The_prompt_is_asked_over_the_editor_s_window()
+    {
+        var vm = OpenForm();
+        var editor = Show(vm);
+        editor.CaretOffset = InCode(vm);
+
+        Type(editor, "x");
+
+        windowManager.Received(1).MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.YesNo,
+            Arg.Any<MessageBoxIcon>(), TopLevel.GetTopLevel(editor) as Window);
     }
 
     [AvaloniaFact]

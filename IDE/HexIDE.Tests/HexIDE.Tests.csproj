@@ -31,6 +31,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\HexIDE.Dap\HexIDE.Dap.csproj" />
+        <ProjectReference Include="..\HexIDE.Dap.TestAdapter\HexIDE.Dap.TestAdapter.csproj" />
+        <!-- Build-check the opt-in real adapter tool on CI without executing or bundling an external backend. -->
+        <ProjectReference Include="..\HexIDE.Dap.Smoke\HexIDE.Dap.Smoke.csproj" ReferenceOutputAssembly="false" />
         <ProjectReference Include="..\HexIDE\HexIDE.csproj" />
         <ProjectReference Include="..\HexIDE.Runtime\HexIDE.Runtime.csproj" />
         <ProjectReference Include="..\HexIDE.AIChat\HexIDE.AIChat.csproj" />
@@ -47,6 +51,10 @@
         <PackageReference Include="ModelContextProtocol.AspNetCore" />
         <Compile Include="..\HexIDE.Desktop\Server\McpTransport.cs" Link="Infrastructure\McpTransport.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\ToolFailures.cs" Link="Infrastructure\ToolFailures.cs" />
+        <Compile Include="..\HexIDE.Desktop\Server\ArgumentCheck.cs" Link="Infrastructure\ArgumentCheck.cs" />
+        <Compile Include="..\HexIDE.Desktop\Server\OpenDialogNote.cs" Link="Infrastructure\OpenDialogNote.cs" />
+        <Compile Include="..\HexIDE.Desktop\Server\ReplyJson.cs" Link="Infrastructure\ReplyJson.cs" />
+        <Compile Include="..\HexIDE.Desktop\Server\InlineSnapshot.cs" Link="Infrastructure\InlineSnapshot.cs" />
     </ItemGroup>
 
 </Project>

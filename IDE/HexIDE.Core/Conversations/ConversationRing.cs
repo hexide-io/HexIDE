@@ -83,12 +83,14 @@ public sealed class ConversationRing(CaptureLimits limits)
     /// How big the answer was, kept or not. The same reason as above, one tier down: an answer's size is
     /// metadata, so it is recorded on a connection nobody armed.
     /// </param>
+    /// <param name="completedSequence">The sequence the outcome was recorded under, for a poll to find it by.</param>
     public void Complete(
         long sequence,
         ConversationOutcome outcome,
         TimeSpan elapsed,
         long? answerSequence = null,
-        int? answerSizeBytes = null)
+        int? answerSizeBytes = null,
+        long? completedSequence = null)
     {
         lock (_lock)
         {
@@ -101,6 +103,7 @@ public sealed class ConversationRing(CaptureLimits limits)
                     Elapsed = elapsed,
                     AnswerSequence = answerSequence,
                     AnswerSizeBytes = answerSizeBytes,
+                    CompletedSequence = completedSequence,
                 };
                 return;
             }
@@ -121,6 +124,7 @@ public sealed class ConversationRing(CaptureLimits limits)
                         Elapsed = elapsed,
                         AnswerSequence = answerSequence,
                         AnswerSizeBytes = answerSizeBytes,
+                        CompletedSequence = completedSequence,
                     }
                     : e);
             }

@@ -286,7 +286,7 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
             var selectedText = editor.Document.GetText(editor.SelectionStart, editor.SelectionLength);
             // Never inside the header or a member's attribute lines (#273 task 3.9): VB6 never searched the
             // header, because it was not in the code window, and a match there is text only the IDE changes.
-            if (IsMatch(selectedText) && !editor.IsReadOnlyRegion(editor.SelectionStart, editor.SelectionLength))
+            if (!editor.IsReadOnlyDocument && IsMatch(selectedText) && !editor.IsReadOnlyRegion(editor.SelectionStart, editor.SelectionLength))
             {
                 editor.Document.Replace(editor.SelectionStart, editor.SelectionLength, ReplaceText);
                 editor.CaretOffset = editor.SelectionStart + ReplaceText.Length;
@@ -325,6 +325,7 @@ public partial class FindReplaceViewModel : ObservableObject, IDialog
 
     private int ReplaceAllIn(ISearchableDocument target)
     {
+        if (target.IsReadOnlyDocument) return 0;
         var doc = target.Document;
         var count = 0;
 

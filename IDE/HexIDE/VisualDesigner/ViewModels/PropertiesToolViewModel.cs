@@ -106,7 +106,7 @@ public partial class PropertiesToolViewModel : Tool
                             {
                                 currentComponent = component;
                                 Dictionary<PropertyClass, PropertyViewModel> properties = new();
-                                foreach (var propertyClass in component.Instance.BaseClass.Properties.OrderBy(prop => prop.Name))
+                                foreach (var propertyClass in PropertyText.InWindowOrder(component.Instance.BaseClass))
                                 {
                                     var prop = properties[propertyClass] = new PropertyViewModel(this, propertyClass, component.Instance.GetBoxedPropertyOrDefault(propertyClass));
                                     Properties.Add(prop);

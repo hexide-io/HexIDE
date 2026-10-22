@@ -98,6 +98,7 @@ public class StdioProcessNoticeTests
 
         exit.Text.Should().Be("process exited with code 3",
             "the number is the finding; 'the process exited' is what the reader already knew");
+        exit.Fault.Should().BeTrue("a non-zero exit is a failure (#945)");
     }
 
     [Fact]

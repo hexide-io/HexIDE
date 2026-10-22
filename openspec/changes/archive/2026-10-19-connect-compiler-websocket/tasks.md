@@ -1,0 +1,6 @@
+- [x] Track #1196 and archive merged codec requirements.
+- [x] Implement bounded loopback transport with terminal cancellation/disposal semantics.
+- [x] Verify real local WebSocket framing and HTTP upgrade behavior on Windows.
+- [x] Connect the C# transport to an isolated BETA1011 root endpoint.
+- [x] Run Linux library tests and specification/repository checks.
+- [x] Open the transport PR and pause for CI and review.

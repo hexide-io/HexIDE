@@ -11,6 +11,10 @@
 > real language engine or compiler backend takes over, not oversights.
 
 **Corrections applied after the audit (things the audit got slightly wrong):**
+- **Clipboard text is now partial (#1156):** Clear, SetText, GetText and GetFormat(vbCFText) use the host clipboard.
+  Image/data methods, non-text format queries and RTF/Link text are deferred and explicitly refused. VB6 preserves
+  other formats on SetText; the Avalonia host refuses SetText when non-text formats exist until it can preserve
+  them, rather than silently discarding them. Clear followed by SetText is supported.
 - **Numeric line labels** (classic `10  Print "x"` / `GoTo 10`) do **NOT** work — the audit missed this. The
   grammar's `lineLabel` is `ambiguousIdentifier COLON`, so a bare line number never parses as a label and
   `GoTo <number>` raises "Label not defined". Alphanumeric `Name:` labels + `On Error GoTo`/`Resume` *do* work.

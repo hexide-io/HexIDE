@@ -10701,3 +10701,480 @@ Three probes, each compiled native and as p-code. Every line of output was the s
   - the default member is not implemented.
 - **Refused:** a Line on a form whose ScaleLeft or ScaleTop is not 0, such as a y-up graph's, since HexIDE
   applies no origin; and a Line in a PictureBox with a user scale.
+
+## Sequential files (2026-10-17, #1145)
+
+**The probes.** Found by the Notepad demo (`demo/notepad-forms`), which reads and writes its documents with `Open`,
+`Line Input #`, `Print #`, `Close`, `FreeFile` and `EOF`. Two probes, each a form whose `Form_Load` logs to a file on
+number 100 under `On Error Resume Next`, then `End`s. Each probe was built native and p-code, and **all four runs
+agreed**. The input files were written byte for byte with `Put` on a Binary file, and what `Print #` wrote was read
+back the same way and logged as hex. The guest is en-GB, code page 1252.
+
+**Where `Line Input #` ends a line:**
+
+| The file's bytes | Lines read before `EOF` |
+|---|---|
+| `a CR LF b CR LF` | `a`, `b`: a final line break makes no empty last line |
+| `a CR LF b` | `a`, `b` |
+| `a CR LF CR LF` | `a`, `""` |
+| `a CR b CR c` | `a`, `b`, `c`: a lone CR ends a line |
+| `a LF b LF c` | one line, `a LF b LF c`: a lone LF does **not** end one |
+| `a LF CR b` | `a LF`, `b` |
+| `a CR LF b ^Z c CR LF d` | `a`, `b`: **Ctrl+Z (26) ends the file** |
+| no bytes | none: `EOF` is True at once |
+| `caf E9 CR LF` | `café`: the ANSI code page |
+| one line of 70,000 characters | all 70,000 |
+
+After the last line `EOF` is True, and one more `Line Input #` is **62**, "Input past end of file", with the variable
+keeping the value it had. A Variant read into holds a String.
+
+**What `Print #` writes:**
+
+| Statement | Bytes |
+|---|---|
+| `Print #f, "a"` | `a CR LF` |
+| `Print #f, "a";` then `Print #f, "b"` | `ab CR LF` |
+| `Print #f, "a", "b"` | `a`, 13 spaces, `b CR LF` |
+| `Print #f, 5` / `-5` / `1.5` | ` 5 ` / `-5 ` / ` 1.5 `, each then `CR LF` |
+| `Print #f, "x"; 5; "y"` | `x 5 y CR LF` |
+| `Print #f, True` | `True CR LF`: no spaces |
+| `Print #f,` | `CR LF` |
+| `Print #f, "a",` then `Print #f, "c"` | `a`, 13 spaces, `c CR LF` |
+| `Print #f, "a";` then `Print #f, ; "z"` | `az CR LF` |
+| `Print #f, Null` (in a Variant) | `Null CR LF` |
+| `Print #f, "e"; Empty; "e"` | `ee CR LF` |
+| `Print #f, #1/2/2003#` | `02/01/2003 CR LF`: the date as it reads, then a space |
+| `Print #f, ChrW$(&H416)` | `? CR LF`: code page 1252 has no byte for it |
+| `Print #f, CCur(2.5), CSng(0.1), CDbl(1E+20)` | ` 2.5 `, ` 0.1 ` and `1E+20 `, each starting a zone |
+| `"12345678901234567890", "x"` | 8 spaces before `x`: column 20 moves to 28 |
+| `"12345678901234", "x"` | 14 spaces: a zone boundary already reached still moves on, to 28 |
+| `"1234567890123", "x"` | 1 space |
+| `"ab" & vbCrLf & "c", "x"` | 13 spaces after `c`: the column restarts at a line break inside an item |
+| `"ab";` then `"cd", "x"` | 10 spaces after `abcd`: the column carries across statements |
+
+So a number has a space before it where its sign would go and one after, and a date has one after. A string, a
+Boolean and Null have none. A comma moves to the next 14-column zone, and a statement ending in `;` or `,` writes no
+line break.
+
+**Opening, numbering and closing:**
+
+| Probe | Result |
+|---|---|
+| `FreeFile`, `FreeFile(0)`, `FreeFile(1)`, `FreeFile(2)` with nothing open | 1, 1, 256, 256, with no error |
+| `FreeFile` read twice before an `Open` | the same number both times |
+| `FreeFile` with 1 and 2 open | 3 |
+| `Open` For Output on an existing file | truncated: `LOF` 0 |
+| `Open` For Append | adds at the end, and creates a missing file |
+| a missing file For Input | 53, "File not found", and the number stays free |
+| a missing directory, For Input or Output | 76, "Path not found" |
+| a directory as the path | 75, "Path/File access error" |
+| `""` as the path | 75 |
+| a number already open | 55, "File already open" |
+| a second Output, Append or Input of a file open for Output | 55 |
+| a second Output or Append of a file open for Input | 55 |
+| a second Input of a file open for Input | taken |
+| a second Input of one opened `Lock Write` or `Lock Read` | 55 |
+| `Open ... As #0` | 52, "Bad file name or number" |
+| `Open ... As #512` (a literal) | compile error, "Syntax error" |
+| `Open ... As #g` with `g = 512` | taken |
+| `As 3` and `Close 3`, with no `#` | taken, and `Print #3` writes to it |
+| `Access Read` with Input; `Shared` | taken |
+| `For Input Access Write` | compile error, "Syntax error" |
+| `Print #` on an Input file; `Line Input #` on an Output file | 54, "Bad file mode" |
+| `EOF` of an Output file | True, with no error |
+| `Line Input #`, `Print #` or `EOF` on a number not open | 52 |
+| `Close` on a number not open, twice, or `#0` | no error |
+| `Close #g` with `g = -1` | 52 |
+| `Close` with no number | closes every open file, the log's included |
+| a relative path, after `ChDir App.Path` | resolved against the current directory |
+
+**Overturned while measuring.** Our first reading was that `As 3` without the `#` was refused, with 55. It was not:
+`a1.txt` was still open on number 512 from the line before, so the 55 was the second Output of one file. The second
+probe used a fresh file, and `As 3` was taken.
+
+**In HexIDE (#1145):**
+- **All of the above runs**, apart from the two compile errors, which are not raised.
+- **Not implemented:**
+  - Random and Binary mode, `Get`, `Put`, `Input #`, `Write #`, `Input$`, `LOF`, `Loc` and `Seek`;
+  - `Tab` and `Spc` in `Print #`;
+  - `Line Input #` into anything but a plain variable.
+- **The divergences:**
+  - an Input file is read whole when it opens, so a change another program makes while it is open is not seen;
+  - a `Lock` keeps the file only from this program's own second open, not from another process.
+- **Chosen, not measured: where a relative path goes.** Against the project's folder, `App.Path`, until the program
+  runs `ChDir`, and against that directory after it. VB6 resolves one against `CurDir`, which the row above measured,
+  and `CurDir` is the project's folder when the project was opened from Explorer, the usual case. The IDE's own working
+  directory is never used: it is wherever HexIDE was started, and a file written there is one the developer never
+  chose. An unsaved project has no folder, so a relative path in one is refused as not implemented. What `CurDir` is
+  in the VB6 IDE when the project was opened some other way is not measured.
+- **Still a parse failure:** a line holding two `#` file numbers. That is the date-literal token, and it has an issue
+  of its own.
+
+## The CommonDialog control (2026-10-17, #1084)
+
+**The probes.** Found by the Notepad demo (`demo/notepad-forms`), which opens, saves and picks its font through a
+CommonDialog. A form holding one `MSComDlg.CommonDialog`, named `dlg`, whose `Form_Load` logs each step to a file under
+`On Error Resume Next` and then `End`s. The probes were built as p-code and run in the guest's console session on
+Windows 10. A script in that session answered each dialog with `SendKeys`, finding it by its `DialogTitle` and taking
+a screenshot of the font dialog before answering it. Native code was not run: the dialogs are COMDLG32's own, and
+nothing in this probe is arithmetic.
+
+**Types and defaults, before any dialog:**
+
+| Read | Logged |
+|---|---|
+| `TypeName` of the control, FileName, Flags, FilterIndex, CancelError, FontSize, Color, FontName | `CommonDialog String Long Integer Boolean Single Long String` |
+| FileName, FileTitle, Filter, FilterIndex, Flags, CancelError, DialogTitle, DefaultExt, InitDir, FontName, FontSize, FontBold, Color | empty, empty, empty, 0, 0, False, empty, empty, empty, empty, 8, False, 0 |
+
+**Open and Save As:**
+
+| Step | Answer | Logged |
+|---|---|---|
+| `CancelError = True`, `FileName = "keep.txt"`, ShowOpen | Esc | `32755 [Cancel was selected.]`, FileName `keep.txt`, FileTitle empty |
+| `CancelError = False`, `FileName = "keep2.txt"`, ShowOpen | Esc | no error, FileName `keep2.txt` |
+| Filter "Text Documents (*.txt)\|*.txt\|All Files (*.*)\|*.*", FilterIndex 1, DefaultExt `txt`, InitDir `App.Path`, Flags 0, ShowSave | types `abc`, Enter | FileName `C:\hexoracle-cd2\abc.txt`, FileTitle `abc.txt`, FilterIndex 1, Flags 0 |
+| Flags `cdlOFNFileMustExist Or cdlOFNHideReadOnly` (4100), ShowOpen | types `sample.txt`, Enter | the full path, FileTitle `sample.txt`, Flags **6148** |
+| FilterIndex 2 (All Files), Flags 0, ShowSave | types `noext`, Enter | FileName `...\noext.txt`, FilterIndex 2 |
+
+So Cancel leaves every property as it was, with or without the error. 6148 is 4100 plus `cdlOFNPathMustExist` (2048):
+Windows adds it to Flags for a FileMustExist Open. And DefaultExt is added to a name typed without an extension even
+under the "All Files (*.*)" filter.
+
+**Font and Color:**
+
+| Step | Answer | Logged |
+|---|---|---|
+| Flags 0, ShowFont | Esc, after a screenshot | `32755`: on Windows 10 the font dialog shows with no Flags. It does not raise `cdlNoFonts` (24574) |
+| Flags `cdlCFScreenFonts`, FontName Arial, FontSize 12, CancelError True, ShowFont | Esc | `32755`, FontName Arial, FontSize 12 |
+| the same | Enter | no error, Arial, 12 (a Single), FontBold False, FontItalic False, Flags 1 |
+| Flags `cdlCFBoth`, Courier New 10, ShowFont | Enter | Courier New, 10, Flags 3 |
+| `Color = vbRed`, ShowColor | Esc | `32755`, Color 255 |
+| Flags `cdlCCRGBInit`, `Color = vbRed`, ShowColor | Enter | Color 255, Flags 1 |
+
+**The constants.** COMDLG32.OCX's type library holds 102 constants in seven enums. They were dumped with
+`scripts/dump-typelib-constants.ps1` into `IDE/HexIDE.Runtime/Interpreter/Data/comdlg32-constants.json`. Three
+were confirmed by the probe: `cdlCancel` is 32755, `cdlCFBoth` is 3, and `cdlOFNFileMustExist Or cdlOFNHideReadOnly`
+is 4100.
+
+**In HexIDE (#1084):**
+- **Runs:**
+  - ShowOpen, ShowSave and ShowFont, through the IDE's own pickers and font dialog. An automation client answers the
+    pickers with `answer_next_file_dialog`.
+  - Every row above for those three, apart from what follows.
+  - The constants, in a project that references the control.
+- **The CommonDialog lives only at run time.** In the designer and in the file it stays the block the form was read
+  with, so a form holding one saves byte for byte.
+- **The divergences:**
+  - Avalonia's Open picker doesn't say which filter the user chose. After an Open dialog that offered more than one,
+    reading FilterIndex is refused as not implemented, rather than reporting the one the program set. A Save picker
+    reports it, outside the IDE.
+  - The IDE's font dialog has no underline or strikeout, and FontUnderline and FontStrikethru are refused.
+  - Windows sets `cdlOFNExtensionDifferent` when the extension differs from DefaultExt. That is not measured here and
+    not set.
+- **Not implemented:**
+  - ShowColor, ShowPrinter and ShowHelp;
+  - a CommonDialog control array;
+  - the constants qualified by library or enum.
+## Command, and Left$ in a form's code (2026-10-17, #742)
+
+**The probe.** Found by the Notepad demo, whose `Form_Load` reads `Trim$(Command$)` and then takes `Left$(path, 1)`, and
+which stopped on both. A form whose `Form_Load` logs to a file under `On Error Resume Next`, in a project with
+`Command32="hello world"`, built native and p-code and run with no arguments. Both builds agreed.
+
+| Read, in the form's own code | Logged |
+|---|---|
+| `TypeName(Left$("abcdef", 2))`, `Left$("abcdef", 2)` | `String`, `ab` |
+| `TypeName(Left("abcdef", 2))`, `Left("abcdef", 2)` | `String`, `ab` |
+| `Left$(Null, 2)` | raises: the line was skipped, as 94 is for any `$` form given Null |
+| `TypeName(Left(Null, 2))` | `Null` |
+| `TypeName(Me.Left)` | `Single` |
+| `Command$`, and `TypeName` of `Command$`, `Command` and `Command()` | `""`, and `String` for each |
+
+So with arguments `Left$` is VBA's function in a form's code, exactly as `Left` is, and the form's Left property, which
+takes none, is only reached without them. And a made program ignores the project's `Command32`: run with no arguments,
+its `Command$` is empty.
+
+**In HexIDE (#742):** `Left$` with arguments in a form's code runs as VBA's `Left$`. `Command`, `Command()` and
+`Command$` give the project's `Command32`, empty where there is none. That half is chosen rather than measured: VB6
+gives `Command32` under F5, and HexIDE always runs as F5 does. A made program's own process arguments are not passed.
+
+## A TextBox's selection (2026-10-17, #1150)
+
+**The probe.** Found by the Notepad demo, which sets `SelStart` straight after reading a file, and selects with
+SelStart and SelLength to find text. A form with three TextBoxes: Text1, single-line with Text "Text1"; Text2,
+MultiLine; and Text3, Locked. Its `Form_Load` logs each step under `On Error Resume Next`. Built native and p-code,
+and every row agreed.
+
+| Step | Text, SelStart, SelLength, SelText, Err |
+|---|---|
+| `TypeName` of SelStart, SelLength, SelText | `Long Long String` |
+| at design time | `Text1`, 0, 0, empty |
+| `Text1.Text = "Hello world"` | 0, 0: setting Text resets the selection |
+| `SelStart = 6` | 6, 0 |
+| `SelLength = 5` | 6, 5, `world` |
+| `SelText = "there"` | `Hello there`, 11, 0: the caret ends after what was put in |
+| SelStart 2, SelLength 3, then `SelStart = 4` | 4, 0: setting SelStart drops the selection |
+| `SelStart = 100` | 11, 0, no error: the end |
+| `SelStart = -1` | 11, 0, **380** |
+| `SelStart = 6`, `SelLength = 100` | 6, 5, `there`, no error |
+| `SelLength = -1` | 6, 5, **380** |
+| at 0 with nothing selected, `SelText = ">"` | `>Hello there`, 1, 0 |
+| SelStart 3, SelLength 2, then `Text = "new"` | `new`, 0, 0 |
+| `SelStart = 1.6`, then `SelStart = "2"` | 2, then 2 |
+| `SelText = Null`, `SelStart = Null` | **94** each, nothing changed |
+| `Text2.Text = "ab" & vbCrLf & "cd"`, SelStart 3, SelLength 2 | 3, 2, LF and `c`: the caret can sit between the CR and the LF |
+| SelStart 4, SelLength 1 | `c` |
+| `SelStart = Len(Text)`, `SelText = vbCrLf & "ef"` | `ab CRLF cd CRLF ef`, 10 |
+| Text3 (Locked) `"locked"`, start 0, length 1, `SelText = "L"` | `Locked`, 1: Locked keeps out the user, not code |
+| `Text1.MaxLength = 5`, Text `12345`, SelStart 5, `SelText = "678"` | `12345`, 5: SelText keeps to MaxLength |
+
+**In HexIDE (#1150):** every row runs as measured but the last, since HexIDE's TextBox doesn't model MaxLength. Avalonia
+moves a caret placed inside a line break past it, so the selection code sets is remembered and read back while
+Avalonia's has not moved. Once the user moves it, the selection is Avalonia's.
+## A form's WindowState (2026-10-17, #1152)
+
+**The probes.** Found by the Notepad demo, whose `Form_Resize` begins `If WindowState = vbMinimized Then Exit Sub`.
+Two probes, each built native and p-code, and run **in the guest's console session**. In the probe runner's session,
+which has no desktop, every change read back 0, a result about that session rather than about VB6. In the first, Form1
+sets and reads WindowState in `Form_Load`, loads and shows a Form2 whose file says `WindowState = 2 'Maximized`, then
+from a Timer, once shown, sets each state. Its `Form_Resize` logs WindowState and Width each time. In the second,
+`Form_Load` sets `vbMaximized`, and a Timer reads it once the form is shown.
+
+| Step | Logged |
+|---|---|
+| `TypeName(WindowState)` in `Form_Load` | `Integer` |
+| in `Form_Load`: read, then set 1, set 2, set 0, reading after each | 0, 0, 0, 0: a form not yet shown reads 0 |
+| set 3, set -1 | 380, "Invalid property value", for each |
+| set 1.6, set `"0"` | taken, no error |
+| set Null | 94 |
+| Form2, saved maximized: loaded, then shown | 0, then 2 |
+| Form1 shown, then set 2, 1, 0 from the Timer | 2, 1, 0, each with a Resize: Width 15600, 2400, 4740 |
+| the second probe: `vbMaximized` set in `Form_Load`, read once shown | 0 in Load, then one Resize with 2, and 2 |
+
+So a state set before the form is shown, in code or in the file, is the state it shows in, and reads 0 until then.
+2400 twips is the width Windows gives a minimized window.
+
+**In HexIDE (#1152):** WindowState reads and writes as above, on a form's window, and a form saved with a WindowState shows
+in it. Bare and qualified reads use the same getter. Resize comes from the window's size changing, except on minimizing:
+that state transition raises Resize explicitly because Avalonia's Windows backend does not report a client resize.
+Duplicate resize notifications while minimized are suppressed. Not reproduced: a minimized window's 2400-twip
+Width, which Avalonia doesn't report, and what a form hidden after being shown reads, which was not measured.
+
+## File-number hashes and date literals (2026-10-17, #1146)
+
+**Method.** Independent statement snippets compiled with `scripts/vb6-legality.ps1` in the oracle guest, first
+native (the harness default), then with `CompilationType=-1` added to its generated project. Both agreed on every
+result below. These are compile results, not a claim that every accepted date spelling already executes in HexIDE.
+
+**File statements accepted:**
+
+```vb
+Dim s As String: Line Input #1, s: Print #2, s
+Print #1, "a";: Close #1
+Close #1, #2, #3
+Print #1, #1/2/2003#: Close #1
+Print #1, 2, #1/2/2003#
+Dim f As Integer: f = 1: Print #f, 2#: Close #f
+Open "x" For Output As #1: Print #1, "a": Close #1
+Debug.Print Input$(1, #1): Close #1
+Print #1, _
+2#: Close #1
+```
+
+Each is a separate probe (the final two physical lines are one probe). No file need exist to ask the compiler.
+
+**The ambiguity that must remain.** `Debug.Print #1, 2#` compiles. `Print #1, 2#` in a standard module is refused
+with "Method not valid without suitable object": VB6 sees the date, so this is the form's Print method, not file
+1 followed by a Double. `Dim May As Integer: Print #May, 2#` is refused the same way; `Dim f As Integer: Print #f, 2#`
+compiles. A lexer fix that always treats a hash after Print as a file number would therefore change VB6's meaning.
+
+**Date spellings accepted after `Debug.Print`:**
+
+- `#1/2/2003#`, `#1-2-2003#`, `# 1/2/2003 #`, `#2/29#`, `#10.30#`, `#1, 2#`.
+- `#January 2, 2003#`, `#2 Sept 2003#`, `#Jan. 2, 2003#`, `#2 Jan. 2003#`, `#2 Jan.#`.
+- `#Tue, Jan 2, 2001#`, `#Tues, Jan 2, 2001#`, `#Thurs, Jan 4, 2001#`.
+- `#10:30:00 AM#`, `#10:30AM#`, `#10 PM#`, `#10:30 A#`, `#10:30 P#`, `#1/2/2003 10:30 PM#`.
+
+A follow-up, again native and p-code, accepted `#Thur, Jan 4, 2001#`, `#Weds, Jan 3, 2001#`, and
+`#2 Janu 2003#` / `#2 Februar 2003#`. Month-name probes in the form `Debug.Print #2 <name> 2003#` accepted
+`Jan`, `Janu`, `Janua`, `Januar`, `Febr`, `Febru`, `Februa`, `Februar`, `Mar`, `Marc`, `Apri`, `Augu`, `Augus`,
+`Septem`, `Octob`, `Novem`, `Decem`, `January` and `September`. They refused the shorter `J`, `Ja`, `F`, `Fe`,
+`M`, `Ma`, `Ap`, `Au`, `S`, `Se`, `O`, `Oc`, `N`, `No`, `D`, `De`. The token rule therefore retains name
+prefixes from three letters onward, not just the usual three-letter abbreviations and full spellings.
+
+**Refused with "Syntax error":** `#1#`, `#1, #`, `#1, 2, #`, `#January#`, `#1Jan2000#`, `#10:30 a.m.#`,
+and `#10:30 p.m.#`, each following `Debug.Print`. In particular a comma before the closing hash is not a date:
+`Print #1, 2, #1/2/2003#` must retain its file number and its real date, not start with a spurious `#1, 2, #` token.
+
+**Execution, native and p-code.** A `CopyFiles() As String` helper supplied to `scripts/vb6-oracle.ps1` used file
+numbers 10 and 11, leaving the harness's output file alone. Its body, inside `On Error GoTo Failed`, was:
+
+```vb
+Dim s As String, result As String
+Open App.Path & "\source.txt" For Output As #10
+Print #10, "alpha": Print #10, "beta": Close #10
+Open App.Path & "\source.txt" For Input As #10: Open App.Path & "\copy.txt" For Output As #11
+Do While Not EOF(10)
+    Line Input #10, s: Print #11, s
+Loop
+Print #11, "tail";: Close #10, #11
+Open App.Path & "\copy.txt" For Input As #10
+result = Input$(LOF(10), #10): Close #10
+CopyFiles = Replace(Replace(result, vbCr, "<CR>"), vbLf, "<LF>")
+```
+
+The error label returned `"ERR" & Err.Number`; neither build reached it. Both returned
+`alpha<CR><LF>beta<CR><LF>tail`, TypeName `String`. `SequentialFileTests` checks those bytes after the same copy loop.
+
+**In HexIDE:** both grammars now delimit a date using date/time components, separators and an optional meridiem.
+This fixes the file-number collision without adding statement-context rules or claiming complete calendar validation.
+`FileNumberGrammarTests` in each test project guards the file tokens and preserved date tokens.
+
+## Missing built-in objects and shadowing (#871, 2026-10-17)
+
+Measured with `scripts/vb6-oracle.ps1`, native and p-code (`CompilationType=-1`), with identical results:
+
+| Expression | Value | TypeName of result |
+|---|---|---|
+| `TypeName(Screen)` | `Screen` | `String` |
+| `TypeName(Clipboard)` | `Clipboard` | `String` |
+| `TypeName(Printer)` | `Printer` | `String` |
+| `TypeName(Printers)` | `Object` | `String` |
+| `TypeName(Forms)` | `Object` | `String` |
+
+For each of the five names, this declaration and expression `Shadowed()` returned `local`, type `String`,
+under both compilation modes (substitute each name for `Screen`):
+
+```vb
+Option Explicit
+Function Shadowed() As String
+    Dim Screen As String
+    Screen = "local"
+    Shadowed = Screen
+End Function
+```
+
+A user function also shadows each global. Supplying the following declaration and evaluating bare `Screen`
+returned `function`, type `String`, for all five substituted names, native and p-code:
+
+```vb
+Function Screen() As String
+    Screen = "function"
+End Function
+```
+
+HexIDE still does not implement these objects. Its unresolved bare and member reads now throw
+`NotImplementedException` before the implicit Empty fallback or the Option Explicit undeclared-name error.
+This engine limitation cannot be swallowed by `On Error`. Normal name resolution runs first so declared
+variables and user functions keep their measured precedence. Indexed object access and assignment behavior
+are outside this change.
+
+## Text Clipboard (#1156, 2026-10-17)
+
+Measured with `scripts/vb6-oracle.ps1` in the Windows oracle guest, native and p-code (`CompilationType=-1`).
+Both modes returned the same values and errors. The clipboard belongs to the guest, not the development desktop.
+
+### Defaults, text and format presence
+
+`Clipboard.Clear` followed by `Clipboard.GetText` returns an empty **String**, and `GetFormat(1)` is **Boolean False**.
+`SetText "hello"` followed by `GetText`, `GetText()` or `GetText(1)` returns `hello`, **String**. Setting `""` or
+`Empty` leaves `GetText` empty but makes `GetFormat(1)` **True**: empty text is a present format.
+`SetText 42` reads back `42`; `SetText True` reads back `True`. `SetText "a" & Chr$(0) & "b"` reads back only `a`.
+
+The reusable format probe (evaluate `Probe(mode, format, "new")`) was:
+
+```vb
+Function Probe(ByVal mode As Integer, ByVal fmt As Variant, ByVal txt As Variant) As String
+    On Error Resume Next
+    Dim v As Variant, n As Long
+    Clipboard.Clear
+    If mode = 1 Then
+        v = Clipboard.GetFormat(fmt)
+    ElseIf mode = 2 Then
+        Clipboard.SetText "hello"
+        Err.Clear
+        v = Clipboard.GetText(fmt)
+    ElseIf mode = 3 Then
+        Clipboard.SetText "old"
+        Err.Clear
+        Clipboard.SetText txt, fmt
+        n = Err.Number
+        v = Clipboard.GetText
+    End If
+    If n = 0 Then n = Err.Number
+    Err.Clear
+    Probe = CStr(n) & ":" & TypeName(v) & ":" & CStr(v) & ":has=" & CStr(Clipboard.GetFormat(1))
+End Function
+```
+
+| Format argument | GetFormat after Clear | GetText after SetText "hello" | SetText "new", format after SetText "old" |
+|---|---|---|---|
+| `1`, `1.4`, `"1"` | False, Boolean | hello, String | new, String |
+| `0`, `2`, `3`, `7`, `8`, `9`, `13`, `14`, `15`, `16`, `17`, `-1`, `32767`, `1.5`, `Empty`, `True` | False, Boolean | error 460 | error 460; old text retained |
+| `32768` | error 6 | error 6 | error 6; old text retained |
+| `"bad"` | error 13 | error 13 | error 13; old text retained |
+| `Null` | error 94 | error 13 | error 13; old text retained |
+| `vbCFRTF` (`-16639`) | False, Boolean | empty, String | old plain text retained; RTF added |
+| `vbCFLink` (`-16640`) | False, Boolean | empty, String | error 294; old text retained |
+
+`SetText Null` raises 94 and leaves the cleared clipboard without text. Through `Dim c As Object: Set c = Clipboard`,
+`c.Clear 1`, `c.SetText` and `c.GetFormat` each raise **450**, captured with On Error Resume Next.
+
+### ANSI best-fit conversion and multiple formats
+
+This helper returned `65`, `79`, `63`, `8364`, `63` (all **Long**) for arguments `256`, `937`, `1046`, `8364`, `20013`:
+
+```vb
+Function U(ByVal n As Long) As Long
+    Clipboard.Clear
+    Clipboard.SetText ChrW$(n)
+    U = AscW(Clipboard.GetText)
+End Function
+```
+
+The guest's Windows-1252 clipboard therefore maps U+0100 to A, U+03A9 to O, U+0416 and U+4E2D to ?, and keeps the euro
+sign. This is best-fit ANSI conversion, not simply replacing every unencodable character with ?.
+
+The following helper returned `True:{\rtf1 old}:new`, **String**, in both modes:
+
+```vb
+Function KeepFormats() As String
+    Clipboard.Clear
+    Clipboard.SetText "{\rtf1 old}", vbCFRTF
+    Clipboard.SetText "new"
+    KeepFormats = CStr(Clipboard.GetFormat(vbCFRTF)) & ":" & Clipboard.GetText(vbCFRTF) & ":" & Clipboard.GetText
+End Function
+```
+
+**HexIDE's supported slice:** the Clipboard object, Clear, default/vbCFText GetText and SetText, and GetFormat(vbCFText).
+Its methods await the host under the event pump's suspension boundary. The desktop and IDE hosts use Avalonia's
+window clipboard. RTF, Link, image/data methods and other format queries are explicitly refused, not reported absent.
+Since Avalonia's SetText clears other formats, the host refuses SetText while non-text formats exist until those can
+be preserved. Clear followed by SetText works; that is what the Notepad demo does.
+
+**Live Windows follow-up, 2026-10-18:** built the PR's desktop application at `905e3506` and launched it with an
+isolated user-data directory and copies of the unmodified Notepad demo forms. HexIDE MCP was now available.
+`dump_visual_tree`, `inspect_element` and `take_snapshot` confirmed the running form and text. Breakpoints in
+`mnuEdit_Click`, `mnuEditCopy_Click` and `mnuEditPaste_Click` confirmed the VB6 handlers executed, rather than merely
+the TextBox's native editing commands. The following checks passed with no runtime error (`raised:false`, sequence 0):
+
+- Copy placed `Clipboard live check` on the native Windows clipboard, independently read back with PowerShell.
+- Cut emptied the selected editor text; Paste restored it, verified with `inspect_element`.
+- Text set by an external PowerShell process pasted as `External clipboard text`.
+- Clearing the native clipboard externally and invoking the Edit handler disabled the Paste menu item.
+- Pausing after Clipboard.Clear returned False from `Clipboard.GetFormat(vbCFText)`. Setting the selection length
+  to zero before the next SetText stored empty text: the following GetFormat was True and Len(GetText) was 0.
+- External Unicode text `unicode: ĀΩЖ€中` pasted as `unicode: AO?€?`, matching the measured ANSI best-fit conversion.
+- Save wrote that text in Windows-1252 through the actual file flow (the MCP picker answer supplied the path),
+  and Exit ended the run. Breakpoints and pending picker answers were cleared afterwards.
+
+The Windows native clipboard is verified; Linux host tests remain headless, and no native Linux/macOS clipboard
+verification is claimed. Headless tests also cover preservation refusal when non-text formats exist. The existing
+grammar refuses empty parentheses after `Call` (for example `Call Clipboard.Clear()`); `Call Clipboard.Clear` and
+`Call Clipboard.SetText("hello")` are covered. That pre-existing grammar restriction is outside this clipboard slice.
+
+A function also shadows Clipboard when it supplies the object of a member chain. With class `Box` containing
+`Public Function GetText() As String: GetText = "shadow": End Function`, and a module function
+`Function Clipboard() As Box: Set Clipboard = New Box: End Function` (each statement on its own line), evaluating
+`Clipboard.GetText` returned `shadow`, **String**, native and p-code. The member-lead resolver must check that
+function before returning the host Clipboard object.

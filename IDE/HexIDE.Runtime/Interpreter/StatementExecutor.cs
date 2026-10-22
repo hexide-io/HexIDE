@@ -368,6 +368,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     await interpreter.FlushFrame(stmtFrames.Pop());
                 }
             }
+            catch (Exception ex) when (Locate(ex, stmt)) { throw; }
             catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
             {
                 // On Error Resume Next: a runtime error unwinds the C# stack to the innermost enclosing block;
@@ -464,6 +465,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         try { Environment.CurrentDirectory = path; }
         catch (Exception ex) when (ex is System.IO.DirectoryNotFoundException or System.IO.FileNotFoundException or ArgumentException or System.IO.IOException)
         { throw new VBRunTimeException(context, VBStandardError.PathNotFound); }
+        // The program's files resolve a relative path here from now on (#1145).
+        interpreter.BuiltIns.Files.CurrentDirectory = Environment.CurrentDirectory;
         return ControlFlow.Nothing;
     }
 
@@ -485,9 +488,59 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return ControlFlow.Nothing;
     }
 
+    // `Close` with no number closes every open file, and `Close #f` one that isn't open is no error (measured, #1145).
     public override async Task<ControlFlow> VisitCloseStmt(VB6Parser.CloseStmtContext context)
     {
-        throw new NotImplementedException("Close not implemented");
+        var numbers = context.valueStmt();
+        if (numbers.Length == 0)
+            interpreter.BuiltIns.Files.CloseAll();
+        foreach (var number in numbers)
+            interpreter.BuiltIns.Files.Close(await FileNumber(number));
+        return ControlFlow.Nothing;
+    }
+
+    /// <summary>
+    /// A file number. <c>#f</c> is lexed as one token: the number, or the variable, after the <c>#</c>. Without the
+    /// <c>#</c> it is an ordinary expression, as in <c>Close 3</c>, which VB6 takes too (measured).
+    /// </summary>
+    private async Task<int> FileNumber(VB6Parser.ValueStmtContext valueStmt)
+    {
+        var text = valueStmt.GetText();
+        Vb6Value value;
+        if (text.StartsWith('#'))
+        {
+            var name = text[1..];
+            if (int.TryParse(name, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var literal))
+                return literal;
+            if (!interpreter.TryReadNow(currentEnv, name, out var found, out value, out var need))
+                (found, value) = await interpreter.ReadVariableAfter(currentEnv, name, need!);
+            if (!found)
+            {
+                // An undeclared name is an Empty Variant, so number 0, where Option Explicit doesn't refuse it.
+                if (currentModule.PrePass.RequireVariableDefinitions)
+                    throw new VBVariableNotDefinedException(name);
+                value = new Vb6Value(0);
+            }
+        }
+        else
+            value = await expressionExecutor.EvaluateValue(valueStmt);
+        return Convert.ToInt32(VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Long, valueStmt).Value,
+            System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>A variable a statement stores into, as a Let stores into it: created where Option Explicit allows.</summary>
+    private async Task StoreVariable(string name, Vb6Value value)
+    {
+        if (!interpreter.TryReadNow(currentEnv, name, out var found, out var old, out var need))
+            (found, old) = await interpreter.ReadVariableAfter(currentEnv, name, need!);
+        if (!found)
+        {
+            if (currentModule.PrePass.RequireVariableDefinitions)
+                throw new VBVariableNotDefinedException(name);
+            AllocImplicitVariant(name);
+        }
+        interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, interpreter.CopyForStore(value));
+        await interpreter.ReleaseRef(old);
     }
 
     public override async Task<ControlFlow> VisitConstStmt(VB6Parser.ConstStmtContext context)
@@ -737,7 +790,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var callArgs = await expressionExecutor.EvaluateCallArgs(context.argsCall());
 
         if (value.Type == Vb6Value.ValueType.CSharpProxyObject)
-            ((ICSharpProxy)value.Value!).Call(identifier, callArgs);
+            await interpreter.CallProxy((ICSharpProxy)value.Value!, identifier, callArgs);
         else if (value.Type == Vb6Value.ValueType.Control)
             await ((Control)value.Value!).CallAsync(identifier, callArgs);
         else
@@ -1110,6 +1163,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 return await ConditionHolds(condition, statement);
             }
+            // Located at the condition, where a halt stops (#955): the statement loop around it would say the statement's line.
+            catch (Exception ex) when (ErrorLocation.Note(ex, currentModule.Name, (condition as Antlr4.Runtime.ParserRuleContext ?? statement).Start.Line))
+            {
+                throw;
+            }
             catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
             {
                 interpreter.Err.Capture(ex);
@@ -1161,6 +1219,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     flow = await Visit(stmt);
                     break;
                 }
+                catch (Exception ex) when (Locate(ex, stmt)) { throw; }
                 catch (VBRunTimeException ex) when (errorMode != ErrorMode.ResumeNext && HaltsHere())
                 {
                     // The statement alone runs again, not the statements before it on the line (#1011).
@@ -1452,6 +1511,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // FontName sets the control's font by name (#1141).
             if (FontMembers.TrySet(control, memberIdentifier, value))
                 return default;
+            // A TextBox's SelStart, SelLength and SelText (#1150).
+            if (TextBoxMembers.TrySet(control, memberIdentifier, value))
+                return default;
 
             throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} type {variable.Type} doesn't have member {memberIdentifier}");
         }
@@ -1519,9 +1581,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
     }
 
+    // The next line of an Input file, without its ending (#1145). At the end of the file it is 62, and the variable keeps
+    // what it had (measured), so the line is read before anything is stored.
     public override async Task<ControlFlow> VisitLineInputStmt(VB6Parser.LineInputStmtContext context)
     {
-        throw new NotImplementedException("LineInput not implemented");
+        RequireHash(context.valueStmt(0), "Line Input");
+        var number = await FileNumber(context.valueStmt(0));
+        var target = context.valueStmt(1).GetText();
+        if (!System.Text.RegularExpressions.Regex.IsMatch(target, "^[A-Za-z][A-Za-z0-9_]*$"))
+            throw new NotImplementedException($"Line Input # into {target} is not implemented: only a plain variable is (#1145)");
+        var line = interpreter.BuiltIns.Files.LineInput(number);
+        await StoreVariable(target, new Vb6Value(line));
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitLineLabel(VB6Parser.LineLabelContext context)
@@ -1644,15 +1715,86 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         throw new NotImplementedException("OnGoSub not implemented");
     }
 
+    // Open For Input, Output or Append (#1145). Random and Binary aren't implemented. An Access clause is taken as it
+    // stands, and a Lock keeps the file from being opened again by this program; Len = sizes a buffer, which this has none.
     public override async Task<ControlFlow> VisitOpenStmt(VB6Parser.OpenStmtContext context)
     {
-        throw new NotImplementedException("Open not implemented");
+        var mode = context.INPUT() != null ? VbFileMode.Input
+            : context.OUTPUT() != null ? VbFileMode.Output
+            : context.APPEND() != null ? VbFileMode.Append
+            : throw new NotImplementedException(
+                $"Open For {(context.RANDOM() != null ? "Random" : "Binary")} is not implemented: Input, Output and Append are (#1145)");
+        var path = (string)VbNumeric.CoerceOnStore(await expressionExecutor.EvaluateValue(context.valueStmt(0)),
+            Vb6Value.ValueType.String, context.valueStmt(0)).Value!;
+        var locked = context.LOCK_READ() != null || context.LOCK_WRITE() != null || context.LOCK_READ_WRITE() != null;
+        interpreter.BuiltIns.Files.Open(path, mode, locked, await FileNumber(context.valueStmt(1)));
+        return ControlFlow.Nothing;
     }
 
+    /// <summary>
+    /// <c>Print #</c> (#1145), measured on vb6.exe: each item as it reads, a number with a space before it for the sign
+    /// and one after, a date with one after, True and strings as they are, Null as "Null" and Empty as nothing. A
+    /// semicolon joins two items, a comma moves to the next 14-column zone, and the line ends with CR LF unless the
+    /// statement ends in either.
+    /// </summary>
     public override async Task<ControlFlow> VisitPrintStmt(VB6Parser.PrintStmtContext context)
     {
-        throw new NotImplementedException("Print not implemented");
+        var files = interpreter.BuiltIns.Files;
+        RequireHash(context.valueStmt(), "Print");
+        var number = await FileNumber(context.valueStmt());
+        files.Column(number);   // 52 or 54 before anything is evaluated
+        var joined = false;
+        if (context.outputList() is { } list)
+        {
+            foreach (var child in list.children)
+            {
+                if (child is VB6Parser.OutputList_ExpressionContext item)
+                {
+                    if (item.valueStmt() is not { } expression)
+                        throw new NotImplementedException("Tab and Spc in Print # are not implemented (#1145)");
+                    files.Write(number, PrintText(await expressionExecutor.EvaluateValue(expression)));
+                    joined = false;
+                }
+                else if (child is ITerminalNode { Symbol.Type: VB6Parser.SEMICOLON })
+                    joined = true;
+                else if (child is ITerminalNode { Symbol.Type: VB6Parser.COMMA })
+                {
+                    var column = files.Column(number);
+                    files.Write(number, new string(' ', (column / PrintZone + 1) * PrintZone - column));
+                    joined = true;
+                }
+            }
+        }
+        if (!joined)
+            files.Write(number, "\r\n");
+        return ControlFlow.Nothing;
     }
+
+    private const int PrintZone = 14;
+
+    // `Print #` and `Line Input #` need the `#`, where Open and Close take a number without one. The grammar sends
+    // `Print 1, "x"` and `Print "a", "b"` here too, and those are a form's Print method, not a file's, so neither may
+    // reach a file: that would write the program's text where it never asked.
+    private static void RequireHash(VB6Parser.ValueStmtContext number, string statement)
+    {
+        if (!number.GetText().StartsWith('#'))
+            throw new NotImplementedException(statement == "Print"
+                ? "Print without a # file number is a form's Print method, which is not implemented"
+                : $"{statement} without a # file number is not implemented");
+    }
+
+    private static string PrintText(Vb6Value value) => value.Value switch
+    {
+        _ when value.IsNull => "Null",
+        null => "",
+        string s => s,
+        bool b => b ? "True" : "False",
+        DateTime => VbDisplay.ToText(value) + " ",
+        byte or short or int or long or float or double or decimal =>
+            (Convert.ToDouble(value.Value, System.Globalization.CultureInfo.InvariantCulture) < 0 ? "" : " ")
+            + VbDisplay.ToText(value) + " ",
+        _ => VbDisplay.ToText(value),
+    };
 
     public override async Task<ControlFlow> VisitPutStmt(VB6Parser.PutStmtContext context)
     {
@@ -2690,7 +2832,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         if (value.Type == Vb6Value.ValueType.CSharpProxyObject)
         {
-            ((ICSharpProxy)value.Value!).Call(identifier, callArgs);
+            await interpreter.CallProxy((ICSharpProxy)value.Value!, identifier, callArgs);
         }
         else if (value.Type == Vb6Value.ValueType.Control)
         {
@@ -2957,6 +3099,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     await interpreter.FlushFrame(stmtFrames.Pop());
                 }
             }
+            catch (Exception ex) when (Locate(ex, stmts[pc])) { throw; }
             catch (GoToSignal g)
             {
                 pc = ResolveLabel(labels, g.Label);
@@ -2964,7 +3107,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             catch (ResumeSignal r)
             {
                 if (faultPc < 0)
-                    throw new VBRunTimeException(r.Context, VBStandardError.ResumeWithoutError);   // Error 20
+                    throw Raised(new VBRunTimeException(r.Context, VBStandardError.ResumeWithoutError));   // Error 20
                 inHandler = false;
                 pc = r.Kind switch
                 {
@@ -3031,12 +3174,25 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private async Task<bool> Halt(VBRunTimeException error, int line)
     {
         currentLine = line;
+        ErrorLocation.Note(error, currentModule.Name, line);
         var halt = interpreter.DebugController!.HaltAsync(error, line, currentModule.Name, this).AsTask();
         return interpreter.Events is { } events ? await events.WhileSuspended(halt) : await halt;
     }
 
-    private static int ResolveLabel(Dictionary<string, int> labels, string label) =>
-        labels.TryGetValue(label, out var idx) ? idx : throw new VBCompileErrorException("Label not defined: " + label);
+    // Notes where an error passing out of stmt was raised (#955), and never catches: the first catch of each statement
+    // loop, so the innermost statement notes it before a handler or a halt sees it. At the statement's line, where a
+    // halt stops; a condition notes its own first (ConditionMet).
+    private bool Locate(Exception error, ParserRuleContext stmt) => ErrorLocation.Note(error, currentModule.Name, stmt.Start.Line);
+
+    // An error raised in a statement loop's own catch, which that loop's Locate cannot see: at the statement running.
+    private T Raised<T>(T error) where T : Exception
+    {
+        ErrorLocation.Note(error, currentModule.Name, currentLine);
+        return error;
+    }
+
+    private int ResolveLabel(Dictionary<string, int> labels, string label) =>
+        labels.TryGetValue(label, out var idx) ? idx : throw Raised(new VBCompileErrorException("Label not defined: " + label));
 
     // Internal control signals (not VB runtime errors — never trapped by On Error).
     private sealed class GoToSignal(string label, Antlr4.Runtime.ParserRuleContext context) : Exception

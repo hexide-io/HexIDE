@@ -331,7 +331,7 @@
 |---|---|---|
 | Cursor / pointer tool | Done | |
 | Label | Done | |
-| TextBox | Done | |
+| TextBox | Partial | Text, Change, the colours, focus and the mouse events run. SelStart, SelLength and SelText read and write at run time as vb6.exe measured ([#1150](https://github.com/hexide-io/HexIDE/issues/1150)). MultiLine, ScrollBars, MaxLength, Locked, PasswordChar and Alignment are kept in the file but not applied at run time, and its own Font is not drawn ([#915](https://github.com/hexide-io/HexIDE/issues/915)) |
 | Frame | Done | |
 | CommandButton | Done | |
 | CheckBox | Done | |
@@ -349,6 +349,7 @@
 | Image | Done | `ImageComponentClass` + `VBImage`; decodes an .frx picture record by peeling both the record framing and the StdPicture preamble. Raises Click and the mouse events, hit-tested across its whole rectangle with or without a picture (#974); DblClick is #1031 |
 | OLE | Windows-only | OLE Container control; in-process COM hosting; Windows only |
 | PictureBox | Done | |
+| CommonDialog | Partial | ShowOpen, ShowSave and ShowFont run, through the IDE's own pickers and font dialog, which an automation client answers with `answer_next_file_dialog`. Cancel, CancelError, FileName, FileTitle, Filter, DefaultExt, the Font properties and the control's 102 constants are as vb6.exe measured (oracle, "The CommonDialog control"). It lives only at run time: the designer shows the block the form was read with and saves it byte for byte. ShowColor, ShowPrinter and ShowHelp are not implemented ([#1084](https://github.com/hexide-io/HexIDE/issues/1084)) |
 | Common controls (MSCOMCTL et al.) | Missing | ListView, TreeView, ImageList, ProgressBar and the rest of the ActiveX controls VB6 shipped in the box, re-implemented cross-platform under VB6's own type names, members and `.frm`/`.frx` shape, with nothing hosted through COM. The epic is [#1081](https://github.com/hexide-io/HexIDE/issues/1081), its foundation [#1082](https://github.com/hexide-io/HexIDE/issues/1082), and the controls #1083 to #1100 |
 | Custom tab / component groups | Missing | Single flat list; no tab support |
 | Add/remove controls via Components dialog | Stub | Components dialog Apply is a no-op |
@@ -512,6 +513,7 @@
 | Timer control | Done | |
 | Error handling (On Error Goto / Resume / Err) | Done | interpreter-core Phase 5. **5a:** `On Error Resume Next` (per-block trap → skip faulting statement) + the global `Err` object (`Number`/`Description`/`Source`, `Raise`/`Clear`); natural errors (overflow 6, div-by-zero 11, subscript 9, type-mismatch 13) are trappable via the Phase-2 mapping; legacy `Error n`. **5b:** `On Error GoTo <label>`, `Resume`/`Resume Next`/`Resume <label>`, line labels, `GoTo`, `On Error GoTo 0` (a pc-driver over the procedure body's top-level statements); `Resume` with no active error = Error 20. **Documented limit:** a fault nested inside a top-level construct resumes after the whole construct (nested-granular `Resume` needs a CFG rewrite, which belongs to a real language engine). |
 | Breakpoint / step debugging | Done | Native debugger v1 (Phases 1–4) + v2 (P5–P8) COMPLETE: breakpoints, Break/Continue/End, `Stop`, the amber current-statement bar, **Step Into/Over/Out**, the **Call Stack window (Ctrl+L)**, the **Locals window** (expandable tree, now with a live control's **property surface** + preserved expansion), the evaluating **+ assigning** Immediate window, **Watches** (incl. Break-When-True/Changed **conditional break**), **Data Tips** (hover), **Run To Cursor (Ctrl+F8)**, **Set Next Statement (Ctrl+F9)** — all against the interpreter (cooperative async pause-gate on `IDebugController`). Deferred: calling user procs from Immediate (deadlock-prone), modern per-line conditional-breakpoints/hit-counts (additive Evolution item), the D7 residuals (form `Me` / child-control-tree / proxy expansion). |
+| External debug adapter | Partial | Explicit JSON launch configuration; F5/Break/End and steps route to the external session, with selected-frame Locals, expression Watches and Immediate REPL evaluation, selectable Call Stack, source reveal, session-only gutter/F9 breakpoint editing and verification, output and DAP protocol capture. Single global stop; thread selection, hover values, external break-condition watches, conditional breakpoints and command-specific MCP inspection remain deferred. See [launch configuration](debug-launch.md). |
 | Watch / variable inspection at runtime | Done | Watches window (Add/Edit/Quick Watch, expandable tree; MCP `add_watch`/`get_watches`) + the Locals window + Data Tips (hover in break mode) — native debugger P6/P8 |
 | Call stack | Done | Call Stack window (Ctrl+L) — native debugger P5; MCP `get_call_stack` |
 | DriveListBox / DirListBox / FileListBox | Missing | Controls not implemented ([#164](https://github.com/hexide-io/HexIDE/issues/164)) |

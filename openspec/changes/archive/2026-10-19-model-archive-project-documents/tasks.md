@@ -1,0 +1,6 @@
+- [x] Track model/lifecycle slice in #1184, related to #1122 and #1118.
+- [x] Implement project-qualified entry identity and immutable ordered project/document snapshots.
+- [x] Implement bounded strict text previews and explicit open/reload/close lifecycle.
+- [x] Test real fixture projection, identities, text, metadata, failure atomicity and no filesystem writes.
+- [x] Complete local tests, strict specification validation and repository hygiene check.
+- [x] Open the next PR and pause for CI and review before UI integration.

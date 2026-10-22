@@ -83,6 +83,7 @@ public class HaltOnErrorTests
         public required List<string> Printed { get; init; }
         public required List<string> Failed { get; init; }
         public required List<string> Halts { get; init; }
+        public required List<HexIDE.Runtime.Interpreter.ErrorLocation?> Places { get; init; }
         public required Queue<TaskCompletionSource<bool>> Pending { get; init; }
         public required Action Detach { get; init; }
 
@@ -138,10 +139,12 @@ public class HaltOnErrorTests
 
         // The IDE's dialog, held until the test answers it. End ends the run, as the IDE's does.
         var halts = new List<string>();
+        var places = new List<HexIDE.Runtime.Interpreter.ErrorLocation?>();
         var pending = new Queue<TaskCompletionSource<bool>>();
         controller.HaltHost = async error =>
         {
             halts.Add(error.Message);
+            places.Add(HexIDE.Runtime.Interpreter.ErrorLocation.Of(error));
             var answer = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             pending.Enqueue(answer);
             var debug = await answer.Task;
@@ -172,6 +175,7 @@ public class HaltOnErrorTests
             Printed = printed,
             Failed = failed,
             Halts = halts,
+            Places = places,
             Pending = pending,
             Detach = () => VBDebugConsole.Output -= print,
         };
@@ -270,7 +274,7 @@ public class HaltOnErrorTests
     [AvaloniaFact]
     public void A_tick_waits_behind_a_halt_in_a_nested_handler_and_End_runs_nothing_more()
     {
-        using var run = Start(Ticker + """
+        const string code = Ticker + """
 
             Private Sub Command1_Click()
                 Debug.Print "click begins"
@@ -284,11 +288,15 @@ public class HaltOnErrorTests
             Private Sub Form_Unload(Cancel As Integer)
                 Debug.Print "unload"
             End Sub
-            """);
+            """;
+        using var run = Start(code);
 
         run.Click("Command1");
         Pump();
         run.Halts.Should().ContainSingle().Which.Should().Contain("Division by zero");
+        // Where it was raised, counted as the code window numbers lines: the nested handler's, not the click's (#955).
+        var line = (Header + code).ReplaceLineEndings("\n").Split('\n').ToList().FindIndex(l => l.Contains(@"1 \ d")) + 1;
+        run.Places.Should().ContainSingle().Which.Should().Be(new HexIDE.Runtime.Interpreter.ErrorLocation("Form1", line));
         run.Tick();
         Pump();
         run.Tick();

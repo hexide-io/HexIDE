@@ -103,6 +103,8 @@ public partial class MainViewViewModel : ObservableObject
     }
 
     public DelegateCommand StartDefaultProjectCommand { get; }
+    public DelegateCommand StartExternalDebugCommand { get; }
+    public HexIDE.Debugging.ExternalDebugService? ExternalDebugger { get; }
 
     public DelegateCommand StartDefaultProjectWithFullCompileCommand { get; }
 
@@ -699,7 +701,8 @@ public partial class MainViewViewModel : ObservableObject
         AddinToolWindowService addinToolWindowService,
         IWindowStateService windowStateService,
         HexIDE.Debugging.IBreakpointService breakpointService,
-        HexIDE.Runtime.Debugging.IDebugController debugController)
+        HexIDE.Runtime.Debugging.IDebugController debugController,
+        HexIDE.Debugging.ExternalDebugService? externalDebugger = null)
     {
         Personality = personalityService;
         AddinMenuService = addinMenuService;
@@ -733,6 +736,9 @@ public partial class MainViewViewModel : ObservableObject
         this.editorService = editorService;
         this.breakpointService = breakpointService;
         this.debugController = debugController;
+        ExternalDebugger = externalDebugger;
+        StartExternalDebugCommand = new DelegateCommand(() => StartExternalDebugAsync().ListenErrors(),
+            () => externalDebugger is not null && !projectRunnerService.IsRunning);
         // When the interpreter breaks, bring the offending form/module's code editor forward. The editor view then
         // paints the amber current-statement bar and scrolls to it (it reads the controller's CurrentStop on open).
         debugController.Stopped += info => RevealBreak(info.Module);
@@ -772,7 +778,7 @@ public partial class MainViewViewModel : ObservableObject
             // Recorded BEFORE the dialog, and deliberately not tied to its lifetime: stop_project and
             // shutdown_ide both close open dialogs, so anything that only exists while the modal is up is
             // gone by the time a caller looks. (docs/mcp-server-gaps.md)
-            ReportRuntimeError(RunErrorText.For(e));
+            ReportRuntimeError(RunErrorText.For(e), HexIDE.Runtime.Interpreter.ErrorLocation.Of(e));
         };
 
         // A startup form that cannot be built is reported the way a runtime error is, so the person sees it and
@@ -783,9 +789,9 @@ public partial class MainViewViewModel : ObservableObject
         // error Sub Main did not handle. Those reached only the log or an unrecorded message box (#754).
         projectRunnerService.RunFailed += ReportEndedRun;
 
-        void ReportRuntimeError(string message)
+        void ReportRuntimeError(string message, HexIDE.Runtime.Interpreter.ErrorLocation? where)
         {
-            RuntimeErrors.Record(message);
+            RuntimeErrors.Record(message, where);
             EndIfAsked(new RuntimeErrorViewModel(message)).ListenErrors();
         }
 
@@ -794,7 +800,7 @@ public partial class MainViewViewModel : ObservableObject
         // run is live when the dialog closes, which can be a later one started meanwhile by run_project.
         void ReportEndedRun(string message)
         {
-            RuntimeErrors.Record(message);
+            RuntimeErrors.Record(message, projectRunnerService.FailureLocation);
             windowManager.ShowDialog(new RuntimeErrorViewModel(message)).ListenErrors();
         }
 
@@ -815,7 +821,7 @@ public partial class MainViewViewModel : ObservableObject
         debugController.HaltHost = async error =>
         {
             var message = RunErrorText.For(error);
-            RuntimeErrors.Record(message);
+            RuntimeErrors.Record(message, HexIDE.Runtime.Interpreter.ErrorLocation.Of(error));
             if (!await windowManager.ShowDialog(new RuntimeErrorViewModel(message, canDebug: true)))
                 return true;
             if (projectRunnerService.CanEndProject)
@@ -829,7 +835,7 @@ public partial class MainViewViewModel : ObservableObject
         // meets, rather than VB6's separate compile-error box with OK and Help, because #754 already sends Sub
         // Main's compile errors through this dialog and two routes would answer the same error differently.
         // The run carries on, with the handler abandoned, as it does after a run-time error.
-        VBWindowContext.CompileError += (_, e) => ReportRuntimeError(e.Message);
+        VBWindowContext.CompileError += (_, e) => ReportRuntimeError(e.Message, HexIDE.Runtime.Interpreter.ErrorLocation.Of(e));
 
         // Route `Debug.Print` output from the running program into the Immediate pane (VB6's Immediate window).
         VBDebugConsole.Output += text =>
@@ -837,6 +843,30 @@ public partial class MainViewViewModel : ObservableObject
             Dispatcher.UIThread.Post(() =>
                 Immediate.Document.Insert(Immediate.Document.TextLength, text + "\n"));
         };
+
+        if (externalDebugger is not null)
+        {
+            externalDebugger.Output += text => Immediate.Document.Insert(Immediate.Document.TextLength, text);
+            externalDebugger.Failed += message =>
+            {
+                Immediate.Document.Insert(Immediate.Document.TextLength, message + "\n");
+                OpenImmediateTool();
+            };
+            HexIDE.Dap.DapStop? revealed = null;
+            int? revealedFrame = null;
+            externalDebugger.Changed += () =>
+            {
+                if (externalDebugger.Stop is not { } stop || externalDebugger.SelectedFrame is not { } frame)
+                { revealed = null; revealedFrame = null; return; }
+                var frameId = frame.GetProperty("id").GetInt32();
+                if (stop == revealed && frameId == revealedFrame) return;
+                if (stop != revealed) { OpenLocalsTool(); OpenCallStackTool(); }
+                revealed = stop;
+                revealedFrame = frameId;
+                if (externalDebugger.SelectedLocation is { } location)
+                    editorService.NavigateTo(location.Uri, location.Line, 1);
+            };
+        }
 
         // F5 doubles as Continue in break mode (VB6 semantics): resume if paused, otherwise start.
         StartDefaultProjectCommand = new DelegateCommand(
@@ -875,22 +905,22 @@ public partial class MainViewViewModel : ObservableObject
 
         AddFormCommand = new DelegateCommand(
             () => AddFormAsync().ListenErrors(),
-            () => projectManager.StartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject != null);
         AddModuleCommand = new DelegateCommand(
             () => AddModuleAsync(ModuleKind.StandardModule, "Module").ListenErrors(),
-            () => projectManager.StartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject != null);
         AddClassModuleCommand = new DelegateCommand(
             () => AddModuleAsync(ModuleKind.ClassModule, "Class").ListenErrors(),
-            () => projectManager.StartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject != null);
         AddUserControlCommand = new DelegateCommand(
             () => AddUserControlAsync().ListenErrors(),
-            () => projectManager.StartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject != null);
         AddPropertyPageCommand = new DelegateCommand(
             () => AddPropertyPageAsync().ListenErrors(),
-            () => projectManager.StartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject != null);
         AddFileCommand = new DelegateCommand(
             () => AddFileAsync().ListenErrors(),
-            () => projectManager.StartupProject != null);
+            () => FocusedProjectUtil.FocusedOrStartupProject != null);
 
         bool CanSearchActiveDocument() =>
             documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.ISearchableDocument;
@@ -931,6 +961,7 @@ public partial class MainViewViewModel : ObservableObject
         projectRunnerService.ObservePropertyChanged(x => x.IsRunning)
             .Subscribe(_ =>
             {
+                StartExternalDebugCommand.RaiseCanExecutedChanged();
                 OnPropertyChanged(nameof(Title));
                 OnPropertyChanged(nameof(WindowTitle));
                 if (projectRunnerService.IsRunning)
@@ -1173,7 +1204,18 @@ public partial class MainViewViewModel : ObservableObject
         }
     }
 
-    public void ClearAllBreakpoints() => breakpointService.ClearAll();
+    public void ClearAllBreakpoints()
+    {
+        if (ExternalDebugger?.IsActive == true) ExternalDebugger.ClearAllBreakpoints();
+        else breakpointService.ClearAll();
+    }
+
+    private bool RefuseExternalCommand()
+    {
+        if (ExternalDebugger?.IsActive != true) return false;
+        windowManager.MessageBox(localization.GetString("Str.Debug.External.Unsupported"), icon: MessageBoxIcon.Information).ListenErrors();
+        return true;
+    }
 
     // Bring the code editor for the module the interpreter just broke in to the front (creating/activating its tab).
     private void RevealBreak(string module)
@@ -1201,6 +1243,11 @@ public partial class MainViewViewModel : ObservableObject
     // jumped into without a linearized CFG (a parked rewrite). See docs/debugger-vb6-divergences.md.
     public void SetNextStatement()
     {
+        if (ExternalDebugger?.IsActive == true)
+        {
+            windowManager.MessageBox(localization.GetString("Str.Debug.External.Unsupported"), icon: MessageBoxIcon.Information).ListenErrors();
+            return;
+        }
         if (documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.CodeEditorViewModel code)
         {
             var line = code.Document.GetLineByOffset(code.CaretOffset).LineNumber;
@@ -1217,8 +1264,28 @@ public partial class MainViewViewModel : ObservableObject
     // controller's CurrentStop on open). A no-op when not paused.
     public void ShowNextStatement()
     {
+        if (ExternalDebugger?.IsActive == true)
+        {
+            if (ExternalDebugger.CurrentLocation is { } location)
+                editorService.NavigateTo(location.Uri, location.Line, 1);
+            return;
+        }
         if (debugController.CurrentStop is { } stop)
             RevealBreak(stop.Module);
+    }
+
+    private async Task StartExternalDebugAsync()
+    {
+        if (ExternalDebugger is null || projectRunnerService.IsRunning) return;
+        var paths = await windowManager.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+        {
+            Title = localization.GetString("Str.Menu.Run.StartExternal"),
+            AllowMultiple = false,
+            FileTypeFilter = [new Avalonia.Platform.Storage.FilePickerFileType("JSON") { Patterns = ["*.json"] }],
+        });
+        if (paths?.FirstOrDefault() is not { } file || projectRunnerService.IsRunning) return;
+        OpenImmediateTool();
+        await ExternalDebugger.StartAsync(file);
     }
 
     public Task OpenGithubRepo()
@@ -1229,7 +1296,7 @@ public partial class MainViewViewModel : ObservableObject
 
     private async Task AddFormAsync()
     {
-        var p = projectManager.StartupProject!;
+        if (FocusedProjectUtil.FocusedOrStartupProject is not { } p) return;
         var name = ProjectNaming.NextFreeName(p, "Form");
         var form = await projectService.AddNewForm(p, name);
         editorService.EditForm(form);
@@ -1237,7 +1304,7 @@ public partial class MainViewViewModel : ObservableObject
 
     private async Task AddModuleAsync(ModuleKind kind, string prefix)
     {
-        var p = projectManager.StartupProject!;
+        if (FocusedProjectUtil.FocusedOrStartupProject is not { } p) return;
         var name = ProjectNaming.NextFreeName(p, prefix);
         var module = await projectService.AddNewModule(p, name, kind);
         editorService.EditCode(module);
@@ -1245,7 +1312,7 @@ public partial class MainViewViewModel : ObservableObject
 
     private async Task AddUserControlAsync()
     {
-        var p = projectManager.StartupProject!;
+        if (FocusedProjectUtil.FocusedOrStartupProject is not { } p) return;
         var name = ProjectNaming.NextFreeName(p, "UserControl");
         var module = await projectService.AddNewUserControl(p, name);
         editorService.EditForm(module.FormPart);
@@ -1253,7 +1320,7 @@ public partial class MainViewViewModel : ObservableObject
 
     private async Task AddPropertyPageAsync()
     {
-        var p = projectManager.StartupProject!;
+        if (FocusedProjectUtil.FocusedOrStartupProject is not { } p) return;
         var name = ProjectNaming.NextFreeName(p, "PropertyPage");
         var module = await projectService.AddNewPropertyPage(p, name);
         editorService.EditForm(module.FormPart);
@@ -1270,7 +1337,7 @@ public partial class MainViewViewModel : ObservableObject
     /// </summary>
     private async Task AddFileAsync()
     {
-        var p = projectManager.StartupProject!;
+        if (FocusedProjectUtil.FocusedOrStartupProject is not { } p) return;
         var files = await windowManager.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = localization.GetString("Str.AddItem.AddFile"),

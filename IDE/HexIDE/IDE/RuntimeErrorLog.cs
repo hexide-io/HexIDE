@@ -21,20 +21,25 @@ namespace HexIDE.IDE;
 /// error twice. The counter only ever increases, so a caller that notes it before a run can tell exactly
 /// whether that run added anything.</para>
 /// </remarks>
-public sealed class RuntimeErrorLog
+public sealed class RuntimeErrorLog(TimeProvider? clock = null)
 {
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
     private readonly object _gate = new();
     private string? _message;
+    private HexIDE.Runtime.Interpreter.ErrorLocation? _where;
     private DateTimeOffset _at;
     private int _sequence;
 
-    /// <summary>Records an error. Called from the runtime's error event.</summary>
-    public void Record(string message)
+    /// <summary>Records an error, with where it was raised when a statement raised it (#955).</summary>
+    public void Record(string message, HexIDE.Runtime.Interpreter.ErrorLocation? where = null)
     {
         lock (_gate)
         {
             _message = message;
-            _at = DateTimeOffset.Now;
+            _where = where;
+            // UTC, as every other stamp on the automation surface is: a local one could be lined up against
+            // list_lsp_messages only by converting offsets by hand (#956).
+            _at = _clock.GetUtcNow();
             _sequence++;
         }
     }
@@ -42,12 +47,12 @@ public sealed class RuntimeErrorLog
     /// <summary>
     /// The most recent error, or null when none has been raised since the last <see cref="Clear"/>.
     /// </summary>
-    public (string Message, DateTimeOffset At, int Sequence)? Last
+    public (string Message, DateTimeOffset At, int Sequence, HexIDE.Runtime.Interpreter.ErrorLocation? Where)? Last
     {
         get
         {
             lock (_gate)
-                return _message is null ? null : (_message, _at, _sequence);
+                return _message is null ? null : (_message, _at, _sequence, _where);
         }
     }
 

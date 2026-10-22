@@ -49,11 +49,40 @@ public partial class CodeEditorView : UserControl
     private CancellationTokenSource? _completionCts;
     private OverloadInsightWindow? _insightWindow;
     private CancellationTokenSource? _signatureCts;
+    // The last completion and parameter-info requests, as far as showing what came back.
+    private Task _completionShown = Task.CompletedTask;
+    private Task _signatureShown = Task.CompletedTask;
+
+    /// <summary>
+    /// What the completion list and parameter info <paramref name="editor"/> last asked the language server for are
+    /// still waiting on, null when nothing is: type_text's keyboard mode waits for it after each key, as a person's next
+    /// key comes after the list a letter opened has appeared (#943 review). A request a later key superseded ends then.
+    /// </summary>
+    internal static Task? PendingPopupsOf(TextEditor editor) =>
+        Avalonia.LogicalTree.LogicalExtensions.FindLogicalAncestorOfType<CodeEditorView>(editor) is { } view
+        && ReferenceEquals(view.TextEditor, editor)
+        && !(view._completionShown.IsCompleted && view._signatureShown.IsCompleted)
+            ? Task.WhenAll(view._completionShown, view._signatureShown)
+            : null;
+
+    /// <summary>
+    /// The completion list and parameter info open over <paramref name="editor"/>, the list first, for the automation
+    /// surface (#942). Both are popups parented only logically, to the window, so neither the visual walk nor the routes
+    /// to a control's menus and flyouts reaches them, and a list that was open read as none. Both can be open at once,
+    /// as typing an argument opens a list under the call's parameter info, and then both are returned (#942 review).
+    /// </summary>
+    internal static IReadOnlyList<Avalonia.Controls.Primitives.Popup> OpenPopupsOf(TextEditor editor) =>
+        Avalonia.LogicalTree.LogicalExtensions.FindLogicalAncestorOfType<CodeEditorView>(editor) is { } view && ReferenceEquals(view.TextEditor, editor)
+            ? new Avalonia.Controls.Primitives.Popup?[] { view._completionWindow, view._insightWindow }
+                .Where(p => p is { IsOpen: true }).Select(p => p!).ToList()
+            : [];
     private DocumentHighlightRenderer? _highlightRenderer;
     private CancellationTokenSource? _highlightCts;
     private HexIDE.Debugging.BreakpointMargin? _breakpointMargin;
     private HexIDE.Debugging.CurrentLineRenderer? _currentLineRenderer;
     private HexIDE.Runtime.Debugging.IDebugController? _debugController;
+    private HexIDE.Debugging.ExternalDebugService? _externalDebugger;
+    private Action? _onExternalDebugChanged;
     private Action<HexIDE.Runtime.Debugging.StoppedInfo>? _onDebugStopped;
     private Action? _onDebugContinued;
     private System.ComponentModel.PropertyChangedEventHandler? _vmSelectionSync;
@@ -202,8 +231,27 @@ public partial class CodeEditorView : UserControl
                 .Subscribe(offset =>
                 {
                     if (TextEditor.CaretOffset != offset)
+                    {
+                        // A caret navigated into a fold is opened onto, or it would sit unseen, or be moved off a
+                        // folded member run's end, where it was put (#700 review).
+                        if (_foldingManager is { } folds)
+                            foreach (var fold in folds.GetFoldingsContaining(offset))
+                                if (fold.IsFolded && fold.StartOffset < offset && offset <= fold.EndOffset)
+                                    fold.IsFolded = false;
                         TextEditor.CaretOffset = offset;
+                        // Navigation can arrive while this editor is already active. Moving the
+                        // caret alone does not reveal an offscreen caller or next statement.
+                        TextEditor.ScrollToLine(TextEditor.TextArea.Caret.Line);
+                    }
                 });
+            // A view made for a caret already placed, as navigating to a document not yet open places it, scrolls to
+            // it once it has been laid out: before then there is nothing to scroll, and ScrollToLine does nothing.
+            if (vm.CaretOffset > 0)
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    if (DataContext == vm)
+                        TextEditor.ScrollToLine(TextEditor.TextArea.Caret.Line);
+                }, Avalonia.Threading.DispatcherPriority.Loaded);
 
             // Sync selection from ViewModel → TextEditor. Stored in a field so it can be removed on detach — a
             // Dock document-move re-materialises the view against the SAME persistent VM, so an unremoved handler
@@ -281,12 +329,36 @@ public partial class CodeEditorView : UserControl
             TextEditor.TextArea.LeftMargins.Insert(0, _bookmarkMargin);
 
             // Debugger: breakpoint gutter (red dots, click-to-toggle) + the amber current-statement bar.
-            _breakpointMargin = new HexIDE.Debugging.BreakpointMargin(vm.BreakpointService, vm.Identity, vm.ToggleBreakpoint);
+            _breakpointMargin = new HexIDE.Debugging.BreakpointMargin(vm.BreakpointService, vm.Identity, vm.ToggleBreakpoint,
+                () => vm.ExternalDebugger?.IsActive == true,
+                () => vm.ExternalDebugger?.GetBreakpoints(vm.GetDocumentUriPublic()) ?? [], vm.DescribeExternalBreakpoint);
             TextEditor.TextArea.LeftMargins.Insert(0, _breakpointMargin);
             _currentLineRenderer = new HexIDE.Debugging.CurrentLineRenderer(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Insert(0, _currentLineRenderer);
 
             _debugController = vm.DebugController;
+            _externalDebugger = vm.ExternalDebugger;
+            if (_externalDebugger is not null)
+            {
+                int? displayedExecutionLine = null;
+                _onExternalDebugChanged = () =>
+                {
+                    _breakpointMargin?.RefreshExternal();
+                    int? line = null;
+                    if (_externalDebugger.CurrentLocation is { } location)
+                    {
+                        if (string.Equals(location.Uri, vm.GetDocumentUriPublic(),
+                                OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                            line = location.Line;
+                    }
+                    _currentLineRenderer?.SetLine(line);
+                    if (line != displayedExecutionLine && line is > 0 && line <= TextEditor.Document.LineCount)
+                        TextEditor.ScrollToLine(line.Value);
+                    displayedExecutionLine = line;
+                };
+                _externalDebugger.Changed += _onExternalDebugChanged;
+                _onExternalDebugChanged();
+            }
             _onDebugStopped = info => ShowCurrentStatement(vm, info.Module, info.Line);
             _onDebugContinued = () => _currentLineRenderer?.SetLine(null);
             _debugController.Stopped += _onDebugStopped;
@@ -487,6 +559,10 @@ public partial class CodeEditorView : UserControl
 
         if (_debugController is not null)
         {
+            if (_externalDebugger is not null && _onExternalDebugChanged is not null)
+                _externalDebugger.Changed -= _onExternalDebugChanged;
+            _externalDebugger = null;
+            _onExternalDebugChanged = null;
             if (_onDebugStopped is not null) _debugController.Stopped -= _onDebugStopped;
             if (_onDebugContinued is not null) _debugController.Continued -= _onDebugContinued;
             _debugController = null;
@@ -638,18 +714,22 @@ public partial class CodeEditorView : UserControl
         manager.UpdateFoldings(Vb6FoldingAdapter.Merge(own, server ?? shown), -1);
 
         // The header's section is the one at its offsets. The manager kept the old one if it still starts at the
-        // top of the file, and nothing else can have taken it: the merge drops any other fold starting there.
+        // top of the file, and nothing else can have taken it: the merge drops any other fold starting there. A new
+        // one is left open over a caret inside it, as navigating to a header line in a document not yet open puts it
+        // there before the folds exist, which would fold it away under the caret (#700 review).
+        var caret = TextEditor.TextArea.Caret.Offset;
         if (header is not null)
         {
             foreach (var section in manager.GetFoldingsAt(header.StartOffset))
             {
                 if (section.EndOffset != header.EndOffset) continue;
+                var fresh = !ReferenceEquals(section.Tag, HeaderFoldTag);
                 section.Tag = HeaderFoldTag;
-                section.IsFolded = !vm.HeaderFoldExpanded;
+                section.IsFolded = !vm.HeaderFoldExpanded
+                                   && !(fresh && section.StartOffset < caret && caret <= section.EndOffset);
             }
         }
 
-        var caret = TextEditor.TextArea.Caret.Offset;
         foreach (var run in runs)
         {
             if (run.Key is not { } key || RunSection(run) is not { } section) continue;
@@ -1080,7 +1160,11 @@ public partial class CodeEditorView : UserControl
 
     private void OnPointerExited(object? sender, PointerEventArgs e)
     {
+        // Forgotten, not just cancelled: a pointer coming back to the same point is a new hover, not jitter in the last one,
+        // which the move handler took it for, so it opened no tip (#1265 review).
         _hoverCts?.Cancel();
+        _hoverCts?.Dispose();
+        _hoverCts = null;
         CloseTip();
     }
 
@@ -1190,6 +1274,14 @@ public partial class CodeEditorView : UserControl
         // Armed, not raised: whether the text lands is decided after this, by the read-only section provider.
         if (e.Text is { Length: > 0 })
             ArmResetPrompt();
+        // Over a box selection the editor writes on each of its lines; written here so a fold on them cannot hang it.
+        if (e.Text is { } boxed && TextEditor.TextArea.Selection is RectangleSelection { IsEmpty: false } box)
+        {
+            WriteOverBox(TextEditor.TextArea, box, boxed);
+            e.Handled = true;
+            _completionWindow?.Close();
+            return;
+        }
         // Shift+Enter, and any other input that types a line break, at the end of a described line (#273 task 4.5).
         // Taken here because AvaloniaEdit raises this before it writes and writes nothing once it is handled.
         if (e.Text is { } typed && PlaceTypedLineBreakPastRun(typed))
@@ -1204,6 +1296,36 @@ public partial class CodeEditorView : UserControl
         var ch = e.Text[0];
         if (!char.IsLetterOrDigit(ch) && ch != '_')
             _completionWindow.Close();
+    }
+
+    /// <summary>
+    /// Writes <paramref name="text"/> over a box selection as the editor's own typing does, on each of its lines, with
+    /// any folded section on those lines opened for the write and folded again after it. AvaloniaEdit's box replacement
+    /// rebuilds the box as each line changes, which loops for ever in the text view's height tree when a folded section
+    /// starts on the box's lines, as a member's Attribute run folded under its declaration does (#1040 review).
+    /// </summary>
+    internal static void WriteOverBox(TextArea area, RectangleSelection box, string text)
+    {
+        var document = area.Document;
+        var span = box.SurroundingSegment;
+        var (first, last) = (document.GetLineByOffset(span.Offset), document.GetLineByOffset(span.EndOffset));
+        var folds = area.TextView.GetService(typeof(FoldingManager)) as FoldingManager;
+        var opened = folds?.AllFoldings
+            .Where(f => f.IsFolded && f.StartOffset <= last.EndOffset && f.EndOffset >= first.Offset)
+            .ToList() ?? [];
+        foreach (var fold in opened)
+            fold.IsFolded = false;
+        try
+        {
+            box.ReplaceSelectionWithText(text);
+        }
+        finally
+        {
+            // A fold the write took away is no longer the manager's to fold.
+            var kept = folds?.AllFoldings.ToHashSet();
+            foreach (var fold in opened.Where(f => kept?.Contains(f) == true))
+                fold.IsFolded = true;
+        }
     }
 
     // VB6-faithful Edit-and-Continue affordance: the interpreter can't apply an edit to a running program, so a code
@@ -1287,7 +1409,9 @@ public partial class CodeEditorView : UserControl
     {
         try
         {
-            var reset = await vm.ConfirmResetWhileRunningAsync();
+            // Over a minimized window, an owned window does not show, and the prompt could not be answered.
+            var reset = await vm.ConfirmResetWhileRunningAsync(
+                TopLevel.GetTopLevel(this) is Window { IsVisible: true, WindowState: not WindowState.Minimized } window ? window : null);
             // No → undo every edit made since the prompt opened, back to the pre-edit code. Yes → keep the edit
             // (the run reset was already requested), matching VB6. The code alone goes back, never the whole
             // buffer: the header may have been rewritten while the prompt was open (see RevertBodyTo).
@@ -1383,8 +1507,56 @@ public partial class CodeEditorView : UserControl
         // Enter = auto-close block + auto-indent
         if (e.Key == Key.Return && e.KeyModifiers == KeyModifiers.None)
         {
-            if (HandleEnterAutoClose())
-                e.Handled = true;
+            // Over a selection, Enter writes over it, as typing does and as Shift+Enter did (#1040): the selection goes,
+            // and the line break goes where it was, as one change. Typing is not a deletion, so a described line's run is
+            // not taken with it. A selection reaching a region only the IDE may change takes nothing, as typing there does.
+            using (TextEditor.Document.RunUpdate())
+            {
+                var removed = false;
+                // A box's text goes first, each line's as the read-only sections allow, and Enter is then the caret's.
+                // The editor's own would write the line break over the box as a paste of two lines, one to a line.
+                if (TextEditor.TextArea.Selection is RectangleSelection { IsEmpty: false } box)
+                {
+                    WriteOverBox(TextEditor.TextArea, box, string.Empty);
+                    TextEditor.TextArea.ClearSelection();
+                    removed = true;
+                }
+                if (EditedSpan() is var (offset, length) && length > 0)
+                {
+                    var vm = DataContext as CodeEditorViewModel;
+                    if (vm is not null && vm.RefusesTyping(offset, length))
+                    {
+                        e.Handled = true;
+                        return;
+                    }
+                    // At the end of a described line the break goes after the run, as Shift+Enter's does: placed with
+                    // the span it replaces in hand, since taking the selection first would leave the run under nothing.
+                    // A selection within one line that leaves code before it leaves the line its run hangs from, so it
+                    // goes first and Enter is then the caret's, re-casing the line and closing its block as at its end.
+                    var line = TextEditor.Document.GetLineByOffset(offset);
+                    var keepsLine = offset + length <= line.EndOffset
+                                    && !string.IsNullOrWhiteSpace(TextEditor.Document.GetText(line.Offset, offset - line.Offset));
+                    var indent = VbAutoCloseProvider.GetIndentation(TextEditor.Document.GetText(line.Offset, line.Length));
+                    if (!keepsLine && vm?.InsertLineBreakPastRun(offset, length, "\n" + indent) is { } placed)
+                    {
+                        // The replaced text's selection would otherwise carry over onto the line break.
+                        TextEditor.TextArea.ClearSelection();
+                        TextEditor.TextArea.Caret.Offset = placed.End;
+                        e.Handled = true;
+                        return;
+                    }
+                    TextEditor.TextArea.Selection.ReplaceSelectionWithText(string.Empty);
+                    removed = true;
+                }
+                if (HandleEnterAutoClose())
+                    e.Handled = true;
+                else if (removed)
+                {
+                    // Auto-close failed: the line break still goes in this change, not as the editor's second one.
+                    TextEditor.Document.Insert(TextEditor.CaretOffset, "\n");
+                    e.Handled = true;
+                }
+            }
         }
         // F12 = go to definition
         else if (e.Key == Key.F12 && e.KeyModifiers == KeyModifiers.None)
@@ -1794,7 +1966,7 @@ public partial class CodeEditorView : UserControl
 
         var caret = TextEditor.TextArea.Caret.Position;
         var lspPos = new Position(caret.Line - 1, caret.Column - 1);
-        _ = ShowCompletionAsync(vm, lspPos, token);
+        _completionShown = ShowCompletionAsync(vm, lspPos, token);
     }
 
     private async Task ShowCompletionAsync(CodeEditorViewModel vm, Position position, CancellationToken token)
@@ -1840,7 +2012,7 @@ public partial class CodeEditorView : UserControl
 
         var caret = TextEditor.TextArea.Caret.Position;
         var lspPos = new Position(caret.Line - 1, caret.Column - 1);
-        _ = ShowSignatureHelpAsync(vm, lspPos, token);
+        _signatureShown = ShowSignatureHelpAsync(vm, lspPos, token);
     }
 
     private void CloseInsightWindowIfBalanced()
@@ -2144,6 +2316,10 @@ internal sealed class VbCompletionData(CompletionItem item, Func<int, int, bool>
 {
     public string Text => item.Label;
     public object Content => item.Label;
+
+    // What an item reads as to the automation surface, whose ListBoxItem holds this object rather than the text: an item
+    // was named by its position alone, and selecting one by its text found none (#942 review).
+    public override string ToString() => Text;
     public object? Description => item.Detail;
     public double Priority => 0;
     public IImage? Image => null;

@@ -286,6 +286,23 @@ public class ConversationExportTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task A_fault_travels_with_its_envelope()
+    {
+        // A failures filter reads it, so a reader of the export must be able to as well (#945).
+        _log.Record("vb6", ConversationDirection.Local, ConversationEntryKind.Lifecycle, null, null, 0,
+            detail: "could not connect: refused", fault: true);
+        _log.Record("vb6", ConversationDirection.Local, ConversationEntryKind.Lifecycle, null, null, 0, detail: "connecting");
+
+        var export = await ConversationExporter.ExportAsync(_log, Redactor(), clock: FixedClock);
+
+        using var manifest = Manifest(export);
+        var rows = manifest.RootElement.GetProperty("envelopes").EnumerateArray().ToArray();
+        rows.Should().HaveCount(2);
+        rows[0].GetProperty("fault").GetBoolean().Should().BeTrue();
+        rows[1].TryGetProperty("fault", out _).Should().BeFalse("only a fault says so");
+    }
+
+    [Fact]
     public async Task TheCountsInTheManifestAgreeWithTheFile()
     {
         // A manifest that disagrees with its own file is worse than no manifest, because it is the thing a

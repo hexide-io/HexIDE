@@ -46,6 +46,12 @@ public partial class VB6BuiltIns
         this.stdLib = stdLib;
     }
 
+    /// <summary>What <c>Command</c> answers: the project's command line arguments, empty where it has none.</summary>
+    internal string CommandLine { get; set; } = "";
+
+    /// <summary>The program's open files (#1145), which FreeFile and EOF read and the file statements use.</summary>
+    internal VbFiles Files { get; } = new();
+
     public async Task<Vb6Value?> EvaluateBuiltInFunction(string name, List<Vb6Value> args)
     {
         // An unknown name is not a built-in, and its callers say so loudly ("Sub or Function not defined", or not
@@ -129,6 +135,13 @@ public partial class VB6BuiltIns
         RegisterDateTime(d);
         RegisterFormat(d);
         RegisterColor(d);
+        // The command line, a String (measured): empty in a made program run with none.
+        d["Command"] = (self, a, _) => a.Count == 0
+            ? new Vb6Value(self.CommandLine)
+            : throw new VBRunTimeException(VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
+        // FreeFile is an Integer, 1 with nothing open, and FreeFile(1) the first from 256 (measured, #1145).
+        d["FreeFile"] = (self, a, _) => new Vb6Value(self.Files.FreeFile(Supplied(a, 0) ? AsInt(a[0]) : 0));
+        d["EOF"] = (self, a, _) => new Vb6Value(self.Files.Eof(AsInt(a[0])));
         // DoEvents, for code run with no window, as a module test's is: nothing can be waiting, so it does nothing. A program
         // running in a window reaches BasicInterpreter.CallBuiltIn first, which runs what is waiting, as VB6 does (#766).
         // VB6 returns the open-form count; Integer 0 lets both `DoEvents` and `x = DoEvents` run (documented approximation).
@@ -300,5 +313,9 @@ public partial class VB6BuiltIns
     /// VBRUN's 0 (measured). The caller must check the project's own declarations first: a user
     /// <c>Enum</c> or <c>Const</c> of the same name wins over any library.</summary>
     public bool TryGetBuiltInConstant(string name, out Vb6Value constant)
-        => VB6InBoxLibraries.TryBare(name, out constant);
+        => VB6InBoxLibraries.TryBare(name, out constant)
+           || (CommonDialogReferenced && CommonDialogConstants.TryBare(name, out constant));
+
+    /// <summary>Whether the project references the CommonDialog control, whose constants then resolve (#1084).</summary>
+    internal bool CommonDialogReferenced { get; set; }
 }

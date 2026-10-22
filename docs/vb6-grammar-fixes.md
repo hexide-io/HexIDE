@@ -8,6 +8,18 @@
 >
 > **Upstreaming is deferred for now.** This file accumulates fixes so they can be PR'd cleanly later.
 
+## File-number hashes and date literals (#1146)
+
+Both lexers formerly matched any text between two hashes as `DATELITERAL`, consuming file statements such as
+`Line Input #1, s: Print #2, s` and close lists such as `Close #1, #2`. The token now consists of numeric or named
+date components separated by date/time punctuation or whitespace, with an optional AM/PM (or A/P) suffix.
+A separator cannot end the literal. This is token delimiting, not calendar validation.
+
+The oracle's "File-number hashes and date literals" records native and p-code compile probes, including the
+surprise that `Print #1, 2#` really does contain a date in VB6. There is no statement-context override that
+would turn it into a file operation. Both test projects carry the same token/parse cases, and the runtime
+suite also copies a file with multiple file numbers on each source line.
+
 ## Clean-room rule (hard — never relax)
 
 Every fix here is authored **only** from the **VB6 Language Reference** (MSDN aa338033) and, where relevant,

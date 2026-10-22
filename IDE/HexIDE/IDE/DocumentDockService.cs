@@ -69,7 +69,11 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
     {
         this.factory = factory;
         this.eventBus = eventBus;
-        projectUnloadedSub = eventBus.Subscribe<ProjectUnloadedEvent>(_ => CloseAll());
+        projectUnloadedSub = eventBus.Subscribe<ProjectUnloadedEvent>(_ =>
+        {
+            foreach (var document in openDocuments.Where(d => d is not ArchiveDocumentViewModel).ToArray())
+                CloseDocument(document);
+        });
     }
 
     private DocumentDock? Dock => factory.Value.DocumentDock;

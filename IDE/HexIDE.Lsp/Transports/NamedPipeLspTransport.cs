@@ -454,7 +454,8 @@ public sealed class NamedPipeLspTransport : ILspTransport
         // died during startup it is very nearly the only fact there is.
         Notice?.Invoke(this, new TransportNotice(
             TransportNoticeKind.Lifecycle,
-            code is null ? "process exited" : $"process exited with code {code}"));
+            code is null ? "process exited" : $"process exited with code {code}",
+            Fault: code is not (null or 0)));
 
         Closed?.Invoke(this, EventArgs.Empty);
     }

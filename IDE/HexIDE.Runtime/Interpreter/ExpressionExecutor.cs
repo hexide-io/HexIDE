@@ -513,6 +513,15 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             (found, var) = await interpreter.ReadVariableAfter(env, identifier, foundNeed!);
         if (found)
             return var;
+        if (identifier.Equals("Clipboard", StringComparison.OrdinalIgnoreCase))
+        {
+            // A function named Clipboard can supply the member-chain's object too, not just a bare value.
+            if (interpreter.TryResolveProcedure(identifier, currentModule, out _, out var proc) && proc.IsFunction
+                && await interpreter.CallProcedure(identifier, [], currentModule, callerEnv: env, callerFrames: stmtFrames) is { } result)
+                return result;
+            return new Vb6Value(interpreter.Clipboard);
+        }
+        VbIntrinsicNames.RefuseMissingObject(identifier);
         throw new VBVariableNotDefinedException(identifier);
     }
 
@@ -544,8 +553,18 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     {
         if (ctx.iCS_S_VariableOrProcedureCall() is { } varOrProcCall)
         {
-            if (varOrProcCall.typeHint() != null)
+            // `Command$` with no parentheses, the library's function with no arguments and its result a String (measured).
+            // Any other name with a type character is still refused (#742).
+            if (varOrProcCall.typeHint() is { } hint)
+            {
+                var hinted = varOrProcCall.ambiguousIdentifier().GetText();
+                if (hint.GetText() == "$" && BareDollarForms.Contains(hinted)
+                    && !env.TryGetVariableLocation(hinted, out _)
+                    && !interpreter.TryResolveProcedure(hinted, currentModule, out _, out _)
+                    && await EvaluateFunction(hinted, []) is { } bareResult)
+                    return DollarResult(bareResult, varOrProcCall);
                 throw new NotImplementedException("Type hint is not supported");
+            }
             if (varOrProcCall.dictionaryCallStmt() != null)
                 throw new NotImplementedException("dictionaryCallStmt is not supported");
             var identifier = varOrProcCall.ambiguousIdentifier().GetText();
@@ -576,6 +595,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 // variable/constant/user Function of the same name still wins above.
                 if (await EvaluateFunction(identifier, []) is { } builtInFn)
                     return builtInFn;
+                if (identifier.Equals("Clipboard", StringComparison.OrdinalIgnoreCase))
+                    return new Vb6Value(interpreter.Clipboard);
                 // Nothing else claims the name, so VB6 makes it a variable: reading an undeclared name is
                 // legal and yields Empty (measured). LAST, after procedures and intrinsics — a mistyped
                 // function call must not become a silent Empty. (#171)
@@ -585,6 +606,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 // watch on an undeclared name would create it and fire a change the program never made.
                 // That is not hypothetical: it broke WatchBreakTests, which caught the observer changing
                 // what it observed. The write path allocates; a read only reports.
+                VbIntrinsicNames.RefuseMissingObject(identifier);
                 if (currentModule.PrePass.RequireVariableDefinitions || interpreter.SuppressImplicitDeclaration)
                     throw new VBVariableNotDefinedException(identifier);
                 // A name VB6 defines as an intrinsic is NOT an undeclared variable, and must not quietly
@@ -648,9 +670,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// <summary>The library's functions that have a <c>$</c> form, every one measured to compile and answer a String.</summary>
     private static readonly HashSet<string> DollarForms = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Chr", "ChrB", "ChrW", "CurDir", "Environ", "Error", "Format", "Hex", "LCase", "Left", "LeftB", "LTrim", "Mid",
+        "Chr", "ChrB", "ChrW", "Command", "CurDir", "Environ", "Error", "Format", "Hex", "LCase", "Left", "LeftB", "LTrim", "Mid",
         "MidB", "Oct", "Right", "RightB", "RTrim", "Space", "Str", "String", "Trim", "UCase",
     };
+
+    /// <summary>The <c>$</c> forms read with no parentheses, as a variable is: measured for each.</summary>
+    private static readonly HashSet<string> BareDollarForms = new(StringComparer.OrdinalIgnoreCase) { "Command" };
 
     /// <summary>Library functions on which VB6 refuses a <c>$</c> at compile time (measured).</summary>
     private static readonly HashSet<string> DollarRefused = new(StringComparer.OrdinalIgnoreCase)
@@ -734,13 +759,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // takes no index, and reaches a default member where it does (`Controls(0)`), which HexIDE has none of yet.
         if (FormMembers.TryBare(interpreter.ExecutionContext, env, name, out var form, out var formMember))
         {
-            if (dollar)
-                throw new NotImplementedException($"{name}$ on a member of the form is not implemented (#742)");
             var formArgs = await EvaluateCallArgs(argsCtx);
+            // `Left$("abc", 1)` in a form's code is VBA's Left$, a String, as `Left("abc", 1)` is VBA's Left (measured).
+            if (dollar && !FormMembers.CallIsVbas(name, formArgs.Count))
+                throw new NotImplementedException($"{name}$ on a member of the form is not implemented (#742)");
             if (formMember.IsMethod)
                 return await interpreter.Loading((Form: form, Name: name, Args: formArgs), static s => FormMembers.Call(s.Form, s.Name, s.Args));
             if (FormMembers.CallIsVbas(name, formArgs.Count) && await EvaluateFunction(name, formArgs) is { } vbaResult)
-                return vbaResult;
+                return dollar ? DollarResult(vbaResult, procOrArrayCall) : vbaResult;
             throw new NotImplementedException($"{form.ClassName}'s {name} with arguments is not implemented{FormMembers.TrackedBy(name)}");
         }
         if (interpreter.TryResolveProcedure(name, currentModule, out _, out var procedure))
@@ -760,18 +786,17 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new NotImplementedException($"{name}$ is not implemented: what VB6 does with a $ on {name} is not measured (#742)");
         var args = await EvaluateCallArgs(argsCtx);
         if (await EvaluateFunction(name, args) is { } builtInResult)
-        {
-            // A `$` form is its plain form with the result made a String, so where the plain form passes a Null through,
-            // the `$` form raises 94 (measured on all 23).
-            if (dollar && DollarForms.Contains(name))
-                return builtInResult.IsNull
-                    ? throw new VBRunTimeException(procOrArrayCall, VBStandardError.InvalidUseOfNull)
-                    : new Vb6Value(VbDisplay.ToText(builtInResult));
-            return builtInResult;
-        }
+            return dollar && DollarForms.Contains(name) ? DollarResult(builtInResult, procOrArrayCall) : builtInResult;
 
         throw new VBSubOrFunctionNotDefinedException(name);
     }
+
+    // A `$` form is its plain form with the result made a String, so where the plain form passes a Null through, the `$`
+    // form raises 94 (measured on all 23).
+    private static Vb6Value DollarResult(Vb6Value result, Antlr4.Runtime.ParserRuleContext ctx) =>
+        result.IsNull
+            ? throw new VBRunTimeException(ctx, VBStandardError.InvalidUseOfNull)
+            : new Vb6Value(VbDisplay.ToText(result));
 
     // Resolve a namespace-qualified member reference as a VALUE (expression context): `Module1.Foo(args)`,
     // `Module1.PublicConst`, `VBA.Abs(x)`, `VBA.Math.Abs(x)`, `VBA.vbCrLf`. Library-module segments
@@ -787,6 +812,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     private async Task<Vb6Value> ResolveOneMember(
         Vb6Value variable, VB6Parser.ICS_S_MemberCallContext member, Antlr4.Runtime.ParserRuleContext ctx)
     {
+        if (variable.Value is ICSharpAsyncProxy proxy)
+            return await interpreter.CallProxy(proxy, MemberName(member), await EvaluateCallArgs(MemberArgs(member)))
+                ?? throw new VBSubOrFunctionNotDefinedException(MemberName(member));
         // A class instance member (`obj.Method(args)` or `obj.Field`) — method dispatch wins over a field of
         // the same name. Nothing.Member → Error 91.
         if (variable.Type == Vb6Value.ValueType.Object)
@@ -829,8 +857,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 {
                     if (formMember.IsMethod)
                         return FormMembers.Call(vobj, memberName, await EvaluateCallArgs(MemberArgs(member)));
-                    if (MemberArgs(member) == null && !FormMembers.CanRead(formWindow, memberName))
-                        throw new NotImplementedException($"Reading {vobj.ClassName}'s {memberName} is not implemented{FormMembers.TrackedBy(memberName)}");
+                    if (MemberArgs(member) == null)
+                        return FormMembers.Read(vobj, memberName);
                 }
                 return await ResolveOneMember(new Vb6Value(formWindow), member, ctx);
             }
@@ -862,6 +890,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // FontName, which is no property of its own here but the name of the control's font (#1141).
         if (FontMembers.TryGet(control, memberIdentifier, out var fontMember))
             return fontMember;
+        // A TextBox's SelStart, SelLength and SelText, which exist only at run time (#1150).
+        if (TextBoxMembers.TryGet(control, memberIdentifier, out var textBoxMember))
+            return textBoxMember;
 
         throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
     }

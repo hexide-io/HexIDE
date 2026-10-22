@@ -135,7 +135,10 @@ public class FormDeserializer
                 // class — VisualRootTypes is checked above and every member of it maps to
                 // FormComponentClass — so parent is never null here.
                 parent!.AddPreservedChildSubtree(ordinal, preservedSubtreesSeen++, string.Join("\r\n", subtreeLines));
-                errorSink.LogError($"Class {serializedComponent.Type} of control {serializedComponent.Name} is not a supported control class — preserved as unknown.");
+                // A CommonDialog is kept the same way, but it runs (#1084) and saves byte for byte, so there is nothing to
+                // warn of: the warning used to tell the user, as the project opened, that a control which works did not.
+                if (!serializedComponent.Type.Equals("MSComDlg.CommonDialog", StringComparison.OrdinalIgnoreCase))
+                    errorSink.LogError($"Class {serializedComponent.Type} of control {serializedComponent.Name} is not a supported control class — preserved as unknown.");
 
                 // No depth contribution. The block is recorded on the component it was read from, indented
                 // to its real load depth, and re-emitted at the ordinal it held among that component's

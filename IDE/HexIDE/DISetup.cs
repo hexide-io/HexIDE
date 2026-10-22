@@ -1,3 +1,6 @@
+using HexIDE.Forms.ViewModels;
+using HexIDE.Debugging;
+using HexIDE.Runtime.Debugging;
 using HexIDE.Conversations;
 using System;
 using Pure.DI;
@@ -29,11 +32,29 @@ public partial class DISetup
         DI.Setup()
             .Bind().As(Singleton).To<ToolBoxToolViewModel>()
             .Bind().As(Singleton).To<PropertiesToolViewModel>()
-            .Bind().As(Singleton).To<ProjectToolViewModel>()
+            .Bind().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<IProjectManager>(out var projectManager);
+                ctx.Inject<IEventBus>(out var eventBus);
+                ctx.Inject<IProjectService>(out var projectService);
+                ctx.Inject<IEditorService>(out var editorService);
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<ArchiveProjectService>(out var archives);
+                return new ProjectToolViewModel(projectManager, eventBus, projectService, editorService, localization, archives);
+            })
             .Bind().As(Singleton).To<FormLayoutToolViewModel>()
             .Bind().As(Singleton).To<ImmediateToolViewModel>()
             .Bind().As(Singleton).To<LocalsToolViewModel>()
-            .Bind().As(Singleton).To<WatchesToolViewModel>()
+            .Bind<WatchesToolViewModel>().As(Singleton).To(ctx =>
+            {
+                // Make the optional debugger dependency explicit instead of expanding constructor alternatives.
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<HexIDE.Debugging.WatchService>(out var watches);
+                ctx.Inject<HexIDE.Runtime.Debugging.IDebugController>(out var debugger);
+                ctx.Inject<IWindowManager>(out var windows);
+                ctx.Inject<HexIDE.Debugging.ExternalDebugService>(out var external);
+                return new WatchesToolViewModel(localization, watches, debugger, windows, external);
+            })
             .Bind().As(Singleton).To<CallStackToolViewModel>()
             .Bind().As(Singleton).To<ColorPaletteToolViewModel>()
             .Bind().As(Singleton).To<ObjectBrowserToolViewModel>()
@@ -46,8 +67,36 @@ public partial class DISetup
             .Bind<IDocumentDockService>().As(Singleton).To<DocumentDockService>()
             .Bind().As(Singleton).To<MainViewViewModel.DockFactory>()
             .Bind().As(Singleton).To<EventBus>()
-            .Bind().As(Singleton).To<ProjectRunnerService>()
-            .Bind().As(Singleton).To<ProjectService>()
+            .Bind().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<IEventBus>(out var eventBus);
+                ctx.Inject<IWindowManager>(out var windowManager);
+                ctx.Inject<IProjectManager>(out var projectManager);
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<IDebugController>(out var debugController);
+                ctx.Inject<IBreakpointService>(out var breakpointService);
+                ctx.Inject<WatchService>(out var watchService);
+                ctx.Inject<RunScope>(out var runScope);
+                ctx.Inject<ExternalDebugService>(out var externalDebugger);
+                ctx.Inject<HexIDE.Projects.ArchiveProjectService>(out var archives);
+                return new ProjectRunnerService(eventBus, windowManager, projectManager, localization, debugController, breakpointService, watchService, runScope, externalDebugger, archives);
+            })
+            .Bind().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<Func<NewProjectViewModel>>(out var newProjectVm);
+                ctx.Inject<IWindowManager>(out var windowManager);
+                ctx.Inject<IEventBus>(out var eventBus);
+                ctx.Inject<IProjectManager>(out var projectManager);
+                ctx.Inject<IRecentProjectsService>(out var recentProjects);
+                ctx.Inject<IReferenceLibraryService>(out var referenceLibraryService);
+                ctx.Inject<IUserSidecarService>(out var sidecar);
+                ctx.Inject<IFileBaselineStore>(out var baselineStore);
+                ctx.Inject<ILocalizationService>(out var localization);
+                ctx.Inject<IHeaderRefresher>(out var headerRefresher);
+                ctx.Inject<ArchiveProjectService>(out var archives);
+                return new ProjectService(newProjectVm, windowManager, eventBus, projectManager, recentProjects, referenceLibraryService, sidecar, baselineStore, localization, headerRefresher, archives);
+            })
+            .Bind().As(Singleton).To<ArchiveProjectService>()
             .Bind<IFileBaselineStore>().As(Singleton).To<FileBaselineStore>()
             // One per session, and it must be the same one everywhere: it holds no state itself, but the
             // three refresh triggers reach it through three different dependents (the save path, the file
@@ -66,9 +115,17 @@ public partial class DISetup
             .Bind().As(Singleton).To<HexIDE.Debugging.WatchService>()
             .Bind<HexIDE.Debugging.IRunScope>().Bind().As(Singleton).To<HexIDE.Debugging.RunScope>()
             .Bind<HexIDE.Runtime.Debugging.IDebugController>().As(Singleton).To<HexIDE.Runtime.Debugging.DebugController>()
+            .Bind().As(Singleton).To<HexIDE.Debugging.ExternalDebugService>()
+            .Bind<ILanguageConnectionRegistry>().As(Singleton).To<HexIDE.Debugging.ExternalDebugConnectionRegistry>()
             .Bind<IUserSidecarService>().As(Singleton).To<UserSidecarService>()
             .Bind<IFindReplaceService>().As(Singleton).To<FindReplaceService>()
-            .Bind().As(Singleton).To<FocusedProjectUtil>()
+            .Bind().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<IDocumentDockService>(out var documentDockService);
+                ctx.Inject<IProjectManager>(out var projectManager);
+                ctx.Inject<ArchiveProjectService>(out var archives);
+                return new FocusedProjectUtil(documentDockService, projectManager, archives);
+            })
             .Bind<IVb6ToolchainService>().As(Singleton).To<Vb6ToolchainService>()
             .Bind<IReferenceLibraryService>().As(Singleton).To<ReferenceLibraryService>()
             .Bind<ITypeLibraryService>().As(Singleton).To<TypeLibraryService>()
@@ -117,9 +174,9 @@ public partial class DISetup
             .Bind<ILspWorkspace>().As(Singleton).To<ProjectLspWorkspace>()
             // ILspClient is the ROUTER, not one connection. It implements the same interface a single
             // server does — that interface already takes a URI and hides which server answered — so the
-            // editor and view-models gained plurality without changing a line. ILanguageConnectionRegistry
-            // is the same object seen from the other side: what is attached, and is it working.
-            .Bind<ILspClient>().Bind<ILanguageConnectionRegistry>().As(Singleton).To(ctx =>
+            // editor and view-models gained plurality without changing a line. The connection registry above
+            // combines this router's connections with the external debug session.
+            .Bind<ILspClient>().As(Singleton).To(ctx =>
             {
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
                 ctx.Inject<ILspWorkspace>(out var workspace);
@@ -212,6 +269,7 @@ public partial class DISetup
             .Root<IBookmarkService>("BookmarkService")
             .Root<HexIDE.Debugging.IBreakpointService>("BreakpointService")
             .Root<HexIDE.Runtime.Debugging.IDebugController>("DebugController")
+            .Root<HexIDE.Debugging.ExternalDebugService>("ExternalDebugger")
             .Root<IWindowStateService>("WindowStateService")
             .Root<IAddinRegistry>("AddinRegistry")
             .Root<IAddinLoader>("AddinLoader")

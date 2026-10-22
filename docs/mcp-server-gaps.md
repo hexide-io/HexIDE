@@ -23,6 +23,17 @@ maxDepth: 14)`, not "`dump_visual_tree` returns only the tab chrome".
 
 ## 3. Three tool calls while the IDE is down drop the tools until `/mcp` (narrowed 2026-10-12)
 
+Additional client-side observation, 2026-10-18: in a later agent session, no `mcp__hexide__*` tools
+were present in the tool catalog even after launching the IDE and confirming its PID through `/health`.
+The call `tools.mcp__hexide__answer_next_file_dialog({path:
+"C:/Repos/GitHub/HexIDE/HexIDE/artifacts/dap-frames/artifacts/live/launch.json"})` failed locally with
+`TypeError: tools.mcp__hexide__answer_next_file_dialog is not a function`; it never reached the server.
+This is missing tool discovery, not a rejected file dialog. Reconnect the MCP integration while the IDE
+is running; automatic tool rediscovery after server recovery remains a client-side improvement.
+Restarting the client while the IDE was running restored discovery: `dump_visual_tree` and the
+file-dialog/menu calls then succeeded, allowing live verification to resume. Raw transport calls
+are not a substitute for restoring the schemas.
+
 > **What remains is the client's, and it is narrower.** With the server stateless (#763), a shutdown no longer
 > drops anything by itself. Tool calls made while the IDE is down still can:
 >
@@ -171,132 +182,16 @@ refresh it. A tool the session has not loaded yet is safe to load after `/mcp`.
 changes. Nothing on the server side can reach a schema the client already holds.
 [#815](https://github.com/hexide-io/HexIDE/issues/815).
 
-## 7. A declarative `ToolTip.Tip` cannot be made to open (narrowed 2026-09-08)
+---
 
-**Was:** *No pointer-hover action — can't trigger a data tip (or any hover) via MCP.* A `hover(target, x?, y?,
-dwellMs?)` action now exists and raises real `PointerEntered`/`PointerMoved`, so the editor half of this is
-closed. What remains is narrower and has a different cause, so the entry is narrowed rather than archived.
+## 7. `hover`'s move through the window's input is measured headless only (narrowed 2026-10-21)
 
-**Symptom.** `hover` reaches anything that opens a tip from its **own** pointer handler, but not a tip Avalonia
-manages. Measured against the running IDE:
-
-| Target | Result |
-|---|---|
-| Code editor over an identifier | `tip: count As Integer` — the LSP quick-info tip, text asserted |
-| `Button[Standard.AddForm]`, which carries `ToolTip.Tip` | `no tip opened within 1000ms` |
-
-`ToolTipService` opens a declarative tip in response to `IsPointerOver` changing. That property is set by the
-input manager from a real device position; a synthetically raised `PointerEntered` does not set it, and it is
-not publicly settable. So the toolbar button's tip cannot be made to appear at all.
-
-**Workaround, and it is deliberately not a fix.** When nothing opens, `hover` reports what the control
-*declares* — `declared tip: Add Form` — read straight off the attached property. That answers the question a
-caller usually has (*has this button the right tooltip?*) without pretending a popup appeared: an observed tip
-is reported as `tip:` and a declared one as `declared tip:`, and the two are never merged. Asserting the tip's
-**existence on screen**, or its placement, is still out of reach for this case.
-
-**Two further measurements worth keeping.**
-
-- **A synthetic tip opens at the REAL pointer, wherever it last was over this window.**
-  `CodeEditorView.axaml.cs:219` sets `ToolTip.SetPlacement(TextEditor, PlacementMode.Pointer)`, so Avalonia
-  anchors the popup to the pointer position **it** tracks for that `TopLevel` — and a synthetically raised
-  `PointerMoved` does not update that. The position is also *per window* and *sticky*: it holds the last place
-  a real pointer crossed this window, so it stays stale while the pointer is over some other application.
-
-  **Measured, not inferred — twice, with the prediction written down first each time.**
-
-  1. *Does it follow the real pointer?* The pointer was parked over the Toolbox strip, far from the
-     identifier, and `hover` fired at the caret — reported as `(176.1, 61.8)` inside the editor. The tip
-     opened against the left edge beside the Toolbox: at the pointer, not at the caret, not at the origin.
-  2. *Is the resting default the screen origin or the window's client origin?* A freshly launched IDE that no
-     pointer had ever crossed, pinned to screen `(300, 250)` at 900×600, with the real pointer held on the
-     taskbar where even a maximised window cannot reach it. The tip opened at screen `(0, 15)` — well outside
-     the window. Client-relative would have put it at roughly `(300, 280)`. **The default is the screen
-     origin.**
-
-  3. *Does it survive the pointer leaving?* The pointer was walked from the taskbar up into the window, over
-     the editor, and back out through the bottom edge at y≈850, then left outside. The tip still opened
-     inside the window rather than reverting to `(0, 15)`. **The position persists after the pointer
-     exits** — it is a last-known value, not a live one.
-
-  **One part of that third run resists explanation, and is left that way.** The tip's **x** matched the exit
-  point exactly; its **y** did not — it appeared near the *top* of the window, just below the toolbar, having
-  exited at the *bottom*. Two candidate rules were considered and neither survives arithmetic: excluding the
-  menu/toolbar chrome from the client area shifts the anchor **down**, not up, and clamping to the placement
-  target's bounds would pin it to the editor's **bottom** edge. So: measured, reproducible in its x, and no
-  vertical rule worth defending. It does not change what a caller should do, because the conclusion below
-  never depended on the position being predictable — only on its not being controllable.
-
-  3. *Does it survive the pointer leaving?* The pointer was walked from the taskbar up into the window, over
-     the editor, and out again through the **top** edge, then left outside. The tip opened at that exit
-     point — just below the toolbar — rather than reverting to `(0, 15)`. **The position persists after the
-     pointer exits:** it is a last-known value, not a live one, which is why a window the pointer left
-     minutes ago still places its tip where the pointer used to be.
-
-  That run also settles a fair question — whether the menu bar and toolbars count as "client area" for this.
-  They do, and no special case is needed: they are ordinary controls in the same `TopLevel`, so passing over
-  them updates the tracked position like anywhere else. The tip landing *just below* the toolbar is the same
-  constant nudge measured in run 2 — the anchor was on the toolbar, and the tip drew beneath it.
-
-  Every earlier sighting fits the same rule, and each had looked like a different phenomenon:
-
-  | Where the tip appeared | Where the real pointer had last crossed the window |
-  |---|---|
-  | At the caret — correct, by coincidence | the editor, where the maintainer had been clicking |
-  | Just below the screen origin | nowhere: freshly relaunched, never crossed |
-  | Over the status bar | near the window's bottom edge |
-  | Bottom-left, while the pointer sat top-right | over the terminal, so HexIDE's tracked position was stale |
-
-  **The small drop below `(0, 0)` is the tooltip's own offset, not the title bar.** It looked like title-bar
-  height on a maximised window, which is a good guess and was worth testing — but the same ~15 px appeared
-  with the window at `(300, 250)`, whose title bar sits at y≈250. It is the ordinary nudge that keeps a tip
-  clear of the cursor, and it is constant.
-
-  **Two earlier readings were wrong, and are kept because the next person will make them too.** First "an
-  arbitrary position" — it is not arbitrary, it is anchored to something, just not to anything the *call*
-  controls. Then "always the screen origin", asserted from two samples that happened to agree; a third
-  sighting refuted it, and the origin turned out to be merely the default for a window no pointer had entered.
-  A rule drawn from two agreeing measurements is a guess wearing a measurement's clothes.
-
-  **Consequence for a caller, unchanged by the explanation:** `hover` makes a tip's **text** assertable and its
-  **position** meaningless, because the position is set by a pointer no automated caller has. Assert the
-  reported string; never snapshot the tip.
-
-  **Rejected:** having `hover` impose a deterministic placement (a `PlacementRect` at the hover point) so the
-  tip lands where it was asked for. It would make a snapshot *look* right while showing the tip somewhere no
-  real user would ever see it — trading an honest limitation for a misleading picture.
-
-- **A synthetic tip is transient.** Without `IsPointerOver` the tip closes again shortly after opening, which
-  is why `hover` polls for it rather than looking once when the dwell expires. Sampling once reported "no tip"
-  for a tip plainly visible on screen.
-
-**The debugger's Auto Data Tips — the case this gap was filed for (P6c) — are now MEASURED and work.**
-Paused at a breakpoint with `total = 42` in scope, `hover` on the identifier returns `tip: total = 42`,
-confirmed on screen at the same moment. It took closing gap 4 to get there: while a program is paused the
-frontmost window is the program's form, so until `window: "ide"` existed there was no path to aim at the
-editor.
-
-*Two issues were opened against this line and both are resolved, one of them wrongly filed:*
-hexide-io/HexIDE#334 was real and is fixed (MCP writes saved the previous content and reported success);
-**#335 was not a defect** — breakpoints in `Form_Load` work, and the report was an artefact of #334
-corrupting the project under test. A negative observation made while another defect is active is not
-evidence, which is the part worth keeping.
-
-**A stale-tip bug fell out of this measurement, and is fixed.** Hovering `Debug.Print` right after hovering
-`total` reported `declared tip: total = 42` — a wrong answer, not a missing one. The editor closed its tip
-with `SetIsOpen(false)` and left `ToolTip.Tip` attached, so the control kept advertising the previous
-identifier's value. This tip is *dynamic*, rebuilt per hover, unlike the static tips that property is meant
-for. Closing now clears it (`CodeEditorView.CloseTip`), which also removes the live-user hazard: a real
-pointer could be shown the previous word's value before the replacement evaluation returned.
-
-**What remains open here is only the declarative case** — a toolbar button's `ToolTip.Tip` still cannot be
-made to appear, for the `IsPointerOver` reason above.
-
-**Fix consideration.** Nothing cheap. `IsPointerOver` has no public setter, so short of Avalonia exposing one
-— or a real platform-level pointer injection, which is a much larger tool — the declarative case stays out of
-reach. Calling `ToolTip.SetIsOpen(control, true)` directly would make the popup appear, and was rejected: it
-would report a tip for a control that a real hover might never show one for, which is a false green of exactly
-the kind this document exists to prevent.
+`hover` now sends its move through the window's own input, so a declared `ToolTip.Tip` opens, as
+`HoverThroughWindowInputTests` shows headless (#1265; the closed gap, with the measurements of the old route, is in the
+archive). Not yet run against the IDE: that a toolbar button reports `tip: Add Form`, where the tip is placed now that
+the move updates the pointer position Avalonia tracks, that quick info and Auto Data Tips still open on Windows and
+Linux, and that a real mouse behaves normally after a hover ends.
+[#1303](https://github.com/hexide-io/HexIDE/issues/1303).
 
 ---
 
@@ -372,77 +267,6 @@ reachable mid-session, or have the launcher expose a readiness signal the client
 client's to do. The advice it ended with, to start the IDE *after* the session, is superseded: `/mcp`
 reconnect attaches either way.
 
-## A collapsed ComboBox reports only its selected item, which reads as "the item is missing"
-
-**Symptom.** `inspect_element` on a closed dropdown returns a `selectionItems` array containing just the
-current selection:
-
-```
-"selectionItems": ["Form1"],
-"value": "Form1"
-```
-
-The control had two items. `expand` then `dump_visual_tree` shows both:
-
-```
-ComboBoxItem[Sub Main]
-ComboBoxItem[Form1]
-```
-
-**How it bit.** Verifying that `Sub Main` had been added to the Project Properties → Startup Object list
-(#210). The inspection said the list held only `Form1`, which is exactly what a change that had failed to
-take effect would look like — and the build had just been rebuilt and relaunched, so "the binary is stale"
-was the obvious next hypothesis. The feature was working the whole time.
-
-`interact(action: "select")` is honest about this — it fails with *"has no selectable items realized — if
-it's a dropdown, 'expand' it first"* — and `dump_visual_tree`'s own description warns that virtualized
-dropdown items are not addressable until realized. `inspect_element` carries no such warning and reports a
-plausible-looking array instead of an empty one, which is the part that misleads.
-
-**Workaround.** Never read `selectionItems` from a collapsed dropdown as the item list. `expand` first,
-then `dump_visual_tree(root=<combo>)` and read the `ComboBoxItem` children. Expand again immediately before
-`select` if the popup has closed, and `collapse` after it. The tool does not close the popup: where this was
-first written it closed between calls, probably because the IDE window lost focus (inferred, not measured),
-while on Linux, with nothing taking focus from the IDE, it stayed open after `select` until `collapse`
-(see "`interact` `select` on a dropdown item leaves the dropdown open", [#907](https://github.com/hexide-io/HexIDE/issues/907)).
-
-**Suggested fix.** Either omit `selectionItems` when the items are unrealized, or mark it — an
-`itemsRealized: false` alongside it would be enough. A partial list that looks complete is worse than no
-list, because it supports a confident wrong conclusion; an empty array with a flag supports none.
-
-## take_snapshot's default capture picks a modeless dialog (narrowed 2026-09-22)
-
-**Was:** *take_snapshot of the IDE fails while a menu is open, and the default capture picks a modeless
-dialog.* The first half is closed. Measured for #362: `interact(target: ".../MenuItem[Edit]", action:
-"expand", window: "ide")` then `take_snapshot(window: "ide")` returned an image with the open Edit menu
-composed in. The second half, the Find dialog being preferred over the main window, was not re-tested and
-stays open. The rest of this entry is the original record.
-
-
-**Symptom.** Two halves of one gap, both hit while verifying that Edit ▸ Find greys out on a document with
-nothing to search (hexide-io/HexIDE#363). With the Edit menu expanded, `take_snapshot(window: "ide")`
-returns `An error occurred invoking 'take_snapshot'` — no path, no detail. Plain `take_snapshot()` succeeds
-but captures the modeless **Find** dialog instead, because a dialog is preferred over the main window and a
-menu popup is apparently neither.
-
-**Consequence.** A greyed-out menu item is the whole of the feedback for a disabled command, and it is the
-one thing that cannot be photographed. Both routes fail in a way that looks like a broken tool rather than
-an unsupported surface.
-
-**Workaround used.** `inspect_element` on the menu item reports `isEnabled: false`, and
-`dump_visual_tree(root: ...Edit/Pane, interactiveOnly: false)` gives the whole menu's enabled states in one
-call. That is a stronger assertion than a pixel diff, so nothing was lost here — but it means the *rendering*
-of the disabled state (does it actually look greyed?) is unverified.
-
-**Suggested fix.** Treat an open menu popup as a capturable window, and let `window` take a popup or
-overlay selector. Failing that, return a real error message saying the surface cannot be captured while a
-popup is open, rather than a bare "an error occurred".
-
-**Since #603.** A tool that throws now answers with the tool name, the exception type and its message instead
-of the bare line, and says it is a defect to report. Re-measured 2026-09-22: with the Edit menu expanded,
-`take_snapshot {"window":"ide"}` no longer throws at all and returns a path, which agrees with the narrowing
-note above. The half still open, the Find dialog being preferred, was not re-tested.
-
 ## shutdown_ide can kill the MCP server and leave the IDE running
 
 **Symptom.** `shutdown_ide` replied `Unable to connect. Is the computer able to access the url?`. The
@@ -458,7 +282,8 @@ fallback for an MCP disconnect, but reached here *because of* the shutdown rathe
 
 **Suggested fix.** Send the reply before tearing the host down (or stop the host last), so the caller gets
 the confirmation the tool promises. Either way, do not leave a window up with no server behind it: if the
-shutdown cannot complete, keep the server alive so the next call can say why.
+shutdown cannot complete, keep the server alive so the next call can say why. Not reproduced since 2026-09-22, so
+what sets it off is unknown. [#644](https://github.com/hexide-io/HexIDE/issues/644).
 
 ---
 
@@ -517,28 +342,6 @@ by re-reading prose that had just been written. That half is the first-contact e
 [#534](https://github.com/hexide-io/HexIDE/issues/534), and it is still open.
 
 ---
-
-## The bookmark tools count lines from 0; every other line-taking tool, and the gutter, count from 1
-
-**Symptom.** `set_bookmarks {"name":"Module1","lines":[1]}` (`project` left at null) answers `Carried/Module1
-now has bookmarks on 1.`, and the bookmark is drawn on gutter line **2**. `get_breakpoints`,
-`set_breakpoints`, `run_to_cursor`, `set_next_statement`, `get_debug_state` and `get_call_stack` all number
-lines from 1, and so does the gutter. Both bookmark descriptions do say "0-based". A caller who has just used
-any other line tool, or read a line number off a snapshot, is still one line out.
-
-**Workaround.** Subtract one before calling `set_bookmarks`, and add one to what `get_bookmarks` returns.
-
-**Since #273 both numberings count from the top of the file, header included** (task 3.12), as every line tool
-now counts, and a line of the header or of a member's Attribute lines is refused, with where the code starts given
-in the tool's own numbering. So being one out near the top is sometimes refused rather than placed. Measured in
-task 3.16's live check (2026-10-01), on a class added through the IDE whose header is lines 1 to 13:
-`set_breakpoints` with `[13]` was refused with "its code starts at 14", and `set_bookmarks` with `[13]` was
-accepted, which counting from 0 is the gutter's line 14. One number, refused by one tool and accepted by the
-other. Below the header the difference is as silent as it was.
-
-**Suggested fix.** Undecided, and filed as needs-decision:
-[#571](https://github.com/hexide-io/HexIDE/issues/571). Either convert at the tool boundary, which changes
-the contract, or keep 0-based and have the descriptions say the gutter shows N+1.
 
 ## Every automation route to a new document saves it, so the pathless state cannot be reached
 
@@ -625,20 +428,6 @@ that change.
 document is written, or keep new documents unsaved on purpose and say so in `get_file_content`'s
 description.
 
-## A whole-window `dump_visual_tree` overflows the caller's output limit
-
-**Symptom (2026-09-25).** `dump_visual_tree {"maxDepth":12}` with an IDE showing three document tabs and
-the usual tool windows returned 58,264 characters. That is over the client's limit, so it was written to a
-file instead of being returned. The only way to find the code editor's path was to parse that file outside
-the tool. The description does say to scope a large dump with `root`, but a first-time caller does not yet
-know any path to scope it with.
-
-**Workaround.** Dump once to a file and extract paths with a script. After that, always pass `root`.
-
-**Suggested fix.** A filter on class name, view-model type or name, returning matching nodes with their
-paths and no subtrees. This is the question a first call usually asks: where is the code editor? Filed as
-[#699](https://github.com/hexide-io/HexIDE/issues/699).
-
 ## The code window's gutters are not in the control tree, so a gutter click cannot be driven
 
 **Symptom (2026-10-01, during #273 task 3.12's live check).**
@@ -674,138 +463,6 @@ it, as for any fold. An offset at the run's very end does not: the window moves 
 run's box to the end of the declaration, in front of the box (`CodeEditorView.KeepCaretOffFoldedRunsEnd`), and the
 run stays folded.
 
-## `select` on an Options tree item reports success and selects nothing
-
-**Symptom (2026-10-02, during #273 task 3.15's live check).** In Tools → Options, the page tree's items each
-advertise `selectionItem`. `interact {"target":"Window/Custom/Tree/Pane/TreeItem[#0]/TreeItem[#1]","action":"select"}`
-(the Theme item) replies `{"success":true,"mechanism":"peer","detail":"selected 'TreeItem'"}`, and nothing has
-changed: `inspect_element {"target":"Window"}` still has the same `SelectedNode`, and the page beside the tree
-is still `EnvironmentGeneralPageView`. Seen on three launches. Selecting by text fails differently:
-`interact {"target":"Window/Custom/Tree","action":"select","value":"Theme"}` replies `'Tree' has no selectable
-items realized`, although `dump_visual_tree {"root":"Window/Custom/Tree/Pane/TreeItem[#0]","interactiveOnly":false,"maxDepth":4}`
-shows every item realized, with its text in a child `Text[Theme]`. The items have no automation name of their
-own, which is also why the success reply calls the item `'TreeItem'`.
-
-**Workaround.** Keyboard: `press_key {"target":"Window/Custom/Tree/Pane/TreeItem[#0]/TreeItem[#0]","key":"Down"}`
-moves from General to Theme and the page follows. A theme is then switched by `interact expand` on
-`Window/Custom/Custom/ComboBox`, `interact select` with the theme's name as `value`, and `interact invoke` on
-`Window/Custom/Button[OK]`.
-
-**Suggested fix.** `DoSelect` takes the item peer's `Select()` as done. It should read the selection back, from
-the item and from its owning tree, fall back to `TrySelectThroughOwningTree` when it did not take, and say so
-when neither did, rather than reporting a selection it never checked. Naming a tree item after its header text
-would let `select` with a `value` find it, and would let the reply name what it selected. Filed as
-[#714](https://github.com/hexide-io/HexIDE/issues/714).
-
-## A write tool that needed no picker leaves an armed file-dialog answer pending, and says nothing
-
-**Symptom.** On the project `--newproject` creates, Project > Add Form adds `Form2` with a file already, because
-that project lives in a temp folder:
-
-```
-answer_next_file_dialog {}
-add_control {"formName":"Form2","type":"CommandButton","x":20,"y":20,"width":81,"height":33}
-→ {"success":true,"controlName":"Command0","note":"Command0 is at Left 20, Top 20, Width 81, Height 33, in pixels."}
-clear_file_dialog_answers {}
-→ {"success":true,"pending":0,"note":"Discarded 1 armed answer(s); the next file dialog will be shown for real."}
-```
-
-The save wrote the form's file and never opened a picker, so the cancel armed for it is still pending. The next
-dialog to open takes it, however much later and whatever it is for. Only `clear_file_dialog_answers` showed it.
-
-**Workaround.** After any write that was armed for, call `clear_file_dialog_answers`. A count above zero means
-the write did not use the answer.
-
-**Suggested fix.** When a write tool finishes with an answer armed before the call still pending, say so in its
-note, naming why (the document already had a file) and that `clear_file_dialog_answers` discards it.
-[#810](https://github.com/hexide-io/HexIDE/issues/810).
-
-## No tool can close a window as a person does
-
-**Symptom.** Verifying #820, a program's Yes/No message box had to be closed the way a person closes it, to show
-that it refuses. Nothing on the surface does that:
-
-```
-dump_visual_tree {}
-→ {"window":"YesNoBox","root":{"path":"Window", ... "children":[{"path":"Window/Custom", ... Button[Yes], Button[No]}]}}
-interact {"target":"Window","action":"close"}      no such action
-press_key {"target":"Window/Custom/Button[No]","key":"F4","modifiers":"Alt"}
-```
-
-The title bar is the platform's chrome, outside the control tree, and Alt+F4 is handled by Windows before
-Avalonia raises a key, so a key event on a control closes nothing. `stop_project` and `shutdown_ide` close a dialog
-programmatically, which is the close a guard deliberately lets through, so they cannot stand in for a person's.
-
-**Workaround.** From PowerShell, find the window by title with `FindWindow` (passing `[NullString]::Value` as the
-class: PowerShell turns `$null` into `""`, which matches nothing), check with `GetWindowThreadProcessId` that it
-belongs to the IDE's process, and post `WM_SYSCOMMAND` with `SC_CLOSE`, which is what the title-bar button sends.
-Windows only, and outside the surface a caller has.
-
-**Suggested fix.** An `interact` action, `close`, on a top-level window, raising the platform's close for a person
-(`WindowCloseReason.WindowClosing`, not programmatic), and replying whether the window is still open.
-[#829](https://github.com/hexide-io/HexIDE/issues/829).
-
-## A context-menu action bound to a method cannot be driven
-
-**Symptom.** Live-checking #831 needed a project with no startup form, so Form1 had to be removed. Both of the UI's
-routes are out of reach:
-
-```
-invoke_menu_item {"path":"Project/Remove Form1"}
-→ {"success":false,"error":"'Project/Remove Form1' is a submenu or has no command"}
-interact {"target":".../Pane[Project Group - Group1]/Custom/Tree/Pane/TreeItem[Project1 (Project1.vbp)]/TreeItem[Form1 (Form1.frm)]","action":"select"}
-→ {"success":true, ... "selected 'Form1 (Form1.frm)'"}
-interact {"target":".../Pane[Project Group - Group1]/Custom","action":"invoke_command","value":"DeleteForm"}
-→ {"success":false,"mechanism":"reflection","error":"no public property 'DeleteForm' on ProjectToolViewModel"}
-```
-
-The Project menu's item is inert, which is a product defect (#835). The Project Explorer's context menu binds
-**Remove Form1** to a method, `ProjectToolViewModel.DeleteForm()`, rather than to an `ICommand`. So `inspect_element`
-does not list it and `invoke_command` cannot reach it. This entry first said that no tool opens a context menu; that
-was wrong (below). The refusal also names a *property* when a command was asked for.
-
-**Corrected 2026-10-13: `expand` opens the context menu.** `interact` `expand` on a control that owns a ContextMenu
-or flyout opens it, and this tree's flyout was measured that way when #343 closed (`interact expand …/Custom/Tree →
-"opened flyout on 'Tree'"`, in the archive). No tool description says so, which is how this entry missed it
-([#949](https://github.com/hexide-io/HexIDE/issues/949)). Remove binds `Command="{CompiledBinding DeleteForm}"`,
-which Avalonia turns into a command, so `invoke` on that item with the flyout open should run it, and, through today's
-menu fallback, leave the flyout open afterwards (#947). That is read in code, not run. Remove acts on the selected form
-and asks nothing, so read the item's header before invoking it (#714). Until the route is checked live, the workaround
-below stands.
-
-**Workaround.** Load a `.vbp` whose `Startup` names no form in the project, by passing it as the positional argument
-at launch.
-
-**Suggested fix.** `invoke_command` falling back to a public parameterless method, listed by `inspect_element`, and
-a refusal that names what it looked for rather than a property. An action to open a context menu is not needed:
-`expand` is it. [#836](https://github.com/hexide-io/HexIDE/issues/836).
-
-## Polling `list_lsp_messages` with the highest sequence seen never shows a waiting request answered
-
-**Symptom.** While re-recording [`mcp-first-contact.md`](mcp-first-contact.md) for #273 on 2026-10-13, in a fresh
-`--newproject` session, a request seen waiting never came back answered when polled as the description advises:
-
-```
-open_file {"name":"Form1"}
-list_lsp_messages {}
-→ six rows; sequence 4 is initialize, with no outcome; 6 is the highest
-list_lsp_messages {"afterSequence":6,"limit":3}
-→ rows 12, 13, 15 ("matched":7); initialize is not among them
-list_lsp_messages {"afterSequence":3}
-→ row 4 comes back "outcome":"Answered", "answerSequence":8
-```
-
-The description says to pass "the highest one already seen to poll for what is new". A reply does not add a row:
-it completes its request's row and uses up a sequence. That row's sequence is below the one a poller passes, so
-the filter (`CaptureQueries`, `envelope.Sequence <= after`) drops it. The poller sees what followed the request
-and never sees the request answered.
-
-**Workaround.** Pass a sequence below the oldest request still waiting, and read each request's row again.
-
-**Suggested fix.** Match a row that was completed after `afterSequence` as well as one recorded after it, keyed
-on the sequence its reply consumed, which exists whether or not the body was kept. Say in the description that
-a completed request comes back on its own row. [#961](https://github.com/hexide-io/HexIDE/issues/961).
-
 ## A refused edit's reply sends a Backspace back to the caret it was refused at, and does not say whose lines are in the way
 
 **Symptom.** Found in #273's live check (task 4.8) on 2026-10-14, with a class whose `Public Function Total()` has
@@ -835,30 +492,6 @@ For a deleting key whose span ends at the caret, say that the text before the ca
 the declaration line takes both, rather than pointing at the caret's own offset; keep the "nearest place" advice for
 an insertion or a forward deletion, where it moves the caller somewhere new.
 [#1042](https://github.com/hexide-io/HexIDE/issues/1042).
-
-## `type_text` writes beside a standing selection instead of over it
-
-**Symptom.** Found by the review of #273 task 4.5, which reproduced it. The calls below are #1040's reproduction,
-read in code and not run live. In a module with no `Attribute` lines, with `E` the code editor's path from
-`dump_visual_tree` and the caret after `Debug.Print 1` on the line `    Debug.Print 1, 2`:
-
-```
-press_key {"target":E,"key":"End","modifiers":"Shift"}      selects ", 2"
-type_text {"target":E,"text":", 3"}
-→ success; the line now reads "    Debug.Print 1, 2, 3"
-```
-
-A person's typing replaces the selection. `UiAutomationDriver.TypeText` inserts at the caret on every surface (a
-`TextEditor`, a `TextArea`, and a `TextBox` at its `CaretIndex`), never reads the selection, and, away from a
-described line's end, replies only with how many characters it typed. Its description says it inserts "at the
-caret", so it does what it says; what it does not do is what a person's typing does. `press_key` already judges a
-key with a selection standing as a write over it, so the two tools disagree. The code window's own Enter has the
-same shape, which is a product defect in the same issue.
-
-**Workaround.** Delete the selection first with `press_key {"target":E,"key":"Delete"}`, then call `type_text`.
-
-**Suggested fix.** Write over the selection, as a person's typing does and as `press_key` already assumes, and say
-in the reply how much was replaced. [#1040](https://github.com/hexide-io/HexIDE/issues/1040).
 
 ## `set_file_content`'s reply does not say when its save rewrote a member's attribute qualifier
 
@@ -948,34 +581,6 @@ Until then the hexide-mcp-server requirement #273 added, that "a tool that accep
 SHALL identify it by its project and its name", is only partly met.
 [#886](https://github.com/hexide-io/HexIDE/issues/886).
 
-## `dump_visual_tree` shows a node cut off by `maxDepth` as a leaf, and under `interactiveOnly` drops it and its ancestors
-
-**Symptom.** With a form open in the designer (Linux, openSUSE Leap 16 under XWayland, Debug build of main at
-b15c7cf, 2026-10-13):
-
-```
-dump_visual_tree {"maxDepth":8}
-dump_visual_tree {"root":"Window/Custom[MainView]/Pane[DockControl]/Pane[Root dock]/List[PART_ItemsControl]/List[#0]/Pane[#0]","maxDepth":2}
-→ both: Pane[#0] → Tab[PART_TabStrip] with "children":[], and no Custom[Root]
-dump_visual_tree {"root":"<the same path>","maxDepth":6,"interactiveOnly":false}
-→ Custom[Root] → … FormContainer → ControlsContainer → ListItem[Picture0] …
-```
-
-The designer pane appears to hold only a tab strip. A node at the cap is emitted with `"children":[]`, the same
-as a real leaf, and nothing records that the walk stopped. Under the default `interactiveOnly: true` that empty
-list prunes a non-interactive node at the cap, and the prune cascades up through every non-interactive ancestor:
-here the designer's ScrollViewer, then `Custom[Root]`, the designer itself. That breaks `interactiveOnly`'s
-promise to keep a node with an interactive descendant. It is the #362 trap from this document's header, and a
-smaller `maxDepth`, the natural answer to an overflowing whole-window dump (#699), walks into it. Cross-platform by
-code reading.
-
-**Workaround.** Do not read `"children":[]` as a leaf, or a missing node as absent. Dump again from the deepest
-node shown, with its path as `root`, a larger `maxDepth` and `interactiveOnly: false`.
-
-**Suggested fix.** At the cap, check for children without recursing and mark a node whose children were not
-walked `truncated: true`; under `interactiveOnly`, keep such a node instead of pruning it. Say so in the
-`maxDepth` and `interactiveOnly` parameter descriptions. [#953](https://github.com/hexide-io/HexIDE/issues/953).
-
 ## A control with an x:Name is reported by that name alone, so the Tools menu reads `ToolsMenuItem`
 
 **Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
@@ -1000,80 +605,6 @@ label fallback, but that is read in code and was not tried.
 it (`opened menu 'Tools' (ToolsMenuItem)`), and a description that says a segment may be addressed by either.
 [#948](https://github.com/hexide-io/HexIDE/issues/948).
 
-## `expand` also opens a control's context menu or flyout, and no description says so
-
-**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
-
-```
-dump_visual_tree {"maxDepth":3}
-→ Window/Custom[MainView]/None[#0]   (the menu band's StackPanel)   providers ["expandCollapse"]
-  TabItem[…]/None[PART_TabBody]      (a Border)                     providers ["expandCollapse"]
-dump_visual_tree {"root":"Window/Custom/Custom","interactiveOnly":false,"maxDepth":2}   (Options > Editor > Formatting)
-→ the Tab width TextBox                                             providers ["value","expandCollapse"]
-```
-
-The run read these as phantom tokens. They are not: each control owns a popup that `expand` opens, by design since
-#343. The StackPanel owns the Toolbars context flyout, `PART_TabBody` Dock's document context menu, and every
-TextBox the theme's Cut/Copy/Paste flyout. But `interact`'s `action` description defines expand and collapse as
-"a dropdown, tree node or expander", and `dump_visual_tree` says only "expandCollapse → expand/collapse", which
-is how #836 and its entry here came to say that no tool opens a context menu. `collapse` with the popup closed
-answers "element does not support 'collapse'" while the token is still shown. Cross-platform by code reading.
-
-**Workaround.** On a control with no expander of its own, read `expandCollapse` as "owns a context menu or
-flyout": `expand` opens it, and its items then appear under it in `dump_visual_tree`.
-
-**Suggested fix.** Say so in `interact`'s `action` description and, in a few words, in `dump_visual_tree`'s token
-list, and have `collapse` with nothing open say there is nothing to close.
-[#949](https://github.com/hexide-io/HexIDE/issues/949).
-
-## `interact` on a menu skips what a real gesture does: `collapse` leaves the menu bar active, `invoke` leaves the menu open
-
-**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
-
-```
-interact {"target":"Window/Custom[MainView]/None[#0]/Menu[MenuBar]/MenuItem[Format]","action":"collapse"}
-→ closed menu 'Format'
-```
-
-The Format header stayed highlighted in every later snapshot until
-`press_key {"target":"Window/Custom[MainView]/None[#0]/Menu[MenuBar]","key":"Escape"}`. `interact` `invoke` on the
-Project menu's `MenuItem[Remove Form2]` left the Project dropdown open, still drawn over the Object Browser after
-`activate_document_tab`. `collapse` closes only the submenu, not the menu bar, and `invoke` only raises Click,
-where a real click also toggles a checkable item and closes the menu. So, read in code and not run, `invoke` on
-the eight checkable items (the toolbar band's flyout, View > Toolbars and Minimap) changes nothing, and `toggle`
-and `invoke_menu_item` refuse them. Cross-platform by code reading.
-
-**Workaround.** `press_key` Escape on the MenuBar clears a header that `collapse` left active. What closes a
-dropdown that `invoke` left open was not measured, so check a snapshot after any menu `invoke`.
-
-**Suggested fix.** Do what Avalonia 12.1.4's own peer does: `collapse` on a top-level item closes the menu bar,
-and `invoke` toggles a checkable item, raises Click, then closes the menu unless `StaysOpenOnClick`. Have
-`MenuPopupTests` assert that the menu is closed after each. [#947](https://github.com/hexide-io/HexIDE/issues/947).
-
-## `interact` `select` on a dropdown item leaves the dropdown open
-
-**Symptom.** On the Object Browser's library box (Linux, openSUSE Leap 16 under XWayland, Debug build of main at
-b15c7cf, 2026-10-13):
-
-```
-interact {"target":".../List[#0]/Pane[#0]/Custom/ComboBox","action":"expand"}
-interact {"target":".../ComboBox/Pane/ComboBoxItem[VBA]","action":"select"}
-→ selected 'VBA'
-```
-
-The selection changed, but the popup stayed open over the Classes list until
-`interact {"target":".../ComboBox","action":"collapse"}`. Clicking the item closes it, and the reply does not say
-it is still open. `select` sets the selection through the item's peer, and Avalonia's ComboBox closes its popup on
-pointer, key and visibility changes, never on a selection change. The mechanism is cross-platform by code
-reading; whether a caller sees the popup linger depends on whether the IDE window keeps focus. Same family as the
-menu entry above: the driver acts on a control without the close a real gesture performs.
-
-**Workaround.** After `select` on a dropdown item, `collapse` the ComboBox. Do not rely on the popup closing
-between calls.
-
-**Suggested fix.** After selecting in an open dropdown, `select` closes it as a click does, and says so in its
-reply. [#907](https://github.com/hexide-io/HexIDE/issues/907).
-
 ## `add_to_selection` names the new selection but not its reference, so a caller learns what Align measured against only afterwards
 
 **Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
@@ -1085,7 +616,7 @@ interact {"target":"Window/.../List[ControlsContainer]/ListItem[Command1]","acti
 
 Only the next `invoke_format_command` reply, "…, aligned to Command0", named the reference, the control every
 Align and Make Same command measures against. A snapshot between the two showed Command0 with the solid handles.
-The reply lists the selection in index order, as does `inspect_element`'s `selection`, so no read names the
+The reply lists the selection in index order, as does `inspect_element`'s `selectionItems`, so no read names the
 reference before a command runs, which the form-designer spec requires of the designer. The same goes for
 `remove_from_selection`. Cross-platform by code reading.
 
@@ -1120,134 +651,6 @@ then `add_to_selection`. Read "at least one" as true only of SizeToGrid, CenterH
 **Suggested fix.** A per-command minimum in the `FormatCommands` table, a `success:false` refusal below it that
 names the rule and points to `add_to_selection`, and the no-op note generated from the same table, so the prose
 cannot drift from the code again. [#930](https://github.com/hexide-io/HexIDE/issues/930).
-
-## `set_control_property` cannot set Font, and its refusal implies a text form that does not exist
-
-**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
-
-```
-set_control_property {"formName":"Form1","controlName":"Label0","property":"Font","value":"DejaVu Sans"}
-→ {"success":false,"error":"Cannot set 'Font' to 'DejaVu Sans': it takes a value the Properties window accepts for a VBFont"}
-```
-
-The Properties window's Font row read "DejaVu Sans", the string refused, and that row is read-only beside a "..."
-button, so the set of values it accepts is empty. The description promises that a refused value's reply lists
-what the property takes, and here it does not. By code reading every `byte[]` property (Picture, Icon,
-MouseIcon, DragIcon, OleObjectBlob, List, ItemData) falls through the same way, refused as "...accepts for a
-Byte[]". Cross-platform by code reading.
-
-**Workaround.** For Font, the Properties window: select the control, `interact` `invoke` on the Font row's
-`PART_OpenFontWindowButton`, then drive the Font dialog, which the run did successfully. For the `byte[]`
-properties none is known: the grid gives them only a generic text box, and what it does with a typed value was
-not checked.
-
-**Suggested fix.** Accept Font as the grid shows it (a family, optionally a size and style words), merged with the
-current font so what is not given is kept. Never let a refusal promise a text form the parser refuses: name the
-Font dialog for Font, and say that no automation route exists yet for the `byte[]` properties.
-[#952](https://github.com/hexide-io/HexIDE/issues/952).
-
-## No tool reads back a control property beyond eight, though `set_control_property` sends callers to `get_form_controls` for them
-
-**Symptom.** (Linux, openSUSE Leap 16, Debug build of main at b15c7cf, 2026-10-13.)
-
-```
-get_form_controls {"formName":"Form1"}
-→ Label0: name, type VB.Label, left 120, top 10, width 100, height 20, caption "Centred &label", visible, enabled
-get_file_content {"name":"Form1"}
-→ the code section only, not the form's property block
-```
-
-No Alignment, AutoSize, WordWrap, BorderStyle, UseMnemonic or Font, so none of them can be read back after
-`set_control_property` sets them; the label's Alignment had to be inferred from its caption. `get_locals {}` while
-paused listed Label0 without them too. `get_form_controls` describes itself as returning "key design-time
-properties", which is accurate; what is not is `set_control_property`'s "Use get_form_controls to see available
-controls and properties".
-
-**Since #273 task 3.18 the `get_file_content` line reads differently, and the gap is narrower.** That run was on
-main, where `get_file_content` returned a form's code alone. With #273 it returns the form's whole file, its
-designer block included, and the block follows the designer: #273's live check on 2026-10-13 saw
-`move_control {"formName":"Dialog","controlName":"OKButton","left":300}` reach the open code window's header as
-`Left = 4500`, and after a save, which `set_control_property` makes, the block is the one written. So a property
-the `.frm` records can now be read back, in the file's own spelling: twips for a position, a Font as its
-`BeginProperty Font` block, a `Byte[]` property as a reference into the `.frx`. That is not the Properties
-window's text, which is what `set_control_property` takes, and it is only what the file records.
-
-**Workaround.** With #273, read the control's `Begin` block in `get_file_content {"name":"Form1"}`, as the file
-spells it. For the Properties window's own spelling, not exercised in that run: select the control in the designer
-and read the Properties window's rows with `dump_visual_tree` and `interactiveOnly: false`, or `inspect_element` on
-a row.
-
-**Suggested fix.** An optional `controlName` on `get_form_controls` that returns every property the Properties
-window shows for that control, under its name there and in the text form `set_control_property` accepts, and a
-corrected `set_control_property` description. [#923](https://github.com/hexide-io/HexIDE/issues/923).
-
-## No tool types as a person does, so anything driven by TextInput is out of reach
-
-**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
-
-```
-type_text {"target":"Window/Custom[MainView]/Pane[DockControl]/Pane[Root dock]/List[PART_ItemsControl]/List[#0]/Pane[#0]/Custom[Root]/None[TextEditor]","text":"Ms"}
-→ didChange seq 151, and no completion request
-```
-
-A person typing `M` triggers one. `type_text` inserts through the document API by design (#649), and `press_key`
-raises only KeyDown and KeyUp, which AvaloniaEdit does not turn into text. Nothing on the surface raises
-TextInput, so these are out of reach: the list that opens as you type, parameter info on `(` and `,` and its
-closing on `)`, the list closing on a character that cannot be part of a name, and the edit-while-running reset
-prompt for a printable character. Both tools do what they say; this is a missing capability, as #829's was.
-Cross-platform by code reading.
-
-**Workaround.** For completion and parameter info, the explicit commands: `press_key` with Ctrl+Space, Ctrl+J or
-Ctrl+Shift+I on the TextArea. A list opened that way cannot be seen either (next entry). There is no workaround
-for the typed-character paths.
-
-**Suggested fix.** A keyboard typing mode, a `type_keys` tool or `mode:"keyboard"` on `type_text`, that raises
-KeyDown, TextInput and KeyUp per character on the focused TextArea and reports mechanism "keyboard".
-[#943](https://github.com/hexide-io/HexIDE/issues/943).
-
-## `take_snapshot` and `dump_visual_tree` cannot see the code editor's completion list or parameter-info popup
-
-**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
-
-```
-press_key {"target":"Window/Custom[MainView]/Pane[DockControl]/Pane[Root dock]/List[PART_ItemsControl]/List[#0]/Pane[#0]/Custom[Root]/None[TextEditor]","key":"Space","modifiers":"Ctrl"}
-take_snapshot {}                     → the code window, with no list
-dump_visual_tree {"window":"auto"}   → MainWindow only
-```
-
-The run concluded that no list opens, and that was wrong: a Tab sent straight after was swallowed with no
-didChange, which needs an open list, and a headless reproduction confirms the list is open there (#941). Both
-tools answer the same whether or not a list is open. AvaloniaEdit's completion and insight windows are Popups
-parented only logically to the TopLevel, and the routes the tools use find visual-child popups plus open
-ContextMenus and flyouts. Cross-platform by code reading.
-
-**Workaround.** Do not read an empty snapshot as "no list". Infer the list from its effect: `press_key` Down then
-Tab, then read `get_file_content`, or the next `textDocument/didChange` in `list_lsp_messages`. Until #941 is
-fixed, Tab appends the item instead of replacing the prefix.
-
-**Suggested fix.** Expose CodeEditorView's completion and insight windows through an internal accessor, and return
-the open one from `AttachedPopupOf` for a CodeEditorView owner, so the snapshot and the tree both reach it.
-[#942](https://github.com/hexide-io/HexIDE/issues/942).
-
-## `take_snapshot` returns only a path on the IDE's machine, so a client attached from elsewhere cannot see the image
-
-**Symptom.** Driving a Debug build of b15c7cf in an openSUSE Leap 16 VM from a Windows host, through an SSH tunnel
-to the VM's MCP port (2026-10-13):
-
-```
-take_snapshot {}
-→ {"path":"/tmp/hexide_snapshot_20261013-004254-281_1.png","width":1920,"height":1011,"scale":1}
-```
-
-The path is in the VM's `/tmp`, which the client cannot open. The description says the tool "returns the file
-path so the caller can read the image", which holds only for a caller on the same machine. The server answers
-loopback only, so a tunnel is how another machine reaches it. Not Linux-specific: any remote attach has it.
-
-**Workaround.** Copy the file across by hand; every snapshot in that run was fetched with `scp`.
-
-**Suggested fix.** An optional `inline` parameter, default false, that returns the image as MCP image content
-(`image/png`) beside the same JSON. Keep path-only as the default: an inline image costs every local caller that
-does not need it. [#957](https://github.com/hexide-io/HexIDE/issues/957).
 
 ## `set_window_state` replies with the window's state from before the change on Linux
 
@@ -1286,124 +689,6 @@ platform applies a change at once.
 was passed, a move or resize has arrived; on timeout, reply with what the window reports and a note to re-read.
 Check the frame against the screens before any state change, so a refusal never has to undo a restore.
 [#946](https://github.com/hexide-io/HexIDE/issues/946).
-
-## `get_last_runtime_error` does not say which module or line raised the error
-
-**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
-
-```
-get_last_runtime_error {}
-→ {"raised":true,"message":"Compile error:...","at":"2026-10-13T03:05:25.1331302+01:00","sequence":1}
-```
-
-The dialog read "Compile error: Method or data member not found (ListCount in Right(Control))", with Debug
-disabled (#9), so once it closed neither a person nor a caller could reach the line. The reply carries text,
-time and sequence only. A run-time error's text ends with the statement but no module or line, and a compile
-error met mid-run carries neither, although the interpreter tracks both for the debugger. Cross-platform by code
-reading.
-
-**Workaround.** None beyond searching the project for an identifier the message names.
-
-**Suggested fix.** Note the module and line on the exception on the way out of the statement walk, for run-time
-and compile errors alike, and carry them through to `module` and `line` in the reply. Leave the dialog's text
-alone: what VB6 shows for a compile error met mid-run is #833's measurement.
-[#955](https://github.com/hexide-io/HexIDE/issues/955).
-
-## `get_last_runtime_error` stamps local time, where every other timestamp on the surface is UTC
-
-**Symptom.** On a machine at +01:00 (Linux, openSUSE Leap 16, Debug build of main at b15c7cf, 2026-10-13):
-
-```
-get_last_runtime_error {}
-→ "at":"2026-10-13T03:05:25.1331302+01:00"
-/health
-→ "timestamp":"2026-10-13T04:07:50.0894348+00:00"
-```
-
-`list_lsp_messages`, the conversation export, the connection list and `/health` all stamp UTC, so lining an error
-up against the LSP record means converting offsets by hand. Invisible on a machine whose zone is UTC, CI
-included. Cross-platform by code reading, and the archived #342 entry quotes the same `+01:00`.
-
-**Workaround.** Compare the stamps as instants, not as text: each carries its offset, so the comparison still
-holds. This is an inconsistency, not wrong data.
-
-**Suggested fix.** `DateTimeOffset.UtcNow` in `RuntimeErrorLog`, and a test asserting a zero offset.
-[#956](https://github.com/hexide-io/HexIDE/issues/956).
-
-## `list_lsp_messages` `failuresOnly` omits a message that could not be serialized
-
-**Symptom.** With a serialization failure at seq 183 in the record (#944) (Linux, openSUSE Leap 16 under XWayland,
-main at b15c7cf, 2026-10-13):
-
-```
-list_lsp_messages {"failuresOnly":true,"limit":20}
-→ {"messages":[],"matched":0,"note":"118 envelope(s) are recorded, and none match this filter. Drop the filters to see what is there."}
-```
-
-The record held:
-
-```
-{"sequence":183,"direction":"Local","kind":"NeverSent","method":"$/cancelRequest","detail":"could not be serialized: ..."}
-```
-
-The Protocol Inspector's Failures only filter and its failure count miss it the same
-way: both count only error responses and the Failed, Cancelled and Abandoned outcomes. So a filter for finding
-failures hides the client-side defect the capture was built to expose. Not every NeverSent row is a failure: a
-request withheld because the server did not advertise the capability is recorded as a Sent NeverSent row,
-deliberately. Cross-platform by code reading.
-
-**Workaround.** Call `list_lsp_messages {}` with no filter and look for `kind:"NeverSent"` with
-`direction:"Local"`.
-
-**Suggested fix.** Count a Local NeverSent row as a failure in `CaptureQueries.IsFailure` and
-`ProtocolInspectorRowViewModel.IsFailure`, and say so in `failuresOnly`'s description.
-[#945](https://github.com/hexide-io/HexIDE/issues/945).
-
-## No reply mentions a modal dialog, whether it was already open or the action opened it
-
-**Symptom.** (Windows 11, Debug build of #838's branch, merged with main at 2047857, 2026-10-13.) Paused at a
-breakpoint on line 3 of a module, with the caret moved to line 2, an `Attribute` line:
-
-```
-invoke_menu_item {"path":"Debug/Set Next Statement"}
-→ {"success":true,"note":"Invoked 'Set Next Statement'."}
-take_snapshot {"window":"ide"}
-→ {"path":"…_3.png","width":1920,"height":974,"scale":1.5}
-dump_visual_tree {"maxDepth":3,"interactiveOnly":false}
-→ {"window":"HexIDE","root":{… "className":"MessageBox" … "Can't set the next statement here — only a
-   top-level statement of the currently paused procedure is supported …" … "Button[OK]"}}
-take_snapshot {}
-→ {"path":"…_4.png","activeDialog":"HexIDE","width":642,"height":172,"scale":1.5}
-```
-
-The command refused the move and opened a message box saying so. The first reply reads as if the move had
-happened. The second is the main window with no `activeDialog`, and the box is not in the image, although
-`window: "ide"` is the documented way to reach the IDE while a program is paused, and the tool's description
-says an open modal is captured in preference to the main window. Only the default window finds it. #681
-measured the first half with Tools/Add Procedure left open; this is a modal raised by the action itself, which
-[its Linux comment](https://github.com/hexide-io/HexIDE/issues/681#issuecomment-6146516046) describes.
-
-**Workaround.** After any action that might open a dialog, `dump_visual_tree {}` and read its `window`. A
-`take_snapshot {}` with no `window` captures the dialog.
-
-**Suggested fix.** #681's decision, for the replies. For `take_snapshot` with `window: "ide"`, prefer a modal
-the IDE owns, as `auto` does, or at least name it in `activeDialog`.
-[#681](https://github.com/hexide-io/HexIDE/issues/681).
-
-**Seen again with #1011's halt** (2026-10-15, Debug build of `fix/1011-halt-on-error`). A click divides by zero, and the
-program halts at the run-time error dialog. After Debug, a Continue without a fix retries the statement, which halts again:
-
-```
-continue_program {}
-→ {"success":true,"note":"Running; no pause within 2 s. It raised Run-time error '11': Division by zero at 10 \ d;
-   get_last_runtime_error has it."}
-get_debug_state {}
-→ {"running":true,"state":"Running"}
-```
-
-Both replies say Running. The program is held at a dialog that waits for End or Debug, and nothing of it runs. Naming
-the error helps, but neither reply says the program is waiting for an answer. `dump_visual_tree {}` finds the dialog, as
-above.
 
 ## A whole replacement that changes the header and a member's `Attribute` lines is told only about the header
 
@@ -1445,66 +730,3 @@ deletable segments.
 
 **Suggested fix.** Delete what the deletable segments allow, as the key does, and say what was left and why.
 [#1055](https://github.com/hexide-io/HexIDE/issues/1055).
-
-## `interact` acts on a control that is not on screen, and reports success
-
-**Symptom.** Measured on 2026-10-15 in AI Chat's transcript (#273 task 3.22). Each message is templated with an
-Approve and a Reject button, shown only while that message is an approval prompt. So `dump_visual_tree` lists a
-pair per message, each one `"isHidden": true` except the pair of the prompt awaiting a decision. Invoking a
-hidden one:
-
-```
-interact {"target":".../TitleBar[AI Chat]/Pane[AI Chat]/Custom/Custom/Pane[Scroller]/List/Button[#0]","action":"invoke"}
-→ {"success":true,"mechanism":"peer","detail":"invoked Button 'Approve'"}
-```
-
-Nothing happened: that message was never a prompt, and its view model ignores the decision. No person can press a
-button that is not shown, and a caller who takes the first `Approve` in the tree reads that it approved the
-pending call. A control whose handler has no such guard would act out of sight.
-
-**Workaround.** Pick the node without `isHidden`. In AI Chat's transcript, the pending prompt's pair is the only
-one without it.
-
-**Suggested fix.** Refuse a provider or pointer action on a control that is not effectively visible, saying why
-and naming the `isHidden` flag. [#1069](https://github.com/hexide-io/HexIDE/issues/1069).
-
-## A Label on a running form is missing from the tree, so no tool can click it or read its caption
-
-**Symptom.** Measured on 2026-10-15, driving the Battleship demo (#1071), whose board is 25 Labels and a status Label:
-
-```
-dump_visual_tree {"interactiveOnly":false,"maxDepth":20}
-→ {"window":"Battleship - Admiral","root":{"path":"Window",...,"children":[{"path":"Window/Menu",...,"isHidden":true,
-   "children":[]}]}}
-```
-
-None of the 26 Labels is there, with `interactiveOnly` false (the default is true). A pointer reaches them, so they
-are on screen: `interact {"target":"Window","action":"click","value":"20,20"}` replies "landing on its part 'VBLabel'".
-Nothing in the reply says controls were left out.
-
-**Workaround.** Click the form at a point: `interact {"target":"Window","action":"click","value":"x,y"}`, with `x,y` worked
-out from the control's twips at 15 to a pixel, in device-independent units from the client area's top-left. Read a
-caption with `take_snapshot`.
-
-**Suggested fix.** A peer for each built-in control that has none, `VBLabel` first, naming it by its caption. No control
-in `BuiltinControls/` overrides `OnCreateAutomationPeer`, which is the likely cause and isn't verified.
-[#1076](https://github.com/hexide-io/HexIDE/issues/1076).
-
-## A running form's menu items are named with VB6's `&`
-
-**Symptom.** Measured on 2026-10-17, driving the Minesweeper demo's menued version (#1123, caab5bdd):
-
-```
-dump_visual_tree {}
-→ {"path":"Window/Menu/MenuItem[&Game]","controlType":"MenuItem","name":"&Game",...}
-interact {"target":"Window/Menu/MenuItem[&Game]","action":"expand"}
-→ ... {"path":"Window/Menu/MenuItem[&Game]/Pane/MenuItem[E&xit]","name":"E&xit",...}
-```
-
-The menu draws "Game" and "Exit", with the access key underlined. The name and the path carry the raw caption, so a
-caller must know VB6's caption syntax to address what it can see.
-
-**Workaround.** Put the `&` where the caption has it: `MenuItem[&Game]`, `MenuItem[E&xit]`.
-
-**Suggested fix.** Name each run-time menu item by its caption as drawn, `&` removed and `&&` read as one `&`. The IDE's
-own menus had the same fault with `_` (#578). [#1128](https://github.com/hexide-io/HexIDE/issues/1128).

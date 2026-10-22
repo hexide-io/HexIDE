@@ -201,6 +201,15 @@ absence.
 - **WHEN** the developer filters to a single server
 - **THEN** only that server's activity is listed, and the filter is visible
 
+#### Scenario: Narrowing to failures
+- **WHEN** the developer, or an automation client through `list_lsp_messages`' `failuresOnly`, asks for failures only
+- **THEN** the timeline lists error responses, requests that failed, were cancelled or never came back, and every
+  entry recorded as a fault: a message this client could not serialize or decode, a connection it could not make, a
+  server that went away unasked or exited non-zero
+- **AND** a request withheld because the server advertised no such capability is not listed, since that is the
+  protocol working as designed
+- **AND** the inspector's failure count and the automation filter apply one rule, so they cannot disagree
+
 ### Requirement: A full record SHALL discard the oldest and say that it did
 When a limit is reached the IDE SHALL discard the oldest material rather than stop recording, SHALL report
 how much was discarded, and SHALL account for it per connection.

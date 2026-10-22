@@ -32,6 +32,7 @@ public class ProjectService : IProjectService
     private readonly IFileBaselineStore baselineStore;
     private readonly ILocalizationService localization;
     private readonly IHeaderRefresher headerRefresher;
+    private readonly ArchiveProjectService? archives;
 
     public ProjectService(Func<NewProjectViewModel> newProjectVm,
         IWindowManager windowManager,
@@ -42,7 +43,8 @@ public class ProjectService : IProjectService
         IUserSidecarService sidecar,
         IFileBaselineStore baselineStore,
         ILocalizationService localization,
-        IHeaderRefresher headerRefresher)
+        IHeaderRefresher headerRefresher,
+        ArchiveProjectService? archives = null)
     {
         this.newProjectVm = newProjectVm;
         this.windowManager = windowManager;
@@ -54,6 +56,7 @@ public class ProjectService : IProjectService
         this.baselineStore = baselineStore;
         this.localization = localization;
         this.headerRefresher = headerRefresher;
+        this.archives = archives;
     }
 
     /// <summary>
@@ -184,7 +187,10 @@ public class ProjectService : IProjectService
     public async Task UnloadAllProjects()
     {
         if (projectManager.LoadedProjects.Count == 0)
+        {
+            if (archives != null) await archives.Close();
             return;
+        }
 
         // Flush open editor buffers into the model before deciding what is dirty.
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
@@ -215,6 +221,7 @@ public class ProjectService : IProjectService
         }
 
         projectManager.UnloadAllProjects();
+        if (archives != null) await archives.Close();
     }
 
     public async Task UnloadProject(ProjectDefinition project)
@@ -259,7 +266,7 @@ public class ProjectService : IProjectService
             Title = "Open Project",
             FileTypeFilter =
             [
-                new("Project Files") { Patterns = ["*.vbp", "*.vbg"] },
+                new("Project Files") { Patterns = ["*.vbp", "*.vbg", "*.twinproj"] },
                 new("Project Group") { Patterns = ["*.vbg"] },
                 new("Project")       { Patterns = ["*.vbp"] },
                 new("All Files")     { Patterns = ["*.*"] }
@@ -275,6 +282,12 @@ public class ProjectService : IProjectService
 
     public async Task OpenProject(string projectPath)
     {
+        if (string.Equals(Path.GetExtension(projectPath), ".twinproj", StringComparison.OrdinalIgnoreCase))
+        {
+            if (archives == null) throw new NotSupportedException("Archive project service is unavailable.");
+            await archives.Open(projectPath);
+            return;
+        }
         if (string.Equals(Path.GetExtension(projectPath), ".vbg", StringComparison.OrdinalIgnoreCase))
         {
             await OpenGroupFromPath(projectPath);
@@ -915,6 +928,7 @@ public class ProjectService : IProjectService
 
     public async Task MakeProject()
     {
+        if (archives?.IsActive == true) return;
         if (projectManager.StartupProject == null)
         {
             await windowManager.MessageBox("No startup project found.", icon: MessageBoxIcon.Information);
@@ -1524,7 +1538,10 @@ public class ProjectService : IProjectService
     public async Task MakeProjectGroup()
     {
         if (projectManager.LoadedProjects.Count == 0)
+        {
+            if (archives != null) await archives.Close();
             return;
+        }
         EnsureGroupIfMultiple();
         // CurrentGroup is null with one project loaded and no group open. SaveFiles throws on it before
         // anything is written; what the command should do then is #746.

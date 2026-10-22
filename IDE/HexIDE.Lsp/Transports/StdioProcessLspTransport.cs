@@ -238,7 +238,8 @@ public sealed class StdioProcessLspTransport : ILspTransport
         // record had stopped accepting entries would be the one fact nobody could see.
         Notice?.Invoke(this, new TransportNotice(
             TransportNoticeKind.Lifecycle,
-            code is null ? "process exited" : $"process exited with code {code}"));
+            code is null ? "process exited" : $"process exited with code {code}",
+            Fault: code is not (null or 0)));
 
         Closed?.Invoke(this, EventArgs.Empty);
     }

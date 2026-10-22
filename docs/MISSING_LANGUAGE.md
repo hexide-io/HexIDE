@@ -113,24 +113,24 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Statements | 2 | 2 | 46 | 27 | 0 | 28 | 105 |
+| Statements | 2 | 2 | 42 | 30 | 0 | 29 | 105 |
 | Operators | 0 | 0 | 3 | 18 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 69 | 38 | 1 | 45 | 153 |
+| Intrinsic functions | 0 | 0 | 66 | 39 | 1 | 47 | 153 |
 | Keywords and modifiers | 0 | 0 | 11 | 19 | 1 | 20 | 51 |
-| Literals, types and suffixes | 6 | 1 | 6 | 12 | 0 | 25 | 50 |
+| Literals, types and suffixes | 6 | 1 | 5 | 13 | 0 | 25 | 50 |
 | Compiler directives and options | 0 | 1 | 9 | 9 | 20 | 8 | 47 |
-| In-box objects | 0 | 0 | 98 | 8 | 0 | 17 | 123 |
+| In-box objects | 0 | 0 | 93 | 12 | 0 | 18 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **8** | **4** | **250** | **392** | **22** | **506** | **1182** |
+| **Total** | **8** | **4** | **237** | **401** | **22** | **510** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
 
 
-### The single most useful number here is 4
+### The single most useful number here is 3
 
-**Only four constructs in the whole VB6 language fail to parse**: `#Const`, the `D` exponent marker
-(`1.5D2`), two `#`-prefixed file numbers on one physical line, and a `Function` declared with a type
+**Only three constructs in this inventory fail to parse**: `#Const`, the `D` exponent marker
+(`1.5D2`), and a `Function` declared with a type
 character (`Function GetName$()`, [#740](https://github.com/hexide-io/HexIDE/issues/740)). Every other
 gap parses cleanly and goes wrong at run time: mostly by throwing, sometimes by running on with a wrong
 value. The eight Silently wrong rows below are the wrong values counted as such; the `()` row records
@@ -151,14 +151,15 @@ visitor, not changing how the language is understood.
 ### Where the damage actually is
 
 **Operators are nearly complete** — 3 absent of 32 — so expressions and arithmetic generally work. The
-damage is concentrated in **statements** and the **in-box object model**: 46% of VB6's statements (48
+damage is concentrated in **statements** and the **in-box object model**: 42% of VB6's statements (44
 of 105, two of them the `Function` rows, which fail only when a type character is used) and 80% of the
 in-box surface (`App`, `Screen`, `Printer`, `Clipboard`, `Collection`; 98 of 123) are unavailable. Both
 figures are rounded to the nearest whole percent.
 
 That is the honest answer to "will my code run?" — the arithmetic will; the plumbing around it often will
-not. The classic file-I/O family is absent as a block, which is the most common way a real program dies
-here, usually within its first few statements.
+not. Text files run since [#1145](https://github.com/hexide-io/HexIDE/issues/1145): `Open` For Input, Output and
+Append, `Line Input #`, `Print #`, `Close`, `FreeFile` and `EOF`. The rest of the file-I/O family is still absent
+as a block: Random and Binary files, `Get`, `Put`, `Input #`, `Write #`, `LOF`, `Seek`, `Kill`, `Dir` and the like.
 
 ## Silently wrong — 8 names
 
@@ -287,10 +288,10 @@ obscure: the character stands in for an `As` clause. Only `$` has a VB6 row: VB6
 declared with it (oracle TR_01, TR_02, TB_01, each a `Function Left$`). No oracle row has a `Function`
 declared with `% & ! # @`, although HexIDE refuses `Function Twice%` in the same way.
 
-**One more, found by verification and not in the table.** Any single physical source line containing two
-`#`-prefixed file numbers — `Print #1, #2` and the like — fails to parse, taking the whole module with
-it. This had the widest blast radius of the first three and has no row of its own, because the
-enumeration listed `#n` once as a literal rather than as a sequence that can repeat on a line.
+**Multiple file numbers on one line used to fail here** ([#1146](https://github.com/hexide-io/HexIDE/issues/1146)).
+The date-literal token swallowed the text between two `#`s, so `Line Input #1, s: Print #2, s` and
+`Close #1, #2` prevented a whole module from parsing. Both grammars now delimit date/time components instead of
+arbitrary text. Real dates still win where VB6 gives them that meaning: `#1, 2#` is a date, even after `Print`.
 
 **Numeric line labels used to be here**, and how they were found is the useful part: the LSP server's
 grammar already had a working `lineNumber` rule that the interpreter's lacked, so the *editor* accepted
@@ -312,10 +313,10 @@ Worth noting what is *not* here: `#If` parses fine and throws, and so does the n
 | `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 
-## Dies mid-run — 242 names
+## Dies mid-run — 231 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
-are visible — and they are very clustered: the classic file-I/O family is absent as a block, and so is
+are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
 most of the in-box object model.
 
 | Name | Status | Detail | Source |
@@ -329,7 +330,6 @@ most of the in-box object model.
 | `#n` | **Dies** | `FILENUMBER : HASH LETTERORDIGIT +` is a lexer token listed in the `literal` rule — then throws at run time, because `VisitVsLiteralCore` has no FILENUMBER branch and falls into `throw new… | ExpressionExecutor.cs |
 | `,` | **Dies** | The 14-column print-zone comma is grammar-level only: `outputList : outputList_Expression (WS? (SEMICOLON \| COMMA) WS? outputList_Expression?)* \| outputList_Expression? (WS? (SEMICOLON \|… | StatementExecutor.cs |
 | `:= (named argument)` | **Dies** | throws `"Assign is not implemented"` — `implicitCallStmt_InStmt WS? ASSIGN WS? valueStmt # vsAssign` with `ASSIGN : ':='` — then throws at run time: `public override Task<object?>… | ExpressionExecutor.cs |
-| `;` | **Dies** | The suppress-newline / adjacent-item semicolon is in `outputList` (Grammar/VB6.g4) and nothing consumes it - probed `Print #1, "a"; "b"` -> NotImplementedException "Print not implemented". | StatementExecutor.cs |
 | `Access` | **Dies** | ACCESS is a real lexer token and the clause is in the grammar - `openStmt : OPEN WS valueStmt WS FOR WS (APPEND\|BINARY\|INPUT\|OUTPUT\|RANDOM) (WS ACCESS WS (READ\|WRITE\|READ_WRITE))?… | StatementExecutor.cs |
 | `AddressOf` | **Dies** | throws `"ADDRESSOF is not implemented"` — (`ADDRESSOF WS valueStmt # vsAddressOf`) then throws at run time: `public override Task<object?> VisitVsAddressOf(VB6Parser.VsAddressOfContext… | ExpressionExecutor.cs |
 | `AmbientProperties` | **Dies** | Measured for `Dim a As AmbientProperties`: VBCompileErrorException: "User-defined type not defined: AmbientProperties" (StatementExecutor.cs). The route to a real instance is gone too:… | StatementExecutor.cs |
@@ -367,14 +367,8 @@ most of the in-box object model.
 | `ChrB` | **Dies** | No registry entry (VB6BuiltIns.cs; no occurrence of "ChrB" under IDE/HexIDE.Runtime). `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (ChrB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `ChrW` | **Dies** | No registry entry (VB6BuiltIns.cs). `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (ChrW)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `Circle` | **Dies** | throws `"Only single element supported"` — fails at run time - but NOT with a name-resolution error. VB6.g4 has no CIRCLE token and no circleStmt rule, so `Circle (100, 100), 50` parses as a… | ExpressionExecutor.cs |
-| `Clipboard` | **Dies** | never seeded. BasicInterpreter.cs seeds only Debug, Err and App as program globals. Measured verbatim: "Compile error: Variable not defined (Clipboard)". | BasicInterpreter.cs |
-| `Clipboard.Clear` | **Dies** | Measured (statement position): a VBRunTimeException from StatementExecutor.cs - "Unknown method Clear on <Right(EmptyVariant)>()" - because the Clipboard lead resolves to Empty, so neither… | StatementExecutor.cs |
-| `Clipboard.GetData` | **Dies** | In expression position the member-chain lead is resolved by ExpressionExecutor.cs, which throws before the member is ever looked at. Measured verbatim for Clipboard.GetText() and… | ExpressionExecutor.cs |
-| `Clipboard.GetFormat` | **Dies** | In expression position the member-chain lead is resolved by ExpressionExecutor.cs, which throws before the member is ever looked at. Measured verbatim for Clipboard.GetText() and… | ExpressionExecutor.cs |
-| `Clipboard.GetText` | **Dies** | In expression position the member-chain lead is resolved by ExpressionExecutor.cs, which throws before the member is ever looked at. Measured verbatim for Clipboard.GetText() and… | ExpressionExecutor.cs |
-| `Clipboard.SetData` | **Dies** | Measured verbatim: "Run-time error: Unknown method SetData on <Right(EmptyVariant)>()". | StatementExecutor.cs |
-| `Clipboard.SetText` | **Dies** | Measured verbatim: "Run-time error: Unknown method SetText on <Right(EmptyVariant)>()". | StatementExecutor.cs |
-| `Close` | **Dies** | `closeStmt : CLOSE (WS valueStmt (WS? COMMA WS? valueStmt)*)?` (Grammar/VB6.g4) and a visitor exists, but its whole body is the throw. Probed both `Close #1` and bare `Close` ->… | StatementExecutor.cs |
+| `Clipboard.GetData` | **Dies** | Explicitly refused as not implemented (#1156). | VbClipboard.cs |
+| `Clipboard.SetData` | **Dies** | Explicitly refused as not implemented (#1156). | VbClipboard.cs |
 | `Collection` | **Dies** | **[#1010](https://github.com/hexide-io/HexIDE/issues/1010):** `Dim c As Collection`, without `New`, now declares an object slot holding Nothing, at module and procedure level (measured: `TypeName` is Nothing, `Is Nothing` True). Creating one is still refused: there is no Collection object, and `As New` is not implemented. — COLLECTION is a real grammar token (VB6.g4) listed in baseType (VB6.g4), so `Dim c As Collection` reaches BaseTypeMapper.Map, which returns null for it (BaseTypeMapper.cs comment:… | PrePass.cs |
 | `Collection._NewEnum` | **Dies** | The name lexes as an ordinary IDENTIFIER (VB6.g4; the LETTER fragment at :2110 includes `_`), and the bracketed form `[_NewEnum]` parses too — but `_NewEnum`/`NewEnum` appears nowhere in… | Exceptions.cs |
 | `Collection.Add` | **Dies** | No Collection object can exist (see Collection), and no Add handler exists on any runtime proxy. Measured with the call-statement form on a Variant holder: VBRunTimeException: "Unknown… | StatementExecutor.cs |
@@ -419,7 +413,6 @@ most of the in-box object model.
 | `DeleteSetting` | **Dies** | throws `"DeleteSetting not implemented"` — Grammar rule `deleteSettingStmt : DELETESETTING WS valueStmt WS? COMMA WS? valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4) with a real DELETESETTING… | StatementExecutor.cs |
 | `Dir` | **Dies** | fails at name resolution: unregistered in every VB6BuiltIns partial. Probed `Debug.Print Dir("*.*")` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined… | ExpressionExecutor.cs |
 | `Environ` | **Dies** | Not in BuildRegistry; the only runtime hit is the highlighter list VbKeywordNormalizer.cs. `Environ("PATH")` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined… | ExpressionExecutor.cs |
-| `EOF` | **Dies** | fails at name resolution: unregistered. Probed `Debug.Print EOF(1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined (EOF)". docs/interpreter-gaps.md:83. | ExpressionExecutor.cs |
 | `Err.HelpContext` | **Dies** | TryGetProperty (VbErr.cs) has cases only for number/description/source; the fall-through in ExpressionExecutor then requires a Control and otherwise throws… | ExpressionExecutor.cs |
 | `Err.HelpFile` | **Dies** | Measured: `Debug.Print Err.HelpFile` -> VBMethodOrDataMemberNotFoundException, "Method or data member not found (HelpFile in Right(CSharpProxyObject))". No case in… | VbErr.cs |
 | `Err.LastDllError` | **Dies** | Measured verbatim: "Method or data member not found (LastDllError in Right(CSharpProxyObject))". | VbErr.cs |
@@ -436,8 +429,8 @@ most of the in-box object model.
 | `FormatDateTime` | **Dies** | Not registered (VB6BuiltIns.Format.cs registers only "Format"); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined… | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
 | `FormatNumber` | **Dies** | Not registered (VB6BuiltIns.Format.cs); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — message "Sub or Function not defined (FormatNumber)". | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
 | `FormatPercent` | **Dies** | Not registered (VB6BuiltIns.Format.cs); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (FormatPercent)". | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
-| `Forms` | **Dies** | the loaded-forms collection is never built. Measured verbatim: "Compile error: Variable not defined (Forms)". BasicInterpreter.cs seeds only Debug, Err and App as program globals. | BasicInterpreter.cs |
-| `Forms.Count` | **Dies** | Measured verbatim: "Compile error: Variable not defined (Forms)". | ExpressionExecutor.cs |
+| `Forms` | **Dies** | Not implemented. Unresolved bare and member reads are explicitly refused, untrappably, with or without Option Explicit (#871). Declared names still win. | ExpressionExecutor.cs |
+| `Forms.Count` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
 | `Forms.Item` | **Dies** | Measured verbatim for the default-member form Forms(0).Caption: "Compile error: Sub or Function not defined (Forms)" - a parenthesised lead is routed to EvaluateProcedureOrArrayCall, which… | ExpressionExecutor.cs |
 | `FV` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (FV)". Named in the deferral list at docs/interpreter-gaps.md:77. | VB6BuiltIns.cs |
 | `Get` | **Dies** | `getStmt : GET WS valueStmt WS? COMMA WS? valueStmt? WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Get #1, 1, v` -> NotImplementedException: "Get not… | StatementExecutor.cs |
@@ -463,7 +456,6 @@ most of the in-box object model.
 | `Licenses` | **Dies** | Measured for `Debug.Print Licenses.Count`: VBVariableNotDefinedException: "Variable not defined (Licenses)" (ExpressionExecutor.cs) — the global object is not seeded; only Debug, Err and… | BasicInterpreter.cs |
 | `Like` | **Dies** | throws `"Like is not implemented"` — (`LIKE` in the comparison alternative, `# vsCompare`, since #1074) then throws in `VisitVsCompare`: `throw new NotImplementedException("Like is not implemented")` | ExpressionExecutor.cs |
 | `Line` | **Dies** | There is no standalone LINE token; `Line Input` is lexed as ONE token, `LINE_INPUT : L I N E ' ' I N P U T` (Grammar/VB6.g4), consumed by `lineInputStmt : LINE_INPUT WS valueStmt WS? COMMA… | StatementExecutor.cs |
-| `Line Input #` | **Dies** | `lineInputStmt : LINE_INPUT WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Line Input #1, s` -> NotImplementedException: "LineInput not… | StatementExecutor.cs |
 | `LoadPicture` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. `Set Picture1.Picture = LoadPicture("x.bmp")` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined… | ExpressionExecutor.cs |
 | `LoadResData` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResData)". | ExpressionExecutor.cs |
 | `LoadResPicture` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResPicture)". | ExpressionExecutor.cs |
@@ -483,7 +475,6 @@ most of the in-box object model.
 | `ObjPtr` | **Dies** | Zero hits anywhere in IDE/ outside obj/bin; not in BuildRegistry (VB6BuiltIns.cs), not in Grammar/VB6.g4, not even in the editor metadata (VbKeywordNormalizer.cs / VbSignatures.cs). A call… | VB6BuiltIns.cs |
 | `On...GoSub` | **Dies** | throws `"OnGoSub not implemented"` — (onGoSubStmt, VB6.g4) and throws at run time. Verbatim: Measured: `On i GoSub L1` -> NotImplementedException: OnGoSub not implemented. | StatementExecutor.cs |
 | `On...GoTo` | **Dies** | throws `"OnGoTo not implemented"` — (onGoToStmt, VB6.g4) and throws at run time. Verbatim: Measured: `On i GoTo L1, L2` -> NotImplementedException: OnGoTo not implemented. | StatementExecutor.cs |
-| `Open` | **Dies** | the keystone of the family. The full VB6 clause grammar is present (`openStmt`, Grammar/VB6.g4, covering mode, Access, lock and `Len =`) and VisitOpenStmt exists, but its entire body is the… | StatementExecutor.cs |
 | `Output` | **Dies** | OUTPUT is a lexer token and an openStmt mode alternative (Grammar/VB6.g4). Probed `Open "z.txt" For Output As #1` -> NotImplementedException "Open not implemented". | StatementExecutor.cs |
 | `ParamArray` | **Dies** | throws `"ParamArray parameters are not yet supported"` — and DECLARES fine - the grammar's `arg` rule carries `(PARAMARRAY WS)?` and PrePass.ParseParams records `ParamArray: arg.PARAMARRAY() != null`. It… | BasicInterpreter.cs |
 | `ParentControls` | **Dies** | Measured for `Dim p As ParentControls`: VBCompileErrorException: "User-defined type not defined: ParentControls" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
@@ -492,15 +483,14 @@ most of the in-box object model.
 | `Pmt` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (Pmt)". Named in the deferral list at docs/interpreter-gaps.md:77. | VB6BuiltIns.cs |
 | `PPmt` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (PPmt)". Named in the deferral list at… | VB6BuiltIns.cs |
 | `Preserve` | **Dies** | throws `"PRESERVE not implemented"` — (`redimStmt : REDIM WS (PRESERVE WS)? redimSubStmt ...`) and throws on the first line of the visitor: Measured: `Dim a() / ReDim a(2) / ReDim… | StatementExecutor.cs |
-| `Print #` | **Dies** | `printStmt : PRINT WS valueStmt WS? COMMA (WS? outputList)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Print #1, "x"`, `Print #1, "a", "b"`, `Print #1, "a"; "b"`, `Print #1… | StatementExecutor.cs |
-| `Printer` | **Dies** | never seeded. BasicInterpreter.cs seeds only Debug, Err and App as program globals. All three positions measured: read -> "Compile error: Variable not defined (Printer)"; assignment ->… | BasicInterpreter.cs |
+| `Printer` | **Dies** | Not implemented. Unresolved bare and member reads are explicitly refused, untrappably, with or without Option Explicit (#871). Declared names still win. | ExpressionExecutor.cs |
 | `Printer.ColorMode` | **Dies** | because the Printer object it hangs off is never seeded. MEASURED for "Printer.Orientation = 2": "Run-time error '424': Object required Can't find variable Printer" (StatementExecutor.cs)… | BasicInterpreter.cs |
 | `Printer.Duplex` | **Dies** | because the Printer object it hangs off is never seeded. MEASURED for "Printer.Orientation = 2": "Run-time error '424': Object required Can't find variable Printer" (StatementExecutor.cs)… | BasicInterpreter.cs |
 | `Printer.Orientation` | **Dies** | because the Printer object it hangs off is never seeded. MEASURED for "Printer.Orientation = 2": "Run-time error '424': Object required Can't find variable Printer" (StatementExecutor.cs)… | BasicInterpreter.cs |
 | `Printer.PaperBin` | **Dies** | because the Printer object it hangs off is never seeded. MEASURED for "Printer.Orientation = 2": "Run-time error '424': Object required Can't find variable Printer" (StatementExecutor.cs)… | BasicInterpreter.cs |
 | `Printer.PaperSize` | **Dies** | because the Printer object it hangs off is never seeded. MEASURED for "Printer.Orientation = 2": "Run-time error '424': Object required Can't find variable Printer" (StatementExecutor.cs)… | BasicInterpreter.cs |
 | `Printer.PrintQuality` | **Dies** | because the Printer object it hangs off is never seeded. MEASURED for "Printer.Orientation = 2": "Run-time error '424': Object required Can't find variable Printer" (StatementExecutor.cs)… | BasicInterpreter.cs |
-| `Printers` | **Dies** | Measured verbatim for Printers(0).DeviceName: "Compile error: Sub or Function not defined (Printers)"; for Printers.Count: "Compile error: Variable not defined (Printers)"… | BasicInterpreter.cs |
+| `Printers` | **Dies** | Not implemented. Unresolved bare and member reads are explicitly refused, untrappably, with or without Option Explicit (#871). Declared names still win. | ExpressionExecutor.cs |
 | `PropertyBag` | **Dies** | Measured for `Dim p As PropertyBag`: VBCompileErrorException: "User-defined type not defined: PropertyBag" (StatementExecutor.cs); same message for `Set p = New PropertyBag`… | StatementExecutor.cs |
 | `PropertyBag.Contents` | **Dies** | Measured: VBMethodOrDataMemberNotFoundException: "Method or data member not found (Contents in Right(EmptyVariant))". | Exceptions.cs |
 | `PropertyBag.ReadProperty` | **Dies** | Measured on a Variant holder: VBMethodOrDataMemberNotFoundException: "Method or data member not found (ReadProperty(\"A\", 0) in Right(EmptyVariant))". Measured on a real `PropBag As… | Exceptions.cs |
@@ -520,16 +510,16 @@ most of the in-box object model.
 | `SavePicture` | **Dies** | throws `"Savepicture not implemented"` — The grammar has `savepictureStmt : SAVEPICTURE WS valueStmt WS? COMMA WS? valueStmt` (VB6.g4) and SAVEPICTURE is a real token, but the visitor body… | StatementExecutor.cs |
 | `SaveSetting` | **Dies** | throws `"SaveSetting not implemented"` — Grammar rule `saveSettingStmt : SAVESETTING WS valueStmt WS? COMMA WS? valueStmt WS? COMMA WS? valueStmt WS? COMMA WS? valueStmt` (VB6.g4); the… | StatementExecutor.cs |
 | `Scale` | **Dies** | throws `"Only single element supported"` — fails at run time. VB6.g4 has no SCALE token and no scaleStmt rule. `Scale (0, 0)-(100, 100)` parses as a bare procedure call with one argument - a… | ExpressionExecutor.cs |
-| `Screen` | **Dies** | never seeded. BasicInterpreter.cs seeds only Debug, Err and App as program globals. Measured verbatim: "Compile error: Variable not defined (Screen)"; an assignment such as… | BasicInterpreter.cs |
-| `Screen.ActiveControl` | **Dies** | because the Screen object it hangs off is never seeded. Measured verbatim: "Compile error: Variable not defined (Screen)". | BasicInterpreter.cs |
-| `Screen.ActiveForm` | **Dies** | because the Screen object it hangs off is never seeded. Measured verbatim: "Compile error: Variable not defined (Screen)". | BasicInterpreter.cs |
-| `Screen.FontCount` | **Dies** | because the Screen object it hangs off is never seeded. Measured verbatim: "Compile error: Variable not defined (Screen)". | BasicInterpreter.cs |
-| `Screen.Fonts` | **Dies** | because the Screen object it hangs off is never seeded. Measured verbatim: "Compile error: Variable not defined (Screen)". | BasicInterpreter.cs |
-| `Screen.Height` | **Dies** | because the Screen object it hangs off is never seeded. Measured verbatim: "Compile error: Variable not defined (Screen)". | BasicInterpreter.cs |
-| `Screen.MousePointer` | **Dies** | Measured verbatim for "Screen.MousePointer = 11": "Run-time error '424': Object required Can't find variable Screen" (StatementExecutor.cs). | StatementExecutor.cs |
-| `Screen.TwipsPerPixelX` | **Dies** | because the Screen object it hangs off is never seeded. Measured verbatim: "Compile error: Variable not defined (Screen)". | BasicInterpreter.cs |
-| `Screen.TwipsPerPixelY` | **Dies** | because the Screen object it hangs off is never seeded. Measured verbatim: "Compile error: Variable not defined (Screen)". | BasicInterpreter.cs |
-| `Screen.Width` | **Dies** | because the Screen object it hangs off is never seeded. Measured verbatim: "Compile error: Variable not defined (Screen)". | BasicInterpreter.cs |
+| `Screen` | **Dies** | Not implemented. Unresolved bare and member reads are explicitly refused, untrappably, with or without Option Explicit (#871). Declared names still win. | ExpressionExecutor.cs |
+| `Screen.ActiveControl` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
+| `Screen.ActiveForm` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
+| `Screen.FontCount` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
+| `Screen.Fonts` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
+| `Screen.Height` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
+| `Screen.MousePointer` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
+| `Screen.TwipsPerPixelX` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
+| `Screen.TwipsPerPixelY` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
+| `Screen.Width` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
 | `Seek` | **Dies** | fails at name resolution: SEEK is a lexer keyword but is listed in `ambiguousKeyword`, so `Seek(1)` parses as a call. Probed `Debug.Print Seek(1)` -> VBSubOrFunctionNotDefinedException:… | ExpressionExecutor.cs |
 | `Seek` | **Dies** | `seekStmt : SEEK WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Seek #1, 1` -> NotImplementedException: "Seek not implemented". | StatementExecutor.cs |
 | `SelectedControls` | **Dies** | Measured for `Dim s As SelectedControls`: VBCompileErrorException: "User-defined type not defined: SelectedControls" (StatementExecutor.cs). | StatementExecutor.cs |
@@ -570,7 +560,7 @@ load, Dies, Partial, No-op, Supported — because a reader of a coverage documen
 missing.
 
 
-### Statements — 105 names (2 silently wrong, 48 absent, 27 partial, 28 supported)
+### Statements — 105 names (2 silently wrong, 44 absent, 30 partial, 29 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -579,7 +569,7 @@ missing.
 | `Function...End Function` | **Won't load** | **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)); see `Function`.** **[#975](https://github.com/hexide-io/HexIDE/issues/975):** one declared `As Long()` returns its array (measured), where it returned a Long 0, and **[#986](https://github.com/hexide-io/HexIDE/issues/986):** takes only an array of its own type, a mismatch raising 13 or VB6's compile error "Can't assign to array" as VB6 does (measured), and a String stored into one declared `As Byte()`, which VB6 converts, stops the run as not implemented ([#998](https://github.com/hexide-io/HexIDE/issues/998)). The production quoted below has no `typeHint?` after the name, so `Function GetName$()` does not parse. Otherwise as before — The whole construct - `(visibility WS)? (STATIC WS)? FUNCTION WS name (argList)? (asTypeClause)? ... END_FUNCTION` - is collected by PrePass.VisitFunctionStmt and executed by… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
 | `Time` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 | `AppActivate` | **Dies** | throws `"AppActivate not implemented"` — Grammar rule `appActivateStmt : APPACTIVATE WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4); the visitor body is a single throw:… | StatementExecutor.cs |
-| `Close` | **Dies** | `closeStmt : CLOSE (WS valueStmt (WS? COMMA WS? valueStmt)*)?` (Grammar/VB6.g4) and a visitor exists, but its whole body is the throw. Probed both `Close #1` and bare `Close` ->… | StatementExecutor.cs |
+| `Close` | Faithful | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** closes the numbered files, every open file with no number, and one that isn't open with no error, all as vb6.exe measured. A program's files also close at `End` and when it ends. | StatementExecutor.cs, VbFiles.cs |
 | `Date` | **Dies** | throws `"Date not implemented"` — The grammar has a dedicated rule `dateStmt : DATE WS? EQ WS? valueStmt` (VB6.g4), listed in the block alternatives at VB6.g4 ahead of letStmt so it… | StatementExecutor.cs |
 | `DefBool` | **Dies** | throws `"Deftype not implemented"` — (grammar rule `deftypeStmt` at VB6.g4, a blockStmt so it reaches the module's top-level block) and then throws at run time: Measured: `DefBool A-Z`… | StatementExecutor.cs |
 | `DefByte` | **Dies** | throws `"Deftype not implemented"` — the single shared VisitDeftypeStmt covers every Def* token (DEFBOOL\|DEFBYTE\|DEFINT\|DEFLNG\|DEFCUR\|DEFSNG\|DEFDBL\|DEFDEC\|DEFDATE\|DEFSTR\|DEFOBJ\… | StatementExecutor.cs |
@@ -600,7 +590,7 @@ missing.
 | `GoSub...Return` | **Dies** | throws `"GoSub not implemented"` — Both halves parse and both throw. GoSub: (StatementExecutor.cs). Return: `throw new NotImplementedException("Return not implemented")` (:1172)… | StatementExecutor.cs |
 | `Input #` | **Dies** | `inputStmt : INPUT WS valueStmt (WS? COMMA WS? valueStmt)+` (Grammar/VB6.g4); the visitor body is the throw. Probed `Input #1, s` -> NotImplementedException: "Input not implemented". | StatementExecutor.cs |
 | `Kill` | **Dies** | `killStmt : KILL WS valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Kill "z.txt"` -> NotImplementedException: "Kill not implemented". | StatementExecutor.cs |
-| `Line Input #` | **Dies** | `lineInputStmt : LINE_INPUT WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Line Input #1, s` -> NotImplementedException: "LineInput not… | StatementExecutor.cs |
+| `Line Input #` | Partial | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** reads a line of an Input file in the ANSI code page, ending at CR or CR LF but not a lone LF, and stopping at Ctrl+Z; 62 past the end, with the variable unchanged (all measured). Into a plain variable only: an array element or a member is refused as not implemented. | StatementExecutor.cs, VbFiles.cs |
 | `Lock` | **Dies** | `lockStmt : LOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Lock #1, 1 To 2` -> NotImplementedException: "Lock… | StatementExecutor.cs |
 | `LSet` | **Dies** | throws `"Lset not implemented"` — The grammar has the rule — `lsetStmt : LSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt` (VB6.g4), reachable from blockStmt (VB6.g4) — but the… | StatementExecutor.cs, VB6.g4 |
 | `Mid$` | **Dies** | **Tracked by [#742](https://github.com/hexide-io/HexIDE/issues/742).** — `Mid$` lexes as MID + DOLLAR, and DOLLAR is a `typeHint` (VB6.g4) which `iCS_S_ProcedureOrArrayCall` accepts (VB6.g4). The letStmt handler rejects it BEFORE reaching the Mid-statement… | StatementExecutor.cs |
@@ -608,9 +598,9 @@ missing.
 | `Name` | **Dies** | `nameStmt : NAME WS valueStmt WS AS WS valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Name "a.txt" As "b.txt"` -> NotImplementedException: "Name not implemented". | StatementExecutor.cs |
 | `On...GoSub` | **Dies** | throws `"OnGoSub not implemented"` — (onGoSubStmt, VB6.g4) and throws at run time. Verbatim: Measured: `On i GoSub L1` -> NotImplementedException: OnGoSub not implemented. | StatementExecutor.cs |
 | `On...GoTo` | **Dies** | throws `"OnGoTo not implemented"` — (onGoToStmt, VB6.g4) and throws at run time. Verbatim: Measured: `On i GoTo L1, L2` -> NotImplementedException: OnGoTo not implemented. | StatementExecutor.cs |
-| `Open` | **Dies** | the keystone of the family. The full VB6 clause grammar is present (`openStmt`, Grammar/VB6.g4, covering mode, Access, lock and `Len =`) and VisitOpenStmt exists, but its entire body is the… | StatementExecutor.cs |
+| `Open` | Partial | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** For Input, Output and Append run as measured: Output truncates, a missing Input file is 53, a number in use or a second Output of one file is 55, `""` is 75 and `#0` is 52. `Access` is taken; a `Lock` keeps the file from this program only. For Random and For Binary are refused as not implemented. | StatementExecutor.cs, VbFiles.cs |
 | `Preserve` | **Dies** | throws `"PRESERVE not implemented"` — (`redimStmt : REDIM WS (PRESERVE WS)? redimSubStmt ...`) and throws on the first line of the visitor: Measured: `Dim a() / ReDim a(2) / ReDim… | StatementExecutor.cs |
-| `Print #` | **Dies** | `printStmt : PRINT WS valueStmt WS? COMMA (WS? outputList)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Print #1, "x"`, `Print #1, "a", "b"`, `Print #1, "a"; "b"`, `Print #1… | StatementExecutor.cs |
+| `Print #` | Partial | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** writes in the ANSI code page as vb6.exe measured: numbers with a space for the sign and one after, dates with one after, Booleans, strings and Null as they read, `;` joining, `,` moving to the next 14-column zone, and CR LF unless the statement ends in either. `Tab` and `Spc` in it are refused as not implemented. | StatementExecutor.cs |
 | `Put` | **Dies** | `putStmt : PUT WS valueStmt WS? COMMA WS? valueStmt? WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Put #1, 1, v` -> NotImplementedException: "Put not… | StatementExecutor.cs |
 | `Reset` | **Dies** | `resetStmt : RESET` (Grammar/VB6.g4) - a bare keyword with no operands; the visitor body is the throw. Probed `Reset` -> NotImplementedException: "Reset not implemented". | StatementExecutor.cs |
 | `Return` | **Dies** | throws `"Return not implemented"` — (returnStmt, VB6.g4) and throws at run time. Verbatim: | StatementExecutor.cs |
@@ -719,7 +709,7 @@ missing.
 | `TypeOf ... Is` | Supported | `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (69 absent, 38 partial, 45 supported)
+### Intrinsic functions — 153 names (66 absent, 39 partial, 47 supported)
 
 
 **array** (3)
@@ -781,9 +771,9 @@ missing.
 | Name | Status | Detail | Source |
 |---|---|---|---|
 | `CurDir` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | ExpressionExecutor.cs |
-| `FreeFile` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | ExpressionExecutor.cs |
+| `FreeFile` | Faithful | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** the lowest number not open, an Integer: from 1 for `FreeFile` and `FreeFile(0)`, from 256 for `FreeFile(1)`, and the same number until a file is opened on it (measured). | VB6BuiltIns.cs, VbFiles.cs |
 | `Dir` | **Dies** | fails at name resolution: unregistered in every VB6BuiltIns partial. Probed `Debug.Print Dir("*.*")` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined… | ExpressionExecutor.cs |
-| `EOF` | **Dies** | fails at name resolution: unregistered. Probed `Debug.Print EOF(1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined (EOF)". docs/interpreter-gaps.md:83. | ExpressionExecutor.cs |
+| `EOF` | Faithful | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** True at the end of an Input file and at a Ctrl+Z in it, and always for an Output file; 52 for a number not open (measured). | VB6BuiltIns.cs, VbFiles.cs |
 | `FileAttr` | **Dies** | fails at name resolution: unregistered. Probed `Debug.Print FileAttr(1, 1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined (FileAttr)"… | ExpressionExecutor.cs |
 | `FileDateTime` | **Dies** | fails at name resolution: unregistered. Probed `Debug.Print FileDateTime("a.txt")` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined (FileDateTime)"… | ExpressionExecutor.cs |
 | `FileLen` | **Dies** | fails at name resolution: unregistered. Probed `Debug.Print FileLen("a.txt")` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined (FileLen)"… | ExpressionExecutor.cs |
@@ -820,7 +810,7 @@ missing.
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `Command` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | ExpressionExecutor.cs |
+| `Command` | Partial | The project's Command Line Arguments (`Command32` in the .vbp), as VB6 gives them under F5, which is how HexIDE always runs: empty where there are none, as a String, spelt `Command`, `Command()` or `Command$` (measured in a made program run with none). A made program's own process arguments are not passed. | VB6BuiltIns.cs, VbApp.cs |
 | `Shell` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 | `CallByName` | **Dies** | Zero occurrences anywhere in HexIDE.Runtime; not registered by any Register* partial, so BuildRegistry has no entry. The call reaches ExpressionExecutor's final fallthrough and throws… | ExpressionExecutor.cs |
 | `Choose` | **Dies** | Not in BuildRegistry - a grep of every d["..."] registration across all VB6BuiltIns partials returns no Choose. `x = Choose(i, "a", "b")` throws VBSubOrFunctionNotDefinedException: "Sub or… | ExpressionExecutor.cs |
@@ -971,7 +961,7 @@ missing.
 | `Wend` | Supported | Closes whileWendStmt (VB6.g4); structural only. WhileWendTests covers accumulate, zero-iteration and Exit-Sub-from-inside cases. | VB6.g4 |
 | `WithEvents` | Supported | **[#822](https://github.com/hexide-io/HexIDE/issues/822):** a form's WithEvents variable binds, as a class's does, now that a form is an instance with a real `Me` (measured rows pinned; [#972](https://github.com/hexide-io/HexIDE/issues/972)). PrePass records each WithEvents name as an event sink and hoists the slot to Nothing; the runtime VisitVariableStmt re-seeds it per instance at New; the Set path detects a WithEvents field… | PrePass.cs, StatementExecutor.cs |
 
-### Literals, types and suffixes — 50 names (6 silently wrong, 7 absent, 12 partial, 25 supported)
+### Literals, types and suffixes — 50 names (6 silently wrong, 6 absent, 13 partial, 25 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -988,7 +978,7 @@ missing.
 | `#n` | **Dies** | `FILENUMBER : HASH LETTERORDIGIT +` is a lexer token listed in the `literal` rule — then throws at run time, because `VisitVsLiteralCore` has no FILENUMBER branch and falls into `throw new… | ExpressionExecutor.cs |
 | `,` | **Dies** | The 14-column print-zone comma is grammar-level only: `outputList : outputList_Expression (WS? (SEMICOLON \| COMMA) WS? outputList_Expression?)* \| outputList_Expression? (WS? (SEMICOLON \|… | StatementExecutor.cs |
 | `:= (named argument)` | **Dies** | throws `"Assign is not implemented"` — `implicitCallStmt_InStmt WS? ASSIGN WS? valueStmt # vsAssign` with `ASSIGN : ':='` — then throws at run time: `public override Task<object?>… | ExpressionExecutor.cs |
-| `;` | **Dies** | The suppress-newline / adjacent-item semicolon is in `outputList` (Grammar/VB6.g4) and nothing consumes it - probed `Print #1, "a"; "b"` -> NotImplementedException "Print not implemented". | StatementExecutor.cs |
+| `;` | Partial | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** in `Print #`, it joins two items, and at the end of the statement it keeps the line open, as measured. In `Write #` it still dies, with `Write #` itself. | StatementExecutor.cs |
 | `ErrObject` | **Dies** | as a complexType, throws at run time. BaseTypeMapper.Map has no ErrObject case and it is not a user class/UDT/Enum, so DeclareLocal falls to the final else. Measured verbatim:… | StatementExecutor.cs |
 | `Decimal` | Partial | `Decimal` has no token in the grammar's `baseType` rule (BOOLEAN, BYTE, COLLECTION, CURRENCY, DATE, DOUBLE, INTEGER, LONG, OBJECT, SINGLE, STRING, VARIANT), so `As Decimal` parses as a… | VB6.g4 |
 | `&H` | Partial | Implemented and oracle-faithful in `ClassifyRadixLiteral`, whose comment records the measurement: "VB6 &H hex / &O octal literals are unsigned bit-patterns (verified against vb6.exe): with… | ExpressionExecutor.cs |
@@ -1078,7 +1068,7 @@ missing.
 | `Option Base` | Supported | Collected by PrePass ('ArrayBase = int.Parse(context.INTEGERLITERAL().GetText());', PrePass.cs) and applied on both declaration paths: module-level Dim arrays (PrePass.cs) and… | PrePass.cs |
 | `Version` | Supported | Handled on three independent paths. Form/control files: the deserializer skips the line ('if (line.StartsWith("VERSION")) { continue; }', VbFrmFormatDeserializer.cs) and the serializer… | VbFrmFormatDeserializer.cs |
 
-### In-box objects — 123 names (98 absent, 8 partial, 17 supported)
+### In-box objects — 123 names (93 absent, 12 partial, 18 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -1110,13 +1100,13 @@ missing.
 | `AsyncProperty` | **Dies** | Measured for `Dim a As AsyncProperty`: VBCompileErrorException: "User-defined type not defined: AsyncProperty" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `AsyncProperty_VB5` | **Dies** | Measured for `Dim a As AsyncProperty_VB5`: VBCompileErrorException: "User-defined type not defined: AsyncProperty_VB5" (StatementExecutor.cs). | StatementExecutor.cs |
 | `Circle` | **Dies** | throws `"Only single element supported"` — fails at run time - but NOT with a name-resolution error. VB6.g4 has no CIRCLE token and no circleStmt rule, so `Circle (100, 100), 50` parses as a… | ExpressionExecutor.cs |
-| `Clipboard` | **Dies** | never seeded. BasicInterpreter.cs seeds only Debug, Err and App as program globals. Measured verbatim: "Compile error: Variable not defined (Clipboard)". | BasicInterpreter.cs |
-| `Clipboard.Clear` | **Dies** | Measured (statement position): a VBRunTimeException from StatementExecutor.cs - "Unknown method Clear on <Right(EmptyVariant)>()" - because the Clipboard lead resolves to Empty, so neither… | StatementExecutor.cs |
-| `Clipboard.GetData` | **Dies** | In expression position the member-chain lead is resolved by ExpressionExecutor.cs, which throws before the member is ever looked at. Measured verbatim for Clipboard.GetText() and… | ExpressionExecutor.cs |
-| `Clipboard.GetFormat` | **Dies** | In expression position the member-chain lead is resolved by ExpressionExecutor.cs, which throws before the member is ever looked at. Measured verbatim for Clipboard.GetText() and… | ExpressionExecutor.cs |
-| `Clipboard.GetText` | **Dies** | In expression position the member-chain lead is resolved by ExpressionExecutor.cs, which throws before the member is ever looked at. Measured verbatim for Clipboard.GetText() and… | ExpressionExecutor.cs |
-| `Clipboard.SetData` | **Dies** | Measured verbatim: "Run-time error: Unknown method SetData on <Right(EmptyVariant)>()". | StatementExecutor.cs |
-| `Clipboard.SetText` | **Dies** | Measured verbatim: "Run-time error: Unknown method SetText on <Right(EmptyVariant)>()". | StatementExecutor.cs |
+| `Clipboard` | Partial | Text operations use the host clipboard (#1156); declared names still win. Image/data and non-text format queries remain explicitly unsupported. | VbClipboard.cs |
+| `Clipboard.Clear` | Supported | Clears the host clipboard, including all formats (#1156). | VbClipboard.cs, AvaloniaTextClipboard.cs |
+| `Clipboard.GetData` | **Dies** | Explicitly refused as not implemented (#1156). | VbClipboard.cs |
+| `Clipboard.GetFormat` | Partial | vbCFText reports whether text exists, including empty text (#1156). Other formats are explicitly unsupported. | VbClipboard.cs |
+| `Clipboard.GetText` | Partial | Returns ANSI text for omitted format or vbCFText, empty when no text exists (#1156). RTF and Link formats are explicitly unsupported. | VbClipboard.cs |
+| `Clipboard.SetData` | **Dies** | Explicitly refused as not implemented (#1156). | VbClipboard.cs |
+| `Clipboard.SetText` | Partial | Sets ANSI text for omitted format or vbCFText (#1156). Truncates at NUL. Refuses a clipboard containing non-text formats to avoid discarding them; Clear first. RTF and Link are unsupported. | VbClipboard.cs, AvaloniaTextClipboard.cs |
 | `Collection` | **Dies** | **[#1010](https://github.com/hexide-io/HexIDE/issues/1010):** `Dim c As Collection`, without `New`, now declares an object slot holding Nothing, at module and procedure level (measured: `TypeName` is Nothing, `Is Nothing` True). Creating one is still refused: there is no Collection object, and `As New` is not implemented. — COLLECTION is a real grammar token (VB6.g4) listed in baseType (VB6.g4), so `Dim c As Collection` reaches BaseTypeMapper.Map, which returns null for it (BaseTypeMapper.cs comment:… | PrePass.cs |
 | `Collection._NewEnum` | **Dies** | The name lexes as an ordinary IDENTIFIER (VB6.g4; the LETTER fragment at :2110 includes `_`), and the bracketed form `[_NewEnum]` parses too — but `_NewEnum`/`NewEnum` appears nowhere in… | Exceptions.cs |
 | `Collection.Add` | **Dies** | No Collection object can exist (see Collection), and no Add handler exists on any runtime proxy. Measured with the call-statement form on a Variant holder: VBRunTimeException: "Unknown… | StatementExecutor.cs |
@@ -1146,22 +1136,22 @@ missing.
 | `EventInfo` | **Dies** | Measured for `Dim e As EventInfo`: VBCompileErrorException: "User-defined type not defined: EventInfo" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `EventParameter` | **Dies** | Measured for `Dim e As EventParameter`: VBCompileErrorException: "User-defined type not defined: EventParameter" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `EventParameters` | **Dies** | Measured for `Dim e As EventParameters`: VBCompileErrorException: "User-defined type not defined: EventParameters" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
-| `Forms` | **Dies** | the loaded-forms collection is never built. Measured verbatim: "Compile error: Variable not defined (Forms)". BasicInterpreter.cs seeds only Debug, Err and App as program globals. | BasicInterpreter.cs |
-| `Forms.Count` | **Dies** | Measured verbatim: "Compile error: Variable not defined (Forms)". | ExpressionExecutor.cs |
+| `Forms` | **Dies** | Not implemented. Unresolved bare and member reads are explicitly refused, untrappably, with or without Option Explicit (#871). Declared names still win. | ExpressionExecutor.cs |
+| `Forms.Count` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
 | `Forms.Item` | **Dies** | Measured verbatim for the default-member form Forms(0).Caption: "Compile error: Sub or Function not defined (Forms)" - a parenthesised lead is routed to EvaluateProcedureOrArrayCall, which… | ExpressionExecutor.cs |
 | `Hyperlink` | **Dies** | Measured for `Dim h As Hyperlink`: VBCompileErrorException: "User-defined type not defined: Hyperlink" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `LicenseInfo` | **Dies** | Measured for `Dim l As LicenseInfo`: VBCompileErrorException: "User-defined type not defined: LicenseInfo" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `Licenses` | **Dies** | Measured for `Debug.Print Licenses.Count`: VBVariableNotDefinedException: "Variable not defined (Licenses)" (ExpressionExecutor.cs) — the global object is not seeded; only Debug, Err and… | BasicInterpreter.cs |
 | `ParentControls` | **Dies** | Measured for `Dim p As ParentControls`: VBCompileErrorException: "User-defined type not defined: ParentControls" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `ParentControls.ParentControlsType` | **Dies** | Measured on a Variant holder: VBMethodOrDataMemberNotFoundException: "Method or data member not found (ParentControlsType in Right(EmptyVariant))". The owning ParentControls type does not… | Exceptions.cs |
-| `Printer` | **Dies** | never seeded. BasicInterpreter.cs seeds only Debug, Err and App as program globals. All three positions measured: read -> "Compile error: Variable not defined (Printer)"; assignment ->… | BasicInterpreter.cs |
+| `Printer` | **Dies** | Not implemented. Unresolved bare and member reads are explicitly refused, untrappably, with or without Option Explicit (#871). Declared names still win. | ExpressionExecutor.cs |
 | `Printer.ColorMode` | **Dies** | because the Printer object it hangs off is never seeded. MEASURED for "Printer.Orientation = 2": "Run-time error '424': Object required Can't find variable Printer" (StatementExecutor.cs)… | BasicInterpreter.cs |
 | `Printer.Duplex` | **Dies** | because the Printer object it hangs off is never seeded. MEASURED for "Printer.Orientation = 2": "Run-time error '424': Object required Can't find variable Printer" (StatementExecutor.cs)… | BasicInterpreter.cs |
 | `Printer.Orientation` | **Dies** | because the Printer object it hangs off is never seeded. MEASURED for "Printer.Orientation = 2": "Run-time error '424': Object required Can't find variable Printer" (StatementExecutor.cs)… | BasicInterpreter.cs |
 | `Printer.PaperBin` | **Dies** | because the Printer object it hangs off is never seeded. MEASURED for "Printer.Orientation = 2": "Run-time error '424': Object required Can't find variable Printer" (StatementExecutor.cs)… | BasicInterpreter.cs |
 | `Printer.PaperSize` | **Dies** | because the Printer object it hangs off is never seeded. MEASURED for "Printer.Orientation = 2": "Run-time error '424': Object required Can't find variable Printer" (StatementExecutor.cs)… | BasicInterpreter.cs |
 | `Printer.PrintQuality` | **Dies** | because the Printer object it hangs off is never seeded. MEASURED for "Printer.Orientation = 2": "Run-time error '424': Object required Can't find variable Printer" (StatementExecutor.cs)… | BasicInterpreter.cs |
-| `Printers` | **Dies** | Measured verbatim for Printers(0).DeviceName: "Compile error: Sub or Function not defined (Printers)"; for Printers.Count: "Compile error: Variable not defined (Printers)"… | BasicInterpreter.cs |
+| `Printers` | **Dies** | Not implemented. Unresolved bare and member reads are explicitly refused, untrappably, with or without Option Explicit (#871). Declared names still win. | ExpressionExecutor.cs |
 | `PropertyBag` | **Dies** | Measured for `Dim p As PropertyBag`: VBCompileErrorException: "User-defined type not defined: PropertyBag" (StatementExecutor.cs); same message for `Set p = New PropertyBag`… | StatementExecutor.cs |
 | `PropertyBag.Contents` | **Dies** | Measured: VBMethodOrDataMemberNotFoundException: "Method or data member not found (Contents in Right(EmptyVariant))". | Exceptions.cs |
 | `PropertyBag.ReadProperty` | **Dies** | Measured on a Variant holder: VBMethodOrDataMemberNotFoundException: "Method or data member not found (ReadProperty(\"A\", 0) in Right(EmptyVariant))". Measured on a real `PropBag As… | Exceptions.cs |
@@ -1169,16 +1159,16 @@ missing.
 | `PropertyBag_VB5` | **Dies** | The name lexes as an ordinary IDENTIFIER (digits and `_` are both in LETTERORDIGIT, VB6.g4). Measured for `Dim p As PropertyBag_VB5` and for `Set p = New PropertyBag_VB5`:… | StatementExecutor.cs |
 | `PSet` | **Dies** | throws `"Only single element supported"` — fails at run time on the coordinate pair, exactly as Circle does. VB6.g4 has no PSET token and no psetStmt rule. `PSet (10, 20), vbRed` parses as a… | ExpressionExecutor.cs |
 | `Scale` | **Dies** | throws `"Only single element supported"` — fails at run time. VB6.g4 has no SCALE token and no scaleStmt rule. `Scale (0, 0)-(100, 100)` parses as a bare procedure call with one argument - a… | ExpressionExecutor.cs |
-| `Screen` | **Dies** | never seeded. BasicInterpreter.cs seeds only Debug, Err and App as program globals. Measured verbatim: "Compile error: Variable not defined (Screen)"; an assignment such as… | BasicInterpreter.cs |
-| `Screen.ActiveControl` | **Dies** | because the Screen object it hangs off is never seeded. Measured verbatim: "Compile error: Variable not defined (Screen)". | BasicInterpreter.cs |
-| `Screen.ActiveForm` | **Dies** | because the Screen object it hangs off is never seeded. Measured verbatim: "Compile error: Variable not defined (Screen)". | BasicInterpreter.cs |
-| `Screen.FontCount` | **Dies** | because the Screen object it hangs off is never seeded. Measured verbatim: "Compile error: Variable not defined (Screen)". | BasicInterpreter.cs |
-| `Screen.Fonts` | **Dies** | because the Screen object it hangs off is never seeded. Measured verbatim: "Compile error: Variable not defined (Screen)". | BasicInterpreter.cs |
-| `Screen.Height` | **Dies** | because the Screen object it hangs off is never seeded. Measured verbatim: "Compile error: Variable not defined (Screen)". | BasicInterpreter.cs |
-| `Screen.MousePointer` | **Dies** | Measured verbatim for "Screen.MousePointer = 11": "Run-time error '424': Object required Can't find variable Screen" (StatementExecutor.cs). | StatementExecutor.cs |
-| `Screen.TwipsPerPixelX` | **Dies** | because the Screen object it hangs off is never seeded. Measured verbatim: "Compile error: Variable not defined (Screen)". | BasicInterpreter.cs |
-| `Screen.TwipsPerPixelY` | **Dies** | because the Screen object it hangs off is never seeded. Measured verbatim: "Compile error: Variable not defined (Screen)". | BasicInterpreter.cs |
-| `Screen.Width` | **Dies** | because the Screen object it hangs off is never seeded. Measured verbatim: "Compile error: Variable not defined (Screen)". | BasicInterpreter.cs |
+| `Screen` | **Dies** | Not implemented. Unresolved bare and member reads are explicitly refused, untrappably, with or without Option Explicit (#871). Declared names still win. | ExpressionExecutor.cs |
+| `Screen.ActiveControl` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
+| `Screen.ActiveForm` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
+| `Screen.FontCount` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
+| `Screen.Fonts` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
+| `Screen.Height` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
+| `Screen.MousePointer` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
+| `Screen.TwipsPerPixelX` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
+| `Screen.TwipsPerPixelY` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
+| `Screen.Width` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
 | `SelectedControls` | **Dies** | Measured for `Dim s As SelectedControls`: VBCompileErrorException: "User-defined type not defined: SelectedControls" (StatementExecutor.cs). | StatementExecutor.cs |
 | `App.ProductName` | Partial | Resolves, but is hardwired to the empty string regardless of the project - it is not read from AppInfo at all. VbApp.cs is: case "productname": value = ""; return true; | VbApp.cs |
 | `ClipBoardConstants` | Partial | The nine MEMBER constants are all registered in the built-in constant table and resolve as bare names - vbCFBitmap=2, vbCFDIB=8, vbCFEMetafile=14, vbCFFiles=15, vbCFLink=-16640… | VB6BuiltIns.cs |

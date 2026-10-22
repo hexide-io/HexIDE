@@ -2,9 +2,12 @@ using System;
 using System.IO;
 using System.Linq;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
+using HexIDE.Automation;
 using HexIDE.Addins;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Forms.ViewModels.Options;
@@ -62,6 +65,39 @@ public class OptionsViewIntegrationTests
 
         view.IsMeasureValid.Should().BeTrue();
         view.IsArrangeValid.Should().BeTrue();
+    }
+
+    // #714: the real dialog, driven as an agent drives it. Before the fix, selecting Theme with General already
+    // selected reported success and left the page on General, and select by text found no items at all.
+    [AvaloniaFact]
+    public void PageTree_ItemsAreNamedAfterTheirTitle_AndSelectingOneByItsTextChangesThePage()
+    {
+        var (settings, theme, keymap, languageSwitch, registry, addinOptions) = Mocks();
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString(Arg.Any<string>()).Returns(ci => ((string)ci[0]).Split('.').Last());
+        var vm = new OptionsViewModel(settings, theme, keymap, languageSwitch, registry, addinOptions,
+            Substitute.For<IDeveloperModeService>(), localization, Substitute.For<IEventBus>());
+        var window = new Window { Content = new OptionsView { DataContext = vm }, Width = 720, Height = 520 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var tree = window.GetVisualDescendants().OfType<TreeView>().Single();
+            foreach (var item in tree.GetVisualDescendants().OfType<TreeViewItem>())
+                AutomationProperties.GetName(item).Should().Be(((OptionsNodeViewModel)item.DataContext!).Title);
+            vm.CurrentPage.Should().BeOfType<EnvironmentGeneralPageViewModel>("General is selected when the dialog opens");
+
+            var theme_ = UiAutomationDriver.Interact(tree, "select", "Theme");
+            theme_.Success.Should().BeTrue(theme_.Error);
+            vm.CurrentPage.Should().BeOfType<ThemePageViewModel>();
+
+            // General is a page under both Environment and Editor, so its text alone is refused, not guessed at.
+            var general = UiAutomationDriver.Interact(tree, "select", "General");
+            general.Success.Should().BeFalse();
+            general.Error.Should().Contain("ambiguous");
+            vm.CurrentPage.Should().BeOfType<ThemePageViewModel>();
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaFact]

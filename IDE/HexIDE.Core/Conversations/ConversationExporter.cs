@@ -41,7 +41,7 @@ public sealed record ConversationExport(
     bool Pseudonymised = false);
 
 /// <summary>
-/// Writes a capture out as raw JSON-RPC, one message per line, plus a manifest.
+/// Writes a capture out as protocol JSON, one message per line, plus a manifest.
 /// </summary>
 /// <remarks>
 /// <b>Why this format and not a richer one.</b> It needs no decoder, it greps and it pipes, it survives a
@@ -249,13 +249,14 @@ public static class ConversationExporter
         writer.WriteBoolean("pseudonymised", redactor.IsPseudonymising);
         writer.WriteNumber("distinctValuesNamed", redactor.NamedValues);
         writer.WriteString("note", redactor.IsPseudonymising
-            ? "Document names, paths, workspace folders and server launch configuration have been replaced "
+            ? "Document URIs and complete JSON path fields have been replaced "
             + "with stable session pseudonyms, segment by segment, so the shape of a path survives. File "
             + "extensions and Windows drive letters are kept: routing is by extension, and a drive "
             + "letter's case is diagnostic. A document with no file on disk is named "
             + "untitled:<project>/<document>, and both of those segments are replaced too. Two names "
             + "differing only in capitalisation were two different strings and have two different "
-            + "pseudonyms."
+            + "pseudonyms. Arbitrary launch fields, variable values, expressions, source text and free-form "
+            + "output or diagnostics may still contain identifying content. This is not full anonymisation."
             : "NOT REDACTED. Real document names, real paths and real server launch configuration are "
             + "present, including anything a command-line argument carried.");
         writer.WriteEndObject();
@@ -360,6 +361,8 @@ public static class ConversationExporter
             // standard error. The redactor catches a `file:` URI in it and nothing else — a bare path in a
             // crash stack is not recognised, because recognising one would mean the content-agnostic sweep
             // this design rejects. A real limit, and the preview is what is meant to catch it.
+            if (envelope.Fault) writer.WriteBoolean("fault", true);
+
             if (envelope.Detail is { } detail) writer.WriteString("detail", redactor.Body(detail));
 
             writer.WriteEndObject();

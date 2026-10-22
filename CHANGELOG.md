@@ -10,6 +10,46 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Shared DAP protocol capture** (#1166). The DAP library can record wire traffic and process diagnostics
+  in the existing inspector's conversation log, with bounded retention and source-path pseudonymisation on
+  export. A host that launches external debug sessions from the IDE remains subsequent work.
+
+- **DAP adapter process ownership** (#1162). The client library launches explicit adapter commands, retains
+  bounded stderr diagnostics and exit status, and cleans up unresponsive processes. Backend selection,
+  protocol-inspector capture and external debugging through the IDE remain subsequent work.
+
+- **DAP wire client foundation** (#1160). A stream-based client library supports framed requests, ordered
+  events, adapter errors and bounded connection teardown. External debugger launch and IDE integration remain
+  subsequent work; this does not yet change F5 or expose an external debugger in the UI.
+
+- **Text clipboard operations** (#1156). `Clipboard.Clear`, `SetText`, `GetText` and `GetFormat(vbCFText)` now
+  use the host clipboard, enabling Notepad's Edit menu, Cut, Copy and Paste. Defaults, ANSI conversion, NUL
+  truncation and argument errors follow measured VB6 behavior. Non-text operations remain explicitly unsupported;
+  setting text over non-text formats is refused until they can be preserved (call Clear first).
+
+- **A TextBox's `SelStart`, `SelLength` and `SelText`** (#1150). They raised 438. They now read and write as vb6.exe
+  measured: setting SelStart drops the selection, positions past the end clamp, a negative one is 380, and SelText
+  leaves the caret after what it put in.
+- **A form's `WindowState`** (#1152). Reading or setting it stopped the run, and a form saved maximized opened at its
+  normal size. It now reads and writes as vb6.exe measured: 0 until the form is shown, then the state it is in, with
+  380 for a value other than 0, 1 or 2. A form saved minimized or maximized shows that way.
+- **The CommonDialog control** (#1084). A form holding one used to be refused at run time. Now `ShowOpen`,
+  `ShowSave` and `ShowFont` show the IDE's own dialogs, and an automation client can answer the pickers with
+  `answer_next_file_dialog`. Cancel and `CancelError`, `FileName`, `FileTitle`, `DefaultExt` and the Font properties
+  behave as vb6.exe measured, and the control's 102 constants resolve in a project that references it. The form still
+  saves byte for byte. `ShowColor`, `ShowPrinter` and `ShowHelp` are still to come.
+- **`Command`, and `Left$` in a form's code** (#742). Both stopped a run. `Command$`, `Command` and `Command()`
+  now give the project's command line arguments, empty where it has none. `Left$("abc", 1)` in a form's code is
+  VBA's `Left$`, as vb6.exe measured.
+- **Text files** (#1145). `Open` For Input, Output and Append, `Line Input #`, `Print #`, `Close`, `FreeFile` and
+  `EOF` used to stop a run at the first of them. Now they read and write as vb6.exe does, byte for byte:
+  - lines end at CR or CR LF, and Ctrl+Z ends the file;
+  - numbers are printed with their sign's space, and commas move to 14-column zones;
+  - text is in the ANSI code page;
+  - the errors are VB6's: 52, 53, 54, 55, 62, 75 and 76.
+
+  Every rule was measured, native and p-code. Random and Binary files, `Input #`, `Write #`, and `Tab` and `Spc` in
+  `Print #` are still to come.
 - **The Line control** (#163). A form holding one used to be refused at run time, since #857. Now:
   - it loads, runs and saves byte for byte, VB6's About Dialog included;
   - it draws pixel for pixel as VB6 does: dashes, widths, and which of two lines is on top;
@@ -139,6 +179,13 @@ there isn't one yet. Anything may change between 0.x releases.
   shown once more to anyone who saw the old one, which said "code".
 
 ### Fixed
+
+- **Missing VB6 global objects fail explicitly** (#871). Reading `Screen`, `Clipboard`, `Printer`, `Printers` or
+  `Forms` no longer silently returns Empty without Option Explicit. Bare and member reads report an unsupported
+  object, which On Error cannot swallow; declared variables and user functions still take precedence.
+
+- **Multiple file numbers on one source line** (#1146). `Line Input #1, s: Print #2, s` and `Close #1, #2`
+  now parse in both the interpreter and language server. The date-literal token no longer consumes the file statements.
 
 - **FontName reads and sets at run time** (#1141), on a control or the form. `Label1.FontName = "Wingdings"` stopped
   the run with "Method or data member not found"; now it switches the font, with the charset that makes a symbol font

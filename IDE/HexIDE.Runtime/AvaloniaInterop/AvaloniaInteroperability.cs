@@ -134,7 +134,12 @@ public static class AvaloniaInteroperability
         Register<VBOptionButton, string, object?>(VBProperties.CaptionProperty, ContentControl.ContentProperty, x => x, x => x as string ?? "");
         Register<VBCommandButton, string, object?>(VBProperties.CaptionProperty, ContentControl.ContentProperty, x => x, x => x as string ?? "");
 
-        Register<VBTextBox, string, string?>(VBProperties.TextProperty, TextBox.TextProperty, x => x, x => x ?? "");
+        // Setting Text from code puts the caret at the start (measured, #1150); typing, which sets it too, does not come here.
+        Register<VBTextBox, string>(VBProperties.TextProperty, box => box.Text ?? "", (box, text) =>
+        {
+            box.Text = text;
+            TextBoxMembers.TextSet(box);
+        });
 
         Register<VBScrollBar, int, double>(VBProperties.ValueProperty, RangeBase.ValueProperty, x => x, x => (int)x);
 

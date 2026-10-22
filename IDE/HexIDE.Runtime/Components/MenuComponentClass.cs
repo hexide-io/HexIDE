@@ -7,7 +7,9 @@ namespace HexIDE.Runtime.Components;
 
 public class MenuComponentClass : ComponentBaseClass
 {
-    public MenuComponentClass() : base([CaptionProperty, EnabledProperty, CheckedProperty, WindowListProperty])
+    // No bounds: a menu has no Left, Top, Width or Height in VB6, and a value set there was written into the .frm under
+    // a name VB6 gives no menu (#923 review).
+    public MenuComponentClass() : base([CaptionProperty, EnabledProperty, CheckedProperty, WindowListProperty], null, hasBounds: false)
     {
     }
 
@@ -25,8 +27,8 @@ public class MenuComponentClass : ComponentBaseClass
             // this for the button, check box and option button.
             HeaderTemplate = AccessTextDataTemplate.Access,
             IsEnabled = instance.GetPropertyOrDefault(EnabledProperty),
-            IsChecked = instance.GetPropertyOrDefault(CheckedProperty),
-            // Every item can be ticked from code (#1126), so every item draws its tick when IsChecked; VBMenu keeps a click
+            Checked = instance.GetPropertyOrDefault(CheckedProperty),
+            // Every item can be ticked from code (#1126), so every item draws its tick when Checked; VBMenu keeps a click
             // from toggling it.
             ToggleType = MenuItemToggleType.CheckBox,
             IsVisible = instance.GetPropertyOrDefault(VisibleProperty)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.ComponentModel;
 using System.Text;
 using System.Threading;
@@ -40,6 +41,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     private readonly IBookmarkService bookmarkService;
     private readonly HexIDE.Debugging.IBreakpointService breakpointService;
     private readonly HexIDE.Runtime.Debugging.IDebugController debugController;
+    public HexIDE.Debugging.ExternalDebugService? ExternalDebugger { get; }
     private readonly ILocalizationService localization;
     protected override string ComputeTitle()
     {
@@ -114,18 +116,20 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// triggers the VB6 "reset your project?" prompt (the interpreter can't hot-patch a running program). Read off
     /// the debug controller (active between its run-start Reset and its run-end Stop) rather than
     /// IProjectRunnerService, which would close a DI cycle via the editor factory.</summary>
-    public bool IsProjectRunning => debugController.IsSessionActive;
+    public bool IsProjectRunning => debugController.IsSessionActive || ExternalDebugger?.IsActive == true;
 
     /// <summary>VB6-faithful Edit-and-Continue affordance: the interpreter can't apply an edit to a running program
     /// live, so editing while running/paused pops VB6's own reset prompt. Yes → request a project reset (the edit
     /// then stands); No → the edit is left cancelled and the run continues. Returns true if a reset was requested.
     /// The reset goes through the event bus (ProjectRunnerService handles EndProjectRequestedEvent) to avoid a
     /// direct dependency on the runner, which would cycle.</summary>
-    public async Task<bool> ConfirmResetWhileRunningAsync()
+    /// <param name="over">The window of the editor that asks, which the prompt holds, as VB6's does: shown over the active
+    /// window, often the running form, the prompt left the code window usable under it, and an automated key went in (#1290).</param>
+    public async Task<bool> ConfirmResetWhileRunningAsync(Avalonia.Controls.Window? over = null)
     {
         var result = await windowManager.MessageBox(
             localization.GetString("Str.ProjectRunner.EditWhileRunningConfirm"),
-            buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning);
+            buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning, owner: over);
         if (result != MessageBoxResult.Yes)
             return false;
         eventBus.Publish(new EndProjectRequestedEvent());
@@ -205,7 +209,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         HexIDE.Debugging.IBreakpointService breakpointService,
         HexIDE.Runtime.Debugging.IDebugController debugController,
         HexIDE.Debugging.IRunScope runScope,
-        ILocalizationService localization)
+        ILocalizationService localization,
+        HexIDE.Debugging.ExternalDebugService? externalDebugger = null)
     {
         this.windowManager = windowManager;
         this.editorService = editorService;
@@ -216,6 +221,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         this.bookmarkService = bookmarkService;
         this.breakpointService = breakpointService;
         this.debugController = debugController;
+        ExternalDebugger = externalDebugger;
         this.runScope = runScope;
         this.statusBarService = statusBarService;
         this.localization = localization;
@@ -587,10 +593,28 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </remarks>
     public bool ToggleBreakpoint(int line)
     {
+        if (ExternalDebugger?.IsActive == true)
+        {
+            if (!ExternalDebugger.GetBreakpoints(GetDocumentUriPublic()).Any(row => row.RequestedLine == line) && RefuseMarkOn(line))
+                return false;
+            if (ExternalDebugger.ToggleBreakpoint(GetDocumentUriPublic(), line)) return true;
+            statusBarService.SetTemporaryMessage(localization.GetString("Str.Debug.External.Unsupported"), TimeSpan.FromSeconds(6));
+            return false;
+        }
         if (!breakpointService.IsBreakpoint(Identity, line) && RefuseMarkOn(line))
             return false;
         breakpointService.Toggle(Identity, line);
         return true;
+    }
+
+    public string? DescribeExternalBreakpoint(int line)
+    {
+        if (ExternalDebugger?.IsActive != true) return null;
+        var row = ExternalDebugger.GetBreakpoints(GetDocumentUriPublic()).FirstOrDefault(item => item.RequestedLine == line);
+        if (row is null) return null;
+        return string.Format(localization.GetString("Str.Debug.External.Breakpoint"), row.RequestedLine,
+            row.Line?.ToString() ?? "—", row.Pending ? "…" : row.Verified ? "✓" : "×",
+            row.Pending ? localization.GetString("Str.Debug.External.BreakpointPending") : row.Message);
     }
 
     /// <summary>

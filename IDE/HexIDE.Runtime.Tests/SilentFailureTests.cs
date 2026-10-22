@@ -24,8 +24,6 @@ public class SilentFailureTests : BaseVBTestFixture
 
     [Theory]
     [InlineData("CurDir")]
-    [InlineData("Command")]
-    [InlineData("FreeFile")]
     [InlineData("Erl")]
     [InlineData("Dir")]
     public async Task ReadingAnUnimplementedIntrinsic_Raises_InsteadOfYieldingEmpty(string name)

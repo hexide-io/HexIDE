@@ -37,5 +37,7 @@ public class VBFrame : HeaderedContentControl, IVBContainerControl
         // Before Click, so MouseUp comes first, as VB6 raises them (#974).
         AttachedEvents.AttachMouse<VBFrame>();
         AttachedEvents.AttachClick<VBFrame>();
+        // Named as its caption reads (#954).
+        VBCaption.NameByCaption<VBFrame>(HeaderProperty);
     }
 }

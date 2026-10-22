@@ -10,11 +10,20 @@ namespace HexIDE.Runtime.Interpreter;
 
 public interface IBasicStandardLibrary
 {
+    ITextClipboard Clipboard => throw new NotImplementedException("This host does not implement the clipboard (#1156)");
     Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon);
     Task<string?> InputBox(string prompt, string? title, string defaultText);
 
     /// <summary>Sink for <c>Debug.Print</c>. Receives the typed value (live → Immediate window; test → capture).</summary>
     void DebugPrint(Vb6Value value);
+
+    /// <summary>A CommonDialog's <c>ShowOpen</c> or <c>ShowSave</c> (#1084): the file chosen, or null for Cancel.</summary>
+    Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request) =>
+        throw new NotImplementedException("A CommonDialog's file dialogs are not implemented in this host (#1084)");
+
+    /// <summary>A CommonDialog's <c>ShowFont</c> (#1084): the font chosen, or null for Cancel.</summary>
+    Task<VbFontChoice?> ShowFontDialog(VbFontChoice initial) =>
+        throw new NotImplementedException("A CommonDialog's font dialog is not implemented in this host (#1084)");
 }
 
 public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrErrorListener<int>
@@ -68,6 +77,21 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         return await events.WhileSuspended(BuiltIns.EvaluateBuiltInFunction(name, args));
     }
 
+    internal async Task<Vb6Value?> CallProxy(ICSharpProxy proxy, string name, List<Vb6Value> args)
+    {
+        if (proxy is not ICSharpAsyncProxy asyncProxy)
+        {
+            proxy.Call(name, args);
+            return null;
+        }
+        var pending = asyncProxy.CallAsync(name, args);
+        return Events is { } events ? await events.WhileSuspended(pending) : await pending;
+    }
+
+    // Resolved after project names, rather than seeded over user variables or functions (#1156).
+    private VbClipboard? clipboard;
+    internal VbClipboard Clipboard => clipboard ??= new VbClipboard(stdLib);
+
     /// <summary>
     /// Set by <c>End</c>, and never cleared: the program is over. Every walk of this interpreter stops at its next
     /// statement, a procedure started later (a Timer tick or a click already queued) runs none of its own, and no
@@ -95,6 +119,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     internal Debugging.StopExecutionSignal End()
     {
         Ending = true;
+        // End closes every file, as the end of the program does (#1145).
+        BuiltIns.Files.CloseAll();
         EndReached?.Invoke(this);
         return new Debugging.StopExecutionSignal();
     }
@@ -430,6 +456,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         this.stdLib = stdLib;
         this.rootEnv = rootEnv;
         this.code = code;
+        // A relative path in a file statement is the project's folder's (#1145), read when the file is opened, since the
+        // project's details arrive after the interpreter is built.
+        BuiltIns.Files.ProjectFolder = () => App.Path;
 
         // Build the primary (startup) module over the caller-provided rootEnv, then any additional modules —
         // each with its own env, ALL sharing one ExecutionState so slots are program-global (this is why ByRef
@@ -506,6 +535,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         App = new VbApp(info);
         SeedProgramGlobal("App", () => new Vb6Value(App));
+        BuiltIns.CommonDialogReferenced = info.CommonDialogReferenced;
+        BuiltIns.CommandLine = info.CommandLine;
     }
 
     /// <summary>The program-global <c>Err</c> object. Shared with the <c>Err</c> slot in every module env (see

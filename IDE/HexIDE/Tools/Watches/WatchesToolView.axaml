@@ -35,6 +35,11 @@
                 </ContextMenu>
             </TreeView.ContextMenu>
             <TreeView.Styles>
+                <Style Selector="TreeViewItem">
+                    <Setter Property="IsExpanded" Value="{ReflectionBinding IsExpanded, Mode=TwoWay}" />
+                    <!-- Named after the expression, so automation can address and select it by its text (#714). -->
+                    <Setter Property="AutomationProperties.Name" Value="{ReflectionBinding Expression}" />
+                </Style>
                 <Style Selector="TreeViewItem /template/ ContentPresenter">
                     <Setter Property="HorizontalAlignment" Value="Stretch" />
                 </Style>
@@ -48,7 +53,7 @@
                         <TextBlock DockPanel.Dock="Right" Width="90" Padding="4,0"
                                    TextTrimming="CharacterEllipsis" Text="{CompiledBinding TypeName}" />
                         <TextBlock DockPanel.Dock="Right" Width="90" Padding="4,0"
-                                   TextTrimming="CharacterEllipsis" Text="{CompiledBinding Value}" />
+                                   TextTrimming="CharacterEllipsis" Text="{CompiledBinding Value}" ToolTip.Tip="{CompiledBinding Value}" />
                         <TextBlock Padding="4,0" TextTrimming="CharacterEllipsis"
                                    Text="{CompiledBinding Expression}" />
                     </DockPanel>

@@ -33,6 +33,8 @@
         <ProjectReference Include="..\HexIDE.Core\HexIDE.Core.csproj" />
         <ProjectReference Include="..\HexIDE\HexIDE.csproj" />
         <ProjectReference Include="..\HexIDE.Runtime\HexIDE.Runtime.csproj" />
+        <!-- The fixture debug adapter, to drive the Call Stack of an external session through the real views (#1182). -->
+        <ProjectReference Include="..\HexIDE.Dap.TestAdapter\HexIDE.Dap.TestAdapter.csproj" />
     </ItemGroup>
 
 </Project>

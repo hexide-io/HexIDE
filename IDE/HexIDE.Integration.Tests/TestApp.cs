@@ -42,6 +42,9 @@ public class TestApp : Application
             {
                 Source = new Uri("avares://HexIDE.Runtime/BuiltinControls/" + dictionary),
             });
+        // The running IDE has every window in its lifetime's list, which the headless host has not got: a window a test showed
+        // before its first call to the driver went untracked, and a test that ran first saw it as opening later.
+        HexIDE.Automation.UiAutomationDriver.TrackWindows();
     }
 
     public static AppBuilder BuildAvaloniaApp() =>

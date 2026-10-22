@@ -86,8 +86,14 @@ public sealed class IdeToolExecutor(IHexIdeHost host)
     /// spelling, so <c>Project</c> came back from get_active_file and <c>project</c> from list_files, and
     /// apply_edit's <c>fileName</c> sat beside the read tools' <c>FileName</c> (hexide-io/HexIDE#273 task 3.19
     /// review). A policy rather than hand-renamed members, so a field added later cannot reopen the split.
+    /// The reply is read as text, so it is written with <see cref="HexIDE.Serialization.ReadableJsonEncoder"/>, not
+    /// escaped for a web page (#753).
     /// </remarks>
-    private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+    private static readonly JsonSerializerOptions Json = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Encoder = HexIDE.Serialization.ReadableJsonEncoder.Instance,
+    };
 
     public async Task<string> ExecuteAsync(ToolCall call)
     {

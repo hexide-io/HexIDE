@@ -38,6 +38,9 @@ xmlns:HexIDE="clr-namespace:HexIDE"
                 </Style>
             </TreeView.Styles>
             <TreeView.DataTemplates>
+                <TreeDataTemplate x:DataType="tools:ArchiveTreeNode" ItemsSource="{CompiledBinding Children}">
+                    <TextBlock Text="{CompiledBinding Name}" ToolTip.Tip="{CompiledBinding ContainerPath}" />
+                </TreeDataTemplate>
                 <TreeDataTemplate x:DataType="tools:ProjectGroupViewModel" ItemsSource="{CompiledBinding Children}">
                     <TextBlock Text="{CompiledBinding DisplayName}" FontWeight="Bold" />
                 </TreeDataTemplate>
@@ -125,6 +128,11 @@ xmlns:HexIDE="clr-namespace:HexIDE"
             </TreeView.DataTemplates>
             <TreeView.ContextFlyout>
                 <MenuFlyout>
+                    <MenuItem Header="{DynamicResource Str.Archive.Hidden}" ToggleType="CheckBox" IsChecked="{CompiledBinding ShowHiddenArchiveEntries, Mode=TwoWay}" />
+                    <MenuItem IsVisible="{CompiledBinding HasArchiveSelection}" Header="{DynamicResource Str.Archive.Inspect}" Command="{CompiledBinding InspectArchive}" />
+                    <MenuItem IsVisible="{CompiledBinding HasArchiveSelection}" Header="{DynamicResource Str.Archive.Reload}" Command="{CompiledBinding ReloadArchive}" />
+                    <MenuItem IsVisible="{CompiledBinding HasArchiveSelection}" Header="{DynamicResource Str.Archive.SyncFolder}" Command="{CompiledBinding SynchronizeArchiveFolderCommand}" />
+                    <MenuItem IsVisible="{CompiledBinding HasArchiveSelection}" Header="{DynamicResource Str.Archive.Close}" Command="{CompiledBinding CloseArchive}" />
                     <MenuItem IsVisible="{CompiledBinding !!SelectedProject}" Header="{DynamicResource Str.Tool.Project.Menu.SetAsStartUp}" Command="{CompiledBinding SetAsStartUp}" />
                     <MenuItem IsVisible="{CompiledBinding !!SelectedProject}" Header="{CompiledBinding ProjectPropertiesHeader}" Command="{CompiledBinding EditProjectProperties}" />
                     <MenuItem IsVisible="{CompiledBinding SelectedFormOrFormPart}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Object}" Header="{DynamicResource Str.Tool.Project.Menu.ViewObject}" Command="{CompiledBinding ViewObjectCommand}" />

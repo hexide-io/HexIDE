@@ -1,4 +1,6 @@
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using HexIDE.Runtime.BuiltinTypes;
 
@@ -16,6 +18,31 @@ public class VBProps
     public static readonly AttachedProperty<int?> IndexProperty = AvaloniaProperty.RegisterAttached<VBProps, Control, int?>("Index");
     public static int? GetIndex(AvaloniaObject element) => element.GetValue(IndexProperty);
     public static void SetIndex(AvaloniaObject element, int? value) => element.SetValue(IndexProperty, value);
+
+    /// <summary>
+    /// Gives a control of a running form the name its code uses as its automation id: <c>Text1</c>, or <c>Command1(0)</c>
+    /// for an element of a control array, so that a tree shows it and a tool reaches it as <c>#Text1</c> (#954). Run time
+    /// only: the designer's controls keep the ids it gives them (#526).
+    /// <para>
+    /// An id makes a node of a control the tree used to fold away as plumbing, so a Frame, PictureBox, Label or Image is
+    /// also given the type it is, not Avalonia's None: a control in a Frame is <c>Group[Frame1]/Button[cmdOK]</c>.
+    /// </para>
+    /// </summary>
+    public static void SetRunTimeId(Control control)
+    {
+        AutomationProperties.SetAutomationId(
+            control, GetIndex(control) is { } index ? $"{GetName(control)}({index})" : GetName(control));
+        AutomationControlType? type = control switch
+        {
+            VBFrame => AutomationControlType.Group,
+            VBPictureBox => AutomationControlType.Pane,
+            VBLabel => AutomationControlType.Text,
+            VBImage => AutomationControlType.Image,
+            _ => null,
+        };
+        if (type is not null)
+            AutomationProperties.SetControlTypeOverride(control, type);
+    }
 
     // The ScaleMode a container gives the controls on it: the unit a program reads and writes their Left, Top, Width and
     // Height in (#933). Set on the canvas they are placed on: the form's own, and a PictureBox's child host; a Frame has

@@ -149,6 +149,12 @@ while IFS= read -r hit; do
   [ -n "$hit" ] && note "machine-specific absolute path: $hit"
 done < <(git grep --untracked -nIF 'C:\Users\' -- . "${EXCLUDE[@]}")
 
+# 3b. This machine's own working folders: where the worktrees live, and the scratch folder the sessions
+#     working on it share. A test once wrote its debug output there, and passed only on this machine.
+while IFS= read -r hit; do
+  [ -n "$hit" ] && note "machine-specific absolute path: $hit"
+done < <(git grep --untracked -nIi -e 'hexide-sessions' -e 'C:[\/]Work[\/]' -- . "${EXCLUDE[@]}")
+
 # 4. Personal-identity references. The pattern is supplied from outside the repository
 #    and is deliberately NOT written here: a literal in this file would publish the exact
 #    string the check exists to find, which is the opposite of the point. CI passes it in
@@ -220,11 +226,19 @@ rm -f /tmp/hexide-linkcheck.$$
 #        server and says how. It records a connection that has been made and measured, at the
 #        request of that project's maintainer, and cannot be followed without the name. It must
 #        not describe that project's plans; see the rule above.
+#        dap-adapter-smoke records another measured interop fixture, including the tested revision,
+#        workspace format and component setup needed to reproduce the DAP session acceptance.
 #    Anything else is a mention nobody decided on, so this fails closed and asks for a
 #    decision. Adding a file here is a decision; a new mention inside a listed file still
 #    deserves a read.
-ALLOWED='^(IDE/HexIDE\.Runtime\.Tests/BattleshipChallenge\.cs|IDE/HexIDE\.Runtime/Interpreter/README\.md|LspServer/HexIDE\.VbLspServer\.Tests/README\.md|demo/battleship/README\.md|demo/spring-tide/README\.md|docs/vb6-grammar-fixes\.md|docs/lsp-parity-matrix\.md)$'
+ALLOWED='^(IDE/HexIDE\.Runtime\.Tests/BattleshipChallenge\.cs|IDE/HexIDE\.Runtime/Interpreter/README\.md|LspServer/HexIDE\.VbLspServer\.Tests/README\.md|demo/battleship/README\.md|demo/spring-tide/README\.md|docs/vb6-grammar-fixes\.md|docs/lsp-parity-matrix\.md|docs/dap-adapter-smoke\.md)$'
+# The maintainer requested this integration with its author's blessing (#1178). These exact files
+# implement or validate its reader; this exception permits that name only, not other project names.
+TWIN_ALLOWED='^(IDE/HexIDE/HexIDE\.csproj|IDE/HexIDE/(Projects/ArchiveProjectService|Forms/ViewModels/ArchiveDocumentViewModel|Tools/Projects/(ArchiveTreeNode|ProjectToolViewModel))\.cs|IDE/HexIDE\.Integration\.Tests/Views/ArchiveProjectBrowsingTests\.cs|HexIDE\.slnx|\.github/workflows/build\.yml|IDE/HexIDE\.TwinBasic/HexIDE\.TwinBasic\.csproj|IDE/HexIDE\.TwinBasic/(TwinBasicContainer|TwinBasicContainerReader|ArchiveEntryIdentity|ArchiveProjectSnapshot|ArchiveProjectWorkspace|ArchiveSourceFolder|CompilerWireCodec|CompilerWebSocketTransport|CompilerRootSession|CompilerChannelSession|CompilerPackageProvider|CompilerProjectPreparation)\.cs|IDE/HexIDE\.TwinBasic\.Tests/(ContainerReaderTests\.cs|ArchiveProjectTests\.cs|ArchiveSourceFolderTests\.cs|CompilerWireCodecTests\.cs|CompilerWebSocketTransportTests\.cs|CompilerRootSessionTests\.cs|CompilerChannelSessionTests\.cs|CompilerProjectPreparationTests\.cs|HexIDE\.TwinBasic\.Tests\.csproj|Fixtures/(README\.md|LICENSE|impexp\.twinproj\.json|sample\.twinpack\.json))|openspec/changes/(archive/2026-10-18-read-external-project-containers|archive/2026-10-19-model-archive-project-documents|archive/2026-10-19-browse-archive-projects|archive/2026-10-19-synchronize-archive-source-folder|archive/2026-10-19-decode-compiler-wire|archive/2026-10-19-connect-compiler-websocket|archive/2026-10-19-initialize-compiler-root|archive/2026-10-19-own-compiler-channels|prepare-compiler-project)/design\.md)$'
 while IFS= read -r f; do
+  if [[ "$f" =~ $TWIN_ALLOWED ]] && ! git grep --untracked -qiE 'rdcore|rubberduck' -- "$f"; then
+    continue
+  fi
   [ -n "$f" ] && note "third-party project named outside the agreed places: $f"
 done < <(git grep --untracked -lIiE 'twinbasic|rdcore|rubberduck' -- . "${EXCLUDE[@]}" | grep -vE "$ALLOWED")
 

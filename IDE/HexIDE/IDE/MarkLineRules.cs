@@ -13,6 +13,24 @@ namespace HexIDE.IDE;
 public static class MarkLineRules
 {
     /// <summary>
+    /// How every mark tool's reply states its numbering. A session holds a tool's description until it is restarted
+    /// (#815), so one that loaded the bookmark tools before #1245, when they counted from 0, learns it only here.
+    /// </summary>
+    public const string Counting = "counting from 1 at the top of the file, as the gutter does";
+
+    /// <summary>
+    /// <paramref name="lines"/> as a mark tool's note gives them: "a bookmark on line 10, counting from 1 ..." or
+    /// "bookmarks on lines 10, 11, counting from 1 ...". <paramref name="what"/> is the mark, in the singular.
+    /// </summary>
+    public static string Marks(string what, IReadOnlyList<int> lines) => lines.Count == 1
+        ? $"a {what} on line {lines[0]}, {Counting}"
+        : $"{what}s on lines {string.Join(", ", lines)}, {Counting}";
+
+    /// <summary>The note on a get_bookmarks reply: its lines with their numbering, or null for none (#1261).</summary>
+    public static string? BookmarksNote(string display, IReadOnlyList<int> lines) =>
+        lines.Count == 0 ? null : $"{display} has {Marks("bookmark", lines)}.";
+
+    /// <summary>
     /// Why <paramref name="lines"/> cannot be marked in a document, or null when every one can.
     /// </summary>
     /// <param name="text">The document as its code window numbers it.</param>
@@ -22,7 +40,10 @@ public static class MarkLineRules
     /// The lines already marked, in the same numbering. A read-only line among them is let through, so that a
     /// caller who reads a document's marks and writes the same set back is never refused for it.
     /// </param>
-    /// <param name="first">The number of the file's first line: 0 for bookmarks, 1 for everything else.</param>
+    /// <param name="first">
+    /// The number of the file's first line, 1 for every tool. Bookmarks, which the store counts from 0, are converted
+    /// at the tools' edge first (<see cref="BookmarkRequest"/>).
+    /// </param>
     /// <param name="what">What a line is being asked for, in the singular: "breakpoint", "bookmark", "line".</param>
     /// <remarks>
     /// <para>
@@ -49,8 +70,7 @@ public static class MarkLineRules
         var outside = lines.Where(l => l < first || l > last).Distinct().Order().ToList();
         if (outside.Count > 0)
             return $"{Listed(outside)} {IsAre(outside)} not a line of {display}, which has {lineCount} " +
-                   $"line{(lineCount == 1 ? "" : "s")}: {what}s are numbered {first}..{last}" +
-                   $"{(first == 0 ? ", counting from 0" : "")}, from the top of the file. Nothing was changed.";
+                   $"line{(lineCount == 1 ? "" : "s")}: {what}s are numbered {first}..{last}, {Counting}. Nothing was changed.";
 
         var readOnly = lines.Where(l => !held.Contains(l) && text.IsReadOnlyLine(l - first + 1))
             .Distinct().Order().ToList();
@@ -65,7 +85,7 @@ public static class MarkLineRules
         var consequence = what == "line" ? "execution can never stop there" : $"no {what} can go there";
         return $"{Listed(readOnly)} {IsAre(readOnly)} in a read-only part of {display}: {where}. Neither ever " +
                $"runs, so {consequence}" +
-               $"{(header == 0 ? "" : $"; its code starts at {first + header}, counting from the top of the file")}. " +
+               $"{(header == 0 ? "" : $"; its code starts at {first + header}, {Counting}")}. " +
                "Nothing was changed.";
     }
 
@@ -89,6 +109,37 @@ public static class MarkLineRules
             (line >= first && line <= last ? kept : dropped).Add(line);
         return (kept, dropped);
     }
+
+    /// <summary>
+    /// Stored bookmarks as a caller numbers lines: from 1, as the gutter and every other tool that takes a line
+    /// count (#571).
+    /// </summary>
+    /// <remarks>
+    /// The bookmark store counts from 0, as the sidecar has always written it, and the breakpoint store from 1.
+    /// The bookmark tools stated 0 and every other line tool 1, so a caller who had just set a breakpoint, or read
+    /// a line off a snapshot, put a bookmark one line low; near the header one number was refused by one tool and
+    /// taken by the other. The tools now count from 1 and convert here, at their edge, leaving the store and the
+    /// files it writes as they were.
+    /// </remarks>
+    public static int[] BookmarksShown(IEnumerable<int> stored) => stored.Select(l => l + 1).ToArray();
+
+    /// <summary>A caller's bookmark lines, counted from 1, as the store keeps them. See <see cref="BookmarksShown"/>.</summary>
+    public static int[] BookmarksStored(IEnumerable<int> shown) => shown.Select(l => l - 1).ToArray();
+
+    /// <summary>
+    /// The bookmarks a caller asks set_bookmarks for, counted from 1, judged against the document and the bookmarks
+    /// the store holds, counted from 0: why they cannot be set, or the lines to store.
+    /// </summary>
+    /// <remarks>
+    /// Here rather than in the tool, which no test can reach, so that each conversion is tested where it is made:
+    /// a held bookmark compared in the store's numbering with a caller's in the tools' would refuse a read-then-write
+    /// back of one on a header line (#571 review).
+    /// </remarks>
+    public static (string? Refusal, int[] ToStore) BookmarkRequest(
+        CodeWindowText text, string display, IReadOnlyCollection<int> shown, IReadOnlyCollection<int> storedHeld) =>
+        Refusal(text, display, shown, BookmarksShown(storedHeld), first: 1, "bookmark") is { } refusal
+            ? (refusal, [])
+            : (null, BookmarksStored(shown));
 
     private static string Listed(List<int> lines) => string.Join(", ", lines);
 

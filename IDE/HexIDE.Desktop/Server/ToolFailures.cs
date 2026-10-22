@@ -35,6 +35,9 @@ internal static class ToolFailures
         McpRequestHandler<CallToolRequestParams, CallToolResult> next) =>
         async (request, ct) =>
         {
+            var tool = request.Params?.Name ?? "(unnamed)";
+            if (ArgumentCheck.Problems(request.Params?.Arguments, SchemaOf(request)) is { Count: > 0 } problems)
+                return Refused(tool, problems);
             try
             {
                 return await next(request, ct);
@@ -42,10 +45,12 @@ internal static class ToolFailures
             catch (Exception ex) when (ex is not McpException
                                        && !(ex is OperationCanceledException && ct.IsCancellationRequested))
             {
-                var tool = request.Params?.Name ?? "(unnamed)";
                 var reported = ex is AggregateException { InnerExceptions.Count: 1 } single
                     ? single.InnerExceptions[0]
                     : ex;
+                if (IsArgumentBinding(reported))
+                    return Refused(tool, BindingProblems(reported, request.Params?.Arguments));
+
                 Log.Error(ex, "MCP tool {Tool} failed with an unhandled {ExceptionType}", tool, reported.GetType().Name);
                 return new CallToolResult
                 {
@@ -54,6 +59,57 @@ internal static class ToolFailures
                 };
             }
         };
+
+    /// <summary>
+    /// True when the SDK could not bind an argument that <see cref="ArgumentCheck"/> passed, so the tool never ran: a
+    /// required one missing where the schema could not be read, or JSON the parameter's type cannot hold, such as an
+    /// integer too big for it (#1270).
+    /// </summary>
+    /// <remarks>
+    /// Both throw from the SDK's parameter marshaller, and the missing one names its parameter as <c>arguments</c>. A
+    /// service the SDK resolves for a parameter also throws there, with another name, and stays a defect. Calling these
+    /// a defect told a caller to report a bug and not to fix its call.
+    /// </remarks>
+    internal static bool IsArgumentBinding(Exception ex) =>
+        ex is ArgumentException { ParamName: "arguments" } and not ArgumentNullException or System.Text.Json.JsonException
+        && ex.StackTrace?.Contains("GetParameterMarshaller", StringComparison.Ordinal) == true;
+
+    private static CallToolResult Refused(string tool, List<string> problems)
+    {
+        var text = Refusal(tool, problems);
+        Log.Information("MCP tool {Tool} refused its arguments: {Refusal}", tool, text);
+        return new CallToolResult { IsError = true, Content = [new TextContentBlock { Text = text }] };
+    }
+
+    /// <summary>What a caller is told when its arguments could not be bound: which, and why, and that nothing was done.</summary>
+    internal static string Refusal(string tool, IEnumerable<string> problems) =>
+        $"'{tool}' refused its arguments, and nothing was done: {string.Join("; ", problems.Select(p => p.TrimEnd('.')))}. "
+        + "Its input schema names each parameter and its type.";
+
+    /// <summary>The problem a binding failure names, which never leaves the refusal saying nothing.</summary>
+    internal static List<string> BindingProblems(Exception ex, IDictionary<string, System.Text.Json.JsonElement>? arguments)
+    {
+        if (ex is ArgumentException argument)
+            return [argument.Message.Replace(" (Parameter 'arguments')", "", StringComparison.Ordinal)];
+
+        // The serializer's message names neither the parameter nor anything useful past its type ("Path: $ |
+        // LineNumber: 0"). Every integer parameter is an int, so one out of its range is the likely cause.
+        var tooBig = (arguments ?? new Dictionary<string, System.Text.Json.JsonElement>())
+            .Where(a => a.Value.ValueKind == System.Text.Json.JsonValueKind.Number
+                        && a.Value.TryGetInt64(out var n) && n is > int.MaxValue or < int.MinValue)
+            .Select(a => $"'{a.Key}' is {a.Value.GetRawText()}, outside the range of a 32-bit integer")
+            .ToList();
+        if (tooBig.Count > 0)
+            return tooBig;
+        var message = ex.Message;
+        var cut = message.IndexOf(" Path: ", StringComparison.Ordinal);
+        return [WithoutProfile(cut > 0 ? message[..cut] : message)];
+    }
+
+    private static System.Text.Json.JsonElement? SchemaOf(RequestContext<CallToolRequestParams> request) =>
+        (request.MatchedPrimitive as McpServerTool)?.ProtocolTool.InputSchema
+        ?? (request.Params?.Name is { } name && request.Server.ServerOptions.ToolCollection is { } tools
+            && tools.TryGetPrimitive(name, out var tool) ? tool.ProtocolTool.InputSchema : null);
 
     internal static string Describe(string tool, Exception ex) =>
         $"'{tool}' failed with an unhandled {ex.GetType().FullName}: {WithoutProfile(ex.Message)} "
