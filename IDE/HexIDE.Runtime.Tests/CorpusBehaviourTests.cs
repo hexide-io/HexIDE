@@ -78,10 +78,6 @@ public class CorpusBehaviourTests
 
         // ---- REFUSES CODE VB6 RAN, newly visible now that module-scope cases are gated. --------------
 
-        // NAMED-ARGUMENT-CONTINUATION. A line continuation inside a `name := value` argument.
-        ["continuation-basics/cont-named-arg-after-assign"] = "NAMED-ARG-CONTINUATION: NotImplementedException",
-        ["gap-fill/named-argument-continuation-before-colon-equals"] = "NAMED-ARG-CONTINUATION: NotImplementedException",
-
         // CONDITIONAL-COMPILATION-CONTINUATION. `#If` and `#Const` with a continued expression or value.
         ["separator-with-declarations/hashif-expression-continued"] = "COMPILER-DIRECTIVE-CONTINUATION: NotImplementedException",
         ["separator-with-declarations/hashconst-value-continued"] = "COMPILER-DIRECTIVE-CONTINUATION: VBCompileErrorException",

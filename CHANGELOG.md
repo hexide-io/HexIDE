@@ -214,6 +214,13 @@ there isn't one yet. Anything may change between 0.x releases.
   truncating. Make Equal truncates the gap and leaves the last control where it was. A control added by
   double-clicking a tool is centred the same way, then put on the nearest grid line when Align to Grid is on.
 
+- **Named arguments run** (#1465). `MsgBox Prompt:="Done", Title:="App"` and `Foo Count:=3` stopped the program with
+  "Assign is not implemented". A named argument now goes to the parameter of its name in a call to the program's own
+  procedures and methods, and to the 57 intrinsics vb6.exe takes names for, with VB6's compile errors for an unknown or
+  repeated name. The arguments are evaluated in parameter order, not the order written, as vb6.exe evaluates them, so
+  `Foo c:=F(), a:=G()` calls G first. A named argument to a control's, a form's or an object's method is still refused
+  (#1474).
+
 - **IIf and Choose run** (#1461, #1464). Neither existed, so a program that called either stopped there. Both now give
   vb6.exe's answers, including the two that surprise people: IIf evaluates both parts, so `IIf(n <> 0, 1 / n, 0)` still
   divides by zero, and Choose truncates its index, so `Choose(1.6, "a", "b")` is "a".
