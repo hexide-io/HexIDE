@@ -8140,6 +8140,22 @@ runs. HexIDE passes the ByVal Boolean and String cases through unconverted (run 
 Integer, and `B "abc"` runs with a String where VB6 raises 13), and its code sends the Date and ByRef cases down the
 same branch. #874 is the fix.
 
+**HexIDE, since #874.** A copied argument and an Optional default convert into the parameter's declared type through
+the conversion a store into a variable uses, and the parameter's slot is typed, so a store into it converts too. Every
+row above is pinned in `TypedParameterTests`, with a second probe, native and p-code identical under en-GB:
+
+| Call or store | VB6 |
+|---|---|
+| `NI "12"` / `NI "2.5"` / `NI "abc"` / `NI "40000"`, `ByVal x As Integer` | Integer 12 / 2 / 13 at the call / 6 at the call |
+| `NIR "12"`, `x As Integer`, ByRef | Integer 12 |
+| `ND "1.5"` / `ND "&H10"`, `ByVal x As Double` | Double 1.5 / 16 |
+| `Optional x As String = 5` / `As Date = "1/2/2003"` / `As Boolean = 1` / `As Integer = 2.5`, omitted | String "5" / Date 01/02/2003 / Boolean True / Integer 2 |
+| `x = 5` in a `ByVal x As String` parameter / `x = "0.5"` in `ByVal x As Date` | String "5" / Date 00:05:00 |
+| `x = "abc"` in a `ByVal x As Boolean` parameter, under Resume Next | 13, and `x` keeps True |
+
+A numeric parameter given a String was read as 0: `Narrow` takes a String's number as 0, and only `CoerceOnStore`
+parses it. So `NI "12"` was 0 here, a wrong value #874's own table did not reach.
+
 ## A member call inside While...Wend (2026-10-13, #882)
 
 **The question.** Whether each shape of member call runs as one statement in a `While...Wend` body. HexIDE parsed
@@ -13015,7 +13031,51 @@ So every door that converts a String into a Date reads it as `CDate` does. The e
 - **Every row above matches,** pinned in `StringToDateTests` and `ConstAsTypeTests`, except these:
   - `"1,5 10:30"` is 13 (#1445).
   - `"1.5,2003"` is 13 (#1446).
-  - A `ByVal` Date parameter (#874), a UDT's Date field (#221) and a Date Function's return (#1444) still keep the String as it was given.
+  - A UDT's Date field still keeps the String as it was given (#221). A `ByVal` Date parameter and a Date Function's
+    return convert it since #874 and #1444.
 - **Not measured:**
   - A locale whose date separator is a dot, or whose decimal separator is a comma. HexIDE leaves those to .NET's reading.
   - A month-first locale.
+
+## A Function's return, converted where it is assigned (2026-10-22, #1444)
+
+**The question.** HexIDE converted a Function's value into its declared return type only for the numeric types, and only as
+the Function returned. So `FS = 5`, in a Function `As String`, returned an Integer, and `FD = "0.5"`, in one `As Date`,
+returned a String. Where does VB6 convert, and for which types?
+
+**The probes.** Each Function takes a Variant, stores it into its own name under `On Error Resume Next`, and logs
+`Err.Number` before it returns. The caller, also under `On Error Resume Next`, logs `TypeName`, `CStr` and `Err.Number` of
+what came back. A second project puts a Property Get and a Function in a class. Made native and p-code under en-GB; every
+line was identical.
+
+| Store, in the procedure | Inside, `Err.Number` | The caller reads |
+|---|---|---|
+| `FD = "0.5"`, a Function `As Date` | 0 | Date 00:05:00 (0.00347…) |
+| `FD = "1/2/2003"` / `"36526"` / `2.5` | 0 | Date 01/02/2003 / 01/01/2000 / 01/01/1900 12:00:00 |
+| `FD = "abc"` | 13 | Date 00:00:00, and `Err.Number` still 13 |
+| `FS = 5` / `True` / `2.5` / `#1/2/2003#`, `As String` | 0 | String "5" / "True" / "2.5" / "02/01/2003" |
+| `FB = 5` / `0` / `"True"`, `As Boolean` | 0 | Boolean True / False / True |
+| `FB = "abc"` | 13 | Boolean False, and 13 |
+| `FI = 40000`, `As Integer` | 6 | Integer 0, and 6 |
+| `FI = 2.5` / `"12"` | 0 | Integer 2 / 12 |
+| `FC = 1.23456`, `As Currency` | 0 | Currency 1.2346 |
+| `FN = "abc"`, `As Date`, with no handler in `FN` | — | the caller's 13; its assignment is skipped |
+| `FV = "0.5"`, a Function with no As clause | — | String "0.5" |
+| A standard module's `Property Get PD() As Date`, `PD = "1/2/2003"` | — | Date 01/02/2003 |
+| A class's `Property Get PD() As Date`, `PD = "0.5"` / `PS() As String`, `PS = 2.5` | — | Date 00:05:00 / String "2.5" |
+| A class's `Property Get PI() As Integer`, `PI = 40000` | 6 | Integer 0, and 6 |
+| A class's `Function FB(v) As Boolean`, given 5 / `"abc"` | 0 / 13 | Boolean True / False, and 13 |
+
+**What it shows:**
+- **A store into a typed Function's or Property Get's name converts as a store into a variable of that type does,** and
+  at the store. So the error is raised inside the procedure, where its own handler traps it, and the procedure then
+  returns its type's zero.
+- **The caller still sees `Err.Number` 13 after the procedure returned normally,** having trapped the error itself. An End
+  Function does not clear it.
+- **A String into a Date return is read as `CDate` reads it** (*A String read as a Date*).
+
+### In HexIDE (#1444)
+
+A Function's return slot is allocated with its declared scalar type, as a `Dim`'s is, so a store into the name goes
+through the same conversion as a store into a variable. Every row above is pinned in `TypedReturnTests` except the
+standard module's Property Get, which HexIDE does not reach by name (#977). An Enum or UDT return is unchanged.
