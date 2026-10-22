@@ -40,7 +40,8 @@ public static class AttachedEvents
         {
             InputElement.PointerReleasedEvent.AddClassHandler<T>((control, e) =>
             {
-                if (OwnsThePointerEvent(control, e.Source))
+                // A double click's second release raises no Click (measured, #1031).
+                if (OwnsThePointerEvent(control, e.Source) && !SecondPresses.TryGetValue(control, out _))
                     control.ExecuteSub(ComponentBaseClass.ClickEvent);
             });
         }
@@ -65,10 +66,21 @@ public static class AttachedEvents
     /// Avalonia registered first, so MouseUp follows it there. A control whose Click this class raises on release must
     /// attach the mouse events before its Click, so MouseUp comes first.</para>
     /// </remarks>
-    public static void AttachMouse<T>() where T : Control
+    public static void AttachMouse<T>(DblClick dblClick = DblClick.None) where T : Control
     {
-        InputElement.PointerPressedEvent.AddClassHandler<T>(
-            (control, e) => RaiseMouse(control, e, ComponentBaseClass.MouseDownEvent), handledEventsToo: true);
+        InputElement.PointerPressedEvent.AddClassHandler<T>((control, e) =>
+        {
+            var second = dblClick != DblClick.None && e.ClickCount % 2 == 0 && IsVbButton(e.GetCurrentPoint(control))
+                         && OwnsThePointerEvent(control, e.Source);
+            if (second)
+                SecondPresses.AddOrUpdate(control, Marker);
+            else
+                SecondPresses.Remove(control);
+            if (!second || dblClick == DblClick.AfterMouseDown)
+                RaiseMouse(control, e, ComponentBaseClass.MouseDownEvent);
+            if (second)
+                control.ExecuteSub(ComponentBaseClass.DblClickEvent);
+        }, handledEventsToo: true);
         InputElement.PointerReleasedEvent.AddClassHandler<T>(
             (control, e) => RaiseMouse(control, e, ComponentBaseClass.MouseUpEvent), handledEventsToo: true);
         InputElement.PointerMovedEvent.AddClassHandler<T>(
@@ -76,7 +88,35 @@ public static class AttachedEvents
     }
 
     /// <summary>
-    /// Raise <c>Form_MouseDown</c>, <c>Form_MouseUp</c>, <c>Form_MouseMove</c> and <c>Form_Click</c> from the form's client
+    /// How a control's DblClick comes, measured with real input, native and p-code agreeing (the oracle's "A click with
+    /// real input", #1031). Each control VB6 gives a DblClick raises it on a double click's second press, and that
+    /// release raises no Click. A CommandButton and a CheckBox have none: a double click on either is two clicks.
+    /// </summary>
+    public enum DblClick
+    {
+        /// <summary>No DblClick: a double click is two clicks.</summary>
+        None,
+        /// <summary>The second press raises DblClick and no MouseDown: a Label, an Image, a PictureBox, a TextBox, a
+        /// Frame, a ListBox, and the form.</summary>
+        InPlaceOfMouseDown,
+        /// <summary>The second press raises MouseDown, then DblClick: an OptionButton.</summary>
+        AfterMouseDown,
+    }
+
+    // The controls whose current press is a double click's second, so that its release raises no Click.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control, object> SecondPresses = new();
+    private static readonly object Marker = new();
+
+    /// <summary>Whether the press now held on <paramref name="control"/> is a double click's second, whose release raises
+    /// no Click.</summary>
+    internal static bool IsSecondPress(Control control) => SecondPresses.TryGetValue(control, out _);
+
+    // VB6 has no event for the other buttons, as in Raise.
+    private static bool IsVbButton(PointerPoint point) => point.Properties.PointerUpdateKind
+        is PointerUpdateKind.LeftButtonPressed or PointerUpdateKind.RightButtonPressed or PointerUpdateKind.MiddleButtonPressed;
+
+    /// <summary>
+    /// Raise <c>Form_MouseDown</c>, <c>Form_MouseUp</c>, <c>Form_MouseMove</c>, <c>Form_Click</c> and <c>Form_DblClick</c> from the form's client
     /// canvas, for a pointer over no control: a click on a Label is the Label's alone (measured). X and Y are in the form's
     /// ScaleMode.
     /// </summary>
@@ -87,8 +127,8 @@ public static class AttachedEvents
     /// <item>Only when the press was on the form's own area and the release is over it again. Released over a control,
     /// windowless or not, or outside the window, the form has its MouseUp and no Click. So the release is hit-tested where
     /// it is: while the pointer is captured, the event's source is the canvas wherever the pointer went.</item>
-    /// <item>The second press of a double click raises DblClick and its release no Click. HexIDE raises no DblClick yet
-    /// (#1031), but still leaves out the Click VB6 does not raise.</item>
+    /// <item>The second press of a double click raises DblClick in place of MouseDown, and its release no Click
+    /// (#1031).</item>
     /// </list>
     /// </remarks>
     public static void AttachFormMouse(Canvas client)
@@ -110,7 +150,11 @@ public static class AttachedEvents
         client.AddHandler(InputElement.PointerPressedEvent, (_, e) =>
         {
             clicking = OverTheForm(e.Source) && e.ClickCount % 2 == 1;
-            Handler(e, ComponentBaseClass.MouseDownEvent);
+            if (e.ClickCount % 2 == 1)
+                Handler(e, ComponentBaseClass.MouseDownEvent);
+            else if (OverTheForm(e.Source) && IsVbButton(e.GetCurrentPoint(client))
+                     && client.FindLogicalAncestorOfType<IModuleExecutionRoot>() is { } root && root.Handles("Form_DblClick"))
+                root.ExecuteSub("Form_DblClick");
         }, handledEventsToo: true);
         client.AddHandler(InputElement.PointerReleasedEvent, (_, e) =>
         {

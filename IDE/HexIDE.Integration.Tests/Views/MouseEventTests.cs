@@ -48,7 +48,7 @@ public class MouseEventTests
         "VERSION 5.00\r\nBegin VB.Form Form1 \r\n   Caption         =   \"Form1\"\r\n   ClientHeight    =   3090\r\n"
         + "   ClientWidth     =   4680\r\n" + scale + controls + "End\r\nAttribute VB_Name = \"Form1\"\r\n";
 
-    private static string Handlers(string name, bool index = false, bool click = true)
+    private static string Handlers(string name, bool index = false, bool click = true, bool dblClick = false)
     {
         var head = index ? "Index As Integer, " : "";
         var pre = index ? "\"(\" & Index & \") \" & " : "";
@@ -58,6 +58,9 @@ public class MouseEventTests
                   + $"    Debug.Print \"{name} {ev} \" & {pre}Button & \" \" & Shift & \" \" & X & \" \" & Y\r\nEnd Sub\r\n";
         if (click)
             code += $"Private Sub {name}_Click({(index ? "Index As Integer" : "")})\r\n    Debug.Print \"{name} Click\"\r\nEnd Sub\r\n";
+        if (dblClick)
+            code += $"Private Sub {name}_DblClick({(index ? "Index As Integer" : "")})\r\n"
+                  + $"    Debug.Print \"{name} DblClick\"{(index ? " & \" (\" & Index & \")\"" : "")}\r\nEnd Sub\r\n";
         return code;
     }
 
@@ -368,22 +371,252 @@ public class MouseEventTests
     }
 
     [AvaloniaFact]
-    public void A_double_click_on_the_form_raises_one_Click_and_a_third_click_another()
+    public void A_double_click_on_the_form_raises_DblClick_in_place_of_the_second_MouseDown_and_a_third_click_is_new()
     {
-        // Measured: a double click is MouseDown, MouseUp, Click, DblClick, MouseUp, and a third press starts a new click.
-        // HexIDE raises no DblClick yet, and still a MouseDown for the second press (#1031), but no second Click.
-        using var run = Start(Form(Twips, Controls), Handlers("Form"));
+        // Measured (#1364, #1031): the second press raises DblClick and no MouseDown, its release no Click, and a third
+        // press starts a new click.
+        using var run = Start(Form(Twips, Controls), Handlers("Form", dblClick: true));
 
         run.Click(new Point(300, 10));
         run.Click(new Point(300, 10));
-        run.Printed.Where(p => p == "Form Click").Should().ContainSingle();
-        run.Printed.Should().StartWith(["Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4500 150", "Form Click"]);
-
         run.Click(new Point(300, 10));
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Where(p => p == "Form Click").Should().HaveCount(2);
-        run.Printed[^1].Should().Be("Form Click");
+        run.Printed.Should().Equal(
+            "Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4500 150", "Form Click",
+            "Form DblClick", "Form MouseUp 1 0 4500 150",
+            "Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4500 150", "Form Click");
+    }
+
+    // DblClick on the controls, measured with real input, native and p-code agreeing (the oracle's "A click with real
+    // input", #1031).
+
+    [AvaloniaFact]
+    public void A_double_click_on_a_Label_raises_DblClick_in_place_of_the_second_MouseDown()
+    {
+        using var run = Start(Form(Twips, Controls), Handlers("Label1", dblClick: true));
+        var at = run.At("Label1", 5, 3);
+
+        run.Click(at);
+        run.Click(at);
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Label1 MouseDown 1 0 75 45", "Label1 MouseUp 1 0 75 45", "Label1 Click",
+            "Label1 DblClick", "Label1 MouseUp 1 0 75 45");
+    }
+
+    [AvaloniaFact]
+    public void A_double_click_on_a_TextBox_raises_DblClick_in_place_of_the_second_MouseDown()
+    {
+        using var run = Start(Form(Twips, Controls), Handlers("Text1", dblClick: true));
+        var at = run.At("Text1", 10, 5);
+
+        run.Click(at);
+        run.Click(at);
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Text1 MouseDown 1 0 120 45", "Text1 MouseUp 1 0 120 45", "Text1 Click",
+            "Text1 DblClick", "Text1 MouseUp 1 0 120 45");
+    }
+
+    [AvaloniaFact]
+    public void A_double_click_on_a_Frame_raises_DblClick_in_place_of_the_second_MouseDown()
+    {
+        using var run = Start(Form(Twips, Ctl("Frame", "Frame1", 240, 1500, 2400, 1200, "      Caption         =   \"f1\"\r\n")),
+            Handlers("Frame1", dblClick: true));
+        var at = run.At("Frame1", 140, 60);
+
+        run.Click(at);
+        run.Click(at);
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Frame1 MouseDown 1 0 2100 900", "Frame1 MouseUp 1 0 2100 900", "Frame1 Click",
+            "Frame1 DblClick", "Frame1 MouseUp 1 0 2100 900");
+    }
+
+    [AvaloniaFact]
+    public void An_OptionButton_s_second_press_raises_MouseDown_then_DblClick()
+    {
+        // Measured: unlike every other control with a DblClick, the second press raises MouseDown too. Click comes only as
+        // the option becomes selected, so the second click raises none.
+        using var run = Start(Form(Twips, Ctl("OptionButton", "Option1", 240, 240, 1215, 255, "      Caption         =   \"o1\"\r\n")),
+            Handlers("Option1", dblClick: true));
+        var at = run.At("Option1", 10, 5);
+
+        run.Click(at);
+        run.Click(at);
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Option1 MouseDown 1 0 150 75", "Option1 Click", "Option1 MouseUp 1 0 150 75",
+            "Option1 MouseDown 1 0 150 75", "Option1 DblClick", "Option1 MouseUp 1 0 150 75");
+    }
+
+    [AvaloniaFact]
+    public void A_double_click_on_a_CommandButton_is_two_clicks()
+    {
+        // Measured: a CommandButton has no DblClick, and a double click on it is two whole clicks.
+        using var run = Start(Form(Twips, Controls), Handlers("Command1"));
+        var at = run.At("Command1", 10, 5);
+
+        run.Click(at);
+        run.Click(at);
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Command1 MouseDown 1 0 150 75", "Command1 Click", "Command1 MouseUp 1 0 150 75",
+            "Command1 MouseDown 1 0 150 75", "Command1 Click", "Command1 MouseUp 1 0 150 75");
+    }
+
+    [AvaloniaFact]
+    public void A_control_array_element_s_DblClick_carries_its_Index()
+    {
+        using var run = Start(Form(Twips, Controls), Handlers("lblCell", index: true, click: false, dblClick: true));
+        var at = run.At("lblCell", 5, 3);
+
+        run.Click(at);
+        run.Click(at);
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("lblCell MouseDown (0) 1 0 75 45", "lblCell MouseUp (0) 1 0 75 45",
+            "lblCell DblClick (0)", "lblCell MouseUp (0) 1 0 75 45");
+    }
+
+    // A ListBox's Click (#1374), measured with real input, native and p-code agreeing (the oracle's "A ListBox's Click"):
+    // a left press on an item raises Click at its release, before MouseUp, and the selection follows the press. Each
+    // handler prints ListIndex, so where the selection moves is pinned with the order.
+
+    private static readonly string AList = Ctl("ListBox", "List1", 120, 120, 2400, 1800);
+
+    private static readonly string ListHandlers =
+        "Private Sub Form_Load()\r\n    List1.AddItem \"a\"\r\n    List1.AddItem \"b\"\r\n    List1.AddItem \"c\"\r\nEnd Sub\r\n"
+        + "Private Sub List1_MouseDown(Button As Integer, Shift As Integer, X As Single, Y As Single)\r\n"
+        + "    Debug.Print \"MouseDown \" & Button & \" \" & List1.ListIndex\r\nEnd Sub\r\n"
+        + "Private Sub List1_MouseUp(Button As Integer, Shift As Integer, X As Single, Y As Single)\r\n"
+        + "    Debug.Print \"MouseUp \" & Button & \" \" & List1.ListIndex\r\nEnd Sub\r\n"
+        + "Private Sub List1_Click()\r\n    Debug.Print \"Click \" & List1.ListIndex\r\nEnd Sub\r\n"
+        + "Private Sub List1_DblClick()\r\n    Debug.Print \"DblClick \" & List1.ListIndex\r\nEnd Sub\r\n";
+
+    // The middle of item `index`, moved `dx` across so that two clicks on one item are not a double click.
+    private static Point Item(Running run, int index, double dx = 0)
+    {
+        var item = ((ListBox)run.Named("List1")).ContainerFromIndex(index)!;
+        return item.TranslatePoint(new Point(item.Bounds.Width / 2 + dx, item.Bounds.Height / 2), run.Window)!.Value;
+    }
+
+    private static Point BelowTheItems(Running run)
+    {
+        var last = ((ListBox)run.Named("List1")).ContainerFromIndex(2)!;
+        return last.TranslatePoint(new Point(last.Bounds.Width / 2, last.Bounds.Height + 12), run.Window)!.Value;
+    }
+
+    [AvaloniaFact]
+    public void A_click_on_a_ListBox_item_selects_it_at_the_press_and_raises_Click_before_MouseUp()
+    {
+        using var run = Start(Form(Twips, AList), ListHandlers);
+
+        run.Click(Item(run, 0));
+        run.Click(Item(run, 0, dx: 30));
+
+        run.Errors.Should().BeEmpty();
+        // The second click is on the item already selected, and still raises Click.
+        run.Printed.Should().Equal("MouseDown 1 0", "Click 0", "MouseUp 1 0", "MouseDown 1 0", "Click 0", "MouseUp 1 0");
+    }
+
+    [AvaloniaFact]
+    public void A_click_below_the_items_raises_no_Click_and_keeps_the_selection()
+    {
+        using var run = Start(Form(Twips, AList), ListHandlers);
+        run.Click(Item(run, 0));
+        run.Printed.Clear();
+
+        run.Click(BelowTheItems(run));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("MouseDown 1 0", "MouseUp 1 0");
+    }
+
+    [AvaloniaFact]
+    public void A_ListBox_s_selection_follows_a_press_moved_across_the_items_and_Click_has_where_it_ended()
+    {
+        using var run = Start(Form(Twips, AList), ListHandlers);
+
+        run.Window.MouseDown(Item(run, 0), MouseButton.Left);
+        run.Window.MouseMove(Item(run, 2), RawInputModifiers.LeftMouseButton);
+        run.Window.MouseUp(Item(run, 2), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("MouseDown 1 0", "Click 2", "MouseUp 1 2");
+    }
+
+    [AvaloniaFact]
+    public void A_press_on_a_ListBox_item_moved_below_the_items_keeps_it_selected_and_still_raises_Click()
+    {
+        using var run = Start(Form(Twips, AList), ListHandlers);
+
+        run.Window.MouseDown(Item(run, 2), MouseButton.Left);
+        run.Window.MouseMove(BelowTheItems(run), RawInputModifiers.LeftMouseButton);
+        run.Window.MouseUp(BelowTheItems(run), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("MouseDown 1 2", "Click 2", "MouseUp 1 2");
+    }
+
+    [AvaloniaFact]
+    public void A_press_below_the_items_moved_onto_one_selects_nothing_and_raises_no_Click()
+    {
+        using var run = Start(Form(Twips, AList), ListHandlers);
+
+        run.Window.MouseDown(BelowTheItems(run), MouseButton.Left);
+        run.Window.MouseMove(Item(run, 0), RawInputModifiers.LeftMouseButton);
+        run.Window.MouseUp(Item(run, 0), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("MouseDown 1 -1", "MouseUp 1 -1");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(MouseButton.Right, 2)]
+    [InlineData(MouseButton.Middle, 4)]
+    public void A_right_or_middle_click_on_a_ListBox_item_selects_nothing_and_raises_no_Click(MouseButton button, int vbButton)
+    {
+        using var run = Start(Form(Twips, AList), ListHandlers);
+
+        run.Click(Item(run, 0), button);
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal($"MouseDown {vbButton} -1", $"MouseUp {vbButton} -1");
+    }
+
+    [AvaloniaFact]
+    public void A_double_click_on_a_ListBox_item_is_MouseDown_Click_MouseUp_DblClick_MouseUp()
+    {
+        using var run = Start(Form(Twips, AList), ListHandlers);
+
+        run.Click(Item(run, 0));
+        run.Click(Item(run, 0));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("MouseDown 1 0", "Click 0", "MouseUp 1 0", "DblClick 0", "MouseUp 1 0");
+    }
+
+    [AvaloniaFact]
+    public void An_arrow_key_that_moves_a_ListBox_s_selection_raises_Click_and_one_that_cannot_raises_none()
+    {
+        using var run = Start(Form(Twips, AList), ListHandlers);
+        run.Click(Item(run, 1));
+        run.Printed.Clear();
+
+        run.Window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+        run.Window.KeyRelease(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+        Dispatcher.UIThread.RunJobs();
+        run.Window.KeyPress(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+        run.Window.KeyRelease(Key.Up, RawInputModifiers.None, PhysicalKey.ArrowUp, null);
+        Dispatcher.UIThread.RunJobs();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Click 0");
     }
 
     [AvaloniaTheory]
