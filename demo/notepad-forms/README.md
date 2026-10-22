@@ -51,6 +51,12 @@ It found these, which it doesn't depend on:
   `Clipboard.Clear` first, as VB6 programs usually do, so they never meet it.
 - **The Find dialog's one-line TextBox** clips the bottom of its text (#914).
 
+And these, which still show in it:
+- **`SelStart` after Select All, Ctrl+End and a paste** reads where the paste went in, not the caret after it, so Find
+  Up then starts from the middle of the text (#1385).
+- **Under a dark IDE theme the TextBoxes and the menu bar draw dark,** where VB6's follow the system's window colours
+  (#806, #909).
+
 ## Left out
 
 **Undo.** Notepad's Undo is the edit control's own, and a VB6 program reaches it by sending the TextBox an
