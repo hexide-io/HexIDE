@@ -34,6 +34,9 @@ namespace HexIDE.Runtime.AvaloniaInterop;
 /// <item>MultiSelect itself reads as an Integer, and assigning it is the compile error "Can't assign to read-only
 /// property" (measured, #1413).</item>
 /// </list>
+/// A ComboBox's Text (#926), measured the same way (the oracle's "A ComboBox's Text, at each Style"). At Style 0 and 1 it
+/// is the edit box's: written, it does nothing when it is the Text already, and otherwise takes any text, clearing the
+/// selection even for an item's text. Null is 13. A Dropdown List's is refused (#1428).
 /// </summary>
 internal static class ListMembers
 {
@@ -54,7 +57,12 @@ internal static class ListMembers
             value = new Vb6Value(listBox.SelectedCount);
             return true;
         }
-        // A ComboBox's Text is #926's.
+        if (control is VBComboBox combo && member.Equals("Text", StringComparison.OrdinalIgnoreCase))
+        {
+            RequireEditable(combo);
+            value = new Vb6Value(combo.Text ?? "");
+            return true;
+        }
         if (control is VBListBox textList && member.Equals("Text", StringComparison.OrdinalIgnoreCase))
         {
             value = new Vb6Value(textList.ListIndexText);
@@ -79,6 +87,15 @@ internal static class ListMembers
         if (control is VBListBox listBox && member.Equals("Text", StringComparison.OrdinalIgnoreCase))
         {
             listBox.SetTextFromCode(Text(value));
+            return true;
+        }
+        if (control is VBComboBox combo && member.Equals("Text", StringComparison.OrdinalIgnoreCase))
+        {
+            RequireEditable(combo);
+            // Type mismatch, where the list's own members take Null as 94 (measured).
+            if (value.IsNull)
+                throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            combo.SetTextFromCode(Text(value));
             return true;
         }
         if (member.Equals("ListCount", StringComparison.OrdinalIgnoreCase))
@@ -197,6 +214,15 @@ internal static class ListMembers
         Convert.ToInt32(VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Integer, null).Value);
 
     // An item is a String, as CStr makes it; Null is 94 (measured).
+    // A Dropdown List's Text selects an item or raises 383 (measured), which needs its Style modelled (#1428). An edit
+    // box's Text there would take anything, so it is refused rather than answered wrong.
+    private static void RequireEditable(VBComboBox combo)
+    {
+        if (combo.IsDropdownList)
+            throw new NotImplementedException(
+                $"Text on a ComboBox whose Style is {combo.ComboStyle} is not implemented: HexIDE runs no Dropdown List yet (#1428)");
+    }
+
     private static string Text(Vb6Value value) =>
         (string)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, null).Value!;
 }

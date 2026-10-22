@@ -1605,9 +1605,106 @@ Since #821, `ListMembers` gives a ListBox and a ComboBox every row above but two
 What it still does not do:
 - **A ComboBox's `ListIndex` moving 1 to 2 after `List(-2) = "y"`.** HexIDE leaves it where it was. The error is
   raised, and no program is likely to read the selection after it.
-- **A ComboBox's `Text`** (#926), so neither `Text` row.
+- **A Dropdown List's `Text`** (#1428). A Dropdown Combo's two `Text` rows run as measured since #926.
 - **`Sorted`,** which HexIDE has no property for.
 - **`ListCount = 5`** is the compile error's text, raised when the statement runs, not before the program does.
+
+## A ComboBox's Text, at each Style, from code (2026-10-22, #926)
+
+**The probe.** A form with four ComboBoxes, built with `/make` and run, native and p-code giving byte-identical logs:
+- `Combo1`, Style 0 (Dropdown Combo), saved with `Text = "Combo1"`;
+- `Combo2`, Style 1 (Simple Combo), saved with `Text = "Combo2"`;
+- `Combo3`, Style 2 (Dropdown List), with no Text line;
+- `Combo4`, Style 2, saved with `Text = "x"`.
+
+Each of the first three was filled with `apple`, `Banana` and `cherry`, then given each Text in turn. Every handler for
+Click and Change logged its name, and each row was read under `On Error Resume Next`.
+
+| Read at load | VB6 |
+|---|---|
+| `TypeName(Combo1.Text)` | **String** |
+| `Combo1.Text`, `Combo2.Text` | `Combo1`, `Combo2`, as saved |
+| `Combo3.Text`, and **`Combo4.Text`, saved as `x`** | `""` each: **a Dropdown List ignores a saved Text** |
+| `ListIndex` of each | -1 |
+| `Style` of each | `0`, `1`, `2`, an **Integer** |
+
+| Statement | Style 0 and Style 1, alike | Style 2 |
+|---|---|---|
+| `Text = "Banana"`, an item's text | Text `Banana`, **`ListIndex` -1**, **Change** | selects it: `ListIndex` 1, **Click** |
+| `Text = "banana"`, its text in other case | Text `banana`, `ListIndex` -1, Change | `Banana`, already selected, stays so; Text `Banana`; **Click all the same** |
+| `Text = "Ban"`, `"zz"` or `""` | that Text, `ListIndex` -1, Change | Err **383**, nothing changed, no event |
+| `Text = "cherry"` | Text `cherry`, Change | selects it, `ListIndex` 2, Click |
+| `ListIndex = 0` | Text `apple`, `ListIndex` 0, **Click, and no Change** | Text `apple`, Click |
+| `ListIndex = -1` | Text `""`, Click, no Change | Text `""`, Click |
+| `Text = Null` | Err **13**, not 94; nothing changed | Err 13 |
+| `Text = 5` | Text `5`, Change | Err 383 |
+
+What these show:
+- **A Style 0 or 1 combo's Text is its edit box's,** free of the list. Setting it to an item's text selects nothing, and
+  every assignment here raised Change. The second probe, below, asks what this one did not.
+- **A Style 2 combo's Text is its selected item.** Setting it selects the first item whose whole text matches without
+  regard to case, and raises Click every time. With no match it is 383, "'Text' property is read-only".
+- **Moving `ListIndex` changes a Style 0 combo's Text** without raising Change.
+
+**A second probe,** the same way, on a Style 0 and a Style 1 combo filled with `apple`, `Banana` and `cherry`. The two
+styles gave the same rows, and native and p-code the same logs:
+
+| Statement | VB6 |
+|---|---|
+| `Text = Text`, unchanged | nothing: **no Change**, `ListIndex` -1 still |
+| `ListIndex = 1` | Text `Banana`, Click |
+| `Text = "zz"`, with item 1 selected | Text `zz`, **`ListIndex` -1**, Change |
+| `Text = "cherry"`, another item's text, with item 1 selected | Text `cherry`, **`ListIndex` -1**: it selects nothing; Change |
+| `Text = "Banana"`, the selected item's own text | **nothing**: `ListIndex` 1 still, no Change |
+| `Text = "banana"`, that text in other case | Text `banana`, **`ListIndex` -1**, Change |
+| `ListIndex = 2`, then `ListIndex = 2` again | Click the first time, **none the second** |
+| `Text = "cherry"`, with item 2, `cherry`, selected | nothing |
+| `Clear` | Text `""`, `ListIndex` -1 |
+
+So **a Style 0 or 1 combo's `Text = s` does nothing when `s` is its Text already,** compared exactly. Otherwise it puts `s`
+in the edit box, clears the selection and raises Change.
+
+What resisted explanation:
+- **`Text = Null` is 13, Type mismatch,** where a TextBox's `SelText = Null` and the list's `List(Null)` are 94.
+
+### Drawn in the VB6 IDE's designer
+
+**The probe.** In the guest's console session, the VB6 IDE opened a project holding an empty Form1. Each toolbox icon was
+double-clicked, which adds that control to the form at its default size, centred: a TextBox, then three ComboBoxes. Style
+was set in the Properties window by Ctrl+Shift+S, the value's number and Enter, and the form saved with Ctrl+S. Every
+step was checked by a screenshot. The saved blocks:
+
+| Drawn | What the designer wrote |
+|---|---|
+| TextBox | `Text = "Text1"`, Height 495, Width 1215 |
+| ComboBox, Style left at 0 | `Text = "Combo1"`, Height 315, Width 1215 |
+| ComboBox, Style set to 1 | `Style = 1 'Simple Combo`, `Text = "Combo2"`, Height 315 |
+| ComboBox, Style set to 2 | `Style = 2 'Dropdown List`, **no Text line**. The designer still showed `Combo3` in the box |
+| That combo, Style set back to 0 | `Text = "Combo3"` |
+| Combo1 given `Text = zz` in the Properties window | `Text = "zz"` |
+| Then Style 2 | the Properties window's **Text read `Combo1`** |
+| Then Style 0 again | `Text = "Combo1"`: the `zz` is gone |
+
+What these show:
+- **A drawn TextBox or ComboBox starts with its own name as its Text,** as its Caption would be for a control that has
+  one. The names count from 1 (#540).
+- **Setting Style to 2 resets the Text to the control's name,** and a Dropdown List's Text is never written. Going back
+  to 0 or 1 writes that name.
+
+Not measured: what Style 2 does in the designer to a combo whose Name has been changed, which would show whether it is
+the name now or the name the control was drawn with.
+
+### In HexIDE (#926)
+
+- **A drawn TextBox or ComboBox** starts with its name as its Text, and a control with no Caption is no longer given one.
+- **A Dropdown Combo's and a Simple Combo's Text** reads and writes at run time as both probes measured. That includes
+  `Null` as 13, and the two #821 rows in which the selected item's text follows it. Avalonia's editable combo would select
+  the item a Text matches, without regard to case, so while code sets the Text every item reads as a text no program can
+  set, and none matches.
+- **A Dropdown List's Text** is never written to the .frm, and is ignored at load. At run time, reading or writing it is
+  refused as not implemented, naming #1428, because what it does there needs the Style modelled.
+- **Not done:** Click and Change (#1429). Every row above that raises one runs without it.
+- **Not done:** the designer resetting a combo's Text to its name when its Style becomes 2 (#1428).
 
 ## Out of stack space — Error 28 (2026-08-22, #80)
 
