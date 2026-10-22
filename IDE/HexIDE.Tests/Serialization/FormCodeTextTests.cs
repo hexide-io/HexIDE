@@ -3,26 +3,12 @@ using HexIDE.Runtime.Serialization;
 namespace HexIDE.Tests.Serialization;
 
 /// <summary>
-/// `VB_Name` is a form's identity and it lives at the top of the code section. VB6 hid it; HexIDE's editor
-/// shows it (measured 2026-09-20). Being on screen is not being carried: "replace the code" written by
-/// someone composing a body deletes it anyway — which is how a real form was damaged and committed before
-/// `git diff` caught it.
+/// `VB_Name` is a form's identity and it lives at the top of the code section, in the leading run of `Attribute`
+/// lines. These pin how that run is found. Keeping it in front of code sent alone is `GuardedContent`'s job, and
+/// the method that once restored it is gone with its last caller (#686).
 /// </summary>
 public class FormCodeTextTests
 {
-    private const string Attrs =
-        "Attribute VB_Name = \"frmOrders\"\r\n" +
-        "Attribute VB_GlobalNameSpace = False\r\n" +
-        "Attribute VB_Creatable = False\r\n";
-
-    [Fact]
-    public void An_attribute_block_is_restored_when_the_incoming_code_omits_it()
-    {
-        var result = FormCodeText.PreserveAttributes("Private Sub Form_Load()\r\nEnd Sub\r\n", Attrs + "Option Explicit\r\n");
-
-        result.Should().Be(Attrs + "Private Sub Form_Load()\r\nEnd Sub\r\n");
-    }
-
     [Theory]
     [InlineData("\r\n")]
     [InlineData("\n")]
@@ -45,22 +31,6 @@ public class FormCodeTextTests
     {
         var block = eol + eol + "Attribute VB_Name = \"Form1\"" + eol;
         FormCodeText.AttributeBlock(block + "Option Explicit" + eol).Should().Be(block);
-    }
-
-    [Fact]
-    public void Incoming_code_that_already_has_a_block_is_left_exactly_alone()
-    {
-        // The get -> modify -> set round trip. Restoring here would double the block.
-        var incoming = "Attribute VB_Name = \"frmRenamed\"\r\nPrivate Sub Form_Load()\r\nEnd Sub\r\n";
-
-        FormCodeText.PreserveAttributes(incoming, Attrs).Should().Be(incoming);
-    }
-
-    [Fact]
-    public void A_form_that_never_had_a_block_gains_nothing()
-    {
-        FormCodeText.PreserveAttributes("Private Sub Form_Load()\r\nEnd Sub\r\n", "Option Explicit\r\n")
-            .Should().Be("Private Sub Form_Load()\r\nEnd Sub\r\n");
     }
 
     [Fact]

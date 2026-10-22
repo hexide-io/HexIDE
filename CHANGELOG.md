@@ -60,8 +60,7 @@ there isn't one yet. Anything may change between 0.x releases.
   - text is in the ANSI code page;
   - the errors are VB6's: 52, 53, 54, 55, 62, 75 and 76.
 
-  Every rule was measured, native and p-code. Random and Binary files, `Input #`, `Write #`, and `Tab` and `Spc` in
-  `Print #` are still to come.
+  Every rule was measured, native and p-code. Random and Binary files, `Input #` and `Write #` are still to come.
 - **The Line control** (#163). A form holding one used to be refused at run time, since #857. Now:
   - it loads, runs and saves byte for byte, VB6's About Dialog included;
   - it draws pixel for pixel as VB6 does: dashes, widths, and which of two lines is on top;
@@ -192,12 +191,39 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`FormCodeText.PreserveAttributes` is gone** (#686). It could weld a header with no line ending onto the code
+  after it, but it has had no caller since #273's phase 3 kept a form's header with `GuardedContent` instead, so it
+  was deleted rather than repaired.
+
 - **A ListBox's `Selected(i)`, `SelCount` and `Text` work** (#1395). Each was "Method or data member not found", so
   code that read which items were chosen, or chose one by its text, stopped there. Now each does what vb6.exe does on a
   single-select list:
   - `Selected(i)` reads and sets the selection, and is 381 outside the list;
   - `Text = s` selects the first item whose whole text is `s`, without regard to case, and raises Click every time;
   - Click comes from `Selected(i) =` only when the selection moves, as from `ListIndex`.
+
+- **Save Project As names a designer, the resource file and the build folder from the new folder** (#1406). VB6's
+  Save As rewrites the paths in `Designer=`, `ResFile32=` and `Path32=` so that they still name the same files.
+  HexIDE kept them as read, so from another folder they named files beside the new project file. A reference's
+  relative library path follows too. `HelpFile=` stays as typed, as VB6 leaves it.
+
+- **`Debug.Print` prints every item, as VB6's Immediate window does** (#1380). Only the first item reached the Immediate
+  window, so `Debug.Print "x ="; x` showed `x =` alone, and a trailing `;` still ended the line. Now `Debug.Print` writes
+  what `Print #` writes, which is what VB6 does, line for line, as measured in its IDE:
+  - numbers have a space for the sign and one after;
+  - a comma moves to the next 14-column zone;
+  - a statement ending in `;` or `,` leaves its line open for the next, even in the next run.
+
+  `Spc(n)` and `Tab(n)` now work in both, where `Print #` refused them.
+- **`Debug.Print ,` and `Debug.Print ;` load and run** (#1409). A `Debug.Print` of separators alone was a syntax error,
+  so a module holding one could not load at all. Now it prints as VB6 does: each comma moves to the next zone, and the
+  line stays open. A call of an ordinary procedure with separators alone, `Foo ,`, is still a syntax error, as in VB6.
+
+- **Save Project As to another folder no longer cuts off the members the project keeps only as a line** (#737). A
+  form whose file is missing, one that failed to load, or a UserDocument is kept in the project file without being
+  loaded, and its line was written back as it was read. From a new folder that line named a file beside the new
+  project file, where there is none, and the next open lost the member. It now names the same file from wherever the
+  project file is written, as do the original lines of carried files.
 
 - **A quote inside a form's string property is read and written as VB6 does** (#218). VB6 writes a quote inside a
   caption, tag or text doubled, and reads the pair back as one. HexIDE kept both quotes on read, so a VB6 form's

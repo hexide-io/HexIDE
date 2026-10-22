@@ -141,6 +141,12 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     // with a "missing"/"unsupported" glyph; for now they are preserved opaquely.)
     public List<string> PreservedItemLines { get; } = new();
 
+    // The folder those lines, and each related document's original line, name their files relative to: the folder of
+    // the project file they were read from. It stays put when the project file moves, so a Save As to another folder
+    // writes each line relative to the new one rather than leaving it naming a file beside the new project file
+    // (#737). Null for a project not read from a file; its lines are then taken relative to AbsolutePath's folder.
+    public string? ItemLinesDirectory { get; set; }
+
     // The startup form's NAME as read from the .vbp. Retained even when the form itself couldn't be
     // loaded (missing .frm), so the Startup= line survives round-trip. StartupForm.Name takes precedence.
     public string? StartupFormName { get; set; }

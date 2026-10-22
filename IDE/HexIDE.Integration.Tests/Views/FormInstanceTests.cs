@@ -451,7 +451,8 @@ public class FormInstanceTests
         var run = RunFormLoad("    Score = 5\n    Debug.Print Score");
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal("5");
+        // A number printed alone has Print's spaces, for its sign and after it (#1380).
+        run.Printed.Should().Equal(" 5 ");
     }
 
     [AvaloniaFact]

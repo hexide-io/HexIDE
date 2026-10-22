@@ -72,6 +72,7 @@ something this project can offer outward rather than something it must ask for.
 | 6 | Hex / octal `%` suffix (`&H1F%`) | lexer | add `PERCENT` to `COLORLITERAL` (hex) and `OCTALLITERAL` suffixes |
 | 7 | Trailing comment after a header or designer property value (`MultiUse = -1  'True`, `Enabled = 0   'False`) | parser | add `WS?` before `NEWLINE` in `moduleConfigElement` and `cp_SingleProperty` |
 | 8 | A member call in a `While...Wend` body (`k.Bump`, `Debug.Print x`) | parser | `whileWendStmt`'s body `block* NEWLINE*` → `(block blockSep)?`, as `doLoopStmt` has it |
+| 9 | A Print output list of separators alone (`Debug.Print ,`, `Debug.Print ;`) | parser | a second `iCS_B_MemberProcedureCall` alternative, `implicitCallStmt_InStmt? DOT PRINT WS? (COMMA \| SEMICOLON) (WS? (COMMA \| SEMICOLON))*`; `argsCall` is unchanged |
 
 Provenance: VB6 Language Reference ("Line numbers", "If…Then…Else", "Type Declaration Characters"), each
 verified against `vb6.exe`; deliberately divergent from the Rubberduck grammar.
@@ -107,6 +108,14 @@ Error recovery inside a `While` body now cascades as it does in `Do`, `For` and 
 a `While` body can drop the procedures after it from the document symbols, where `block*` happened to resynchronise
 sooner. That is the behaviour of every other block rule here, not a regression of this one; do not revert toward
 `block*` to soften it, because that brings back the wrong tree for every valid member call.
+
+**Fix 9 is narrow on purpose (2026-10-22).** `argsCall` needs at least one argument, and widening it would have been
+the one-line fix. It would also have accepted `Foo ,` for an ordinary procedure, which `vb6.exe` refuses as "Syntax
+error", native and p-code, while `Foo , 2` builds (hexide-io/HexIDE#1409). Separators alone belong to Print's
+output list, which VB6 reads as `Print #` reads its own, so the alternative is keyed on the `PRINT` token after the
+dot. It admits `Form1.Print ,` too, whose VB6 behaviour is not measured and which HexIDE cannot run, since a form's
+`Print` method is not implemented. Provenance: measured against
+`vb6.exe` and its IDE's Immediate window (the oracle's "Sequential files", under "Separators with no item").
 
 ## Open gaps (found, not yet fixed)
 
