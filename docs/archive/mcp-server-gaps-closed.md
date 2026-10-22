@@ -2759,9 +2759,11 @@ a refusal that names what it looked for rather than a property. An action to ope
 
 > **Fixed.** `interact`, `press_key` and `type_text` on a running program's form, on a window it owns, or on its
 > MsgBox or InputBox, now wait until the program has finished what the action set off and is waiting for input again,
-> up to 3 seconds. A handler parked in `Show vbModal` or at `DoEvents` counts as waiting for input. The program is
-> found before the action, as a MsgBox that the action answers has closed and lost its owner by the time the action
-> returns. A reply that comes back sooner ends with a note saying why:
+> up to 3 seconds. A handler parked in `Show vbModal`, or at a `DoEvents` in a loop that was already running before
+> the action (or in a Timer's), counts as waiting for input; a `DoEvents` loop the action itself started is waited for,
+> up to the same limit (corrected by #1254, below). The program is found before the action, as a MsgBox that the
+> action answers has closed and lost its owner by the time the action returns. A reply that comes back sooner ends
+> with a note saying why:
 >
 > - the program is paused in the debugger: `(the program is paused at Form1 line 23 (Breakpoint), with Command1_Click
 >   not finished; it runs on, and the form may change, once the program continues)`;
@@ -3109,9 +3111,12 @@ in the reply how much was replaced. [#1040](https://github.com/hexide-io/HexIDE/
 > had the same shape and now replaces the selection too: a selected declaration's text as Shift+Enter does, the tail of
 > a declaration's line as Enter at its end does, re-cased and closed, and a box's text before the line break. Writing
 > over a box whose lines a folded section starts on, such as a declaration's folded Attribute run, hung the IDE in
-> AvaloniaEdit's height tree, for a person's key as for these; such folds are opened for the write and folded again. A
-> plain Enter still writes a bare line feed into a CRLF file, which is
-> [#530](https://github.com/hexide-io/HexIDE/issues/530). Guarded by `MemberRunFollowsItsLineTests`.
+> AvaloniaEdit's height tree, for a person's key as for these; such folds are opened for the write and folded again.
+> Ctrl+V was missed, and still pasted over the box with the library's own replacement until
+> [#1251](https://github.com/hexide-io/HexIDE/issues/1251) routed it the same way. A plain Enter still writes a bare
+> line feed into a CRLF file, which is [#530](https://github.com/hexide-io/HexIDE/issues/530). Guarded by
+> `MemberRunFollowsItsLineTests`, whose typing and Ctrl+V cases over a folded declaration each hang with their guard
+> removed. Until #1251 the typing case wrote `()`, which does not hang, so removing the guard turned nothing red.
 
 ## No tool can close a window as a person does — **CLOSED** (#829, 2026-10-20)
 
@@ -3338,6 +3343,14 @@ Font dialog for Font, and say that no automation route exists yet for the `byte[
 > for a Font, and for a `byte[]` property says it has no text form and no automation route yet. A control with no
 > font of its own merges with HexIDE's default, which the designer draws it in, not its form's: HexIDE has no ambient
 > font. Guarded by `PropertyTextTests`.
+>
+> **Two corrections, later.** A new face's charset of 0 was wrong for a symbol or OEM face: `Wingdings` saved
+> Charset 0, where VB6 gives 2, and the control drew letters. A new face given without a charset now takes the one
+> VB6's FontName gives it, and a face equal to the current one but for case keeps its charset
+> ([#1310](https://github.com/hexide-io/HexIDE/issues/1310)). And the guess against a mistyped size or style also
+> refused real faces, `Wingdings 2` and `MS Shell Dlg 2` among them, so a control in one showed a font that could not
+> be set back. The control's own face, and one FontName takes here, are now faces whatever their names end in, and a
+> refusal of the guess says why ([#1311](https://github.com/hexide-io/HexIDE/issues/1311)).
 
 ## Polling `list_lsp_messages` with the highest sequence seen never shows a waiting request answered
 
@@ -3496,6 +3509,12 @@ deliberately. Cross-platform by code reading.
 > connection that closed on an error is not marked, because a deliberate stop can close it the same way. Guarded by `ConversationFailuresTests`,
 > `TheRecordSeesTheProcessTests` (each fault site through a real client, including stopping), `CaptureQueriesTests`,
 > `ProtocolInspectorToolViewModelTests`, `ConversationExportTests`, `DapCaptureTests` and the process-notice tests.
+>
+> **Corrected later.** Two exits stayed out of the rule ([#1314](https://github.com/hexide-io/HexIDE/issues/1314)).
+> A language server's non-zero exit while this client stopped it was excused as a kill, but no transport reports a kill
+> it makes, so the excuse hid only the server's own exit code, which LSP makes its account of the stop. And a debug
+> adapter's exit was never marked, though the IDE tells the user of a non-zero code, a kill and a failed cleanup.
+> Both now count, by the rule the IDE tells the user by.
 
 ## `get_last_runtime_error` stamps local time, where every other timestamp on the surface is UTC
 
@@ -3971,10 +3990,17 @@ and report an `itemCount` for a list or dropdown, which counts its items whether
 
 ## `get_bookmarks` did not say its lines count from 1 (#1261)
 
-#1245 made the bookmark tools count lines from 1, relying on two things to reach a session still holding the old
-descriptions (#815): the descriptions, and the reply's note stating the numbering. `set_bookmarks`' note says it;
-`get_bookmarks` had no note, and its description cannot name the old numbering, as `LineNumberingDescriptionTests`
-refuses "from 0" in any description. A session that loaded it before #1245 read `[5]` as line 6.
+**Symptom.** Read in code at 4789f9a, not run. Since #1245, the bookmark tools count lines from 1 rather than 0.
+`set_bookmarks`' note says so ("counting from 1 at the top of the file, as the gutter does"). `get_bookmarks`
+returns `project`, `document`, `uri` and `lines` and no note, and its description says "1-based" without saying that
+this changed; `LineNumberingDescriptionTests` refuses "0-based" or "from 0" in any description. A session that
+loaded the tool's schema before the rebuild keeps "Lines are 0-based" (the schema entry in the live list), so it
+reads `[5]` as the gutter's line 6, and nothing in the reply says otherwise.
+
+**Workaround.** After a rebuild onto #1245, use the bookmark tools from a new session, as the schema entry advises.
+
+**Suggested fix.** A `note` on a `get_bookmarks` reply that lists lines, stating the numbering in the words
+`set_bookmarks` uses. [#1261](https://github.com/hexide-io/HexIDE/issues/1261).
 
 > **Fixed.** `get_bookmarks` adds a `note` to a reply that lists lines, in `set_bookmarks`' words: "Project1/Form1 has
 > bookmarks on lines 10, 11, counting from 1 at the top of the file, as the gutter does." An empty reply has none, and
@@ -4096,6 +4122,10 @@ focus passed. #1257 stops the typing for a dialog that opens during it, not one 
 > to that note, as a person could click past it. The `type_text` and `press_key` descriptions say so. Guarded by
 > `TypeKeysTests` and `ResetPromptTests`; the prompt's owner in a running IDE, and the native popup case, were read from
 > the code, not run.
+
+> **Measured since (#1329).** "As VB6's prompt holds the IDE" was a claim, not a measurement. VB6's prompt is owned by
+> the running form, and it holds the IDE and the program together. HexIDE's holds the one window that owns it. The
+> oracle's section "The reset prompt: which edits raise it, and which windows it holds" has both.
 
 ## dump_visual_tree listed a row its list had let go of (#1292)
 

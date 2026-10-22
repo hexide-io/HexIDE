@@ -166,9 +166,9 @@ public class ResetPromptTests : IDisposable
         vm.Document.Text.Should().Contain("xUnload Me", "VB6 lets the edit appear while it asks");
     }
 
-    // Asked over the editor's own window, which it holds, as VB6's prompt holds the IDE: over the active window, often the
-    // running form when a tool typed the key, it left the code usable under it, and the next keys went in, to be reverted
-    // with the edit (#1290).
+    // Asked over the editor's own window, which it holds. Over the active window, often the running form when a tool typed
+    // the key, it left the code usable under it, and the next keys went in, to be reverted with the edit (#1290). VB6's
+    // prompt holds the IDE and the running program together (measured, #1329); a modal here holds one window.
     [AvaloniaFact]
     public void The_prompt_is_asked_over_the_editor_s_window()
     {

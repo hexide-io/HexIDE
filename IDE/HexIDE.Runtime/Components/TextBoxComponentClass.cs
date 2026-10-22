@@ -8,7 +8,7 @@ namespace HexIDE.Runtime.Components;
 public class TextBoxComponentClass : ComponentBaseClass
 {
     public TextBoxComponentClass() : base([TextProperty, EnabledProperty,
-        BackColorProperty, ForeColorProperty,
+        BackColorProperty, ForeColorProperty, FontProperty,
         TabStopProperty,
         TabIndexProperty], [ChangeEvent, ClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
     {
@@ -26,13 +26,22 @@ public class TextBoxComponentClass : ComponentBaseClass
 
     protected override Control InstantiateInternal(ComponentInstance instance)
     {
-        return new VBTextBox()
+        var box = new VBTextBox()
         {
             Text = instance.GetPropertyOrDefault(TextProperty),
             // Loaded, so a form's colours are drawn and a program reads them back (#795). They were not modelled.
             [AttachedProperties.BackColorProperty] = instance.GetPropertyOrDefault(BackColorProperty),
             [AttachedProperties.ForeColorProperty] = instance.GetPropertyOrDefault(ForeColorProperty),
+            // Its own font, as every sibling control has had, so it draws in it and a program reads it (#915). It was not
+            // modelled, so the box drew in the IDE's font at design time and the form's at run time.
+            [AttachedProperties.FontProperty] = instance.GetPropertyOrDefault(FontProperty),
         };
+        // Kept as the file's own lines rather than modelled, as a form's WindowState is: they are read here and nowhere
+        // else, since neither can change once the box exists (#1340). MultiLine is -1 for True, which RawNumber, reading
+        // digits only, would miss.
+        box.ApplyLayout(VBLoader.RawDouble(instance, "MultiLine") is { } multiLine && multiLine != 0,
+            VBLoader.RawNumber(instance, "ScrollBars") ?? 0);
+        return box;
     }
 
     public static readonly EventClass ChangeEvent = new EventClass("Change");

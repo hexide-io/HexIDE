@@ -396,7 +396,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     private static readonly HashSet<string> KnownFileTypes = ["form", "module", "classmodule", "usercontrol", "propertypage"];
 
     [McpServerTool(Name = "add_file")]
-    [Description("Adds a new form or module to the startup project, or to the loaded project `project` names (without regard to case), saves the new file to disk, and returns its path, with 'project' and 'document' naming what was added. type must be 'Form', 'Module', 'ClassModule', 'UserControl', or 'PropertyPage'. name must be a VB6 name (a letter, then letters, digits and underscores) not already used by a form, module or class in the project; anything else is refused before a file is written, as is a name the new file's code page, or the project file's, cannot hold. The project file itself is NOT saved, as in VB6: the note says so, and says when the file went to the project's temporary folder because it has not been saved anywhere of the user's choosing.")]
+    [Description("Adds a new form or module to the startup project, or to the loaded project `project` names (without regard to case), saves the new file to disk, and returns its path, with 'project' and 'document' naming what was added. type must be 'Form', 'Module', 'ClassModule', 'UserControl', or 'PropertyPage'. name must be a VB6 name (a letter, then letters, digits and underscores) not already used by a form, module or class in the project, and whose file (or the .frx, .ctx or .pgx beside it) is not already in the project's folder or named by its project file, since the new file would replace it; anything else is refused before a file is written, as is a name the new file's code page, or the project file's, cannot hold. The project file itself is NOT saved, as in VB6: the note says so, and says when the file went to the project's temporary folder because it has not been saved anywhere of the user's choosing.")]
     public async Task<AddFileResult> AddFileAsync(string name, string type, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(async () =>
@@ -553,13 +553,22 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "set_control_property")]
-    [Description("Sets a named property on a form or UserControl control and saves the file. The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The value is written as the Properties window shows it: text, a number with '.' for decimals, True or False, a colour literal such as &H00C0FFC0&, or an enum by number, by name, or as '1 - Opaque'; a Font as get_form_controls shows it, such as 'Tahoma, 9.75 pt, bold, charset 0': a part not given is kept, but style words given are the whole style ('regular' clears it) and a new face without a charset takes 0; a refused value's reply lists what that property takes. get_form_controls lists the controls, and with 'controlName' every property of one, its value as this tool takes it. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A rename the naming rules refuse changes nothing. The save writes the whole file, so text set earlier and not yet saved counts too: when the file's code page cannot hold a character anywhere in it, the value is set in the IDE but nothing is written and no dialog is shown, and the reply names the document, the code page, the character and the line that holds it. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' gives the value the property now holds, which can differ from the text sent, and 'project' and 'document' name the form as the IDE spells them.")]
+    [Description("Sets a named property on a form or UserControl control and saves the file. The form is named in any loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. 'value' is written as the Properties window shows it; its own description gives the forms, and a refused value's reply says what that property takes. get_form_controls lists the controls, and with 'controlName' every property of one, its value as this tool takes it. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A rename the naming rules refuse changes nothing. The save writes the whole file, so text set earlier and not yet saved counts too: when the file's code page cannot hold a character anywhere in it, the value is set in the IDE but nothing is written and no dialog is shown, and the reply names the document, the code page, the character and the line that holds it. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' gives the value the property now holds, which can differ from the text sent, and 'project' and 'document' name the form as the IDE spells them.")]
     public async Task<MutateResult> SetControlPropertyAsync(
         string formName,
         [Description("The control: its name, or for an element of a control array name(index), such as lblTitle(1), "
                      + "with the 'index' get_form_controls lists for it. A bare array name is refused, naming the indexes, "
                      + "since the save would write to a guess.")]
-        string controlName, string property, string value, string? project = null,
+        string controlName, string property,
+        [Description("The value as the Properties window shows it: text, a number with '.' for decimals, True or False, "
+                     + "a colour literal such as &H00C0FFC0&, or an enum by number, by name, or as '1 - Opaque'. A Font "
+                     + "as get_form_controls shows it, such as 'Tahoma, 9.75 pt, bold, charset 0': a part not given is "
+                     + "kept, but style words given are the whole style ('regular' clears it), and a new face without a "
+                     + "charset takes the one VB6 gives it, 2 for Wingdings, Webdings, Symbol and Marlett, 255 for "
+                     + "Terminal, Modern, Roman and Script, otherwise 0. A face whose name ends in a number or a style "
+                     + "word, such as 'Wingdings 2', is a face when the control has it or it is installed here. A refused "
+                     + "value's reply says why where it can, and lists what that property takes.")]
+        string value, string? project = null,
         CancellationToken ct = default)
     {
         // What the property holds after the set, which is not always what was sent: "0 - Transparent" stores 0. (#655)
@@ -608,8 +617,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
             // Any spelling the Properties window shows for a value; colours and enums were refused outright. (#641)
             // With the value it holds, so a font given in part keeps the rest (#952).
-            if (!PropertyText.TryParse(propClass, value, out var parsed, control.GetBoxedPropertyOrDefault(propClass)))
-                return (null, null, $"Cannot set '{propClass.Name}' to '{value}': it takes {PropertyText.Accepted(propClass)}");
+            // A face named here is a face, whatever its name ends in: Wingdings 2 read as Wingdings at size 2 (#1311).
+            if (!PropertyText.TryParse(propClass, value, out var parsed, out var why, control.GetBoxedPropertyOrDefault(propClass),
+                    HexIDE.Runtime.BuiltinTypes.VBFontExtensions.IsNameable))
+                return (null, null, $"Cannot set '{propClass.Name}' to '{value}': {(why is null ? "it" : why + ". It")} "
+                                    + $"takes {PropertyText.Accepted(propClass)}");
 
             // Refused BEFORE the property is set, for the same reason as set_file_content. (#538)
             if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(ownerModule is not null ? ownerModule.AbsolutePath : form.AbsolutePath))
@@ -2803,7 +2815,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         bool failuresOnly = false,
         [Description("Only what was recorded, answered or ended after this sequence: pass the last reply's 'latestSequence' to poll for what is new.")]
         long? afterSequence = null,
-        [Description("How many rows at most, the newest when more match; a poll keeps the earliest changes instead, and its latestSequence continues from them. Default 200.")]
+        [Description("How many rows at most, the newest when more match; a poll keeps the earliest changes instead, and its latestSequence continues from them. A poll keeps requests ended together together, since one ending takes one sequence for all of them, so it can return more rows than this; 'truncated' says whether any were left out. Default 200.")]
         int? limit = null,
         CancellationToken ct = default)
     {

@@ -103,7 +103,7 @@ counts — the interactive session is established once instead of per step; an `
 the rig itself be changed without another reboot; and the heartbeat distinguishes *the agent is not running*
 from *the action ran and did nothing*, which the task route could not.
 
-Two traps in the agent, both measured:
+Three traps in the agent, all measured:
 
 - **Register exactly one autostart.** A Startup-folder shim *and* an `HKCU\…\Run` value both fire, and two
   pollers then race for the same action file.
@@ -118,6 +118,22 @@ Two traps in the agent, both measured:
   So every baseline loaded empty and the first diff reported every file on the machine as new. That reads as
   a dramatic result and measures nothing. The rig now logs *N files in, N read back* and says loudly when the
   two disagree.
+- **A window started within 200 seconds of the last input never gets the foreground** (measured 2026-10-22,
+  #1340). That is Windows' `ForegroundLockTimeout`, which is 200000 ms by default. A probe that drives itself with
+  `SendKeys` then types into whatever had the foreground, so it gets **nothing, and no error**. Its log shows
+  every step and none of the events the keys should have raised. The probe's own `AppActivate` doesn't help, and
+  neither does WScript.Shell's from the agent, since the agent has no window of its own and can't hand over a
+  foreground it doesn't hold. A batch of probes run back to back shows it plainly: the first works, and the rest,
+  each started within 200 s of the one before, log nothing. `SystemParametersInfo(SPI_SETFOREGROUNDLOCKTIMEOUT)`
+  fails for the same reason. So the value is set in the account's registry instead, which takes effect at the
+  next sign-in:
+
+  ```powershell
+  Set-ItemProperty 'HKCU:\Control Panel\Desktop' -Name ForegroundLockTimeout -Value 0 -Type DWord
+  ```
+
+  It was set on 2026-10-22, from an `exec:` action in the console session. Until the guest has signed in again,
+  leave 200 s without input before each probe that sends keys.
 
 Two details of the scheduled-task route are kept, because they cost a run each and the route is still worth
 having for a genuine one-shot: the user must be domain-qualified (`COMPUTER\account`, backslash included) or
@@ -10509,7 +10525,7 @@ its menu when the array has gaps, and whether it copies a Shortcut.
   with Count, LBound, UBound and an Index on its Click, and Caption, Checked, Enabled, Visible and Tag read and write
   with the 387 and 395 refusals. Load copies the first element as it stands, Visible included, and places the new one
   after the element below it; Unload removes it; and the 340, 361 and 362 refusals hold. Choosing an item no longer
-  toggles its tick, which is the program's to set. `TypeName` gives Menu, and Object for the array.
+  toggles its tick, which is the program's to set, by pointer, Enter or automation alike (#1158, measured below). `TypeName` gives Menu, and Object for the array.
 - **Not yet:** a menu's default member, Enabled, so `mnuNew = False` and a bare `mnuNew` read; giving a separator a
   caption, which makes it an item, refused as not implemented; and setting WindowList, refused the same way.
 - **The bar appearing or going away from code is refused** as not implemented (#1140): hiding the last visible
@@ -10521,6 +10537,77 @@ its menu when the array has gaps, and whether it copies a Shortcut.
 - **The text of 340** names the element in vb6.exe, "Control array element '5' doesn't exist", and doesn't here.
   The "Control arrays" rows above give it without the index, which looks abbreviated rather than measured; not
   rechecked.
+
+## When a menu's Click is raised (2026-10-22, #1344)
+
+**The probe.** Found by the Notepad demo, whose `mnuEdit_Click` enables Cut, Copy and Delete when there is a selection,
+and which never ran. The probe's menus:
+- **Top**, which holds three items:
+  - Alpha, shortcut Ctrl+Q;
+  - Sub, which holds Leaf, shortcut Ctrl+W;
+  - Dis, shortcut Ctrl+E, disabled at design time.
+- **Solo**, a top-level menu with no items.
+
+Each Click logs its name, and Top's logs whether Dis is enabled. A Timer sends one set of keys each tick with
+`SendKeys`, and changes Enabled or Visible first where the step says so. Built native and p-code, and run **in the
+guest's console session**, each build at least 200 s after the last input, since the guest gives a newly started window
+no foreground within 200 s of any input (`ForegroundLockTimeout`), and its keys then reach nothing. Every row agreed.
+
+| Keys | Clicks raised, in order |
+|---|---|
+| Alt+T, opening Top | Top |
+| Alt+T, then S, opening Sub | Top, Sub |
+| Alt+T, then Enter, choosing Alpha | Top, Alpha |
+| Alt+O, choosing Solo | Solo |
+| Ctrl+Q | Top, Alpha |
+| Ctrl+W | Top, Sub, Leaf |
+| Ctrl+E, with Dis disabled | Top |
+| Ctrl+E, with Top's Click setting `mnuDis.Enabled = True` | Top, Dis |
+| Ctrl+Q, with Top disabled | none |
+| Ctrl+Q, with Top hidden | none |
+| Ctrl+Q, with Alpha hidden | Top |
+| Ctrl+W, with Sub disabled | Top |
+| Ctrl+W, with Sub hidden | Top |
+| Ctrl+W, with Leaf disabled | Top, Sub |
+
+So:
+- A menu that holds items raises Click as it opens, a submenu as much as a top-level one.
+- A shortcut raises the Click of each menu from the top-level one down to its item.
+- It stops at the first menu that is disabled or hidden, without raising that one's Click.
+- The item's Enabled is read only after the Clicks above it have run. That is what lets a parent's Click enable its items
+  and have their shortcuts work, the pattern every Edit menu uses.
+
+The comment that stood in `VBLoader`, that VB6 raises Click "on nothing above" the chosen item, was a guess, and this
+table overturns it.
+
+**In HexIDE (#1344):** as the table says. Opening a menu that holds items raises its Click, Avalonia's `SubmenuOpened`
+being the moment, so `interact` with `expand` raises it too. A shortcut queues each Click in order, and each is asked at
+its turn whether it, and every menu above it, is still enabled and visible. Not measured, and assumed to match: whether
+a menu between the top and the item is also asked late, and opening a menu with the mouse.
+
+## Choosing a menu item leaves Checked to the program (2026-10-18, #1158; measured by #1159)
+
+**The probe**, written and run by #1159 (Codex) and kept here because it measures something nothing else in this file
+does. A shown Form1 with a Root menu and two children, Plain and Toggle. A one-shot Timer finds each child's native
+menu ID with `GetMenuItemID(GetSubMenu(GetMenu(Me.hwnd), 0), position)` and dispatches it with
+`SendMessage Me.hwnd, &H111, id, 0` (WM_COMMAND), first with each child's Checked set False, then True. Each Click logs
+Checked as it enters, and Toggle's also runs `mnuToggle.Checked = Not mnuToggle.Checked`. The Timer logs Checked once
+SendMessage returns. Built native and p-code in the oracle guest, and both runs agreed, with Err.Number 0.
+
+| Handler | Checked before | At Click entry | After dispatch |
+|---|---|---|---|
+| Plain, logging only | False | False | False |
+| Plain, logging only | True | True | True |
+| Toggle, `Checked = Not Checked` | False | False | True |
+| Toggle, `Checked = Not Checked` | True | True | False |
+
+So choosing an item never changes its tick, and the program's Click sees the tick as it was. This is VB6's menu command
+dispatch, not a physical mouse gesture and not the VB6 IDE.
+
+**In HexIDE:** Avalonia's menu ticks a CheckBox item before it raises Click, by pointer and by Enter alike. VBMenu puts
+the tick back in its class handler for Click, which runs before any handler of the program's (#1231, for #947). #1159's
+twelve cases, pointer, Enter and automation from both starting states, with and without a handler that changes Checked,
+run in `MenuMembersTests` and pass, so #1158 no longer reproduces.
 
 ## SetFocus (2026-10-15, #1061)
 
@@ -10875,6 +10962,137 @@ is 4100.
   - ShowColor, ShowPrinter and ShowHelp;
   - a CommonDialog control array;
   - the constants qualified by library or enum.
+## A font's size, and the default font (2026-10-22, #910)
+
+**The probe.** A form with three controls:
+- a TextBox whose Font block says Arial `Size = 9.75`;
+- a Label with no Font block;
+- a Label whose block says Tahoma 12, Weight 700, Italic.
+
+`Form_Load` logs each one's `FontName`, `FontSize`, `FontBold`, `FontItalic` and `Font.Size`, and the form's own. Built
+native and p-code, and every row agreed.
+
+| Control | Logged |
+|---|---|
+| the TextBox | Arial, 9.75, `Font.Size` 9.75 |
+| the Label with no Font block | MS Sans Serif, **8.25**, not bold, not italic |
+| the form, which has no Font block either | MS Sans Serif, **8.25** |
+| the Tahoma Label | Tahoma, 12, bold, italic |
+
+So a size is in points, as the .frm writes it, and VB6's default font is MS Sans Serif at 8.25 points: 11 pixels at 96
+dpi, the size that point value rounds to. The rest of the same probe, the sizes a set `FontSize` reads back as, is
+#1343's.
+
+**In HexIDE (#910):** a font's size is held in points and drawn at 96 pixels to the inch, so 12 points draw at 16 pixels.
+It used to be handed to Avalonia as pixels, which drew every VB6 font a quarter too small. The default is held as 8.25,
+which draws at the same 11 pixels the old default of 11 did. The designer's Font dialog keeps a fractional size, offers it
+in its list, and draws its sample in points. Not measured: whether a control with no Font block takes its form's font
+rather than VB6's default. The two are the same here, and HexIDE gives it the default.
+
+## A font's FontSize, FontBold and the rest (2026-10-22, #1343, #915)
+
+**The probes.** Found by the Notepad demo, whose Format > Font reads a TextBox's `FontName`, `FontSize`, `FontBold` and
+`FontItalic`, shows the CommonDialog's Font dialog, and sets them back. Five probes, each built native and p-code. Every
+row agreed between the two, and every one ran in the probe runner's session, since none needs a desktop.
+1. **The members.**
+   - A TextBox in Arial 9.75, a Label with no Font block, a Label in Tahoma 12 bold italic, and the form.
+   - `Form_Load` reads the six members' types.
+   - It sets `FontSize` on each control and on the form to a list of values, and reads each back.
+   - It sets the four Booleans to a list of values.
+   - It sets each member in turn, reading all of them after each.
+2. **Load and limits.**
+   - Labels whose .frm says Arial 10, MS Sans Serif 10, Arial 0.1, and Arial 12 at weight 600.
+   - A change of family back and forth.
+   - Weights from 0 to 1001 set through `Font.Weight`.
+   - Sizes either side of 2160.
+3. **Every height.** For each pixel height *n* from 1 to 400, a Label is set to `FontSize = n * 0.75` and read back. Each
+   *n* starts fresh: Arial 9, then the family, then the size. It ran for every family `FontName` accepts by name, the
+   symbol fonts included.
+4. **The rest.**
+   - FontUnderline and FontStrikethru take the same values as the other Booleans.
+   - Sizes from 2160.2 to 2160.6.
+   - MS Sans Serif at 300 points.
+
+**Types.** `FontName` String, `FontSize` Single, and `FontBold`, `FontItalic`, `FontUnderline` and `FontStrikethru`
+Boolean.
+
+**Sizes are whole pixels.** At 96 dpi, a size is given `size * 4 / 3` pixels, rounded with halves up, and reads back as
+those pixels times 3/4. The smallest is 2 pixels, or 1 for the vector fonts Modern, Roman and Script.
+
+| `FontSize =` on Arial | 8 | 9 | 10 | 11 | 13 | 14 | 16 | 7.5 | 9.7 | 9.375 | 11.625 | 0.5, 1, 0.1 | 2000 | 2160 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| reads | 8.25 | 9 | 9.75 | 11.25 | 12.75 | 14.25 | 15.75 | 7.5 | 9.75 | 9.75 | 12 | 1.5 | 2000.25 | 2160 |
+
+9.375 is 12.5 pixels and 11.625 is 15.5, so the rounding is halves up, not to even. A .frm's size is given the same way at
+load: `Size = 10` reads 9.75, and `Size = 0.1` reads 1.5. Every TrueType family probed agreed at every height: Arial,
+Lucida Console, Segoe UI, Tahoma, Courier New, Times New Roman, Microsoft Sans Serif, MS Shell Dlg 2, MS Gothic,
+Helvetica, Times, Wingdings, Webdings, Symbol and Marlett. So did Modern, Roman and Script, from 1 pixel.
+
+**The bitmap fonts snap to the heights GDI has for them.** Each line is the requested height in pixels, `n` or a range
+`a-b`, then `:` and the height it was given. `=` means the height asked, and `A` means the height asked but in Arial,
+whose `FontName` then reads `Arial`:
+
+```text
+MS Sans Serif: 1-10:11 11:= 12:11 13:= 14-15:13 16:= 17:16 18:= 19:18 20:= 21:20 22-24:= 25:24 26:= 27-29:26 30:= 31:30 32:= 33-35:32 36:= 37-38:36 39-40:= 41-43:40 44:= 45:44 46:= 47:46 48:= 49-51:48 52:= 53:52 54-55:= 56-59:55 60:= 61-63:60 64-65:= 66-68:65 69:= 70-71:69 72:= 73-77:72 78-79:80 80:= 81-87:80 88-89:90 90:= 91:90 92:= 93-95:92 96:= 97-99:96 100:= 101-107:100 108:= 109-110:108 111-114:115 115:= 116-119:115 120:= 121-126:120 127:128 128:= 129-137:128 138:= 139-142:138 143:150 144:= 145:144 146-149:150 150:= 151-156:150 157-159:160 160:= 161-175:160 176-179:180 180:= 181-187:180 188-191:192 192:= 193-194:192 195-199:200 200:= 201-209:200 210:= 211-218:210 219-223:224 224:= 225-232:224 233-239:240 240:= 241-252:240 253-255:256 256:= 257-269:256 270-279:280 280:= 281-309:280 310-319:320 320:= 321-385:320 386-400:A
+MS Serif: 1-7:8 8-9:= 10:9 11:= 12:11 13:= 14-15:13 16:= 17:16 18:= 19:18 20:= 21:20 22-24:= 25:24 26-27:= 28-29:27 30:= 31:30 32:= 33-35:32 36:= 37-38:36 39-40:= 41-43:40 44-46:= 47:46 48:= 49-51:48 52:= 53:52 54-55:= 56-59:55 60:= 61-63:60 64-65:= 66-68:65 69:= 70-71:69 72:= 73-77:72 78-79:80 80:= 81-87:80 88-89:90 90:= 91:90 92:= 93-95:92 96:= 97-99:96 100:= 101-107:100 108:= 109-110:108 111-114:115 115:= 116-119:115 120:= 121-126:120 127:128 128:= 129-137:128 138:= 139-142:138 143:150 144:= 145:144 146-149:150 150:= 151-156:150 157-159:160 160:= 161-175:160 176-179:180 180:= 181-187:180 188-191:192 192:= 193-194:192 195-199:200 200:= 201-209:200 210:= 211-218:210 219-223:224 224:= 225-232:224 233-239:240 240:= 241-252:240 253-255:256 256:= 257-269:256 270-279:280 280:= 281-309:280 310-319:320 320:= 321-385:320 386-400:A
+System: 1-12:13 13:= 14-22:13 23-25:26 26:= 27-35:26 36-38:39 39:= 40-48:39 49-51:52 52:= 53-61:52 62-64:65 65:= 66-74:65 75-77:78 78:= 79-87:78 88-90:91 91:= 92-100:91 101-103:104 104:= 105-400:104
+Terminal: 1-5:6 6:= 7:6 8:= 9-11:8 12:= 13-15:12 16:= 17:16 18:= 19-23:18 24:= 25-30:24 31:32 32:= 33-35:32 36:= 37-39:36 40:= 41-45:40 46-47:48 48:= 49-52:48 53:54 54:= 55-59:54 60:= 61-63:60 64:= 65-69:64 70-71:72 72:= 73-78:72 79:80 80:= 81-86:80 87-89:90 90:= 91-103:90 104-107:108 108:= 109-111:108 112:= 113-121:112 122-125:126 126:= 127-139:126 140-143:144 144:= 145-209:144 210-400:A
+Fixedsys: 1-11:12 12:= 13-21:12 22-23:24 24:= 25-32:24 33-35:36 36:= 37-44:36 45-47:48 48:= 49-56:48 57-59:60 60:= 61-68:60 69-71:72 72:= 73-80:72 81-83:84 84:= 85-92:84 93-95:96 96:= 97-161:96 162-400:A
+Courier: 1-12:13 13:= 14-15:13 16:= 17-19:16 20:= 21-24:20 25-26:= 27-31:26 32:= 33-37:32 38:39 39-40:= 41-46:40 47:48 48:= 49:48 50:= 51:50 52:= 53-57:52 58-59:60 60:= 61-63:60 64-65:= 66-71:65 72-74:75 75:= 76-79:75 80:= 81-90:80 91:= 92-93:91 94-95:100 96:= 97-99:100 100:= 101-111:100 112:= 113-116:112 117-118:120 119:125 120:= 121:120 122-124:125 125:= 126-139:125 140:= 141-145:140 146-149:150 150:= 151-159:150 160:= 161-168:160 169-174:175 175:= 176-193:175 194-199:200 200:= 201-265:200 266-400:A
+Small Fonts: 1-2:3 3-5:= 6:5 7-11:= 12-13:11 14:= 15:14 16:= 17:16 18:= 19:18 20-22:= 23:22 24:= 25-26:24 27-28:= 29:28 30:= 31:30 32-33:= 34-35:33 36:= 37-39:36 40:= 41-43:40 44-45:= 46-49:45 50:= 51-54:50 55:= 56-63:55 64-65:60 66:= 67-69:66 70:= 71-75:70 76:77 77:= 78-85:77 86-87:88 88:= 89-153:88 154-400:A
+MS Shell Dlg: 1:2 2-8:= 9-10:11 11:= 12:11 13:= 14-15:13 16-400:=
+```
+
+So MS Sans Serif 9 points (12 pixels) reads 8.25, 11 points reads 9.75, and 13 reads 12. System is 13 pixels for anything
+up to 22. Above a height of its own, each bitmap family but System becomes Arial: MS Sans Serif and MS Serif at 386
+pixels, Terminal at 210, Courier at 266, Fixedsys at 162 and Small Fonts at 154. MS Shell Dlg snaps heights from 9 to 15
+pixels to 11 or 13, and is exact otherwise. These tables are only right from a fresh start. A run that stepped one Label through every height
+without resetting got the same snapping, but its family, once it had become Arial at a large size, stayed Arial, which
+the first run of this probe took for a different table.
+
+**A change of family keeps the size as it reads.**
+
+| Step | Reads |
+|---|---|
+| Arial, `FontSize = 9` | 9 |
+| `FontName = "MS Sans Serif"` | 8.25 |
+| `FontName = "Arial"` | 8.25: the snapped size, not the 9 asked for |
+| `FontName = "System"`, then `"Arial"` | 9.75, then 9.75 |
+| MS Sans Serif, `FontSize = 300` | `Arial`, 300 |
+| then `FontSize = 9` | `Arial`, 9: it stays Arial |
+| then `FontName = "MS Sans Serif"` | MS Sans Serif, 8.25 |
+
+**Refusals.**
+
+| Member | Value | Result |
+|---|---|---|
+| `FontSize` | 0, -1, True (-1) | 380 |
+| `FontSize` | 2160.2 to 2160.6, 2161, 1E+30 | 6 |
+| `FontSize` | `"12"` | taken |
+| `FontSize` | `"abc"`, **Null** | 13: Null too, where every other font member's is 94 |
+| the four Booleans | True, 1, 2, -1, 0.4, `"True"` | True |
+| the four Booleans | False, 0 | False |
+| the four Booleans | `"x"` | 13 |
+| the four Booleans | Null | 94 |
+
+Each refusal leaves the font as it was.
+
+**Weight.** `FontBold = True` makes the weight 700, and False 400. `Font.Weight` reads 400 for any weight up to 550 and 700
+above it, 1000 included, and 1001 or -1 is 380. A .frm's `Weight = 600` loads as 700 and reads Bold.
+
+**Each member leaves the rest alone.** Bold, italic, underline and strikethrough survive a change of family and of size,
+and a form's `FontSize = 13`, which reads 12, changes none of its controls'.
+
+**In HexIDE (#1343, #915):**
+- **A TextBox models its Font**, as every sibling control does. It draws in it, at design time and at run time, and its
+  members answer. A TextBox's Font block, until now kept as the file's own lines, is read into the model and written back
+  byte for byte.
+- **The five members read and write** on every control with a font and on the form, as the tables say. The sizes come
+  from the measured runs, generated from the probe's log.
+- **Above 400 pixels** the last run is taken to go on, which for System is 104 pixels. That is assumed, not measured.
+- **Not modelled:** `Font.Weight` and the rest of the Font object (#934). HexIDE keeps a weight as the file gave it and
+  reads FontBold as above 550.
+
 ## Command, and Left$ in a form's code (2026-10-17, #742)
 
 **The probe.** Found by the Notepad demo, whose `Form_Load` reads `Trim$(Command$)` and then takes `Left$(path, 1)`, and
@@ -11178,3 +11396,143 @@ A function also shadows Clipboard when it supplies the object of a member chain.
 `Function Clipboard() As Box: Set Clipboard = New Box: End Function` (each statement on its own line), evaluating
 `Clipboard.GetText` returned `shadow`, **String**, native and p-code. The member-lead resolver must check that
 function before returning the host Clipboard object.
+
+## A TextBox's MultiLine and ScrollBars (2026-10-22, #1340)
+
+**The probe.** Found by the Notepad demo: Enter added nothing to its text, and Word Wrap, which swaps a box that has a
+horizontal scroll bar for one that has none, changed nothing. A form with a control array of six TextBoxes, each 3000 by
+1100 twips: single-line, then MultiLine with ScrollBars 0, 1, 2 and 3, then single-line with ScrollBars 3. `Form_Load`
+reads both properties and tries to set them. A Timer then reads each box's window style with `GetWindowLong` and its
+line count with `EM_GETLINECOUNT`, for a 368-character line with spaces in it and for `"a" & vbCrLf & "b" & vbLf & "c"
+& vbCr & "d"`. Last, it types into the boxes with `SendKeys`, logging KeyDown and KeyPress. Built native and p-code,
+and every row agreed. The styles and line counts came out the same in the probe runner's session and the console
+session, but the keys reach nothing without a desktop, so they were run in the console session (see the
+`ForegroundLockTimeout` trap above).
+
+| Box | Window style | Lines for the long line | Lines for the CR, LF, CR LF string |
+|---|---|---|---|
+| single-line | `&H540100C0`: `ES_AUTOHSCROLL`, `ES_AUTOVSCROLL` | 1 | 1 |
+| MultiLine, ScrollBars 0 | `&H54010044`: `ES_MULTILINE`, `ES_AUTOVSCROLL` | 18 | 2 |
+| MultiLine, ScrollBars 1 (horizontal) | `&H541100C4`: and `ES_AUTOHSCROLL`, `WS_HSCROLL` | 1 | 2 |
+| MultiLine, ScrollBars 2 (vertical) | `&H54210044`: and `WS_VSCROLL` | 18 | 2 |
+| MultiLine, ScrollBars 3 (both) | `&H543100C4`: and both scroll bars | 1 | 2 |
+| single-line, ScrollBars 3 | `&H540100C0`, the same as the first | 1 | 1 |
+
+So a MultiLine box wraps unless it has a horizontal scroll bar, and a single-line box ignores ScrollBars. Only CR LF
+breaks a line. A lone LF or CR doesn't, and `Text` reads back all 8 characters in every box. No box has
+`ES_WANTRETURN`, so Enter is VB6's own handling, below, not the edit control's.
+
+| Step | Logged |
+|---|---|
+| `TypeName` of MultiLine and ScrollBars | `Boolean`, `Integer` |
+| `o.MultiLine = False` with `o` an `Object` holding the box | **382**, "'MultiLine' property cannot be set at run time"; still True |
+| `o.ScrollBars = 0` | **382**, "'ScrollBars' property cannot be set at run time"; unchanged |
+| `Text1.MultiLine = True`, early-bound | the compile error "Can't assign to read-only property"; the build fails |
+| `x`, Enter, `y` in the single-line box | KeyDown 13, KeyPress 13; `xy` |
+| `x`, Enter, `y` in a MultiLine box | KeyDown 13, KeyPress 13; `x` CR LF `y` |
+| `x`, Tab, `y` in a MultiLine box | the `y` went to the next box: focus moved, no tab inserted |
+| a Default CommandButton, then `x`, Enter, `y` in a MultiLine box | the button's Click, no KeyDown or KeyPress for the Enter; `xy` |
+| the same, with Ctrl+Enter | KeyDown 13 with Shift 2, KeyPress **10**; `x` CR LF `y` |
+
+**In HexIDE (#1340):** a box is laid out from its file's MultiLine and ScrollBars as the first table says. Enter and
+Ctrl+Enter break a MultiLine box's line with CR LF on every host, a bar VB6 asks for is drawn even with nothing to
+scroll, and a direction with no bar is either scrolled without one or not at all, which also keeps a single-line box
+from showing part of a vertical bar (#914). Both read back with their types, and setting either is the 382 with VB6's
+text, raised when the statement runs, also where VB6 refuses it at compile time. Not reproduced:
+- a CommandButton's `Default`, which HexIDE doesn't model, so Enter always breaks the line;
+- KeyDown and KeyPress, which a TextBox doesn't raise here yet;
+- a lone LF or CR, which Avalonia draws as a line break where VB6 draws none. `Text` still reads back as set.
+
+## The reset prompt: which edits raise it, and which windows it holds (2026-10-22, #1329)
+
+**The probe.** It ran in the VB6 IDE itself, in the oracle guest's console session, driven as "Reaching the VB6 *IDE*,
+not just the compiler" describes. Each step was recorded with Win32 calls and a screenshot. This is IDE behaviour, so
+there is no native or p-code build to compare.
+- **The project:** a Standard EXE whose Form1 holds a CommandButton and a 250 ms Timer, each appending a line to a log.
+- **The run:** F5, then Ctrl+Break, then an edit typed into Form1's code window.
+- **What each step recorded:**
+  - the owner (`GetWindow(…, GW_OWNER)`), text and buttons of every top-level window of the VB6 process;
+  - `IsWindowEnabled` on the IDE's frame, the code window and Form1;
+  - the IDE's mode, from its title;
+  - whether the Timer was still ticking.
+- **The IDE's options:** as installed. Nothing is stored beyond window layout.
+
+**Which edits ask, in break mode.** VB6 checks an edit as the caret leaves the line:
+
+| Edit | Result |
+|---|---|
+| A new module-level `Dim zz` under `Option Explicit` | **Applied live, no prompt.** Continue resumed the program, and the Timer ticked on |
+| Deleting a body line of `Command1_Click`, which isn't on the stack | Applied live, no prompt, and Continue resumed |
+| Retyping that variable, `Dim zz` to `Dim zz As Long` | **"This action will reset your project, proceed anyway?"**, with OK, Cancel and Help |
+| Adding a parameter to `Log`, which three procedures call | The same prompt, with OK, Cancel and Help |
+| A second `Dim zz` under the first | **"This edit requires a Reset"**, with OK and Help only |
+
+- **The declinable prompt.**
+  - Cancel put the line back as it was, `Dim zz`, and left the project in break mode with every window enabled.
+  - OK kept the edit, ended the run (the IDE's title read `[design]`, and Form1 was destroyed) and re-enabled every
+    window. The next F5 ran the edited code.
+- **"This edit requires a Reset"** offers no way to decline. OK reset the project in the same way.
+- **The caption of both** is "Microsoft Visual Basic", with the warning icon.
+
+**Which windows the prompt holds.** In every case its owner was **the running form, Form1** (`ThunderFormDC`), not
+the IDE, although the IDE's frame was the foreground window when the edit was made. While it waited:
+
+| Window | Enabled |
+|---|---|
+| The IDE's frame (`wndclass_desked_gsk`) and its owner (`IDEOwner`) | False |
+| Form1 (`ThunderFormDC`) | False |
+| The program's hidden application window (`ThunderMain`) | False |
+| The code window, an MDI child of the frame | True, but its frame is disabled, so it takes no input |
+
+- **So the prompt holds the IDE and the running program together.** Every top-level window of the process is disabled,
+  as a task-modal message box disables them.
+- **Where it showed:** Form1 was brought to the front, and the prompt was centred on the screen, not over Form1.
+- **Timers:** not observable here. The program is paused in break mode, so its Timer doesn't tick with or without the
+  prompt, and run mode offers no prompt (below).
+
+**Run mode offers no prompt.** While the program runs, its code window takes no typing:
+- Ctrl+Home, End and the arrow keys moved the caret;
+- Enter and the typed text were ignored;
+- the project stayed `[run]`, with no prompt and no break.
+
+**There is no "Notify Before State Loss" option.** VB6's Tools > Options holds six pages: Editor, Editor Format,
+General, Docking, Environment and Advanced. None of them has it. That option belongs to the VBA editor in Office, not
+to VB6.
+
+**What this overturns.**
+- **D2 in `docs/debugger-vb6-divergences.md`** quoted VB6's prompt as "This action will reset your project. Do you want
+  to continue?", Yes and No. It is "…proceed anyway?", with OK and Cancel, beside a second prompt that can't be
+  declined.
+- **#1298's reason for the owner,** "as VB6's prompt holds the IDE", was half right. It holds the IDE, but its owner is
+  the running form, and it holds that form too.
+- **#1329's own suggested probe,** "a new module-level `Dim` while paused", is an edit VB6 applies live.
+
+**In HexIDE:**
+- **One prompt, for every edit** while the project runs or is paused (D2). It reads "This action will reset your
+  project. Do you want to continue?", with Yes and No.
+- **Its owner** is the code editor's window when that is visible and not minimized, and otherwise the top window
+  (#1298).
+- **Measured live, Windows, a Debug build of main 099da9af.** The probe project ran with a Timer counting on Command1's
+  caption and a click setting Form1's caption. The key was sent with `type_text` in keyboard mode, with Form1 active.
+  The native state was read with the same Win32 calls as above.
+
+| Case | Owner | Disabled while it waits | The running program |
+|---|---|---|---|
+| Code window docked | The IDE's main window | The IDE's main window only | Runs on: the Timer went from 8 to 37, and a real click on Command1 ran its Click |
+| IDE window minimized | Form1, the top window, through the fallback | Form1 only. The minimized IDE stays enabled | The Timer runs on (42 to 65), and Form1 takes no input |
+| Code window floated | Not reached. Float hides the code window instead of floating it (#1361) | | |
+
+- **Measured live, Linux, the openSUSE VM** (a Debug build of main 01d990c under Xvfb, with no window manager). There is
+  no Win32 state to read there, so these come from the tools alone:
+  - **Docked:** the prompt was modal over the IDE's main window, and the running form took a click under it (its
+    `Form_MouseDown` ran).
+  - **Minimized:** not reachable. With no window manager the window never minimized, so the case repeated the docked
+    one.
+  - **Floated:** the code window vanished from every tool, as on Windows (#1361).
+  - That run also found that a form's own `Form_Click` never runs here (#1364).
+- **Yes ended the run and kept the edit. No kept the run and put the code back.** Each left every window enabled, on
+  both platforms.
+- **So HexIDE's prompt holds less than VB6's.** VB6's holds the IDE and the program together. HexIDE's holds whichever
+  one window owns it, and the program keeps running under it.
+- **Two differences in when it asks.** HexIDE asks in run mode as well as in break mode, where VB6's code window takes
+  no typing while the program runs. And it asks for every edit, where VB6 applies most edits live (D2).

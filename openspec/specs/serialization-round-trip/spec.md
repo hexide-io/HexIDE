@@ -450,6 +450,27 @@ project SHALL NOT remove a member the IDE failed to load.
 - **WHEN** the project is opened and saved
 - **THEN** the saved project file still names that module
 
+### Requirement: A project file SHALL NOT be written without a member that has no file
+
+When an operation would write a project file while one of the project's forms or modules has never been saved
+and is not saved by the same operation, the IDE SHALL refuse the whole operation before writing anything, and
+SHALL name those members. A close that asked for the save SHALL leave the project open.
+
+Such a member would be left out of the file. Were it the startup form, VB6 would build the file in silence
+into a program that starts at `Sub Main` (#497).
+
+#### Scenario: Closing with the project chosen and its new form not
+
+- **GIVEN** a new project whose startup form `Form1` has never been saved
+- **WHEN** it is closed, and only the project is chosen to be saved
+- **THEN** nothing is written, the warning names `Form1`, and the project stays open
+
+#### Scenario: A saved project that gains a form with no file
+
+- **GIVEN** a saved project to which the Project Explorer has added `Form1`, which has no file yet
+- **WHEN** it is closed, and everything the prompt lists is saved
+- **THEN** the prompt lists the project as well as `Form1`, and the saved project file lists `Form1`
+
 ### Requirement: Files earlier versions of the IDE wrote as UTF-8 SHALL be read as UTF-8
 
 Earlier versions of the IDE wrote a source file as UTF-8 without a byte-order mark exactly when its text held

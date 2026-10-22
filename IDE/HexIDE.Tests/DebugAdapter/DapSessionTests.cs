@@ -27,13 +27,13 @@ public class DapSessionTests
         return (await Until(session, u => u.Event?.Event == "stopped")).Snapshot.Stop!;
     }
 
-    private static async Task Launch(Peer peer, DapSession session, bool configuration = true)
+    private static async Task Launch(Peer peer, DapSession session, bool configuration = true, string? capabilities = null)
     {
         var pending = session.LaunchAsync("external", Args, [], Token);
         var initialize = await peer.Receive();
         initialize.GetProperty("command").GetString().Should().Be("initialize");
         initialize.GetProperty("arguments").GetProperty("linesStartAt1").GetBoolean().Should().BeTrue();
-        await peer.Reply(initialize, configuration ? """{"supportsConfigurationDoneRequest":true}""" : "{}");
+        await peer.Reply(initialize, capabilities ?? (configuration ? """{"supportsConfigurationDoneRequest":true}""" : "{}"));
         var launch = await peer.Receive();
         launch.GetProperty("command").GetString().Should().Be("launch");
         await peer.Send("""{"seq":2,"type":"event","event":"initialized"}""");
@@ -98,6 +98,46 @@ public class DapSessionTests
         var reply = await pending;
         reply.Body!.Value.GetProperty("variablesReference").GetInt32().Should().Be(123);
         reply.Body.Value.GetProperty("future").GetBoolean().Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"supportsEvaluateForHovers\":false}")]
+    [InlineData("{\"supportsEvaluateForHovers\":\"true\"}")]
+    public async Task Hover_requires_explicit_boolean_capability(string capabilities)
+    {
+        await using var peer = new Peer();
+        await using var session = new DapSession(peer.Client);
+        await Launch(peer, session, false, capabilities);
+        var stop = await Stop(peer, session);
+        await ((Func<Task>)(() => session.EvaluateHoverAsync(stop, 0, "answer", Token)))
+            .Should().ThrowAsync<InvalidOperationException>();
+        // The next frame must be this explicit request, not an unsupported automatic evaluate.
+        var threads = session.ThreadsAsync(stop, Token);
+        var request = await peer.Receive();
+        request.GetProperty("command").GetString().Should().Be("threads");
+        await peer.Reply(request, """{"threads":[]}""");
+        await threads;
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(7)]
+    public async Task Hover_sends_selected_frame_and_hover_context(int frameId)
+    {
+        await using var peer = new Peer();
+        await using var session = new DapSession(peer.Client);
+        await Launch(peer, session, false, """{"supportsEvaluateForHovers":true}""");
+        var stop = await Stop(peer, session);
+        var pending = session.EvaluateHoverAsync(stop, frameId, "answer", Token);
+        var request = await peer.Receive();
+        request.GetProperty("command").GetString().Should().Be("evaluate");
+        var arguments = request.GetProperty("arguments");
+        arguments.GetProperty("expression").GetString().Should().Be("answer");
+        arguments.GetProperty("context").GetString().Should().Be("hover");
+        arguments.GetProperty("frameId").GetInt32().Should().Be(frameId);
+        await peer.Reply(request, """{"result":"42","variablesReference":0}""");
+        (await pending).Body!.Value.GetProperty("result").GetString().Should().Be("42");
     }
 
     [Fact]

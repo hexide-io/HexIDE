@@ -254,7 +254,11 @@ not a way to ship an add-in. A **third-party** add-in is signed with its author'
 
 A Debug build started with `--server-port 5123` runs an MCP server on localhost. It lets an agent open
 forms, take screenshots, walk the control tree and click through dialogs. `.mcp.json` at the repository
-root connects Claude Code to it automatically. A Release build does not include the server.
+root connects Claude Code to it automatically, and `pwsh scripts/dev-ide.ps1` starts the build and waits
+until it answers. `pwsh` is PowerShell 7; with only Windows PowerShell, run
+`powershell -ExecutionPolicy Bypass -File scripts\dev-ide.ps1`. A Release build does not include the server. To run several agent sessions at once, give
+each its own port with `HEXIDE_MCP_PORT`, which both of those read; `CLAUDE.md` has the details under
+*Parallel sessions*.
 [`docs/command-line.md`](docs/command-line.md) lists every launch option, and
 [`docs/mcp-server-gaps.md`](docs/mcp-server-gaps.md) lists what the server cannot do yet.
 

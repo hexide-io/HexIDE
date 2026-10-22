@@ -26,7 +26,7 @@ maxDepth: 14)`, not "`dump_visual_tree` returns only the tab chrome".
 Additional client-side observation, 2026-10-18: in a later agent session, no `mcp__hexide__*` tools
 were present in the tool catalog even after launching the IDE and confirming its PID through `/health`.
 The call `tools.mcp__hexide__answer_next_file_dialog({path:
-"C:/Repos/GitHub/HexIDE/HexIDE/artifacts/dap-frames/artifacts/live/launch.json"})` failed locally with
+"<repo>/artifacts/dap-frames/artifacts/live/launch.json"})` failed locally with
 `TypeError: tools.mcp__hexide__answer_next_file_dialog is not a function`; it never reached the server.
 This is missing tool discovery, not a rejected file dialog. Reconnect the MCP integration while the IDE
 is running; automatic tool rediscovery after server recovery remains a client-side improvement.
@@ -148,6 +148,8 @@ than calling a tool: three refused calls in a row drop the tools until `/mcp`.
 
 **Retiring this entry** needs the client change named at the top. Everything #765 asked to be checked live has
 been, except what the client does with a 400, which no switch-over has produced yet.
+No HexIDE issue is open for it: what remains is the client's, the footing #645 kept this entry on. #764 records a
+server-side idea that may win back the added-tool case, to measure during the SDK upgrade.
 
 ---
 
@@ -181,6 +183,7 @@ refresh it. A tool the session has not loaded yet is safe to load after `/mcp`.
 **Suggested fix.** The client's: drop cached schemas for a server when it reconnects, or when its `tools/list`
 changes. Nothing on the server side can reach a schema the client already holds.
 [#815](https://github.com/hexide-io/HexIDE/issues/815).
+Its issue, #815, is closed, and no HexIDE issue is open for what remains, which is the client's (#645).
 
 ---
 
@@ -212,9 +215,11 @@ died — the tool call was fine, the process wasn't. The background-task notific
 **Workaround.** When any tool starts failing to connect, check the process before changing approach:
 
 ```sh
-powershell -NoProfile -Command "Get-Process HexIDE.Desktop -ErrorAction SilentlyContinue"
-curl -s -m 4 -o /dev/null -w '%{http_code}' http://localhost:5123/health
+curl -s -m 4 -o /dev/null -w '%{http_code}' "http://localhost:${HEXIDE_MCP_PORT:-5123}/health"
 ```
+
+A 200 says it is alive. Anything else, with your own IDE's PID from `scripts/dev-ide.ps1` in hand, is checked with
+`Get-Process -Id <pid>`. Not `Get-Process HexIDE.Desktop`: other sessions' IDEs share the name.
 
 If it's gone, the IDE log (`%LOCALAPPDATA%\HexIDE\logs\ide\`) will end cleanly with no exception,
 because an unhandled render-thread exception terminates the process before Serilog flushes. The actual
@@ -265,7 +270,8 @@ surfaces that can be constructed standalone.
 **Suggested fix, as first written.** Make tool discovery retry against `.mcp.json` when the endpoint becomes
 reachable mid-session, or have the launcher expose a readiness signal the client re-polls. Both are the
 client's to do. The advice it ended with, to start the IDE *after* the session, is superseded: `/mcp`
-reconnect attaches either way.
+reconnect attaches either way. No HexIDE issue is open for it: as far as is known the fix is the
+client's (#645).
 
 ## shutdown_ide can kill the MCP server and leave the IDE running
 
@@ -277,8 +283,11 @@ answered `connection actively refused` — the web host had gone down while the 
 tool left to call. Worse, the state reads as "the IDE is gone" from the automation side and "the IDE is
 fine" from the desktop, so the next build fails on a file lock for a process the agent believes it closed.
 
-**Workaround used.** `Stop-Process -Name HexIDE.Desktop -Force`, then relaunch — already the documented
-fallback for an MCP disconnect, but reached here *because of* the shutdown rather than before it.
+**Workaround used.** `Stop-Process -Name HexIDE.Desktop -Force`, then relaunch — then the documented
+fallback for an MCP disconnect, but reached here *because of* the shutdown rather than before it. The fallback is
+now `pwsh scripts/dev-ide.ps1 -Stop`, which finds the IDE by the `--server-port` on its command line, so it finds
+one in this state, with no server listening, and stops it only if it was started for this session. Stopping by
+name would end every session's IDE on a machine running several.
 
 **Suggested fix.** Send the reply before tearing the host down (or stop the host last), so the caller gets
 the confirmation the tool promises. Either way, do not leave a window up with no server behind it: if the
@@ -730,3 +739,121 @@ deletable segments.
 
 **Suggested fix.** Delete what the deletable segments allow, as the key does, and say what was left and why.
 [#1055](https://github.com/hexide-io/HexIDE/issues/1055).
+
+## The code window's completion list: its description tooltip is out of reach, and `double_click` does not commit an item
+
+**Symptom.** Recorded when #942 closed (#1247), from the code and the headless tests; no call was recorded. Since #942,
+`dump_visual_tree` lists an open completion list and its items under the `TextEditor` that opened it, and
+`take_snapshot` composes the list into the image. The description tooltip the list shows beside an item is reached by
+neither, so a caller cannot read an item's description or tell that one is showing. Committing an item with
+`interact` `double_click` does not work either: the list takes a commit on the press, which `double_click` does not
+send.
+
+**Workaround.** For the description, none. To commit an item, `select` it and then `press_key` Tab. Until #941 is
+fixed, Enter does not commit and Tab appends the item instead of replacing the word being typed.
+
+**Suggested fix.** Reach the description tooltip by the route that reaches the list itself, so the dump lists it
+under the list and the snapshot composes it. Have `double_click` on a completion item commit it, or say in its reply
+that it did not. [#1334](https://github.com/hexide-io/HexIDE/issues/1334).
+
+## A save reached through a menu replies before it finishes, so an armed file-dialog answer it did not take goes unmentioned
+
+**Symptom.** Recorded when #810 closed (#1250), and earlier in the archived #751 entry; read in the code, no call
+recorded. Since #810, `set_file_content`, `set_control_property` and `add_control` say when an answer armed before
+the call is still pending after their save. A save started as a UI command does not: `invoke_menu_item` calls the
+item's command and replies `Invoked '...'` once the call returns, before the save has finished, and `press_key` and
+`interact` do the same. So the reply cannot say whether the save took the answer, and a refusal the save raises is
+shown to a person as a dialog. `answer_next_file_dialog`'s description says so: "a save reached through a menu, by
+invoke_menu_item or interact, does not, so check with clear_file_dialog_answers."
+
+**Workaround.** After such a save, call `clear_file_dialog_answers`. A count above zero means the save had not taken
+the answer when you asked.
+
+**Suggested fix.** First find out whether a save started this way has opened its picker by the time the command
+returns, with a headless test that arms an answer and saves through `invoke_menu_item`. If it has, add #810's
+sentence about pending answers to the reply. If it has not, the reply has to wait for the save, which a routed
+command does not expose. [#1335](https://github.com/hexide-io/HexIDE/issues/1335).
+
+## `take_snapshot`'s `inline` image has not been checked through an MCP client, over a tunnel or locally
+
+**Symptom.** #957 added `inline` and closed. Its archived entry records one measurement, taken through the server's
+HTTP endpoint rather than a client's tool call ("a 3840×2054 window came back as a 1568×838 PNG of 75 KB"), and
+says "Not yet run through Claude Code over a tunnel". A raw request shows nothing about what a client does with the
+image block, and a client on another machine receiving the image is what #957 was filed for. Covered headless by
+`InlineSnapshotTests` only.
+
+**Workaround.** Without `inline`, copy the file from the IDE's machine by hand.
+
+**Suggested fix.** No code change is expected. Call `take_snapshot {"inline":true}` through the hexide tools, on the
+IDE's machine and from another one through a tunnel, and record what the client shows. [#1330](https://github.com/hexide-io/HexIDE/issues/1330).
+
+## `invoke_command` on a designer context-menu item looks in the wrong view model
+
+**Symptom.** Recorded when #836 closed (#1271), read in the code and not run. The designer's context flyout binds
+Delete, Bring to Front and Send to Back through the form's view model
+(`#Root.((visualDesigner:FormEditViewModel)DataContext).DeleteSelected` and the like, in `FormEditView.axaml`), while
+each item's own DataContext is the control the flyout opened on. `invoke_command` and `inspect_element` read the
+DataContext of the control addressed, so on one of these items they look in the control's view model, which has
+none of the three, and `inspect_element` does not list them. A command property bound the same way is missed the
+same way.
+
+**Workaround.** Open the flyout with `interact` `expand` on the control, then `invoke` the item, which runs the
+command it is bound to through its automation peer. That route was measured on the Project Explorer's flyout
+(#947), not on the designer's.
+
+**Suggested fix.** For an item whose `Command` is bound through another element's DataContext, have `invoke_command`
+and `inspect_element` look where the binding resolves, or have the refusal say that the command is bound elsewhere
+and that `invoke` on the item reaches it. [#1336](https://github.com/hexide-io/HexIDE/issues/1336).
+
+## A lone surrogate in a call's arguments gets a bare `-32603` before any tool runs
+
+**Symptom.** Recorded in #1274's review, through a raw request rather than a client's tool call; the request was not
+recorded. A string argument holding an unpaired surrogate, such as an escaped U+D800 with no low surrogate after it,
+is answered with the SDK's JSON-RPC error `-32603` "An error occurred." before any tool runs. The reply names no tool,
+parameter or character, and does not say that nothing was done. Not yet reproduced through a client, which may
+escape or refuse such a string before sending it.
+
+**Workaround.** Send a surrogate pair whole, or the character itself.
+
+**Suggested fix.** Reproduce it with the SDK's own client, as `McpRestartTests` drive the server, and answer it as
+the server has answered an argument the SDK cannot bind since #1270: refused, naming the parameter and the problem,
+and saying nothing was done. [#1337](https://github.com/hexide-io/HexIDE/issues/1337).
+
+## Two sessions that set neither variable reach the same IDE, and nothing in a reply says so (narrowed 2026-10-22)
+
+**Symptom.** Measured 2026-10-22 with two Debug IDEs, one on port 5128 with a new project and one on 5130 with
+`SpringTide.vbp`. A headless session started with `HEXIDE_MCP_PORT=5128` called `get_project_info` and got
+`Project1`; one started with `HEXIDE_MCP_PORT=5130` got `SpringTide`. So a port picks the IDE, and the replies are
+the same whichever IDE answers. Since #1212, sessions that each set `HEXIDE_MCP_PORT` stay apart. Two sessions that
+set nothing both reach 5123, and a session given the port of a stale IDE left running drives that IDE. Either
+way, the replies look exactly as they would from the session's own build.
+
+**Workaround.** Start the IDE with `pwsh scripts/dev-ide.ps1`, which returns only once `/health` answers with the
+PID of the process it started, and stop it with `shutdown_ide` or `scripts/dev-ide.ps1 -Stop` rather than leaving it
+running.
+
+**Narrowed by #1306.** An IDE started with `--session <name>`, as `scripts/dev-ide.ps1` starts one whenever
+`HEXIDE_SESSION` is set, serves a tool call only when the client's `X-HexIDE-Session` header names that session, and an
+IDE started without one refuses a client that names a session. Each refusal is an error result naming the IDE's session,
+PID and build directory, so it never counts towards the client's three connection errors. Guarded by
+`SessionGuardTests`. What is left is the case with no names at all: two sessions that both set neither variable both
+reach 5123, and an IDE there serves both, since neither names itself.
+
+**Suggested fix.** None that needs no setup: telling two unnamed clients apart needs something a client sends
+unasked, and Claude Code sends nothing per session to an HTTP MCP server. Start every session with its variables;
+CLAUDE.md's *Parallel sessions* section says how, and tells a session to check them before launching an IDE.
+
+## A reply names a waiting dialog only by its title, and two of the IDE's dialogs share one
+
+**Symptom (2026-10-22, #1329, Windows and the openSUSE VM).** During a run, both the reset prompt and the run-time error
+dialog appear in a reply's note as `"'HexIDE', a modal dialog over 'Project1 - HexIDE [run]', is open and waits for an
+answer…"`. One holds a `MessageBox` with Yes and No, and the other a `RuntimeErrorView` with Continue, End, Debug and
+Help. Only `dump_visual_tree {"window":"HexIDE","maxDepth":3}` tells them apart, through class names. Separately, the
+only call found that lists the open windows was one naming a window that doesn't exist, `window: "x"`, which is refused
+with the list.
+
+**Workaround.** Dump the dialog before answering it, and read its buttons. Name an unknown window to get the list.
+
+**Suggested fix.** Have the note give the dialog's first line of text or its kind beside its title, and give the open
+windows on request, or say in the `window` description that an unknown name lists them.
+[#1365](https://github.com/hexide-io/HexIDE/issues/1365).

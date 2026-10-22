@@ -40,7 +40,25 @@ public sealed class VBLspClient : ILspClient
     private Task _reconnectTask = Task.CompletedTask;   // the running reconnect loop (or completed)
     private CancellationTokenSource? _reconnectCts;
 
-    private sealed record TrackedDocument(int Version, string Text);
+    /// <summary>
+    /// A document this client holds, as it was last opened or changed.
+    /// </summary>
+    /// <param name="OpenedOn">
+    /// The connection whose server has been opened on it, numbered as <see cref="_connection"/> counts them, or
+    /// <see cref="NotOpened"/>. A server knows nothing of a document until it is opened on that server, and every
+    /// new connection is a new server as far as the document goes; the replay opens each again.
+    /// </param>
+    private sealed record TrackedDocument(int Version, string Text, int OpenedOn = NotOpened);
+
+    /// <summary>No connection: a document tracked before any server was up, or before this one was opened on it.</summary>
+    private const int NotOpened = 0;
+
+    /// <summary>
+    /// Counts completed handshakes, so a document opened on one connection can be told from one opened on the
+    /// next. Raised before <see cref="_initialized"/> is set, so whatever reads it as initialized reads the
+    /// connection that made it so.
+    /// </summary>
+    private int _connection;
 
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
     public event EventHandler<ShowMessageParams>? MessageShown;
@@ -295,8 +313,12 @@ public sealed class VBLspClient : ILspClient
     private async Task ReopenTrackedDocumentsAsync()
     {
         if (_rpc is null || !_initialized) return;
-        foreach (var (uri, document) in _openDocuments)
+        foreach (var uri in _openDocuments.Keys)
         {
+            // Skipped if an open already reached this connection between its handshake and here, so that no
+            // server is opened on a document twice; and taken as tracked NOW, so a change recorded since the
+            // loop began is what is sent.
+            if (MarkOpened(uri) is not { } document) continue;
             await SendDidOpenAsync(uri, document.Version, document.Text);
 
             // And ASK, for a server that only answers when asked.
@@ -488,7 +510,11 @@ public sealed class VBLspClient : ILspClient
                     // will ask, so I need not announce" and stop publishing — measured against ruff, which
                     // publishes freely without this line and publishes nothing at all with it. So this
                     // declaration and the request that follows it are one change and cannot be separated.
-                    Diagnostic: new DiagnosticClientCapabilities()),
+                    Diagnostic: new DiagnosticClientCapabilities(),
+                    // Not a gate like the three above: the reader below already takes both answers, so
+                    // nothing goes silent without this. What goes is the nesting, because a server that
+                    // honours it sends the flat form to a client that never said it could take the tree.
+                    DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true)),
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
                     WorkspaceFolders: true)));
@@ -553,6 +579,7 @@ public sealed class VBLspClient : ILspClient
         _identity = ReadServerIdentity(raw);
         attempt.Reached(LanguageConnectionStage.Initialized);
         _attempt = attempt.Build();
+        Interlocked.Increment(ref _connection);
         _initialized = true;
         NoteHandshake();
         _logger.LogInformation("LSP server initialized: {Server}",
@@ -707,16 +734,87 @@ public sealed class VBLspClient : ILspClient
     {
         // Tracked BEFORE the gate, deliberately: a document opened while no server is up must still be
         // replayed when one arrives, which is what makes lazy start and reconnect work at all.
-        _openDocuments[uri] = new TrackedDocument(LspDocumentVersion.Opening, text);
-        await SendDidOpenAsync(uri, LspDocumentVersion.Opening, text);
+        var (document, alreadyOpen) = TrackOpen(uri, text);
+
+        // The replay at the end of this connection's handshake has opened it already, and asked for its
+        // diagnostics: a second open would be a duplicate, and one sent from an older copy (#719).
+        if (alreadyOpen) return;
+
+        await SendDidOpenAsync(uri, document.Version, document.Text);
         PullDiagnosticsInBackground(uri);
     }
 
+    /// <summary>
+    /// Records an open of <paramref name="uri"/>, and says whether this connection's server has been opened on
+    /// it already.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Never behind what is tracked.</b> A change recorded before the open, which happens while a server is
+    /// starting, is newer than the open's text: the edit was made after the open began. So the tracked copy is
+    /// kept, and the open carries it, rather than the open's text at the opening version replacing it. Replacing
+    /// it sent the server the text from before the edit, at a lower version than one it had just been given,
+    /// and left nothing to resend the edit (hexide-io/HexIDE#719).
+    /// </para>
+    /// <para>
+    /// A document is marked opened on this connection only while there is one. Opened before any handshake,
+    /// it is the replay that opens it.
+    /// </para>
+    /// </remarks>
+    private (TrackedDocument Document, bool AlreadyOpen) TrackOpen(string uri, string text)
+    {
+        while (true)
+        {
+            var connection = _initialized ? Volatile.Read(ref _connection) : NotOpened;
+            if (!_openDocuments.TryGetValue(uri, out var tracked))
+            {
+                var added = new TrackedDocument(LspDocumentVersion.Opening, text, connection);
+                if (_openDocuments.TryAdd(uri, added)) return (added, false);
+                continue;
+            }
+
+            if (connection != NotOpened && tracked.OpenedOn == connection) return (tracked, true);
+
+            var opened = tracked.Version > LspDocumentVersion.Opening
+                ? tracked with { OpenedOn = connection }
+                : new TrackedDocument(LspDocumentVersion.Opening, text, connection);
+            if (_openDocuments.TryUpdate(uri, opened, tracked)) return (opened, false);
+        }
+    }
+
+    /// <summary>
+    /// Marks a tracked document opened on the current connection, for the replay. Null if it is no longer
+    /// tracked, or this connection's server has been opened on it already.
+    /// </summary>
+    private TrackedDocument? MarkOpened(string uri)
+    {
+        var connection = Volatile.Read(ref _connection);
+        while (_openDocuments.TryGetValue(uri, out var tracked))
+        {
+            if (tracked.OpenedOn == connection) return null;
+            var opened = tracked with { OpenedOn = connection };
+            if (_openDocuments.TryUpdate(uri, opened, tracked)) return opened;
+        }
+        return null;
+    }
+
+    /// <summary>Whether this connection's server has been opened on <paramref name="uri"/>.</summary>
+    private bool IsOpenOnThisConnection(string uri) =>
+        _openDocuments.TryGetValue(uri, out var tracked) && tracked.OpenedOn == Volatile.Read(ref _connection);
+
     public async Task ChangeDocumentAsync(string uri, int version, string text, CancellationToken cancellationToken = default)
     {
-        _openDocuments[uri] = new TrackedDocument(version, text);
+        _openDocuments.AddOrUpdate(uri,
+            _ => new TrackedDocument(version, text),
+            (_, tracked) => tracked with { Version = version, Text = text });
         var rpc = _rpc;
         if (rpc is null || !_initialized || !ServerCapabilities.AcceptsChanges(_capabilities?.Value)) return;
+
+        // Not until the server has been opened on it. A change to a document it has never heard of is not one a
+        // server can apply, and a foreign server measured here ignores it. The open still to come, from the replay
+        // or from the registry once its last claimant has started, carries this text instead, because it was
+        // tracked above (#719).
+        if (!IsOpenOnThisConnection(uri)) return;
         var p = new DidChangeTextDocumentParams(
             new VersionedTextDocumentIdentifier(uri, version),
             [new TextDocumentContentChangeEvent(text)]);
@@ -1627,8 +1725,11 @@ public sealed class VBLspClient : ILspClient
             ? (ConversationDirection.Received, ConversationEntryKind.StandardError)
             : (ConversationDirection.Local, ConversationEntryKind.Lifecycle);
 
-        // A non-zero exit is a fault unless this client was stopping it, when killing it can give one (#945).
-        Note(direction, kind, null, notice.Text, fault: notice.Fault && !_stopping);
+        // A non-zero exit is a fault (#945), while this client stops the server too (#1314). LSP has a server exit 0
+        // when a shutdown preceded exit and non-zero otherwise, so the code is the server's account of how the stop
+        // went. A kill cannot arrive here: StopAsync unhooks this before it disposes the transport, and each
+        // transport unhooks its own exit handler before it kills.
+        Note(direction, kind, null, notice.Text, fault: notice.Fault);
     }
 
     private void OnTransportClosed(object? sender, EventArgs e)

@@ -90,17 +90,20 @@ public class ProjectService : IProjectService
     /// A file joining the project that a kept line already names, because it failed to load, takes that
     /// line's place: kept as well, the project file would name it twice.
     /// </summary>
-    private static void ForgetKeptLineFor(ProjectDefinition project, string absolutePath)
-    {
-        if (project.AbsolutePath is not { } projectPath)
-            return;
-        var projectDir = Path.GetDirectoryName(projectPath)!;
-        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        project.PreservedItemLines.RemoveAll(line =>
-            KeptLinePath(line) is { } relative
-            && string.Equals(Path.GetFullPath(Path.Join(projectDir, ToLocalRelativePath(relative))),
-                Path.GetFullPath(absolutePath), comparison));
-    }
+    private static void ForgetKeptLineFor(ProjectDefinition project, string absolutePath) =>
+        project.PreservedItemLines.RemoveAll(line => KeptLineNames(project, line, absolutePath));
+
+    /// <summary>
+    /// Whether a line the project file keeps for a member names the file at <paramref name="absolutePath"/>, as the
+    /// host's file system compares names. A project with no file of its own has no kept lines to resolve.
+    /// </summary>
+    private static bool KeptLineNames(ProjectDefinition project, string line, string absolutePath) =>
+        project.AbsolutePath is { } projectPath
+        && KeptLinePath(line) is { } relative
+        && string.Equals(
+            Path.GetFullPath(Path.Join(Path.GetDirectoryName(projectPath)!, ToLocalRelativePath(relative))),
+            Path.GetFullPath(absolutePath),
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
     /// <summary>The file a kept member line names, or null for a line that names no member file.</summary>
     private static string? KeptLinePath(string line)
@@ -442,7 +445,7 @@ public class ProjectService : IProjectService
             // Returned so a non-interactive caller can tell a refusal from a save. The MCP write tools reported
             // success unconditionally, which told an agent a file had been written when it had not — and an
             // agent, unlike a developer, has no dialog to read and will build on the answer.
-            return (await WithEncodingError(() => SaveFiles([(form, saveAs)], ownCommand: true), interactive)).Count > 0;
+            return (await WithSaveRefusals(() => SaveFiles([(form, saveAs)], ownCommand: true), interactive)).Count > 0;
         }
         finally
         {
@@ -453,8 +456,10 @@ public class ProjectService : IProjectService
     }
 
     /// <summary>
-    /// Runs a save, and reports a refusal the code page forces: to a person as the source-encoding warning,
-    /// to an automation caller only by the <see cref="SourceEncodingRefusal"/>, which is rethrown either way.
+    /// Runs a save, and reports a refusal that ends it before anything is written: to a person as a warning, to
+    /// an automation caller only by the exception, which is rethrown either way. Two kinds end one: a character
+    /// the code page cannot hold (<see cref="SourceEncodingRefusal"/>), and a project file that would leave out a
+    /// member with no file (<see cref="UnsavedMemberRefusal"/>).
     /// </summary>
     /// <remarks>
     /// Wrapped around each operation once, at its entry point, rather than around each file it writes. An
@@ -463,7 +468,7 @@ public class ProjectService : IProjectService
     /// Rethrown rather than turned into false: a close-time save that carried on would unload the project and
     /// discard the edit the developer had just asked to keep.
     /// </remarks>
-    private async Task<T> WithEncodingError<T>(Func<Task<T>> operation, bool interactive = true)
+    private async Task<T> WithSaveRefusals<T>(Func<Task<T>> operation, bool interactive = true)
     {
         try
         {
@@ -484,11 +489,22 @@ public class ProjectService : IProjectService
                     "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
             throw;
         }
+        catch (UnsavedMemberRefusal refusal)
+        {
+            Log.Warning("Not saving {Project}: its project file would leave out {Members}, which have no file",
+                refusal.Project, refusal.Members);
+            if (interactive)
+                await windowManager.MessageBox(
+                    string.Format(localization.GetString("Str.Dialog.UnsavedMembers.NothingWritten"),
+                        refusal.Project, string.Join("\n", refusal.Members.Select(m => $"  • {m}"))),
+                    "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+            throw;
+        }
     }
 
-    /// <inheritdoc cref="WithEncodingError{T}"/>
-    private Task WithEncodingError(Func<Task> operation, bool interactive = true) =>
-        WithEncodingError(async () =>
+    /// <inheritdoc cref="WithSaveRefusals{T}"/>
+    private Task WithSaveRefusals(Func<Task> operation, bool interactive = true) =>
+        WithSaveRefusals(async () =>
         {
             await operation();
             return true;
@@ -540,6 +556,7 @@ public class ProjectService : IProjectService
         // keeps a reload during a later picker from slipping a file past it (see the remarks).
         destinations.RemoveAll(destination => RefusesUnfaithful(destination.Document));
 
+        EnsureEveryMemberListed(destinations);
         EnsureEncodable(destinations);
         var written = new List<Destination>();
         foreach (var destination in destinations)
@@ -680,6 +697,37 @@ public class ProjectService : IProjectService
             FileTypeChoices = [new FilePickerFileType("Project Group") { Patterns = ["*.vbg"] }],
             SuggestedFileName = group.Name
         }) ?? throw new OperationCanceledException();
+
+    /// <summary>
+    /// Refuses, with an <see cref="UnsavedMemberRefusal"/> for the first project in order, unless every project
+    /// file in <paramref name="destinations"/> can list all of its forms and modules: each has a file already, or
+    /// is written by this operation. Writes nothing.
+    /// </summary>
+    /// <remarks>
+    /// The save-changes prompt can tick a project without a member that has never been saved, and the project
+    /// file then left the member out, as the serializer skips one with no path. Where the member was the startup
+    /// form, the file kept its <c>Startup=</c> line, which vb6.exe builds in silence into a program that starts at
+    /// <c>Sub Main</c> (hexide-io/HexIDE#497). VB6's own save of a project is all or nothing, and so is this.
+    /// </remarks>
+    private static void EnsureEveryMemberListed(IReadOnlyList<Destination> destinations)
+    {
+        var written = destinations.Select(d => d.Document).ToHashSet(ReferenceEqualityComparer.Instance);
+        foreach (var destination in destinations)
+            if (destination.Document is ProjectDefinition project
+                && UnlistedMembers(project, member => written.Contains(member)) is { Count: > 0 } unlisted)
+                throw new UnsavedMemberRefusal(project.Name, unlisted);
+    }
+
+    /// <summary>
+    /// The forms and modules a project file would leave out if written now, by name: those with no file, unless
+    /// <paramref name="writtenWithIt"/> says they get one in the same operation.
+    /// </summary>
+    private static List<string> UnlistedMembers(ProjectDefinition project, Func<object, bool> writtenWithIt) =>
+    [
+        .. project.Forms.Where(form => form.AbsolutePath is null && !writtenWithIt(form)).Select(form => form.Name),
+        .. project.Modules.Where(module => module.AbsolutePath is null && !writtenWithIt(module))
+            .Select(module => module.Name),
+    ];
 
     /// <summary>
     /// Refuses, with a <see cref="SourceEncodingRefusal"/> for the first file in order, unless every file
@@ -973,7 +1021,7 @@ public class ProjectService : IProjectService
             // The warning every other save shows. The refusal is an OperationCanceledException, so it then leaves
             // through the cancellation arm below. A form or the project file used to reach the fatal-error box
             // instead, with .NET's message in place of the document and the code page.
-            await WithEncodingError(() => MakeProjectInternal(projectDefinition));
+            await WithSaveRefusals(() => MakeProjectInternal(projectDefinition));
         }
         catch (OperationCanceledException)
         {
@@ -1167,7 +1215,7 @@ public class ProjectService : IProjectService
         // the lone path and left open here.
         try
         {
-            await WithEncodingError(() => SaveFiles([.. FilesOf(project, saveAs)]));
+            await WithSaveRefusals(() => SaveFiles([.. FilesOf(project, saveAs)]));
         }
         finally
         {
@@ -1183,7 +1231,7 @@ public class ProjectService : IProjectService
         (project, saveAs)
     ];
 
-    public Task SaveProjectToDirectory(ProjectDefinition project, string directory) => WithEncodingError(() =>
+    public Task SaveProjectToDirectory(ProjectDefinition project, string directory) => WithSaveRefusals(() =>
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
@@ -1223,11 +1271,53 @@ public class ProjectService : IProjectService
         return Task.CompletedTask;
     });
 
+    public string NextFreeFormName(ProjectDefinition project) =>
+        ProjectNaming.NextFreeName(project, "Form", name => FileInTheWay(project, name + ".frm") is not null);
+
+    public string NextFreeModuleName(ProjectDefinition project, ModuleKind kind) =>
+        ProjectNaming.NextFreeName(project, ModulePrefix(kind),
+            name => FileInTheWay(project, name + "." + ModuleExtension(kind)) is not null);
+
+    /// <summary>
+    /// What is already where a new member's file, <paramref name="fileName"/> in the project's folder, would be
+    /// written: a file, the binary file beside it, or a line the project file keeps for a member that did not load
+    /// and that names it. Null when nothing is, as for a project whose folder is not chosen yet.
+    /// </summary>
+    /// <remarks>
+    /// For the write a new member gets as it is added. When #500 moves that write to Save Project, as VB6 makes it,
+    /// this check moves with it, to wherever a new member's file is first written.
+    /// </remarks>
+    private static (string Path, bool NamedByProject)? FileInTheWay(ProjectDefinition project, string fileName)
+    {
+        // Not ProjectFilesDirectory, which chooses a scratch folder for a project with none: there is nothing in a
+        // folder not chosen yet, and asking for a name must not choose one.
+        if (ChosenFilesDirectory(project) is not { } dir)
+            return null;
+
+        var path = Path.Join(dir, fileName);
+        if (File.Exists(path))
+            return (path, false);
+        // Only the designer kinds have one. CompanionBinaryExtension answers .frx for a .bas or a .cls too.
+        if (Path.GetExtension(fileName).ToLowerInvariant() is ".frm" or ".ctl" or ".pag"
+            && Path.ChangeExtension(path, CompanionBinaryExtension(path)) is var companion
+            && File.Exists(companion))
+            return (companion, false);
+        return project.PreservedItemLines.Any(line => KeptLineNames(project, line, path)) ? (path, true) : null;
+    }
+
+    /// <summary>Refuses a new member whose file would be written where <see cref="FileInTheWay"/> finds something.</summary>
+    private static void EnsureNothingInTheWay(ProjectDefinition project, string name, string fileName)
+    {
+        if (FileInTheWay(project, fileName) is { } inTheWay)
+            throw new FileInTheWayRefusal(name, inTheWay.Path, inTheWay.NamedByProject);
+    }
+
     public Task<FormDefinition> AddNewForm(ProjectDefinition project, string name, bool interactive = true) =>
-        WithEncodingError(() =>
+        WithSaveRefusals(() =>
         {
             var form = new FormDefinition(project, FormComponentClass.Instance, name) { TextEncoding = HostAnsi };
             EnsureNewMemberEncodable(project, form, name + ".frm");
+            EnsureNothingInTheWay(project, name, name + ".frm");
             var dir = ProjectFilesDirectory(project);
             Directory.CreateDirectory(dir);
             // A brand new form has no unfaithful causes and cites no companion, so this cannot refuse. Asserted
@@ -1241,7 +1331,7 @@ public class ProjectService : IProjectService
 
     public Task<ModuleDefinition> AddNewModule(ProjectDefinition project, string name, ModuleKind kind,
         bool interactive = true) =>
-        WithEncodingError(() => Task.FromResult(
+        WithSaveRefusals(() => Task.FromResult(
             AddNewModuleFile(project, new ModuleDefinition(project, name, kind) { TextEncoding = HostAnsi })), interactive);
 
     public Task<ModuleDefinition> AddNewUserControl(ProjectDefinition project, string name, bool interactive = true) =>
@@ -1252,7 +1342,7 @@ public class ProjectService : IProjectService
 
     private Task<ModuleDefinition> AddNewDesignerModule(
         ProjectDefinition project, string name, ModuleKind kind, string rootTypeName, bool interactive) =>
-        WithEncodingError(() =>
+        WithSaveRefusals(() =>
         {
             var module = new ModuleDefinition(project, name, kind) { TextEncoding = HostAnsi };
             var formPart = new FormDefinition(project, FormComponentClass.Instance, name);
@@ -1266,6 +1356,7 @@ public class ProjectService : IProjectService
     {
         var fileName = module.Name + "." + ModuleExtension(module.Kind);
         EnsureNewMemberEncodable(project, module, fileName);
+        EnsureNothingInTheWay(project, module.Name, fileName);
         var dir = ProjectFilesDirectory(project);
         Directory.CreateDirectory(dir);
         module.AbsolutePath = Path.Join(dir, fileName);
@@ -1448,11 +1539,8 @@ public class ProjectService : IProjectService
     /// </summary>
     public static string ProjectFilesDirectory(ProjectDefinition project)
     {
-        if (project.AbsolutePath is { } p)
-            return Path.GetDirectoryName(p)!;
-
-        if (project.WorkingDirectory is { Length: > 0 } existing)
-            return existing;
+        if (ChosenFilesDirectory(project) is { } chosen)
+            return chosen;
 
         // The suffix is what makes it private. The name is kept in front of it so a user who goes looking
         // in TEMP can still tell which directory belongs to what.
@@ -1463,6 +1551,15 @@ public class ProjectService : IProjectService
         project.WorkingDirectory = scratch;
         return scratch;
     }
+
+    /// <summary>
+    /// The folder <see cref="ProjectFilesDirectory"/> answers once one is chosen: the project file's, or the scratch
+    /// folder it was given. Null for a project with neither, rather than choosing one.
+    /// </summary>
+    private static string? ChosenFilesDirectory(ProjectDefinition project) =>
+        project.AbsolutePath is { } p ? Path.GetDirectoryName(p)!
+        : project.WorkingDirectory is { Length: > 0 } existing ? existing
+        : null;
 
     /// <summary>
     /// Makes a project name safe to embed in a directory name.
@@ -1491,7 +1588,7 @@ public class ProjectService : IProjectService
         // skip the drain and leave refusals banked for the next unrelated save.
         try
         {
-            await WithEncodingError(() => SaveFiles(
+            await WithSaveRefusals(() => SaveFiles(
             [
                 .. changedFilesVm.SelectedFiles.Where(f => f.Form != null).Select(f => ((object)f.Form!, false)),
                 .. changedFilesVm.SelectedFiles.Where(f => f.Module != null).Select(f => ((object)f.Module!, false)),
@@ -1565,7 +1662,7 @@ public class ProjectService : IProjectService
     {
         try
         {
-            await WithEncodingError(() => SaveFiles(files));
+            await WithSaveRefusals(() => SaveFiles(files));
         }
         finally
         {
@@ -1832,6 +1929,15 @@ public class ProjectService : IProjectService
         _                       => "bas"
     };
 
+    /// <summary>What VB6 numbers a new module of this kind after: <c>Module1</c>, <c>Class1</c> and so on.</summary>
+    private static string ModulePrefix(ModuleKind kind) => kind switch
+    {
+        ModuleKind.ClassModule  => "Class",
+        ModuleKind.UserControl  => "UserControl",
+        ModuleKind.PropertyPage => "PropertyPage",
+        _                       => "Module"
+    };
+
     /// <summary>
     /// Save one module on its own. A refusal is reported at the moment it happens — mirroring
     /// <see cref="SaveForm"/>, and for the same reason: without a drain the entry survives in
@@ -1843,7 +1949,7 @@ public class ProjectService : IProjectService
     {
         try
         {
-            return await WithEncodingError(() => SaveModuleCore(module, saveAs), interactive);
+            return await WithSaveRefusals(() => SaveModuleCore(module, saveAs), interactive);
         }
         finally
         {
@@ -1902,6 +2008,14 @@ public class ProjectService : IProjectService
 
     private void SerializeOnlyProjectToFile(ProjectDefinition definition, string projectPath)
     {
+        // The second check, at the write, for a route that reaches it without SaveFiles: that refuses before
+        // anything is written (EnsureEveryMemberListed), and by here every member it wrote has its path. Not in
+        // the serializer, which also renders for the dirty check, where a project holding a form with no file
+        // yet is ordinary.
+        if (UnlistedMembers(definition, writtenWithIt: _ => false) is { Count: > 0 } unlisted)
+            throw new InvalidOperationException(
+                $"{definition.Name}'s project file would leave out {string.Join(", ", unlisted)}, which "
+              + "have no file, so it was not written.");
         var serialized = new ProjectSerializer().Serialize(definition, projectPath);
         AtomicWriteText(projectPath, serialized,
             Vb6TextFile.EncodeDocument(definition.Name, serialized, definition.TextEncoding));
@@ -1922,6 +2036,13 @@ public class ProjectService : IProjectService
         var path = project.AbsolutePath;
         if (path is null)
             return true; // never saved
+
+        // A member with no file changes the project file for certain, since the next save lists it, and the render
+        // below cannot show that: the serializer skips a member with no path. The Project Explorer's Add Form adds
+        // one, and a project counted clean then stayed out of the close prompt, so the form it listed was saved
+        // and the project file never named it (#1359).
+        if (UnlistedMembers(project, writtenWithIt: _ => false).Count > 0)
+            return true;
 
         return !BaselineMatches(path, new ProjectSerializer().Serialize(project, path));
     }

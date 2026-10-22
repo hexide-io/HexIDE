@@ -173,12 +173,28 @@ pause was not analysed until the next one ([#470](https://github.com/hexide-io/H
 version together with its text at the moment of the edit, so a number always describes the text it is sent
 with.
 
-Three paths can still send a version that does not rise, all filed:
-- an edit made while a server is starting, after which a second server can be opened again at a lower
-  version with older text ([#719](https://github.com/hexide-io/HexIDE/issues/719));
-- a debounced change crossing the flush that superseded it, with identical text
-  ([#720](https://github.com/hexide-io/HexIDE/issues/720));
-- two editors holding one name ([#721](https://github.com/hexide-io/HexIDE/issues/721)).
+**An edit made while a server starts reaches it.** A server is opened on a document only once it has
+started, and starting takes long enough to type in. So a change made meanwhile is recorded rather than sent:
+the session hands it on whether or not a server is running, the registry and the client each record it, and
+the open that server receives carries the text as edited. Each document records which connection's server has
+been opened on it. An open the reconnect replay has already sent is not sent again, and a change waits for its
+connection's open rather than going ahead of it. Before this, the change was dropped while nothing was running,
+and a second server still starting was opened twice, the second time at a lower version with the text from
+before the edit ([#719](https://github.com/hexide-io/HexIDE/issues/719)).
+
+**Every window holding one name holds one document.** One file shared by two projects of a group opens two code
+windows that both name it by its file, and a server has one document for that name. So the windows' sessions share
+it, per client: the first window to hold it opens it, every window draws its versions from one sequence, and the
+last window to let go closes it. A rename closes the old name only for its last holder and opens the new one only
+for its first. A window that joins an open document sends nothing of its own, because its copy as it opened could
+undo another window's unsaved edits on the server. It shows what was last published for the document, and its own
+edits reach the server as the next versions. The sequence is drawn where the edits are made, as above, so a send
+cannot renumber older text. Before this, each window kept its own count, the server was opened twice and discarded
+whichever count was behind, and either window's close closed the document for both
+([#721](https://github.com/hexide-io/HexIDE/issues/721)).
+
+One path can still send a version that does not rise, and it is filed: a debounced change crossing the flush
+that superseded it, with identical text ([#720](https://github.com/hexide-io/HexIDE/issues/720)).
 
 **On reconnect, tracked documents are replayed** through the same code path as a first open, carrying the
 version this connection has been tracking rather than `1`. Resetting to `1` would put the client's count
@@ -712,7 +728,7 @@ than inferred.
 | ○ | `textDocument/documentColor` | → |  |
 | ✅ | `textDocument/documentHighlight` | → |  |
 | ○ | `textDocument/documentLink` | → |  |
-| ✅ | `textDocument/documentSymbol` | → |  |
+| ✅ | `textDocument/documentSymbol` | → | Both answers are read. The client declares `hierarchicalDocumentSymbolSupport`, because a server that honours it sends the flat form to a client that does not, and the outline loses its nesting ([#463](https://github.com/hexide-io/HexIDE/issues/463)) |
 | ✅ | `textDocument/foldingRange` | → | Asked when an editor attaches, 500 ms after a change, and when a server comes up — the first of those runs before the first server of a session has initialized |
 | ✅ | `textDocument/formatting` | → |  |
 | ✅ | `textDocument/hover` | → |  |

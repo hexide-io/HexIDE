@@ -36,9 +36,24 @@ public static class VBFontExtensions
             FontManager.Current.TryGetGlyphTypeface(new Typeface(name), out var typeface)
             && string.Equals(typeface.FamilyName.Replace("\0", ""), name, StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>
+    /// Whether a program's FontName could name this family here: installed, or one of the Windows text fonts vb6.exe
+    /// takes by name (#1141). set_control_property takes such a face from text even when its name ends in a number or a
+    /// style word, as Wingdings 2 and MS Shell Dlg 2 do (#1311).
+    /// </summary>
+    public static bool IsNameable(string? family) =>
+        !string.IsNullOrEmpty(family) && AvaloniaInterop.FontMembers.Takes(family);
+
     public static FontWeight ToFontWeight(this VBFont font) =>
         font.Bold ? FontWeight.Bold : FontWeight.Normal;
 
     public static FontStyle ToFontStyle(this VBFont font) =>
         font.Italic ? FontStyle.Italic : FontStyle.Normal;
+
+    /// <summary>
+    /// The size to draw at, in device-independent pixels. A VB6 size is in points, and Avalonia's FontSize is in pixels at
+    /// 96 to the inch, so 12 points draw at 16. Handing the points straight over drew every VB6 font a quarter too small
+    /// (#910).
+    /// </summary>
+    public static double ToFontSize(this VBFont font) => font.Size * 96.0 / 72.0;
 }

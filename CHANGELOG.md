@@ -27,6 +27,11 @@ there isn't one yet. Anything may change between 0.x releases.
   truncation and argument errors follow measured VB6 behavior. Non-text operations remain explicitly unsupported;
   setting text over non-text formats is refused until they can be preserved (call Clear first).
 
+- **A TextBox's `MultiLine` and `ScrollBars`** (#1340). They were kept in the file and ignored, so Enter added
+  nothing, no long line wrapped and no box drew a scroll bar. Now a MultiLine box takes Enter as a CR LF on every host,
+  wraps unless it has a horizontal scroll bar, and draws the bars it asks for. A single-line box draws none, which also
+  ends the vertical bar fragment a short one showed (#914). Both read back at run time and refuse a write with 382, as
+  vb6.exe measured.
 - **A TextBox's `SelStart`, `SelLength` and `SelText`** (#1150). They raised 438. They now read and write as vb6.exe
   measured: setting SelStart drops the selection, positions past the end clamp, a negative one is 380, and SelText
   leaves the caret after what it put in.
@@ -180,6 +185,46 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`FontSize`, `FontBold`, `FontItalic`, `FontUnderline` and `FontStrikethru`, and a TextBox's own Font** (#1343,
+  #915). The five members stopped a run at the first read or write, and a TextBox had no Font of its own, so Notepad's
+  Format > Font stopped at its first line. Now every control with a font, and the form, reads and writes them as
+  vb6.exe measured: sizes snap to whole pixels, and GDI's bitmap fonts to the heights they have, turning into Arial past
+  a size of their own; the Booleans coerce and refuse as VB6's do. A TextBox draws in its own font, and its Font block
+  saves byte for byte.
+- **The Font dialog's sample draws in the face chosen** (#1353). It always drew in the default face, because a family's
+  name was bound where a FontFamily was wanted.
+
+- **A form the Project Explorer adds is saved into the project** (#1359). Closing the IDE wrote the form's file and
+  left the project file without it, so the next open had no such form, even after Yes to everything in the save
+  prompt. A project holding a form or module that has never been saved now counts as changed, so closing saves its
+  file listing them.
+- **A project is not saved without its never-saved forms** (#497). With the project ticked in the save prompt and a
+  never-saved form not, closing wrote a project file without the form. Where that was the startup form, vb6.exe
+  built the file in silence into a program that starts at `Sub Main`. Now nothing is written, a warning names the
+  files, and the project stays open.
+- **Add Form and Add Module no longer write over a file already in the folder** (#738). A new member's file replaced
+  any file of its name there, such as another project's `Module1.bas` in a shared folder. The Add commands now skip
+  to a number whose file is free, and automation's `add_file` refuses a name whose file is taken.
+
+- **A language server that waits to be told sends document symbols as a tree** (#463). HexIDE read the tree
+  but never declared that it could, so a server that honours the declaration, clangd among them, sent the flat
+  form and every outline from it lost its nesting.
+
+- **Two code windows over one name are one document to a language server** (#721). One file shared by two projects
+  of a group opens two windows that name it alike. Each kept its own version count, so a server was opened twice and
+  discarded whichever count was behind, and closing either window closed the document for both. The windows now
+  share it: opened by the first, one sequence of versions, closed by the last.
+
+- **An edit made while a language server starts reaches it** (#719). It was dropped, and the server analysed the
+  text from before the edit until the next edit or a save. With two servers on one language, the second was also
+  opened twice, the second time at a lower version with the older text. A change made during a start is now
+  recorded and carried by the open the server receives, which is sent once and before any change.
+- **A font's size is drawn in points** (#910). It was drawn as pixels, so every VB6 font came out a quarter too small:
+  a Label in 12-point Arial drew at 12 pixels instead of 16. The default font was held as 11, the pixels
+  VB6's 8.25 points draw at, and the designer's Font dialog wrote that into a .frm as `Size = 11`. It also turned 8.25
+  and 9.6 into 8 and 9, and reset the charset, underline, strikethrough and weight on OK. Now sizes are points
+  throughout, the default is 8.25, and the dialog keeps what it has no say over. A control on the default font draws
+  as it did. The dialog's sample now redraws as a size or a style is chosen; it kept the ones it opened with.
 - **Missing VB6 global objects fail explicitly** (#871). Reading `Screen`, `Clipboard`, `Printer`, `Printers` or
   `Forms` no longer silently returns Empty without Option Explicit. Bare and member reads report an unsupported
   object, which On Error cannot swallow; declared variables and user functions still take precedence.
@@ -197,6 +242,11 @@ there isn't one yet. Anything may change between 0.x releases.
   its ticks, cross and arrows. Labels, CommandButtons, CheckBoxes and OptionButtons are covered. The caption still reads
   back as the letters. On a machine without the font, as Linux and macOS are for Wingdings, the letters are drawn as
   before.
+- **A menu's Click as it opens, and a shortcut's parents' Clicks** (#1344). A menu that holds items never raised its
+  Click, so a program could not enable or disable the items before they showed: Notepad's Edit menu offered Cut with
+  nothing selected. A shortcut raised its own item's Click alone, even for an item disabled or hidden. Now opening a menu
+  raises its Click, and a shortcut raises each menu's from the top down to its item's, stopping at the first that is
+  disabled or hidden, with each asked after the Clicks above it have run, as vb6.exe measured.
 - **A program can use its menus** (#1126). Naming one in code stopped the run with "Variable not defined", so
   `mnuFile.Enabled = False` or a ticked level menu couldn't run, and choosing an element of a menu array called its
   Click without the Index. Now each menu has its name, a menu array works like a control array, Index on its Click

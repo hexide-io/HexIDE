@@ -141,6 +141,19 @@ public sealed class FontNameTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void A_face_FontName_takes_is_one_set_control_property_takes_whatever_its_name_ends_in()
+    {
+        // The predicate set_control_property passes PropertyText, so its Font text takes Wingdings 2 and MS Shell Dlg 2
+        // as faces, not as a face and a size typed without their comma (#1311). MS Shell Dlg 2 is a Windows name vb6.exe
+        // takes, installed or not; Arial 12 is no family at all.
+        VBFontExtensions.IsNameable("MS Shell Dlg 2").Should().BeTrue();
+        VBFontExtensions.IsNameable("ms shell dlg 2").Should().BeTrue("FontName takes a name without regard to case");
+        VBFontExtensions.IsNameable("Arial 12").Should().BeFalse();
+        VBFontExtensions.IsNameable("").Should().BeFalse();
+        VBFontExtensions.IsNameable("Wingdings 2").Should().Be(VBFontExtensions.IsInstalled("Wingdings 2"));
+    }
+
+    [AvaloniaFact]
     public Task FontName_reads_and_sets_as_vb6_exe_did() => Check("""
             On Error Resume Next
             Debug.Print Label1.FontName & " " & TypeName(Label1.FontName)
