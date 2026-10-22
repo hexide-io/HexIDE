@@ -907,10 +907,10 @@ public partial class MainViewViewModel : ObservableObject
             () => AddFormAsync().ListenErrors(),
             () => FocusedProjectUtil.FocusedOrStartupProject != null);
         AddModuleCommand = new DelegateCommand(
-            () => AddModuleAsync(ModuleKind.StandardModule, "Module").ListenErrors(),
+            () => AddModuleAsync(ModuleKind.StandardModule).ListenErrors(),
             () => FocusedProjectUtil.FocusedOrStartupProject != null);
         AddClassModuleCommand = new DelegateCommand(
-            () => AddModuleAsync(ModuleKind.ClassModule, "Class").ListenErrors(),
+            () => AddModuleAsync(ModuleKind.ClassModule).ListenErrors(),
             () => FocusedProjectUtil.FocusedOrStartupProject != null);
         AddUserControlCommand = new DelegateCommand(
             () => AddUserControlAsync().ListenErrors(),
@@ -1297,15 +1297,15 @@ public partial class MainViewViewModel : ObservableObject
     private async Task AddFormAsync()
     {
         if (FocusedProjectUtil.FocusedOrStartupProject is not { } p) return;
-        var name = ProjectNaming.NextFreeName(p, "Form");
+        var name = projectService.NextFreeFormName(p);
         var form = await projectService.AddNewForm(p, name);
         editorService.EditForm(form);
     }
 
-    private async Task AddModuleAsync(ModuleKind kind, string prefix)
+    private async Task AddModuleAsync(ModuleKind kind)
     {
         if (FocusedProjectUtil.FocusedOrStartupProject is not { } p) return;
-        var name = ProjectNaming.NextFreeName(p, prefix);
+        var name = projectService.NextFreeModuleName(p, kind);
         var module = await projectService.AddNewModule(p, name, kind);
         editorService.EditCode(module);
     }
@@ -1313,7 +1313,7 @@ public partial class MainViewViewModel : ObservableObject
     private async Task AddUserControlAsync()
     {
         if (FocusedProjectUtil.FocusedOrStartupProject is not { } p) return;
-        var name = ProjectNaming.NextFreeName(p, "UserControl");
+        var name = projectService.NextFreeModuleName(p, ModuleKind.UserControl);
         var module = await projectService.AddNewUserControl(p, name);
         editorService.EditForm(module.FormPart);
     }
@@ -1321,7 +1321,7 @@ public partial class MainViewViewModel : ObservableObject
     private async Task AddPropertyPageAsync()
     {
         if (FocusedProjectUtil.FocusedOrStartupProject is not { } p) return;
-        var name = ProjectNaming.NextFreeName(p, "PropertyPage");
+        var name = projectService.NextFreeModuleName(p, ModuleKind.PropertyPage);
         var module = await projectService.AddNewPropertyPage(p, name);
         editorService.EditForm(module.FormPart);
     }
