@@ -755,6 +755,7 @@ public class SerializationCorpusTests
         {
             AbsolutePath = path,
             StartupFormName = serialized.StartupFormName,
+            Description = serialized.Description ?? "",
         };
         var dir = Path.GetDirectoryName(path)!;
 

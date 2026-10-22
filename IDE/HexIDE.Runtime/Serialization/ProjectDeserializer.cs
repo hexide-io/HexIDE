@@ -79,6 +79,11 @@ public class ProjectDeserializer
                 project.Name = value;
                 knownKeyCount++;
             }
+            else if (key.Equals(SerializedProject.DescriptionKey, StringComparison.OrdinalIgnoreCase))
+            {
+                project.Description = value;
+                knownKeyCount++;
+            }
             else if (key.Equals(SerializedProject.TypeKey, StringComparison.OrdinalIgnoreCase))
             {
                 project.ProjectType = ProjectTypeFromString(value);
@@ -211,10 +216,34 @@ public class ProjectDeserializer
             }
         }
 
+        if (project.Description is null)
+            MakeRoomForDescription(project.UnknownPreSectionLines, knownKeyCount);
+
         if (extensionTailBuilder.Length > 0)
             project.ExtensionTail = extensionTailBuilder.ToString().TrimEnd();
 
         return project;
+    }
+
+    /// <summary>
+    /// Leaves a slot for a <c>Description=</c> line in a file that has none, after its <c>HelpContextID</c> line, or
+    /// straight after the last known key when there is no such line. VB6 writes it there (#42).
+    /// </summary>
+    /// <remarks>
+    /// The writer puts a known key after the unknown lines whose hint is at or below its count. In a file with no
+    /// description, every unknown line after the last known key has the same hint, so a description typed in later
+    /// would follow all of them, <c>MajorVer</c> and the rest included. Raising the hint of the lines after
+    /// <c>HelpContextID</c> by one splits that run where the line belongs. With no description to write, the writer
+    /// emits the run unchanged, in the same order, so an untouched file still saves byte for byte. A file that has a
+    /// description already splits the run where it stands, so nothing is raised.
+    /// </remarks>
+    private static void MakeRoomForDescription(List<(int PositionHint, string RawLine)> unknowns, int last)
+    {
+        var helpContext = unknowns.FindIndex(u => u.PositionHint == last
+            && u.RawLine.StartsWith(SerializedProject.HelpContextIdKey + "=", StringComparison.OrdinalIgnoreCase));
+        for (var i = helpContext + 1; i < unknowns.Count; i++)
+            if (unknowns[i].PositionHint == last)
+                unknowns[i] = (last + 1, unknowns[i].RawLine);
     }
 }
 
@@ -222,6 +251,7 @@ public class SerializedProject
 {
     public VBProjectType ProjectType { get; set; }
     public string? Name { get; set; }
+    public string? Description { get; set; }
     public List<string> RelativeFormPaths { get; } = new();
     public List<(string Name, string Path, ModuleKind Kind)> RelativeModulePaths { get; } = new();
 
@@ -268,6 +298,16 @@ public class SerializedProject
     public string? ExtensionTail { get; set; }
 
     public const string NameKey = "Name";
+
+    /// <summary>
+    /// The project's description, as Project Properties sets it. Measured with VB6's Save Project As: written quoted,
+    /// a quote inside doubled, after <c>HelpContextID</c> and before <c>CompatibleMode</c>, and not written at all when
+    /// there is none (#42).
+    /// </summary>
+    public const string DescriptionKey = "Description";
+
+    /// <summary>Not modelled, and kept as read. VB6 writes it between <c>Name</c> and <c>Description</c>.</summary>
+    public const string HelpContextIdKey = "HelpContextID";
     public const string TypeKey = "Type";
     public const string FormKey = "Form";
     public const string ModuleKey = "Module";
