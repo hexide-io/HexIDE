@@ -140,10 +140,13 @@ public class FontMembersTests
     [AvaloniaFact]
     public void FontSize_takes_the_size_vb6_exe_gave_and_refuses_what_it_refused()
     {
+        // The probe's second TrueType face was Lucida Console. Linux has none, and FontName refuses a face the machine
+        // lacks unless it is one of the Windows fonts it always takes, so this uses Courier New, which is, and which the
+        // every-height run measured exactly as it measured Lucida Console.
         Run("""
                 Sizes Text1, "Text1/Arial", Array(8, 9, 10, 11, 12, 13, 14, 16, 7.5, 9.7, 36, 0.5, 1, 9.375, 11.625, 0.1, 0, -1, 2000, 2048, 2160, 2161, 1E+30, "12", "abc", Null, True)
-                Text1.FontName = "Lucida Console"
-                Sizes Text1, "Text1/Lucida", Array(10, 13, 9.375)
+                Text1.FontName = "Courier New"
+                Sizes Text1, "Text1/Courier", Array(10, 13, 9.375)
                 Sizes Label1, "Label1/MSSansSerif", Array(9, 10, 11, 12, 13, 14, 16, 7.5, 36, 0.5)
                 Sizes Me, "Form/MSSansSerif", Array(9, 13)
 
@@ -175,9 +178,9 @@ public class FontMembersTests
             "Text1/Arial FontSize=String abc -> 12 err=13",
             "Text1/Arial FontSize=Null  -> 12 err=13",
             "Text1/Arial FontSize=Boolean True -> 12 err=380",
-            "Text1/Lucida FontSize=Integer 10 -> 9.75 err=0",
-            "Text1/Lucida FontSize=Integer 13 -> 12.75 err=0",
-            "Text1/Lucida FontSize=Double 9.375 -> 9.75 err=0",
+            "Text1/Courier FontSize=Integer 10 -> 9.75 err=0",
+            "Text1/Courier FontSize=Integer 13 -> 12.75 err=0",
+            "Text1/Courier FontSize=Double 9.375 -> 9.75 err=0",
             "Label1/MSSansSerif FontSize=Integer 9 -> 8.25 err=0",
             "Label1/MSSansSerif FontSize=Integer 10 -> 9.75 err=0",
             "Label1/MSSansSerif FontSize=Integer 11 -> 9.75 err=0",
