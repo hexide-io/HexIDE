@@ -150,9 +150,29 @@ public class ExecutionState
     /// <summary>Whether a slot is known to be a Variant (<see cref="MarkVariant"/>).</summary>
     public bool IsVariant(int location) => variantLocations.Contains(location);
 
+    // A ByRef parameter given a UDT field (#1451): its slot reads and writes the field itself, for as long as the call runs.
+    private readonly Dictionary<int, UdtFieldRef> fieldSlots = new();
+
+    /// <summary>A slot that stands for <paramref name="field"/>, as a ByRef parameter's slot stands for its caller's.</summary>
+    public int AllocField(UdtFieldRef field)
+    {
+        var loc = Alloc(field.Read());
+        fieldSlots[loc] = field;
+        return loc;
+    }
+
+    /// <summary>Ends <see cref="AllocField"/>'s link, when the call that made it returns.</summary>
+    public void ReleaseField(int location) => fieldSlots.Remove(location);
+
     public Vb6Value this[int location]
     {
-        get => memory[location];
-        set => memory[location] = value;
+        get => fieldSlots.Count > 0 && fieldSlots.TryGetValue(location, out var field) ? field.Read() : memory[location];
+        set
+        {
+            if (fieldSlots.Count > 0 && fieldSlots.TryGetValue(location, out var field))
+                field.Write(value);
+            else
+                memory[location] = value;
+        }
     }
 }
