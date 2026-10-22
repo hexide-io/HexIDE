@@ -1393,10 +1393,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     };
 
     // The declared type a parameter's own slot records, as a Dim's does, so that a store into it converts and a For over
-    // it is a typed counter (measured, #839: `Function P(ByVal i As Long)` counts as a Long). Only the numeric types,
-    // whose value is already converted on the way in; a String, Boolean or Date parameter is not converted yet (#874).
-    private static Vb6Value.ValueType? NumericSlotType(ParamInfo p) =>
-        p.DeclaredType is { } dt && VbNumeric.IsCoreNumeric(dt) ? dt : null;
+    // it is a typed counter (measured, #839: `Function P(ByVal i As Long)` counts as a Long; #874: `x = 5` in a String
+    // parameter is "5", and `x = "abc"` in a Boolean one 13). Every type a variable can be declared as.
+    private static Vb6Value.ValueType? DeclaredSlotType(ParamInfo p) =>
+        p.DeclaredType is { } dt && VbNumeric.IsDeclarableScalar(dt) ? dt : null;
 
     private async Task BindParameters(ProcedureInfo proc, IReadOnlyList<CallArg> args, ExecutionEnvironment callee, ModuleInfo owner, List<int> ownedSlots)
     {
@@ -1440,10 +1440,14 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     var passed = p.DeclaredType is { } declared && VbNumeric.IsDeclarableScalar(declared)
                         ? ObjectAsValue.Scalar(arg.Value, proc.Body as Antlr4.Runtime.ParserRuleContext)
                         : arg.Value;
-                    var stored = p.DeclaredType is { } dt && VbNumeric.IsCoreNumeric(dt) && proc.Body is { } body
-                        ? VbNumeric.Narrow(passed, dt, body)
+                    // Converted as a store into a variable of the type converts, before the procedure runs, so a value
+                    // that will not convert raises in the caller (measured, #874: `B "abc"` with `ByVal x As Boolean` is
+                    // 13 at the call, `S 5` with `ByVal x As String` is "5", `D "1/2/2000"` As Date is that date, and
+                    // `NI "12"` As Integer is 12, which Narrow read as 0).
+                    var stored = DeclaredSlotType(p) is { } dt
+                        ? VbNumeric.CoerceOnStore(passed, dt, proc.Body as Antlr4.Runtime.ParserRuleContext)
                         : CopyForStore(passed);
-                    ExecutionContext.AllocVariable(callee, p.Name, stored, NumericSlotType(p));
+                    ExecutionContext.AllocVariable(callee, p.Name, stored, DeclaredSlotType(p));
                     MarkParameterSlot(p, callee);
                     // A ByVal object param is a counted hold for the call's duration (so a `New T` passed straight
                     // into a call terminates right after the call, per the oracle); release it at scope-exit. A ByVal
@@ -1469,9 +1473,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     ? await new ExpressionExecutor(this, callee, owner, new Stack<Vb6Value>()).EvaluateValue(p.Default.valueStmt())
                     : p.DeclaredType is { } declared ? new Vb6Value(declared)
                     : Vb6Value.Missing;
-                if (NumericSlotType(p) is { } numeric && proc.Body is { } optionalBody)
-                    value = VbNumeric.Narrow(value, numeric, optionalBody);
-                ExecutionContext.AllocVariable(callee, p.Name, value, NumericSlotType(p));
+                // A default converts into the parameter's type too (measured, #874: `Optional x As String = 5` is "5",
+                // `As Date = "1/2/2003"` that date, `As Boolean = 1` True, and `As Integer = 2.5` 2).
+                if (DeclaredSlotType(p) is { } declaredSlot)
+                    value = VbNumeric.CoerceOnStore(value, declaredSlot, proc.Body as Antlr4.Runtime.ParserRuleContext);
+                ExecutionContext.AllocVariable(callee, p.Name, value, DeclaredSlotType(p));
                 MarkParameterSlot(p, callee);
             }
             else
