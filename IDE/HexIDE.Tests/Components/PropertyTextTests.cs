@@ -326,7 +326,19 @@ public class PropertyTextTests
     {
         // No test project references HexIDE.Desktop, so this reads the source: both took the first match by name.
         foreach (var tool in new[] { "set_control_property", "move_control" })
-            ToolSource.Tools.Single(t => t.Name == tool).Body.Should().Contain("PropertyText.NamedOne(", tool);
+        {
+            var body = ToolSource.Tools.Single(t => t.Name == tool).Body;
+            body.Should().Contain("PropertyText.NamedOne(", tool);
+
+            // The refusal is returned, inside the reply. Without that branch NamedOne's null read as "no control named",
+            // which sent the caller looking for a control that exists, and every test still passed (#1322).
+            body.Should().MatchRegex(
+                @"PropertyText\.NamedOne\([^;]*\bout\s+var\s+(?<v>\w+)\s*\)\s*;\s*if\s*\(\s*\k<v>\s+is\s+not\s+null\s*\)\s*return\b[^;]*\{\s*\k<v>\s*\}",
+                $"{tool} returns NamedOne's refusal, naming the array's indexes");
+
+            // And the reply names the element it changed, as lblTitle(1), not as lblTitle.
+            body.Should().Contain("PropertyText.AddressedName(", tool);
+        }
     }
 
     [Theory]
@@ -389,10 +401,45 @@ public class PropertyTextTests
     [Fact]
     public void A_font_given_in_part_keeps_the_rest()
     {
-        Font("DejaVu Sans").Should().Be(new VBFont("DejaVu Sans", 9.75, bold: true, italic: true), "the face, as the gap sent it, with the charset a new face takes, as the Font dialog gives it");
+        Font("DejaVu Sans").Should().Be(new VBFont("DejaVu Sans", 9.75, bold: true, italic: true), "the face, as the gap sent it, with the charset VB6 gives a text face, 0");
         Font("12 pt").Should().Be(new VBFont("Tahoma", 12, bold: true, italic: true, charset: 204));
         Font("12").Should().Be(new VBFont("Tahoma", 12, bold: true, italic: true, charset: 204));
         Font("charset 0").Should().Be(new VBFont("Tahoma", 9.75, bold: true, italic: true));
+    }
+
+    [Theory]
+    [InlineData("Wingdings", 2)]
+    [InlineData("WEBDINGS", 2)]
+    [InlineData("Symbol", 2)]
+    [InlineData("Marlett", 2)]
+    [InlineData("Terminal", 255)]
+    [InlineData("modern", 255)]
+    [InlineData("Roman", 255)]
+    [InlineData("Script", 255)]
+    [InlineData("Arial", 0)]
+    public void A_new_face_without_a_charset_takes_the_charset_vb6_gives_it(string face, int charset)
+    {
+        // As FontName sets it, measured on vb6.exe: a symbol font at 0 is not drawn as itself, by GDI or by HexIDE (#1310).
+        Font(face, current: new VBFont("Arial", 9.75)).Charset.Should().Be(charset);
+        Font(face, current: new VBFont("Courier New", 9.75, charset: 204)).Charset.Should().Be(charset);
+    }
+
+    [Fact]
+    public void The_same_face_in_another_case_is_the_same_face_and_keeps_its_charset()
+    {
+        // The comparison was ordinal, so "wingdings" on a control in Wingdings was a new face, at charset 0 (#1310).
+        var wingdings = new VBFont("Wingdings", 12, charset: 2);
+
+        Font("wingdings", current: wingdings).Should().Be(wingdings, "the face as the control spells it, and its charset");
+        Font("Arial", current: wingdings).Charset.Should().Be(0, "a new face, which VB6 gives 0");
+        Font("Wingdings, charset 0", current: new VBFont("Arial", 12)).Charset.Should().Be(0, "a charset given is the charset");
+    }
+
+    [Fact]
+    public void The_font_text_form_says_a_new_face_takes_its_own_charset()
+    {
+        PropertyText.Accepted(VBProperties.FontProperty).Should().NotContain("takes charset 0")
+            .And.Contain("Wingdings").And.Contain("charset 2").And.Contain("255");
     }
 
     [Fact]
@@ -461,6 +508,56 @@ public class PropertyTextTests
     public void A_face_that_starts_with_a_digit_or_holds_a_style_word_is_still_a_face(string face)
     {
         Font(face).FontFamilyName.Should().Be(face);
+    }
+
+    [Theory]
+    [InlineData("Wingdings 2")]
+    [InlineData("Arial Rounded MT Bold")]
+    [InlineData("MS Shell Dlg 2")]
+    public void A_face_ending_in_a_number_or_style_word_round_trips(string face)
+    {
+        // The guess that a first part was a size or a style typed without its comma took these real faces for one, so
+        // get_form_controls showed a font that set_control_property refused, in a row marked not settable (#1311).
+        var font = new VBFont(face, 10, charset: 2);
+        Font(PropertyText.Shown(VBProperties.FontProperty, font), current: font).Should().Be(font);
+
+        var label = new ComponentInstance(LabelComponentClass.Instance, "Label1");
+        label.SetUntypedProperty(VBProperties.FontProperty, font);
+        PropertyText.Rows(label).Single(r => r.Name == "Font").Settable.Should().BeTrue();
+    }
+
+    [Fact]
+    public void A_face_the_caller_knows_is_a_face_whatever_its_name_ends_in()
+    {
+        static bool Known(string face) => face == "Wingdings 2";
+
+        PropertyText.TryParse(VBProperties.FontProperty, "Wingdings 2, 12 pt", out var value, Tahoma, Known).Should().BeTrue();
+        value.Should().BeOfType<VBFont>().Which.FontFamilyName.Should().Be("Wingdings 2");
+
+        PropertyText.TryParse(VBProperties.FontProperty, "Arial 12", out _, Tahoma, Known).Should().BeFalse("no face is named so");
+        PropertyText.TryParse(VBProperties.FontProperty, "Tahoma bold", out _, Tahoma, Known).Should().BeFalse();
+
+        // No test project references HexIDE.Desktop, so this reads the source: the tool asks what FontName takes here.
+        ToolSource.Tools.Single(t => t.Name == "set_control_property").Body
+            .Should().MatchRegex(@"PropertyText\.TryParse\([^;]*VBFontExtensions\.IsNameable\s*\)");
+    }
+
+    [Theory]
+    [InlineData("Arial 12", "a size")]
+    [InlineData("Arial 12pt", "a size")]
+    [InlineData("Tahoma bold", "a style word")]
+    public void A_face_followed_by_a_size_or_style_without_its_comma_is_refused_saying_so(string text, string what)
+    {
+        // The refusal described the text form the caller had sent, and never said which rule it broke (#1311).
+        PropertyText.TryParse(VBProperties.FontProperty, text, out _, out var reason, Tahoma).Should().BeFalse();
+
+        reason.Should().Contain($"'{text}'").And.Contain(what).And.Contain("comma").And.Contain("installed");
+    }
+
+    [Fact]
+    public void The_font_text_form_says_when_a_face_ending_in_a_number_is_one()
+    {
+        PropertyText.Accepted(VBProperties.FontProperty).Should().Contain("Wingdings 2").And.Contain("installed");
     }
 
     [Fact]

@@ -207,6 +207,11 @@ there isn't one yet. Anything may change between 0.x releases.
   its ticks, cross and arrows. Labels, CommandButtons, CheckBoxes and OptionButtons are covered. The caption still reads
   back as the letters. On a machine without the font, as Linux and macOS are for Wingdings, the letters are drawn as
   before.
+- **A menu's Click as it opens, and a shortcut's parents' Clicks** (#1344). A menu that holds items never raised its
+  Click, so a program could not enable or disable the items before they showed: Notepad's Edit menu offered Cut with
+  nothing selected. A shortcut raised its own item's Click alone, even for an item disabled or hidden. Now opening a menu
+  raises its Click, and a shortcut raises each menu's from the top down to its item's, stopping at the first that is
+  disabled or hidden, with each asked after the Clicks above it have run, as vb6.exe measured.
 - **A program can use its menus** (#1126). Naming one in code stopped the run with "Variable not defined", so
   `mnuFile.Enabled = False` or a ticked level menu couldn't run, and choosing an element of a menu array called its
   Click without the Index. Now each menu has its name, a menu array works like a control array, Index on its Click
