@@ -11024,8 +11024,9 @@ Immediate window's own two empty lines at its end.
 What these add to the table above:
 - **`Debug.Print` formats as `Print #` does,** zones, spacing and an open line included.
 - **`Tab(n)` moves to column n**, and to n on the next line when the line is already past it. `Spc(n)` writes n spaces.
-- **`1.5E-10` prints as `0.00000000015`,** where `Str` and `CStr` write `1.5E-10` (*Number to text*). Print has a rule of
-  its own for small numbers, or reads them another way; this probe doesn't say which.
+- **`1.5E-10`, a Double, prints as `0.00000000015`.** `CStr` writes a Single's `1.5E-10` and a Double's `1E-100` in
+  E notation (*Turning a number or a date into text*), so Print may have a rule of its own for small numbers. `CStr` of
+  this Double was not measured, so this probe doesn't settle it.
 - **`CDbl(1E+20)` has its sign space here**, ` 1E+20 `, between ` 0.1 ` and the end. The row above gives it as `1E+20 `,
   starting its zone. With commas the leading space would be the zone's padding, so the two may be one result read two
   ways. Today's, with semicolons, leaves no doubt that the space is there.
