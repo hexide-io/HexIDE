@@ -184,6 +184,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Save Project no longer writes a second header into a `.bas` or `.cls` whose first line is blank** (#472). The
+  header reader looked for the header on line 0 alone. So one blank line above it left the whole file as code, and
+  Save Project, which writes every module, put the canonical header in front of it, unasked. For a class, that
+  header contradicted the file's own instancing. The reader now finds the header below blank lines, and keeps them.
+  A save no longer adds a header to code that carries its own `VB_Name`. A class whose `BEGIN` has no `END` no
+  longer loses its code to the header, or grows by a line on every save.
 - **`Debug.Print` prints every item, as VB6's Immediate window does** (#1380). Only the first item reached the Immediate
   window, so `Debug.Print "x ="; x` showed `x =` alone, and a trailing `;` still ended the line. Now `Debug.Print` writes
   what `Print #` writes, which is what VB6 does, line for line, as measured in its IDE:
