@@ -24,7 +24,7 @@
     "Str.Dialog.UnsavedMembers.NothingWritten": "未儲存任何內容。{0} 的專案檔案會遺漏下列從未儲存過的檔案：\n\n{1}\n\n專案檔案只能列出已經儲存過的檔案。請將它們與專案一起儲存，或不要儲存專案。您的變更仍在 IDE 中保持開啟。",
     "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} 無法以這台電腦的字碼頁 ({1}) 讀取，因此改以西歐語系 (Latin-1) 文字逐位元組開啟。若未經變更即儲存，會寫回相同的位元組，但無法在該檔案中加入 Latin-1 以外的字元。以其他字碼頁撰寫的文字可能會顯示為亂碼。",
     "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "這些檔案無法以這台電腦的字碼頁 ({1}) 讀取，因此改以西歐語系 (Latin-1) 文字逐位元組開啟：\n\n{0}\n\n若未經變更即儲存，會寫回相同的位元組，但無法在這些檔案中加入 Latin-1 以外的字元。以其他字碼頁撰寫的文字可能會顯示為亂碼。",
-    "Str.Dialog.ConflictingNames": "在 '{0}' 中發現衝突的名稱。將使用名稱 '{1}'。表單的 Attribute VB_Name 現在也是 '{1}'，並會在下次儲存表單時寫入。",
+    "Str.Dialog.ConflictingNames": "在 '{0}' 中發現衝突的名稱。將使用名稱 '{1}'。其 Attribute VB_Name 現在也是 '{1}'，並會在下次儲存時寫入。",
     "Str.Options.Language.RegionLabel": "地區:",
     "Str.Options.Language.RegionStandard": "(標準)",
     "Str.Options.Language.Customize": "自訂翻譯…",

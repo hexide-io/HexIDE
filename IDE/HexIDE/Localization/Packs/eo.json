@@ -24,7 +24,7 @@
     "Str.Dialog.UnsavedMembers.NothingWritten": "Nenio estis konservita. La projektdosiero de {0} preterlasus ĉi tiujn dosierojn, ĉar ili neniam estis konservitaj:\n\n{1}\n\nProjektdosiero povas listigi dosieron nur post kiam tiu dosiero estas konservita. Konservu ilin kune kun la projekto, aŭ lasu la projekton nekonservita. Viaj ŝanĝoj ankoraŭ estas malfermitaj en la IDE.",
     "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} ne povis esti legita laŭ la kodpaĝo de ĉi tiu komputilo ({1}), do ĝi estis malfermita bajton post bajto, kiel okcidenteŭropa (Latin-1) teksto. Konservi ĝin neŝanĝita skribas reen la samajn bajtojn, sed signoj ekster Latin-1 ne povas esti aldonitaj al la fontdosiero. Teksto skribita en alia kodpaĝo povas aspekti fuŝita.",
     "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "Ĉi tiuj dosieroj ne povis esti legitaj laŭ la kodpaĝo de ĉi tiu komputilo ({1}), do ili estis malfermitaj bajton post bajto, kiel okcidenteŭropa (Latin-1) teksto:\n\n{0}\n\nKonservi ilin neŝanĝitaj skribas reen la samajn bajtojn, sed signoj ekster Latin-1 ne povas esti aldonitaj al la dosieroj. Teksto skribita en alia kodpaĝo povas aspekti fuŝita.",
-    "Str.Dialog.ConflictingNames": "Konfliktaj nomoj troviĝis en '{0}'. La nomo '{1}' estos uzata. La Attribute VB_Name de la formularo nun ankaŭ diras '{1}', kaj estos skribita kiam la formularo estos venontfoje konservita.",
+    "Str.Dialog.ConflictingNames": "Konfliktaj nomoj troviĝis en '{0}'. La nomo '{1}' estos uzata. Ĝia Attribute VB_Name nun ankaŭ diras '{1}', kaj estos skribita ĉe la venonta konservo.",
     "Str.Menu.File": "_Dosiero",
     "Str.Menu.File.NewProject": "_Nova Projekto",
     "Str.Menu.File.OpenProject": "_Malfermi Projekton...",

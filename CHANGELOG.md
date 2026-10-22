@@ -208,6 +208,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A UserControl or PropertyPage is named by its `Begin` line, as VB6 names it** (#1411). HexIDE named it after its
+  file, so `Gauge.ctl` holding `Begin VB.UserControl ctlDial` was "Gauge". A form using the control as VB6 does, as
+  `Begin probe.ctlDial`, then found no such control, and kept it as text it could neither draw nor run. Where its
+  `Begin` line and `VB_Name` disagree, the project now opens with VB6's warning and makes `VB_Name` agree, as #1407
+  does for a form.
 - **A form whose `Begin` line and `Attribute VB_Name` disagree opens as VB6 opens it** (#1407). HexIDE already named
   such a form by its `Begin` line, as VB6 does, but said nothing and saved the contradiction back. HexIDE itself wrote
   such files before #1059. Opening the project now shows VB6's "Conflicting names were found…" warning. The form's
