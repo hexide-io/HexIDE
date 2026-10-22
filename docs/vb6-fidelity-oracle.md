@@ -9660,7 +9660,7 @@ input, from every row above that HexIDE can reach.
 
 What it still does not do:
 - **DblClick** is raised by nothing (#1031).
-- **The form's own Click** is raised by nothing, as before.
+- **The form's own Click** is raised by nothing, as before. Since #1364 it is: *A click with real input* below.
 - **Shift's mask and MouseMove's buttons** are taken from the pointer event, which is where they live in Avalonia;
   VB6 takes them from the device, which is the same thing for real input.
 - **A press on a 3-D TextBox's or ListBox's 2-pixel border** reaches the control in HexIDE with a negative X or Y,
@@ -9719,6 +9719,25 @@ What these show:
 - **This answers the question *Mouse events* left open.** Synthetic messages raised no Click on a windowless Label, an
   Image, a PictureBox or the form because VB6 raises their Click from real input, and from where the cursor is, not
   from the message.
+
+### HexIDE
+
+Before #1364, nothing raised the form's own Click.
+
+Since #1364, the form raises Click on the release, after MouseUp, for the left, right and middle buttons.
+- **Where:** only when the press was on the form's own area and the release is over it again. The release is
+  hit-tested where it is, since the pointer stays captured by the form. So a release over a control, or outside the
+  client, gives the form its MouseUp and no Click.
+- **Double click:** the press's click count leaves out the Click VB6 does not raise on a double click's second release.
+  A third click is a new Click.
+- **Pinned** in `MouseEventTests`, with real headless pointer input, from the form's rows above, all but DblClick.
+
+What it still does not do:
+- **DblClick** is raised by nothing, on the form or any control, so a double click's second press still raises a
+  MouseDown (#1031).
+- **A press on a Label, an Image, a PictureBox, a TextBox or a ListBox** raises that control's Click wherever the
+  release lands. Only a CommandButton, through Avalonia's own Button, checks (#1373).
+- **A ListBox raises Click after MouseUp** (#1374).
 
 ## One handler at a time (2026-10-14, #766)
 

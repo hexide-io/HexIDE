@@ -185,6 +185,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A form's own Click runs** (#1364). A click on the form's area, over no control, ran `Form_MouseDown` and
+  `Form_MouseUp` and never `Form_Click`. Now Click follows MouseUp, for the left, right and middle buttons, as
+  vb6.exe does with real input. As in VB6, a press released over a control or outside the form gives no Click. A
+  double click gives one Click, not two, though DblClick itself is still to come (#1031).
 - **An edit made while a language server starts reaches it** (#719). It was dropped, and the server analysed the
   text from before the edit until the next edit or a save. With two servers on one language, the second was also
   opened twice, the second time at a lower version with the older text. A change made during a start is now

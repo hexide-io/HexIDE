@@ -292,6 +292,119 @@ public class MouseEventTests
         run.Printed.Should().Equal($"Form MouseDown 1 0 {expected}", $"Form MouseUp 1 0 {expected}");
     }
 
+    // A form's own Click, measured with real input (the oracle's "A click with real input", #1364). Form1's client area is
+    // 312 by 206 pixels, and (300, 10) and (250, 150) are over no control.
+
+    [AvaloniaTheory]
+    [InlineData(MouseButton.Left, 1)]
+    [InlineData(MouseButton.Right, 2)]
+    [InlineData(MouseButton.Middle, 4)]
+    public void The_form_raises_Click_after_MouseUp_for_every_button(MouseButton button, int vbButton)
+    {
+        // Measured: MouseDown, MouseUp, Click, for the right and middle buttons too, unlike a CommandButton.
+        using var run = Start(Form(Twips, Controls), Handlers("Form"));
+
+        run.Click(new Point(300, 10), button);
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal($"Form MouseDown {vbButton} 0 4500 150", $"Form MouseUp {vbButton} 0 4500 150", "Form Click");
+    }
+
+    [AvaloniaFact]
+    public void A_press_and_release_in_different_places_on_the_form_is_still_a_Click()
+    {
+        // Measured: a 50-pixel move across the form between the press and the release changes nothing.
+        using var run = Start(Form(Twips, Controls), Handlers("Form"));
+
+        run.Window.MouseDown(new Point(300, 10), MouseButton.Left);
+        run.Window.MouseUp(new Point(250, 150), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 3750 2250", "Form Click");
+    }
+
+    [AvaloniaFact]
+    public void A_release_over_a_control_gives_the_form_its_MouseUp_and_no_Click()
+    {
+        // Measured: pressed on the form and released over the windowless Label1, the form has MouseUp in its own
+        // coordinates, and there is no Click on the form or the Label.
+        using var run = Start(Form(Twips, Controls), Handlers("Form") + Handlers("Label1"));
+
+        run.Window.MouseDown(new Point(300, 10), MouseButton.Left);
+        run.Window.MouseUp(run.At("Label1", 5, 3), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 315 1245");
+    }
+
+    [AvaloniaFact]
+    public void A_release_outside_the_form_gives_it_its_MouseUp_and_no_Click()
+    {
+        // Measured: released outside the window, the form has MouseUp past its client area, and no Click.
+        using var run = Start(Form(Twips, Controls), Handlers("Form"));
+
+        run.Window.MouseDown(new Point(300, 10), MouseButton.Left);
+        run.Window.MouseUp(new Point(330, 10), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4950 150");
+    }
+
+    [AvaloniaFact]
+    public void A_press_on_a_control_released_on_the_form_is_nothing_to_the_form()
+    {
+        // Measured: pressed on Command1 and released on the form, the form has no event at all.
+        using var run = Start(Form(Twips, Controls), Handlers("Form"));
+
+        run.Window.MouseDown(run.At("Command1", 10, 5), MouseButton.Left);
+        run.Window.MouseUp(new Point(300, 10), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().BeEmpty();
+    }
+
+    [AvaloniaFact]
+    public void A_double_click_on_the_form_raises_one_Click_and_a_third_click_another()
+    {
+        // Measured: a double click is MouseDown, MouseUp, Click, DblClick, MouseUp, and a third press starts a new click.
+        // HexIDE raises no DblClick yet, and still a MouseDown for the second press (#1031), but no second Click.
+        using var run = Start(Form(Twips, Controls), Handlers("Form"));
+
+        run.Click(new Point(300, 10));
+        run.Click(new Point(300, 10));
+        run.Printed.Where(p => p == "Form Click").Should().ContainSingle();
+        run.Printed.Should().StartWith(["Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4500 150", "Form Click"]);
+
+        run.Click(new Point(300, 10));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Where(p => p == "Form Click").Should().HaveCount(2);
+        run.Printed[^1].Should().Be("Form Click");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(15L)]
+    [InlineData(-1L)]
+    public void Under_the_debuggers_time_slice_the_forms_Click_follows_its_MouseUp(long timeSliceMs)
+    {
+        using var run = Start(Form(Twips, Controls), Handlers("Form"), Debugger(timeSliceMs));
+
+        Thread.Sleep(40);
+        run.Window.MouseDown(new Point(300, 10), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        Thread.Sleep(40);
+        run.Window.MouseUp(new Point(300, 10), MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        Dispatcher.UIThread.RunJobs();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4500 150", "Form Click");
+    }
+
     [AvaloniaFact]
     public void A_controls_events_are_twips_on_a_pixel_form()
     {
