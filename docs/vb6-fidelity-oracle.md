@@ -1703,7 +1703,7 @@ the name now or the name the control was drawn with.
   set, and none matches.
 - **A Dropdown List's Text** is never written to the .frm, and is ignored at load. At run time, reading or writing it is
   refused as not implemented, naming #1428, because what it does there needs the Style modelled.
-- **Not done:** Click and Change (#1429). Every row above that raises one runs without it.
+- **Click and Change** come as measured since #1429, which records them with real input.
 - **Not done:** the designer resetting a combo's Text to its name when its Style becomes 2 (#1428).
 
 ## A ComboBox's Click, Change and DropDown, with real input (2026-10-22, #1429)
@@ -1762,6 +1762,24 @@ What these show:
 - Code: `ListIndex = n` raises Click when it moves the selection, and not when it doesn't. `Text = s` raises Change
   unless `s` is the Text already. Neither `Clear`, `AddItem`, `RemoveItem` nor `List(i) =` raises either (the oracle's
   "A ComboBox's Text" and "A list's members").
+
+What resisted explanation:
+- **F4 then Down, with Text `apple` and nothing selected, selected `Banana`,** not `apple`. So the open list seems to
+  start from the item the edit box's text matches, though `ListIndex` read -1 in DropDown. One case is not a rule:
+  whether the match is exact, without regard to case or by prefix is not measured.
+
+### In HexIDE (#1429)
+
+- **Every row above runs as measured** but that one, which is left out of the tests: there HexIDE's Down selects the
+  first item.
+- **Click is raised where the input is taken,** not from Avalonia's selection, which also moves for a list edit that
+  raises nothing.
+- **The arrow keys are the combo's own,** list open or closed. Avalonia's move only the focus in an open list, and from
+  no selection its Up selects nothing.
+- **Avalonia's editable combo selects the item a new Text matches,** without regard to case. Typing therefore reads every
+  item as a text no one can type, and an item chosen whose text another shares, `Banana` and `banana`, stays chosen.
+- **Not measured:** a Simple Combo's list, always shown in VB6, which HexIDE draws as a dropdown (#1428), and whether
+  arrow keys, like the mouse, leave the chosen item's text selected in the edit box.
 
 ## Out of stack space — Error 28 (2026-08-22, #80)
 
