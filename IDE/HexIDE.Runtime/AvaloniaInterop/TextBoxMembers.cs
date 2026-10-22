@@ -18,6 +18,9 @@ namespace HexIDE.Runtime.AvaloniaInterop;
 /// <item>Setting SelText replaces the selection, or inserts at the caret, and leaves the caret after what it put in.
 /// It is code's, so a Locked box takes it.</item>
 /// </list>
+/// MultiLine and ScrollBars read back as a Boolean and an Integer, and setting either is 382, "'MultiLine' property
+/// cannot be set at run time" (measured, #1340). Set early-bound, VB6 refuses it at compile time instead, "Can't assign to
+/// read-only property"; here it is the 382, when the statement runs.
 /// </summary>
 /// <remarks>
 /// <para>VB6 keeps SelText to MaxLength (measured), which HexIDE's TextBox doesn't model yet, so nothing limits it here.</para>
@@ -48,6 +51,13 @@ internal static class TextBoxMembers
                 return true;
             case "seltext":
                 value = new Vb6Value(TextOf(box).Substring(start, length));
+                return true;
+            case "multiline":
+                value = new Vb6Value(box.MultiLine);
+                return true;
+            case "scrollbars":
+                // An int that fits 16 bits is an Integer.
+                value = new Vb6Value(box.ScrollBars);
                 return true;
             default:
                 return false;
@@ -84,10 +94,17 @@ internal static class TextBoxMembers
                 Select(box, start + insert.Length, start + insert.Length);
                 return true;
             }
+            case "multiline":
+                throw ReadOnlyAtRunTime("MultiLine");
+            case "scrollbars":
+                throw ReadOnlyAtRunTime("ScrollBars");
             default:
                 return false;
         }
     }
+
+    private static VBRunTimeException ReadOnlyAtRunTime(string property) =>
+        new(new VBStandardError(VBStandardError.PropertySetCantBeExecutedAtRunTime.ErrNo, $"'{property}' property cannot be set at run time"));
 
     /// <summary>Puts the caret at the start, as setting Text from code does (measured).</summary>
     public static void TextSet(VBTextBox box) => Select(box, 0, 0);
