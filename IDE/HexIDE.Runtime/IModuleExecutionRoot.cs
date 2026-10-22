@@ -10,6 +10,17 @@ public interface IModuleExecutionRoot
     void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null);
 
     /// <summary>
+    /// Raise an event that runs only if <paramref name="when"/> still holds when its turn comes, behind whatever was raised
+    /// before it. A menu shortcut's item is one: its Enabled is read after its parents' Clicks have run, since they may
+    /// set it (measured, #1344). A root with no queue of its own asks at once.
+    /// </summary>
+    void ExecuteSubIf(string name, IReadOnlyList<Vb6Value>? args, Func<bool> when)
+    {
+        if (when())
+            ExecuteSub(name, args);
+    }
+
+    /// <summary>
     /// Whether the module has a procedure of this name. An event raised as often as MouseMove is skipped where nothing
     /// handles it, rather than dispatched to find out.
     /// </summary>

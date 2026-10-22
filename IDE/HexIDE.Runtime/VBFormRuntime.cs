@@ -85,6 +85,9 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
         windowContext.ExecuteSub(name, args);
     }
 
+    public void ExecuteSubIf(string name, IReadOnlyList<Vb6Value>? args, Func<bool> when) =>
+        windowContext.ExecuteSubIf(name, args, when);
+
     public bool Handles(string name) => windowContext.Handles(name);
 
     public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None) =>

@@ -175,11 +175,18 @@ internal sealed class LspDocumentSession : IDisposable
     /// being the clearest case, where a debounce still in flight means the server is answering about the
     /// line before the one being typed.
     /// </para>
+    ///
+    /// <para>
+    /// <b>Not gated on the client running</b>, for the same reason as <see cref="Start"/> and as the
+    /// debounced change. The client and the registry each record a change before their own gate, and the open
+    /// that follows a server's start carries what they recorded. This cancels the debounce first, so a gate
+    /// here dropped the flush and the change it superseded together (hexide-io/HexIDE#719).
+    /// </para>
     /// </summary>
     public async Task FlushAsync(CancellationToken cancellationToken = default)
     {
         debounce?.Cancel();
-        if (disposed || !client.IsRunning) return;
+        if (disposed) return;
         await client.ChangeDocumentAsync(Uri, ++version, document.Text, cancellationToken);
     }
 
@@ -280,10 +287,13 @@ internal sealed class LspDocumentSession : IDisposable
         var pending = ++version;
         var text = document.Text;
 
+        // Handed on whether or not a server is running yet. While one starts, nothing below can send it, but
+        // the registry and the client record it, and the open that follows the start carries it. Gated here,
+        // it was dropped and recorded nowhere, and the server analysed the text from before it (#719).
         Task.Delay(DebounceMilliseconds, token).ContinueWith(
             _ =>
             {
-                if (!token.IsCancellationRequested && !disposed && client.IsRunning)
+                if (!token.IsCancellationRequested && !disposed)
                     client.ChangeDocumentAsync(Uri, pending, text).ListenErrors();
             },
             token,
