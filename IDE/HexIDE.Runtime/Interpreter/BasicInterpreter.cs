@@ -27,6 +27,13 @@ public interface IBasicStandardLibrary
     /// </summary>
     void DebugWrite(string text) { }
 
+    /// <summary>
+    /// The column <see cref="DebugWrite"/>'s text has reached: the characters since its last line break, which Print's
+    /// zones and <c>Tab</c> count from. VB6's Immediate window keeps it from one run to the next, as it keeps a line a run
+    /// left open (measured, #1380). A host that keeps no text has no column, and gives 0.
+    /// </summary>
+    int DebugColumn => 0;
+
     /// <summary>A CommonDialog's <c>ShowOpen</c> or <c>ShowSave</c> (#1084): the file chosen, or null for Cancel.</summary>
     Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request) =>
         throw new NotImplementedException("A CommonDialog's file dialogs are not implemented in this host (#1084)");

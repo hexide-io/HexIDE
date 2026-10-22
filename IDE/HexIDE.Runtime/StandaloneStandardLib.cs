@@ -80,6 +80,8 @@ public class StandaloneStandardLib : IBasicStandardLibrary
 
     public void DebugWrite(string text) => VBDebugConsole.Write(text);
 
+    public int DebugColumn => VBDebugConsole.Column;
+
     public ITextClipboard Clipboard => new AvaloniaTextClipboard(() => _parent.Clipboard);
 
     /// <summary>A CommonDialog's Open or Save As (#1084), as the platform's own picker over the program's window.</summary>

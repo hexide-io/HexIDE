@@ -58,6 +58,26 @@ public class DebugPrintListTests : BaseVBTestFixture
     }
 
     [Fact]
+    public async Task A_line_a_run_left_open_stays_open_for_the_next_run_with_its_column()
+    {
+        // Measured in the VB6 IDE: two F5 runs of one Sub Main. The second run's "abc" continues the line, and its Tab(10)
+        // finds the column past 10, so goes to the next line.
+        const string code = "Debug.Print \"abc\"; Tab(10); \"x\";\n";
+        await Run(code);
+        await Run(code);
+
+        written.ToString().Should().Be("abc      xabc\r\n         x");
+    }
+
+    [Fact]
+    public async Task Every_module_prints_on_one_line_with_one_column()
+    {
+        await RunModules("Debug.Print \"abc\";\nMore\n", ("Module2", "Sub More()\n    Debug.Print , \"x\"\nEnd Sub\n"));
+
+        Lines().Should().Equal("abc           x");
+    }
+
+    [Fact]
     public async Task A_date_prints_as_it_reads_then_a_space()
     {
         await Run("Debug.Print #1/2/2003#; \"d\"\n");

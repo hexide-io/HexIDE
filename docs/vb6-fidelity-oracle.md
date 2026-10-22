@@ -11024,6 +11024,13 @@ Immediate window's own two empty lines at its end.
 What these add to the table above:
 - **`Debug.Print` formats as `Print #` does,** zones, spacing and an open line included.
 - **`Tab(n)` moves to column n**, and to n on the next line when the line is already past it. `Spc(n)` writes n spaces.
+- **A line a run leaves open stays open for the next run, column and all.** A second probe ran one Sub Main twice
+  with F5: `Debug.Print "abc"; Tab(10); "x";`. The Immediate window then held `abc      xabc` and `         x`. The
+  second run's `abc` continued the first run's line, and its `Tab(10)` found the column at 13, past 10, so it went to
+  the next line. A column restarted for each run would have given `abc      xabc      x`. The copy read
+  `         xg`: the copy step's own Ctrl+G typed a `g` at the caret, which a screenshot taken before it does not show.
+  That probe's first attempt also copied nothing. It ran again with 15 seconds for VB6 to open, and the Immediate
+  window opened from the View menu before F5.
 - **`1.5E-10`, a Double, prints as `0.00000000015`,** most likely just its text. *Turning a number or a date into
   text* keeps a Double fixed while its digits fit, as `0.000012345` is, and goes to E notation for `0.00001 / 3`.
   HexIDE's `CStr` gives `0.00000000015` too, but `CStr` of this value was not measured on vb6.exe.

@@ -767,6 +767,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
         public void DebugWrite(string text) => VBDebugConsole.Write(text);
 
+        public int DebugColumn => VBDebugConsole.Column;
+
         public ITextClipboard Clipboard => new AvaloniaTextClipboard(() =>
             (Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)
                 ?.MainWindow?.Clipboard);

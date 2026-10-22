@@ -5,25 +5,20 @@ namespace HexIDE.Runtime.Interpreter;
 
 /// <summary>
 /// The runtime's <c>Debug</c> object. <c>Debug.Print</c> is read where it is written, as <c>Print #</c> is, so that its
-/// separators survive (#1380): the statement prints its list through this object as a <see cref="VbPrint.ITarget"/>,
-/// whose column carries from one <c>Debug.Print</c> to the next. Two channels reach the host, an
-/// <see cref="IBasicStandardLibrary"/>: <see cref="IBasicStandardLibrary.DebugPrint"/> takes each item's typed value,
-/// which the test suites assert on, and <see cref="IBasicStandardLibrary.DebugWrite"/> the text as the Immediate window
-/// shows it. Seeded into the root environment by <see cref="BasicInterpreter"/> so <c>Debug.Print</c> works in the live
-/// F5 run, not only in the test fixture.
+/// separators survive (#1380): the statement prints its list through this object as a <see cref="VbPrint.ITarget"/>.
+/// Two channels reach the host, an <see cref="IBasicStandardLibrary"/>: <see cref="IBasicStandardLibrary.DebugPrint"/>
+/// takes each item's typed value, which the test suites assert on, and <see cref="IBasicStandardLibrary.DebugWrite"/> the
+/// text as the Immediate window shows it. The column is the host's, <see cref="IBasicStandardLibrary.DebugColumn"/>, so
+/// it is one for the whole program and carries from one run to the next. Seeded into the root environment by
+/// <see cref="BasicInterpreter"/> so <c>Debug.Print</c> works in the live F5 run, not only in the test fixture.
 /// </summary>
 public class DebugProxy(IBasicStandardLibrary stdLib) : ICSharpProxy, VbPrint.ITarget
 {
     private readonly IBasicStandardLibrary stdLib = stdLib;
-    private int column;
 
-    int VbPrint.ITarget.Column => column;
+    int VbPrint.ITarget.Column => stdLib.DebugColumn;
 
-    void VbPrint.ITarget.Write(string text)
-    {
-        column = VbPrint.ColumnAfter(column, text);
-        stdLib.DebugWrite(text);
-    }
+    void VbPrint.ITarget.Write(string text) => stdLib.DebugWrite(text);
 
     /// <summary>An item the statement printed, to the typed channel.</summary>
     internal void Printed(Vb6Value value) => stdLib.DebugPrint(value);

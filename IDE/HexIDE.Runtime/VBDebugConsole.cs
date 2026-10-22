@@ -17,6 +17,13 @@ public static class VBDebugConsole
 {
     private static readonly object Gate = new();
     private static readonly StringBuilder Pending = new();
+    private static int column;
+
+    /// <summary>The column the Immediate window's output has reached, which VB6 keeps from one run to the next (#1380).</summary>
+    public static int Column
+    {
+        get { lock (Gate) return column; }
+    }
 
     /// <summary>Raised with each piece of text as <c>Debug.Print</c> writes it, line breaks as CR LF (#1380). A statement
     /// that ends in a semicolon or a comma writes none, so its line stays open for the next.</summary>
@@ -34,6 +41,7 @@ public static class VBDebugConsole
         List<string> lines = [];
         lock (Gate)
         {
+            column = VbPrint.ColumnAfter(column, text);
             Pending.Append(text);
             var buffered = Pending.ToString();
             int start = 0, end;

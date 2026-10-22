@@ -156,6 +156,17 @@ public abstract class BaseVBTestFixture
                 lock (written) written.Append(text);
         }
 
+        // The fixture's text, which outlives one Run, as the Immediate window outlives one run of the program.
+        public int DebugColumn
+        {
+            get
+            {
+                if (written is null)
+                    return 0;
+                lock (written) return VbPrint.ColumnAfter(0, written.ToString());
+            }
+        }
+
         public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon) => default;
         public async Task<string?> InputBox(string prompt, string? title, string defaultText) => default;
         // Locked, because two interpreter walks really can reach here at once.
