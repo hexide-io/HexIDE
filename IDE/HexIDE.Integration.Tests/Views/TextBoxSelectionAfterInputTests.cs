@@ -12,9 +12,10 @@ using HexIDE.Runtime.Interpreter;
 namespace HexIDE.Integration.Tests.Views;
 
 /// <summary>
-/// Keys a TextBox takes itself, after a selection code set (#1385). A selection set from code left Avalonia's caret where
-/// its keys did not expect it, so Ctrl+End with the selection running to the end of the text went to 0. In the Notepad
-/// demo, Select All, Ctrl+End and Ctrl+V pasted at the start, and Find Up searched from the middle.
+/// Keys a TextBox takes itself, after a selection code set (#1385). Every row was measured on vb6.exe with real keys,
+/// native and p-code agreeing (the oracle's "Keys after a selection set from code"). A selection set from code left
+/// Avalonia's caret where its keys did not expect it, so Ctrl+End with the selection running to the end of the text went
+/// to 0. In the Notepad demo, Select All, Ctrl+End and Ctrl+V pasted at the start, and Find Up searched from the middle.
 /// </summary>
 public class TextBoxSelectionAfterInputTests
 {

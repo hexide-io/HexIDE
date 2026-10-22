@@ -184,6 +184,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Ctrl+End after a selection made in code goes to the end of the text** (#1385). After code selected text that ran
+  to the end, such as the Notepad demo's Select All, Ctrl+End put the caret at the start, so a paste went in there and
+  Find Up searched from the middle. Ctrl+End and Ctrl+Home now land where VB6's do, measured with real keys.
 - **`FormCodeText.PreserveAttributes` is gone** (#686). It could weld a header with no line ending onto the code
   after it, but it has had no caller since #273's phase 3 kept a form's header with `GuardedContent` instead, so it
   was deleted rather than repaired.
