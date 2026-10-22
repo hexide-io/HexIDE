@@ -13247,6 +13247,7 @@ array, 35000 in either.
 An element argument carries its array and its subscripts, evaluated once at the call, and a ByRef parameter of the element's
 type, or an untyped or Variant one, gets a slot that reads and writes the element for as long as the call runs, as #1451's
 does for a field. The slot is declared as the element reads. The call locks the array (`VBArray.LockCount`), and ReDim,
-Erase, and a store into a variable holding the array (`ModuleExecutionContext.TryUpdateVariable`) raise 10 while it is
-locked. Every row above that HexIDE reaches is pinned in `ByRefElementTests`. Not reached: `ReDim Preserve`, which HexIDE
-refuses as not implemented; an array of a Type (#178); and an array of Collection, whose declaration HexIDE refuses.
+ReDim Preserve, Erase, and a store into a variable holding the array (`ModuleExecutionContext.TryUpdateVariable`) raise 10
+while it is locked. HexIDE refuses every other ReDim Preserve as not implemented, so none can resize an array whose element a
+parameter is writing. Every row above that HexIDE reaches is pinned in `ByRefElementTests`. Not reached: an array of a Type
+(#178), and an array of Collection, whose declaration HexIDE refuses.
