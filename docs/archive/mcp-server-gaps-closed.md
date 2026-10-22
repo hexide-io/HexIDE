@@ -4123,6 +4123,10 @@ focus passed. #1257 stops the typing for a dialog that opens during it, not one 
 > `TypeKeysTests` and `ResetPromptTests`; the prompt's owner in a running IDE, and the native popup case, were read from
 > the code, not run.
 
+> **Measured since (#1329).** "As VB6's prompt holds the IDE" was a claim, not a measurement. VB6's prompt is owned by
+> the running form, and it holds the IDE and the program together. HexIDE's holds the one window that owns it. The
+> oracle's section "The reset prompt: which edits raise it, and which windows it holds" has both.
+
 ## dump_visual_tree listed a row its list had let go of (#1292)
 
 A list whose rows bind their visibility to the item, as the Properties window's Categorized list does, keeps a recycled

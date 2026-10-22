@@ -37,7 +37,16 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   - **"This edit requires a Reset"** (OK, Help), which can't be declined, for a duplicate declaration.
   - In run mode the code window takes no typing at all, so neither prompt arises there.
   - This bullet used to quote the prompt as "…Do you want to continue?" with Yes and No. That was never measured, and
-    it is HexIDE's wording, not VB6's.
+    it is HexIDE's wording, not VB6's. The wording and buttons are #1360.
+- **Which windows the prompt holds (measured, #1329):**
+  - **VB6:** the running form owns it, and every top-level window of the process is disabled while it waits: the IDE
+    and the program together. The program is paused in break mode anyway, and run mode offers no prompt.
+  - **HexIDE:** the code window's own window owns it (#1298), and only that window is disabled. With the code window
+    docked, that is the IDE's main window, while the running form keeps running and taking clicks. With the IDE
+    minimized, the fallback owner is the running form, and the IDE stays enabled.
+  - **The difference:** HexIDE can't hold the whole IDE and program together while it asks in run mode. A modal over
+    one window is all Avalonia offers, and the program isn't paused. Floating a code window, which would split the
+    IDE's windows further, currently hides it instead (#1361).
 - **HexIDE:** the interpreter can apply *no* edit live, so **every** edit while running/paused pops that same
   prompt (Yes = reset + keep the edit; No = revert). So HexIDE over-prompts relative to VB6 (it resets even for a
   comment).

@@ -11379,5 +11379,20 @@ to VB6.
 **In HexIDE:**
 - **One prompt, for every edit** while the project runs or is paused (D2). It reads "This action will reset your
   project. Do you want to continue?", with Yes and No.
-- **Its owner** is the code editor's window when that is visible and not minimized (#1298). The live comparison, of
-  which windows that leaves usable, follows in this section once measured.
+- **Its owner** is the code editor's window when that is visible and not minimized, and otherwise the top window
+  (#1298).
+- **Measured live, Windows, a Debug build of main 099da9af.** The probe project ran with a Timer counting on Command1's
+  caption and a click setting Form1's caption. The key was sent with `type_text` in keyboard mode, with Form1 active.
+  The native state was read with the same Win32 calls as above.
+
+| Case | Owner | Disabled while it waits | The running program |
+|---|---|---|---|
+| Code window docked | The IDE's main window | The IDE's main window only | Runs on: the Timer went from 8 to 37, and a real click on Command1 ran its Click |
+| IDE window minimized | Form1, the top window, through the fallback | Form1 only. The minimized IDE stays enabled | The Timer runs on (42 to 65), and Form1 takes no input |
+| Code window floated | Not reached. Float hides the code window instead of floating it (#1361) | | |
+
+- **Yes ended the run and kept the edit. No kept the run and put the code back.** Each left every window enabled.
+- **So HexIDE's prompt holds less than VB6's.** VB6's holds the IDE and the program together. HexIDE's holds whichever
+  one window owns it, and the program keeps running under it.
+- **Two differences in when it asks.** HexIDE asks in run mode as well as in break mode, where VB6's code window takes
+  no typing while the program runs. And it asks for every edit, where VB6 applies most edits live (D2).
