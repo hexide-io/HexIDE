@@ -10988,6 +10988,48 @@ So a number has a space before it where its sign would go and one after, and a d
 Boolean and Null have none. A comma moves to the next 14-column zone, and a statement ending in `;` or `,` writes no
 line break.
 
+**`Debug.Print` is the same Print** (2026-10-22, #1380). A compiled program drops `Debug.Print`, so it was measured in the
+IDE. In the guest's console session VB6 opened a project whose Sub Main prints 25 cases, each after a marker line, and
+ran it with F5. Ctrl+G, Ctrl+Home, Ctrl+Shift+End and Ctrl+C then copied the Immediate window to the clipboard. The
+first attempt copied nothing; with screenshots between the keys, the second copied all of it. The same 25 cases went
+through `Print #` to a file in a compiled probe, native and p-code. **All three agree line for line**, apart from the
+Immediate window's own two empty lines at its end.
+
+| Statement | Line, between brackets |
+|---|---|
+| `1; "a"; 2` | `[ 1 a 2 ]` |
+| `1, 2` | `[ 1             2 ]` |
+| `"x";` then `"y"` | `[xy]` |
+| `"p",` then `"q"` | `[p             q]` |
+| `-1; -2.5; 3` | `[-1 -2.5  3 ]` |
+| `True; False` | `[TrueFalse]` |
+| `#1/2/2003#; "d"` | `[02/01/2003 d]` |
+| `Null; Empty; "e"` | `[Nulle]` |
+| `"a", "b", "c"` | `[a             b             c]` |
+| `"123456789012345", "z"` | `[123456789012345             z]`: column 16 moves to 29 |
+| `CCur(1.5); CSng(0.1); CDbl(1E+20)` | `[ 1.5  0.1  1E+20 ]` |
+| `CByte(5); CLng(-7); CInt(0)` | `[ 5 -7  0 ]` |
+| `1.5E-10` | **`[ 0.00000000015 ]`** |
+| nothing | `[]` |
+| `, "lead"` | `[              lead]`: a leading comma moves to column 15 |
+| `"a",` then `,` then `"b"` | `[a                           b]`: two zones, to column 29 |
+| `1;` then `2` | `[ 1  2 ]` |
+| `Spc(3); "x"; Tab(10); "y"` | `[   x     y]`: `x` at column 4, `y` at 10 |
+| `Tab(5); "x"` | `[    x]` |
+| `"a"; Tab; "b"` | `[a             b]`: `Tab` alone is a comma |
+| `"a"; Spc(0); "b"` | `[ab]` |
+| `"abc"; Tab(2); "d"` | `[abc]`, then `[ d]`: a column already passed **starts a new line** |
+| `"x"; Tab(0); "y"` | `[x]`, then `[y]`: `Tab(0)` is column 1, passed too |
+
+What these add to the table above:
+- **`Debug.Print` formats as `Print #` does,** zones, spacing and an open line included.
+- **`Tab(n)` moves to column n**, and to n on the next line when the line is already past it. `Spc(n)` writes n spaces.
+- **`1.5E-10` prints as `0.00000000015`,** where `Str` and `CStr` write `1.5E-10` (*Number to text*). Print has a rule of
+  its own for small numbers, or reads them another way; this probe doesn't say which.
+- **`CDbl(1E+20)` has its sign space here**, ` 1E+20 `, between ` 0.1 ` and the end. The row above gives it as `1E+20 `,
+  starting its zone. With commas the leading space would be the zone's padding, so the two may be one result read two
+  ways. Today's, with semicolons, leaves no doubt that the space is there.
+
 **Opening, numbering and closing:**
 
 | Probe | Result |
