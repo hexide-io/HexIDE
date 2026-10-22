@@ -9,8 +9,8 @@ using HexIDE.Runtime.Interpreter;
 namespace HexIDE.Runtime.Tests;
 
 /// <summary>
-/// Writes each program a test runs, with HexIDE's result, as one JSON line: the corpus for measuring whether RDCore runs
-/// what the interpreter runs (#1368). Off unless <c>HEXIDE_DUMP_PROGRAMS</c> names a dump, which then goes to
+/// Writes each program a test runs, with HexIDE's result, as one JSON line: a corpus for running the same programs on
+/// another VB6 engine, out of process, and comparing what each gives (#1368). Off unless <c>HEXIDE_DUMP_PROGRAMS</c> names a dump, which then goes to
 /// <c>artifacts/program-dump/&lt;name&gt;.jsonl</c> under the repository root, a gitignored folder, so nothing lands beside
 /// tracked files.
 /// </summary>
@@ -19,7 +19,7 @@ internal sealed class ProgramDump
     public const string Variable = "HEXIDE_DUMP_PROGRAMS";
 
     /// <summary>The procedure the startup module's bare statements are moved into. HexIDE runs a module's bare statements,
-    /// and RDCore runs only a named, parameterless procedure.</summary>
+    /// and an engine that starts only at a named, parameterless procedure can call this one.</summary>
     public const string Entry = "HexDumpMain";
 
     private static readonly object Gate = new();
@@ -65,7 +65,7 @@ internal sealed class ProgramDump
                 var (wrapped, bare) = Wrap(m.Source);
                 return new Module(m.Name, i == 0 ? "startup" : "module", m.Source, wrapped, bare);
             }).ToList(),
-            // TypeName's answer, which the runner's type pass compares with RDCore's.
+            // TypeName's answer, which a comparison's type pass reads.
             log.Select(v => new Printed(VB6BuiltIns.DebugTypeName(v), VbDisplay.ToText(v, Display))).ToList(),
             thrown switch
             {
@@ -82,9 +82,9 @@ internal sealed class ProgramDump
     }
 
     /// <summary>
-    /// A standard module as RDCore can run it: its declarations, then its procedures, then its bare statements moved in
-    /// order into <see cref="Entry"/>, each with the line label or number in front of it. <c>bare</c> says whether there
-    /// were any. A module-level <c>Dim</c>, <c>Const</c>, <c>Def</c>type, <c>Implements</c> or <c>Attribute</c> stays a
+    /// A standard module as an engine that starts only at a named procedure can run it: its declarations, then its
+    /// procedures, then its bare statements moved in order into <see cref="Entry"/>, each with the line label or number in
+    /// front of it. <c>bare</c> says whether there were any. A module-level <c>Dim</c>, <c>Const</c>, <c>Def</c>type, <c>Implements</c> or <c>Attribute</c> stays a
     /// declaration, so a procedure that reads it still can; anything nested inside a statement goes with that
     /// statement. Purely syntactic: the parse tree is read, never bound.
     /// </summary>

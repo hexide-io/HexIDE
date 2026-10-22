@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// The corpus dump for #1368: off unless named, never written outside its folder, and a record of exactly what ran and
-/// what it printed, with the startup module's bare statements moved into a procedure RDCore can call.
+/// what it printed, with the startup module's bare statements moved into a procedure another engine can call.
 /// </summary>
 public class ProgramDumpTests : BaseVBTestFixture, IDisposable
 {
