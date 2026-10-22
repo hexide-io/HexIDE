@@ -53,6 +53,14 @@ public class CarriedPasteTests
         "      TabIndex        =   0\r\n" +
         "      Top             =   1500\r\n" +
         "      Width           =   3000\r\n" +
+        "      Begin VB.Label Label1 \r\n" +
+        "         Caption         =   \"Before\"\r\n" +
+        "         Height          =   255\r\n" +
+        "         Left            =   120\r\n" +
+        "         TabIndex        =   2\r\n" +
+        "         Top             =   120\r\n" +
+        "         Width           =   1000\r\n" +
+        "      End\r\n" +
         "      Begin MSComctlLib.ImageList imlIcons \r\n" +
         "         Left            =   150\r\n" +
         "         Top             =   450\r\n" +
@@ -63,6 +71,14 @@ public class CarriedPasteTests
         "               Key             =   \"\"\r\n" +
         "            EndProperty\r\n" +
         "         EndProperty\r\n" +
+        "      End\r\n" +
+        "      Begin VB.Label Label2 \r\n" +
+        "         Caption         =   \"After\"\r\n" +
+        "         Height          =   255\r\n" +
+        "         Left            =   120\r\n" +
+        "         TabIndex        =   3\r\n" +
+        "         Top             =   1200\r\n" +
+        "         Width           =   1000\r\n" +
         "      End\r\n" +
         "   End\r\n" +
         "   Begin VB.CommandButton Command1 \r\n" +
@@ -146,9 +162,12 @@ public class CarriedPasteTests
         var (text, companion) = Save(vm, form, "Form1.frm");
 
         Count(text, "Begin MSComctlLib.ImageList imlIcons").Should().Be(1);
+        // Inside the frame, between the labels it was read between: its place among its siblings is its z-order.
         var frame = text.IndexOf("Begin VB.Frame", System.StringComparison.Ordinal);
-        text.IndexOf("Begin MSComctlLib.ImageList", System.StringComparison.Ordinal).Should().BeGreaterThan(frame,
-            "it is pasted inside the frame, where it was");
+        var images = text.IndexOf("Begin MSComctlLib.ImageList", System.StringComparison.Ordinal);
+        images.Should().BeGreaterThan(text.IndexOf("Caption         =   \"Before\"", frame, System.StringComparison.Ordinal))
+            .And.BeLessThan(text.IndexOf("Caption         =   \"After\"", frame, System.StringComparison.Ordinal));
+        text.IndexOf("Caption         =   \"Before\"", System.StringComparison.Ordinal).Should().BeGreaterThan(frame);
         Cited(text, companion).Should().ContainSingle(c => c.Property == "Picture")
             .Which.Record.Should().Equal(ListImageRecord);
     }
@@ -229,10 +248,17 @@ public class CarriedPasteTests
         var (to, form2) = Open(Form2(declaresComctl));
         to.PasteControls();
 
-        var (text, _) = Save(to, form2, "Form2.frm");
+        var (text, companion) = Save(to, form2, "Form2.frm");
 
         Count(text, "Begin VB.Frame").Should().Be(1);
         Count(text, "Begin MSComctlLib.ImageList imlIcons").Should().Be(expected,
             "without its Object line nothing says which OCX the ImageList comes from, and VB6 cannot load it");
+        // Where it goes, its picture goes into this form's companion and is cited from there.
+        if (expected == 1)
+        {
+            Cited(text, companion).Should().ContainSingle(c => c.Property == "Picture")
+                .Which.Record.Should().Equal(ListImageRecord);
+            text.Should().Contain("\"Form2.frx\":").And.NotContain("Form1.frx");
+        }
     }
 }
