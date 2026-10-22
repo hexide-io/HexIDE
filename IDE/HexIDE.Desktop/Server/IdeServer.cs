@@ -12,7 +12,8 @@ namespace HexIDE.Desktop.Server;
 
 internal static class IdeServer
 {
-    public static async Task RunAsync(int port, IdeContext context, CancellationToken ct)
+    /// <param name="session">The agent session this IDE was started for (<c>--session</c>), or null to serve every caller.</param>
+    public static async Task RunAsync(int port, string? session, IdeContext context, CancellationToken ct)
     {
         var builder = WebApplication.CreateSlimBuilder();
         builder.Logging.ClearProviders();
@@ -30,15 +31,15 @@ internal static class IdeServer
         builder.WebHost.ConfigureKestrel(options => options.ListenLocalhost(port));
 
         builder.Services.AddSingleton(context);
-        builder.Services
-            .AddMcpServer()
-            // Stateless, so a client attached before a relaunch is still answered after it. See McpTransport.
-            .WithHttpTransport(McpTransport.Configure)
-            .WithTools<HexIdeTools>(ReplyJson.Options)
-            // An exception a tool did not catch is reported with its type and message rather than the SDK's
-            // bare "An error occurred invoking" (#603).
+        // A call from another agent session is refused before anything else (#1306), and an exception a tool did not
+        // catch is reported with its type and message rather than the SDK's bare "An error occurred invoking" (#603).
+        ToolFilters.Register(builder.Services
+                .AddMcpServer()
+                // Stateless, so a client attached before a relaunch is still answered after it. See McpTransport.
+                .WithHttpTransport(McpTransport.Configure)
+                .WithTools<HexIdeTools>(ReplyJson.Options), session)
             // A modal dialog open once a call is done is named in its reply (#681).
-            .WithRequestFilters(filters => filters.AddCallToolFilter(ToolFailures.Filter)
+            .WithRequestFilters(filters => filters
                 .AddCallToolFilter(OpenDialogNote.Filter)
                 .AddCallToolFilter(InlineSnapshot.Filter));
 
@@ -68,6 +69,7 @@ internal static class IdeServer
             Project: ctx.ProjectManager.StartupProject?.Name,
             LspRunning: ctx.LspClient.IsRunning,
             Pid: Environment.ProcessId,
+            Session: session,
             Timestamp: DateTimeOffset.UtcNow)));
 
         app.MapMcp("/mcp");
@@ -94,11 +96,16 @@ internal static class IdeServer
 /// The process answering. A launcher that polls for a 200 needs this to know the 200 came from the process it
 /// just started and not from an older one still holding the port (hexide-io/HexIDE#53).
 /// </param>
+/// <param name="Session">
+/// The agent session the IDE was started for with <c>--session</c>, or null when it serves every caller. A launcher
+/// that checks this beside <paramref name="Pid"/> knows the IDE answering is the one it meant (hexide-io/HexIDE#1306).
+/// </param>
 internal record HealthResponse(
     string Status,
     string? Project,
     bool LspRunning,
     int Pid,
+    string? Session,
     DateTimeOffset Timestamp);
 
 /// <summary>The automation server never started listening. The IDE must not carry on without it.</summary>

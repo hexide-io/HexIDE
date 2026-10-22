@@ -189,6 +189,15 @@ there isn't one yet. Anything may change between 0.x releases.
   `Form_MouseUp` and never `Form_Click`. Now Click follows MouseUp, for the left, right and middle buttons, as
   vb6.exe does with real input. As in VB6, a press released over a control or outside the form gives no Click. A
   double click gives one Click, not two, though DblClick itself is still to come (#1031).
+- **A language server that waits to be told sends document symbols as a tree** (#463). HexIDE read the tree
+  but never declared that it could, so a server that honours the declaration, clangd among them, sent the flat
+  form and every outline from it lost its nesting.
+
+- **Two code windows over one name are one document to a language server** (#721). One file shared by two projects
+  of a group opens two windows that name it alike. Each kept its own version count, so a server was opened twice and
+  discarded whichever count was behind, and closing either window closed the document for both. The windows now
+  share it: opened by the first, one sequence of versions, closed by the last.
+
 - **An edit made while a language server starts reaches it** (#719). It was dropped, and the server analysed the
   text from before the edit until the next edit or a save. With two servers on one language, the second was also
   opened twice, the second time at a lower version with the older text. A change made during a start is now

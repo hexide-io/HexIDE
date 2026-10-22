@@ -22,6 +22,7 @@ most people will type today.
 | `--user-data-dir` | a directory | Keeps this session's settings and other per-user files there instead of the usual place. See below. |
 | `--personality` | `vb6`, `vbaode`, `vba` | Selects the IDE personality for the session. |
 | `--server-port` | a port number | Starts the automation server on that port. **Debug builds only** — see below. |
+| `--session` | a name | Serves automation only to the agent session of that name. **Debug builds only** — see below. |
 | `--developer-mode` | — | Turns on session developer mode. **Debug builds only** — see below. |
 | `--ansi-code-page` | a Windows code page number, such as `932` | Reads and writes VB6 sources as a machine whose ANSI code page is that one would. **Debug builds only** — see below. |
 | *(positional)* | a path ending `.vbp` | Opens that project instead of showing the startup dialog. Relative to where you ran HexIDE from. |
@@ -30,10 +31,10 @@ most people will type today.
 
 This asymmetry is deliberate and it is easy to read the wrong way round.
 
-**`--server-port`, `--developer-mode` and `--ansi-code-page` are inert in a release build.** The automation
+**`--server-port`, `--session`, `--developer-mode` and `--ansi-code-page` are inert in a release build.** The automation
 server is compiled out entirely, and developer mode is hard-disabled, so a distributed binary opens no port
 and cannot be put into developer mode however it is launched. Nor can it be told to read files as another
-machine would: what a release reads a file as is what the machine it runs on reads it as. None of the three
+machine would: what a release reads a file as is what the machine it runs on reads it as. None of the four
 errors; each simply does nothing.
 
 **`--capture-lsp` is not.** The protocol capture ships in release builds, because the people it is for are
@@ -67,9 +68,9 @@ HexIDE.Desktop --user-data-dir ./demo-profile
 - **Add-ins still load.** They live beside the executable, not in this directory; only the record of which
   ones you allowed moves, so a fresh profile asks about each third-party add-in again.
 - **A malformed one refuses to start, as a malformed `--server-port` does.** Given with nothing after it —
-  or with another flag where the directory should be — HexIDE prints why and exits with status 2. Every
-  argument but these two is skipped when HexIDE cannot use it, but starting normally here would put the
-  session on exactly the settings you asked it to stay away from.
+  or with another flag where the directory should be — HexIDE prints why and exits with status 2. Most
+  arguments are skipped when HexIDE cannot use them, but starting normally here would put the session on
+  exactly the settings you asked it to stay away from.
 
 **`--newproject` wins.** If you pass both `--newproject` and a project path, the new project is created and
 the path is ignored.
@@ -85,6 +86,21 @@ talking to the other instance with nothing to say it was the wrong one. Now it s
 exits with code 3; the window may flash first, because the server starts once the window is open. To tell
 which process a client is actually reaching, `/health` reports the answering process's `pid`.
 
+**`--session` ties the automation server to one agent session.** Several agent sessions on one machine each run
+their own IDE on their own port, and a session that reaches another's port, or a stale IDE left on its own, would
+otherwise drive that IDE with nothing in any reply to say so. Given `--session <name>`, the server serves a tool call
+only when the client names that session in its `X-HexIDE-Session` header, which the repository's `.mcp.json` sends
+from `HEXIDE_SESSION`. Any other call is answered with an error saying whose IDE this is and what to check, and is not
+run. Listing the tools still works, and so does `/health`, which reports the `session` beside the `pid`. Without the
+flag, a client that names no session is served, as before, and one that names a session is refused: it was meant for an
+IDE started for it. Two clients that both name none cannot be told apart, so this does not separate those.
+A session's name is matched as plain ASCII: Claude Code sends the header in Latin-1, and the server refuses a header
+byte outside ASCII as a malformed request, which the client counts towards dropping its tools. Like `--user-data-dir`, it refuses to start with exit code 2 when given
+nothing after it, because starting would serve every session's client, which is what it was given to prevent. It is a
+guard against mistakes between cooperating sessions, not access control: the header is not a secret. The
+`scripts/dev-ide.ps1` launcher passes it from `HEXIDE_SESSION`; `CLAUDE.md` describes the setup under *Parallel
+sessions*.
+
 **`--personality` takes one of three names**, matched case-insensitively: `vb6`, `vbaode`, `vba`.
 
 **Paths are relative to where you ran HexIDE from.** HexIDE moves its working directory to its own folder as
@@ -97,8 +113,9 @@ is matched on the `.vbp` extension alone. Tracked as a gap rather than a decisio
 
 **Almost nothing is rejected.** An argument HexIDE does not recognise — a misspelled flag, a value in the wrong
 place, a `.vbg` path, an unknown personality — is skipped in silence and the IDE starts normally. The
-exceptions are the two flags whose whole purpose would be defeated by carrying on without them: a
-`--user-data-dir` with no directory, and a `--server-port` with no usable port. So a flag
+exceptions are the flags whose whole purpose would be defeated by carrying on without them: a
+`--user-data-dir` with no directory, a `--session` with no name, a `--server-port` with no usable port, and an
+`--ansi-code-page` HexIDE has no table for. So a flag
 that appears to have done nothing has usually not been read at all. Worth checking the spelling before
 looking for a deeper cause, and `--help` will tell you how a flag is spelled.
 
@@ -123,7 +140,7 @@ next mark row down, which arrives as the mark sliced into bands with text betwee
 | Code | Meaning |
 |---|---|
 | 0 | HexIDE ran and closed normally, or `--help` answered. |
-| 2 | The command line was refused before anything started: `--user-data-dir` without a directory, or `--server-port` without a port from 1 to 65535 (that one in Debug builds only). |
+| 2 | The command line was refused before anything started: `--user-data-dir` without a directory, `--session` without a name, `--server-port` without a port from 1 to 65535, or `--ansi-code-page` without a code page this platform can read (the last three in Debug builds only). |
 | 3 | The automation server's port was already in use. Debug builds only. |
 | 4 | The automation server could not start for any other reason; the message gives the cause. Debug builds only. |
 
