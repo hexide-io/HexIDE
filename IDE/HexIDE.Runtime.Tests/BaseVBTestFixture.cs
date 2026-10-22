@@ -156,14 +156,21 @@ public abstract class BaseVBTestFixture
                 lock (written) written.Append(text);
         }
 
-        // The fixture's text, which outlives one Run, as the Immediate window outlives one run of the program.
+        // The characters after the last line break of the fixture's text, which outlives one Run, as the Immediate window
+        // outlives one run of the program.
         public int DebugColumn
         {
             get
             {
                 if (written is null)
                     return 0;
-                lock (written) return VbPrint.ColumnAfter(0, written.ToString());
+                lock (written)
+                {
+                    var i = written.Length;
+                    while (i > 0 && written[i - 1] != '\n')
+                        i--;
+                    return written.Length - i;
+                }
             }
         }
 
