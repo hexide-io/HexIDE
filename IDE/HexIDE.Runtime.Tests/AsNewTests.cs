@@ -512,13 +512,15 @@ public class AsNewTests : BaseVBTestFixture
     }
 
     [Theory]
-    [InlineData("Dim a(1) As New Collection\na(0).Add 1", "*#1482*")]
-    [InlineData("Sub S()\n    Dim a(1) As New Collection\nEnd Sub\nS", "*#1482*")]
-    [InlineData("Sub S()\n    ReDim b(1) As New Collection\nEnd Sub\nS", "*#1482*")]
-    public async Task An_array_declared_As_New_stops_the_run_naming_its_issue(string statements, string message)
+    [InlineData("Dim a(1) As New Collection\na(0).Add 1")]
+    [InlineData("Private a(1) As New C1\na(0).Go")]
+    [InlineData("Sub S()\n    Dim a(1) As New Collection\nEnd Sub\nS")]
+    [InlineData("Sub S()\n    Dim a(1) As New C1\nEnd Sub\nS")]
+    [InlineData("Sub S()\n    ReDim b(1) As New Collection\nEnd Sub\nS")]
+    public async Task An_array_declared_As_New_stops_the_run_naming_its_issue(string statements)
     {
-        var run = () => Run(statements + "\n");
+        var run = () => RunClasses(statements + "\n", ("C1", C1));
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage(message);
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("An array declared As New is not implemented (#1482)");
     }
 }

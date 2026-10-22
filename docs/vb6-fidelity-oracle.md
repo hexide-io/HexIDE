@@ -13941,7 +13941,7 @@ item opens to its fields. That is HexIDE's choice: VB6's Locals window was not m
 
 **`CollectionTests`.** It pins seven programs and twelve compile errors, each made with vb6.exe as written.
 
-## As New (2026-10-22, #435)
+## As New (2026-10-22 and 23, #435)
 
 **The obvious guess is that `Dim o As New C1` makes its object when the declaration runs. It makes it on first use, and
 every use counts.**
@@ -14109,4 +14109,4 @@ When Sub Main returns, the objects still held terminate: the Static's first, the
 - #1492: an empty Collection's index;
 - #1493: `o = 5` releases the object.
 
-**`AsNewTests`** pins five programs, seven compile errors and three refusals.
+**`AsNewTests`** pins five programs, seven compile errors and five refusals.

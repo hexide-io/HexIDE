@@ -193,9 +193,15 @@ public class PrePass : VB6BaseVisitor<object?>
                 if (subStmt.asTypeClause() != null)
                 {
                     // `Dim o As New C1` holds Nothing until its first use (#435). The module's Dim statement, which runs
-                    // when the module starts, marks the slot; what it refuses (a scalar, a UDT, an array) it refuses there.
+                    // when the module starts, marks the slot; what it refuses (a scalar, a UDT) it refuses there. An
+                    // array, each element made on its own first use (measured), is refused here, for a class as for a
+                    // Collection.
                     if (subStmt.asTypeClause().NEW() != null)
-                        objectSlot = !isArray;
+                    {
+                        if (isArray)
+                            throw new NotImplementedException("An array declared As New is not implemented (#1482)");
+                        objectSlot = true;
+                    }
                     else if (subStmt.asTypeClause().fieldLength() != null)
                         throw new NotImplementedException("fieldLength as type not implemented");
                     if (subStmt.asTypeClause().type().complexType() != null)
