@@ -454,10 +454,10 @@ project SHALL NOT remove a member the IDE failed to load.
 ### Requirement: A kept member's line SHALL name the same file from wherever the project file is written
 
 When a project file is written in a folder other than the one it was read from, each line the IDE keeps for a
-member it did not load, and each carried file's preserved original line, SHALL name the same file by a path from
-the new folder, in the line's own shape. Written in the folder it was read from, such a line SHALL be written as
-it was read, as SHALL a path that names a drive or starts at a root. The member's file does not move with the
-project file.
+member it did not load, each carried file's preserved original line, and the paths of a designer, the resource
+file, the build folder and a reference's library SHALL name the same file from the new folder, in the line's own
+shape. The help file's path SHALL be written as it was read, as SHALL every path in the folder it was read from,
+and one that names a drive or starts at a root.
 
 #### Scenario: Save Project As to another folder
 
@@ -465,6 +465,12 @@ project file.
 - **WHEN** the project file is saved to another folder
 - **THEN** the form's line names its file by a path from the new folder
 - **AND** a later save from the new folder names it the same way
+
+#### Scenario: A resource file and a help file
+
+- **GIVEN** a project file holding `ResFile32="res\probe.res"` and `HelpFile="help\probe.hlp"`
+- **WHEN** it is saved one folder deeper
+- **THEN** it holds `ResFile32="..\res\probe.res"` and `HelpFile="help\probe.hlp"`
 
 #### Scenario: Saved where it was read
 
