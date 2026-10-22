@@ -185,6 +185,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A ListBox raises Click where VB6 does** (#1374). It raised Click after MouseUp on every release, and never when
+  code set `ListIndex` or an arrow key moved the selection. Now a left press on an item raises Click before MouseUp,
+  the selection follows the pointer while the button is held, `ListIndex = n` and an arrow key raise it when the
+  selection moves, and a right or middle click, or a press below the items, selects nothing and raises none, as
+  vb6.exe does with real input.
+
 - **MousePointer has all seventeen of VB6's values** (#120). Icon (4), Size (5), Arrow and Hourglass (13) and Arrow and
   Question (14) were missing. A form using one saved it without the name VB6 writes beside it, the Properties window
   showed a blank, and the control drew the default pointer. All four now carry their names and draw the pointers

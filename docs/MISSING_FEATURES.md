@@ -337,7 +337,7 @@
 | CheckBox | Done | |
 | OptionButton | Done | |
 | ComboBox | Done | |
-| ListBox | Done | |
+| ListBox | Done | Click comes where vb6.exe raises it: on a left press on an item, before MouseUp, and when code or an arrow key moves the selection (#1374). `Selected`, `Text`, `RemoveItem` and `AddItem`'s index are #821 |
 | HScrollBar | Done | |
 | VScrollBar | Done | |
 | Timer | Done | |

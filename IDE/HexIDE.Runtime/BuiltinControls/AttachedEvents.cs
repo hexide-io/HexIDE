@@ -107,6 +107,10 @@ public static class AttachedEvents
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control, object> SecondPresses = new();
     private static readonly object Marker = new();
 
+    /// <summary>Whether the press now held on <paramref name="control"/> is a double click's second, whose release raises
+    /// no Click.</summary>
+    internal static bool IsSecondPress(Control control) => SecondPresses.TryGetValue(control, out _);
+
     // VB6 has no event for the other buttons, as in Raise.
     private static bool IsVbButton(PointerPoint point) => point.Properties.PointerUpdateKind
         is PointerUpdateKind.LeftButtonPressed or PointerUpdateKind.RightButtonPressed or PointerUpdateKind.MiddleButtonPressed;
