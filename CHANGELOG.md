@@ -208,6 +208,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A control added or pasted no longer takes the TabIndex of a control HexIDE does not model** (#925).
+  Such a control, an OCX's Toolbar for one, is carried as text, and its TabIndex went uncounted, so a new control could
+  be given the same number. It now counts, nested ones included.
 - **A control added or pasted takes the TabIndex VB6 gives it** (#925). The first control got 1, a Timer or a Shape used
   a number up, a Label or a Frame was saved without one, and a pasted control kept its source's, so the file held two
   controls at one TabIndex. A control on a loaded form could also take a Label's or a Frame's number, which HexIDE

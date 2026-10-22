@@ -348,7 +348,32 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     private int NextTabIndex() =>
         AllComponents.Where(c => HasTabIndex(c.Instance.BaseClass))
             .Select(c => c.Instance.GetPropertyOrDefault(VBProperties.TabIndexProperty))
+            .Concat(AllComponents.SelectMany(c => c.Instance.PreservedChildSubtrees).SelectMany(b => TabIndexesIn(b.Text)))
             .DefaultIfEmpty(-1).Max() + 1;
+
+    /// <summary>
+    /// The TabIndex lines of the controls a preserved block holds, its own and those nested in it. A control HexIDE does
+    /// not model is carried as text, and keeps its place in the tab order all the same, so a new control must not take
+    /// its number. A line inside a <c>BeginProperty</c> block is a property's, not a control's.
+    /// </summary>
+    private static IEnumerable<int> TabIndexesIn(string preservedText)
+    {
+        var propertyDepth = 0;
+        foreach (var raw in preservedText.Split('\n'))
+        {
+            var line = raw.Trim();
+            if (line.StartsWith("BeginProperty", StringComparison.OrdinalIgnoreCase))
+                propertyDepth++;
+            else if (line.Equals("EndProperty", StringComparison.OrdinalIgnoreCase))
+                propertyDepth--;
+            else if (propertyDepth == 0 && TabIndexLine.Match(line) is { Success: true } match
+                     && int.TryParse(match.Groups[1].Value, out var tabIndex))
+                yield return tabIndex;
+        }
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex TabIndexLine =
+        new(@"^TabIndex\s*=\s*(\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
     private static bool HasTabIndex(IComponentClass type) => type.Properties.Contains(VBProperties.TabIndexProperty);
 

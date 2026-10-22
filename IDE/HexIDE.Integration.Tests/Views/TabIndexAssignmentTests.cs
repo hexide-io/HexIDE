@@ -174,6 +174,49 @@ public class TabIndexAssignmentTests
         (TabIndex(vm, form, "Label1"), TabIndex(vm, form, "Frame1")).Should().Be(("0", "3"), "the loaded ones keep theirs");
     }
 
+    // A control HexIDE does not model keeps its TabIndex in the text it is carried as, and holds its place in the tab
+    // order all the same: here the highest, 6, on a control nested in another carried control.
+    private const string FormWithCarriedControls =
+        "VERSION 5.00\r\n" +
+        "Begin VB.Form Form1 \r\n" +
+        "   Caption         =   \"Form1\"\r\n" +
+        "   Begin NoSuchLib.Toolbar Toolbar1 \r\n" +
+        "      Height          =   540\r\n" +
+        "      Left            =   0\r\n" +
+        "      TabIndex        =   4\r\n" +
+        "      Top             =   0\r\n" +
+        "      Width           =   6000\r\n" +
+        "      BeginProperty Buttons {66833FE8-8583-11D1-B16A-00C0F0283628} \r\n" +
+        "         TabIndex        =   99\r\n" +
+        "      EndProperty\r\n" +
+        "      Begin NoSuchLib.Gauge Gauge1 \r\n" +
+        "         Left            =   120\r\n" +
+        "         TabIndex        =   6\r\n" +
+        "         Top             =   60\r\n" +
+        "      End\r\n" +
+        "   End\r\n" +
+        "   Begin VB.CommandButton Command1 \r\n" +
+        "      Caption         =   \"Command1\"\r\n" +
+        "      Height          =   495\r\n" +
+        "      Left            =   240\r\n" +
+        "      TabIndex        =   5\r\n" +
+        "      Top             =   960\r\n" +
+        "      Width           =   1215\r\n" +
+        "   End\r\n" +
+        "End\r\n" +
+        "Attribute VB_Name = \"Form1\"\r\n";
+
+    [AvaloniaFact]
+    public void A_control_added_counts_the_TabIndex_of_controls_HexIDE_does_not_model()
+    {
+        var (vm, form) = Open(FormWithCarriedControls);
+
+        var name = Add(vm, CommandButtonComponentClass.Instance);
+
+        TabIndex(vm, form, name).Should().Be("7",
+            "Gauge1, carried as text inside Toolbar1, holds 6; a property block's 99 is no control's TabIndex");
+    }
+
     [AvaloniaFact]
     public void A_pasted_control_takes_the_next_TabIndex_not_its_sources()
     {
