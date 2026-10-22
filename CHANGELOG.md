@@ -184,6 +184,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Save Project As names a designer, the resource file and the build folder from the new folder** (#1406). VB6's
+  Save As rewrites the paths in `Designer=`, `ResFile32=` and `Path32=` so that they still name the same files.
+  HexIDE kept them as read, so from another folder they named files beside the new project file. A reference's
+  relative library path follows too. `HelpFile=` stays as typed, as VB6 leaves it.
+
 - **`Debug.Print` prints every item, as VB6's Immediate window does** (#1380). Only the first item reached the Immediate
   window, so `Debug.Print "x ="; x` showed `x =` alone, and a trailing `;` still ended the line. Now `Debug.Print` writes
   what `Print #` writes, which is what VB6 does, line for line, as measured in its IDE:
