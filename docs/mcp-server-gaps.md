@@ -857,3 +857,17 @@ with the list.
 **Suggested fix.** Have the note give the dialog's first line of text or its kind beside its title, and give the open
 windows on request, or say in the `window` description that an unknown name lists them.
 [#1365](https://github.com/hexide-io/HexIDE/issues/1365).
+
+## No call double-clicks a running form: `double_click` raises only `DoubleTapped`, and two `click`s are too far apart
+
+**Symptom (2026-10-22, #1031, Windows).** A running form's `DblClick` comes from a double click's second press, told by
+the press's click count. `interact {"target":"<a Label on a running form>","action":"double_click"}` raises Avalonia's
+`DoubleTapped` and selects the target, with no pointer press, and answers `success: true`; the program's `Label1_DblClick`
+never runs, and nothing in the reply says no press was sent. Two `interact {"action":"click"}` calls in a row each press
+with a click count of 1, and an MCP round trip puts them past the 500 ms double-click time anyway.
+
+**Workaround.** None through the surface. `MouseEventTests` drives a double click headlessly, with real pointer input.
+
+**Suggested fix.** Accept `double` in `click`'s value, as in `10,5 double`, raising press, release, press and release
+with the second press's click count 2. Have `double_click`'s reply say it raised `DoubleTapped` and no press.
+[#1389](https://github.com/hexide-io/HexIDE/issues/1389).
