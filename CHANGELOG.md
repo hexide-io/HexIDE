@@ -208,6 +208,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **ReDim Preserve runs** (#1459). It was refused as not implemented, so a program that grows an array as it goes stopped
+  at the first one. It now keeps the elements in range and changes only the last dimension's upper bound, and refuses
+  everything else as vb6.exe does, each case measured: another bound changing is 9, too big is 7, and a Variant holding
+  no array is 13, each leaving the array as it was.
+
 - **An array element passed ByRef is the element itself** (#1455). `Swap s(0), s(1)` swapped nothing, so a sort written
   the usual way ran to the end and left its array as it was. The element is now passed by reference, as in VB6, and
   while the call runs its array is locked: ReDim, ReDim Preserve, Erase, or a store into the array's variable raises 10.
