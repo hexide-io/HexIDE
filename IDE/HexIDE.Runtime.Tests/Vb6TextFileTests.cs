@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using HexIDE.IDE;
+using HexIDE.TestSupport;
 
 namespace HexIDE.Runtime.Tests;
 
@@ -115,13 +116,10 @@ public class Vb6TextFileTests
         Vb6TextFile.Encode(Vb6TextFile.Decode(ascii)).Should().Equal(ascii);
     }
 
-    [Fact]
+    [Vb6TemplateFact]
     public void The_one_corpus_file_with_high_bytes_round_trips()
     {
-        var root = Environment.GetEnvironmentVariable("VB6_TEMPLATES")
-                   ?? @"C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template";
-        var path = Path.Join(root, "Forms", "Web Browser.frm");
-        if (!File.Exists(path)) return; // VB6 not installed (CI)
+        var path = Vb6Template.File("Forms", "Web Browser.frm");
 
         var original = File.ReadAllBytes(path);
         original.Any(b => b >= 0x80).Should().BeTrue("this fixture is chosen for its high bytes");

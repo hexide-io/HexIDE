@@ -152,6 +152,20 @@ public class CarriedCompanionRecordTests
     }
 
     [Fact]
+    public void A_NUL_carried_in_from_a_damaged_file_is_refused_rather_than_read_as_a_citation()
+    {
+        // The placeholders are NUL-delimited, and a carried line keeps whatever the file held. Read as a mark, a
+        // stray NUL would fail deep inside the save with an exception that says nothing about why.
+        var damaged = Form.Replace(
+            "      Badge           =   \"Form1.frx\":0000\r\n",
+            "      Badge           =   \"Form1.frx\":0000\r\n      Note            =   \"a" + (char)0 + "b\"\r\n");
+
+        var save = () => new FormSerializer().Serialize(Load(damaged, Companion), "Form1.frm");
+
+        save.Should().Throw<InvalidOperationException>().WithMessage("*designer text holds a NUL character*");
+    }
+
+    [Fact]
     public void A_carried_citation_the_companion_cannot_honour_still_holds_the_form_read_only()
     {
         // The companion stops before the ImageList's record, so that one citation cannot be honoured.
