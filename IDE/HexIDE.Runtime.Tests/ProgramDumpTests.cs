@@ -61,7 +61,7 @@ public class ProgramDumpTests : BaseVBTestFixture, IDisposable
         module.GetProperty("bare").GetBoolean().Should().BeTrue();
         module.GetProperty("wrapped").GetString().Should().Be(
             "Dim n As Integer\nSub Bump()\n    n = n + 3\nEnd Sub\n" +
-            "Public Sub HexDumpMain()\n    n = 5\n    Bump\n    Debug.Print n\n    Debug.Print \"hi\"\nEnd Sub\n");
+            "Public Sub HexDumpMain()\nn = 5\nBump\nDebug.Print n\nDebug.Print \"hi\"\nEnd Sub\n");
         record.GetProperty("printed").EnumerateArray()
             .Select(p => (p.GetProperty("type").GetString(), p.GetProperty("text").GetString()))
             .Should().Equal(("Integer", "8"), ("String", "hi"));
@@ -113,7 +113,18 @@ public class ProgramDumpTests : BaseVBTestFixture, IDisposable
         bare.Should().BeTrue();
         wrapped.Should().Be(
             "Option Explicit\nConst K = 2\n" +
-            "Public Sub HexDumpMain()\n    Static s As Integer\n    GoTo Done\n    Debug.Print 1\n    Done: Debug.Print K\nEnd Sub\n");
+            "Public Sub HexDumpMain()\nStatic s As Integer\nGoTo Done\nDebug.Print 1\nDone: Debug.Print K\nEnd Sub\n");
+    }
+
+    [Fact]
+    public void A_label_on_a_line_of_its_own_stays_in_the_first_column()
+    {
+        // Indented, it was "Label not defined" to another engine. The source has it in the first column.
+        var (wrapped, _) = ProgramDump.Wrap("On Error GoTo H\nCall A\nExit Sub\nH:\nDebug.Print Err.Number\nSub A()\nEnd Sub\n");
+
+        wrapped.Should().Be(
+            "Sub A()\nEnd Sub\n" +
+            "Public Sub HexDumpMain()\nOn Error GoTo H\nCall A\nExit Sub\nH:\nDebug.Print Err.Number\nEnd Sub\n");
     }
 
     [Fact]

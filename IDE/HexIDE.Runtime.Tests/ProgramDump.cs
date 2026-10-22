@@ -84,7 +84,8 @@ internal sealed class ProgramDump
     /// <summary>
     /// A standard module as an engine that starts only at a named procedure can run it: its declarations, then its
     /// procedures, then its bare statements moved in order into <see cref="Entry"/>, each with the line label or number in
-    /// front of it. <c>bare</c> says whether there were any. A module-level <c>Dim</c>, <c>Const</c>, <c>Def</c>type, <c>Implements</c> or <c>Attribute</c> stays a
+    /// front of it. <c>bare</c> says whether there were any. The moved statements are not indented, so a label stays in
+    /// the first column, where the source had it and where an engine may require it. A module-level <c>Dim</c>, <c>Const</c>, <c>Def</c>type, <c>Implements</c> or <c>Attribute</c> stays a
     /// declaration, so a procedure that reads it still can; anything nested inside a statement goes with that
     /// statement. Purely syntactic: the parse tree is read, never bound.
     /// </summary>
@@ -129,7 +130,7 @@ internal sealed class ProgramDump
                     if (IsDeclaration(statement) && label is null)
                         declarations.Append(Text(statement)).Append('\n');
                     else
-                        entry.Append("    ").Append(label is null ? "" : label + " ").Append(Text(statement)).Append('\n');
+                        entry.Append(label is null ? "" : label + " ").Append(Text(statement)).Append('\n');
                     label = null;
                 }
             }
