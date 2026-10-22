@@ -102,6 +102,9 @@ public sealed class VbUdt
     public Vb6Value.ValueType? DeclaredTypeOf(string field) =>
         typedFields.TryGetValue(field, out var declared) ? declared : null;
 
+    /// <summary>Whether a field is declared As Variant, or with no As clause.</summary>
+    public bool IsVariantField(string field) => variantFields.Contains(field);
+
     /// <summary>A deep, independent copy — nested UDT fields clone recursively; scalar fields (immutable
     /// <see cref="Vb6Value"/> structs) copy by value. This is the whole of UDT value semantics.</summary>
     public VbUdt DeepClone()
@@ -118,12 +121,16 @@ public sealed class VbUdt
 /// parameter lands in the field at once and converts into the field's type, and the field reads back the new value while the
 /// procedure is still running (measured: `PL u.l`, with `PL(x As Long)` storing `x = "9"`, leaves 9; a module's `g.l`
 /// passed so reads 3 inside the procedure straight after `x = 3`; and a Variant parameter given a Long field stores 2 for
-/// `x = 2.5`, and raises 13 for `x = "hello"`).
+/// `x = 2.5`, and raises 13 for `x = "hello"`). The parameter reads as the field does: given `u.i As Integer` holding 5,
+/// `x * 7000` is 6 in `PI(x As Integer)` and 35000 in a Variant or untyped parameter.
 /// </summary>
 public sealed record UdtFieldRef(VbUdt Bag, string Name)
 {
     /// <summary>The scalar type the field is declared as, or null for a Variant, a nested Type or an object field.</summary>
     public Vb6Value.ValueType? DeclaredType => Bag.DeclaredTypeOf(Name);
+
+    /// <summary>Whether the field is a Variant.</summary>
+    public bool IsVariant => Bag.IsVariantField(Name);
 
     public Vb6Value Read() => Bag.TryGet(Name, out var value) ? value : Vb6Value.Variant;
 

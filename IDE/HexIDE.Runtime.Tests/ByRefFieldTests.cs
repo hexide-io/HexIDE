@@ -112,4 +112,51 @@ public class ByRefFieldTests : BaseVBTestFixture
 
         AssertDebugLog([new Vb6Value("Long 9")]);
     }
+
+    [Fact]
+    public async Task A_field_passed_ByRef_reads_as_the_field_does()
+    {
+        // Measured: given `u.i As Integer` holding 5, `x * 7000` overflows in `PI(x As Integer)`, as it does for an Integer
+        // variable, and is 35000 in a Variant or untyped parameter. A Variant field is 35000 in either. HexIDE read every one
+        // as a Variant's until the parameter's slot was declared as the field is.
+        await Run("""
+            Private Type T
+                i As Integer
+                v As Variant
+            End Type
+            Private Sub PI(x As Integer)
+                On Error Resume Next
+                Dim r As Variant
+                r = x * 7000
+                Debug.Print "PI " & TypeName(x) & " " & r & " err " & Err.Number
+            End Sub
+            Private Sub PV(x As Variant)
+                On Error Resume Next
+                Dim r As Variant
+                r = x * 7000
+                Debug.Print "PV " & TypeName(x) & " " & r & " err " & Err.Number
+            End Sub
+            Private Sub PU(x)
+                On Error Resume Next
+                Dim r As Variant
+                r = x * 7000
+                Debug.Print "PU " & TypeName(x) & " " & r & " err " & Err.Number
+            End Sub
+            Dim u As T
+            u.i = 5: u.v = 5
+            PI u.i: Err.Clear
+            PV u.i: Err.Clear
+            PU u.i: Err.Clear
+            PV u.v: Err.Clear
+            PU u.v
+
+            """);
+
+        AssertDebugLog([
+            new Vb6Value("PI Integer  err 6"),
+            new Vb6Value("PV Integer 35000 err 0"),
+            new Vb6Value("PU Integer 35000 err 0"),
+            new Vb6Value("PV Integer 35000 err 0"),
+            new Vb6Value("PU Integer 35000 err 0")]);
+    }
 }

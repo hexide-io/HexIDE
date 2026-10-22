@@ -153,10 +153,15 @@ public class ExecutionState
     // A ByRef parameter given a UDT field (#1451): its slot reads and writes the field itself, for as long as the call runs.
     private readonly Dictionary<int, UdtFieldRef> fieldSlots = new();
 
-    /// <summary>A slot that stands for <paramref name="field"/>, as a ByRef parameter's slot stands for its caller's.</summary>
+    /// <summary>
+    /// A slot that stands for <paramref name="field"/>, as a ByRef parameter's slot stands for its caller's. It is declared as
+    /// the field is, so a read through it is typed or a Variant's as a read of the field is (#987), and a store converts there.
+    /// </summary>
     public int AllocField(UdtFieldRef field)
     {
-        var loc = Alloc(field.Read());
+        var loc = Alloc(field.Read(), field.DeclaredType);
+        if (field.IsVariant)
+            MarkVariant(loc);
         fieldSlots[loc] = field;
         return loc;
     }
