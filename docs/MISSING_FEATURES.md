@@ -331,7 +331,7 @@
 |---|---|---|
 | Cursor / pointer tool | Done | |
 | Label | Done | |
-| TextBox | Partial | Text, Change, the colours, focus and the mouse events run. SelStart, SelLength and SelText read and write at run time as vb6.exe measured ([#1150](https://github.com/hexide-io/HexIDE/issues/1150)). MultiLine, ScrollBars, MaxLength, Locked, PasswordChar and Alignment are kept in the file but not applied at run time, and its own Font is not drawn ([#915](https://github.com/hexide-io/HexIDE/issues/915)) |
+| TextBox | Partial | Text, Change, the colours, focus and the mouse events run. SelStart, SelLength and SelText read and write at run time as vb6.exe measured ([#1150](https://github.com/hexide-io/HexIDE/issues/1150)). MultiLine and ScrollBars lay the box out as in VB6: Enter breaks a MultiLine box's line, it wraps unless it has a horizontal scroll bar, and it draws the bars it asks for ([#1340](https://github.com/hexide-io/HexIDE/issues/1340)). MaxLength, Locked, PasswordChar and Alignment are kept in the file but not applied at run time, and its own Font is not drawn ([#915](https://github.com/hexide-io/HexIDE/issues/915)) |
 | Frame | Done | |
 | CommandButton | Done | |
 | CheckBox | Done | |
