@@ -24,8 +24,8 @@ namespace HexIDE.Tests.Projects;
 /// anyway: this guard is about a save never DESTROYING a companion, and a form that reproduces its own is
 /// still the strongest case that nothing was clobbered on the way through.
 ///
-/// What is still unmodelled, and what the loss-flag test therefore uses: a blob on a <c>VB.Image</c>, a
-/// control class HexIDE does not model at all.
+/// A record HexIDE does not model is carried now, with the lines citing it (#60), so the loss-flag test uses
+/// the one thing left that no save can reproduce: a companion cut short of a record the form cites.
 ///
 /// The fixture is VB6's own shipped form, so it exercises the real shape rather than a contrived one. It is
 /// skipped where VB6 is not installed (CI is Linux).
@@ -46,11 +46,13 @@ public class CompanionBinaryPreservationTests : IDisposable
             Environment.GetEnvironmentVariable("VB6_TEMPLATES"),
             @"C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template");
 
+    // A candidate may name the Template folder or the folder it was extracted into, as the corpus scan accepts
+    // either. Naming the parent used to find nothing here, so every test below returned at its guard and passed.
     private static string FirstExistingDirectory(string[]? candidates, params string?[] fallbacks)
     {
         foreach (var c in (candidates ?? []).Concat(fallbacks))
             if (!string.IsNullOrWhiteSpace(c) && Directory.Exists(c))
-                return c;
+                return Directory.Exists(Path.Join(c, "Template")) ? Path.Join(c, "Template") : c;
         return fallbacks[^1]!;
     }
 
@@ -107,10 +109,12 @@ public class CompanionBinaryPreservationTests : IDisposable
         File.Copy(srcFrm, dstFrm);
         File.Copy(srcFrx, Path.ChangeExtension(dstFrm, ".frx"));
 
-        // The .frm references its companion by the ORIGINAL name, so rewrite those references to match.
-        var text = File.ReadAllText(dstFrm)
+        // The .frm references its companion by the ORIGINAL name, so rewrite those references to match. In Latin-1,
+        // which maps each byte to one character and back, so the rest of the file keeps VB6's own bytes. Web
+        // Browser.frm holds an ANSI byte, which a UTF-8 round trip here turned into EF BF BD.
+        var text = File.ReadAllText(dstFrm, System.Text.Encoding.Latin1)
             .Replace(Path.GetFileName(srcFrx), name + ".frx", StringComparison.OrdinalIgnoreCase);
-        File.WriteAllText(dstFrm, text);
+        File.WriteAllText(dstFrm, text, System.Text.Encoding.Latin1);
 
         var vbp = Path.Join(dir, "Test.vbp");
         File.WriteAllText(vbp, $"Type=Exe\r\nForm={name}.frm\r\nName=\"Test\"\r\n");
@@ -160,16 +164,19 @@ public class CompanionBinaryPreservationTests : IDisposable
     [Fact]
     public async Task The_form_records_that_it_lost_binary_fidelity()
     {
-        // Web Browser, and this is the third fixture this test has had. Button ListBox stopped exercising
-        // it when CommandButton.Picture and ListBox.DragIcon were modelled; Splash Screen stopped when
-        // VB.Image was. Each time the form began reproducing its own companion, the flag correctly stopped
-        // firing, and the test failed for the best possible reason.
+        // Web Browser with its companion cut short, and this is the fourth fixture this test has had. Button
+        // ListBox stopped exercising it when CommandButton.Picture and ListBox.DragIcon were modelled; Splash
+        // Screen stopped when VB.Image was; Web Browser itself stopped when the records its ImageList cites
+        // were carried (#60). Each time the form began reproducing its own companion, the flag correctly
+        // stopped firing, and the test failed for the best possible reason.
         //
-        // Web Browser is the durable choice: its six Pictures sit on an MSComctlLib.ImageList, and hosting
-        // third-party ActiveX controls is out of scope. If this one ever stops losing binary content, that
-        // is a change worth noticing rather than a fixture to swap out.
+        // This one is durable: nothing can put back a record that is not in the companion. Cut at its sixth
+        // picture, the companion holds five of the six records the form cites.
         var vbp = StageVb6Form(@"Forms\Web Browser.frm");
         if (vbp is null) return;
+        var frxPath = Directory.EnumerateFiles(dir, "*.frx").Single();
+        var companion = await File.ReadAllBytesAsync(frxPath, TestContext.Current.CancellationToken);
+        await File.WriteAllBytesAsync(frxPath, companion[..0x0E6A], TestContext.Current.CancellationToken);
 
         var svc = MakeService();
         await svc.OpenProject(vbp);
@@ -184,6 +191,32 @@ public class CompanionBinaryPreservationTests : IDisposable
         loaded.Single().Forms.Single().UnfaithfulSaveCauses
             .Should().HaveFlag(UnfaithfulSaveCause.UnreproducibleBinaryContent,
                 "this is what holds the form read-only and stops the save touching the companion");
+    }
+
+    [Fact]
+    public async Task A_form_whose_records_HexIDE_does_not_model_saves_both_halves_as_VB6_wrote_them()
+    {
+        // Web Browser's six pictures sit on an MSComctlLib.ImageList, which HexIDE does not model. The ImageList
+        // is carried as a preserved block, and the records its lines cite go with it (#60). The companion is
+        // deleted before the save, so only a save that rebuilds it from the model can put it back.
+        var vbp = StageVb6Form(@"Forms\Web Browser.frm");
+        if (vbp is null) return;
+        var frxPath = Directory.EnumerateFiles(dir, "*.frx").Single();
+        var frmPath = Path.ChangeExtension(frxPath, ".frm");
+        var companion = await File.ReadAllBytesAsync(frxPath, TestContext.Current.CancellationToken);
+        var designer = await File.ReadAllBytesAsync(frmPath, TestContext.Current.CancellationToken);
+
+        var svc = MakeService();
+        await svc.OpenProject(vbp);
+        loaded.Single().Forms.Single().CanSaveFaithfully.Should().BeTrue("every record the form cites is carried");
+        File.Delete(frxPath);
+        await svc.SaveProject(loaded.Single(), saveAs: false);
+
+        File.Exists(frxPath).Should().BeTrue("the save wrote the companion from the model");
+        (await File.ReadAllBytesAsync(frxPath, TestContext.Current.CancellationToken)).Should().Equal(companion,
+            "the six records go back in the order the form cites them, as VB6 laid them out");
+        (await File.ReadAllBytesAsync(frmPath, TestContext.Current.CancellationToken)).Should().Equal(designer,
+            "and every citation addresses the record it did when the form was read");
     }
 
     [Fact]
