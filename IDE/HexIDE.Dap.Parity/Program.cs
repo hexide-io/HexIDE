@@ -59,6 +59,8 @@ Write(new JsonObject
 });
 
 var counts = new SortedDictionary<string, int>(StringComparer.Ordinal);
+// A program left out for several reasons counts under each.
+var exclusions = new SortedDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 var done = 0;
 var clock = Stopwatch.StartNew();
 using var slots = new SemaphoreSlim(options.Parallel);
@@ -73,6 +75,8 @@ await Task.WhenAll(cases.Select(async c =>
         {
             var outcome = result["outcome"]!.GetValue<string>();
             counts[outcome] = counts.GetValueOrDefault(outcome) + 1;
+            foreach (var reason in result["excludedFor"]?.AsArray() ?? [])
+                exclusions[reason!.GetValue<string>()] = exclusions.GetValueOrDefault(reason!.GetValue<string>()) + 1;
             if (++done % 50 == 0 || done == cases.Count)
                 Console.WriteLine($"{done}/{cases.Count} in {clock.Elapsed:hh\\:mm\\:ss}");
         }
@@ -90,6 +94,7 @@ var summary = new JsonObject
     ["programs"] = cases.Count,
     ["elapsed"] = clock.Elapsed.ToString(@"hh\:mm\:ss"),
     ["outcomes"] = new JsonObject(counts.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)kv.Value))),
+    ["excludedFor"] = new JsonObject(exclusions.Select(kv => KeyValuePair.Create(kv.Key, (JsonNode?)kv.Value))),
 };
 File.WriteAllText(Path.Combine(outDir, "summary.json"), summary.ToJsonString(indented));
 Console.WriteLine(summary.ToJsonString(indented));
@@ -113,6 +118,15 @@ async Task<JsonObject> RunCase(int index, JsonObject record)
     {
         // HexIDE runs a module with no bare statements as its declarations alone, so there is nothing to call.
         result["outcome"] = "no-entry";
+        return result;
+    }
+    // The engine runs the program for real, on the machine running this tool. A program that would act outside its own
+    // process is counted and left out, whatever its paths say: a path built at run time can't be checked here.
+    var effects = Effects.Of(modules.Select(m => m["source"]!.GetValue<string>()));
+    if (effects.Count > 0)
+    {
+        result["outcome"] = "excluded";
+        result["excludedFor"] = new JsonArray(effects.Select(e => (JsonNode?)e).ToArray());
         return result;
     }
 
@@ -163,7 +177,9 @@ async Task<Engine> RunEngine(string workspace, string module)
         session = DapSession.Start(new(adapter!)
         {
             Arguments = ["--dap", "--workspace", workspace],
-            WorkingDirectory = Path.GetDirectoryName(adapter),
+            // The case's own workspace, so a relative path the engine resolves lands there. Programs that touch the
+            // file system are left out anyway (Effects); this is the second line.
+            WorkingDirectory = workspace,
             ShutdownTimeout = TimeSpan.FromSeconds(5),
         });
         var running = session;
@@ -320,6 +336,107 @@ sealed record Options(string Dump, string? Label, int TimeoutSeconds, int Parall
             }
         }
         return dump is not null && File.Exists(dump) ? new Options(dump, label, timeout, parallel, template, output, dryRun) : null;
+    }
+}
+
+/// <summary>
+/// What a program would do outside its own process, read from its source token by token. Nothing is bound, and the read
+/// errs toward finding too much, since a false find only leaves a program out. Strings, comments and members
+/// (<c>x.Name</c>) are skipped.
+/// </summary>
+static class Effects
+{
+    // Each acts outside the process whatever its arguments: a dialog, another program, a native call, an automation
+    // object, the file system, the registry, the clipboard, the printer, the speaker.
+    static readonly HashSet<string> Anywhere = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "MsgBox", "InputBox", "Shell", "SendKeys", "Declare", "CreateObject", "GetObject", "AppActivate",
+        "Kill", "RmDir", "MkDir", "FileCopy", "SetAttr", "ChDir", "ChDrive",
+        "SaveSetting", "DeleteSetting", "Clipboard", "Printer", "Beep",
+    };
+
+    // Each is a statement only where a statement starts: `Name a As b` renames a file, `Open` opens one, and `Date = d`
+    // and `Time = t` set the system clock. Elsewhere `Name` is a property and `Date` a function.
+    static readonly HashSet<string> AsStatement = new(StringComparer.OrdinalIgnoreCase) { "Name", "Open", "Date", "Time", "Date$", "Time$" };
+
+    public static SortedSet<string> Of(IEnumerable<string> sources)
+    {
+        var found = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var source in sources)
+            foreach (var line in Regex.Split(source.Replace("\r\n", "\n"), @" _\n").SelectMany(l => l.Split('\n')))
+                Scan(line, found);
+        return found;
+    }
+
+    static void Scan(string line, SortedSet<string> found)
+    {
+        var statementStart = true;
+        var afterMember = false;
+        for (var i = 0; i < line.Length;)
+        {
+            var c = line[i];
+            if (c == '"')
+            {
+                // A string, with "" for a quote inside it.
+                for (i++; i < line.Length; i++)
+                {
+                    if (line[i] != '"')
+                        continue;
+                    if (i + 1 < line.Length && line[i + 1] == '"')
+                        i++;
+                    else
+                        break;
+                }
+                i++;
+                statementStart = afterMember = false;
+                continue;
+            }
+            if (c == '\'')
+                return;
+            if (char.IsLetter(c) || c == '_')
+            {
+                var start = i;
+                while (i < line.Length && (char.IsLetterOrDigit(line[i]) || line[i] == '_'))
+                    i++;
+                // `Date$` and `Time$` are the string forms of the clock statements.
+                if (i < line.Length && line[i] == '$')
+                    i++;
+                var word = line[start..i];
+                var next = line[i..].TrimStart();
+                if (statementStart && word.Equals("Rem", StringComparison.OrdinalIgnoreCase))
+                    return;
+                if (!afterMember)
+                {
+                    if (Anywhere.Contains(word))
+                        found.Add(word);
+                    else if (statementStart && AsStatement.Contains(word))
+                    {
+                        var isDateOrTime = word.TrimEnd('$').Equals("Date", StringComparison.OrdinalIgnoreCase)
+                            || word.TrimEnd('$').Equals("Time", StringComparison.OrdinalIgnoreCase);
+                        // `Date = d` is the statement; `Name = x` and `Open = x` assign a variable.
+                        if (isDateOrTime == next.StartsWith('='))
+                            found.Add(isDateOrTime ? word.TrimEnd('$') + " =" : word);
+                    }
+                }
+                // A statement starts again after Then and Else: `If x Then Name a As b`.
+                statementStart = word.Equals("Then", StringComparison.OrdinalIgnoreCase) || word.Equals("Else", StringComparison.OrdinalIgnoreCase);
+                afterMember = false;
+                continue;
+            }
+            if (char.IsDigit(c) && statementStart)
+            {
+                // A line number keeps the statement's start.
+                while (i < line.Length && char.IsDigit(line[i]))
+                    i++;
+                continue;
+            }
+            if (c == ':')
+                statementStart = true;
+            else if (!char.IsWhiteSpace(c))
+                statementStart = false;
+            afterMember = c is '.' or '!' || (char.IsWhiteSpace(c) && afterMember);
+            i++;
+        }
     }
 }
 

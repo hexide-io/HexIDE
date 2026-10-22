@@ -225,6 +225,18 @@ pad a number for its sign (#1380):
 | `hexide-unimplemented-engine-runs` / `-engine-error` | `NotImplementedException` | ran, or an error |
 | `no-entry` | ran declarations alone, so there is nothing to call | not started |
 | `timeout` / `launch-failed` | | ran past `--timeout`, or the session failed |
+| `excluded` | not compared | not started: the program would act outside its own process |
+
+RDCore runs each program for real, on the machine running the tool, so a program that would act outside its own
+process is left out before anything starts, and `summary.json` counts each reason. The tool reads every module token
+by token, skipping strings, comments and members such as `x.Name`, and erring toward leaving a program out:
+- anywhere: `MsgBox`, `InputBox`, `Shell`, `SendKeys`, `Declare`, `CreateObject`, `GetObject`, `AppActivate`, `Kill`,
+  `RmDir`, `MkDir`, `FileCopy`, `SetAttr`, `ChDir`, `ChDrive`, `SaveSetting`, `DeleteSetting`, `Clipboard`, `Printer`
+  and `Beep`;
+- as a statement: `Name ... As`, `Open`, and `Date =` and `Time =`, which set the system clock.
+
+A path built at run time can't be checked before the run, so file statements are left out whatever their paths say.
+The adapter also starts in the program's own workspace, so a relative path the engine resolves lands there.
 
 What the adapter does that the tool relies on, measured against the revision in the next paragraph:
 - A class module needs its `VERSION 1.0 CLASS` header, or it is read as a standard module. The tool adds it.
