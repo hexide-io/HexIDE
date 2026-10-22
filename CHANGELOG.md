@@ -185,6 +185,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`FontSize`, `FontBold`, `FontItalic`, `FontUnderline` and `FontStrikethru`, and a TextBox's own Font** (#1343,
+  #915). The five members stopped a run at the first read or write, and a TextBox had no Font of its own, so Notepad's
+  Format > Font stopped at its first line. Now every control with a font, and the form, reads and writes them as
+  vb6.exe measured: sizes snap to whole pixels, and GDI's bitmap fonts to the heights they have, turning into Arial past
+  a size of their own; the Booleans coerce and refuse as VB6's do. A TextBox draws in its own font, and its Font block
+  saves byte for byte.
 - **A font's size is drawn in points** (#910). It was drawn as pixels, so every VB6 font came out a quarter too small:
   a Label in 12-point Arial drew at 12 pixels instead of 16. The default font was held as 11, the pixels
   VB6's 8.25 points draw at, and the designer's Font dialog wrote that into a .frm as `Size = 11`. It also turned 8.25
