@@ -9883,7 +9883,8 @@ middle click too, and never from code or a key. A right press selected the item 
 
 Since #1374, `VBListBox` raises Click from the two places VB6 does.
 - **A left press on an item** is remembered, and its release raises Click before MouseUp, unless it is a double click's
-  second (#1031). While the button is held, the item under the pointer is selected.
+  second (#1031). While the button is held, the item under the pointer is selected. The release may land anywhere,
+  off the list included, as VB6's may (measured in *And a press released somewhere else*, #1373).
 - **A right or middle press** is marked handled on its way down, so Avalonia's ListBox selects nothing for it. Its
   MouseDown and MouseUp still come, since those take handled presses.
 - **An arrow key** raises Click when the selection it leaves differs from the one it found.
@@ -9894,9 +9895,8 @@ Since #1374, `VBListBox` raises Click from the two places VB6 does.
   and the arrow keys. `ListBoxClickTests` pins the `ListIndex` rows, a plain `AddItem` and `Clear`.
 
 What it still does not do:
-- **`Selected(i)`, `Text`, `RemoveItem` and `AddItem`'s index** are not implemented (#821), so their rows wait on that.
-- **A release outside the list,** after a press on an item, raises Click here. VB6 was measured releasing only inside
-  the list.
+- **`RemoveItem` and `AddItem`'s index** are #821's, and **`Selected(i)` and `Text`** #1395's, so their rows wait on
+  those.
 
 ## One handler at a time (2026-10-14, #766)
 
