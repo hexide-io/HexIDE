@@ -184,6 +184,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`FormCodeText.PreserveAttributes` is gone** (#686). It could weld a header with no line ending onto the code
+  after it, but it has had no caller since #273's phase 3 kept a form's header with `GuardedContent` instead, so it
+  was deleted rather than repaired.
+
 - **A ListBox's `Selected(i)`, `SelCount` and `Text` work** (#1395). Each was "Method or data member not found", so
   code that read which items were chosen, or chose one by its text, stopped there. Now each does what vb6.exe does on a
   single-select list:
