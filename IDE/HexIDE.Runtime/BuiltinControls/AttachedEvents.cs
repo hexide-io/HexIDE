@@ -76,20 +76,52 @@ public static class AttachedEvents
     }
 
     /// <summary>
-    /// Raise <c>Form_MouseDown</c>, <c>Form_MouseUp</c> and <c>Form_MouseMove</c> from the form's client canvas, for a
-    /// pointer over no control: a click on a Label is the Label's alone (measured). X and Y are in the form's ScaleMode.
+    /// Raise <c>Form_MouseDown</c>, <c>Form_MouseUp</c>, <c>Form_MouseMove</c> and <c>Form_Click</c> from the form's client
+    /// canvas, for a pointer over no control: a click on a Label is the Label's alone (measured). X and Y are in the form's
+    /// ScaleMode.
     /// </summary>
+    /// <remarks>
+    /// Measured with real input, native and p-code agreeing (the oracle's "A click with real input", #1364):
+    /// <list type="bullet">
+    /// <item>Click comes on the release, after MouseUp, for every button, unlike a CommandButton's.</item>
+    /// <item>Only when the press was on the form's own area and the release is over it again. Released over a control,
+    /// windowless or not, or outside the window, the form has its MouseUp and no Click. So the release is hit-tested where
+    /// it is: while the pointer is captured, the event's source is the canvas wherever the pointer went.</item>
+    /// <item>The second press of a double click raises DblClick and its release no Click. HexIDE raises no DblClick yet
+    /// (#1031), but still leaves out the Click VB6 does not raise.</item>
+    /// </list>
+    /// </remarks>
     public static void AttachFormMouse(Canvas client)
     {
+        bool OverTheForm(object? source)
+        {
+            for (var visual = source as Visual; visual is not null && !ReferenceEquals(visual, client); visual = visual.GetVisualParent())
+                if (visual is Control candidate && VBProps.GetName(candidate) is not null)
+                    return false;
+            return source is not null;
+        }
         void Handler(PointerEventArgs e, EventClass eventClass)
         {
-            for (var visual = e.Source as Visual; visual is not null && !ReferenceEquals(visual, client); visual = visual.GetVisualParent())
-                if (visual is Control candidate && VBProps.GetName(candidate) is not null)
-                    return;
-            Raise(client, e, eventClass, "Form", index: null, origin: client, VBProps.GetScaleMode(client), inset: 0);
+            if (OverTheForm(e.Source))
+                Raise(client, e, eventClass, "Form", index: null, origin: client, VBProps.GetScaleMode(client), inset: 0);
         }
-        client.AddHandler(InputElement.PointerPressedEvent, (_, e) => Handler(e, ComponentBaseClass.MouseDownEvent), handledEventsToo: true);
-        client.AddHandler(InputElement.PointerReleasedEvent, (_, e) => Handler(e, ComponentBaseClass.MouseUpEvent), handledEventsToo: true);
+        // Whether the press that a release ends began on the form, and was the first click of a double click or a lone one.
+        var clicking = false;
+        client.AddHandler(InputElement.PointerPressedEvent, (_, e) =>
+        {
+            clicking = OverTheForm(e.Source) && e.ClickCount % 2 == 1;
+            Handler(e, ComponentBaseClass.MouseDownEvent);
+        }, handledEventsToo: true);
+        client.AddHandler(InputElement.PointerReleasedEvent, (_, e) =>
+        {
+            Handler(e, ComponentBaseClass.MouseUpEvent);
+            // VB6 has no event for the other buttons, as in Raise.
+            var click = clicking && (e.InitialPressMouseButton is MouseButton.Left or MouseButton.Right or MouseButton.Middle)
+                        && OverTheForm(client.InputHitTest(e.GetPosition(client)));
+            clicking = false;
+            if (click && client.FindLogicalAncestorOfType<IModuleExecutionRoot>() is { } root && root.Handles("Form_Click"))
+                root.ExecuteSub("Form_Click");
+        }, handledEventsToo: true);
         client.AddHandler(InputElement.PointerMovedEvent, (_, e) => Handler(e, ComponentBaseClass.MouseMoveEvent), handledEventsToo: true);
     }
 

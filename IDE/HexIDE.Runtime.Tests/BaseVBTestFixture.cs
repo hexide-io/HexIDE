@@ -78,10 +78,42 @@ public abstract class BaseVBTestFixture
         debug.Should().Equal(expected, (a, b) => new Comparer(0.001).Compare(a, b) == 0);
     }
 
-    protected async Task Run(string code)
+    /// <summary>Where each program run here is written, with its result, when <c>HEXIDE_DUMP_PROGRAMS</c> names a dump
+    /// (#1368). A test may give its own.</summary>
+    internal ProgramDump? Dump { get; set; } = ProgramDump.FromEnvironment;
+    private int dumped;
+
+    protected async Task Run(string code) => await Dumped([("Module1", false, code)], async () =>
     {
         var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, code);
         await vb.Execute();
+    });
+
+    private async Task Dumped(IReadOnlyList<(string Name, bool IsClass, string Source)> modules, Func<Task> run)
+    {
+        if (Dump is not { } dump)
+        {
+            await run();
+            return;
+        }
+        int before;
+        lock (debug) before = debug.Count;
+        Exception? thrown = null;
+        try
+        {
+            await run();
+        }
+        catch (Exception e)
+        {
+            thrown = e;
+            throw;
+        }
+        finally
+        {
+            List<Vb6Value> printed;
+            lock (debug) printed = debug.Skip(before).ToList();
+            dump.Record(TestContext.Current.Test?.TestDisplayName ?? GetType().Name, ++dumped, modules, printed, thrown);
+        }
     }
 
     /// <summary>Build a debuggable interpreter: the given code as the startup module <paramref name="moduleName"/>
@@ -98,19 +130,21 @@ public abstract class BaseVBTestFixture
 
     /// <summary>Run <paramref name="primaryCode"/> as the startup module "Module1", with additional named
     /// standard modules also loaded into the project-wide registry (for cross-module resolution tests).</summary>
-    protected async Task RunModules(string primaryCode, params (string Name, string Code)[] modules)
-    {
-        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, primaryCode, "Module1", modules);
-        await vb.Execute();
-    }
+    protected async Task RunModules(string primaryCode, params (string Name, string Code)[] modules) =>
+        await Dumped([("Module1", false, primaryCode), .. modules.Select(m => (m.Name, false, m.Code))], async () =>
+        {
+            var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, primaryCode, "Module1", modules);
+            await vb.Execute();
+        });
 
     /// <summary>Run <paramref name="primaryCode"/> with the given named CLASS modules registered (each
     /// instantiable via <c>New Name</c>). Class modules are templates — not run at startup.</summary>
-    protected async Task RunClasses(string primaryCode, params (string Name, string Code)[] classModules)
-    {
-        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, primaryCode, "Module1", null, classModules);
-        await vb.Execute();
-    }
+    protected async Task RunClasses(string primaryCode, params (string Name, string Code)[] classModules) =>
+        await Dumped([("Module1", false, primaryCode), .. classModules.Select(m => (m.Name, true, m.Code))], async () =>
+        {
+            var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, primaryCode, "Module1", null, classModules);
+            await vb.Execute();
+        });
 
     protected class MockStdLib(List<Vb6Value> debug) : IBasicStandardLibrary
     {
