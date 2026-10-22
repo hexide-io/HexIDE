@@ -89,6 +89,9 @@ internal static class FontMembers
         return true;
     }
 
+    /// <summary>Whether FontName takes <paramref name="asked"/> here, as <see cref="TrySet"/> would.</summary>
+    internal static bool Takes(string asked) => Resolve(asked) is not null;
+
     /// <summary>The family a name sets, in its own spelling, with its charset; null for one the machine doesn't have.</summary>
     private static (string Name, int Charset)? Resolve(string asked)
     {

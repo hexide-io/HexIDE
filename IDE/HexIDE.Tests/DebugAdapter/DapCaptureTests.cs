@@ -201,6 +201,62 @@ public class DapCaptureTests
         string.Concat(entries.Where(e => e.Kind == ConversationEntryKind.StandardError).Select(e => e.Detail))
             .Should().Be("adapter startup failed");
         entries.Last().Detail.Should().Contain("exit code 37");
+        // A failure, as the IDE tells the user it is, and so where failuresOnly sends a caller to look (#1314).
+        entries.Last().Fault.Should().BeTrue();
+        (await CaptureQueries.ListAsync(log, new EnvelopeFilter(FailuresOnly: true))).Entries
+            .Should().Contain(e => e.Detail != null && e.Detail.Contains("exit code 37"));
+    }
+
+    private static DapProcess Adapter(ConversationLog log, string mode) => DapProcess.Start(new("dotnet")
+    {
+        Arguments = [typeof(Dap.TestAdapter.Program).Assembly.Location, mode],
+        ShutdownTimeout = TimeSpan.FromSeconds(1),
+        Capture = new(log, Id),
+    });
+
+    [Theory]
+    [InlineData("hang", true)]
+    [InlineData("echo", false)]
+    public async Task An_adapter_HexIDE_has_to_kill_is_a_fault_and_one_that_exits_0_when_stopped_is_not(string mode, bool fault)
+    {
+        // Stopped by HexIDE either way: the hang is killed after the grace period, and the echo exits 0 on its own.
+        await using var log = new ConversationLog();
+        await using var adapter = Adapter(log, mode);
+        (await adapter.Connection.Events.ReadAsync(TestToken).AsTask().WaitAsync(Patience, TestToken)).Event.Should().Be("ready");
+
+        await adapter.DisposeAsync().AsTask().WaitAsync(Patience, TestToken);
+        await adapter.Completion.WaitAsync(Patience, TestToken);
+
+        await log.DrainAsync();
+        var ended = log.Snapshot(Id).Single(e => e.Detail != null && e.Detail.StartsWith("DAP process ended:", StringComparison.Ordinal));
+        ended.Fault.Should().Be(fault, ended.Detail);
+        (await CaptureQueries.ListAsync(log, new EnvelopeFilter(FailuresOnly: true))).Entries.Should().HaveCount(fault ? 1 : 0);
+    }
+
+    [Fact]
+    public async Task A_cleanup_that_fails_is_a_fault_though_the_adapter_exited_0()
+    {
+        // The orphan's child holds the adapter's pipes open after it exits, so the cleanup times out.
+        await using var log = new ConversationLog();
+        await using var adapter = Adapter(log, "orphan");
+        var ready = await adapter.Connection.Events.ReadAsync(TestToken).AsTask().WaitAsync(Patience, TestToken);
+        using var child = System.Diagnostics.Process.GetProcessById(ready.Body!.Value.GetProperty("childId").GetInt32());
+        try
+        {
+            (await adapter.Completion.WaitAsync(Patience, TestToken)).CleanupFailure.Should().NotBeNull("the premise");
+
+            await log.DrainAsync();
+            var entries = log.Snapshot(Id);
+            entries.Single(e => e.Detail != null && e.Detail.StartsWith("DAP process ended:", StringComparison.Ordinal))
+                .Fault.Should().BeFalse("it exited 0 and was not killed");
+            entries.Single(e => e.Detail != null && e.Detail.StartsWith("DAP process cleanup failed:", StringComparison.Ordinal))
+                .Fault.Should().BeTrue();
+        }
+        finally
+        {
+            if (!child.HasExited) child.Kill(entireProcessTree: true);
+            await child.WaitForExitAsync(TestToken).WaitAsync(Patience, TestToken);
+        }
     }
 
     [Theory]

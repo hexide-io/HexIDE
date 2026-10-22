@@ -185,6 +185,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **An edit made while a language server starts reaches it** (#719). It was dropped, and the server analysed the
+  text from before the edit until the next edit or a save. With two servers on one language, the second was also
+  opened twice, the second time at a lower version with the older text. A change made during a start is now
+  recorded and carried by the open the server receives, which is sent once and before any change.
 - **A font's size is drawn in points** (#910). It was drawn as pixels, so every VB6 font came out a quarter too small:
   a Label in 12-point Arial drew at 12 pixels instead of 16. The default font was held as 11, the pixels
   VB6's 8.25 points draw at, and the designer's Font dialog wrote that into a .frm as `Size = 11`. It also turned 8.25
@@ -208,6 +212,11 @@ there isn't one yet. Anything may change between 0.x releases.
   its ticks, cross and arrows. Labels, CommandButtons, CheckBoxes and OptionButtons are covered. The caption still reads
   back as the letters. On a machine without the font, as Linux and macOS are for Wingdings, the letters are drawn as
   before.
+- **A menu's Click as it opens, and a shortcut's parents' Clicks** (#1344). A menu that holds items never raised its
+  Click, so a program could not enable or disable the items before they showed: Notepad's Edit menu offered Cut with
+  nothing selected. A shortcut raised its own item's Click alone, even for an item disabled or hidden. Now opening a menu
+  raises its Click, and a shortcut raises each menu's from the top down to its item's, stopping at the first that is
+  disabled or hidden, with each asked after the Clicks above it have run, as vb6.exe measured.
 - **A program can use its menus** (#1126). Naming one in code stopped the run with "Variable not defined", so
   `mnuFile.Enabled = False` or a ticked level menu couldn't run, and choosing an element of a menu array called its
   Click without the Index. Now each menu has its name, a menu array works like a control array, Index on its Click

@@ -10525,7 +10525,7 @@ its menu when the array has gaps, and whether it copies a Shortcut.
   with Count, LBound, UBound and an Index on its Click, and Caption, Checked, Enabled, Visible and Tag read and write
   with the 387 and 395 refusals. Load copies the first element as it stands, Visible included, and places the new one
   after the element below it; Unload removes it; and the 340, 361 and 362 refusals hold. Choosing an item no longer
-  toggles its tick, which is the program's to set. `TypeName` gives Menu, and Object for the array.
+  toggles its tick, which is the program's to set, by pointer, Enter or automation alike (#1158, measured below). `TypeName` gives Menu, and Object for the array.
 - **Not yet:** a menu's default member, Enabled, so `mnuNew = False` and a bare `mnuNew` read; giving a separator a
   caption, which makes it an item, refused as not implemented; and setting WindowList, refused the same way.
 - **The bar appearing or going away from code is refused** as not implemented (#1140): hiding the last visible
@@ -10537,6 +10537,77 @@ its menu when the array has gaps, and whether it copies a Shortcut.
 - **The text of 340** names the element in vb6.exe, "Control array element '5' doesn't exist", and doesn't here.
   The "Control arrays" rows above give it without the index, which looks abbreviated rather than measured; not
   rechecked.
+
+## When a menu's Click is raised (2026-10-22, #1344)
+
+**The probe.** Found by the Notepad demo, whose `mnuEdit_Click` enables Cut, Copy and Delete when there is a selection,
+and which never ran. The probe's menus:
+- **Top**, which holds three items:
+  - Alpha, shortcut Ctrl+Q;
+  - Sub, which holds Leaf, shortcut Ctrl+W;
+  - Dis, shortcut Ctrl+E, disabled at design time.
+- **Solo**, a top-level menu with no items.
+
+Each Click logs its name, and Top's logs whether Dis is enabled. A Timer sends one set of keys each tick with
+`SendKeys`, and changes Enabled or Visible first where the step says so. Built native and p-code, and run **in the
+guest's console session**, each build at least 200 s after the last input, since the guest gives a newly started window
+no foreground within 200 s of any input (`ForegroundLockTimeout`), and its keys then reach nothing. Every row agreed.
+
+| Keys | Clicks raised, in order |
+|---|---|
+| Alt+T, opening Top | Top |
+| Alt+T, then S, opening Sub | Top, Sub |
+| Alt+T, then Enter, choosing Alpha | Top, Alpha |
+| Alt+O, choosing Solo | Solo |
+| Ctrl+Q | Top, Alpha |
+| Ctrl+W | Top, Sub, Leaf |
+| Ctrl+E, with Dis disabled | Top |
+| Ctrl+E, with Top's Click setting `mnuDis.Enabled = True` | Top, Dis |
+| Ctrl+Q, with Top disabled | none |
+| Ctrl+Q, with Top hidden | none |
+| Ctrl+Q, with Alpha hidden | Top |
+| Ctrl+W, with Sub disabled | Top |
+| Ctrl+W, with Sub hidden | Top |
+| Ctrl+W, with Leaf disabled | Top, Sub |
+
+So:
+- A menu that holds items raises Click as it opens, a submenu as much as a top-level one.
+- A shortcut raises the Click of each menu from the top-level one down to its item.
+- It stops at the first menu that is disabled or hidden, without raising that one's Click.
+- The item's Enabled is read only after the Clicks above it have run. That is what lets a parent's Click enable its items
+  and have their shortcuts work, the pattern every Edit menu uses.
+
+The comment that stood in `VBLoader`, that VB6 raises Click "on nothing above" the chosen item, was a guess, and this
+table overturns it.
+
+**In HexIDE (#1344):** as the table says. Opening a menu that holds items raises its Click, Avalonia's `SubmenuOpened`
+being the moment, so `interact` with `expand` raises it too. A shortcut queues each Click in order, and each is asked at
+its turn whether it, and every menu above it, is still enabled and visible. Not measured, and assumed to match: whether
+a menu between the top and the item is also asked late, and opening a menu with the mouse.
+
+## Choosing a menu item leaves Checked to the program (2026-10-18, #1158; measured by #1159)
+
+**The probe**, written and run by #1159 (Codex) and kept here because it measures something nothing else in this file
+does. A shown Form1 with a Root menu and two children, Plain and Toggle. A one-shot Timer finds each child's native
+menu ID with `GetMenuItemID(GetSubMenu(GetMenu(Me.hwnd), 0), position)` and dispatches it with
+`SendMessage Me.hwnd, &H111, id, 0` (WM_COMMAND), first with each child's Checked set False, then True. Each Click logs
+Checked as it enters, and Toggle's also runs `mnuToggle.Checked = Not mnuToggle.Checked`. The Timer logs Checked once
+SendMessage returns. Built native and p-code in the oracle guest, and both runs agreed, with Err.Number 0.
+
+| Handler | Checked before | At Click entry | After dispatch |
+|---|---|---|---|
+| Plain, logging only | False | False | False |
+| Plain, logging only | True | True | True |
+| Toggle, `Checked = Not Checked` | False | False | True |
+| Toggle, `Checked = Not Checked` | True | True | False |
+
+So choosing an item never changes its tick, and the program's Click sees the tick as it was. This is VB6's menu command
+dispatch, not a physical mouse gesture and not the VB6 IDE.
+
+**In HexIDE:** Avalonia's menu ticks a CheckBox item before it raises Click, by pointer and by Enter alike. VBMenu puts
+the tick back in its class handler for Click, which runs before any handler of the program's (#1231, for #947). #1159's
+twelve cases, pointer, Enter and automation from both starting states, with and without a handler that changes Checked,
+run in `MenuMembersTests` and pass, so #1158 no longer reproduces.
 
 ## SetFocus (2026-10-15, #1061)
 

@@ -15,6 +15,67 @@ namespace HexIDE.Tests.DebugAdapter;
 
 public class ExternalDebugServiceTests
 {
+    [AvaloniaTheory]
+    [InlineData("evaluate")]
+    [InlineData("frames")]
+    public async Task Hover_uses_selected_frame_refuses_errors_and_gates_capability(string mode)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-hover-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log);
+        var run = service.StartAsync(await Configuration(directory, mode));
+        try
+        {
+            await WaitFor(service, () => service.CanEvaluate);
+            service.CanEvaluateHover.Should().Be(mode == "evaluate");
+            (await service.EvaluateHoverAsync("answer", Token)).Should().Be(mode == "evaluate" ? "frame:0:answer" : null);
+            await service.SelectFrameAsync(service.Stop!, 7);
+            (await service.EvaluateHoverAsync("answer", Token)).Should().Be(mode == "evaluate" ? "frame:7:answer" : null);
+            (await service.EvaluateHoverAsync("reject", Token)).Should().BeNull();
+            (await service.EvaluateHoverAsync("answer", Token)).Should().Be(mode == "evaluate" ? "frame:7:answer" : null);
+            await service.StopAsync();
+            (await service.EvaluateHoverAsync("answer", Token)).Should().BeNull();
+        }
+        finally { await service.StopAsync(); await run.WaitAsync(Patience, Token); Directory.Delete(directory, true); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("frame")]
+    [InlineData("next")]
+    [InlineData("cancel")]
+    [InlineData("immediate")]
+    public async Task Hover_discards_delayed_reply_after_inspection_changes(string change)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-dap-hover-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        await using var log = new ConversationLog();
+        var service = new ExternalDebugService(log);
+        var pending = false;
+        service.Output += output => { if (output == "evaluation-pending\n") pending = true; };
+        var run = service.StartAsync(await Configuration(directory, "evaluate"));
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(Token);
+        try
+        {
+            await WaitFor(service, () => service.CanEvaluateHover);
+            var hover = service.EvaluateHoverAsync("wait", cancellation.Token);
+            await WaitFor(service, () => pending);
+            if (change == "cancel")
+            {
+                await cancellation.CancelAsync();
+                await ((Func<Task>)(() => hover)).Should().ThrowAsync<OperationCanceledException>();
+            }
+            else
+            {
+                if (change == "frame") await service.SelectFrameAsync(service.Stop!, 7);
+                else if (change == "next") await service.CommandAsync("next");
+                else await service.EvaluateAsync("answer"); // refreshed scopes release the old hover
+                (await hover.WaitAsync(Patience, Token)).Should().BeNull();
+            }
+        }
+        finally { await service.StopAsync(); await run.WaitAsync(Patience, Token); Directory.Delete(directory, true); }
+    }
+
     private static async Task WatchUpdated(Func<bool> predicate)
     {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(Token);
