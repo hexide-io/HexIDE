@@ -343,7 +343,8 @@ public class HaltOnErrorTests
         Pump();
 
         run.Halts.Should().ContainSingle();
-        run.Printed.Should().Equal("before", "5", "after");
+        // A number printed alone has Print's spaces, for its sign and after it (#1380).
+        run.Printed.Should().Equal("before", " 5 ", "after");
         run.Failed.Should().BeEmpty();
     }
 
@@ -545,7 +546,7 @@ public class HaltOnErrorTests
         run.Controller.Continue();
         Pump();
 
-        run.Printed.Should().Equal("1", "after");
+        run.Printed.Should().Equal(" 1 ", "after");
         run.Failed.Should().BeEmpty();
     }
 }

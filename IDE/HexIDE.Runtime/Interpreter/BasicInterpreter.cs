@@ -14,8 +14,25 @@ public interface IBasicStandardLibrary
     Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon);
     Task<string?> InputBox(string prompt, string? title, string defaultText);
 
-    /// <summary>Sink for <c>Debug.Print</c>. Receives the typed value (live → Immediate window; test → capture).</summary>
+    /// <summary>
+    /// The typed channel for <c>Debug.Print</c>: each item it prints, in order, as its value, which the test suites assert
+    /// on. A bare <c>Debug.Print</c> gives an empty String. A host that shows the output takes it from
+    /// <see cref="DebugWrite"/> instead.
+    /// </summary>
     void DebugPrint(Vb6Value value);
+
+    /// <summary>
+    /// What <c>Debug.Print</c> writes, as the Immediate window shows it, formatted as Print formats it: a line's end comes
+    /// as CR LF, and none comes after a statement that ends in a semicolon or a comma, so its line stays open (#1380).
+    /// </summary>
+    void DebugWrite(string text) { }
+
+    /// <summary>
+    /// The column <see cref="DebugWrite"/>'s text has reached: the characters since its last line break, which Print's
+    /// zones and <c>Tab</c> count from. VB6's Immediate window keeps it from one run to the next, as it keeps a line a run
+    /// left open (measured, #1380). A host that keeps no text has no column, and gives 0.
+    /// </summary>
+    int DebugColumn => 0;
 
     /// <summary>A CommonDialog's <c>ShowOpen</c> or <c>ShowSave</c> (#1084): the file chosen, or null for Cancel.</summary>
     Task<VbFileDialogAnswer?> ShowFileDialog(VbFileDialogRequest request) =>
