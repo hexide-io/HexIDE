@@ -185,6 +185,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A control array's elements name themselves with their index in automation** (#1320). The Properties window's
+  object selector and the designer's canvas named every element of `optSize` as `optSize`, so a caller could not tell
+  which was selected, and `select "optSize(1)"` matched nothing. Each element is now `optSize(0)`, `optSize(1)` and so
+  on, the spelling `set_control_property` and `move_control` take.
 - **A language server that waits to be told sends document symbols as a tree** (#463). HexIDE read the tree
   but never declared that it could, so a server that honours the declaration, clangd among them, sent the flat
   form and every outline from it lost its nesting.
