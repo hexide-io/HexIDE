@@ -13175,4 +13175,5 @@ A field argument carries the Type instance holding it and its name. A ByRef para
 or Variant one, gets a slot that reads and writes the field itself, linked for as long as the call runs, so every store
 converts through the field's own `TrySet`. Every field row above is pinned in `ByRefFieldTests`. `PI u.l` is copied rather
 than refused, as a variable of another type is. Not done here: a field reached through `With`, an index or an array of a
-Type (#178), and the array-element rows, which are their own issue.
+Type (#178), and the array-element rows, which HexIDE copies (#1455). `PL2 u.l` is 9, the field passed on through a second ByRef
+parameter.

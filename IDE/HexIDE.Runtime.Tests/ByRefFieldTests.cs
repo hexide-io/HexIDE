@@ -88,4 +88,28 @@ public class ByRefFieldTests : BaseVBTestFixture
             PL (u.l): Long [7] err 0
             """.Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.Length > 0).Select(l => new Vb6Value(l))]);
     }
+
+    [Fact]
+    public async Task A_field_passed_on_through_a_second_ByRef_parameter_is_still_the_field()
+    {
+        // Measured: `PL2 u.l`, where PL2(y As Long) calls `PL y`, leaves 9.
+        await Run("""
+            Private Type T
+                l As Long
+            End Type
+            Private Sub PL(x As Long)
+                x = "9"
+            End Sub
+            Private Sub PL2(y As Long)
+                PL y
+            End Sub
+            Dim u As T
+            u.l = 7
+            PL2 u.l
+            Debug.Print TypeName(u.l) & " " & u.l
+
+            """);
+
+        AssertDebugLog([new Vb6Value("Long 9")]);
+    }
 }
