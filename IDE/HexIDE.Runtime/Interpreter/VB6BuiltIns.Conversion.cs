@@ -170,9 +170,9 @@ public partial class VB6BuiltIns
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is DateTime) return v;
         if (v.Type == VT.String)
-            // In the program's locale: `CDate("1/2/2003")` is 1 February under en-GB, and CDate(CStr(d)) is d (#777).
-            return TryReadDate(AsStr(v).Trim(), out var dt)
-                ? new Vb6Value(OnZeroDateIfTimeOnly(dt)) : throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            // In the program's locale: `CDate("1/2/2003")` is 1 February under en-GB, and CDate(CStr(d)) is d (#777). A
+            // serial is read too: `CDate("36526")` is 1 January 2000 (#967).
+            return StringToDate(AsStr(v), null);
         // A serial outside the Date range (about -657434 .. 2958465) is a trappable Overflow (Err 6, oracle-verified);
         // FromOADate would otherwise throw an UNCATCHABLE ArgumentException (AsDate wraps this too, at DateTime.cs).
         try { return new Vb6Value(DateTime.FromOADate(ToNum(v))); }
