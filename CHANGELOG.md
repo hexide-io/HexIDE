@@ -208,6 +208,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **An array element passed ByRef is the element itself** (#1455). `Swap s(0), s(1)` swapped nothing, so a sort written
+  the usual way ran to the end and left its array as it was. The element is now passed by reference, as in VB6, and
+  while the call runs its array is locked: ReDim, Erase, or a store into the array's variable raises 10.
+
 - **A UDT field passed ByRef is the field itself** (#1451). `PL u.l`, with `PL(x As Long)` storing `x = "9"`, left `u.l`
   unchanged: the field was copied in and never written back. A procedure that fills in a record through ByRef
   parameters now fills it in, as in VB6, and a store through the parameter converts into the field's type.
