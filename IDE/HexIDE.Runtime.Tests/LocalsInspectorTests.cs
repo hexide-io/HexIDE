@@ -332,6 +332,30 @@ public class LocalsInspectorTests : BaseVBTestFixture
     }
 
     [Fact]
+    public async Task Locals_AsNewNeverUsed_ShowsNothing_AndMakesNoObject()
+    {
+        // Locals only looks (#435): a variable declared As New that the program hasn't used reads as the Nothing it holds,
+        // and looking makes no object, where any use by the program would.
+        var (vb, dbg) = NewDebuggable(
+            "Go\nSub Go()\nDim o As New C\nDim c As New Collection\nDebug.Print \"paused\"\nEnd Sub\n",
+            "Module1", ("C", "Private Sub Class_Initialize()\nDebug.Print \"made\"\nEnd Sub\n"));
+        dbg.SetBreakpoints("Module1", new[] { 5 });   // Debug.Print "paused" — neither variable used yet
+
+        var stop = NextStop(dbg);
+        var run = vb.Execute();
+        await stop.Guarded();
+
+        var o = Child(dbg.GetLocals()!, "o");
+        o.Value.Should().Be("Nothing");
+        o.HasChildren.Should().BeFalse();
+        Child(dbg.GetLocals()!, "c").Value.Should().Be("Nothing");
+
+        dbg.Stop();
+        await run.Guarded();
+        debug.Select(v => v.Value).Should().NotContain("made");
+    }
+
+    [Fact]
     public async Task Locals_Collection_ExpandsToItemsInOrder()
     {
         var (vb, dbg) = NewDebuggable(

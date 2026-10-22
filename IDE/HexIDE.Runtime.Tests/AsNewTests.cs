@@ -248,6 +248,28 @@ public class AsNewTests : BaseVBTestFixture
                 a.Go
                 Debug.Print "  leaving"
             End Sub
+            Private Sub LoopVariable()
+                Dim o As New C1, c As Collection, x As C1
+                Debug.Print "a For Each variable:"
+                Set c = New Collection
+                Set x = New C1: x.Name = "a": c.Add x
+                Set x = New C1: x.Name = "b": c.Add x
+                Set x = Nothing
+                For Each o In c
+                    Debug.Print "  loop " & o.Name
+                Next
+                Debug.Print "  after the loop"
+                o.Go
+                Set c = Nothing
+                Dim q As New C1, e As Collection
+                Set e = New Collection
+                Debug.Print "  over an empty Collection:"
+                For Each q In e
+                    Debug.Print "  never"
+                Next
+                Debug.Print "  after the empty loop"
+                Debug.Print "  leaving"
+            End Sub
             Private Sub InLoop()
                 Dim i As Long
                 Debug.Print "Dim in a loop:"
@@ -262,6 +284,7 @@ public class AsNewTests : BaseVBTestFixture
             ByRefClear
             TwoInOne
             InLoop
+            LoopVariable
 
             """, ("C1", C1));
 
@@ -315,6 +338,24 @@ public class AsNewTests : BaseVBTestFixture
               go 10
               leaving
               term 10
+            a For Each variable:
+              init 11
+              init 12
+              init 13
+              term 13
+              loop a
+              loop b
+              after the loop
+              init 14
+              go 14
+              term 11 a
+              term 12 b
+              over an empty Collection:
+              init 15
+              term 15
+              after the empty loop
+              leaving
+              term 14
             """));
     }
 

@@ -972,7 +972,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var state = interpreter.ExecutionContext.State;
         if (state.DeclaredTypeOf(location) is not null)
             throw new VBCompileErrorException("For Each control variable must be Variant or Object");
-        interpreter.ExecutionContext.TryInspectVariable(currentEnv, varName, out var initial);
+        // The loop reads its variable before it stores the first item, so one declared As New makes its object here and
+        // releases it at that store, or when an empty loop leaves the variable Nothing (measured, #435).
+        var (_, initial) = await interpreter.ReadVariable(currentEnv, varName);
         var objectVariable = !state.IsVariant(location) && !currentEnv.VariantParameters.Contains(varName)
             && (state.DeclaredClassOf(location) is not null || IsObjectReference(initial));
 
