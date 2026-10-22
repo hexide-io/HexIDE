@@ -40,12 +40,29 @@ public class PropertyFontBox : TemplatedControl
         {
             var result = await Static.RootViewModel.WindowManager.ShowFontDialog(new FontDialogResult(Font.ToFontFamily(), Font.ToFontStyle(), Font.ToFontWeight(), Font.Size));
             if (result != null)
-            {
-                SetCurrentValue(FontProperty, new VBFont(result.Family.Name, (int)result.Size, bold: result.Weight >= FontWeight.Bold, italic: result.Style == FontStyle.Italic));
-            }
+                SetCurrentValue(FontProperty, Chosen(Font, result));
         }
 
         OpenFontWindow().ListenErrors();
+    }
+
+    /// <summary>
+    /// The font the dialog's answer makes of <paramref name="font"/> (#910). The size is kept whole, 8.25 and 9.6 included,
+    /// where a cast to int made them 8 and 9. The dialog has no say over underline and strikethrough, so they are kept; nor
+    /// over a weight it shows as neither bold nor regular, so that is kept unless Bold was changed; nor over the charset,
+    /// which is kept while the family is, and a new family starts at 0, as it did before.
+    /// </summary>
+    internal static VBFont Chosen(VBFont font, FontDialogResult result)
+    {
+        var bold = result.Weight >= FontWeight.Bold;
+        var family = result.Family.Name;
+        var sameFamily = string.Equals(family, font.FontFamilyName, System.StringComparison.OrdinalIgnoreCase);
+        return new VBFont(family, result.Size,
+            italic: result.Style == FontStyle.Italic,
+            charset: sameFamily ? font.Charset : 0,
+            underline: font.Underline,
+            strikethrough: font.Strikethrough,
+            weight: bold == font.Bold ? font.Weight : bold ? VBFont.BoldWeight : VBFont.NormalWeight);
     }
 
     static PropertyFontBox()
