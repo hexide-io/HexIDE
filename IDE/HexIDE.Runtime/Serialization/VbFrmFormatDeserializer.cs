@@ -197,23 +197,16 @@ public class VbFrmFormatDeserializer
     /// Follows <see cref="System.IO.TextReader.ReadLine"/>'s rules exactly, because it replaces a
     /// <c>StringReader</c> and any divergence would change which text is parsed: <c>\r\n</c> is one
     /// terminator, and a lone <c>\r</c> or a lone <c>\n</c> is one. A final line with no terminator is
-    /// yielded, and its end is the end of the input.
+    /// yielded, and its end is the end of the input. That is <see cref="SourceLines"/>' rule, which every other
+    /// reader of a module's or a form's lines follows too.
     /// </remarks>
     private static IEnumerable<(string Line, int End)> LinesWithEnds(string input)
     {
-        var i = 0;
-        while (i < input.Length)
+        for (var start = 0; start < input.Length;)
         {
-            var start = i;
-            while (i < input.Length && input[i] is not ('\r' or '\n')) i++;
-            var textEnd = i;
-
-            if (i < input.Length)
-            {
-                i += input[i] == '\r' && i + 1 < input.Length && input[i + 1] == '\n' ? 2 : 1;
-            }
-
-            yield return (input[start..textEnd], i);
+            var (textEnd, next) = SourceLines.LineAt(input, start);
+            yield return (input[start..textEnd], next);
+            start = next;
         }
     }
 

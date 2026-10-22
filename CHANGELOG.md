@@ -213,6 +213,9 @@ there isn't one yet. Anything may change between 0.x releases.
   class's Public Enum too, and sizes a module-level array or folds into a Const. Two modules' members of one name are
   "Ambiguous name detected" where used bare, as in VB6.
 
+- **A lone CR ends a line when a program runs** (#1426). VB6 ends a line at CRLF, a lone LF or a lone CR. The
+  interpreter took only the first two, so a form whose code had a lone CR, which VB6 builds and runs, was a syntax
+  error to F5. A lone CR now ends a statement, a line continuation and a comment, as each was measured to.
 - **A control array named through its form, `Form1.Text1(0).Text`, reads and writes** (#1386). It stopped the program
   with "Method or data member not found", in code and in the Immediate window alike, because the index was dropped. A
   missing element is VB6's 340, whose message now names the index, as vb6.exe's does.
@@ -235,6 +238,13 @@ there isn't one yet. Anything may change between 0.x releases.
   so a description typed there was lost at the next save. It is now read from and written to the `.vbp` as VB6
   writes it: `Description="..."` with a quote inside doubled, after `HelpContextID`, and no line when there is
   none. Measured with VB6's own Save Project As.
+
+- **A `.bas` whose lines end with a lone CR no longer loses its code on Save Project** (#1020). The header split, the
+  `VB_Name` retarget, the read-only regions and the guard ended a line only at LF. So a CR-only module was one line to
+  them, taken whole for its header, and Save Project wrote the file back as its `VB_Name` line alone. One stray CR lost
+  the line it joined, and a CR-only form lost its whole code section on the first nudge of a control. They now end a
+  line at a lone CR and a lone LF as well as at CRLF, which is what VB6 does (measured with `vb6.exe /make`). A module
+  with lone CRs is written back with CRLF throughout. To VB6 it is the same file.
 
 - **Save Project no longer writes a second header into a `.bas` or `.cls` whose first line is blank** (#472). The
   header reader looked for the header on line 0 alone. So one blank line above it left the whole file as code, and
