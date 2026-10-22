@@ -208,6 +208,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A new form is written as VB6 writes one** (#931, #932, #516). Its code section was bare LF with no final line
+  break, it had none of the five `Attribute` lines VB6 writes for a form, and it had no `StartUpPosition` line, which
+  VB6 reads as Manual: the form opened at the screen's origin with its title bar off the top. A form HexIDE creates now
+  has all three, and says `StartUpPosition = 3 'Windows Default`. A form with no such line, as VB6 writes a Manual
+  one, now runs where its file puts it rather than centred, which is how vb6.exe reads it.
+
 - **Cutting and pasting a control keeps what HexIDE carries without modelling** (#1453). A Frame or PictureBox cut
   and pasted lost the controls inside it that HexIDE does not model, such as an ImageList, and any control lost its own
   properties HexIDE does not model. The next save left them all out, with nothing said. They now go with the control,
