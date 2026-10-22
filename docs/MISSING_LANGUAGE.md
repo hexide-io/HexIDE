@@ -115,13 +115,13 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 2 | 2 | 41 | 30 | 0 | 30 | 105 |
 | Operators | 0 | 0 | 3 | 18 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 63 | 41 | 1 | 48 | 153 |
+| Intrinsic functions | 0 | 0 | 61 | 41 | 1 | 50 | 153 |
 | Keywords and modifiers | 0 | 0 | 11 | 19 | 1 | 20 | 51 |
 | Literals, types and suffixes | 6 | 1 | 4 | 14 | 0 | 25 | 50 |
 | Compiler directives and options | 0 | 1 | 9 | 9 | 20 | 8 | 47 |
 | In-box objects | 0 | 0 | 93 | 12 | 0 | 18 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **8** | **4** | **232** | **404** | **22** | **512** | **1182** |
+| **Total** | **8** | **4** | **230** | **404** | **22** | **514** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -314,7 +314,7 @@ which is the cheaper kind to close. The named-argument operator `:=` was the oth
 | `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 
-## Dies mid-run — 226 names
+## Dies mid-run — 224 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -363,7 +363,6 @@ most of the in-box object model.
 | `AsyncProperty` | **Dies** | Measured for `Dim a As AsyncProperty`: VBCompileErrorException: "User-defined type not defined: AsyncProperty" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `AsyncProperty_VB5` | **Dies** | Measured for `Dim a As AsyncProperty_VB5`: VBCompileErrorException: "User-defined type not defined: AsyncProperty_VB5" (StatementExecutor.cs). | StatementExecutor.cs |
 | `CallByName` | **Dies** | Zero occurrences anywhere in HexIDE.Runtime; not registered by any Register* partial, so BuildRegistry has no entry. The call reaches ExpressionExecutor's final fallthrough and throws… | ExpressionExecutor.cs |
-| `Choose` | **Dies** | Not in BuildRegistry - a grep of every d["..."] registration across all VB6BuiltIns partials returns no Choose. `x = Choose(i, "a", "b")` throws VBSubOrFunctionNotDefinedException: "Sub or… | ExpressionExecutor.cs |
 | `ChrB` | **Dies** | No registry entry (VB6BuiltIns.cs; no occurrence of "ChrB" under IDE/HexIDE.Runtime). `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (ChrB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `ChrW` | **Dies** | No registry entry (VB6BuiltIns.cs). `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (ChrW)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `Circle` | **Dies** | throws `"Only single element supported"` — fails at run time - but NOT with a name-resolution error. VB6.g4 has no CIRCLE token and no circleStmt rule, so `Circle (100, 100), 50` parses as a… | ExpressionExecutor.cs |
@@ -440,7 +439,6 @@ most of the in-box object model.
 | `GoSub` | **Dies** | throws `"GoSub not implemented"` — (goSubStmt, VB6.g4) and throws at run time. Verbatim: Measured. | StatementExecutor.cs |
 | `GoSub...Return` | **Dies** | throws `"GoSub not implemented"` — Both halves parse and both throw. GoSub: (StatementExecutor.cs). Return: `throw new NotImplementedException("Return not implemented")` (:1172)… | StatementExecutor.cs |
 | `Hyperlink` | **Dies** | Measured for `Dim h As Hyperlink`: VBCompileErrorException: "User-defined type not defined: Hyperlink" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
-| `IIf` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. `x = IIf(c, a, b)` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (IIf)". docs/interpreter-gaps.md:52… | ExpressionExecutor.cs |
 | `IMEStatus` | **Dies** | but is not implemented. Not in BuildRegistry and zero occurrences anywhere in HexIDE.Runtime, including the editor-metadata files (VbSignatures.cs / VbKeywordNormalizer.cs). | ExpressionExecutor.cs |
 | `Input` | **Dies** | fails at name resolution: `Input` is in `ambiguousKeyword` (Grammar/VB6.g4) so `Input(n, f)` parses as a procedure-or-array call, but the name is unregistered. Probed `Debug.Print Input(5… | ExpressionExecutor.cs |
 | `Input #` | **Dies** | `inputStmt : INPUT WS valueStmt (WS? COMMA WS? valueStmt)+` (Grammar/VB6.g4); the visitor body is the throw. Probed `Input #1, s` -> NotImplementedException: "Input not implemented". | StatementExecutor.cs |
@@ -705,7 +703,7 @@ missing.
 | `TypeOf ... Is` | Supported | `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (63 absent, 41 partial, 48 supported)
+### Intrinsic functions — 153 names (61 absent, 41 partial, 50 supported)
 
 
 **array** (3)
@@ -809,13 +807,13 @@ missing.
 | `Command` | Partial | The project's Command Line Arguments (`Command32` in the .vbp), as VB6 gives them under F5, which is how HexIDE always runs: empty where there are none, as a String, spelt `Command`, `Command()` or `Command$` (measured in a made program run with none). A made program's own process arguments are not passed. | VB6BuiltIns.cs, VbApp.cs |
 | `Shell` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 | `CallByName` | **Dies** | Zero occurrences anywhere in HexIDE.Runtime; not registered by any Register* partial, so BuildRegistry has no entry. The call reaches ExpressionExecutor's final fallthrough and throws… | ExpressionExecutor.cs |
-| `Choose` | **Dies** | Not in BuildRegistry - a grep of every d["..."] registration across all VB6BuiltIns partials returns no Choose. `x = Choose(i, "a", "b")` throws VBSubOrFunctionNotDefinedException: "Sub or… | ExpressionExecutor.cs |
+| `Choose` | Supported | **[#1464](https://github.com/hexide-io/HexIDE/issues/1464), measured native and p-code:** the index is **truncated, not rounded**: `Choose(1.6, "a", "b", "c")` is "a", `Choose(2.5, …)` "b" and `Choose(0.5, …)` Null. An index outside the choices is Null with no error, however far outside (`Choose(True, …)`, `Choose(40000, …)`, `Choose(1E+20, …)`), and so is `Choose(1)` with no choices; a Null index is 94, and "x" 13. Every choice is evaluated, in order, before Choose chooses, so `Choose(1, 1, 1 / 0)` is 11. The choice comes back as itself, an object included, and reads as a Variant. `Choose()` does not compile. | VB6BuiltIns.Choice.cs |
 | `CreateObject` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. `Set o = CreateObject("Excel.Application")` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined… | ExpressionExecutor.cs |
 | `Environ` | **Dies** | Not in BuildRegistry; the only runtime hit is the highlighter list VbKeywordNormalizer.cs. `Environ("PATH")` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined… | ExpressionExecutor.cs |
 | `GetAllSettings` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (GetAllSettings)". docs/interpreter-gaps.md:84: "Registry… | ExpressionExecutor.cs |
 | `GetObject` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (GetObject)". docs/interpreter-gaps.md:96 pairs it with… | ExpressionExecutor.cs |
 | `GetSetting` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (GetSetting)". Same docs/interpreter-gaps.md:84 row as… | ExpressionExecutor.cs |
-| `IIf` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. `x = IIf(c, a, b)` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (IIf)". docs/interpreter-gaps.md:52… | ExpressionExecutor.cs |
+| `IIf` | Supported | **[#1461](https://github.com/hexide-io/HexIDE/issues/1461), measured native and p-code:** both parts are evaluated before IIf chooses, the true part first, so a part that raises raises whichever is chosen: `IIf(n <> 0, 1 / n, 0)` with n 0 is 11. **That is VB6's answer, not a defect:** a guarded division in IIf is a bug in the program, and HexIDE raising 11 there is the faithful behaviour; do not "fix" it. The condition is read as CBool reads it, except that Null takes the false part with no error: "abc" is 13, "0", Empty and Null the false part, 0.4 the true part, and an object without a default member 438. The part comes back as itself, an object included (`Set o = IIf(True, k, Nothing)`), and reads as a Variant: `IIf(True, i, 6) * 7000` with i an Integer 5 is 35000. Two or four arguments do not compile. | VB6BuiltIns.Choice.cs |
 | `IMEStatus` | **Dies** | but is not implemented. Not in BuildRegistry and zero occurrences anywhere in HexIDE.Runtime, including the editor-metadata files (VbSignatures.cs / VbKeywordNormalizer.cs). | ExpressionExecutor.cs |
 | `LoadPicture` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. `Set Picture1.Picture = LoadPicture("x.bmp")` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined… | ExpressionExecutor.cs |
 | `LoadResData` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResData)". | ExpressionExecutor.cs |
