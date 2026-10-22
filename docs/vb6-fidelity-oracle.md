@@ -10145,7 +10145,24 @@ So:
 - **Simple toggles the item pressed** and ignores Shift and Ctrl. A drag moves only the focus, and the arrow keys move only the focus. Space toggles the focused item.
 - **Extended selects the item pressed alone.** Ctrl toggles it. A drag selects from the item pressed to the one released over. Up and Down select the next item alone, and Shift with either extends the selection.
 - **Every key the list takes raises Click**, whether or not anything changed: Up on a Simple list, and Space on an Extended one. With MultiSelect 0 a key raises Click only when the selection moves (*A ListBox's Click*).
-- **Resisted explanation:** the Shift+click. After Ctrl+click `c` had removed `c`, leaving `e`, Shift+click `f` selected `d` to `f`, neither `c` to `f` from the last item clicked nor `e` to `f` from the one still selected. Ctrl+Up selecting `c` alone is measured too, not inferred. A HexIDE that reproduces only the rows above, and refuses nothing, is the most this probe supports.
+- **The Shift+click looked unexplained, and a third probe explained it.** After Ctrl+click `c` had removed `c`, leaving `e`, Shift+click `f` selected `d` to `f`. That is neither `c` to `f`, from the last item clicked, nor `e` to `f`, from the one still selected. The rule, from the probe below, is that the range runs from the anchor and the anchor keeps its own state. Ctrl+Up selecting `c` alone is measured too, not inferred.
+
+**The anchor** (a third probe, the second's form with `ListIndex` and `Text` logged before any `AddItem`). It was driven the same way, on the Extended list only, and **native and p-code agree**. Each group starts from a plain click:
+
+| Input | Inside MouseDown | Selected after | `ListIndex` |
+|---|---|---|---|
+| click `c`, Shift+click `f` | `c` | `c` to `f` | 5 |
+| click `a`, Ctrl+click `c`, Shift+click `f` | `c`: `a` is cleared at the press | `c` to `f` | 5 |
+| click `c`, Ctrl+click `c`, so nothing is selected, then Shift+click `a` | nothing | **`a`, `b`**: the range stops short of `c` | 0 |
+| click `c`, Ctrl+click `e`, Ctrl+click `c`, Shift+click `f` | nothing | **`d` to `f`**, as before | 5 |
+| click `e`, Shift+click `b` | `e` | `b` to `e` | 1 |
+| click `b`, Shift+Down, Shift+Down, Shift+Up | | `b`, `c`; then `b` to `d`; then `b`, `c` | 2, 3, 2 |
+| click `a`, Ctrl+click `d`, Shift+click `f` | `d` | `d` to `f`: `a` is cleared | 5 |
+| then Ctrl+Shift+click `b` | `d`: `e` and `f` are cleared at the press | `b` to `d` | 1 |
+
+So **Shift selects from the anchor to the item and clears the rest.** The anchor is the last item pressed or reached without Shift: by a click, a Ctrl+click or a plain arrow key. The anchor keeps its own state: when Ctrl+click has just deselected it, the range includes every item but the anchor. The press leaves only the anchor's own state, and the range appears by the Click at the release. Ctrl+Shift+click gave the same range as Shift+click here, with nothing else selected to show whether it would have kept other items.
+
+**Before any `AddItem`** a multi list's `ListIndex` is already 0, on both lists, and `Text` is `""`.
 
 **`MultiSelect` itself.** `List1.MultiSelect` reads 1, an Integer, and `List2.MultiSelect` 2. Assigning it, `List1.MultiSelect = 0`, is the compile error "Can't assign to read-only property", built as p-code. A form re-saved by the VB6 IDE, with hexide-frm's #120 recipe (bare values, the code dirtied, then Ctrl+S), writes `MultiSelect     =   1  'Simple` and `MultiSelect     =   2  'Extended`, after `Left` and before `TabIndex`. A list given `MultiSelect = 0` has the line dropped.
 
