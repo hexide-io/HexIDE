@@ -659,6 +659,18 @@ public class FormInstanceTests
         run.IsCompleted.Should().BeTrue();
     }
 
+    [AvaloniaFact]
+    public void A_forms_code_reads_another_modules_Public_Enum_member_and_a_classs_bare()
+    {
+        // Measured (#889): `from a form 2`, and a class's Public Enum member is visible too. HexIDE read both as Empty.
+        var run = RunFormLoad("    Debug.Print \"from a form \" & colMax & \" \" & clsA",
+            ("Module2", ModuleKind.StandardModule, "Public Enum Cols\n    colA\n    colB\n    colMax\nEnd Enum\n"),
+            ("Class1", ModuleKind.ClassModule, "Public Enum ClsE\n    clsA = 40\nEnd Enum\n"));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("from a form 2 40");
+    }
+
     // ── WithEvents on a form (#972) ─────────────────────────────────────────────────────────────────────
 
     private const string Source =

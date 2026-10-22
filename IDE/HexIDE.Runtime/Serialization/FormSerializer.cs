@@ -44,38 +44,10 @@ public class FormSerializer
 
     private (string frmText, byte[]? frxContent) SerializeCore(FormDefinition element, string code, string formFileName)
     {
-        // Collect all byte[] blobs first so we can assign offsets.
-        //
-        // ORDERED BY NAME, because that is the order the references are written in and the two must agree:
-        // a record's offset is where it lands in the companion, and the .frm cites it. Collecting in the
-        // component class's declaration order instead put ODBC Log In's ComboBox records the wrong way
-        // round — ItemData at 0x000E and List at 0x000C, where VB6 has them at 0x000C and 0x000E.
-        //
-        // It only shows on a component carrying more than one blob, which is why it survived every earlier
-        // file: Button ListBox's five are spread across five controls.
-        var blobs = new List<byte[]>();
-        // BY REFERENCE, because one record cited twice is one record. FrxDeserializer hands the SAME array
-        // instance to every property citing an offset, so two controls sharing an image arrive here as one
-        // object seen twice. Adding it twice wrote the bytes twice and — since FrxSerializer keys its
-        // offset map by reference — left BOTH citations pointing at the second copy, with the first copy
-        // uncited dead weight. The file came back bigger than VB6 wrote it and no longer round-tripped.
-        var seen = new HashSet<byte[]>(ReferenceEqualityComparer.Instance);
-        void CollectBlobs(ComponentInstance inst)
-        {
-            foreach (var prop in inst.BaseClass.Properties.OrderBy(p => p.Name, StringComparer.Ordinal))
-            {
-                if (prop.PropertyType == typeof(byte[]) && inst.TryGetBoxedProperty(prop, out var boxed) && boxed is byte[] blob
-                    && seen.Add(blob))
-                    blobs.Add(blob);
-            }
-        }
-        foreach (var component in element.Components)
-            CollectBlobs(component);
-
-        Dictionary<byte[], int>? offsetMap = null;
-        byte[]? frxContent = null;
-        if (blobs.Count > 0)
-            (frxContent, offsetMap) = FrxSerializer.Write(blobs);
+        // Every citation goes out as a placeholder, and the companion is laid out from the finished text, in the
+        // order it cites its records (#60). Collecting the records up front instead had to repeat the order the
+        // text is written in, and once got two of them the wrong way round: see CompanionCitations.
+        var citations = new CompanionCitations();
 
         var sourceExt = System.IO.Path.GetExtension(formFileName).ToLowerInvariant();
         var companionExt = sourceExt switch { ".ctl" => ".ctx", ".pag" => ".pgx", _ => ".frx" };
@@ -95,7 +67,7 @@ public class FormSerializer
         // written in the order they appear here, which is the order of three unrelated lists rather than
         // any order VB6 has ever produced.
         vb.BeginSortedProperties();
-        WriteAllProperties(vb, form, frxName, offsetMap);
+        WriteAllProperties(vb, form, citations);
         if (element.LockControls)
             vb.WriteProperty("LockControls", typeof(bool), true);
         WriteFormMeasurements(vb, form, element.OuterRect, element.Scale);
@@ -130,10 +102,11 @@ public class FormSerializer
                 claimedByAParent.Add(child);
         }
 
-        void WriteVerbatimBlock(string text)
+        // Its lines as they were read, but for any citation of the companion, which follows its record.
+        void WriteVerbatimBlock(ComponentInstance.PreservedSubtree block)
         {
-            foreach (var line in text.Split(["\r\n", "\n"], StringSplitOptions.None))
-                vb.WriteVerbatimLine(line);
+            foreach (var line in block.Text.Split(["\r\n", "\n"], StringSplitOptions.None))
+                vb.WriteVerbatimLine(citations.Cite(line, block.Records));
         }
 
         // Modelled children and preserved verbatim blocks, interleaved at the position each block held when
@@ -150,14 +123,14 @@ public class FormSerializer
                 // <= rather than ==, so an ordinal that no longer lines up — two blocks recorded at one
                 // position, or a stale one left by an edit — still advances instead of stalling.
                 if (preservedIndex < preserved.Count && preserved[preservedIndex].Ordinal <= ordinal)
-                    WriteVerbatimBlock(preserved[preservedIndex++].Text);
+                    WriteVerbatimBlock(preserved[preservedIndex++]);
                 else if (childIndex < children.Count)
                     WriteComponentTree(children[childIndex++]);
             }
 
             // Whatever the ordinals could not place is still written rather than silently dropped.
             for (; preservedIndex < preserved.Count; preservedIndex++)
-                WriteVerbatimBlock(preserved[preservedIndex].Text);
+                WriteVerbatimBlock(preserved[preservedIndex]);
             for (; childIndex < children.Count; childIndex++)
                 WriteComponentTree(children[childIndex]);
         }
@@ -182,7 +155,7 @@ public class FormSerializer
 
             vb.Begin(component.BaseClass.VBTypeName, component.GetPropertyOrDefault(VBProperties.NameProperty)!);
             vb.BeginSortedProperties();
-            WriteAllProperties(vb, component, frxName, offsetMap);
+            WriteAllProperties(vb, component, citations);
             vb.EndSortedProperties();
             WriteChildren(component, ChildrenOf(component));
             vb.End();
@@ -213,9 +186,9 @@ public class FormSerializer
 
         vb.End();
 
-        vb.WriteCode(code);
-
-        return (vb.GetOutput(), frxContent);
+        // Resolved before the code goes after it, so nothing in the code can be read as a placeholder.
+        var (designer, frxContent) = citations.Resolve(vb.GetOutput(), frxName);
+        return (designer + code, frxContent);
     }
 
     /// <summary>
@@ -302,8 +275,7 @@ public class FormSerializer
         WriteOuter("Width", VBProperties.WidthProperty, outerRect.WidthOffsetTwips);
     }
 
-    private void WriteAllProperties(VbFrmFormatSerializer vb, ComponentInstance instance,
-        string frxName, Dictionary<byte[], int>? offsetMap)
+    private void WriteAllProperties(VbFrmFormatSerializer vb, ComponentInstance instance, CompanionCitations citations)
     {
         foreach (var prop in instance.BaseClass.Properties)
         {
@@ -340,15 +312,8 @@ public class FormSerializer
             }
             else if (prop.PropertyType == typeof(byte[]))
             {
-                if (instance.TryGetBoxedProperty(prop, out var boxed) && boxed is byte[] blob && offsetMap != null)
-                {
-                    if (offsetMap.TryGetValue(blob, out var offset))
-                    {
-                        // Write "FormName.frx":HHHH reference
-                        var hexOffset = offset.ToString("X4");
-                        vb.WriteRawProperty(prop.Name, $"\"{frxName}\":{hexOffset}");
-                    }
-                }
+                if (instance.TryGetBoxedProperty(prop, out var boxed) && boxed is byte[] blob)
+                    vb.WriteRawProperty(prop.Name, citations.Cite(blob));
             }
             else
             {
@@ -375,7 +340,7 @@ public class FormSerializer
             if (instance.BaseClass.Properties.Any(p =>
                     string.Equals(p.Name, raw.Name, StringComparison.OrdinalIgnoreCase) && instance.TryGetBoxedProperty(p, out _)))
                 continue;
-            vb.WriteVerbatimProperty(raw.Name, raw.Lines);
+            vb.WriteVerbatimProperty(raw.Name, raw.Lines.Select(line => citations.Cite(line, raw.Records)).ToList());
         }
     }
 }

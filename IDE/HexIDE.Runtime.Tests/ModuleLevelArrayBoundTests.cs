@@ -230,12 +230,12 @@ public class ModuleLevelArrayBoundTests : BaseVBTestFixture
     }
 
     [Fact]
-    public async Task A_bound_reading_another_modules_Enum_member_unqualified_is_refused_rather_than_sized_from_Empty()
+    public async Task Another_modules_Enum_member_unqualified_sizes_the_array()
     {
-        // VB6 gives 0 To 2. HexIDE reads another module's Enum member unqualified as Empty.
-        var run = () => RunModules("Dim d(colMax) As Long\n", ("Module2", Cols));
+        // VB6 gives 0 To 2 (measured). #873 refused it rather than size it from Empty, until #889.
+        await RunModules("Dim d(colMax) As Long\nDebug.Print UBound(d)\n", ("Module2", Cols));
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*d's bounds read colMax*another module's Enum*#889*");
+        AssertDebugLog([new Vb6Value(2L)]);
     }
 
     [Fact]

@@ -73,6 +73,7 @@ something this project can offer outward rather than something it must ask for.
 | 7 | Trailing comment after a header or designer property value (`MultiUse = -1  'True`, `Enabled = 0   'False`) | parser | add `WS?` before `NEWLINE` in `moduleConfigElement` and `cp_SingleProperty` |
 | 8 | A member call in a `While...Wend` body (`k.Bump`, `Debug.Print x`) | parser | `whileWendStmt`'s body `block* NEWLINE*` → `(block blockSep)?`, as `doLoopStmt` has it |
 | 9 | A Print output list of separators alone (`Debug.Print ,`, `Debug.Print ;`) | parser | a second `iCS_B_MemberProcedureCall` alternative, `implicitCallStmt_InStmt? DOT PRINT WS? (COMMA \| SEMICOLON) (WS? (COMMA \| SEMICOLON))*`; `argsCall` is unchanged |
+| 10 | A lone CR as a line end (`x = 1` CR `x = x + 10`, `x = 1 + _` CR `10`) | lexer | `NEWLINE`, its continuation tail and `LINE_CONTINUATION`: `'\r'? '\n'` → `('\r'? '\n' | '\r')` |
 
 Provenance: VB6 Language Reference ("Line numbers", "If…Then…Else", "Type Declaration Characters"), each
 verified against `vb6.exe`; deliberately divergent from the Rubberduck grammar.
@@ -116,6 +117,14 @@ output list, which VB6 reads as `Print #` reads its own, so the alternative is k
 dot. It admits `Form1.Print ,` too, whose VB6 behaviour is not measured and which HexIDE cannot run, since a form's
 `Print` method is not implemented. Provenance: measured against
 `vb6.exe` and its IDE's Immediate window (the oracle's "Sequential files", under "Separators with no item").
+
+**Fix 10 is the interpreter's grammar only (2026-10-22).** VB6 ends a line at CRLF, a lone LF or a lone CR, for a
+statement, a continuation and a comment alike, measured with `vb6.exe /make` on byte-exact files (the oracle's "A lone
+CR or LF in VB6 source", hexide-io/HexIDE#1020). The rule took only the first two, so a form whose code section has a
+lone CR, which reaches the interpreter as it was read, was a syntax error to F5 (hexide-io/HexIDE#1426). `COMMENT`
+already stopped at a lone CR and continues through `LINE_CONTINUATION`, so it needed nothing of its own. The bundled
+server's `NEWLINE` still takes only CRLF and LF, and belongs with hexide-io/HexIDE#1052, where its whole position model
+is LF-only. `GrammarParityTests` compares rule inventories, not bodies, so it doesn't see the two disagree.
 
 ## Open gaps (found, not yet fixed)
 

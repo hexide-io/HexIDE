@@ -331,9 +331,9 @@ public partial class FormDefinition : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// True when loading this form encountered a property backed by the companion binary (.frx/.ctx/.pgx)
-    /// that HexIDE does not model — a <c>DragIcon</c>, a <c>CommandButton.Picture</c>, an <c>ItemData</c>.
-    /// The property line is dropped, so a save cannot reproduce the blob it pointed at.
+    /// True when loading this form met a property HexIDE does not model, or a line of an unmodelled control, that
+    /// cites a record its companion binary (.frx/.ctx/.pgx) does not hold. Such a property is carried with its
+    /// record when the companion has it (#60). Without the record, it is dropped, so a save cannot reproduce it.
     ///
     /// The save path MUST leave the companion file completely alone when this is set: writing a
     /// regenerated companion truncates it (Splash Screen.frx: 790 bytes to 12) and writing none at all is

@@ -214,6 +214,20 @@ there isn't one yet. Anything may change between 0.x releases.
   (`"1.5"` is 01:05), so `"1.2.2003"` is no date, as in VB6. `IsDate` agrees with it, and `CVDate`, which was missing, is
   `CDate`. `DateValue` and `TimeValue` still take no serial, as in VB6.
 
+- **Another module's Public Enum member reads bare** (#889). `colMax`, declared in Module2's `Public Enum Cols`, read
+  as Empty in Module1 with no error, so `For i = 0 To colMax` ran once. It now reads as the Long VB6 gives it, from a
+  class's Public Enum too, and sizes a module-level array or folds into a Const. Two modules' members of one name are
+  "Ambiguous name detected" where used bare, as in VB6.
+
+- **A lone CR ends a line when a program runs** (#1426). VB6 ends a line at CRLF, a lone LF or a lone CR. The
+  interpreter took only the first two, so a form whose code had a lone CR, which VB6 builds and runs, was a syntax
+  error to F5. A lone CR now ends a statement, a line continuation and a comment, as each was measured to.
+
+- **A form whose OCX control keeps pictures in the `.frx` can be saved, and keeps them** (#60). A picture cited by a
+  control HexIDE does not model, such as an ImageList's, or by a property it does not model was dropped with its line,
+  so the form was held read-only. Now the line and the picture go back out together, and a save rewrites the citation
+  to wherever the picture lands, so a picture HexIDE does model that grows moves the others without losing them. VB6's
+  own `Web Browser.frm` was the last of its template forms held read-only; it now saves byte for byte, `.frx` included.
 - **A control array named through its form, `Form1.Text1(0).Text`, reads and writes** (#1386). It stopped the program
   with "Method or data member not found", in code and in the Immediate window alike, because the index was dropped. A
   missing element is VB6's 340, whose message now names the index, as vb6.exe's does.
