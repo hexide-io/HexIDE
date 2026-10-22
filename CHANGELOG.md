@@ -185,6 +185,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MousePointer has all seventeen of VB6's values** (#120). Icon (4), Size (5), Arrow and Hourglass (13) and Arrow and
+  Question (14) were missing. A form using one saved it without the name VB6 writes beside it, the Properties window
+  showed a blank, and the control drew the default pointer. All four now carry their names and draw the pointers
+  vb6.exe draws, as measured.
 - **A form's own Click runs** (#1364). A click on the form's area, over no control, ran `Form_MouseDown` and
   `Form_MouseUp` and never `Form_Click`. Now Click follows MouseUp, for the left, right and middle buttons, as
   vb6.exe does with real input. As in VB6, a press released over a control or outside the form gives no Click. A
