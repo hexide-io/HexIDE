@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using AvaloniaEdit.Document;
@@ -46,9 +47,9 @@ internal sealed class LspDocumentSession : IDisposable
     private readonly Action<Action> postToUiThread;
 
     private CancellationTokenSource? debounce;
-    // The version the last message about this document carried: the open's until the first change, so that
-    // change carries the next one rather than repeating it. (#470)
-    private int version = LspDocumentVersion.Opening;
+    // This document as the client knows it, shared with every other session holding the same name on the same
+    // client: how many hold it, and the version its last message carried. Null until Start. (#721)
+    private SharedDocument? shared;
     // Edits made, and how many of them had been made when diagnostics last arrived; -1 until the first. (#664)
     private int edits;
     private int editsWhenLastPublished = -1;
@@ -61,6 +62,77 @@ internal sealed class LspDocumentSession : IDisposable
     /// and untestable without owning the dispatcher, since only the thread that initialised Avalonia may
     /// pump it.
     /// </param>
+    /// <summary>
+    /// One name's document on one client, however many editors hold it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Why it is shared.</b> Two code windows can hold one name. One file shared by two projects of a group
+    /// does, and a project group's two <c>Form1</c>s did before #273. A server has one document for a name, so
+    /// it must be opened once, given one sequence of versions, and closed when the last window holding it
+    /// closes. Each session used to keep its own: the server was opened twice, saw two counts interleave and
+    /// discarded whichever was behind, and lost the document when either window closed
+    /// (hexide-io/HexIDE#721).
+    /// </para>
+    /// <para>
+    /// <b>Why it lives here and not in the client.</b> A change's version is drawn at the moment of the edit,
+    /// together with its text (#470), so that two sends crossing on their way out cannot give older text the
+    /// higher number. Numbering where messages are sent would undo that. So the shared sequence is drawn where
+    /// the edits are made, and who holds the document is kept beside it.
+    /// </para>
+    /// <para>
+    /// <b>A window that joins sends nothing of its own.</b> The server holds the document as the windows last
+    /// edited it. Sending the joining window's copy, as it was when it opened, would undo another window's unsaved
+    /// edits on the server. The joiner shows what was last published for the document instead, and its own
+    /// edits reach the server as the next versions in the shared sequence.
+    /// </para>
+    /// <para>
+    /// Kept per client instance, and by the name exactly as given, which is how the registry keys what it holds.
+    /// </para>
+    /// </remarks>
+    private sealed class SharedDocument
+    {
+        public int Holders;
+
+        // The version the last message about this document carried: the open's until the first change, so that
+        // change carries the next one rather than repeating it. (#470)
+        public int Version = LspDocumentVersion.Opening;
+
+        // What was last published for it, so a window that joins shows what the others already show.
+        public PublishDiagnosticsParams? LastPublished;
+    }
+
+    private static readonly ConditionalWeakTable<ILspClient, Dictionary<string, SharedDocument>> SharedDocuments = new();
+
+    /// <summary>Holds <paramref name="uri"/>'s document on this client, and says whether this is its first holder.</summary>
+    private (SharedDocument Document, bool First) Hold(string uri)
+    {
+        var documents = SharedDocuments.GetOrCreateValue(client);
+        lock (documents)
+        {
+            if (!documents.TryGetValue(uri, out var held)) documents[uri] = held = new SharedDocument();
+            return (held, ++held.Holders == 1);
+        }
+    }
+
+    /// <summary>Lets go of <paramref name="uri"/>'s document on this client, and says whether this was its last holder.</summary>
+    private bool Release(string uri)
+    {
+        var documents = SharedDocuments.GetOrCreateValue(client);
+        lock (documents)
+        {
+            if (!documents.TryGetValue(uri, out var held) || --held.Holders > 0) return false;
+            documents.Remove(uri);
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// The version the next message about this document carries, drawn now so that it goes with the text read now.
+    /// Atomic, because the debounced change draws it on a pool thread while a flush may draw it on the UI thread.
+    /// </summary>
+    private int NextVersion() => Interlocked.Increment(ref shared!.Version);
+
     public LspDocumentSession(
         ILspClient client, TextDocument document, string uri, bool isProjectMember = false,
         Action<Action>? postToUiThread = null)
@@ -163,7 +235,14 @@ internal sealed class LspDocumentSession : IDisposable
         started = true;
 
         client.DiagnosticsPublished += OnDiagnosticsPublished;
-        client.OpenDocumentAsync(Uri, document.Text, isProjectMember).ListenErrors();
+
+        // Opened by its first holder only. A later one joins a document the server already holds, and shows what
+        // was last published for it rather than waiting on an answer to an open it does not send (#721).
+        var (held, first) = Hold(Uri);
+        shared = held;
+        if (first) client.OpenDocumentAsync(Uri, document.Text, isProjectMember).ListenErrors();
+        else if (held.LastPublished is { } published) OnDiagnosticsPublished(client, published);
+
         document.TextChanged += OnTextChanged;
     }
 
@@ -186,8 +265,9 @@ internal sealed class LspDocumentSession : IDisposable
     public async Task FlushAsync(CancellationToken cancellationToken = default)
     {
         debounce?.Cancel();
-        if (disposed) return;
-        await client.ChangeDocumentAsync(Uri, ++version, document.Text, cancellationToken);
+        // Nothing to change before the document is held: no server has been told of it.
+        if (disposed || shared is null) return;
+        await client.ChangeDocumentAsync(Uri, NextVersion(), document.Text, cancellationToken);
     }
 
     /// <summary>
@@ -226,7 +306,10 @@ internal sealed class LspDocumentSession : IDisposable
 
         document.TextChanged -= OnTextChanged;
         client.DiagnosticsPublished -= OnDiagnosticsPublished;
-        client.CloseDocumentAsync(Uri).ListenErrors();
+
+        // Closed by its last holder only. Another window may still be editing it, and its next edit would
+        // otherwise be a change to a document the server has closed (#721).
+        if (Release(Uri)) client.CloseDocumentAsync(Uri).ListenErrors();
     }
 
     /// <summary>
@@ -248,8 +331,13 @@ internal sealed class LspDocumentSession : IDisposable
     /// withdrawal and the markers stay on screen — visibly wrong, and attributable to nothing.
     /// </para>
     /// <para>
-    /// The version counter restarts because the new name is a new document to the server, and its
-    /// <c>didOpen</c> establishes version 1.
+    /// The versions are the new name's own, because the new name is a new document to the server. Its first
+    /// holder's <c>didOpen</c> establishes version 1.
+    /// </para>
+    /// <para>
+    /// <b>Only the old name's last holder closes it</b>, and only the new name's first holder opens it. A close
+    /// for a rename withdraws the name's diagnostics on every connection and in the ledger, so a window still
+    /// holding the old name would be left editing a document no server has (#721).
     /// </para>
     /// </remarks>
     public async Task RenameAsync(string newUri, CancellationToken cancellationToken = default)
@@ -263,11 +351,14 @@ internal sealed class LspDocumentSession : IDisposable
         try
         {
             var old = Uri;
-            await client.CloseDocumentForRenameAsync(old, cancellationToken);
+            if (Release(old)) await client.CloseDocumentForRenameAsync(old, cancellationToken);
             Uri = newUri;
-            // The reopen is a new document to the server, so its versions start again where an open's do.
-            version = LspDocumentVersion.Opening;
-            await client.OpenDocumentAsync(newUri, document.Text, isProjectMember, cancellationToken);
+            // The reopen is a new document to the server, so its versions start again where an open's do: in the
+            // shared document its first holder makes.
+            var (held, first) = Hold(newUri);
+            shared = held;
+            if (first) await client.OpenDocumentAsync(newUri, document.Text, isProjectMember, cancellationToken);
+            else if (held.LastPublished is { } published) OnDiagnosticsPublished(client, published);
         }
         finally
         {
@@ -284,7 +375,7 @@ internal sealed class LspDocumentSession : IDisposable
 
         // Captured now rather than read in the continuation: by the time it runs the buffer may have moved
         // on, and a version number paired with the wrong text is worse than a stale one.
-        var pending = ++version;
+        var pending = NextVersion();
         var text = document.Text;
 
         // Handed on whether or not a server is running yet. While one starts, nothing below can send it, but
@@ -309,6 +400,7 @@ internal sealed class LspDocumentSession : IDisposable
         // and an exact comparison drops its diagnostics without a trace. See #236.
         if (!LspDocumentUri.AreSame(p.Uri, Uri)) return;
 
+        if (shared is { } held) held.LastPublished = p;
         Volatile.Write(ref editsWhenLastPublished, Volatile.Read(ref edits));
 
         // TextDocument refuses access from anywhere but the UI thread, so the whole conversion goes there
