@@ -1139,8 +1139,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             if (countMe) AddRef(m);   // a running (non-lifecycle) method holds Me → defers a last-ref drop to return
         }
         await BindParameters(proc, args, callee, owner, ownedSlots);
+        // The return slot is typed as the declaration says, as a Dim's is, so a store into the name converts there, and a
+        // failure is raised in the Function, where its own handler traps it (measured, #1444: `FI = 40000` in a Function
+        // As Integer is 6 inside it, `FD = "0.5"` As Date is 00:05, `FS = 5` As String "5", and `FB = "abc"` As Boolean 13).
         if (proc.IsFunction)
-            ExecutionContext.AllocVariable(callee, proc.Name, SeedReturnValue(proc));
+            ExecutionContext.AllocVariable(callee, proc.Name, SeedReturnValue(proc),
+                proc.ReturnUdtTypeName is null && VbNumeric.IsDeclarableScalar(proc.ReturnType) ? proc.ReturnType : null);
         Vb6Value? ret = null;
         bool completed = false;
         try
