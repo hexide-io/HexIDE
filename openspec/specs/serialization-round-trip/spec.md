@@ -450,6 +450,24 @@ project SHALL NOT remove a member the IDE failed to load.
 - **WHEN** the project is opened and saved
 - **THEN** the saved project file still names that module
 
+### Requirement: A form whose two names disagree SHALL open under its Begin line's name, with a warning
+
+Where a form's designer block names it differently from its `Attribute VB_Name`, even in case alone, the IDE SHALL
+name the form by the designer block, SHALL say so as the project opens, and SHALL make `VB_Name` agree, leaving the
+form edited so that its next save writes the agreement. This is what VB6 does.
+
+#### Scenario: VB_Name names another form
+
+- **GIVEN** a form whose designer block says `frmRenamed` and whose `VB_Name` says `Form1`
+- **WHEN** its project is opened
+- **THEN** the form is called `frmRenamed`, a warning names its file and that name, and its `VB_Name` says `frmRenamed`
+- **AND** the form has unsaved changes until it is saved
+
+#### Scenario: The names agree
+
+- **WHEN** a form whose two names agree is opened
+- **THEN** nothing is said and the form has no unsaved changes
+
 ### Requirement: A project file SHALL NOT be written without a member that has no file
 
 When an operation would write a project file while one of the project's forms or modules has never been saved

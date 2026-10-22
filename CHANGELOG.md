@@ -185,6 +185,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A form whose `Begin` line and `Attribute VB_Name` disagree opens as VB6 opens it** (#1407). HexIDE already named
+  such a form by its `Begin` line, as VB6 does, but said nothing and saved the contradiction back. HexIDE itself wrote
+  such files before #1059. Opening the project now shows VB6's "Conflicting names were found…" warning. The form's
+  `VB_Name` is made to agree, and the form comes up edited, so its next save writes it, as VB6's does. Case alone
+  counts as a disagreement, as it does in VB6.
 - **A list's `ListCount`, `List(i)`, `RemoveItem` and `AddItem`'s index work** (#821), on a ListBox and a ComboBox.
   `ListCount` and `List(i)` were "Method or data member not found", `RemoveItem` ended the run as not implemented, and
   `AddItem "x", 0` appended, leaving the list in another order than the program built. Each now does what vb6.exe
