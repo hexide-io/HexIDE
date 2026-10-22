@@ -442,7 +442,7 @@ public class ProjectService : IProjectService
             // Returned so a non-interactive caller can tell a refusal from a save. The MCP write tools reported
             // success unconditionally, which told an agent a file had been written when it had not — and an
             // agent, unlike a developer, has no dialog to read and will build on the answer.
-            return (await WithEncodingError(() => SaveFiles([(form, saveAs)], ownCommand: true), interactive)).Count > 0;
+            return (await WithSaveRefusals(() => SaveFiles([(form, saveAs)], ownCommand: true), interactive)).Count > 0;
         }
         finally
         {
@@ -453,8 +453,10 @@ public class ProjectService : IProjectService
     }
 
     /// <summary>
-    /// Runs a save, and reports a refusal the code page forces: to a person as the source-encoding warning,
-    /// to an automation caller only by the <see cref="SourceEncodingRefusal"/>, which is rethrown either way.
+    /// Runs a save, and reports a refusal that ends it before anything is written: to a person as a warning, to
+    /// an automation caller only by the exception, which is rethrown either way. Two kinds end one: a character
+    /// the code page cannot hold (<see cref="SourceEncodingRefusal"/>), and a project file that would leave out a
+    /// member with no file (<see cref="UnsavedMemberRefusal"/>).
     /// </summary>
     /// <remarks>
     /// Wrapped around each operation once, at its entry point, rather than around each file it writes. An
@@ -463,7 +465,7 @@ public class ProjectService : IProjectService
     /// Rethrown rather than turned into false: a close-time save that carried on would unload the project and
     /// discard the edit the developer had just asked to keep.
     /// </remarks>
-    private async Task<T> WithEncodingError<T>(Func<Task<T>> operation, bool interactive = true)
+    private async Task<T> WithSaveRefusals<T>(Func<Task<T>> operation, bool interactive = true)
     {
         try
         {
@@ -484,11 +486,22 @@ public class ProjectService : IProjectService
                     "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
             throw;
         }
+        catch (UnsavedMemberRefusal refusal)
+        {
+            Log.Warning("Not saving {Project}: its project file would leave out {Members}, which have no file",
+                refusal.Project, refusal.Members);
+            if (interactive)
+                await windowManager.MessageBox(
+                    string.Format(localization.GetString("Str.Dialog.UnsavedMembers.NothingWritten"),
+                        refusal.Project, string.Join("\n", refusal.Members.Select(m => $"  • {m}"))),
+                    "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+            throw;
+        }
     }
 
-    /// <inheritdoc cref="WithEncodingError{T}"/>
-    private Task WithEncodingError(Func<Task> operation, bool interactive = true) =>
-        WithEncodingError(async () =>
+    /// <inheritdoc cref="WithSaveRefusals{T}"/>
+    private Task WithSaveRefusals(Func<Task> operation, bool interactive = true) =>
+        WithSaveRefusals(async () =>
         {
             await operation();
             return true;
@@ -540,6 +553,7 @@ public class ProjectService : IProjectService
         // keeps a reload during a later picker from slipping a file past it (see the remarks).
         destinations.RemoveAll(destination => RefusesUnfaithful(destination.Document));
 
+        EnsureEveryMemberListed(destinations);
         EnsureEncodable(destinations);
         var written = new List<Destination>();
         foreach (var destination in destinations)
@@ -680,6 +694,37 @@ public class ProjectService : IProjectService
             FileTypeChoices = [new FilePickerFileType("Project Group") { Patterns = ["*.vbg"] }],
             SuggestedFileName = group.Name
         }) ?? throw new OperationCanceledException();
+
+    /// <summary>
+    /// Refuses, with an <see cref="UnsavedMemberRefusal"/> for the first project in order, unless every project
+    /// file in <paramref name="destinations"/> can list all of its forms and modules: each has a file already, or
+    /// is written by this operation. Writes nothing.
+    /// </summary>
+    /// <remarks>
+    /// The save-changes prompt can tick a project without a member that has never been saved, and the project
+    /// file then left the member out, as the serializer skips one with no path. Where the member was the startup
+    /// form, the file kept its <c>Startup=</c> line, which vb6.exe builds in silence into a program that starts at
+    /// <c>Sub Main</c> (hexide-io/HexIDE#497). VB6's own save of a project is all or nothing, and so is this.
+    /// </remarks>
+    private static void EnsureEveryMemberListed(IReadOnlyList<Destination> destinations)
+    {
+        var written = destinations.Select(d => d.Document).ToHashSet(ReferenceEqualityComparer.Instance);
+        foreach (var destination in destinations)
+            if (destination.Document is ProjectDefinition project
+                && UnlistedMembers(project, member => written.Contains(member)) is { Count: > 0 } unlisted)
+                throw new UnsavedMemberRefusal(project.Name, unlisted);
+    }
+
+    /// <summary>
+    /// The forms and modules a project file would leave out if written now, by name: those with no file, unless
+    /// <paramref name="writtenWithIt"/> says they get one in the same operation.
+    /// </summary>
+    private static List<string> UnlistedMembers(ProjectDefinition project, Func<object, bool> writtenWithIt) =>
+    [
+        .. project.Forms.Where(form => form.AbsolutePath is null && !writtenWithIt(form)).Select(form => form.Name),
+        .. project.Modules.Where(module => module.AbsolutePath is null && !writtenWithIt(module))
+            .Select(module => module.Name),
+    ];
 
     /// <summary>
     /// Refuses, with a <see cref="SourceEncodingRefusal"/> for the first file in order, unless every file
@@ -973,7 +1018,7 @@ public class ProjectService : IProjectService
             // The warning every other save shows. The refusal is an OperationCanceledException, so it then leaves
             // through the cancellation arm below. A form or the project file used to reach the fatal-error box
             // instead, with .NET's message in place of the document and the code page.
-            await WithEncodingError(() => MakeProjectInternal(projectDefinition));
+            await WithSaveRefusals(() => MakeProjectInternal(projectDefinition));
         }
         catch (OperationCanceledException)
         {
@@ -1167,7 +1212,7 @@ public class ProjectService : IProjectService
         // the lone path and left open here.
         try
         {
-            await WithEncodingError(() => SaveFiles([.. FilesOf(project, saveAs)]));
+            await WithSaveRefusals(() => SaveFiles([.. FilesOf(project, saveAs)]));
         }
         finally
         {
@@ -1183,7 +1228,7 @@ public class ProjectService : IProjectService
         (project, saveAs)
     ];
 
-    public Task SaveProjectToDirectory(ProjectDefinition project, string directory) => WithEncodingError(() =>
+    public Task SaveProjectToDirectory(ProjectDefinition project, string directory) => WithSaveRefusals(() =>
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
@@ -1224,7 +1269,7 @@ public class ProjectService : IProjectService
     });
 
     public Task<FormDefinition> AddNewForm(ProjectDefinition project, string name, bool interactive = true) =>
-        WithEncodingError(() =>
+        WithSaveRefusals(() =>
         {
             var form = new FormDefinition(project, FormComponentClass.Instance, name) { TextEncoding = HostAnsi };
             EnsureNewMemberEncodable(project, form, name + ".frm");
@@ -1241,7 +1286,7 @@ public class ProjectService : IProjectService
 
     public Task<ModuleDefinition> AddNewModule(ProjectDefinition project, string name, ModuleKind kind,
         bool interactive = true) =>
-        WithEncodingError(() => Task.FromResult(
+        WithSaveRefusals(() => Task.FromResult(
             AddNewModuleFile(project, new ModuleDefinition(project, name, kind) { TextEncoding = HostAnsi })), interactive);
 
     public Task<ModuleDefinition> AddNewUserControl(ProjectDefinition project, string name, bool interactive = true) =>
@@ -1252,7 +1297,7 @@ public class ProjectService : IProjectService
 
     private Task<ModuleDefinition> AddNewDesignerModule(
         ProjectDefinition project, string name, ModuleKind kind, string rootTypeName, bool interactive) =>
-        WithEncodingError(() =>
+        WithSaveRefusals(() =>
         {
             var module = new ModuleDefinition(project, name, kind) { TextEncoding = HostAnsi };
             var formPart = new FormDefinition(project, FormComponentClass.Instance, name);
@@ -1491,7 +1536,7 @@ public class ProjectService : IProjectService
         // skip the drain and leave refusals banked for the next unrelated save.
         try
         {
-            await WithEncodingError(() => SaveFiles(
+            await WithSaveRefusals(() => SaveFiles(
             [
                 .. changedFilesVm.SelectedFiles.Where(f => f.Form != null).Select(f => ((object)f.Form!, false)),
                 .. changedFilesVm.SelectedFiles.Where(f => f.Module != null).Select(f => ((object)f.Module!, false)),
@@ -1565,7 +1610,7 @@ public class ProjectService : IProjectService
     {
         try
         {
-            await WithEncodingError(() => SaveFiles(files));
+            await WithSaveRefusals(() => SaveFiles(files));
         }
         finally
         {
@@ -1843,7 +1888,7 @@ public class ProjectService : IProjectService
     {
         try
         {
-            return await WithEncodingError(() => SaveModuleCore(module, saveAs), interactive);
+            return await WithSaveRefusals(() => SaveModuleCore(module, saveAs), interactive);
         }
         finally
         {
@@ -1902,6 +1947,14 @@ public class ProjectService : IProjectService
 
     private void SerializeOnlyProjectToFile(ProjectDefinition definition, string projectPath)
     {
+        // The second check, at the write, for a route that reaches it without SaveFiles: that refuses before
+        // anything is written (EnsureEveryMemberListed), and by here every member it wrote has its path. Not in
+        // the serializer, which also renders for the dirty check, where a project holding a form with no file
+        // yet is ordinary.
+        if (UnlistedMembers(definition, writtenWithIt: _ => false) is { Count: > 0 } unlisted)
+            throw new InvalidOperationException(
+                $"{definition.Name}'s project file would leave out {string.Join(", ", unlisted)}, which "
+              + "have no file, so it was not written.");
         var serialized = new ProjectSerializer().Serialize(definition, projectPath);
         AtomicWriteText(projectPath, serialized,
             Vb6TextFile.EncodeDocument(definition.Name, serialized, definition.TextEncoding));
