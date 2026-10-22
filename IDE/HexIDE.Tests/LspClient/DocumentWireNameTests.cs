@@ -145,8 +145,8 @@ public class DocumentWireNameTests
     [Fact]
     public async Task AModuleInAProjectNotYetSaved()
     {
-        // lsp-client's scenario of that name. A module added to a project that has never been saved is written at
-        // once, into the project's private scratch folder, so it has a file and is named by it, not as untitled:.
+        // lsp-client's scenario of that name. A module added to a project that has never been saved has no file until
+        // the project is saved, as in VB6 (#500), so it is named untitled:, and nothing chose a scratch folder for it.
         var service = new ProjectService(
             () => throw new InvalidOperationException("no new-project dialog here"),
             Substitute.For<IWindowManager>(), Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(),
@@ -159,10 +159,9 @@ public class DocumentWireNameTests
             var module = await service.AddNewModule(project, "Module1", ModuleKind.StandardModule, interactive: false);
 
             project.AbsolutePath.Should().BeNull("the premise of this test");
-            module.AbsolutePath.Should().StartWith(project.WorkingDirectory!).And.EndWith("Module1.bas");
-            File.Exists(module.AbsolutePath).Should().BeTrue();
-            DocumentWireName.For(module).Should().Be(LspDocumentUri.ForFile(module.AbsolutePath!))
-                .And.StartWith("file:///");
+            module.AbsolutePath.Should().BeNull();
+            project.WorkingDirectory.Should().BeNull();
+            DocumentWireName.For(module).Should().Be("untitled:Project1/Module1.bas");
         }
         finally
         {

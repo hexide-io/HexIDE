@@ -89,7 +89,7 @@
 
 | Item | Shortcut | Status | Notes |
 |---|---|---|---|
-| Add Form | — | Done | Creates Form2, Form3… with defaults; opens designer; saves to project dir |
+| Add Form | — | Done | Creates Form2, Form3… with defaults and opens the designer. Like every new component it has no file until the project is saved, as in VB6 (#500) |
 | Add MDI Form | — | Missing | MDI is not COM-dependent; implementable cross-platform as an Avalonia container with floating child sub-windows |
 | Add Module | — | Done | Creates Module1, Module2… with defaults; opens code editor; saves to project dir |
 | Add Class Module | — | Done | Creates Class1, Class2… with defaults; opens code editor; saves to project dir |

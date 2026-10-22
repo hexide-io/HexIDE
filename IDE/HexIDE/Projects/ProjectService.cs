@@ -1272,44 +1272,36 @@ public class ProjectService : IProjectService
     });
 
     public string NextFreeFormName(ProjectDefinition project) =>
-        ProjectNaming.NextFreeName(project, "Form", name => FileInTheWay(project, name + ".frm") is not null);
+        ProjectNaming.NextFreeName(project, "Form", name => IsFileInTheWay(project, name + ".frm"));
 
     public string NextFreeModuleName(ProjectDefinition project, ModuleKind kind) =>
         ProjectNaming.NextFreeName(project, ModulePrefix(kind),
-            name => FileInTheWay(project, name + "." + ModuleExtension(kind)) is not null);
+            name => IsFileInTheWay(project, name + "." + ModuleExtension(kind)));
 
     /// <summary>
-    /// What is already where a new member's file, <paramref name="fileName"/> in the project's folder, would be
-    /// written: a file, the binary file beside it, or a line the project file keeps for a member that did not load
-    /// and that names it. Null when nothing is, as for a project whose folder is not chosen yet.
+    /// Whether something is already where a new member's file, <paramref name="fileName"/> in the project's folder,
+    /// would go: a file, the binary file beside it, or a line the project file keeps for a member that did not load
+    /// and that names it. False for a project whose folder is not chosen yet.
     /// </summary>
     /// <remarks>
-    /// For the write a new member gets as it is added. When #500 moves that write to Save Project, as VB6 makes it,
-    /// this check moves with it, to wherever a new member's file is first written.
+    /// The name a new member is given is the file name its first save suggests, so a name whose file is taken would
+    /// suggest a stranger's file (#738). Only the suggestion is protected here: nothing is written as a member is
+    /// added (#500), and the save's own picker is where a developer, or an automation caller's armed answer, decides
+    /// where the file goes.
     /// </remarks>
-    private static (string Path, bool NamedByProject)? FileInTheWay(ProjectDefinition project, string fileName)
+    private static bool IsFileInTheWay(ProjectDefinition project, string fileName)
     {
         // Not ProjectFilesDirectory, which chooses a scratch folder for a project with none: there is nothing in a
         // folder not chosen yet, and asking for a name must not choose one.
         if (ChosenFilesDirectory(project) is not { } dir)
-            return null;
+            return false;
 
         var path = Path.Join(dir, fileName);
-        if (File.Exists(path))
-            return (path, false);
-        // Only the designer kinds have one. CompanionBinaryExtension answers .frx for a .bas or a .cls too.
-        if (Path.GetExtension(fileName).ToLowerInvariant() is ".frm" or ".ctl" or ".pag"
-            && Path.ChangeExtension(path, CompanionBinaryExtension(path)) is var companion
-            && File.Exists(companion))
-            return (companion, false);
-        return project.PreservedItemLines.Any(line => KeptLineNames(project, line, path)) ? (path, true) : null;
-    }
-
-    /// <summary>Refuses a new member whose file would be written where <see cref="FileInTheWay"/> finds something.</summary>
-    private static void EnsureNothingInTheWay(ProjectDefinition project, string name, string fileName)
-    {
-        if (FileInTheWay(project, fileName) is { } inTheWay)
-            throw new FileInTheWayRefusal(name, inTheWay.Path, inTheWay.NamedByProject);
+        // Only the designer kinds have a binary file. CompanionBinaryExtension answers .frx for a .bas or a .cls too.
+        return File.Exists(path)
+            || Path.GetExtension(fileName).ToLowerInvariant() is ".frm" or ".ctl" or ".pag"
+               && File.Exists(Path.ChangeExtension(path, CompanionBinaryExtension(path)))
+            || project.PreservedItemLines.Any(line => KeptLineNames(project, line, path));
     }
 
     public Task<FormDefinition> AddNewForm(ProjectDefinition project, string name, bool interactive = true) =>
@@ -1317,14 +1309,10 @@ public class ProjectService : IProjectService
         {
             var form = new FormDefinition(project, FormComponentClass.Instance, name) { TextEncoding = HostAnsi };
             EnsureNewMemberEncodable(project, form, name + ".frm");
-            EnsureNothingInTheWay(project, name, name + ".frm");
-            var dir = ProjectFilesDirectory(project);
-            Directory.CreateDirectory(dir);
-            // A brand new form has no unfaithful causes and cites no companion, so this cannot refuse. Asserted
-            // rather than ignored: if it ever did, the form would be added to the project with no file behind
-            // it, and the .vbp would name a path that does not exist.
-            if (!SerializeFormToFile(form, Path.Join(dir, name + ".frm")))
-                throw new InvalidOperationException($"A new form ({name}) could not be written.");
+            // No file until the project is saved, as in VB6 (#489, #500). The header its first save will write is
+            // rendered now and held, so the code window shows what the file will say, and the next refresh has the
+            // header it replaces to compare against (#885).
+            form.RecordDesignerText(FormCodeText.DesignerHalfOf(RenderForm(form, name + ".frm").Text, form.Code));
             project.AddForm(form);
             return Task.FromResult(form);
         }, interactive);
@@ -1332,7 +1320,7 @@ public class ProjectService : IProjectService
     public Task<ModuleDefinition> AddNewModule(ProjectDefinition project, string name, ModuleKind kind,
         bool interactive = true) =>
         WithSaveRefusals(() => Task.FromResult(
-            AddNewModuleFile(project, new ModuleDefinition(project, name, kind) { TextEncoding = HostAnsi })), interactive);
+            AddNewModuleToProject(project, new ModuleDefinition(project, name, kind) { TextEncoding = HostAnsi })), interactive);
 
     public Task<ModuleDefinition> AddNewUserControl(ProjectDefinition project, string name, bool interactive = true) =>
         AddNewDesignerModule(project, name, ModuleKind.UserControl, "VB.UserControl", interactive);
@@ -1348,30 +1336,21 @@ public class ProjectService : IProjectService
             var formPart = new FormDefinition(project, FormComponentClass.Instance, name);
             formPart.UpdateRootTypeName(rootTypeName);
             module.UpdateFormPart(formPart);
-            return Task.FromResult(AddNewModuleFile(project, module));
+            return Task.FromResult(AddNewModuleToProject(project, module));
         }, interactive);
 
-    /// <summary>Writes the file of a module just created, then adds the module to the project.</summary>
-    private ModuleDefinition AddNewModuleFile(ProjectDefinition project, ModuleDefinition module)
+    /// <summary>
+    /// Adds a module just created to the project. Its file is written by the project's next save, as VB6 writes it
+    /// (#489, #500): nothing reaches disk here, and no folder is chosen.
+    /// </summary>
+    private ModuleDefinition AddNewModuleToProject(ProjectDefinition project, ModuleDefinition module)
     {
         var fileName = module.Name + "." + ModuleExtension(module.Kind);
         EnsureNewMemberEncodable(project, module, fileName);
-        EnsureNothingInTheWay(project, module.Name, fileName);
-        var dir = ProjectFilesDirectory(project);
-        Directory.CreateDirectory(dir);
-        module.AbsolutePath = Path.Join(dir, fileName);
-        // The VB6 file header and an empty body.
-        var text = RenderModule(module, module.AbsolutePath).Text;
-        var bytes = Vb6TextFile.EncodeDocument(module.Name, text, module.TextEncoding);
-        File.WriteAllBytes(module.AbsolutePath, bytes);
-        baselineStore.Record(module.AbsolutePath, bytes);
-        // The header the code window will show, recorded from the render that reached disk. Without this a
-        // brand-new UserControl or PropertyPage opens with no header at all while its file has one.
-        //
-        // This path writes at creation, which is what #489 was opened about and decided AGAINST: VB6 writes
-        // nothing until the project is saved, and #500 is the implementation of that. Until it lands a
-        // created UserControl has a file at once, so this is the ordinary case today and will not be.
-        DesignerPartOf(module)?.RecordDesignerText(FormCodeText.DesignerHalfOf(text, module.Code));
+        // The header the code window will show, rendered as the first save will write it and held from now, as a
+        // new form's is (#885). Without it a brand-new UserControl or PropertyPage opens with no designer block.
+        DesignerPartOf(module)?.RecordDesignerText(
+            FormCodeText.DesignerHalfOf(RenderModule(module, fileName).Text, module.Code));
         project.AddModule(module);
         return module;
     }
