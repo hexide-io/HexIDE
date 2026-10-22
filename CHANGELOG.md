@@ -185,6 +185,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A list's `ListCount`, `List(i)`, `RemoveItem` and `AddItem`'s index work** (#821), on a ListBox and a ComboBox.
+  `ListCount` and `List(i)` were "Method or data member not found", `RemoveItem` ended the run as not implemented, and
+  `AddItem "x", 0` appended, leaving the list in another order than the program built. Each now does what vb6.exe
+  does, in range and out: `List(i)` reads "" outside the list, a write at `ListCount` or -1 appends, an index out of
+  range is 5 or 381, and the selection follows its item.
+
 - **A ListBox raises Click where VB6 does** (#1374). It raised Click after MouseUp on every release, and never when
   code set `ListIndex` or an arrow key moved the selection. Now a left press on an item raises Click before MouseUp,
   the selection follows the pointer while the button is held, `ListIndex = n` and an arrow key raise it when the
