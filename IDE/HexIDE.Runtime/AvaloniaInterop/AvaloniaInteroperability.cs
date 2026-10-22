@@ -248,6 +248,12 @@ public static class AvaloniaInteroperability
                     list.SetListIndexFromCode(listIndex);
                     return true;
                 }
+                // And so does a ComboBox (measured, #1429).
+                if (control is VBComboBox combo && ReferenceEquals(property, VBProperties.ListIndexProperty) && converted is int comboIndex)
+                {
+                    combo.SetListIndexFromCode(comboIndex);
+                    return true;
+                }
                 // A transparent Label keeps the BackColor it has: VB6 drops one assigned at run time, without an
                 // error, so it reads back the old colour and shows that colour if the label is later made opaque
                 // (measured, #795). Only once the label is opaque does an assignment take. The value is converted

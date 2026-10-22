@@ -21,9 +21,15 @@ public class ComboBoxComponentClass : ComponentBaseClass
         RightToLeftProperty,
         AppearanceProperty,
         TabStopProperty,
-        TabIndexProperty])
+        TabIndexProperty], [ChangeEvent, ClickEvent, DropDownEvent])
     {
     }
+
+    /// <summary>As the list opens, by the mouse, F4 or Alt+Down (measured, #1429).</summary>
+    public static readonly EventClass DropDownEvent = new("DropDown");
+
+    // A combo's Change is the TextBox's event: the same name, no arguments.
+    private static readonly EventClass ChangeEvent = TextBoxComponentClass.ChangeEvent;
 
     public override string Name => "Combo";
     public override string VBTypeName => "VB.ComboBox";
