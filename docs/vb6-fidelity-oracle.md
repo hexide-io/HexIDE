@@ -1332,7 +1332,7 @@ conversion comes before the range check. Nothing is changed when either step ref
   separator, and VB6 skips it. HexIDE's string-to-number rule allows none and raises 13 (#770). Not probed: a
   locale whose decimal separator is the comma.
 - **`MousePointer` 4, 5, 13 and 14 are accepted.** `VBCursorType`'s comment called them gaps in VB6's numbering.
-  They are not (#120).
+  They are not (#120). Their names and pointers are measured under "MousePointer's names and pointers".
 - **`Tag` is a String.** HexIDE declared it as an object and stored whatever it was given.
 - **`CStr` of a Date leaves out what is zero.** A midnight date has no time, and a time has no date. HexIDE wrote
   both (#771). A Single shows seven significant digits and a Double fifteen. HexIDE showed more (#772). Both were
@@ -5561,6 +5561,46 @@ HexIDE resolves that colour. HexIDE's Classic palette keeps its own values for f
 VB6's and the shades are the palette's. Window frame had no colour at all, so `vbWindowFrame` resolved to nothing; it is
 now Windows 10's `646464`. That is the Windows 10 measurement inside an otherwise Win98-era palette, whose window frame
 would be black, which is why black was the obvious guess.
+
+## MousePointer's names and pointers (2026-10-22, #120)
+
+**Names.** A form gave seventeen Labels one MousePointer value each, 0 to 15 and 99, written bare (`MousePointer = 4`
+with no comment). The VB6 IDE opened the project in the guest's console session. Driven by keys, it opened the form's
+code window, added a comment line so the form was changed, and saved it with Ctrl+S. The file it wrote:
+
+| Value | Written | Value | Written |
+|---|---|---|---|
+| 0 | not written: the default | 9 | `9  'Size W E` |
+| 1 | `1  'Arrow` | 10 | `10  'Up Arrow` |
+| 2 | `2  'Cross` | 11 | `11  'Hourglass` |
+| 3 | `3  'I-Beam` | 12 | `12  'No Drop` |
+| **4** | **`4  'Icon`** | **13** | **`13  'Arrow and Hourglass`** |
+| **5** | **`5  'Size`** | **14** | **`14  'Arrow and Question`** |
+| 6 | `6  'Size NE SW` | 15 | `15  'Size All` |
+| 7 | `7  'Size N S` | 99 | `99  'Custom` |
+| 8 | `8  'Size NW SE` | | |
+
+The four in bold had no member in HexIDE (#120). The other thirteen match the names it already had, which were
+mined from VB98's Template tree or carried without a measurement until now.
+
+**Pointers.** The same form, built as p-code and run in the console session. The pointer was moved to the middle of
+each Label, and `GetCursorInfo`'s handle was compared with the shared handles `LoadCursor` gives for Windows' standard
+cursors:
+
+| Value | Cursor | Value | Cursor |
+|---|---|---|---|
+| 0 Default | `IDC_ARROW` | 9 | `IDC_SIZEWE` |
+| 1 | `IDC_ARROW` | 10 | `IDC_UPARROW` |
+| 2 | `IDC_CROSS` | 11 | `IDC_WAIT` |
+| 3 | `IDC_IBEAM` | 12 | `IDC_NO` |
+| **4 Icon** | **`IDC_ARROW`** | **13** | **`IDC_APPSTARTING`** |
+| **5 Size** | **`IDC_SIZEALL`** | **14** | **`IDC_HELP`** |
+| 6 | `IDC_SIZENESW` | 15 | `IDC_SIZEALL` |
+| 7 | `IDC_SIZENS` | 99, no MouseIcon | `IDC_ARROW` |
+| 8 | `IDC_SIZENWSE` | | |
+
+On this Windows 10, `LoadCursor` returns nothing for `IDC_ICON` and `IDC_SIZE`. Both are obsolete. So Icon draws the
+plain arrow, and Size draws the same pointer as Size All. Another Windows version may differ; that is not measured.
 
 ## RGB, QBColor and MsgBox's style (2026-10-12)
 

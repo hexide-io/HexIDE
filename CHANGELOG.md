@@ -190,6 +190,12 @@ there isn't one yet. Anything may change between 0.x releases.
   the selection follows the pointer while the button is held, `ListIndex = n` and an arrow key raise it when the
   selection moves, and a right or middle click, or a press below the items, selects nothing and raises none, as
   vb6.exe does with real input.
+
+- **MousePointer has all seventeen of VB6's values** (#120). Icon (4), Size (5), Arrow and Hourglass (13) and Arrow and
+  Question (14) were missing. A form using one saved it without the name VB6 writes beside it, the Properties window
+  showed a blank, and the control drew the default pointer. All four now carry their names and draw the pointers
+  vb6.exe draws, as measured.
+
 - **DblClick runs** (#1031). It was declared nowhere and raised by nothing, so a `List1_DblClick` or `Form_DblClick`
   never ran. Now a double click raises it on the form and on each control VB6 gives one, in vb6.exe's order with real
   input: MouseDown, MouseUp, Click, DblClick, MouseUp, with no MouseDown for the second press. An OptionButton raises
