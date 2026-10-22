@@ -1,0 +1,5 @@
+- [x] Add the session option, refusing a missing name, and pass it to the server.
+- [x] Refuse another session's tool calls with an error result, ahead of every other tool-call filter, and report the session in the health check.
+- [x] Name the caller's session in the client configuration and pass it from the launcher.
+- [x] Test it against a real server and client, mutation-check it, and verify it live with two sessions on two IDEs.
+- [x] Document the option, the launcher and the dev loop.
