@@ -42,7 +42,7 @@ public class AttachedProperties
             {
                 control.FontFamily = font.ToFontFamily();
                 control.FontWeight = font.ToFontWeight();
-                control.FontSize = font.Size;
+                control.FontSize = font.ToFontSize();
                 control.FontStyle = font.ToFontStyle();
                 // Only on the controls that draw a caption in their own font. It is inherited, so set on a form it would
                 // reach the form's menus, which VB6 draws in the menu font whatever the form's is.
