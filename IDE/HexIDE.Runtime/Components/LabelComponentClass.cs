@@ -14,7 +14,7 @@ public class LabelComponentClass : ComponentBaseClass
         BackStyleProperty, AlignmentProperty, AppearanceProperty,
         AutoSizeProperty, BorderStyleProperty, ForeColorProperty,
         MousePointerProperty, RightToLeftProperty, ToolTipTextProperty,
-        UseMnemonicProperty, WhatsThisHelpIdProperty,  WordWrapProperty], [ClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
+        UseMnemonicProperty, WhatsThisHelpIdProperty,  WordWrapProperty], [ClickEvent, DblClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
     {
     }
 

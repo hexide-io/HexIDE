@@ -103,6 +103,7 @@ public abstract class ComponentBaseClass : IComponentClass
     }
 
     public static EventClass ClickEvent = new EventClass("Click");
+    public static EventClass DblClickEvent = new EventClass("DblClick");
     public static EventClass GotFocusEvent = new EventClass("GotFocus");
     public static EventClass LostFocusEvent = new EventClass("LostFocus");
     public static EventClass KeyDownEvent = new EventClass("KeyDown", new EventClassArgument("KeyCode", "Integer"), new EventClassArgument("Shift", "Integer"));

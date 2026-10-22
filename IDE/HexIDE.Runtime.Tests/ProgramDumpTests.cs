@@ -128,6 +128,15 @@ public class ProgramDumpTests : BaseVBTestFixture, IDisposable
     }
 
     [Fact]
+    public void A_line_number_on_its_own_or_with_a_remark_stays_a_jump_target()
+    {
+        // Dropped, a GoTo to it was "Label not defined" to another engine.
+        var (wrapped, _) = ProgramDump.Wrap("GoTo 30\nDebug.Print 1\n30\n40 Rem nothing here\nDebug.Print 2\n");
+
+        wrapped.Should().Be("Public Sub HexDumpMain()\nGoTo 30\nDebug.Print 1\n30\n40\nDebug.Print 2\nEnd Sub\n");
+    }
+
+    [Fact]
     public void A_module_of_procedures_alone_keeps_its_order_and_gains_no_procedure()
     {
         var (wrapped, bare) = ProgramDump.Wrap("Private Type T\n    A As Integer\nEnd Type\nSub Main()\n    Debug.Print 1\nEnd Sub\n");
