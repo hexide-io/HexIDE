@@ -185,6 +185,17 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A form the Project Explorer adds is saved into the project** (#1359). Closing the IDE wrote the form's file and
+  left the project file without it, so the next open had no such form, even after Yes to everything in the save
+  prompt. A project holding a form or module that has never been saved now counts as changed, so closing saves its
+  file listing them.
+- **A project is not saved without its never-saved forms** (#497). With the project ticked in the save prompt and a
+  never-saved form not, closing wrote a project file without the form. Where that was the startup form, vb6.exe
+  built the file in silence into a program that starts at `Sub Main`. Now nothing is written, a warning names the
+  files, and the project stays open.
+- **Add Form and Add Module no longer write over a file already in the folder** (#738). A new member's file replaced
+  any file of its name there, such as another project's `Module1.bas` in a shared folder. The Add commands now skip
+  to a number whose file is free, and automation's `add_file` refuses a name whose file is taken.
 - **An edit made while a language server starts reaches it** (#719). It was dropped, and the server analysed the
   text from before the edit until the next edit or a save. With two servers on one language, the second was also
   opened twice, the second time at a lower version with the older text. A change made during a start is now
