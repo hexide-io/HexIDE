@@ -142,19 +142,20 @@ public class VBLabel : TemplatedControl
             }
         }
 
-        if (RecognizesAccessKey && (decorator.Child == null || decorator.Child is TextBlock))
-        {
-            decorator.Child = new AccessText();
-        }
-        else if (!RecognizesAccessKey && (decorator.Child == null || decorator.Child is AccessText))
-        {
-            decorator.Child = new TextBlock();
-        }
+        // An AccessText only where UseMnemonic is on and the caption has a key AccessText can carry; plain text otherwise,
+        // which is what keeps an underscore in the caption from becoming a key VB6 never had (#920).
+        var parsed = RecognizesAccessKey && Text is { } caption ? VBCaption.Parse(caption) : (VBCaption.Parsed?)null;
+        var accessText = parsed is { FitsAccessText: true };
+        if (accessText ? decorator.Child is not AccessText : decorator.Child is null or AccessText)
+            decorator.Child = accessText ? new AccessText() : new TextBlock();
 
-        var textblock = (decorator.Child as TextBlock)!;
-        // In a symbol font, the glyphs GDI draws for the caption's bytes (#1133); the caption itself is unchanged.
-        var text = Text is { } caption && SymbolFontText.GetSymbolGlyphs(this) ? SymbolFontText.ToSymbolGlyphs(caption) : Text;
-        textblock.Text = RecognizesAccessKey && text != null && text.Contains('&') ? text.Replace("&", "_") : text;
+        var textblock = (TextBlock)decorator.Child!;
+        // In a symbol font, the glyphs GDI draws for the caption's bytes (#1133); the caption itself is unchanged. With
+        // UseMnemonic off, every & is drawn.
+        var symbol = SymbolFontText.GetSymbolGlyphs(this);
+        textblock.Text = parsed is { } shown
+            ? accessText ? shown.ForAccessText(symbol) : shown.Drawn(symbol)
+            : Text is { } raw && symbol ? SymbolFontText.ToSymbolGlyphs(raw) : Text;
         textblock.TextWrapping = WordWrap ? TextWrapping.Wrap : TextWrapping.NoWrap;
         textblock.TextAlignment = Alignment switch
         {

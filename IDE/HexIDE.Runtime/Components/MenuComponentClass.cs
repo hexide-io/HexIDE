@@ -23,9 +23,9 @@ public class MenuComponentClass : ComponentBaseClass
             Header = instance.GetPropertyOrDefault(CaptionProperty),
             // VB6 marks a menu's access key with an ampersand — "&File" is drawn as File with the F
             // underlined, and Alt+F opens it. Without this the caption renders with a literal ampersand in
-            // it, which is what every menu looked like until menus were drawn at all. The same template does
-            // this for the button, check box and option button.
-            HeaderTemplate = AccessTextDataTemplate.Access,
+            // it, which is what every menu looked like until menus were drawn at all. A menu answers only to the
+            // first character its caption marks, where a button answers to all of them (#920).
+            HeaderTemplate = AccessTextDataTemplate.MenuAccess,
             IsEnabled = instance.GetPropertyOrDefault(EnabledProperty),
             Checked = instance.GetPropertyOrDefault(CheckedProperty),
             // Every item can be ticked from code (#1126), so every item draws its tick when Checked; VBMenu keeps a click
