@@ -184,3 +184,66 @@ On Windows, 2026-10-19, the same RDCore revision and nested-call sample were dri
 The live check found an existing hover hit-testing defect: viewport coordinates were passed directly to a document-coordinate API, so scrolling could evaluate a different word. Adding the TextView scroll offset fixed the reproduced case. A screenshot checked the editor and selected-frame layout; the generic hover tool checked transient tip text.
 
 Wire/service regression tests separately cover missing/false/non-boolean hover capability, frame zero, caller-frame routing, cancellation, adapter refusal and late replies after stepping, frame selection or Immediate evaluation.
+
+## Comparing a corpus of programs (#1368)
+
+`IDE/HexIDE.Dap.Parity` runs every program in a dump of HexIDE's own interpreter tests under RDCore's debug adapter,
+one adapter process per program, and compares what each printed with what HexIDE printed. It answers whether RDCore
+runs what the interpreter runs, with the same results. Like the smoke tool, it is opt-in and uses an adapter
+already built.
+
+1. Write the corpus. With `HEXIDE_DUMP_PROGRAMS` naming it, `HexIDE.Runtime.Tests` appends one JSON line per program
+   to `artifacts/program-dump/<name>.jsonl`. Each holds the program's modules, the startup module rewritten with its
+   bare statements in `HexDumpMain`, what HexIDE printed with each value's `TypeName`, and the error if it raised one.
+
+   ```text
+   HEXIDE_DUMP_PROGRAMS=corpus-1 dotnet test IDE/HexIDE.Runtime.Tests/
+   ```
+
+2. Run it. Set `HEXIDE_PARITY_ADAPTER` to the adapter executable and `RDCORE_PLATFORM_ROOT` as above, then:
+
+   ```text
+   dotnet run --project IDE/HexIDE.Dap.Parity -- artifacts/program-dump/corpus-1.jsonl --label "<revision>" --parallel 4
+   ```
+
+   Each program gets a workspace of its own under `artifacts/dap-parity/<run>/cases/`, holding its modules and a
+   `.rdproj` with no references (`--project-template` supplies another). The tool writes `results.jsonl` one line
+   per program as each finishes, and the counts to `summary.json`. `--timeout` bounds each program (60 s by
+   default), `--parallel` sets how many adapters run at once, and `--dry-run` writes the workspaces and starts nothing.
+
+Outcomes compare HexIDE's printed values with RDCore's `stdout` lines, trimmed, since HexIDE's `Debug.Print` doesn't
+pad a number for its sign (#1380):
+
+| Outcome | HexIDE | RDCore |
+|---|---|---|
+| `match` / `mismatch` | ran | ran; the same lines, or not |
+| `engine-error-only` | ran | reported an error |
+| `both-error-match` / `both-error-differ` | a run-time error | a run-time error; the same number and lines before it, or not |
+| `hexide-error-only` | a run-time error | ran |
+| `hexide-run-time-error-engine-refused` | a run-time error | an error with no number, a compile error |
+| `both-refused` / `hexide-refused-engine-runs` | a compile error, or a run-time error VB6 gives at compile time | an error, or ran |
+| `hexide-unimplemented-engine-runs` / `-engine-error` | `NotImplementedException` | ran, or an error |
+| `no-entry` | ran declarations alone, so there is nothing to call | not started |
+| `timeout` / `launch-failed` | | ran past `--timeout`, or the session failed |
+| `excluded` | not compared | not started: the program would act outside its own process |
+
+RDCore runs each program for real, on the machine running the tool, so a program that would act outside its own
+process is left out before anything starts, and `summary.json` counts each reason. The tool reads every module token
+by token, skipping strings, comments and members such as `x.Name`, and erring toward leaving a program out:
+- anywhere: `MsgBox`, `InputBox`, `Shell`, `SendKeys`, `Declare`, `CreateObject`, `GetObject`, `AppActivate`, `Kill`,
+  `RmDir`, `MkDir`, `FileCopy`, `SetAttr`, `ChDir`, `ChDrive`, `SaveSetting`, `DeleteSetting`, `Clipboard`, `Printer`
+  and `Beep`;
+- as a statement: `Name ... As`, `Open`, and `Date =` and `Time =`, which set the system clock.
+
+A path built at run time can't be checked before the run, so file statements are left out whatever their paths say.
+The adapter also starts in the program's own workspace, so a relative path the engine resolves lands there.
+
+What the adapter does that the tool relies on, measured against the revision in the next paragraph:
+- A class module needs its `VERSION 1.0 CLASS` header, or it is read as a standard module. The tool adds it.
+- An unhandled run-time error stops under the adapter's default `unhandled` filter. Continuing prints
+  `Run-time error 'N': description` on `stderr` and exits 1, which is where the number is read.
+- A compile error is printed on `stderr`, with an exit code of 1.
+
+Measured on Windows, 2026-10-22, against RDCore `f3acd864` with a local, unreviewed transport fix (`6bb9b426`),
+over a 31-program sample: each program took about 5.5 s, one timed out (unbounded recursion), and no adapter process
+outlived its program.
