@@ -11,7 +11,7 @@ public class FrameComponentClass : ComponentBaseClass
     public FrameComponentClass() : base([CaptionProperty, EnabledProperty,
     BackColorProperty,
     ForeColorProperty,
-    FontProperty], [ClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
+    FontProperty], [ClickEvent, DblClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
     {
     }
 
