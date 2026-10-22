@@ -27,8 +27,29 @@ Windows' Notepad, as it was in Windows 98 and XP, written the way a VB6 develope
 - **In VB6:** `VB6.EXE /make NotepadForms.vbp`. It builds cleanly, native and p-code. The p-code build opens a file
   from its command line, finds a word with the Find dialog, wraps a long line, asks to save when it is closed, and
   saves without adding a line ending the text didn't have.
-- **In HexIDE:** not yet. The form holds a CommonDialog, which HexIDE can't create yet (#1084), so the form is refused
-  rather than run without it. The file statements and the `Clipboard` object are also still missing.
+- **In HexIDE:** open `NotepadForms.vbp` and press F5. Open, Save and Font show the IDE's own dialogs, which an
+  automation client answers with `answer_next_file_dialog` and `interact`.
+
+## What it took
+
+Written the natural way, it ran into these, each measured on vb6.exe, native and p-code, and fixed:
+- **The CommonDialog** refused the whole form (#1084). Open, Save As and Font now run.
+- **`Open`, `Line Input #`, `Print #`, `Close`, `FreeFile` and `EOF`** stopped the run (#1145).
+- **`Command$`, and `Left$` in a form's code,** stopped `Form_Load` (#742).
+- **`SelStart`, `SelLength` and `SelText`** raised 438, so Find couldn't select what it found (#1150).
+- **A form's `WindowState`,** which `Form_Resize` reads first, stopped the run (#1152).
+- **The `Clipboard` object** was missing (#1156).
+- **`MultiLine` and `ScrollBars`** weren't applied, so Enter added nothing and Word Wrap changed nothing (#1340).
+- **Font sizes** drew as pixels rather than points, a quarter too small (#910).
+- **`FontSize`, `FontBold` and `FontItalic`,** and a TextBox's own Font, stopped Format > Font at its first line
+  (#1343, #915).
+- **The Edit menu's own Click,** which enables Cut, Copy, Delete and Paste to match the selection and the clipboard,
+  never ran: VB6 raises a menu's Click as it opens (#1344).
+
+It found these, which it doesn't depend on:
+- **`Clipboard.SetText` is refused** when the clipboard holds anything besides text (#1246). Cut and Copy call
+  `Clipboard.Clear` first, as VB6 programs usually do, so they never meet it.
+- **The Find dialog's one-line TextBox** clips the bottom of its text (#914).
 
 ## Left out
 
