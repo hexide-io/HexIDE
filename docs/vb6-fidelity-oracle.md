@@ -1649,6 +1649,33 @@ What these show:
 What resisted explanation:
 - **`Text = Null` is 13, Type mismatch,** where a TextBox's `SelText = Null` and the list's `List(Null)` are 94.
 
+### Drawn in the VB6 IDE's designer
+
+**The probe.** In the guest's console session, the VB6 IDE opened a project holding an empty Form1. Each toolbox icon was
+double-clicked, which adds that control to the form at its default size, centred: a TextBox, then three ComboBoxes. Style
+was set in the Properties window by Ctrl+Shift+S, the value's number and Enter, and the form saved with Ctrl+S. Every
+step was checked by a screenshot. The saved blocks:
+
+| Drawn | What the designer wrote |
+|---|---|
+| TextBox | `Text = "Text1"`, Height 495, Width 1215 |
+| ComboBox, Style left at 0 | `Text = "Combo1"`, Height 315, Width 1215 |
+| ComboBox, Style set to 1 | `Style = 1 'Simple Combo`, `Text = "Combo2"`, Height 315 |
+| ComboBox, Style set to 2 | `Style = 2 'Dropdown List`, **no Text line**. The designer still showed `Combo3` in the box |
+| That combo, Style set back to 0 | `Text = "Combo3"` |
+| Combo1 given `Text = zz` in the Properties window | `Text = "zz"` |
+| Then Style 2 | the Properties window's **Text read `Combo1`** |
+| Then Style 0 again | `Text = "Combo1"`: the `zz` is gone |
+
+What these show:
+- **A drawn TextBox or ComboBox starts with its own name as its Text,** as its Caption would be for a control that has
+  one. The names count from 1 (#540).
+- **Setting Style to 2 resets the Text to the control's name,** and a Dropdown List's Text is never written. Going back
+  to 0 or 1 writes that name.
+
+Not measured: what Style 2 does in the designer to a combo whose Name has been changed, which would show whether it is
+the name now or the name the control was drawn with.
+
 ## Out of stack space — Error 28 (2026-08-22, #80)
 
 Verified with a `Sub Main` probe (`/make`, run, append each line to a log so nothing is lost to buffering).
