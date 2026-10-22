@@ -766,6 +766,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Variable " + name + " is not declared");
             if (!v.Type.IsArray || v.Value is not VBArray arr)
                 throw new VBCompileErrorException("Array required in Erase");
+            // An array one of whose elements a running call holds ByRef is locked (measured, #1455).
+            if (arr.IsLocked)
+                throw new VBRunTimeException(context, VBStandardError.ThisArrayIsFixedOrTemporarilyLocked);
             if (arr.IsDynamic)
                 arr.Free();
             else
@@ -2535,6 +2538,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     throw new VBRunTimeException(context, VBStandardError.ThisArrayIsFixedOrTemporarilyLocked);
                 throw new VBCompileErrorException("Array already dimensioned");
             }
+            // So is a dynamic array one of whose elements a running call holds ByRef, and a Variant holding one, until the
+            // call returns (measured, #1455: `ReDim d(5)` inside `PRD d(1)` is 10 and leaves UBound 2, and ReDim after works).
+            if (value.Value is VBArray { IsLocked: true })
+                throw new VBRunTimeException(context, VBStandardError.ThisArrayIsFixedOrTemporarilyLocked);
 
             // An upper bound below its lower raises 9, and an array is left erased, typed as it was. Measured: ReDim
             // b(-1), b(5 To 2) and b(0 To -1) each raise 9, and UBound(b) then raises 9 too, for a declared array and

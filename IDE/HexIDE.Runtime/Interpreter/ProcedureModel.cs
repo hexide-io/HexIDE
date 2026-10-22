@@ -137,6 +137,7 @@ public sealed record ParamInfo(
 /// <summary>
 /// An evaluated argument at a call site: its value plus, when the argument is a caller lvalue, the caller
 /// memory slot it lives in (so a ByRef parameter can alias it). <c>Location</c> is null for rvalues. A UDT field
-/// (`u.l`) has no slot, so it carries the field itself instead, which a ByRef parameter aliases the same way (#1451).
+/// (`u.l`, #1451) or an array element (`a(1)`, #1455) has no slot, so it carries the target itself instead, which a ByRef
+/// parameter aliases the same way.
 /// </summary>
-public readonly record struct CallArg(Vb6Value Value, int? Location, UdtFieldRef? Field = null);
+public readonly record struct CallArg(Vb6Value Value, int? Location, IByRefTarget? Ref = null);

@@ -124,7 +124,7 @@ public sealed class VbUdt
 /// `x = 2.5`, and raises 13 for `x = "hello"`). The parameter reads as the field does: given `u.i As Integer` holding 5,
 /// `x * 7000` is 6 in `PI(x As Integer)` and 35000 in a Variant or untyped parameter.
 /// </summary>
-public sealed record UdtFieldRef(VbUdt Bag, string Name)
+public sealed record UdtFieldRef(VbUdt Bag, string Name) : IByRefTarget
 {
     /// <summary>The scalar type the field is declared as, or null for a Variant, a nested Type or an object field.</summary>
     public Vb6Value.ValueType? DeclaredType => Bag.DeclaredTypeOf(Name);
