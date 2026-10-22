@@ -12729,5 +12729,5 @@ native and p-code; every log and every refusal was identical.
   constant, as VB6 refuses it.
 - A module-level Const or bound reads such a member as the constant it is, where #873 refused it, and two of them are
   ambiguous there too.
-- **Not measured:** a form's Public Enum, which VB6 is recalled to refuse, and a member beside another module's Public
-  Sub or Function of the name, which HexIDE treats as it treats a Public variable there: ambiguous.
+- **Not measured:** an Enum declared in a form, which HexIDE leaves out of the table, and a member beside another
+  module's Public Sub or Function of the name, which HexIDE treats as it treats a Public variable there: ambiguous.
