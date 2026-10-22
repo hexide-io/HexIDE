@@ -3109,9 +3109,12 @@ in the reply how much was replaced. [#1040](https://github.com/hexide-io/HexIDE/
 > had the same shape and now replaces the selection too: a selected declaration's text as Shift+Enter does, the tail of
 > a declaration's line as Enter at its end does, re-cased and closed, and a box's text before the line break. Writing
 > over a box whose lines a folded section starts on, such as a declaration's folded Attribute run, hung the IDE in
-> AvaloniaEdit's height tree, for a person's key as for these; such folds are opened for the write and folded again. A
-> plain Enter still writes a bare line feed into a CRLF file, which is
-> [#530](https://github.com/hexide-io/HexIDE/issues/530). Guarded by `MemberRunFollowsItsLineTests`.
+> AvaloniaEdit's height tree, for a person's key as for these; such folds are opened for the write and folded again.
+> Ctrl+V was missed, and still pasted over the box with the library's own replacement until
+> [#1251](https://github.com/hexide-io/HexIDE/issues/1251) routed it the same way. A plain Enter still writes a bare
+> line feed into a CRLF file, which is [#530](https://github.com/hexide-io/HexIDE/issues/530). Guarded by
+> `MemberRunFollowsItsLineTests`, whose typing and Ctrl+V cases over a folded declaration each hang with their guard
+> removed. Until #1251 the typing case wrote `()`, which does not hang, so removing the guard turned nothing red.
 
 ## No tool can close a window as a person does — **CLOSED** (#829, 2026-10-20)
 
