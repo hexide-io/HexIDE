@@ -53,8 +53,7 @@ there isn't one yet. Anything may change between 0.x releases.
   - text is in the ANSI code page;
   - the errors are VB6's: 52, 53, 54, 55, 62, 75 and 76.
 
-  Every rule was measured, native and p-code. Random and Binary files, `Input #`, `Write #`, and `Tab` and `Spc` in
-  `Print #` are still to come.
+  Every rule was measured, native and p-code. Random and Binary files, `Input #` and `Write #` are still to come.
 - **The Line control** (#163). A form holding one used to be refused at run time, since #857. Now:
   - it loads, runs and saves byte for byte, VB6's About Dialog included;
   - it draws pixel for pixel as VB6 does: dashes, widths, and which of two lines is on top;
@@ -185,6 +184,14 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`Debug.Print` prints every item, as VB6's Immediate window does** (#1380). Only the first item reached the Immediate
+  window, so `Debug.Print "x ="; x` showed `x =` alone, and a trailing `;` still ended the line. Now `Debug.Print` writes
+  what `Print #` writes, which is what VB6 does, line for line, as measured in its IDE:
+  - numbers have a space for the sign and one after;
+  - a comma moves to the next 14-column zone;
+  - a statement ending in `;` or `,` leaves its line open for the next.
+
+  `Spc(n)` and `Tab(n)` now work in both, where `Print #` refused them.
 - **MousePointer has all seventeen of VB6's values** (#120). Icon (4), Size (5), Arrow and Hourglass (13) and Arrow and
   Question (14) were missing. A form using one saved it without the name VB6 writes beside it, the Properties window
   showed a blank, and the control drew the default pointer. All four now carry their names and draw the pointers
