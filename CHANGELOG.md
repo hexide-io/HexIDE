@@ -208,18 +208,15 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
-<<<<<<< ours
+- **A lone CR ends a line when a program runs** (#1426). VB6 ends a line at CRLF, a lone LF or a lone CR. The
+  interpreter took only the first two, so a form whose code had a lone CR, which VB6 builds and runs, was a syntax
+  error to F5. A lone CR now ends a statement, a line continuation and a comment, as each was measured to.
 - **A control array named through its form, `Form1.Text1(0).Text`, reads and writes** (#1386). It stopped the program
   with "Method or data member not found", in code and in the Immediate window alike, because the index was dropped. A
   missing element is VB6's 340, whose message now names the index, as vb6.exe's does.
 - **A `?` line in the Immediate window prints as VB6's does** (#1386). `? 5` prints ` 5 `, as Print does, and a list
   such as `? a; b` or `? a, b` prints as `Debug.Print` prints it, where it was "Syntax error". A compile error raised as
   the line is evaluated now says what it is, and only a line that doesn't parse is a syntax error.
-=======
-- **A lone CR ends a line when a program runs** (#1426). VB6 ends a line at CRLF, a lone LF or a lone CR. The
-  interpreter took only the first two, so a form whose code had a lone CR, which VB6 builds and runs, was a syntax
-  error to F5. A lone CR now ends a statement, a line continuation and a comment, as each was measured to.
->>>>>>> theirs
 
 - **A control's Name and Index can be read at run time** (#1431). Reading `Combo1.Name`, or `ctl.Name` in a generic
   handler, stopped the program with a compile error that `On Error` couldn't trap, and so did an element's `Index`. Both
