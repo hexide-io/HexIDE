@@ -421,6 +421,10 @@ when the session starts, and the session's shells inherit both variables, so the
 agree. Changing either takes a new session or a resume. A contributor who sets neither gets the single-session
 setup this section describes everywhere else.
 
+**A session can check this from inside, but not fix it.** Before launching an IDE, read both variables. If
+`HEXIDE_MCP_PORT` is unset while other sessions run on the same machine, this session shares 5123 with any of them
+that set nothing. Say so, and ask to be restarted with a port of its own, rather than launching there.
+
 - **Leave 5123 to sessions that set nothing**, and give each named session a port of its own. A session that
   forgot its variable then reaches an empty port and is refused a connection, which is loud, instead of reaching
   another session's IDE. Which session has which port is a fact about the machine, not the repository, so agree it
