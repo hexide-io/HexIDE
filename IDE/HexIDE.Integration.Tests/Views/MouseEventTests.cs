@@ -356,6 +356,79 @@ public class MouseEventTests
         run.Printed.Should().Equal("Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4950 150");
     }
 
+    // Where a press's release lands (#1373), measured with real input, native and p-code agreeing (the oracle's "A click
+    // with real input"): a Label, an Image, a Frame and a PictureBox raise Click only for a release over them again, and a
+    // TextBox for any release. Each control's MouseUp comes wherever the release lands.
+
+    private static readonly string Static =
+        Ctl("Label", "Label1", 240, 240, 1200, 255, "      Caption         =   \"l1\"\r\n")
+        + Ctl("Image", "Image1", 240, 900, 1200, 600)
+        + Ctl("Frame", "Frame1", 2400, 240, 1500, 900, "      Caption         =   \"f1\"\r\n")
+        + Ctl("PictureBox", "Picture1", 2400, 1500, 1500, 600)
+        + Ctl("TextBox", "Text1", 240, 2100, 1200, 315, "      Text            =   \"t1\"\r\n");
+
+    // The events a run printed, without MouseMove and without their arguments: "Label1 MouseDown".
+    private static IEnumerable<string> Events(Running run) =>
+        run.Printed.Select(p => string.Join(' ', p.Split(' ').Take(2))).Where(p => !p.EndsWith("MouseMove", System.StringComparison.Ordinal));
+
+    private static void PressAndRelease(Running run, Point press, Point release, Point? via = null)
+    {
+        run.Window.MouseDown(press, MouseButton.Left);
+        if (via is { } middle)
+            run.Window.MouseMove(middle, RawInputModifiers.LeftMouseButton);
+        run.Window.MouseMove(release, RawInputModifiers.LeftMouseButton);
+        run.Window.MouseUp(release, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Label1")]
+    [InlineData("Image1")]
+    [InlineData("Frame1")]
+    [InlineData("Picture1")]
+    public void A_press_on_a_Label_Image_Frame_or_PictureBox_released_on_the_form_raises_no_Click(string name)
+    {
+        using var run = Start(Form(Twips, Static), Handlers(name));
+
+        PressAndRelease(run, run.At(name, 10, 10), new Point(300, 190));
+
+        run.Errors.Should().BeEmpty();
+        Events(run).Should().Equal($"{name} MouseDown", $"{name} MouseUp");
+    }
+
+    [AvaloniaFact]
+    public void A_press_on_a_TextBox_released_on_the_form_still_raises_Click()
+    {
+        using var run = Start(Form(Twips, Static), Handlers("Text1"));
+
+        PressAndRelease(run, run.At("Text1", 10, 5), new Point(300, 190));
+
+        run.Errors.Should().BeEmpty();
+        Events(run).Should().Equal("Text1 MouseDown", "Text1 MouseUp", "Text1 Click");
+    }
+
+    [AvaloniaFact]
+    public void A_press_on_a_Label_moved_off_it_and_back_raises_Click()
+    {
+        using var run = Start(Form(Twips, Static), Handlers("Label1"));
+
+        PressAndRelease(run, run.At("Label1", 10, 10), run.At("Label1", 20, 10), via: new Point(300, 190));
+
+        run.Errors.Should().BeEmpty();
+        Events(run).Should().Equal("Label1 MouseDown", "Label1 MouseUp", "Label1 Click");
+    }
+
+    [AvaloniaFact]
+    public void A_press_on_a_Label_released_on_a_TextBox_raises_no_Click_and_nothing_on_the_TextBox()
+    {
+        using var run = Start(Form(Twips, Static), Handlers("Label1") + Handlers("Text1"));
+
+        PressAndRelease(run, run.At("Label1", 10, 10), run.At("Text1", 10, 5));
+
+        run.Errors.Should().BeEmpty();
+        Events(run).Should().Equal("Label1 MouseDown", "Label1 MouseUp");
+    }
+
     [AvaloniaFact]
     public void A_press_on_a_control_released_on_the_form_is_nothing_to_the_form()
     {

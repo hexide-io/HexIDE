@@ -9901,6 +9901,28 @@ What these add:
 - **An OptionButton raises Click only when it becomes selected,** before MouseUp, as a CheckBox does. A click on one
   already selected raises none.
 
+**And a press released somewhere else** (2026-10-22, #1373). One more probe the same way, native and p-code agreeing
+line for line, holding a windowless Label1, an Image1 with no picture, a TextBox Text1, a Frame1, a PictureBox Picture1
+and a ListBox List1 with three items. Each was clicked, then pressed and released on the form's empty area:
+
+| Input | VB6 |
+|---|---|
+| click on Label1, Image1, Text1, Frame1, Picture1 | MouseDown, MouseUp, Click |
+| press on Label1, Image1, Frame1 or Picture1, release on the form | MouseDown, MouseUp from the control's origin (Label1 `5580 2430`); **no Click** |
+| press on Text1, release on the form | MouseDown, MouseUp (`5550 1080`), **Click** |
+| press on List1's first item, release on the form | MouseDown, **Click**, MouseUp (`2070 2400`) |
+| press on Label1, move onto the form, back onto Label1, release | MouseDown, MouseUp, Click |
+| press on Text1, move onto the form, back onto Text1, release | MouseDown, MouseUp, Click |
+| press on Label1, release on Text1 | Label1 MouseDown, Label1 MouseUp (`480 1470`); no Click, and nothing on Text1 |
+
+What these add:
+- **A Label, an Image, a Frame and a PictureBox raise Click only for a release over them**, whether or not the pointer
+  left them on the way, as the form does.
+- **A TextBox and a ListBox raise Click wherever the release lands.** The obvious guess, that a TextBox checks as a
+  Label does, was wrong. Both are controls that keep the pointer for a drag of their own, a text selection or a
+  list selection, which may be why, but that is a guess.
+- **MouseUp always goes to the pressed control,** in its own coordinates.
+
 ### HexIDE
 
 Before #1364, nothing raised the form's own Click.
@@ -9925,7 +9947,11 @@ control VB6 gives one: a Label, an Image, a PictureBox, a TextBox, a Frame, a Li
 What it still does not do:
 - **A ComboBox and a FileListBox** have a DblClick in VB6, and HexIDE has neither control's events yet.
 - **A press on a Label, an Image, a PictureBox or a TextBox** raises that control's Click wherever the release lands.
-  Only a CommandButton, through Avalonia's own Button, checks (#1373).
+  Only a CommandButton, through Avalonia's own Button, checks (#1373). Since #1373, a Label, an Image, a Frame and a
+  PictureBox raise it only for a release over them: `AttachClick` with `ClickRelease.OverTheControl` hit-tests the
+  release through the window, since the pressed control has the pointer. A TextBox keeps `Anywhere`, as measured, and
+  so does a ListBox (*A ListBox's Click* below). Pinned in `MouseEventTests`, one case per row of *And a press released
+  somewhere else*.
 - **A ListBox raises Click after MouseUp** (#1374). Since #1374 it raises it before: *A ListBox's Click* below.
 
 ## A ListBox's Click: a left press on an item, or code or a key that moves the selection (2026-10-22, #1374)
@@ -11937,3 +11963,99 @@ to VB6.
   one window owns it, and the program keeps running under it.
 - **Two differences in when it asks.** HexIDE asks in run mode as well as in break mode, where VB6's code window takes
   no typing while the program runs. And it asks for every edit, where VB6 applies most edits live (D2).
+
+## A form whose two names disagree (2026-10-22, #473)
+
+**The question.** A `.frm` names its form twice: on the designer block's `Begin` line and in `Attribute VB_Name`. VB6
+writes the two equal. HexIDE renamed only the first until #1059 fixed #473, so files saved before that can disagree.
+Which name does VB6 honour? #473 recorded that for a module VB6 binds on `VB_Name` (see the `Folder1\Module1.bas`
+probes), and nobody had asked for a form.
+
+**The probe.** A Standard EXE starting from `Sub Main`, built with `vb6.exe /make` as p-code (6.00.8176 SP6). Its form
+was `Begin VB.Form frmRenamed` with `Attribute VB_Name = "Form1"`, in `Form1.frm`, listed as `Form=Form1.frm`. The
+module had no `Option Explicit`, so whichever name was not the form compiled as an implicit Variant. `Sub Main`
+printed `TypeName` of each name, each `.Name`, `Forms(0).Name`, and the `Me.Name` that `Form_Load` saw.
+
+**The `Begin` line wins, and VB6 says so.**
+- The build succeeds and exits 0. The `/out` log reads `Conflicting names were found in '…\Form1.frm'.  The name
+  'frmRenamed' will be used.`, then that the build succeeded.
+- At run time:
+  - `TypeName(frmRenamed)` is `frmRenamed`, its `.Name` is `frmRenamed`, and `Me.Name` in `Form_Load` is `frmRenamed`;
+  - `Forms(0).Name` is `frmRenamed`;
+  - `TypeName(Form1)` is `Empty`: it is an implicit variable.
+- The VB6 IDE, opening the project, shows the same message in a dialog with OK and Help. Its Project Explorer lists
+  `frmRenamed (Form1.frm)`.
+- After OK, a one-line code change, and Ctrl+S, the IDE wrote `Attribute VB_Name = "frmRenamed"`. It repaired the
+  attribute to the `Begin` line's name. `LinkTopic = "Form1"` was left as it was.
+
+So for a form, the opposite of a module: the designer block's name is the form's name, and `VB_Name` follows it.
+
+**Case alone is a disagreement.** With `Begin VB.Form frmRenamed` and `Attribute VB_Name = "FRMRENAMED"`, `/make`
+logs the same warning, "The name 'frmRenamed' will be used.", and builds.
+
+**A UserControl and a PropertyPage follow the same rule.** The probe was an ActiveX control project:
+- `UserControl=Gauge.ctl` holding `Begin VB.UserControl ucBegin` and `Attribute VB_Name = "Gauge"`;
+- `PropertyPage=Page1.pag` holding `Begin VB.PropertyPage ppBegin` and `Attribute VB_Name = "Page1"`.
+
+`/make` logs `Conflicting names were found in '…\Gauge.ctl'.  The name 'ucBegin' will be used.`, and the same for the
+page naming `ppBegin`, and builds the OCX. What a form using such a control writes was not measured.
+
+HexIDE takes a form's name from the `Begin` line too, so a program runs the same. It neither warns nor repairs on
+load, and that is #1407. A UserControl or PropertyPage it names after its file instead, which is #1411.
+
+## A quote inside a .frm string (2026-10-22, #218)
+
+**The question.** How does VB6 read and write a `"` inside a string property of a `.frm`? HexIDE kept both quotes of
+a doubled pair on read, and wrote a lone quote unescaped. Its reader and writer agreed with each other, so its own
+files round-tripped. They disagreed with VB6 in both directions. The `.vbp` reader already halved doubled quotes, but
+a `.vbp` and a `.frm` come from different writers inside VB6, so this was measured, not assumed.
+
+**The probe.** A Standard EXE, built with `vb6.exe /make` as p-code (`CompilationType=-1`), on 6.00.8176 SP6. Its form
+gave these string properties a doubled quote:
+- the form's `Caption` and `LinkTopic`;
+- five Labels' `Caption`s, one with a `Tag`;
+- a CommandButton's `ToolTipText`;
+- a TextBox's `Text`.
+
+`Form_Load` wrote each value and its `Len` to a file, then ended. A second copy of the form wrote one Label's
+`Caption` as HexIDE did, with its quotes single. The first form was then opened in the VB6 IDE, dirtied with a
+comment line in its code, and saved with Ctrl+S.
+
+**Read: a doubled quote is one quote, in every string property tried.**
+
+| In the `.frm` | Read back | `Len` |
+|---|---|---|
+| `Caption = "He said ""hi"""` | `He said "hi"` | 12 |
+| `Caption = """"` | `"` | 1 |
+| `Caption = """Start"` | `"Start` | 6 |
+| `Caption = "End"""` | `End"` | 4 |
+| `Caption = """"""` | `""` | 2 |
+| form `Caption = "F""orm"` | `F"orm` | 5 |
+| form `LinkTopic = "Link""Topic"` | `Link"Topic` | |
+| `Tag = "t""g"` | `t"g` | |
+| CommandButton `ToolTipText = "tip""s"` | `tip"s` | |
+| TextBox `Text = "a""b"` | `a"b` | 3 |
+
+**Write: the IDE doubles every quote.** Its save wrote all ten string lines exactly as the probe had them. The save
+did not keep the probe's control order. It moved the CommandButton and the TextBox ahead of the five Labels, giving
+the Labels TabIndex 2 to 6. That was not examined further.
+
+**A quote written single breaks the form, and the build fails.**
+- `Caption = "He said "hi""`: `/make` exits 1.
+- Its `/out` log reads `Errors during load. Refer to '…\Form1.log' for details`, then `'…\Form1.frm' could not be
+  loaded.`, then `Build of 'probe.exe' failed.`
+- `Form1.log` holds `Line 13: Syntax error: property hi"" in lbl1 was missing an '='.`
+
+So the reader ends the string at the second quote, and takes the rest of the line for another property. The log
+names line 13, one past the Caption's line 12.
+
+**Not measured:**
+- A font's `Name` with a quote, which names no real face. HexIDE reads and writes it through the same code as every
+  other string.
+- Strings VB6 keeps in the `.frx`, such as a multi-line TextBox's `Text`, which are stored with a length rather than
+  quoted.
+- What the VB6 IDE does when opening the malformed form.
+
+HexIDE now halves a doubled quote on read and doubles each quote on write (`VbFrmFormatDeserializer.ParseValue`,
+`VbFrmFormatSerializer.WriteSimpleType`), and `FrmStringQuoteTests` holds the table. A side finding: a CommandButton
+does not model `ToolTipText` in HexIDE, so its line is kept as unknown text, and the property can't be set (#1403).
