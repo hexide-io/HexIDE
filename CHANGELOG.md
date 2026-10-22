@@ -185,6 +185,15 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A ListBox's `Selected(i)`, `SelCount` and `Text` work** (#1395). Each was "Method or data member not found", so
+  code that read which items were chosen, or chose one by its text, stopped there. Now each does what vb6.exe does on a
+  single-select list:
+  - `Selected(i)` reads and sets the selection, and is 381 outside the list;
+  - `Text = s` selects the first item whose whole text is `s`, without regard to case, and raises Click every time;
+  - Click comes from `Selected(i) =` only when the selection moves, as from `ListIndex`.
+
+  A list with MultiSelect 1 or 2 still runs single-select, so on one of those the three are refused as not implemented
+  (#1413).
 - **A control can no longer be given a name already on its form** (#854). The designer checked a new name only
   against the controls it models, and mostly with case. A rename, a control drawn from the toolbox, or a paste could
   take the name of a control HexIDE keeps as preserved text, such as a Data or OLE control, or a sibling's name in
