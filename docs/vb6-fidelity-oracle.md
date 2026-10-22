@@ -13653,7 +13653,7 @@ run. #1471 asked for:
 - VB6's errors for each.
 
 **The probe.**
-- **99 projects**, each made native and p-code under en-GB. These were Sub Main programs logging each statement's
+- **82 projects**, each made native and p-code under en-GB. These were Sub Main programs logging each statement's
   outcome under `On Error Resume Next`, plus one-statement projects for the compile errors.
 - **The 19 programs `CollectionTests` runs.** These were made the same way, as written. They logged exactly what the
   tests pin, and gave exactly the compile errors the tests expect.

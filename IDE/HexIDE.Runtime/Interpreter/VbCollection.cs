@@ -35,6 +35,9 @@ public sealed class VbCollection(BasicInterpreter interpreter) : ICSharpAsyncPro
     /// <summary>The references the program holds to it, as <see cref="VbObject.RefCount"/> counts a class instance's.</summary>
     internal int RefCount;
 
+    /// <summary>How many items it holds, for the debugger's Locals and Watch.</summary>
+    internal int ItemCount => items.Count;
+
     /// <summary>The items in order, for the debugger's Locals and Watch.</summary>
     internal IReadOnlyList<Vb6Value> Snapshot()
     {

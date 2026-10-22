@@ -343,11 +343,11 @@ public static class DebugInspector
         // item opens to its fields. Capped as an array is; an empty one is a leaf.
         if (value.Value is VbCollection collection)
         {
-            var values = collection.Snapshot();
-            if (depth >= MaxDepth || values.Count == 0)
+            if (depth >= MaxDepth || collection.ItemCount == 0)
                 return new DebugNode(name, type, type);   // like a field-less class: its type, no expander
             return new DebugNode(name, string.Empty, type, () =>
             {
+                var values = collection.Snapshot();
                 var kids = new List<DebugNode>();
                 for (int i = 0; i < values.Count && i < MaxArrayElements; i++)
                     kids.Add(ValueNode($"Item {i + 1}", values[i], ctx, ancestors, depth + 1));
