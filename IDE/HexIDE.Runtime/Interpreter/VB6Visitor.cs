@@ -171,7 +171,9 @@ public abstract class VB6Visitor<T> : VB6BaseVisitor<T>
                 type = Vb6Value.ValueType.UserDefinedType;
             else
                 type = BaseTypeMapper.Map(asTypeClause.type().baseType())
-                    ?? throw new NotImplementedException("base type " + asTypeClause.type().baseType().GetChild(0) + " not implemented");
+                    ?? throw new NotImplementedException("base type " + asTypeClause.type().baseType().GetChild(0) + " not implemented"
+                        + (asTypeClause.type().baseType() is { } objectType && (objectType.OBJECT() != null || objectType.COLLECTION() != null)
+                            ? " (#1482)" : ""));
         }
 
         if (isArray)
