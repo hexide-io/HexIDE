@@ -294,12 +294,14 @@ public class ProjectToolViewModelTests
         var proj = TestHelpers.CreateProject();
         var vm = CreateVmWithLoadedProject(proj, out var projVm);
         vm.SelectedItem = projVm;
+        projectService.NextFreeFormName(proj).Returns("Form9");
         var before = proj.Forms.Count;
 
         vm.AddFormCommand.Execute(null);
 
         var added = proj.Forms.Should().HaveCount(before + 1).And.Subject.Last();
-        added.Code.Should().StartWith($"Attribute VB_Name = \"{added.Name}\"\r\n");
+        added.Name.Should().Be("Form9");
+        added.Code.Should().StartWith("Attribute VB_Name = \"Form9\"\r\n");
         added.Components[0].GetPropertyOrDefault(HexIDE.Runtime.Components.VBProperties.StartUpPositionProperty)
             .Should().Be(HexIDE.Runtime.BuiltinTypes.VBStartupPosition.StartUpWindowsDefault);
     }
