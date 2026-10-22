@@ -11948,10 +11948,30 @@ logs the same warning, "The name 'frmRenamed' will be used.", and builds.
 - `PropertyPage=Page1.pag` holding `Begin VB.PropertyPage ppBegin` and `Attribute VB_Name = "Page1"`.
 
 `/make` logs `Conflicting names were found in '…\Gauge.ctl'.  The name 'ucBegin' will be used.`, and the same for the
-page naming `ppBegin`, and builds the OCX. What a form using such a control writes was not measured.
+page naming `ppBegin`, and builds the OCX. Which name a form must use for such a control is measured below.
 
 HexIDE takes a form's name from the `Begin` line too, so a program runs the same. It neither warns nor repairs on
 load, and that is #1407. A UserControl or PropertyPage it names after its file instead, which is #1411.
+
+**Which name a form uses for a UserControl (#1411).** The probes were five Standard EXEs called `probe`, each with a
+private UserControl and a form holding one instance of it, `Begin probe.<name> uc1`, built with `/make` as p-code:
+
+| File | `Begin` | `VB_Name` | The form says | `/make` |
+|---|---|---|---|---|
+| `Gauge.ctl` | `ctlDial` | `ctlDial` | `probe.ctlDial` | builds |
+| `Gauge.ctl` | `ctlDial` | `ctlDial` | `probe.Gauge` | fails |
+| `Dial.ctl` | `ucBegin` | `Gauge` | `probe.ucBegin` | builds, after the conflicting-names warning |
+| `Dial.ctl` | `ucBegin` | `Gauge` | `probe.Gauge` | fails |
+| `Dial.ctl` | `ucBegin` | `Gauge` | `probe.Dial` | fails |
+
+Each failure logs `Line 11: Class probe.<name> of control uc1 was not a loaded control class.` in `Form1.log`, and the
+form "could not be loaded". So the control's class is its `Begin` line's name and nothing else: not its file's, and
+not its `VB_Name`, even when the two agree with each other.
+
+**The IDE repairs a UserControl as it repairs a form.** It opened the third project with the dialog "Conflicting names
+were found in '…\Dial.ctl'.  The name 'ucBegin' will be used." After a one-line change to the control's code, Ctrl+S
+wrote `Attribute VB_Name = "ucBegin"` into `Dial.ctl`, which kept its file name. The project file still read
+`UserControl=Dial.ctl`.
 
 ## A quote inside a .frm string (2026-10-22, #218)
 
