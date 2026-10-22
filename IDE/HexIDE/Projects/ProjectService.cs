@@ -2037,6 +2037,13 @@ public class ProjectService : IProjectService
         if (path is null)
             return true; // never saved
 
+        // A member with no file changes the project file for certain, since the next save lists it, and the render
+        // below cannot show that: the serializer skips a member with no path. The Project Explorer's Add Form adds
+        // one, and a project counted clean then stayed out of the close prompt, so the form it listed was saved
+        // and the project file never named it (#1359).
+        if (UnlistedMembers(project, writtenWithIt: _ => false).Count > 0)
+            return true;
+
         return !BaselineMatches(path, new ProjectSerializer().Serialize(project, path));
     }
 
