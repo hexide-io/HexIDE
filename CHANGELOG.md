@@ -189,10 +189,15 @@ there isn't one yet. Anything may change between 0.x releases.
   Question (14) were missing. A form using one saved it without the name VB6 writes beside it, the Properties window
   showed a blank, and the control drew the default pointer. All four now carry their names and draw the pointers
   vb6.exe draws, as measured.
+
+- **DblClick runs** (#1031). It was declared nowhere and raised by nothing, so a `List1_DblClick` or `Form_DblClick`
+  never ran. Now a double click raises it on the form and on each control VB6 gives one, in vb6.exe's order with real
+  input: MouseDown, MouseUp, Click, DblClick, MouseUp, with no MouseDown for the second press. An OptionButton raises
+  MouseDown then DblClick there, and a CommandButton or CheckBox, which have none, two clicks.
 - **A form's own Click runs** (#1364). A click on the form's area, over no control, ran `Form_MouseDown` and
   `Form_MouseUp` and never `Form_Click`. Now Click follows MouseUp, for the left, right and middle buttons, as
   vb6.exe does with real input. As in VB6, a press released over a control or outside the form gives no Click. A
-  double click gives one Click, not two, though DblClick itself is still to come (#1031).
+  double click gives one Click, not two.
 
 - **Collapsing a language server's fold no longer hides its closing line** (#1363). The editor folds a server's
   range by whole lines but never said so, so a server could end a fold part-way along its closing line. clangd

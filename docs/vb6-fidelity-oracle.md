@@ -9699,7 +9699,7 @@ dispatch, so MouseMove costs nothing where nobody handles it. Pinned in `MouseEv
 input, from every row above that HexIDE can reach.
 
 What it still does not do:
-- **DblClick** is raised by nothing (#1031).
+- **DblClick** is raised by nothing (#1031). Since #1031 it is: *A click with real input* below.
 - **The form's own Click** is raised by nothing, as before. Since #1364 it is: *A click with real input* below.
 - **Shift's mask and MouseMove's buttons** are taken from the pointer event, which is where they live in Avalonia;
   VB6 takes them from the device, which is the same thing for real input.
@@ -9760,6 +9760,29 @@ What these show:
   Image, a PictureBox or the form because VB6 raises their Click from real input, and from where the cursor is, not
   from the message.
 
+**And the controls with no DblClick, or a different one** (2026-10-22, #1031). Two more probes the same way, both
+built native and p-code, all four builds agreeing line for line. The third holds Command1, an empty Frame1, Option1 and
+Check1. The fourth holds Option1 and Option2, neither selected when the form loads.
+
+| Input | VB6 |
+|---|---|
+| click on Frame1, inside it | MouseDown, MouseUp, Click |
+| double click on Frame1 | MouseDown, MouseUp, Click, DblClick, MouseUp |
+| double click on Command1 | MouseDown, Click, MouseUp, then the same again: two clicks, no DblClick |
+| double click on Check1 | MouseDown, Click, MouseUp, twice; `Value` 1, then 0, then 1 |
+| click on Option1, not selected | MouseDown, **Click** (`Value` True), MouseUp |
+| double click on Option1, not selected | MouseDown, Click, MouseUp, **MouseDown, DblClick**, MouseUp |
+| double click on Option1, already selected | MouseDown, MouseUp, MouseDown, DblClick, MouseUp: no Click |
+
+What these add:
+- **A CommandButton and a CheckBox have no DblClick,** and a double click on either is two whole clicks, as VB6.OLB's
+  event lists say.
+- **A Frame double-clicks as a Label does.**
+- **An OptionButton's second press raises MouseDown, then DblClick.** Every other control with a DblClick raises it in
+  place of that MouseDown.
+- **An OptionButton raises Click only when it becomes selected,** before MouseUp, as a CheckBox does. A click on one
+  already selected raises none.
+
 ### HexIDE
 
 Before #1364, nothing raised the form's own Click.
@@ -9770,11 +9793,19 @@ Since #1364, the form raises Click on the release, after MouseUp, for the left, 
   client, gives the form its MouseUp and no Click.
 - **Double click:** the press's click count leaves out the Click VB6 does not raise on a double click's second release.
   A third click is a new Click.
-- **Pinned** in `MouseEventTests`, with real headless pointer input, from the form's rows above, all but DblClick.
+- **Pinned** in `MouseEventTests`, with real headless pointer input, from the form's rows above.
+
+Since #1031, DblClick is raised on a double click's second press, by the press's click count, on the form and on each
+control VB6 gives one: a Label, an Image, a PictureBox, a TextBox, a Frame, a ListBox and an OptionButton.
+- **In place of that press's MouseDown,** and its release raises no Click. An OptionButton raises MouseDown, then
+  DblClick, as measured.
+- **A CommandButton and a CheckBox** raise none, so a double click on either stays two clicks.
+- **The code window** offers DblClick wherever it is declared.
+- **Pinned** in `MouseEventTests`: the form with a third click after, a Label, a TextBox, a Frame, an OptionButton, a
+  CommandButton, and a control array's Index.
 
 What it still does not do:
-- **DblClick** is raised by nothing, on the form or any control, so a double click's second press still raises a
-  MouseDown (#1031).
+- **A ComboBox and a FileListBox** have a DblClick in VB6, and HexIDE has neither control's events yet.
 - **A press on a Label, an Image, a PictureBox, a TextBox or a ListBox** raises that control's Click wherever the
   release lands. Only a CommandButton, through Avalonia's own Button, checks (#1373).
 - **A ListBox raises Click after MouseUp** (#1374).
