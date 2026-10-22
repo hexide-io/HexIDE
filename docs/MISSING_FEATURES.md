@@ -97,7 +97,7 @@
 | Add Property Page | — | Done | Creates PropertyPage1, PropertyPage2… with empty designer surface; opens designer; saves .pag to project dir |
 | Add File… | — | Done | Adopts an existing file: classified by extension, VB6 source joins as a form/module, anything else as a related document. Multi-select; re-picking a carried file re-opens it instead of duplicating |
 | Remove *{file}* | — | Stub | MenuItem present, no Command binding; use project tree context menu |
-| References… | — | Done | Registry enumeration on Windows; Browse button; persisted to .vbp |
+| References… | — | Done | Registry enumeration on Windows; Browse button; persisted to .vbp. Lists VB6's three fixed rows, then the project's references in order, OLE Automation among them; OK with nothing changed leaves them as they were (#1026, measured). The title and the Language line differ from VB6's ([#1468](https://github.com/hexide-io/HexIDE/issues/1468)) |
 | Components… | — | Stub | Dialog opens; Apply command is a no-op; only lists hardcoded built-in controls |
 | *{project}* Properties… | — | Partial | Name/description/startup form/project type editable; project type dropdown limited to EXE |
 
@@ -409,7 +409,7 @@
 |---|---|---|
 | New Project | Done | New / Existing / Recent tabs |
 | Project Properties | Partial | EXE-only project type; startup form selection works |
-| References | Done | Registry enumeration (Windows); Browse; persisted to .vbp |
+| References | Done | Registry enumeration (Windows); Browse; persisted to .vbp. VB6's three fixed rows head the list, and the project's own OLE Automation reference is an ordinary row that OK keeps (#1026) |
 | Components | Stub | `ApplyCommand` is empty; Designers and Insertable Objects lists always empty |
 | Add Procedure | Done | |
 | Find / Replace | Partial | Searches any document that has a text buffer, not only VB6 code windows — the carried-file editor included. Both offered scopes are honoured (Current Module, All Open Documents); project-wide is deferred to [#372](https://github.com/hexide-io/HexIDE/issues/372). Edit ▸ Find / Replace / F3 grey out on a document with nothing to search (the designer, the Object Browser, the Translation Editor, Language & Debug Servers), and the modeless dialog says so if the active tab changes under it. A match in the header or a member's `Attribute` lines is skipped (#273), without saying so yet ([#705](https://github.com/hexide-io/HexIDE/issues/705)) |
