@@ -367,6 +367,96 @@ public class LspDocumentSessionTests : IDisposable
             Arg.Any<string>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
+    // ── One name, several windows (#721) ──────────────────────────────────────────────────────────────
+    //
+    // Two code windows can hold one name, as one file shared by two projects of a group does, and a server has
+    // one document for it: opened once, one sequence of versions, closed when the last window closes.
+
+    private LspDocumentSession SessionOver(TextDocument document, string uri = Uri)
+    {
+        var session = new LspDocumentSession(_client, document, uri, postToUiThread: work => work());
+        _sessions.Add(session);
+        return session;
+    }
+
+    private List<int> VersionsChangedTo() =>
+        [.. _client.ReceivedCalls()
+            .Where(call => call.GetMethodInfo().Name == nameof(ILspClient.ChangeDocumentAsync))
+            .Select(call => (int)call.GetArguments()[1]!)];
+
+    [Fact]
+    public async Task ASecondWindowOverTheSameNameSendsNoSecondOpen()
+    {
+        SessionOver(new TextDocument("a")).Start();
+        SessionOver(new TextDocument("a")).Start();
+
+        await _client.Received(1).OpenDocumentAsync(Uri, Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task TwoWindowsOverTheSameNameDrawOneSequenceOfVersions()
+    {
+        // Two counts interleaving, 2, 2, 3, are what a server ordering by version discards half of.
+        var first = SessionOver(new TextDocument("a"));
+        var second = SessionOver(new TextDocument("b"));
+        first.Start();
+        second.Start();
+
+        await first.FlushAsync(TestContext.Current.CancellationToken);
+        await second.FlushAsync(TestContext.Current.CancellationToken);
+        await first.FlushAsync(TestContext.Current.CancellationToken);
+
+        VersionsChangedTo().Should().Equal(
+            [LspDocumentVersion.Opening + 1, LspDocumentVersion.Opening + 2, LspDocumentVersion.Opening + 3],
+            "the document has one sequence of versions, whichever window an edit comes from");
+    }
+
+    [Fact]
+    public async Task ClosingOneOfTwoWindowsLeavesTheDocumentOpen()
+    {
+        var first = SessionOver(new TextDocument("a"));
+        var second = SessionOver(new TextDocument("a"));
+        first.Start();
+        second.Start();
+
+        first.Dispose();
+        await _client.DidNotReceive().CloseDocumentAsync(Uri, Arg.Any<CancellationToken>());
+
+        second.Dispose();
+        await _client.Received(1).CloseDocumentAsync(Uri, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RenamingOneOfTwoWindowsLeavesTheOldNameOpenForTheOther()
+    {
+        const string renamed = "file:///c:/proj/RENAMED.md";
+        var first = SessionOver(new TextDocument("a"));
+        var second = SessionOver(new TextDocument("a"));
+        first.Start();
+        second.Start();
+
+        await first.RenameAsync(renamed, TestContext.Current.CancellationToken);
+
+        await _client.DidNotReceive().CloseDocumentForRenameAsync(Uri, Arg.Any<CancellationToken>());
+        await _client.Received(1).OpenDocumentAsync(renamed, "a", false, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public void AWindowThatJoinsShowsWhatWasAlreadyPublished()
+    {
+        // It sends no open, so nothing will answer one: it shows what the document's other window shows.
+        SessionOver(new TextDocument("Sub A()\nEnd Sub")).Start();
+        Publish(OneDiagnostic(Uri, 0, 0, 1));
+
+        var second = SessionOver(new TextDocument("Sub A()\nEnd Sub"));
+        IReadOnlyList<LspMarker>? markers = null;
+        second.MarkersChanged += m => markers = m;
+        second.Start();
+
+        markers.Should().ContainSingle("the joining window shows the diagnostics already published for the document");
+        second.AwaitingDiagnostics.Should().BeFalse();
+    }
+
     [Fact]
     public async Task ASaveSendsThePendingEditFirst()
     {
