@@ -125,6 +125,9 @@ internal sealed class ProgramDump
             {
                 if (child is VB6Parser.LineHeadContext lineHead)
                     label = Text(lineHead).TrimEnd();
+                // A line number on a line of its own, or with only a remark, is a jump target too.
+                else if (child is VB6Parser.EmptyLineNumberContext empty)
+                    entry.Append(Text(empty.lineNumber())).Append('\n');
                 else if (child is VB6Parser.BlockStmtContext statement)
                 {
                     if (IsDeclaration(statement) && label is null)
