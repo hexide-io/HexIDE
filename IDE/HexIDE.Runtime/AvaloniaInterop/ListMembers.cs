@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.AvaloniaInterop;
@@ -20,6 +21,17 @@ namespace HexIDE.Runtime.AvaloniaInterop;
 /// <item>The selection follows its item through all of these, and is emptied when its item is removed. None raises
 /// Click.</item>
 /// </list>
+/// A ListBox's Selected(i), SelCount and Text (#1395), measured the same way (the oracle's "A ListBox's Selected, SelCount
+/// and Text"):
+/// <list type="bullet">
+/// <item>Selected(i) is a Boolean, and 381 outside the list, read or written. Set True it selects item i, and set False
+/// on the selected item it selects none, with Click only when the selection moves, as for ListIndex.</item>
+/// <item>SelCount is an Integer, 0 or 1.</item>
+/// <item>Text reads the selected item's text, or "". Written, it selects the first item whose whole text it is, without
+/// regard to case, or none, and raises Click every time.</item>
+/// <item>A list with MultiSelect 1 or 2 answers all three differently, and HexIDE runs it single-select, so they are
+/// refused there (#1413).</item>
+/// </list>
 /// </summary>
 internal static class ListMembers
 {
@@ -35,6 +47,19 @@ internal static class ListMembers
         value = default;
         if (control is not SelectingItemsControl list || !IsList(control))
             return false;
+        if (control is VBListBox listBox && member.Equals("SelCount", StringComparison.OrdinalIgnoreCase))
+        {
+            RequireSingleSelect(listBox, "SelCount");
+            value = new Vb6Value(listBox.SelectedIndex >= 0 ? 1 : 0);
+            return true;
+        }
+        // A ComboBox's Text is #926's.
+        if (control is VBListBox textList && member.Equals("Text", StringComparison.OrdinalIgnoreCase))
+        {
+            RequireSingleSelect(textList, "Text");
+            value = new Vb6Value(textList.SelectedIndex >= 0 ? textList.Items[textList.SelectedIndex] as string ?? "" : "");
+            return true;
+        }
         if (member.Equals("ListCount", StringComparison.OrdinalIgnoreCase))
         {
             // An Integer: a VB6 list holds at most 32767 items.
@@ -47,10 +72,16 @@ internal static class ListMembers
         return false;
     }
 
-    public static bool TrySet(Control control, string member)
+    public static bool TrySet(Control control, string member, Vb6Value value)
     {
         if (!IsList(control))
             return false;
+        if (control is VBListBox listBox && member.Equals("Text", StringComparison.OrdinalIgnoreCase))
+        {
+            RequireSingleSelect(listBox, "Text");
+            listBox.SetTextFromCode(Text(value));
+            return true;
+        }
         if (member.Equals("ListCount", StringComparison.OrdinalIgnoreCase))
             throw new VBCompileErrorException(AssignToReadOnly);
         if (member.Equals("List", StringComparison.OrdinalIgnoreCase))
@@ -85,6 +116,47 @@ internal static class ListMembers
         list.Items[index] = text;
         // Avalonia drops the selection of an item replaced; VB6 keeps it.
         list.SelectedIndex = selected;
+    }
+
+    /// <summary><c>Selected(i)</c>, read: whether item i is selected; 381 outside the list.</summary>
+    public static Vb6Value ReadSelected(VBListBox list, IReadOnlyList<Vb6Value> indexes)
+    {
+        RequireSingleSelect(list, "Selected");
+        return new Vb6Value(ItemIndex(list, indexes, "Selected") == list.SelectedIndex);
+    }
+
+    /// <summary>
+    /// <c>Selected(i) = b</c>: True selects item i, and False on the selected item selects none. Click comes only when the
+    /// selection moves. The index and the value are converted first, as arguments are, and the range is checked after.
+    /// </summary>
+    public static void WriteSelected(VBListBox list, IReadOnlyList<Vb6Value> indexes, Vb6Value value)
+    {
+        RequireSingleSelect(list, "Selected");
+        var index = Index(indexes, "Selected");
+        // "True" and any non-zero number are True, Null is 94 and "x" 13 (measured).
+        var selected = (bool)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Boolean, null).Value!;
+        if (index < 0 || index >= list.ItemCount)
+            throw new VBRunTimeException(VBStandardError.InvalidPropertyArrayIndex);
+        if (selected)
+            list.SetListIndexFromCode(index);
+        else if (index == list.SelectedIndex)
+            list.SetListIndexFromCode(-1);
+    }
+
+    private static void RequireSingleSelect(VBListBox list, string member)
+    {
+        if (list.MultiSelect != 0)
+            throw new NotImplementedException(
+                $"{member} on a ListBox whose MultiSelect is {list.MultiSelect} is not implemented: HexIDE runs such a list single-select (#1413)");
+    }
+
+    // An index into the items: 381 outside them, from 0 to ListCount - 1 (measured for Selected).
+    private static int ItemIndex(SelectingItemsControl list, IReadOnlyList<Vb6Value> indexes, string member)
+    {
+        var index = Index(indexes, member);
+        if (index < 0 || index >= list.ItemCount)
+            throw new VBRunTimeException(VBStandardError.InvalidPropertyArrayIndex);
+        return index;
     }
 
     /// <summary><c>AddItem item[, index]</c>: appends, or inserts at 0 to ListCount.</summary>

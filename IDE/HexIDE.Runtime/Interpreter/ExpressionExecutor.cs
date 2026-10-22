@@ -865,10 +865,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBMethodOrDataMemberNotFoundException(memberName, variable.Type);
         }
 
-        // A list's List(i), the one control member here that takes an index (#821).
-        if (variable.Value is Control listControl && ListMembers.IsList(listControl) && MemberArgs(member) is { } listIndexes
-            && MemberName(member).Equals("List", StringComparison.OrdinalIgnoreCase))
-            return ListMembers.ReadItem(listControl, await EvaluateCallArgs(listIndexes));
+        // A list's List(i) and a ListBox's Selected(i), the control members here that take an index (#821, #1395).
+        if (variable.Value is Control listControl && ListMembers.IsList(listControl) && MemberArgs(member) is { } listIndexes)
+        {
+            if (MemberName(member).Equals("List", StringComparison.OrdinalIgnoreCase))
+                return ListMembers.ReadItem(listControl, await EvaluateCallArgs(listIndexes));
+            if (listControl is VBListBox listBox && MemberName(member).Equals("Selected", StringComparison.OrdinalIgnoreCase))
+                return ListMembers.ReadSelected(listBox, await EvaluateCallArgs(listIndexes));
+        }
 
         var memberIdentifier = member.GetText().TrimStart('.') ?? throw new VBRunTimeException(ctx, VBStandardError.ObjectRequired, "Null member name");
 
@@ -898,7 +902,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // A TextBox's SelStart, SelLength and SelText, which exist only at run time (#1150).
         if (TextBoxMembers.TryGet(control, memberIdentifier, out var textBoxMember))
             return textBoxMember;
-        // A list's ListCount (#821).
+        // A list's ListCount (#821), and a ListBox's SelCount and Text (#1395).
         if (ListMembers.TryGet(control, memberIdentifier, out var listMember))
             return listMember;
 

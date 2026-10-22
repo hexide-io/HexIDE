@@ -1491,13 +1491,21 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, fieldName);
             }
 
-            // A list's List(i) = text, the one control member here that takes an index (#821).
+            // A list's List(i) = text and a ListBox's Selected(i) = b, the control members here that take an index (#821,
+            // #1395).
             if (variable.Value is Control listControl && ListMembers.IsList(listControl)
-                && members[0].iCS_S_ProcedureOrArrayCall() is { } listItem && listItem.argsCall().Length == 1
-                && UdtFieldName(members[0]).Equals("List", StringComparison.OrdinalIgnoreCase))
+                && members[0].iCS_S_ProcedureOrArrayCall() is { } listItem && listItem.argsCall().Length == 1)
             {
-                ListMembers.WriteItem(listControl, await expressionExecutor.EvaluateCallArgs(listItem.argsCall(0)), value);
-                return default;
+                if (UdtFieldName(members[0]).Equals("List", StringComparison.OrdinalIgnoreCase))
+                {
+                    ListMembers.WriteItem(listControl, await expressionExecutor.EvaluateCallArgs(listItem.argsCall(0)), value);
+                    return default;
+                }
+                if (listControl is VBListBox listBox && UdtFieldName(members[0]).Equals("Selected", StringComparison.OrdinalIgnoreCase))
+                {
+                    ListMembers.WriteSelected(listBox, await expressionExecutor.EvaluateCallArgs(listItem.argsCall(0)), value);
+                    return default;
+                }
             }
 
             var memberIdentifier = members[0].GetText().TrimStart('.') ?? throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Null member name");
@@ -1523,8 +1531,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // A TextBox's SelStart, SelLength and SelText (#1150).
             if (TextBoxMembers.TrySet(control, memberIdentifier, value))
                 return default;
-            // A list's ListCount, which is read-only (#821).
-            if (ListMembers.TrySet(control, memberIdentifier))
+            // A list's ListCount, which is read-only (#821), and a ListBox's Text (#1395).
+            if (ListMembers.TrySet(control, memberIdentifier, value))
                 return default;
 
             throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} type {variable.Type} doesn't have member {memberIdentifier}");
