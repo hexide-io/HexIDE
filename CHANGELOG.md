@@ -208,6 +208,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Center in Form, Align Centers and Make Equal spacing put a control where VB6 does** (#929). They worked in
+  fractional pixels, so a control centred on an odd difference landed half a pixel off, and a save wrote it as
+  `Left = 4192.5`. Each now works as VB6's does, measured in its IDE: in whole twips, halving each size on its own and
+  truncating. Make Equal truncates the gap and leaves the last control where it was. A control added by
+  double-clicking a tool is centred the same way, then put on the nearest grid line when Align to Grid is on.
+
 - **Named arguments run** (#1465). `MsgBox Prompt:="Done", Title:="App"` and `Foo Count:=3` stopped the program with
   "Assign is not implemented". A named argument now goes to the parameter of its name in a call to the program's own
   procedures and methods, and to the 57 intrinsics vb6.exe takes names for, with VB6's compile errors for an unknown or
