@@ -191,6 +191,18 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A project's description is saved in its project file** (#42). Project Properties set it, and nothing wrote it,
+  so a description typed there was lost at the next save. It is now read from and written to the `.vbp` as VB6
+  writes it: `Description="..."` with a quote inside doubled, after `HelpContextID`, and no line when there is
+  none. Measured with VB6's own Save Project As.
+
+- **Save Project no longer writes a second header into a `.bas` or `.cls` whose first line is blank** (#472). The
+  header reader looked for the header on line 0 alone. So one blank line above it left the whole file as code, and
+  Save Project, which writes every module, put the canonical header in front of it, unasked. For a class, that
+  header contradicted the file's own instancing. The reader now finds the header below blank lines, and keeps them.
+  A save no longer adds a header to code that carries its own `VB_Name`. A class whose `BEGIN` has no `END` no
+  longer loses its code to the header, or grows by a line on every save.
+
 - **`FormCodeText.PreserveAttributes` is gone** (#686). It could weld a header with no line ending onto the code
   after it, but it has had no caller since #273's phase 3 kept a form's header with `GuardedContent` instead, so it
   was deleted rather than repaired.

@@ -302,6 +302,7 @@ public class SerializationRoundTripTests
         p.UnknownPreSectionLines.AddRange(sp.UnknownPreSectionLines);
         p.PreservedItemLines.AddRange(sp.PreservedItemLines);
         p.StartupFormName = sp.StartupFormName;
+        p.Description = sp.Description ?? "";
         p.ExtensionTail = sp.ExtensionTail;
         return p;
     }

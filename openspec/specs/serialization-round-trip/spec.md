@@ -478,6 +478,31 @@ and one that names a drive or starts at a root.
 - **WHEN** the project file is saved in the folder it was read from
 - **THEN** each kept line is written exactly as it was read
 
+### Requirement: A project's description SHALL be read from and written to its project file as VB6 writes it
+
+The IDE SHALL read a project file's `Description` line into the project's description. It SHALL write a description
+that is not empty as `Description="..."`, with a quote inside doubled, after `HelpContextID`, or after `Name` when
+there is none, and SHALL write no line for an empty one. That is what VB6's own Save Project As writes (#42). A
+file's own `Description` line SHALL stay where it was read.
+
+#### Scenario: A description typed into a project read without one
+
+- **GIVEN** a project file holding `Name="probe"`, `HelpContextID="0"` and `CompatibleMode="0"`, and no description
+- **WHEN** a description `Orders` is set and the project is saved
+- **THEN** the file holds `Description="Orders"` between `HelpContextID="0"` and `CompatibleMode="0"`
+
+#### Scenario: A description with a quote in it
+
+- **GIVEN** a project file holding `Description="He said ""hi"""`
+- **WHEN** it is read and saved
+- **THEN** the project's description is `He said "hi"`, and the line is written as it was read
+
+#### Scenario: A description cleared
+
+- **GIVEN** a project file holding a `Description` line
+- **WHEN** the description is cleared and the project is saved
+- **THEN** the file holds no `Description` line
+
 ### Requirement: A project file SHALL NOT be written without a member that has no file
 
 When an operation would write a project file while one of the project's forms or modules has never been saved
