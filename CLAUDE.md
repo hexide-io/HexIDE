@@ -367,6 +367,7 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 **CLI flags** (both `--` and `/` prefixes accepted, aligning with VB6 convention):
 - `--help` — print usage and exit without starting the IDE; also `-h`, `/?`, `-?`
 - `--server-port <port>` — enable the MCP server on the given port (the launch profiles hard-code 5123, `.mcp.json` defaults to it, and `scripts/dev-ide.ps1` passes `HEXIDE_MCP_PORT`)
+- `--session <name>` — serve tool calls only to the agent session of that name, as named in the client's `X-HexIDE-Session` header; DEBUG-only. `scripts/dev-ide.ps1` passes `HEXIDE_SESSION` (see *Parallel sessions*)
 - `--newproject` — skip the startup dialog and create a default Standard EXE project
 - `--capture-lsp` — arm the protocol capture for every language-server connection **before any is made**, so a conversation is recorded in full from its first handshake. Arming is otherwise session-scoped and the documented rebuild cycle restarts the IDE every iteration, which is what this exists for. **Unlike `--server-port`, this is not DEBUG-only**: the capture ships and the automation server does not
 - `--user-data-dir <path>` — keep this session's settings, layout, recents and `lsp-servers.json` in that directory instead of the user's own. **Use it for any demo or automation run that needs its own configuration**, rather than editing the real one and relying on someone to change it back. Works in Release. A relative path is relative to where HexIDE was started
@@ -413,7 +414,7 @@ apart:
 | Variable | Read by | When unset |
 |---|---|---|
 | `HEXIDE_MCP_PORT` | `.mcp.json`, for the session's MCP client, and `scripts/dev-ide.ps1`, for the IDE's `--server-port` | 5123 |
-| `HEXIDE_SESSION` | `scripts/dev-ide.ps1`, which starts the IDE with `--user-data-dir` set to `HexIDE/sessions/<name>` under LocalApplicationData. Lower case, digits, `.`, `_` and `-` | the user's own profile |
+| `HEXIDE_SESSION` | `scripts/dev-ide.ps1`, which starts the IDE with `--session <name>` and `--user-data-dir` set to `HexIDE/sessions/<name>` under LocalApplicationData, and `.mcp.json`, which sends it as the client's `X-HexIDE-Session` header. Lower case, digits, `.`, `_` and `-` | the user's own profile, and an IDE that serves every caller |
 
 **Set both where the session starts, before `claude` runs**, as in
 `$env:HEXIDE_MCP_PORT = 5140; $env:HEXIDE_SESSION = 'docs-pass'; claude --resume <id>`. The MCP URL is expanded
@@ -447,9 +448,20 @@ that set nothing. Say so, and ask to be restarted with a port of its own, rather
 - **Logs are not separated.** Every IDE writes them under the shared `HexIDE/logs`, and a burst of relaunches
   across sessions can prune a log minutes old
   ([#1307](https://github.com/hexide-io/HexIDE/issues/1307)), so read a crash log promptly.
-- **Ports keep sessions apart only when every session sets its variables.** Two sessions that set nothing, or a
-  stale IDE left on someone's port, still reach an IDE that is not theirs, and nothing in a reply says so
-  ([#1306](https://github.com/hexide-io/HexIDE/issues/1306)).
+- **An IDE started for a session refuses every other session's calls**
+  ([#1306](https://github.com/hexide-io/HexIDE/issues/1306)). The script starts it with `--session <name>`, and
+  `.mcp.json` names the caller in an `X-HexIDE-Session` header from the same variable. A tool call from a client
+  that names another session, or none, comes back as an error saying whose IDE this is (its session, PID and build
+  directory) and is not run, so a session that reached a stale IDE, or another session's port, finds out on its first
+  call instead of verifying a change against a build that does not have it. The refusal is a result, not a refused
+  request, so it never counts towards the three connection errors that drop the tools; listing tools still works, and
+  `/health` reports the `session` beside the `pid`. An IDE started without `--session`, which is what a contributor
+  with nothing set gets, serves a client that names no session and refuses one that names a session, so a session
+  that set `HEXIDE_SESSION` but not `HEXIDE_MCP_PORT`, and so reached 5123, is told too. **Two sessions that both set
+  nothing are still not told apart**: neither names itself, so there is nothing to compare. The header is no secret:
+  this guards against mistakes between cooperating sessions, not against anyone who can open the port (#352). Keep
+  session names to the script's ASCII grammar; Claude Code sends the header in Latin-1, and a byte outside ASCII is
+  refused as a malformed request, which counts towards dropping the tools.
 - **Stop only your own IDE**: `shutdown_ide`, or `pwsh scripts/dev-ide.ps1 -Stop`, which stops this session's
   HexIDE on your port and nothing else. **Never `Stop-Process -Name HexIDE.Desktop`**: on a machine running several
   sessions it kills all of their IDEs.
@@ -925,7 +937,7 @@ widening visibility to `public` just for a test. When a new test project needs r
 - **`docs/foreign-language-servers.md`** — the third-party servers the suite drives, why each earns its
   place, how they are obtained, and why a GPL-licensed one is consistent with a 100%-MIT tree. Read it
   before adding a third: the bar is a protocol *shape* nothing else exercises, not another server.
-- **`docs/command-line.md`** — every command-line option HexIDE accepts, what each does, and which three are
+- **`docs/command-line.md`** — every command-line option HexIDE accepts, what each does, and which four are
   inert in a distributed build. The only user-facing account; keep it in step with
   `HexIDE.Desktop/ServerOptions.cs`, which is the parser it describes.
 - **`docs/language-servers.md`** — how a user attaches a language server: where `lsp-servers.json` lives,
