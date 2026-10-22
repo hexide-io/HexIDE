@@ -103,7 +103,7 @@ internal static class TextBoxMembers
         }
     }
 
-    private static VBRunTimeException ReadOnlyAtRunTime(string property) =>
+    internal static VBRunTimeException ReadOnlyAtRunTime(string property) =>
         new(new VBStandardError(VBStandardError.PropertySetCantBeExecutedAtRunTime.ErrNo, $"'{property}' property cannot be set at run time"));
 
     /// <summary>Puts the caret at the start, as setting Text from code does (measured).</summary>
