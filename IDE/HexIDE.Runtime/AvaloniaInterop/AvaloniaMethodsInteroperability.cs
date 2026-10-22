@@ -45,8 +45,12 @@ public static class AvaloniaMethodsInteroperability
                 // (Err 449), not an uncatchable IndexOutOfRangeException off an empty args list.
                 if (args.Count < 1)
                     throw new VBRunTimeException(VBStandardError.ArgumentNotOptionalOrInvalidPropertyAssignment);
-                // AddItem's Item is a String, so the list holds CStr's text of it: `List1.AddItem 1 / 3` lists 0.333333333333333.
-                itemsControl.Items.Add(VbDisplay.ToText(args[0]));
+                ListMembers.AddItem(itemsControl, args);
+                return Vb6Value.Nothing;
+            }
+            if (method.Equals("removeitem", StringComparison.OrdinalIgnoreCase))
+            {
+                ListMembers.RemoveItem(itemsControl, args);
                 return Vb6Value.Nothing;
             }
             else if (method.Equals("clear", StringComparison.OrdinalIgnoreCase))

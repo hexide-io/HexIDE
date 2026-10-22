@@ -1491,6 +1491,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, fieldName);
             }
 
+            // A list's List(i) = text, the one control member here that takes an index (#821).
+            if (variable.Value is Control listControl && ListMembers.IsList(listControl)
+                && members[0].iCS_S_ProcedureOrArrayCall() is { } listItem && listItem.argsCall().Length == 1
+                && UdtFieldName(members[0]).Equals("List", StringComparison.OrdinalIgnoreCase))
+            {
+                ListMembers.WriteItem(listControl, await expressionExecutor.EvaluateCallArgs(listItem.argsCall(0)), value);
+                return default;
+            }
+
             var memberIdentifier = members[0].GetText().TrimStart('.') ?? throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Null member name");
 
             // A CSharp property bag (e.g. Err.Number = …) handles its own get/set by name.
@@ -1513,6 +1522,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return default;
             // A TextBox's SelStart, SelLength and SelText (#1150).
             if (TextBoxMembers.TrySet(control, memberIdentifier, value))
+                return default;
+            // A list's ListCount, which is read-only (#821).
+            if (ListMembers.TrySet(control, memberIdentifier))
                 return default;
 
             throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, $"Variable {identifier} type {variable.Type} doesn't have member {memberIdentifier}");
