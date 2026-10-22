@@ -164,6 +164,30 @@ public class ComboBoxTextTests
         }
     }
 
+    // A Dropdown List shows its selected item in the combo's own padding, which cut the text off at a combo's height.
+    [AvaloniaFact]
+    public void A_Dropdown_List_s_item_is_drawn_whole_at_a_combo_s_height()
+    {
+        var combo = new HexIDE.Runtime.BuiltinControls.VBComboBox(2) { Width = 145, Height = 21 };
+        combo.Items.Add("Banana");
+        combo.SelectedIndex = 0;
+        var window = new Avalonia.Controls.Window { Content = combo, Width = 300, Height = 100 };
+        window.Show();
+        try
+        {
+            window.UpdateLayout();
+            var shown = combo.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>().Single(b => b.IsEffectivelyVisible && b.Text == "Banana");
+            var whole = new Avalonia.Controls.TextBlock { Text = "Banana", FontFamily = shown.FontFamily, FontSize = shown.FontSize };
+            whole.Measure(Size.Infinity);
+
+            shown.Bounds.Height.Should().BeGreaterThanOrEqualTo(whole.DesiredSize.Height);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private sealed class NullSink : IDeserializeErrorSink { public void LogError(string _) { } }
 
     // A control drawn in the designer starts with its name as its Text, as VB6's designer writes it (the oracle's "Drawn

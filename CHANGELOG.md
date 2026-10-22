@@ -10,6 +10,15 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **A ComboBox raises Click, Change and DropDown** (#1429). It raised none, so a program's `Combo1_Click` and
+  `Combo1_Change` never ran, whatever the user or code did. Now each comes where vb6.exe raises it, measured with real
+  input, native and p-code:
+  - **Click** for every item chosen, by the mouse or an arrow key, even the one already selected, and for code's
+    `ListIndex` when it moves the selection;
+  - **Change** for typing, and for code's `Text` when it changes, but not for choosing an item;
+  - **DropDown** as the list opens.
+
+  Typing an item's text into the box selects nothing, as in VB6.
 - **A ComboBox has a Text** (#926). It had none, so code reading `Combo1.Text` stopped, and a combo's Text could be
   neither set in the Properties window nor drawn. Now a Dropdown Combo's and a Simple Combo's Text works as vb6.exe's
   does:
