@@ -967,7 +967,8 @@ So vb6.exe compares control names without regard to case when it loads a form.
 
 **What was and was not measured.** The controls before the second block survived, including those between the two
 blocks. Each probe put the second block last, so what happens to controls after it is not measured. Opening, running
-or re-saving such a form in the VB6 IDE was not measured either.
+or re-saving such a form in the VB6 IDE was not measured either. The fuller table from the same survey is #856's to
+record: a pair of CommandButtons that never finished building, and the OLE and Data controls' own rows.
 
 HexIDE could write such a form. Its designer checked a new name only against the controls it models, which leaves out
 a control kept as preserved text, and mostly with case. A rename, a control drawn from the toolbox and a paste now
