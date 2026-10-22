@@ -35,8 +35,8 @@ public partial class VB6BuiltIns
         // Constructors -> Date.
         d["DateSerial"] = (_, a, _) => DateSerial(AsInt(a[0]), AsInt(a[1]), AsInt(a[2]));
         d["TimeSerial"] = (_, a, _) => TimeSerial(AsInt(a[0]), AsInt(a[1]), AsInt(a[2]));
-        d["DateValue"]  = (_, a, _) => new Vb6Value(AsDate(a[0]).Date);
-        d["TimeValue"]  = (_, a, _) => new Vb6Value(Epoch + AsDate(a[0]).TimeOfDay);
+        d["DateValue"]  = (_, a, _) => new Vb6Value(AsDateText(a[0]).Date);
+        d["TimeValue"]  = (_, a, _) => new Vb6Value(Epoch + AsDateText(a[0]).TimeOfDay);
 
         // Arithmetic.
         d["DateAdd"]  = (_, a, _) => DateAdd(Interval(a[0]), AsInt(a[1]), AsDate(a[2]));
@@ -162,18 +162,30 @@ public partial class VB6BuiltIns
         return true;
     }
 
-    // VB6 date serial (OLE Automation) — accepts a Date, a numeric serial, or a parseable string.
+    // VB6 date serial (OLE Automation) — accepts a Date, a numeric serial, or a String as CDate reads it, a serial
+    // included (measured, #967: DateAdd("d", 1, "36526") is 02/01/2000, Year("1,000") 2000, Format("36526", "dd/mm/yyyy")
+    // 01/01/2000, and DateAdd("d", 1, "2958466") 13).
     private static DateTime AsDate(Vb6Value v)
     {
         if (v.Value is DateTime dt) return dt;
-        if (v.Value is string s && TryReadDate(s, out var pd))
-            return OnZeroDateIfTimeOnly(pd);
+        if (v.Value is string s)
+            return (DateTime)StringToDate(s, null).Value!;
         if (Vb6Value.TryNumericToDouble(v, out var oa))
         {
             try { return DateTime.FromOADate(oa); }
             catch (ArgumentException) { throw InvalidCall(); }
         }
         throw new VBRunTimeException(VBStandardError.TypeMismatch);
+    }
+
+    // DateValue and TimeValue read a String as date text only, with no serial (measured, #967: DateValue("36526") and
+    // TimeValue("36526.5") are 13, where TimeValue("1.5") is 01:05). Anything else is read as AsDate reads it.
+    private static DateTime AsDateText(Vb6Value v)
+    {
+        if (v.Value is not string s)
+            return AsDate(v);
+        return TryReadDate(s.Trim(), out var date)
+            ? OnZeroDateIfTimeOnly(date) : throw new VBRunTimeException(VBStandardError.TypeMismatch);
     }
 
     // 1=Sunday..7=Saturday shifted so the firstDayOfWeek day is 1.

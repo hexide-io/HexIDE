@@ -21,6 +21,8 @@ public partial class VB6BuiltIns
         d["CBool"] = (_, a, _) => CBool(a[0]);
         d["CStr"]  = (_, a, _) => a[0].IsNull ? throw InvalidUseOfNull() : new Vb6Value(AsStr(a[0]));   // no leading space
         d["CDate"] = (_, a, _) => CDate(a[0]);
+        // CDate under its older name, and the same answer (measured: CVDate("36526") is 01/01/2000, CVDate("1.5") 01:05).
+        d["CVDate"] = (_, a, _) => CDate(a[0]);
         d["Hex"]   = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(RadixStr(a[0], 16));
         d["Oct"]   = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(RadixStr(a[0], 8));
     }
