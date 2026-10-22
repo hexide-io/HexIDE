@@ -208,6 +208,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **IIf and Choose run** (#1461, #1464). Neither existed, so a program that called either stopped there. Both now give
+  vb6.exe's answers, including the two that surprise people: IIf evaluates both parts, so `IIf(n <> 0, 1 / n, 0)` still
+  divides by zero, and Choose truncates its index, so `Choose(1.6, "a", "b")` is "a".
+
 - **An array element passed ByRef is the element itself** (#1455). `Swap s(0), s(1)` swapped nothing, so a sort written
   the usual way ran to the end and left its array as it was. The element is now passed by reference, as in VB6, and
   while the call runs its array is locked: ReDim, ReDim Preserve, Erase, or a store into the array's variable raises 10.
