@@ -184,6 +184,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`FormCodeText.PreserveAttributes` is gone** (#686). It could weld a header with no line ending onto the code
+  after it, but it has had no caller since #273's phase 3 kept a form's header with `GuardedContent` instead, so it
+  was deleted rather than repaired.
 - **`Debug.Print` prints every item, as VB6's Immediate window does** (#1380). Only the first item reached the Immediate
   window, so `Debug.Print "x ="; x` showed `x =` alone, and a trailing `;` still ended the line. Now `Debug.Print` writes
   what `Print #` writes, which is what VB6 does, line for line, as measured in its IDE:
