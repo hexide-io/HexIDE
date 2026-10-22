@@ -49,6 +49,29 @@ there is never a state where the project references something that does not exis
 - **WHEN** a component is added to a project that has been saved
 - **THEN** its file exists alongside the project and the project references it
 
+### Requirement: A new component SHALL NOT replace a file already where its own would be written
+A new component's default name SHALL pass over any number whose file is already in the project's folder, or
+is named by the project file for a member that did not load. For a form, user control or property page, the
+`.frx`, `.ctx` or `.pgx` beside it counts too. A name the caller chose SHALL instead be refused, with nothing
+written.
+
+Writing at creation makes the name a path, and VB6 projects often share a folder. Writing over another
+project's file destroys it silently (#738).
+
+#### Scenario: Another project's module in the folder
+- **GIVEN** a saved project whose folder already holds `Module1.bas`, which the project does not reference
+- **WHEN** a standard module is added
+- **THEN** it is named `Module2`, and `Module1.bas` is unchanged
+
+#### Scenario: A binary file alone in the folder
+- **GIVEN** a saved project whose folder holds `Form1.frx` but no `Form1.frm`
+- **WHEN** a form is added
+- **THEN** it is named `Form2`
+
+#### Scenario: A name chosen by the caller
+- **WHEN** automation adds a module named `Module1` to a project whose folder already holds `Module1.bas`
+- **THEN** the add is refused, the reply names the file, and nothing is written or added
+
 ### Requirement: A new component SHALL open for editing in the surface that suits it
 After creation the component SHALL open for editing — code-only kinds in the code editor, and kinds with a
 visual definition on the design surface.
