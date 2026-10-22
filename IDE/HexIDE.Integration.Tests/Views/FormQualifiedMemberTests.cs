@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using HexIDE.Runtime;
@@ -112,6 +113,43 @@ public class FormQualifiedMemberTests
         End Sub
         """;
 
+    // The VB6 IDE probe's Form2: paused at its Stop, the Immediate window was typed into.
+    private const string StoppingForm2 = """
+        VERSION 5.00
+        Begin VB.Form Form2
+           Caption         =   "Two"
+           ClientHeight    =   1000
+           ClientWidth     =   2000
+        End
+        Attribute VB_Name = "Form2"
+        Option Explicit
+        Public Sub Probe()
+            Dim n As Integer
+            n = 7
+            Stop
+        End Sub
+        """;
+
+    // The probe's Form2 with its Probe in place of the measured one: a class's Variant holding an array, indexed.
+    private const string IndexingForm2 = """
+        VERSION 5.00
+        Begin VB.Form Form2
+           Caption         =   "Two"
+           ClientHeight    =   1000
+           ClientWidth     =   2000
+        End
+        Attribute VB_Name = "Form2"
+        Option Explicit
+        Public Sub Probe()
+            Dim k As Class1, v As Variant
+            Set k = New Class1
+            k.V = Array(10, 20, 30)
+            On Error Resume Next
+            v = k.V(1)
+            Debug.Print "after " & Err.Number
+        End Sub
+        """;
+
     private static (List<string> Printed, List<Exception> Errors) Run(string form2)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "Probe");
@@ -162,5 +200,49 @@ public class FormQualifiedMemberTests
             "set Form1.Text1(0).Text 0 [w]",
             "late o.Text1(1).Text [second] 0",
             "end");
+    }
+
+
+    // Paused in Form2's code, as the issue found it in the Notepad demo's Find dialog. Each line and what it printed were
+    // copied from the VB6 IDE's Immediate window, paused at the same Stop (the oracle's "A ? line in the Immediate window").
+    [AvaloniaFact]
+    public async Task The_Immediate_window_reads_a_control_array_element_through_its_form_as_the_VB6_IDE_s_does()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Probe");
+        var form1 = new FormDeserializer().Deserialize(project, Form1.ReplaceLineEndings("\r\n"), new NullSink())!;
+        project.AddForm(form1);
+        project.AddForm(new FormDeserializer().Deserialize(project, StoppingForm2.ReplaceLineEndings("\r\n"), new NullSink())!);
+        var dbg = new HexIDE.Runtime.Debugging.DebugController { TimeSliceMs = null };
+        dbg.Reset();
+
+        var run = VBLoader.RunForm(form1, CancellationToken.None, out var window, dbg);
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            dbg.State.Should().Be(HexIDE.Runtime.Debugging.DebugState.Paused);
+            (await dbg.EvaluateAsync("? Form1.Caption")).Should().Be("One");
+            (await dbg.EvaluateAsync("? Form1.Text1(0).Text")).Should().Be("first");
+            (await dbg.EvaluateAsync("? Form1.Text1(1).Text; Len(Form1.Text1(1).Text)")).Should().Be("second 6 ");
+            (await dbg.EvaluateAsync("? Form1.Text1.Count")).Should().Be(" 2 ");
+            (await dbg.EvaluateAsync("? n")).Should().Be(" 7 ");
+        }
+        finally
+        {
+            dbg.Stop();
+            Dispatcher.UIThread.RunJobs();
+            window.Close();
+        }
+        run.IsCompleted.Should().BeTrue();
+    }
+
+    // VB6 gives 20 early-bound and 451 late-bound (measured), which HexIDE can't tell apart, so it's refused (#1435). The
+    // index used to be dropped, which read the whole array: no error, and a value VB6 never gives.
+    [AvaloniaFact]
+    public void An_index_on_a_class_s_Variant_field_is_refused_rather_than_dropped()
+    {
+        var (printed, errors) = Run(IndexingForm2);
+
+        printed.Should().BeEmpty();
+        errors.Should().ContainSingle().Which.Message.Should().Contain("#1435");
     }
 }
