@@ -91,12 +91,18 @@ public static class ProjectNaming
     /// gives <c>Form1</c> back rather than a second <c>Form2</c>. Pooled across every kind, because the
     /// namespace is: a project holding a module called <c>Form1</c> gets <c>Form2</c> for its first form.
     /// </remarks>
-    public static string NextFreeName(ProjectDefinition project, string prefix)
+    /// <param name="project">The project the name is for.</param>
+    /// <param name="prefix">What the name is numbered after, such as <c>Form</c>.</param>
+    /// <param name="alsoTaken">
+    /// A further reason a name is not free, which the project's members cannot show. The Add commands pass one that
+    /// asks whether the new member's file would be written where a file already is (hexide-io/HexIDE#738).
+    /// </param>
+    public static string NextFreeName(ProjectDefinition project, string prefix, Func<string, bool>? alsoTaken = null)
     {
         for (var i = 1; ; i++)
         {
             var candidate = prefix + i;
-            if (!IsNameTaken(project, candidate)) return candidate;
+            if (!IsNameTaken(project, candidate) && alsoTaken?.Invoke(candidate) != true) return candidate;
         }
     }
 

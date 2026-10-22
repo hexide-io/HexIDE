@@ -214,6 +214,9 @@ body states its true length: a list that quietly stops reads exactly like a comp
 #### Scenario: More matched than were asked for
 - **WHEN** a listing is limited
 - **THEN** the most recent matches are returned, and the total that matched is stated
+- **AND** a poll, which asks for what changed after a sequence, returns the earliest changes instead, with a sequence
+  to continue from, and keeps requests ended together together even past the limit, saying it was cut short only
+  when something matched was left out
 
 ### Requirement: The capture SHALL remain present in builds the automation server is absent from
 The recording machinery SHALL be part of the shipped application rather than of the automation server, so
