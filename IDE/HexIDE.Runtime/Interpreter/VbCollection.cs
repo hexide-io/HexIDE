@@ -198,11 +198,14 @@ public sealed class VbCollection(BasicInterpreter interpreter) : ICSharpAsyncPro
             await interpreter.ReleaseRef(entry.Value);
     }
 
-    // An index as a position from 1, raising what VB6 raises for one that names no item.
+    // An index as a position from 1, raising what VB6 raises for one that names no item. In an empty Collection that is 5
+    // for any index, a position, a key, Null or Empty, where a Collection with items gives 9, 5 or 13 (measured, #1492).
     private int Position(Vb6Value index)
     {
         if (index.IsMissing)
             throw new VBCompileErrorException("Argument not optional");
+        if (items.Count == 0)
+            throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
         if (index.Type == Vb6Value.ValueType.String)
         {
             if (!byKey.TryGetValue((string)index.Value!, out var entry))
@@ -247,6 +250,33 @@ public sealed class VbCollection(BasicInterpreter interpreter) : ICSharpAsyncPro
     }
 
     private static Vb6Value Argument(List<Vb6Value> args, int i) => i < args.Count ? args[i] : Vb6Value.Missing;
+
+    /// <summary>The ways a program assigns a Collection's item, which VB6 refuses differently late-bound.</summary>
+    internal enum ItemAssignment
+    {
+        /// <summary><c>c(1) = x</c>.</summary>
+        Index,
+        /// <summary><c>Set c(1) = x</c>.</summary>
+        SetIndex,
+        /// <summary><c>c.Item(1) = x</c> and <c>c!k = x</c>.</summary>
+        Member,
+    }
+
+    /// <summary>
+    /// An item assigned, which no Collection allows. Through a variable declared As Collection, VB6 looks the index up
+    /// first and raises what that raises, so only an item that is there gives 424. Late-bound, <c>Set o(1) = x</c> is 438
+    /// with no look, and so is <c>w(1) = x</c> through a Variant; any other form looks first and then gives 451 (all
+    /// measured, #1492). The item is left as it was.
+    /// </summary>
+    internal VBRunTimeException ItemAssigned(Vb6Value reference, IReadOnlyList<Vb6Value> args, ItemAssignment form)
+    {
+        var earlyBound = IsEarlyBound(reference);
+        if (!earlyBound && (form == ItemAssignment.SetIndex || (form == ItemAssignment.Index && reference.HeldAsVariant)))
+            return new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+        ArgumentCount(args, 1, 1);
+        Position(args[0]);
+        return new VBRunTimeException(earlyBound ? VBStandardError.ObjectRequired : VBStandardError.ObjectNotACollection);
+    }
 
     /// <summary>Whether a Collection is reached through a variable declared As Collection: early-bound, where VB6 refuses a
     /// call's arguments before the program runs. Through an Object or a Variant it is late-bound.</summary>
