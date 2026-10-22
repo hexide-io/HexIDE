@@ -7,6 +7,15 @@ namespace HexIDE.Runtime.Interpreter;
 /// as `Mid(Start:=F(…), String:=F(…))` evaluates String first. So a named argument reaches here unevaluated
 /// (<see cref="CallArg.Deferred"/>), and is evaluated once it has been placed.
 /// </summary>
+/// <summary>
+/// An in-box object whose members take named arguments, as a Collection's do (`c.Add x, Key:="k"`, #1471): each member's
+/// parameter names in order, and how many of them are required. A member it doesn't name takes none.
+/// </summary>
+internal interface INamedParameterSource
+{
+    bool TryGetParameters(string member, out IReadOnlyList<string> names, out int required);
+}
+
 internal static class NamedArguments
 {
     public static bool Any(IReadOnlyList<CallArg> args)

@@ -350,7 +350,50 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// parameter names and evaluated in parameter order (VB6BuiltIns.ArrangeIntrinsicArguments); otherwise as
     /// <see cref="EvaluateCallArgs"/> evaluates them.
     /// </summary>
-    public async Task<List<Vb6Value>> EvaluateIntrinsicArgs(string name, VB6Parser.ArgsCallContext? context)
+    public async Task<List<Vb6Value>> EvaluateIntrinsicArgs(string name, VB6Parser.ArgsCallContext? context) =>
+        await NamedCallArgs(context) is { } args
+            ? await VB6BuiltIns.ArrangeIntrinsicArguments(name, args)
+            : await EvaluateCallArgs(context);
+
+    /// <summary>
+    /// The arguments to a member of an in-box object, such as a Collection's <c>Add</c>. With any named (`Key:=`), each is
+    /// placed by the member's parameter names and evaluated in parameter order, as an intrinsic's are (#1471); an object
+    /// that names no parameters for the member refuses them, as before (#1474).
+    /// </summary>
+    public async Task<List<Vb6Value>> EvaluateMemberArgs(object? target, string member, VB6Parser.ArgsCallContext? context)
+    {
+        if (target is not INamedParameterSource source || await NamedCallArgs(context) is not { } args)
+            return await EvaluateCallArgs(context);
+        if (!source.TryGetParameters(member, out var names, out var required))
+            throw new NotImplementedException($"Named arguments to {member} are not implemented yet (#1474)");
+        var arranged = await NamedArguments.Arrange(args, names, i => i < required);
+        var values = new List<Vb6Value>(arranged.Count);
+        foreach (var arg in arranged)
+            values.Add(arg.Value);
+        return values;
+    }
+
+    /// <summary>
+    /// A call to a Collection's member, its arguments refused as VB6 refuses them (#1471): before the program runs through a
+    /// variable declared As Collection, which HexIDE raises as the statement runs, and at run time through an Object or a
+    /// Variant, as 448, 450 or 451 (VbCollection.LateBound). Anything else is called as it is.
+    /// </summary>
+    internal static async Task<T> AsBound<T>(Vb6Value reference, string member, Func<Task<T>> call)
+    {
+        try
+        {
+            return await call();
+        }
+        catch (VBCompileErrorException refused) when (reference.Value is VbCollection && !VbCollection.IsEarlyBound(reference)
+            && VbCollection.LateBound(refused, member) is { } lateBound)
+        {
+            throw lateBound;
+        }
+    }
+
+    // A call's arguments with a named one among them, each named argument left for the call to place and evaluate in
+    // parameter order (#1465); null when none is named.
+    private async Task<List<CallArg>?> NamedCallArgs(VB6Parser.ArgsCallContext? context)
     {
         var slots = ArgSlots(context);
         var anyNamed = false;
@@ -358,7 +401,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             if (arg?.valueStmt() is VB6Parser.VsAssignContext)
                 anyNamed = true;
         if (!anyNamed)
-            return await EvaluateCallArgs(context);
+            return null;
         var args = new List<CallArg>();
         var named = false;
         foreach (var arg in slots)
@@ -386,7 +429,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 throw new VBCompileErrorException("Syntax error");
             args.Add(new CallArg(await EvaluateValue(arg.valueStmt()), null));
         }
-        return await VB6BuiltIns.ArrangeIntrinsicArguments(name, args);
+        return args;
     }
 
     // A constant, a user Const or an Enum member, has no location to pass: VB6 passes it through a temporary, so a ByRef
@@ -628,6 +671,16 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     public override async Task<object?> VisitICS_S_VariableOrProcedureCall(VB6Parser.ICS_S_VariableOrProcedureCallContext context)
     {
+        // `c!key`, a Collection's item by key (#1471).
+        if (context.typeHint() is null && context.dictionaryCallStmt() is { } bang)
+        {
+            var name = context.ambiguousIdentifier().GetText();
+            if (!interpreter.TryReadNow(env, name, out var bangFound, out var bangTarget, out var bangNeed))
+                (bangFound, bangTarget) = await interpreter.ReadVariableAfter(env, name, bangNeed!);
+            if (!bangFound)
+                throw new NotImplementedException($"`{context.GetText()}` is supported only on a Collection");
+            return Bang(bangTarget, bang);
+        }
         var identifier = await ExtractIdentifier(context);
         RefuseAmbiguousEnumMember(identifier);
         // Through Loading: a form's name or control may need the form made or loaded first (#822).
@@ -688,7 +741,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 throw new NotImplementedException("Type hint is not supported");
             }
             if (varOrProcCall.dictionaryCallStmt() != null)
-                throw new NotImplementedException("dictionaryCallStmt is not supported");
+                return await VisitICS_S_VariableOrProcedureCall(varOrProcCall);
             var identifier = varOrProcCall.ambiguousIdentifier().GetText();
             RefuseAmbiguousEnumMember(identifier);
 
@@ -746,8 +799,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         }
         else if (ctx.iCS_S_MembersCall() is { } membersCall)
         {
-            if (membersCall.dictionaryCallStmt() != null)
-                throw new NotImplementedException($"dictionaryCall not supported");
+            // `k.Items!key`: the chain, then its default member given the name (#1471).
+            if (membersCall.dictionaryCallStmt() is { } trailingBang)
+            {
+                var head = await ResolveImplicitCallWithoutBang(ctx, membersCall);
+                return Bang(head, trailingBang);
+            }
 
             // A namespace qualifier (`Module1.Foo`, `VBA.Abs`, `VBA.Math.Abs`) — resolved before treating the
             // leading part as a value, but a same-named variable shadows it (VB6 precedence).
@@ -781,10 +838,57 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         {
             return await EvaluateProcedureOrArrayCall(procOrArrayCall);
         }
+        // `!key` alone, inside `With c` (measured, #1471).
+        else if (ctx.iCS_S_DictionaryCall() is { } withBang)
+        {
+            return Bang(withTargets.Count > 0
+                ? withTargets.Peek()
+                : throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet), withBang.dictionaryCallStmt());
+        }
         else
         {
             throw new NotImplementedException($"{ctx} is not supported");
         }
+    }
+
+    // A members call's value, as ResolveImplicitCall gives it, for one that ends in `!name`.
+    private async Task<Vb6Value> ResolveImplicitCallWithoutBang(VB6Parser.ImplicitCallStmt_InStmtContext ctx, VB6Parser.ICS_S_MembersCallContext membersCall)
+    {
+        if (membersCall.iCS_S_VariableOrProcedureCall() is { } leadPart
+            && !interpreter.ExecutionContext.TryInspectVariable(env, leadPart.GetText(), out _)
+            && interpreter.TryResolveQualifier(leadPart.GetText(), out _))
+            throw new NotImplementedException($"`{ctx.GetText()}` is supported only on a Collection");
+        Vb6Value variable;
+        if (membersCall.iCS_S_VariableOrProcedureCall() is { } varOrProCall)
+            variable = await EvaluateValue(varOrProCall);
+        else if (membersCall.iCS_S_ProcedureOrArrayCall() is { } leadProcOrArray)
+            variable = (Vb6Value)(await EvaluateProcedureOrArrayCall(leadProcOrArray))!;
+        else
+            variable = withTargets.Count > 0
+                ? withTargets.Peek()
+                : throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
+        return await ResolveMemberChain(variable, membersCall.iCS_S_MemberCall(), 0, ctx);
+    }
+
+    /// <summary>
+    /// <c>x!name</c>: the default member of <c>x</c>, given the name as a String, which on a Collection is its item by key,
+    /// <c>c!key</c> as <c>c("key")</c> and <c>c![key]</c> the same (measured, #1471). No other object's default member
+    /// takes it yet, so anything else is refused.
+    /// </summary>
+    private static Vb6Value Bang(Vb6Value target, VB6Parser.DictionaryCallStmtContext bang)
+    {
+        if (bang.typeHint() != null)
+            throw new NotImplementedException($"A type character after `!{bang.ambiguousIdentifier().GetText()}` is not implemented (#742)");
+        var key = bang.ambiguousIdentifier().GetText();
+        if (key.Length >= 2 && key[0] == '[' && key[^1] == ']')
+            key = key[1..^1];
+        return target.Value switch
+        {
+            VbCollection items => items.Default([new Vb6Value(key)]),
+            null when target.Type == Vb6Value.ValueType.Object
+                => throw new VBRunTimeException(bang, VBStandardError.ObjectVariableOrWithBlockVariableNotSet),
+            _ => throw new NotImplementedException($"`!{key}` is supported only on a Collection"),
+        };
     }
 
     private const string TypeCharacterMismatch = "Type-declaration character does not match declared data type";
@@ -844,6 +948,17 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // value; return the element control. A missing element is Err 340 (oracle-verified against vb6.exe).
         if (!interpreter.TryReadNow(env, name, out var named, out var maybeGroup, out var namedNeed))
             (named, maybeGroup) = await interpreter.ReadVariableAfter(env, name, namedNeed!);
+        // A Collection's default member, Item: `c(1)` and `c("key")` (#1471). `c(1)(2)` is #1476, refused above.
+        if (named && maybeGroup.Value is VbCollection items)
+        {
+            if (dollar)
+                throw new NotImplementedException($"{name}$ on a Collection is not implemented (#742)");
+            return await AsBound(maybeGroup, "Item", async () => items.Default(await EvaluateMemberArgs(items, "Item", argsCtx)));
+        }
+        // Indexing a variable declared As Collection that holds Nothing is 91 (measured, #1471).
+        if (named && maybeGroup.Type == Vb6Value.ValueType.Object && maybeGroup.Value is null
+            && maybeGroup.DeclaredAs is { } declaredAs && IsCollectionType(declaredAs))
+            throw new VBRunTimeException(procOrArrayCall, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
         if (named && maybeGroup.Value is ControlArrayGroup group)
         {
             if (dollar)
@@ -958,8 +1073,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         Vb6Value variable, VB6Parser.ICS_S_MemberCallContext member, Antlr4.Runtime.ParserRuleContext ctx)
     {
         if (variable.Value is ICSharpAsyncProxy proxy)
-            return await interpreter.CallProxy(proxy, MemberName(member), await EvaluateCallArgs(MemberArgs(member)))
-                ?? throw new VBSubOrFunctionNotDefinedException(MemberName(member));
+            return await AsBound(variable, MemberName(member), async () =>
+                await interpreter.CallProxy(proxy, MemberName(member), await EvaluateMemberArgs(proxy, MemberName(member), MemberArgs(member)))
+                    ?? throw new VBSubOrFunctionNotDefinedException(MemberName(member)));
         // A class instance member (`obj.Method(args)` or `obj.Field`) — method dispatch wins over a field of
         // the same name. Nothing.Member → Error 91.
         if (variable.Type == Vb6Value.ValueType.Object)
@@ -1509,16 +1625,24 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     {
         // `New ClassName` — the class name is a nested bare identifier; extract it SYNTACTICALLY (evaluating it
         // would try to resolve a variable and throw). `As New` auto-instantiation is deferred (Phase 4).
-        var className = (context.valueStmt() as VB6Parser.VsICSContext)
-            ?.implicitCallStmt_InStmt()?.iCS_S_VariableOrProcedureCall()?.ambiguousIdentifier()?.GetText()
+        var call = (context.valueStmt() as VB6Parser.VsICSContext)?.implicitCallStmt_InStmt();
+        // `New Collection`, and `New VBA.Collection`, the library's own (#1471).
+        if (call?.iCS_S_MembersCall() is { } qualified && IsCollectionType(qualified.GetText()))
+            return interpreter.AdoptNewTemp(new Vb6Value(interpreter.NewCollection()), stmtFrames);
+        var className = call?.iCS_S_VariableOrProcedureCall()?.ambiguousIdentifier()?.GetText()
             ?? throw new VBCompileErrorException("Expected a class name after New");
+        if (IsCollectionType(className) && !interpreter.Modules.TryGet(className, out _))
+            return interpreter.AdoptNewTemp(new Vb6Value(interpreter.NewCollection()), stmtFrames);
         var created = Vb6Value.NewObject(await interpreter.NewObject(className));
         // Hold the transient in the current statement frame so a New that is never stored (consumed by a built-in
         // arg, a condition, a member read) still terminates at statement-end; a subsequent Set / ByVal-bind
         // AddRefs again so the destination out-lives the flush by exactly one net reference.
-        interpreter.AdoptNewTemp(created, stmtFrames);
-        return created;
+        return interpreter.AdoptNewTemp(created, stmtFrames);
     }
+
+    /// <summary>Whether a type name is VB6's Collection: <c>Collection</c> or <c>VBA.Collection</c>.</summary>
+    internal static bool IsCollectionType(string name) =>
+        name.Equals("Collection", StringComparison.OrdinalIgnoreCase) || name.Equals("VBA.Collection", StringComparison.OrdinalIgnoreCase);
 
     public override async Task<object?> VisitVsTypeOf(VB6Parser.VsTypeOfContext context)
     {
@@ -1543,6 +1667,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
         // A live instance matches its own class (or the catch-all `Object`); Nothing / non-object → False.
         // (VB6 raises an error for TypeOf on a non-object — a documented simplification here.)
+        // A Collection is a Collection, a VBA.Collection and an Object (measured, #1471).
+        if (operand.Value is VbCollection)
+            return new Vb6Value(IsCollectionType(targetName) || string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase));
         if (operand.Value is VbObject vo)
             return new Vb6Value(string.Equals(vo.ClassName, targetName, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase)

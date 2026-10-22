@@ -347,6 +347,17 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         if (v.Value is VbObject o && !o.Terminated)
             o.RefCount++;
+        else if (v.Value is VbCollection c)
+            c.RefCount++;
+    }
+
+    /// <summary>A new Collection (#1471), with no references yet: <c>New Collection</c> hands it back as <c>New</c> hands
+    /// back a class instance, for whatever first stores it to count.</summary>
+    public VbCollection NewCollection()
+    {
+        if (SuppressUserProcedureCalls && DebugController?.State == Debugging.DebugState.Paused)
+            throw new Debugging.ImmediateEvalException("Creating objects is not available in the Immediate window.");
+        return new VbCollection(this);
     }
 
     /// <summary>Decrement the reference count of a live class instance; fire <c>Class_Terminate</c> the instant it
@@ -366,6 +377,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             foreach (var element in array.EnumerateElements())
                 await ReleaseRef(element);
         }
+        // A Collection whose last reference goes releases what it holds, first to last (measured, #1471).
+        else if (v.Value is VbCollection c && --c.RefCount <= 0)
+            await c.ReleaseItems();
     }
 
     /// <summary>Run the instance's <c>Private Sub Class_Terminate</c> (if any), one-shot. Sets <see
@@ -433,7 +447,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     // it are released at the caller's statement end, after whatever stored the result has copied it.
     private static void AdoptReturn(Vb6Value? ret, Stack<List<Vb6Value>>? callerFrames)
     {
-        if (ret is { Value: VbObject or VBArray } r && callerFrames is { Count: > 0 })
+        if (ret is { Value: VbObject or VBArray or VbCollection } r && callerFrames is { Count: > 0 })
             callerFrames.Peek().Add(r);
     }
 
@@ -442,13 +456,14 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// built-in) still terminates at statement-end. The <c>AddRef</c> here nets against the frame flush; any store
     /// (<c>Set</c>) or ByVal-param bind AddRefs again, leaving exactly the destination's hold after the flush. If
     /// there is no active frame the object simply isn't tracked (leaks — the safe direction).</summary>
-    public void AdoptNewTemp(Vb6Value v, Stack<List<Vb6Value>> frames)
+    public Vb6Value AdoptNewTemp(Vb6Value v, Stack<List<Vb6Value>> frames)
     {
-        if (v.Value is VbObject && frames.Count > 0)
+        if (v.Value is VbObject or VbCollection && frames.Count > 0)
         {
             AddRef(v);
             frames.Peek().Add(v);
         }
+        return v;
     }
 
     public BasicInterpreter(IBasicStandardLibrary stdLib,
@@ -1489,9 +1504,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     // A ByVal object param is a counted hold for the call's duration (so a `New T` passed straight
                     // into a call terminates right after the call, per the oracle); release it at scope-exit. A ByVal
                     // array is the callee's own copy, whose objects the copy holds, so it is released there too.
-                    if (stored.Value is VbObject or VBArray && callee.TryGetVariableLocation(p.Name, out var ploc))
+                    if (stored.Value is VbObject or VBArray or VbCollection && callee.TryGetVariableLocation(p.Name, out var ploc))
                     {
-                        if (stored.Value is VbObject)
+                        if (stored.Value is VbObject or VbCollection)
                             AddRef(stored);
                         ownedSlots.Add(ploc);
                     }

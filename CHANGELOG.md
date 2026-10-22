@@ -208,6 +208,17 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **VB6's Collection runs** (#1471). There was none, so a program that made one stopped at `New Collection`. Now
+  `Add`, `Item`, `Remove`, `Count`, For Each and `c!key` give vb6.exe's answers and errors, each measured native and
+  p-code. That includes the two that surprise people:
+  - For Each walks the Collection itself, so removing the current item goes on to the next;
+  - a key that isn't a String counts as a duplicate when it names an existing position, so `c.Add x, 5` is 457 in
+    a Collection of five and 13 in one of four.
+
+  Objects held in a Collection are released when the last reference goes, in VB6's order. Locals and Watch open a
+  Collection to its items. Still to come: `Dim c As New Collection` (#435), arrays of Collection (#1482), and keys
+  compared as VB6's text compare does rather than only ignoring case (#1479).
+
 - **A control added or pasted takes the TabIndex VB6 gives it** (#925). The first control got 1, a Timer or a Shape used
   a number up, a Label or a Frame was saved without one, and a pasted control kept its source's, so the file held two
   controls at one TabIndex. A control on a loaded form could also take a Label's or a Frame's number, which HexIDE
