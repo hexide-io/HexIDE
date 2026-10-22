@@ -185,6 +185,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Six VB6 system colours no longer draw hot pink** (#908). A control given Scroll Bars, Active Title Bar, Active
+  Border, Inactive Border, ToolTip Text or ToolTip (`vbInfoBackground`) painted DeepPink, in the designer and at run
+  time, because no colour was defined for them. They now take Windows 10's values, as measured on vb6.exe, and a
+  system colour that still has none is named in the log.
 - **A form's own Click runs** (#1364). A click on the form's area, over no control, ran `Form_MouseDown` and
   `Form_MouseUp` and never `Form_Click`. Now Click follows MouseUp, for the left, right and middle buttons, as
   vb6.exe does with real input. As in VB6, a press released over a control or outside the form gives no Click. A
