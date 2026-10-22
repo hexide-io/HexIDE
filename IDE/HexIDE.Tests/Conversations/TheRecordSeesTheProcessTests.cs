@@ -247,21 +247,26 @@ public class TheRecordSeesTheProcessTests : IAsyncDisposable
         (await connection.WaitForAsync(ConversationEntryKind.Lifecycle, "process exited")).Fault.Should().BeFalse();
     }
 
-    [Fact]
-    public async Task A_non_zero_exit_while_this_client_stops_the_server_is_not_a_fault()
+    [Theory]
+    [InlineData(1, true)]
+    [InlineData(0, false)]
+    public async Task The_code_a_server_exits_with_while_this_client_stops_it_says_whether_the_stop_failed(int code, bool fault)
     {
-        // Stopping can kill the process, which gives a non-zero code that is no failure of the server's.
+        // LSP has a server exit 0 when a shutdown preceded exit and non-zero otherwise, so the code it stops with is
+        // its account of how the stop went. The stop's non-zero exit was excused as a kill's, but every transport
+        // unhooks before it kills, so the excuse hid only the server's own exit (#1314).
         var transport = new NoticingFakeTransport { HoldShutdown = true };
         var connection = await Connected("vb6", transport);
         var stopping = connection.Client.StopAsync();
         await transport.ShutdownArrived.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
 
-        transport.Say(TransportNoticeKind.Lifecycle, "process exited with code 137", fault: true);
+        transport.Say(TransportNoticeKind.Lifecycle, $"process exited with code {code}", fault: code != 0);
         transport.Release.TrySetResult();
         await stopping;
 
         await _log.DrainAsync();
-        _log.Snapshot("vb6").Single(e => e.Detail == "process exited with code 137").Fault.Should().BeFalse();
+        _log.Snapshot("vb6").Single(e => e.Detail == $"process exited with code {code}").Fault.Should().Be(fault);
+        _log.Snapshot("vb6").Any(e => e.IsFailure()).Should().Be(fault, "a clean stop leaves no failure behind");
     }
 
     [Fact]

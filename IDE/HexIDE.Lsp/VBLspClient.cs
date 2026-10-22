@@ -1627,8 +1627,11 @@ public sealed class VBLspClient : ILspClient
             ? (ConversationDirection.Received, ConversationEntryKind.StandardError)
             : (ConversationDirection.Local, ConversationEntryKind.Lifecycle);
 
-        // A non-zero exit is a fault unless this client was stopping it, when killing it can give one (#945).
-        Note(direction, kind, null, notice.Text, fault: notice.Fault && !_stopping);
+        // A non-zero exit is a fault (#945), while this client stops the server too (#1314). LSP has a server exit 0
+        // when a shutdown preceded exit and non-zero otherwise, so the code is the server's account of how the stop
+        // went. A kill cannot arrive here: StopAsync unhooks this before it disposes the transport, and each
+        // transport unhooks its own exit handler before it kills.
+        Note(direction, kind, null, notice.Text, fault: notice.Fault);
     }
 
     private void OnTransportClosed(object? sender, EventArgs e)
