@@ -4,7 +4,7 @@
 When the IDE is started with the name of an agent session, the server SHALL run a tool call only when the client names
 that same session. It SHALL answer any other tool call, from a client naming another session or none, with an error
 that names the session the IDE serves and identifies its process, and SHALL NOT run it. An IDE started without a
-session SHALL serve every caller.
+session SHALL serve a client that names no session, and SHALL refuse a client that names one in the same way.
 
 #### Scenario: The session the IDE serves
 - **WHEN** a client naming the session the IDE was started for calls a tool
@@ -15,8 +15,12 @@ session SHALL serve every caller.
 - **THEN** the call is answered with an error naming the IDE's session and process, and the tool does not run
 
 #### Scenario: An IDE started without a session
-- **WHEN** any client calls a tool on an IDE started without a session
+- **WHEN** a client naming no session calls a tool on an IDE started without a session
 - **THEN** the tool runs, as it would for a single developer with nothing configured
+
+#### Scenario: A named session reaches an IDE started without one
+- **WHEN** a client naming a session calls a tool on an IDE started without a session
+- **THEN** the call is answered with an error saying the IDE serves no session, and the tool does not run
 
 ### Requirement: A refused tool call SHALL leave the client connected and told why first
 A tool call refused because it came from another session SHALL be answered as an error result rather than as a refused

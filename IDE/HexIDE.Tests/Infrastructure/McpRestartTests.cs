@@ -367,10 +367,17 @@ public class McpRestartTests
             File.ReadAllText(Path.Combine(RepoTree.Root(), "IDE", "HexIDE.Desktop", "Server", "IdeServer.cs")));
 
         // ToolFilters registers the session guard and then ToolFailures (#1306). It is compiled in here, so
-        // SessionGuardTests drive that order for real; this proves the IDE registers through it.
+        // SessionGuardTests drive that order for real; this proves the IDE registers through it, with the session it
+        // was started for, and reports that session in /health.
         source.Should().Contain(".WithHttpTransport(McpTransport.Configure)")
-            .And.Contain("ToolFilters.Register(")
+            .And.MatchRegex(@"ToolFilters\.Register\([\s\S]*?ReplyJson\.Options\), session\)")
+            .And.Contain("Session: session,")
             .And.Contain(".AddCallToolFilter(OpenDialogNote.Filter)")
             .And.Contain(".WithTools<HexIdeTools>(ReplyJson.Options)");
+
+        var startup = ToolSource.WithoutComments(
+            File.ReadAllText(Path.Combine(RepoTree.Root(), "IDE", "HexIDE.Desktop", "DesktopStartup.cs")));
+        startup.Should().Contain("IdeServer.RunAsync(port, ServerOptions.Session,",
+            "the server is started with the session --session named, or the guard has nothing to compare");
     }
 }

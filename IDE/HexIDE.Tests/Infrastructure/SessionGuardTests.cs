@@ -204,11 +204,11 @@ public class SessionGuardTests
 
     [Theory]
     [InlineData(null)]
-    [InlineData("beta")]
-    public Task An_IDE_started_for_no_session_serves_everyone(string? caller) =>
+    [InlineData("")]
+    public Task An_IDE_started_for_no_session_serves_a_client_that_names_none(string? caller) =>
         WithServerAsync(null, async port =>
         {
-            // A contributor sets nothing, and nothing changes for them.
+            // A contributor sets nothing, and nothing changes for them: .mcp.json sends the header empty.
             await using var client = await ConnectAsync(port, caller);
 
             var result = await EchoAsync(client, "hello");
@@ -217,13 +217,32 @@ public class SessionGuardTests
             TextOf(result).Should().Be("hello");
         });
 
+    [Fact]
+    public Task An_IDE_started_for_no_session_refuses_a_client_that_names_one() =>
+        WithServerAsync(null, async port =>
+        {
+            // The likeliest mistake of all: a session that set HEXIDE_SESSION and not HEXIDE_MCP_PORT reaches 5123,
+            // where an IDE started with nothing set is waiting. Serving it would be the silence this exists to end.
+            await using var client = await ConnectAsync(port, "beta");
+            var before = Volatile.Read(ref Tools.Calls);
+
+            var result = await EchoAsync(client, "hello");
+
+            result.IsError.Should().BeTrue();
+            TextOf(result).Should().Contain("for no session").And.Contain("'beta'");
+            Volatile.Read(ref Tools.Calls).Should().Be(before);
+        });
+
     // ── The rule ───────────────────────────────────────────────────────────────
 
     [Theory]
     [InlineData("alpha", "alpha")]
     [InlineData("alpha", "ALPHA")]
     [InlineData("alpha", " alpha ")]
-    public void The_same_session_is_allowed(string ide, string caller) =>
+    [InlineData(null, null)]
+    [InlineData(null, "")]
+    [InlineData(null, "  ")]
+    public void The_same_session_is_allowed(string? ide, string? caller) =>
         SessionGuard.Refusal(ide, caller).Should().BeNull();
 
     [Theory]
@@ -233,7 +252,8 @@ public class SessionGuardTests
     [InlineData("alpha", null)]
     [InlineData("alpha", "")]
     [InlineData("alpha", "   ")]
-    public void Any_other_caller_is_refused(string ide, string? caller) =>
+    [InlineData(null, "beta")]
+    public void Any_other_caller_is_refused(string? ide, string? caller) =>
         SessionGuard.Refusal(ide, caller).Should().NotBeNull();
 
     [Fact]
@@ -243,6 +263,6 @@ public class SessionGuardTests
 
         refusal.Should().Contain("'alpha'").And.Contain("'beta'")
             .And.Contain($"PID {Environment.ProcessId}")
-            .And.Contain("HEXIDE_MCP_PORT").And.Contain("HEXIDE_SESSION");
+            .And.Contain("X-HexIDE-Session").And.Contain("HEXIDE_MCP_PORT").And.Contain("HEXIDE_SESSION");
     }
 }

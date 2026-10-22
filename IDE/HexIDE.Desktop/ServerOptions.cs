@@ -45,8 +45,8 @@ internal static class ServerOptions
 
     /// <summary><c>--user-data-dir</c> was given with nothing after it that could be a directory.</summary>
     /// <remarks>
-    /// <b>One of two flags here that refuse to start rather than being skipped</b>, with
-    /// <see cref="ServerPortInvalid"/>. Every other malformed
+    /// <b>One of the few flags here that refuse to start rather than being skipped</b>, with
+    /// <see cref="ServerPortInvalid"/>, <see cref="SessionMissing"/> and <see cref="AnsiCodePageInvalid"/>. Every other malformed
     /// argument is ignored and the IDE starts normally, which is harmless when the flag was a convenience.
     /// This one is asked for precisely to keep a session away from the user's real settings, so ignoring it
     /// would quietly do the one thing it was given to prevent: a demo or an automation run writing into
@@ -194,12 +194,13 @@ internal static class ServerOptions
                 return value is not null;
             }),
 
-        // A value beginning `--` is the next flag, not a name, as for --user-data-dir.
+        // A value beginning `-` or `/` is the next flag, not a name. Unlike --user-data-dir, whose value may be a Unix
+        // path, a session's name never begins with `/`, and `/newproject` is a spelling this parser accepts.
         new("session", "<name>",
             "Serve automation only to this agent session. Debug builds only.",
             value =>
             {
-                if (string.IsNullOrWhiteSpace(value) || value.StartsWith("--", StringComparison.Ordinal))
+                if (string.IsNullOrWhiteSpace(value) || value.TrimStart().StartsWith('-') || value.TrimStart().StartsWith('/'))
                 {
                     SessionMissing = true;
                     return false;

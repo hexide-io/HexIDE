@@ -25,9 +25,15 @@ namespace HexIDE.Desktop.Server;
 /// changes nothing, and a session that can list them can also read why its calls are refused.
 /// </para>
 /// <para>
+/// <b>Both sides must agree, and "no session" is one of the answers.</b> An IDE started without <c>--session</c>
+/// serves a client that names no session, which is what a contributor with nothing set gets, and refuses one that
+/// names a session: that client was meant for an IDE started for it, and the likeliest way to land here instead is a
+/// session that set <c>HEXIDE_SESSION</c> and not <c>HEXIDE_MCP_PORT</c>, and so reached 5123. What this cannot catch
+/// is two sessions that both set nothing: neither names itself, so there is nothing to compare.
+/// </para>
+/// <para>
 /// <b>A guard against mistakes between cooperating sessions, not a security control.</b> The header is trivially
-/// forged, and anything that can open the port can drive the IDE whatever it says (#352). An IDE started without
-/// <c>--session</c> registers nothing and serves every caller, which is what a contributor with nothing set gets.
+/// forged, and anything that can open the port can drive the IDE whatever it says (#352).
 /// </para>
 /// </remarks>
 internal static class SessionGuard
@@ -36,15 +42,12 @@ internal static class SessionGuard
     public const string Header = "X-HexIDE-Session";
 
     /// <summary>
-    /// Adds the guard to a server under construction, for an IDE started for <paramref name="session"/>. Adds nothing
-    /// when there is no session. Called before any other tool-call filter, so a caller on the wrong IDE is told that
-    /// first, rather than how to fix its arguments for a tool on an IDE that is not its own.
+    /// Adds the guard to a server under construction, for an IDE started for <paramref name="session"/>, or for none
+    /// when it is null. Called before any other tool-call filter, so a caller on the wrong IDE is told that first,
+    /// rather than how to fix its arguments for a tool on an IDE that is not its own.
     /// </summary>
     public static IMcpServerBuilder Register(IMcpServerBuilder builder, string? session)
     {
-        if (string.IsNullOrWhiteSpace(session))
-            return builder;
-
         builder.Services.AddHttpContextAccessor();
         return builder.WithRequestFilters(filters => filters.AddCallToolFilter(next => async (request, ct) =>
         {
@@ -62,25 +65,28 @@ internal static class SessionGuard
 
     /// <summary>
     /// Why a call from <paramref name="caller"/> is refused by an IDE started for <paramref name="session"/>, or null
-    /// when it is the same session. Names compare without regard to case or surrounding spaces, and an empty or absent
-    /// header names no session, which is what <c>.mcp.json</c> sends from a session started without
-    /// <c>HEXIDE_SESSION</c>.
+    /// when the two agree: the same session, or neither naming one. Names compare without regard to case or
+    /// surrounding spaces, and an empty or absent value names no session, which is what <c>.mcp.json</c> sends from a
+    /// session started without <c>HEXIDE_SESSION</c>.
     /// </summary>
     /// <remarks>
     /// The text may be pasted into a public issue, so it names the build by its directory with the user's profile
     /// replaced, and never names the IDE's <c>--user-data-dir</c>.
     /// </remarks>
-    internal static string? Refusal(string session, string? caller)
+    internal static string? Refusal(string? session, string? caller)
     {
-        var named = caller?.Trim();
-        if (string.Equals(named, session.Trim(), StringComparison.OrdinalIgnoreCase))
+        var serves = string.IsNullOrWhiteSpace(session) ? null : session.Trim();
+        var named = string.IsNullOrWhiteSpace(caller) ? null : caller.Trim();
+        if (string.Equals(named, serves, StringComparison.OrdinalIgnoreCase))
             return null;
 
-        var from = string.IsNullOrEmpty(named) ? "a client that named no session" : $"session '{named}'";
+        var started = serves is null ? "for no session" : $"for session '{serves}'";
+        var from = named is null ? "a client that named no session" : $"session '{named}'";
         return ToolFailures.WithoutProfile(
-            $"This HexIDE was started for session '{session.Trim()}', and this call came from {from}, so it was not run. "
-          + "A session reaches the IDE on the port HEXIDE_MCP_PORT gives it and names itself with HEXIDE_SESSION, and "
-          + "both are read when the session starts: check where this one was started. This IDE is PID "
+            $"This HexIDE was started {started}, and this call came from {from}, so it was not run. A client names its "
+          + $"session in the {Header} header, which this repository's .mcp.json fills from HEXIDE_SESSION, and reaches "
+          + "the IDE on the port HEXIDE_MCP_PORT gives it. Both are read when the session starts, so check where this "
+          + "one was started, and start an IDE for it with scripts/dev-ide.ps1. This IDE is PID "
           + $"{Environment.ProcessId}, built in {AppContext.BaseDirectory}.");
     }
 }

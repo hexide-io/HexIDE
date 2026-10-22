@@ -34,7 +34,7 @@ This asymmetry is deliberate and it is easy to read the wrong way round.
 **`--server-port`, `--session`, `--developer-mode` and `--ansi-code-page` are inert in a release build.** The automation
 server is compiled out entirely, and developer mode is hard-disabled, so a distributed binary opens no port
 and cannot be put into developer mode however it is launched. Nor can it be told to read files as another
-machine would: what a release reads a file as is what the machine it runs on reads it as. None of the three
+machine would: what a release reads a file as is what the machine it runs on reads it as. None of the four
 errors; each simply does nothing.
 
 **`--capture-lsp` is not.** The protocol capture ships in release builds, because the people it is for are
@@ -92,7 +92,10 @@ otherwise drive that IDE with nothing in any reply to say so. Given `--session <
 only when the client names that session in its `X-HexIDE-Session` header, which the repository's `.mcp.json` sends
 from `HEXIDE_SESSION`. Any other call is answered with an error saying whose IDE this is and what to check, and is not
 run. Listing the tools still works, and so does `/health`, which reports the `session` beside the `pid`. Without the
-flag every caller is served, as before. Like `--user-data-dir`, it refuses to start with exit code 2 when given
+flag, a client that names no session is served, as before, and one that names a session is refused: it was meant for an
+IDE started for it. Two clients that both name none cannot be told apart, so this does not separate those.
+A session's name is matched as plain ASCII: Claude Code sends the header in Latin-1, and the server refuses a header
+byte outside ASCII as a malformed request, which the client counts towards dropping its tools. Like `--user-data-dir`, it refuses to start with exit code 2 when given
 nothing after it, because starting would serve every session's client, which is what it was given to prevent. It is a
 guard against mistakes between cooperating sessions, not access control: the header is not a secret. The
 `scripts/dev-ide.ps1` launcher passes it from `HEXIDE_SESSION`; `CLAUDE.md` describes the setup under *Parallel

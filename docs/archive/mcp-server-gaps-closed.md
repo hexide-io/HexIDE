@@ -4299,29 +4299,3 @@ by reflection, as `close` already reaches the window's own close handling. Not t
 > the editor the pointer had left, and the repeat was taken for jitter); one device, and the editor forgetting its
 > hover on exit, fixed that. Guarded by `HoverThroughWindowInputTests`. The placement measurements above describe the
 > old route.
-
-## A session could reach an IDE that was not its own, and nothing in a reply said so (#1306)
-
-**Symptom.** Measured 2026-10-22 with two Debug IDEs, one on port 5128 with a new project and one on 5130 with
-`SpringTide.vbp`. A headless session started with `HEXIDE_MCP_PORT=5128` called `get_project_info` and got
-`Project1`; one started with `HEXIDE_MCP_PORT=5130` got `SpringTide`. So a port picks the IDE, and the replies are
-the same whichever IDE answers. Since #1212, sessions that each set `HEXIDE_MCP_PORT` stay apart. Two sessions that
-set nothing both reach 5123, and a session given the port of a stale IDE left running drives that IDE. Either
-way, the replies look exactly as they would from the session's own build.
-
-**Workaround.** Start the IDE with `pwsh scripts/dev-ide.ps1`, which returns only once `/health` answers with the
-PID of the process it started, and stop it with `shutdown_ide` or `scripts/dev-ide.ps1 -Stop` rather than leaving it
-running.
-
-**Suggested fix.** Tie an IDE to the session that started it: a DEBUG-only `--session <name>`, echoed by `/health`,
-and a session header from `.mcp.json`. An IDE started with `--session` then answers any other session's
-`tools/call` with an error result that names whose IDE it is.
-[#1306](https://github.com/hexide-io/HexIDE/issues/1306).
-
-> **Fixed.** An IDE started with `--session <name>` serves a tool call only when the client names that session in its
-> `X-HexIDE-Session` header. `.mcp.json` sends `HEXIDE_SESSION` there, and `scripts/dev-ide.ps1` starts the IDE with
-> the same variable. Any other call, from a client naming another session or none, comes back as an error result
-> naming the IDE's session, PID and build directory, and is not run. It is a result rather than a refused request, so
-> it never counts towards the client's three connection errors, and listing the tools still works. `/health` reports
-> the session beside the PID. An IDE started without the flag serves every caller, as before. Guarded by
-> `SessionGuardTests`, which run a real server under the SDK's real client; the live checks are in the PR.

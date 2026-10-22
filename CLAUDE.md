@@ -456,8 +456,12 @@ that set nothing. Say so, and ask to be restarted with a port of its own, rather
   call instead of verifying a change against a build that does not have it. The refusal is a result, not a refused
   request, so it never counts towards the three connection errors that drop the tools; listing tools still works, and
   `/health` reports the `session` beside the `pid`. An IDE started without `--session`, which is what a contributor
-  with nothing set gets, serves every caller. The header is no secret: this guards against mistakes between
-  cooperating sessions, not against anyone who can open the port (#352).
+  with nothing set gets, serves a client that names no session and refuses one that names a session, so a session
+  that set `HEXIDE_SESSION` but not `HEXIDE_MCP_PORT`, and so reached 5123, is told too. **Two sessions that both set
+  nothing are still not told apart**: neither names itself, so there is nothing to compare. The header is no secret:
+  this guards against mistakes between cooperating sessions, not against anyone who can open the port (#352). Keep
+  session names to the script's ASCII grammar; Claude Code sends the header in Latin-1, and a byte outside ASCII is
+  refused as a malformed request, which counts towards dropping the tools.
 - **Stop only your own IDE**: `shutdown_ide`, or `pwsh scripts/dev-ide.ps1 -Stop`, which stops this session's
   HexIDE on your port and nothing else. **Never `Stop-Process -Name HexIDE.Desktop`**: on a machine running several
   sessions it kills all of their IDEs.
@@ -933,7 +937,7 @@ widening visibility to `public` just for a test. When a new test project needs r
 - **`docs/foreign-language-servers.md`** — the third-party servers the suite drives, why each earns its
   place, how they are obtained, and why a GPL-licensed one is consistent with a 100%-MIT tree. Read it
   before adding a third: the bar is a protocol *shape* nothing else exercises, not another server.
-- **`docs/command-line.md`** — every command-line option HexIDE accepts, what each does, and which three are
+- **`docs/command-line.md`** — every command-line option HexIDE accepts, what each does, and which four are
   inert in a distributed build. The only user-facing account; keep it in step with
   `HexIDE.Desktop/ServerOptions.cs`, which is the parser it describes.
 - **`docs/language-servers.md`** — how a user attaches a language server: where `lsp-servers.json` lives,

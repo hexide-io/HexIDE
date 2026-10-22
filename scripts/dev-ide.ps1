@@ -246,10 +246,18 @@ while ((Get-Date) -lt $deadline) {
 
     $answering = Get-Health
     if ($answering -and [int] $answering.pid -eq $ide.Id) {
+        # The session as the IDE reports it, not as it was asked for: a build from before --session skips the flag
+        # without a word, and would then serve every caller while this said otherwise (#1306).
+        if ("$($answering.session)" -ne "$session") {
+            $got = if ($answering.session) { "session '$($answering.session)'" } else { 'no session' }
+            throw "HexIDE (PID $($ide.Id)) answers on port $port for $got, not for '$session', so it would not guard " +
+                "against another session's calls. It is probably a build from before --session; rebuild it, or stop " +
+                "it with Stop-Process -Id $($ide.Id)."
+        }
         [pscustomobject] @{
             Pid         = $ide.Id
             Port        = $port
-            Session     = $session
+            Session     = $answering.session
             UserDataDir = $profileDirectory
             Exe         = $Exe
         }
