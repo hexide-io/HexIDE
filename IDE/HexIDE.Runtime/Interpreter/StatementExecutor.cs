@@ -2488,22 +2488,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitRedimStmt(VB6Parser.RedimStmtContext context)
     {
-        if (context.PRESERVE() != null)
-        {
-            // Not implemented, except where VB6 would refuse it anyway: an array one of whose elements a running call holds
-            // ByRef is locked, and ReDim Preserve on it is 10 and leaves it as it was (measured, #1455). Its bounds are converted
-            // first, so `ReDim Preserve d("x")` is 13, and an inverted range is 10, as for a plain ReDim (measured). That check
-            // must stay ahead of any resize when Preserve is built, or the element's parameter would go on writing the old storage.
-            foreach (var redim in context.redimSubStmt())
-                if (redim.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } preserved
-                    && interpreter.ExecutionContext.TryGetVariable(currentEnv, preserved.ambiguousIdentifier().GetText(), out var held)
-                    && held.Value is VBArray { IsLocked: true })
-                {
-                    await ExtractDimensions(redim.subscripts());
-                    throw new VBRunTimeException(context, VBStandardError.ThisArrayIsFixedOrTemporarilyLocked);
-                }
-            throw new NotImplementedException("PRESERVE not implemented");
-        }
+        var preserve = context.PRESERVE() != null;
 
         foreach (var redim in context.redimSubStmt())
         {
@@ -2539,8 +2524,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
             // A fixed array reached through a parameter is 10, "This array is fixed or temporarily locked", and is left
             // as it was: measured for a local and a module-level fixed array, a typed and an untyped array parameter, an
-            // untyped `Sub G(v)`, `v As Variant`, ReDim Preserve (refused above, as not implemented), and the same bounds
-            // again. Its bounds are converted first (`ReDim b("x")` is 13), and the 10 comes before an inverted range's 9
+            // untyped `Sub G(v)`, `v As Variant`, ReDim Preserve (#1459: `GF f` is 10 inside and leaves (0 To 3)), and the same
+            // bounds again. Its bounds are converted first (`ReDim b("x")` is 13), and the 10 comes before an inverted range's 9
             // (`ReDim b(5 To 2)` is 10). Named directly, a local or a module-level one, it does not compile: "Array already
             // dimensioned" (measured). It was silently replaced. Fixedness is the declaring slot's
             // (ExecutionState.MarkFixedArray), not the array's: a Let into another slot does not carry it (`d = f` then
@@ -2554,8 +2539,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             }
             // So is a dynamic array one of whose elements a running call holds ByRef, and a Variant holding one, until the
             // call returns (measured, #1455: `ReDim d(5)` inside `PRD d(1)` is 10 and leaves UBound 2, and ReDim after works).
+            // ReDim Preserve too, in the same order: `ReDim Preserve d("x")` is 13, and `d(5 To 2)` 10.
             if (value.Value is VBArray { IsLocked: true })
                 throw new VBRunTimeException(context, VBStandardError.ThisArrayIsFixedOrTemporarilyLocked);
+
+            if (preserve && await TryPreserve(context, value, dimensions, redim.asTypeClause() != null ? type : null, variant))
+                continue;
 
             // An upper bound below its lower raises 9, and an array is left erased, typed as it was. Measured: ReDim
             // b(-1), b(5 To 2) and b(0 To -1) each raise 9, and UBound(b) then raises 9 too, for a declared array and
@@ -2595,6 +2584,63 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
 
         return ControlFlow.Nothing;
+    }
+
+    /// <summary>
+    /// ReDim Preserve of an array that is already dimensioned (#1459, measured native and p-code): only the last dimension's
+    /// upper bound may change, and the array keeps its type and every element still in range. An undimensioned dynamic array
+    /// is dimensioned as a plain ReDim does it, so this returns false for one and the caller goes on. Measured:
+    /// <list type="bullet">
+    /// <item>`ReDim a(2): a(2) = 7: ReDim Preserve a(4)` keeps 7, and a(4) is a Long 0; a String array's new element is "",
+    /// a Variant array's Empty; an array of a Type keeps its elements' fields, and an object array its references.</item>
+    /// <item>A shrink drops the elements past the new bound, and an object held only there terminates during the statement.
+    /// One element is the least: `ReDim Preserve c(-1)` on (0 To 4) is 9, and so is an inverted range.</item>
+    /// <item>Any other bound changing is 9, and leaves the array as it was: an earlier dimension's (`m(2, 2)` on m(1, 2)),
+    /// the last one's lower (`bb(2 To 5)` and `bb(0 To 5)` on bb(1 To 3), and `m(1, 1 To 2)`), and the number of
+    /// dimensions either way. That comes before the size: `a(1 To 2147483647)` on a(2) is 9.</item>
+    /// <item>Too big to hold is 7, and leaves the array as it was, where a plain ReDim erases it: `a(2147483647)` on a(2).</item>
+    /// <item>A Variant holding an array is preserved in place, keeping its type (`tv = a` then `tv(5)` is a Long); an Empty
+    /// Variant, and one holding 5, is 13.</item>
+    /// <item>An `As` clause naming the array's own type is accepted; another is VB6's compile error "Can't change data types
+    /// of array elements" on a declared array, and 13 on a Variant holding one (`Variant()` As Long, `Long()` As Integer).</item>
+    /// </list>
+    /// </summary>
+    private async Task<bool> TryPreserve(VB6Parser.RedimStmtContext context, Vb6Value value, List<(int, int)> dimensions,
+        Vb6Value.ValueType? asType, bool variant)
+    {
+        if (value.Value is not VBArray kept)
+            throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
+        if (asType is { } named && named != value.Type)
+        {
+            if (variant)
+                throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
+            throw new VBCompileErrorException("Can't change data types of array elements");
+        }
+        if (!kept.IsDefined)
+            return false;
+
+        var rank = kept.Rank;
+        if (dimensions.Count != rank)
+            throw new VBRunTimeException(context, VBStandardError.SubscriptOutOfRange);
+        for (var d = 0; d < rank - 1; d++)
+            if (dimensions[d] != (kept.LowerBound(d + 1), kept.UpperBound(d + 1)))
+                throw new VBRunTimeException(context, VBStandardError.SubscriptOutOfRange);
+        var (lower, upper) = dimensions[^1];
+        if (lower != kept.LowerBound(rank) || upper < lower)
+            throw new VBRunTimeException(context, VBStandardError.SubscriptOutOfRange);
+
+        List<Vb6Value> dropped;
+        try
+        {
+            dropped = kept.Preserve(upper);
+        }
+        catch (VBRunTimeException e) when (e.Error.ErrNo == VBStandardError.OutOfMemory.ErrNo)
+        {
+            throw new VBRunTimeException(context, VBStandardError.OutOfMemory);
+        }
+        foreach (var element in dropped)
+            await interpreter.ReleaseRef(element);
+        return true;
     }
 
     public override async Task<ControlFlow> VisitVariableStmt(VB6Parser.VariableStmtContext context)

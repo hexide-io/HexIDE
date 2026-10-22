@@ -87,11 +87,14 @@ public static class ComponentNaming
                 && component.GetPropertyOrDefault(VBProperties.NameProperty) is { Length: > 0 } name)
                 names.Add(name);
             foreach (var preserved in component.PreservedChildSubtrees)
-                foreach (Match begin in BeginLine.Matches(preserved.Text))
-                    names.Add(begin.Groups["name"].Value);
+                names.UnionWith(NamesDeclaredBy(preserved.Text));
         }
         return names;
     }
+
+    /// <summary>The names of the controls a preserved block declares: its own, and those nested in it.</summary>
+    public static IEnumerable<string> NamesDeclaredBy(string preservedText) =>
+        BeginLine.Matches(preservedText).Select(begin => begin.Groups["name"].Value);
 
     private static readonly Regex BeginLine = new(@"^\s*Begin\s+\S+\s+(?<name>\S+)", RegexOptions.Multiline);
 }
