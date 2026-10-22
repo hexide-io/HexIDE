@@ -189,7 +189,7 @@ there isn't one yet. Anything may change between 0.x releases.
   what `Print #` writes, which is what VB6 does, line for line, as measured in its IDE:
   - numbers have a space for the sign and one after;
   - a comma moves to the next 14-column zone;
-  - a statement ending in `;` or `,` leaves its line open for the next.
+  - a statement ending in `;` or `,` leaves its line open for the next, even in the next run.
 
   `Spc(n)` and `Tab(n)` now work in both, where `Print #` refused them.
 - **MousePointer has all seventeen of VB6's values** (#120). Icon (4), Size (5), Arrow and Hourglass (13) and Arrow and
