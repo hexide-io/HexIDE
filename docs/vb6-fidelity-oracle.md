@@ -1609,6 +1609,46 @@ What it still does not do:
 - **`Sorted`,** which HexIDE has no property for.
 - **`ListCount = 5`** is the compile error's text, raised when the statement runs, not before the program does.
 
+## A ComboBox's Text, at each Style, from code (2026-10-22, #926)
+
+**The probe.** A form with four ComboBoxes, built with `/make` and run, native and p-code giving byte-identical logs:
+- `Combo1`, Style 0 (Dropdown Combo), saved with `Text = "Combo1"`;
+- `Combo2`, Style 1 (Simple Combo), saved with `Text = "Combo2"`;
+- `Combo3`, Style 2 (Dropdown List), with no Text line;
+- `Combo4`, Style 2, saved with `Text = "x"`.
+
+Each of the first three was filled with `apple`, `Banana` and `cherry`, then given each Text in turn. Every handler for
+Click and Change logged its name, and each row was read under `On Error Resume Next`.
+
+| Read at load | VB6 |
+|---|---|
+| `TypeName(Combo1.Text)` | **String** |
+| `Combo1.Text`, `Combo2.Text` | `Combo1`, `Combo2`, as saved |
+| `Combo3.Text`, and **`Combo4.Text`, saved as `x`** | `""` each: **a Dropdown List ignores a saved Text** |
+| `ListIndex` of each | -1 |
+| `Style` of each | `0`, `1`, `2`, an **Integer** |
+
+| Statement | Style 0 and Style 1, alike | Style 2 |
+|---|---|---|
+| `Text = "Banana"`, an item's text | Text `Banana`, **`ListIndex` -1**, **Change** | selects it: `ListIndex` 1, **Click** |
+| `Text = "banana"`, its text in other case | Text `banana`, `ListIndex` -1, Change | `Banana`, already selected, stays so; Text `Banana`; **Click all the same** |
+| `Text = "Ban"`, `"zz"` or `""` | that Text, `ListIndex` -1, Change | Err **383**, nothing changed, no event |
+| `Text = "cherry"` | Text `cherry`, Change | selects it, `ListIndex` 2, Click |
+| `ListIndex = 0` | Text `apple`, `ListIndex` 0, **Click, and no Change** | Text `apple`, Click |
+| `ListIndex = -1` | Text `""`, Click, no Change | Text `""`, Click |
+| `Text = Null` | Err **13**, not 94; nothing changed | Err 13 |
+| `Text = 5` | Text `5`, Change | Err 383 |
+
+What these show:
+- **A Style 0 or 1 combo's Text is its edit box's,** free of the list. Setting it to an item's text selects nothing, and
+  every assignment here raised Change. None set the Text it already had, so whether that raises Change is not measured.
+- **A Style 2 combo's Text is its selected item.** Setting it selects the first item whose whole text matches without
+  regard to case, and raises Click every time. With no match it is 383, "'Text' property is read-only".
+- **Moving `ListIndex` changes a Style 0 combo's Text** without raising Change.
+
+What resisted explanation:
+- **`Text = Null` is 13, Type mismatch,** where a TextBox's `SelText = Null` and the list's `List(Null)` are 94.
+
 ## Out of stack space — Error 28 (2026-08-22, #80)
 
 Verified with a `Sub Main` probe (`/make`, run, append each line to a log so nothing is lost to buffering).
