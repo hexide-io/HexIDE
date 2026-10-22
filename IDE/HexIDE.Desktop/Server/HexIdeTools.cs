@@ -608,8 +608,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
             // Any spelling the Properties window shows for a value; colours and enums were refused outright. (#641)
             // With the value it holds, so a font given in part keeps the rest (#952).
-            if (!PropertyText.TryParse(propClass, value, out var parsed, control.GetBoxedPropertyOrDefault(propClass)))
-                return (null, null, $"Cannot set '{propClass.Name}' to '{value}': it takes {PropertyText.Accepted(propClass)}");
+            // A face named here is a face, whatever its name ends in: Wingdings 2 read as Wingdings at size 2 (#1311).
+            if (!PropertyText.TryParse(propClass, value, out var parsed, out var why, control.GetBoxedPropertyOrDefault(propClass),
+                    HexIDE.Runtime.BuiltinTypes.VBFontExtensions.IsNameable))
+                return (null, null, $"Cannot set '{propClass.Name}' to '{value}': {(why is null ? "it" : why + ". It")} "
+                                    + $"takes {PropertyText.Accepted(propClass)}");
 
             // Refused BEFORE the property is set, for the same reason as set_file_content. (#538)
             if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(ownerModule is not null ? ownerModule.AbsolutePath : form.AbsolutePath))

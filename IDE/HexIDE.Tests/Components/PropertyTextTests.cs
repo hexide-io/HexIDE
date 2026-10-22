@@ -463,6 +463,56 @@ public class PropertyTextTests
         Font(face).FontFamilyName.Should().Be(face);
     }
 
+    [Theory]
+    [InlineData("Wingdings 2")]
+    [InlineData("Arial Rounded MT Bold")]
+    [InlineData("MS Shell Dlg 2")]
+    public void A_face_ending_in_a_number_or_style_word_round_trips(string face)
+    {
+        // The guess that a first part was a size or a style typed without its comma took these real faces for one, so
+        // get_form_controls showed a font that set_control_property refused, in a row marked not settable (#1311).
+        var font = new VBFont(face, 10, charset: 2);
+        Font(PropertyText.Shown(VBProperties.FontProperty, font), current: font).Should().Be(font);
+
+        var label = new ComponentInstance(LabelComponentClass.Instance, "Label1");
+        label.SetUntypedProperty(VBProperties.FontProperty, font);
+        PropertyText.Rows(label).Single(r => r.Name == "Font").Settable.Should().BeTrue();
+    }
+
+    [Fact]
+    public void A_face_the_caller_knows_is_a_face_whatever_its_name_ends_in()
+    {
+        static bool Known(string face) => face == "Wingdings 2";
+
+        PropertyText.TryParse(VBProperties.FontProperty, "Wingdings 2, 12 pt", out var value, Tahoma, Known).Should().BeTrue();
+        value.Should().BeOfType<VBFont>().Which.FontFamilyName.Should().Be("Wingdings 2");
+
+        PropertyText.TryParse(VBProperties.FontProperty, "Arial 12", out _, Tahoma, Known).Should().BeFalse("no face is named so");
+        PropertyText.TryParse(VBProperties.FontProperty, "Tahoma bold", out _, Tahoma, Known).Should().BeFalse();
+
+        // No test project references HexIDE.Desktop, so this reads the source: the tool asks what FontName takes here.
+        ToolSource.Tools.Single(t => t.Name == "set_control_property").Body
+            .Should().MatchRegex(@"PropertyText\.TryParse\([^;]*VBFontExtensions\.IsNameable\s*\)");
+    }
+
+    [Theory]
+    [InlineData("Arial 12", "a size")]
+    [InlineData("Arial 12pt", "a size")]
+    [InlineData("Tahoma bold", "a style word")]
+    public void A_face_followed_by_a_size_or_style_without_its_comma_is_refused_saying_so(string text, string what)
+    {
+        // The refusal described the text form the caller had sent, and never said which rule it broke (#1311).
+        PropertyText.TryParse(VBProperties.FontProperty, text, out _, out var reason, Tahoma).Should().BeFalse();
+
+        reason.Should().Contain($"'{text}'").And.Contain(what).And.Contain("comma").And.Contain("installed");
+    }
+
+    [Fact]
+    public void The_font_text_form_says_when_a_face_ending_in_a_number_is_one()
+    {
+        PropertyText.Accepted(VBProperties.FontProperty).Should().Contain("Wingdings 2").And.Contain("installed");
+    }
+
     [Fact]
     public void A_reply_shows_the_whole_font_not_its_face()
     {

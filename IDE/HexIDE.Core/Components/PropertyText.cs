@@ -26,11 +26,26 @@ public static partial class PropertyText
     /// <param name="current">
     /// The value the property holds now, for a text that changes part of one: a font's size alone keeps its face.
     /// </param>
-    public static bool TryParse(PropertyClass property, string text, out object? value, object? current = null)
+    /// <param name="isKnownFace">
+    /// Whether a font face is one the caller knows to exist, such as a family installed here. HexIDE.Core cannot ask
+    /// the machine, so the tools pass this from where they can (#1311).
+    /// </param>
+    public static bool TryParse(PropertyClass property, string text, out object? value, object? current = null,
+        Func<string, bool>? isKnownFace = null) =>
+        TryParse(property, text, out value, out _, current, isKnownFace);
+
+    /// <summary>
+    /// Parses <paramref name="text"/> as <see cref="TryParse(PropertyClass, string, out object?, object?, Func{string, bool}?)"/>
+    /// does, and says why it was refused where more can be said than <see cref="Accepted"/> says for every text.
+    /// </summary>
+    /// <param name="reason">Null when parsed, or when <see cref="Accepted"/> says all there is to say.</param>
+    public static bool TryParse(PropertyClass property, string text, out object? value, out string? reason,
+        object? current = null, Func<string, bool>? isKnownFace = null)
     {
         var type = property.PropertyType;
         var invariant = CultureInfo.InvariantCulture;
         value = null;
+        reason = null;
 
         if (type == typeof(double))
             return Parsed(double.TryParse(text, NumberStyles.Float, invariant, out var d), d, out value);
@@ -43,7 +58,7 @@ public static partial class PropertyText
         if (type.IsEnum)
             return TryParseEnum(type, text, out value);
         if (type == typeof(VBFont))
-            return TryParseFont(text, current is VBFont font ? font : VBFont.Default, out value);
+            return TryParseFont(text, current is VBFont font ? font : VBFont.Default, isKnownFace, out value, out reason);
 
         try
         {
@@ -75,7 +90,10 @@ public static partial class PropertyText
                    + "9.75 pt, bold, italic, charset 0\": a face, a size in points up to 2160, and style words (regular, "
                    + "bold, italic, underline, strikethrough, weight N, charset N), each once. A part not given keeps the "
                    + "current font's, but a new face without a charset takes charset 0, and when any style word is "
-                   + "given the words given are the whole style, so \"regular\" clears it";
+                   + "given the words given are the whole style, so \"regular\" clears it. A face whose name ends in a "
+                   + "number or a style word, such as \"Wingdings 2\", is taken as a face when it is the control's own, "
+                   + "installed here, or a Windows font vb6.exe takes by name, such as \"MS Shell Dlg 2\"; otherwise it "
+                   + "reads as a face and a size or style without their comma";
         if (type == typeof(byte[]))
             return "no text: it is loaded through the Properties window's dialog, and no automation route reaches it yet";
         if (type == typeof(bool))
@@ -260,8 +278,8 @@ public static partial class PropertyText
 
     // What a size or a style meant as one part looks like when it is the first, so it is not taken for a face: "-3 pt",
     // "12px", ".5", "1e2 pt", "Arial 12", "Tahoma bold". A face can start with a digit, as 8514oem does, but not be only
-    // a number, or end in a size or a unit.
-    [GeneratedRegex(@"^[-+.]|^[0-9.]+\s*(?:pt|px|points?)?$|\s(?:[0-9.]+\s*(?:pt|px|points?)?|pt|px|points?|regular|bold|italic|underline|strikethrough)$",
+    // a number, or end in a size or a unit -- unless it is a face the caller knows, as Wingdings 2 is (#1311).
+    [GeneratedRegex(@"^[-+.]|^[0-9.]+\s*(?:pt|px|points?)?$|\s(?:(?<size>[0-9.]+\s*(?:pt|px|points?)?|pt|px|points?)|(?<style>regular|bold|italic|underline|strikethrough))$",
         RegexOptions.IgnoreCase)]
     private static partial Regex NotAFace();
 
@@ -283,10 +301,15 @@ public static partial class PropertyText
     /// twice, as "9,75 pt" splits into two sizes; a first part that is a size or style mistyped, which was taken for a
     /// face; a face VB6 cannot hold or the .frm writer cannot quote; a size beyond VB6's 2160 points or finer than its
     /// four decimal places.</para>
+    /// <para>A known face is a face before it is a mistyped size or style (#1311): the current font's, so every font
+    /// get_form_controls shows sets back, and any <paramref name="isKnownFace"/> knows, so Wingdings 2 can be set.
+    /// Only a first part neither knows is judged by its shape.</para>
     /// </remarks>
-    private static bool TryParseFont(string text, VBFont current, out object? value)
+    private static bool TryParseFont(string text, VBFont current, Func<string, bool>? isKnownFace, out object? value,
+        out string? reason)
     {
         value = null;
+        reason = null;
         var parts = text.Split(',').Select(p => p.Trim()).ToList();
         if (parts.Any(p => p.Length == 0))
             return false;
@@ -334,7 +357,17 @@ public static partial class PropertyText
                     case "strikethrough": if (!Once("strikethrough")) return false; (strikethrough, styled) = (true, true); break;
                     // Anything else is the face, which comes first; a word later is a mistake, not a face.
                     default:
-                        if (i != 0 || !IsFace(part)) return false;
+                        if (i != 0 || !CanHoldFace(part)) return false;
+                        if (!string.Equals(part, current.FontFamilyName, StringComparison.OrdinalIgnoreCase)
+                            && isKnownFace?.Invoke(part) != true && NotAFace().Match(part) is { Success: true } guess)
+                        {
+                            if (guess.Groups["size"].Success || guess.Groups["style"].Success)
+                                reason = $"'{part}' reads as a face followed by "
+                                         + (guess.Groups["size"].Success ? "a size" : "a style word")
+                                         + ", which takes a comma between them, and it names neither the control's face "
+                                         + "nor a font installed here";
+                            return false;
+                        }
                         face = part;
                         break;
                 }
@@ -354,9 +387,8 @@ public static partial class PropertyText
     }
 
     // A face as GDI holds one, at most 31 characters, and as the .frm writer can quote it, without '"' or a control
-    // character; and not a size or a style mistyped (#952 review).
-    private static bool IsFace(string face) =>
-        face.Length <= 31 && !face.Any(c => c == '"' || char.IsControl(c)) && !NotAFace().IsMatch(face);
+    // character (#952 review).
+    private static bool CanHoldFace(string face) => face.Length <= 31 && !face.Any(c => c == '"' || char.IsControl(c));
 
     private static bool TryParseEnum(Type type, string text, out object? value)
     {
