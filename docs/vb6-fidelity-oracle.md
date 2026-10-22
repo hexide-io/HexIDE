@@ -9659,7 +9659,7 @@ dispatch, so MouseMove costs nothing where nobody handles it. Pinned in `MouseEv
 input, from every row above that HexIDE can reach.
 
 What it still does not do:
-- **DblClick** is raised by nothing (#1031).
+- **DblClick** is raised by nothing (#1031). Since #1031 it is: *A click with real input* below.
 - **The form's own Click** is raised by nothing, as before. Since #1364 it is: *A click with real input* below.
 - **Shift's mask and MouseMove's buttons** are taken from the pointer event, which is where they live in Avalonia;
   VB6 takes them from the device, which is the same thing for real input.
@@ -9753,11 +9753,19 @@ Since #1364, the form raises Click on the release, after MouseUp, for the left, 
   client, gives the form its MouseUp and no Click.
 - **Double click:** the press's click count leaves out the Click VB6 does not raise on a double click's second release.
   A third click is a new Click.
-- **Pinned** in `MouseEventTests`, with real headless pointer input, from the form's rows above, all but DblClick.
+- **Pinned** in `MouseEventTests`, with real headless pointer input, from the form's rows above.
+
+Since #1031, DblClick is raised on a double click's second press, by the press's click count, on the form and on each
+control VB6 gives one: a Label, an Image, a PictureBox, a TextBox, a Frame, a ListBox and an OptionButton.
+- **In place of that press's MouseDown,** and its release raises no Click. An OptionButton raises MouseDown, then
+  DblClick, as measured.
+- **A CommandButton and a CheckBox** raise none, so a double click on either stays two clicks.
+- **The code window** offers DblClick wherever it is declared.
+- **Pinned** in `MouseEventTests`: the form with a third click after, a Label, a TextBox, a Frame, an OptionButton, a
+  CommandButton, and a control array's Index.
 
 What it still does not do:
-- **DblClick** is raised by nothing, on the form or any control, so a double click's second press still raises a
-  MouseDown (#1031).
+- **A ComboBox and a FileListBox** have a DblClick in VB6, and HexIDE has neither control's events yet.
 - **A press on a Label, an Image, a PictureBox, a TextBox or a ListBox** raises that control's Click wherever the
   release lands. Only a CommandButton, through Avalonia's own Button, checks (#1373).
 - **A ListBox raises Click after MouseUp** (#1374).
