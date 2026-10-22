@@ -75,7 +75,7 @@ public class TypedParameterTests : BaseVBTestFixture
     {
         // HexIDE read "12" into an Integer parameter as 0, and kept a default or a store into the parameter as it was.
         using (VbLocale.Use(EnGb))
-            await Run("""
+            await Run(""""
                 Private Sub NI(ByVal x As Integer)
                     Debug.Print "  NI " & TypeName(x) & " " & x
                 End Sub
@@ -126,7 +126,7 @@ public class TypedParameterTests : BaseVBTestFixture
                 Err.Clear: Debug.Print "SD 1": SD 1: Debug.Print "  err " & Err.Number
                 Err.Clear: Debug.Print "SB True": SB True: Debug.Print "  err " & Err.Number
 
-                """);
+                """");
 
         Printed("""
             NI "12"
