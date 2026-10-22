@@ -30,7 +30,7 @@ public static class AttachedEvents
         });
     }
 
-    public static void AttachClick<T>() where T : Control
+    public static void AttachClick<T>(ClickRelease release = ClickRelease.Anywhere) where T : Control
     {
         if (typeof(T).IsSubclassOf(typeof(Button)))
         {
@@ -41,7 +41,8 @@ public static class AttachedEvents
             InputElement.PointerReleasedEvent.AddClassHandler<T>((control, e) =>
             {
                 // A double click's second release raises no Click (measured, #1031).
-                if (OwnsThePointerEvent(control, e.Source) && !SecondPresses.TryGetValue(control, out _))
+                if (OwnsThePointerEvent(control, e.Source) && !SecondPresses.TryGetValue(control, out _)
+                    && (release == ClickRelease.Anywhere || ReleasedOver(control, e)))
                     control.ExecuteSub(ComponentBaseClass.ClickEvent);
             });
         }
@@ -86,6 +87,25 @@ public static class AttachedEvents
         InputElement.PointerMovedEvent.AddClassHandler<T>(
             (control, e) => RaiseMouse(control, e, ComponentBaseClass.MouseMoveEvent), handledEventsToo: true);
     }
+
+    /// <summary>
+    /// Where a press's release has to land for the control to raise Click, measured with real input, native and p-code
+    /// agreeing (the oracle's "A click with real input", #1373). The pressed control keeps the pointer either way, so
+    /// its MouseUp comes wherever the release lands.
+    /// </summary>
+    public enum ClickRelease
+    {
+        /// <summary>Anywhere: a TextBox and a ListBox raise Click on any release of a press on them.</summary>
+        Anywhere,
+        /// <summary>Over the control again, whether or not the pointer left it: a Label, an Image, a Frame and a
+        /// PictureBox. Released over the form or another control, they raise none.</summary>
+        OverTheControl,
+    }
+
+    // Whether a release is over the control it ends a press on: hit-tested where it is, since the pressed control has
+    // the pointer, and through the window, so a control drawn over this one has the point.
+    private static bool ReleasedOver(Control control, PointerEventArgs e) =>
+        TopLevel.GetTopLevel(control) is { } window && OwnsThePointerEvent(control, window.InputHitTest(e.GetPosition(window)));
 
     /// <summary>
     /// How a control's DblClick comes, measured with real input, native and p-code agreeing (the oracle's "A click with

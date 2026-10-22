@@ -329,6 +329,70 @@ public class SerializedProject
     public static string ToProjectFilePath(string hostRelativePath) =>
         hostRelativePath.Replace(System.IO.Path.DirectorySeparatorChar, '\\')
                         .Replace(System.IO.Path.AltDirectorySeparatorChar, '\\');
+
+    /// <summary>
+    /// Where the file a member's project-file line names sits in the line: after <c>Name;</c> on a <c>Module=</c> or
+    /// <c>Class=</c> line, the whole value on the bare-path keys. Null for a key that names no member file, and for a
+    /// line whose value is empty.
+    /// </summary>
+    public static (string Key, int Start, int Length)? ItemLineFile(string line)
+    {
+        var eq = line.IndexOf('=');
+        if (eq < 0)
+            return null;
+        var key = line[..eq].Trim();
+        var start = eq + 1;
+        if (key.Equals(ModuleKey, StringComparison.OrdinalIgnoreCase)
+            || key.Equals(ClassKey, StringComparison.OrdinalIgnoreCase))
+        {
+            var semi = line.IndexOf(';', start);
+            if (semi >= 0)
+                start = semi + 1;
+        }
+        else if (!key.Equals(FormKey, StringComparison.OrdinalIgnoreCase)
+                 && !key.Equals(UserControlKey, StringComparison.OrdinalIgnoreCase)
+                 && !key.Equals(PropertyPageKey, StringComparison.OrdinalIgnoreCase)
+                 && !key.Equals(UserDocumentKey, StringComparison.OrdinalIgnoreCase)
+                 && !key.Equals(RelatedDocKey, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var end = line.Length;
+        while (start < end && char.IsWhiteSpace(line[start]))
+            start++;
+        while (end > start && char.IsWhiteSpace(line[end - 1]))
+            end--;
+        return end > start ? (key, start, end - start) : null;
+    }
+
+    /// <summary>
+    /// <paramref name="line"/>, a member's line in a project file in <paramref name="fromDirectory"/>, as it must read
+    /// in one in <paramref name="toDirectory"/>: its file resolved against the first folder and named relative to the
+    /// second, in the line's own shape (#737). The member's file stays where it is. The line comes back as it was when
+    /// the two folders are one, when it names no file, and when its path names a drive or starts at a root, which no
+    /// change of folder moves.
+    /// </summary>
+    public static string RebaseItemLine(string line, string fromDirectory, string toDirectory)
+    {
+        if (fromDirectory.Length == 0 || toDirectory.Length == 0 || SameDirectory(fromDirectory, toDirectory)
+            || ItemLineFile(line) is not { } file)
+            return line;
+
+        var path = line.Substring(file.Start, file.Length);
+        // Tested on the path as the file wrote it, not the host's reading of it: on Linux `C:\x` is not rooted, and
+        // joining it to a folder would invent a file.
+        if (path[0] is '\\' or '/' || (path.Length >= 2 && path[1] == ':'))
+            return line;
+
+        var resolved = System.IO.Path.GetFullPath(System.IO.Path.Join(fromDirectory, ToHostPath(path)));
+        var rebased = ToProjectFilePath(System.IO.Path.GetRelativePath(toDirectory, resolved));
+        return line[..file.Start] + rebased + line[(file.Start + file.Length)..];
+    }
+
+    private static bool SameDirectory(string a, string b) =>
+        string.Equals(
+            System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(a)),
+            System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(b)),
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
     public const string StartupKey = "Startup";
 
     /// <summary>The <c>Startup=</c> value naming <c>Sub Main</c> rather than a form. VB6's own spelling,
