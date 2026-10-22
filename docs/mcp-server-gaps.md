@@ -730,3 +730,21 @@ deletable segments.
 
 **Suggested fix.** Delete what the deletable segments allow, as the key does, and say what was left and why.
 [#1055](https://github.com/hexide-io/HexIDE/issues/1055).
+
+## A session can reach an IDE that is not its own, and nothing in a reply says so
+
+**Symptom.** Measured 2026-10-22 with two Debug IDEs, one on port 5128 with a new project and one on 5130 with
+`SpringTide.vbp`. A headless session started with `HEXIDE_MCP_PORT=5128` called `get_project_info` and got
+`Project1`; one started with `HEXIDE_MCP_PORT=5130` got `SpringTide`. So a port picks the IDE, and the replies are
+the same whichever IDE answers. Since #1212, sessions that each set `HEXIDE_MCP_PORT` stay apart. Two sessions that
+set nothing both reach 5123, and a session given the port of a stale IDE left running drives that IDE. Either
+way, the replies look exactly as they would from the session's own build.
+
+**Workaround.** Start the IDE with `pwsh scripts/dev-ide.ps1`, which returns only once `/health` answers with the
+PID of the process it started, and stop it with `shutdown_ide` or `scripts/dev-ide.ps1 -Stop` rather than leaving it
+running.
+
+**Suggested fix.** Tie an IDE to the session that started it: a DEBUG-only `--session <name>`, echoed by `/health`,
+and a session header from `.mcp.json`. An IDE started with `--session` then answers any other session's
+`tools/call` with an error result that names whose IDE it is.
+[#1306](https://github.com/hexide-io/HexIDE/issues/1306).
