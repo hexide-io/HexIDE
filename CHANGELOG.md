@@ -185,6 +185,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The Project Explorer's Add Form adds a form as Project > Add Form does** (#468). It added a form with no file and
+  opened nothing, a second Add Form of its own, and closing the IDE then left that form out of the project file
+  (#1359). It now writes the form's file and opens its designer.
 - **An edit made while a language server starts reaches it** (#719). It was dropped, and the server analysed the
   text from before the edit until the next edit or a save. With two servers on one language, the second was also
   opened twice, the second time at a lower version with the older text. A change made during a start is now
