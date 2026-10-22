@@ -14,6 +14,8 @@ Windows' Notepad, as it was in Windows 98 and XP, written the way a VB6 develope
 - a "save the changes?" prompt in `QueryUnload`, which closing, New and Open all go through;
 - the file named on the command line, opened as Notepad opens it.
 
+![Running under F5 in HexIDE, with Word Wrap ticked and the Edit menu open: Cut, Copy and Delete greyed with nothing selected, and Paste enabled with text on the clipboard](screenshot.png)
+
 ## Files
 
 | File | What it is |
