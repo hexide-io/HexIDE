@@ -888,7 +888,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         var varName = context.ambiguousIdentifier(0).GetText();
         RefuseConstantTarget(varName, VariableRequired);
-        if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, varName, out _))
+        if (!interpreter.ExecutionContext.TryInspectVariable(currentEnv, varName, out _))
             AllocImplicitVariant(varName);
 
         Vb6Value collection;
@@ -935,7 +935,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // VB6 binds each element as a copy: an element that is an array is copied, so a write through the loop
             // variable does not reach the array walked (measured, #970). An object element is held by the variable while
             // it holds it, and what the variable held before is released.
-            interpreter.ExecutionContext.TryGetVariable(currentEnv, varName, out var previous);
+            interpreter.ExecutionContext.TryInspectVariable(currentEnv, varName, out var previous);
             var bound = interpreter.CopyForStore(element);
             interpreter.AddRef(bound);
             interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, bound);
@@ -952,7 +952,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // A loop that runs out leaves its variable Empty, releasing the last element it held, over an object array and a
         // Long() alike, and even when there was nothing to walk (measured, #970: a variable holding 9 before a For Each
         // over an empty Split is Empty after it). Exit For leaves it holding the element it reached.
-        interpreter.ExecutionContext.TryGetVariable(currentEnv, varName, out var last);
+        interpreter.ExecutionContext.TryInspectVariable(currentEnv, varName, out var last);
         interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, Vb6Value.Variant);
         await interpreter.ReleaseRef(last);
         return ControlFlow.Nothing;
@@ -972,7 +972,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var state = interpreter.ExecutionContext.State;
         if (state.DeclaredTypeOf(location) is not null)
             throw new VBCompileErrorException("For Each control variable must be Variant or Object");
-        interpreter.ExecutionContext.TryGetVariable(currentEnv, varName, out var initial);
+        interpreter.ExecutionContext.TryInspectVariable(currentEnv, varName, out var initial);
         var objectVariable = !state.IsVariant(location) && !currentEnv.VariantParameters.Contains(varName)
             && (state.DeclaredClassOf(location) is not null || IsObjectReference(initial));
 
@@ -987,7 +987,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 {
                     if (objectVariable && !IsObjectReference(item))
                         throw new VBRunTimeException(context, VBStandardError.ObjectRequired);
-                    interpreter.ExecutionContext.TryGetVariable(currentEnv, varName, out var previous);
+                    interpreter.ExecutionContext.TryInspectVariable(currentEnv, varName, out var previous);
                     var bound = interpreter.CopyForStore(item);
                     interpreter.AddRef(bound);
                     try
@@ -1022,7 +1022,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             items.EndEnumeration(cursor);
         }
-        interpreter.ExecutionContext.TryGetVariable(currentEnv, varName, out var last);
+        interpreter.ExecutionContext.TryInspectVariable(currentEnv, varName, out var last);
         interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, objectVariable ? Vb6Value.Nothing : Vb6Value.Variant);
         await interpreter.ReleaseRef(last);
         return ControlFlow.Nothing;
@@ -1073,7 +1073,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw FractionalForRefused();
         long fromL = (long)fromD, toL = (long)toD, stepL = (long)stepD;
 
-        if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, variable, out _))
+        if (!interpreter.ExecutionContext.TryInspectVariable(currentEnv, variable, out _))
             AllocImplicitVariant(variable);
 
         // VB6 runs the body while (step >= 0 ? counter <= limit : counter >= limit) — a `<=`/`>=` test, NOT `i == to`
@@ -1509,7 +1509,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // `c!key = x`: a Collection's item is read-only, 424 (measured, #1471). No other default member takes it yet.
             if (varOrProcCall.dictionaryCallStmt() is not null)
             {
-                interpreter.ExecutionContext.TryGetVariable(currentEnv, varOrProcCall.ambiguousIdentifier().GetText(), out var bangTarget);
+                var (_, bangTarget) = await interpreter.ReadVariable(currentEnv, varOrProcCall.ambiguousIdentifier().GetText());
                 throw bangTarget.Value is VbCollection
                     ? new VBRunTimeException(context, VBStandardError.ObjectRequired)
                     : new NotImplementedException($"`{varOrProcCall.GetText()} = …` is supported only on a Collection, which refuses it");
@@ -1753,7 +1753,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             }
 
             // A Collection's item is read-only: `c(1) = x` is 424 (measured, #1471).
-            if (interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out var held) && held.Value is VbCollection)
+            if (await interpreter.ReadVariable(currentEnv, identifier) is (true, { Value: VbCollection }))
                 throw new VBRunTimeException(context, VBStandardError.ObjectRequired);
 
             var indexes = await expressionExecutor.EvaluateCallArgs(procedureOrArrayCall.argsCall(0));
@@ -2547,7 +2547,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             var identifier = arrCall.ambiguousIdentifier().GetText()
                 ?? throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Null array name");
             // `Set c(1) = x`, a Collection's item, is 424 (measured, #1471).
-            if (interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out var held) && held.Value is VbCollection)
+            if (await interpreter.ReadVariable(currentEnv, identifier) is (true, { Value: VbCollection }))
                 throw new VBRunTimeException(context, VBStandardError.ObjectRequired);
             var indexes = Subscripts(await expressionExecutor.EvaluateCallArgs(arrCall.argsCall(0)));
             if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out var arrayVal))
@@ -2839,7 +2839,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // The class or interface name a class-typed Dim was declared with, kept because an object slot
                 // has nothing to coerce and the NAME is the whole of its declared type (see ExecutionState).
                 string? declaredClass = null;
-                if (!isArray && asType?.type()?.complexType() is { } ct && asType.NEW() == null && asType.fieldLength() == null)
+                // `Dim o As New C1`, `Dim c As New Collection`: Nothing until its first use makes the object (#435).
+                string? autoNew = asType?.NEW() != null ? AutoNewClass(asType, isArray) : null;
+                if (autoNew is not null)
+                {
+                    value = Vb6Value.Nothing;
+                    declaredClass = autoNew;
+                }
+                else if (!isArray && asType?.type()?.complexType() is { } ct && asType.NEW() == null && asType.fieldLength() == null)
                 {
                     // `Dim e As Employee` — a fresh UDT instance; `Dim x As MyEnum` — a Long; `Dim c As Clock`
                     // (a class) — Nothing (a null object reference, so `c Is Nothing` is True until Set).
@@ -2904,6 +2911,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // wholesale, and `Dim v` / `Dim v As Variant` must stay exactly as untyped as they read.
                 var declared = VbNumeric.IsDeclarableScalar(value.Type) ? value.Type : null;
                 interpreter.ExecutionContext.AllocVariable(currentEnv, localName, value, declared, declaredClass);
+                if (autoNew is not null && currentEnv.TryGetOwnVariableLocation(localName, out var autoNewLoc))
+                    interpreter.ExecutionContext.State.MarkAutoNew(autoNewLoc, autoNew, localName);
                 if (isArray && currentEnv.TryGetVariableLocation(localName, out var arrayLoc))
                 {
                     interpreter.ExecutionContext.State.MarkDeclaredArray(arrayLoc);
@@ -2921,6 +2930,37 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     ownedSlots.Add(localLoc);
             }
         }
+    }
+
+    /// <summary>
+    /// What a declaration <c>As New</c> makes: a class's name, or "Collection" (#435). VB6 refuses the rest before the program
+    /// runs, as measured: a scalar, a Variant or Object is "Syntax error", and a UDT or an Enum "Invalid use of New
+    /// keyword".
+    /// </summary>
+    private string AutoNewClass(VB6Parser.AsTypeClauseContext asType, bool isArray)
+    {
+        if (asType.type()?.baseType() is { } baseType)
+            return baseType.COLLECTION() != null && !isArray ? "Collection"
+                : baseType.COLLECTION() != null ? throw ArrayAsNew()
+                : throw new VBCompileErrorException("Syntax error");
+        var typeText = asType.type()?.complexType()?.GetText() ?? throw new VBCompileErrorException("Syntax error");
+        var (qualifier, typeName) = SplitTypeName(typeText);
+        string made;
+        if (ExpressionExecutor.IsCollectionType(typeText))
+            made = "Collection";
+        else if (interpreter.Modules.TryGet(typeName, out var classMod) && classMod.Kind == InterpreterModuleKind.Class)
+            made = classMod.Name;
+        else if (interpreter.TryResolveType(typeName, currentModule, qualifier, out _)
+                 || (qualifier is null && interpreter.TryResolveEnum(typeName, currentModule, out _)))
+            throw new VBCompileErrorException("Invalid use of New keyword");
+        else if (IsObjectTypeWithoutClass(qualifier, typeName, out _))
+            throw new NotImplementedException($"As New {typeText} is not implemented: New makes a class's object or a Collection here (#435)");
+        else
+            throw new VBCompileErrorException("User-defined type not defined: " + typeName);
+        return isArray ? throw ArrayAsNew() : made;
+
+        static NotImplementedException ArrayAsNew() =>
+            new("An array declared As New is not implemented (#1482)");
     }
 
     /// <summary>

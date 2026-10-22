@@ -192,9 +192,11 @@ public class PrePass : VB6BaseVisitor<object?>
                 string? declaredClass = null;
                 if (subStmt.asTypeClause() != null)
                 {
+                    // `Dim o As New C1` holds Nothing until its first use (#435). The module's Dim statement, which runs
+                    // when the module starts, marks the slot; what it refuses (a scalar, a UDT, an array) it refuses there.
                     if (subStmt.asTypeClause().NEW() != null)
-                        throw new NotImplementedException("New as type not implemented");
-                    if (subStmt.asTypeClause().fieldLength() != null)
+                        objectSlot = !isArray;
+                    else if (subStmt.asTypeClause().fieldLength() != null)
                         throw new NotImplementedException("fieldLength as type not implemented");
                     if (subStmt.asTypeClause().type().complexType() != null)
                     {
@@ -604,6 +606,8 @@ public class PrePass : VB6BaseVisitor<object?>
             }
             if (asType.fieldLength() != null)
                 throw new NotImplementedException($"Fixed-length field '{fieldName}' inside Type '{name}' is not yet supported");
+            if (asType.NEW() != null)
+                throw new NotImplementedException($"Field '{fieldName}' declared As New inside Type '{name}' is not implemented (#1488)");
             if (asType.type().complexType() is { } ct)
                 fields.Add(new UdtField(fieldName, null, ct.GetText()));   // nested UDT or Enum, resolved at NewUdt
             else

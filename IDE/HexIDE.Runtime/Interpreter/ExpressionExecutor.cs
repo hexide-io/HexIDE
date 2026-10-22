@@ -487,7 +487,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             || call.baseType() != null || call.iCS_S_NestedProcedureCall() != null
             || call.typeHint() != null || call.dictionaryCallStmt() != null
             || call.argsCall().Length != 1
-            || !interpreter.ExecutionContext.TryGetVariable(env, id.GetText(), out var holder)
+            || await interpreter.ReadVariable(env, id.GetText()) is not (true, var holder)
             || !holder.Type.IsArray || holder.Value is not VBArray array)
             return null;
         var index = Subscripts(await EvaluateCallArgs(call.argsCall(0)));
@@ -975,7 +975,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // Resolution order (VB6): a local ARRAY variable → user procedure → intrinsic. A non-array
         // variable of the same name (e.g. a Function's own return slot) is not array-indexing — it falls
         // through so `Fact(n - 1)` inside `Fact` is a recursive call, and `Zero()` finds the Function.
-        if (interpreter.ExecutionContext.TryGetVariable(env, name, out var variable) && variable.Type.IsArray)
+        if (await interpreter.ReadVariable(env, name) is (true, var variable) && variable.Type.IsArray)
         {
             if (dollar)
                 throw new NotImplementedException($"{name}$ on an array is not implemented (#742)");
@@ -1244,7 +1244,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             foreach (var m in interpreter.Modules.All)
             {
                 if (m.Kind != InterpreterModuleKind.Standard) continue;
-                if (interpreter.ExecutionContext.TryGetVariable(m.ModuleEnv, memberName, out var fromModule))
+                if (await interpreter.ReadVariable(m.ModuleEnv, memberName) is (true, var fromModule))
                     return await ThenTheRest(fromModule);
             }
             throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
@@ -1331,7 +1331,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 return await ThenTheRest(result);
             throw new VBSubOrFunctionNotDefinedException(memberName);   // a Sub used where a value is required
         }
-        if (interpreter.ExecutionContext.TryGetVariable(module.ModuleEnv, memberName, out var v))
+        if (await interpreter.ReadVariable(module.ModuleEnv, memberName) is (true, var v))
             return await ThenTheRest(v);
 
         // `Module1.MyEnum.Member` — the three-part form, measured legal. Unlike the library case this one
