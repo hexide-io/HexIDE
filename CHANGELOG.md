@@ -208,6 +208,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Another module's Public Enum member reads bare** (#889). `colMax`, declared in Module2's `Public Enum Cols`, read
+  as Empty in Module1 with no error, so `For i = 0 To colMax` ran once. It now reads as the Long VB6 gives it, from a
+  class's Public Enum too, and sizes a module-level array or folds into a Const. Two modules' members of one name are
+  "Ambiguous name detected" where used bare, as in VB6.
+
 - **A control array named through its form, `Form1.Text1(0).Text`, reads and writes** (#1386). It stopped the program
   with "Method or data member not found", in code and in the Immediate window alike, because the index was dropped. A
   missing element is VB6's 340, whose message now names the index, as vb6.exe's does.
