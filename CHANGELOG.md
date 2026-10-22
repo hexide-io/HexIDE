@@ -184,6 +184,16 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A ListBox's `Selected(i)`, `SelCount` and `Text` work** (#1395). Each was "Method or data member not found", so
+  code that read which items were chosen, or chose one by its text, stopped there. Now each does what vb6.exe does on a
+  single-select list:
+  - `Selected(i)` reads and sets the selection, and is 381 outside the list;
+  - `Text = s` selects the first item whose whole text is `s`, without regard to case, and raises Click every time;
+  - Click comes from `Selected(i) =` only when the selection moves, as from `ListIndex`.
+
+  A list with MultiSelect 1 or 2 still runs single-select, so on one of those the three are refused as not implemented
+  (#1413).
+
 - **Save Project As names a designer, the resource file and the build folder from the new folder** (#1406). VB6's
   Save As rewrites the paths in `Designer=`, `ResFile32=` and `Path32=` so that they still name the same files.
   HexIDE kept them as read, so from another folder they named files beside the new project file. A reference's

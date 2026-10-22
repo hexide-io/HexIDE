@@ -79,6 +79,12 @@ public class VBListBox : ListBox
     }
 
     /// <summary>
+    /// The form's MultiSelect: 0, or 1 (Simple) or 2 (Extended). HexIDE does not implement the last two, and runs such a
+    /// list single-select (#1413).
+    /// </summary>
+    internal int MultiSelect { get; init; }
+
+    /// <summary>
     /// Sets ListIndex from code: Click when the selection moves, and none when it is set again (measured, #1374). Range
     /// checked by the caller.
     /// </summary>
@@ -86,6 +92,20 @@ public class VBListBox : ListBox
     {
         if (index == SelectedIndex)
             return;
+        SelectedIndex = index;
+        this.ExecuteSub(ComponentBaseClass.ClickEvent);
+    }
+
+    /// <summary>
+    /// Sets Text from code: selects the first item whose whole text it is, without regard to case, or nothing, and raises
+    /// Click even when the selection does not move (measured, #1395).
+    /// </summary>
+    internal void SetTextFromCode(string text)
+    {
+        var index = -1;
+        for (var i = 0; i < ItemCount && index < 0; i++)
+            if (string.Equals(Items[i] as string, text, StringComparison.OrdinalIgnoreCase))
+                index = i;
         SelectedIndex = index;
         this.ExecuteSub(ComponentBaseClass.ClickEvent);
     }

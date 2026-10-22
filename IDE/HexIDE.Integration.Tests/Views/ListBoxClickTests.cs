@@ -71,7 +71,7 @@ public class ListBoxClickTests
         (await After(recorder, ctx, env, code)).Should().Equal(expected);
     }
 
-    // Selected(i), Text, RemoveItem and AddItem's index are #821's: measured with these, and pinned when they exist.
+    // Selected(i) and Text raise it too, pinned in ListBoxSelectedTests (#1395).
     [AvaloniaTheory]
     [InlineData("List1.ListIndex = 1\r\n", 1)]
     [InlineData("List1.AddItem \"d\"\r\n", 1)]
