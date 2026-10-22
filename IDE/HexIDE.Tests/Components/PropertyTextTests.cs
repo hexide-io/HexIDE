@@ -389,10 +389,45 @@ public class PropertyTextTests
     [Fact]
     public void A_font_given_in_part_keeps_the_rest()
     {
-        Font("DejaVu Sans").Should().Be(new VBFont("DejaVu Sans", 9.75, bold: true, italic: true), "the face, as the gap sent it, with the charset a new face takes, as the Font dialog gives it");
+        Font("DejaVu Sans").Should().Be(new VBFont("DejaVu Sans", 9.75, bold: true, italic: true), "the face, as the gap sent it, with the charset VB6 gives a text face, 0");
         Font("12 pt").Should().Be(new VBFont("Tahoma", 12, bold: true, italic: true, charset: 204));
         Font("12").Should().Be(new VBFont("Tahoma", 12, bold: true, italic: true, charset: 204));
         Font("charset 0").Should().Be(new VBFont("Tahoma", 9.75, bold: true, italic: true));
+    }
+
+    [Theory]
+    [InlineData("Wingdings", 2)]
+    [InlineData("WEBDINGS", 2)]
+    [InlineData("Symbol", 2)]
+    [InlineData("Marlett", 2)]
+    [InlineData("Terminal", 255)]
+    [InlineData("modern", 255)]
+    [InlineData("Roman", 255)]
+    [InlineData("Script", 255)]
+    [InlineData("Arial", 0)]
+    public void A_new_face_without_a_charset_takes_the_charset_vb6_gives_it(string face, int charset)
+    {
+        // As FontName sets it, measured on vb6.exe: a symbol font at 0 is not drawn as itself, by GDI or by HexIDE (#1310).
+        Font(face, current: new VBFont("Arial", 9.75)).Charset.Should().Be(charset);
+        Font(face, current: new VBFont("Courier New", 9.75, charset: 204)).Charset.Should().Be(charset);
+    }
+
+    [Fact]
+    public void The_same_face_in_another_case_is_the_same_face_and_keeps_its_charset()
+    {
+        // The comparison was ordinal, so "wingdings" on a control in Wingdings was a new face, at charset 0 (#1310).
+        var wingdings = new VBFont("Wingdings", 12, charset: 2);
+
+        Font("wingdings", current: wingdings).Should().Be(wingdings, "the face as the control spells it, and its charset");
+        Font("Arial", current: wingdings).Charset.Should().Be(0, "a new face, which VB6 gives 0");
+        Font("Wingdings, charset 0", current: new VBFont("Arial", 12)).Charset.Should().Be(0, "a charset given is the charset");
+    }
+
+    [Fact]
+    public void The_font_text_form_says_a_new_face_takes_its_own_charset()
+    {
+        PropertyText.Accepted(VBProperties.FontProperty).Should().NotContain("takes charset 0")
+            .And.Contain("Wingdings").And.Contain("charset 2").And.Contain("255");
     }
 
     [Fact]

@@ -89,8 +89,10 @@ public static partial class PropertyText
             return "a font as get_form_controls shows it, parts separated by commas, the face first, such as \"Tahoma, "
                    + "9.75 pt, bold, italic, charset 0\": a face, a size in points up to 2160, and style words (regular, "
                    + "bold, italic, underline, strikethrough, weight N, charset N), each once. A part not given keeps the "
-                   + "current font's, but a new face without a charset takes charset 0, and when any style word is "
-                   + "given the words given are the whole style, so \"regular\" clears it. A face whose name ends in a "
+                   + "current font's, but a new face without a charset takes the charset VB6 gives it: charset 2 for "
+                   + "Wingdings, Webdings, Symbol and Marlett, 255 for Terminal, Modern, Roman and Script, and 0 for any "
+                   + "other. When any style word is given the words given are the whole style, so \"regular\" clears it. "
+                   + "The face is matched without regard to case. A face whose name ends in a "
                    + "number or a style word, such as \"Wingdings 2\", is taken as a face when it is the control's own, "
                    + "installed here, or a Windows font vb6.exe takes by name, such as \"MS Shell Dlg 2\"; otherwise it "
                    + "reads as a face and a size or style without their comma";
@@ -287,16 +289,34 @@ public static partial class PropertyText
     private const double LargestFontSize = 2160;
 
     /// <summary>
+    /// The charset vb6.exe gives a face when FontName names it, native and p-code agreeing (the oracle's "The fonts a form
+    /// names", #1141): 2 for the symbol fonts and 255 for the OEM ones measured. Any other face takes 0. A new face given
+    /// as text without a charset takes this (#1310), since a symbol font at 0 is drawn as some other face, by GDI and by
+    /// HexIDE alike.
+    /// </summary>
+    /// <remarks>
+    /// A table, not FontName's own lookup in HexIDE.Runtime, which this assembly cannot call: that lookup also refuses a
+    /// symbol font that is not installed, which would make Wingdings impossible to set on Linux. Other symbol fonts, such
+    /// as Wingdings 2, are not in the oracle, so they take 0 unless the text names a charset.
+    /// </remarks>
+    private static readonly Dictionary<string, int> MeasuredCharsets = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Wingdings"] = 2, ["Webdings"] = 2, ["Symbol"] = 2, ["Marlett"] = 2,
+        ["Terminal"] = 255, ["Modern"] = 255, ["Roman"] = 255, ["Script"] = 255,
+    };
+
+    /// <summary>
     /// A font as <see cref="Shown"/> writes it, "Tahoma, 9.75 pt, bold, italic, charset 0", merged with <paramref
     /// name="current"/> (#952): set_control_property refused every Font, and its refusal named a text form that did not
     /// exist.
     /// </summary>
     /// <remarks>
     /// <para>Parts are separated by commas, the face first. A part not given keeps <paramref name="current"/>'s, so
-    /// "12 pt" changes the size alone. A new face without a charset takes charset 0, as the Properties window's Font
-    /// dialog sets it: keeping a symbol font's 2 drew a Tahoma caption as boxes. Style words are taken as a set: when
-    /// any is given, the words given are the whole style, so a font read off one control and sent to another is that
-    /// font, and "regular" clears every style.</para>
+    /// "12 pt" changes the size alone. A new face without a charset takes its own, as VB6's FontName gives it
+    /// (<see cref="MeasuredCharsets"/>, #1310): keeping a symbol font's 2 drew a Tahoma caption as boxes, and giving
+    /// Wingdings 0 drew its letters. A face equal to the current one but for case is that face. Style words are taken
+    /// as a set: when any is given, the words given are the whole style, so a font read off one control and sent to
+    /// another is that font, and "regular" clears every style.</para>
     /// <para>Anything that does not say one font is refused rather than read as some font (#952 review): a part given
     /// twice, as "9,75 pt" splits into two sizes; a first part that is a size or style mistyped, which was taken for a
     /// face; a face VB6 cannot hold or the .frm writer cannot quote; a size beyond VB6's 2160 points or finer than its
@@ -374,10 +394,13 @@ public static partial class PropertyText
             }
         }
 
+        // The same face in another case is the same face, spelled as the control has it: "wingdings" on a control in
+        // Wingdings was a new face, and lost its charset (#1310).
+        var same = face is null || string.Equals(face, current.FontFamilyName, StringComparison.OrdinalIgnoreCase);
         var font = new VBFont(
-            face ?? current.FontFamilyName,
+            same ? current.FontFamilyName : face!,
             size ?? current.Size,
-            charset: charset ?? (face is null || face == current.FontFamilyName ? current.Charset : 0),
+            charset: charset ?? (same ? current.Charset : MeasuredCharsets.GetValueOrDefault(face!)),
             italic: styled ? italic : current.Italic,
             underline: styled ? underline : current.Underline,
             strikethrough: styled ? strikethrough : current.Strikethrough,

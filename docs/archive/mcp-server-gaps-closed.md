@@ -3341,6 +3341,14 @@ Font dialog for Font, and say that no automation route exists yet for the `byte[
 > for a Font, and for a `byte[]` property says it has no text form and no automation route yet. A control with no
 > font of its own merges with HexIDE's default, which the designer draws it in, not its form's: HexIDE has no ambient
 > font. Guarded by `PropertyTextTests`.
+>
+> **Two corrections, later.** A new face's charset of 0 was wrong for a symbol or OEM face: `Wingdings` saved
+> Charset 0, where VB6 gives 2, and the control drew letters. A new face given without a charset now takes the one
+> VB6's FontName gives it, and a face equal to the current one but for case keeps its charset
+> ([#1310](https://github.com/hexide-io/HexIDE/issues/1310)). And the guess against a mistyped size or style also
+> refused real faces, `Wingdings 2` and `MS Shell Dlg 2` among them, so a control in one showed a font that could not
+> be set back. The control's own face, and one FontName takes here, are now faces whatever their names end in, and a
+> refusal of the guess says why ([#1311](https://github.com/hexide-io/HexIDE/issues/1311)).
 
 ## Polling `list_lsp_messages` with the highest sequence seen never shows a waiting request answered
 
