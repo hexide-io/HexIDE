@@ -113,8 +113,11 @@ public class ProjectService : IProjectService
     /// </summary>
     private static string? KeptLinePath(string line) =>
         SerializedProject.ItemLineFile(line) is { } file
-        && !file.Key.Equals(SerializedProject.UserDocumentKey, StringComparison.OrdinalIgnoreCase)
-        && !file.Key.Equals(SerializedProject.RelatedDocKey, StringComparison.OrdinalIgnoreCase)
+        && (file.Key.Equals(SerializedProject.FormKey, StringComparison.OrdinalIgnoreCase)
+            || file.Key.Equals(SerializedProject.ModuleKey, StringComparison.OrdinalIgnoreCase)
+            || file.Key.Equals(SerializedProject.ClassKey, StringComparison.OrdinalIgnoreCase)
+            || file.Key.Equals(SerializedProject.UserControlKey, StringComparison.OrdinalIgnoreCase)
+            || file.Key.Equals(SerializedProject.PropertyPageKey, StringComparison.OrdinalIgnoreCase))
             ? line.Substring(file.Start, file.Length)
             : null;
 

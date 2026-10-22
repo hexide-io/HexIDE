@@ -185,6 +185,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Save Project As names a designer, the resource file and the build folder from the new folder** (#1406). VB6's
+  Save As rewrites the paths in `Designer=`, `ResFile32=` and `Path32=` so that they still name the same files.
+  HexIDE kept them as read, so from another folder they named files beside the new project file. A reference's
+  relative library path follows too. `HelpFile=` stays as typed, as VB6 leaves it.
 - **Save Project As to another folder no longer cuts off the members the project keeps only as a line** (#737). A
   form whose file is missing, one that failed to load, or a UserDocument is kept in the project file without being
   loaded, and its line was written back as it was read. From a new folder that line named a file beside the new
