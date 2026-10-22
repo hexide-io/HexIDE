@@ -323,10 +323,15 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         var newName = baseClass.Name + index;
         Log.Debug("FormEditViewModel: Spawning {ControlType} as {ControlName} at ({Left},{Top} {Width}x{Height})",
             baseClass.Name, newName, rect.Left, rect.Top, rect.Width, rect.Height);
-        var newComponent = new ComponentInstanceViewModel(this, new ComponentInstance(baseClass, newName)
-            .SetProperty(VBProperties.CaptionProperty, newName)
-            .SetProperty(VBProperties.TabIndexProperty, AllComponents.Select(x => x.Instance.GetPropertyOrDefault(VBProperties.TabIndexProperty)).DefaultIfEmpty().Max() + 1)
-        )
+        var instance = new ComponentInstance(baseClass, newName)
+            .SetProperty(VBProperties.TabIndexProperty, AllComponents.Select(x => x.Instance.GetPropertyOrDefault(VBProperties.TabIndexProperty)).DefaultIfEmpty().Max() + 1);
+        // A drawn control starts with its name as its Caption, or as its Text: VB6's designer writes Text = "Text1" for a
+        // TextBox and Text = "Combo1" for a ComboBox (measured, #926). Only where the class has the property.
+        if (baseClass.Properties.Contains(VBProperties.CaptionProperty))
+            instance.SetProperty(VBProperties.CaptionProperty, newName);
+        if (baseClass.Properties.Contains(VBProperties.TextProperty))
+            instance.SetProperty(VBProperties.TextProperty, newName);
+        var newComponent = new ComponentInstanceViewModel(this, instance)
         {
             Width = rect.Width,
             Height = rect.Height,
