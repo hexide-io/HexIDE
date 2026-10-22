@@ -11311,3 +11311,73 @@ text, raised when the statement runs, also where VB6 refuses it at compile time.
 - a CommandButton's `Default`, which HexIDE doesn't model, so Enter always breaks the line;
 - KeyDown and KeyPress, which a TextBox doesn't raise here yet;
 - a lone LF or CR, which Avalonia draws as a line break where VB6 draws none. `Text` still reads back as set.
+
+## The reset prompt: which edits raise it, and which windows it holds (2026-10-22, #1329)
+
+**The probe.** It ran in the VB6 IDE itself, in the oracle guest's console session, driven as "Reaching the VB6 *IDE*,
+not just the compiler" describes. Each step was recorded with Win32 calls and a screenshot. This is IDE behaviour, so
+there is no native or p-code build to compare.
+- **The project:** a Standard EXE whose Form1 holds a CommandButton and a 250 ms Timer, each appending a line to a log.
+- **The run:** F5, then Ctrl+Break, then an edit typed into Form1's code window.
+- **What each step recorded:**
+  - the owner (`GetWindow(…, GW_OWNER)`), text and buttons of every top-level window of the VB6 process;
+  - `IsWindowEnabled` on the IDE's frame, the code window and Form1;
+  - the IDE's mode, from its title;
+  - whether the Timer was still ticking.
+- **The IDE's options:** as installed. Nothing is stored beyond window layout.
+
+**Which edits ask, in break mode.** VB6 checks an edit as the caret leaves the line:
+
+| Edit | Result |
+|---|---|
+| A new module-level `Dim zz` under `Option Explicit` | **Applied live, no prompt.** Continue resumed the program, and the Timer ticked on |
+| Deleting a body line of `Command1_Click`, which isn't on the stack | Applied live, no prompt, and Continue resumed |
+| Retyping that variable, `Dim zz` to `Dim zz As Long` | **"This action will reset your project, proceed anyway?"**, with OK, Cancel and Help |
+| Adding a parameter to `Log`, which three procedures call | The same prompt, with OK, Cancel and Help |
+| A second `Dim zz` under the first | **"This edit requires a Reset"**, with OK and Help only |
+
+- **The declinable prompt.**
+  - Cancel put the line back as it was, `Dim zz`, and left the project in break mode with every window enabled.
+  - OK kept the edit, ended the run (the IDE's title read `[design]`, and Form1 was destroyed) and re-enabled every
+    window. The next F5 ran the edited code.
+- **"This edit requires a Reset"** offers no way to decline. OK reset the project in the same way.
+- **The caption of both** is "Microsoft Visual Basic", with the warning icon.
+
+**Which windows the prompt holds.** In every case its owner was **the running form, Form1** (`ThunderFormDC`), not
+the IDE, although the IDE's frame was the foreground window when the edit was made. While it waited:
+
+| Window | Enabled |
+|---|---|
+| The IDE's frame (`wndclass_desked_gsk`) and its owner (`IDEOwner`) | False |
+| Form1 (`ThunderFormDC`) | False |
+| The program's hidden application window (`ThunderMain`) | False |
+| The code window, an MDI child of the frame | True, but its frame is disabled, so it takes no input |
+
+- **So the prompt holds the IDE and the running program together.** Every top-level window of the process is disabled,
+  as a task-modal message box disables them.
+- **Where it showed:** Form1 was brought to the front, and the prompt was centred on the screen, not over Form1.
+- **Timers:** not observable here. The program is paused in break mode, so its Timer doesn't tick with or without the
+  prompt, and run mode offers no prompt (below).
+
+**Run mode offers no prompt.** While the program runs, its code window takes no typing:
+- Ctrl+Home, End and the arrow keys moved the caret;
+- Enter and the typed text were ignored;
+- the project stayed `[run]`, with no prompt and no break.
+
+**There is no "Notify Before State Loss" option.** VB6's Tools > Options holds six pages: Editor, Editor Format,
+General, Docking, Environment and Advanced. None of them has it. That option belongs to the VBA editor in Office, not
+to VB6.
+
+**What this overturns.**
+- **D2 in `docs/debugger-vb6-divergences.md`** quoted VB6's prompt as "This action will reset your project. Do you want
+  to continue?", Yes and No. It is "…proceed anyway?", with OK and Cancel, beside a second prompt that can't be
+  declined.
+- **#1298's reason for the owner,** "as VB6's prompt holds the IDE", was half right. It holds the IDE, but its owner is
+  the running form, and it holds that form too.
+- **#1329's own suggested probe,** "a new module-level `Dim` while paused", is an edit VB6 applies live.
+
+**In HexIDE:**
+- **One prompt, for every edit** while the project runs or is paused (D2). It reads "This action will reset your
+  project. Do you want to continue?", with Yes and No.
+- **Its owner** is the code editor's window when that is visible and not minimized (#1298). The live comparison, of
+  which windows that leaves usable, follows in this section once measured.

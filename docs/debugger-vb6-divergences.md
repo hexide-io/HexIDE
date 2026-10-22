@@ -28,8 +28,16 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   by D2.
 
 ### D2. Reset-project prompt stands in for E&C — for EVERY edit
-- **VB6:** applied most edits live; showed *"This action will reset your project. Do you want to continue?"* only
-  for edits it *couldn't* apply (structural changes). A comment or a simple in-line tweak applied with no reset.
+- **VB6:** applies most edits live. A comment, a body line, even a new module-level `Dim` apply with no prompt. For an
+  edit it can't apply live, it asks as the caret leaves the line, and it has two prompts (measured, #1329; the oracle's
+  "The reset prompt" section):
+  - **"This action will reset your project, proceed anyway?"** (OK, Cancel, Help), for retyping a module variable or
+    changing a procedure's parameters. Cancel puts the line back and stays in break mode; OK keeps the edit and ends
+    the run.
+  - **"This edit requires a Reset"** (OK, Help), which can't be declined, for a duplicate declaration.
+  - In run mode the code window takes no typing at all, so neither prompt arises there.
+  - This bullet used to quote the prompt as "…Do you want to continue?" with Yes and No. That was never measured, and
+    it is HexIDE's wording, not VB6's.
 - **HexIDE:** the interpreter can apply *no* edit live, so **every** edit while running/paused pops that same
   prompt (Yes = reset + keep the edit; No = revert). So HexIDE over-prompts relative to VB6 (it resets even for a
   comment).
