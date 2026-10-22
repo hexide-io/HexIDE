@@ -1552,6 +1552,29 @@ What resisted explanation:
 - **`List(-1) = "z"` appends** rather than raising, as if -1 meant "at the end".
 - **`AddItem "n", Null` is 13 where `List(Null)` and `AddItem Null` are 94.**
 
+### HexIDE
+
+Before #821, `ListCount` and `List(i)` were "Method or data member not found", `RemoveItem` was not implemented, and
+`AddItem` appended whatever its index said.
+
+Since #821, `ListMembers` gives a ListBox and a ComboBox every row above but two.
+- **`List(i)`** is caught by name with its index, on the read path in `ExpressionExecutor` and the write path in
+  `StatementExecutor`, before the property lookup that would find the design-time `List` instead.
+- **An index converts** by `VbNumeric.CoerceOnStore` to an Integer, which gives 6, 13 and 94 as measured. AddItem's
+  Null index is 13 before it.
+- **The selection** follows its item through AddItem and RemoveItem because Avalonia's does. A replaced item loses its
+  selection in Avalonia, so `List(i) =` sets it back.
+- **381's text** was HexIDE's "Invalid property-array index", unmeasured; it is now VB6's "Invalid property array
+  index".
+- **Pinned** in `ListMembersTests`, on a ListBox and a ComboBox.
+
+What it still does not do:
+- **A ComboBox's `ListIndex` moving 1 to 2 after `List(-2) = "y"`.** HexIDE leaves it where it was. The error is
+  raised, and no program is likely to read the selection after it.
+- **A ComboBox's `Text`** (#926), so neither `Text` row.
+- **`Sorted`,** which HexIDE has no property for.
+- **`ListCount = 5`** is the compile error's text, raised when the statement runs, not before the program does.
+
 ## Out of stack space — Error 28 (2026-08-22, #80)
 
 Verified with a `Sub Main` probe (`/make`, run, append each line to a log so nothing is lost to buffering).
@@ -5973,7 +5996,8 @@ about case:
 - **Reading or writing another module's `Public` variable or `Const` from a form (#256).** `kpi * 2` read from
   the form reads Empty, and a write to `module1.abc` does not reach it. The tests read and write within one
   module instead.
-- **`ListCount` (#821).** The tests read the list's items instead.
+- **`ListCount` (#821).** The tests read the list's items instead. `ListCount` exists since #821, and its name is
+  matched in any case, but these tests were not changed.
 
 `Me` and the form's own name do resolve in any case on that path, where `VBLoader.RunForm` binds them, and are
 tested there.

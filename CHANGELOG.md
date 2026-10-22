@@ -185,6 +185,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A list's `ListCount`, `List(i)`, `RemoveItem` and `AddItem`'s index work** (#821), on a ListBox and a ComboBox.
+  `ListCount` and `List(i)` were "Method or data member not found", `RemoveItem` ended the run as not implemented, and
+  `AddItem "x", 0` appended, leaving the list in another order than the program built. Each now does what vb6.exe
+  does, in range and out: `List(i)` reads "" outside the list, a write at `ListCount` or -1 appends, an index out of
+  range is 5 or 381, and the selection follows its item.
+
 - **A form's own Click runs** (#1364). A click on the form's area, over no control, ran `Form_MouseDown` and
   `Form_MouseUp` and never `Form_Click`. Now Click follows MouseUp, for the left, right and middle buttons, as
   vb6.exe does with real input. As in VB6, a press released over a control or outside the form gives no Click. A
