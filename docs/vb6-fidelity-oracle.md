@@ -11279,6 +11279,56 @@ So a number has a space before it where its sign would go and one after, and a d
 Boolean and Null have none. A comma moves to the next 14-column zone, and a statement ending in `;` or `,` writes no
 line break.
 
+**`Debug.Print` is the same Print** (2026-10-22, #1380). A compiled program drops `Debug.Print`, so it was measured in the
+IDE. In the guest's console session VB6 opened a project whose Sub Main prints 25 cases, each after a marker line, and
+ran it with F5. Ctrl+G, Ctrl+Home, Ctrl+Shift+End and Ctrl+C then copied the Immediate window to the clipboard. The
+first attempt copied nothing; with screenshots between the keys, the second copied all of it. The same 25 cases went
+through `Print #` to a file in a compiled probe, native and p-code. **All three agree line for line**, apart from the
+Immediate window's own two empty lines at its end.
+
+| Statement | Line, between brackets |
+|---|---|
+| `1; "a"; 2` | `[ 1 a 2 ]` |
+| `1, 2` | `[ 1             2 ]` |
+| `"x";` then `"y"` | `[xy]` |
+| `"p",` then `"q"` | `[p             q]` |
+| `-1; -2.5; 3` | `[-1 -2.5  3 ]` |
+| `True; False` | `[TrueFalse]` |
+| `#1/2/2003#; "d"` | `[02/01/2003 d]` |
+| `Null; Empty; "e"` | `[Nulle]` |
+| `"a", "b", "c"` | `[a             b             c]` |
+| `"123456789012345", "z"` | `[123456789012345             z]`: column 16 moves to 29 |
+| `CCur(1.5); CSng(0.1); CDbl(1E+20)` | `[ 1.5  0.1  1E+20 ]` |
+| `CByte(5); CLng(-7); CInt(0)` | `[ 5 -7  0 ]` |
+| `1.5E-10` | **`[ 0.00000000015 ]`** |
+| nothing | `[]` |
+| `, "lead"` | `[              lead]`: a leading comma moves to column 15 |
+| `"a",` then `,` then `"b"` | `[a                           b]`: two zones, to column 29 |
+| `1;` then `2` | `[ 1  2 ]` |
+| `Spc(3); "x"; Tab(10); "y"` | `[   x     y]`: `x` at column 4, `y` at 10 |
+| `Tab(5); "x"` | `[    x]` |
+| `"a"; Tab; "b"` | `[a             b]`: `Tab` alone is a comma |
+| `"a"; Spc(0); "b"` | `[ab]` |
+| `"abc"; Tab(2); "d"` | `[abc]`, then `[ d]`: a column already passed **starts a new line** |
+| `"x"; Tab(0); "y"` | `[x]`, then `[y]`: `Tab(0)` is column 1, passed too |
+
+What these add to the table above:
+- **`Debug.Print` formats as `Print #` does,** zones, spacing and an open line included.
+- **`Tab(n)` moves to column n**, and to n on the next line when the line is already past it. `Spc(n)` writes n spaces.
+- **A line a run leaves open stays open for the next run, column and all.** A second probe ran one Sub Main twice
+  with F5: `Debug.Print "abc"; Tab(10); "x";`. The Immediate window then held `abc      xabc` and `         x`. The
+  second run's `abc` continued the first run's line, and its `Tab(10)` found the column at 13, past 10, so it went to
+  the next line. A column restarted for each run would have given `abc      xabc      x`. The copy read
+  `         xg`: the copy step's own Ctrl+G typed a `g` at the caret, which a screenshot taken before it does not show.
+  That probe's first attempt also copied nothing. It ran again with 15 seconds for VB6 to open, and the Immediate
+  window opened from the View menu before F5.
+- **`1.5E-10`, a Double, prints as `0.00000000015`,** most likely just its text. *Turning a number or a date into
+  text* keeps a Double fixed while its digits fit, as `0.000012345` is, and goes to E notation for `0.00001 / 3`.
+  HexIDE's `CStr` gives `0.00000000015` too, but `CStr` of this value was not measured on vb6.exe.
+- **`CDbl(1E+20)` has its sign space,** ` 1E+20 `. The row above gives it as `1E+20 `, starting its zone, but its own
+  hex dump, pinned in `SequentialFileTests`, has ten spaces after ` 0.1 `: nine to reach column 29, then the sign. So the
+  two are one result, read two ways.
+
 **Opening, numbering and closing:**
 
 | Probe | Result |
@@ -12007,10 +12057,30 @@ logs the same warning, "The name 'frmRenamed' will be used.", and builds.
 - `PropertyPage=Page1.pag` holding `Begin VB.PropertyPage ppBegin` and `Attribute VB_Name = "Page1"`.
 
 `/make` logs `Conflicting names were found in '…\Gauge.ctl'.  The name 'ucBegin' will be used.`, and the same for the
-page naming `ppBegin`, and builds the OCX. What a form using such a control writes was not measured.
+page naming `ppBegin`, and builds the OCX. Which name a form must use for such a control is measured below.
 
 HexIDE takes a form's name from the `Begin` line too, so a program runs the same. It neither warns nor repairs on
 load, and that is #1407. A UserControl or PropertyPage it names after its file instead, which is #1411.
+
+**Which name a form uses for a UserControl (#1411).** The probes were five Standard EXEs called `probe`, each with a
+private UserControl and a form holding one instance of it, `Begin probe.<name> uc1`, built with `/make` as p-code:
+
+| File | `Begin` | `VB_Name` | The form says | `/make` |
+|---|---|---|---|---|
+| `Gauge.ctl` | `ctlDial` | `ctlDial` | `probe.ctlDial` | builds |
+| `Gauge.ctl` | `ctlDial` | `ctlDial` | `probe.Gauge` | fails |
+| `Dial.ctl` | `ucBegin` | `Gauge` | `probe.ucBegin` | builds, after the conflicting-names warning |
+| `Dial.ctl` | `ucBegin` | `Gauge` | `probe.Gauge` | fails |
+| `Dial.ctl` | `ucBegin` | `Gauge` | `probe.Dial` | fails |
+
+Each failure logs `Line 11: Class probe.<name> of control uc1 was not a loaded control class.` in `Form1.log`, and the
+form "could not be loaded". So the control's class is its `Begin` line's name and nothing else: not its file's, and
+not its `VB_Name`, even when the two agree with each other.
+
+**The IDE repairs a UserControl as it repairs a form.** It opened the third project with the dialog "Conflicting names
+were found in '…\Dial.ctl'.  The name 'ucBegin' will be used." After a one-line change to the control's code, Ctrl+S
+wrote `Attribute VB_Name = "ucBegin"` into `Dial.ctl`, which kept its file name. The project file still read
+`UserControl=Dial.ctl`.
 
 ## A quote inside a .frm string (2026-10-22, #218)
 
@@ -12068,3 +12138,47 @@ names line 13, one past the Caption's line 12.
 HexIDE now halves a doubled quote on read and doubles each quote on write (`VbFrmFormatDeserializer.ParseValue`,
 `VbFrmFormatSerializer.WriteSimpleType`), and `FrmStringQuoteTests` holds the table. A side finding: a CommandButton
 does not model `ToolTipText` in HexIDE, so its line is kept as unknown text, and the property can't be set (#1403).
+
+## What Save Project As does to the paths in a project file (2026-10-22, #1406)
+
+**The question.** A `.vbp` names files by paths relative to its own folder. Save Project As writes it into another
+folder and moves nothing else. Which paths does VB6 rewrite to name the same file from the new folder? #737 settled
+the member lines HexIDE keeps without loading. This settles the keys HexIDE does not model.
+
+**The probe.** It started from the VB98 Template's add-in project (`Addin.vbp`, `ADDIN.FRM`, `ADDIN.DSR`, `ADDIN.DCA`),
+copied to `proj` with these additions:
+- `Module=Module1; sub\Module1.bas`;
+- `ResFile32="res\probe.res"`, a 32-byte `.res` holding only the null header entry;
+- `HelpFile="help\probe.hlp"`, naming a file that does not exist;
+- `Path32="out"`.
+
+The VB6 IDE (6.00.8176 SP6) opened it. File > Save Project As then saved it to `proj\deeper\Saved.vbp`, and again to a
+sibling folder, `other\Saved2.vbp`. Each saved file was read back.
+
+| Line read in `proj` | Written in `proj\deeper` | Written in `other` |
+|---|---|---|
+| `Form=AddIn.frm` | `Form=..\AddIn.frm` | `Form=..\proj\AddIn.frm` |
+| `Designer=AddIn.Dsr` | `Designer=..\AddIn.Dsr` | `Designer=..\proj\AddIn.Dsr` |
+| `Module=Module1; sub\Module1.bas` | `Module=Module1; ..\sub\Module1.bas` | `Module=Module1; ..\proj\sub\Module1.bas` |
+| `ResFile32="res\probe.res"` | `ResFile32="..\res\probe.res"` | `ResFile32="..\proj\res\probe.res"` |
+| `Path32="out"`, with `ExeName32="Probe.dll"` | `Path32="..\out"` | `Path32="..\proj\out"` |
+| `Path32="out"`, with no `ExeName32` | no `Path32` line | no `Path32` line |
+| `HelpFile="help\probe.hlp"` | `HelpFile="help\probe.hlp"` | `HelpFile="help\probe.hlp"` |
+| `Reference=…#..\..\STDOLE2.TLB#OLE Automation` | `…#..\..\..\Windows\SysWOW64\stdole2.tlb#…` | `…#..\..\Windows\SysWOW64\stdole2.tlb#…` |
+
+**What it shows:**
+- **Rebased:** every member line, `Designer=`, `ResFile32=` and `Path32=` are named from the new folder.
+- **Kept as typed:** `HelpFile=`.
+- **Dropped:** `Path32=` without an `ExeName32=`. The first run's project had no `ExeName32`, and neither of its saves
+  kept the line. With `ExeName32` added, both saves rebased it. Why VB6 ties the two together was not examined.
+- **Re-derived, not rebased:** a reference's library path. The Template's `..\..\STDOLE2.TLB` names no file from
+  `proj`, and VB6 wrote the path of the library registered for that GUID, named from the new folder, for all four
+  references. So VB6 consults the registry, and does not resolve the old path.
+
+HexIDE now rebases `Designer=`, `ResFile32=`, `Path32=` and a reference's relative path the way it rebases member
+lines (`SerializedProject.RebaseItemLine` and `RebasePath`), and leaves `HelpFile=` as it was. Two differences from
+VB6 remain:
+- **A reference's path is the file's own, rebased.** HexIDE cannot read the registry on every host. Where the library
+  has not moved, the path is the same one VB6 writes.
+- **`Path32` is kept without an `ExeName32`,** where VB6 drops it. The line does nothing without a target, so this is
+  left alone.

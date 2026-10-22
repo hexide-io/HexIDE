@@ -837,11 +837,12 @@ public partial class MainViewViewModel : ObservableObject
         // The run carries on, with the handler abandoned, as it does after a run-time error.
         VBWindowContext.CompileError += (_, e) => ReportRuntimeError(e.Message, HexIDE.Runtime.Interpreter.ErrorLocation.Of(e));
 
-        // Route `Debug.Print` output from the running program into the Immediate pane (VB6's Immediate window).
-        VBDebugConsole.Output += text =>
+        // Route `Debug.Print` output from the running program into the Immediate pane (VB6's Immediate window), as it is
+        // written, so a line a statement left open shows at once and the next Debug.Print continues it (#1380).
+        VBDebugConsole.Written += text =>
         {
             Dispatcher.UIThread.Post(() =>
-                Immediate.Document.Insert(Immediate.Document.TextLength, text + "\n"));
+                Immediate.Document.Insert(Immediate.Document.TextLength, text.Replace("\r\n", "\n")));
         };
 
         if (externalDebugger is not null)

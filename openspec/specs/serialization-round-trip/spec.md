@@ -345,7 +345,8 @@ Both halves are required and they answer different risks. Reclassifying prevents
 source and rewritten with a module header on the next save. Preserving the line prevents the opposite fault:
 reclassification is an inference about intent, and silently editing a developer's project file on the
 strength of an inference is a larger liberty than declining to. The line SHALL change only when the project's
-membership actually changes.
+membership actually changes, or when the project file is written in another folder, where only its path changes
+(see "A kept member's line SHALL name the same file from wherever the project file is written").
 
 A file with no extension SHALL NOT be reclassified on read. The project already claims it is source, and
 reclassifying something that cannot be classified is a guess stacked on a guess.
@@ -449,6 +450,33 @@ project SHALL NOT remove a member the IDE failed to load.
 - **GIVEN** a project whose module fails to load
 - **WHEN** the project is opened and saved
 - **THEN** the saved project file still names that module
+
+### Requirement: A kept member's line SHALL name the same file from wherever the project file is written
+
+When a project file is written in a folder other than the one it was read from, each line the IDE keeps for a
+member it did not load, each carried file's preserved original line, and the paths of a designer, the resource
+file, the build folder and a reference's library SHALL name the same file from the new folder, in the line's own
+shape. The help file's path SHALL be written as it was read, as SHALL every path in the folder it was read from,
+and one that names a drive or starts at a root.
+
+#### Scenario: Save Project As to another folder
+
+- **GIVEN** a project, read from one folder, whose form's file is missing
+- **WHEN** the project file is saved to another folder
+- **THEN** the form's line names its file by a path from the new folder
+- **AND** a later save from the new folder names it the same way
+
+#### Scenario: A resource file and a help file
+
+- **GIVEN** a project file holding `ResFile32="res\probe.res"` and `HelpFile="help\probe.hlp"`
+- **WHEN** it is saved one folder deeper
+- **THEN** it holds `ResFile32="..\res\probe.res"` and `HelpFile="help\probe.hlp"`
+
+#### Scenario: Saved where it was read
+
+- **GIVEN** a project holding kept member lines
+- **WHEN** the project file is saved in the folder it was read from
+- **THEN** each kept line is written exactly as it was read
 
 ### Requirement: A project file SHALL NOT be written without a member that has no file
 
