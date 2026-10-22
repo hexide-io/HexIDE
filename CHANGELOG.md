@@ -208,6 +208,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A lone CR ends a line when a program runs** (#1426). VB6 ends a line at CRLF, a lone LF or a lone CR. The
+  interpreter took only the first two, so a form whose code had a lone CR, which VB6 builds and runs, was a syntax
+  error to F5. A lone CR now ends a statement, a line continuation and a comment, as each was measured to.
 - **A control array named through its form, `Form1.Text1(0).Text`, reads and writes** (#1386). It stopped the program
   with "Method or data member not found", in code and in the Immediate window alike, because the index was dropped. A
   missing element is VB6's 340, whose message now names the index, as vb6.exe's does.
