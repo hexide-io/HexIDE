@@ -188,6 +188,28 @@ there isn't one yet. Anything may change between 0.x releases.
   so a description typed there was lost at the next save. It is now read from and written to the `.vbp` as VB6
   writes it: `Description="..."` with a quote inside doubled, after `HelpContextID`, and no line when there is
   none. Measured with VB6's own Save Project As.
+
+- **Save Project no longer writes a second header into a `.bas` or `.cls` whose first line is blank** (#472). The
+  header reader looked for the header on line 0 alone. So one blank line above it left the whole file as code, and
+  Save Project, which writes every module, put the canonical header in front of it, unasked. For a class, that
+  header contradicted the file's own instancing. The reader now finds the header below blank lines, and keeps them.
+  A save no longer adds a header to code that carries its own `VB_Name`. A class whose `BEGIN` has no `END` no
+  longer loses its code to the header, or grows by a line on every save.
+
+- **`FormCodeText.PreserveAttributes` is gone** (#686). It could weld a header with no line ending onto the code
+  after it, but it has had no caller since #273's phase 3 kept a form's header with `GuardedContent` instead, so it
+  was deleted rather than repaired.
+
+- **A ListBox's `Selected(i)`, `SelCount` and `Text` work** (#1395). Each was "Method or data member not found", so
+  code that read which items were chosen, or chose one by its text, stopped there. Now each does what vb6.exe does on a
+  single-select list:
+  - `Selected(i)` reads and sets the selection, and is 381 outside the list;
+  - `Text = s` selects the first item whose whole text is `s`, without regard to case, and raises Click every time;
+  - Click comes from `Selected(i) =` only when the selection moves, as from `ListIndex`.
+
+  A list with MultiSelect 1 or 2 still runs single-select, so on one of those the three are refused as not implemented
+  (#1413).
+
 - **Save Project As names a designer, the resource file and the build folder from the new folder** (#1406). VB6's
   Save As rewrites the paths in `Designer=`, `ResFile32=` and `Path32=` so that they still name the same files.
   HexIDE kept them as read, so from another folder they named files beside the new project file. A reference's
@@ -201,6 +223,9 @@ there isn't one yet. Anything may change between 0.x releases.
   - a statement ending in `;` or `,` leaves its line open for the next, even in the next run.
 
   `Spc(n)` and `Tab(n)` now work in both, where `Print #` refused them.
+- **`Debug.Print ,` and `Debug.Print ;` load and run** (#1409). A `Debug.Print` of separators alone was a syntax error,
+  so a module holding one could not load at all. Now it prints as VB6 does: each comma moves to the next zone, and the
+  line stays open. A call of an ordinary procedure with separators alone, `Foo ,`, is still a syntax error, as in VB6.
 
 - **Save Project As to another folder no longer cuts off the members the project keeps only as a line** (#737). A
   form whose file is missing, one that failed to load, or a UserDocument is kept in the project file without being

@@ -101,13 +101,13 @@ public partial class ModuleDefinition : INotifyPropertyChanged
     /// <item><description><c>null</c> — never read from disk: a module HexIDE created. Its file will say the
     /// canonical literal, and the code window shows that.</description></item>
     /// <item><description><c>""</c> — read, and no header recognised, so <see cref="Code"/> holds the whole
-    /// file. The code window adds nothing in front of it. A save still writes the canonical literal in front,
-    /// which is hexide-io/HexIDE#472.</description></item>
+    /// file. The code window adds nothing in front of it, and a save adds nothing either, unless the file has no
+    /// <c>VB_Name</c> at all (hexide-io/HexIDE#472).</description></item>
     /// <item><description>anything else — the header as read.</description></item>
     /// </list>
     /// <para>
-    /// <c>ModuleFileFormat.BufferHeader</c> is the one reader that tells the first two apart;
-    /// <c>ModuleFileFormat.ToFileContent</c> treats both as "no header".
+    /// <c>ModuleFileFormat.BufferHeader</c> tells the first two apart by this; <c>ModuleFileFormat.ToFileContent</c>
+    /// by whether the body carries a <c>VB_Name</c>.
     /// </para>
     /// </remarks>
     public string? OriginalHeader { get; private set; }

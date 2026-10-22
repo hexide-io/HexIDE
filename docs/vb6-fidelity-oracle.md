@@ -10042,6 +10042,65 @@ What it still does not do:
 - **`RemoveItem` and `AddItem`'s index** are #821's, and **`Selected(i)` and `Text`** #1395's, so their rows wait on
   those.
 
+## A ListBox's Selected, SelCount and Text, with MultiSelect and without (2026-10-22, #1395)
+
+One `/make` probe, built native and p-code, **all 201 lines agreeing**. Its form holds three ListBoxes:
+
+- `List1`, with MultiSelect 0;
+- `List2`, with MultiSelect 1, Simple;
+- `List3`, with MultiSelect 2, Extended.
+
+After `Me.Show` in Form_Load, each list is filled with `a`, `bc`, `b`, `c`, `b`, so `bc` starts with `b` and `b` comes twice. Then each runs the same statements under `On Error Resume Next`. After every statement, and inside every Click, the probe logs `ListIndex`, each item's `Selected`, `SelCount` and `Text`. **Simple and Extended agree on every row**, so "multi" below means either.
+
+**Reading.** The same on all three lists:
+
+| Read | Result |
+|---|---|
+| `Selected(0)` | `False`, a Boolean |
+| `Selected(5)`, at `ListCount`; `Selected(-1)`, `(100)`, `(-2)` | 381, "Invalid property array index" |
+| `Selected(40000)` | 6, Overflow |
+| `Selected("1")`, `Selected(1.6)` | `False`, Err 0: the index is coerced |
+| `Selected(0)` on an empty list | 381 |
+| `SelCount` | an Integer: 0 with nothing selected, then the number selected |
+| `Text`, nothing selected, MultiSelect 0 | `""`, a String |
+| `Text`, nothing selected, multi | `a`: the item at `ListIndex` |
+
+**Writing `Selected`, with MultiSelect 0.** Each row follows the one above it:
+
+| Statement | Click | Then |
+|---|---|---|
+| `Selected(1) = True`, from -1 | once, `ListIndex` 1 inside it | `bc` selected |
+| `Selected(1) = True`, already selected | none | |
+| `Selected(3) = True` | once, `ListIndex` 3 | `c` alone: the selection moves |
+| `Selected(3) = False`, the selected item | once, `ListIndex` -1 | nothing selected |
+| `Selected(0) = False`, not selected | none | |
+| `Selected(5) = True`, at `ListCount`; `Selected(-1) = True` or `False`; `Selected(100) = True` | none | 381, and nothing changes |
+| `Selected(2) = "True"`, then `= 0`, then `= 5` | once each | selected, cleared, selected: any non-zero number is True |
+| `Selected(2) = Null` / `Selected(2) = "x"` | none | 94 / 13 |
+| `Selected(0) = True` on an empty list | none | 381 |
+
+**Writing `Text`, with MultiSelect 0.** **Every `Text =` raises Click, once**, even when the selection doesn't move. Here it differs from `Selected` and `ListIndex`, which raise it only when the selection moves.
+
+| Statement | `ListIndex` after, and inside the Click |
+|---|---|
+| `Text = "b"`, from -1 | 2: the first item whose whole text matches. Neither `bc`, which only starts with it, nor the second `b` |
+| `Text = "B"`, from -1 | 2: without regard to case |
+| `Text = "x"`, no item's text, from -1 | -1, and Click still comes |
+| `Text = "x"`, from 0 | -1 |
+| `Text = ""`, from 0 | -1 |
+| `Text = "bc"`, then `Text = "bc"` again | 1, then 1, with a Click each time |
+| `Text = 5` | -1: it is the text `5`, which no item has |
+| `Text = Null` | 94, no Click |
+| `Text = "a"` on an empty list | -1, with a Click |
+
+**With MultiSelect 1 or 2, `ListIndex` is the item with the focus, not a selected one.**
+- After `AddItem` it is 0 with nothing selected, and after `Clear` it is 0 with no items at all.
+- `Selected(i) = True` adds item i to the selection, raises Click, and moves `ListIndex` to i. So `Selected(1) = True` then `Selected(3) = True` leaves both selected, `SelCount` 2.
+- `Selected(i) = False` removes it, raises Click, and leaves `ListIndex` where it was. Setting `Selected` to what it already is raises none, as with MultiSelect 0.
+- `ListIndex = n` moves the focus and raises Click, and selects nothing and clears nothing. `ListIndex = -1` leaves `Text` empty.
+- **`Text = s` raises Click and changes nothing else**, whatever `s` is: no item is selected or focused, even one whose text is `s`.
+- The errors are MultiSelect 0's: 381, 6, 94 and 13, for the same statements.
+
 ## One handler at a time (2026-10-14, #766)
 
 Can an event handler start while another is still running, and what does `DoEvents` change? Two `/make` probes, each
@@ -11263,6 +11322,26 @@ What these add to the table above:
   `         xg`: the copy step's own Ctrl+G typed a `g` at the caret, which a screenshot taken before it does not show.
   That probe's first attempt also copied nothing. It ran again with 15 seconds for VB6 to open, and the Immediate
   window opened from the View menu before F5.
+
+**Separators with no item** (2026-10-22, #1409). A third IDE probe ran with F5 and was copied the same way. Each case
+below is one or more `Debug.Print` statements, then the line they print:
+
+| Statements | Line |
+|---|---|
+| `"a";`, then `;`, then `"b"` | `ab`: `;` alone writes nothing, and the line stays open |
+| `;`, then `"x"` | `x`: nor does it end a line, even at the start of one |
+| `, ,`, then `"y"` | `y` at column 29: one zone for each comma |
+| `"a";`, then `;;`, then `"b"` | `ab` |
+| `,;`, then `"z"` / `;,`, then `"w"` | `z` / `w` at column 15 |
+| `"abc";`, then `,`, then `"v"` | `v` at column 15 |
+| `;"u"` | `u` |
+| `; "t";`, then `"--10"` | `t--10`: the line stays open |
+
+So a statement of separators alone is an ordinary output list, as `Print #` reads one. A procedure's call is another
+matter. In a `/make` probe with `Sub Foo(Optional a, Optional b, Optional c)`, `Foo ,` is the compile error "Syntax
+error", native and p-code, and so are `Foo , ,` and `Foo ;`, built as p-code. `Foo , 2` builds and runs, with `a` and
+`c` missing. A list of
+separators alone belongs to Print only.
 - **`1.5E-10`, a Double, prints as `0.00000000015`,** most likely just its text. *Turning a number or a date into
   text* keeps a Double fixed while its digits fit, as `0.000012345` is, and goes to E notation for `0.00001 / 3`.
   HexIDE's `CStr` gives `0.00000000015` too, but `CStr` of this value was not measured on vb6.exe.
