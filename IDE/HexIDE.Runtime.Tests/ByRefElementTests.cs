@@ -9,7 +9,7 @@ namespace HexIDE.Runtime.Tests;
 /// </summary>
 public class ByRefElementTests : BaseVBTestFixture
 {
-    private static Vb6Value[] Lines(string transcript) =>
+    private static List<Vb6Value> Lines(string transcript) =>
         [.. transcript.Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.Length > 0).Select(l => new Vb6Value(l))];
 
     [Fact]
