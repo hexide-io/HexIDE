@@ -208,6 +208,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **An empty Collection refuses an index as VB6's does** (#1492). Every index into an empty Collection is 5 in VB6: a
+  position, a key, Null or Empty, for Item, Remove, and Add's Before and After. HexIDE gave what a Collection with items
+  gives, 9 for a position and 13 for Null. Assigning an item, which no Collection allows, now looks the index up first,
+  as VB6 does: `c(3) = x` past the end is 9, and `c("zz") = x` with no such key is 5. Only an item that is there gives
+  424, and late-bound it is 451 or 438, by form, as measured.
+
 - **VB6's Collection runs** (#1471). There was none, so a program that made one stopped at `New Collection`. Now
   `Add`, `Item`, `Remove`, `Count`, For Each and `c!key` give vb6.exe's answers and errors, each measured native and
   p-code. That includes the two that surprise people:
