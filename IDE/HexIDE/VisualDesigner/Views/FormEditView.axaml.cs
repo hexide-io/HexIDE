@@ -324,7 +324,21 @@ public partial class FormEditView : UserControl
                     if (selectedComponent == vm.Form)
                     {
                         var adorner = new ResizeAdorner { AllowedDirection = ResizeAdornerDirections.All & ~(ResizeAdornerDirections.Left | ResizeAdornerDirections.Top) };
-                        adorner.OnDragStarted = () => vm.BeginDrag([vm.Form]);
+                        // The handles sit on the frame, as VB6's do, and drag the frame's size. The form's Width and
+                        // Height are its client's, so the frame's border, padding and caption row come off what is
+                        // dragged (#924). Measured at the start of each drag, since the caption row follows its font.
+                        var chrome = new Size();
+                        adorner.OnDragStarted = () =>
+                        {
+                            chrome = new Size(FormContainer.Bounds.Width - FormClient.Bounds.Width,
+                                FormContainer.Bounds.Height - FormClient.Bounds.Height);
+                            vm.BeginDrag([vm.Form]);
+                        };
+                        adorner.ApplySize = frame =>
+                        {
+                            vm.Form.Width = Math.Max(1, frame.Width - chrome.Width);
+                            vm.Form.Height = Math.Max(1, frame.Height - chrome.Height);
+                        };
                         adorner.OnDragCompleted = () => vm.EndDrag();
                         AdornerLayer.SetAdorner(FormContainer, adorner);
                     }

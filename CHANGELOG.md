@@ -185,6 +185,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The form designer draws a form at the size it runs** (#924). The designer drew the whole window, frame and
+  caption bar included, at the form's client size, so the area controls were designed in was 8 pixels narrower and
+  about 25 shorter than the running form. A layout drawn flush to the edges ran with a margin, and resizing the form
+  saved a size nobody saw. The frame is now drawn around the client, and a resize saves the client it leaves.
 - **A form's own Click runs** (#1364). A click on the form's area, over no control, ran `Form_MouseDown` and
   `Form_MouseUp` and never `Form_Click`. Now Click follows MouseUp, for the left, right and middle buttons, as
   vb6.exe does with real input. As in VB6, a press released over a control or outside the form gives no Click. A
