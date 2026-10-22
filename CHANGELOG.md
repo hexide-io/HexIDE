@@ -18,6 +18,13 @@ there isn't one yet. Anything may change between 0.x releases.
 
   A Dropdown List's Text is refused at run time until its Style is modelled (#1428), and is never saved, as in VB6. A
   newly drawn TextBox or ComboBox starts with its name as its Text, as VB6's designer gives it.
+- **A ListBox's MultiSelect** (#1413). A list set to Simple or Extended used to run single-select, and its `ListIndex`
+  read -1 where VB6 reads 0. Now it selects as vb6.exe's does, with real input measured, native and p-code:
+  - **Simple** toggles the item clicked, and Space toggles the focused one;
+  - **Extended** selects the item clicked alone, Ctrl+click toggles it, and Shift selects a range from the anchor;
+  - **`ListIndex`** is the focused item, and `Selected(i)`, `SelCount` and `Text` read and set the selection as VB6's do.
+
+  MultiSelect is in the Properties window, saved as VB6 writes it, and read-only to a program, as in VB6.
 - **Shared DAP protocol capture** (#1166). The DAP library can record wire traffic and process diagnostics
   in the existing inspector's conversation log, with bounded retention and source-path pseudonymisation on
   export. A host that launches external debug sessions from the IDE remains subsequent work.
@@ -192,6 +199,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Ctrl+End after a selection made in code goes to the end of the text** (#1385). After code selected text that ran
+  to the end, such as the Notepad demo's Select All, Ctrl+End put the caret at the start, so a paste went in there and
+  Find Up searched from the middle. Ctrl+End and Ctrl+Home now land where VB6's do, measured with real keys.
+
 - **A project's description is saved in its project file** (#42). Project Properties set it, and nothing wrote it,
   so a description typed there was lost at the next save. It is now read from and written to the `.vbp` as VB6
   writes it: `Description="..."` with a quote inside doubled, after `HelpContextID`, and no line when there is
@@ -214,9 +225,6 @@ there isn't one yet. Anything may change between 0.x releases.
   - `Selected(i)` reads and sets the selection, and is 381 outside the list;
   - `Text = s` selects the first item whose whole text is `s`, without regard to case, and raises Click every time;
   - Click comes from `Selected(i) =` only when the selection moves, as from `ListIndex`.
-
-  A list with MultiSelect 1 or 2 still runs single-select, so on one of those the three are refused as not implemented
-  (#1413).
 
 - **Save Project As names a designer, the resource file and the build folder from the new folder** (#1406). VB6's
   Save As rewrites the paths in `Designer=`, `ResFile32=` and `Path32=` so that they still name the same files.

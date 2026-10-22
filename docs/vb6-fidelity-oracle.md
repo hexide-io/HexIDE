@@ -10198,6 +10198,71 @@ After `Me.Show` in Form_Load, each list is filled with `a`, `bc`, `b`, `c`, `b`,
 - **`Text = s` raises Click and changes nothing else**, whatever `s` is: no item is selected or focused, even one whose text is `s`.
 - The errors are MultiSelect 0's: 381, 6, 94 and 13, for the same statements.
 
+**With real input** (#1413). A second probe has `List1` with MultiSelect 1 and `List2` with MultiSelect 2, each holding `a` to `f`, and every handler logs the list's state as above. It ran in the guest's console session, driven by `SetCursorPos`, `mouse_event` and `keybd_event`. It was built native and p-code, and **all 117 lines agree**. Each row follows the one above it, on the same list. "Click" is the list's Click, which comes between MouseDown and MouseUp, as with MultiSelect 0.
+
+MultiSelect 1, Simple:
+
+| Input | Events | Selected after | `ListIndex` |
+|---|---|---|---|
+| click `a` | MouseDown, Click, MouseUp; `a` is already selected inside MouseDown | `a` | 0 |
+| click `c` | the same | `a`, `c` | 2 |
+| click `a` again | the same | `c` | 0 |
+| Shift+click `e` | the same: Shift does nothing | `c`, `e` | 4 |
+| Ctrl+click `f` | the same: Ctrl does nothing | `c`, `e`, `f` | 5 |
+| Up | KeyDown, Click | unchanged: only the focus moves | 4 |
+| Space | KeyDown, Click | `e` toggled off: `c`, `f` | 4 |
+| Down, then Space | Click each time | `f` toggled off: `c` | 5 |
+| Shift+Up | KeyDown for each key, then Click | unchanged | 4 |
+| double click `b` | MouseDown, Click, MouseUp, DblClick, MouseUp | `b` toggled once: `b`, `c` | 1 |
+| press `d`, drag to `f`, release | MouseDown, then Click with `ListIndex` 5, then MouseUp | `d` toggled at the press, and nothing else: `b`, `c`, `d` | 5 |
+| click below the items | MouseDown, MouseUp, no Click | unchanged | 5 |
+| right click `e` | MouseDown and MouseUp with Button 2, no Click | unchanged | 5 |
+
+MultiSelect 2, Extended:
+
+| Input | Events | Selected after | `ListIndex` |
+|---|---|---|---|
+| click `a` | MouseDown, Click, MouseUp | `a` alone | 0 |
+| click `c` | the same | `c` alone | 2 |
+| Ctrl+click `e` | the same | `c`, `e` | 4 |
+| Ctrl+click `c` | the same | `e` | 2 |
+| Shift+click `f` | inside MouseDown nothing is selected; then Click and MouseUp | **`d`, `e`, `f`** | 5 |
+| Up | KeyDown, Click | `e` alone | 4 |
+| Shift+Up | KeyDown for each key, then Click | `d`, `e` | 3 |
+| Ctrl+Up | KeyDown for each key, then Click | `c` alone, as Up alone would give | 2 |
+| Ctrl+Space | KeyDown for each key, then Click | unchanged | 2 |
+| Space | KeyDown, Click | unchanged | 2 |
+| press `a`, drag to `d`, release | MouseDown with `a` alone, then Click, then MouseUp | `a` to `d` | 3 |
+| double click `b` | MouseDown, Click, MouseUp, DblClick, MouseUp | `b` alone | 1 |
+| click below the items | MouseDown, MouseUp, no Click | unchanged | 1 |
+| right click `e` | MouseDown and MouseUp with Button 2, no Click | unchanged | 1 |
+
+So:
+- **A left press on an item always raises Click, at the release.** A press below the items and a right press change nothing and raise none, as with MultiSelect 0.
+- **Simple toggles the item pressed** and ignores Shift and Ctrl. A drag moves only the focus, and the arrow keys move only the focus. Space toggles the focused item.
+- **Extended selects the item pressed alone.** Ctrl toggles it. A drag selects from the item pressed to the one released over. Up and Down select the next item alone, and Shift with either extends the selection.
+- **Every key the list takes raises Click**, whether or not anything changed: Up on a Simple list, and Space on an Extended one. With MultiSelect 0 a key raises Click only when the selection moves (*A ListBox's Click*).
+- **The Shift+click looked unexplained, and a third probe explained it.** After Ctrl+click `c` had removed `c`, leaving `e`, Shift+click `f` selected `d` to `f`. That is neither `c` to `f`, from the last item clicked, nor `e` to `f`, from the one still selected. The rule, from the probe below, is that the range runs from the anchor and the anchor keeps its own state. Ctrl+Up selecting `c` alone is measured too, not inferred.
+
+**The anchor** (a third probe, the second's form with `ListIndex` and `Text` logged before any `AddItem`). It was driven the same way, on the Extended list only, and **native and p-code agree**. Each group starts from a plain click:
+
+| Input | Inside MouseDown | Selected after | `ListIndex` |
+|---|---|---|---|
+| click `c`, Shift+click `f` | `c` | `c` to `f` | 5 |
+| click `a`, Ctrl+click `c`, Shift+click `f` | `c`: `a` is cleared at the press | `c` to `f` | 5 |
+| click `c`, Ctrl+click `c`, so nothing is selected, then Shift+click `a` | nothing | **`a`, `b`**: the range stops short of `c` | 0 |
+| click `c`, Ctrl+click `e`, Ctrl+click `c`, Shift+click `f` | nothing | **`d` to `f`**, as before | 5 |
+| click `e`, Shift+click `b` | `e` | `b` to `e` | 1 |
+| click `b`, Shift+Down, Shift+Down, Shift+Up | | `b`, `c`; then `b` to `d`; then `b`, `c` | 2, 3, 2 |
+| click `a`, Ctrl+click `d`, Shift+click `f` | `d` | `d` to `f`: `a` is cleared | 5 |
+| then Ctrl+Shift+click `b` | `d`: `e` and `f` are cleared at the press | `b` to `d` | 1 |
+
+So **Shift selects from the anchor to the item and clears the rest.** The anchor is the last item pressed or reached without Shift: by a click, a Ctrl+click or a plain arrow key. The anchor keeps its own state: when Ctrl+click has just deselected it, the range is every item from the anchor to the one clicked, less the anchor. The press leaves only the anchor's own state, and the range appears by the Click at the release. Ctrl+Shift+click gave the same range as Shift+click here, with nothing else selected to show whether it would have kept other items.
+
+**Before any `AddItem`** a multi list's `ListIndex` is already 0, on both lists, and `Text` is `""`.
+
+**`MultiSelect` itself.** `List1.MultiSelect` reads 1, an Integer, and `List2.MultiSelect` 2. Assigning it, `List1.MultiSelect = 0`, is the compile error "Can't assign to read-only property", built as p-code. A form re-saved by the VB6 IDE, with hexide-frm's #120 recipe (bare values, the code dirtied, then Ctrl+S), writes `MultiSelect     =   1  'Simple` and `MultiSelect     =   2  'Extended`, after `Left` and before `TabIndex`. A list given `MultiSelect = 0` has the line dropped.
+
 ## One handler at a time (2026-10-14, #766)
 
 Can an event handler start while another is still running, and what does `DoEvents` change? Two `/make` probes, each
@@ -11752,6 +11817,44 @@ and every row agreed.
 **In HexIDE (#1150):** every row runs as measured but the last, since HexIDE's TextBox doesn't model MaxLength. Avalonia
 moves a caret placed inside a line break past it, so the selection code sets is remembered and read back while
 Avalonia's has not moved. Once the user moves it, the selection is Avalonia's.
+
+### Keys after a selection set from code (2026-10-22, #1385)
+
+**The probe.** Found by the Notepad demo: Select All from its menu, then Ctrl+End and Ctrl+V, pasted at the start in
+HexIDE. A form with a single-line box (Text1) and two MultiLine ones (Text2, Text3). A Timer sets each selection from code,
+straight after `SetFocus`, then sends the key with VB6's own `SendKeys`, and the next tick logs `SelStart` and
+`SelLength`. It ran in the guest's console session, where the form has the foreground. Native and p-code agreed on every
+row. The same build run in session 0, with no foreground, logged nothing changed; read that as no input, not as VB6's
+answer.
+
+| Box, text `abcdef` | Selection from code | Key | Then SelStart, SelLength, Text |
+|---|---|---|---|
+| Text1 | 0, 6 | Ctrl+End | 6, 0 |
+| Text2 (MultiLine) | 0, 6 | Ctrl+End | 6, 0 |
+| Text1 | 2, 0 | Ctrl+End | 6, 0 |
+| Text1 | 2, 2 | Ctrl+Home | 0, 0 |
+| Text2 (MultiLine) | 2, 2 | Ctrl+Home | 0, 0 |
+| Text1 | 0, 6 | Ctrl+Home | 0, 0 |
+| Text1 | 2, 2 | `X` typed | 3, 0, `abXef` |
+
+And the Notepad's own sequence, in Text3: `Text = "ab" & vbCrLf & "cd"`, `SelStart = 0`, `SelLength = Len(Text)`,
+`Clipboard.SetText SelText`, then the keys.
+
+| After | SelStart, SelLength | Text |
+|---|---|---|
+| the selection and the copy | 0, 6 | `ab CRLF cd` |
+| Ctrl+End | 6, 0 | `ab CRLF cd` |
+| `e` typed | 7, 0 | `ab CRLF cde` |
+| Ctrl+V | 13, 0 | `ab CRLF cdeab CRLF cd` |
+
+None of this is surprising: it's the Win32 edit control's own behaviour. It's recorded because HexIDE got the first row
+wrong.
+
+**In HexIDE (#1385):** every row runs as measured. Avalonia keeps its caret at a selection's anchor, `SelectionStart`, and
+moves `SelectionEnd`. Code's selection used to leave the caret at its end, and with that at the end of the text, Ctrl+End
+found nothing to move and collapsed the selection to its start, 0. The issue first read this as `SelStart` reading the
+wrong place. It read the right one: the paste had gone in at 0, and with the whole text copied, the result looks the same
+from either end. Typing a character after Ctrl+End, as the probe does, tells them apart.
 ## A form's WindowState (2026-10-17, #1152)
 
 **The probes.** Found by the Notepad demo, whose `Form_Resize` begins `If WindowState = vbMinimized Then Exit Sub`.

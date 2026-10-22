@@ -337,7 +337,7 @@
 | CheckBox | Done | |
 | OptionButton | Done | |
 | ComboBox | Partial | `ListCount`, `List(i)`, `AddItem` with an index and `RemoveItem` as vb6.exe gives them (#821). `Text` at Style 0 and 1, in the designer and at run time, and a drawn combo starts with its name as its Text (#926). No `Style` ([#1428](https://github.com/hexide-io/HexIDE/issues/1428)), so a Dropdown List's Text is refused at run time; no Click or Change ([#1429](https://github.com/hexide-io/HexIDE/issues/1429)); no `Sorted` |
-| ListBox | Done | Click comes where vb6.exe raises it: on a left press on an item, before MouseUp, and when code or an arrow key moves the selection (#1374). `ListCount`, `List(i)`, `AddItem` with an index and `RemoveItem` as vb6.exe gives them (#821). `Selected(i)`, `SelCount` and `Text`, read and written, as vb6.exe gives them on a single-select list (#1395). No `MultiSelect`: such a list runs single-select, and refuses those three (#1413). No `Sorted` |
+| ListBox | Done | Click comes where vb6.exe raises it: on a left press on an item, before MouseUp, and when code or an arrow key moves the selection (#1374). `ListCount`, `List(i)`, `AddItem` with an index and `RemoveItem` as vb6.exe gives them (#821). `Selected(i)`, `SelCount` and `Text`, read and written, as vb6.exe gives them on a single-select list (#1395). `MultiSelect`, Simple and Extended, with vb6.exe's mouse, keys and code, `ListIndex` the focused item (#1413). No `Sorted` |
 | HScrollBar | Done | |
 | VScrollBar | Done | |
 | Timer | Done | |
