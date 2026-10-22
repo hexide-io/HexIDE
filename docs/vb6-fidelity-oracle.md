@@ -4080,6 +4080,13 @@ OCX-persisted bytes, at any level of effort. For that data, blob **pass-through 
 bytes at their original offsets, never re-encode — is the only correct strategy that will ever exist**, not
 a pragmatic shortcut.
 
+**Narrowed (2026-10-22, #60): the bytes, not the offsets.** Pass-through as built keeps every record's bytes and never
+re-encodes one, but it doesn't pin a record to its original offset. Records are laid out in the order the `.frm` cites
+them, which is VB6's own layout, and every citation is rewritten to wherever its record lands. For a form nobody
+changed, that gives the original offsets; `Web Browser.frm` and its `.frx` come back byte for byte. Once a record HexIDE
+models changes size, an OCX's record held at its original offset would overlap it, and a citation left as read would
+address the wrong bytes.
+
 This splits the binary layer cleanly:
 
 | Blob source | Relationship |

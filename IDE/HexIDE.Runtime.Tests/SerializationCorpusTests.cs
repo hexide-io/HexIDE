@@ -303,7 +303,10 @@ public class SerializationCorpusTests
         // That makes this number and that set two views of one thing from here on: a form leaving the
         // read-only set without arriving here means the binary work landed, and a form arriving here
         // without leaving that set means something in the writer regressed.
-        const int KnownVb6Failures = 1;
+        //
+        // Zero since #60. The last one, Web Browser, left both together: its ImageList's six pictures are
+        // carried with the preserved block citing them, and it round-trips byte for byte, companion included.
+        const int KnownVb6Failures = 0;
         vb6Failures.Should().BeLessThanOrEqualTo(KnownVb6Failures,
             $"VB6-authored round-trip regressed past the known baseline. Full report: {ReportPath}\n"
             + report.ToString());
@@ -335,16 +338,16 @@ public class SerializationCorpusTests
         // Picture alone silenced the refusal while the save was still lossy, and the round-trip lane caught
         // it in the same run.
         //
-        // What remains is four forms and three distinct causes:
-        // ONE, and it is the floor. Web Browser's six Pictures sit on an MSComctlLib.ImageList — an OCX,
-        // and hosting third-party controls is the project's largest declared gap. This form SHOULD stay
-        // refused, so 21 of 22 is the ceiling for this corpus rather than a waypoint.
+        // NONE, since #60. This used to say Web Browser was the floor: its six Pictures sit on an
+        // MSComctlLib.ImageList, an OCX, and hosting one was taken to be what reproducing it needed. It is not.
+        // Carrying content HexIDE cannot interpret needs no understanding of it: the preserved block keeps its
+        // lines and the records they cite, and the save rewrites those citations to wherever the records land.
+        // Web Browser left by round-tripping byte for byte, which the pairing with KnownVb6Failures requires.
         //
-        // A change that empties this set without ActiveX hosting behind it is a REGRESSION, not progress:
-        // it means a form started saving that HexIDE still cannot reproduce. The pairing with
-        // KnownVb6Failures is what catches that — a form may only leave here by round-tripping.
+        // A form arriving here now is a REGRESSION unless a deliberate widening says otherwise, and a form may
+        // still only leave by round-tripping.
         //
-        // How the other five left, in order, because each one names a different kind of gap:
+        // How all six left, in order, because each one names a different kind of gap:
         //   Button ListBox, Mover ListBox — the properties citing their blobs were not registered
         //     (CommandButton.Picture, ListBox.DragIcon).
         //   Treeview Listview Splitter, Splash Screen — the blob sat on a VB.Image, a control class that
@@ -352,10 +355,8 @@ public class SerializationCorpusTests
         //   ODBC Log In — the companion was parsed as a flat sequence of length-prefixed blobs, which
         //     cannot see a 2-byte List/ItemData record; and the blobs were collected in declaration order
         //     while the references were written alphabetically, so the two offsets came out swapped.
-        var expected = new Dictionary<string, UnfaithfulSaveCause>
-        {
-            ["Web Browser.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
-        };
+        //   Web Browser — the records its ImageList cites were dropped with the lines citing them (#60).
+        var expected = new Dictionary<string, UnfaithfulSaveCause>();
 
         var files = CorpusFiles(".frm", ".ctl");
         if (files.Count == 0) return;

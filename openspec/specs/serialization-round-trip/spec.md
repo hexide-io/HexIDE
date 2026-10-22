@@ -20,14 +20,15 @@ refuses an edit that encoding cannot hold rather than converting the file. A fil
 cannot read is still loaded, byte for byte, rather than dropped from the project. A file the project only
 carries is not held to this yet ([#745](https://github.com/hexide-io/HexIDE/issues/745)).
 
-> **Known divergence — this capability is not met today.** The requirements below state the intended
-> contract. Against VB6's own shipped sample projects, no file currently survives a save byte-identically,
-> and **6 of 22 are held read-only** by the refusal requirement rather than saved. Tracked as an epic in
-> [#21](https://github.com/hexide-io/HexIDE/issues/21), with narrower cases in
-> [#15](https://github.com/hexide-io/HexIDE/issues/15) and
-> [#22](https://github.com/hexide-io/HexIDE/issues/22). The requirements are stated as intent rather than
-> rewritten to describe the code, because the code is incomplete here, not the contract. The refusal and
-> read-only requirements *are* met, and are what makes the gap safe to ship with.
+> **Known divergence — narrower than this note once said.** The requirements below state the intended
+> contract. It once read that no file of VB6's own shipped samples survived a save byte-identically, and that
+> 6 of 22 were held read-only. Against the corpus gate today, every designer file VB6 wrote (28, from its
+> Template tree and from `corpus/`) survives a save byte-identically, its companion included, and none is held
+> read-only. The last one held, `Web Browser.frm`, was freed when the companion records cited by a control
+> the IDE does not model began to be carried with it ([#60](https://github.com/hexide-io/HexIDE/issues/60)).
+> The epic, [#21](https://github.com/hexide-io/HexIDE/issues/21), stays open, and the requirements are still
+> stated as intent rather than rewritten to describe the code. The refusal and read-only requirements are met,
+> and are what makes any remaining gap safe to ship with.
 >
 > That read-only count was 12 until menu hierarchies began surviving a round-trip
 > ([#83](https://github.com/hexide-io/HexIDE/issues/83)), and container nesting has since been fixed as
@@ -43,7 +44,9 @@ carries is not held to this yet ([#745](https://github.com/hexide-io/HexIDE/issu
 > tracked as a SET rather than a count: a count would have reported no progress on a change that removed two
 > whole classes of corruption.
 >
-> The set is gated by a corpus test, so membership cannot change quietly in either direction.
+> The set is gated by a corpus test, so membership cannot change quietly in either direction. It has since
+> fallen to none, each form leaving only by round-tripping, the last of them when content cited by a control
+> the IDE does not model began to be carried ([#60](https://github.com/hexide-io/HexIDE/issues/60)).
 
 ## Requirements
 
@@ -67,6 +70,11 @@ subset — and the developer discovers which parts by finding out what stopped w
 #### Scenario: A section left by another tool
 - **WHEN** a project file ends in a section belonging to some other tool
 - **THEN** that section is written back
+
+#### Scenario: Companion content cited by content the IDE does not model
+- **WHEN** a property, or a component type, the IDE has no model for cites a record in the binary companion
+- **THEN** the record is written back with it, and the citation is rewritten, companion name included, to
+  wherever the record lands
 
 ### Requirement: Preserved content SHALL be written back near where it was found
 Content preserved verbatim SHALL be written back in a position corresponding to where it was read, as far as
@@ -282,9 +290,10 @@ opposite directions, which is why no layer may hold the assumption privately.
 - **THEN** what is written back is its position relative to that container
 
 ### Requirement: Unreproducible binary content SHALL hold a file read-only
-Where a file cites binary content the IDE cannot reproduce — because the property carrying the citation is
-one it does not model, or because the cited content did not reach the model at all — the IDE SHALL treat
-that file as one it cannot reproduce.
+Where a file cites binary content the IDE cannot reproduce, because the cited content did not reach the model,
+the IDE SHALL treat that file as one it cannot reproduce. Content cited by a property or component the IDE
+does not model is carried with it, so that alone is no longer such a case
+([#60](https://github.com/hexide-io/HexIDE/issues/60)).
 
 The reference is what is lost, not the bytes: the companion file is left alone by a separate guard, so the
 image survives on disk while the property pointing at it does not. That is a save which looks successful and
@@ -299,8 +308,8 @@ once and they agree at a number lower than the file actually cites. The citation
 opened, so they can be counted whatever became of the file beside it.
 
 #### Scenario: A property the IDE does not model referencing a companion blob
-- **WHEN** such a file is loaded
-- **THEN** it is presented read-only rather than saved with the reference dropped
+- **WHEN** such a file is loaded and the cited content is in the companion
+- **THEN** the property is carried with that content, and the file is not held read-only on that account
 
 #### Scenario: A modelled property referencing a companion blob
 - **WHEN** the referencing property is one the IDE does model and the cited content reached the model

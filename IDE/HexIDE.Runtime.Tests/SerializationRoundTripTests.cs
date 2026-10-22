@@ -656,7 +656,7 @@ public class SerializationRoundTripTests
         oleIdx.Should().BeLessThan(outerEndIdx);
     }
 
-    // ── Unknown preservation: binary-referencing properties are excluded ───────
+    // ── Unknown preservation: a modelled binary property is not also kept raw ──
 
     private const string FormWithFrxReference = """
         VERSION 5.00
@@ -670,9 +670,10 @@ public class SerializationRoundTripTests
     [Fact]
     public void FormDeserializer_BinaryReferencingUnknown_IsNotPreserved()
     {
-        // Picture is a known byte[] property — it gets handled by the binary path, not unknowns.
-        // An *unknown* property referencing .frx would be dropped (binary phase deferred).
-        // This test verifies no crash and no binary ref in UnknownRawPropertyLines.
+        // Picture is a known byte[] property — it gets handled by the binary path, not unknowns, so it must not
+        // also be kept as a raw line. An *unknown* property citing the companion is carried, with the record it
+        // cites (#60, CarriedCompanionRecordTests). This test verifies no crash and no binary ref in
+        // UnknownRawPropertyLines.
         var p = MakeProject();
         var form = new FormDeserializer().Deserialize(p, FormWithFrxReference, NullSink.Instance);
         form.Should().NotBeNull();
