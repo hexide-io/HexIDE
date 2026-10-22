@@ -36,6 +36,14 @@ public static class VBFontExtensions
             FontManager.Current.TryGetGlyphTypeface(new Typeface(name), out var typeface)
             && string.Equals(typeface.FamilyName.Replace("\0", ""), name, StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>
+    /// Whether a program's FontName could name this family here: installed, or one of the Windows text fonts vb6.exe
+    /// takes by name (#1141). set_control_property takes such a face from text even when its name ends in a number or a
+    /// style word, as Wingdings 2 and MS Shell Dlg 2 do (#1311).
+    /// </summary>
+    public static bool IsNameable(string? family) =>
+        !string.IsNullOrEmpty(family) && AvaloniaInterop.FontMembers.Takes(family);
+
     public static FontWeight ToFontWeight(this VBFont font) =>
         font.Bold ? FontWeight.Bold : FontWeight.Normal;
 

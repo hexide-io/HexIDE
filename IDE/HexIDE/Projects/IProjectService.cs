@@ -14,10 +14,30 @@ public interface IProjectService
     Task SaveProject(ProjectDefinition project, bool saveAs);
     Task SaveProjectToDirectory(ProjectDefinition project, string directory);
     Task SaveAllProjects(bool saveAs);
+    /// <summary>
+    /// The name Add Form gives a new form: the first free <c>Form{n}</c> (<see cref="ProjectNaming.NextFreeName"/>)
+    /// whose file, and the binary file beside it, would not be written where a file already is.
+    /// </summary>
+    /// <remarks>
+    /// The name decides a path, because a new member is written as it is added. So a name the project does not use
+    /// can still be taken: by another project's file in a shared folder, or by a file the project file names for a
+    /// member that did not load (hexide-io/HexIDE#738).
+    /// </remarks>
+    string NextFreeFormName(ProjectDefinition project);
+
+    /// <summary>
+    /// The name Add Module, Add Class Module, Add User Control and Add Property Page give a new module of
+    /// <paramref name="kind"/>, as <see cref="NextFreeFormName"/> gives a form's.
+    /// </summary>
+    string NextFreeModuleName(ProjectDefinition project, ModuleKind kind);
+
     /// <summary>Writes a new form's file and adds the form to <paramref name="project"/>.</summary>
     /// <param name="interactive">As for <see cref="SaveForm"/>.</param>
     /// <exception cref="HexIDE.IDE.SourceEncodingRefusal">The new file's code page, or the project file's, cannot
     /// hold <paramref name="name"/>. Nothing was created and nothing was added.</exception>
+    /// <exception cref="FileInTheWayRefusal">The new file, or the binary file beside it, would be written where a
+    /// file already is, or where the project file names one. Nothing was written and nothing was added. The same
+    /// holds for the other three Add methods.</exception>
     Task<FormDefinition> AddNewForm(ProjectDefinition project, string name, bool interactive = true);
     Task<ModuleDefinition> AddNewModule(ProjectDefinition project, string name, ModuleKind kind, bool interactive = true);
     Task<ModuleDefinition> AddNewUserControl(ProjectDefinition project, string name, bool interactive = true);

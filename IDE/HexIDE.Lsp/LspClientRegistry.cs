@@ -224,25 +224,34 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public async Task OpenDocumentAsync(
         string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default)
     {
-        // Before anything starts or is used: a server told about one project must not go on serving
-        // another. This document is named so the replay inside can skip it — it is opened below either
-        // way, and opening it twice is the failure this argument exists to prevent.
-        await RestartIfWorkspaceMovedAsync(uri, cancellationToken);
-
         // Recorded before routing, so change, close and save answer the same question this open did. The
         // registry deliberately holds no model of the project, and it could not work membership out for
         // itself: an `untitled:` name would have to be parsed back into project and document names, which
         // this change forbids everywhere else, and a path match cannot see a document that has no file.
         // The opener already knows -- the code window opens members, the carried-file editor does not.
+        //
+        // And recorded before the restart below, not after it, so that a change made while the restart stops
+        // the old servers has a record to land in. No connection can hold it then, and the open at the end
+        // sends what this records (#719).
         _open[uri] = new OpenDocument(isProjectMember, text);
+
+        // Before anything starts or is used: a server told about one project must not go on serving
+        // another. This document is named so the replay inside can skip it — it is opened below either
+        // way, and opening it twice is the failure this argument exists to prevent.
+        await RestartIfWorkspaceMovedAsync(uri, cancellationToken);
 
         // The one place a server starts. Opening a document is the first moment its language is known to be
         // present, which is exactly the trigger lazy start is defined against.
         var claimants = ClaimantsFor(uri, isProjectMember);
         foreach (var e in claimants) await EnsureStartedAsync(e, cancellationToken);
+
+        // The text as recorded now rather than as it was when this began. Starting a server takes long enough
+        // for the developer to type, and a change made meanwhile is newer than `text`: sending `text` would
+        // undo it on every server that had not yet recorded it for itself (#719).
+        var current = _open.TryGetValue(uri, out var known) ? known.Text : text;
         await Task.WhenAll(claimants
             .Where(e => e.Client is not null)
-            .Select(e => e.Client!.OpenDocumentAsync(uri, text, cancellationToken)));
+            .Select(e => e.Client!.OpenDocumentAsync(uri, current, cancellationToken)));
     }
 
     public Task ChangeDocumentAsync(string uri, int version, string text, CancellationToken cancellationToken = default)
@@ -700,9 +709,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// Driven from the record rather than from the triggering document's claimants: those are two
     /// different sets, and the teardown used the wider one.
     /// <para>
-    /// <paramref name="triggeringUri"/> is skipped because its caller opens it immediately afterwards.
-    /// It is not yet in the record on a first open — the record is written after this returns — but a
-    /// re-open of a document already known would otherwise be sent twice.
+    /// <paramref name="triggeringUri"/> is skipped because its caller opens it immediately afterwards. It is
+    /// already in the record, which its caller writes first, so without the skip it would be sent twice.
     /// </para>
     /// </remarks>
     private async Task ReopenKnownDocumentsAsync(string? triggeringUri, CancellationToken cancellationToken)
