@@ -75,9 +75,10 @@ public partial class FormDefinition : INotifyPropertyChanged
     /// <remarks>
     /// <para>
     /// <b>The five <c>Attribute</c> lines</b>, as nineteen of the twenty forms in VB6's Template tree carry them,
-    /// its new project's <c>Form1.frm</c> among them (#516). <c>VB_Name</c> is the form's identity, which a rename
-    /// retargets, and <c>VB_PredeclaredId = True</c> is what gives a form its default instance. In the code, so the
-    /// code window shows what the file will say, and greys and folds them as it does a form read from disk.
+    /// its new project's <c>Form1.frm</c> among them (#516). That is what VB6 writes, not what it needs: measured, a
+    /// form without them builds and has its default instance alike, and its <c>Begin</c> line names it. A rename keeps
+    /// <c>VB_Name</c> in step. In the code, so the code window shows what the file will say, and greys and folds them
+    /// as it does a form read from disk.
     /// </para>
     /// <para>
     /// <b><c>StartUpPosition = 3</c>, Windows Default</b>, which VB6 writes for a new form. The property's default

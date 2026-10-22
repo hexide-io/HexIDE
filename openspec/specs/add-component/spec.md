@@ -94,8 +94,8 @@ A new form's file SHALL be CRLF throughout and end with a line break. Its code S
 `StartUpPosition = 3`. A new user control or property page SHALL take neither the form's `Attribute` block nor a
 `StartUpPosition` line.
 
-VB6 reads a missing `StartUpPosition` as Manual, which opens the form at the screen's origin (#932), and
-`VB_Name` is the form's identity (#516).
+VB6 reads a missing `StartUpPosition` as Manual, which opens the form at the screen's origin (#932). The
+`Attribute` block is what VB6 writes for a form (#516).
 
 #### Scenario: Adding a form
 - **WHEN** a form named `Form2` is added

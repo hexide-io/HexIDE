@@ -12,8 +12,9 @@ namespace HexIDE.Runtime.Serialization;
 /// <para>A form's code section opens with an <c>Attribute VB_*</c> block that VB6's code window hid. HexIDE's
 /// shows the whole file (hexide-io/HexIDE#273): the designer half (<see cref="Prefix(FormDefinition)"/>), then
 /// the code section, with everything from the top of the file through that block greyed, read-only and folded.
-/// <c>VB_Name</c> is load-bearing: it is the form's identity, and only the IDE writes it, following a rename
-/// (<see cref="RetargetVbName"/>).</para>
+/// <c>VB_Name</c> has to agree with the designer block's <c>Begin</c> line, and only the IDE writes it, following a
+/// rename (<see cref="RetargetVbName"/>). It is not the form's identity, though it looks like one: where the two
+/// disagree, vb6.exe takes the <c>Begin</c> line's name and logs "Conflicting names were found" (measured, #516).</para>
 ///
 /// <para><b>Before phase 3 of #273 the block was on screen and unprotected.</b> Measured in the running IDE on
 /// 2026-09-20, it was the opening lines of the code window, syntax-coloured as ordinary code and freely
