@@ -10,8 +10,9 @@
 #
 # Fails (exit 1) on: a private key git would currently let you commit, build artefacts and
 # editor backups in the tree, dangling relative links in Markdown, machine-specific absolute
-# paths, personal-identity references, a third-party project named outside the places we
-# agreed it may be, and unresolved merge-conflict markers. Warns (exit 0) on TWO things, both
+# paths, C# code that writes to a fixed absolute path, personal-identity references, a
+# third-party project named outside the places we agreed it may be, and unresolved
+# merge-conflict markers. Warns (exit 0) on TWO things, both
 # expected and neither blocking: key material .gitignore already covers, and the
 # upstream-attribution mention. Exits 2, having scanned nothing, when git cannot read the tree.
 #
@@ -149,11 +150,20 @@ while IFS= read -r hit; do
   [ -n "$hit" ] && note "machine-specific absolute path: $hit"
 done < <(git grep --untracked -nIF 'C:\Users\' -- . "${EXCLUDE[@]}")
 
-# 3b. This machine's own working folders: where the worktrees live, and the scratch folder the sessions
-#     working on it share. A test once wrote its debug output there, and passed only on this machine.
+# 3b. C# code that writes to a fixed absolute path. A test once wrote its debug output to a folder that
+#     existed on one developer's disk, and CI caught it only because that folder was missing on the runners. A
+#     test that creates the folder first, or writes somewhere every runner has, passes CI and writes outside the
+#     build. So this looks for the shape of the mistake, not for anyone's folder names: a file-writing call whose
+#     first argument is a rooted literal, Windows (`C:\`, `C:/`, or C#'s escaped `C:\\`) or POSIX (`/tmp/...`).
+#     A rooted path that code only passes around, such as a VB6 path in an InlineData, is not a write and is left
+#     alone, and so is prose. File.Copy, Move and Replace are matched on their first argument, the source, so a
+#     rooted path read there is reported too, which ties the code to one disk just as much. A path built in a
+#     variable first is not seen: this is a backstop, not a proof. -E is pinned, so a local grep.patternType
+#     cannot change what the pattern means.
+WRITE_TO_ROOTED='(File\.(WriteAll(Text|Bytes|Lines)|AppendAll(Text|Lines)|AppendText|CreateText|Create|Copy|Move|Replace|OpenWrite)(Async)?|Directory\.(CreateDirectory|Move)|new +(System\.IO\.)?(StreamWriter|FileStream))\( *[$@]{0,2}"([A-Za-z]:[\\/]|/)'
 while IFS= read -r hit; do
-  [ -n "$hit" ] && note "machine-specific absolute path: $hit"
-done < <(git grep --untracked -nIi -e 'hexide-sessions' -e 'C:[\/]Work[\/]' -- . "${EXCLUDE[@]}")
+  [ -n "$hit" ] && note "fixed absolute path in a call that writes files, which ties the code to one machine's disk (use Path.GetTempPath() instead): $hit"
+done < <(git grep --untracked -nIE "$WRITE_TO_ROOTED" -- '*.cs' "${EXCLUDE[@]}")
 
 # 4. Personal-identity references. The pattern is supplied from outside the repository
 #    and is deliberately NOT written here: a literal in this file would publish the exact

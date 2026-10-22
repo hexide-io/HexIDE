@@ -170,3 +170,17 @@ On Windows, 2026-10-18, the same RDCore revision and nested-call sample were dri
 Screenshots checked the visible expression/value/type/context layout; structured inspection checked values,
 radio-button enabled states and fetched children. A clipped Call Stack selection automation issue found
 in this run is tracked in #1182; keyboard selection reached the intended frame.
+
+### External hover acceptance
+
+On Windows, 2026-10-19, the same RDCore revision and nested-call sample were driven through live UI automation:
+
+- At the line-12 stop in Worker, hovering `calleeValue` displayed `calleeValue = 41`, including with the editor vertically scrolled.
+- Hovering `callerValue` in Worker displayed no tip. Selecting Main displayed `callerValue = 42`.
+- After entering `callerValue = 99` in Immediate and waiting for evaluation completion, hovering again displayed `callerValue = 99`.
+- Continue cleared the attached value tip and printed `41` then `99`; relaunch did not retain the old tip.
+- Protocol capture confirmed `evaluate` with `context: hover` and the selected frame ID. Adapter refusal was suppressed in the editor.
+
+The live check found an existing hover hit-testing defect: viewport coordinates were passed directly to a document-coordinate API, so scrolling could evaluate a different word. Adding the TextView scroll offset fixed the reproduced case. A screenshot checked the editor and selected-frame layout; the generic hover tool checked transient tip text.
+
+Wire/service regression tests separately cover missing/false/non-boolean hover capability, frame zero, caller-frame routing, cancellation, adapter refusal and late replies after stepping, frame selection or Immediate evaluation.

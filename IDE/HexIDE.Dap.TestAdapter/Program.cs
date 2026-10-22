@@ -92,7 +92,7 @@ public static class Program
                     }
                     if (expression == "callerValue = 99" && frame == 7) callerValue = "99";
                     await Send(new { seq = 11, type = "response", request_seq = request.RootElement.GetProperty("seq").GetInt32(),
-                        command, success = expression != "reject" && context is "repl" or "watch",
+                        command, success = expression != "reject" && context is "repl" or "watch" or "hover",
                         message = "fixture refusal", body = new { result = $"frame:{frame}:{expression}", type = "Long", variablesReference = expression == "aggregate" ? 8 : 0 } });
                     continue;
                 }
@@ -105,7 +105,7 @@ public static class Program
                 }
                 object reply = command switch
                 {
-                    "initialize" => new { supportsConfigurationDoneRequest = true },
+                    "initialize" => new { supportsConfigurationDoneRequest = true, supportsEvaluateForHovers = mode == "evaluate" },
                     "threads" => new { threads = new[] { new { id = 1, name = "Main" } } },
                     "stackTrace" when mode != "session" => new { stackFrames = new[]
                     {

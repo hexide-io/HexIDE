@@ -227,8 +227,8 @@ public class RuntimeMenuTests
     {
         var (bar, _, root) = Run(MenuForm);
 
-        // Click bubbles, so without a source check the parent menu's handler runs too — and in VB6 a menu
-        // with sub-items has no Click of its own to run, it just opens.
+        // Click bubbles, so without a source check the parent menu's handler runs too. VB6 raises a menu's Click as it
+        // opens (measured, #1344), not when one of its items is chosen, and nothing opened Help here.
         Item(Item(bar, "&Help"), "&About").RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
         Dispatcher.UIThread.RunJobs();
 
@@ -271,7 +271,8 @@ public class RuntimeMenuTests
         Avalonia.Headless.HeadlessWindowExtensions.MouseUp(popupRoot, centre, MouseButton.Left);
         Dispatcher.UIThread.RunJobs();
 
-        root.Executed.Should().Equal("mnuFileNew_Click");
+        // File's Click as it opened, as VB6 raises it (measured, #1344), then the item's.
+        root.Executed.Should().Equal("mnuFile_Click", "mnuFileNew_Click");
         newItem.IsChecked.Should().Be(programChecked);
     }
 
@@ -293,7 +294,8 @@ public class RuntimeMenuTests
 
         outcome.Success.Should().BeTrue(outcome.Error);
         outcome.Detail.Should().NotContain("ticked");
-        root.Executed.Should().Equal("mnuFileNew_Click");
+        // Expanding File raised its Click, as opening it does in VB6 (measured, #1344).
+        root.Executed.Should().Equal("mnuFile_Click", "mnuFileNew_Click");
         newItem.IsChecked.Should().Be(programChecked);
         file.IsSubMenuOpen.Should().BeFalse();
     }
@@ -332,7 +334,8 @@ public class RuntimeMenuTests
         });
         Dispatcher.UIThread.RunJobs();
 
-        root.Executed.Should().Equal("mnuFileNew_Click");
+        // The menu above the item first, as vb6.exe raises a shortcut's Clicks (measured, #1344).
+        root.Executed.Should().Equal("mnuFile_Click", "mnuFileNew_Click");
     }
 
     [Theory]

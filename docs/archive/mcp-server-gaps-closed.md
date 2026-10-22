@@ -2759,9 +2759,11 @@ a refusal that names what it looked for rather than a property. An action to ope
 
 > **Fixed.** `interact`, `press_key` and `type_text` on a running program's form, on a window it owns, or on its
 > MsgBox or InputBox, now wait until the program has finished what the action set off and is waiting for input again,
-> up to 3 seconds. A handler parked in `Show vbModal` or at `DoEvents` counts as waiting for input. The program is
-> found before the action, as a MsgBox that the action answers has closed and lost its owner by the time the action
-> returns. A reply that comes back sooner ends with a note saying why:
+> up to 3 seconds. A handler parked in `Show vbModal`, or at a `DoEvents` in a loop that was already running before
+> the action (or in a Timer's), counts as waiting for input; a `DoEvents` loop the action itself started is waited for,
+> up to the same limit (corrected by #1254, below). The program is found before the action, as a MsgBox that the
+> action answers has closed and lost its owner by the time the action returns. A reply that comes back sooner ends
+> with a note saying why:
 >
 > - the program is paused in the debugger: `(the program is paused at Form1 line 23 (Breakpoint), with Command1_Click
 >   not finished; it runs on, and the form may change, once the program continues)`;
@@ -3341,6 +3343,14 @@ Font dialog for Font, and say that no automation route exists yet for the `byte[
 > for a Font, and for a `byte[]` property says it has no text form and no automation route yet. A control with no
 > font of its own merges with HexIDE's default, which the designer draws it in, not its form's: HexIDE has no ambient
 > font. Guarded by `PropertyTextTests`.
+>
+> **Two corrections, later.** A new face's charset of 0 was wrong for a symbol or OEM face: `Wingdings` saved
+> Charset 0, where VB6 gives 2, and the control drew letters. A new face given without a charset now takes the one
+> VB6's FontName gives it, and a face equal to the current one but for case keeps its charset
+> ([#1310](https://github.com/hexide-io/HexIDE/issues/1310)). And the guess against a mistyped size or style also
+> refused real faces, `Wingdings 2` and `MS Shell Dlg 2` among them, so a control in one showed a font that could not
+> be set back. The control's own face, and one FontName takes here, are now faces whatever their names end in, and a
+> refusal of the guess says why ([#1311](https://github.com/hexide-io/HexIDE/issues/1311)).
 
 ## Polling `list_lsp_messages` with the highest sequence seen never shows a waiting request answered
 
@@ -3499,6 +3509,12 @@ deliberately. Cross-platform by code reading.
 > connection that closed on an error is not marked, because a deliberate stop can close it the same way. Guarded by `ConversationFailuresTests`,
 > `TheRecordSeesTheProcessTests` (each fault site through a real client, including stopping), `CaptureQueriesTests`,
 > `ProtocolInspectorToolViewModelTests`, `ConversationExportTests`, `DapCaptureTests` and the process-notice tests.
+>
+> **Corrected later.** Two exits stayed out of the rule ([#1314](https://github.com/hexide-io/HexIDE/issues/1314)).
+> A language server's non-zero exit while this client stopped it was excused as a kill, but no transport reports a kill
+> it makes, so the excuse hid only the server's own exit code, which LSP makes its account of the stop. And a debug
+> adapter's exit was never marked, though the IDE tells the user of a non-zero code, a kill and a failed cleanup.
+> Both now count, by the rule the IDE tells the user by.
 
 ## `get_last_runtime_error` stamps local time, where every other timestamp on the surface is UTC
 
@@ -3974,10 +3990,17 @@ and report an `itemCount` for a list or dropdown, which counts its items whether
 
 ## `get_bookmarks` did not say its lines count from 1 (#1261)
 
-#1245 made the bookmark tools count lines from 1, relying on two things to reach a session still holding the old
-descriptions (#815): the descriptions, and the reply's note stating the numbering. `set_bookmarks`' note says it;
-`get_bookmarks` had no note, and its description cannot name the old numbering, as `LineNumberingDescriptionTests`
-refuses "from 0" in any description. A session that loaded it before #1245 read `[5]` as line 6.
+**Symptom.** Read in code at 4789f9a, not run. Since #1245, the bookmark tools count lines from 1 rather than 0.
+`set_bookmarks`' note says so ("counting from 1 at the top of the file, as the gutter does"). `get_bookmarks`
+returns `project`, `document`, `uri` and `lines` and no note, and its description says "1-based" without saying that
+this changed; `LineNumberingDescriptionTests` refuses "0-based" or "from 0" in any description. A session that
+loaded the tool's schema before the rebuild keeps "Lines are 0-based" (the schema entry in the live list), so it
+reads `[5]` as the gutter's line 6, and nothing in the reply says otherwise.
+
+**Workaround.** After a rebuild onto #1245, use the bookmark tools from a new session, as the schema entry advises.
+
+**Suggested fix.** A `note` on a `get_bookmarks` reply that lists lines, stating the numbering in the words
+`set_bookmarks` uses. [#1261](https://github.com/hexide-io/HexIDE/issues/1261).
 
 > **Fixed.** `get_bookmarks` adds a `note` to a reply that lists lines, in `set_bookmarks`' words: "Project1/Form1 has
 > bookmarks on lines 10, 11, counting from 1 at the top of the file, as the gutter does." An empty reply has none, and

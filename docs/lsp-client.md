@@ -173,9 +173,16 @@ pause was not analysed until the next one ([#470](https://github.com/hexide-io/H
 version together with its text at the moment of the edit, so a number always describes the text it is sent
 with.
 
-Three paths can still send a version that does not rise, all filed:
-- an edit made while a server is starting, after which a second server can be opened again at a lower
-  version with older text ([#719](https://github.com/hexide-io/HexIDE/issues/719));
+**An edit made while a server starts reaches it.** A server is opened on a document only once it has
+started, and starting takes long enough to type in. So a change made meanwhile is recorded rather than sent:
+the session hands it on whether or not a server is running, the registry and the client each record it, and
+the open that server receives carries the text as edited. Each document records which connection's server has
+been opened on it. An open the reconnect replay has already sent is not sent again, and a change waits for its
+connection's open rather than going ahead of it. Before this, the change was dropped while nothing was running,
+and a second server still starting was opened twice, the second time at a lower version with the text from
+before the edit ([#719](https://github.com/hexide-io/HexIDE/issues/719)).
+
+Two paths can still send a version that does not rise, both filed:
 - a debounced change crossing the flush that superseded it, with identical text
   ([#720](https://github.com/hexide-io/HexIDE/issues/720));
 - two editors holding one name ([#721](https://github.com/hexide-io/HexIDE/issues/721)).
