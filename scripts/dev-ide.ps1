@@ -21,10 +21,11 @@
     already answers, and says whose process that is.
 
 .PARAMETER Stop
-    Stop the HexIDE serving on the port, found from /health or, when that does not answer, from the port's
-    listener. Only a HexIDE.Desktop process started for this session is stopped, as its command line's profile
-    directory says; anything else holding the port, another session's IDE included, is reported and left.
-    For when shutdown_ide cannot be called. Never stop HexIDE by process name: other sessions' IDEs share it.
+    Stop the HexIDE started for the port, found by the --server-port on its command line, so a hung IDE and one
+    whose server has gone down without it are found too. Only one started for this session is stopped, as the
+    profile directory on its command line says; another session's IDE, or anything else holding the port, is
+    reported and left running. For when shutdown_ide cannot be called. Never stop HexIDE by process name: other
+    sessions' IDEs share it.
 
 .PARAMETER Exe
     The HexIDE.Desktop executable. Default: this checkout's Debug build.
@@ -33,15 +34,26 @@
     How long to wait for the IDE to answer. Default 30.
 
 .PARAMETER IdeArguments
-    Anything after the script's own parameters is passed to HexIDE. Default: --newproject.
+    Anything after the script's own parameters is passed to HexIDE, in place of the default --newproject, so pass
+    --newproject again along with other flags if you still want it. --server-port is refused (set
+    HEXIDE_MCP_PORT), and so is --user-data-dir while HEXIDE_SESSION is set. From Git Bash, use the -- forms of
+    HexIDE's flags: it rewrites an argument such as /newproject into a Windows path before the script sees it.
 
 .EXAMPLE
     pwsh scripts/dev-ide.ps1
     Starts this checkout's Debug build with a new Standard EXE project, on $env:HEXIDE_MCP_PORT or 5123.
 
 .EXAMPLE
-    pwsh scripts/dev-ide.ps1 --capture-lsp demo/spring-tide/SpringTide.vbp
-    Starts it on a project instead, recording every language-server conversation from its first handshake.
+    pwsh scripts/dev-ide.ps1 --capture-lsp --newproject
+    The same, recording every language-server conversation from its first handshake.
+
+.EXAMPLE
+    pwsh scripts/dev-ide.ps1 demo/spring-tide/SpringTide.vbp
+    Starts it on a project instead.
+
+.EXAMPLE
+    powershell -ExecutionPolicy Bypass -File scripts\dev-ide.ps1
+    The same from Windows PowerShell 5.1, where PowerShell 7 is not installed.
 
 .EXAMPLE
     pwsh scripts/dev-ide.ps1 -Stop
@@ -57,83 +69,127 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Read so that a variable set to nothing is told apart from one not set at all. .mcp.json expands an empty
+# HEXIDE_MCP_PORT into a URL with no port, so defaulting here would put the IDE on 5123 while the client reaches
+# nothing. The whole block is read because Windows PowerShell's GetEnvironmentVariable returns null for both.
+$environment = [Environment]::GetEnvironmentVariables()
+function Read-Variable([string] $name) {
+    if ($environment.Contains($name)) { [string] $environment[$name] } else { $null }
+}
+
+$portText = Read-Variable 'HEXIDE_MCP_PORT'
 $port = 5123
-if ($env:HEXIDE_MCP_PORT) {
-    # Refused rather than defaulted: .mcp.json would expand the same text into a URL that reaches nothing.
-    if (-not [int]::TryParse($env:HEXIDE_MCP_PORT, [ref] $port) -or $port -lt 1 -or $port -gt 65535) {
-        throw "HEXIDE_MCP_PORT is '$env:HEXIDE_MCP_PORT', which is not a port from 1 to 65535."
+if ($null -ne $portText) {
+    # Only a bare number: .mcp.json substitutes the text as it stands, so ' 5140' or '+5140' would reach no one.
+    if ($portText -notmatch '^[1-9][0-9]{0,4}\z' -or [int] $portText -gt 65535) {
+        throw "HEXIDE_MCP_PORT is '$portText'. Set it to a port number from 1 to 65535 and nothing else, or unset " +
+            "it for 5123."
     }
+    $port = [int] $portText
 }
 $health = "http://localhost:$port/health"
 
+$session = Read-Variable 'HEXIDE_SESSION'
 $profileDirectory = $null
-if ($env:HEXIDE_SESSION) {
-    # The name becomes one directory under HexIDE/sessions, never a path that leads out of it. Nor one ending in
-    # a dot, which Windows drops, so 'a.' and 'a' would share a profile.
-    if ($env:HEXIDE_SESSION -notmatch '^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9_-])?$') {
-        throw "HEXIDE_SESSION is '$env:HEXIDE_SESSION'. Use letters, digits, '.', '_' and '-', starting with a " +
-            "letter or digit and not ending in '.'."
+if ($null -ne $session) {
+    # One directory under HexIDE/sessions and nothing else: no path that leads out of it, no trailing dot, which
+    # Windows drops, no name Windows keeps for a device, and lower case only, because Windows folds case and
+    # 'Docs' and 'docs' would share a profile.
+    if ($session -cnotmatch '^[a-z0-9]([a-z0-9._-]*[a-z0-9_-])?\z' -or
+        $session -match '^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?\z') {
+        throw "HEXIDE_SESSION is '$session'. Use lower-case letters, digits, '.', '_' and '-', starting with a " +
+            "letter or digit and not ending in '.', and not a Windows device name such as 'con' or 'nul'."
     }
-    $profileDirectory = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) "HexIDE/sessions/$env:HEXIDE_SESSION"
+    $profileDirectory = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) "HexIDE/sessions/$session"
 }
+
+$onWindows = [System.Environment]::OSVersion.Platform -eq 'Win32NT'
 
 function Get-Health {
     try { Invoke-RestMethod -Uri $health -TimeoutSec 2 } catch { $null }
 }
 
 if ($Stop) {
-    $answering = Get-Health
-    $ideId = if ($answering) { [int] $answering.pid } else { $null }
-    if (-not $ideId -and (Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue)) {
-        # A hung IDE holds the port without answering, which is when this is most needed.
-        $ideId = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
-            Select-Object -First 1 -ExpandProperty OwningProcess
+    # Every HexIDE started for this port, found by its command line rather than by whatever answers on the port. A
+    # hung IDE holds the port without answering, and one whose server went down without it (#644) holds nothing at
+    # all, and those are the cases this is for.
+    $hexides = @(
+        if ($onWindows) {
+            Get-CimInstance Win32_Process -Filter "Name = 'HexIDE.Desktop.exe'" |
+                ForEach-Object { [pscustomobject] @{ Id = [int] $_.ProcessId; CommandLine = $_.CommandLine } }
+        } else {
+            # pwsh reads /proc on Linux and offers nothing on macOS, where ps does.
+            Get-Process -Name HexIDE.Desktop -ErrorAction SilentlyContinue | ForEach-Object {
+                $line = if ($_.CommandLine) { $_.CommandLine } else { ps -o command= -p $_.Id 2>$null }
+                [pscustomobject] @{ Id = $_.Id; CommandLine = $line }
+            }
+        })
+    foreach ($unreadable in $hexides | Where-Object { -not $_.CommandLine }) {
+        Write-Warning "Could not read the command line of HexIDE PID $($unreadable.Id), so whether it serves port $port cannot be told. It has been left running."
     }
-    if (-not $ideId) {
-        Write-Output "Nothing is listening on port $port."
+    $portFlag = "(^|\s)(--|/)server-port\s+`"?$port`"?(\s|\z)"
+    $onPort = @($hexides | Where-Object { $_.CommandLine -and $_.CommandLine -match $portFlag })
+
+    if (-not $onPort) {
+        $listener = if (Get-Command Get-NetTCPConnection -ErrorAction SilentlyContinue) {
+            Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
+                Select-Object -First 1 -ExpandProperty OwningProcess
+        } elseif (Get-Command lsof -ErrorAction SilentlyContinue) {
+            lsof -nP -t "-iTCP:$port" -sTCP:LISTEN 2>$null | Select-Object -First 1
+        }
+        if ($listener -and ($holder = Get-Process -Id ([int] $listener) -ErrorAction SilentlyContinue)) {
+            throw "No HexIDE was started for port $port. The port is held by $($holder.ProcessName) (PID " +
+                "$($holder.Id)), which has been left running."
+        }
+        Write-Output "No HexIDE started for port $port is running."
         return
     }
 
-    $process = Get-Process -Id $ideId -ErrorAction SilentlyContinue
-    if (-not $process) {
-        Write-Output "Process $ideId held port $port and has already exited."
-        return
-    }
-    if ($process.ProcessName -ne 'HexIDE.Desktop') {
-        throw "Port $port is held by $($process.ProcessName) (PID $ideId), not by HexIDE. It has been left running."
-    }
+    $refused = @()
+    foreach ($ide in $onPort) {
+        # Only this session's IDE. A session that forgot its port lands on another's, and stopping what serves there
+        # would end that session's run. The profile directory on the command line says whose it is, and the whole
+        # name is compared rather than searched for, because 'a' is a prefix of 'ab'.
+        $owner = [regex]::Match("$($ide.CommandLine)".Replace('/', '\'), '\\HexIDE\\sessions\\([^\\\s"]+)')
+        $ownerName = if ($owner.Success) { $owner.Groups[1].Value } else { $null }
+        if ($ownerName -ne $session) {
+            $whose = if ($ownerName) { "session '$ownerName'" } else { 'a run with no HEXIDE_SESSION' }
+            $refused += "PID $($ide.Id), started for $whose"
+            continue
+        }
 
-    # Only this session's IDE. A session that forgot its port lands on another's, and stopping what answers there
-    # would end that session's run. The profile directory on the IDE's command line is what says whose it is.
-    $commandLine = if ([System.Environment]::OSVersion.Platform -eq 'Win32NT') {
-        (Get-CimInstance Win32_Process -Filter "ProcessId = $ideId").CommandLine
-    } else {
-        $process.CommandLine
+        $process = Get-Process -Id $ide.Id -ErrorAction SilentlyContinue
+        if ($process) {
+            Stop-Process -Id $ide.Id -Force
+            $null = $process.WaitForExit(10000)
+        }
+        Write-Output "Stopped HexIDE (PID $($ide.Id)) on port $port."
     }
-    $normalised = "$commandLine".Replace('/', '\')
-    $owner = [regex]::Match($normalised, '\\HexIDE\\sessions\\([^\\\s"]+)')
-    $ours = if ($profileDirectory) {
-        $normalised.IndexOf($profileDirectory.Replace('/', '\'), [StringComparison]::OrdinalIgnoreCase) -ge 0
-    } else {
-        -not $owner.Success
+    if ($refused) {
+        throw "Left running, as not this session's: the HexIDE on port $port with $($refused -join '; '). Check " +
+            "HEXIDE_MCP_PORT and HEXIDE_SESSION."
     }
-    if (-not $ours) {
-        $whose = if ($owner.Success) { "session '$($owner.Groups[1].Value)'" } else { 'a run with no HEXIDE_SESSION' }
-        throw "The HexIDE on port $port (PID $ideId) was started for $whose, not for this one, and has been left " +
-            "running. Check HEXIDE_MCP_PORT and HEXIDE_SESSION."
-    }
-
-    Stop-Process -Id $ideId -Force
-    $null = $process.WaitForExit(10000)
-    Write-Output "Stopped HexIDE (PID $ideId) on port $port."
     return
 }
 
+# HexIDE takes the last of a repeated flag, so one passed here would quietly win over the script's own: the IDE
+# would serve a port the session's client is not pointed at, or keep its files where -Stop cannot tell whose it is.
+foreach ($argument in $IdeArguments) {
+    if ($argument -match '^(--|/)server-port\z') {
+        throw "Set HEXIDE_MCP_PORT instead of passing --server-port: .mcp.json reads the variable, so the session's " +
+            "client follows it, and it would not follow the flag."
+    }
+    if ($profileDirectory -and $argument -match '^(--|/)user-data-dir\z') {
+        throw "HEXIDE_SESSION already puts this session's files in $profileDirectory. Drop --user-data-dir, or " +
+            "unset HEXIDE_SESSION to choose the directory yourself."
+    }
+}
+
 if (-not $Exe) {
-    $name = if ([System.Environment]::OSVersion.Platform -eq 'Win32NT') { 'HexIDE.Desktop.exe' } else { 'HexIDE.Desktop' }
+    $name = if ($onWindows) { 'HexIDE.Desktop.exe' } else { 'HexIDE.Desktop' }
     $Exe = Join-Path (Split-Path $PSScriptRoot -Parent) "IDE/HexIDE.Desktop/bin/Debug/net10.0/$name"
 }
-if ((Split-Path $Exe -Leaf) -notmatch '^HexIDE\.Desktop(\.exe)?$') {
+if ((Split-Path $Exe -Leaf) -notmatch '^HexIDE\.Desktop(\.exe)?\z') {
     throw "-Exe is '$Exe', which is not a HexIDE.Desktop executable."
 }
 if (-not (Test-Path $Exe -PathType Leaf)) {
@@ -153,9 +209,17 @@ if ($profileDirectory) {
 }
 $arguments += if ($IdeArguments) { $IdeArguments } else { @('--newproject') }
 
-# Start-Process joins an argument array with spaces and quotes nothing, so a profile path with a space in it
-# would arrive as two arguments.
-$commandLine = ($arguments | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
+# Start-Process takes one command line and quotes nothing, so each argument is quoted here by the rules the
+# runtime splits it back by: backslashes are literal except before a quote, so those are doubled, and so are any
+# before the closing quote. A path ending in '\', as tab completion leaves one, would otherwise swallow the
+# arguments after it.
+function ConvertTo-Argument([string] $value) {
+    if ($value -and $value -notmatch '[\s"]') { return $value }
+    $escaped = [regex]::Replace($value, '(\\*)"', { param($m) ($m.Groups[1].Value * 2) + '\"' })
+    $escaped = [regex]::Replace($escaped, '(\\+)\z', { param($m) $m.Groups[1].Value * 2 })
+    '"' + $escaped + '"'
+}
+$commandLine = ($arguments | ForEach-Object { ConvertTo-Argument $_ }) -join ' '
 $ide = Start-Process -FilePath $Exe -ArgumentList $commandLine -PassThru
 # Read now: Windows PowerShell reports no exit code for a process whose handle was never opened.
 $null = $ide.Handle
@@ -175,11 +239,11 @@ while ((Get-Date) -lt $deadline) {
     $answering = Get-Health
     if ($answering -and [int] $answering.pid -eq $ide.Id) {
         [pscustomobject] @{
-            Pid             = $ide.Id
-            Port            = $port
-            Session         = $env:HEXIDE_SESSION
-            UserDataDir     = $profileDirectory
-            Exe             = $Exe
+            Pid         = $ide.Id
+            Port        = $port
+            Session     = $session
+            UserDataDir = $profileDirectory
+            Exe         = $Exe
         }
         return
     }
