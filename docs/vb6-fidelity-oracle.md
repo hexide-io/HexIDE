@@ -12495,6 +12495,23 @@ early-bound stops the make, so each of those had a probe of its own.
   `Option1(1)` before `Option1(0)`, and the collection kept that order. This is for #1060: HexIDE has no Controls
   collection yet.
 
+### A member no object has, late-bound
+
+Measured alongside, on a form with a TextBox and a class `Class1` with one Public field, under `On Error Resume Next`,
+native and p-code identical:
+
+| Statement | VB6 |
+|---|---|
+| `v = o.Foo` / `o.Foo = 1` / `o.Foo`, `o` an Object holding Text1 | **438**, "Object doesn't support this property or method", each |
+| `v = c.Foo` / `c.Foo = 1`, `c` a Control holding Text1 | **438**, each |
+| `v = o.Foo`, `o` holding `Me` | **438** |
+| `v = o.Foo` / `o.Foo = 1`, `o` holding a `Class1` | **438**, each |
+
+So late-bound, a member that isn't there is always 438, read, written or called, on a control, a form or a class.
+Early-bound it is the compile error "Method or data member not found", which is why HexIDE raises that. HexIDE at the
+time of measuring, for comparison: the reads were that compile error, which `On Error` cannot trap; the writes, a trappable
+461; the call, refused as not implemented (#1433).
+
 ### In HexIDE (#1431)
 
 - **Every row above reads and refuses as measured,** but those for a form made with `New` (#822) and for `Me.Controls`
