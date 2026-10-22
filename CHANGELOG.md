@@ -185,6 +185,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A language server that waits to be told sends document symbols as a tree** (#463). HexIDE read the tree
+  but never declared that it could, so a server that honours the declaration, clangd among them, sent the flat
+  form and every outline from it lost its nesting.
+
 - **Two code windows over one name are one document to a language server** (#721). One file shared by two projects
   of a group opens two windows that name it alike. Each kept its own version count, so a server was opened twice and
   discarded whichever count was behind, and closing either window closed the document for both. The windows now
