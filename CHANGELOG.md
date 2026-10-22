@@ -10,6 +10,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **A control HexIDE does not model is shown in the designer** (#157). An ImageList, a Toolbar or any other control
+  HexIDE carries without modelling used to be invisible, so a developer could move a button onto it unknowing. Now
+  each is a box where VB6's IDE puts one: at its position, sized by its `Width` and `Height`, or 1200 by 480 twips
+  when it records neither, as VB6 measures it. The box names the control's class and says HexIDE does not support
+  it; it cannot be selected or moved, and the control is still saved exactly as it was read.
 - **A ComboBox raises Click, Change and DropDown** (#1429). It raised none, so a program's `Combo1_Click` and
   `Combo1_Change` never ran, whatever the user or code did. Now each comes where vb6.exe raises it, measured with real
   input, native and p-code:

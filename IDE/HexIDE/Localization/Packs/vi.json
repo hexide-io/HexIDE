@@ -324,6 +324,7 @@
     "Str.Dialog.UnfaithfulSave.Body.One": "Biểu mẫu này không được lưu, vì HexIDE chưa thể tái tạo nó một cách trung thực:\n\n{0}\n\nTệp của nó trên đĩa vẫn không thay đổi. Việc lưu sẽ âm thầm thay đổi biểu mẫu — Visual Basic 6 vẫn mở tệp kết quả mà không báo lỗi, và chính điều đó khiến hư hại dễ bị bỏ sót — nên HexIDE để nguyên nó thay vì làm hỏng nó.",
     "Str.Dialog.UnfaithfulSave.Body.Many": "Các biểu mẫu này không được lưu, vì HexIDE chưa thể tái tạo chúng một cách trung thực:\n\n{0}\n\nCác tệp của chúng trên đĩa vẫn không thay đổi. Việc lưu sẽ âm thầm thay đổi các biểu mẫu — Visual Basic 6 vẫn mở các tệp kết quả mà không báo lỗi, và chính điều đó khiến hư hại dễ bị bỏ sót — nên HexIDE để nguyên chúng thay vì làm hỏng chúng.",
     "Str.Designer.ReadOnly.Banner": "Chỉ đọc — HexIDE chưa thể tái tạo biểu mẫu này một cách trung thực, nên việc lưu sẽ làm thay đổi nó. Bạn có thể xem và chạy nó, nhưng các thay đổi sẽ không được lưu.",
+    "Str.Designer.Unmodelled.NotSupported": "Không được hỗ trợ trong HexIDE",
     "Str.Designer.Context.Cut": "Cắ_t",
     "Str.Designer.Context.Copy": "_Sao chép",
     "Str.Designer.Context.Paste": "_Dán",

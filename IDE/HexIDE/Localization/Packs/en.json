@@ -285,6 +285,7 @@
     "Str.Dialog.UnfaithfulSave.Body.One": "This form was not saved, because HexIDE cannot yet reproduce it faithfully:\n\n{0}\n\nIts file on disk is unchanged. Saving it would change the form silently — Visual Basic 6 opens the result without complaining, which is what makes the damage easy to miss — so HexIDE leaves it alone rather than damage it.",
     "Str.Dialog.UnfaithfulSave.Body.Many": "These forms were not saved, because HexIDE cannot yet reproduce them faithfully:\n\n{0}\n\nTheir files on disk are unchanged. Saving them would change the forms silently — Visual Basic 6 opens the results without complaining, which is what makes the damage easy to miss — so HexIDE leaves them alone rather than damage them.",
     "Str.Designer.ReadOnly.Banner": "Read-only — HexIDE cannot yet reproduce this form faithfully, so saving it would change it. You can view and run it, but changes will not be saved.",
+    "Str.Designer.Unmodelled.NotSupported": "Not supported in HexIDE",
     "Str.Designer.Context.Cut": "Cu_t",
     "Str.Designer.Context.Copy": "_Copy",
     "Str.Designer.Context.Paste": "_Paste",

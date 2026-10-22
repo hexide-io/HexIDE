@@ -2099,6 +2099,32 @@ So: keep the geometry, which is VB6's intended behaviour and is exactly reproduc
 the emptiness, which is a shortcoming rather than a design. Per the Fidelity Principle, a divergence — and
 recorded here so it stays deliberate.
 
+### Its size when the file records none, and what the box is (2026-10-22, #157)
+
+**The question.** The probe above had a `Width` and `Height`. An ImageList records neither: `Web Browser.frm`'s has
+`Left`, `Top`, `_ExtentX` and `_ExtentY` (HIMETRIC) and nothing else. The obvious guess is that the extents size it.
+
+**The probe.** One form holding three controls of an unregistered class (a made-up GUID, `NOSUCH.OCX`), each beside a
+real CommandButton of the size it should come out as. It was opened in VB6's IDE through the console agent. Each
+control was then selected with Tab, and its position and size read from the toolbar's readout.
+
+| Control | What the file records | VB6's readout |
+|---|---|---|
+| `Ext1` | `Left` 240, `Top` 240, `_ExtentX` 3528, `_ExtentY` 1764 (2000 × 1000 twips) | 240, 240, **1200 × 480** |
+| `Sized1` | `Left` 240, `Top` 1680, `Width` 3015, `Height` 495, extents for 1000 × 500 | 240, 1680, **3015 × 495** |
+| `Bare1` | `Left` 240, `Top` 3000, nothing else | 240, 3000, **1200 × 480** |
+
+**What it shows:**
+- **`Width` and `Height` size the box when the file has them, and 1200 × 480 twips when it has neither.** The extents
+  play no part, so the guess was wrong: `Web Browser.frm`'s ImageList comes out 1200 × 480. A file recording only one
+  of the two was not probed.
+- **The box is a PictureBox.** The Properties window names each one "`Ext1` PictureBox". VB6's load log says first
+  "Class NoSuchLib.Extent of control Ext1 was not a loaded control class", then "The property name _ExtentX in Ext1
+  is invalid", and the same for `_ExtentY` and `_Version`. A PictureBox has none of the three. What VB6 writes when
+  such a form is saved was not probed.
+- **So its border is a PictureBox's, the sunken one.** The section above calls it both "etched" and "sunken"; it is the
+  second. HexIDE's box (#157) is drawn sunken to match, and labelled, which is the divergence argued above.
+
 ## Bitwise And / Or / Xor / Not — the result-type ladder (2026-09-02, #166)
 
 Measured with `scripts/vb6-oracle.ps1`. Every row below is `vb6.exe` output, not inference — and two of them

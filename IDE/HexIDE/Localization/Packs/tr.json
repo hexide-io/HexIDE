@@ -324,6 +324,7 @@
     "Str.Dialog.UnfaithfulSave.Body.One": "Bu form kaydedilmedi, çünkü HexIDE onu henüz aslına sadık biçimde yeniden üretemiyor:\n\n{0}\n\nDiskteki dosyası değişmedi. Kaydedilmesi formu sessizce değiştirirdi; Visual Basic 6 sonucu hiçbir hata vermeden açar, hasarın kolayca gözden kaçmasının nedeni de budur. Bu yüzden HexIDE, forma zarar vermek yerine onu olduğu gibi bırakıyor.",
     "Str.Dialog.UnfaithfulSave.Body.Many": "Bu formlar kaydedilmedi, çünkü HexIDE onları henüz aslına sadık biçimde yeniden üretemiyor:\n\n{0}\n\nDiskteki dosyaları değişmedi. Kaydedilmeleri formları sessizce değiştirirdi; Visual Basic 6 sonuçları hiçbir hata vermeden açar, hasarın kolayca gözden kaçmasının nedeni de budur. Bu yüzden HexIDE, formlara zarar vermek yerine onları olduğu gibi bırakıyor.",
     "Str.Designer.ReadOnly.Banner": "Salt okunur — HexIDE bu formu henüz aslına sadık biçimde yeniden üretemiyor, dolayısıyla kaydedilmesi onu değiştirirdi. Formu görüntüleyebilir ve çalıştırabilirsiniz, ancak değişiklikler kaydedilmeyecek.",
+    "Str.Designer.Unmodelled.NotSupported": "HexIDE'de desteklenmiyor",
     "Str.Designer.Context.Cut": "K_es",
     "Str.Designer.Context.Copy": "_Kopyala",
     "Str.Designer.Context.Paste": "_Yapıştır",

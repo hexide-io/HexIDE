@@ -324,6 +324,7 @@
     "Str.Dialog.UnfaithfulSave.Body.One": "Questo form non è stato salvato perché HexIDE non è ancora in grado di riprodurlo fedelmente:\n\n{0}\n\nIl relativo file su disco è invariato. Salvarlo modificherebbe il form in modo silenzioso — Visual Basic 6 apre il risultato senza segnalare nulla, ed è per questo che il danno passa facilmente inosservato — quindi HexIDE lo lascia intatto anziché danneggiarlo.",
     "Str.Dialog.UnfaithfulSave.Body.Many": "Questi form non sono stati salvati perché HexIDE non è ancora in grado di riprodurli fedelmente:\n\n{0}\n\nI relativi file su disco sono invariati. Salvarli modificherebbe i form in modo silenzioso — Visual Basic 6 apre i risultati senza segnalare nulla, ed è per questo che il danno passa facilmente inosservato — quindi HexIDE li lascia intatti anziché danneggiarli.",
     "Str.Designer.ReadOnly.Banner": "Sola lettura — HexIDE non è ancora in grado di riprodurre fedelmente questo form, quindi salvarlo lo altererebbe. Puoi visualizzarlo ed eseguirlo, ma le modifiche non verranno salvate.",
+    "Str.Designer.Unmodelled.NotSupported": "Non supportato in HexIDE",
     "Str.Designer.Context.Cut": "_Taglia",
     "Str.Designer.Context.Copy": "_Copia",
     "Str.Designer.Context.Paste": "_Incolla",

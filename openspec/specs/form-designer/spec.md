@@ -207,3 +207,21 @@ control came from: pasted back into it, the number still holds; pasted anywhere 
 - **WHEN** a control copied out of a container is pasted on a form that does not have that container
 - **THEN** the copy is placed on the form at the position it occupied on screen, not at the raw stored number
 
+### Requirement: A control HexIDE does not model SHALL be shown where VB6 shows it, and SHALL NOT be editable
+The designer SHALL draw a box for each control it does not model, at the position and size VB6's IDE gives the box it
+puts in that control's place, labelled with the control's class. The box SHALL NOT be selectable or movable, and the
+control SHALL be written back once, from the block it was read as.
+
+Unseen, it is edited around blindly. VB6's box is an empty PictureBox; labelling it is HexIDE's one divergence.
+
+#### Scenario: A control recording only its extents
+- **WHEN** a form holds an ImageList, which records `Left`, `Top`, `_ExtentX` and `_ExtentY` and no `Width` or `Height`
+- **THEN** its box is at `Left` and `Top`, 1200 by 480 twips, as VB6 draws it, whatever the extents say
+
+#### Scenario: A control inside a Frame
+- **WHEN** a Frame the designer models holds a control it does not, and the Frame is moved, deleted or restored by undo
+- **THEN** the box is drawn on the Frame, moves with it, goes with it, and comes back with it
+
+#### Scenario: Pressing on the box
+- **WHEN** the developer presses on the box
+- **THEN** nothing is selected and no region drag begins

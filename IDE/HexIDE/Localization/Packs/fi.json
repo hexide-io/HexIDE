@@ -324,6 +324,7 @@
     "Str.Dialog.UnfaithfulSave.Body.One": "Tätä lomaketta ei tallennettu, koska HexIDE ei vielä pysty toistamaan sitä uskollisesti:\n\n{0}\n\nLevyllä oleva tiedosto on ennallaan. Tallentaminen muuttaisi lomaketta huomaamattomasti — Visual Basic 6 avaa tuloksen valittamatta, ja juuri siksi vahinko jää helposti huomaamatta — joten HexIDE jättää sen mieluummin rauhaan kuin vahingoittaa sitä.",
     "Str.Dialog.UnfaithfulSave.Body.Many": "Näitä lomakkeita ei tallennettu, koska HexIDE ei vielä pysty toistamaan niitä uskollisesti:\n\n{0}\n\nLevyllä olevat tiedostot ovat ennallaan. Tallentaminen muuttaisi lomakkeita huomaamattomasti — Visual Basic 6 avaa tulokset valittamatta, ja juuri siksi vahinko jää helposti huomaamatta — joten HexIDE jättää ne mieluummin rauhaan kuin vahingoittaa niitä.",
     "Str.Designer.ReadOnly.Banner": "Vain luku — HexIDE ei vielä pysty toistamaan tätä lomaketta uskollisesti, joten tallentaminen muuttaisi sitä. Voit tarkastella lomaketta ja suorittaa sen, mutta muutoksia ei tallenneta.",
+    "Str.Designer.Unmodelled.NotSupported": "Ei tuettu HexIDE:ssä",
     "Str.Designer.Context.Cut": "_Leikkaa",
     "Str.Designer.Context.Copy": "_Kopioi",
     "Str.Designer.Context.Paste": "L_iitä",

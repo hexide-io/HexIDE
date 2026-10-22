@@ -285,6 +285,7 @@
     "Str.Dialog.UnfaithfulSave.Body.One": "Haec forma non servata est, quia HexIDE eam nondum fideliter exprimere potest:\n\n{0}\n\nPlica eius in disco immutata manet. Si servaretur, forma tacite mutaretur — Visual Basic 6 plicam sic mutatam sine querela aperit, et ideo damnum facile latet — itaque HexIDE eam intactam relinquit potius quam eam corrumpat.",
     "Str.Dialog.UnfaithfulSave.Body.Many": "Hae formae non servatae sunt, quia HexIDE eas nondum fideliter exprimere potest:\n\n{0}\n\nPlicae earum in disco immutatae manent. Si servarentur, formae tacite mutarentur — Visual Basic 6 plicas sic mutatas sine querela aperit, et ideo damnum facile latet — itaque HexIDE eas intactas relinquit potius quam eas corrumpat.",
     "Str.Designer.ReadOnly.Banner": "Tantum legendum — HexIDE hanc formam nondum fideliter exprimere potest, itaque, si servaretur, mutaretur. Eam videre et exsequi potes, sed mutationes non servabuntur.",
+    "Str.Designer.Unmodelled.NotSupported": "In HexIDE non sustinetur",
     "Str.Designer.Context.Cut": "E_xscinde",
     "Str.Designer.Context.Copy": "_Describe",
     "Str.Designer.Context.Paste": "_Agglutina",
