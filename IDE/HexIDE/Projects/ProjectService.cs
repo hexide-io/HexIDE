@@ -90,17 +90,20 @@ public class ProjectService : IProjectService
     /// A file joining the project that a kept line already names, because it failed to load, takes that
     /// line's place: kept as well, the project file would name it twice.
     /// </summary>
-    private static void ForgetKeptLineFor(ProjectDefinition project, string absolutePath)
-    {
-        if (project.AbsolutePath is not { } projectPath)
-            return;
-        var projectDir = Path.GetDirectoryName(projectPath)!;
-        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        project.PreservedItemLines.RemoveAll(line =>
-            KeptLinePath(line) is { } relative
-            && string.Equals(Path.GetFullPath(Path.Join(projectDir, ToLocalRelativePath(relative))),
-                Path.GetFullPath(absolutePath), comparison));
-    }
+    private static void ForgetKeptLineFor(ProjectDefinition project, string absolutePath) =>
+        project.PreservedItemLines.RemoveAll(line => KeptLineNames(project, line, absolutePath));
+
+    /// <summary>
+    /// Whether a line the project file keeps for a member names the file at <paramref name="absolutePath"/>, as the
+    /// host's file system compares names. A project with no file of its own has no kept lines to resolve.
+    /// </summary>
+    private static bool KeptLineNames(ProjectDefinition project, string line, string absolutePath) =>
+        project.AbsolutePath is { } projectPath
+        && KeptLinePath(line) is { } relative
+        && string.Equals(
+            Path.GetFullPath(Path.Join(Path.GetDirectoryName(projectPath)!, ToLocalRelativePath(relative))),
+            Path.GetFullPath(absolutePath),
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
     /// <summary>The file a kept member line names, or null for a line that names no member file.</summary>
     private static string? KeptLinePath(string line)
@@ -1223,11 +1226,53 @@ public class ProjectService : IProjectService
         return Task.CompletedTask;
     });
 
+    public string NextFreeFormName(ProjectDefinition project) =>
+        ProjectNaming.NextFreeName(project, "Form", name => FileInTheWay(project, name + ".frm") is not null);
+
+    public string NextFreeModuleName(ProjectDefinition project, ModuleKind kind) =>
+        ProjectNaming.NextFreeName(project, ModulePrefix(kind),
+            name => FileInTheWay(project, name + "." + ModuleExtension(kind)) is not null);
+
+    /// <summary>
+    /// What is already where a new member's file, <paramref name="fileName"/> in the project's folder, would be
+    /// written: a file, the binary file beside it, or a line the project file keeps for a member that did not load
+    /// and that names it. Null when nothing is, as for a project whose folder is not chosen yet.
+    /// </summary>
+    /// <remarks>
+    /// For the write a new member gets as it is added. When #500 moves that write to Save Project, as VB6 makes it,
+    /// this check moves with it, to wherever a new member's file is first written.
+    /// </remarks>
+    private static (string Path, bool NamedByProject)? FileInTheWay(ProjectDefinition project, string fileName)
+    {
+        // Not ProjectFilesDirectory, which chooses a scratch folder for a project with none: there is nothing in a
+        // folder not chosen yet, and asking for a name must not choose one.
+        if (ChosenFilesDirectory(project) is not { } dir)
+            return null;
+
+        var path = Path.Join(dir, fileName);
+        if (File.Exists(path))
+            return (path, false);
+        // Only the designer kinds have one. CompanionBinaryExtension answers .frx for a .bas or a .cls too.
+        if (Path.GetExtension(fileName).ToLowerInvariant() is ".frm" or ".ctl" or ".pag"
+            && Path.ChangeExtension(path, CompanionBinaryExtension(path)) is var companion
+            && File.Exists(companion))
+            return (companion, false);
+        return project.PreservedItemLines.Any(line => KeptLineNames(project, line, path)) ? (path, true) : null;
+    }
+
+    /// <summary>Refuses a new member whose file would be written where <see cref="FileInTheWay"/> finds something.</summary>
+    private static void EnsureNothingInTheWay(ProjectDefinition project, string name, string fileName)
+    {
+        if (FileInTheWay(project, fileName) is { } inTheWay)
+            throw new FileInTheWayRefusal(name, inTheWay.Path, inTheWay.NamedByProject);
+    }
+
     public Task<FormDefinition> AddNewForm(ProjectDefinition project, string name, bool interactive = true) =>
         WithEncodingError(() =>
         {
             var form = new FormDefinition(project, FormComponentClass.Instance, name) { TextEncoding = HostAnsi };
             EnsureNewMemberEncodable(project, form, name + ".frm");
+            EnsureNothingInTheWay(project, name, name + ".frm");
             var dir = ProjectFilesDirectory(project);
             Directory.CreateDirectory(dir);
             // A brand new form has no unfaithful causes and cites no companion, so this cannot refuse. Asserted
@@ -1266,6 +1311,7 @@ public class ProjectService : IProjectService
     {
         var fileName = module.Name + "." + ModuleExtension(module.Kind);
         EnsureNewMemberEncodable(project, module, fileName);
+        EnsureNothingInTheWay(project, module.Name, fileName);
         var dir = ProjectFilesDirectory(project);
         Directory.CreateDirectory(dir);
         module.AbsolutePath = Path.Join(dir, fileName);
@@ -1448,11 +1494,8 @@ public class ProjectService : IProjectService
     /// </summary>
     public static string ProjectFilesDirectory(ProjectDefinition project)
     {
-        if (project.AbsolutePath is { } p)
-            return Path.GetDirectoryName(p)!;
-
-        if (project.WorkingDirectory is { Length: > 0 } existing)
-            return existing;
+        if (ChosenFilesDirectory(project) is { } chosen)
+            return chosen;
 
         // The suffix is what makes it private. The name is kept in front of it so a user who goes looking
         // in TEMP can still tell which directory belongs to what.
@@ -1463,6 +1506,15 @@ public class ProjectService : IProjectService
         project.WorkingDirectory = scratch;
         return scratch;
     }
+
+    /// <summary>
+    /// The folder <see cref="ProjectFilesDirectory"/> answers once one is chosen: the project file's, or the scratch
+    /// folder it was given. Null for a project with neither, rather than choosing one.
+    /// </summary>
+    private static string? ChosenFilesDirectory(ProjectDefinition project) =>
+        project.AbsolutePath is { } p ? Path.GetDirectoryName(p)!
+        : project.WorkingDirectory is { Length: > 0 } existing ? existing
+        : null;
 
     /// <summary>
     /// Makes a project name safe to embed in a directory name.
@@ -1830,6 +1882,15 @@ public class ProjectService : IProjectService
         ModuleKind.UserControl  => "ctl",
         ModuleKind.PropertyPage => "pag",
         _                       => "bas"
+    };
+
+    /// <summary>What VB6 numbers a new module of this kind after: <c>Module1</c>, <c>Class1</c> and so on.</summary>
+    private static string ModulePrefix(ModuleKind kind) => kind switch
+    {
+        ModuleKind.ClassModule  => "Class",
+        ModuleKind.UserControl  => "UserControl",
+        ModuleKind.PropertyPage => "PropertyPage",
+        _                       => "Module"
     };
 
     /// <summary>
