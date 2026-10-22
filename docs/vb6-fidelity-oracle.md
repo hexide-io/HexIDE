@@ -11027,9 +11027,9 @@ What these add to the table above:
 - **`1.5E-10`, a Double, prints as `0.00000000015`,** most likely just its text. *Turning a number or a date into
   text* keeps a Double fixed while its digits fit, as `0.000012345` is, and goes to E notation for `0.00001 / 3`.
   HexIDE's `CStr` gives `0.00000000015` too, but `CStr` of this value was not measured on vb6.exe.
-- **`CDbl(1E+20)` has its sign space here**, ` 1E+20 `, between ` 0.1 ` and the end. The row above gives it as `1E+20 `,
-  starting its zone. With commas the leading space would be the zone's padding, so the two may be one result read two
-  ways. Today's, with semicolons, leaves no doubt that the space is there.
+- **`CDbl(1E+20)` has its sign space,** ` 1E+20 `. The row above gives it as `1E+20 `, starting its zone, but its own
+  hex dump, pinned in `SequentialFileTests`, has ten spaces after ` 0.1 `: nine to reach column 29, then the sign. So the
+  two are one result, read two ways.
 
 **Opening, numbering and closing:**
 

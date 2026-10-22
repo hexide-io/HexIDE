@@ -75,7 +75,10 @@ public class StandaloneStandardLib : IBasicStandardLibrary
         return result;
     }
 
-    public void DebugPrint(Vb6Value value) => VBDebugConsole.Emit(value);
+    // The Immediate window shows the text, not the typed values (#1380).
+    public void DebugPrint(Vb6Value value) { }
+
+    public void DebugWrite(string text) => VBDebugConsole.Write(text);
 
     public ITextClipboard Clipboard => new AvaloniaTextClipboard(() => _parent.Clipboard);
 
