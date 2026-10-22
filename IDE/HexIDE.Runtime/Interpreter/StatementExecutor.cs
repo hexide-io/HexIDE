@@ -2489,7 +2489,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     public override async Task<ControlFlow> VisitRedimStmt(VB6Parser.RedimStmtContext context)
     {
         if (context.PRESERVE() != null)
+        {
+            // Not implemented, except where VB6 would refuse it anyway: an array one of whose elements a running call holds
+            // ByRef is locked, and ReDim Preserve on it is 10 and leaves it as it was (measured, #1455). That check must stay
+            // ahead of any resize when Preserve is built, or the element's parameter would go on writing the old storage.
+            foreach (var redim in context.redimSubStmt())
+                if (redim.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } preserved
+                    && interpreter.ExecutionContext.TryGetVariable(currentEnv, preserved.ambiguousIdentifier().GetText(), out var held)
+                    && held.Value is VBArray { IsLocked: true })
+                    throw new VBRunTimeException(context, VBStandardError.ThisArrayIsFixedOrTemporarilyLocked);
             throw new NotImplementedException("PRESERVE not implemented");
+        }
 
         foreach (var redim in context.redimSubStmt())
         {

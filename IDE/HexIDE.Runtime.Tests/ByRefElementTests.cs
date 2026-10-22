@@ -105,8 +105,8 @@ public class ByRefElementTests : BaseVBTestFixture
     [Fact]
     public async Task An_array_one_of_whose_elements_is_passed_ByRef_is_locked_until_the_call_returns()
     {
-        // ReDim, Erase, a store into the array's variable and a store into a Variant holding it each raise 10 and leave it
-        // as it was; after the call, ReDim works.
+        // ReDim, Erase, ReDim Preserve, a store into the array's variable and a store into a Variant holding it each raise 10
+        // and leave it as it was; after the call, ReDim works. HexIDE refuses any other ReDim Preserve as not implemented.
         await Run("""
             Private d() As Long
             Private e() As Long
@@ -118,6 +118,9 @@ public class ByRefElementTests : BaseVBTestFixture
                 Err.Clear
                 Erase d
                 Debug.Print "Erase inside: err " & Err.Number
+                Err.Clear
+                ReDim Preserve d(5)
+                Debug.Print "ReDim Preserve inside: err " & Err.Number & " ubound " & UBound(d)
                 Err.Clear
                 d = e
                 Debug.Print "d = e inside: err " & Err.Number & " ubound " & UBound(d)
@@ -140,6 +143,7 @@ public class ByRefElementTests : BaseVBTestFixture
         AssertDebugLog(Lines("""
             ReDim inside: err 10 ubound 2
             Erase inside: err 10
+            ReDim Preserve inside: err 10 ubound 2
             d = e inside: err 10 ubound 2
             PRD d(1): 9 ubound 2
             ReDim after the call: err 0 ubound 4
