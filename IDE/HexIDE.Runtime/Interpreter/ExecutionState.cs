@@ -101,14 +101,14 @@ public class ExecutionState
     public ModuleInfo? DefaultFormOf(int location) =>
         defaultForms.Count > 0 && defaultForms.TryGetValue(location, out var form) ? form : null;
 
-    // The slots of variables declared `As New`, by slot (#435): read through the name they were declared with while they
-    // hold Nothing, VB6 makes the object there, as it makes a form's default instance (measured).
+    // The slots of variables declared `As New`, by slot (#435): read while they hold Nothing, other than through a
+    // parameter, VB6 makes the object there, as it makes a form's default instance (measured).
     private readonly Dictionary<int, AutoNew> autoNews = new();
 
     /// <summary>Mark a slot as declared <c>As New</c> <paramref name="className"/> under <paramref name="name"/>.</summary>
     public void MarkAutoNew(int location, string className, string name) => autoNews[location] = new AutoNew(className, name);
 
-    /// <summary>What an <c>As New</c> slot makes, and the name that makes it, or null for any other slot.</summary>
+    /// <summary>What an <c>As New</c> slot makes, and the name it was declared with, or null for any other slot.</summary>
     public AutoNew? AutoNewOf(int location) =>
         autoNews.Count > 0 && autoNews.TryGetValue(location, out var autoNew) ? autoNew : null;
 

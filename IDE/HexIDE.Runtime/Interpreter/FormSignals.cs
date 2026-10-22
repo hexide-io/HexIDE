@@ -29,7 +29,8 @@ public sealed class FormInstanceNeeded(ModuleInfo form)
     public ModuleInfo Form { get; } = form;
 }
 
-/// <summary>What a variable declared <c>As New</c> makes (a class's name, or "Collection"), and the name it was declared with.</summary>
+/// <summary>What a variable declared <c>As New</c> makes (a class's name, or "Collection"), and the name it was declared with,
+/// for a refusal to name.</summary>
 public sealed record AutoNew(string ClassName, string Name);
 
 /// <summary>
