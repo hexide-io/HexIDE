@@ -302,28 +302,91 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     public async Task<List<CallArg>> ResolveCallArgs(VB6Parser.ArgsCallContext? context)
     {
         var result = new List<CallArg>();
+        var named = false;
         foreach (var arg in ArgSlots(context))
         {
             // A blank slot has no lvalue to alias, so it can never be ByRef.
             if (arg is null)
             {
+                if (named)
+                    throw new VBCompileErrorException("Syntax error");
                 result.Add(new CallArg(Vb6Value.Missing, null));
                 continue;
             }
             if (arg.PARAMARRAY() != null)
                 throw new NotImplementedException("ParamArray arguments are not yet supported");
-            // A call-site ByVal keyword (or a non-lvalue like a literal / (x)) forces a copy.
-            if (arg.BYVAL() == null && await TryGetArgElement(arg.valueStmt()) is var (elementValue, element))
+            // A named argument, `c:=5` (#1465), is placed and evaluated by the call's binding (NamedArguments), in parameter
+            // order, which is the order VB6 evaluates them in. A positional one after it is VB6's "Syntax error" (measured).
+            if (arg.valueStmt() is VB6Parser.VsAssignContext assign)
             {
-                result.Add(new CallArg(elementValue, null, element));
+                named = true;
+                var value = assign.valueStmt();
+                var byVal = arg.BYVAL() != null;
+                result.Add(new CallArg(Vb6Value.Missing, null, Name: assign.implicitCallStmt_InStmt().GetText(),
+                    Deferred: () => ResolveArg(value, byVal)));
                 continue;
             }
-            var value = await EvaluateValue(arg.valueStmt());
-            int? location = arg.BYVAL() != null ? null : TryGetArgLocation(arg.valueStmt());
-            var field = arg.BYVAL() != null || location is not null ? null : TryGetArgField(arg.valueStmt());
-            result.Add(new CallArg(value, location, field));
+            if (named)
+                throw new VBCompileErrorException("Syntax error");
+            result.Add(await ResolveArg(arg.valueStmt(), arg.BYVAL() != null));
         }
         return result;
+    }
+
+    // One argument, with what a ByRef parameter needs to alias it. A call-site ByVal keyword (or a non-lvalue like a literal
+    // or `(x)`) forces a copy.
+    private async Task<CallArg> ResolveArg(VB6Parser.ValueStmtContext valueStmt, bool byVal)
+    {
+        if (!byVal && await TryGetArgElement(valueStmt) is var (elementValue, element))
+            return new CallArg(elementValue, null, element);
+        var value = await EvaluateValue(valueStmt);
+        int? location = byVal ? null : TryGetArgLocation(valueStmt);
+        var field = byVal || location is not null ? null : TryGetArgField(valueStmt);
+        return new CallArg(value, location, field);
+    }
+
+    /// <summary>
+    /// An intrinsic's arguments. With any named (`Mid(String:=s, Start:=2)`, #1465), each is placed by the intrinsic's
+    /// parameter names and evaluated in parameter order (VB6BuiltIns.ArrangeIntrinsicArguments); otherwise as
+    /// <see cref="EvaluateCallArgs"/> evaluates them.
+    /// </summary>
+    public async Task<List<Vb6Value>> EvaluateIntrinsicArgs(string name, VB6Parser.ArgsCallContext? context)
+    {
+        var slots = ArgSlots(context);
+        var anyNamed = false;
+        foreach (var arg in slots)
+            if (arg?.valueStmt() is VB6Parser.VsAssignContext)
+                anyNamed = true;
+        if (!anyNamed)
+            return await EvaluateCallArgs(context);
+        var args = new List<CallArg>();
+        var named = false;
+        foreach (var arg in slots)
+        {
+            if (arg is null)
+            {
+                if (named)
+                    throw new VBCompileErrorException("Syntax error");
+                args.Add(new CallArg(Vb6Value.Missing, null));
+                continue;
+            }
+            if (arg.BYREF() != null)
+                throw new NotImplementedException("ByReference arguments are not supported");
+            if (arg.PARAMARRAY() != null)
+                throw new NotImplementedException("PARAMARRAY arguments are not supported");
+            if (arg.valueStmt() is VB6Parser.VsAssignContext assign)
+            {
+                named = true;
+                var value = assign.valueStmt();
+                args.Add(new CallArg(Vb6Value.Missing, null, Name: assign.implicitCallStmt_InStmt().GetText(),
+                    Deferred: async () => new CallArg(await EvaluateValue(value), null)));
+                continue;
+            }
+            if (named)
+                throw new VBCompileErrorException("Syntax error");
+            args.Add(new CallArg(await EvaluateValue(arg.valueStmt()), null));
+        }
+        return await VB6BuiltIns.ArrangeIntrinsicArguments(name, args);
     }
 
     // A constant, a user Const or an Enum member, has no location to pass: VB6 passes it through a temporary, so a ByRef
@@ -844,7 +907,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBCompileErrorException(TypeCharacterMismatch);
         if (dollar && !DollarForms.Contains(name) && !DollarIgnored.Contains(name))
             throw new NotImplementedException($"{name}$ is not implemented: what VB6 does with a $ on {name} is not measured (#742)");
-        var args = await EvaluateCallArgs(argsCtx);
+        var args = await EvaluateIntrinsicArgs(name, argsCtx);
         if (await EvaluateFunction(name, args) is { } builtInResult)
             return dollar && DollarForms.Contains(name) ? DollarResult(builtInResult, procOrArrayCall) : builtInResult;
 
@@ -1085,7 +1148,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             var library = qualifier.Name!;
             while (true)
             {
-                var args = argsCtx != null ? await EvaluateCallArgs(argsCtx) : new List<Vb6Value>();
+                var args = argsCtx != null ? await EvaluateIntrinsicArgs(memberName, argsCtx) : new List<Vb6Value>();
                 if (await EvaluateFunction(memberName, args) is { } fn)
                     return await ThenTheRest(fn);
                 if (args.Count == 0 && VB6InBoxLibraries.TryInLibrary(library, memberName, out var c))
@@ -1489,7 +1552,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return new Vb6Value(false);
     }
 
-    public override Task<object?> VisitVsAssign(VB6Parser.VsAssignContext context) => throw new NotImplementedException("Assign is not implemented");
+    // `name:=value` is a named argument, which a call to a procedure or an intrinsic places (#1465). Reaching here, it was
+    // given to something that does not place them yet: a control's or a form's method, an object's, or an array.
+    public override Task<object?> VisitVsAssign(VB6Parser.VsAssignContext context) =>
+        throw new NotImplementedException("A named argument (" + context.implicitCallStmt_InStmt().GetText()
+            + ":=) is not implemented here yet (#1465)");
 
     public override async Task<object?> VisitVsMid(VB6Parser.VsMidContext context)
     {
