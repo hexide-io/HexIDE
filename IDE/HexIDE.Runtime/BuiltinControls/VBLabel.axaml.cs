@@ -111,7 +111,7 @@ public class VBLabel : TemplatedControl
 
         // Before Click, so MouseUp comes first, as VB6 raises them (#974).
         AttachedEvents.AttachMouse<VBLabel>(AttachedEvents.DblClick.InPlaceOfMouseDown);
-        AttachedEvents.AttachClick<VBLabel>();
+        AttachedEvents.AttachClick<VBLabel>(AttachedEvents.ClickRelease.OverTheControl);
     }
 
     private void UpdateStyle()

@@ -190,6 +190,40 @@ there isn't one yet. Anything may change between 0.x releases.
   loaded, and its line was written back as it was read. From a new folder that line named a file beside the new
   project file, where there is none, and the next open lost the member. It now names the same file from wherever the
   project file is written, as do the original lines of carried files.
+
+- **A quote inside a form's string property is read and written as VB6 does** (#218). VB6 writes a quote inside a
+  caption, tag or text doubled, and reads the pair back as one. HexIDE kept both quotes on read, so a VB6 form's
+  `"He said ""hi"""` showed as `He said ""hi""`. It wrote a lone quote single, which vb6.exe refuses: the whole form
+  fails to load, and the build fails.
+
+- **A Label's, an Image's, a Frame's and a PictureBox's Click needs the release over them** (#1373). A press on one,
+  dragged off and released on the form or another control, still raised Click, so dragging off a control never
+  cancelled its click as it does in VB6. Now Click comes only for a release over the control again, as vb6.exe
+  measured; a TextBox and a ListBox, which VB6 lets click wherever the release lands, are unchanged.
+
+- **A control can no longer be given a name already on its form** (#854). The designer checked a new name only
+  against the controls it models, and mostly with case. A rename, a control drawn from the toolbox, or a paste could
+  take the name of a control HexIDE keeps as preserved text, such as a Data or OLE control, or a sibling's name in
+  another case. vb6.exe builds such a form without either control, and logs nothing a build would stop on. Every name
+  on the form now counts, compared without regard to case, as vb6.exe compares them.
+
+- **A list's `ListCount`, `List(i)`, `RemoveItem` and `AddItem`'s index work** (#821), on a ListBox and a ComboBox.
+  `ListCount` and `List(i)` were "Method or data member not found", `RemoveItem` ended the run as not implemented, and
+  `AddItem "x", 0` appended, leaving the list in another order than the program built. Each now does what vb6.exe
+  does, in range and out: `List(i)` reads "" outside the list, a write at `ListCount` or -1 appends, an index out of
+  range is 5 or 381, and the selection follows its item.
+
+- **A ListBox raises Click where VB6 does** (#1374). It raised Click after MouseUp on every release, and never when
+  code set `ListIndex` or an arrow key moved the selection. Now a left press on an item raises Click before MouseUp,
+  the selection follows the pointer while the button is held, `ListIndex = n` and an arrow key raise it when the
+  selection moves, and a right or middle click, or a press below the items, selects nothing and raises none, as
+  vb6.exe does with real input.
+
+- **MousePointer has all seventeen of VB6's values** (#120). Icon (4), Size (5), Arrow and Hourglass (13) and Arrow and
+  Question (14) were missing. A form using one saved it without the name VB6 writes beside it, the Properties window
+  showed a blank, and the control drew the default pointer. All four now carry their names and draw the pointers
+  vb6.exe draws, as measured.
+
 - **DblClick runs** (#1031). It was declared nowhere and raised by nothing, so a `List1_DblClick` or `Form_DblClick`
   never ran. Now a double click raises it on the form and on each control VB6 gives one, in vb6.exe's order with real
   input: MouseDown, MouseUp, Click, DblClick, MouseUp, with no MouseDown for the second press. An OptionButton raises
