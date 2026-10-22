@@ -13226,6 +13226,8 @@ array, 35000 in either.
 |---|---|
 | `ReDim d(5)` | 10, "This array is fixed or temporarily locked", and `UBound(d)` stays 2 |
 | `ReDim Preserve d(5)` | 10, and `UBound(d)` stays 2 |
+| `ReDim d("x")` or `ReDim Preserve d("x")` | 13: the bounds are converted first |
+| `ReDim d(5 To 2)` or `ReDim Preserve d(5 To 2)` | 10, ahead of the inverted range's 9 |
 | `Erase d` | 10 |
 | `d = e`, `e` a Long array `ReDim e(3)` | 10, and `UBound(d)` stays 2 |
 | `v = 5`, inside `PVV v(1)` with `v` a Variant holding `Array(1, 2, 3)` | 10, and `v` is still `Variant()` |
