@@ -9639,7 +9639,8 @@ What these show:
 What resisted explanation: synthetic messages raise no Click on a windowless Label, an Image, a PictureBox or the
 form, though each has one, while a TextBox's Click comes. That repeats the PictureBox row under *A form-based game's
 runtime surface*. It is most likely how VB6 synthesises Click for those, from the real cursor or capture, so where
-Click falls among their mouse events is still to be measured with real input on the interactive desktop.
+Click falls among their mouse events is still to be measured with real input on the interactive desktop. Measured
+since: *A click with real input* below (#1364).
 
 ### HexIDE
 
@@ -9659,11 +9660,84 @@ input, from every row above that HexIDE can reach.
 
 What it still does not do:
 - **DblClick** is raised by nothing (#1031).
-- **The form's own Click** is raised by nothing, as before.
+- **The form's own Click** is raised by nothing, as before. Since #1364 it is: *A click with real input* below.
 - **Shift's mask and MouseMove's buttons** are taken from the pointer event, which is where they live in Avalonia;
   VB6 takes them from the device, which is the same thing for real input.
 - **A press on a 3-D TextBox's or ListBox's 2-pixel border** reaches the control in HexIDE with a negative X or Y,
   where VB6 sends the border no mouse message at all.
+
+## A click with real input: where Click and DblClick fall (2026-10-22, #1364)
+
+*Mouse events* above measured with synthetic messages, which raised no Click for a windowless Label, an Image, a
+PictureBox or the form. So where Click falls for those, and whether the form raises one at all, needed real input.
+
+Two `/make` probes, each built native and p-code, all four builds agreeing line for line. Each ran in the guest's
+interactive console session and was driven with real input, `SetCursorPos` and `mouse_event`, so Windows did its own
+hit-testing, capture and double-click detection.
+- The double-click time was 500 ms, and the rectangle 4 by 4 pixels.
+- A press lasted 40 to 50 ms, the two clicks of a double click were 80 ms apart, and sequences 800 ms apart.
+
+The first probe is a twips form holding Command1. The second adds a windowless Label, an Image with no picture, a
+PictureBox, a TextBox and a ListBox with three items. Every handler appends its name and arguments to a file.
+
+**The form**, pressed on its own area, over no control, unless the row says otherwise:
+
+| Input | VB6 |
+|---|---|
+| left click | MouseDown `1`, MouseUp `1`, **Click** |
+| right click, and middle click | the same with Button `2`, and `4`: **Click** both times |
+| left double click | MouseDown, MouseUp, Click, **DblClick**, MouseUp |
+| right double click | the same, with Button `2` |
+| triple click | as the double click, then MouseDown, MouseUp, Click |
+| press, move 50 pixels across the form, release | MouseDown, MouseUp at the release point, Click |
+| press, release outside the window | MouseDown, MouseUp at X `7800`, past the client's 6000; no Click |
+| press, release over Command1 | MouseDown, MouseUp in the form's coordinates (`600 360`); no Click, and nothing on Command1 |
+| press, release over the windowless Label1 | MouseDown, MouseUp in the form's coordinates (`600 1050`); no Click, and nothing on Label1 |
+| press on Command1, release on the form | Command1 MouseDown and MouseUp; no Click anywhere, and nothing on the form |
+
+**The controls:**
+
+| Input | VB6 |
+|---|---|
+| click on Label1, on Image1, on Picture1, on Text1 | MouseDown, MouseUp, Click |
+| click on List1's first item | MouseDown, **Click**, MouseUp |
+| double click on Label1, on Image1, on Picture1, on Text1 | MouseDown, MouseUp, Click, DblClick, MouseUp |
+| double click on List1 | MouseDown, Click, MouseUp, DblClick, MouseUp |
+| press on Label1, release on the form | Label1 MouseDown, MouseUp from Label1's corner (`4380 900`); no Click on either |
+| press on Picture1, release on the form | Picture1 MouseDown, MouseUp; no Click on either |
+
+What these show:
+- **A form raises Click on the release, after MouseUp, for every button.** A CommandButton raises it for the left
+  button alone (*Mouse events*), so the form does not follow it.
+- **A click has to start and end on one object's own area.** MouseUp goes to the object the press was on, in its
+  coordinates, wherever the release is. Click comes only when the release is over that object again: over a control
+  on it, windowless or not, or outside the window, there is none. A move within the object does not matter.
+- **In a double click, Click comes with the first release and DblClick with the second press.** That press raises no
+  MouseDown, and its release no Click. A third press starts a new click.
+- **A ListBox raises Click before MouseUp,** as a CommandButton and a CheckBox do. A TextBox, a PictureBox, a Label, an
+  Image and the form raise it after.
+- **This answers the question *Mouse events* left open.** Synthetic messages raised no Click on a windowless Label, an
+  Image, a PictureBox or the form because VB6 raises their Click from real input, and from where the cursor is, not
+  from the message.
+
+### HexIDE
+
+Before #1364, nothing raised the form's own Click.
+
+Since #1364, the form raises Click on the release, after MouseUp, for the left, right and middle buttons.
+- **Where:** only when the press was on the form's own area and the release is over it again. The release is
+  hit-tested where it is, since the pointer stays captured by the form. So a release over a control, or outside the
+  client, gives the form its MouseUp and no Click.
+- **Double click:** the press's click count leaves out the Click VB6 does not raise on a double click's second release.
+  A third click is a new Click.
+- **Pinned** in `MouseEventTests`, with real headless pointer input, from the form's rows above, all but DblClick.
+
+What it still does not do:
+- **DblClick** is raised by nothing, on the form or any control, so a double click's second press still raises a
+  MouseDown (#1031).
+- **A press on a Label, an Image, a PictureBox, a TextBox or a ListBox** raises that control's Click wherever the
+  release lands. Only a CommandButton, through Avalonia's own Button, checks (#1373).
+- **A ListBox raises Click after MouseUp** (#1374).
 
 ## One handler at a time (2026-10-14, #766)
 
