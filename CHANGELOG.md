@@ -219,6 +219,12 @@ there isn't one yet. Anything may change between 0.x releases.
   Collection to its items. Still to come: `Dim c As New Collection` (#435), arrays of Collection (#1482), and keys
   compared as VB6's text compare does rather than only ignoring case (#1479).
 
+- **A control added or pasted takes the TabIndex VB6 gives it** (#925). The first control got 1, a Timer or a Shape used
+  a number up, a Label or a Frame was saved without one, and a pasted control kept its source's, so the file held two
+  controls at one TabIndex. A control on a loaded form could also take a Label's or a Frame's number, which HexIDE
+  couldn't see. Now each takes the next after the highest on the form, as VB6's designer does, measured: the first is 0,
+  a Timer takes none, a Label and a Frame have theirs, and a paste numbers its container and then what it holds.
+
 - **Center in Form, Align Centers and Make Equal spacing put a control where VB6 does** (#929). They worked in
   fractional pixels, so a control centred on an odd difference landed half a pixel off, and a save wrote it as
   `Left = 4192.5`. Each now works as VB6's does, measured in its IDE: in whole twips, halving each size on its own and
