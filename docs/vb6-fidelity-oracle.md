@@ -12681,8 +12681,9 @@ misleading "User-defined type not defined" is what the class's use reports when 
 HexIDE now finds lines by this rule wherever it reads a module's or a form's lines: the header split, the `VB_Name`
 retarget, the read-only regions and the guard, and the reduction of a formatting edit. Its readers accept a CR-only or
 LF-only designer block, which VB6 refuses. A `.bas` or `.cls` saved after a load is written with CRLF throughout, since
-the header split rejoins its lines that way. To VB6 that is the same file. The interpreter's grammar still ends a line
-only at `\r\n` or `\n` (#1426), and the bundled server's position model at `\n` (#1052). Not probed: the VB6 IDE's own
+the header split rejoins its lines that way. To VB6 that is the same file. The interpreter's grammar ends a line at a
+lone CR too since #1426, and the corpus's three line-ending cases carry these verdicts. The bundled server's position
+model still ends one only at `\n` (#1052). Not probed: the VB6 IDE's own
 open and save, which may rewrite a lone CR as it loads.
 
 ## A member indexed through its object, and a `?` line in the Immediate window (2026-10-22, #1386)

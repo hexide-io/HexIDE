@@ -188,7 +188,7 @@
       ],
       "expect": "unsure",
       "why": "The whole module is one JSON string whose internal separators are bare LF, so the file has Unix endings however the harness joins array elements. VB6 wrote CRLF exclusively and its reader may or may not tolerate LF alone; the repo grammar spells it '\\r'? '\\n' and would accept. Genuinely unmeasured. Expect lf if legal.",
-      "skip": "Not deliverable through vb6-legality.ps1, which writes every case as ASCII+CRLF. Measured legal with a raw-bytes harness instead (docs/vb6-fidelity-oracle.md, 'A lone CR or LF in VB6 source', #1020): a .bas with lone-LF line ends builds and runs as its CRLF twin. The old reason here, that VB6 will not load such a module, was true of a class, not a .bas. Un-skipping it needs the verdict merged into results.json by hand, or a raw-bytes mode in the script."
+      "measured": { "actual": "legal", "how": "Measured with a raw-bytes harness, because vb6-legality.ps1 writes every case CRLF (docs/vb6-fidelity-oracle.md, 'A lone CR or LF in VB6 source', #1020): a .bas with lone-LF line ends builds and runs as its CRLF twin. The old reason this was skipped, that VB6 will not load such a module, was true of a class, not a .bas." }
     },
     {
       "id": "cr-only-line-endings",
@@ -198,7 +198,7 @@
       ],
       "expect": "unsure",
       "why": "Classic-Mac endings: bare CR with no LF anywhere. The repo lexer cannot see these as newlines at all (every alternative demands '\\n'), so the module would arrive as one enormous physical line. Leaning illegal, but VB6's reader might normalise CR the way some Windows text APIs do, which is why this is unsure rather than a prediction.",
-      "skip": "Not deliverable through vb6-legality.ps1, which writes every case as ASCII+CRLF. Measured legal with a raw-bytes harness instead (docs/vb6-fidelity-oracle.md, 'A lone CR or LF in VB6 source', #1020): a .bas with lone-CR line ends builds and runs as its CRLF twin. The interpreter's grammar does not take a lone CR as a line end yet (#1426), which is what un-skipping this waits on."
+      "measured": { "actual": "legal", "how": "Measured with a raw-bytes harness, because vb6-legality.ps1 writes every case CRLF (docs/vb6-fidelity-oracle.md, 'A lone CR or LF in VB6 source', #1020): a .bas with lone-CR line ends builds and runs as its CRLF twin. The interpreter's grammar takes a lone CR as a line end since #1426." }
     },
     {
       "id": "mixed-crlf-and-lf",
@@ -210,7 +210,7 @@
       ],
       "expect": "unsure",
       "why": "One module in both conventions: the array joins supply CRLF, the embedded escape supplies a bare LF between the two Debug.Print calls. Tests whether the line splitter is uniform or latches onto the first terminator style it sees. If legal, expect a then b on separate lines -- which distinguishes 'LF accepted as a separator' from 'LF swallowed and the two calls merged'.",
-      "skip": "Not deliverable through vb6-legality.ps1, which writes every case as ASCII+CRLF. Measured legal with a raw-bytes harness instead (docs/vb6-fidelity-oracle.md, 'A lone CR or LF in VB6 source', #1020): a lone LF between two statements ends the first, as CRLF does. Un-skipping it needs the verdict merged into results.json by hand, or a raw-bytes mode in the script."
+      "measured": { "actual": "legal", "how": "Measured with a raw-bytes harness, because vb6-legality.ps1 writes every case CRLF (docs/vb6-fidelity-oracle.md, 'A lone CR or LF in VB6 source', #1020): a lone LF between two statements ends the first, as CRLF does." }
     },
     {
       "id": "long-continuation-chain-eight",
