@@ -503,6 +503,31 @@ file's own `Description` line SHALL stay where it was read.
 - **WHEN** the description is cleared and the project is saved
 - **THEN** the file holds no `Description` line
 
+### Requirement: A line of VB6 source SHALL end where VB6 ends it
+
+Every reader of a module's or a form's lines SHALL end a line at `\r\n`, at a lone `\r` and at a lone `\n`, as VB6's
+compiler and the code window do (#1020). That includes the header split, the `VB_Name` retarget, the read-only regions
+and the guard. A save SHALL write every line of code it read.
+
+#### Scenario: A module whose lines end with a lone CR
+
+- **GIVEN** a `.bas` whose every line, its `Attribute VB_Name` line included, ends with a lone CR
+- **WHEN** its project is opened and saved
+- **THEN** the file holds every line it held, each ending CRLF
+
+#### Scenario: A stray CR between two lines
+
+- **GIVEN** a CRLF `.bas` whose `Attribute VB_Name` line ends with a lone CR, followed by `Option Explicit`
+- **WHEN** it is saved
+- **THEN** `Option Explicit` is still in the file, on a line of its own
+
+#### Scenario: An attribute under a blank line made by a lone CR
+
+- **GIVEN** `Public Sub Foo()` ending with a lone CR and then a CRLF, followed by `Attribute Foo.VB_Description`
+- **WHEN** the code window reads the attribute line
+- **THEN** it describes no member, as VB6 binds it to none
+
+
 ### Requirement: A project file SHALL NOT be written without a member that has no file
 
 When an operation would write a project file while one of the project's forms or modules has never been saved
