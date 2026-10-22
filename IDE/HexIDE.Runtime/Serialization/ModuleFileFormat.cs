@@ -79,9 +79,22 @@ public static class ModuleFileFormat
         if (!HandlesHeader(kind))
             return body;
 
-        return string.IsNullOrEmpty(preservedHeader)
-            ? Header(name, kind) + body
-            : RetargetVbName(preservedHeader, name) + body;
+        if (!string.IsNullOrEmpty(preservedHeader))
+            return RetargetVbName(preservedHeader, name) + body;
+
+        // Nothing split off. A body that already carries its own VB_Name is the whole file, in a shape the reader did not
+        // take as a header, and gets nothing in front: the literal would give it a second header, which is #472. One
+        // with none is a module HexIDE is creating, or a file written without a header, and VB6 writes one for both.
+        return CarriesVbName(body) ? body : Header(name, kind) + body;
+    }
+
+    /// <summary>Whether any line of <paramref name="text"/> is an <c>Attribute VB_Name</c> line.</summary>
+    private static bool CarriesVbName(string text)
+    {
+        foreach (var line in text.Split('\n'))
+            if (line.TrimStart().StartsWith("Attribute VB_Name", StringComparison.OrdinalIgnoreCase))
+                return true;
+        return false;
     }
 
     /// <summary>
@@ -89,11 +102,11 @@ public static class ModuleFileFormat
     /// <see cref="ToFileContent"/> writes.
     /// </summary>
     /// <remarks>
-    /// <b>Null and empty mean different things here, and <c>ToFileContent</c> conflates them.</b> It tests
-    /// <c>IsNullOrEmpty</c> and falls back to the canonical literal for both, which is the mechanism of
-    /// hexide-io/HexIDE#472: a <c>.bas</c> or <c>.cls</c> whose header the reader did not recognise — a
-    /// leading blank line is enough, because recognition is positional and tests only line 0 — keeps its
-    /// WHOLE file in <c>Code</c> and records an empty header, so the next save prepends a second one.
+    /// <b>Null and empty mean different things here.</b> <c>""</c> means the reader split nothing off, so
+    /// <c>Code</c> holds the whole file. <c>ToFileContent</c> decides by the body instead. It writes the canonical
+    /// literal in front of a body with no <c>VB_Name</c> of its own, as VB6 gives a headerless file one when it saves
+    /// it, and nothing in front of a body that carries one (hexide-io/HexIDE#472). So the two differ only for a
+    /// file with no <c>VB_Name</c> at all, by the line its next save adds.
     ///
     /// <list type="bullet">
     /// <item><description><c>null</c> — never read from disk. A module HexIDE created, which has no
@@ -103,11 +116,6 @@ public static class ModuleFileFormat
     /// <item><description>anything else — the preserved header, with <c>VB_Name</c> retargeted so a rename
     /// still round-trips.</description></item>
     /// </list>
-    ///
-    /// <para>
-    /// This does not fix #472 — the save path still writes the duplicate — but it stops the code window
-    /// showing one, and it puts the distinction somewhere a fix can use.
-    /// </para>
     /// </remarks>
     public static string BufferHeader(string name, ModuleKind kind, string? preservedHeader) =>
         !HandlesHeader(kind) ? ""
@@ -150,7 +158,14 @@ public static class ModuleFileFormat
             return ("", fileContent);
 
         var lines = fileContent.Replace("\r\n", "\n").Split('\n');
-        var i = 0;
+
+        // Blank lines above the header belong to it, so the header is found below them and written back with them
+        // (#472). Recognition used to test line 0 alone, so one blank line left the whole file in the body, and the
+        // next save put a second header in front of it.
+        var start = 0;
+        while (start < lines.Length && lines[start].Trim().Length == 0)
+            start++;
+        var i = start;
 
         if (kind == ModuleKind.ClassModule
             && i < lines.Length
@@ -161,9 +176,12 @@ public static class ModuleFileFormat
             if (i < lines.Length && lines[i].Trim().Equals("BEGIN", StringComparison.OrdinalIgnoreCase))
             {
                 i++;
-                while (i < lines.Length && !lines[i].Trim().Equals("END", StringComparison.OrdinalIgnoreCase))
+                // A BEGIN with no END ends where the attributes begin, rather than at the end of the file: run to EOF,
+                // it took the whole class for its header and left the code window empty (#472).
+                while (i < lines.Length && !lines[i].Trim().Equals("END", StringComparison.OrdinalIgnoreCase)
+                       && !lines[i].TrimStart().StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase))
                     i++;
-                if (i < lines.Length) i++; // consume END
+                if (i < lines.Length && lines[i].Trim().Equals("END", StringComparison.OrdinalIgnoreCase)) i++; // consume END
             }
         }
 
@@ -171,10 +189,12 @@ public static class ModuleFileFormat
         while (i < lines.Length && lines[i].TrimStart().StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase))
             i++;
 
-        if (i == 0)
-            return ("", fileContent); // no header recognised — already a body
+        if (i == start)
+            return ("", fileContent); // no header recognised — already a body, blank lines and all
 
-        return (string.Join("\r\n", lines, 0, i) + "\r\n",
+        // A header that runs to the end of the file already ends with the file's own last line break, if it has one, so
+        // nothing is added after it: adding one grew the file by a blank line on every save.
+        return (string.Join("\r\n", lines, 0, i) + (i < lines.Length ? "\r\n" : ""),
                 string.Join("\r\n", lines, i, lines.Length - i));
     }
 }

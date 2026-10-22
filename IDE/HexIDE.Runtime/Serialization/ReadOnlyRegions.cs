@@ -253,7 +253,7 @@ public readonly record struct MemberDeclaration(DeclaredName Name, PropertyAcces
 /// </para>
 /// <para>
 /// <b>Where the model split nothing off, the header is found from the text.</b> An unparseable
-/// <c>.ctl</c>/<c>.pag</c>, or a <c>.bas</c>/<c>.cls</c> whose first line is blank (hexide-io/HexIDE#472),
+/// <c>.ctl</c>/<c>.pag</c>, or a <c>.bas</c>/<c>.cls</c> whose header sits under a comment (hexide-io/HexIDE#472),
 /// keeps its whole file in the code. Its prefix is then empty, but the buffer still opens with a header.
 /// </para>
 /// <para>
