@@ -9720,6 +9720,29 @@ What these show:
   Image, a PictureBox or the form because VB6 raises their Click from real input, and from where the cursor is, not
   from the message.
 
+**And the controls with no DblClick, or a different one** (2026-10-22, #1031). Two more probes the same way, both
+built native and p-code, all four builds agreeing line for line. The third holds Command1, an empty Frame1, Option1 and
+Check1. The fourth holds Option1 and Option2, neither selected when the form loads.
+
+| Input | VB6 |
+|---|---|
+| click on Frame1, inside it | MouseDown, MouseUp, Click |
+| double click on Frame1 | MouseDown, MouseUp, Click, DblClick, MouseUp |
+| double click on Command1 | MouseDown, Click, MouseUp, then the same again: two clicks, no DblClick |
+| double click on Check1 | MouseDown, Click, MouseUp, twice; `Value` 1, then 0, then 1 |
+| click on Option1, not selected | MouseDown, **Click** (`Value` True), MouseUp |
+| double click on Option1, not selected | MouseDown, Click, MouseUp, **MouseDown, DblClick**, MouseUp |
+| double click on Option1, already selected | MouseDown, MouseUp, MouseDown, DblClick, MouseUp: no Click |
+
+What these add:
+- **A CommandButton and a CheckBox have no DblClick,** and a double click on either is two whole clicks, as VB6.OLB's
+  event lists say.
+- **A Frame double-clicks as a Label does.**
+- **An OptionButton's second press raises MouseDown, then DblClick.** Every other control with a DblClick raises it in
+  place of that MouseDown.
+- **An OptionButton raises Click only when it becomes selected,** before MouseUp, as a CheckBox does. A click on one
+  already selected raises none.
+
 ### HexIDE
 
 Before #1364, nothing raised the form's own Click.
