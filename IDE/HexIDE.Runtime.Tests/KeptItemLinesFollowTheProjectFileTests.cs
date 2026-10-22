@@ -81,11 +81,13 @@ public class KeptItemLinesFollowTheProjectFileTests
     public void A_related_documents_original_line_follows_the_project_file_too()
     {
         // VB6 writes a non-code file as an ordinary Module= line, and HexIDE keeps that line as it was (#273).
+        // The folder is "notes", not "docs": ci-skippable.sh reads a Path.Combine whose first literal names a folder at
+        // the repository's root as a file the build reads, and "docs" is one.
         var project = Project();
         project.AddRelatedDocument(new RelatedDocumentDefinition(project, "Readme",
-            Path.Combine(Old, "docs", "README.md"), @"Module=Readme; docs\README.md"));
+            Path.Combine(Old, "notes", "README.md"), @"Module=Readme; notes\README.md"));
 
-        Lines(project, Path.Combine(Root, "New", "Test.vbp")).Should().Contain(@"Module=Readme; ..\Old\docs\README.md");
+        Lines(project, Path.Combine(Root, "New", "Test.vbp")).Should().Contain(@"Module=Readme; ..\Old\notes\README.md");
     }
 
     [Fact]
