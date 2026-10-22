@@ -132,7 +132,7 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
     public void Unload(int index)
     {
         if (!elements.TryGetValue(index, out var control))
-            throw new VBRunTimeException(VBStandardError.ControlArrayElementDoesntExist);            // 340
+            throw new VBRunTimeException(VBStandardError.ControlArrayElementIsMissing(index));       // 340
         if (designTimeIndices.Contains(index))
             throw new VBRunTimeException(VBStandardError.CantUnloadControlsCreatedAtDesignTime);      // 362
         if (hosts.TryGetValue(index, out var host))

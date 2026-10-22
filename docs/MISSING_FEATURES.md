@@ -68,7 +68,7 @@
 | Definition | — | Done | LSP go-to-definition |
 | Last Position | — | Stub | Always disabled |
 | Object Browser | — | Partial | Two-panel browser implemented: library/class/member tree, search (local filter plus a workspace-wide `workspace/symbol` query of every capable running server), Back/Forward, Go-to-Definition, LSP member loading, description panel; pre-launch gaps: Unicode placeholder icons pending bitmap replacement (#11), plus three behavioural defects — member list cached so later edits do not appear, double-click opens the containing file rather than the member definition, Escape does not close (#24) |
-| Immediate Window | Ctrl+G | Done (Phase 4 + P7c) | Editable buffer; `?expr`/`Print expr`/bare expr evaluates against the paused frame; a bare **assignment or `Set` now EXECUTES** and mutates the frame (`count = 5` assigns, `?count = 5` compares — P7c); user Sub/Function calls still rejected (deadlock-prone — D14–D15); Debug.Print output lands here; MCP `evaluate` |
+| Immediate Window | Ctrl+G | Done (Phase 4 + P7c) | Editable buffer; `?expr`/`Print expr`/bare expr evaluates against the paused frame. A `?` line prints as `Debug.Print` does, ` 5 ` for 5 and lists with `;` and `,`, as VB6's Immediate window was measured to (#1386); a bare **assignment or `Set` now EXECUTES** and mutates the frame (`count = 5` assigns, `?count = 5` compares — P7c); user Sub/Function calls still rejected (deadlock-prone — D14–D15); Debug.Print output lands here; MCP `evaluate` |
 | Locals Window | — | Done (Phase 3 + P8) | Expandable tree (Expression/Value/Type) of the paused frame; UDT/array/object drill-in, cycle+depth guarded; a **live control expands to its VB6 property surface** (P8, D7) and tree **expansion is preserved across a break** (D10); native `TreeView` (TreeDataGrid is commercially licensed in 12.x); MCP `get_locals`. Residual: form `Me`/child-control-tree/proxy expansion (D7) |
 | Watch Window | — | Done (P6a) | Watches window (Expression/Value/Type/Context, expandable tree), re-evaluates each watch on every break, blanks on continue; Add/Edit/Delete + the three VB6 watch types; MCP `add_watch`/`get_watches` |
 | Call Stack… | Ctrl+L | Done (Phase 5) | Dockable Call Stack tool window; lists the running activation chain (Module.Procedure + Line, current frame arrowed) from `IDebugController.GetCallStack()`; rebuilt on each break, cleared on Continue; MCP `get_call_stack`. Additive vs VB6's modal list — D16–D17 |
@@ -362,9 +362,9 @@
 | Feature | Status | Notes |
 |---|---|---|
 | Text display area | Done | AvaloniaEdit document present |
-| Execute VB6 expression on Enter | Missing | No REPL; input not evaluated |
+| Execute VB6 expression on Enter | Done | In break mode: a `?` line prints as Print does, lists included (#1386); a bare assignment or `Set` runs (D14); user calls are refused (D15) |
 | Print output during run (Debug.Print) | Done | `Debug.Print` in the live F5 run routes to the Immediate window (via `VBDebugConsole`) |
-| Inspect variable value | Missing | |
+| Inspect variable value | Done | `? x` while paused, a local, a module variable or another form's control (`? Form1.Text1(0).Text`, #1386) |
 
 ---
 
