@@ -940,6 +940,40 @@ outside it. This is the sharpest evidence that the two controls' `Value` propert
 literal that *selects* an option button is *refused* by a check box.
 
 
+## Two controls of one name (2026-10-12, #854)
+
+Measured when #854 was filed, and recorded here by its fix. The probe was a Standard EXE built with `vb6.exe /make`
+(6.00.8176 SP6) from a form holding two `Begin` lines of one name and no `Index`, the shape HexIDE's save could write.
+Its `Form_Load` wrote `Me.Controls.Count` and each control's Name and TypeName to a file.
+
+**The build does not fail.**
+- `/make` exits 0.
+- Its `/out` log says `Errors during load. Refer to '...\Form1.log' for details`, then that the build succeeded.
+- `Form1.log` holds `Line 48: Did not find an index property and control Data1 already exists.` The line number
+  follows the file's layout.
+
+**Both controls carrying the name are missing from the program,** the original as well as the second.
+- A form of Timer1, Data2, Data1, and a TextBox renamed `Data1`: the program has 2 controls, Timer1 and Data2. With
+  unique names it has 4.
+- A CommandButton renamed `OLE1` beside an OLE control `OLE1`: `Me.Controls.Count` is 0, against 2. `TypeName(OLE1)` is
+  "Empty", and `Action`, `DoVerb`, `CreateEmbed` and `Delete` on it each raise 424.
+
+**Case does not matter.**
+- `Begin VB.CommandButton ole1` beside `Begin VB.OLE OLE1` loses both.
+- `Begin VB.TextBox timer1` after Timer1, Data2 and Data1 logs `control timer1 already exists`, and the program has
+  only Data2 and Data1.
+
+So vb6.exe compares control names without regard to case when it loads a form.
+
+**What was and was not measured.** The controls before the second block survived, including those between the two
+blocks. Each probe put the second block last, so what happens to controls after it is not measured. Opening, running
+or re-saving such a form in the VB6 IDE was not measured either. The fuller table from the same survey is #856's to
+record: a pair of CommandButtons that never finished building, and the OLE and Data controls' own rows.
+
+HexIDE could write such a form. Its designer checked a new name only against the controls it models, which leaves out
+a control kept as preserved text, and mostly with case. A rename, a control drawn from the toolbox and a paste now
+check against every name on the form, without regard to case (`ComponentNaming.NamesInUse`).
+
 ## A form-based game's runtime surface (2026-10-12)
 
 Measured to decide what a form front end for `demo/battleship` may rely on. Real `vb6.exe` 6.00.8176 (SP6).
@@ -1491,6 +1525,89 @@ reads back `02/01/2003` under en-GB, as measured above. It was refused until the
 - **Not measured:** `Label1.Caption = o` with `o` set to `Nothing` never reaches the conversion in HexIDE; what
   VB6 raises there is unmeasured.
 
+
+## A list's members: ListCount, List(i), AddItem's index and RemoveItem (2026-10-22, #821)
+
+What do a ListBox's and a ComboBox's list members do, in range and out of it? Three `/make` probes, each built native
+and p-code, all six builds agreeing line for line. Each runs in Form_Load after `Me.Show`, under `On Error Resume Next`,
+on four controls: a ListBox, a ComboBox with Style 0 (Dropdown Combo), one with Style 2 (Dropdown List), and a ListBox
+with `Sorted = True`. **The four agree on every row** but the two marked, so the table gives one answer.
+
+Each control starts with `c`, `a` and `b` added, in that order, which the sorted list keeps as `a`, `b`, `c`. A row's
+`ListIndex` and `ListCount` are read after it.
+
+| Statement | VB6 |
+|---|---|
+| `ListCount`, empty, then with three items | `0`, `3`, an **Integer** |
+| `ListCount = 5` | compile error **"Can't assign to read-only property"** |
+| `List(0)`, empty | `""`, Err 0 |
+| `List(0)`, `List(2)` | `c`, `b`, Strings (sorted: `a`, `c`) |
+| `List(3)` (= ListCount), `List(-1)`, `List(-2)`, `List(100)` | `""` each, **Err 0** |
+| `List("1")`, `List(1.6)` | `a`, `b`: the index is converted to an Integer, rounding |
+| `List(40000)` | Err **6** Overflow |
+| `List("q")` | Err 13 |
+| `List(Null)` | Err 94 |
+| `List()` | compile error "Argument not optional" |
+| `ListIndex = 1`, then `List(1) = "B"`, the selected item | replaced; **no Click**, `ListIndex` 1; a ComboBox's `Text` becomes `B` |
+| `List(3) = "d"` (= ListCount) | **appended**, ListCount 4, Err 0 |
+| `List(-1) = "z"` | **appended**, at the end, Err 0 |
+| `List(10) = "e"`, past ListCount | Err **381** "Invalid property array index" |
+| `List(-2) = "y"` | Err **-2147024882** "Out of memory"; nothing added. A **ComboBox's `ListIndex` moves from 1 to 2** |
+| `AddItem "z", 0`, with the item at 1 selected | inserted at 0; **`ListIndex` 2**, the selection follows its item; no Click |
+| `AddItem "y", ListCount` | appended |
+| `AddItem "w", ListCount + 1`, `AddItem "v", -1`, `AddItem "w", 10` | Err **5** "Invalid procedure call or argument" |
+| `AddItem "u", "1"` | inserted at 1: the index is converted |
+| `AddItem "x", 40000` | Err 6 |
+| `AddItem "n", Null` | Err **13**, not 94 |
+| `AddItem Null` | Err 94 |
+| `AddItem "z", 0` on the **sorted** list | inserted at 0 all the same: `z` first, before `a` |
+| `AddItem "q", 0`, empty; `AddItem "r", 2`, one item | the first inserted; the second Err 5 |
+| `RemoveItem ListCount`, `RemoveItem -1`, `RemoveItem 10`, `RemoveItem 0` empty | Err 5 |
+| `RemoveItem 40000` | Err 6 |
+| `RemoveItem 0`, with the item at 3 selected | removed; `ListIndex` 2; no Click |
+| `ListIndex = 0`, then `RemoveItem 0`, the selected item | removed; `ListIndex` **-1**; no Click from the removal; a ComboBox's `Text` becomes `""` |
+| `ListIndex = 1`, then `RemoveItem 0` | removed; `ListIndex` 0 |
+
+What these show:
+- **A ListBox and a ComboBox of either style are one list.** Only `Text` and the one row below tell them apart.
+- **Reading is forgiving and writing is not.** Any `List(i)` read that converts to an Integer is `""` outside the
+  list, while a write outside it is an error. The exceptions are `ListCount` and `-1`, which both append.
+- **AddItem takes 0 to ListCount and RemoveItem 0 to ListCount - 1**, and both raise 5 outside that. An index converts
+  as an Integer argument does: a String that reads as a number is taken, past 32767 is Overflow.
+- **The selection follows its item** through AddItem and RemoveItem, and empties when its item is removed. None of them
+  raises Click.
+- **`Sorted` does not override AddItem's index.**
+
+What resisted explanation:
+- **`List(-2) = "y"` raises "Out of memory"**, -2147024882 (`0x8007000E`, E_OUTOFMEMORY), where 381 would be the
+  obvious error, and on a ComboBox only, it moves `ListIndex` from 1 to 2 though nothing was added. Presumably the
+  write reaches the window as an insert at position -2, which the control refuses as if memory had run out; no rule
+  here explains the ComboBox's selection moving.
+- **`List(-1) = "z"` appends** rather than raising, as if -1 meant "at the end".
+- **`AddItem "n", Null` is 13 where `List(Null)` and `AddItem Null` are 94.**
+
+### HexIDE
+
+Before #821, `ListCount` and `List(i)` were "Method or data member not found", `RemoveItem` was not implemented, and
+`AddItem` appended whatever its index said.
+
+Since #821, `ListMembers` gives a ListBox and a ComboBox every row above but two.
+- **`List(i)`** is caught by name with its index, on the read path in `ExpressionExecutor` and the write path in
+  `StatementExecutor`, before the property lookup that would find the design-time `List` instead.
+- **An index converts** by `VbNumeric.CoerceOnStore` to an Integer, which gives 6, 13 and 94 as measured. AddItem's
+  Null index is 13 before it.
+- **The selection** follows its item through AddItem and RemoveItem because Avalonia's does. A replaced item loses its
+  selection in Avalonia, so `List(i) =` sets it back.
+- **381's text** was HexIDE's "Invalid property-array index", unmeasured; it is now VB6's "Invalid property array
+  index".
+- **Pinned** in `ListMembersTests`, on a ListBox and a ComboBox.
+
+What it still does not do:
+- **A ComboBox's `ListIndex` moving 1 to 2 after `List(-2) = "y"`.** HexIDE leaves it where it was. The error is
+  raised, and no program is likely to read the selection after it.
+- **A ComboBox's `Text`** (#926), so neither `Text` row.
+- **`Sorted`,** which HexIDE has no property for.
+- **`ListCount = 5`** is the compile error's text, raised when the statement runs, not before the program does.
 
 ## Out of stack space — Error 28 (2026-08-22, #80)
 
@@ -5953,7 +6070,8 @@ about case:
 - **Reading or writing another module's `Public` variable or `Const` from a form (#256).** `kpi * 2` read from
   the form reads Empty, and a write to `module1.abc` does not reach it. The tests read and write within one
   module instead.
-- **`ListCount` (#821).** The tests read the list's items instead.
+- **`ListCount` (#821).** The tests read the list's items instead. `ListCount` exists since #821, and its name is
+  matched in any case, but these tests were not changed.
 
 `Me` and the form's own name do resolve in any case on that path, where `VBLoader.RunForm` binds them, and are
 tested there.
@@ -9783,6 +9901,28 @@ What these add:
 - **An OptionButton raises Click only when it becomes selected,** before MouseUp, as a CheckBox does. A click on one
   already selected raises none.
 
+**And a press released somewhere else** (2026-10-22, #1373). One more probe the same way, native and p-code agreeing
+line for line, holding a windowless Label1, an Image1 with no picture, a TextBox Text1, a Frame1, a PictureBox Picture1
+and a ListBox List1 with three items. Each was clicked, then pressed and released on the form's empty area:
+
+| Input | VB6 |
+|---|---|
+| click on Label1, Image1, Text1, Frame1, Picture1 | MouseDown, MouseUp, Click |
+| press on Label1, Image1, Frame1 or Picture1, release on the form | MouseDown, MouseUp from the control's origin (Label1 `5580 2430`); **no Click** |
+| press on Text1, release on the form | MouseDown, MouseUp (`5550 1080`), **Click** |
+| press on List1's first item, release on the form | MouseDown, **Click**, MouseUp (`2070 2400`) |
+| press on Label1, move onto the form, back onto Label1, release | MouseDown, MouseUp, Click |
+| press on Text1, move onto the form, back onto Text1, release | MouseDown, MouseUp, Click |
+| press on Label1, release on Text1 | Label1 MouseDown, Label1 MouseUp (`480 1470`); no Click, and nothing on Text1 |
+
+What these add:
+- **A Label, an Image, a Frame and a PictureBox raise Click only for a release over them**, whether or not the pointer
+  left them on the way, as the form does.
+- **A TextBox and a ListBox raise Click wherever the release lands.** The obvious guess, that a TextBox checks as a
+  Label does, was wrong. Both are controls that keep the pointer for a drag of their own, a text selection or a
+  list selection, which may be why, but that is a guess.
+- **MouseUp always goes to the pressed control,** in its own coordinates.
+
 ### HexIDE
 
 Before #1364, nothing raised the form's own Click.
@@ -9807,7 +9947,11 @@ control VB6 gives one: a Label, an Image, a PictureBox, a TextBox, a Frame, a Li
 What it still does not do:
 - **A ComboBox and a FileListBox** have a DblClick in VB6, and HexIDE has neither control's events yet.
 - **A press on a Label, an Image, a PictureBox or a TextBox** raises that control's Click wherever the release lands.
-  Only a CommandButton, through Avalonia's own Button, checks (#1373).
+  Only a CommandButton, through Avalonia's own Button, checks (#1373). Since #1373, a Label, an Image, a Frame and a
+  PictureBox raise it only for a release over them: `AttachClick` with `ClickRelease.OverTheControl` hit-tests the
+  release through the window, since the pressed control has the pointer. A TextBox keeps `Anywhere`, as measured, and
+  so does a ListBox (*A ListBox's Click* below). Pinned in `MouseEventTests`, one case per row of *And a press released
+  somewhere else*.
 - **A ListBox raises Click after MouseUp** (#1374). Since #1374 it raises it before: *A ListBox's Click* below.
 
 ## A ListBox's Click: a left press on an item, or code or a key that moves the selection (2026-10-22, #1374)
@@ -11808,3 +11952,60 @@ page naming `ppBegin`, and builds the OCX. What a form using such a control writ
 
 HexIDE takes a form's name from the `Begin` line too, so a program runs the same. It neither warns nor repairs on
 load, and that is #1407. A UserControl or PropertyPage it names after its file instead, which is #1411.
+
+## A quote inside a .frm string (2026-10-22, #218)
+
+**The question.** How does VB6 read and write a `"` inside a string property of a `.frm`? HexIDE kept both quotes of
+a doubled pair on read, and wrote a lone quote unescaped. Its reader and writer agreed with each other, so its own
+files round-tripped. They disagreed with VB6 in both directions. The `.vbp` reader already halved doubled quotes, but
+a `.vbp` and a `.frm` come from different writers inside VB6, so this was measured, not assumed.
+
+**The probe.** A Standard EXE, built with `vb6.exe /make` as p-code (`CompilationType=-1`), on 6.00.8176 SP6. Its form
+gave these string properties a doubled quote:
+- the form's `Caption` and `LinkTopic`;
+- five Labels' `Caption`s, one with a `Tag`;
+- a CommandButton's `ToolTipText`;
+- a TextBox's `Text`.
+
+`Form_Load` wrote each value and its `Len` to a file, then ended. A second copy of the form wrote one Label's
+`Caption` as HexIDE did, with its quotes single. The first form was then opened in the VB6 IDE, dirtied with a
+comment line in its code, and saved with Ctrl+S.
+
+**Read: a doubled quote is one quote, in every string property tried.**
+
+| In the `.frm` | Read back | `Len` |
+|---|---|---|
+| `Caption = "He said ""hi"""` | `He said "hi"` | 12 |
+| `Caption = """"` | `"` | 1 |
+| `Caption = """Start"` | `"Start` | 6 |
+| `Caption = "End"""` | `End"` | 4 |
+| `Caption = """"""` | `""` | 2 |
+| form `Caption = "F""orm"` | `F"orm` | 5 |
+| form `LinkTopic = "Link""Topic"` | `Link"Topic` | |
+| `Tag = "t""g"` | `t"g` | |
+| CommandButton `ToolTipText = "tip""s"` | `tip"s` | |
+| TextBox `Text = "a""b"` | `a"b` | 3 |
+
+**Write: the IDE doubles every quote.** Its save wrote all ten string lines exactly as the probe had them. The save
+did not keep the probe's control order. It moved the CommandButton and the TextBox ahead of the five Labels, giving
+the Labels TabIndex 2 to 6. That was not examined further.
+
+**A quote written single breaks the form, and the build fails.**
+- `Caption = "He said "hi""`: `/make` exits 1.
+- Its `/out` log reads `Errors during load. Refer to '…\Form1.log' for details`, then `'…\Form1.frm' could not be
+  loaded.`, then `Build of 'probe.exe' failed.`
+- `Form1.log` holds `Line 13: Syntax error: property hi"" in lbl1 was missing an '='.`
+
+So the reader ends the string at the second quote, and takes the rest of the line for another property. The log
+names line 13, one past the Caption's line 12.
+
+**Not measured:**
+- A font's `Name` with a quote, which names no real face. HexIDE reads and writes it through the same code as every
+  other string.
+- Strings VB6 keeps in the `.frx`, such as a multi-line TextBox's `Text`, which are stored with a length rather than
+  quoted.
+- What the VB6 IDE does when opening the malformed form.
+
+HexIDE now halves a doubled quote on read and doubles each quote on write (`VbFrmFormatDeserializer.ParseValue`,
+`VbFrmFormatSerializer.WriteSimpleType`), and `FrmStringQuoteTests` holds the table. A side finding: a CommandButton
+does not model `ToolTipText` in HexIDE, so its line is kept as unknown text, and the property can't be set (#1403).

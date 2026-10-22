@@ -151,7 +151,7 @@ public struct VBStandardError
     public static readonly VBStandardError TheSpecifiedFileIsOutOfDateThisProgramRequiresALaterVersion = new(368, "This file is an older version than the program requires");
     public static readonly VBStandardError TheSpecifiedObjectCantBeUsedAsAnOwnerFormForShow = new(371, "That object can't act as the owner form for Show");
     public static readonly VBStandardError InvalidPropertyValue = new(380, "Invalid property value");
-    public static readonly VBStandardError InvalidPropertyArrayIndex = new(381, "Invalid property-array index");
+    public static readonly VBStandardError InvalidPropertyArrayIndex = new(381, "Invalid property array index");
     public static readonly VBStandardError PropertySetCantBeExecutedAtRunTime = new(382, "Property Set can't be executed at run time");
     public static readonly VBStandardError PropertySetCantBeUsedWithAReadOnlyProperty = new(383, "Property Set can't be used with a read-only property");
     public static readonly VBStandardError NeedPropertyArrayIndex = new(385, "Need property-array index");

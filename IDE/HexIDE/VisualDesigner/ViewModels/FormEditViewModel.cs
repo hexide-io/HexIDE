@@ -316,7 +316,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         // Name = base + the LOWEST unused index, so a name freed by a delete is reused and we never collide with an
         // existing control. The old `baseClass.Name + Components.Count` collided after a delete: e.g. add Command0 +
         // Command1, delete Command0 → Count is 1 again → a second control also named "Command1".
-        var used = new HashSet<string>(AllComponents.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
+        // Every name on the form, a preserved control's too (#854).
+        var used = ComponentNaming.NamesInUse(AllComponents.Select(c => c.Instance));
         int index = 0;
         while (used.Contains(baseClass.Name + index)) index++;
         var newName = baseClass.Name + index;
@@ -881,7 +882,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     private string GenerateName(IComponentClass baseClass)
     {
-        var existingNames = new HashSet<string>(AllComponents.Select(c => c.Name));
+        // Every name on the form, a preserved control's too, in any case (#854).
+        var existingNames = ComponentNaming.NamesInUse(AllComponents.Select(c => c.Instance));
         int n = Components.Count;
         string candidate;
         do { candidate = baseClass.Name + n++; }
