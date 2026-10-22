@@ -216,6 +216,10 @@ public class VBListBox : ListBox
             return true;
         }
         focusIndex = Math.Clamp(focusIndex + (key == Key.Down ? 1 : -1), 0, ItemCount - 1);
+        // The focused item comes into view and takes the keyboard focus, as with the mouse. Not by a directional move,
+        // which would have Avalonia select it.
+        ScrollIntoView(focusIndex);
+        ContainerFromIndex(focusIndex)?.Focus(NavigationMethod.Unspecified);
         if (multiSelect == VBMultiSelect.Simple)
             return true;
         if (modifiers.HasFlag(KeyModifiers.Shift))
