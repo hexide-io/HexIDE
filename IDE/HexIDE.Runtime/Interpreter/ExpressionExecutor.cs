@@ -798,6 +798,28 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             ? throw new VBRunTimeException(ctx, VBStandardError.InvalidUseOfNull)
             : new Vb6Value(VbDisplay.ToText(result));
 
+    /// <summary>
+    /// A field of an object, given an index: <c>Form1.Text1(0)</c>, a control array named through its form, picks its
+    /// element as a bare <c>Text1(0)</c> does, and a missing one is 340, its message naming the index (measured, #1386).
+    /// <para>
+    /// Any other field given one is refused. A class's Variant holding an array, <c>k.V(1)</c>, is its element early-bound
+    /// and 451 late-bound, which HexIDE can't tell apart; the index used to be dropped, which read the whole array.
+    /// </para>
+    /// </summary>
+    private static Vb6Value FieldElement(VbObject obj, string name, Vb6Value field, List<Vb6Value> indexes,
+        Antlr4.Runtime.ParserRuleContext ctx)
+    {
+        if (field.Value is not ControlArrayGroup group)
+            throw new NotImplementedException(
+                $"{obj.ClassName}.{name}(...) is not implemented: only a control array is indexed through its object (#1435)");
+        if (indexes.Count != 1)
+            throw new VBRunTimeException(ctx, VBStandardError.SubscriptOutOfRange);
+        var index = ControlArrayIndex(indexes[0]);
+        return group.TryGetElement(index, out var element)
+            ? new Vb6Value(element)
+            : throw new VBRunTimeException(ctx, VBStandardError.ControlArrayElementIsMissing(index));
+    }
+
     // Resolve a namespace-qualified member reference as a VALUE (expression context): `Module1.Foo(args)`,
     // `Module1.PublicConst`, `VBA.Abs(x)`, `VBA.Math.Abs(x)`, `VBA.vbCrLf`. Library-module segments
     // (`Math`/`Strings`/…) are transparent and skipped permissively; multi-level object-graph chains are not
@@ -846,7 +868,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             if (!interpreter.TryReadNow(vobj.InstanceEnv, memberName, out var isField, out var fieldVal, out var isFieldNeed))
                 (isField, fieldVal) = await interpreter.ReadVariableAfter(vobj.InstanceEnv, memberName, isFieldNeed!);
             if (isField)
-                return fieldVal;
+                return MemberArgs(member) is { } fieldArgs
+                    ? FieldElement(vobj, memberName, fieldVal, await EvaluateCallArgs(fieldArgs), ctx)
+                    : fieldVal;
             // A form's built-in members are its window's: `Me.Caption`, `Form1.Width` (#822). They come after the form's
             // own members, which VB6 refuses to let clash with them. Using one loads the form, as a control does.
             if (await interpreter.Loading((Form: vobj, Member: memberName), static s => s.Form.BuiltInMembersFor(s.Member)) is { } formWindow)
