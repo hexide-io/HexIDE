@@ -112,9 +112,10 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         {
             foreach (var block in vm.Instance.PreservedChildSubtrees)
             {
+                // One on the root, a form's or a UserControl's, is measured from the canvas origin, as a control with no
+                // container is (ComponentInstanceViewModel.ContainerBounds).
                 if (UnmodelledControl.Read(block.Text) is { } control)
-                    UnmodelledControls.Add(new UnmodelledControlViewModel(control,
-                        vm.Instance.BaseClass is FormComponentClass ? null : vm));
+                    UnmodelledControls.Add(new UnmodelledControlViewModel(control, ReferenceEquals(vm, Form) ? null : vm));
             }
         }
     }

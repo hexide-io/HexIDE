@@ -73,10 +73,10 @@ public class UnmodelledControlPlaceholderTests
 
     private sealed class NullSink : IDeserializeErrorSink { public void LogError(string _) { } }
 
-    private static FormEditViewModel Designer(out FormDefinition form)
+    private static FormEditViewModel Designer(out FormDefinition form, string source = Form)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
-        form = new FormDeserializer().Deserialize(project, Form, new NullSink())!;
+        form = new FormDeserializer().Deserialize(project, source, new NullSink())!;
         project.AddForm(form);
         return new FormEditViewModel(null!, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
             Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
@@ -102,6 +102,32 @@ public class UnmodelledControlPlaceholderTests
         var gauge = vm.UnmodelledControls.Single(c => c.Name == "Gauge1");
         (gauge.Left, gauge.Top).Should().Be((frame.ClientOrigin.X + 10, frame.ClientOrigin.Y + 30));
         (gauge.Width, gauge.Height).Should().Be((160d, 20d));
+    }
+
+    // A UserControl's designer: the root is no form, and a box on it is measured from the canvas origin all the same.
+    private const string UserControl =
+        "VERSION 5.00\r\n" +
+        "Begin VB.UserControl Dial \r\n" +
+        "   ClientHeight    =   3600\r\n" +
+        "   ClientLeft      =   0\r\n" +
+        "   ClientTop       =   0\r\n" +
+        "   ClientWidth     =   4800\r\n" +
+        "   Begin MSComctlLib.ImageList imlIcons \r\n" +
+        "      Left            =   3000\r\n" +
+        "      Top             =   1500\r\n" +
+        "      _ExtentX        =   1005\r\n" +
+        "      _ExtentY        =   1005\r\n" +
+        "   End\r\n" +
+        "End\r\n" +
+        "Attribute VB_Name = \"Dial\"\r\n";
+
+    [AvaloniaFact]
+    public void A_box_on_a_UserControl_is_measured_from_the_canvas_origin()
+    {
+        var vm = Designer(out _, UserControl);
+
+        var images = vm.UnmodelledControls.Should().ContainSingle().Which;
+        (images.Left, images.Top, images.Width, images.Height).Should().Be((200d, 100d, 80d, 32d));
     }
 
     [AvaloniaFact]
