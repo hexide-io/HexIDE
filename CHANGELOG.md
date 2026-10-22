@@ -208,6 +208,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **IIf and Choose run** (#1461, #1464). Neither existed, so a program that called either stopped there. Both now give
+  vb6.exe's answers, including the two that surprise people: IIf evaluates both parts, so `IIf(n <> 0, 1 / n, 0)` still
+  divides by zero, and Choose truncates its index, so `Choose(1.6, "a", "b")` is "a".
+
 - **ReDim Preserve runs** (#1459). It was refused as not implemented, so a program that grows an array as it goes stopped
   at the first one. It now keeps the elements in range and changes only the last dimension's upper bound, and refuses
   everything else as vb6.exe does, each case measured: another bound changing is 9, too big is 7, and a Variant holding
