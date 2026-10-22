@@ -11796,5 +11796,15 @@ printed `TypeName` of each name, each `.Name`, `Forms(0).Name`, and the `Me.Name
 
 So for a form, the opposite of a module: the designer block's name is the form's name, and `VB_Name` follows it.
 
+**Case alone is a disagreement.** With `Begin VB.Form frmRenamed` and `Attribute VB_Name = "FRMRENAMED"`, `/make`
+logs the same warning, "The name 'frmRenamed' will be used.", and builds.
+
+**A UserControl and a PropertyPage follow the same rule.** The probe was an ActiveX control project:
+- `UserControl=Gauge.ctl` holding `Begin VB.UserControl ucBegin` and `Attribute VB_Name = "Gauge"`;
+- `PropertyPage=Page1.pag` holding `Begin VB.PropertyPage ppBegin` and `Attribute VB_Name = "Page1"`.
+
+`/make` logs `Conflicting names were found in '…\Gauge.ctl'.  The name 'ucBegin' will be used.`, and the same for the
+page naming `ppBegin`, and builds the OCX. What a form using such a control writes was not measured.
+
 HexIDE takes a form's name from the `Begin` line too, so a program runs the same. It neither warns nor repairs on
-load, and that is #1407.
+load, and that is #1407. A UserControl or PropertyPage it names after its file instead, which is #1411.
