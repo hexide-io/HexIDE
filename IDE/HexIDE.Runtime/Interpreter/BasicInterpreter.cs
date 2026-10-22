@@ -1139,7 +1139,18 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             ExecutionContext.AllocVariable(callee, "Me", m);
             if (countMe) AddRef(m);   // a running (non-lifecycle) method holds Me → defers a last-ref drop to return
         }
-        await BindParameters(proc, args, callee, owner, ownedSlots);
+        // The slots that stand for a UDT field a ByRef parameter was given (#1451), unlinked when the call returns.
+        var fieldSlots = new List<int>();
+        try
+        {
+            await BindParameters(proc, args, callee, owner, ownedSlots, fieldSlots);
+        }
+        catch
+        {
+            foreach (var slot in fieldSlots)
+                ExecutionContext.State.ReleaseField(slot);
+            throw;
+        }
         // The return slot is typed as the declaration says, as a Dim's is, so a store into the name converts there, and a
         // failure is raised in the Function, where its own handler traps it (measured, #1444: `FI = 40000` in a Function
         // As Integer is 6 inside it, `FD = "0.5"` As Date is 00:05, `FS = 5` As String "5", and `FB = "abc"` As Boolean 13).
@@ -1196,6 +1207,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         }
         finally
         {
+            foreach (var slot in fieldSlots)
+                ExecutionContext.State.ReleaseField(slot);
             // Scope-exit release: this activation's owned holds (ByVal params + Dim locals, Dim locals among
             // themselves in declaration order), then Me. In a `finally` so an unhandled-error unwind still
             // terminates locals (faithful stack teardown). The return object is deliberately NOT released here on
@@ -1399,7 +1412,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     private static Vb6Value.ValueType? DeclaredSlotType(ParamInfo p) =>
         p.DeclaredType is { } dt && VbNumeric.IsDeclarableScalar(dt) ? dt : null;
 
-    private async Task BindParameters(ProcedureInfo proc, IReadOnlyList<CallArg> args, ExecutionEnvironment callee, ModuleInfo owner, List<int> ownedSlots)
+    private async Task BindParameters(ProcedureInfo proc, IReadOnlyList<CallArg> args, ExecutionEnvironment callee, ModuleInfo owner,
+        List<int> ownedSlots, List<int> fieldSlots)
     {
         for (int i = 0; i < proc.Parameters.Count; i++)
         {
@@ -1429,9 +1443,21 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 bool aliasable = p.ByRef && arg.Location is not null
                     && (p.DeclaredType is null || p.DeclaredType == Vb6Value.ValueType.EmptyVariant
                         || p.DeclaredType == arg.Value.Type);
+                // A UDT field is shared the same way, by a slot that reads and writes the field itself for the whole call
+                // (#1451): given to a ByRef parameter of the field's type, or an untyped or Variant one. One of another type
+                // is VB6's compile error "ByRef argument type mismatch" (measured), and is copied here, as a variable is.
+                bool fieldAliasable = !aliasable && p.ByRef && arg.Field is { } field
+                    && (p.DeclaredType is null || p.DeclaredType == Vb6Value.ValueType.EmptyVariant
+                        || p.DeclaredType == field.DeclaredType);
                 if (aliasable)
                     callee.DefineVariable(p.Name, arg.Location!.Value);            // ByRef: share the caller's slot
                                                                                    // (NOT counted — the caller's slot already holds the ref)
+                else if (fieldAliasable)
+                {
+                    var slot = ExecutionContext.State.AllocField(arg.Field!);
+                    fieldSlots.Add(slot);
+                    callee.DefineVariable(p.Name, slot);
+                }
                 else
                 {
                     // ByVal / rvalue: copy, coerced to the parameter's declared type (banker's round + range-check).
