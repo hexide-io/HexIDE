@@ -215,7 +215,9 @@ public class PrePass : VB6BaseVisitor<object?>
                     else
                     {
                         type = BaseTypeMapper.Map(subStmt.asTypeClause().type().baseType())
-                            ?? throw new NotImplementedException("base type " + subStmt.asTypeClause().type().baseType().GetChild(0) + " not implemented");
+                            ?? throw new NotImplementedException("base type " + subStmt.asTypeClause().type().baseType().GetChild(0) + " not implemented"
+                                + (subStmt.asTypeClause().type().baseType() is { } arrayOf && (arrayOf.OBJECT() != null || arrayOf.COLLECTION() != null)
+                                    ? " (#1482)" : ""));
                     }
                 }
                 if (isArray)

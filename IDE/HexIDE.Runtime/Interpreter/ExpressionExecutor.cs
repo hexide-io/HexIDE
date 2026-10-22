@@ -1624,7 +1624,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     public override async Task<object?> VisitVsNew(VB6Parser.VsNewContext context)
     {
         // `New ClassName` — the class name is a nested bare identifier; extract it SYNTACTICALLY (evaluating it
-        // would try to resolve a variable and throw). `As New` auto-instantiation is deferred (Phase 4).
+        // would try to resolve a variable and throw). `Dim o As New C1` makes its object where it is read (#435).
         var call = (context.valueStmt() as VB6Parser.VsICSContext)?.implicitCallStmt_InStmt();
         // `New Collection`, and `New VBA.Collection`, the library's own (#1471).
         if (call?.iCS_S_MembersCall() is { } qualified && IsCollectionType(qualified.GetText()))

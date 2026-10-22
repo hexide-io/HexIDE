@@ -2630,6 +2630,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
             if (varOrProcCall.dictionaryCallStmt() != null)
                 throw new NotImplementedException();
+            // `ReDim b(1) As New C1`, each element made on its first use (measured, #435), is an array of objects.
+            if (redim.asTypeClause()?.NEW() != null)
+                throw new NotImplementedException("An array declared As New is not implemented (#1482)");
 
             var variableName = varOrProcCall.ambiguousIdentifier().GetText();
             RefuseConstantTarget(variableName, "Expected array");
