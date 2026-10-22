@@ -1744,10 +1744,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     }
 
     /// <summary>
-    /// <c>Print #</c> (#1145), measured on vb6.exe: each item as it reads, a number with a space before it for the sign
-    /// and one after, a date with one after, True and strings as they are, Null as "Null" and Empty as nothing. A
-    /// semicolon joins two items, a comma moves to the next 14-column zone, and the line ends with CR LF unless the
-    /// statement ends in either.
+    /// <c>Print #</c> (#1145), formatted as <see cref="VbPrint"/> says, which <c>Debug.Print</c> shares (#1380).
     /// </summary>
     public override async Task<ControlFlow> VisitPrintStmt(VB6Parser.PrintStmtContext context)
     {
@@ -1755,34 +1752,106 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         RequireHash(context.valueStmt(), "Print");
         var number = await FileNumber(context.valueStmt());
         files.Column(number);   // 52 or 54 before anything is evaluated
-        var joined = false;
-        if (context.outputList() is { } list)
-        {
-            foreach (var child in list.children)
-            {
-                if (child is VB6Parser.OutputList_ExpressionContext item)
-                {
-                    if (item.valueStmt() is not { } expression)
-                        throw new NotImplementedException("Tab and Spc in Print # are not implemented (#1145)");
-                    files.Write(number, PrintText(await expressionExecutor.EvaluateValue(expression)));
-                    joined = false;
-                }
-                else if (child is ITerminalNode { Symbol.Type: VB6Parser.SEMICOLON })
-                    joined = true;
-                else if (child is ITerminalNode { Symbol.Type: VB6Parser.COMMA })
-                {
-                    var column = files.Column(number);
-                    files.Write(number, new string(' ', (column / PrintZone + 1) * PrintZone - column));
-                    joined = true;
-                }
-            }
-        }
-        if (!joined)
-            files.Write(number, "\r\n");
+        await PrintList(context.outputList()?.children, new FileTarget(files, number), printed: null);
         return ControlFlow.Nothing;
     }
 
-    private const int PrintZone = 14;
+    private sealed class FileTarget(VbFiles files, int number) : VbPrint.ITarget
+    {
+        public int Column => files.Column(number);
+        public void Write(string text) => files.Write(number, text);
+    }
+
+    /// <summary>
+    /// Prints an output list to <paramref name="target"/>, evaluating each item as it comes, as VB6 does: <c>Print #</c>'s
+    /// <c>outputList</c>, or <c>Debug.Print</c>'s arguments, where <c>Spc(n)</c> and <c>Tab(n)</c> parse as calls.
+    /// <paramref name="printed"/> sees each item's value, an object already its default member, for the typed channel.
+    /// </summary>
+    private async Task PrintList(IList<IParseTree>? children, VbPrint.ITarget target, Action<Vb6Value>? printed)
+    {
+        var joined = false;
+        foreach (var child in children ?? [])
+        {
+            switch (child)
+            {
+                case VB6Parser.OutputList_ExpressionContext position when position.valueStmt() is null:
+                    await PrintPosition(target, position.SPC() != null, position.argsCall()?.argCall().FirstOrDefault()?.valueStmt());
+                    joined = false;
+                    break;
+                case VB6Parser.OutputList_ExpressionContext item:
+                    await PrintItem(item.valueStmt());
+                    joined = false;
+                    break;
+                case VB6Parser.ArgCallContext argument when IsPrintPosition(argument.valueStmt(), out var isSpc, out var count):
+                    await PrintPosition(target, isSpc, count);
+                    joined = false;
+                    break;
+                case VB6Parser.ArgCallContext argument:
+                    await PrintItem(argument.valueStmt());
+                    joined = false;
+                    break;
+                case ITerminalNode { Symbol.Type: VB6Parser.SEMICOLON }:
+                    joined = true;
+                    break;
+                case ITerminalNode { Symbol.Type: VB6Parser.COMMA }:
+                    VbPrint.NextZone(target);
+                    joined = true;
+                    break;
+            }
+        }
+        if (!joined)
+            VbPrint.EndLine(target);
+
+        async Task PrintItem(VB6Parser.ValueStmtContext expression)
+        {
+            var value = await expressionExecutor.EvaluateValue(expression);
+            if (printed is not null)
+            {
+                // An object prints its default member, and one with none is 438 (ObjectAsValue).
+                value = ObjectAsValue.Scalar(value, expression);
+                printed(value);
+            }
+            VbPrint.Item(target, value);
+        }
+    }
+
+    private async Task PrintPosition(VbPrint.ITarget target, bool isSpc, VB6Parser.ValueStmtContext? count)
+    {
+        if (count is null)
+        {
+            if (isSpc)
+                throw new NotImplementedException("Spc with no count is not implemented");
+            VbPrint.NextZone(target);   // a bare Tab
+            return;
+        }
+        var n = Convert.ToInt32(VbNumeric.CoerceOnStore(await expressionExecutor.EvaluateValue(count), Vb6Value.ValueType.Integer, count).Value);
+        if (isSpc)
+            VbPrint.Spc(target, n);
+        else
+            VbPrint.Tab(target, n);
+    }
+
+    // `Spc(n)`, `Tab(n)` or a bare `Tab` among Debug.Print's arguments, which parse them as calls of those names. Both
+    // are keywords, so no procedure of the program can have either name.
+    private static bool IsPrintPosition(VB6Parser.ValueStmtContext value, out bool isSpc, out VB6Parser.ValueStmtContext? count)
+    {
+        isSpc = false;
+        count = null;
+        if (value is not VB6Parser.VsICSContext call || call.implicitCallStmt_InStmt() is not { } inStmt)
+            return false;
+        if (inStmt.iCS_S_VariableOrProcedureCall() is { } bare)
+            return bare.typeHint() is null && bare.dictionaryCallStmt() is null
+                   && bare.ambiguousIdentifier().GetText().Equals("Tab", StringComparison.OrdinalIgnoreCase);
+        if (inStmt.iCS_S_ProcedureOrArrayCall() is not { } procedure || procedure.ambiguousIdentifier() is not { } identifier
+            || procedure.argsCall().Length != 1 || procedure.argsCall(0).argCall() is not { Length: 1 } arguments)
+            return false;
+        var name = identifier.GetText();
+        isSpc = name.Equals("Spc", StringComparison.OrdinalIgnoreCase);
+        if (!isSpc && !name.Equals("Tab", StringComparison.OrdinalIgnoreCase))
+            return false;
+        count = arguments[0].valueStmt();
+        return true;
+    }
 
     // `Print #` and `Line Input #` need the `#`, where Open and Close take a number without one. The grammar sends
     // `Print 1, "x"` and `Print "a", "b"` here too, and those are a form's Print method, not a file's, so neither may
@@ -1794,19 +1863,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 ? "Print without a # file number is a form's Print method, which is not implemented"
                 : $"{statement} without a # file number is not implemented");
     }
-
-    private static string PrintText(Vb6Value value) => value.Value switch
-    {
-        _ when value.IsNull => "Null",
-        null => "",
-        string s => s,
-        bool b => b ? "True" : "False",
-        DateTime => VbDisplay.ToText(value) + " ",
-        byte or short or int or long or float or double or decimal =>
-            (Convert.ToDouble(value.Value, System.Globalization.CultureInfo.InvariantCulture) < 0 ? "" : " ")
-            + VbDisplay.ToText(value) + " ",
-        _ => VbDisplay.ToText(value),
-    };
 
     public override async Task<ControlFlow> VisitPutStmt(VB6Parser.PutStmtContext context)
     {
@@ -2838,6 +2894,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             value = await interpreter.Loading((Form: vobj, Member: identifier), static s => s.Form.BuiltInMembersFor(s.Member)) is { } formWindow
                 ? new Vb6Value(formWindow)
                 : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, identifier);
+        }
+
+        // Debug.Print reads its list as Print # does, items and separators in order (#1380).
+        if (value.Value is DebugProxy debug && identifier.Equals("Print", StringComparison.OrdinalIgnoreCase))
+        {
+            if (context.argsCall() is { } list)
+                await PrintList(list.children, debug, debug.Printed);
+            else
+                debug.PrintBlankLine();
+            return default;
         }
 
         var callArgs = await expressionExecutor.EvaluateCallArgs(context.argsCall());
