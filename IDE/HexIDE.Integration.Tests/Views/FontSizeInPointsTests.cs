@@ -118,4 +118,22 @@ public class FontSizeInPointsTests
         usual.FontSizes.Should().Equal(8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72);
         usual.PreviewFontSize.Should().Be(16);
     }
+
+    [AvaloniaFact]
+    public void The_Font_dialog_s_sample_draws_in_the_face_chosen()
+    {
+        var vm = new FontDialogViewModel(new FontDialogResult(new FontFamily("Arial"), FontStyle.Normal, FontWeight.Normal, 12));
+        var window = new Window { Content = new HexIDE.Forms.Views.FontDialog { DataContext = vm } };
+        window.Show();
+        try
+        {
+            var sample = window.GetLogicalDescendants().OfType<TextBlock>().Single(t => t.Text == "AaBbCcDdEe 0123");
+            sample.FontFamily.ToString().Should().Be("Arial", "it opened on Arial");
+
+            vm.SelectedFamily = "Courier New";
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            sample.FontFamily.ToString().Should().Be("Courier New", "Courier New was chosen");
+        }
+        finally { window.Close(); }
+    }
 }
