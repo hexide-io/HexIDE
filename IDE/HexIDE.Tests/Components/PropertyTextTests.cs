@@ -326,7 +326,19 @@ public class PropertyTextTests
     {
         // No test project references HexIDE.Desktop, so this reads the source: both took the first match by name.
         foreach (var tool in new[] { "set_control_property", "move_control" })
-            ToolSource.Tools.Single(t => t.Name == tool).Body.Should().Contain("PropertyText.NamedOne(", tool);
+        {
+            var body = ToolSource.Tools.Single(t => t.Name == tool).Body;
+            body.Should().Contain("PropertyText.NamedOne(", tool);
+
+            // The refusal is returned, inside the reply. Without that branch NamedOne's null read as "no control named",
+            // which sent the caller looking for a control that exists, and every test still passed (#1322).
+            body.Should().MatchRegex(
+                @"PropertyText\.NamedOne\([^;]*\bout\s+var\s+(?<v>\w+)\s*\)\s*;\s*if\s*\(\s*\k<v>\s+is\s+not\s+null\s*\)\s*return\b[^;]*\{\s*\k<v>\s*\}",
+                $"{tool} returns NamedOne's refusal, naming the array's indexes");
+
+            // And the reply names the element it changed, as lblTitle(1), not as lblTitle.
+            body.Should().Contain("PropertyText.AddressedName(", tool);
+        }
     }
 
     [Theory]
