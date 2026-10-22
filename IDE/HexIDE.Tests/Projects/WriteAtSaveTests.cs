@@ -95,7 +95,7 @@ public class WriteAtSaveTests : IDisposable
         var added = await AddNew(svc, project, kind, kind + "1");
 
         added.AbsolutePath.Should().BeNull("a new document has no file until the project is saved");
-        project.WorkingDirectory.Should().BeNull("nothing chose a scratch folder, because nothing was written");
+        project.WorkingDirectory.Should().BeNull("Add chose no folder, because it wrote nothing");
         DocumentLookup.DocumentsOf(project).Should().Contain(added);
     }
 
@@ -149,7 +149,7 @@ public class WriteAtSaveTests : IDisposable
         var vbp = File.ReadAllText(Path.Join(dir, "Project1.vbp"));
         vbp.Should().Contain("Form=Form1.frm\r\n").And.Contain("Module=Module1; Module1.bas\r\n");
         vbp.Should().NotContain("..", "a member written beside the project file is named without leaving its folder");
-        project.WorkingDirectory.Should().BeNull("no scratch folder was ever chosen");
+        project.WorkingDirectory.Should().BeNull("neither Add nor the save chose a scratch folder");
     }
 
     [Fact]

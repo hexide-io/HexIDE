@@ -18,19 +18,25 @@ namespace HexIDE.Projects;
 /// </para>
 ///
 /// <para>
-/// <b>An unsaved project's directory is a private temp path that does not exist yet.</b> It used to be
+/// <b>An unsaved project's directory is a private temp path that may never exist.</b> It used to be
 /// shared — keyed on the project's NAME, so every new "Project1" resolved to the same place, and a server
 /// could be rooted among another project's leavings. hexide-io/HexIDE#260 fixed that by appending a GUID,
-/// which means the path is now unique per project and, in exchange, <b>never exists before the first file
-/// is written into it</b>: <c>ProjectFilesDirectory</c> mints and memoises the string, and the four call
-/// sites that write a file there create the directory at that moment.
+/// which means the path is now unique per project and, in exchange, <b>does not exist until something is
+/// written into it</b>: <c>ProjectFilesDirectory</c> mints and memoises the string and creates nothing. Since
+/// hexide-io/HexIDE#500 the Add commands write nothing, as VB6's do, so for a project the developer saves
+/// themselves nothing ever does: its first save puts every file where the save's pickers say, and the root
+/// moves there. Only <c>--newproject</c> writes into the folder, saving its project file there.
 /// </para>
 ///
 /// <para>
-/// Answering with it anyway is right, and it is what this type does. It is the directory the project's own
-/// files are about to be written into and the parent of every document URI the server will be sent, so it
-/// is the correct answer to "which tree should you analyse" even while empty. What must NOT be done with it
-/// is launch a process there — that throws, and cost the whole connection until hexide-io/HexIDE#278; see
+/// Answering with it anyway is what this type does, and it is a choice between two costs rather than the
+/// right answer. A server configured with a <c>{workspaceUri}</c> or <c>{workspaceDir}</c> placeholder is
+/// refused a launch when there is no workspace, and the registry holds that refusal as <c>Failed</c> for the
+/// rest of the session, so with no root it would not start even once the first save gave it one. Told a root
+/// that does not exist yet, it starts, and the first save restarts it at the real one. What a server does
+/// with a root naming nothing has not been measured. Making the refusal wait for a workspace instead, so an
+/// unsaved project can have no root, is hexide-io/HexIDE#1382. What must NOT be done with the path is
+/// launch a process there — that throws, and cost the whole connection until hexide-io/HexIDE#278; see
 /// <c>LspLaunchDirectory</c>, which separates the two questions.
 /// </para>
 ///

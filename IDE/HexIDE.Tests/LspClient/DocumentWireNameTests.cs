@@ -146,7 +146,8 @@ public class DocumentWireNameTests
     public async Task AModuleInAProjectNotYetSaved()
     {
         // lsp-client's scenario of that name. A module added to a project that has never been saved has no file until
-        // the project is saved, as in VB6 (#500), so it is named untitled:, and nothing chose a scratch folder for it.
+        // the project is saved, as in VB6 (#500), so it is named untitled:, and Add chose no folder for it. (A workspace
+        // query would choose one, for the root servers are told: ProjectLspWorkspace says why.)
         var service = new ProjectService(
             () => throw new InvalidOperationException("no new-project dialog here"),
             Substitute.For<IWindowManager>(), Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(),
