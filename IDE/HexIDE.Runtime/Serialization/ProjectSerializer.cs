@@ -179,6 +179,14 @@ public class ProjectSerializer
         // run of unknowns (HelpContextID, CompatibleMode, MajorVer …) that the interleaving places by hint.
         WriteKnownLine($"{SerializedProject.NameKey}=\"{(project.Name ?? "").Replace("\"", "\"\"")}\"");
 
+        // After Name, as a known key, so it lands where VB6 writes it: HelpContextID, which VB6 writes between the two, is an
+        // unknown line counted before it, and CompatibleMode, which follows it, one counted after (#42). Not written when
+        // there is no description, as VB6 writes none. A file read with none has a slot made for it after HelpContextID
+        // (ProjectDeserializer.MakeRoomForDescription), which works only because this is the LAST known key: written into
+        // that slot, it raises the count past what the reader counted, and a known key written after it would be misplaced.
+        if (!string.IsNullOrEmpty(project.Description))
+            WriteKnownLine($"{SerializedProject.DescriptionKey}=\"{project.Description.Replace("\"", "\"\"")}\"");
+
         // Emit any remaining unknown lines that appeared after all known keys
         while (unknownIdx < unknowns.Count)
             writer.WriteLine(Kept(unknowns[unknownIdx++].RawLine));

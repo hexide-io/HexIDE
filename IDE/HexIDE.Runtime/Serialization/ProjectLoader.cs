@@ -53,6 +53,7 @@ public sealed class ProjectLoader
 
         var project = new ProjectDefinition(serializedProject.ProjectType, serializedProject.Name ?? "Project1");
         project.AbsolutePath = projectPath;
+        project.Description = serializedProject.Description ?? "";
         project.ItemLinesDirectory = projectDir;
         project.TextEncoding = projectEncoding;
 

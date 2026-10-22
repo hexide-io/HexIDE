@@ -184,6 +184,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A project's description is saved in its project file** (#42). Project Properties set it, and nothing wrote it,
+  so a description typed there was lost at the next save. It is now read from and written to the `.vbp` as VB6
+  writes it: `Description="..."` with a quote inside doubled, after `HelpContextID`, and no line when there is
+  none. Measured with VB6's own Save Project As.
 - **Save Project As names a designer, the resource file and the build folder from the new folder** (#1406). VB6's
   Save As rewrites the paths in `Designer=`, `ResFile32=` and `Path32=` so that they still name the same files.
   HexIDE kept them as read, so from another folder they named files beside the new project file. A reference's
