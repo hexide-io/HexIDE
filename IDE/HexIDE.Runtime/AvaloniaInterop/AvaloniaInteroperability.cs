@@ -233,6 +233,12 @@ public static class AvaloniaInteroperability
                 if (control is ItemsControl items && ReferenceEquals(property, VBProperties.ListIndexProperty)
                     && converted is int index && (index < -1 || index >= items.ItemCount))
                     throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+                // A ListBox raises Click when code moves its selection (measured, #1374).
+                if (control is VBListBox list && ReferenceEquals(property, VBProperties.ListIndexProperty) && converted is int listIndex)
+                {
+                    list.SetListIndexFromCode(listIndex);
+                    return true;
+                }
                 // A transparent Label keeps the BackColor it has: VB6 drops one assigned at run time, without an
                 // error, so it reads back the old colour and shows that colour if the label is later made opaque
                 // (measured, #795). Only once the label is opaque does an assignment take. The value is converted

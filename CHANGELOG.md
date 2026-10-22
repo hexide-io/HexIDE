@@ -185,6 +185,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A ListBox raises Click where VB6 does** (#1374). It raised Click after MouseUp on every release, and never when
+  code set `ListIndex` or an arrow key moved the selection. Now a left press on an item raises Click before MouseUp,
+  the selection follows the pointer while the button is held, `ListIndex = n` and an arrow key raise it when the
+  selection moves, and a right or middle click, or a press below the items, selects nothing and raises none, as
+  vb6.exe does with real input.
 - **DblClick runs** (#1031). It was declared nowhere and raised by nothing, so a `List1_DblClick` or `Form_DblClick`
   never ran. Now a double click raises it on the form and on each control VB6 gives one, in vb6.exe's order with real
   input: MouseDown, MouseUp, Click, DblClick, MouseUp, with no MouseDown for the second press. An OptionButton raises

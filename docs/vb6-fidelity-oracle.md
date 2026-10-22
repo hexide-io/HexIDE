@@ -9766,9 +9766,9 @@ control VB6 gives one: a Label, an Image, a PictureBox, a TextBox, a Frame, a Li
 
 What it still does not do:
 - **A ComboBox and a FileListBox** have a DblClick in VB6, and HexIDE has neither control's events yet.
-- **A press on a Label, an Image, a PictureBox, a TextBox or a ListBox** raises that control's Click wherever the
-  release lands. Only a CommandButton, through Avalonia's own Button, checks (#1373).
-- **A ListBox raises Click after MouseUp** (#1374).
+- **A press on a Label, an Image, a PictureBox or a TextBox** raises that control's Click wherever the release lands.
+  Only a CommandButton, through Avalonia's own Button, checks (#1373).
+- **A ListBox raises Click after MouseUp** (#1374). Since #1374 it raises it before: *A ListBox's Click* below.
 
 ## A ListBox's Click: a left press on an item, or code or a key that moves the selection (2026-10-22, #1374)
 
@@ -9835,6 +9835,28 @@ What resisted explanation:
   client area, on what is presumably the list's border, but no rule here says why that border swallows a click.
 - **The double click's MouseMove** with the button held, between DblClick and the last MouseUp, has no matching move
   in the driver, which sets the cursor once before both clicks. It was logged in all four builds.
+
+### HexIDE
+
+Before #1374, a ListBox raised Click on every release, after MouseUp: for a press in the empty area and a right or
+middle click too, and never from code or a key. A right press selected the item under it.
+
+Since #1374, `VBListBox` raises Click from the two places VB6 does.
+- **A left press on an item** is remembered, and its release raises Click before MouseUp, unless it is a double click's
+  second (#1031). While the button is held, the item under the pointer is selected.
+- **A right or middle press** is marked handled on its way down, so Avalonia's ListBox selects nothing for it. Its
+  MouseDown and MouseUp still come, since those take handled presses.
+- **An arrow key** raises Click when the selection it leaves differs from the one it found.
+- **`ListIndex` set from code** raises Click when the value changes. A selection change in general does not raise it,
+  so AddItem and Clear raise none.
+- **Pinned** in `MouseEventTests`: a click on an item and again on it, a click below the items, a press moved onto
+  another item, off the items, and from below them onto one, a right and a middle click on an item, the double click,
+  and the arrow keys. `ListBoxClickTests` pins the `ListIndex` rows, a plain `AddItem` and `Clear`.
+
+What it still does not do:
+- **`Selected(i)`, `Text`, `RemoveItem` and `AddItem`'s index** are not implemented (#821), so their rows wait on that.
+- **A release outside the list,** after a press on an item, raises Click here. VB6 was measured releasing only inside
+  the list.
 
 ## One handler at a time (2026-10-14, #766)
 
