@@ -185,6 +185,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Collapsing a language server's fold no longer hides its closing line** (#1363). The editor folds a server's
+  range by whole lines but never said so, so a server could end a fold part-way along its closing line. clangd
+  ends each fold just before its closing brace, and collapsing the fold hid the brace. The client now declares
+  `lineFoldingOnly`, and such a server ends the fold on the line before.
+
 - **`FontSize`, `FontBold`, `FontItalic`, `FontUnderline` and `FontStrikethru`, and a TextBox's own Font** (#1343,
   #915). The five members stopped a run at the first read or write, and a TextBox had no Font of its own, so Notepad's
   Format > Font stopped at its first line. Now every control with a font, and the form, reads and writes them as
