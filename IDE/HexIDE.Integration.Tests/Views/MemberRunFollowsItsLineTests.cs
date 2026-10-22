@@ -547,20 +547,61 @@ public class MemberRunFollowsItsLineTests : IDisposable
         vm.Document.Text.Should().NotContain("Go()", "the box reaches the end of the declaration's line");
     }
 
+    /// <summary>
+    /// Ends the test process if what it guards is still running after <paramref name="seconds"/>. A hang on the UI thread
+    /// cannot be timed out by the test framework, and every test after it would queue behind it for as long as CI lets
+    /// the run go on (#1251).
+    /// </summary>
+    private static Timer Watchdog(string what, int seconds = 30) =>
+        new(_ => Environment.FailFast($"{what} was still running after {seconds} s: the UI thread hung (#1251)."),
+            null, TimeSpan.FromSeconds(seconds), Timeout.InfiniteTimeSpan);
+
+    // AvaloniaEdit's box replacement loops for ever in the text view's height tree when the run is folded under the box's
+    // last line, so a person's key hung the IDE. Measured on this box (#1251): one character hangs it, while "()" and
+    // "zz" do not, so each case writes "x", and with the window's guard removed each hangs.
+    private static void ShouldHaveWrittenXOverTheBoxAndKeptTheFold(CodeEditorViewModel vm, TextEditor editor)
+    {
+        vm.Document.Text.Should().MatchRegex(
+            @"\r\nOption Explicx\r\n[^\r\n]*\r\nPublic [^\r\n]*x\r\n" + System.Text.RegularExpressions.Regex.Escape(RunText),
+            "the box is written over, and the run stays under its declaration");
+        RunFold(editor, "Public ")!.IsFolded.Should().BeTrue("the fold is closed again once written");
+    }
+
     [AvaloniaFact]
     public void TypingOverABoxSelectionEndingOnAFoldedDeclarationWritesAndKeepsTheFold()
     {
-        // AvaloniaEdit's box replacement looped for ever in the text view's height tree here: the run is folded under
-        // the box's last line, so a person's key hung the IDE.
         var vm = Open(Procedure);
         var editor = Show(vm);
         RunFold(editor, "Public Sub Go()")!.IsFolded.Should().BeTrue("the premise: a run is folded as it opens");
 
         SelectBox(editor, column: 14);
-        TypeText(editor, "()");
+        using (Watchdog("Typing over the box"))
+            TypeText(editor, "x");
 
-        vm.Document.Text.Should().Contain("\r\nOption Explic()\r\n").And.Contain("\r\nPublic Sub Go()\r\n" + RunText);
-        RunFold(editor, "Public Sub Go()")!.IsFolded.Should().BeTrue("the fold is closed again once written");
+        ShouldHaveWrittenXOverTheBoxAndKeptTheFold(vm, editor);
+    }
+
+    [AvaloniaFact]
+    public async Task PastingOverABoxSelectionEndingOnAFoldedDeclarationWritesAndKeepsTheFold()
+    {
+        // Ctrl+V took the library's paste, which replaced the box with the fold closed (#1251).
+        var vm = Open(Procedure);
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        RunFold(editor, "Public Sub Go()")!.IsFolded.Should().BeTrue("the premise: a run is folded as it opens");
+        await SetClipboard(editor, "x");
+
+        SelectBox(editor, column: 14);
+        using (Watchdog("A paste over the box"))
+        {
+            PressCommand(editor, HexIDE.ApplicationCommands.PasteCommand);
+            await UntilChanged(vm, before);
+        }
+
+        ShouldHaveWrittenXOverTheBoxAndKeptTheFold(vm, editor);
+        editor.Undo();
+        Dispatcher.UIThread.RunJobs();
+        vm.Document.Text.Should().Be(before, "one change, which one undo takes back");
     }
 
     [AvaloniaFact]
