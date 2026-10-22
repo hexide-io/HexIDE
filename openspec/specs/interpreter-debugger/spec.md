@@ -170,6 +170,13 @@ The interpreter cannot hot-patch a running program: the execution position is a 
 - **THEN** a prompt asks whether to reset the project
 - **AND** choosing yes ends the run and keeps the edit, while choosing no reverts the edit and lets the program continue
 
+#### Scenario: The window the reset prompt is shown over
+- **WHEN** the reset prompt is asked while the code window's own window is visible and not minimized
+- **THEN** the prompt is modal over that window, which it disables until answered
+- **AND** when that window is minimized, the prompt is modal over the top window instead, which may be the running form
+- **AND** in VB6 the running form owns the prompt and every window of the IDE and the program is disabled; the
+  difference is recorded as D2 in `docs/debugger-vb6-divergences.md`
+
 ### Requirement: The debugger SHALL expose the VB6 default keyboard gestures
 The default keymap SHALL bind the VB6 debugging gestures without requiring an opt-in keymap pack.
 
