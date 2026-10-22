@@ -299,6 +299,105 @@ public class CollectionTests : BaseVBTestFixture
     }
 
     [Fact]
+    public async Task An_empty_Collection_refuses_every_index_with_5_and_an_assigned_item_is_looked_up_first()
+    {
+        await Run(Helper + """
+            On Error Resume Next
+            Dim e As Collection, c As Collection, o As Object, w As Variant, v As Variant
+            Set e = New Collection
+            v = "-": v = e(1): R "e(1)"
+            v = "-": v = e(0): R "e(0)"
+            v = "-": v = e("k"): R "e(k)"
+            v = "-": v = e(Null): R "e(Null)"
+            v = "-": v = e(Empty): R "e(Empty)"
+            v = "-": v = e.Item(Index:=1): R "e.Item(Index:=1)"
+            e.Remove 1: R "e.Remove 1"
+            e.Remove "k": R "e.Remove k"
+            e.Add "x", , 1: R "e.Add Before 1"
+            e.Add "x", , , 1: R "e.Add After 1"
+            e.Add "x", 1: R "e.Add with key 1"
+            Debug.Print "e.Count " & e.Count
+            Set o = e
+            v = "-": v = o(1): R "o(1), late-bound"
+            Set c = New Collection: c.Add "a", "k": c.Add "b"
+            c(1) = 5: R "c(1) = 5"
+            c(3) = 5: R "c(3) = 5"
+            c(0) = 5: R "c(0) = 5"
+            c("k") = 5: R "c(k) = 5"
+            c("zz") = 5: R "c(zz) = 5"
+            c!k = 5: R "c!k = 5"
+            c!zz = 5: R "c!zz = 5"
+            c.Item(1) = 5: R "c.Item(1) = 5"
+            c.Item(3) = 5: R "c.Item(3) = 5"
+            Set c(1) = Nothing: R "Set c(1) = Nothing"
+            Set c(3) = Nothing: R "Set c(3) = Nothing"
+            e(1) = 5: R "e(1) = 5"
+            e!k = 5: R "e!k = 5"
+            Set o = c
+            o(1) = 5: R "o(1) = 5"
+            o(3) = 5: R "o(3) = 5"
+            o.Item(1) = 5: R "o.Item(1) = 5"
+            Set w = c
+            w(1) = 5: R "w(1) = 5"
+            w(3) = 5: R "w(3) = 5"
+            Set w(1) = Nothing: R "Set w(1) = Nothing"
+            w!k = 5: R "w!k = 5"
+            w!zz = 5: R "w!zz = 5"
+            w.Item(1) = 5: R "w.Item(1) = 5"
+            w.Item(3) = 5: R "w.Item(3) = 5"
+            o!k = 5: R "o!k = 5"
+            Set o(1) = Nothing: R "Set o(1) = Nothing"
+            Debug.Print "c(1) " & c(1) & ", c(2) " & c(2) & ", Count " & c.Count
+            c.Remove 1: c.Remove 1
+            v = "-": v = c(1): R "c(1), emptied by Remove"
+
+            """);
+
+        AssertDebugLog(Lines("""
+            e(1) -> err 5
+            e(0) -> err 5
+            e(k) -> err 5
+            e(Null) -> err 5
+            e(Empty) -> err 5
+            e.Item(Index:=1) -> err 5
+            e.Remove 1 -> err 5
+            e.Remove k -> err 5
+            e.Add Before 1 -> err 5
+            e.Add After 1 -> err 5
+            e.Add with key 1 -> err 13
+            e.Count 0
+            o(1), late-bound -> err 5
+            c(1) = 5 -> err 424
+            c(3) = 5 -> err 9
+            c(0) = 5 -> err 9
+            c(k) = 5 -> err 424
+            c(zz) = 5 -> err 5
+            c!k = 5 -> err 424
+            c!zz = 5 -> err 5
+            c.Item(1) = 5 -> err 424
+            c.Item(3) = 5 -> err 9
+            Set c(1) = Nothing -> err 424
+            Set c(3) = Nothing -> err 9
+            e(1) = 5 -> err 5
+            e!k = 5 -> err 5
+            o(1) = 5 -> err 451
+            o(3) = 5 -> err 9
+            o.Item(1) = 5 -> err 451
+            w(1) = 5 -> err 438
+            w(3) = 5 -> err 438
+            Set w(1) = Nothing -> err 438
+            w!k = 5 -> err 451
+            w!zz = 5 -> err 5
+            w.Item(1) = 5 -> err 451
+            w.Item(3) = 5 -> err 9
+            o!k = 5 -> err 451
+            Set o(1) = Nothing -> err 438
+            c(1) a, c(2) b, Count 2
+            c(1), emptied by Remove -> err 5
+            """));
+    }
+
+    [Fact]
     public async Task Through_an_Object_or_a_Variant_the_errors_come_at_run_time()
     {
         await Run(Helper + """
