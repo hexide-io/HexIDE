@@ -208,6 +208,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Cutting and pasting a control keeps what HexIDE carries without modelling** (#1453). A Frame or PictureBox cut
+  and pasted lost the controls inside it that HexIDE does not model, such as an ImageList, and any control lost its own
+  properties HexIDE does not model. The next save left them all out, with nothing said. They now go with the control,
+  with the companion records they cite. A copy takes the properties too. It still leaves the controls inside a
+  container behind, because their names would repeat the originals' (#1458).
 - **A store into a UDT field converts into the field's type** (#221). `u.l = 5`, with `l As Long`, read back as an
   Integer, `u.dt = "1/2/2003"` stayed a String, and `u.i = 40000` with `i As Integer` stored 40000 with no error. Each
   now converts as a store into a variable of the type does, as VB6 does, and eleven corpus cases that measured it match.
