@@ -206,15 +206,40 @@ public class TabIndexAssignmentTests
         "End\r\n" +
         "Attribute VB_Name = \"Form1\"\r\n";
 
-    [AvaloniaFact]
-    public void A_control_added_counts_the_TabIndex_of_controls_HexIDE_does_not_model()
+    // A file whose lines end with a lone CR is read as its CRLF twin (#1438), and so is the text a control is carried as.
+    [AvaloniaTheory]
+    [InlineData("\r\n")]
+    [InlineData("\r")]
+    public void A_control_added_counts_the_TabIndex_of_controls_HexIDE_does_not_model(string lineEnd)
     {
-        var (vm, form) = Open(FormWithCarriedControls);
+        var (vm, form) = Open(FormWithCarriedControls.Replace("\r\n", lineEnd));
 
         var name = Add(vm, CommandButtonComponentClass.Instance);
 
         TabIndex(vm, form, name).Should().Be("7",
             "Gauge1, carried as text inside Toolbar1, holds 6; a property block's 99 is no control's TabIndex");
+    }
+
+    // The reader joins a carried block's lines with CRLF whatever the file used, so the theory above cannot reach a lone
+    // CR inside one. The helper is asked directly, so it reads lines as SourceLines does for any text it is handed.
+    [Theory]
+    [InlineData("\r\n")]
+    [InlineData("\r")]
+    [InlineData("\n")]
+    public void A_carried_blocks_TabIndex_lines_are_read_whatever_ends_them(string lineEnd)
+    {
+        var block = string.Join(lineEnd,
+            "Begin NoSuchLib.Toolbar Toolbar1 ",
+            "   TabIndex        =   4",
+            "   BeginProperty Buttons {66833FE8-8583-11D1-B16A-00C0F0283628} ",
+            "      TabIndex        =   99",
+            "   EndProperty",
+            "   Begin NoSuchLib.Gauge Gauge1 ",
+            "      TabIndex        =   6",
+            "   End",
+            "End");
+
+        PreservedControlText.TabIndexes(block).Should().Equal(4, 6);
     }
 
     [AvaloniaFact]
