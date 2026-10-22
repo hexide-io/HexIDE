@@ -29,7 +29,7 @@ public class VBImage : Control, ICustomHitTest
         AffectsRender<VBImage>(PictureProperty, StretchProperty);
         // Before Click, so MouseUp comes first, as for a Label (#974, #861).
         AttachedEvents.AttachMouse<VBImage>(AttachedEvents.DblClick.InPlaceOfMouseDown);
-        AttachedEvents.AttachClick<VBImage>();
+        AttachedEvents.AttachClick<VBImage>(AttachedEvents.ClickRelease.OverTheControl);
     }
 
     // The whole rectangle takes the pointer, picture or not, so the mouse events reach it (#974). It draws nothing a

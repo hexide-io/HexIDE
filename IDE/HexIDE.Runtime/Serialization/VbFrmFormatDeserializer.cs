@@ -260,7 +260,9 @@ public class VbFrmFormatDeserializer
         }
         else if (valueText.StartsWith("\"") && valueText.EndsWith("\""))
         {
-            return valueText.Substring(1, valueText.Length - 2);
+            // VB6 writes a quote inside a string doubled, and reads "" back as one (#218, measured): the caption
+            // "He said ""hi""" is He said "hi". Every string property comes through here, a font's name included.
+            return valueText.Substring(1, valueText.Length - 2).Replace("\"\"", "\"");
         }
         else if (valueText.Equals("True", StringComparison.OrdinalIgnoreCase))
         {
