@@ -28,7 +28,7 @@ public class VBImage : Control, ICustomHitTest
     {
         AffectsRender<VBImage>(PictureProperty, StretchProperty);
         // Before Click, so MouseUp comes first, as for a Label (#974, #861).
-        AttachedEvents.AttachMouse<VBImage>();
+        AttachedEvents.AttachMouse<VBImage>(AttachedEvents.DblClick.InPlaceOfMouseDown);
         AttachedEvents.AttachClick<VBImage>();
     }
 
