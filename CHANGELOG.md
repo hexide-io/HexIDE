@@ -10,6 +10,14 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **A ComboBox has a Text** (#926). It had none, so code reading `Combo1.Text` stopped, and a combo's Text could be
+  neither set in the Properties window nor drawn. Now a Dropdown Combo's and a Simple Combo's Text works as vb6.exe's
+  does:
+  - code's Text selects no item, even one it matches;
+  - choosing an item puts its text in the box.
+
+  A Dropdown List's Text is refused at run time until its Style is modelled (#1428), and is never saved, as in VB6. A
+  newly drawn TextBox or ComboBox starts with its name as its Text, as VB6's designer gives it.
 - **Shared DAP protocol capture** (#1166). The DAP library can record wire traffic and process diagnostics
   in the existing inspector's conversation log, with bounded retention and source-path pseudonymisation on
   export. A host that launches external debug sessions from the IDE remains subsequent work.

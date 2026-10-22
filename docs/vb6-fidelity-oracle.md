@@ -1605,7 +1605,7 @@ Since #821, `ListMembers` gives a ListBox and a ComboBox every row above but two
 What it still does not do:
 - **A ComboBox's `ListIndex` moving 1 to 2 after `List(-2) = "y"`.** HexIDE leaves it where it was. The error is
   raised, and no program is likely to read the selection after it.
-- **A ComboBox's `Text`** (#926), so neither `Text` row.
+- **A Dropdown List's `Text`** (#1428). A Dropdown Combo's two `Text` rows run as measured since #926.
 - **`Sorted`,** which HexIDE has no property for.
 - **`ListCount = 5`** is the compile error's text, raised when the statement runs, not before the program does.
 
@@ -1693,6 +1693,18 @@ What these show:
 
 Not measured: what Style 2 does in the designer to a combo whose Name has been changed, which would show whether it is
 the name now or the name the control was drawn with.
+
+### In HexIDE (#926)
+
+- **A drawn TextBox or ComboBox** starts with its name as its Text, and a control with no Caption is no longer given one.
+- **A Dropdown Combo's and a Simple Combo's Text** reads and writes at run time as both probes measured. That includes
+  `Null` as 13, and the two #821 rows in which the selected item's text follows it. Avalonia's editable combo would select
+  the item a Text matches, without regard to case, so while code sets the Text every item reads as a text no program can
+  set, and none matches.
+- **A Dropdown List's Text** is never written to the .frm, and is ignored at load. At run time, reading or writing it is
+  refused as not implemented, naming #1428, because what it does there needs the Style modelled.
+- **Not done:** Click and Change (#1429). Every row above that raises one runs without it.
+- **Not done:** the designer resetting a combo's Text to its name when its Style becomes 2 (#1428).
 
 ## Out of stack space — Error 28 (2026-08-22, #80)
 
