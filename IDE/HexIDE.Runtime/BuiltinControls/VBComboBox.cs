@@ -53,6 +53,10 @@ public class VBComboBox : ComboBox
     {
         ComboStyle = comboStyle;
         IsEditable = !IsDropdownList;
+        // A Dropdown List shows its item in the combo's own padding, too deep for a combo's height: its text was cut off at
+        // the bottom, as the edit box's was.
+        Padding = new Thickness(2, 0);
+        VerticalContentAlignment = VerticalAlignment.Center;
         if (IsEditable)
             TextSearch.SetTextBinding(this, NoItemMatches);
         // On the way down, so the edit box does not take them first.
