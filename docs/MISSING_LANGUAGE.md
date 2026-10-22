@@ -114,14 +114,14 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 2 | 2 | 41 | 30 | 0 | 30 | 105 |
-| Operators | 0 | 0 | 3 | 18 | 0 | 11 | 32 |
+| Operators | 0 | 0 | 2 | 19 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 61 | 41 | 1 | 50 | 153 |
 | Keywords and modifiers | 0 | 0 | 11 | 19 | 1 | 20 | 51 |
 | Literals, types and suffixes | 6 | 1 | 4 | 14 | 0 | 25 | 50 |
 | Compiler directives and options | 0 | 1 | 9 | 9 | 20 | 8 | 47 |
-| In-box objects | 0 | 0 | 93 | 12 | 0 | 18 | 123 |
+| In-box objects | 0 | 0 | 88 | 13 | 0 | 22 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **8** | **4** | **230** | **404** | **22** | **514** | **1182** |
+| **Total** | **8** | **4** | **224** | **406** | **22** | **518** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -150,10 +150,10 @@ visitor, not changing how the language is understood.
 
 ### Where the damage actually is
 
-**Operators are nearly complete** — 3 absent of 32 — so expressions and arithmetic generally work. The
+**Operators are nearly complete** — 2 absent of 32 — so expressions and arithmetic generally work. The
 damage is concentrated in **statements** and the **in-box object model**: 42% of VB6's statements (44
-of 105, two of them the `Function` rows, which fail only when a type character is used) and 80% of the
-in-box surface (`App`, `Screen`, `Printer`, `Clipboard`, `Collection`; 98 of 123) are unavailable. Both
+of 105, two of them the `Function` rows, which fail only when a type character is used) and 76% of the
+in-box surface (`App`, `Screen`, `Printer`, `Clipboard`; 93 of 123) are unavailable. Both
 figures are rounded to the nearest whole percent.
 
 That is the honest answer to "will my code run?" — the arithmetic will; the plumbing around it often will
@@ -314,7 +314,7 @@ which is the cheaper kind to close. The named-argument operator `:=` was the oth
 | `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 
-## Dies mid-run — 224 names
+## Dies mid-run — 218 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -322,7 +322,6 @@ most of the in-box object model.
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `! (dictionary access)` | **Dies** | throws `"dictionaryCallStmt is not supported"` — The grammar yields the pair (`dictionaryCallStmt : EXCLAMATIONMARK ambiguousIdentifier typeHint?`) but every consuming site throws. Measured on a… | ExpressionExecutor.cs |
 | `#` | **Dies** | and it is the one piece of this batch that fails even outside a file statement. `#1` lexes as its own token, `FILENUMBER : HASH LETTERORDIGIT+` (Grammar/VB6.g4), and FILENUMBER is an… | ExpressionExecutor.cs |
 | `#Else` | **Dies** | throws. macroElseBlockStmt (VB6.g4) is part of macroIfThenElseStmt and shares its fate: measured, '#If Win32 Then ... #Else ... #End If' raises VBCompileErrorException 'Conditional… | PrePass.cs |
 | `#ElseIf` | **Dies** | throws. macroElseIfBlockStmt (VB6.g4) is only reachable as part of macroIfThenElseStmt, so it fails with its parent: VBCompileErrorException 'Conditional compilation (#If / #Const) is not… | PrePass.cs |
@@ -368,12 +367,7 @@ most of the in-box object model.
 | `Circle` | **Dies** | throws `"Only single element supported"` — fails at run time - but NOT with a name-resolution error. VB6.g4 has no CIRCLE token and no circleStmt rule, so `Circle (100, 100), 50` parses as a… | ExpressionExecutor.cs |
 | `Clipboard.GetData` | **Dies** | Explicitly refused as not implemented (#1156). | VbClipboard.cs |
 | `Clipboard.SetData` | **Dies** | Explicitly refused as not implemented (#1156). | VbClipboard.cs |
-| `Collection` | **Dies** | **[#1010](https://github.com/hexide-io/HexIDE/issues/1010):** `Dim c As Collection`, without `New`, now declares an object slot holding Nothing, at module and procedure level (measured: `TypeName` is Nothing, `Is Nothing` True). Creating one is still refused: there is no Collection object, and `As New` is not implemented. — COLLECTION is a real grammar token (VB6.g4) listed in baseType (VB6.g4), so `Dim c As Collection` reaches BaseTypeMapper.Map, which returns null for it (BaseTypeMapper.cs comment:… | PrePass.cs |
-| `Collection._NewEnum` | **Dies** | The name lexes as an ordinary IDENTIFIER (VB6.g4; the LETTER fragment at :2110 includes `_`), and the bracketed form `[_NewEnum]` parses too — but `_NewEnum`/`NewEnum` appears nowhere in… | Exceptions.cs |
-| `Collection.Add` | **Dies** | No Collection object can exist (see Collection), and no Add handler exists on any runtime proxy. Measured with the call-statement form on a Variant holder: VBRunTimeException: "Unknown… | StatementExecutor.cs |
-| `Collection.Count` | **Dies** | Measured: VBMethodOrDataMemberNotFoundException: "Method or data member not found (Count in Right(EmptyVariant))". No Collection type exists to carry it. | Exceptions.cs |
-| `Collection.Item` | **Dies** | Measured explicit form: VBMethodOrDataMemberNotFoundException: "Method or data member not found (Item(1) in Right(EmptyVariant))". The implicit default-member form `c(1)` fails differently… | Exceptions.cs |
-| `Collection.Remove` | **Dies** | Measured: VBRunTimeException: "Unknown method Remove on <Right(EmptyVariant)>()" (StatementExecutor.cs). | StatementExecutor.cs |
+| `Collection._NewEnum` | **Dies** | For Each over a Collection works ([#1471](https://github.com/hexide-io/HexIDE/issues/1471)), but the hidden member itself is not: a program that calls `c.[_NewEnum]` does not get an enumerator. | VbCollection.cs |
 | `ContainedControls` | **Dies** | Measured for `Dim c As ContainedControls`: VBCompileErrorException: "User-defined type not defined: ContainedControls" (StatementExecutor.cs). | StatementExecutor.cs |
 | `Controls` | **Dies** | a form's Controls collection does not exist. **[#995](https://github.com/hexide-io/HexIDE/issues/995):** in a form, a bare `Controls`, or `Controls(i)`, is the form's member, refused as not implemented. Before, measured verbatim: "Compile error: Variable not defined (Controls)". A form's instance holds its controls as fields, and the window has no Controls member yet; no collection is… | VBLoader.cs |
 | `Controls.Add` | **Dies** | Measured verbatim: "Run-time error: Unknown method Add on <Right(EmptyVariant)>()". | StatementExecutor.cs |
@@ -664,13 +658,13 @@ missing.
 | `Sub...End Sub` | Supported | The whole construct - `(visibility WS)? (STATIC WS)? SUB WS name (argList)? ... END_SUB` - is collected by PrePass.VisitSubStmt and executed by BasicInterpreter.RunProcedure, shared with… | PrePass.cs, BasicInterpreter.cs |
 | `While...Wend` | Supported | **#839:** a condition that raises under On Error Resume Next runs the body, asking again each time round, as VB6 does (measured). **#882:** a bare member call in the body (`Debug.Print`, `Err.Clear`, `k.Bump`, `k.Add 10`, anywhere in the body) is one statement, where it was parsed as a call of the object followed by a With member call and stopped with "Sub or Function not defined" (measured, native and in the IDE). A `Call` statement and a `With` block start with a keyword, and ran before too. **#847:** each condition is read as `CBool` reads it, with Null False (measured), where the loops took only a Boolean, an Integer, a Byte, an integral string or Null and raised 13 for anything else, a Long, a Double and Empty included; the condition was the only restriction — VisitWhileWendStmt is a pre-tested loop; the comment records the design correctly: "VB6 has no `Exit While`/`Continue While`, so any non-Nothing control flow (Exit Sub/Function/Property)… | StatementExecutor.cs |
 
-### Operators — 32 names (3 absent, 18 partial, 11 supported)
+### Operators — 32 names (2 absent, 19 partial, 11 supported)
 
 **Precedence ([#1074](https://github.com/hexide-io/HexIDE/issues/1074)).** Until #1074 each operator had a precedence level of its own, so `10 - 2 + 3` was 5 and `5 * 5 \ 2` was 10, with no error. Operators now group as VB6 groups them (measured): `*` and `/` share a level, then `\`, then `Mod`, then `+` and `-`, then every comparison, `Like` and `Is` included, each level left to right. A Boolean beside a number now compares as that number, True as -1. `-2 ^ 2` is still 4, where VB6 gives -4 ([#1073](https://github.com/hexide-io/HexIDE/issues/1073)). The rows below are about each operator's own semantics.
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `! (dictionary access)` | **Dies** | throws `"dictionaryCallStmt is not supported"` — The grammar yields the pair (`dictionaryCallStmt : EXCLAMATIONMARK ambiguousIdentifier typeHint?`) but every consuming site throws. Measured on a… | ExpressionExecutor.cs |
+| `! (dictionary access)` | Partial | Works on a Collection ([#1471](https://github.com/hexide-io/HexIDE/issues/1471)): `c!key` is `c("key")`, `c![a key]` brackets a key with spaces, and `!key` works inside `With c`. `c!key = 1` is 424, as in VB6. On any other object it still stops the run as not implemented. | ExpressionExecutor.cs |
 | `AddressOf` | **Dies** | throws `"ADDRESSOF is not implemented"` — (`ADDRESSOF WS valueStmt # vsAddressOf`) then throws at run time: `public override Task<object?> VisitVsAddressOf(VB6Parser.VsAddressOfContext… | ExpressionExecutor.cs |
 | `Like` | **Dies** | throws `"Like is not implemented"` — (`LIKE` in the comparison alternative, `# vsCompare`, since #1074) then throws in `VisitVsCompare`: `throw new NotImplementedException("Like is not implemented")` | ExpressionExecutor.cs |
 | `& (string concatenation)` | Partial | A class instance or an in-box object as an operand raises 438, or is refused naming #174 for a class with a default member, or stands for Err's Number, where it gave the CLR type name (#436, measured). **A control still gives its .NET type name** (`"v=" & Text1`, #790). `VisitVsAmp`: both Null -> Null; a single Null or Empty concatenates as "" — "Null and Empty both concatenate as \"\" (Empty.Value is null, so the old code NPE'd on it)"; otherwise… | ExpressionExecutor.cs |
@@ -1062,7 +1056,7 @@ missing.
 | `Option Base` | Supported | Collected by PrePass ('ArrayBase = int.Parse(context.INTEGERLITERAL().GetText());', PrePass.cs) and applied on both declaration paths: module-level Dim arrays (PrePass.cs) and… | PrePass.cs |
 | `Version` | Supported | Handled on three independent paths. Form/control files: the deserializer skips the line ('if (line.StartsWith("VERSION")) { continue; }', VbFrmFormatDeserializer.cs) and the serializer… | VbFrmFormatDeserializer.cs |
 
-### In-box objects — 123 names (93 absent, 12 partial, 18 supported)
+### In-box objects — 123 names (88 absent, 13 partial, 22 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -1101,12 +1095,12 @@ missing.
 | `Clipboard.GetText` | Partial | Returns ANSI text for omitted format or vbCFText, empty when no text exists (#1156). RTF and Link formats are explicitly unsupported. | VbClipboard.cs |
 | `Clipboard.SetData` | **Dies** | Explicitly refused as not implemented (#1156). | VbClipboard.cs |
 | `Clipboard.SetText` | Partial | Sets ANSI text for omitted format or vbCFText (#1156). Truncates at NUL. Refuses a clipboard containing non-text formats to avoid discarding them; Clear first. RTF and Link are unsupported. | VbClipboard.cs, AvaloniaTextClipboard.cs |
-| `Collection` | **Dies** | **[#1010](https://github.com/hexide-io/HexIDE/issues/1010):** `Dim c As Collection`, without `New`, now declares an object slot holding Nothing, at module and procedure level (measured: `TypeName` is Nothing, `Is Nothing` True). Creating one is still refused: there is no Collection object, and `As New` is not implemented. — COLLECTION is a real grammar token (VB6.g4) listed in baseType (VB6.g4), so `Dim c As Collection` reaches BaseTypeMapper.Map, which returns null for it (BaseTypeMapper.cs comment:… | PrePass.cs |
-| `Collection._NewEnum` | **Dies** | The name lexes as an ordinary IDENTIFIER (VB6.g4; the LETTER fragment at :2110 includes `_`), and the bracketed form `[_NewEnum]` parses too — but `_NewEnum`/`NewEnum` appears nowhere in… | Exceptions.cs |
-| `Collection.Add` | **Dies** | No Collection object can exist (see Collection), and no Add handler exists on any runtime proxy. Measured with the call-statement form on a Variant holder: VBRunTimeException: "Unknown… | StatementExecutor.cs |
-| `Collection.Count` | **Dies** | Measured: VBMethodOrDataMemberNotFoundException: "Method or data member not found (Count in Right(EmptyVariant))". No Collection type exists to carry it. | Exceptions.cs |
-| `Collection.Item` | **Dies** | Measured explicit form: VBMethodOrDataMemberNotFoundException: "Method or data member not found (Item(1) in Right(EmptyVariant))". The implicit default-member form `c(1)` fails differently… | Exceptions.cs |
-| `Collection.Remove` | **Dies** | Measured: VBRunTimeException: "Unknown method Remove on <Right(EmptyVariant)>()" (StatementExecutor.cs). | StatementExecutor.cs |
+| `Collection` | Partial | **[#1471](https://github.com/hexide-io/HexIDE/issues/1471):** `Set c = New Collection` (or `New VBA.Collection`) makes one, and `Dim c As Collection` declares an object slot holding Nothing. TypeName is "Collection", VarType 9, `TypeOf c Is Collection` True. Items are held by reference and released in order when the last reference goes. For Each walks it with a live cursor, as VB6 does: removing the current item goes on to the next. `c!key` and `c![a key]` are `c("key")`. Errors match vb6.exe (5, 9, 13, 91, 424, 438, 448, 450, 451, 457), and so do the compile errors for too few or too many arguments. Late-bound through an Object or a Variant, those come at run time as 448, 450 or 451. **Not yet:** `Dim c As New Collection` ([#435](https://github.com/hexide-io/HexIDE/issues/435)); an array `As Collection` ([#1482](https://github.com/hexide-io/HexIDE/issues/1482)); keys compare ordinally ignoring case, so "straße" and "strasse" are two keys where VB6 calls them one ([#1479](https://github.com/hexide-io/HexIDE/issues/1479)). | VbCollection.cs |
+| `Collection._NewEnum` | **Dies** | For Each over a Collection works ([#1471](https://github.com/hexide-io/HexIDE/issues/1471)), but the hidden member itself is not: a program that calls `c.[_NewEnum]` does not get an enumerator. | VbCollection.cs |
+| `Collection.Add` | Supported | Item, Key, Before and After, by position or by name ([#1471](https://github.com/hexide-io/HexIDE/issues/1471)). VB6's check order: Before and After both given (5), then the key (13, or 457 for a duplicate), then the position (9, or 5 for a missing key). A key that isn't a String is looked up as a position first, so one naming an existing item is 457 and anything else 13, as measured. | VbCollection.cs |
+| `Collection.Count` | Supported | A Long ([#1471](https://github.com/hexide-io/HexIDE/issues/1471)). `c.Count = 5` is VB6's compile error, and `o.Count(1)` late-bound is 451. | VbCollection.cs |
+| `Collection.Item` | Supported | The default member, so `c(i)` and `c!key` reach it ([#1471](https://github.com/hexide-io/HexIDE/issues/1471)). A String is a key, anything else a position rounded half to even: `c(1.5)` and `c(2.5)` are item 2. Empty and True are 9 and Null 13. An item can't be assigned through it (424). | VbCollection.cs |
+| `Collection.Remove` | Supported | By position or key, also as `Index:=` ([#1471](https://github.com/hexide-io/HexIDE/issues/1471)). An object item is released when its last reference goes, and a For Each on the Collection goes on to the item after. | VbCollection.cs |
 | `ContainedControls` | **Dies** | Measured for `Dim c As ContainedControls`: VBCompileErrorException: "User-defined type not defined: ContainedControls" (StatementExecutor.cs). | StatementExecutor.cs |
 | `Controls` | **Dies** | a form's Controls collection does not exist. **[#995](https://github.com/hexide-io/HexIDE/issues/995):** in a form, a bare `Controls`, or `Controls(i)`, is the form's member, refused as not implemented. Before, measured verbatim: "Compile error: Variable not defined (Controls)". A form's instance holds its controls as fields, and the window has no Controls member yet; no collection is… | VBLoader.cs |
 | `Controls.Add` | **Dies** | Measured verbatim: "Run-time error: Unknown method Add on <Right(EmptyVariant)>()". | StatementExecutor.cs |

@@ -339,6 +339,24 @@ public static class DebugInspector
             });
         }
 
+        // A Collection (#1471) — expand to its items in order, "Item 1", "Item 2", …, each a node of its own, so an object
+        // item opens to its fields. Capped as an array is; an empty one is a leaf.
+        if (value.Value is VbCollection collection)
+        {
+            var values = collection.Snapshot();
+            if (depth >= MaxDepth || values.Count == 0)
+                return new DebugNode(name, type, type);   // like a field-less class: its type, no expander
+            return new DebugNode(name, string.Empty, type, () =>
+            {
+                var kids = new List<DebugNode>();
+                for (int i = 0; i < values.Count && i < MaxArrayElements; i++)
+                    kids.Add(ValueNode($"Item {i + 1}", values[i], ctx, ancestors, depth + 1));
+                if (values.Count > MaxArrayElements)
+                    kids.Add(DebugNode.Truncation(values.Count - MaxArrayElements));
+                return kids;
+            });
+        }
+
         // Everything else is a leaf: scalars, Nothing, proxies (no property surface — D7).
         return new DebugNode(name, FormatValue(value), type);
     }

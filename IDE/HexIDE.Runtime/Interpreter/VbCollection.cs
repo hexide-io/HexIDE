@@ -35,6 +35,15 @@ public sealed class VbCollection(BasicInterpreter interpreter) : ICSharpAsyncPro
     /// <summary>The references the program holds to it, as <see cref="VbObject.RefCount"/> counts a class instance's.</summary>
     internal int RefCount;
 
+    /// <summary>The items in order, for the debugger's Locals and Watch.</summary>
+    internal IReadOnlyList<Vb6Value> Snapshot()
+    {
+        var values = new List<Vb6Value>(items.Count);
+        foreach (var entry in items)
+            values.Add(entry.Value);
+        return values;
+    }
+
     /// <summary>
     /// Where a For Each over it has got to: the position of the item it is on, from 1, or 0 before the first. An item
     /// added or removed at or before it moves it, so the loop goes on to the item that now follows the one it was on
@@ -135,8 +144,13 @@ public sealed class VbCollection(BasicInterpreter interpreter) : ICSharpAsyncPro
         string? keyText = null;
         if (!key.IsMissing)
         {
+            // A key that isn't a String is first looked up as Item would look up an index: one naming an item already there
+            // is "already associated", 457, and anything else 13 (measured at Count 3: keys 1, 3, 1.5, CByte(2) and
+            // CDate(2) are 457; 4, 0, 3.5, True, an array and a Collection are 13).
             if (key.Type != Vb6Value.ValueType.String)
-                throw new VBRunTimeException(VBStandardError.TypeMismatch);
+                throw new VBRunTimeException(NamesAnItem(key)
+                    ? VBStandardError.ThisKeyIsAlreadyAssociatedWithAnElementOfThisCollection
+                    : VBStandardError.TypeMismatch);
             keyText = (string)key.Value!;
             if (byKey.ContainsKey(keyText))
                 throw new VBRunTimeException(VBStandardError.ThisKeyIsAlreadyAssociatedWithAnElementOfThisCollection);
@@ -196,6 +210,19 @@ public sealed class VbCollection(BasicInterpreter interpreter) : ICSharpAsyncPro
         if (position < 1 || position > items.Count)
             throw new VBRunTimeException(VBStandardError.SubscriptOutOfRange);
         return (int)position;
+    }
+
+    private bool NamesAnItem(Vb6Value index)
+    {
+        try
+        {
+            Position(index);
+            return true;
+        }
+        catch (VBRunTimeException)
+        {
+            return false;
+        }
     }
 
     // A numeric index rounds half to even, as CLng does; Empty is 0 and True -1. Null, and a number a Long can't hold, are
