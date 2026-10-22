@@ -185,6 +185,15 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`FontSize`, `FontBold`, `FontItalic`, `FontUnderline` and `FontStrikethru`, and a TextBox's own Font** (#1343,
+  #915). The five members stopped a run at the first read or write, and a TextBox had no Font of its own, so Notepad's
+  Format > Font stopped at its first line. Now every control with a font, and the form, reads and writes them as
+  vb6.exe measured: sizes snap to whole pixels, and GDI's bitmap fonts to the heights they have, turning into Arial past
+  a size of their own; the Booleans coerce and refuse as VB6's do. A TextBox draws in its own font, and its Font block
+  saves byte for byte.
+- **The Font dialog's sample draws in the face chosen** (#1353). It always drew in the default face, because a family's
+  name was bound where a FontFamily was wanted.
+
 - **A form the Project Explorer adds is saved into the project** (#1359). Closing the IDE wrote the form's file and
   left the project file without it, so the next open had no such form, even after Yes to everything in the save
   prompt. A project holding a form or module that has never been saved now counts as changed, so closing saves its
