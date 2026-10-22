@@ -1492,6 +1492,89 @@ reads back `02/01/2003` under en-GB, as measured above. It was refused until the
   VB6 raises there is unmeasured.
 
 
+## A list's members: ListCount, List(i), AddItem's index and RemoveItem (2026-10-22, #821)
+
+What do a ListBox's and a ComboBox's list members do, in range and out of it? Three `/make` probes, each built native
+and p-code, all six builds agreeing line for line. Each runs in Form_Load after `Me.Show`, under `On Error Resume Next`,
+on four controls: a ListBox, a ComboBox with Style 0 (Dropdown Combo), one with Style 2 (Dropdown List), and a ListBox
+with `Sorted = True`. **The four agree on every row** but the two marked, so the table gives one answer.
+
+Each control starts with `c`, `a` and `b` added, in that order, which the sorted list keeps as `a`, `b`, `c`. A row's
+`ListIndex` and `ListCount` are read after it.
+
+| Statement | VB6 |
+|---|---|
+| `ListCount`, empty, then with three items | `0`, `3`, an **Integer** |
+| `ListCount = 5` | compile error **"Can't assign to read-only property"** |
+| `List(0)`, empty | `""`, Err 0 |
+| `List(0)`, `List(2)` | `c`, `b`, Strings (sorted: `a`, `c`) |
+| `List(3)` (= ListCount), `List(-1)`, `List(-2)`, `List(100)` | `""` each, **Err 0** |
+| `List("1")`, `List(1.6)` | `a`, `b`: the index is converted to an Integer, rounding |
+| `List(40000)` | Err **6** Overflow |
+| `List("q")` | Err 13 |
+| `List(Null)` | Err 94 |
+| `List()` | compile error "Argument not optional" |
+| `ListIndex = 1`, then `List(1) = "B"`, the selected item | replaced; **no Click**, `ListIndex` 1; a ComboBox's `Text` becomes `B` |
+| `List(3) = "d"` (= ListCount) | **appended**, ListCount 4, Err 0 |
+| `List(-1) = "z"` | **appended**, at the end, Err 0 |
+| `List(10) = "e"`, past ListCount | Err **381** "Invalid property array index" |
+| `List(-2) = "y"` | Err **-2147024882** "Out of memory"; nothing added. A **ComboBox's `ListIndex` moves from 1 to 2** |
+| `AddItem "z", 0`, with the item at 1 selected | inserted at 0; **`ListIndex` 2**, the selection follows its item; no Click |
+| `AddItem "y", ListCount` | appended |
+| `AddItem "w", ListCount + 1`, `AddItem "v", -1`, `AddItem "w", 10` | Err **5** "Invalid procedure call or argument" |
+| `AddItem "u", "1"` | inserted at 1: the index is converted |
+| `AddItem "x", 40000` | Err 6 |
+| `AddItem "n", Null` | Err **13**, not 94 |
+| `AddItem Null` | Err 94 |
+| `AddItem "z", 0` on the **sorted** list | inserted at 0 all the same: `z` first, before `a` |
+| `AddItem "q", 0`, empty; `AddItem "r", 2`, one item | the first inserted; the second Err 5 |
+| `RemoveItem ListCount`, `RemoveItem -1`, `RemoveItem 10`, `RemoveItem 0` empty | Err 5 |
+| `RemoveItem 40000` | Err 6 |
+| `RemoveItem 0`, with the item at 3 selected | removed; `ListIndex` 2; no Click |
+| `ListIndex = 0`, then `RemoveItem 0`, the selected item | removed; `ListIndex` **-1**; no Click from the removal; a ComboBox's `Text` becomes `""` |
+| `ListIndex = 1`, then `RemoveItem 0` | removed; `ListIndex` 0 |
+
+What these show:
+- **A ListBox and a ComboBox of either style are one list.** Only `Text` and the one row below tell them apart.
+- **Reading is forgiving and writing is not.** Any `List(i)` read that converts to an Integer is `""` outside the
+  list, while a write outside it is an error. The exceptions are `ListCount` and `-1`, which both append.
+- **AddItem takes 0 to ListCount and RemoveItem 0 to ListCount - 1**, and both raise 5 outside that. An index converts
+  as an Integer argument does: a String that reads as a number is taken, past 32767 is Overflow.
+- **The selection follows its item** through AddItem and RemoveItem, and empties when its item is removed. None of them
+  raises Click.
+- **`Sorted` does not override AddItem's index.**
+
+What resisted explanation:
+- **`List(-2) = "y"` raises "Out of memory"**, -2147024882 (`0x8007000E`, E_OUTOFMEMORY), where 381 would be the
+  obvious error, and on a ComboBox only, it moves `ListIndex` from 1 to 2 though nothing was added. Presumably the
+  write reaches the window as an insert at position -2, which the control refuses as if memory had run out; no rule
+  here explains the ComboBox's selection moving.
+- **`List(-1) = "z"` appends** rather than raising, as if -1 meant "at the end".
+- **`AddItem "n", Null` is 13 where `List(Null)` and `AddItem Null` are 94.**
+
+### HexIDE
+
+Before #821, `ListCount` and `List(i)` were "Method or data member not found", `RemoveItem` was not implemented, and
+`AddItem` appended whatever its index said.
+
+Since #821, `ListMembers` gives a ListBox and a ComboBox every row above but two.
+- **`List(i)`** is caught by name with its index, on the read path in `ExpressionExecutor` and the write path in
+  `StatementExecutor`, before the property lookup that would find the design-time `List` instead.
+- **An index converts** by `VbNumeric.CoerceOnStore` to an Integer, which gives 6, 13 and 94 as measured. AddItem's
+  Null index is 13 before it.
+- **The selection** follows its item through AddItem and RemoveItem because Avalonia's does. A replaced item loses its
+  selection in Avalonia, so `List(i) =` sets it back.
+- **381's text** was HexIDE's "Invalid property-array index", unmeasured; it is now VB6's "Invalid property array
+  index".
+- **Pinned** in `ListMembersTests`, on a ListBox and a ComboBox.
+
+What it still does not do:
+- **A ComboBox's `ListIndex` moving 1 to 2 after `List(-2) = "y"`.** HexIDE leaves it where it was. The error is
+  raised, and no program is likely to read the selection after it.
+- **A ComboBox's `Text`** (#926), so neither `Text` row.
+- **`Sorted`,** which HexIDE has no property for.
+- **`ListCount = 5`** is the compile error's text, raised when the statement runs, not before the program does.
+
 ## Out of stack space — Error 28 (2026-08-22, #80)
 
 Verified with a `Sub Main` probe (`/make`, run, append each line to a log so nothing is lost to buffering).
@@ -5953,7 +6036,8 @@ about case:
 - **Reading or writing another module's `Public` variable or `Const` from a form (#256).** `kpi * 2` read from
   the form reads Empty, and a write to `module1.abc` does not reach it. The tests read and write within one
   module instead.
-- **`ListCount` (#821).** The tests read the list's items instead.
+- **`ListCount` (#821).** The tests read the list's items instead. `ListCount` exists since #821, and its name is
+  matched in any case, but these tests were not changed.
 
 `Me` and the form's own name do resolve in any case on that path, where `VBLoader.RunForm` binds them, and are
 tested there.
@@ -9828,12 +9912,101 @@ control VB6 gives one: a Label, an Image, a PictureBox, a TextBox, a Frame, a Li
 
 What it still does not do:
 - **A ComboBox and a FileListBox** have a DblClick in VB6, and HexIDE has neither control's events yet.
-- **A press on a Label, an Image, a PictureBox, a TextBox or a ListBox** raises that control's Click wherever the
-  release lands. Only a CommandButton, through Avalonia's own Button, checks (#1373). Since #1373, a Label, an Image,
-  a Frame and a PictureBox raise it only for a release over them: `AttachClick` with `ClickRelease.OverTheControl`
-  hit-tests the release through the window, since the pressed control has the pointer. A TextBox and a ListBox keep
-  `Anywhere`, as measured. Pinned in `MouseEventTests`, one case per row of *And a press released somewhere else*.
-- **A ListBox raises Click after MouseUp** (#1374).
+- **A press on a Label, an Image, a PictureBox or a TextBox** raises that control's Click wherever the release lands.
+  Only a CommandButton, through Avalonia's own Button, checks (#1373). Since #1373, a Label, an Image, a Frame and a
+  PictureBox raise it only for a release over them: `AttachClick` with `ClickRelease.OverTheControl` hit-tests the
+  release through the window, since the pressed control has the pointer. A TextBox keeps `Anywhere`, as measured, and
+  so does a ListBox (*A ListBox's Click* below). Pinned in `MouseEventTests`, one case per row of *And a press released
+  somewhere else*.
+- **A ListBox raises Click after MouseUp** (#1374). Since #1374 it raises it before: *A ListBox's Click* below.
+
+## A ListBox's Click: a left press on an item, or code or a key that moves the selection (2026-10-22, #1374)
+
+Where does a ListBox raise Click? Four `/make` probes, each built native and p-code, all eight builds agreeing line for
+line. Each holds List1, 2400 by 1200 twips at (120, 120) on a twips form, given `a`, `b` and `c` in Form_Load. With
+integral height the list draws five rows of 13 pixels, so its client area ends 65 pixels down and the empty part below
+`c` starts at 39. Every handler appends its name and `ListIndex` to a file.
+
+**Code**, in Form_Load, after `Me.Show` unless the row says otherwise, with `ListIndex` 1 to start:
+
+| Statement | VB6 |
+|---|---|
+| `ListIndex = 1`, before `Me.Show`, from -1 | **Click**, `ListIndex` 1 inside it |
+| `ListIndex = 2` | Click, 2 inside it |
+| `ListIndex = 2` again | no Click |
+| `ListIndex = -1` | Click, -1 inside it |
+| `ListIndex = -1` again | no Click |
+| `AddItem "z", 0`, with `c` selected at 2 | no Click; `ListIndex` 3 after: the selection follows its item |
+| `RemoveItem 0`, then | no Click; `ListIndex` 2 after |
+| `RemoveItem 2`, the selected item | no Click; `ListIndex` -1 after |
+| `ListIndex = 0` (Click), then `Clear` | no Click from `Clear`; `ListIndex` -1 after |
+| `Selected(1) = True`, from -1 | Click, 1 inside it; Err 0 |
+| `Selected(1) = False`, the selected item | Click, -1 inside it |
+| `Text = "x"`, from -1, `x` the first item | Click, 0 inside it |
+| `ListIndex = 5`, with two items | Err 380, no Click, `ListIndex` unchanged |
+
+**The keyboard**, the list focused, with `c` selected at 2:
+
+| Input | VB6 |
+|---|---|
+| Up arrow | KeyDown 38, **Click** (1), KeyUp |
+| Up arrow again | KeyDown, Click (0), KeyUp |
+| Up arrow on the first item | KeyDown, KeyUp: no Click |
+
+**The mouse**, real input in the console session, as in *A click with real input*:
+
+| Input | VB6 |
+|---|---|
+| left click on `a`, nothing selected | MouseDown (`ListIndex` already 0), **Click**, MouseUp |
+| left click on `a` again, already selected | MouseDown, Click, MouseUp: Click though nothing changed |
+| left click in the empty area below `c`, 52 pixels down | MouseDown, MouseUp: no Click, selection unchanged |
+| left click 65 pixels down, on the list's bottom edge | nothing at all, on the list or the form |
+| press on `a`, move to `c`, release | MouseDown (0), MouseMove (**2**), Click (2), MouseUp (2) |
+| press on `c`, move into the empty area, release | MouseDown (2), MouseMove (2), Click (2), MouseUp (2) |
+| press in the empty area, move onto `a`, release | MouseDown (2), MouseMove (2), MouseUp (2): no Click, and `a` not selected |
+| right click on `a`, nothing selected | MouseDown `2` (`ListIndex` -1), MouseUp: no Click, nothing selected |
+| right click on `b`, selected; on `c`, not selected | MouseDown, MouseUp: no Click, the selection stays on `b` |
+| middle click on `a` | MouseDown `4`, MouseUp: no Click |
+| left double click on `a` | MouseDown (0), Click, MouseUp, DblClick, MouseMove, MouseUp |
+
+What these show:
+- **From code or a key, Click follows the selection.** It comes when `ListIndex`, `Selected` or `Text` moves it, and
+  when an arrow key does, with `ListIndex` already the new value; it does not come when the value is set again, or
+  when the key can go no further.
+- **AddItem, RemoveItem and Clear never raise it,** though each can shift or empty the selection.
+- **From the mouse, Click follows a left press on an item, not the selection.** It comes on the release, before
+  MouseUp, whether or not the selection changed and wherever the release lands. The press selects at once, so MouseDown
+  already reads the new index, and the selection follows the pointer over the items while the button is held.
+- **A left press in the empty area, and any right or middle press,** raises MouseDown and MouseUp only. It selects
+  nothing, and the selection does not follow it onto an item.
+
+What resisted explanation:
+- **A click on the bottom edge raised nothing anywhere,** not even the form's MouseDown. The point is just past the
+  client area, on what is presumably the list's border, but no rule here says why that border swallows a click.
+- **The double click's MouseMove** with the button held, between DblClick and the last MouseUp, has no matching move
+  in the driver, which sets the cursor once before both clicks. It was logged in all four builds.
+
+### HexIDE
+
+Before #1374, a ListBox raised Click on every release, after MouseUp: for a press in the empty area and a right or
+middle click too, and never from code or a key. A right press selected the item under it.
+
+Since #1374, `VBListBox` raises Click from the two places VB6 does.
+- **A left press on an item** is remembered, and its release raises Click before MouseUp, unless it is a double click's
+  second (#1031). While the button is held, the item under the pointer is selected. The release may land anywhere,
+  off the list included, as VB6's may (measured in *And a press released somewhere else*, #1373).
+- **A right or middle press** is marked handled on its way down, so Avalonia's ListBox selects nothing for it. Its
+  MouseDown and MouseUp still come, since those take handled presses.
+- **An arrow key** raises Click when the selection it leaves differs from the one it found.
+- **`ListIndex` set from code** raises Click when the value changes. A selection change in general does not raise it,
+  so AddItem and Clear raise none.
+- **Pinned** in `MouseEventTests`: a click on an item and again on it, a click below the items, a press moved onto
+  another item, off the items, and from below them onto one, a right and a middle click on an item, the double click,
+  and the arrow keys. `ListBoxClickTests` pins the `ListIndex` rows, a plain `AddItem` and `Clear`.
+
+What it still does not do:
+- **`RemoveItem` and `AddItem`'s index** are #821's, and **`Selected(i)` and `Text`** #1395's, so their rows wait on
+  those.
 
 ## One handler at a time (2026-10-14, #766)
 
