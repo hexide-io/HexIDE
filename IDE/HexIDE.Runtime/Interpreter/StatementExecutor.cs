@@ -2906,7 +2906,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             var fieldName = UdtFieldName(members[i]);
             if (i == members.Length - 1)
             {
-                if (!bag.TrySet(fieldName, value))
+                if (!bag.TrySet(fieldName, value, ctx))
                     throw new VBRunTimeException(ctx, VBStandardError.MethodOrDataMemberNotFound, fieldName);
                 return;
             }

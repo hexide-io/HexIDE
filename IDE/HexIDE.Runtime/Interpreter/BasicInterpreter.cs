@@ -233,14 +233,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (depth > 64)
             throw new VBCompileErrorException("Recursive Type definition: " + typeName);
         var fields = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
-        var typedFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var typedFields = new Dictionary<string, Vb6Value.ValueType>(StringComparer.OrdinalIgnoreCase);
         var variantFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in def.Fields)
         {
             // An Enum field is a typed Long, as an Enum variable is (measured, #1005).
-            if (f.ScalarType is { } declared && VbNumeric.IsDeclarableScalar(declared)
-                || f.UdtTypeName is { } enumName && !Types.ContainsKey(enumName) && Enums.ContainsKey(enumName))
-                typedFields.Add(f.Name);
+            if (f.ScalarType is { } declared && VbNumeric.IsDeclarableScalar(declared))
+                typedFields[f.Name] = declared;
+            else if (f.UdtTypeName is { } enumName && !Types.ContainsKey(enumName) && Enums.ContainsKey(enumName))
+                typedFields[f.Name] = Vb6Value.ValueType.Long;
             else if (f.UdtTypeName is null && (f.ScalarType is null || f.ScalarType == Vb6Value.ValueType.EmptyVariant))
                 variantFields.Add(f.Name);
             if (f.ScalarType is { } scalar)
