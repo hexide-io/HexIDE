@@ -336,7 +336,7 @@ the session attached; `docs/mcp-server-gaps.md` entry 3 has the measurements.
 **Never reach for raw HTTP either way.** That rule is unchanged and is not about schemas: a bypass proves
 nothing about the surface a real caller uses.
 
-HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The MCP server is a dev/automation tool and is `#if DEBUG`-compiled out of Release builds** — the `Server/` folder and the AspNetCore framework dependency are excluded from Release, so a distributed binary opens no port and `--server-port` is inert. The dev loop below uses Debug builds, so this does not affect it. With HexIDE running (Debug), Claude Code connects automatically via `.mcp.json` at the repo root and has access to these tools:
+HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The MCP server is a dev/automation tool and is `#if DEBUG`-compiled out of Release builds** — the `Server/` folder and the AspNetCore framework dependency are excluded from Release, so a distributed binary opens no port and `--server-port` is inert. The dev loop below uses Debug builds, so this does not affect it. With HexIDE running (Debug), Claude Code connects automatically via `.mcp.json` at the repo root, on port `HEXIDE_MCP_PORT` or 5123 when that is unset (see *Parallel sessions* below), and has access to these tools:
 
 | Tool | Description |
 |------|-------------|
@@ -366,7 +366,7 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 
 **CLI flags** (both `--` and `/` prefixes accepted, aligning with VB6 convention):
 - `--help` — print usage and exit without starting the IDE; also `-h`, `/?`, `-?`
-- `--server-port <port>` — enable the MCP server on the given port (all launch profiles use 5123)
+- `--server-port <port>` — enable the MCP server on the given port (the launch profiles hard-code 5123, `.mcp.json` defaults to it, and `scripts/dev-ide.ps1` passes `HEXIDE_MCP_PORT`)
 - `--newproject` — skip the startup dialog and create a default Standard EXE project
 - `--capture-lsp` — arm the protocol capture for every language-server connection **before any is made**, so a conversation is recorded in full from its first handshake. Arming is otherwise session-scoped and the documented rebuild cycle restarts the IDE every iteration, which is what this exists for. **Unlike `--server-port`, this is not DEBUG-only**: the capture ships and the automation server does not
 - `--user-data-dir <path>` — keep this session's settings, layout, recents and `lsp-servers.json` in that directory instead of the user's own. **Use it for any demo or automation run that needs its own configuration**, rather than editing the real one and relying on someone to change it back. Works in Release. A relative path is relative to where HexIDE was started
@@ -403,30 +403,86 @@ preflight, and the `Host` header is the one thing that trick cannot forge. There
 authentication**, so anything able to open a socket to the port can drive the IDE. That is a separate
 control and a separate decision ([#352](https://github.com/hexide-io/HexIDE/issues/352)).
 
+### Parallel sessions: a port and a profile each
+
+Several agent sessions often run the dev loop on one machine at once, each with its own build. On one shared
+port they collide, and silently: the second IDE exits with code 3, and its session goes on driving the first
+session's build ([#1212](https://github.com/hexide-io/HexIDE/issues/1212)). Two environment variables keep them
+apart:
+
+| Variable | Read by | When unset |
+|---|---|---|
+| `HEXIDE_MCP_PORT` | `.mcp.json`, for the session's MCP client, and `scripts/dev-ide.ps1`, for the IDE's `--server-port` | 5123 |
+| `HEXIDE_SESSION` | `scripts/dev-ide.ps1`, which starts the IDE with `--user-data-dir` set to `HexIDE/sessions/<name>` under LocalApplicationData. Lower case, digits, `.`, `_` and `-` | the user's own profile |
+
+**Set both where the session starts, before `claude` runs**, as in
+`$env:HEXIDE_MCP_PORT = 5140; $env:HEXIDE_SESSION = 'docs-pass'; claude --resume <id>`. The MCP URL is expanded
+when the session starts, and the session's shells inherit both variables, so the client and the IDE it launches
+agree. Changing either takes a new session or a resume. A contributor who sets neither gets the single-session
+setup this section describes everywhere else.
+
+**A session can check this from inside, but not fix it.** Before launching an IDE, read both variables. If
+`HEXIDE_MCP_PORT` is unset while other sessions run on the same machine, this session shares 5123 with any of them
+that set nothing. Say so, and ask to be restarted with a port of its own, rather than launching there.
+
+- **Leave 5123 to sessions that set nothing**, and give each named session a port of its own. A session that
+  forgot its variable then reaches an empty port and is refused a connection, which is loud, instead of reaching
+  another session's IDE. Which session has which port is a fact about the machine, not the repository, so agree it
+  between the sessions rather than writing it here.
+- **Unset, never empty.** Measured 2026-10-22 on Claude Code 2.1.307: `${HEXIDE_MCP_PORT:-5123}` takes the
+  variable when it is set and 5123 when it is unset, but an empty variable gives no connection at all. The script
+  refuses an empty or malformed value for the same reason, rather than starting on 5123 where the client is not.
+- **Launch with the script, not a launch profile.** The profiles in `launchSettings.json`, and so
+  `dotnet run --project HexIDE.Desktop/`, hard-code `--server-port 5123` and use the user's own profile, whatever
+  the two variables say.
+- **`pwsh` is PowerShell 7.** Where only Windows PowerShell 5.1 is installed, run
+  `powershell -ExecutionPolicy Bypass -File scripts\dev-ide.ps1`; the script supports both. From Git Bash, pass
+  HexIDE's flags in their `--` form: Git Bash rewrites `/newproject` into a Windows path before the script sees it.
+- **`claude mcp list` prints the URL unexpanded**, as `http://localhost:${HEXIDE_MCP_PORT}/mcp`, with the default
+  missing from the display. Its `Connected` or `Failed` status is what reflects the expanded URL.
+- **A session's profile starts from defaults**: no theme, layout or `lsp-servers.json` from anyone's own profile.
+  That is reproducible, and it is what a first-time user sees. A session that needs a configuration seeds it on
+  purpose, by copying the one file into its `HexIDE/sessions/<name>` directory before launching, such as an
+  `lsp-servers.json` naming another language server. The IDE never copies the user's own profile into a session's.
+- **Logs are not separated.** Every IDE writes them under the shared `HexIDE/logs`, and a burst of relaunches
+  across sessions can prune a log minutes old
+  ([#1307](https://github.com/hexide-io/HexIDE/issues/1307)), so read a crash log promptly.
+- **Ports keep sessions apart only when every session sets its variables.** Two sessions that set nothing, or a
+  stale IDE left on someone's port, still reach an IDE that is not theirs, and nothing in a reply says so
+  ([#1306](https://github.com/hexide-io/HexIDE/issues/1306)).
+- **Stop only your own IDE**: `shutdown_ide`, or `pwsh scripts/dev-ide.ps1 -Stop`, which stops this session's
+  HexIDE on your port and nothing else. **Never `Stop-Process -Name HexIDE.Desktop`**: on a machine running several
+  sessions it kills all of their IDEs.
+
 ### Rebuild cycle (no user interaction required)
 
 When you need to rebuild while HexIDE is running, always follow this cycle — do NOT ask the user:
 
 1. **Shut down**: call `shutdown_ide` MCP tool (clean shutdown, releases all file locks)
 2. **Build**: `cd IDE && dotnet build HexIDE.Desktop/HexIDE.Desktop.csproj -c Debug`
-3. **Relaunch**: `Start-Process "$PWD\IDE\HexIDE.Desktop\bin\Debug\net10.0\HexIDE.Desktop.exe" "--server-port 5123 --newproject"`
-4. **Wait for ready**: poll `http://localhost:5123/health` until HTTP 200 **whose `pid` is the process you just
-   launched** (`Start-Process -PassThru` gives you it; use a loop with 1 s sleep, up to 30 s). A 200 alone is not
-   enough: if another HexIDE still holds the port, it answers, and yours exits with code 3 (#53).
-5. **Continue**: the session's existing MCP tools are usable once `/health` returns 200. A tool this build
+3. **Relaunch and wait for ready**: `pwsh scripts/dev-ide.ps1` from the repo root. It starts this checkout's
+   Debug build on `HEXIDE_MCP_PORT` (5123 when unset) with `--newproject`, in the session's own profile when
+   `HEXIDE_SESSION` is set, and returns only once `/health` answers with **the PID of the process it started**.
+   A 200 alone is not enough: if another HexIDE still holds the port, it answers, and yours exits with code 3
+   (#53). The script refuses to launch while the port already answers and names the PID that does, and when the
+   IDE exits early it says why. Arguments after its own go to HexIDE in place of `--newproject`, so name it again
+   when you still want it, as in `pwsh scripts/dev-ide.ps1 --capture-lsp --newproject`.
+4. **Continue**: the session's existing MCP tools are usable once `/health` returns 200. A tool this build
    added needs a `/mcp` reconnect first; one it changed keeps its old schema in this session if the session
    has loaded it (see the restart note above).
 
-If `shutdown_ide` is unavailable (MCP disconnected), use PowerShell: `Stop-Process -Name HexIDE.Desktop -ErrorAction SilentlyContinue` then proceed from step 2.
+If `shutdown_ide` is unavailable (MCP disconnected), run `pwsh scripts/dev-ide.ps1 -Stop`, then proceed from step 2.
+It finds the HexIDE started for your port by the `--server-port` on its command line, so it finds a hung IDE and
+one whose server went down without it (#644). It stops that IDE only if the profile directory on the same command
+line is this session's, and leaves running another session's IDE, and anything else holding the port.
 
 **File locks from Visual Studio debugger:** If a build still fails with lock errors after shutting down via MCP/CLI (i.e. Visual Studio also has the project loaded and attached), pause (not stop) the VS debugger and retry the build. Only ask the user if you cannot resolve the lock yourself.
 
 ### Initial dev loop (HexIDE not yet running)
 
 1. Build: `cd IDE && dotnet build HexIDE.Desktop/HexIDE.Desktop.csproj -c Debug`
-2. Launch: `Start-Process "$PWD\IDE\HexIDE.Desktop\bin\Debug\net10.0\HexIDE.Desktop.exe" "--server-port 5123 --newproject"`
-3. Wait for ready: poll `http://localhost:5123/health` until HTTP 200
-4. Use MCP tools to inspect and interact with the running IDE
+2. Launch and wait for ready: `pwsh scripts/dev-ide.ps1` from the repo root, as in the rebuild cycle
+3. Use MCP tools to inspect and interact with the running IDE
 
 **MCP session note:** MCP tools are discovered at session start. If HexIDE is not running when a Claude
 Code session starts, the tools will not appear until it is running and `/mcp` reconnects `hexide`. If it *was*

@@ -212,9 +212,11 @@ died — the tool call was fine, the process wasn't. The background-task notific
 **Workaround.** When any tool starts failing to connect, check the process before changing approach:
 
 ```sh
-powershell -NoProfile -Command "Get-Process HexIDE.Desktop -ErrorAction SilentlyContinue"
-curl -s -m 4 -o /dev/null -w '%{http_code}' http://localhost:5123/health
+curl -s -m 4 -o /dev/null -w '%{http_code}' "http://localhost:${HEXIDE_MCP_PORT:-5123}/health"
 ```
+
+A 200 says it is alive. Anything else, with your own IDE's PID from `scripts/dev-ide.ps1` in hand, is checked with
+`Get-Process -Id <pid>`. Not `Get-Process HexIDE.Desktop`: other sessions' IDEs share the name.
 
 If it's gone, the IDE log (`%LOCALAPPDATA%\HexIDE\logs\ide\`) will end cleanly with no exception,
 because an unhandled render-thread exception terminates the process before Serilog flushes. The actual
@@ -277,8 +279,11 @@ answered `connection actively refused` — the web host had gone down while the 
 tool left to call. Worse, the state reads as "the IDE is gone" from the automation side and "the IDE is
 fine" from the desktop, so the next build fails on a file lock for a process the agent believes it closed.
 
-**Workaround used.** `Stop-Process -Name HexIDE.Desktop -Force`, then relaunch — already the documented
-fallback for an MCP disconnect, but reached here *because of* the shutdown rather than before it.
+**Workaround used.** `Stop-Process -Name HexIDE.Desktop -Force`, then relaunch — then the documented
+fallback for an MCP disconnect, but reached here *because of* the shutdown rather than before it. The fallback is
+now `pwsh scripts/dev-ide.ps1 -Stop`, which finds the IDE by the `--server-port` on its command line, so it finds
+one in this state, with no server listening, and stops it only if it was started for this session. Stopping by
+name would end every session's IDE on a machine running several.
 
 **Suggested fix.** Send the reply before tearing the host down (or stop the host last), so the caller gets
 the confirmation the tool promises. Either way, do not leave a window up with no server behind it: if the
@@ -730,3 +735,21 @@ deletable segments.
 
 **Suggested fix.** Delete what the deletable segments allow, as the key does, and say what was left and why.
 [#1055](https://github.com/hexide-io/HexIDE/issues/1055).
+
+## A session can reach an IDE that is not its own, and nothing in a reply says so
+
+**Symptom.** Measured 2026-10-22 with two Debug IDEs, one on port 5128 with a new project and one on 5130 with
+`SpringTide.vbp`. A headless session started with `HEXIDE_MCP_PORT=5128` called `get_project_info` and got
+`Project1`; one started with `HEXIDE_MCP_PORT=5130` got `SpringTide`. So a port picks the IDE, and the replies are
+the same whichever IDE answers. Since #1212, sessions that each set `HEXIDE_MCP_PORT` stay apart. Two sessions that
+set nothing both reach 5123, and a session given the port of a stale IDE left running drives that IDE. Either
+way, the replies look exactly as they would from the session's own build.
+
+**Workaround.** Start the IDE with `pwsh scripts/dev-ide.ps1`, which returns only once `/health` answers with the
+PID of the process it started, and stop it with `shutdown_ide` or `scripts/dev-ide.ps1 -Stop` rather than leaving it
+running.
+
+**Suggested fix.** Tie an IDE to the session that started it: a DEBUG-only `--session <name>`, echoed by `/health`,
+and a session header from `.mcp.json`. An IDE started with `--session` then answers any other session's
+`tools/call` with an error result that names whose IDE it is.
+[#1306](https://github.com/hexide-io/HexIDE/issues/1306).
