@@ -81,4 +81,24 @@ public class UdtFieldStoreTests : BaseVBTestFixture
             With .l = 7, .s = True: Long [7] String [True] err 0
             """.Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.Length > 0).Select(l => new Vb6Value(l))]);
     }
+
+    [Fact]
+    public async Task A_Byte_fields_sum_overflows_once_its_store_is_a_Byte()
+    {
+        // Measured for #987 (the oracle's typed-read section): VB6 raises 6. HexIDE stored 200 as an Integer, so the sum
+        // was 400.
+        await Run("""
+            Private Type TB
+                b As Byte
+            End Type
+            Dim u As TB, x As Variant
+            On Error Resume Next
+            u.b = 200
+            x = u.b + u.b
+            Debug.Print Err.Number
+
+            """);
+
+        AssertDebugLog([new Vb6Value(6L)]);
+    }
 }

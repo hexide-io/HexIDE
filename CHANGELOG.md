@@ -208,6 +208,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A store into a UDT field converts into the field's type** (#221). `u.l = 5`, with `l As Long`, read back as an
+  Integer, `u.dt = "1/2/2003"` stayed a String, and `u.i = 40000` with `i As Integer` stored 40000 with no error. Each
+  now converts as a store into a variable of the type does, as VB6 does, and eleven corpus cases that measured it match.
+
 - **A String stored into a Date reads as VB6 reads it** (#967, #800). `d = "1/2/2003"` was Type mismatch, and
   `CDate("36526")` was too. Now `CDate`, a store into a Date, a Date `Const` and the date functions share one reading: a
   date or time in the program's locale first, then a serial. Under en-GB, a dot between digits separates a time's parts
