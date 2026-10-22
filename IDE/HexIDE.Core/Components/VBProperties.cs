@@ -179,6 +179,9 @@ public static class VBProperties
 
     public static PropertyClass<bool> LockedProperty = new PropertyClass<bool>("Locked", "Whether the control's contents can be edited.", PropertyCategory.Behavior, false);
 
+    /// <summary>A ListBox's MultiSelect: set at design time, and read-only to a program (measured, #1413).</summary>
+    public static PropertyClass<VBMultiSelect> MultiSelectProperty = new PropertyClass<VBMultiSelect>("MultiSelect", "Whether more than one item can be selected, and how.", PropertyCategory.Behavior, VBMultiSelect.None);
+
     public static PropertyClass<VBStartupPosition> StartUpPositionProperty = new PropertyClass<VBStartupPosition>("StartUpPosition", "Where the form is placed on screen when it first opens.", PropertyCategory.Position, VBStartupPosition.StartUpWindowsDefault);
 
     public static PropertyClass<bool> ShowInTaskbarProperty = new PropertyClass<bool>("ShowInTaskbar", "Whether the form appears in the taskbar.", PropertyCategory.Misc, true);

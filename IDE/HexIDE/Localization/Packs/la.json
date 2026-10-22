@@ -587,6 +587,7 @@
     "Str.PropDesc.Checked": "Utrum signum iuxta rem indicis appareat.",
     "Str.PropDesc.WindowList": "Utrum hic index fenestras filiales MDI apertas enumeret.",
     "Str.PropDesc.Locked": "Utrum contenta moderaminis recenseri possint.",
+    "Str.PropDesc.MultiSelect": "Utrum plura elementa quam unum seligi possint, et quomodo.",
     "Str.PropDesc.StartUpPosition": "Ubi forma in scaena ponatur cum primum aperitur.",
     "Str.PropDesc.ShowInTaskbar": "Utrum forma in tabula officiorum appareat.",
     "Str.PropDesc.TabIndex": "Positio moderaminis in ordine tabulationis formae.",

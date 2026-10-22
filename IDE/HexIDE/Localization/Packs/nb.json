@@ -588,6 +588,7 @@
     "Str.PropDesc.Checked": "Om det vises en hake ved siden av menyelementet.",
     "Str.PropDesc.WindowList": "Om denne menyen viser de åpne underordnede MDI-vinduene.",
     "Str.PropDesc.Locked": "Om innholdet i kontrollen kan redigeres.",
+    "Str.PropDesc.MultiSelect": "Om mer enn ett element kan velges, og hvordan.",
     "Str.PropDesc.StartUpPosition": "Hvor skjemaet plasseres på skjermen når det åpnes første gang.",
     "Str.PropDesc.ShowInTaskbar": "Om skjemaet vises på oppgavelinjen.",
     "Str.PropDesc.TabIndex": "Kontrollens plass i skjemaets Tab-rekkefølge.",

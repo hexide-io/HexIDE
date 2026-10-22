@@ -53,7 +53,7 @@ public class ListBoxSelectedTests
         public ListBox? List { get; set; }
         public List<string> Calls { get; } = new();
         public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null) =>
-            Calls.Add($"{name} li={List?.SelectedIndex}");
+            Calls.Add($"{name} li={(List as HexIDE.Runtime.BuiltinControls.VBListBox)?.ListIndex}");
     }
 
     private sealed record Ran(List<string> Clicks, List<string> Printed);
@@ -149,21 +149,52 @@ public class ListBoxSelectedTests
         ran.Printed.Should().Equal(error);
     }
 
-    // A multi-select list answers all three differently, with ListIndex the focused item; HexIDE runs it single-select,
-    // so they are refused rather than answered wrong.
+    // On a multi-select list, ListIndex is the focused item, 0 with nothing selected, and Text reads it (#1413). List2 is
+    // Simple and List3 Extended, and vb6.exe's two agreed row for row.
     [AvaloniaTheory]
-    [InlineData("List2", "v = X.Selected(0)", "Selected", 1)]
-    [InlineData("List2", "X.Selected(0) = True", "Selected", 1)]
-    [InlineData("List2", "v = X.SelCount", "SelCount", 1)]
-    [InlineData("List2", "v = X.Text", "Text", 1)]
-    [InlineData("List2", "X.Text = \"a\"", "Text", 1)]
-    [InlineData("List3", "X.Selected(0) = True", "Selected", 2)]
-    [InlineData("List3", "v = X.Text", "Text", 2)]
-    public async Task On_a_MultiSelect_list_each_is_refused_naming_the_issue(string control, string statement, string member, int multiSelect)
+    [InlineData("List2")]
+    [InlineData("List3")]
+    public async Task A_multi_select_list_s_focus_is_on_its_first_item_with_nothing_selected(string control)
     {
-        var act = () => Run(control, "", statement + "\n");
+        var ran = await Run(control, "", "Debug.Print X.ListIndex\nDebug.Print X.Text\nDebug.Print X.SelCount\n");
 
-        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should()
-            .Contain($"{member} on a ListBox whose MultiSelect is {multiSelect}").And.Contain("#1413");
+        ran.Printed.Should().Equal("0", "a", "0");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("List2")]
+    [InlineData("List3")]
+    public async Task On_a_multi_select_list_Selected_adds_and_removes_an_item_and_moves_the_focus_only_to_add(string control)
+    {
+        var ran = await Run(control, "",
+            "X.Selected(1) = True\nX.Selected(3) = True\nDebug.Print X.SelCount\nX.Selected(3) = False\n"
+            + "Debug.Print X.ListIndex\nDebug.Print X.Text\nX.Selected(0) = False\nDebug.Print X.Selected(1)\nDebug.Print X.SelCount\n");
+
+        // Selected(0) = False on an item not selected changes nothing, and raises no Click.
+        ran.Clicks.Should().Equal($"{control}_Click li=1", $"{control}_Click li=3", $"{control}_Click li=3");
+        ran.Printed.Should().Equal("2", "3", "c", "True", "1");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("List2")]
+    [InlineData("List3")]
+    public async Task On_a_multi_select_list_ListIndex_moves_only_the_focus_and_Text_only_raises_Click(string control)
+    {
+        var ran = await Run(control, "X.Selected(1) = True\r\n",
+            "Debug.Print X.ListIndex\nX.ListIndex = -1\nDebug.Print \"[\" & X.Text & \"]\"\nDebug.Print X.SelCount\n"
+            + "X.Text = \"b\"\nX.ListIndex = 0\nX.Text = \"x\"\nDebug.Print X.ListIndex\nDebug.Print X.Selected(1)\nX.Clear\nDebug.Print X.ListIndex\n");
+
+        ran.Clicks.Should().Equal($"{control}_Click li=-1", $"{control}_Click li=-1", $"{control}_Click li=0", $"{control}_Click li=0");
+        ran.Printed.Should().Equal("1", "[]", "1", "0", "True", "0");
+    }
+
+    [AvaloniaFact]
+    public async Task MultiSelect_reads_as_an_Integer_and_cannot_be_assigned()
+    {
+        var ran = await Run("List1", "", "Debug.Print List1.MultiSelect\nDebug.Print List2.MultiSelect\nDebug.Print List3.MultiSelect\nDebug.Print TypeName(List2.MultiSelect)\n");
+        ran.Printed.Should().Equal("0", "1", "2", "Integer");
+
+        var act = () => Run("List2", "", "X.MultiSelect = 0\n");
+        (await act.Should().ThrowAsync<VBCompileErrorException>()).Which.Message.Should().Contain("Can't assign to read-only property");
     }
 }
