@@ -21,6 +21,8 @@ public partial class VB6BuiltIns
         d["CBool"] = (_, a, _) => CBool(a[0]);
         d["CStr"]  = (_, a, _) => a[0].IsNull ? throw InvalidUseOfNull() : new Vb6Value(AsStr(a[0]));   // no leading space
         d["CDate"] = (_, a, _) => CDate(a[0]);
+        // CDate under its older name, and the same answer (measured: CVDate("36526") is 01/01/2000, CVDate("1.5") 01:05).
+        d["CVDate"] = (_, a, _) => CDate(a[0]);
         d["Hex"]   = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(RadixStr(a[0], 16));
         d["Oct"]   = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(RadixStr(a[0], 8));
     }
@@ -170,9 +172,9 @@ public partial class VB6BuiltIns
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is DateTime) return v;
         if (v.Type == VT.String)
-            // In the program's locale: `CDate("1/2/2003")` is 1 February under en-GB, and CDate(CStr(d)) is d (#777).
-            return TryReadDate(AsStr(v).Trim(), out var dt)
-                ? new Vb6Value(OnZeroDateIfTimeOnly(dt)) : throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            // In the program's locale: `CDate("1/2/2003")` is 1 February under en-GB, and CDate(CStr(d)) is d (#777). A
+            // serial is read too: `CDate("36526")` is 1 January 2000 (#967).
+            return StringToDate(AsStr(v), null);
         // A serial outside the Date range (about -657434 .. 2958465) is a trappable Overflow (Err 6, oracle-verified);
         // FromOADate would otherwise throw an UNCATCHABLE ArgumentException (AsDate wraps this too, at DateTime.cs).
         try { return new Vb6Value(DateTime.FromOADate(ToNum(v))); }

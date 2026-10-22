@@ -40,18 +40,35 @@ public class ConstAsTypeTests : BaseVBTestFixture
     }
 
     [Theory]
-    [InlineData("Const C As Date = \"1/2/2003\"")]
-    [InlineData("Const C As Date = \"36526\"")]
-    [InlineData("Const C As Date = \"abc\"")]
-    public async Task A_Date_Const_given_a_String_is_refused_until_967(string declaration)
+    [InlineData("Const C As Date = \"1/2/2003\"", 37653.0)]
+    [InlineData("Const C As Date = \"36526\"", 36526.0)]
+    [InlineData("Const C As Date = \"1.5\"", 0.0451388888888889)]   // 01:05
+    public async Task A_Date_Const_given_a_String_reads_it_as_CDate_does(string declaration, double serial)
     {
-        // Measured: the first is 01/02/2003 under en-GB, and the third does not compile, "Type mismatch". The second was
-        // measured as a store and as CDate (#873's review), 01/01/2000, not as a Const. VB6 reads a String into a Date as
-        // CDate does, with a numeric fallback; HexIDE's store reads it as a number, and its CDate has no fallback (#967),
-        // so neither rule gives all three. Refused rather than given one rule's answer.
-        var run = () => Run($"{declaration}\nDebug.Print C\n");
+        // Measured under en-GB (#967): 01/02/2003, 01/01/2000 and 01:05:00, each a Date. HexIDE refused each until #967.
+        using (VbLocale.Use(System.Globalization.CultureInfo.GetCultureInfo("en-GB")))
+            await Run($"{declaration}\nDebug.Print TypeName(C)\nDebug.Print CDbl(C)\n");
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#967*");
+        debug[0].Value.Should().Be("Date");
+        ((double)debug[1].Value!).Should().BeApproximately(serial, 1e-9);
+    }
+
+    [Theory]
+    [InlineData("Const C As Date = \"abc\"")]
+    [InlineData("Const C As Date = \"2958466\"")]   // a serial beyond the Date range
+    [InlineData("Const C As Date = \"\"")]
+    [InlineData("Const C As Date = \"1.2.2003\"")]
+    public async Task A_Date_Const_given_a_String_that_is_no_date_is_VB6s_Type_mismatch(string declaration)
+    {
+        // Measured: none of the four compiles, each "Type mismatch". A String beyond the range is not "Overflow", as a
+        // number is (`Const C As Date = 3000000`, below).
+        var run = async () =>
+        {
+            using (VbLocale.Use(System.Globalization.CultureInfo.GetCultureInfo("en-GB")))
+                await Run($"{declaration}\nDebug.Print C\n");
+        };
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Type mismatch*");
     }
 
     [Fact]
@@ -68,7 +85,7 @@ public class ConstAsTypeTests : BaseVBTestFixture
     [InlineData("x = \"1.2.2003\"")]     // a dotted date
     public async Task A_store_of_a_string_VB6_reads_as_no_date_into_a_Date_is_13(string store)
     {
-        // Measured: the first is 13. The second is CDate's 13 under en-GB (#800's row), which a store follows (#967).
+        // Measured: both are 13. The second is no date under en-GB (#800), and no number either.
         await Run($"Dim x As Date\nOn Error Resume Next\n{store}\nDebug.Print Err.Number\n");
 
         AssertDebugLog([new Vb6Value(13L)]);
@@ -90,7 +107,7 @@ public class ConstAsTypeTests : BaseVBTestFixture
     [Fact]
     public async Task A_Const_its_type_cannot_read_is_VB6s_Type_mismatch()
     {
-        // Measured: it does not compile. (`Const C As Date = "abc"` does not either, and is refused until #967.)
+        // Measured: it does not compile. (`Const C As Date = "abc"` does not either, above.)
         var run = () => Run("Const C As Integer = \"x\"\nDebug.Print C\n");
 
         (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Type mismatch*");

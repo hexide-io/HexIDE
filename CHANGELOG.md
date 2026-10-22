@@ -208,6 +208,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A String stored into a Date reads as VB6 reads it** (#967, #800). `d = "1/2/2003"` was Type mismatch, and
+  `CDate("36526")` was too. Now `CDate`, a store into a Date, a Date `Const` and the date functions share one reading: a
+  date or time in the program's locale first, then a serial. Under en-GB, a dot between digits separates a time's parts
+  (`"1.5"` is 01:05), so `"1.2.2003"` is no date, as in VB6. `IsDate` agrees with it, and `CVDate`, which was missing, is
+  `CDate`. `DateValue` and `TimeValue` still take no serial, as in VB6.
+
 - **Another module's Public Enum member reads bare** (#889). `colMax`, declared in Module2's `Public Enum Cols`, read
   as Empty in Module1 with no error, so `For i = 0 To colMax` ran once. It now reads as the Long VB6 gives it, from a
   class's Public Enum too, and sizes a module-level array or folds into a Const. Two modules' members of one name are
