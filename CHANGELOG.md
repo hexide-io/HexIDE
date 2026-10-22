@@ -213,6 +213,12 @@ there isn't one yet. Anything may change between 0.x releases.
   everything else as vb6.exe does, each case measured: another bound changing is 9, too big is 7, and a Variant holding
   no array is 13, each leaving the array as it was.
 
+- **Cutting and pasting a control keeps what HexIDE carries without modelling** (#1453). A Frame or PictureBox cut
+  and pasted lost the controls inside it that HexIDE does not model, such as an ImageList, and any control lost its own
+  properties HexIDE does not model. The next save left them all out, with nothing said. They now go with the control,
+  with the companion records they cite. A copy takes the properties too. It still leaves the controls inside a
+  container behind, because their names would repeat the originals' (#1458).
+
 - **An array element passed ByRef is the element itself** (#1455). `Swap s(0), s(1)` swapped nothing, so a sort written
   the usual way ran to the end and left its array as it was. The element is now passed by reference, as in VB6, and
   while the call runs its array is locked: ReDim, ReDim Preserve, Erase, or a store into the array's variable raises 10.

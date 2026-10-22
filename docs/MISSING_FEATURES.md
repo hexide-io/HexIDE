@@ -272,8 +272,8 @@
 | Alignment commands (align left/right/top/bottom) | Done | Full set via Format > Align; Form Editor toolbar |
 | Make Same Size commands | Done | Same Width / Height / Size via Format > Make Same Size |
 | Spacing commands | Done | Horizontal and Vertical spacing submenus fully implemented |
-| Copy / Paste controls | Done | Ctrl+C/V duplicates selected control(s) with offset; multi-paste accumulates offset |
-| Cut control | Done | Ctrl+X removes selected controls; Ctrl+V restores at offset |
+| Copy / Paste controls | Done | Ctrl+C/V duplicates selected control(s) with offset; multi-paste accumulates offset. A control's properties HexIDE does not model are copied with it (#1453). A copied container is pasted without the controls in it HexIDE does not model, whose names would repeat the originals' ([#1458](https://github.com/hexide-io/HexIDE/issues/1458)) |
+| Cut control | Done | Ctrl+X removes selected controls; Ctrl+V restores at offset, with what HexIDE carries without modelling: a control's own unknown properties, and the controls inside a container, with the companion records they cite. Before [#1453](https://github.com/hexide-io/HexIDE/issues/1453) both were left out, and the next save lost them. Cut into another form, the controls inside go only if that form declares the libraries the first one did (#1458) |
 | Undo / Redo | Partial | Phase 1: structural ops (add/delete/cut/paste/z-order/lock) undoable via Ctrl+Z. Phase 2: move/resize via drag undoable. Phase 3 (properties/format) pending. |
 | Tab Order editor | Missing | TabIndex auto-assigned; no visual tab-order tool |
 | Lock Controls | Done | Toggles drag/resize; persisted in .frm; toolbar toggle reflects state |

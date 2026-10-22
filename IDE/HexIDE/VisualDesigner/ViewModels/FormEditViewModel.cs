@@ -826,6 +826,15 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         var pastedEntries = new List<(ComponentInstanceViewModel Vm, int ComponentsIdx, int AllComponentsIdx)>();
         ComponentInstanceViewModel? lastAdded = null;
 
+        // A control HexIDE does not model is carried by its class name alone, so it goes only into a form declaring
+        // every library the form it came from did; anywhere else VB6 could not load it. A pasted one comes after
+        // everything already on the form in the file, as its container is written there.
+        var declared = new HashSet<string>(
+            DesignerClipboard.Declarations(formDefinition?.HeaderLines ?? []), StringComparer.OrdinalIgnoreCase);
+        var carriesControls = DesignerClipboard.SourceDeclarations.All(declared.Contains);
+        var documentOrder = AllComponents.SelectMany(c => c.Instance.PreservedChildSubtrees)
+            .Select(block => block.DocumentOrder).DefaultIfEmpty(-1).Max() + 1;
+
         void Build(DesignerClipboard.ClipboardEntry entry, ComponentInstance? container, double shiftX, double shiftY)
         {
             var newName = GenerateName(entry.BaseClass);
@@ -842,6 +851,25 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             }
             if (container is not null)
                 newInstance.SetContainer(container);
+
+            // What HexIDE carries without modelling goes with the control, or a cut and paste loses it (#1453). Its
+            // properties have no name to repeat, so a copy takes them too, as VB6 copies every property. A control
+            // inside it goes only where its names are free, which a cut leaves them: a copy's would be the original's
+            // again, and vb6.exe builds a form holding a name twice without either control (#854).
+            newInstance.UnknownRawProperties.AddRange(entry.UnknownProperties);
+            if (carriesControls)
+            {
+                var inUse = ComponentNaming.NamesInUse(AllComponents.Select(c => c.Instance));
+                inUse.Add(newName);
+                foreach (var block in entry.PreservedChildren)
+                {
+                    var names = ComponentNaming.NamesDeclaredBy(block.Text).ToList();
+                    if (names.Any(inUse.Contains))
+                        continue;
+                    newInstance.AddPreservedChildSubtree(block.Ordinal, documentOrder++, block.Text, block.Records);
+                    inUse.UnionWith(names);
+                }
+            }
 
             var newVm = new ComponentInstanceViewModel(this, newInstance);
             Components.Add(newVm);
