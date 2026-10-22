@@ -30,11 +30,13 @@ namespace HexIDE.Runtime.Serialization;
 /// </remarks>
 internal sealed class CompanionCitations
 {
-    // Never in a designer file, so a placeholder cannot be mistaken for any of its text.
+    // Never in a designer file VB6 wrote, so a placeholder cannot be mistaken for any of its text. A damaged file
+    // can still hold one, and a carried line keeps it: Resolve counts the marks against the placeholders and refuses.
     private const char Mark = (char)0;
 
     private readonly List<byte[]> records = [];
     private readonly Dictionary<byte[], int> indexOf = new(ReferenceEqualityComparer.Instance);
+    private int placeholders;
 
     /// <summary>
     /// A placeholder citing <paramref name="record"/>. By reference, as <see cref="FrxDeserializer"/> hands one
@@ -48,6 +50,7 @@ internal sealed class CompanionCitations
             records.Add(record);
             indexOf[record] = index;
         }
+        placeholders++;
         return $"{Mark}{index}{Mark}";
     }
 
@@ -71,10 +74,16 @@ internal sealed class CompanionCitations
     /// <paramref name="text"/> with every placeholder resolved to <paramref name="companionName"/> and an offset,
     /// and the companion those offsets address, or null when the text cites nothing.
     /// </summary>
+    /// <exception cref="InvalidOperationException">The text holds a NUL that is not a placeholder's.</exception>
     public (string Text, byte[]? Companion) Resolve(string text, string companionName)
     {
         if (records.Count == 0)
             return (text, null);
+
+        if (text.Count(c => c == Mark) != 2 * placeholders)
+            throw new InvalidOperationException(
+                "The form's designer text holds a NUL character, so the citations of its companion can't be placed. "
+              + "VB6 never writes one there; it came in with the file as it was read.");
 
         var order = new List<int>();
         var placed = new HashSet<int>();

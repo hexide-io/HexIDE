@@ -7,6 +7,7 @@ using HexIDE.Runtime.Components;
 using static HexIDE.Runtime.Components.VBProperties;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
+using HexIDE.TestSupport;
 
 namespace HexIDE.Runtime.Tests;
 
@@ -235,13 +236,11 @@ public class ContainerHierarchySaveTests
         { "Controls", "Treeview Listview Splitter.frm" },
     };
 
-    [Theory]
+    [Vb6TemplateTheory]
     [MemberData(nameof(NestedTemplates))]
     public void RoundTrip_OfVb6sOwnNestedTemplates_ReproducesTheBeginStructure(string subdirectory, string fileName)
     {
-        var path = TemplatePath(subdirectory, fileName);
-        if (path is null)
-            return;
+        var path = Vb6Template.File(subdirectory, fileName);
 
         var original = Vb6TextFile.ReadAllText(path);
         var output = Save(Load(original));
@@ -250,31 +249,5 @@ public class ContainerHierarchySaveTests
         // skeleton: property formatting and property order are separate open round-trip defects, and
         // pinning whole files here would make this test fail for reasons that have nothing to do with #84.
         BeginShape(output).Should().Equal(BeginShape(original));
-    }
-
-    /// <summary>
-    /// Locates a VB6 template, and — unlike the corpus tests' silent fallback — says so when a Windows
-    /// machine that clearly has the toolchain is missing one of the files this test exists to check.
-    ///
-    /// A skip that cannot be distinguished from a pass is how a corpus assertion quietly stops asserting
-    /// anything; CI is Linux and never has VB6, so the loud case has to be Windows. Setting VB6_TEMPLATES
-    /// explicitly is taken as consent that the caller knows where their corpus is.
-    /// </summary>
-    private static string? TemplatePath(string subdirectory, string fileName)
-    {
-        var configured = Environment.GetEnvironmentVariable("VB6_TEMPLATES");
-        var templates = configured ?? @"C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template";
-        var path = Path.Join(templates, subdirectory, fileName);
-        if (File.Exists(path))
-            return path;
-
-        // No VB6 install at all, or a corpus the caller pointed us at deliberately — nothing to check.
-        if (configured is not null || !Directory.Exists(templates))
-            return null;
-
-        throw new FileNotFoundException(
-            $"The VB98 template tree is present at '{templates}' but '{subdirectory}\\{fileName}' is not in "
-          + "it. This is one of the six files that carry container nesting, so the check that #84 stays "
-          + "fixed cannot run. Point VB6_TEMPLATES at a complete copy to skip this deliberately.", path);
     }
 }
