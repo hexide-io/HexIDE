@@ -27,6 +27,11 @@ there isn't one yet. Anything may change between 0.x releases.
   truncation and argument errors follow measured VB6 behavior. Non-text operations remain explicitly unsupported;
   setting text over non-text formats is refused until they can be preserved (call Clear first).
 
+- **A TextBox's `MultiLine` and `ScrollBars`** (#1340). They were kept in the file and ignored, so Enter added
+  nothing, no long line wrapped and no box drew a scroll bar. Now a MultiLine box takes Enter as a CR LF on every host,
+  wraps unless it has a horizontal scroll bar, and draws the bars it asks for. A single-line box draws none, which also
+  ends the vertical bar fragment a short one showed (#914). Both read back at run time and refuse a write with 382, as
+  vb6.exe measured.
 - **A TextBox's `SelStart`, `SelLength` and `SelText`** (#1150). They raised 438. They now read and write as vb6.exe
   measured: setting SelStart drops the selection, positions past the end clamp, a negative one is 380, and SelText
   leaves the caret after what it put in.
