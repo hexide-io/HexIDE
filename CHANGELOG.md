@@ -231,6 +231,13 @@ there isn't one yet. Anything may change between 0.x releases.
   writes it: `Description="..."` with a quote inside doubled, after `HelpContextID`, and no line when there is
   none. Measured with VB6's own Save Project As.
 
+- **A `.bas` whose lines end with a lone CR no longer loses its code on Save Project** (#1020). The header split, the
+  `VB_Name` retarget, the read-only regions and the guard ended a line only at LF. So a CR-only module was one line to
+  them, taken whole for its header, and Save Project wrote the file back as its `VB_Name` line alone. One stray CR lost
+  the line it joined, and a CR-only form lost its whole code section on the first nudge of a control. They now end a
+  line at a lone CR and a lone LF as well as at CRLF, which is what VB6 does (measured with `vb6.exe /make`). A module
+  with lone CRs is written back with CRLF throughout. To VB6 it is the same file.
+
 - **Save Project no longer writes a second header into a `.bas` or `.cls` whose first line is blank** (#472). The
   header reader looked for the header on line 0 alone. So one blank line above it left the whole file as code, and
   Save Project, which writes every module, put the canonical header in front of it, unasked. For a class, that
