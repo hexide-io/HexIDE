@@ -242,4 +242,53 @@ public class RuntimeStackingTests
 
         printed.Should().Be(error);
     }
+
+    // ── a long run of restacks ───────────────────────────────────────────────────────────────────────────
+
+    // An animation that brings two controls forward in turn, frame after frame. Each placement used to go one past the
+    // plane's extreme, so the two climbed by one a call, and after about a million crossed into the other plane's band:
+    // two Labels became windowed, drawn over the buttons. The plane's numbers now stay those of its controls.
+    [AvaloniaTheory]
+    [InlineData("0")]
+    [InlineData("1")]
+    public async Task Controls_restacked_in_turn_keep_the_numbers_of_their_plane(string position)
+    {
+        async Task<(int[] Labels, int[] Pictures)> After(int rounds)
+        {
+            var (_, canvas, _) = await Ordered(
+                Box("VB.Label", "LabelA", "&H000000FF&", 10, 10, 60, 40) +
+                Box("VB.Label", "LabelB", "&H0000FF00&", 40, 30, 60, 40) +
+                Box("VB.PictureBox", "PicA", "&H00FF0000&", 150, 10, 60, 40) +
+                Box("VB.PictureBox", "PicB", "&H0000FFFF&", 180, 30, 60, 40),
+                $"Dim i As Long\r\nFor i = 1 To {rounds}\r\nLabelA.ZOrder {position}: LabelB.ZOrder {position}\r\n" +
+                $"PicA.ZOrder {position}: PicB.ZOrder {position}\r\nNext");
+            return (canvas.Children.OfType<HexIDE.Runtime.BuiltinControls.VBLabel>().Select(c => c.ZIndex).ToArray(),
+                canvas.Children.OfType<HexIDE.Runtime.BuiltinControls.VBPictureBox>().Select(c => c.ZIndex).ToArray());
+        }
+
+        var once = await After(1);
+        var many = await After(500);
+
+        many.Labels.Should().Equal(once.Labels, "the Labels end as they did after one round, on the same numbers");
+        many.Pictures.Should().Equal(once.Pictures);
+        many.Labels.Max().Should().BeLessThan(many.Pictures.Min(), "a Label stays under every windowed control");
+    }
+
+    // The plane is the control's, not read back from its number: a Label whose number was pushed among the windowed
+    // controls' is still a Label, and its next restack puts it back under them.
+    [AvaloniaFact]
+    public async Task A_controls_plane_does_not_come_from_its_number()
+    {
+        var (window, canvas, _) = await Ordered(
+            Box("VB.Label", "LabelA", "&H000000FF&", 10, 110, 100, 40) +
+            Box("VB.CommandButton", "CmdA", "", 40, 125, 81, 33), "");
+        var label = canvas.Children.OfType<HexIDE.Runtime.BuiltinControls.VBLabel>().Single();
+        label.ZIndex = 10;
+
+        HexIDE.Runtime.ControlStacking.IsWindowless(label).Should().BeTrue();
+        HexIDE.Runtime.ControlStacking.PlaceOver(label, HexIDE.Runtime.ControlStacking.IsWindowless(label), canvas);
+        Dispatcher.UIThread.RunJobs();
+
+        At(window, canvas, 60, 140).Should().Be(At(window, canvas, 115, 150), "the Label went back under the button");
+    }
 }
