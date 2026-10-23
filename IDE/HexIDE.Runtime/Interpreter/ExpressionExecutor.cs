@@ -18,6 +18,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // Threaded per-activation alongside env (see StatementExecutor for why these are not ambient interpreter
     // fields): the module this expression is being evaluated in, and the enclosing activation's `With` targets.
     private readonly ModuleInfo currentModule;
+
+    // The bare name a read last found unclaimed, which VB6 would declare there. A read does not declare it (see the read), but
+    // ResolveArg does, when that name is the argument it is resolving (#1505).
+    private VB6Parser.ICS_S_VariableOrProcedureCallContext? unclaimedRead;
     private readonly Stack<Vb6Value> withTargets;
 
     // The enclosing activation's per-statement temporary-frame stack (Phase 4.2b) — shared by reference with the
@@ -339,8 +343,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     {
         if (!byVal && await TryGetArgElement(valueStmt) is var (elementValue, element))
             return new CallArg(elementValue, null, element);
+        unclaimedRead = null;
         var value = await EvaluateValue(valueStmt);
-        int? location = byVal ? null : TryGetArgLocation(valueStmt);
+        int? location = byVal ? null : TryGetArgLocation(valueStmt) ?? DeclareUnclaimed(valueStmt);
         var field = byVal || location is not null ? null : TryGetArgField(valueStmt);
         return new CallArg(value, location, field);
     }
@@ -436,6 +441,20 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // parameter's write leaves it as it was, raising nothing (measured, #1001: a module Const, a local one, a typed one
     // and an Enum member, each through `v As Variant`, an untyped `v` and an `x As Integer`). It was aliased, so the
     // write overwrote a Const, and was refused for an Enum member.
+    // A name nothing claims, passed as an argument, is declared there, as VB6 declares it, so a ByRef parameter writes into it
+    // (measured, #1505: `Bump a12` twice, with `Sub Bump(x)`, leaves an Integer 2). It was passed as a copy, and the write was
+    // lost. Only the bare name the read has just found unclaimed: a name that is a Function is called, and `(a12)` is a copy,
+    // as in VB6.
+    private int? DeclareUnclaimed(VB6Parser.ValueStmtContext valueStmt)
+    {
+        if (valueStmt is not VB6Parser.VsICSContext ics
+            || ics.implicitCallStmt_InStmt()?.iCS_S_VariableOrProcedureCall() is not { } name
+            || !ReferenceEquals(name, unclaimedRead))
+            return null;
+        StatementExecutor.AllocImplicitVariable(interpreter, env, currentModule, name.ambiguousIdentifier().GetText());
+        return TryGetArgLocation(valueStmt);
+    }
+
     private int? TryGetArgLocation(VB6Parser.ValueStmtContext valueStmt)
     {
         if (valueStmt is VB6Parser.VsICSContext ics
@@ -794,6 +813,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                         identifier + " is a VB6 intrinsic that HexIDE does not implement yet");
                 // Under a DefType it reads as that type's zero, typed as a Dim's would be (measured, #169: `i9` under DefInt
                 // is an Integer 0, `z9` under DefStr "").
+                unclaimedRead = varOrProcCall;
                 return currentModule.PrePass.DefaultTypeOf(identifier) is { } defaultType
                     ? (VbNumeric.IsDeclarableScalar(defaultType) ? new Vb6Value(defaultType).AsFixedType() : new Vb6Value(defaultType))
                     : Vb6Value.Variant;
