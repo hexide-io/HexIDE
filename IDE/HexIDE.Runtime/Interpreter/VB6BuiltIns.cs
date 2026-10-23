@@ -99,7 +99,9 @@ public partial class VB6BuiltIns
         if (TakesTheArgumentItself.Contains(name) || (index == 0 && TakesAnArrayFirst.Contains(name))
             || (index >= 1 && TakesItsChoicesThemselves.Contains(name))
             || (index == 1 && string.Equals(name, "Join", StringComparison.OrdinalIgnoreCase))
-            || string.Equals(name, "Filter", StringComparison.OrdinalIgnoreCase))
+            || string.Equals(name, "Filter", StringComparison.OrdinalIgnoreCase)
+            // GetSetting reads its default only when it is the answer (measured, #1562).
+            || (index == 3 && string.Equals(name, "GetSetting", StringComparison.OrdinalIgnoreCase)))
             return arg;
         if (ReadsADefaultMemberIfAny.Contains(name))
             return ObjectAsValue.DefaultMemberIfAny(arg);
@@ -150,6 +152,8 @@ public partial class VB6BuiltIns
         RegisterFormat(d);
         RegisterColor(d);
         RegisterChoice(d);
+        RegisterSettings(d);
+        RegisterInteraction(d);
         // The command line, a String (measured): empty in a made program run with none.
         d["Command"] = (self, a, _) => a.Count == 0
             ? new Vb6Value(self.CommandLine)

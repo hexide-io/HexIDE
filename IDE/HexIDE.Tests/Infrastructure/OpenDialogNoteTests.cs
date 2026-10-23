@@ -16,7 +16,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// <summary>How a modal dialog's note joins a tool's reply, and which calls are told of one (#681).</summary>
 public class OpenDialogNoteTests
 {
-    private const string Note = "'Add Procedure', a modal dialog over 'HexIDE', opened during this call and waits for an answer.";
+    private const string Note = "'Add Procedure', a modal dialog over 'HexIDE', opened during this call and waits for an answer;";
 
     private static string Text(CallToolResult result, int block = 0) => ((TextContentBlock)result.Content[block]).Text;
 
@@ -146,6 +146,24 @@ public class OpenDialogNoteTests
         ModalDialog(await CallAsync("dump_visual_tree", window: "ide")).Should().Contain("this call reached past it");
         ModalDialog(await CallAsync("dump_visual_tree")).Should().BeNull("left to the frontmost window, it walks the dialog");
         ModalDialog(await CallAsync("type_text", window: "Add Procedure")).Should().BeNull("it was sent to the dialog");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true, "refused")]
+    [InlineData(false, "{\"success\":false}")]
+    public async Task A_failed_call_names_an_unreported_dialog_without_claiming_to_have_acted(bool isError, string text)
+    {
+        using var ide = new Ide();
+        ide.Open("Add Procedure");
+        var result = Reply(text);
+        result.IsError = isError;
+
+        var noted = await OpenDialogNote.NoteAsync(new CallToolRequestParams { Name = "set_file_content" },
+            () => ValueTask.FromResult(result), CancellationToken.None);
+
+        var note = isError ? Text(noted, 1) : ModalDialog(Text(noted));
+        note.Should().Contain("'Add Procedure'").And.Contain("is still open and waits for an answer")
+            .And.NotContain("reached past");
     }
 
     // A look that fails, as one does once shutdown_ide has closed the IDE, leaves the tool's reply as it was.

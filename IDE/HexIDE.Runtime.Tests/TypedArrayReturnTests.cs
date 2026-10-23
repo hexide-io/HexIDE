@@ -188,17 +188,17 @@ public class TypedArrayReturnTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value("err 13, x Empty - To -")]);
     }
 
+    // VB6 converts a String into its bytes here, two to a character, low byte first, from 0 (measured, #998).
     [Theory]
-    [InlineData("Function F() As Byte()\n    F = \"ab\"\nEnd Function\n")]   // VB6: err 0, x Byte() 0 To 3 [ 97 0 98 0 ]
-    [InlineData("Function F() As Byte()\n    Dim s As String\n    s = \"ab\"\n    F = s\nEnd Function\n")]   // VB6: err 0, x Byte() 0 To 3 [ 97 0 98 0 ]
-    [InlineData("Function F() As Byte()\n    Dim v\n    v = \"ab\"\n    F = v\nEnd Function\n")]   // VB6: err 0, x Byte() 0 To 3 [ 97 0 98 0 ]
-    [InlineData("Function F() As Byte()\n    F = \"\"\nEnd Function\n")]   // VB6: err 0, x Byte() 0 To -1 [ ]
-    public async Task A_String_stored_into_a_Byte_array_return_is_refused_until_it_converts(string function)
+    [InlineData("Function F() As Byte()\n    F = \"ab\"\nEnd Function\n", "err 0, x Byte() 0 To 3: 97 0 98 0")]
+    [InlineData("Function F() As Byte()\n    Dim s As String\n    s = \"ab\"\n    F = s\nEnd Function\n", "err 0, x Byte() 0 To 3: 97 0 98 0")]
+    [InlineData("Function F() As Byte()\n    Dim v\n    v = \"ab\"\n    F = v\nEnd Function\n", "err 0, x Byte() 0 To 3: 97 0 98 0")]
+    [InlineData("Function F() As Byte()\n    F = \"\"\nEnd Function\n", "err 0, x Byte() 0 To -1:")]
+    public async Task A_String_stored_into_a_Byte_array_return_becomes_its_bytes(string function, string expected)
     {
-        // VB6 converts a String into its bytes here (#998), and HexIDE does not yet, so the store stops the run rather
-        // than giving an error VB6 does not raise.
-        var run = () => Run("On Error Resume Next\nDim x\nx = F()\n" + function + Shape);
+        await Run("On Error Resume Next\nDim x, i, s\nx = F()\ns = \"err \" & Err.Number & \", x \" & Shape(x) & \":\"\n"
+            + "For i = LBound(x) To UBound(x)\n    s = s & \" \" & x(i)\nNext\nDebug.Print s\n" + function + Shape);
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#998*");
+        AssertDebugLog([new Vb6Value(expected)]);
     }
 }
