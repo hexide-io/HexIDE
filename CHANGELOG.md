@@ -236,6 +236,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A CommandButton, TextBox, ComboBox, ListBox and Frame have ToolTipText** (#1403). Only five controls declared it,
+  so on these the Properties window did not list it, a running form showed no tip, and code could not read or set
+  it. Measured on vb6.exe across every intrinsic control: these five have it, and the scroll bars, Shape, Line, Timer
+  and menus do not. On all ten that have it, ToolTipText now reads and takes values at run time as vb6.exe's does.
+
 - **Persian words in MCP replies remain readable** (#1316). A zero-width non-joiner between Arabic-script
   letters (including their combining marks) is written as itself. Joiners elsewhere remain escaped.
 

@@ -107,6 +107,18 @@ public static class AvaloniaInteroperability
         Register<Control, bool>(VBProperties.VisibleProperty, VBVisibility.Get, VBVisibility.Set);
         Register<Control, bool>(VBProperties.EnabledProperty, InputElement.IsEnabledProperty);
         Register<Control, object?>(VBProperties.TagProperty, Control.TagProperty);
+        // ToolTipText, on the ten controls HexIDE runs that VB6 gives it, and on no other: a scroll bar, Shape, Line,
+        // Timer, menu or form has none (measured, #1403). The tip shown is the value, and "" where none was given.
+        RegisterToolTipText<VBCommandButton>();
+        RegisterToolTipText<VBTextBox>();
+        RegisterToolTipText<VBComboBox>();
+        RegisterToolTipText<VBListBox>();
+        RegisterToolTipText<VBCheckBox>();
+        RegisterToolTipText<VBOptionButton>();
+        RegisterToolTipText<VBFrame>();
+        RegisterToolTipText<VBPictureBox>();
+        RegisterToolTipText<VBLabel>();
+        RegisterToolTipText<VBImage>();
         // A Label paints its own BackColor (VBLabel.Render), not the attached one every other control's template
         // draws, so it is bound first: a run-time assignment then paints, and a read gives the form's colour (#795).
         Register<VBLabel, VBColor>(VBProperties.BackColorProperty, VBLabel.BackColorProperty);
@@ -172,6 +184,10 @@ public static class AvaloniaInteroperability
 
         return VBColorAvaloniaExtensions.FromAvaloniaColor(solidColorBrush.Color);
     }
+
+    private static void RegisterToolTipText<TControl>() where TControl : Control =>
+        Register<TControl, string?>(VBProperties.ToolTipTextProperty, c => ToolTip.GetTip(c) as string ?? "",
+            (c, tip) => ToolTip.SetTip(c, string.IsNullOrEmpty(tip) ? null : tip));
 
     private static void Register<TControl, TProperty>(PropertyClass<TProperty> property,
         Func<TControl, TProperty> getter,
@@ -337,6 +353,11 @@ public static class AvaloniaInteroperability
         // the interpreter's own, already pinned, so the boundary agrees with `CBool(x)` written out longhand.
         if (type == typeof(bool))
             return value.Value is bool ? value.Value : VB6BuiltIns.CBool(value).Value;
+
+        // ToolTipText takes Null as 13, Type mismatch, on every control that has it, where Caption, Text and Tag take it as
+        // 94 (measured, #1403). A ComboBox's Text is 13 as well (#926), and is refused in ListMembers before this.
+        if (ReferenceEquals(property, VBProperties.ToolTipTextProperty) && value.IsNull)
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
 
         // As CStr writes it: a Date in the program's locale, day first under en-GB (#777).
         if (type == typeof(string))
