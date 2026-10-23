@@ -213,6 +213,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A helper's `On Error Resume Next` no longer sees its caller's stale error** (#877). `On Error`, `Resume` and leaving a procedure from its handler now clear `Err`, as vb6.exe does, so `If Err.Number <> 0 Then` after them reads only what has happened since. While a handler runs, an error in it now goes to the caller even after `On Error Resume Next`, where HexIDE used to trap it and run on. `On Error GoTo -1` runs, and `Err.Raise` with no Description keeps the one already set, as vb6.exe's does.
+
 - **View Code opens with the caret in the code** (#1518). It opened at the top of the file, on the folded header that
   only the IDE may change, so the first keystroke was refused and nothing appeared. Since #1369 that was every new
   form's first View Code too. Now a code window opened with nowhere asked for puts its caret on the first line below
