@@ -2220,13 +2220,22 @@ public static class UiAutomationDriver
                       + "that owns the DataContext lists both");
         }
 
-        // Avalonia's convention: a bool Can{name}(object) on the type or a base, of any visibility, given the
-        // CommandParameter, which is null here.
-        var can = dc.GetType().GetMethod("Can" + name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
-            [typeof(object)]);
+        // Avalonia resolves bool Can{name}(object) from the bound method's declaring type upwards,
+        // at every visibility, not from the DataContext's runtime type. Use the type the compiled binding
+        // matched so a method hidden with new does not move the guard lookup below that binding.
+        // The CommandParameter passed to the guard is null here.
+        XamlCommandBindings.Arity(dc.GetType(), name, out var boundType);
+        MethodInfo? can = null;
+        for (var t = boundType ?? method.DeclaringType; t is not null; t = t.BaseType)
+        {
+            can = t.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                .FirstOrDefault(m => m.Name == "Can" + name && m.ReturnType == typeof(bool)
+                    && m.GetParameters() is [{ ParameterType: var parameterType }] && parameterType == typeof(object));
+            if (can is not null) break;
+        }
         try
         {
-            if (can is { ReturnType: var r } && r == typeof(bool) && !(bool)can.Invoke(dc, [null])!)
+            if (can is not null && !(bool)can.Invoke(dc, [null])!)
                 return ReflectErr($"'Can{name}'(null) on {type} returned false");
 
             var result = method.Invoke(dc, null);
