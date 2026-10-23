@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading.Tasks;
 using Antlr4.Runtime.Tree;
 using Avalonia.Controls;
@@ -584,6 +585,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return ClassifyRadixLiteral(octalliteral.GetText(), 8);
         if (literal.DOUBLELITERAL() is { } doubleliteral)
         {
+            // Source numbers always use a point, whatever the host's culture (#781).
             var text = doubleliteral.GetText();
             char suffix = text[^1];
             if (suffix is '#' or '!' or '&' or '@' or '%')
@@ -591,15 +593,15 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 var body = text[..^1];
                 return suffix switch
                 {
-                    '!' => new Vb6Value(float.Parse(body)),
-                    '&' => new Vb6Value((long)Math.Round(double.Parse(body), MidpointRounding.ToEven)),   // & forces Long
-                    '@' => Vb6Value.NewCurrency(decimal.Parse(body)),                                     // @ forces Currency
-                    '%' => new Vb6Value((int)Math.Round(double.Parse(body), MidpointRounding.ToEven)),    // % forces Integer
-                    _ => new Vb6Value(double.Parse(body)),                                                // #
+                    '!' => new Vb6Value(float.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)),
+                    '&' => new Vb6Value((long)Math.Round(double.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture), MidpointRounding.ToEven)), // & forces Long
+                    '@' => Vb6Value.NewCurrency(decimal.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)), // @ forces Currency
+                    '%' => new Vb6Value((int)Math.Round(double.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture), MidpointRounding.ToEven)), // % forces Integer
+                    _ => new Vb6Value(double.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)), // #
                 };
             }
             // VB6: an unsuffixed floating-point literal (with a '.' or exponent) defaults to Double.
-            return new Vb6Value(double.Parse(text));
+            return new Vb6Value(double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture));
         }
         if (literal.TRUE() is { })
         {
@@ -656,18 +658,18 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             var body = text[..^1];
             return suffix switch
             {
-                '&' => new Vb6Value(long.TryParse(body, out var lp) ? lp : (long)double.Parse(body)),
-                '@' => Vb6Value.NewCurrency(decimal.Parse(body)),
-                '!' => new Vb6Value(float.Parse(body)),
-                '%' => new Vb6Value(int.Parse(body)),   // Integer (magnitude ctor keeps it Integer in Int16 range)
-                _ => new Vb6Value(double.Parse(body)),   // '#'
+                '&' => new Vb6Value(long.TryParse(body, NumberStyles.Integer, CultureInfo.InvariantCulture, out var lp) ? lp : (long)double.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)),
+                '@' => Vb6Value.NewCurrency(decimal.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)),
+                '!' => new Vb6Value(float.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)),
+                '%' => new Vb6Value(int.Parse(body, NumberStyles.Integer, CultureInfo.InvariantCulture)),   // Integer (magnitude ctor keeps it Integer in Int16 range)
+                _ => new Vb6Value(double.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)),   // '#'
             };
         }
         if (text.IndexOf('e') >= 0 || text.IndexOf('E') >= 0)
-            return new Vb6Value(double.Parse(text));   // exponent without a dot -> Double (e.g. 1e5)
-        if (long.TryParse(text, out var lv))
+            return new Vb6Value(double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture));   // exponent without a dot -> Double (e.g. 1e5)
+        if (long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var lv))
             return lv >= int.MinValue && lv <= int.MaxValue ? new Vb6Value((int)lv) : new Vb6Value((double)lv);
-        return new Vb6Value(double.Parse(text));
+        return new Vb6Value(double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture));
     }
 
     // VB6 &H hex / &O octal literals are unsigned bit-patterns (verified against vb6.exe): with no suffix,

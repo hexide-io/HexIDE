@@ -591,6 +591,7 @@
     "Str.PropDesc.WindowList": "Чи перелічує це меню відкриті дочірні вікна MDI.",
     "Str.PropDesc.Locked": "Чи можна редагувати вміст елемента.",
     "Str.PropDesc.MultiSelect": "Чи можна вибрати більше ніж один елемент і яким чином.",
+    "Str.PropDesc.Style": "Як елемент відображається і як він поводиться.",
     "Str.PropDesc.StartUpPosition": "Де на екрані розміщується форма при першому відкритті.",
     "Str.PropDesc.ShowInTaskbar": "Чи з'являється форма на панелі завдань.",
     "Str.PropDesc.TabIndex": "Позиція елемента в порядку обходу Tab у формі.",
