@@ -208,6 +208,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **View Code opens with the caret in the code** (#1518). It opened at the top of the file, on the folded header that
+  only the IDE may change, so the first keystroke was refused and nothing appeared. Since #1369 that was every new
+  form's first View Code too. Now a code window opened with nowhere asked for puts its caret on the first line below
+  the header, as VB6's View Code does. Navigating to a procedure or a breakpoint still puts it there.
+
 - **The Project Explorer's Add Form adds a form as Project > Add Form does** (#468). It added a form with no file and
   opened nothing, a second Add Form of its own, and closing the IDE then left that form out of the project file
   (#1359). It now writes the form's file and opens its designer.
