@@ -208,6 +208,13 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The designer draws and saves controls in VB6's stacking order** (#1481). In VB6 the first `Begin` block in a
+  container is the control on top, and windowless controls (Label, Shape, Line, Image) are drawn under the windowed
+  ones and written after them. HexIDE drew the last block on top and wrote a new control last, so a control added here
+  was the bottom one when VB6 opened the file, and Bring to Front and Send to Back each saved the opposite of what they
+  showed. Now a new or pasted control is written first in its plane, Bring to Front and Send to Back move a control
+  within its plane and take a container's contents with it, and a loaded form is drawn as VB6 draws it. A pasted
+  container keeps its source's stacking, where VB6 turns its contents over.
 - **`Dim o As New C1` runs** (#435). The whole module stopped loading at the first `As New`. Now a variable declared
   `As New` holds Nothing until it is used, and its first use makes the object, as vb6.exe does, for a class and for a
   Collection, at procedure and module level and as a class field. Every use counts: `If o Is Nothing` makes the object,
