@@ -238,6 +238,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **Numeric source literals keep their value on every locale** (#781). A made EXE on German regional settings read `0.6 * 10` as 60 and `1.5!` as 15; French settings could stop the program with a parse error. Literal parsing now uses the invariant culture, including suffixes, exponents and conditional compilation. Runtime string conversions retain their locale rules.
 
+- **Persian words in MCP replies remain readable** (#1316). A zero-width non-joiner between Arabic-script
+  letters (including their combining marks) is written as itself. Joiners elsewhere remain escaped.
+
 - **A helper's `On Error Resume Next` no longer sees its caller's stale error** (#877). `On Error`, `Resume` and leaving a procedure from its handler now clear `Err`, as vb6.exe does, so `If Err.Number <> 0 Then` after them reads only what has happened since. While a handler runs, an error in it now goes to the caller even after `On Error Resume Next`, where HexIDE used to trap it and run on. `On Error GoTo -1` runs, and `Err.Raise` with no Description keeps the one already set, as vb6.exe's does.
 
 - **MCP window wording matches how `auto` picks** (#1321). `interact` now says it usually picks a running form, and the unknown-window refusal describes its preference for another visible window, a dialog first.
