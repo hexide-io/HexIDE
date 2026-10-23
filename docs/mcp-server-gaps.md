@@ -805,20 +805,6 @@ command it is bound to through its automation peer. That route was measured on t
 and `inspect_element` look where the binding resolves, or have the refusal say that the command is bound elsewhere
 and that `invoke` on the item reaches it. [#1336](https://github.com/hexide-io/HexIDE/issues/1336).
 
-## A lone surrogate in a call's arguments gets a bare `-32603` before any tool runs
-
-**Symptom.** Recorded in #1274's review, through a raw request rather than a client's tool call; the request was not
-recorded. A string argument holding an unpaired surrogate, such as an escaped U+D800 with no low surrogate after it,
-is answered with the SDK's JSON-RPC error `-32603` "An error occurred." before any tool runs. The reply names no tool,
-parameter or character, and does not say that nothing was done. Not yet reproduced through a client, which may
-escape or refuse such a string before sending it.
-
-**Workaround.** Send a surrogate pair whole, or the character itself.
-
-**Suggested fix.** Reproduce it with the SDK's own client, as `McpRestartTests` drive the server, and answer it as
-the server has answered an argument the SDK cannot bind since #1270: refused, naming the parameter and the problem,
-and saying nothing was done. [#1337](https://github.com/hexide-io/HexIDE/issues/1337).
-
 ## Two sessions that set neither variable reach the same IDE, and nothing in a reply says so (narrowed 2026-10-22)
 
 **Symptom.** Measured 2026-10-22 with two Debug IDEs, one on port 5128 with a new project and one on 5130 with
