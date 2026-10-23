@@ -251,8 +251,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 else
                 {
                     Log.Debug("CodeEditorViewModel: 'Sub {SubName}' not found, creating event stub", e.Sub);
+                    // Private, as VB6 writes an event procedure (measured, #1532). Add Procedure's own default is Public.
                     AddProcedureViewModel vm = new AddProcedureViewModel();
-                    vm.IsPublic = true;
+                    vm.IsPublic = false;
                     vm.IsSub = true;
                     vm.Name = e.Sub;
                     var code = vm.GenerateCode();
@@ -1894,11 +1895,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 sb.Append($"{ev.Arguments[i].DefaultName} As {ev.Arguments[i].Type}");
             }
         }
-        sb.AppendLine(")");
-        sb.AppendLine();
-        sb.Append($"End Sub");
+        sb.Append(")\n");
 
-        InsertAtEnd(sb.ToString(), string.Empty);
+        // The shape a double-click gives, with the caret on the blank line inside (#1532).
+        InsertAtEnd(sb.ToString(), "\nEnd Sub\n");
     }
 
     public void SaveFormAs() => SaveWithFormattingAsync(() => projectService.SaveForm(formDefinition!, true)).ListenErrors();
@@ -1917,17 +1917,28 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         InsertAtEnd(code.beginCode, code.endCode);
     }
 
+    /// <summary>
+    /// Adds a procedure at the end of the code, as VB6 adds one, and puts the caret between <paramref name="beginCode"/>
+    /// and <paramref name="endCode"/>.
+    /// </summary>
+    /// <remarks>
+    /// Measured in VB6's IDE (#1532): a procedure goes straight after the header when there is no code below it, and
+    /// otherwise one blank line below the code. Its line breaks are the file's, as a paste's are: the generators write
+    /// <c>\n</c>. This used to put <c>\n\n</c> in front of whatever the file ended with, so a form's CRLF file took two
+    /// bare line feeds and a procedure in LF.
+    /// </remarks>
     private void InsertAtEnd(string beginCode, string endCode)
     {
-        var textLen = Document.TextLength;
-        if (textLen >= 2)
-        {
-            var end = Document.GetText(textLen - 2, 2);
-            if (end != "\n\n")
-                Document.Insert(textLen, "\n\n");
-            else if (end[1] == '\n')
-                Document.Insert(textLen, "\n");
-        }
+        var lineBreak = TextUtilities.GetNewLineFromDocument(Document, Document.LineCount);
+        beginCode = TextUtilities.NormalizeNewLines(beginCode, lineBreak);
+        endCode = TextUtilities.NormalizeNewLines(endCode, lineBreak);
+
+        var text = Document.Text;
+        var separator = text.Length == 0 || text.EndsWith('\n') || text.EndsWith('\r') ? "" : lineBreak;
+        var hasCode = PastReadOnlyRegion(0) < text.Length;
+        if (hasCode && !(text + separator).EndsWith(lineBreak + lineBreak, StringComparison.Ordinal))
+            separator += lineBreak;
+        Document.Insert(Document.TextLength, separator);
 
         Document.Insert(Document.TextLength, beginCode);
         var offset = Document.TextLength;
