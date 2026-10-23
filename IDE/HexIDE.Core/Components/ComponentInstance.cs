@@ -102,16 +102,22 @@ public partial class ComponentInstance
     /// one can reconstruct the flat view: aggregating per container walks containers in turn, so a block
     /// read from inside a Frame would come back *after* a form-level block that followed the Frame in the
     /// file.
+    ///
+    /// <paramref name="Records"/> holds the companion records its lines cite, keyed by the offset each line cites,
+    /// so a save can put them back and rewrite those citations to wherever they land (#60).
     /// </summary>
-    public readonly record struct PreservedSubtree(int Ordinal, int DocumentOrder, string Text);
+    public readonly record struct PreservedSubtree(
+        int Ordinal, int DocumentOrder, string Text, IReadOnlyDictionary<int, byte[]>? Records = null);
 
     /// <summary>
     /// A property HexIDE does not model, kept exactly as it was read, under the name it was read as.
     ///
     /// <paramref name="Lines"/> is more than one line whenever the property was a <c>BeginProperty</c>
     /// block; the lines carry their own indentation, because that is the indentation the file had.
+    /// <paramref name="Records"/> is as on <see cref="PreservedSubtree"/>: the companion records the lines cite.
     /// </summary>
-    public readonly record struct UnknownRawProperty(string Name, IReadOnlyList<string> Lines);
+    public readonly record struct UnknownRawProperty(
+        string Name, IReadOnlyList<string> Lines, IReadOnlyDictionary<int, byte[]>? Records = null);
 
     private readonly List<PreservedSubtree> preservedChildSubtrees = [];
 
@@ -125,8 +131,9 @@ public partial class ComponentInstance
     /// </summary>
     public IReadOnlyList<PreservedSubtree> PreservedChildSubtrees => preservedChildSubtrees;
 
-    public void AddPreservedChildSubtree(int ordinal, int documentOrder, string text)
-        => preservedChildSubtrees.Add(new PreservedSubtree(ordinal, documentOrder, text));
+    public void AddPreservedChildSubtree(
+        int ordinal, int documentOrder, string text, IReadOnlyDictionary<int, byte[]>? records = null)
+        => preservedChildSubtrees.Add(new PreservedSubtree(ordinal, documentOrder, text, records));
 
     public ComponentInstance SetProperty<T>(PropertyClass<T> propertyClass, T? value)
     {

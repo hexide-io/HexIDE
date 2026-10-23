@@ -25,7 +25,10 @@ type name.
 
 The corpus is discovered rather than configured. `HEXIDE_ROUNDTRIP_CORPUS` (a `;`-separated list of
 directories) replaces it outright; otherwise the roots are the VB98 template tree — `VB6_TEMPLATES`, or
-`C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template` — plus the repository's own `demo/`. CI is
+`C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template` — plus the repository's own `demo/`. The tests
+that read named Template files instead go through `Vb6Template` (#1440): `VB6_TEMPLATES` may name the
+`Template` folder or the one above it, a set variable under which a test's file is not found fails the test, naming what it tried, and
+only an unset one on a machine without VB6 skips. CI is
 Linux and has no VB6, so there the corpus is `demo/` alone: HexIDE's own output, which proves nothing about
 fidelity. Read the report, not the pass.
 

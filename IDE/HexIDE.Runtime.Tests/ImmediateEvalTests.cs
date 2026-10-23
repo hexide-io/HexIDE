@@ -38,12 +38,53 @@ public class ImmediateEvalTests : BaseVBTestFixture
     {
         var (_, dbg, run) = await BreakWithLocals();
 
-        (await dbg.EvaluateAsync("?count")).Should().Be("42");
-        (await dbg.EvaluateAsync("?count + 8")).Should().Be("50");
+        // A ? line is Print: a number has a space where its sign would go and one after, as the VB6 IDE prints it (#1386).
+        (await dbg.EvaluateAsync("?count")).Should().Be(" 42 ");
+        (await dbg.EvaluateAsync("?count + 8")).Should().Be(" 50 ");
         (await dbg.EvaluateAsync("?greeting")).Should().Be("Ada");        // string prints verbatim (Debug.Print style)
-        (await dbg.EvaluateAsync("?Len(greeting)")).Should().Be("3");     // intrinsic
+        (await dbg.EvaluateAsync("?Len(greeting)")).Should().Be(" 3 ");     // intrinsic
         (await dbg.EvaluateAsync("count")).Should().Be("42");             // bare expression, no leading ?
         (await dbg.EvaluateAsync("Print greeting & \"!\"")).Should().Be("Ada!");   // Print prefix + concat
+
+        dbg.Stop();
+        await run.Guarded();
+    }
+
+    // Each row is a line typed into the VB6 IDE's Immediate window while paused, and what it printed, copied from the
+    // window (the oracle's "A ? line in the Immediate window"). Locals as BreakWithLocals sets them: count 42, greeting Ada.
+    [Theory]
+    [InlineData("? 5", " 5 ")]
+    [InlineData("? 1 + 1", " 2 ")]
+    [InlineData("? -3", "-3 ")]
+    [InlineData("? 1.5", " 1.5 ")]
+    [InlineData("? \"abc\"", "abc")]
+    [InlineData("? True", "True")]
+    [InlineData("? Null", "Null")]
+    [InlineData("? 1; \"a\"; 2", " 1 a 2 ")]
+    [InlineData("? 1, 2", " 1             2 ")]
+    [InlineData("? \"a\"; \"b\"", "ab")]
+    [InlineData("? greeting; Len(greeting)", "Ada 3 ")]
+    [InlineData("? count", " 42 ")]
+    public async Task A_question_mark_line_prints_as_the_VB6_IDE_s_Immediate_window_prints_it(string line, string printed)
+    {
+        var (_, dbg, run) = await BreakWithLocals();
+
+        (await dbg.EvaluateAsync(line)).Should().Be(printed);
+
+        dbg.Stop();
+        await run.Guarded();
+    }
+
+    // VB6 leaves the line open after `? 6;`, with the caret after the 6, and the next line typed joins it (measured). The
+    // Immediate window here puts the next line on a line of its own, so only the text is the same.
+    [Fact]
+    public async Task A_question_mark_line_ending_in_a_semicolon_prints_its_items_and_no_line_break()
+    {
+        var (_, dbg, run) = await BreakWithLocals();
+
+        (await dbg.EvaluateAsync("? 6;")).Should().Be(" 6 ");
+        (await dbg.EvaluateAsync("? \"x\";")).Should().Be("x");
+        (await dbg.EvaluateAsync("? \"a\", ")).Should().Be("a             ");
 
         dbg.Stop();
         await run.Guarded();
@@ -68,7 +109,7 @@ public class ImmediateEvalTests : BaseVBTestFixture
 
         (await dbg.EvaluateAsync("?w")).Should().Contain("Immediate");
         (await dbg.EvaluateAsync("?k")).Should().Contain("438");
-        (await dbg.EvaluateAsync("?Err")).Should().Be("0");
+        (await dbg.EvaluateAsync("?Err")).Should().Be(" 0 ");
         (await dbg.EvaluateAsync("?TypeName(w)")).Should().Be("Widget");
 
         dbg.Stop();
@@ -112,7 +153,7 @@ public class ImmediateEvalTests : BaseVBTestFixture
         var run = vb.Execute();
         await stop.Guarded();
 
-        (await dbg.EvaluateAsync("?s.Health")).Should().Be("100");                  // field read — not a call
+        (await dbg.EvaluateAsync("?s.Health")).Should().Be(" 100 ");                  // field read — not a call
         (await dbg.EvaluateAsync("?s")).Should().Contain("438");                    // no default member: 438 (inferred)
         (await dbg.EvaluateAsync("?s.Hit()")).Should().Contain("Immediate");        // instance METHOD call rejected
         (await dbg.EvaluateAsync("?s.HalfHealth")).Should().Contain("Immediate");   // PROPERTY GET rejected

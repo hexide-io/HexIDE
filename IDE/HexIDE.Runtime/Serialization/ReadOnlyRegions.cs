@@ -253,7 +253,7 @@ public readonly record struct MemberDeclaration(DeclaredName Name, PropertyAcces
 /// </para>
 /// <para>
 /// <b>Where the model split nothing off, the header is found from the text.</b> An unparseable
-/// <c>.ctl</c>/<c>.pag</c>, or a <c>.bas</c>/<c>.cls</c> whose first line is blank (hexide-io/HexIDE#472),
+/// <c>.ctl</c>/<c>.pag</c>, or a <c>.bas</c>/<c>.cls</c> whose header sits under a comment (hexide-io/HexIDE#472),
 /// keeps its whole file in the code. Its prefix is then empty, but the buffer still opens with a header.
 /// </para>
 /// <para>
@@ -859,7 +859,10 @@ public static class ReadOnlyRegions
             {
                 // A string, "" inside it being a quote: a ' or : or , in one is none of those.
                 var opening = i++;
-                while (i < end && text[i] != '\n')
+                // A line end, a lone CR included, ends an unclosed string (#1020). In text VB6 accepts a string closes on
+                // its own line and a continuation cannot sit inside one, so no verdict turns on it (equivalent under
+                // mutation).
+                while (i < end && !SourceLines.IsLineEnd(text[i]))
                 {
                     if (text[i] != '"')
                         i++;
@@ -921,7 +924,7 @@ public static class ReadOnlyRegions
 
     private static bool OnlyWhitespaceToLineEnd(string text, int from, int end)
     {
-        for (var i = from; i < end && text[i] != '\n'; i++)
+        for (var i = from; i < end && !SourceLines.IsLineEnd(text[i]); i++)
         {
             if (!char.IsWhiteSpace(text[i]))
                 return false;
@@ -949,11 +952,7 @@ public static class ReadOnlyRegions
         var pos = 0;
         while (pos < text.Length)
         {
-            var newline = text.IndexOf('\n', pos);
-            var next = newline < 0 ? text.Length : newline + 1;
-            var end = newline < 0 ? text.Length : newline;
-            if (end > pos && text[end - 1] == '\r')
-                end--;
+            var (end, next) = SourceLines.LineAt(text, pos);
             lines.Add(new Line(pos, end, next));
             pos = next;
         }

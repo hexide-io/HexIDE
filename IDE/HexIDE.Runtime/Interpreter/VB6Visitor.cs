@@ -161,7 +161,7 @@ public abstract class VB6Visitor<T> : VB6BaseVisitor<T>
         if (asTypeClause != null)
         {
             if (asTypeClause.NEW() != null)
-                throw new NotImplementedException("New as type not implemented");
+                throw new NotImplementedException("An array declared As New is not implemented (#1482)");
             if (asTypeClause.fieldLength() != null)
                 throw new NotImplementedException("fieldLength as type not implemented");
             if (asTypeClause.type().complexType() != null)
@@ -171,7 +171,9 @@ public abstract class VB6Visitor<T> : VB6BaseVisitor<T>
                 type = Vb6Value.ValueType.UserDefinedType;
             else
                 type = BaseTypeMapper.Map(asTypeClause.type().baseType())
-                    ?? throw new NotImplementedException("base type " + asTypeClause.type().baseType().GetChild(0) + " not implemented");
+                    ?? throw new NotImplementedException("base type " + asTypeClause.type().baseType().GetChild(0) + " not implemented"
+                        + (asTypeClause.type().baseType() is { } objectType && (objectType.OBJECT() != null || objectType.COLLECTION() != null)
+                            ? " (#1482)" : ""));
         }
 
         if (isArray)

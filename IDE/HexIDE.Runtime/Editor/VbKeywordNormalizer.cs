@@ -64,7 +64,7 @@ public static class VbKeywordNormalizer
             "Len", "Left", "Right", "Mid", "Trim", "LTrim", "RTrim",
             "UCase", "LCase", "InStr", "InStrRev", "Replace", "Split", "Join",
             "CStr", "CInt", "CLng", "CDbl", "CBool", "CDate", "CByte",
-            "CSng", "CCur", "CVar", "CVErr",
+            "CSng", "CCur", "CVar", "CVDate", "CVErr",
             "Int", "Fix", "Abs", "Sqr", "Rnd", "Sgn", "Log", "Exp",
             "Now", "Time", "Timer", "Array", "UBound", "LBound",
             "TypeName", "VarType", "Chr", "Asc", "Format",

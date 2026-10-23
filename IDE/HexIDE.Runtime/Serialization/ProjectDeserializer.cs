@@ -79,6 +79,11 @@ public class ProjectDeserializer
                 project.Name = value;
                 knownKeyCount++;
             }
+            else if (key.Equals(SerializedProject.DescriptionKey, StringComparison.OrdinalIgnoreCase))
+            {
+                project.Description = value;
+                knownKeyCount++;
+            }
             else if (key.Equals(SerializedProject.TypeKey, StringComparison.OrdinalIgnoreCase))
             {
                 project.ProjectType = ProjectTypeFromString(value);
@@ -211,10 +216,34 @@ public class ProjectDeserializer
             }
         }
 
+        if (project.Description is null)
+            MakeRoomForDescription(project.UnknownPreSectionLines, knownKeyCount);
+
         if (extensionTailBuilder.Length > 0)
             project.ExtensionTail = extensionTailBuilder.ToString().TrimEnd();
 
         return project;
+    }
+
+    /// <summary>
+    /// Leaves a slot for a <c>Description=</c> line in a file that has none, after its <c>HelpContextID</c> line, or
+    /// straight after the last known key when there is no such line. VB6 writes it there (#42).
+    /// </summary>
+    /// <remarks>
+    /// The writer puts a known key after the unknown lines whose hint is at or below its count. In a file with no
+    /// description, every unknown line after the last known key has the same hint, so a description typed in later
+    /// would follow all of them, <c>MajorVer</c> and the rest included. Raising the hint of the lines after
+    /// <c>HelpContextID</c> by one splits that run where the line belongs. With no description to write, the writer
+    /// emits the run unchanged, in the same order, so an untouched file still saves byte for byte. A file that has a
+    /// description already splits the run where it stands, so nothing is raised.
+    /// </remarks>
+    private static void MakeRoomForDescription(List<(int PositionHint, string RawLine)> unknowns, int last)
+    {
+        var helpContext = unknowns.FindIndex(u => u.PositionHint == last
+            && u.RawLine.StartsWith(SerializedProject.HelpContextIdKey + "=", StringComparison.OrdinalIgnoreCase));
+        for (var i = helpContext + 1; i < unknowns.Count; i++)
+            if (unknowns[i].PositionHint == last)
+                unknowns[i] = (last + 1, unknowns[i].RawLine);
     }
 }
 
@@ -222,6 +251,7 @@ public class SerializedProject
 {
     public VBProjectType ProjectType { get; set; }
     public string? Name { get; set; }
+    public string? Description { get; set; }
     public List<string> RelativeFormPaths { get; } = new();
     public List<(string Name, string Path, ModuleKind Kind)> RelativeModulePaths { get; } = new();
 
@@ -268,6 +298,16 @@ public class SerializedProject
     public string? ExtensionTail { get; set; }
 
     public const string NameKey = "Name";
+
+    /// <summary>
+    /// The project's description, as Project Properties sets it. Measured with VB6's Save Project As: written quoted,
+    /// a quote inside doubled, after <c>HelpContextID</c> and before <c>CompatibleMode</c>, and not written at all when
+    /// there is none (#42).
+    /// </summary>
+    public const string DescriptionKey = "Description";
+
+    /// <summary>Not modelled, and kept as read. VB6 writes it between <c>Name</c> and <c>Description</c>.</summary>
+    public const string HelpContextIdKey = "HelpContextID";
     public const string TypeKey = "Type";
     public const string FormKey = "Form";
     public const string ModuleKey = "Module";
@@ -276,6 +316,11 @@ public class SerializedProject
     public const string PropertyPageKey = "PropertyPage";
     public const string UserDocumentKey = "UserDocument";
     public const string RelatedDocKey = "RelatedDoc";
+
+    // Keys HexIDE does not model, kept as unknown lines, whose value is a path VB6's Save As names from the new folder.
+    public const string DesignerKey = "Designer";
+    public const string ResFileKey = "ResFile32";
+    public const string MakePathKey = "Path32";
 
     // ── A VB6 path is a Windows path, on every host ───────────────────────────────────────────────────
     //
@@ -329,6 +374,98 @@ public class SerializedProject
     public static string ToProjectFilePath(string hostRelativePath) =>
         hostRelativePath.Replace(System.IO.Path.DirectorySeparatorChar, '\\')
                         .Replace(System.IO.Path.AltDirectorySeparatorChar, '\\');
+
+    /// <summary>
+    /// Where the path a project-file line names sits in the line: after <c>Name;</c> on a <c>Module=</c> or
+    /// <c>Class=</c> line, inside the quotes on <c>ResFile32=</c> and <c>Path32=</c>, the whole value on the bare-path
+    /// keys. Null for a key whose path does not follow the project file, and for a line whose path is empty.
+    /// </summary>
+    /// <remarks>
+    /// <c>HelpFile=</c> names a path too, but VB6's Save As writes it as it was typed (measured, #1406), so it is not one
+    /// of these.
+    /// </remarks>
+    public static (string Key, int Start, int Length)? ItemLineFile(string line)
+    {
+        var eq = line.IndexOf('=');
+        if (eq < 0)
+            return null;
+        var key = line[..eq].Trim();
+        var start = eq + 1;
+        if (key.Equals(ModuleKey, StringComparison.OrdinalIgnoreCase)
+            || key.Equals(ClassKey, StringComparison.OrdinalIgnoreCase))
+        {
+            var semi = line.IndexOf(';', start);
+            if (semi >= 0)
+                start = semi + 1;
+        }
+        else if (!key.Equals(FormKey, StringComparison.OrdinalIgnoreCase)
+                 && !key.Equals(UserControlKey, StringComparison.OrdinalIgnoreCase)
+                 && !key.Equals(PropertyPageKey, StringComparison.OrdinalIgnoreCase)
+                 && !key.Equals(UserDocumentKey, StringComparison.OrdinalIgnoreCase)
+                 && !key.Equals(RelatedDocKey, StringComparison.OrdinalIgnoreCase)
+                 && !key.Equals(DesignerKey, StringComparison.OrdinalIgnoreCase)
+                 && !key.Equals(ResFileKey, StringComparison.OrdinalIgnoreCase)
+                 && !key.Equals(MakePathKey, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        var end = line.Length;
+        while (start < end && char.IsWhiteSpace(line[start]))
+            start++;
+        while (end > start && char.IsWhiteSpace(line[end - 1]))
+            end--;
+        if (key.Equals(ResFileKey, StringComparison.OrdinalIgnoreCase) || key.Equals(MakePathKey, StringComparison.OrdinalIgnoreCase))
+        {
+            // Quoted, as VB6 writes both. A value without its quotes is left as it is.
+            if (end - start < 2 || line[start] != '"' || line[end - 1] != '"')
+                return null;
+            start++;
+            end--;
+        }
+        return end > start ? (key, start, end - start) : null;
+    }
+
+    /// <summary>
+    /// <paramref name="line"/>, a member's line in a project file in <paramref name="fromDirectory"/>, as it must read
+    /// in one in <paramref name="toDirectory"/>: its file resolved against the first folder and named relative to the
+    /// second, in the line's own shape (#737). The member's file stays where it is. The line comes back as it was when
+    /// the two folders are one, when it names no file, and when its path names a drive or starts at a root, which no
+    /// change of folder moves.
+    /// </summary>
+    public static string RebaseItemLine(string line, string fromDirectory, string toDirectory)
+    {
+        if (fromDirectory.Length == 0 || toDirectory.Length == 0 || SameDirectory(fromDirectory, toDirectory)
+            || ItemLineFile(line) is not { } file)
+            return line;
+
+        var path = line.Substring(file.Start, file.Length);
+        var rebased = RebasePath(path, fromDirectory, toDirectory);
+        return ReferenceEquals(rebased, path) ? line : line[..file.Start] + rebased + line[(file.Start + file.Length)..];
+    }
+
+    /// <summary>
+    /// <paramref name="path"/>, written in a project file in <paramref name="fromDirectory"/>, as one in
+    /// <paramref name="toDirectory"/> must write it to name the same file. <paramref name="path"/> itself when the folders
+    /// are one, when it is empty, and when it names a drive or starts at a root.
+    /// </summary>
+    public static string RebasePath(string path, string fromDirectory, string toDirectory)
+    {
+        if (path.Length == 0 || fromDirectory.Length == 0 || toDirectory.Length == 0
+            || SameDirectory(fromDirectory, toDirectory))
+            return path;
+        // Tested on the path as the file wrote it, not the host's reading of it: on Linux `C:\x` is not rooted, and
+        // joining it to a folder would invent a file.
+        if (path[0] is '\\' or '/' || (path.Length >= 2 && path[1] == ':'))
+            return path;
+
+        var resolved = System.IO.Path.GetFullPath(System.IO.Path.Join(fromDirectory, ToHostPath(path)));
+        return ToProjectFilePath(System.IO.Path.GetRelativePath(toDirectory, resolved));
+    }
+
+    private static bool SameDirectory(string a, string b) =>
+        string.Equals(
+            System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(a)),
+            System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(b)),
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
     public const string StartupKey = "Startup";
 
     /// <summary>The <c>Startup=</c> value naming <c>Sub Main</c> rather than a form. VB6's own spelling,

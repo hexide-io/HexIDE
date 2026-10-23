@@ -44,6 +44,9 @@ internal static class ObjectAsValue
         // and a control array needs an index ("Argument not optional"). Raised here as the statement runs.
         DebugProxy => throw new VBCompileErrorException("Syntax error"),
         ControlArrayGroup => throw new VBCompileErrorException("Argument not optional"),
+        // A Collection's default member is Item, which needs an index: `v = c` is 450 (measured, #1471, early-bound and
+        // late). In an expression VB6 refuses it before the program runs, as "Argument not optional", where it is early-bound.
+        VbCollection => throw new VBRunTimeException(context, VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment),
         ICSharpProxy => throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
         _ => value,
     };

@@ -24,7 +24,8 @@
 .PARAMETER CorpusPath
     A directory of .json case files, or a single .json file. Each file is an object with a `cases`
     array of { id, code (array of source lines), expect (legal|illegal|unsure), scope
-    (statement|module), why }.
+    (statement|module), why }. A case this harness cannot deliver carries `skip` (a reason), or
+    `measured` ({ actual, how }) when another harness measured it; neither is run.
 
 .PARAMETER OutFile
     Where to write the results as JSON. Defaults beside the corpus as `results.json`.
@@ -79,6 +80,12 @@ foreach ($f in $files) {
         # confident answer that measured nothing, which is worse than no answer.
         if ($c.skip) {
             $skipped.Add([pscustomobject]@{ Key = "$($f.BaseName)/$($c.id)"; Reason = $c.skip })
+            continue
+        }
+        # One measured by another harness carries its verdict itself, which CorpusConformanceTests reads.
+        # Running it here would replace that verdict with one about a CRLF file.
+        if ($c.measured) {
+            $skipped.Add([pscustomobject]@{ Key = "$($f.BaseName)/$($c.id)"; Reason = "measured elsewhere: $($c.measured.how)" })
             continue
         }
         # A case is identified by file AND id: ids are only unique within an area, and a collision

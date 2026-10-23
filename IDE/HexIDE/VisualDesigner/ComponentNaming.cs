@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using HexIDE.Localization;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
@@ -44,11 +45,11 @@ public static class ComponentNaming
         if (!ProjectNaming.IsValidName(proposed))
             return string.Format(localization.GetString("Str.Naming.Msg.NotAVb6Name"), proposed);
 
-        // For a genuine rename the check stands, and it stays strict on purpose. VB6's real rule is
-        // uniqueness per name AND Index; Index is not modelled yet, so a rename that would JOIN an
-        // existing array cannot be told apart from a collision, and refusing is the recoverable answer.
-        if (formComponents.Any(c => !ReferenceEquals(c, target)
-                                    && c.GetPropertyOrDefault(VBProperties.NameProperty) == proposed))
+        // Every name on the form counts, a preserved control's too, in any case (#854). The target's own is left out, so
+        // a change of case alone passes. VB6's rule is uniqueness by name AND Index, so a name already held is taken only
+        // where the rename would not join an array: an element may take an array's name when its Index is free there
+        // (#1276), which is how an element renamed out of its array is renamed back.
+        if (NamesInUse(formComponents, except: target).Contains(proposed) && !JoinsAnArray(target, proposed, formComponents))
             return "Name must be unique in form";
 
         // Renaming the ROOT renames the document, so the project's rule applies on top of the form's: a form
@@ -59,4 +60,64 @@ public static class ComponentNaming
 
         return null;
     }
+
+    /// <summary>
+    /// Whether naming <paramref name="target"/> <paramref name="proposed"/> makes it an element of an array of that name:
+    /// it has an Index, every control already holding the name has one, and none holds its Index (#1276).
+    /// </summary>
+    /// <remarks>
+    /// A preserved control holding the name refuses it: its Index is in text HexIDE does not read. A control with no Index
+    /// does not join an array, and an array does not take a control with none: in VB6 that offers to make a new array,
+    /// which is not measured, so it stays a refusal.
+    /// </remarks>
+    private static bool JoinsAnArray(ComponentInstance target, string proposed, IEnumerable<ComponentInstance> formComponents)
+    {
+        if (PropertyText.ArrayIndexOf(target) is not { } index)
+            return false;
+        if (PreservedNames(formComponents).Contains(proposed, StringComparer.OrdinalIgnoreCase))
+            return false;
+        var holders = formComponents.Where(c => !ReferenceEquals(c, target)
+            && string.Equals(c.GetPropertyOrDefault(VBProperties.NameProperty), proposed, StringComparison.OrdinalIgnoreCase)).ToList();
+        return holders.Count > 0 && holders.All(c => PropertyText.ArrayIndexOf(c) is { } held && held != index);
+    }
+
+    /// <summary>
+    /// The names in use on a form, compared without regard to case: every component's, and every control the form keeps
+    /// as preserved text (#854). <paramref name="except"/>'s own name is left out; its preserved children still count.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Without regard to case</b>, because vb6.exe loads a form that way: <c>Begin VB.TextBox timer1</c> after a
+    /// Timer1 is logged as "control timer1 already exists", and the program is built without either control (measured,
+    /// the oracle's "Two controls of one name").
+    /// </para>
+    /// <para>
+    /// <b>Preserved controls</b> have no <see cref="ComponentInstance"/> (#157). Their names are read from the
+    /// <c>Begin</c> lines of the text kept on their container, nested ones included, which the deserializer writes in one
+    /// shape. <c>BeginProperty</c> is not a control.
+    /// </para>
+    /// </remarks>
+    public static HashSet<string> NamesInUse(IEnumerable<ComponentInstance> formComponents, ComponentInstance? except = null)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var component in formComponents)
+        {
+            if (!ReferenceEquals(component, except)
+                && component.GetPropertyOrDefault(VBProperties.NameProperty) is { Length: > 0 } name)
+                names.Add(name);
+            foreach (var preserved in component.PreservedChildSubtrees)
+                names.UnionWith(NamesDeclaredBy(preserved.Text));
+        }
+        return names;
+    }
+
+    /// <summary>The names on the <c>Begin</c> lines of every block preserved on <paramref name="formComponents"/>.</summary>
+    private static IEnumerable<string> PreservedNames(IEnumerable<ComponentInstance> formComponents) =>
+        formComponents.SelectMany(c => c.PreservedChildSubtrees).SelectMany(preserved => NamesDeclaredBy(preserved.Text));
+
+    /// <summary>The names of the controls a preserved block declares: its own, and those nested in it.</summary>
+    public static IEnumerable<string> NamesDeclaredBy(string preservedText) =>
+        BeginLine.Matches(preservedText).Select(begin => begin.Groups["name"].Value);
+
+    private static readonly Regex BeginLine = new(@"^\s*Begin\s+\S+\s+(?<name>\S+)", RegexOptions.Multiline);
 }
