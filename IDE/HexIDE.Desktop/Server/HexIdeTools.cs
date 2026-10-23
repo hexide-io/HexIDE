@@ -629,7 +629,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     $"{(ownerModule is not null ? "UserControl" : "Form")} '{document.Name}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
 
             var before = control.GetBoxedPropertyOrDefault(propClass);
-            // A renamed element leaves its array, and nothing yet lets it join back (#1276), so the reply says so.
+            // A renamed element leaves its array, keeping its Index, so the reply says so and how it joins back (#1276).
             var leaves = propClass == VBProperties.NameProperty && PropertyText.ArrayIndexOf(control) is { } leaving
                 ? (Index: leaving, Others: PropertyText.Named(components, (string)before!).Count - 1)
                 : ((int Index, int Others)?)null;
@@ -672,7 +672,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
                      + PropertyText.Display(control.GetBoxedPropertyOrDefault(propClass)) + ", and the file is saved.";
             if (leaves is { Others: > 0 } left && !string.Equals(before as string, parsed as string, StringComparison.OrdinalIgnoreCase))
                 stored += $" It was {before}({left.Index}), and has left that array, whose other {left.Others} "
-                          + $"element{(left.Others == 1 ? "" : "s")} keep the name; nothing in the IDE joins it back yet (#1276).";
+                          + $"element{(left.Others == 1 ? "" : "s")} keep the name. It keeps Index {left.Index}, so naming it "
+                          + $"{before} again joins it back.";
+            if (leaves is { } joining && PropertyText.Named(components, (string)parsed!).Count > 1
+                && !string.Equals(before as string, parsed as string, StringComparison.OrdinalIgnoreCase))
+                stored += $" It is now element {joining.Index} of the {parsed} array.";
             return (form, ownerModule, null);
         });
 

@@ -208,6 +208,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A control-array element renamed out of its array can be renamed back** (#1276). Renaming `optSize(0)` to
+  `optBoard` worked, but every way back was refused as a duplicate name, so the array stayed split. A name is now
+  taken by name and Index together, as in VB6: an element may take an array's name where its Index is free there.
+
 - **The Project Explorer's Add Form adds a form as Project > Add Form does** (#468). It added a form with no file and
   opened nothing, a second Add Form of its own, and closing the IDE then left that form out of the project file
   (#1359). It now writes the form's file and opens its designer.
