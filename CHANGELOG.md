@@ -10,6 +10,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **`Like` runs** (#1547). Any program that used it stopped there. It now matches as vb6.exe does: `?`, `*`, `#`, `[list]` and `[!list]`, under the module's `Option Compare`, with error 93 for a pattern it cannot read. That behaviour was measured over about 190 rows, native and p-code. One known difference remains. Under `Option Compare Text`, vb6.exe takes a ligature or a sharp s for the letters it stands for, so `"ß" Like "ss"` is True there and False here (#1479).
+
 - **VB6 filesystem operations** (#1561): `CurDir`, `MkDir`, `RmDir`, `FileLen`, `FileDateTime`, `GetAttr`, `SetAttr`, `FileCopy`, `Name`, `Kill` and stateful `Dir`, using compiled VB6 measurements.
 
 - **Conditional compilation runs: `#If`, `#ElseIf`, `#Else`, `#End If` and `#Const`** (#1112). A module holding any
@@ -19,6 +21,12 @@ there isn't one yet. Anything may change between 0.x releases.
   compiler, such as VBA7's `Declare PtrSafe`, runs unchanged. A directive's error stops the program as it loads, even in a
   branch never taken, as vb6.exe refuses to build. The module saves exactly as written: the selection exists only for the
   parser. Every personality uses VB6's constants for now (#1548), and `Like` in an `#If` waits for `Like` itself (#1547).
+
+- **The language server no longer squiggles code vb6.exe never compiles** (#1112). An inactive `#If` branch is no longer
+  parsed, so a VBA7 `Declare PtrSafe` behind `#If VBA7 Then`, or a procedure whose `#If` gives it two headers, has no
+  error marks. The branches are the project's: the server reads `CondComp` from the `.vbp` that lists the document. A
+  directive out of place is reported on its line in vb6.exe's words. Where a condition is beyond the server's reduced
+  evaluator, such as a string comparison or a function, nothing inside that block is marked.
 
 - **A control's `ZOrder` method** (#1503). `ZOrder 0`, or no argument, brings a control to the front of the controls
   like it in its container, and `ZOrder 1` sends it to the back, as measured on vb6.exe. A Label never rises over a
@@ -232,6 +240,15 @@ there isn't one yet. Anything may change between 0.x releases.
   parameter, says the argument is not valid text and that nothing was done. It previously returned only the SDK's
   `-32603 "An error occurred."` before any tool ran.
 
+- **MCP `press_key` reaches access keys and menus** (#1523). Keys now pass through the window input path,
+  so Alt+W activates a button captioned `One &Wide`. The reply names `window-input`, or `routed-key`
+  when focus or platform input is unavailable and the previous routed delivery is used.
+
+- **A carried control's box is drawn in its place among the designer's controls** (#1553). The designer drew the box
+  for every control it carries as text over every control it models, so a control brought in front of one was saved in
+  front of it (#1498) but still drawn under its box. The boxes now stack with the controls, as VB6 stacks the control:
+  over its Frame or PictureBox, and over or under each control as the file and Bring to Front or Send to Back put it.
+
 - **The designer draws and names a UserControl or PropertyPage as VB6's does** (#1544). Each was drawn in a form's
   window frame, with a title bar and caption buttons, a PropertyPage's tab read `(Form)`, and the Properties window's
   object box gave both the class `Form`. Each is now a borderless surface, as neither has a window of its own at run
@@ -333,6 +350,12 @@ there isn't one yet. Anything may change between 0.x releases.
 - **`CCur` and `CDec` preserve decimal precision in Strings** (#1531). Plain decimal numbers are read in the
   program's locale without rounding through a Double, including the Currency and Decimal maxima. Out-of-range
   Strings raise run-time error 6. Hex, octal and exponent forms keep their existing conversion.
+
+- **`Option Compare Text` compares as vb6.exe does** (#1567). A module saying it still compared strings as Binary in `=`, `<`, `>` and `Select Case`, so `"abc" = "ABC"` was False. Now those compare by vb6.exe's own text order, measured character by character: case and accents, the hyphen and apostrophe that a Windows sort sets aside, and ß, æ, œ and þ as their two letters. The same compare now serves a Collection's keys, and a compare of 1 in InStr, InStrRev, Replace, Split and Filter, which had read it as "ignore case" and kept "straße" and "strasse" apart (#1479).
+
+- **A duplicate Collection key's error 457 has vb6.exe's words** (#1567): "This key is already associated with an element of this collection". The oracle had recorded them since the Collection was measured, and `Err.Description` still gave other words.
+
+- **`InStr` and `InStrRev` agree with vb6.exe at the ends** (#1567). `InStr` with an empty string to find returned 0 once the start was past the end, where VB6 returns the start, and `InStrRev` found text before a start past the end, where VB6 returns 0. `InStrRev("abc", "")` was 4, not 3.
 
 - **An intrinsic called with too few arguments raises VB6's compile error** (#1512). Calls such as `Chr()`
   now report "Argument not optional" or "Syntax error", as measured in VB6, instead of stopping with a .NET exception.

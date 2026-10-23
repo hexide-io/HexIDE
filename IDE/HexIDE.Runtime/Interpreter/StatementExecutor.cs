@@ -2403,6 +2403,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// </summary>
     private async Task<bool> CaseTestMatches(VB6Parser.SC_CondExprContext subCond, Vb6Value value)
     {
+        // Strings compare as the module's Option Compare says, the Select's own module (measured, #1567).
+        var text = currentModule.PrePass.OptionCompareText;
         if (subCond is VB6Parser.CaseCondExprIsContext caseIs)
         {
             var val = await expressionExecutor.EvaluateScalar(caseIs.valueStmt());
@@ -2410,10 +2412,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (op.IS() != null || op.LIKE() != null)
                 throw new NotImplementedException("Operator " + op.GetText() + " not impleemented");
             if (op.EQ() != null)
-                return CaseMatches(value, val, caseIs);
+                return CaseMatches(value, val, caseIs, text);
             if (op.NEQ() != null)
-                return CaseDiffers(value, val, caseIs);
-            var order = Ruled(value, val) ? CompareCase(value, ForSelector(value, val, caseIs)) : value.TryCompareTo(val);
+                return CaseDiffers(value, val, caseIs, text);
+            var order = Ruled(value, val)
+                ? CompareCase(value, ForSelector(value, val, caseIs), text)
+                : value.TryCompareTo(val, text);
             if (op.LT() != null)
                 return order is < 0;
             if (op.LEQ() != null)
@@ -2425,18 +2429,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw new NotImplementedException("Operator " + op.GetText() + " not impleemented");
         }
         if (subCond is VB6Parser.CaseCondExprValueContext caseCondExpr)
-            return CaseMatches(value, await expressionExecutor.EvaluateScalar(caseCondExpr.valueStmt()), caseCondExpr);
+            return CaseMatches(value, await expressionExecutor.EvaluateScalar(caseCondExpr.valueStmt()), caseCondExpr, text);
         if (subCond is VB6Parser.CaseCondExprToContext caseTo)
         {
             var from = await expressionExecutor.EvaluateScalar(caseTo.valueStmt(0));
             var to = await expressionExecutor.EvaluateScalar(caseTo.valueStmt(1));
             if (!Ruled(value, from) || !Ruled(value, to))
-                return value.TryCompareTo(from) is >= 0 && value.TryCompareTo(to) is <= 0;
+                return value.TryCompareTo(from, text) is >= 0 && value.TryCompareTo(to, text) is <= 0;
             // Both bounds are converted before either is compared, so a bound that cannot convert raises even when the
             // other has already ruled the selector out.
             var low = ForSelector(value, from, caseTo);
             var high = ForSelector(value, to, caseTo);
-            return CompareCase(value, low) is >= 0 && CompareCase(value, high) is <= 0;
+            return CompareCase(value, low, text) is >= 0 && CompareCase(value, high, text) is <= 0;
         }
         throw new NotImplementedException($"Unepexected Select-Case");
     }
@@ -2477,7 +2481,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// corresponding Select Case is not. Sharing a comparison helper between the two would be wrong, and
     /// was the obvious thing to do.
     /// </para></summary>
-    private static bool MainCaseMatches(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx)
+    private static bool MainCaseMatches(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx, bool text)
     {
         // Empty has not decided what it is yet, so it takes its partner's zero — the same rule
         // GetTwoValuesSameTypesOrNull applies for `=`. Measured: an unassigned Variant matches `Case 0`.
@@ -2490,7 +2494,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (!VbNumeric.IsDeclarableScalar(selector.Type))
             return selector.Equals(caseValue);
 
-        return VbNumeric.CoerceOnStore(caseValue, selector.Type, ctx).Equals(selector);
+        var coerced = VbNumeric.CoerceOnStore(caseValue, selector.Type, ctx);
+        return text && selector.Type == Vb6Value.ValueType.String
+            ? VbTextCompare.AreEqual((string)selector.Value!, (string)coerced.Value!)
+            : coerced.Equals(selector);
     }
 
     // Whether the measured rules decide this test: a typed selector, whatever the Case value, or a Variant one against a
@@ -2507,25 +2514,25 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     /// <summary>How the selector compares with a Case value <see cref="ForSelector"/> has prepared: below zero, zero or above
     /// zero, or null where the two are not ordered, which matches no test.</summary>
-    private static int? CompareCase(Vb6Value selector, Vb6Value prepared) =>
-        HasFixedScalarType(selector) ? selector.TryCompareTo(prepared) : CompareAsVariants(selector, prepared);
+    private static int? CompareCase(Vb6Value selector, Vb6Value prepared, bool text) =>
+        HasFixedScalarType(selector) ? selector.TryCompareTo(prepared, text) : CompareAsVariants(selector, prepared, text);
 
     /// <summary>Whether an equality Case, <c>Case x</c> or <c>Case Is = x</c>, matches the selector.</summary>
-    private static bool CaseMatches(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx) =>
+    private static bool CaseMatches(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx, bool text) =>
         Ruled(selector, caseValue)
-            ? CompareCase(selector, ForSelector(selector, caseValue, ctx)) is 0
-            : MainCaseMatches(selector, caseValue, ctx);
+            ? CompareCase(selector, ForSelector(selector, caseValue, ctx), text) is 0
+            : MainCaseMatches(selector, caseValue, ctx, text);
 
     /// <summary><c>Case Is &lt;&gt; x</c>. Null differs from nothing (measured: a Null selector is not <c>Is &lt;&gt; 1</c>).
     /// An object, array or UDT against a Variant selector is compared for identity, as it was before any of this was
     /// measured.</summary>
-    private static bool CaseDiffers(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx)
+    private static bool CaseDiffers(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx, bool text)
     {
         if (!Ruled(selector, caseValue))
-            return !MainCaseMatches(selector, caseValue, ctx);
+            return !MainCaseMatches(selector, caseValue, ctx, text);
         if (!HasFixedScalarType(selector) && (KindOf(selector) == CaseKind.Other || KindOf(caseValue) == CaseKind.Other))
             return !selector.Equals(caseValue);
-        return CompareCase(selector, ForSelector(selector, caseValue, ctx)) is { } order && order != 0;
+        return CompareCase(selector, ForSelector(selector, caseValue, ctx), text) is { } order && order != 0;
     }
 
     /// <summary>
@@ -2544,7 +2551,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// Null is below, above and equal to nothing.</item>
     /// </list>
     /// </summary>
-    private static int? CompareAsVariants(Vb6Value selector, Vb6Value caseValue)
+    private static int? CompareAsVariants(Vb6Value selector, Vb6Value caseValue, bool text)
     {
         var s = KindOf(selector);
         var c = KindOf(caseValue);
@@ -2555,7 +2562,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (caseValue.HasFixedType && c != CaseKind.Empty)
         {
             if (c == CaseKind.Text)
-                return Math.Sign(string.CompareOrdinal(TextOf(selector), (string)caseValue.Value!));
+                return CompareText(TextOf(selector), (string)caseValue.Value!, text);
             if (s != CaseKind.Text)
                 return NumberOf(selector).CompareTo(NumberOf(caseValue));
             var read = caseValue.Type == Vb6Value.ValueType.Boolean
@@ -2568,7 +2575,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (s == CaseKind.Text && c == CaseKind.Number)
             return 1;
         if (s == CaseKind.Text || c == CaseKind.Text)
-            return Math.Sign(string.CompareOrdinal(TextOf(selector), TextOf(caseValue)));
+            return CompareText(TextOf(selector), TextOf(caseValue), text);
         return NumberOf(selector).CompareTo(NumberOf(caseValue));
     }
 
@@ -2583,6 +2590,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         : CaseKind.Other;
 
     // Empty is "", and a number or a Boolean is written as CStr writes it.
+    private static int CompareText(string a, string b, bool text) =>
+        text ? VbTextCompare.Compare(a, b) : Math.Sign(string.CompareOrdinal(a, b));
+
     private static string TextOf(Vb6Value v) =>
         v.Type == Vb6Value.ValueType.EmptyVariant ? "" : v.Value as string ?? VbDisplay.ToText(v);
 

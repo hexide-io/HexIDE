@@ -96,9 +96,29 @@ public partial class VB6BuiltIns
         if (a[i].IsNull || a[i + 1].IsNull) return Vb6Value.Null;
         if (start < 1) throw InvalidCall();
         string s1 = AsStr(a[i]), s2 = AsStr(a[i + 1]);
+        // An empty string1 holds nothing, and an empty string2 is found at start, however far past the end (measured, #1567).
+        if (s1.Length == 0) return new Vb6Value(0L);
+        if (s2.Length == 0) return new Vb6Value((long)start);
         if (start > s1.Length) return new Vb6Value(0L);
-        var cmp = compare == 1 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        return new Vb6Value((long)s1.IndexOf(s2, start - 1, cmp) + 1);   // 1-based; 0 when not found
+        // As text a match may start or end inside an expansion: "s" is in "ß" (measured, #1567).
+        return new Vb6Value((long)Find(s1, s2, start - 1, compare == 1, wholeCharacters: false, out _) + 1);   // 0 when not found
+    }
+
+    /// <summary>Where <paramref name="find"/> is next in <paramref name="s"/> from the 0-based <paramref name="start"/>, or -1,
+    /// as a compare of 0 (binary) or 1 (text) searches, and how many characters of <paramref name="s"/> the match spans: as
+    /// text "ss" spans the one character ß. <paramref name="wholeCharacters"/> is how Replace and Split search, which take
+    /// only a match that starts and ends on whole characters (see <see cref="VbTextCompare.IndexOf"/>).</summary>
+    internal static int Find(string s, string find, int start, bool text, bool wholeCharacters, out int length) =>
+        Find(s, find, start, text ? new VbTextCompare.Searchable(s) : null, wholeCharacters, out length);
+
+    // The same, for a caller that searches one string many times, as Replace and Split do, with the string folded for a text
+    // search once (text) or not at all (null, a binary search).
+    internal static int Find(string s, string find, int start, VbTextCompare.Searchable? text, bool wholeCharacters, out int length)
+    {
+        if (text != null)
+            return text.IndexOf(find, start, wholeCharacters, out length);
+        length = find.Length;
+        return s.IndexOf(find, start, StringComparison.Ordinal);
     }
 
     private static Vb6Value InStrRev(IReadOnlyList<Vb6Value> a)
@@ -108,10 +128,15 @@ public partial class VB6BuiltIns
         string s1 = AsStr(a[0]), s2 = AsStr(a[1]);
         int start = Supplied(a, 2) ? AsInt(a[2]) : -1;
         int compare = Supplied(a, 3) ? AsInt(a[3]) : 0;
-        var cmp = compare == 1 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        int from = start < 0 ? s1.Length - 1 : Math.Min(start - 1, s1.Length - 1);
+        // A start past the end is 0, even where the text is there to find (measured, #1567).
+        if (start > s1.Length) return new Vb6Value(0L);
+        int from = start < 0 ? s1.Length - 1 : start - 1;
         if (from < 0 || s1.Length == 0) return new Vb6Value(0L);
-        return new Vb6Value((long)s1.LastIndexOf(s2, from, cmp) + 1);
+        // An empty string2 is found at start: .NET's LastIndexOf would say one past it.
+        if (s2.Length == 0) return new Vb6Value((long)from + 1);
+        return new Vb6Value((long)(compare == 1
+            ? VbTextCompare.LastIndexOf(s1, s2, from)
+            : s1.LastIndexOf(s2, from, StringComparison.Ordinal)) + 1);
     }
 
     private static string Replace(IReadOnlyList<Vb6Value> a)
@@ -124,24 +149,20 @@ public partial class VB6BuiltIns
         if (start < 1) throw InvalidCall();
         string sub = start <= s.Length ? s.Substring(start - 1) : "";
         if (find.Length == 0 || count == 0) return sub;
-        var cmp = compare == 1 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         var sb = new StringBuilder();
+        var text = compare == 1 ? new VbTextCompare.Searchable(sub) : null;
         int i = 0, done = 0;
-        while (i <= sub.Length - find.Length)
+        while (count < 0 || done < count)
         {
-            if ((count < 0 || done < count) && string.Compare(sub, i, find, 0, find.Length, cmp) == 0)
-            {
-                sb.Append(repl);
-                i += find.Length;
-                done++;
-            }
-            else
-            {
-                sb.Append(sub[i]);
-                i++;
-            }
+            // As text a match is whole characters, and need not be find's length: "ss" replaces the one character ß.
+            var at = Find(sub, find, i, text, wholeCharacters: true, out var length);
+            if (at < 0)
+                break;
+            sb.Append(sub, i, at - i).Append(repl);
+            i = at + length;
+            done++;
         }
-        sb.Append(sub.Substring(i));
+        sb.Append(sub, i, sub.Length - i);
         return sb.ToString();
     }
 
