@@ -458,7 +458,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_form_controls")]
-    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled, and a control array element's index, which name(index) takes); with 'controlName', that one control with every property it has, in the text set_control_property takes where it takes one. Position and size are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name the form, as the IDE spells them.")]
+    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled, and a control array element's index, which name(index) takes); with 'controlName', that one control with every property it has, in the text set_control_property takes where it takes one. Position and size are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name the form, as the IDE spells them; visible, enabled, caption and text are left out where the control's class has no such property.")]
     public async Task<FormControlsResult> GetFormControlsAsync(
         string formName,
         string? project = null,
@@ -495,8 +495,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 var top     = c.GetPropertyOrDefault(VBProperties.TopProperty);
                 var width   = c.GetPropertyOrDefault(VBProperties.WidthProperty);
                 var height  = c.GetPropertyOrDefault(VBProperties.HeightProperty);
-                var visible = c.GetPropertyOrDefault(VBProperties.VisibleProperty);
-                var enabled = c.GetPropertyOrDefault(VBProperties.EnabledProperty);
+                bool? visible = c.BaseClass.PropertiesByName.ContainsKey("Visible")
+                    ? c.GetPropertyOrDefault(VBProperties.VisibleProperty) : null;
+                bool? enabled = c.BaseClass.PropertiesByName.ContainsKey("Enabled")
+                    ? c.GetPropertyOrDefault(VBProperties.EnabledProperty) : null;
 
                 string? caption = c.BaseClass.PropertiesByName.ContainsKey("Caption")
                     ? c.GetPropertyOrDefault(VBProperties.CaptionProperty) : null;
@@ -3099,8 +3101,8 @@ internal record ControlInfo(
     double Top,
     double Width,
     double Height,
-    bool Visible,
-    bool Enabled,
+    bool? Visible,
+    bool? Enabled,
     string? Caption,
     string? Text,
     // The control this one sits inside, or null when it is on the form itself. Left/Top are measured from
