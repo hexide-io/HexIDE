@@ -54,7 +54,10 @@ public class FormComponentClass : ComponentBaseClass
         };
         VBProps.SetName(form, instance.GetPropertyOrDefault(NameProperty));
         // The frame its Width and Height include at run time (#1072).
-        AvaloniaInterop.FormFrame.Set(form, instance, menuBar);
+        // And the window that frame is drawn as: its border, caption bar and buttons (#1575).
+        var chrome = AvaloniaInterop.FormChrome.Read(instance, menuBar);
+        AvaloniaInterop.FormFrame.Set(form, chrome, menuBar);
+        chrome.Apply(form);
         // The state the form's file gives it, which it shows in: `WindowState = 2 'Maximized` (#1152, measured). It is kept
         // as the line it was read with, so the designer and the file are unchanged.
         if (VBLoader.RawNumber(instance, "WindowState") is { } state

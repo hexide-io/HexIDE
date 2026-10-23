@@ -150,6 +150,7 @@ public partial class VB6BuiltIns
         RegisterFormat(d);
         RegisterColor(d);
         RegisterChoice(d);
+        RegisterInteraction(d);
         // The command line, a String (measured): empty in a made program run with none.
         d["Command"] = (self, a, _) => a.Count == 0
             ? new Vb6Value(self.CommandLine)

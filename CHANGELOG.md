@@ -20,7 +20,7 @@ there isn't one yet. Anything may change between 0.x releases.
   Arguments (`CondComp`) and VB6's `Win32` and `Win16`. An inactive branch is never parsed, so code written for another
   compiler, such as VBA7's `Declare PtrSafe`, runs unchanged. A directive's error stops the program as it loads, even in a
   branch never taken, as vb6.exe refuses to build. The module saves exactly as written: the selection exists only for the
-  parser. Every personality uses VB6's constants for now (#1548), and `Like` in an `#If` waits for `Like` itself (#1547).
+  parser. Every personality uses VB6's constants for now (#1548).
 
 - **The language server no longer squiggles code vb6.exe never compiles** (#1112). An inactive `#If` branch is no longer
   parsed, so a VBA7 `Declare PtrSafe` behind `#If VBA7 Then`, or a procedure whose `#If` gives it two headers, has no
@@ -239,6 +239,34 @@ there isn't one yet. Anything may change between 0.x releases.
 - **MCP command guards follow the compiled XAML binding** (#1324). `invoke_command` now finds private guards
   on base types and ignores guards below the bound method's type, so its refusal agrees with the menu.
 
+- **A Let into an array variable takes only what vb6.exe's does** (#998, #1588). It stored whatever it was given:
+  `a = Array(1, 2)` left an `Integer()` a Variant array, Empty left a `String()` Empty, and `b = "ab"` left a `Byte()`
+  a String. Now an array of exactly the element type is copied, a String into a `Byte()` becomes its bytes, and anything
+  else is error 13 and leaves the array as it was, or VB6's compile error "Can't assign to array" where the statement
+  shows the type. A Function declared to return a `Byte()` converts a String too, where it stopped the program.
+
+- **MCP paths for indented list items resolve** (#1357). `dump_visual_tree` trims names in paths while keeping
+  the reported name as drawn. Names that become duplicates after trimming use positional paths, as do blank names.
+
+- **Ending an external debug session discards pending evaluations immediately** (#1599). A late adapter reply could
+  reach the Immediate window while End was waiting for disconnect. The stopped context now expires before disconnect
+  is sent, so an answer arriving during teardown cannot be shown as a current evaluation.
+
+- **Numeric source literals keep their value on every locale** (#781). A made EXE on German regional settings read `0.6 * 10` as 60 and `1.5!` as 15; French settings could stop the program with a parse error. Literal parsing now uses the invariant culture, including suffixes, exponents and conditional compilation. Runtime string conversions retain their locale rules.
+
+- **Persian words in MCP replies remain readable** (#1316). A zero-width non-joiner between Arabic-script
+  letters (including their combining marks) is written as itself. Joiners elsewhere remain escaped.
+
+- **A helper's `On Error Resume Next` no longer sees its caller's stale error** (#877). `On Error`, `Resume` and leaving a procedure from its handler now clear `Err`, as vb6.exe does, so `If Err.Number <> 0 Then` after them reads only what has happened since. While a handler runs, an error in it now goes to the caller even after `On Error Resume Next`, where HexIDE used to trap it and run on. `On Error GoTo -1` runs, and `Err.Raise` with no Description keeps the one already set, as vb6.exe's does.
+
+- **MCP window wording matches how `auto` picks** (#1321). `interact` now says it usually picks a running form, and the unknown-window refusal describes its preference for another visible window, a dialog first.
+
+- **A running form has the window its file describes** (#1575). Every form ran as a sizable window with a title bar,
+  minimize and maximize buttons and a close box, whatever its BorderStyle, ControlBox, MinButton and MaxButton said. A
+  Fixed Single or Fixed Dialog form can no longer be resized by its border, a borderless form has no frame, a form
+  with ControlBox False has no close box, and the tool windows have a tool window's caption. On Windows the window is
+  given the styles vb6.exe gives it, measured for 20 combinations.
+
 - **MCP refuses arguments containing an unpaired UTF-16 surrogate** (#1337). The reply now names the tool and
   parameter, says the argument is not valid text and that nothing was done. It previously returned only the SDK's
   `-32603 "An error occurred."` before any tool ran.
@@ -251,6 +279,11 @@ there isn't one yet. Anything may change between 0.x releases.
   for every control it carries as text over every control it models, so a control brought in front of one was saved in
   front of it (#1498) but still drawn under its box. The boxes now stack with the controls, as VB6 stacks the control:
   over its Frame or PictureBox, and over or under each control as the file and Bring to Front or Send to Back put it.
+
+- **`Like` runs in an `#If` or a `#Const`, and a directive orders text as vb6.exe does** (#1598). `Like` there was
+  still refused as not implemented after `Like` itself ran. It now matches as text in every module, as vb6.exe's does,
+  and a pattern it cannot read is vb6.exe's compile error. A directive ordered two strings case-insensitively by code
+  unit, so `#If "_" < "a"` took the other branch from vb6.exe's; it now orders them by vb6.exe's measured text order.
 
 - **The designer draws and names a UserControl or PropertyPage as VB6's does** (#1544). Each was drawn in a form's
   window frame, with a title bar and caption buttons, a PropertyPage's tab read `(Form)`, and the Properties window's
@@ -353,6 +386,8 @@ there isn't one yet. Anything may change between 0.x releases.
 - **`CCur` and `CDec` preserve decimal precision in Strings** (#1531). Plain decimal numbers are read in the
   program's locale without rounding through a Double, including the Currency and Decimal maxima. Out-of-range
   Strings raise run-time error 6. Hex, octal and exponent forms keep their existing conversion.
+
+- **StrComp, StrConv, Environ, Switch and Error() run** (#1560). Each stopped the program that called it. All five were measured on vb6.exe first: StrConv's case goes through the ANSI code page as VB6's does, Switch reads its conditions only until one holds, and Error(n) answers from vb6.exe's text for every number from 0 to 65535. Err.Raise with no Description now takes that same text, so `Err.Raise 340` is "Application-defined or object-defined error", as in VB6, and 21 messages that had other words have vb6.exe's. UCase and LCase now keep the case of µ, ı and four others, as vb6.exe does, where they took .NET's.
 
 - **`Option Compare Text` compares as vb6.exe does** (#1567). A module saying it still compared strings as Binary in `=`, `<`, `>` and `Select Case`, so `"abc" = "ABC"` was False. Now those compare by vb6.exe's own text order, measured character by character: case and accents, the hyphen and apostrophe that a Windows sort sets aside, and ß, æ, œ and þ as their two letters. The same compare now serves a Collection's keys, and a compare of 1 in InStr, InStrRev, Replace, Split and Filter, which had read it as "ignore case" and kept "straße" and "strasse" apart (#1479).
 
