@@ -330,7 +330,7 @@ deftypeStmt
     ;
 
 deleteSettingStmt
-    : DELETESETTING WS valueStmt WS? COMMA WS? valueStmt (WS? COMMA WS? valueStmt)?
+    : DELETESETTING WS valueStmt (WS? COMMA WS? valueStmt (WS? COMMA WS? valueStmt)?)?
     ;
 
 doLoopStmt

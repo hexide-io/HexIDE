@@ -120,10 +120,11 @@ public class FrmStringQuoteTests
     {
         var form = Load(Probe);
 
-        // cmd1's ToolTipText is not modelled on a CommandButton (#1403), so it is kept as the file had it; the save test
-        // pins it.
         Named(form, "lbl1").GetPropertyOrDefault(TagProperty).Should().Be("t\"g");
         Named(form, "txt1").GetPropertyOrDefault(TextProperty).Should().Be("a\"b");
+        // vb6.exe read cmd1's back as tip"s (#218), and HexIDE models it on a CommandButton since #1403.
+        Named(form, "cmd1").GetPropertyOrDefault(ToolTipTextProperty).Should().Be("tip\"s");
+        Named(form, "cmd1").UnknownRawProperties.Should().NotContain(p => p.Name == "ToolTipText");
     }
 
     [Fact]

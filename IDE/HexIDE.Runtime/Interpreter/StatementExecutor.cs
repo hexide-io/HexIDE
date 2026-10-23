@@ -630,8 +630,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // the initializer and fill the slot. The slot is marked a constant, so any other store into it is refused (#1003).
         foreach (var sub in context.constSubStmt())
         {
-            if (sub.typeHint() != null)
-                throw new NotImplementedException("Const type hints not supported");
             // Inside a procedure the Const was declared at entry (HoistDeclaredLocals), so the statement has nothing
             // left to do when execution reaches it.
             if (ownedSlots != null)
@@ -666,7 +664,30 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitDeleteSettingStmt(VB6Parser.DeleteSettingStmtContext context)
     {
-        throw new NotImplementedException("DeleteSetting not implemented");
+        await RunSettingStatement("DeleteSetting", context.valueStmt());
+        return ControlFlow.Nothing;
+    }
+
+    // SaveSetting and DeleteSetting are statements in the grammar and intrinsics in VB6, which runs `Call SaveSetting(...)` and
+    // `VBA.SaveSetting ...` as well (measured, #1562), so each runs as the intrinsic. A named argument, `AppName:="x"`, is
+    // placed by the intrinsic's parameter names, as a call's is.
+    private async Task RunSettingStatement(string name, IReadOnlyList<VB6Parser.ValueStmtContext> arguments)
+    {
+        var args = new List<CallArg>(arguments.Count);
+        foreach (var argument in arguments)
+        {
+            if (argument is VB6Parser.VsAssignContext assign)
+            {
+                var value = assign.valueStmt();
+                args.Add(new CallArg(Vb6Value.Missing, null, Name: assign.implicitCallStmt_InStmt().GetText(),
+                    Deferred: async () => new CallArg(await expressionExecutor.EvaluateValue(value), null)));
+                continue;
+            }
+            if (args.Count > 0 && args[^1].Name is not null)
+                throw new VBCompileErrorException("Syntax error");
+            args.Add(new CallArg(await expressionExecutor.EvaluateValue(argument), null));
+        }
+        await interpreter.BuiltIns.EvaluateBuiltInFunction(name, await VB6BuiltIns.ArrangeIntrinsicArguments(name, args));
     }
 
     // The pre-pass collected the module's DefType statements (#169); running one does nothing. Inside a procedure it does not
@@ -2376,7 +2397,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitSaveSettingStmt(VB6Parser.SaveSettingStmtContext context)
     {
-        throw new NotImplementedException("SaveSetting not implemented");
+        await RunSettingStatement("SaveSetting", context.valueStmt());
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitSeekStmt(VB6Parser.SeekStmtContext context)
@@ -3316,8 +3338,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// </summary>
     private async Task DeclareLocalConst(VB6Parser.ConstSubStmtContext sub)
     {
-        if (sub.typeHint() != null)
-            throw new NotImplementedException("Const type hints not supported");
         var name = sub.ambiguousIdentifier().GetText();
         if (!declaredLocals.Add(name))
             return;
@@ -3341,15 +3361,30 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// <c>As Byte = 300</c>, <c>As Byte = -1</c>, <c>As Integer = 32768</c>, a Currency or a Date beyond its range are
     /// "Overflow", and <c>As Integer = "x"</c> "Type mismatch". <c>As Variant</c> keeps the value as it is (2.5, a Double).
     /// It stored the value as the initialiser gave it, whatever the As clause said.
+    /// <para>
+    /// A type character on the name is that As clause, with the same conversions and the same errors (measured, #1614):
+    /// <c>Const K% = 2.5</c> is the Integer 2, <c>Const K$ = 5</c> the String "5", and <c>Const K% = 40000</c> "Overflow".
+    /// Both together, <c>Const K% As Integer = 1</c>, does not compile: "Expected: =".
+    /// </para>
     /// </summary>
     private static Vb6Value AsDeclared(VB6Parser.ConstSubStmtContext sub, Vb6Value value)
     {
-        if (sub.asTypeClause() is not { } asType)
+        Vb6Value.ValueType type;
+        if (sub.typeHint() is { } hint)
+        {
+            if (sub.asTypeClause() != null)
+                throw new VBCompileErrorException("Expected: =");
+            type = BaseTypeMapper.Map(hint);
+        }
+        else if (sub.asTypeClause() is { } asType)
+        {
+            if (BaseTypeMapper.Map(asType.type()?.baseType()) is not { } declared || asType.fieldLength() != null)
+                throw new NotImplementedException(
+                    $"Const {sub.ambiguousIdentifier().GetText()} As {asType.type()?.GetText()} is not supported.");
+            type = declared;
+        }
+        else
             return value;
-        var type = BaseTypeMapper.Map(asType.type()?.baseType());
-        if (type is null || asType.fieldLength() != null)
-            throw new NotImplementedException(
-                $"Const {sub.ambiguousIdentifier().GetText()} As {asType.type()?.GetText()} is not supported.");
         if (type == Vb6Value.ValueType.EmptyVariant)
             return value;
         try

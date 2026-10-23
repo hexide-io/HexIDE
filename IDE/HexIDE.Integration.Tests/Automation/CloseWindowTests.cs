@@ -158,6 +158,17 @@ public class CloseWindowTests
             Dispatcher.UIThread.RunJobs();
             boxes.Should().ContainSingle("the premise: the click is waiting on its box");
 
+            var watch = OpenDialogs.Watch([window, boxes[0]], window);
+            OpenDialogs.During(watch);
+            var refused = Close(window);
+            refused.Success.Should().BeFalse();
+            var note = OpenDialogs.Note(watch, [window, boxes[0]]);
+            note.Should().BeNull("the refusal already names the MsgBox");
+            var reply = refused.Error + note;
+            reply.Should().Contain("'" + boxes[0].Title + "'").And.NotContain("reached past");
+            reply.Split("'" + boxes[0].Title + "'").Length.Should().Be(2);
+            window.IsVisible.Should().BeTrue();
+
             var outcome = Close(boxes[0]);
 
             outcome.Detail.Should().EndWith("still open: the window, or the program behind it, refused, as it may a person's close");

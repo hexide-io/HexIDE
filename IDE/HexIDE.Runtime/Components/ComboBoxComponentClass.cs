@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
@@ -17,11 +18,13 @@ public class ComboBoxComponentClass : ComponentBaseClass
         ListProperty,
         ItemDataProperty,
         LockedProperty,
+        ComboStyleProperty,
         MousePointerProperty,
         RightToLeftProperty,
         AppearanceProperty,
         TabStopProperty,
-        TabIndexProperty], [ChangeEvent, ClickEvent, DropDownEvent, GotFocusEvent, LostFocusEvent])
+        TabIndexProperty,
+        ToolTipTextProperty], [ChangeEvent, ClickEvent, DropDownEvent, GotFocusEvent, LostFocusEvent])
     {
     }
 
@@ -37,11 +40,11 @@ public class ComboBoxComponentClass : ComponentBaseClass
 
     protected override Control InstantiateInternal(ComponentInstance instance)
     {
-        var style = StyleOf(instance);
+        var style = instance.GetPropertyOrDefault(ComboStyleProperty);
         return new VBComboBox(style)
         {
-            // A Dropdown List ignores a saved Text (measured), and its Text is #1428's.
-            Text = style is 0 or 1 ? instance.GetPropertyOrDefault(TextProperty) : "",
+            // A Dropdown List ignores a saved Text (measured): its Text is its selected item, and none is selected.
+            Text = style == VBComboStyle.DropdownList ? "" : instance.GetPropertyOrDefault(TextProperty),
             // No ItemsSource. List is the companion record verbatim, and turning it into items needs a
             // non-empty example to decode against — every List record in VB6's Template tree is an empty
             // two-byte count. Binding it directly would compile and be wrong: byte[] IS an IEnumerable, so
@@ -57,24 +60,25 @@ public class ComboBoxComponentClass : ComponentBaseClass
         };
     }
 
-    // Style is not one of this control's properties yet (#1428), so the form reader keeps its line as written,
-    // `Style = 2 'Dropdown List`. A value this cannot read is taken as 2, so its Text is refused rather than edited.
-    public static int StyleOf(ComponentInstance instance)
-    {
-        foreach (var property in instance.UnknownRawProperties)
-        {
-            if (!property.Name.Equals("Style", System.StringComparison.OrdinalIgnoreCase) || property.Lines.Count == 0)
-                continue;
-            var line = property.Lines[0];
-            var value = line[(line.IndexOf('=') + 1)..].TrimStart();
-            var digits = value.Length - value.TrimStart('0', '1', '2', '3', '4', '5', '6', '7', '8', '9').Length;
-            return int.TryParse(value[..digits], out var style) ? style : 2;
-        }
-        return 0;
-    }
-
     /// <summary>A Dropdown List: its Text is never written to the .frm, as VB6's designer never writes it (measured).</summary>
-    public static bool IsDropdownList(ComponentInstance instance) => StyleOf(instance) is not (0 or 1);
+    public static bool IsDropdownList(ComponentInstance instance) =>
+        instance.GetPropertyOrDefault(ComboStyleProperty) == VBComboStyle.DropdownList;
+
+    /// <summary>
+    /// Setting Style to Dropdown List resets the Text to the control's name, so a Text typed earlier is gone when Style goes
+    /// back (measured on VB6's designer, #926).
+    /// </summary>
+    public override IReadOnlyList<PropertyChange> ApplyDesignerConsequences(ComponentInstance instance, PropertyClass property)
+    {
+        if (!ReferenceEquals(property, ComboStyleProperty) || !IsDropdownList(instance))
+            return [];
+        var before = instance.GetPropertyOrDefault(TextProperty);
+        var name = instance.GetPropertyOrDefault(NameProperty) ?? "";
+        if (before == name)
+            return [];
+        instance.SetProperty(TextProperty, name);
+        return [new PropertyChange(TextProperty, before, name)];
+    }
 
     static ComboBoxComponentClass()
     {
