@@ -781,10 +781,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // An array one of whose elements a running call holds ByRef is locked (measured, #1455).
             if (arr.IsLocked)
                 throw new VBRunTimeException(context, VBStandardError.ThisArrayIsFixedOrTemporarilyLocked);
+            // Clear the slots before releasing their objects, as a scalar store does (measured, #1482).
+            var released = arr.IsDynamic || arr.ElementType == Vb6Value.ValueType.Object
+                ? arr.EnumerateElements().ToList() : null;
             if (arr.IsDynamic)
                 arr.Free();
             else
                 arr.ResetElements();
+            if (released is not null)
+                foreach (var element in released)
+                    await interpreter.ReleaseRef(element);
         }
         return ControlFlow.Nothing;
     }
@@ -920,7 +926,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
 
         if (collection.Value is VbCollection items)
-            return await ForEachItem(context, varName, items);
+        {
+            var cursor = items.StartEnumeration();
+            return await ForEachItem(context, varName, (out Vb6Value item) => items.TryNext(cursor, out item),
+                () => items.EndEnumeration(cursor));
+        }
+        if (collection.Value is FormControls controls)
+        {
+            var cursor = controls.StartEnumeration();
+            return await ForEachItem(context, varName, (out Vb6Value item) => controls.TryNext(cursor, out item), () => { });
+        }
 
         if (collection.Value is not VBArray { IsDefined: true } array)
         {
@@ -932,7 +947,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 VBArray => new VBRunTimeException(context, VBStandardError.ForLoopNotInitialized),
                 null when collection.Type == Vb6Value.ValueType.Object => new VBRunTimeException(context, VBStandardError.ObjectRequired),
                 VbObject or Avalonia.Controls.Control or ICSharpProxy => throw new NotImplementedException(
-                    "For Each over an object, such as a Collection, a form's Controls or a control array, is not supported yet: only arrays are."),
+                    "For Each over this object, such as a control array, is not supported yet: only arrays, a Collection and a form's Controls are."),
                 _ => new VBRunTimeException(context, VBStandardError.TypeMismatch),
             };
             if (errorMode != ErrorMode.ResumeNext)
@@ -970,15 +985,20 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return ControlFlow.Nothing;
     }
 
+    /// <summary>The next item of a For Each over an object, or false once there are no more.</summary>
+    private delegate bool NextItem(out Vb6Value item);
+
     /// <summary>
-    /// For Each over a Collection (#1471), measured. The loop reaches the items in order, as they are when it reaches them:
-    /// an item removed before it is reached is not, and one added after the item it is on is (VbCollection.Cursor). Each
-    /// is bound as an array's element is. A loop that runs out leaves a Variant Empty and an object variable Nothing;
-    /// Exit For leaves it holding the item it reached. The variable must be a Variant or an object: a Long or a String is
-    /// VB6's compile error, and an item that is no object, given to an object variable, is 424. Under Resume Next, that
-    /// 424 on the first item goes on into the body, and on a later one, raised by Next, ends the loop (measured).
+    /// For Each over a Collection (#1471) or a form's Controls (#1060), measured. The loop reaches the items in order, as
+    /// they are when it reaches them: from a Collection, an item removed before it is reached is not, and one added after
+    /// the item it is on is (VbCollection.Cursor); from Controls, one unloaded before it is reached is not, and one loaded
+    /// while it runs is not either (FormControls.Cursor). Each is bound as an array's element is. A loop that runs out
+    /// leaves a Variant Empty and an object variable Nothing; Exit For leaves it holding the item it reached. The variable
+    /// must be a Variant or an object: a Long or a String is VB6's compile error, and an item that is no object, given to
+    /// an object variable, is 424. Under Resume Next, that 424 on the first item goes on into the body, and on a later one,
+    /// raised by Next, ends the loop (measured).
     /// </summary>
-    private async Task<ControlFlow> ForEachItem(VB6Parser.ForEachStmtContext context, string varName, VbCollection items)
+    private async Task<ControlFlow> ForEachItem(VB6Parser.ForEachStmtContext context, string varName, NextItem next, Action end)
     {
         currentEnv.TryGetVariableLocation(varName, out var location);
         var state = interpreter.ExecutionContext.State;
@@ -991,11 +1011,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             && (state.DeclaredClassOf(location) is not null || IsObjectReference(initial));
 
         var block = context.block();
-        var cursor = items.StartEnumeration();
         try
         {
             var first = true;
-            while (items.TryNext(cursor, out var item))
+            while (next(out var item))
             {
                 try
                 {
@@ -1034,7 +1053,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         finally
         {
-            items.EndEnumeration(cursor);
+            end();
         }
         interpreter.ExecutionContext.TryInspectVariable(currentEnv, varName, out var last);
         interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, objectVariable ? Vb6Value.Nothing : Vb6Value.Variant);
@@ -1439,9 +1458,54 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // per instance must therefore do nothing at all.
         => Task.FromResult(ControlFlow.Nothing);
 
+    /// <summary>
+    /// <c>Input #</c> (#1521): each variable in turn takes the next field, read and converted for its type as
+    /// <see cref="VbInput"/> says. At the end of the file it is 62, and a Variant is emptied first, where a typed variable
+    /// keeps what it had (measured). Only a plain variable is taken, as for <c>Line Input #</c>.
+    /// </summary>
     public override async Task<ControlFlow> VisitInputStmt(VB6Parser.InputStmtContext context)
     {
-        throw new NotImplementedException("Input not implemented");
+        RequireHash(context.valueStmt(0), "Input");
+        var number = await FileNumber(context.valueStmt(0));
+        var files = interpreter.BuiltIns.Files;
+        foreach (var target in context.valueStmt().Skip(1))
+        {
+            var name = target.GetText();
+            if (!System.Text.RegularExpressions.Regex.IsMatch(name, "^[A-Za-z][A-Za-z0-9_]*$"))
+                throw new NotImplementedException($"Input # into {name} is not implemented: only a plain variable is (#1521)");
+            var type = await InputTypeOf(name);
+            if (files.ReadField(number, VbInput.ReadingFor(type)) is not { } field)
+            {
+                if (type is null)
+                    await StoreVariable(name, Vb6Value.Variant);
+                throw new VBRunTimeException(target, VBStandardError.InputPastEndOfFile);
+            }
+            await StoreVariable(name, type is { } typed ? VbInput.ToTyped(field, typed, target) : VbInput.ToVariant(field));
+        }
+        return ControlFlow.Nothing;
+    }
+
+    // The type `Input #` reads a variable's field for, or null for a Variant. An undeclared name is created here, as a store
+    // would create it, since a DefType may type it.
+    private async Task<Vb6Value.ValueType?> InputTypeOf(string name)
+    {
+        if (!interpreter.TryReadNow(currentEnv, name, out var found, out var current, out var need))
+            (found, current) = await interpreter.ReadVariableAfter(currentEnv, name, need!);
+        if (!found)
+        {
+            if (currentModule.PrePass.RequireVariableDefinitions)
+                throw new VBVariableNotDefinedException(name);
+            AllocImplicitVariant(name);
+            interpreter.ExecutionContext.TryGetVariable(currentEnv, name, out current);
+        }
+        var declared = currentEnv.TryGetVariableLocation(name, out var location)
+            ? interpreter.ExecutionContext.State.DeclaredTypeOf(location)
+            : null;
+        declared ??= current.HasFixedType ? current.Type : null;
+        if (current.Value is VBArray || !VbInput.Reads(declared)
+            || (declared is null && VbInput.IsOneOf(current.Type, Vb6Value.ValueType.Object, Vb6Value.ValueType.UserDefinedType)))
+            throw new NotImplementedException($"Input # into {name}, {(current.Value is VBArray ? "an array" : $"a {declared ?? current.Type}")}, is not implemented (#1521)");
+        return declared;
     }
 
     public override async Task<ControlFlow> VisitKillStmt(VB6Parser.KillStmtContext context)
@@ -1524,7 +1588,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             || currentModule.ModuleEnv.TryGetVariableLocation(name, out var moduleLocation) && moduleLocation == location;
     }
 
-    public override async Task<ControlFlow> VisitLetStmt(VB6Parser.LetStmtContext context)
+    // The value a Let stores, with the refusals every Let makes of it.
+    private async Task<Vb6Value> LetValue(VB6Parser.LetStmtContext context)
     {
         var value = await expressionExecutor.EvaluateValue(context.valueStmt());
 
@@ -1550,6 +1615,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw new NotImplementedException(
                 $"`{context.implicitCallStmt_InStmt().GetText()} = {context.valueStmt().GetText()}` reads a default "
                 + "member, which is not implemented (#790). Name the property, or use Set to keep the reference.");
+        return value;
+    }
+
+    public override async Task<ControlFlow> VisitLetStmt(VB6Parser.LetStmtContext context)
+    {
+        // `a(1)(0) = 9` and `F()(1) = 7`, whose last index group VB6 evaluates before the value (#1476).
+        if (context.implicitCallStmt_InStmt().iCS_S_ProcedureOrArrayCall() is { } chain
+            && ExpressionExecutor.ParenGroups(chain) is { Count: > 1 } chainGroups
+            && chain.ambiguousIdentifier() is not null && chain.typeHint() is null && chain.dictionaryCallStmt() is null)
+            return await LetIntoIndexChain(context, chain, chainGroups);
+
+        var value = await LetValue(context);
 
         if (context.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } varOrProcCall)
         {
@@ -1781,8 +1858,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 procedureOrArrayCall.dictionaryCallStmt() != null)
                 throw new NotImplementedException();
 
-            if (procedureOrArrayCall.argsCall().Length != 1)
+            if (procedureOrArrayCall.argsCall().Length == 0)
                 throw new NotImplementedException();
+            if (procedureOrArrayCall.argsCall().Length > 1)
+                throw new NotImplementedException($"storing into {procedureOrArrayCall.GetText()} is not implemented (#1476)");
 
             var identifier = procedureOrArrayCall.ambiguousIdentifier().GetText() ?? throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Null variable name");
 
@@ -1838,6 +1917,54 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             throw new NotImplementedException($"{context.implicitCallStmt_InStmt()} is not supported");
         }
+    }
+
+    /// <summary>
+    /// <c>a(1)(0) = 9</c>: the element of an array that another array's element holds, written through to it, so <c>a</c>
+    /// changes, where <c>v = a(1): v(1) = 99</c> changes only <c>v</c>'s copy. <c>F()(1) = 7</c> stores into the result of
+    /// the call, which nothing keeps: it compiles, F runs, and nothing else changes. VB6 evaluates the last index group, then
+    /// the value, then the other groups, the last of them first, then the first: <c>a(w1)(w2)(w3) = rhs</c> is w3, rhs, w2,
+    /// w1. All measured (#1476).
+    /// </summary>
+    private async Task<ControlFlow> LetIntoIndexChain(VB6Parser.LetStmtContext context,
+        VB6Parser.ICS_S_ProcedureOrArrayCallContext call, IReadOnlyList<VB6Parser.ArgsCallContext?> groups)
+    {
+        async Task<List<Vb6Value>> Subscripted(VB6Parser.ArgsCallContext? group) => group is not null
+            ? await expressionExecutor.EvaluateCallArgs(group)
+            : throw new NotImplementedException($"an empty index group, as in {call.GetText()}, is not implemented (#1476)");
+
+        var last = await Subscripted(groups[^1]);
+        var value = await LetValue(context);
+        var middle = new List<Vb6Value>[groups.Count - 2];
+        for (var g = groups.Count - 2; g >= 1; g--)
+            middle[g - 1] = await Subscripted(groups[g]);
+        var holder = await expressionExecutor.EvaluateCallOrElement(call, groups[0]) as Vb6Value?
+            ?? throw new NotImplementedException($"storing into {call.GetText()} is not implemented (#1476)");
+        foreach (var subscripts in middle)
+            holder = ExpressionExecutor.IndexResult(holder, subscripts, call);
+        if (holder.Value is not VBArray inner)
+        {
+            // `a(0)(1) = 5` with `a` an Integer array does not compile: "Type mismatch" (measured). A Variant holding no array
+            // is unmeasured, and raises 13 as a read of it does.
+            if (holder.Value is VbCollection or VbObject || holder.Type == Vb6Value.ValueType.Object)
+                throw new NotImplementedException($"storing into {call.GetText()} is not implemented (#1476)");
+            if (holder.HasFixedType)
+                throw new VBCompileErrorException("Type mismatch");
+            throw new VBRunTimeException(call, VBStandardError.TypeMismatch);
+        }
+        var at = Subscripts(last);
+        Vb6Value oldElement;
+        try
+        {
+            oldElement = inner.GetValue(at);
+            inner.SetValue(at, interpreter.CopyForStore(value));
+        }
+        catch (IndexOutOfRangeException)
+        {
+            throw new VBRunTimeException(call, VBStandardError.SubscriptOutOfRange);
+        }
+        await interpreter.ReleaseRef(oldElement);
+        return ControlFlow.Nothing;
     }
 
     // The next line of an Input file, without its ending (#1145). At the end of the file it is 62, and the variable keeps
@@ -2622,7 +2749,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 var oldElem = arr.GetValue(indexes);   // release the element's previous occupant (refcount)
                 interpreter.AddRef(value);
-                arr.SetValue(indexes, value);          // slot first, then release the old occupant (see above)
+                try
+                {
+                    arr.SetValue(indexes, value);      // slot first, then release the old occupant (see above)
+                }
+                catch
+                {
+                    await interpreter.ReleaseRef(value);
+                    throw;
+                }
                 await interpreter.ReleaseRef(oldElem);
             }
             catch (IndexOutOfRangeException)
@@ -2664,6 +2799,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 await root.UnloadAsync(1);
                 return ControlFlow.Nothing;
             }
+            // An element held by a variable, as `Unload c` in a loop over a form's Controls does (measured, #1060).
+            if (target.Value is Avalonia.Controls.Control element && ControlArrayGroup.TryGetArrayOf(element, out var array)
+                && BuiltinControls.VBProps.GetIndex(element) is { } elementIndex)
+            {
+                array.Unload(elementIndex);
+                return ControlFlow.Nothing;
+            }
         }
         var (group, index) = await ResolveControlArrayTarget(context.valueStmt(), "Unload");
         group.Unload(index);   // Err 340 if missing, Err 362 if a design-time element
@@ -2692,6 +2834,25 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (env.TryGetVariableLocation(name, out var location))
             interpreter.ExecutionContext.State.MarkVariant(location);
     }
+
+    private string? ObjectArrayClass(VB6Parser.AsTypeClauseContext clause)
+    {
+        if (clause.type().baseType()?.COLLECTION() != null
+            || ExpressionExecutor.IsCollectionType(clause.type().GetText()))
+            return "Collection";
+        if (clause.type().complexType() is { } complex)
+        {
+            var (_, name) = SplitTypeName(complex.GetText());
+            if (interpreter.Modules.TryGet(name, out var module) && module.Kind == InterpreterModuleKind.Class)
+                return module.Name;
+        }
+        return null;
+    }
+
+    private Vb6Value.ValueType ExtractArrayType(VB6Parser.AsTypeClauseContext clause) =>
+        ObjectArrayClass(clause) is not null
+            ? new Vb6Value.ValueType(Vb6Value.ValueType.Object, true)
+            : ExtractType(clause, true);
 
     public override async Task<ControlFlow> VisitRedimStmt(VB6Parser.RedimStmtContext context)
     {
@@ -2725,9 +2886,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // whose type and fixedness stay the slot's (measured, #970).
             var variant = located && (currentEnv.VariantParameters.Contains(variableName)
                 || !declaredArray && interpreter.ExecutionContext.State.IsVariant(redimLoc));
-            Vb6Value.ValueType type = redim.asTypeClause() != null ? ExtractType(redim.asTypeClause(), true)
+            Vb6Value.ValueType type = redim.asTypeClause() != null ? ExtractArrayType(redim.asTypeClause())
                 : declaredArray || value.Type.IsArray ? value.Type
                 : new Vb6Value.ValueType(Vb6Value.ValueType.EmptyVariant, true);
+
+            var objectClass = redim.asTypeClause() is { } objectClause
+                ? ObjectArrayClass(objectClause) : (value.Value as VBArray)?.DeclaredClass;
+            Vb6Value NewArray(List<(int, int)>? bounds = null)
+            {
+                var result = bounds is null ? new Vb6Value(type) : new Vb6Value(type, bounds);
+                ((VBArray)result.Value!).DeclaredClass = objectClass;
+                return result;
+            }
 
             if (dimensions == null)
                 throw new VBCompileErrorException("Dimensions required");
@@ -2753,6 +2923,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (value.Value is VBArray { IsLocked: true })
                 throw new VBRunTimeException(context, VBStandardError.ThisArrayIsFixedOrTemporarilyLocked);
 
+            // Different object declarations share the Object ValueType, but must not silently lose their constraint.
+            if (preserve && redim.asTypeClause() is not null && value.Value is VBArray oldObjects
+                && !string.Equals(objectClass, oldObjects.DeclaredClass, StringComparison.OrdinalIgnoreCase))
+                throw new NotImplementedException("Changing an object array's declared class with ReDim Preserve is not implemented");
             if (preserve && await TryPreserve(context, value, dimensions, redim.asTypeClause() != null ? type : null, variant))
                 continue;
 
@@ -2766,12 +2940,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (dimensions.Exists(d => d.Item2 < d.Item1))
             {
                 if (!variant)
-                    interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variableName, new Vb6Value(type));
+                    interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variableName, NewArray());
                 else if (!dimensions.Exists(d => d.Item2 == d.Item1 - 1))
                 {
                     // Emptied: a Variant to Empty, and a caller's declared array, shared by the parameter, to unallocated.
                     interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variableName,
-                        declaredArray ? new Vb6Value(type) : Vb6Value.Variant);
+                        declaredArray ? NewArray() : Vb6Value.Variant);
                     throw new VBRunTimeException(context, VBStandardError.OutOfMemory);
                 }
                 throw new VBRunTimeException(context, VBStandardError.SubscriptOutOfRange);
@@ -2782,12 +2956,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             Vb6Value redimmed;
             try
             {
-                redimmed = new Vb6Value(type, dimensions);
+                redimmed = NewArray(dimensions);
             }
             catch (VBRunTimeException e) when (e.Error.ErrNo == VBStandardError.OutOfMemory.ErrNo)
             {
                 interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variableName,
-                    variant && !declaredArray ? Vb6Value.Variant : new Vb6Value(type));
+                    variant && !declaredArray ? Vb6Value.Variant : NewArray());
                 throw new VBRunTimeException(context, VBStandardError.OutOfMemory);
             }
             interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variableName, redimmed);
@@ -2932,7 +3106,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     value = Vb6Value.Nothing;
                     declaredClass = autoNew;
                 }
-                else if (!isArray && asType?.type()?.complexType() is { } ct && asType.NEW() == null && asType.fieldLength() == null)
+                else if (asType?.type()?.complexType() is { } ct && (!isArray || ObjectArrayClass(asType) is not null) && asType.NEW() == null && asType.fieldLength() == null)
                 {
                     // `Dim e As Employee` — a fresh UDT instance; `Dim x As MyEnum` — a Long; `Dim c As Clock`
                     // (a class) — Nothing (a null object reference, so `c Is Nothing` is True until Set).
@@ -2975,7 +3149,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     else
                         throw new VBCompileErrorException("User-defined type not defined: " + typeName);
                 }
-                else if (!isArray && asType?.NEW() == null && asType?.type()?.baseType() is { } objectType
+                else if (asType?.NEW() == null && asType?.type()?.baseType() is { } objectType
                          && (objectType.OBJECT() != null || objectType.COLLECTION() != null))
                 {
                     // `Dim o As Object`, `Dim c As Collection`: an object slot, Nothing until Set (#822 review). A Collection's
@@ -2987,7 +3161,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 else
                 {
                     // With no As clause the type is the DefType's for the name's letter, if one covers it (measured, #169).
-                    // DefObj's is an Object slot, Nothing until Set, as `As Object` makes; an array of them is #1482.
+                    // DefObj's is an Object slot, Nothing until Set, as `As Object` makes.
                     var defaultType = asType is null ? currentModule.PrePass.DefaultTypeOf(subStmt.ambiguousIdentifier().GetText()) : null;
                     if (isArray && defaultType == Vb6Value.ValueType.Object)
                         throw new NotImplementedException("An array of objects is not implemented (#1482)");
@@ -2996,6 +3170,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         : ExtractType(asType, isArray);
                     value = dimensions != null ? new Vb6Value(type, dimensions) : new Vb6Value(type);
                     if (dimensions != null && value.Value is VBArray fixedArr) fixedArr.IsDynamic = false;   // `Dim a(N)` = fixed
+                }
+
+                // Object elements start as Nothing and keep the scalar declaration's constraint (measured, #1482).
+                if (isArray && value.Type == Vb6Value.ValueType.Object)
+                {
+                    var arrayType = new Vb6Value.ValueType(value.Type, true);
+                    value = dimensions != null ? new Vb6Value(arrayType, dimensions) : new Vb6Value(arrayType);
+                    ((VBArray)value.Value!).DeclaredClass = declaredClass;
+                    declaredClass = null;
+                    if (dimensions != null) ((VBArray)value.Value!).IsDynamic = false;
                 }
 
                 var localName = subStmt.ambiguousIdentifier().GetText();
@@ -3272,9 +3456,41 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private static bool MemberHasArgs(VB6Parser.ICS_S_MemberCallContext m)
         => m.iCS_S_ProcedureOrArrayCall()?.argsCall().Length > 0;
 
+    /// <summary>
+    /// <c>Write #</c> (#1521): each value as <see cref="VbWrite"/> writes it, and a comma for every <c>,</c> or <c>;</c>
+    /// between them. A list ending in one ends there, with no line break, and the next <c>Write #</c> goes on from it
+    /// without another comma. <c>Spc</c> and <c>Tab</c> move as in <c>Print #</c> (all measured).
+    /// </summary>
     public override async Task<ControlFlow> VisitWriteStmt(VB6Parser.WriteStmtContext context)
     {
-        throw new NotImplementedException("Write not implemented");
+        var files = interpreter.BuiltIns.Files;
+        RequireHash(context.valueStmt(), "Write");
+        var number = await FileNumber(context.valueStmt());
+        files.Column(number);   // 52 or 54 before anything is evaluated
+        var target = new FileTarget(files, number);
+        var afterSeparator = true;
+        foreach (var child in context.outputList()?.children ?? [])
+        {
+            switch (child)
+            {
+                case VB6Parser.OutputList_ExpressionContext item:
+                    if (!afterSeparator)
+                        throw new NotImplementedException("Write # of two items with no separator between them is not implemented (#1521)");
+                    if (item.valueStmt() is { } value)
+                        files.Write(number, VbWrite.ItemText(await expressionExecutor.EvaluateValue(value)));
+                    else
+                        await PrintPosition(target, item.SPC() != null, item.argsCall()?.argCall().FirstOrDefault()?.valueStmt());
+                    afterSeparator = false;
+                    break;
+                case ITerminalNode { Symbol.Type: VB6Parser.SEMICOLON or VB6Parser.COMMA }:
+                    files.Write(number, ",");
+                    afterSeparator = true;
+                    break;
+            }
+        }
+        if (context.outputList() is null || !afterSeparator)
+            VbPrint.EndLine(target);
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitICS_B_MemberProcedureCall(VB6Parser.ICS_B_MemberProcedureCallContext context)

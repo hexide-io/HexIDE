@@ -369,8 +369,12 @@ public class LineControlTests
     public void The_designer_stacks_lines_as_a_running_form_does()
     {
         var form = Form(Pixel, Line("LineA", Black(1, 1) + At(20, 20, 220, 20)) + Line("LineB", Black(1, 1) + At(20, 30, 220, 30)));
+        var vm = new FormEditViewModel(null!, Substitute.For<IEventBus>(), null!, null!, null!, Substitute.For<ISettingsService>(),
+            Substitute.For<ILocalizationService>()).Initialize(
+            new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), form, NullSink.Instance)!);
 
-        (Designed(form, "LineA").ZIndex, Designed(form, "LineB").ZIndex).Should().Be((-1, -2));
+        // The canvas draws its list in order, the last on top, so the first Line in the file is drawn last (#1481, #1497).
+        vm.Components.Select(c => c.Name).Should().Equal("LineB", "LineA");
     }
 
     [AvaloniaFact]

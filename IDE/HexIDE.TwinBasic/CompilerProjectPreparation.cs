@@ -1,8 +1,5 @@
-using System.Buffers.Binary;
 using System.Collections.Immutable;
 using System.Net.WebSockets;
-using System.Text;
-using System.Text.Json;
 
 namespace HexIDE.TwinBasic;
 
@@ -82,8 +79,6 @@ public sealed class CompilerPreparedProject : IDisposable
 /// </summary>
 public static class CompilerProjectPreparation
 {
-    private static readonly UTF8Encoding StrictUtf8 = new(false, true);
-
     public static async Task<CompilerPreparedProject> PrepareAsync(CompilerRootSession root, string projectPath,
         ICompilerPackageProvider packages, CompilerProjectPreparationLimits? limits = null,
         CancellationToken cancellationToken = default)
@@ -134,17 +129,17 @@ public static class CompilerProjectPreparation
     private static async Task<CompilerPreparedProject> PrepareCoreAsync(CompilerRootSession root, string directory,
         string stagedPath, ICompilerPackageProvider packages, CompilerProjectPreparationLimits limits, CancellationToken token)
     {
-        var codec = new CompilerWireCodec(new(MaximumMessageBytes: limits.MaximumMessageBytes));
+        var codec = root.Codec;
         var pending = new HashSet<int>();
         var notifications = ImmutableArray.CreateBuilder<CompilerControlMessage>();
         var nextId = 2; // Root initialization consumed ids 0 and 1.
         long received = 0, packageBytes = 0;
 
-        async Task<int> Send(byte command, byte[] payload)
+        async Task<int> Send(CompilerProjectRequest request)
         {
             var id = nextId++;
             pending.Add(id);
-            await root.Transport.SendAsync(codec.EncodeControlRequest(command, id, payload), WebSocketMessageType.Binary, token).ConfigureAwait(false);
+            await root.Transport.SendAsync(codec.EncodeProjectRequest(id, request, limits.MaximumMessageBytes), WebSocketMessageType.Binary, token).ConfigureAwait(false);
             return id;
         }
 
@@ -158,7 +153,7 @@ public static class CompilerProjectPreparation
                 received += message.Bytes.Length;
                 if (received > limits.MaximumReceivedBytes) throw Invalid("Compiler project preparation exceeds the receive budget.");
                 if (message.Type != WebSocketMessageType.Binary) throw Invalid("Compiler project replies must be binary.");
-                var reply = codec.DecodeControl(message.Bytes);
+                var reply = codec.DecodeControl(message.Bytes, limits.MaximumMessageBytes);
                 if (!reply.IsNotification)
                 {
                     if (!pending.Remove(reply.RequestId)) throw Invalid("Unexpected compiler project reply id.");
@@ -170,27 +165,17 @@ public static class CompilerProjectPreparation
                 notifications.Add(reply);
                 if (reply.Code == 243)
                 {
-                    if (reply.Payload.Length < 6) throw Invalid("Truncated compiler settings request.");
-                    try
-                    {
-                        using var settings = JsonDocument.Parse(reply.Payload.AsMemory()[4..], new() { MaxDepth = 64 });
-                        if (settings.RootElement.ValueKind != JsonValueKind.Object) throw Invalid("Compiler settings must be a JSON object.");
-                    }
-                    catch (JsonException) { throw Invalid("Invalid compiler settings JSON."); }
+                    _ = codec.ReadSettingsRequest(reply);
                     // Match the stock additional-compiler path: retain original settings unchanged.
-                    await Send(24, new byte[4]).ConfigureAwait(false);
+                    await Send(new CompilerKeepSettings()).ConfigureAwait(false);
                 }
                 else if (reply.Code == 255)
                 {
-                    if (reply.Payload.Length is < 1 or > 4096) throw Invalid("Invalid compiler package identifier length.");
-                    string id;
-                    try { id = StrictUtf8.GetString(reply.Payload.AsSpan()); }
-                    catch (DecoderFallbackException) { throw Invalid("Invalid UTF-8 compiler package identifier."); }
-                    if (string.IsNullOrWhiteSpace(id) || id.Contains('\0')) throw Invalid("Invalid compiler package identifier.");
+                    var request = codec.ReadPackageRequest(reply);
                     var allowance = Math.Min(limits.MaximumPackageBytes,
-                        Math.Min(limits.MaximumTotalPackageBytes - packageBytes, (limits.MaximumMessageBytes - 9L - reply.Payload.Length) / 4 * 3));
+                        Math.Min(limits.MaximumTotalPackageBytes - packageBytes, codec.MaximumPackageContentBytes(request, limits.MaximumMessageBytes)));
                     if (allowance < 1) throw Invalid("Compiler package budget is exhausted.");
-                    using var stream = await OpenPackageAsync(packages, id, token).ConfigureAwait(false);
+                    using var stream = await OpenPackageAsync(packages, request.Identifier, token).ConfigureAwait(false);
                     if (stream is null) throw Invalid("The requested compiler package is not available from the configured provider.");
                     using var content = new MemoryStream();
                     var buffer = new byte[8192];
@@ -206,20 +191,15 @@ public static class CompilerProjectPreparation
                     }
                     if (content.Length == 0) throw Invalid("The configured compiler package is empty.");
                     packageBytes += content.Length;
-                    var encoded = Convert.ToBase64String(content.GetBuffer(), 0, (int)content.Length);
-                    var payload = new byte[4 + reply.Payload.Length + encoded.Length];
-                    BinaryPrimitives.WriteInt32LittleEndian(payload, reply.Payload.Length);
-                    reply.Payload.AsSpan().CopyTo(payload.AsSpan(4));
-                    Encoding.ASCII.GetBytes(encoded, payload.AsSpan(4 + reply.Payload.Length));
-                    await Send(4, payload).ConfigureAwait(false);
+                    await Send(new CompilerProvidePackage(request, content.GetBuffer().AsMemory(0, (int)content.Length))).ConfigureAwait(false);
                 }
             }
             if (result.IsDefault) throw Invalid("Missing compiler project reply.");
             return result;
         }
 
-        var load = await Complete(await Send(1, StrictUtf8.GetBytes(stagedPath)).ConfigureAwait(false)).ConfigureAwait(false);
-        var ready = await Complete(await Send(3, []).ConfigureAwait(false)).ConfigureAwait(false);
+        var load = await Complete(await Send(new CompilerLoadProject(stagedPath)).ConfigureAwait(false)).ConfigureAwait(false);
+        var ready = await Complete(await Send(new CompilerProjectsLoaded()).ConfigureAwait(false)).ConfigureAwait(false);
         return new(root, directory, stagedPath, load, ready, notifications.ToImmutable());
     }
 

@@ -53,12 +53,14 @@ public partial class FormDefinition : INotifyPropertyChanged
     /// <remarks>
     /// Not what a plain form is created with: that is <see cref="NewForm"/>. This also builds the designer half of
     /// a new UserControl or PropertyPage, whose root type is set only afterwards, so nothing here may assume a form.
-    /// Its seed is CRLF and terminated all the same, as VB6 writes every line of a designer file (#931).
+    /// Its code is empty. VB6's Add Form saves a form with no procedure (measured, #1532); a procedure is added when
+    /// the developer asks for one, as a double-click on the form adds <c>Form_Load</c>. This seed was an empty
+    /// <c>Form_Load</c>, written to the file at its first save.
     /// </remarks>
     public FormDefinition(ProjectDefinition owner, IComponentClass formComponentClass, string name)
     {
         Owner = owner;
-        Code = "Private Sub Form_Load()\r\n\r\nEnd Sub\r\n";
+        Code = "";
         components = new List<ComponentInstance>
         {
             new ComponentInstance(formComponentClass, name)
