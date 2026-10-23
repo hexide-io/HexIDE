@@ -208,6 +208,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The Project Explorer's Add Form adds a form as Project > Add Form does** (#468). It added a form with no file and
+  opened nothing, a second Add Form of its own, and closing the IDE then left that form out of the project file
+  (#1359). It now writes the form's file and opens its designer.
+
 - **A new form is written as VB6 writes one** (#931, #932, #516). Its code section was bare LF with no final line
   break, it had none of the five `Attribute` lines VB6 writes for a form, and it had no `StartUpPosition` line, which
   VB6 reads as Manual: the form opened at the screen's origin with its title bar off the top. A form HexIDE creates now
