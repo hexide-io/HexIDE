@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Antlr4.Runtime;
 using HexIDE.IDE;
+using HexIDE.Runtime.Interpreter.ConditionalCompilation;
 
 namespace HexIDE.Runtime.Interpreter;
 
@@ -478,9 +479,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         IReadOnlyList<(string Name, string Code)>? additionalModules = null,
         IReadOnlyList<(string Name, string Code)>? classModules = null,
         InterpreterModuleKind primaryKind = InterpreterModuleKind.Standard,
-        IReadOnlyList<(string Name, string Code)>? formModules = null)
+        IReadOnlyList<(string Name, string Code)>? formModules = null,
+        CompilationConstants? compilationConstants = null)
     {
         ExecutionContext = executionContext;
+        this.compilationConstants = compilationConstants ?? CompilationConstants.Vb6;
         BuiltIns = new VB6BuiltIns(stdLib)
         {
             AppTitle = () => App.TitleOrNull,
@@ -580,10 +583,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// <see cref="SeedProgramGlobal"/>), so runtime error traps and user <c>Err.Number</c> reads see one state.</summary>
     public readonly VbErr Err = new();
 
+    // What a module's #If can name besides its own #Consts: the project's arguments and the built-ins (#1112).
+    private readonly CompilationConstants compilationConstants;
+
+    // Each module's conditional compilation is applied before it is parsed, so an inactive branch is never parsed, as in
+    // vb6.exe, and a directive's error stops the program as it loads (#1112). The text is the parser's alone: the code
+    // window and every save keep the module as written.
     private ModuleInfo BuildModule(string name, InterpreterModuleKind kind, string moduleCode, ExecutionEnvironment env)
     {
         var pp = new PrePass(env, ExecutionContext.State);
-        pp.Visit(Parse(moduleCode, name));
+        pp.Visit(Parse(ConditionalCompiler.Preprocess(moduleCode, compilationConstants, name).Text, name));
         return new ModuleInfo(name, kind, pp, env);
     }
 
@@ -1182,11 +1191,19 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 i => proc.Parameters[i].ParamArray);
         }
 
+        // Surplus arguments are VB6's compile error, raised at execution here (#741). Optional slots count;
+        // ParamArray has no maximum. #1476 callers already index parameterless Variant/object results.
+        if (proc.Parameters.Count > 0 && args.Count > proc.Parameters.Count && !proc.Parameters.Any(p => p.ParamArray))
+            throw new VBCompileErrorException("Wrong number of arguments or invalid property assignment");
+        if (proc.Parameters.Count == 0 && args.Count > 0 && !proc.ReturnsVariant && !proc.ReturnsObject)
+            throw new VBCompileErrorException("Wrong number of arguments or invalid property assignment");
+
         var callee = (baseEnv ?? owner.ModuleEnv).Clone();
         // Object-holding slots this activation OWNS and must Release at scope-exit: ByVal object params (added by
         // BindParameters) then the body's own Dim locals (appended by the StatementExecutor in declaration order).
         // NOT the return-name (its hold transfers to the caller) and NOT ByRef params (they alias the caller slot).
         var ownedSlots = new List<int>();
+        callee.ReturnName = proc.IsFunction ? proc.Name : null;
         bool countMe = me is not null && !IsLifecycleHook(proc.Name);
         if (me is { } m)
         {
