@@ -607,22 +607,19 @@ public class PrePass : VB6BaseVisitor<object?>
     }
 
     public override object? VisitMacroIfThenElseStmt(VB6Parser.MacroIfThenElseStmtContext context)
-        // Conditional compilation (`#If`/`#ElseIf`/`#Else`/`#End If`, `#Const`) is a documented deferral: selecting a
-        // branch needs a preprocessor pass HexIDE doesn't have. Fail with a CLEAR compile error rather than a raw
-        // NotImplementedException so the reason is legible (both branches can't be compiled blind).
-        => throw new VBCompileErrorException("Conditional compilation (#If / #Const) is not supported");
+        // Conditional compilation is applied before the parse (ConditionalCompiler, #1112), so every directive is gone by
+        // now. A `#` line left is one vb6.exe does not read as a directive, which it compiles as code: a syntax error.
+        => throw new VBCompileErrorException("Syntax error");
 
     public override object? VisitPropertyGetStmt(VB6Parser.PropertyGetStmtContext context)
     {
-        // `Property Get Name() As T` — Function-like: returns via its own name. A parameterized getter
-        // (`Property Get Item(i)`) is a wall, so the index argList must be empty. A complexType return
+        // Property Get is Function-like: returns via its own name and binds its declared parameters at the call.
+        // A complexType return
         // (`As Node`) carries its concrete name so the return slot seeds a real UDT / Nothing (see RunProcedure).
         var name = context.ambiguousIdentifier().GetText();
         if (context.typeHint() != null)
             throw new NotImplementedException("Type-hinted Property Get is not supported");
         var args = ParseParams(context.argList());
-        if (args.Count != 0)
-            throw new NotImplementedException($"Parameterized Property Get '{name}' is not supported");
         var returnUdt = context.asTypeClause()?.type()?.complexType()?.GetText();
         var (returnType, returnsVariant, returnsObject) = ReturnOf(context.asTypeClause(), name);
         GetOrAddProperty(name).Get = new ProcedureInfo(name, true, args, returnUdt != null ? Vb6Value.ValueType.UserDefinedType : returnType,

@@ -36,7 +36,8 @@ DOC_BUILD_INPUTS="docs/ROADMAP.md
 docs/command-line.md
 docs/lsp-client.md
 docs/lsp-server-features.md
-docs/mcp-first-contact.md"
+docs/mcp-first-contact.md
+docs/MISSING_LANGUAGE.md"
 
 classify() {
   if printf '%s\n' "$DOC_BUILD_INPUTS" | grep -qxF "$1"; then return 1; fi
