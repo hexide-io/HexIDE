@@ -3,6 +3,7 @@ using HexIDE.Events;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Projects;
+using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Tools;
 
@@ -284,6 +285,27 @@ public class ProjectToolViewModelTests
         vm.SelectedItem = projVm;
 
         vm.AddFormCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AddFormCommand_AddsTheFormAsProjectAddFormDoes()
+    {
+        // The explorer's Add Form was a second Add Form of its own: it put a form with no file into the model and
+        // opened nothing, where Project > Add Form writes the file and opens the designer. A form with no file was
+        // then left out of the project file at close (#1359). Now both are the one operation (#468).
+        var proj = TestHelpers.CreateProject();
+        var vm = CreateVmWithLoadedProject(proj, out var projVm);
+        vm.SelectedItem = projVm;
+        projectService.NextFreeFormName(proj).Returns("Form9");
+        var form = new FormDefinition(proj, FormComponentClass.Instance, "Form9");
+        projectService.AddNewForm(proj, "Form9", Arg.Any<bool>()).Returns(form);
+        var before = proj.Forms.Count;
+
+        vm.AddFormCommand.Execute(null);
+
+        await projectService.Received(1).AddNewForm(proj, "Form9", true);
+        editorService.Received(1).EditForm(form);
+        proj.Forms.Should().HaveCount(before, "the service adds the form once its file is written, and the command none");
     }
 
     [Fact]
