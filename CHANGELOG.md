@@ -20,7 +20,7 @@ there isn't one yet. Anything may change between 0.x releases.
   Arguments (`CondComp`) and VB6's `Win32` and `Win16`. An inactive branch is never parsed, so code written for another
   compiler, such as VBA7's `Declare PtrSafe`, runs unchanged. A directive's error stops the program as it loads, even in a
   branch never taken, as vb6.exe refuses to build. The module saves exactly as written: the selection exists only for the
-  parser. Every personality uses VB6's constants for now (#1548), and `Like` in an `#If` waits for `Like` itself (#1547).
+  parser. Every personality uses VB6's constants for now (#1548).
 
 - **The language server no longer squiggles code vb6.exe never compiles** (#1112). An inactive `#If` branch is no longer
   parsed, so a VBA7 `Declare PtrSafe` behind `#If VBA7 Then`, or a procedure whose `#If` gives it two headers, has no
@@ -244,6 +244,11 @@ there isn't one yet. Anything may change between 0.x releases.
   for every control it carries as text over every control it models, so a control brought in front of one was saved in
   front of it (#1498) but still drawn under its box. The boxes now stack with the controls, as VB6 stacks the control:
   over its Frame or PictureBox, and over or under each control as the file and Bring to Front or Send to Back put it.
+
+- **`Like` runs in an `#If` or a `#Const`, and a directive orders text as vb6.exe does** (#1598). `Like` there was
+  still refused as not implemented after `Like` itself ran. It now matches as text in every module, as vb6.exe's does,
+  and a pattern it cannot read is vb6.exe's compile error. A directive ordered two strings case-insensitively by code
+  unit, so `#If "_" < "a"` took the other branch from vb6.exe's; it now orders them by vb6.exe's measured text order.
 
 - **The designer draws and names a UserControl or PropertyPage as VB6's does** (#1544). Each was drawn in a form's
   window frame, with a title bar and caption buttons, a PropertyPage's tab read `(Form)`, and the Properties window's
