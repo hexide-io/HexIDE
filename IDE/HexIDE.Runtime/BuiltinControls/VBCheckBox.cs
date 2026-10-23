@@ -44,6 +44,7 @@ public class VBCheckBox : CheckBox
     {
         // MouseUp follows Click, which the toggle raises as it is released (measured, #974).
         AttachedEvents.AttachMouse<VBCheckBox>();
+        AttachedEvents.AttachFocusEvents<VBCheckBox>();
         AppearanceProperty.Changed.AddClassHandler<VBCheckBox>((checkBox, e) =>
         {
             if (checkBox.Appearance == VBAppearance._3D)

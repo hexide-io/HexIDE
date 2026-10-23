@@ -755,6 +755,7 @@
     "Str.Document.CodeSuffix": "التعليمات البرمجية",
     "Str.Document.FormSuffix": "نموذج",
     "Str.Document.UserControlSuffix": "UserControl",
+    "Str.Document.PropertyPageSuffix": "PropertyPage",
     "Str.PropCategory.Misc": "متنوع",
     "Str.PropCategory.Appearance": "المظهر",
     "Str.PropCategory.Behavior": "السلوك",

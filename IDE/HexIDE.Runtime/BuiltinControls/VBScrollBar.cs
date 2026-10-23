@@ -19,6 +19,13 @@ public class VBScrollBar : ScrollBar
     /// <inheritdoc cref="VbMin"/>
     public int VbMax { get; init; }
 
+    static VBScrollBar()
+    {
+        // A scroll bar takes the focus, as VB6's does (measured, #1101).
+        FocusableProperty.OverrideDefaultValue<VBScrollBar>(true);
+        AttachedEvents.AttachFocusEvents<VBScrollBar>();
+    }
+
     public VBScrollBar()
     {
         ValueChanged += OnValueChanged;

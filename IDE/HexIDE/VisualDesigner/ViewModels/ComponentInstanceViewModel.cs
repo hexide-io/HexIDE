@@ -257,7 +257,30 @@ public partial class ComponentInstanceViewModel : ObservableObject
     /// How many of its container's carried controls, the ones HexIDE keeps as text, are stacked under this one (#1498).
     /// They are not on the canvas list, so its place there cannot say; a save turns this back into where their blocks go.
     /// </summary>
-    internal int CarriedBelow { get; set; }
+    internal int CarriedBelow
+    {
+        get => carriedBelow;
+        set
+        {
+            if (carriedBelow == value)
+                return;
+            carriedBelow = value;
+            // The boxes stack against this count, so a Bring to Front that moves nothing on the canvas list still moves
+            // them (#1553).
+            parentViewModel.RestackCarried();
+        }
+    }
+
+    private int carriedBelow;
+
+    /// <summary>Where the designer's canvas stacks this control, the highest on top: its place in the draw order (#1553).</summary>
+    public int DrawIndex
+    {
+        get => drawIndex;
+        internal set => SetProperty(ref drawIndex, value);
+    }
+
+    private int drawIndex;
 
     /// <summary>How many twips one of a Line's container's units is, or twips where HexIDE cannot run that scale.</summary>
     public (double X, double Y) LineTwipsPerUnit
@@ -314,7 +337,8 @@ public partial class ComponentInstanceViewModel : ObservableObject
 
     public IBrush ForeColor => instance.GetPropertyOrDefault(VBProperties.ForeColorProperty).ToBrush();
 
-    public string BaseClassName => instance.BaseClass.Name;
+    // The root's class is the designer's kind, not the form component every root shares (#1544).
+    public string BaseClassName => instance.BaseClass is FormComponentClass ? parentViewModel.RootClassName : instance.BaseClass.Name;
 
     /// <summary>
     /// The control's name as the automation tools address it: <c>optSize(1)</c> for a control array's element, its bare

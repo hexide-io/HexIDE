@@ -755,6 +755,7 @@
     "Str.Document.CodeSuffix": "קוד",
     "Str.Document.FormSuffix": "טופס",
     "Str.Document.UserControlSuffix": "UserControl",
+    "Str.Document.PropertyPageSuffix": "PropertyPage",
     "Str.PropCategory.Misc": "שונות",
     "Str.PropCategory.Appearance": "מראה",
     "Str.PropCategory.Behavior": "התנהגות",

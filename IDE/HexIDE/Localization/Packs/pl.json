@@ -755,6 +755,7 @@
     "Str.Document.CodeSuffix": "Kod",
     "Str.Document.FormSuffix": "Formularz",
     "Str.Document.UserControlSuffix": "UserControl",
+    "Str.Document.PropertyPageSuffix": "PropertyPage",
     "Str.PropCategory.Misc": "Różne",
     "Str.PropCategory.Appearance": "Wygląd",
     "Str.PropCategory.Behavior": "Zachowanie",

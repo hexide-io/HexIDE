@@ -45,10 +45,25 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         var kind = formDefinition?.RootVBTypeName switch
         {
             "VB.UserControl" => localization.GetString("Str.Document.UserControlSuffix"),
+            "VB.PropertyPage" => localization.GetString("Str.Document.PropertyPageSuffix"),
             _ => localization.GetString("Str.Document.FormSuffix")
         };
         return $"{formDefinition?.Owner.Name} - {formDefinition?.Name} ({kind})";
     }
+
+    /// <summary>
+    /// The class of the designer's root, as the Properties window's object box names it: Form, UserControl or PropertyPage
+    /// (#1544). All three are a form's component, so its own class would call each a Form.
+    /// </summary>
+    public string RootClassName => (formDefinition?.RootVBTypeName ?? "VB.Form") is var type && type.Contains('.')
+        ? type[(type.LastIndexOf('.') + 1)..]
+        : type;
+
+    /// <summary>
+    /// Whether the root is drawn in a window's frame, with a title bar. A UserControl or PropertyPage has no window of its
+    /// own at run time, and VB6's designer draws it as a borderless surface (#1544).
+    /// </summary>
+    public bool HasWindowFrame => formDefinition?.RootVBTypeName is not ("VB.UserControl" or "VB.PropertyPage");
 
     public override object? Icon { get; } = HexIDE.Utils.IconFactory.Themed("Geo.Form");
 
@@ -119,13 +134,47 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         UnmodelledControls.Clear();
         foreach (var vm in AllComponents)
         {
-            foreach (var block in vm.Instance.PreservedChildSubtrees)
+            var blocks = vm.Instance.PreservedChildSubtrees;
+            for (var i = 0; i < blocks.Count; i++)
             {
                 // One on the root, a form's or a UserControl's, is measured from the canvas origin, as a control with no
                 // container is (ComponentInstanceViewModel.ContainerBounds).
-                if (UnmodelledControl.Read(block.Text) is { } control)
-                    UnmodelledControls.Add(new UnmodelledControlViewModel(control, ReferenceEquals(vm, Form) ? null : vm));
+                if (UnmodelledControl.Read(blocks[i].Text) is { } control)
+                    UnmodelledControls.Add(new UnmodelledControlViewModel(control, ReferenceEquals(vm, Form) ? null : vm,
+                        depth: blocks.Count - 1 - i));
             }
+        }
+        RestackCarried();
+    }
+
+    // The canvas stacks by ZIndex, the highest on top. Each control's is its place in Components, spaced so that the boxes
+    // of carried controls fit between, each one where the controls under it put it (#1553).
+    private const int StackSpacing = 4096;
+
+    private void OnComponentsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        for (var i = 0; i < Components.Count; i++)
+            Components[i].DrawIndex = (i + 1) * StackSpacing;
+        RestackCarried();
+    }
+
+    /// <summary>
+    /// Puts each carried control's box in its place among the controls the designer draws (#1553): over the last of its
+    /// container's controls that is under it, with what that one holds, or over the container itself where none is. A
+    /// control is under the box when fewer of the container's carried controls are under the control than under the box.
+    /// The boxes in one place go in the order their blocks are written, the first on top.
+    /// </summary>
+    internal void RestackCarried()
+    {
+        foreach (var box in UnmodelledControls)
+        {
+            var container = box.Container?.Instance ?? Form.Instance;
+            var count = container.PreservedChildSubtrees.Count;
+            var slot = box.Container is null ? -1 : Components.IndexOf(box.Container);
+            for (var i = 0; i < Components.Count; i++)
+                if (IsContentOf(Components[i], container) && Math.Clamp(Components[i].CarriedBelow, 0, count) <= box.Depth)
+                    slot = RegionOf(Components, Components[i].Instance).End - 1;
+            box.DrawIndex = (slot + 1) * StackSpacing + 1 + box.Depth;
         }
     }
 
@@ -559,6 +608,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     public FormEditViewModel()
     {
         AllComponents.CollectionChanged += OnAllComponentsChanged;
+        Components.CollectionChanged += OnComponentsChanged;
         Form = new ComponentInstanceViewModel(this, new ComponentInstance(FormComponentClass.Instance, "Form1")
             .SetProperty(VBProperties.WidthProperty, 400)
             .SetProperty(VBProperties.HeightProperty, 300)

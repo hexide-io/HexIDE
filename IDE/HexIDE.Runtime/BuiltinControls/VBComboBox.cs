@@ -44,6 +44,12 @@ public class VBComboBox : ComboBox
     private bool textFromCode;
     private TextBox? editBox;
 
+    static VBComboBox()
+    {
+        // One GotFocus as the combo is entered, whether the combo or its text box takes the focus (measured, #1101).
+        AttachedEvents.AttachFocusEvents<VBComboBox>();
+    }
+
     public VBComboBox() : this(0)
     {
     }

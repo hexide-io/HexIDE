@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Controls.Primitives;
 using Avalonia.Styling;
 using HexIDE.Runtime.BuiltinTypes;
@@ -33,6 +34,18 @@ public class VBOptionButton : RadioButton
     {
         // MouseUp follows Click, as a CheckBox's does (#974).
         AttachedEvents.AttachMouse<VBOptionButton>(AttachedEvents.DblClick.AfterMouseDown);
+        AttachedEvents.AttachFocusEvents<VBOptionButton>();
+        // An option button that takes the focus is selected, after its GotFocus, so its Click comes then (measured, #1101):
+        // Windows checks an automatic radio button as it is focused. Not by a press, which selects it on its own path, with
+        // Click after MouseDown (measured, #974). Nor by the Tab key: VB6's Tab goes only to the selected option of a group,
+        // so it never selects one, where HexIDE's stops at each (#1583), and selecting there would change the user's choice
+        // as they tab past.
+        GotFocusEvent.AddClassHandler<VBOptionButton>((option, e) =>
+        {
+            if (ReferenceEquals(e.Source, option)
+                && e is FocusChangedEventArgs { NavigationMethod: not (NavigationMethod.Tab or NavigationMethod.Pointer) })
+                option.IsChecked = true;
+        });
         AppearanceProperty.Changed.AddClassHandler<VBOptionButton>((option, e) =>
         {
             if (option.Appearance == VBAppearance._3D)

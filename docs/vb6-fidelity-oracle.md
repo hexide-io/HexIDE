@@ -11634,7 +11634,7 @@ assignment, is wrong. So is the common description that SetFocus triggers Valida
 - **SetFocus does all of the above.** Its LostFocus and GotFocus are posted to the program's event pump, which runs
   them after the handler.
 - **A TextBox raises GotFocus and LostFocus,** which it didn't before. Only the CommandButton did. The other focusable
-  controls are #1101.
+  controls are #1101: "GotFocus and LostFocus on each control, and Enabled saved False".
 - **A TextBox saved with `Enabled = 0` is disabled when it runs.** Its component didn't declare Enabled, so the saved
   value was dropped and the control ran enabled. The Frame and the scroll bars had the same gap, and it is fixed for
   them too.
@@ -14705,6 +14705,11 @@ it, read from the file on load. A control added, pasted or brought to front goes
 under them. A save turns the counts back into where each carried block goes, through the same placement the writer
 uses, so a form loaded and saved untouched comes back byte for byte.
 
+**In HexIDE (#1553):** the designer draws each carried control's box at its place in that stack too. It used to draw
+every box over every modelled control, so a control brought in front of one was saved in front of it and still drawn
+under its box. A box now goes over the last control in its container that has fewer carried controls under it than the
+box has, or over the container itself where there is none.
+
 **Inferred, not measured:** a carried block VB6 wrote after a Label is taken to be windowless, since VB6 writes every
 windowed block first. A windowed control sent to back stays over such a block, and a Label sent to back goes under it.
 No corpus file has a carried block after a windowless one.
@@ -16083,6 +16088,81 @@ to.
 
 **Not measured:** `Controls` on a UserControl, and on a form while its Initialize runs.
 
+## GotFocus and LostFocus on each control, and Enabled saved False (2026-10-23, #1101)
+
+**The question.** "SetFocus" measured the TextBox. Do the other focusable controls raise GotFocus and LostFocus the same
+way? Does a ListBox or ComboBox, whose items or edit box take the focus themselves, raise one GotFocus or several? And
+what does a Form or a UserControl saved with `Enabled = 0 'False` do when it runs?
+
+**The probe.** A compiled form, native and p-code, run on the oracle guest's console session through the agent, as
+"SetFocus" was. Form1 holds a TextBox, two CheckBoxes, two OptionButtons, two ListBoxes, a ComboBox of each Style (0
+Dropdown Combo, 2 Dropdown List, 1 Simple Combo), an HScrollBar, a VScrollBar, an empty PictureBox, a PictureBox holding a
+TextBox `Text2`, and a Timer. Every control's GotFocus and LostFocus log its name and `Screen.ActiveControl`, and so do
+the option buttons', ListBoxes' and ComboBoxes' Click and the ComboBoxes' DropDown. The Timer takes one step each 300 ms:
+- `SetFocus` to each control in turn, logging `Err.Number` and the active control straight after the call;
+- `List1.ListIndex = 1`, then the Down key, with List1 focused;
+- Alt+Down and then Esc on Combo1;
+- the Tab key, 18 times, from Text1;
+- `Load` Form2, saved disabled, then `Show` it and `DoEvents`, logging its `Enabled`, `IsWindowEnabled` of its `hWnd` and
+  `Screen.ActiveForm`;
+- `Load` and `Show` Form3, which holds `Gauge1`, a UserControl whose `.ctl` saves `Enabled = 0 'False`.
+
+Native and p-code logged the same 135 lines, line for line.
+
+**Each control:**
+- **Every one raises GotFocus and LostFocus, in the order and at the time the TextBox does.** That holds for the CheckBox,
+  OptionButton, ListBox, each ComboBox Style, both scroll bars and both PictureBoxes. The old control's LostFocus comes
+  first, then the new one's GotFocus, both after the handler that called SetFocus, and `Screen.ActiveControl` names the
+  new control at once.
+- **An OptionButton that takes the focus is selected,** and raises Click after its GotFocus:
+  `Option1_GotFocus`, `Option1_Click`, and then `Option1.Value` is True. That is Windows' automatic radio button, which
+  checks itself as it is focused. Tab skips the option that isn't selected: from Check2 it went to Option2, the
+  selected one, and raised no Click.
+- **A ListBox's selection moved by code or by a key** raises Click and no focus event. `List1.ListIndex = 1` raised
+  `List1_Click` inside the statement. The Down key raised it again, and `ListIndex` was 2.
+- **A ComboBox dropped down with Alt+Down** raised DropDown and no focus event. Esc raised nothing.
+- **A PictureBox takes the focus whether or not it holds a control.** Tab went from the empty Picture1 to Picture2,
+  then into Picture2's Text2: `Picture2_LostFocus`, `Text2_GotFocus`. A control inside a container is its own.
+- **The Tab order** was Text1, Check1, Check2, Option2, List1, List2, Combo1, Combo2, Combo3, HScroll1, VScroll1,
+  Picture1, Picture2, Text2, and round to Text1.
+
+**Enabled saved False:**
+- **A form:** `Form2.Enabled` read False when loaded and when shown, and `IsWindowEnabled` was 0 both times. Shown, it
+  did not become the active form. `Screen.ActiveForm` stayed Form1, and Form1's List1 kept the focus, raising no
+  LostFocus. Showing Form3 straight after did take it: `List1_LostFocus` with no active control.
+- **A UserControl:** `UserControl.Enabled` read False in `UserControl_Show`, and its window was disabled.
+- **`Form3.Gauge1.Enabled` doesn't compile:** "Method or data member not found". A placed UserControl has no Enabled
+  unless its author declares one. The probe reads `UserControl.Enabled` through a `Public Property Get` instead.
+
+**Measured and not explained:** the probe's last line was `disabled err 91`. The `Err.Number` was read in the procedure
+that loaded and showed Form3. That procedure's own statements raised nothing that was logged. The likeliest source is
+`List1_LostFocus`, which `DoEvents` ran inside it, and whose `Screen.ActiveControl` read had nothing to name. That an
+error handled in an event procedure leaves `Err` set in the procedure whose `DoEvents` ran it is a guess. It wasn't
+measured.
+
+**Not measured:**
+- a click on a ListBox item or into a ComboBox's edit box, rather than SetFocus and Tab;
+- `Enabled` set False at run time on a form or a UserControl;
+- a disabled form shown modally, or shown as the startup form.
+
+### In HexIDE (#1101)
+
+- **The CheckBox, OptionButton, ListBox, ComboBox, both scroll bars and the PictureBox raise GotFocus and LostFocus.**
+  They didn't. Only the TextBox and the CommandButton did.
+- **Focus moving within one control raises nothing.** Before, the check was on the routed event's source. It is now
+  on where the focus went from and to, by the walk that gives a pointer event its control. So a ListBox's item or a
+  ComboBox's edit box taking the focus is still the ListBox's or ComboBox's. A control inside a PictureBox is its own.
+- **The ListBox, the scroll bars and the PictureBox take the focus.** They weren't focusable, so SetFocus on one was
+  refused as not implemented.
+- **An OptionButton that takes the focus is selected**, raising its Click after its GotFocus. A press selects it as
+  it did, with Click after MouseDown (#974), and the Tab key doesn't select it; see below.
+- **A form or a UserControl saved disabled runs disabled.** The form's designer half, which a UserControl's shares,
+  now declares Enabled, so the saved line is no longer dropped. A disabled form is shown without being activated.
+- **Not followed: the Tab key's stop at an option button that isn't selected** (#1583). A headless check of the same
+  form tabbed through Option1 as well as Option2. Otherwise it took the order above. So the Tab key doesn't select an
+  option that takes the focus, as `SetFocus` does. Where VB6's Tab never lands, selecting would change the user's
+  choice as they tabbed past.
+
 ## Conditional compilation (2026-10-23, #1112)
 
 Five `/make` batches, about 160 projects, every one built native and p-code. **The two agreed on every row.** A row that
@@ -16563,3 +16643,107 @@ Paint (#991).
 
 **Not measured:** a form whose `.frm` starts it maximized or minimized. HexIDE raises the show's Resize at the size
 the form was designed at, and another when the window takes its maximized size.
+
+## Like (2026-10-23, #1547)
+
+Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60 6.00.9848 (SP6) runtime, under en-GB. These are run-time rows, and native and p-code agree on every one of them. There were five batches, about 195 rows in all.
+
+Each row ran `r = (s Like p)` on Variant operands in two modules, one `Option Compare Binary` and one `Option Compare Text`, under `On Error Resume Next`, and logged `TypeName` and the value, or the error. A further 17 rows put typed operands inline, one procedure each. Characters outside ASCII were built with `Chr` and `ChrW`, because the probe files are written as ASCII. `LikeOperatorTests` is generated from these probes and their answers, so every row here is pinned.
+
+**What the issue guessed, and what vb6.exe said:**
+- **`[]` is not an error.** It matches nothing and takes no character: `"ax" Like "a[]x"`, `"a" Like "a[]"` and `"" Like "[]"` are all True.
+- **An invalid list is error 93 only when it is reached with a character to match.** `"x" Like "y["`, `"" Like "*["` and `"a" Like "a[z-a]"` are False, with no error. `"abc" Like "a*["` is 93, because `*` gives `[` a character.
+- **Ranges compare UTF-16 code units, not ANSI bytes.** `"€" Like "[" & Chr(127) & "-" & Chr(129) & "]"` is False, although `€` is byte 128. `"€" Like "[~-" & ChrW(&H2100) & "]"` is True.
+- **Under Text, a range is not compared by collation.** `"é" Like "[a-z]"` is False under Text, as under Binary.
+
+| s | pattern | Binary | Text |
+|---|---|---|---|
+| `"abc"` | `"abc"`, `"a?c"`, `"a*"`, `"*c"`, `"*"`, `"a**c"`, `"a*c*"`, `"*b*"` | True | True |
+| `"aXbXc"`, `"abcbc"` | `"a*b*c"`, `"a*bc"` | True | True |
+| `"abc"` | `"ABC"` | False | True |
+| `"ac"` | `"a?c"` | False | False |
+| `""` | `"*"`, `""` | True | True |
+| `""` | `"?"`, `"*?"` | False | False |
+| `"a"` | `""`, `"?*?"` | False | False |
+| `"5"`, `"55"` | `"#"`, `"##"` | True | True |
+| `"0"`, `"9"` | `"#"` | True | True |
+| `"/"`, `":"` | `"#"` | False | False |
+| `"a"`, `Chr(178)` ², `Chr(185)` ¹ | `"#"` | False | False |
+| `ChrW(&HFF10)`, `&HFF15`, `&HFF19`: fullwidth ０, ５ and ９ | `"#"` | **True** | True |
+| `ChrW(&HFF1A)`, `&HFF0F`, `&H660`, `&H6F5`, `&H966`: other "digits" | `"#"` | False | False |
+| `ChrW(&HFF15)` | `"[0-9]"`, `"5"` | False | False |
+| `"b"`, `"d"` | `"[abc]"` | True, False | True, False |
+| `"d"`, `"b"` | `"[!abc]"` | True, False | True, False |
+| `"M"`, `"Z"` | `"[a-z]"` | False | **True** |
+| `"m"` | `"[A-Z]"` | False | True |
+| `"d"`, `"f"` | `"[a-ce-g]"` | False, True | False, True |
+| `"-"` | `"[a-]"`, `"[-a]"`, `"[-]"` | True | True |
+| `"-"` | `"[!-]"` | False | False |
+| `"d"`, `"-"`, `"e"` | `"[a-c-e]"` | False, True, True | the same |
+| `"["`, `"*"`, `"?"`, `"#"` | `"[[]"`, `"[*]"`, `"[?]"`, `"[#]"` | True | True |
+| `"x"` | `"[*x]"` | True | True |
+| `"]"` | `"]"`, `"[]]"` | True | True |
+| `"x"`, `"a]"` | `"[]x]"`, `"[]]"` | False: `[]` then `x]` or `]` | False |
+| `"!"`, `"a"` | `"[!]"` | True, False: `[!]` is a `!` | True, False |
+| `"!"` | `"[!!]"`, `"[a!]"` | False, True | False, True |
+| `"x"`, `"!]"` | `"[!]]"` | False, True | False, True |
+| `"a"`, `"ab"`, `"["` | `"[a"`, `"a[b"`, `"["` | **93** Invalid pattern string | 93 |
+| `"a"`, `"b"` | `"[z-a]"` | 93 | 93 |
+| `"b"` | `"[!z-a]"` | 93 | 93 |
+| `"a"` | `"[az-a]"` | **True**: read item by item, and `a` matched first | True |
+| `"a"` | `"[ab"` | 93: the `]` is needed first | 93 |
+| `""` | `"[z-a]"`, `"[a"`, `"["`, `"a["`, `"[!]"` | False | False |
+| `"a"` | `"*["`, `"*[z-a]"` | 93 | 93 |
+| `"b"` | `"a[z-a]"`, `"[a][z-a]"` | False | False |
+| `"a"` | `"[Z-a]"` | True | **93**: Text takes the bounds in lower case, `z-a` |
+| `"b"`, `"Q"` | `"[a-Z]"` | **93** | True |
+| `"_"`, `"^"` | `"[A-z]"` | True | **False** |
+| `` "`" ``, `"B"` | `"[_-a]"` | True, False | True, False |
+| `Chr(233)` é | `"[a-z]"`, `"e"` | False | False |
+| `Chr(233)` é | `Chr(201)` É | False | True |
+| `Chr(201)` É | `"[" & Chr(224) & "-" & Chr(255) & "]"` | False | True |
+| `ChrW(&H178)` Ÿ | the same | False | True |
+| `ChrW(&H212A)` Kelvin sign | `"k"`, `"[j-l]"` | False | **False** |
+| `ChrW(&H130)` İ | `"i"`, `"[h-j]"` | False | **False** |
+| `ChrW(&H131)` ı | `"i"` | False | False |
+| `Chr(246)` ö, `Chr(241)` ñ | `"[o-p]"`, `"[a-z]"` | False | False |
+| `Chr(223)` ß | `"ss"`, `"s*"` | False | **True** |
+| `Chr(223)` ß | `"?"`, `"[" & Chr(223) & "]"` | True | True |
+| `Chr(223)` ß | `"??"`, `"[s-t]"` | False | False |
+| `"ss"` | `Chr(223)`, `"[" & Chr(223) & "]"` | False | **True** |
+| `Chr(230)` æ, `Chr(230) & "x"` | `"ae"`, `"a*"`, `"ae*"` | False | True |
+| `"ma" & Chr(223) & "e"`, `"mass"`, `"ssx"` | `"mass?"`, `"ma" & Chr(223)`, `"*" & Chr(223) & "x"` | False | True |
+| `ChrW(&HFF41)` ａ | `"a"`, `"[a-z]"` | False | False |
+| `ChrW(&HFF41)` | `"?"` | True | True |
+| `ChrW(&H2100)` | `"?"` | True | True |
+| `ChrW(&H2100)` | `"[?]"` | False: no ANSI conversion makes it `?` | False |
+| a surrogate pair | `"?"`, `"??"` | False, True | False, True |
+| `"a" & vbLf & "b"`, `"a" & Chr(0) & "b"` | `"a?b"` | True | True |
+| `String(1000, "a")` | `"*a*a*a*b"` | False, at once | False |
+| `"a"` | `String(5000, "*") & "a"` | True | True |
+| `5`, `5.5`, `1E+20`, `True`, `#1/2/2003#`, `CCur(1.5)`, `CDec(1.5)`, `CSng(0.1)` | `"#"`, `"#.#"`, `"*E*"`, `"True"`, `"*2003*"`, `"1.5"`, `"1.5"`, `"0.1"` | True: the text `&` would make | True |
+| `True` | `"-1"` | False | False |
+| `"5"` | `5` | True | True |
+| `Empty` | `""`, `"*"` | True | True |
+| `"a"` | `Empty` | False | False |
+| `Null` on either side, or both | | **Null** | Null |
+| `CVErr(5)`, `Array(1)` | `"*"` | **13** Type mismatch | 13 |
+| `Nothing` | `"*"` | **91** | 91 |
+| `StrConv("ab", vbFromUnicode)`, a Byte array | `"*"` | True: taken as text | True |
+
+**Typed operands inline** gave the same answers: `"a" Like "[a"` is 93 and `5 Like "#"` True. `Like` binds more tightly than `Not`, `&` binds more tightly than `Like`, and `=` is not tighter than `Like`:
+- `"a" Like "a" = True` is True;
+- `Not "a" Like "b"` is True;
+- `"a" & "b" Like "ab"` is True.
+
+**What resisted explanation, and is recorded as measured, not as a rule:**
+- **The Text case fold.** The rows fit one model: a character, and each bound of a range, is replaced by its lower case where the two form a pair that maps back. Ÿ and ÿ do; the Kelvin sign's lower case is `k`, whose upper case is `K`, so it stays as it is, and so does İ. Nothing here shows that this is how Windows decides, only that no row contradicts it.
+- **Text treats a ligature or a sharp s as the letters it stands for.** It does so mid-pattern too, so `"ß" Like "s*"` and `"ss" Like "[ß]"` are True, while `?` still takes ß as one character. No character-at-a-time rule produces those rows, and no rule is offered for them.
+
+### In HexIDE (#1547)
+
+`VbLike.Matches` is a greedy matcher that backtracks to the last `*`. It reads a list only when a character is there to match it, as vb6.exe does.
+- `Option Compare` is now recorded for each module (`PrePass.OptionCompareText`). Like is the only thing that reads it so far: the comparison operators still compare strings as Binary (docs/interpreter-gaps.md).
+- The case fold is the model above.
+- The ligature and sharp-s rows are False under Text here, the same limit `Split` and `Filter` have (#1479). `LikeOperatorTests` pins each of them beside vb6.exe's answer.
+- Two rows are not reproduced yet: `CVErr` is unimplemented, and so is `StrConv` (#1560).
