@@ -1837,8 +1837,8 @@ shows the list all the time, under the edit box. #1429 measured a Simple Combo's
 list couldn't be measured against HexIDE, which had no such list. How is the list drawn, what does a click on it raise,
 and what does a Height too small for an item do?
 
-**The probes.** One form, compiled native and p-code. Three Simple Combos, 2000 twips wide, each saved with its own name
-as its Text and filled in `Form_Load`:
+**The probes.** VB6 as first installed on the oracle guest, the release build, before SP6. One form, compiled native and
+p-code. Three Simple Combos, 2000 twips wide, each saved with its own name as its Text and filled in `Form_Load`:
 - `cboS`, saved `Height = 1500`, with eight items, apple to honey;
 - `cboT`, saved `Height = 400`, with three;
 - `cboU`, saved `Height = 900`, with two.
