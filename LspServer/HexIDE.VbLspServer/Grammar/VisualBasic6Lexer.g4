@@ -486,10 +486,14 @@ COLORLITERAL: '&H' [0-9A-F]+ ( AMPERSAND | PERCENT )?;
 
 // Clean-room: '%' (Integer) added to the numeric type-declaration suffix set (VB6 Language
 // Reference, Type Declaration Characters). Not derived from any other grammar.
-INTEGERLITERAL: [0-9]+ ('E' INTEGERLITERAL)* ( HASH | AMPERSAND | EXCLAMATIONMARK | AT | PERCENT)?;
+// Clean-room: 'D' added as an exponent marker beside 'E', as DOUBLELITERAL already had it; vb6.exe compiles 1D3 as
+// 1000, a Double (measured, #1611). Not derived from any other grammar.
+INTEGERLITERAL: [0-9]+ (('E' | 'D') INTEGERLITERAL)* ( HASH | AMPERSAND | EXCLAMATIONMARK | AT | PERCENT)?;
 
+// Clean-room: a literal may end in its point, `5.` or `5.D1`; vb6.exe compiles each as a Double (measured, #1615). Not
+// derived from any other grammar.
 DOUBLELITERAL:
-    [0-9]* DOT [0-9]+ (('E' | 'D') (PLUS | MINUS)? [0-9]+)* (HASH | AMPERSAND | EXCLAMATIONMARK | AT)?
+    ([0-9]+ DOT [0-9]* | DOT [0-9]+) (('E' | 'D') (PLUS | MINUS)? [0-9]+)* (HASH | AMPERSAND | EXCLAMATIONMARK | AT)?
 ;
 
 FILENUMBER: HASH LETTERORDIGIT+;

@@ -166,6 +166,15 @@ public partial class VB6BuiltIns
         d["GetAttr"] = (self, a, _) => new Vb6Value((long)self.Files.GetAttributes(AsStr(a[0])));
         d["Dir"] = (self, a, _) => new Vb6Value(self.Files.Dir(Supplied(a, 0) ? (a[0].IsNull ? throw new VBRunTimeException(VBStandardError.TypeMismatch) : AsStr(a[0])) : null, Supplied(a, 1) ? AsInt(a[1]) : 0));
         d["EOF"] = (self, a, _) => new Vb6Value(self.Files.Eof(AsInt(a[0])));
+        // LOF, Loc and Seek are Longs, and Input a String (measured, #1645). Input's file number may be written #n: the
+        // expression executor reads it as a file number. InputB returns a byte string, which HexIDE has not got (#1510).
+        d["LOF"] = (self, a, _) => new Vb6Value(self.Files.Length(AsInt(a[0])));
+        d["Loc"] = (self, a, _) => new Vb6Value(self.Files.Loc(AsInt(a[0])));
+        d["Seek"] = (self, a, _) => new Vb6Value(self.Files.SeekPosition(AsInt(a[0])));
+        d["Input"] = (self, a, _) => a.Count == 2
+            ? new Vb6Value(self.Files.Read(AsInt(a[1]), AsInt(a[0])))
+            : throw new VBCompileErrorException("Syntax error");
+        d["InputB"] = (_, _, _) => throw new NotImplementedException("InputB is not implemented: it returns a byte string, which HexIDE has not got (#1510)");
         // DoEvents, for code run with no window, as a module test's is: nothing can be waiting, so it does nothing. A program
         // running in a window reaches BasicInterpreter.CallBuiltIn first, which runs what is waiting, as VB6 does (#766).
         // VB6 returns the open-form count; Integer 0 lets both `DoEvents` and `x = DoEvents` run (documented approximation).

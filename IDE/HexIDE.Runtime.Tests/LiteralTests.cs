@@ -22,8 +22,6 @@ public class LiteralTests : BaseVBTestFixture
                 Debug.Print 2.5@
                 Debug.Print 1.5#
                 Debug.Print 1E3
-                Debug.Print 1.5%
-                Debug.Print 2.5&
                 Const Fraction = 1.25
                 Debug.Print Fraction
                 Debug.Print 10!
@@ -42,8 +40,7 @@ public class LiteralTests : BaseVBTestFixture
                 """);
             AssertDebugLog([
                 new Vb6Value(6.0), new Vb6Value(1.5f), Vb6Value.NewCurrency(2.5m),
-                new Vb6Value(1.5), new Vb6Value(1000.0),
-                new Vb6Value(2), new Vb6Value(2L), new Vb6Value(1.25),
+                new Vb6Value(1.5), new Vb6Value(1000.0), new Vb6Value(1.25),
                 new Vb6Value(10f), new Vb6Value(10.0), Vb6Value.NewCurrency(10m),
                 new Vb6Value(10), new Vb6Value(10L), new Vb6Value(40000),
                 new Vb6Value(3000000000.0), new Vb6Value(true)

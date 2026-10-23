@@ -585,7 +585,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         {
             var vm = new ComponentInstanceViewModel(this, comp);
             viewModels[comp] = vm;
-            if (comp.BaseClass == FormComponentClass.Instance)
+            // A UserControl's and a PropertyPage's roots are classes of their own (#1585).
+            if (comp.BaseClass is FormComponentClass)
                 Form = vm;
             AllComponents.Add(vm);
         }

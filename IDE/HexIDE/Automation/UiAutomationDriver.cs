@@ -87,6 +87,14 @@ public static class UiAutomationDriver
         catch { return BareNode(rootNode, basePath, handed); }
     }
 
+    /// <summary>Window-wide focus metadata, independent of dump filters or subtree scope.</summary>
+    public static KeyboardFocusReport FocusIn(Control window)
+    {
+        var focused = TopLevel.GetTopLevel(window)?.FocusManager?.GetFocusedElement() as Control;
+        var path = focused is null ? null : PathWithin(window, "Window", focused);
+        return new KeyboardFocusReport(path, path is null ? "No control in this window has keyboard focus." : null);
+    }
+
     /// <summary>Deep single-node inspection: identity, provider state, and the DataContext's reflectable
     /// command, Command-bound method and property members (the surface the Phase-7 reflection actions target).</summary>
     /// <param name="root">The window <paramref name="path"/> was resolved against. With it, a control whose
@@ -161,6 +169,7 @@ public static class UiAutomationDriver
             providers,
             Safe(() => peer.IsEnabled(), true),
             Safe(() => peer.IsKeyboardFocusable(), false),
+            control.IsFocused,
             Safe(() => peer.IsOffscreen(), false),
             Hidden(control),
             [rect.X, rect.Y, rect.Width, rect.Height],
@@ -2281,9 +2290,28 @@ public static class UiAutomationDriver
             try { coerced = Coerce(raw, prop.PropertyType); }
             catch (Exception ex) { return ReflectErr($"cannot convert '{raw}' to {prop.PropertyType.Name} for '{name}': {ex.Message}"); }
             prop.SetValue(dc, coerced);
-            return new InteractOutcome(true, "reflection", $"set {dc.GetType().Name}.{name} = {raw}", null);
+            // The view can reject a caret offset without correcting its view model (#1326).
+            var now = name == "CaretOffset"
+                && dc is HexIDE.Forms.ViewModels.ISearchableDocument
+                ? FindTextSurface(control) switch
+                {
+                    TextEditor editor => editor.CaretOffset.ToString(CultureInfo.InvariantCulture),
+                    TextArea area => area.Caret.Offset.ToString(CultureInfo.InvariantCulture),
+                    _ => null,
+                }
+                : ReadValue(dc, prop);
+            var member = $"{dc.GetType().Name}.{name}";
+            if (now is null)
+                return new InteractOutcome(true, "reflection", $"set {member}; its value could not be read back", null);
+            return new InteractOutcome(true, "reflection", now == raw
+                ? $"set {member} = {now}"
+                : $"set {member}: sent {raw}, now {now}", null);
         }
-        catch (Exception ex) { return ReflectErr($"set_property '{value}' threw: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            var reason = ex is TargetInvocationException { InnerException: { } inner } ? inner : ex;
+            return ReflectErr($"set_property '{value}' was refused: {reason.Message}");
+        }
     }
 
     private static object? Coerce(string raw, Type target)
@@ -2632,7 +2660,11 @@ public static class UiAutomationDriver
             // that isn't there. Say what is hidden instead, as type_text does.
             if (Shows(control) is not true and var shows)
                 return new InteractOutcome(false, "keyboard", null, NotShowingRefusal(control, "press_key", shows));
-            if (FindKeyTarget(control) is not { } target)
+            var top = TopLevel.GetTopLevel(control);
+            var before = top?.FocusManager?.GetFocusedElement() as Control;
+            // A container means the keyboard as it stands, not its first focusable descendant.
+            var retained = before is not null && (ReferenceEquals(before, control) || IsUnder(control, before));
+            if ((retained ? before : FindKeyTarget(control)) is not { } target)
                 return new InteractOutcome(false, "keyboard", null,
                     control.GetVisualDescendants().OfType<Control>()
                             .FirstOrDefault(c => c is TextArea or TextEditor or TextBox || c.Focusable) is { } hidden
@@ -2652,7 +2684,13 @@ public static class UiAutomationDriver
                 && RefusedInReadOnlyRegion(pressedIn, span, "press_key") is { } refused)
                 return refused;
 
-            var focused = target.Focus();
+            var beforePath = before is null ? "nothing"
+                : PathWithin(TopLevel.GetTopLevel(before) ?? before, "Window", before) ?? Describe(before);
+            var focused = target.IsFocused || target.Focus();
+            var after = top?.FocusManager?.GetFocusedElement() as Control;
+            var focusMove = !ReferenceEquals(before, after)
+                ? $"moved focus from {beforePath} to {(after is null ? "nothing" : PathWithin(top!, "Window", after) ?? Describe(after))}; "
+                : string.Empty;
             mechanism = focused ? "window-input" : "routed-key";
             var throughWindow = focused && RawKeyboard.Press(target, parsedKey, mods);
             // Keep delivery to a target that cannot take focus, or whose platform input is unavailable.
@@ -2669,7 +2707,7 @@ public static class UiAutomationDriver
             var where = ReferenceEquals(target, control)
                 ? string.Empty
                 : $" on {Describe(target)}{AddressOf(control, controlPath, target)}";
-            return new InteractOutcome(true, mechanism, $"pressed {chord}{parsedKey}{where}", null);
+            return new InteractOutcome(true, mechanism, $"{focusMove}pressed {chord}{parsedKey}{where}", null);
         }
         catch (Exception ex) { return new InteractOutcome(false, mechanism, null, $"press_key threw: {ex.Message}"); }
     }
@@ -2881,6 +2919,7 @@ public static class UiAutomationDriver
         Control control, double? x, double? y, string? controlPath, out HoverLanding? landing)
     {
         landing = null;
+        TopLevel? sentTo = null;
         try
         {
             if (TopLevel.GetTopLevel(control) is not { } topLevel)
@@ -2888,6 +2927,8 @@ public static class UiAutomationDriver
                     "the control is not attached to a window, so it has no coordinates to hover at");
 
             var target = FindHoverTarget(control);
+            if (Shows(target) is not true and var shows)
+                return new InteractOutcome(false, "pointer", null, NotShowingRefusal(target, "hover", shows));
             var local = HoverPoint(target, x, y);
             if (target.TranslatePoint(local, topLevel) is not { } atTopLevel)
                 return new InteractOutcome(false, "pointer", null,
@@ -2907,7 +2948,12 @@ public static class UiAutomationDriver
             topLevel.AddHandler(InputElement.PointerMovedEvent, Saw, Avalonia.Interactivity.RoutingStrategies.Tunnel,
                 handledEventsToo: true);
             bool sent;
-            try { sent = RawPointer.Move(topLevel, atTopLevel); }
+            try
+            {
+                sentTo = topLevel;
+                sent = RawPointer.Move(topLevel, atTopLevel);
+                if (!sent) sentTo = null;
+            }
             finally { topLevel.RemoveHandler(InputElement.PointerMovedEvent, Saw); }
 
             string missed;
@@ -2918,8 +2964,9 @@ public static class UiAutomationDriver
             else
             {
                 // What the pointer is over is what a person's would be: the target, or whatever is drawn over it there. A
-                // disabled target is never hit, as the input goes to its nearest enabled ancestor, so it is taken as reached.
-                var reached = !enabled || ReferenceEquals(hit, target) || target.IsVisualAncestorOf(hit);
+                // disabled target is reached when input goes to its nearest enabled ancestor; a cover still takes the move.
+                var reached = ReferenceEquals(hit, target) || target.IsVisualAncestorOf(hit)
+                              || (!enabled && hit.IsVisualAncestorOf(target));
                 landing = reached
                     ? new HoverLanding(target, local, ThroughWindowInput: true)
                     : new HoverLanding(hit, topLevel.TranslatePoint(atTopLevel, hit) ?? local, ThroughWindowInput: true);
@@ -2952,7 +2999,15 @@ public static class UiAutomationDriver
                 ? string.Empty
                 : $" on {Describe(target)}{AddressOf(control, controlPath, target)}";
         }
-        catch (Exception ex) { return new InteractOutcome(false, "pointer", null, $"hover threw: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            // A handler can throw after the input manager has already set pointer-over and scheduled a tip.
+            // The tool has no landing to end on failure, so the driver owns this cleanup.
+            // The leave raises PointerExited, whose handler can throw too; the reply is the first failure.
+            if (sentTo is { } topLevel)
+                try { RawPointer.Leave(topLevel); } catch { }
+            return new InteractOutcome(false, "pointer", null, $"hover threw: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -3121,7 +3176,8 @@ public static class UiAutomationDriver
     private static Control FindHoverTarget(Control control)
     {
         if (control is TextEditor or TextArea) return control;
-        return control.GetVisualDescendants().OfType<Control>().FirstOrDefault(c => c is TextEditor) ?? control;
+        var editors = control.GetVisualDescendants().OfType<TextEditor>().ToList();
+        return editors.FirstOrDefault(c => Shows(c) is true) ?? editors.FirstOrDefault() ?? control;
     }
 
     /// <summary>Where on the control to hover: an explicit point, else the caret, else the centre.</summary>
@@ -3883,6 +3939,7 @@ public record UiNodeDetail(
     string[] Providers,
     bool IsEnabled,
     bool IsKeyboardFocusable,
+    bool IsFocused,
     bool IsOffscreen,
     bool? IsHidden,
     double[] BoundingRect,
@@ -3930,3 +3987,5 @@ public record InteractOutcome(
     [property: System.Text.Json.Serialization.JsonIgnore] bool Committed = false,
     [property: System.Text.Json.Serialization.JsonIgnore] Func<InteractOutcome>? Release = null,
     [property: System.Text.Json.Serialization.JsonIgnore] Func<string?>? Settled = null);
+
+public record KeyboardFocusReport(string? FocusedPath, string? FocusReason);

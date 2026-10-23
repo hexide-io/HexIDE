@@ -37,6 +37,13 @@ public class FormDeserializer
         "VB.Form", "VB.UserControl", "VB.PropertyPage"
     ];
 
+    // The designer root's client rectangle, as the model keeps it.
+    private static readonly Dictionary<string, PropertyClass> RootClientAxes = new()
+    {
+        ["Left"] = VBProperties.LeftProperty, ["Top"] = VBProperties.TopProperty,
+        ["Width"] = VBProperties.WidthProperty, ["Height"] = VBProperties.HeightProperty,
+    };
+
     // Property names that are handled specially (aliases, skipped, or form-level metadata).
     // These are considered "known" so they are not preserved as unknowns.
     private static readonly HashSet<string> SpecialCasedPropertyNames = new(StringComparer.OrdinalIgnoreCase)
@@ -52,8 +59,9 @@ public class FormDeserializer
         {
             componentsByTypeNames[component.VBTypeName] = component;
         }
-        componentsByTypeNames["VB.UserControl"]  = FormComponentClass.Instance;
-        componentsByTypeNames["VB.PropertyPage"] = FormComponentClass.Instance;
+        // Each its own list, which VB6's Properties window gives it (#1585).
+        componentsByTypeNames["VB.UserControl"]  = UserControlRootClass.Instance;
+        componentsByTypeNames["VB.PropertyPage"] = PropertyPageRootClass.Instance;
     }
 
     public FormDefinition? Deserialize(ProjectDefinition owner, string source, IDeserializeErrorSink errorSink,
@@ -297,7 +305,10 @@ public class FormDeserializer
                     continue;
                 }
 
-                if (!componentClass.PropertiesByName.TryGetValue(propertyName, out var propertyClass))
+                // A UserControl's or PropertyPage's root lists no Left or Top, as VB6's Properties window gives it none
+                // (#1585), but its file's ClientLeft and ClientTop are its geometry all the same, as a form's are.
+                if (!componentClass.PropertiesByName.TryGetValue(propertyName, out var propertyClass)
+                    && !(clientAxis is not null && parent is null && RootClientAxes.TryGetValue(propertyName, out propertyClass)))
                     continue; // unknown property — preserved verbatim by OrderedRawProperties loop below
 
                 var val = serializedProperty.Value;

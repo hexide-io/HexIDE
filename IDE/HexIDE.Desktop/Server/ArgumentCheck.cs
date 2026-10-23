@@ -14,18 +14,20 @@ namespace HexIDE.Desktop.Server;
 /// </para>
 /// <para>
 /// It is no stricter than the binding. A number may come as a string, as the SDK's serializer reads one, and an argument
-/// the tool does not take is ignored by the SDK, so it is named only beside a real problem, as the likely misspelling.
+/// the tool does not take is ignored by the SDK, and is named in the reply so a misspelling cannot silently select a default.
 /// What the schema cannot see, such as an integer too big for its parameter, still fails in the binding, and
 /// <see cref="ToolFailures"/> reports that as a refusal too.
 /// </para>
 /// </remarks>
 internal static class ArgumentCheck
 {
-    public static List<string> Problems(IDictionary<string, JsonElement>? arguments, JsonElement? schema)
+    public static (List<string> Problems, List<string> Ignored) Check(
+        IDictionary<string, JsonElement>? arguments, JsonElement? schema, string tool)
     {
         var problems = new List<string>();
+        var ignored = new List<string>();
         if (schema is not { ValueKind: JsonValueKind.Object } s)
-            return problems;
+            return (problems, ignored);
         arguments ??= new Dictionary<string, JsonElement>();
 
         if (s.TryGetProperty("required", out var required) && required.ValueKind == JsonValueKind.Array)
@@ -34,20 +36,29 @@ internal static class ArgumentCheck
                     problems.Add($"'{name.GetString()}' is required");
 
         if (!s.TryGetProperty("properties", out var properties) || properties.ValueKind != JsonValueKind.Object)
-            return problems;
+            return (problems, ignored);
 
         var unknown = new List<string>();
         foreach (var (name, value) in arguments)
         {
             if (!properties.TryGetProperty(name, out var declared))
+            {
                 unknown.Add(name);
+                var matches = properties.EnumerateObject().Select(p => p.Name)
+                    .Where(p => string.Equals(Normalize(p), Normalize(name), StringComparison.OrdinalIgnoreCase)).ToArray();
+                var hint = matches.Length == 1 ? $" (did you mean '{matches[0]}'?)" : "";
+                ignored.Add($"ignored '{name}': {tool} takes no such parameter{hint}");
+            }
             else if (Mismatch(value, declared) is { } why)
                 problems.Add($"'{name}' {why}");
         }
         if (problems.Count > 0)
             problems.AddRange(unknown.Select(name => $"it takes no '{name}' parameter"));
-        return problems;
+        return (problems, ignored);
     }
+
+    private static string Normalize(string name) => name.Replace("_", "", StringComparison.Ordinal)
+        .Replace("-", "", StringComparison.Ordinal);
 
     /// <summary>Why <paramref name="value"/> does not fit <paramref name="declared"/>, or null when it does.</summary>
     private static string? Mismatch(JsonElement value, JsonElement declared)

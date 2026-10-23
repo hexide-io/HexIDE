@@ -10,6 +10,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **LOF, Loc, Seek and the Input function run** (#1645). Each stopped the program, so `Input(LOF(f), f)`, the usual
+  way to read a whole file, never ran. All four were measured on vb6.exe first, with the `Seek` statement, line breaks,
+  a Ctrl+Z, the code page and Output and Append files, and run as measured. `Input$` is `Input`; `InputB` waits on byte
+  strings (#1510).
+
 - **GetSetting, SaveSetting, DeleteSetting and GetAllSettings run** (#1562). A program that remembered anything between runs used to stop, often in `Form_Load`, before its first form appeared. All four were measured on vb6.exe first. On Windows they use the registry key VB6 itself uses, so a program run in HexIDE and the same program compiled by VB6 share their settings. On Linux and macOS they are kept in `program-settings.json` in HexIDE's user-data directory, which `--user-data-dir` moves.
 
 - **`Like` runs** (#1547). Any program that used it stopped there. It now matches as vb6.exe does: `?`, `*`, `#`, `[list]` and `[!list]`, under the module's `Option Compare`, with error 93 for a pattern it cannot read. That behaviour was measured over about 190 rows, native and p-code. One known difference remains. Under `Option Compare Text`, vb6.exe takes a ligature or a sharp s for the letters it stands for, so `"ß" Like "ss"` is True there and False here (#1479).
@@ -240,6 +245,35 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **MCP replies distinguish dialogs sharing a title** (#1365). The modal note names a message box or run-time error dialog, its first line of text and its actual buttons; other dialogs include their buttons. The window parameter explains how to discover open windows through an unknown-name refusal.
 
+- **MCP replies name ignored arguments** (#1315). A misspelled optional parameter still lets the call run, but
+  now appears in `ignoredArguments` in a JSON-object reply, or in a separate text block, with a suggested spelling
+  for case, snake_case or kebab-case mismatches. Binding refusals check each parameter's actual type, so an
+  overflowing `int`, numeric string or array item is named without blaming a valid `long`; serializer paths stay.
+
+- **MCP `interact set_property` reads back the value it set** (#1326), naming both sent and actual values when
+  they differ. For an editor's `CaretOffset`, it reads the editor itself, so an offset the caret never took is no
+  longer reported as set.
+
+- **A numeric literal ending in its point loads, as vb6.exe compiles it** (#1615). `x = 5.` and `5.D1` failed to
+  load, and the editor marked them. Both grammars now read them, as the literal with a digit after the point. A
+  literal with a point and `%` or `&`, such as `2.5%`, is now vb6.exe's compile error "Syntax error", where HexIDE
+  rounded it to an Integer or a Long.
+
+- **MCP `hover` cleans up after a throwing pointer handler, reports a cover's tip over a disabled target, and refuses
+  targets that are not showing** (#1328). Containers prefer a showing editor; the tool explains the real mouse's effect
+  on the tip, cursor and pointer-over.
+
+- **A Const declared with a type character runs, as vb6.exe's does** (#1614). `Const K% = 2.5` stopped the program as
+  the module loaded, with "Const type hints not supported". The character is now the As clause it stands for: `K` is
+  the Integer 2, `Const K$ = 5` the String "5", and `Const K% = 40000` is vb6.exe's compile error "Overflow".
+
+- **MCP reports keyboard focus and presses where it is** (#1627). `inspect_element` reports `isFocused`, and `dump_visual_tree` names the focused path, or explains when no control in that window has focus. `press_key` at a container keeps the focus inside it, so Tab advances from the current control. An explicit target still takes focus first; the reply names where that move came from, since it raises a running program's focus events.
+
+- **A `D` exponent in a numeric literal loads, as vb6.exe compiles it** (#1611). `x = 1D3` failed to load, and the
+  editor marked it. `D` is now an exponent marker wherever `E` is, in both grammars. A literal vb6.exe refuses to
+  build, such as `1E400`, `1E3%` or `1E20@`, is now its compile error "Syntax error", where HexIDE gave infinity, a
+  Long or a Currency beyond Currency's range, or stopped with a .NET error.
+
 - **A refused MCP call names a blocking dialog once** (#1325). Closing a form under a MsgBox, or typing or pressing a key under stacked dialogs, no longer repeats the dialog in the reply’s note. A refusal never claims the call reached past a dialog; calls that acted behind one still say so.
 
 - **A CommandButton, TextBox, ComboBox, ListBox and Frame have ToolTipText** (#1403). Only five controls declared it,
@@ -258,6 +292,11 @@ there isn't one yet. Anything may change between 0.x releases.
 - **MCP command guards follow the compiled XAML binding** (#1324). `invoke_command` now finds private guards
   on base types and ignores guards below the bound method's type, so its refusal agrees with the menu.
 
+- **A UserControl's and a PropertyPage's Properties windows list their own kind's properties** (#1585). Both listed
+  a form's, Caption, Icon, Left, Top, Visible and the window's buttons among them. Each now lists only properties
+  VB6's Properties window gives it: a UserControl has no Caption, and a PropertyPage has no Enabled. A line a
+  loaded file holds that its root doesn't list is kept as the file's own text.
+
 - **A Let into an array variable takes only what vb6.exe's does** (#998, #1588). It stored whatever it was given:
   `a = Array(1, 2)` left an `Integer()` a Variant array, Empty left a `String()` Empty, and `b = "ab"` left a `Byte()`
   a String. Now an array of exactly the element type is copied, a String into a `Byte()` becomes its bytes, and anything
@@ -272,6 +311,11 @@ there isn't one yet. Anything may change between 0.x releases.
   is sent, so an answer arriving during teardown cannot be shown as a current evaluation.
 
 - **Numeric source literals keep their value on every locale** (#781). A made EXE on German regional settings read `0.6 * 10` as 60 and `1.5!` as 15; French settings could stop the program with a parse error. Literal parsing now uses the invariant culture, including suffixes, exponents and conditional compilation. Runtime string conversions retain their locale rules.
+
+- **The Tab key stops once in each option group** (#1583). It stopped at every option button, where VB6 stops
+  only at the selected one, or, in a group with none selected, at the first in the key's direction. That option is
+  selected there, with Click after GotFocus, as under `SetFocus`. An option is now selected before its GotFocus
+  runs, which reads it selected, as vb6.exe's does.
 
 - **Persian words in MCP replies remain readable** (#1316). A zero-width non-joiner between Arabic-script
   letters (including their combining marks) is written as itself. Joiners elsewhere remain escaped.
