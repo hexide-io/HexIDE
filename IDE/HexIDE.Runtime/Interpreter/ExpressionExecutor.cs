@@ -53,13 +53,15 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // on each result against `Case Is < N.4`, or `Case Is > 9` for text, and its product past an Integer's or a Long's
     // ceiling). A name not listed was not run and reads as it always has. CSng was measured with #234: two CSng results
     // whose sum is past a Single's ceiling raise Err 6, where two Variant Singles widen to Double.
+    // AscW and ChrW, and Str (" 19" is read as 19 against `Case Is > 10`), were measured with #1134.
     private static readonly HashSet<string> TypedIntrinsics = new(StringComparer.OrdinalIgnoreCase)
-        { "Sgn", "Asc", "CInt", "CLng", "CByte", "CSng", "CStr", "UBound", "LBound", "Replace", "StrReverse" };
+        { "Sgn", "Asc", "AscW", "CInt", "CLng", "CByte", "CSng", "CStr", "UBound", "LBound", "Replace", "StrReverse" };
 
     private static readonly HashSet<string> VariantIntrinsics = new(StringComparer.OrdinalIgnoreCase)
     {
         "Hour", "Minute", "Second", "Day", "Month", "Year", "Weekday", "IIf", "Choose", "Switch",
-        "Mid", "Left", "Right", "Trim", "LTrim", "LCase", "UCase", "Hex", "Oct", "String", "Format", "Chr",
+        "Mid", "Left", "Right", "Trim", "LTrim", "LCase", "UCase", "Hex", "Oct", "String", "Format", "Chr", "ChrW",
+        "Str",
     };
 
     // Typed when given typed arguments, and a Variant's when given a Variant (measured: `Len(v)`, `InStr(v, "5")` and
@@ -935,7 +937,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// <summary>Library functions on which VB6 refuses a <c>$</c> at compile time (measured).</summary>
     private static readonly HashSet<string> DollarRefused = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Array", "Asc", "Choose", "IIf", "InStrRev", "Val",
+        "Array", "Asc", "AscW", "Choose", "IIf", "InStrRev", "Val",
     };
 
     /// <summary>Library functions on which VB6 ignores a <c>$</c>, the result keeping its usual type (measured).</summary>
@@ -1059,11 +1061,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     }
 
     // A `$` form is its plain form with the result made a String, so where the plain form passes a Null through, the `$`
-    // form raises 94 (measured on all 23).
+    // form raises 94 (measured on all 23). The String is typed, where the plain form's is a Variant's: "9" from `Mid$` is
+    // compared as text against `Case Is > 10` and takes the Case (measured for the fourteen that answer text, #1134).
     private static Vb6Value DollarResult(Vb6Value result, Antlr4.Runtime.ParserRuleContext ctx) =>
         result.IsNull
             ? throw new VBRunTimeException(ctx, VBStandardError.InvalidUseOfNull)
-            : new Vb6Value(VbDisplay.ToText(result));
+            : new Vb6Value(VbDisplay.ToText(result)).AsFixedType();
 
     /// <summary>
     /// A field of an object, given an index: <c>Form1.Text1(0)</c>, a control array named through its form, picks its
