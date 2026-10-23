@@ -238,6 +238,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP replies name ignored arguments** (#1315). A misspelled optional parameter still lets the call run, but
+  now appears in `ignoredArguments` in a JSON-object reply, or in a separate text block, with a suggested spelling
+  for case, snake_case or kebab-case mismatches. Binding refusals check each parameter's actual type, so an
+  overflowing `int`, numeric string or array item is named without blaming a valid `long`; serializer paths stay.
+
 - **MCP `interact set_property` reads back the value it set** (#1326), naming both sent and actual values when
   they differ. For an editor's `CaretOffset`, it reads the editor itself, so an offset the caret never took is no
   longer reported as set.
