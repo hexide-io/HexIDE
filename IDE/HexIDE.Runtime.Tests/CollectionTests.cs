@@ -150,6 +150,65 @@ public class CollectionTests : BaseVBTestFixture
             """));
     }
 
+    // Two keys are one where vb6.exe's text compare finds them equal (measured as keys and with StrComp, #1479): ß is ss and
+    // æ is ae, and Chr(0) is ignored, while é, ª, ö and a no-break space stay apart from e, a, o and a space.
+    [Fact]
+    public async Task A_key_is_the_same_key_as_vb6s_text_compare_finds_it()
+    {
+        await Run("""
+            Sub Pair(ByVal a As String, ByVal b As String, ByVal name As String)
+                Dim c As New Collection
+                On Error Resume Next
+                Err.Clear
+                c.Add 1, a
+                c.Add 2, b
+                Debug.Print name & " " & Err.Number
+            End Sub
+            Pair "ae", Chr(230), "ae"
+            Pair "AE", Chr(198), "AE"
+            Pair "ss", Chr(223), "ss"
+            Pair "oe", Chr(156), "oe"
+            Pair "th", Chr(254), "th"
+            Pair "1", Chr(185), "superscript 1"
+            Pair "a" & Chr(0), "a", "NUL"
+            Pair "e", Chr(233), "e-acute"
+            Pair "co-op", "coop", "co-op"
+            Pair "a", Chr(170), "ordinal a"
+            Pair "o", Chr(246), "o-umlaut"
+            Pair "x" & Chr(160), "x ", "no-break space"
+            """);
+
+        AssertDebugLog(Lines("""
+            ae 457
+            AE 457
+            ss 457
+            oe 457
+            th 457
+            superscript 1 457
+            NUL 457
+            e-acute 0
+            co-op 0
+            ordinal a 0
+            o-umlaut 0
+            no-break space 0
+            """));
+    }
+
+    // vb6.exe's words for 457, as the oracle has recorded them since the Collection was measured; HexIDE had others.
+    [Fact]
+    public async Task A_duplicate_key_is_457_in_vb6s_words()
+    {
+        await Run("""
+            On Error Resume Next
+            Dim c As New Collection
+            c.Add 1, "k"
+            c.Add 2, "K"
+            Debug.Print Err.Number & " " & Err.Description
+            """);
+
+        AssertDebugLog([new Vb6Value("457 This key is already associated with an element of this collection")]);
+    }
+
     [Fact]
     public async Task Add_places_an_item_by_Before_or_After_and_checks_in_VB6s_order()
     {

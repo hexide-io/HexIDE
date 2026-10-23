@@ -2,7 +2,6 @@ using System;
 using System.Runtime.CompilerServices;
 using Avalonia.Controls;
 using HexIDE.Runtime.BuiltinTypes;
-using HexIDE.Runtime.Components;
 
 namespace HexIDE.Runtime.AvaloniaInterop;
 
@@ -24,8 +23,9 @@ namespace HexIDE.Runtime.AvaloniaInterop;
 /// <para>
 /// These are the themed desktop's values, which is what a user's desktop draws. Session 0's unthemed frame is smaller: 120
 /// across a Sizable form, 375 down a Fixed Single one, and a menu bar of 285. A classic-theme profile would supply those
-/// here. The frame is VB6's, not the window's: HexIDE draws every form as a sizable window (#1575), and a frame that
-/// changed across Show, or between hosts, would give a program different numbers from one run to the next.
+/// here. The frame is VB6's, not the window's: the window has vb6.exe's own styles (<see cref="FormChrome"/>, #1575), but
+/// the frame Windows draws for them depends on its version, theme and dpi, and a frame that changed across Show, or
+/// between hosts, would give a program different numbers from one run to the next.
 /// </para>
 /// </remarks>
 internal static class FormFrame
@@ -64,13 +64,8 @@ internal static class FormFrame
     }
 
     /// <summary>Give <paramref name="window"/> the frame its form's file describes.</summary>
-    public static void Set(Window window, ComponentInstance form, bool menu)
-    {
-        var borderStyle = VBLoader.RawNumber(form, "BorderStyle") ?? 2;
-        var captionBar = VBLoader.RawNumber(form, "ControlBox") != 0
-            || !string.IsNullOrEmpty(form.GetPropertyOrDefault(VBProperties.CaptionProperty));
-        states.GetOrCreateValue(window).Frame = Of(borderStyle, captionBar, menu);
-    }
+    public static void Set(Window window, FormChrome chrome, bool menu) =>
+        states.GetOrCreateValue(window).Frame = Of(chrome.BorderStyle, chrome.CaptionBar, menu);
 
     /// <summary>The form's Width or Height, in twips: what was assigned, or the client area and the frame.</summary>
     public static double Read(Window window, bool vertical)
