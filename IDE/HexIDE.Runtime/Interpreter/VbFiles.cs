@@ -218,6 +218,9 @@ internal sealed partial class VbFiles
         if (System.IO.Path.IsPathFullyQualified(path))
             return System.IO.Path.GetFullPath(path);
         var baseDirectory = CurrentDirectory ?? ProjectFolder();
+        // Rooted on no drive, as \x or /x is on Windows, a path is the current drive's root and needs no folder to resolve it.
+        if (baseDirectory.Length == 0 && System.IO.Path.IsPathRooted(path))
+            return System.IO.Path.GetFullPath(path);
         if (baseDirectory.Length == 0)
             throw new NotImplementedException(
                 $"Opening \"{path}\", a relative path, needs a saved project: an unsaved one has no folder to resolve it against");
