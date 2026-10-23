@@ -10,6 +10,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **GetSetting, SaveSetting, DeleteSetting and GetAllSettings run** (#1562). A program that remembered anything between runs used to stop, often in `Form_Load`, before its first form appeared. All four were measured on vb6.exe first. On Windows they use the registry key VB6 itself uses, so a program run in HexIDE and the same program compiled by VB6 share their settings. On Linux and macOS they are kept in `program-settings.json` in HexIDE's user-data directory, which `--user-data-dir` moves.
+
 - **`Like` runs** (#1547). Any program that used it stopped there. It now matches as vb6.exe does: `?`, `*`, `#`, `[list]` and `[!list]`, under the module's `Option Compare`, with error 93 for a pattern it cannot read. That behaviour was measured over about 190 rows, native and p-code. One known difference remains. Under `Option Compare Text`, vb6.exe takes a ligature or a sharp s for the letters it stands for, so `"ß" Like "ss"` is True there and False here (#1479).
 
 - **VB6 filesystem operations** (#1561): `CurDir`, `MkDir`, `RmDir`, `FileLen`, `FileDateTime`, `GetAttr`, `SetAttr`, `FileCopy`, `Name`, `Kill` and stateful `Dir`, using compiled VB6 measurements.
