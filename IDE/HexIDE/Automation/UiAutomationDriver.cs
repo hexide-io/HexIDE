@@ -1045,7 +1045,7 @@ public static class UiAutomationDriver
         // Matched among the rows that show, as a person reads them: a hidden row (the Properties window hides those
         // of a collapsed category) is neither selected by its text nor allowed to make a showing one ambiguous. One
         // that only a hidden row matches is refused as addressing it by path is, rather than reported as missing.
-        var hiddenRows = candidates.Where(c => Hidden(c.Control) is true).ToList();
+        var hiddenRows = candidates.Where(c => Shows(c.Control) is not true).ToList();
         var hiddenNamesake = false;
         if (hiddenRows.Count > 0)
         {
@@ -1053,7 +1053,7 @@ public static class UiAutomationDriver
             var hiddenMatches = MatchByDiscriminator(hiddenRows, value).matches;
             hiddenNamesake = hiddenMatches.Count > 0;
             if (MatchByDiscriminator(candidates, value).matches.Count == 0 && hiddenMatches is [var onlyHidden, ..])
-                return Err(NotShowingRefusal(onlyHidden, "select")
+                return Err(NotShowingRefusal(onlyHidden, "select", Shows(onlyHidden))
                            + (CollapsedNodesHolding(onlyHidden) is [var outermost, ..] holders && Shows(outermost) is true
                                ? $" Make it show first, as a person would: 'expand' "
                                  + string.Join(", then ", holders.Select(h => $"'{LabelOf(h)}'"))
@@ -2308,6 +2308,8 @@ public static class UiAutomationDriver
     {
         try
         {
+            if (Shows(control) is not true and var shows)
+                return new InteractOutcome(false, TypedMechanism, null, NotShowingRefusal(control, "type_text", shows));
             if (FindTextSurface(control) is not { } surface)
                 return new InteractOutcome(false, TypedMechanism, null,
                     NoTextSurface(control));
@@ -2431,6 +2433,8 @@ public static class UiAutomationDriver
     {
         try
         {
+            if (Shows(control) is not true and var shows)
+                return new InteractOutcome(false, KeyboardMechanism, null, NotShowingRefusal(control, "type_text", shows));
             if (FindTextSurface(control) is not { } surface)
                 return new InteractOutcome(false, KeyboardMechanism, null,
                     NoTextSurface(control));
