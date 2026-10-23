@@ -36,6 +36,12 @@ public sealed class VbObject
     public Avalonia.Controls.Control? FormWindow { get; set; }
 
     /// <summary>
+    /// For a form instance, its <c>Controls</c> collection (#1060), made as its controls are put into it. Null for a class
+    /// instance, and for a form whose controls no loader has placed.
+    /// </summary>
+    public FormControls? Controls { get; set; }
+
+    /// <summary>
     /// Whether a form instance has begun to load: set as <c>Form_Load</c> is raised. Before it, as during
     /// <c>Form_Initialize</c>, VB6 loads the form at the first use of a control or a built-in member, inside Initialize
     /// (measured, #822), and so does HexIDE, wherever the walk can load it (<see cref="FormLoadNeeded"/>).
