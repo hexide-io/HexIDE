@@ -500,6 +500,31 @@ public class FilePositionTests : BaseVBTestFixture, IDisposable
         (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Syntax error*");
     }
 
+    // Named arguments, measured: LOF, Loc and Seek take FileNumber; Input and InputB take no names at all.
+    [Theory]
+    [InlineData("Debug.Print Input(Number:=2, FileNumber:=1)", "Syntax error")]
+    [InlineData("Debug.Print Input(FileNumber:=1, Number:=2)", "Syntax error")]
+    [InlineData("Debug.Print Input(2, FileNumber:=1)", "Syntax error")]
+    [InlineData("Debug.Print Input(1, 1, 1)", "Syntax error")]
+    [InlineData("Debug.Print LOF(Number:=1)", "Named argument not found")]
+    [InlineData("Debug.Print LOF(1, 2)", "Wrong number of arguments or invalid property assignment")]
+    public async Task A_named_or_extra_argument_vb6_exe_refuses_is_refused_with_its_message(string statement, string message)
+    {
+        Make("a.txt", "abc");
+        var run = () => Run($"Open \"{PathOf("a.txt")}\" For Input As #1\n{statement}\nClose #1\n");
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*" + message + "*");
+    }
+
+    [Fact]
+    public async Task LOF_Loc_and_Seek_take_FileNumber_by_name()
+    {
+        Make("a.txt", "abc");
+        await Run($"Open \"{PathOf("a.txt")}\" For Input As #1\nDebug.Print LOF(FileNumber:=1) & \" \" & Loc(FileNumber:=1) & \" \" & Seek(FileNumber:=1)\nClose #1\n");
+
+        Printed().Should().Equal("3 1 1");
+    }
+
     // The Seek statement takes its file number without the #, as Close does (measured).
     [Fact]
     public async Task Seek_takes_a_file_number_without_its_hash()
