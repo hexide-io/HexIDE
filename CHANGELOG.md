@@ -208,6 +208,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The form designer draws a form at the size it runs** (#924). The designer drew the whole window, frame and
+  caption bar included, at the form's client size, so the area controls were designed in was 8 pixels narrower and
+  about 25 shorter than the running form. A layout drawn flush to the edges ran with a margin, and resizing the form
+  saved a size nobody saw. The frame is now drawn around the client, and a resize saves the client it leaves.
+
 - **Six VB6 system colours no longer draw hot pink** (#908). A control given Scroll Bars, Active Title Bar, Active
   Border, Inactive Border, ToolTip Text or ToolTip (`vbInfoBackground`) painted DeepPink, in the designer and at run
   time, because no colour was defined for them. They now take Windows 10's values, as measured on vb6.exe, and a

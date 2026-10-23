@@ -19,6 +19,21 @@ operations do.
 > [#1458](https://github.com/hexide-io/HexIDE/issues/1458). Cut and paste within a form keeps it (#1453).
 
 ## Requirements
+### Requirement: The designer SHALL draw a form's client area at the size it is saved and run with
+The area a form's controls are designed in SHALL be its client area, `ClientWidth` by `ClientHeight`, the size its
+window has at run time. The frame and caption bar SHALL be drawn outside it, and dragging the frame's handles SHALL
+save the client size the drag leaves. Drawing the whole window at the client size put a margin around every running
+form (#924).
+
+#### Scenario: A form saved at 640 by 480 pixels
+- **GIVEN** a form with `ClientWidth = 9600` and `ClientHeight = 7200`
+- **WHEN** it is opened in the designer
+- **THEN** the area its controls are placed in is 640 by 480 pixels, and the frame is drawn around it
+
+#### Scenario: Resizing the form by its frame
+- **WHEN** the frame's corner handle is dragged 40 pixels right and 20 down from a 640 by 480 client
+- **THEN** the form is saved with a client of 680 by 500 pixels
+
 ### Requirement: The designer SHALL support selecting several controls with one as the reference
 The designer SHALL allow more than one control to be selected at once, and SHALL designate exactly one of
 them as the reference for operations that need a target to align or size against. The reference SHALL be
