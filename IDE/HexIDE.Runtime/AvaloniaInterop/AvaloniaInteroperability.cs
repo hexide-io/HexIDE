@@ -164,6 +164,8 @@ public static class AvaloniaInteroperability
         // Read-only to a program: TrySet refuses it before it gets here.
         Register<VBListBox, VBMultiSelect>(VBProperties.MultiSelectProperty, l => l.MultiSelect,
             (_, _) => throw new VBCompileErrorException("Can't assign to read-only property"));
+        Register<VBComboBox, VBComboStyle>(VBProperties.ComboStyleProperty, c => c.ComboStyle,
+            (_, _) => throw new VBCompileErrorException("Can't assign to read-only property"));
 
         // A Line's members are read and written by LineMembers, which types and checks them as VB6 does (#163). They are
         // bound here as well so that the Locals window lists them, as it lists every bound property.
@@ -230,8 +232,8 @@ public static class AvaloniaInteroperability
         if (MenuMembers.IsMenu(control) && MenuMembers.TrySet(control, property, value) is { } menuMember)
             return menuMember;
 
-        // VB6 refuses it at compile time, whatever the value (measured, #1413).
-        if (ReferenceEquals(property, VBProperties.MultiSelectProperty))
+        // VB6 refuses both at compile time, whatever the value (measured, #1413 and #1428).
+        if (ReferenceEquals(property, VBProperties.MultiSelectProperty) || ReferenceEquals(property, VBProperties.ComboStyleProperty))
             throw new VBCompileErrorException("Can't assign to read-only property");
 
         // VB6 accepts this and resets BackColor to the appearance's default (measured, #795). Setting the property

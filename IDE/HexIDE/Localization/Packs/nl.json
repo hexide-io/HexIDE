@@ -591,6 +591,7 @@
     "Str.PropDesc.WindowList": "Of dit menu de geopende onderliggende MDI-vensters weergeeft.",
     "Str.PropDesc.Locked": "Of de inhoud van het besturingselement kan worden bewerkt.",
     "Str.PropDesc.MultiSelect": "Of er meer dan één item kan worden geselecteerd, en hoe.",
+    "Str.PropDesc.Style": "Hoe het besturingselement wordt getekend en hoe het zich gedraagt.",
     "Str.PropDesc.StartUpPosition": "Waar het formulier op het scherm verschijnt wanneer het voor het eerst wordt geopend.",
     "Str.PropDesc.ShowInTaskbar": "Of het formulier op de taakbalk verschijnt.",
     "Str.PropDesc.TabIndex": "De positie van het besturingselement in de tabvolgorde van het formulier.",

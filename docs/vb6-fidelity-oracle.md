@@ -1709,10 +1709,51 @@ the name now or the name the control was drawn with.
   `Null` as 13, and the two #821 rows in which the selected item's text follows it. Avalonia's editable combo would select
   the item a Text matches, without regard to case, so while code sets the Text every item reads as a text no program can
   set, and none matches.
-- **A Dropdown List's Text** is never written to the .frm, and is ignored at load. At run time, reading or writing it is
-  refused as not implemented, naming #1428, because what it does there needs the Style modelled.
+- **A Dropdown List's Text** is never written to the .frm, and is ignored at load. At run time it was refused as not
+  implemented until #1428 modelled the Style (below).
 - **Click and Change** come as measured since #1429, which records them with real input.
-- **Not done:** the designer resetting a combo's Text to its name when its Style becomes 2 (#1428).
+
+### Style, and a Dropdown List's Text from code (2026-10-23, #1428)
+
+**The probe.** A form with a Dropdown List, `Combo1`, filled with `5`, `apple`, `10`, `2.5` and `True`, and a Dropdown
+Combo, `Combo2`, built with `/make` native and p-code and run. Each row was logged under `On Error Resume Next`, with
+Click and Change logged by their handlers. A second project, its `Sub Main` holding `Form1.Combo1.Style = 1`, was only
+built. Native and p-code gave the same logs and the same build error.
+
+| Statement | VB6 |
+|---|---|
+| `Combo1.Style`, `Combo2.Style` | `2` and `0`, `TypeName` **Integer** |
+| `Text = 5` | Click, ListIndex 0, Text `5` |
+| `Text = 10#` | Click, ListIndex 2, Text `10` |
+| `Text = 2.5` | Click, ListIndex 3, Text `2.5` (the guest's locale is en-US) |
+| `Text = True` | Click, ListIndex 4, Text `True` |
+| `Text = "APPLE"` | Click, ListIndex 1, Text `apple`: the item's own text |
+| `Text = "5 "` | **383** "'Text' property is read-only", nothing changed |
+| `Text = Empty` | **383**, nothing changed |
+| `Combo1.Style = 1`, built | **Compile error: "Can't assign to read-only property"** |
+
+What these show:
+- **A Dropdown List's Text is made a String as `CStr` makes it, then matched.** A number or a Boolean selects the item
+  whose text is its `CStr`. `Empty` is `""`, which no item is, so it is 383 as `""` was in the first probe.
+- **Style is read-only to a program**: assigning it does not compile, as MultiSelect's doesn't (#1413).
+
+**And from #926's saved form,** re-read from the guest for #1428: both combos whose Style was set to 2 and back to 0 in
+the designer were saved with no Style line. So **VB6's designer never writes a Dropdown Combo's Style**, even after a
+change and back.
+
+### In HexIDE (#1428)
+
+- **Style is a modelled property**, offered by the Properties window with VB6's three names. It is written as VB6's
+  designer writes it: `1  'Simple Combo` and `2  'Dropdown List` between Left and TabIndex, and never 0. At run time it
+  reads as an Integer, and assigning it is the compile error, whatever the value.
+- **A Dropdown List's Text** reads as its selected item's text, or `""`. Written, it is made a String and selects the
+  first item it matches without regard to case, raising Click every time. With no match, `""` and `Empty` included, it
+  is 383 with VB6's own description, and the selection stays. `Null` is 13, as at the other two Styles.
+- **The designer resets the Text to the control's name when Style becomes 2**, as one change with the Style, so Undo
+  puts both back. The Properties window and `set_control_property` do it alike, and the tool's reply says so.
+- **Not done:** a Simple Combo is still drawn as a Dropdown Combo, its list not always shown
+  ([#1603](https://github.com/hexide-io/HexIDE/issues/1603)). The designer draws a Dropdown List's box empty, where VB6's
+  shows the name ([#1604](https://github.com/hexide-io/HexIDE/issues/1604)).
 
 ## A ComboBox's Click, Change and DropDown, with real input (2026-10-22, #1429)
 
@@ -9833,8 +9874,8 @@ scalar `T` or Variant, checks the value's type against it:
   marks are the caller's declaration, so every parameter falls to 13.
 - **Anything else** is 13. The decision is read from the statement, not from the value's fixed flag, which a Variant
   element or field can carry from the literal stored into it (#987's "What main does").
-- **A String into a Byte()** stops the run with a NotImplementedException naming #998, since neither this path nor
-  a Byte() variable converts yet, and raising an error VB6 doesn't would be worse.
+- **A String into a Byte()** stopped the run with a NotImplementedException naming #998, since neither this path nor
+  a Byte() variable converted yet, and raising an error VB6 doesn't would be worse. Both convert since #998.
 
 Every row is pinned, the typed parameters as HexIDE's answer, except three. The Property Get rows are pinned through the class, since a standard module's
 Property Get is #977's. Not pinned, and known to differ:
@@ -16464,15 +16505,15 @@ module, so the directives are processed first.
   unterminated `#If` is reported at its own line rather than the module's last.
 - **The expression** is read by the interpreter's own parser and evaluated by `ConstantExpression`, with the interpreter's
   own operators, made static to share them: the overflow, the widening and the rounding are the runtime's. Comparison and
-  the function list are its own, as above. The text comparison is HexIDE's approximation, `OrdinalIgnoreCase`, as for a
-  Collection's keys (#1479).
+  the function list are its own, as above. The text comparison was HexIDE's approximation, `OrdinalIgnoreCase`, as for a
+  Collection's keys (#1479), until #1598 made it vb6.exe's measured order.
 - **`CompilationArguments`** reads the `.vbp`'s `CondComp`, which round-trips verbatim, and refuses what vb6.exe refuses,
   with its message, before the program runs.
 - **Divergences:**
   - every personality takes VB6's built-ins. VBA documents `VBA6`, `VBA7` and `Win32` as 1, and `Win64` as 1 in a 64-bit
     host, unmeasured here, but `VBA7 = 1` would select declarations HexIDE cannot parse (#1548). That waits for #1113's
     "view as" work;
-  - `Like` is refused, not implemented, until HexIDE has `Like` (#1547);
+  - `Like` was refused, not implemented, until HexIDE had `Like` (#1547). It runs since #1598;
   - `CVErr` is refused, not implemented: HexIDE has no `CVErr`;
   - `-2 ^ 2` is 4 here, where it is -4, because the lexer reads the minus as part of the number, here as everywhere (#1073);
   - a `#` line that is not a directive fails in HexIDE's parser, with its own message, where vb6.exe's is "Syntax error" or
@@ -17486,6 +17527,655 @@ the only match ends inside the ß.
   - InStr, InStrRev, Replace, Split and Filter with a compare of 1.
 - There is no ICU anywhere in it, so every host gives the same answers.
 
+## `Like` in `#If` and `#Const`, and a directive's text order (2026-10-23, #1598)
+
+**The question.** #1112 measured that a directive compares strings as text whatever `Option Compare` says, `Like`
+included, from `"ABC" Like "a*"` alone. That row cannot tell a text `Like` from a case-folding one, and HexIDE refused
+`Like` in a directive until `Like` existed (#1547). And HexIDE ordered a directive's strings by `OrdinalIgnoreCase`,
+which #1567 measured as wrong in 14,856 of 51,360 pairs of vb6.exe's text order. Which compare does `Like` take in a
+directive, what does it refuse, and does a directive order text as running code's text compare does?
+
+**The probe.** One project of two modules, `Module1` with `Option Compare Binary` and `Module2` with `Option Compare
+Text`, each holding the same sixteen `#If` conditions. Each condition picks one of two definitions of a `Public Const`,
+`"True"` or `"False"`, and `Sub Main` logs every constant. Both modules start with `#Const KLike = "abc" Like "a*"`. Then
+five projects of one module each, for what might be refused, each `#If` selecting a constant `Sub Main` logs. Built
+native and p-code with vb6.exe 6.00.8176 (the release build) and run on the MSVBVM60 6.00.9848 (SP6) runtime, en-GB.
+
+**Result: native and p-code identical, and the Binary module identical to the Text one on every row.**
+
+| Condition | In either module | Tells apart |
+|---|---|---|
+| `"a" Like "A"` | True | text from Binary |
+| `"M" Like "[a-z]"` | True | a text range from a Binary one |
+| `"_" Like "[A-z]"` | False | text from Binary, where `_` (95) lies between `Z` and `a` |
+| `"abc" Like "a*"` | True | |
+| `5 Like "#"` | True | a number is taken as its text |
+| `"abc" Like "x*"` | False | |
+| `"" Like "["` | False | a list never read is not refused, as in running code |
+| `CStr("a" Like "a") = "True"` | True | `Like` gives a Boolean |
+| `KLike = True`, `KLike = -1`, `CStr(KLike) = "True"` | True | a `#Const` holding `Like` holds a Boolean |
+| `"_" < "a"` | True | vb6.exe's text order from `OrdinalIgnoreCase`, which says False |
+| `"co-op" > "coop"` | True | the same: `OrdinalIgnoreCase` says False |
+| `"it's" > "its"` | True | the same: `OrdinalIgnoreCase` says False |
+| `"a" < "B"` | True | |
+| `"abc" = "ABC"` | True | |
+
+**Refused, each a compile error naming the line:**
+
+| Condition | vb6.exe's message |
+|---|---|
+| `"a" Like "["` | Invalid pattern string |
+| `#Const KBad = "a" Like "["`, then `#If KBad` | Invalid pattern string, at the `#Const` |
+| `"b" Like "[z-a]"` | Invalid pattern string |
+| `Null Like "a"` | Invalid use of Null |
+| `"a" Like Null` | Invalid use of Null |
+
+So `Like` in a directive is running code's `Like` in a Text module, error 93 and all, in every module. The Null rows are
+Null reaching the `#If`, as `#If Null` is "Invalid use of Null" (#1112); a `Like` with a Null side is Null, as in
+running code. The three order rows are the ones that tell vb6.exe's text order from `OrdinalIgnoreCase`, and vb6.exe's
+order is the one #1567 measured.
+
+### In HexIDE (#1598)
+
+- **`ConstantExpression`** evaluates `Like` with `VbLike`, the interpreter's own, as text whatever the module says, and
+  orders two strings with `VbTextCompare`, #1567's comparer, in place of `OrdinalIgnoreCase`. A pattern `VbLike` cannot
+  read is its error 93, which a directive raises as the compile error "Invalid pattern string".
+- **`ConditionalCompilationTests`** runs the probe program and must print vb6.exe's lines, and refuses each of the five
+  refused projects with vb6.exe's message.
+- **Divergence kept:** `Like` matches by its per-character fold under text, so a ligature or a sharp s does not stand for
+  its letters, here as in running code (#1479).
+- **The language server** still leaves a directive holding `Like` undecided, so both of its branches stay live there. It
+  has no `Like` of its own.
+
+## A Let into an array variable (2026-10-23, #998, #1588)
+
+**The question.** #998 measured two rows. A String into a `Byte()` becomes its bytes, and `Array(1, 2)` into an
+`Integer()` is 13. #1588 found a third while GetAllSettings was being measured for #1562: Empty into a `String()` is 13,
+and leaves the array unallocated. HexIDE stored whatever it was given, so the array became Empty, a String or an array of
+another type. What does a Let into an array variable take, for each element type, and what does it refuse?
+
+**The probes.** Four batches, built native and p-code with vb6.exe 6.00.8176 (the release build) and run on the MSVBVM60
+6.00.9848 (SP6) runtime, en-GB. Native and p-code agreed on every row.
+1. Fourteen values, each reaching `a = v` through a Variant `v`, into a dynamic array of each of String, Long, Integer,
+   Double, Variant and Byte. Each target was tried unallocated and then holding two elements. Then the same statements
+   written directly, and through ByRef parameters `a() As String` and `a() As Byte`. Then twelve one-statement projects
+   for what might not compile.
+2. Nine more scalar types into a `Byte()`, a `String()` and a `Variant()`. Then Boolean, Date, Currency, Single and Object
+   arrays, each given its own type's array, a `Variant()` and Empty.
+3. A fixed-size `Dim f(1) As String`, named and through a ByRef parameter.
+4. A Function declared `As String()` given Nothing and Empty through a Variant, and a UDT's array fields.
+
+The String() rows #1588 first measured, for #1562, are batch 1's String rows; it repeats each of them.
+
+**Result: one rule, for every element type.**
+- **An array of exactly the target's element type is copied,** with its own bounds, over whatever the target held. `Split`
+  gives a `String()` and `Array` a `Variant()`.
+- **A `Byte()` also takes a String, as its bytes:** two to a character, low byte first, from 0. "ab" is 0 To 3 holding
+  97 0 98 0, "12" is 49 0 50 0, `Chr(0) & ChrW(256)` is 0 0 0 1, and "" is 0 To -1. The String may be a literal, a Const,
+  a String variable or a Variant, and the target a ByRef `Byte()` parameter.
+- **Anything else is 13, and the target is left as it was.** An allocated target keeps its bounds and elements, and an
+  unallocated one stays unallocated.
+  - The values measured: Empty, Null, Nothing, Integer, Long, Single, Double, Currency, Date, Boolean, Byte, Decimal,
+    Error and String.
+  - An array of another element type is 13 too: a `Variant()` into every typed array, and every typed array into a
+    `Variant()`.
+  - No other conversion is made. A String into a `String()` is 13, and so is a number into a `Byte()`.
+- **A ByRef array parameter** takes exactly the same.
+- **A fixed-size array takes nothing.** Named, `f = v` does not compile, "Can't assign to array", whatever `v` holds, a
+  Variant included. Through a ByRef parameter it is 13, an array of its own type included, and it keeps its elements.
+- **A Function declared `As String()`** given Nothing or Empty through a Variant is 13, as #986 measured for its other
+  rows.
+- **A UDT's array field** takes the same as an array variable. With `s() As String` and `b() As Byte` in a `Type`,
+  `u.s = v` copies only a `String()`, `u.b = v` converts a String, and every other value is 13 and leaves the field as it
+  was. `u.s = 5` does not compile.
+
+**Where the statement shows the type, vb6.exe refuses to build instead, with "Can't assign to array":**
+
+| Target | Statement |
+|---|---|
+| `Long()` | `a = 5`, `a = "ab"`, and `a = i` for an `Integer()` `i` |
+| `Byte()` | `a = 5`, `a = n` for an Integer `n`, `a = s` for a `String()`, and `a = w` for a `Variant()` |
+| `Variant()` | `a = 5`, `a = "x"`, and `a = s` for a `String()` |
+| `String()` | `a = s` for a String `s`, and `u.s = 5` for a UDT's field |
+| `Dim f(1) As String` | `f = v`, for any Variant `v` |
+
+`a = Nothing` into a `Long()`, and `F = Nothing` in a Function declared `As String()`, are "Invalid use of object". The
+statements `t = Empty`, `t = Null` and `t = Array("a")` compile, and are 13 when they run. A String Const into a
+`Byte()` compiles and converts, as a literal does.
+
+### In HexIDE (#998)
+
+- **`StatementExecutor.ArrayStore`** is the one check. It covers a variable declared as an array, a ByRef array
+  parameter, and the name of a Function or Property Get declared to return an array, where it replaces #986's check. The
+  target's type is that of the array its slot holds, since nothing else is ever stored there.
+- **A String into a `Byte()`** becomes `VB6BuiltIns.StringBytes`. #986's refusal, a NotImplementedException naming #998,
+  is gone.
+- **The compile errors** are read from the statement, as #986's were, and raised as the statement runs. A `Nothing`
+  literal is "Invalid use of object".
+- **An object is not read for its default member** when the target is an array, so Nothing through a Variant is 13, not
+  438.
+- **A named fixed array** is "Can't assign to array" whatever it is given. HexIDE refused only an array there.
+- **`TypedArrayLetTests`** runs the programs from batches 1 to 4 and must print vb6.exe's lines. It also refuses 16 of
+  the one-statement projects with vb6.exe's message. Batch 2's CVErr row is left out, since HexIDE has no CVErr, and
+  batch 4's UDT rows wait for #178.
+- **Divergences kept:**
+  - a ByRef parameter named as the value is 13 here, where VB6 refuses to compile, as #986 recorded;
+  - a UDT's array field is refused as the module loads (#178).
+
+## StrComp, StrConv, Environ, Switch and Error(), and the case of a character (2026-10-23, #1560)
+
+Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60 6.00.9848 (SP6) runtime, under en-GB, in eight batches. Native and p-code agree on every row.
+
+**The question.** The five functions stopped any program that called them, so how each behaves had to be measured before it was written: its arguments, their errors and their order, and its answers. Three things came out of the measuring:
+- a table of error messages;
+- a rule for the case of a character, which UCase and LCase had wrong;
+- the names of the functions' named arguments.
+
+Environ's rows compare values rather than print them, since an environment variable's value has no place here.
+
+### StrComp
+
+| Row | Call | vb6.exe |
+|---|---|---|
+| strcomp-lt | `StrComp("a", "b")` | Integer -1 |
+| strcomp-gt | `StrComp("b", "a")` | Integer 1 |
+| strcomp-eq | `StrComp("a", "a")` | Integer 0 |
+| strcomp-case-default | `StrComp("a", "A")` | Integer 1 |
+| strcomp-case-0 | `StrComp("a", "A", 0)` | Integer 1 |
+| strcomp-case-1 | `StrComp("a", "A", 1)` | Integer 0 |
+| strcomp-case-vbText | `StrComp("a", "A", vbTextCompare)` | Integer 0 |
+| strcomp-2 | `StrComp("a", "A", 2)` | err 5 Invalid procedure call or argument |
+| strcomp-3 | `StrComp("a", "A", 3)` | Integer 0 |
+| strcomp-minus1 | `StrComp("a", "A", -1)` | err 5 Invalid procedure call or argument |
+| strcomp-minus2 | `StrComp("a", "A", -2)` | err 5 Invalid procedure call or argument |
+| strcomp-1.5 | `StrComp("a", "A", 1.5)` | err 5 Invalid procedure call or argument |
+| strcomp-0.5 | `StrComp("a", "A", 0.5)` | Integer 1 |
+| strcomp-str1 | `StrComp("a", "A", "1")` | Integer 0 |
+| strcomp-cmp-null | `StrComp("a", "A", Null)` | err 94 Invalid use of Null |
+| strcomp-cmp-empty | `StrComp("a", "A", Empty)` | Integer 1 |
+| strcomp-null-l | `StrComp(Null, "a")` | Null |
+| strcomp-null-r | `StrComp("a", Null)` | Null |
+| strcomp-null-both | `StrComp(Null, Null)` | Null |
+| strcomp-empty | `StrComp(Empty, "")` | Integer 0 |
+| strcomp-num | `StrComp(10, 9)` | Integer -1 |
+| strcomp-num-str | `StrComp(5, "5")` | Integer 0 |
+| strcomp-bool | `StrComp(True, "True")` | Integer 0 |
+| strcomp-prefix | `StrComp("ab", "abc")` | Integer -1 |
+| strcomp-empty-a | `StrComp("", "a")` | Integer -1 |
+| strcomp-B-a | `StrComp("B", "a")` | Integer -1 |
+| strcomp-B-a-text | `StrComp("B", "a", 1)` | Integer 1 |
+| strcomp-us-a-text | `StrComp("_", "a", 1)` | Integer -1 |
+| strcomp-us-A-bin | `StrComp("_", "A", 0)` | Integer 1 |
+| strcomp-sz-ss-text | `StrComp(Chr(223), "ss", 1)` | Integer 0 |
+| strcomp-ae-text | `StrComp(Chr(230), "ae", 1)` | Integer 0 |
+| strcomp-e-acute-text | `StrComp(Chr(233), "e", 1)` | Integer 1 |
+| strcomp-e-acute-f-text | `StrComp(Chr(233), "f", 1)` | Integer -1 |
+| strcomp-e-acute-f-bin | `StrComp(Chr(233), "f", 0)` | Integer 1 |
+| strcomp-hyphen-text | `StrComp("co-op", "coop", 1)` | Integer 1 |
+| strcomp-apos-text | `StrComp("it's", "its", 1)` | Integer 1 |
+| strcomp-nul | `StrComp("a" & Chr(0), "a")` | Integer 1 |
+| strcomp-array | `StrComp(Array(1), "a")` | err 13 Type mismatch |
+| strcomp-type | `StrComp("a", "b")` | Integer |
+
+- **The compare is read first, as CLng reads it.** So 0.5 is 0 and 1.5 is 2, a Null compare is 94 whatever the strings are, `"1"` is 1, and Empty is 0.
+- **0 is binary and 1 text,** the text compare #1567 measured. 2 and a negative are 5.
+- **3 compares as text,** consistent with reading 3 and up as a locale identifier, which is Filter's finding too (#881).
+- **Then the strings.** An array is 13 even beside a Null (`StrComp(Null, Array(1))` is 13), a Null string makes the answer Null, and anything else is read as `&` reads it: `StrComp(5, "5")` and `StrComp(True, "True")` are 0.
+- **The answer is an Integer.**
+- **Given no compare, StrComp takes the Option Compare of the module that calls it.** In an `Option Compare Text` module, `StrComp("a", "A")` is 0 and `StrComp("B", "a")` is 1. A compare of 0 or Empty there is still binary: both give 1 for `"a"` against `"A"`. HexIDE still compares binary with no compare (#1572).
+
+### StrConv
+
+| Row | Call | vb6.exe |
+|---|---|---|
+| strconv-upper | `StrConv("hello World", vbUpperCase)` | String HELLO WORLD |
+| strconv-lower | `StrConv("hello World", vbLowerCase)` | String hello world |
+| strconv-proper | `StrConv("hello wORLD", vbProperCase)` | String Hello World |
+| strconv-proper-digit | `StrConv("1st place", vbProperCase)` | String 1st Place |
+| strconv-proper-apos | `StrConv("o'neil's", vbProperCase)` | String O'neil's |
+| strconv-proper-hyphen | `StrConv("jean-luc", vbProperCase)` | String Jean-luc |
+| strconv-proper-dot | `StrConv("a.b,c;d", vbProperCase)` | String A.b,c;d |
+| strconv-proper-tab | `StrConv("a" & vbTab & "b" & vbCrLf & "c" & vbLf & "d" & vbCr & "e", vbProperCase)` | [65 9 66 13 10 67 10 68 13 69] |
+| strconv-proper-nul | `StrConv("a" & Chr(0) & "b", vbProperCase)` | [65 0 66] |
+| strconv-proper-ff | `StrConv("a" & Chr(12) & "b" & Chr(11) & "c", vbProperCase)` | [65 12 66 11 67] |
+| strconv-proper-spaces | `StrConv("  two  spaces", vbProperCase)` | String   Two  Spaces |
+| strconv-proper-accent | `StrConv(Chr(233) & "cole " & Chr(201) & "COLE", vbProperCase)` | [201 99 111 108 101 32 201 99 111 108 101] |
+| strconv-proper-nbsp | `StrConv("a" & Chr(160) & "b", vbProperCase)` | [65 160 98] |
+| strconv-upper-sz | `StrConv(Chr(223), vbUpperCase)` | [223] |
+| strconv-upper-y-uml | `StrConv(Chr(255), vbUpperCase)` | [376] |
+| strconv-upper-mu | `StrConv(Chr(181), vbUpperCase)` | [181] |
+| strconv-upper-dotless | `StrConv(ChrW(&H131), vbUpperCase)` | [73] |
+| strconv-lower-dotted | `StrConv(ChrW(&H130), vbLowerCase)` | [105] |
+| strconv-upper-tr | `StrConv("i", vbUpperCase, 1055)` | [73] |
+| strconv-lower-tr | `StrConv("I", vbLowerCase, 1055)` | [105] |
+| strconv-upper-lcid-0 | `StrConv("i", vbUpperCase, 0)` | [73] |
+| strconv-upper-lcid-bad | `StrConv("i", vbUpperCase, 99999)` | err 5 Invalid procedure call or argument |
+| strconv-from-unicode | `StrConv("ab", vbFromUnicode)` | String ? |
+| strconv-from-unicode-e | `StrConv(Chr(233) & ChrW(&H20AC), vbFromUnicode)` | String ? |
+| strconv-from-unicode-unmapped | `StrConv(ChrW(&H2100) & ChrW(&HFF41), vbFromUnicode)` | String ? |
+| strconv-from-unicode-empty | `StrConv("", vbFromUnicode)` | String  |
+| strconv-roundtrip | `StrConv(StrConv("abc", vbFromUnicode), vbUnicode)` | String abc |
+| strconv-unicode-of-string | `StrConv("abc", vbUnicode)` | [97 0 98 0 99 0] |
+| strconv-unicode-odd | `StrConv("a" & ChrB(98), vbUnicode)` | [97 0 98] |
+| strconv-unicode-high | `StrConv(ChrB(128) & ChrB(233), vbUnicode)` | [8364 233] |
+| strconv-from-then-len | `LenB(StrConv("abc", vbFromUnicode))` | Long 3 |
+| strconv-upper-from | `StrConv("ab", vbUpperCase Or vbFromUnicode)` | err 5 Invalid procedure call or argument |
+| strconv-upper-lower | `StrConv("ab", vbUpperCase Or vbLowerCase)` | String Ab |
+| strconv-0 | `StrConv("ab", 0)` | String ab |
+| strconv-wide | `StrConv("ab", vbWide)` | err 5 Invalid procedure call or argument |
+| strconv-narrow | `StrConv("ab", vbNarrow)` | err 5 Invalid procedure call or argument |
+| strconv-katakana | `StrConv("ab", vbKatakana)` | err 5 Invalid procedure call or argument |
+| strconv-hiragana | `StrConv("ab", vbHiragana)` | err 5 Invalid procedure call or argument |
+| strconv-256 | `StrConv("ab", 256)` | err 5 Invalid procedure call or argument |
+| strconv-512 | `StrConv("ab", 512)` | err 5 Invalid procedure call or argument |
+| strconv-null | `StrConv(Null, vbUpperCase)` | Null |
+| strconv-null-conv | `StrConv("ab", Null)` | err 94 Invalid use of Null |
+| strconv-num | `StrConv(5.5, vbUpperCase)` | String 5.5 |
+| strconv-bool | `StrConv(True, vbUpperCase)` | String TRUE |
+| strconv-empty | `StrConv(Empty, vbUpperCase)` | String  |
+| strconv-type | `StrConv("ab", vbUpperCase)` | String |
+| strconv-type-from | `StrConv("ab", vbFromUnicode)` | String |
+| strconv-conv-1.5 | `StrConv("ab", 1.5)` | String ab |
+| strconv-conv-str | `StrConv("ab", "1")` | String AB |
+
+- **The conversion is read first, as CLng reads it, and checked before the string.** So `StrConv(Null, Null)` is 94 and `StrConv(Null, 256)` is 5.
+- **What each conversion does:**
+  - 1 is upper case, 2 lower and 3 proper (`vbUpperCase Or vbLowerCase` is proper), and 0 leaves the string alone.
+  - Wide, narrow, katakana and hiragana (4 to 32) are 5 on this Western system.
+  - 256 and 512 are 5, and so is 64 or 128 with a case, or the two together.
+- **The locale identifier.** `LocaleID` is checked when given: 0, 1, 1055 and 2057 are accepted, and 99999 and -1 are 5. An accepted one changes nothing, even Turkish's 1055.
+- **Upper and lower case go through the ANSI code page:**
+  - A character the code page lacks becomes its best fit, or "?" where there is none. 一 is "?", α and ā are "A" in upper case, and Greek capital Α is "?" in lower case.
+  - A case the code page lacks is not taken. ƒ stays ƒ, Ƒ not being in 1252, although UCase makes it Ƒ.
+  - A conversion of 0 does neither: ā and 一 come back as themselves.
+- **Proper case starts a word after Chr(0), a tab, LF, VT, FF, CR or a space, and after nothing else.** A sweep of every `Chr(0)` to `Chr(255)` between two letters found exactly those seven. So `"o'neil's"` is `"O'neil's"`, `"jean-luc"` is `"Jean-luc"`, `"a.b,c;d"` is `"A.b,c;d"`, and the no-break space joins words.
+
+### Environ
+
+| Row | Call | vb6.exe |
+|---|---|---|
+| environ-path-len | `Len(Environ("PATH")) > 0` | Boolean True |
+| environ-path-case | `Environ("path") = Environ("PATH")` | Boolean True |
+| environ-missing | `Environ("HEXIDE_NO_SUCH_VARIABLE")` | String  |
+| environ-empty | `Environ("")` | err 5 Invalid procedure call or argument |
+| environ-type | `Environ("PATH")` | String |
+| environ-dollar-type | `Environ$("PATH")` | String |
+| environ-1-has-eq | `InStr(Environ(1), "=") > 1` | Boolean True |
+| environ-1-type | `Environ(1)` | String |
+| environ-0 | `Environ(0)` | err 5 Invalid procedure call or argument |
+| environ-minus1 | `Environ(-1)` | err 5 Invalid procedure call or argument |
+| environ-256 | `Len(Environ(256))` | err 5 Invalid procedure call or argument |
+| environ-huge | `Environ(100000)` | err 6 Overflow |
+| environ-str-1 | `Environ("1")` | String  |
+| environ-1.5-is-2 | `Environ(1.5) = Environ(2)` | Boolean True |
+| environ-2.5-is-2 | `Environ(2.5) = Environ(2)` | Boolean True |
+| environ-null | `Environ(Null)` | err 94 Invalid use of Null |
+| environ-name-eq | `Environ("PATH=")` | String  |
+| environ-name-space-is-name | `Environ(" PATH") = Environ("PATH")` | Boolean True |
+| environ-name-trailing-space | `Environ("PATH ") = Environ("PATH")` | Boolean True |
+| environ-bool | `Environ(True)` | err 5 Invalid procedure call or argument |
+| environ-int-var-is-number | `Environ(CInt(1)) = Environ(1)` | Boolean True |
+| environ-str-num-is-name | `Environ("1") = Environ(1)` | Boolean False |
+| environ-name-of-first | `Environ(Left(Environ(1), InStr(Environ(1), "=") - 1)) = Mid(Environ(1), InStr(Environ(1), "=") + 1)` | Boolean True |
+| environ-200-is-empty | `Environ(200) = ""` | Boolean True |
+| environ-255-is-empty | `Environ(255) = ""` | Boolean True |
+| environ-empty-arg | `Environ(Empty)` | err 5 Invalid procedure call or argument |
+| environ-order-inversions | `Inversions()` | Long 0 |
+| environ-count-below-200 | `Count() < 200` | Boolean True |
+
+- **A String is a name, even `"1"`.** A name ignores its case and spaces around it, so `"path"`, `" PATH"` and `"PATH "` are PATH. A missing name is `""`, as is one holding "=". `""` is 5.
+- **A number is an index, read as CInt reads it.** 1.5 and 2.5 are 2, while 0, a negative, True and Empty are 5, and 100000 is 6.
+- **255 is the bound, not the number of variables.** 200 and 255, both past the last variable, are `""`, and 256 is 5.
+- **The entry it gives is `NAME=value`,** and the first one's "=" comes after a name.
+- **The entries come in order of name.** `Inversions()` counts neighbouring entries whose names are out of text-compare order, over `Count()` entries, `Count()` being the first n for which `Environ(n + 1)` is `""`. It found none. That is one guest's environment, so it shows the order is by name there, not how VB6 orders names it was given out of order.
+- **Null is 94.**
+
+### Switch
+
+| Row | Call | vb6.exe |
+|---|---|---|
+| switch-first | `Switch(True, "a", True, "b")` | String a |
+| switch-second | `Switch(False, 1, True, 2)` | Integer 2 |
+| switch-none | `Switch(False, 1, False, 2)` | Null |
+| switch-odd | `Switch(True, 1, False)` | err 5 Invalid procedure call or argument |
+| switch-one | `Switch(True)` | err 5 Invalid procedure call or argument |
+| switch-num-cond | `Switch(0, "zero", 2, "two")` | String two |
+| switch-str-cond | `Switch("True", "s")` | String s |
+| switch-str-cond-bad | `Switch("x", "s")` | err 13 Type mismatch |
+| switch-null-cond | `Switch(Null, 1, True, 2)` | Integer 2 |
+| switch-empty-cond | `Switch(Empty, 1, True, 2)` | Integer 2 |
+| switch-type | `Switch(True, 5)` | Integer |
+| switch-null-value | `Switch(True, Null)` | Null |
+| switch-evaluates-values | `Switch(True, F("v1", 1), False, F("v2", 2))` | Integer 1 |
+| switch-evaluates-conds | `Switch(F("c1", True), 1, F("c2", True), 2)` | Integer 1 |
+| switch-array-cond | `Switch(Array(1), 1)` | err 13 Type mismatch |
+| switch-14-pairs | `Switch(False, 1, False, 2, False, 3, False, 4, False, 5, False, 6, False, 7, True, 8)` | Integer 8 |
+
+- **Every argument is evaluated before Switch is called,** values and expressions alike. Both calls ran in each of the two rows that log them.
+- **An odd count is 5,** one argument included.
+- **Each expression is read as CBool reads it until one holds.**
+  - "True", 2 and a Date hold, while "x" and an array are 13.
+  - A Collection is 450, since it has no default value to read.
+  - A Null or Empty expression does not hold, and raises nothing.
+  - **An expression after the one that held is not read,** so `Switch(True, 1, "x", 2)` is 1, not 13.
+- **The value comes back as it is,** an Integer as an Integer and Null as Null.
+- **Eight pairs are fine.** The row is labelled `switch-14-pairs`, a slip in the probe: its call has eight.
+
+### Error
+
+| Row | Call | vb6.exe |
+|---|---|---|
+| error-6 | `Error(6)` | String Overflow |
+| error-dollar-6 | `Error$(6)` | String Overflow |
+| error-0 | `Error(0)` | String  |
+| error-1 | `Error(1)` | String Application-defined or object-defined error |
+| error-1000 | `Error(1000)` | String Application-defined or object-defined error |
+| error-32767 | `Error(32767)` | String Application-defined or object-defined error |
+| error-65535 | `Error(65535)` | String Application-defined or object-defined error |
+| error-65536 | `Error(65536)` | err 6 Overflow |
+| error-minus1 | `Error(-1)` | String Application-defined or object-defined error |
+| error-6.6 | `Error(6.6)` | String Out of memory |
+| error-5.5 | `Error(5.5)` | String Overflow |
+| error-str | `Error("6")` | String Overflow |
+| error-null | `Error(Null)` | err 94 Invalid use of Null |
+| error-empty | `Error(Empty)` | String  |
+| error-none-clean | `Error` | String  |
+| error-none-clean-parens | `Error()` | String  |
+| error-type | `Error(6)` | String |
+| error-dollar-null | `Error$(Null)` | err 94 Invalid use of Null |
+| error-vbObjectError | `Error(vbObjectError + 1)` | String Application-defined or object-defined error |
+
+- **The number is read as CLng reads it,** so 65535.5 is 65536 and `"6"` is 6.
+- **Past 65535 it is 6,** as it is past a Long. Any negative number is "Application-defined or object-defined error", True's -1 and `vbObjectError + 1` included.
+- **Null is 94, an array 13, and Empty is 0,** whose text is "".
+- **Error with no number** is the text of the error Err holds: its Description, or where none has been set, its number's text.
+  - After `Err.Raise 11`, `Error` and `Error()` are "Division by zero".
+  - After `Err.Raise 1000, , "custom text"`, `Error` is "custom text".
+  - After `Err.Clear` and `Err.Number = 6`, `Error` is "Overflow".
+
+### The text of every error number
+
+`Error(n)` was called for every n from 0 to 65535. These 88 numbers have a text of their own; the other 65,448 are "Application-defined or object-defined error".
+
+<details><summary>The 88 texts</summary>
+
+| Number | Text |
+|---|---|
+| 0 | (empty) |
+| 3 | Return without GoSub |
+| 5 | Invalid procedure call or argument |
+| 6 | Overflow |
+| 7 | Out of memory |
+| 9 | Subscript out of range |
+| 10 | This array is fixed or temporarily locked |
+| 11 | Division by zero |
+| 13 | Type mismatch |
+| 14 | Out of string space |
+| 16 | Expression too complex |
+| 17 | Can't perform requested operation |
+| 18 | User interrupt occurred |
+| 20 | Resume without error |
+| 28 | Out of stack space |
+| 35 | Sub or Function not defined |
+| 47 | Too many DLL application clients |
+| 48 | Error in loading DLL |
+| 49 | Bad DLL calling convention |
+| 51 | Internal error |
+| 52 | Bad file name or number |
+| 53 | File not found |
+| 54 | Bad file mode |
+| 55 | File already open |
+| 57 | Device I/O error |
+| 58 | File already exists |
+| 59 | Bad record length |
+| 61 | Disk full |
+| 62 | Input past end of file |
+| 63 | Bad record number |
+| 67 | Too many files |
+| 68 | Device unavailable |
+| 70 | Permission denied |
+| 71 | Disk not ready |
+| 74 | Can't rename with different drive |
+| 75 | Path/File access error |
+| 76 | Path not found |
+| 91 | Object variable or With block variable not set |
+| 92 | For loop not initialized |
+| 93 | Invalid pattern string |
+| 94 | Invalid use of Null |
+| 96 | Unable to sink events of object because the object is already firing events to the maximum number of event receivers that it supports |
+| 97 | Can not call friend function on object which is not an instance of defining class |
+| 98 | A property or method call cannot include a reference to a private object, either as an argument or as a return value |
+| 321 | Invalid file format |
+| 322 | Can't create necessary temporary file |
+| 325 | Invalid format in resource file |
+| 380 | Invalid property value |
+| 381 | Invalid property array index |
+| 382 | Set not supported at runtime |
+| 383 | Set not supported (read-only property) |
+| 385 | Need property array index |
+| 387 | Set not permitted |
+| 393 | Get not supported at runtime |
+| 394 | Get not supported (write-only property) |
+| 422 | Property not found |
+| 423 | Property or method not found |
+| 424 | Object required |
+| 429 | ActiveX component can't create object |
+| 430 | Class does not support Automation or does not support expected interface |
+| 432 | File name or class name not found during Automation operation |
+| 438 | Object doesn't support this property or method |
+| 440 | Automation error |
+| 442 | Connection to type library or object library for remote process has been lost. Press OK for dialog to remove reference. |
+| 443 | Automation object does not have a default value |
+| 445 | Object doesn't support this action |
+| 446 | Object doesn't support named arguments |
+| 447 | Object doesn't support current locale setting |
+| 448 | Named argument not found |
+| 449 | Argument not optional |
+| 450 | Wrong number of arguments or invalid property assignment |
+| 451 | Property let procedure not defined and property get procedure did not return an object |
+| 452 | Invalid ordinal |
+| 453 | Specified DLL function not found |
+| 454 | Code resource not found |
+| 455 | Code resource lock error |
+| 457 | This key is already associated with an element of this collection |
+| 458 | Variable uses an Automation type not supported in Visual Basic |
+| 459 | Object or class does not support the set of events |
+| 460 | Invalid clipboard format |
+| 461 | Method or data member not found |
+| 462 | The remote server machine does not exist or is unavailable |
+| 463 | Class not registered on local machine |
+| 481 | Invalid picture |
+| 482 | Printer error |
+| 735 | Can't save file to TEMP |
+| 744 | Search text not found |
+| 746 | Replacements too long |
+
+</details>
+
+**Err.Raise with no Description takes its text from the same table.** `Err.Raise 340`, `360`, `400` and `31004` are all "Application-defined or object-defined error", although a form or control raising 340 itself has words of its own. HexIDE had given those raise-time words to Err.Raise too.
+
+**21 of HexIDE's own texts had other words** than vb6.exe's for the same number. They are recorded here because the guess each one made is the one the next reader will make:
+
+| Number | vb6.exe | HexIDE had |
+|---|---|---|
+| 35 | Sub or Function not defined | Sub, Function, or Property not defined |
+| 97 | Can not call friend function on object which is not an instance of defining class | A Friend procedure can only be called on an instance of the class that defines it |
+| 98 | A property or method call cannot include a reference to a private object, either as an argument or as a return value | A private object can't be passed to, or returned from, a property or method call |
+| 322 | Can't create necessary temporary file | Cant create necessary temporary file |
+| 382 | Set not supported at runtime | Property Set can't be executed at run time |
+| 383 | Set not supported (read-only property) | Property Set can't be used with a read-only property |
+| 385 | Need property array index | Need property-array index |
+| 387 | Set not permitted | Property Set not permitted |
+| 393 | Get not supported at runtime | Property Get can't be executed at run time |
+| 394 | Get not supported (write-only property) | Property Get can't be executed on write-only property |
+| 429 | ActiveX component can't create object | Component can't create object or return reference to this object |
+| 430 | Class does not support Automation or does not support expected interface | Class doesn't support Automation |
+| 442 | Connection to type library or object library for remote process has been lost. Press OK for dialog to remove reference. | Lost the connection to the remote process's type or object library |
+| 443 | Automation object does not have a default value | Automation object doesn't have a default value |
+| 449 | Argument not optional | Argument not optional or invalid property assignment |
+| 451 | Property let procedure not defined and property get procedure did not return an object | Object not a collection |
+| 453 | Specified DLL function not found | Specified not found |
+| 458 | Variable uses an Automation type not supported in Visual Basic | Variable uses a type not supported in Visual Basic |
+| 459 | Object or class does not support the set of events | This component doesn't provide that set of events |
+| 460 | Invalid clipboard format | Invalid Clipboard format |
+| 735 | Can't save file to TEMP | Can't save file to TEMP directory |
+
+
+### The case of a character
+
+UCase, LCase and StrConv's upper and lower case were compared for every character `Chr(0)` to `Chr(255)` gives; these are the ones that change, letters A to Z aside:
+
+<details><summary>The table</summary>
+
+| Chr | Character | UCase | LCase | StrConv upper | StrConv lower |
+|---|---|---|---|---|---|
+| 131 | U+0192 | U+0191 | U+0192 | U+0192 | U+0192 |
+| 138 | U+0160 | U+0160 | U+0161 | U+0160 | U+0161 |
+| 140 | U+0152 | U+0152 | U+0153 | U+0152 | U+0153 |
+| 142 | U+017D | U+017D | U+017E | U+017D | U+017E |
+| 154 | U+0161 | U+0160 | U+0161 | U+0160 | U+0161 |
+| 156 | U+0153 | U+0152 | U+0153 | U+0152 | U+0153 |
+| 158 | U+017E | U+017D | U+017E | U+017D | U+017E |
+| 159 | U+0178 | U+0178 | U+00FF | U+0178 | U+00FF |
+| 192 | U+00C0 | U+00C0 | U+00E0 | U+00C0 | U+00E0 |
+| 193 | U+00C1 | U+00C1 | U+00E1 | U+00C1 | U+00E1 |
+| 194 | U+00C2 | U+00C2 | U+00E2 | U+00C2 | U+00E2 |
+| 195 | U+00C3 | U+00C3 | U+00E3 | U+00C3 | U+00E3 |
+| 196 | U+00C4 | U+00C4 | U+00E4 | U+00C4 | U+00E4 |
+| 197 | U+00C5 | U+00C5 | U+00E5 | U+00C5 | U+00E5 |
+| 198 | U+00C6 | U+00C6 | U+00E6 | U+00C6 | U+00E6 |
+| 199 | U+00C7 | U+00C7 | U+00E7 | U+00C7 | U+00E7 |
+| 200 | U+00C8 | U+00C8 | U+00E8 | U+00C8 | U+00E8 |
+| 201 | U+00C9 | U+00C9 | U+00E9 | U+00C9 | U+00E9 |
+| 202 | U+00CA | U+00CA | U+00EA | U+00CA | U+00EA |
+| 203 | U+00CB | U+00CB | U+00EB | U+00CB | U+00EB |
+| 204 | U+00CC | U+00CC | U+00EC | U+00CC | U+00EC |
+| 205 | U+00CD | U+00CD | U+00ED | U+00CD | U+00ED |
+| 206 | U+00CE | U+00CE | U+00EE | U+00CE | U+00EE |
+| 207 | U+00CF | U+00CF | U+00EF | U+00CF | U+00EF |
+| 208 | U+00D0 | U+00D0 | U+00F0 | U+00D0 | U+00F0 |
+| 209 | U+00D1 | U+00D1 | U+00F1 | U+00D1 | U+00F1 |
+| 210 | U+00D2 | U+00D2 | U+00F2 | U+00D2 | U+00F2 |
+| 211 | U+00D3 | U+00D3 | U+00F3 | U+00D3 | U+00F3 |
+| 212 | U+00D4 | U+00D4 | U+00F4 | U+00D4 | U+00F4 |
+| 213 | U+00D5 | U+00D5 | U+00F5 | U+00D5 | U+00F5 |
+| 214 | U+00D6 | U+00D6 | U+00F6 | U+00D6 | U+00F6 |
+| 216 | U+00D8 | U+00D8 | U+00F8 | U+00D8 | U+00F8 |
+| 217 | U+00D9 | U+00D9 | U+00F9 | U+00D9 | U+00F9 |
+| 218 | U+00DA | U+00DA | U+00FA | U+00DA | U+00FA |
+| 219 | U+00DB | U+00DB | U+00FB | U+00DB | U+00FB |
+| 220 | U+00DC | U+00DC | U+00FC | U+00DC | U+00FC |
+| 221 | U+00DD | U+00DD | U+00FD | U+00DD | U+00FD |
+| 222 | U+00DE | U+00DE | U+00FE | U+00DE | U+00FE |
+| 224 | U+00E0 | U+00C0 | U+00E0 | U+00C0 | U+00E0 |
+| 225 | U+00E1 | U+00C1 | U+00E1 | U+00C1 | U+00E1 |
+| 226 | U+00E2 | U+00C2 | U+00E2 | U+00C2 | U+00E2 |
+| 227 | U+00E3 | U+00C3 | U+00E3 | U+00C3 | U+00E3 |
+| 228 | U+00E4 | U+00C4 | U+00E4 | U+00C4 | U+00E4 |
+| 229 | U+00E5 | U+00C5 | U+00E5 | U+00C5 | U+00E5 |
+| 230 | U+00E6 | U+00C6 | U+00E6 | U+00C6 | U+00E6 |
+| 231 | U+00E7 | U+00C7 | U+00E7 | U+00C7 | U+00E7 |
+| 232 | U+00E8 | U+00C8 | U+00E8 | U+00C8 | U+00E8 |
+| 233 | U+00E9 | U+00C9 | U+00E9 | U+00C9 | U+00E9 |
+| 234 | U+00EA | U+00CA | U+00EA | U+00CA | U+00EA |
+| 235 | U+00EB | U+00CB | U+00EB | U+00CB | U+00EB |
+| 236 | U+00EC | U+00CC | U+00EC | U+00CC | U+00EC |
+| 237 | U+00ED | U+00CD | U+00ED | U+00CD | U+00ED |
+| 238 | U+00EE | U+00CE | U+00EE | U+00CE | U+00EE |
+| 239 | U+00EF | U+00CF | U+00EF | U+00CF | U+00EF |
+| 240 | U+00F0 | U+00D0 | U+00F0 | U+00D0 | U+00F0 |
+| 241 | U+00F1 | U+00D1 | U+00F1 | U+00D1 | U+00F1 |
+| 242 | U+00F2 | U+00D2 | U+00F2 | U+00D2 | U+00F2 |
+| 243 | U+00F3 | U+00D3 | U+00F3 | U+00D3 | U+00F3 |
+| 244 | U+00F4 | U+00D4 | U+00F4 | U+00D4 | U+00F4 |
+| 245 | U+00F5 | U+00D5 | U+00F5 | U+00D5 | U+00F5 |
+| 246 | U+00F6 | U+00D6 | U+00F6 | U+00D6 | U+00F6 |
+| 248 | U+00F8 | U+00D8 | U+00F8 | U+00D8 | U+00F8 |
+| 249 | U+00F9 | U+00D9 | U+00F9 | U+00D9 | U+00F9 |
+| 250 | U+00FA | U+00DA | U+00FA | U+00DA | U+00FA |
+| 251 | U+00FB | U+00DB | U+00FB | U+00DB | U+00FB |
+| 252 | U+00FC | U+00DC | U+00FC | U+00DC | U+00FC |
+| 253 | U+00FD | U+00DD | U+00FD | U+00DD | U+00FD |
+| 254 | U+00FE | U+00DE | U+00FE | U+00DE | U+00FE |
+| 255 | U+00FF | U+0178 | U+00FF | U+0178 | U+00FF |
+
+</details>
+
+Ten calls on characters beyond those letters settle the rule:
+
+| Call | Character | vb6.exe | Its case maps back |
+|---|---|---|---|
+| `UCase(ChrW(&HFF41))` | fullwidth a, U+FF41 | U+FF21 | yes |
+| `LCase(ChrW(&HFF21))` | fullwidth A, U+FF21 | U+FF41 | yes |
+| `UCase(ChrW(&H3B1))` | alpha, U+03B1 | U+0391 | yes |
+| `LCase(ChrW(&H391))` | capital alpha, U+0391 | U+03B1 | yes |
+| `UCase(ChrW(&H3C2))` | final sigma, U+03C2 | U+03C2 (itself) | no |
+| `UCase(ChrW(&HB5))` | micro sign, U+00B5 | U+00B5 (itself) | no |
+| `UCase(ChrW(&H131))` | dotless i, U+0131 | U+0131 (itself) | no |
+| `LCase(ChrW(&H130))` | capital I with dot, U+0130 | U+0130 (itself) | no |
+| `UCase(ChrW(&H17F))` | long s, U+017F | U+017F (itself) | no |
+| `LCase(ChrW(&H212A))` | Kelvin sign, U+212A | U+212A (itself) | no |
+
+**A character takes its other case only where that case maps back to it.**
+- **In upper case:** ƒ is Ƒ and ÿ is Ÿ, because each maps back. µ, ς, ſ and ı keep their case, because the upper case Unicode gives them (Μ, Σ, S, I) lowers to another character.
+- **In lower case:** the Kelvin sign and İ keep theirs.
+
+It is the rule VbLike's text fold was measured to follow (#1547). HexIDE's UCase and LCase used .NET's invariant casing, which maps all six.
+
+### Named arguments
+
+Measured as #1465 measured the rest, one project per spelling:
+- **StrConv** takes `String`, `Conversion` and `LocaleID`, the first two required. `LCID`, the name its documentation gives, is "Named argument not found".
+- **Error and Error$** take `ErrorNumber`, which is optional. `Number` is "Named argument not found".
+- **Switch's** parameter is a ParamArray: `Switch(VarExpr:=True)` and `Switch(Expr:=True, Value:=1)` are "Argument in ParamArray may not be named".
+
+### The edges
+
+| Row | Call | vb6.exe |
+|---|---|---|
+| strconv-upper-nonansi | `Codes(StrConv(ChrW(&H4E00) & ChrW(&H3B1) & ChrW(&H101) & ChrW(&H20AC), vbUpperCase))` | String [63.65.65.8364] |
+| strconv-lower-nonansi | `Codes(StrConv(ChrW(&H391) & ChrW(&H100), vbLowerCase))` | String [63.97] |
+| strconv-proper-nonansi | `Codes(StrConv(ChrW(&H101) & "b c" & ChrW(&H3B1), vbProperCase))` | String [65.98.32.67.97] |
+| strconv-0-nonansi | `Codes(StrConv(ChrW(&H101) & ChrW(&H4E00), 0))` | String [257.19968] |
+| strconv-upper-unicode | `StrConv("ab", vbUpperCase Or vbUnicode)` | err 5 Invalid procedure call or argument |
+| strconv-unicode-from | `StrConv("ab", vbUnicode Or vbFromUnicode)` | err 5 Invalid procedure call or argument |
+| strconv-null-null | `StrConv(Null, Null)` | err 94 Invalid use of Null |
+| strconv-null-bad | `StrConv(Null, 256)` | err 5 Invalid procedure call or argument |
+| strconv-lcid-null | `StrConv("a", vbUpperCase, Null)` | err 94 Invalid use of Null |
+| strconv-lcid-2057 | `StrConv("a", vbUpperCase, 2057)` | String A |
+| strconv-lcid-1 | `StrConv("a", vbUpperCase, 1)` | String A |
+| strconv-lcid-minus1 | `StrConv("a", vbUpperCase, -1)` | err 5 Invalid procedure call or argument |
+| strconv-proper-after-nul-lead | `Codes(StrConv(Chr(0) & "ab", vbProperCase))` | String [0.65.98] |
+| strconv-proper-mixed | `StrConv("mcDONALD o'BRIEN", vbProperCase)` | String Mcdonald O'brien |
+| strconv-array | `StrConv(Array("a"), vbUpperCase)` | err 13 Type mismatch |
+| strcomp-null-and-null-compare | `StrComp(Null, "a", Null)` | err 94 Invalid use of Null |
+| strcomp-array-and-null | `StrComp(Array(1), Null)` | err 13 Type mismatch |
+| strcomp-null-and-array | `StrComp(Null, Array(1))` | err 13 Type mismatch |
+| error-minus-70000 | `Error(-70000)` | String Application-defined or object-defined error |
+| error-long-max | `Error(2147483647)` | err 6 Overflow |
+| error-long-min | `Error(-2147483648#)` | String Application-defined or object-defined error |
+| error-past-long | `Error(2147483648#)` | err 6 Overflow |
+| error-true | `Error(True)` | String Application-defined or object-defined error |
+| error-65535-5 | `Error(65535.5)` | err 6 Overflow |
+| error-array | `Error(Array(6))` | err 13 Type mismatch |
+| switch-object-cond | `Switch(New Collection, 1)` | err 450 Wrong number of arguments or invalid property assignment |
+| switch-date-cond | `Switch(#1/1/2000#, "d")` | String d |
+| switch-cond-error-after-true | `Switch(True, 1, "x", 2)` | Integer 1 |
+
+### In HexIDE (#1560)
+
+All five functions are in the registry with their measured parameter names.
+- **StrComp** uses `VbTextCompare` for a compare of 1.
+- **StrConv's** cases go through the ANSI code page, best fit included, and use `VbCase`.
+- **Environ** reads the process's environment, ignoring case. Its index counts the variables sorted by name, ignoring case, with those whose names start with "=" left out. .NET gives the environment in no order, so HexIDE sorts it.
+- **Error** reads `VbErrorMessages`, as Err.Raise now does, and the interpreter's Err when given no number.
+- **UCase and LCase** use `VbCase`.
+
+Not done here, each with its issue:
+- **vbUnicode and vbFromUnicode** make byte strings (#1510).
+- **A compare of 3 and up** (#881).
+- **StrComp given no compare in a Text module** (#1572).
+
 ## When Err is cleared, and what a running handler traps (2026-10-23, #877)
 
 Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60 6.00.9848 (SP6) runtime. These are run-time rows, and native and p-code agree on every one. The rows add to #877's first three and to the two its review rounds measured: `/make` and the IDE agreed then. Each program logged `Err.Number`, with `Err.Description` in brackets where it matters, at the points named. `ErrLifetimeTests` runs the same programs and must print the same lines.
@@ -17552,3 +18242,212 @@ Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60
 - `Traps` and the Resume Next catches read `!inHandler`, so a running handler traps nothing.
 - `VbErr` records whether a Description has been set, and a `Raise` with none keeps it.
 - Source is still not filled with the project's name.
+
+## GetSetting, SaveSetting, DeleteSetting and GetAllSettings (2026-10-23, #1562)
+
+Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60 6.00.9848 (SP6) runtime, under en-GB, in five batches. Native and p-code agree on every row.
+
+Each row ran under `On Error Resume Next` against the guest's own registry, with the probe's program name `HexProbe1562` (`A` in the tables). A row logs any error its setup statements raised, then what it read back. `Show` prints a value's type and text, and an array's bounds and every row with its two types. `BS` is a constant holding a backslash. Between batches, PowerShell on the guest read the registry directly, and seeded it with values of other registry types, as another program could write them.
+
+**Where the settings live.** The location is the one the issue gave, confirmed by reading the guest's registry after a probe saved `"value"` and `42`: `HKEY_CURRENT_USER\Software\VB and VBA Program Settings\<appname>\<section>`. Each setting is a REG_SZ value named by its key, a number included (`42` is the text `"42"`).
+
+**What the issue guessed, and what vb6.exe said:**
+- **GetAllSettings gives a `String()` array, not a Variant array.** It is two-dimensional, 0 To the last key by 0 To 1, and assigns to a `Dim s() As String`. A missing section gives Empty, as guessed, and so does one whose last value was deleted.
+- **DeleteSetting's section is optional.** `DeleteSetting appname` compiles, and deletes every section of the program.
+- **Values and key names are Unicode.** `ChrW(&H4E00)` round-trips as a value and as a key name, and is not `?`. An embedded `Chr(0)` survives too: `"a" & Chr(0) & "b"` reads back with a `Len` of 3.
+
+### The first batch
+
+| Row | Statements | vb6.exe |
+|---|---|---|
+| get-missing-app | `r = GetSetting(A & "NoSuchApp", "S", "K")` | String [] |
+| get-missing-app-default | `r = GetSetting(A & "NoSuchApp", "S", "K", "d")` | String [d] |
+| get-default-num | `r = GetSetting(A & "NoSuchApp", "S", "K", 5)` | String [5] |
+| get-default-double | `r = GetSetting(A & "NoSuchApp", "S", "K", 1.5)` | String [1.5] |
+| get-default-null | `r = GetSetting(A & "NoSuchApp", "S", "K", Null)` | err 94 Invalid use of Null |
+| get-default-empty | `r = GetSetting(A & "NoSuchApp", "S", "K", Empty)` | String [] |
+| get-default-date | `r = GetSetting(A & "NoSuchApp", "S", "K", #1/2/2003#)` | String [02/01/2003] |
+| get-default-bool | `r = GetSetting(A & "NoSuchApp", "S", "K", True)` | String [True] |
+| save-then-get | `SaveSetting A, "S1", "K1", "v1"; r = GetSetting(A, "S1", "K1")` | String [v1] |
+| get-missing-key | `r = GetSetting(A, "S1", "NoKey", "d")` | String [d] |
+| get-missing-section | `r = GetSetting(A, "NoSec", "K1", "d")` | String [d] |
+| get-case | `r = GetSetting(UCase(A), "s1", "k1")` | String [v1] |
+| save-int | `SaveSetting A, "S1", "Int", 5; r = GetSetting(A, "S1", "Int")` | String [5] |
+| save-double | `SaveSetting A, "S1", "Dbl", 1.5; r = GetSetting(A, "S1", "Dbl")` | String [1.5] |
+| save-bool | `SaveSetting A, "S1", "Bool", True; r = GetSetting(A, "S1", "Bool")` | String [True] |
+| save-date | `SaveSetting A, "S1", "Date", #1/2/2003#; r = GetSetting(A, "S1", "Date")` | String [02/01/2003] |
+| save-null | `SaveSetting A, "S1", "Nul", Null; r = GetSetting(A, "S1", "Nul", "absent")` | setup err 94 Invalid use of Null; String [absent] |
+| save-empty | `SaveSetting A, "S1", "Emp", Empty; r = GetSetting(A, "S1", "Emp", "absent")` | String [] |
+| save-empty-string | `SaveSetting A, "S1", "EStr", ""; r = GetSetting(A, "S1", "EStr", "absent")` | String [] |
+| save-empty-app | `SaveSetting "", "S1", "K", "v"` | setup err 5 Invalid procedure call or argument; ran |
+| save-empty-section | `SaveSetting A, "", "K", "v"` | setup err 5 Invalid procedure call or argument; ran |
+| save-empty-key | `SaveSetting A, "S1", "", "v"; r = GetSetting(A, "S1", "", "absent")` | setup err 5 Invalid procedure call or argument; err 5 Invalid procedure call or argument |
+| save-backslash-key | `SaveSetting A, "S1", "a\b", "v"; r = GetSetting(A, "S1", "a\b", "absent")` | String [v] |
+| save-backslash-section | `SaveSetting A, "S2\Sub", "K", "v"; r = GetSetting(A, "S2\Sub", "K", "absent")` | String [v] |
+| backslash-section-parent | `r = GetAllSettings(A, "S2")` | Empty |
+| save-backslash-app | `SaveSetting A & "\X", "S", "K", "v"; r = GetSetting(A, "X\S", "K", "absent")` | String [v] |
+| save-numeric-names | `SaveSetting 1562, 2, 3, 4; r = GetSetting("1562", "2", "3", "absent")` | String [4] |
+| get-numeric-names | `r = GetSetting(1562, 2, 3)` | String [4] |
+| save-null-app | `SaveSetting Null, "S", "K", "v"` | setup err 94 Invalid use of Null; ran |
+| save-null-key | `SaveSetting A, "S1", Null, "v"` | setup err 94 Invalid use of Null; ran |
+| get-null-app | `r = GetSetting(Null, "S", "K")` | err 94 Invalid use of Null |
+| get-null-key | `r = GetSetting(A, "S1", Null)` | err 94 Invalid use of Null |
+| get-empty-app | `r = GetSetting("", "S", "K", "d")` | err 5 Invalid procedure call or argument |
+| get-empty-section | `r = GetSetting(A, "", "K", "d")` | err 5 Invalid procedure call or argument |
+| overwrite | `SaveSetting A, "S1", "K1", "v2"; r = GetSetting(A, "S1", "K1")` | String [v2] |
+| long-value | `SaveSetting A, "S1", "Long", String(10000, "x"); r = Len(GetSetting(A, "S1", "Long"))` | Long [10000] |
+| value-with-nul | `SaveSetting A, "S1", "Nul0", "a" & Chr(0) & "b"; r = Len(GetSetting(A, "S1", "Nul0"))` | Long [3] |
+| value-unicode | `SaveSetting A, "S1", "Uni", ChrW(&H4E00) & ChrW(&H101) & "x"; r = AscW(Mid(GetSetting(A, "S1", "Uni"), 1, 1)) & "." & AscW(Mid(GetSetting(A, "S1", "Uni"), 2, 1)) & "." & Len(GetSetting(A, "S1", "Uni"))` | String [19968.257.3] |
+| key-unicode | `SaveSetting A, "S1", ChrW(&H4E00), "u"; r = GetSetting(A, "S1", ChrW(&H4E00), "absent") & "\|" & GetSetting(A, "S1", "?", "absent")` | String [u\|absent] |
+| getall-order | `SaveSetting A, "S3", "b", "2"; SaveSetting A, "S3", "a", "1"; SaveSetting A, "S3", "C", "3"; r = GetAllSettings(A, "S3")` | Array String() (0 To 2, 0 To 1) b=2[String,String] a=1[String,String] C=3[String,String] |
+| getall-order-2 | `SaveSetting A, "S6", "z", "26"; SaveSetting A, "S6", "m", "13"; SaveSetting A, "S6", "a", "1"; SaveSetting A, "S6", "M", "x"; r = GetAllSettings(A, "S6")` | Array String() (0 To 2, 0 To 1) z=26[String,String] m=x[String,String] a=1[String,String] |
+| getall-after-overwrite | `SaveSetting A, "S6", "z", "again"; r = GetAllSettings(A, "S6")` | Array String() (0 To 2, 0 To 1) z=again[String,String] m=x[String,String] a=1[String,String] |
+| getall-missing-section | `r = GetAllSettings(A, "NoSec")` | Empty |
+| getall-missing-app | `r = GetAllSettings(A & "NoSuchApp", "S")` | Empty |
+| getall-case | `r = GetAllSettings(LCase(A), "s3")` | Array String() (0 To 2, 0 To 1) b=2[String,String] a=1[String,String] C=3[String,String] |
+| getall-empty-value | `SaveSetting A, "S7", "e", ""; r = GetAllSettings(A, "S7")` | Array String() (0 To 0, 0 To 1) e=[String,String] |
+| delete-key | `DeleteSetting A, "S3", "b"; r = GetSetting(A, "S3", "b", "gone")` | String [gone] |
+| delete-missing-key | `DeleteSetting A, "S3", "nokey"` | setup err 5 Invalid procedure call or argument; ran |
+| delete-missing-section | `DeleteSetting A, "NoSec"` | setup err 5 Invalid procedure call or argument; ran |
+| delete-missing-key-missing-section | `DeleteSetting A, "NoSec", "K"` | setup err 5 Invalid procedure call or argument; ran |
+| delete-missing-app | `DeleteSetting A & "NoSuchApp", "S"` | setup err 5 Invalid procedure call or argument; ran |
+| delete-last-key | `SaveSetting A, "S4", "only", "1"; DeleteSetting A, "S4", "only"; r = GetAllSettings(A, "S4")` | Empty |
+| delete-section-after-last-key | `DeleteSetting A, "S4"` | ran |
+| delete-section | `DeleteSetting A, "S3"; r = GetSetting(A, "S3", "a", "gone")` | String [gone] |
+| getall-deleted-section | `r = GetAllSettings(A, "S3")` | Empty |
+| delete-section-with-subkey | `DeleteSetting A, "S2"; r = GetSetting(A, "S2\Sub", "K", "gone")` | setup err 5 Invalid procedure call or argument; String [v] |
+| delete-case | `SaveSetting A, "S5", "Key", "v"; DeleteSetting UCase(A), "s5", "KEY"; r = GetSetting(A, "S5", "Key", "gone")` | String [gone] |
+| delete-empty-section | `DeleteSetting A, ""` | setup err 5 Invalid procedure call or argument; ran |
+| delete-empty-key | `DeleteSetting A, "S1", ""; r = GetSetting(A, "S1", "", "gone")` | setup err 5 Invalid procedure call or argument; err 5 Invalid procedure call or argument |
+| delete-null-key | `DeleteSetting A, "S1", Null` | setup err 94 Invalid use of Null; ran |
+| delete-null-section | `DeleteSetting A, Null` | setup err 94 Invalid use of Null; ran |
+| get-type | `r = TypeName(GetSetting(A, "S1", "K1"))` | String [String] |
+
+- **GetSetting:**
+  - A missing program, section or key gives the default, or `""` without one. The answer is always a String: a default of `5` is `"5"`, `True` is `"True"`, and a Date is its short date.
+  - **The default is converted only when it is the answer.** A Null default is 94 where the key is missing, and no error where it is present (fourth batch).
+- **Names:**
+  - Names are compared without case, and keep the case they were made with: saving `M` over `m` changes `m`'s value and keeps the name `m`.
+  - An empty program, section or key name is 5, for all four statements, and Null is 94.
+  - Numbers are names too: `SaveSetting 1562, 2, 3, 4` is read back by `GetSetting("1562", "2", "3")`.
+- **SaveSetting:**
+  - The setting is stored as its text, as a store into a String makes it, so 1.5 is `"1.5"`.
+  - A Null setting is 94 and writes nothing. Empty writes `""`.
+- **A backslash makes a path.** In a section name it nests a key: `S2\Sub` is the key `Sub` under `S2`, and `GetAllSettings(A, "S2")` on the empty parent gives Empty. In a program name it does the same: `SaveSetting A & "\X", "S"` is read by `GetSetting(A, "X\S")`. In a key name it is just a character.
+- **GetAllSettings:**
+  - Keys are listed in the order they were made. Overwriting one keeps its place.
+  - An empty value is listed as `""`.
+- **DeleteSetting:**
+  - A missing program, section or key is 5.
+  - **Deleting is not recursive.** A section with a section under it is 5, and both are left as they were.
+  - **Deleting a section's last key leaves the section.** GetAllSettings on it is Empty, but `DeleteSetting A, "S4"` afterwards raises nothing, so it was still there.
+
+### The second batch
+
+| Row | Statements | vb6.exe |
+|---|---|---|
+| delete-app | `SaveSetting A, "T1", "k", "v"; SaveSetting A, "T2", "k", "v"; DeleteSetting A; r = GetSetting(A, "T1", "k", "gone") & "\|" & GetSetting(A, "T2", "k", "gone")` | String [gone\|gone] |
+| delete-app-again | `DeleteSetting A` | setup err 5 Invalid procedure call or argument; ran |
+| delete-app-with-empty-section | `SaveSetting A & "B", "T", "k", "v"; DeleteSetting A & "B", "T", "k"; DeleteSetting A & "B"; r = GetAllSettings(A & "B", "T")` | Empty |
+| delete-app-with-nested-section | `SaveSetting A & "C", "T\U", "k", "v"; DeleteSetting A & "C"; r = GetSetting(A & "C", "T\U", "k", "gone")` | setup err 5 Invalid procedure call or argument; String [v] |
+| delete-app-null | `DeleteSetting Null` | setup err 94 Invalid use of Null; ran |
+| delete-app-empty | `DeleteSetting ""` | setup err 5 Invalid procedure call or argument; ran |
+| section-leading-backslash | `SaveSetting A & "D", BS & "S", "k", "lead"; r = GetSetting(A & "D", BS & "S", "k", "absent") & "\|" & GetSetting(A & "D", "S", "k", "absent")` | String [lead\|lead] |
+| section-trailing-backslash | `SaveSetting A & "D", "S" & BS, "k", "trail"; r = GetSetting(A & "D", "S" & BS, "k", "absent") & "\|" & GetSetting(A & "D", "S", "k", "absent")` | String [trail\|trail] |
+| section-double-backslash | `SaveSetting A & "D", "S" & BS & BS & "T", "k", "double"; r = GetSetting(A & "D", "S" & BS & BS & "T", "k", "absent") & "\|" & GetSetting(A & "D", "S" & BS & "T", "k", "absent")` | String [double\|double] |
+| section-only-backslash | `SaveSetting A & "D", BS, "k", "only"; r = GetSetting(A & "D", BS, "k", "absent")` | String [only] |
+| app-trailing-space | `SaveSetting A & " ", "S", "k", "space"; r = GetSetting(A, "S", "k", "absent") & "\|" & GetSetting(A & " ", "S", "k", "absent")` | String [absent\|space] |
+| key-spaces | `SaveSetting A, "S", " k ", "spaced"; r = GetSetting(A, "S", "k", "absent") & "\|" & GetSetting(A, "S", " k ", "absent")` | String [absent\|spaced] |
+| long-key | `SaveSetting A, "S", String(300, "k"), "long"; r = GetSetting(A, "S", String(300, "k"), "absent")` | String [long] |
+| long-section | `SaveSetting A, String(300, "s"), "k", "long"; r = GetSetting(A, String(300, "s"), "k", "absent")` | setup err 5 Invalid procedure call or argument; err 5 Invalid procedure call or argument |
+| types-sz | `r = Len(GetSetting(A & "Types", "S", "Sz")) & " " & GetSetting(A & "Types", "S", "Sz")` | String [3 abc] |
+| types-dword | `r = GetSetting(A & "Types", "S", "Dword", "absent")` | err 5 Invalid procedure call or argument |
+| types-qword | `r = GetSetting(A & "Types", "S", "Qword", "absent")` | err 5 Invalid procedure call or argument |
+| types-expand | `r = GetSetting(A & "Types", "S", "Expand", "absent")` | err 5 Invalid procedure call or argument |
+| types-multi | `r = Len(GetSetting(A & "Types", "S", "Multi", "absent"))` | err 5 Invalid procedure call or argument |
+| types-binary | `r = Len(GetSetting(A & "Types", "S", "Binary", "absent"))` | err 5 Invalid procedure call or argument |
+| types-getall | `r = GetAllSettings(A & "Types", "S")` | err 5 Invalid procedure call or argument |
+| types-default-value | `r = GetSetting(A & "Types", "S", "(default)", "absent")` | String [absent] |
+| save-over-dword | `SaveSetting A & "Types", "S", "Dword", "now text"; r = GetSetting(A & "Types", "S", "Dword", "absent")` | String [now text] |
+| save-after-delete-app | `DeleteSetting A; SaveSetting A, "S", "k", "back"; r = GetSetting(A, "S", "k", "absent")` | String [back] |
+
+- **DeleteSetting with no section deletes each section, then the program.** One section with a section under it stops the delete with 5, and the nested key survives. Whether sections before it went is not measured. A program whose only section is empty is deleted.
+- **A section's backslashes are passed over at its ends and where doubled.** `"\S"`, `"S\"` and `"S"` are one section, as are `"S\\T"` and `"S\T"`, and `"\"` alone is the program's own key.
+- **Names are not trimmed.** `A & " "` is another program, and `" k "` another key.
+- **A section name of 300 characters is 5,** past the registry's limit of 255 for a key name, while a key name of 300 is fine. The boundary itself was not probed; HexIDE takes it to be the registry's 255.
+- **A value that is not REG_SZ is 5.** That covers DWORD, QWORD, EXPAND_SZ, MULTI_SZ and BINARY, for GetSetting, and for GetAllSettings over a section holding any of them. SaveSetting over one replaces it with text. The key `"(default)"` is not the unnamed default value.
+
+### The third batch
+
+| Row | Statements | vb6.exe |
+|---|---|---|
+| getall-sz-and-default | `r = GetAllSettings(A & "Types", "Sd")` | Array String() (0 To 2, 0 To 1) Sz=abc[String,String] Empty=[String,String] =dv[String,String] |
+| getall-sz-and-expand | `r = GetAllSettings(A & "Types", "Se")` | err 5 Invalid procedure call or argument |
+| getall-app-key-values | `r = GetAllSettings(A & "Types", "\")` | Array String() (0 To 0, 0 To 1) AppVal=top[String,String] |
+| get-app-key-value | `r = GetSetting(A & "Types", "\", "AppVal", "absent")` | String [top] |
+| get-empty-sz | `r = GetSetting(A & "Types", "Sd", "Empty", "absent")` | String [] |
+
+- **GetAllSettings lists an unnamed default value**, as the key `""`, in its place in the registry's order.
+- **A section of `"\"` reads the values on the program's own key.**
+
+### The fourth batch
+
+| Row | Statements | vb6.exe |
+|---|---|---|
+| null-default-key-exists | `SaveSetting A, "S1", "K", "v"; r = GetSetting(A, "S1", "K", Null)` | String [v] |
+| array-default-missing | `r = GetSetting(A, "S1", "NoKey", Array(1))` | err 13 Type mismatch |
+| array-default-key-exists | `r = GetSetting(A, "S1", "K", Array(1))` | String [v] |
+| object-default | `r = GetSetting(A, "S1", "NoKey", New Collection)` | err 450 Wrong number of arguments or invalid property assignment |
+| array-app | `r = GetSetting(Array(1), "S1", "K")` | err 13 Type mismatch |
+| array-setting | `SaveSetting A, "S1", "Arr", Array(1); r = GetSetting(A, "S1", "Arr", "absent")` | setup err 13 Type mismatch; String [absent] |
+| empty-app-null-setting | `SaveSetting "", "S1", "K", Null` | setup err 94 Invalid use of Null; ran |
+| null-app-empty-section | `SaveSetting Null, "", "K", "v"` | setup err 94 Invalid use of Null; ran |
+| empty-app-null-key-get | `r = GetSetting("", "S1", Null)` | err 94 Invalid use of Null |
+| missing-section-null-default | `r = GetSetting(A, "NoSec", "K", Null)` | err 94 Invalid use of Null |
+| call-save | `Call SaveSetting(A, "S1", "Called", "c"); r = GetSetting(A, "S1", "Called", "absent")` | String [c] |
+| call-delete | `Call DeleteSetting(A, "S1", "Called"); r = GetSetting(A, "S1", "Called", "gone")` | String [gone] |
+| vba-save | `VBA.SaveSetting A, "S1", "Qual", "q"; r = VBA.GetSetting(A, "S1", "Qual", "absent")` | String [q] |
+| vba-getall | `r = UBound(VBA.GetAllSettings(A, "S1"), 1)` | Long [1] |
+| vba-delete | `VBA.DeleteSetting A, "S1", "Qual"; r = GetSetting(A, "S1", "Qual", "gone")` | String [gone] |
+| interaction-get | `r = VBA.Interaction.GetSetting(A, "S1", "K", "absent")` | String [v] |
+| getall-into-string-array | `Dim s() As String; s = GetAllSettings(A, "S1"); r = UBound(s, 1) & " " & s(0, 0)` | String [0 K] |
+| getall-missing-into-string-array | `Dim t() As String; t = GetAllSettings(A, "NoSec"); r = UBound(t, 1)` | setup err 13 Type mismatch; err 9 Subscript out of range |
+| getall-two-dims | `r = UBound(GetAllSettings(A, "S1"), 2)` | Long [1] |
+
+- **The names are converted before any is checked.** Null is 94 and an array 13, so `SaveSetting "", "S1", "K", Null` is 94, not 5.
+- **The default is converted only when it is the answer.** An array default is 13 where the key is missing, and no error where it is present. So too for an object, measured in a fifth batch: a Collection default is 450 and Nothing 91 where the key is missing, and either is no error where the key has a value.
+- **`Call SaveSetting(...)`, `Call DeleteSetting(...)`, `VBA.SaveSetting`, `VBA.GetAllSettings` and `VBA.Interaction.GetSetting` all run.** The four are intrinsics of the VBA library as well as statements in the grammar.
+- **Empty assigned to a `String` array is 13, and leaves the array unallocated.** That is array assignment, not these four: the rule is measured in full under "A Let into an array variable" (#998, #1588).
+
+### Named arguments, and arguments left out
+
+Each statement is one project:
+
+| Statement | vb6.exe |
+|---|---|
+| `DeleteSetting "HexProbe1562Nope"` | ran: 5 Empty |
+| `v = GetSetting("a", "s")` | Argument not optional |
+| `v = GetSetting(AppName:="HexProbe1562Nope", Section:="s", Key:="k", Default:="d")` | ran: 0 String [d] |
+| `v = GetSetting(AppName:="HexProbe1562Nope", Section:="s", Key:="k", DefaultValue:="d")` | Named argument not found |
+| `v = GetSetting(AppName:="HexProbe1562Nope", Key:="k")` | Argument not optional |
+| `v = GetAllSettings(AppName:="HexProbe1562Nope", Section:="s")` | ran: 0 Empty |
+| `v = GetAllSettings("HexProbe1562Nope")` | Argument not optional |
+| `SaveSetting AppName:="HexProbe1562Named", Section:="s", Key:="k", Setting:="v"` | ran: 0 Empty |
+| `SaveSetting AppName:="HexProbe1562Named", Section:="s", Key:="k", Value:="v"` | Named argument not found |
+| `SaveSetting "HexProbe1562Named", "s", "k"` | Argument not optional |
+| `DeleteSetting AppName:="HexProbe1562Named", Section:="s", Key:="k"` | ran: 5 Empty |
+| `SaveSetting("HexProbe1562Named", "s", "k", "v")` | Syntax error |
+| `GetSetting "HexProbe1562Nope", "s", "k"` | ran: 0 Empty |
+
+The parameters are `AppName`, `Section`, `Key` and `Default` for GetSetting, the first three required. GetAllSettings has `AppName` and `Section`, both required. SaveSetting has `AppName`, `Section`, `Key` and `Setting`, not `Value`, all required. DeleteSetting has `AppName`, `Section` and `Key`, only the first required. GetSetting as a statement runs.
+
+### In HexIDE (#1562)
+
+The four run as registered intrinsics. The two statements, and `Call` and `VBA.`, all go through them.
+- **VB6's rules sit in one place,** `VB6BuiltIns.Settings`. The store under them only keeps keys (`IVbSettingsStore`), so every rule above is pinned once, over a store in memory, by `SettingsProgramTests`.
+- **On Windows the store is the registry, under VB6's own key,** so a program run in HexIDE and the same program compiled by VB6 share their settings. `VbSettingsStoreTests` checks that each value is REG_SZ, and that the embedded `Chr(0)` and the Unicode survive.
+- **Elsewhere the store is one file in HexIDE's user-data directory,** `program-settings.json`, which `--user-data-dir` moves. It is one file rather than one per program, because a program's name can hold `..` and must never become part of a path.
+- **Not measured, and so chosen:**
+  - A program and section that name no key at all, `"\"` and `"\"`, are 5 here.
+  - A program whose second section cannot be deleted loses none of its sections here.
+- **Refused in other words:** `SaveSetting` with three arguments, and `SaveSetting(...)` in parentheses, are refused as the program loads, by the grammar, in the parser's words. vb6.exe says "Argument not optional" and "Syntax error".

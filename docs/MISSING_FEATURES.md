@@ -337,7 +337,7 @@
 | CommandButton | Done | ToolTipText, read and set as vb6.exe does (#1403). |
 | CheckBox | Done | GotFocus and LostFocus, as vb6.exe raises them (#1101). |
 | OptionButton | Done | GotFocus and LostFocus, as vb6.exe raises them. One that takes the focus by `SetFocus` is selected, raising Click after GotFocus (#1101). The Tab key stops at every option, where VB6's stops only at the selected one ([#1583](https://github.com/hexide-io/HexIDE/issues/1583)). |
-| ComboBox | Partial | One GotFocus and one LostFocus, whether the combo or its edit box takes the focus (#1101). `ListCount`, `List(i)`, `AddItem` with an index and `RemoveItem` as vb6.exe gives them (#821). `Text` at Style 0 and 1, in the designer and at run time, and a drawn combo starts with its name as its Text (#926). No `Style` ([#1428](https://github.com/hexide-io/HexIDE/issues/1428)), so a Dropdown List's Text is refused at run time. Click, Change and DropDown come where vb6.exe raises them, for the mouse, the keys, typing and code ([#1429](https://github.com/hexide-io/HexIDE/issues/1429)). No `Sorted` |
+| ComboBox | Partial | One GotFocus and one LostFocus, whether the combo or its edit box takes the focus (#1101). `ListCount`, `List(i)`, `AddItem` with an index and `RemoveItem` as vb6.exe gives them (#821). `Text` at Style 0 and 1, in the designer and at run time, and a drawn combo starts with its name as its Text (#926). `Style` as vb6.exe and its designer give it, and a Dropdown List's Text selecting the item it names or raising 383 ([#1428](https://github.com/hexide-io/HexIDE/issues/1428)). A Simple Combo is drawn as a Dropdown Combo ([#1603](https://github.com/hexide-io/HexIDE/issues/1603)), and the designer draws a Dropdown List's box empty ([#1604](https://github.com/hexide-io/HexIDE/issues/1604)). Click, Change and DropDown come where vb6.exe raises them, for the mouse, the keys, typing and code ([#1429](https://github.com/hexide-io/HexIDE/issues/1429)). No `Sorted` |
 | ListBox | Done | Takes the focus itself, raising one GotFocus and one LostFocus however its items take it (#1101). Click comes where vb6.exe raises it: on a left press on an item, before MouseUp, and when code or an arrow key moves the selection (#1374). `ListCount`, `List(i)`, `AddItem` with an index and `RemoveItem` as vb6.exe gives them (#821). `Selected(i)`, `SelCount` and `Text`, read and written, as vb6.exe gives them on a single-select list (#1395). `MultiSelect`, Simple and Extended, with vb6.exe's mouse, keys and code, `ListIndex` the focused item (#1413). No `Sorted` |
 | HScrollBar | Done | Takes the focus, raising GotFocus and LostFocus (#1101). |
 | VScrollBar | Done | Takes the focus, raising GotFocus and LostFocus (#1101). |
@@ -526,7 +526,7 @@
 | App object | Partial | `App.Title`, `EXEName`, `Path`, `ProductName`, `Major`/`Minor`/`Revision`, `PrevInstance` and the version-info strings, seeded from the project (#136). Values follow VB6 at DESIGN TIME, which is where the interpreter permanently sits — `EXEName` is the `.vbp` file name and `ProductName` is empty, both measured under F5. `Title` is writable; `LogEvent`/`StartLogging`/`TaskVisible` are not implemented |
 | Clipboard object | Missing | |
 | Collection object | Missing | |
-| Registry functions (GetSetting etc.) | Missing | |
+| Registry functions (GetSetting etc.) | Done | GetSetting, SaveSetting, DeleteSetting and GetAllSettings, measured (#1562): the registry key VB6 uses on Windows, a file in the user-data directory elsewhere |
 
 ---
 

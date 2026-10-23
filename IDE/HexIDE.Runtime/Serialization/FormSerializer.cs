@@ -283,6 +283,12 @@ public class FormSerializer
                  || prop == VBProperties.VisibleProperty))
                 continue;
 
+            // VB6's designer never writes a Dropdown Combo's Style, even once it was set to another and back: #926's saved
+            // form has neither combo's line (measured, #1428).
+            if (prop == VBProperties.ComboStyleProperty
+                && instance.GetPropertyOrDefault(VBProperties.ComboStyleProperty) == VBComboStyle.DropdownCombo)
+                continue;
+
             // VB6's designer never writes a Dropdown List's Text, and its run time ignores one (measured, #926).
             if (prop == VBProperties.TextProperty && instance.BaseClass is ComboBoxComponentClass
                 && ComboBoxComponentClass.IsDropdownList(instance))
