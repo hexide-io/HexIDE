@@ -238,6 +238,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP `interact set_property` reads back the value it set** (#1326), naming both sent and actual values when
+  they differ. For an editor's `CaretOffset`, it reads the editor itself, so an offset the caret never took is no
+  longer reported as set.
+
 - **A numeric literal ending in its point loads, as vb6.exe compiles it** (#1615). `x = 5.` and `5.D1` failed to
   load, and the editor marked them. Both grammars now read them, as the literal with a digit after the point. A
   literal with a point and `%` or `&`, such as `2.5%`, is now vb6.exe's compile error "Syntax error", where HexIDE
