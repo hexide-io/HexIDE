@@ -208,6 +208,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **An undeclared variable passed ByRef takes the procedure's write** (#1505). `Bump a12`, with `a12` never declared
+  and `Sub Bump(x)` adding 1 to `x`, left `a12` Empty, so the program ran on with a wrong value and nothing said why. VB6
+  declares the variable where it is passed, and the write lands in it. Now HexIDE does the same for a Sub, a Function, a
+  class's method and a named argument, under DefType too. A name in parentheses, or given to a ByVal parameter, is still
+  a copy, as in VB6.
+
 - **`DefInt A-Z` and the rest of DefType run** (#169). A DefType statement stopped the program. Now each declaration with
   no As clause takes its type from the first letter of its name, as vb6.exe does. That covers an undeclared variable, a
   `Dim` or `Static`, a field, a parameter and a Function's return, and under DefObj each is an object variable. A `Const`
