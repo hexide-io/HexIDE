@@ -976,8 +976,11 @@ public static class UiAutomationDriver
         // A window with a modal dialog over it takes no close-box click or Alt+F4 until the dialog is answered, so a
         // person cannot close it, and a close from here would close the dialog with it (#829 review).
         if (window.OwnedWindows.FirstOrDefault(w => w.IsDialog && w.IsVisible) is { } over)
+        {
+            OpenDialogs.NamedInReply(over);
             return Err($"'{title}' has a dialog open over it, '{TitleOf(over)}', and takes no close until that is "
                        + "answered, as a person finds; nothing was done. Answer or close that dialog first");
+        }
         if (PlatformClosing?.GetValue(window.PlatformImpl) is not Func<WindowCloseReason, bool> closing)
             return Err($"this build of Avalonia does not expose a window's close-box handling, so '{title}' cannot be "
                        + "closed as a person closes it; nothing was done");
@@ -2675,7 +2678,8 @@ public static class UiAutomationDriver
     /// Why a person's keys would not reach <paramref name="at"/>: a modal dialog open over its window, or over a window that
     /// holds it, disables the window and takes the keys. Null when none is. The window's focus stays where it was, so a
     /// check on focus passes: keys went into the code under the reset prompt, to be reverted with it (#1290). A dialog over
-    /// another window is left to the reply's note, as a person could click past it. The dialog is recorded as named.
+    /// another window is left to the reply's note, as a person could click past it. All blocking dialogs are recorded as
+    /// named: those under the top one cannot be answered before it either.
     /// </summary>
     private static string? KeysTakenBy(Control at, string what, string done)
     {
@@ -2688,7 +2692,8 @@ public static class UiAutomationDriver
         if (open.Where(d => OpenDialogs.Blocks(d, window)).FirstOrDefault(d => !open.Any(o => OpenDialogs.Blocks(o, d)))
             is not { } holding)
             return null;
-        OpenDialogs.NamedInReply(holding);
+        foreach (var dialog in open.Where(d => OpenDialogs.Blocks(d, window)))
+            OpenDialogs.NamedInReply(dialog);
         return $"'{TitleOf(holding)}', a modal dialog over {OpenDialogs.OwnerOf(holding)}, is open and waits for an answer, so "
             + $"a person's keys would go to it, not to {what}; nothing was {done}. Answer it first: dump_visual_tree with "
             + "'window' set to its title shows it, and interact answers it";

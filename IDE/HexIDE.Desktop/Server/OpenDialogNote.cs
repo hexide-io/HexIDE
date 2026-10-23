@@ -60,9 +60,15 @@ internal static class OpenDialogNote
         var result = await next();
         if (watch is null)
             return result;
-        var note = await OnUiThread(() => OpenDialogs.Note(watch, Windows().Windows), ct);
+        var note = await OnUiThread(() => OpenDialogs.Note(watch, Windows().Windows, acted: !Failed(result)), ct);
         return note is null ? result : With(result, note);
     }
+
+    // Refusals may still need to name an unreported dialog, but never claim they acted behind it.
+    private static bool Failed(CallToolResult result) => result.IsError == true
+        || result.Content.OfType<TextContentBlock>().Any(block =>
+            TryParseObject(block.Text)?["success"] is JsonValue value
+            && value.TryGetValue<bool>(out var success) && !success);
 
     // The window a call acts in: the one its 'window' argument picks, as every window tool resolves it, or the IDE's.
     private static Window? TargetOf(CallToolRequestParams? call, IReadOnlyList<Window> windows, Window? main)
