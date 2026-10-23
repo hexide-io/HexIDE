@@ -23,8 +23,8 @@ public partial class VB6BuiltIns
         d["Trim"]       = (_, a, _) => NullOrStr(a[0], s => s.Trim(' '));
         d["LTrim"]      = (_, a, _) => NullOrStr(a[0], s => s.TrimStart(' '));
         d["RTrim"]      = (_, a, _) => NullOrStr(a[0], s => s.TrimEnd(' '));
-        d["UCase"]      = (_, a, _) => NullOrStr(a[0], s => s.ToUpperInvariant());
-        d["LCase"]      = (_, a, _) => NullOrStr(a[0], s => s.ToLowerInvariant());
+        d["UCase"]      = (_, a, _) => NullOrStr(a[0], VbCase.Upper);
+        d["LCase"]      = (_, a, _) => NullOrStr(a[0], VbCase.Lower);
         d["StrReverse"] = (_, a, _) => NullOrStr(a[0], s => { var c = s.ToCharArray(); Array.Reverse(c); return new string(c); });
         d["Space"]      = (_, a, _) => new Vb6Value(new string(' ', Math.Max(0, AsInt(a[0]))));
         d["String"]     = (_, a, _) => new Vb6Value(new string(CharArg(a[1]), Math.Max(0, AsInt(a[0]))));
