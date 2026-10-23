@@ -631,7 +631,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // enforces them as the value is set, and throws; without it nothing would, so they are asked here.
             if (propClass == VBProperties.NameProperty && designerVm is null
                 && HexIDE.VisualDesigner.ComponentNaming.RefusalFor(control, before as string, parsed as string,
-                       form.Components, form, control.BaseClass == FormComponentClass.Instance, ctx.Localization) is { } refusal)
+                       form.Components, form, control.BaseClass is FormComponentClass, ctx.Localization) is { } refusal)
                 return (null, null, $"'{controlName}' was not renamed: {refusal}");
             try
             {
