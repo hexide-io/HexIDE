@@ -9,15 +9,16 @@ using HexIDE.Sidecar;
 namespace HexIDE.Tests.Projects;
 
 /// <summary>
-/// A new form or module is written the moment it is added, so the name it is given decides a path, and a file
-/// already at that path is replaced.
+/// The name an Add command gives a new form or module is the file name its first save suggests, so it passes over a
+/// name whose file is already in the project's folder.
 ///
 /// <para>
-/// The Add commands checked the name against the project's members only. A folder holding another project's
-/// <c>Module1.bas</c>, which is ordinary when two <c>.vbp</c> files share one, lost that module's code to the
-/// next Add Module, with nothing said (hexide-io/HexIDE#738). Each case here stages someone else's file first
-/// and checks its bytes afterwards, because "it threw" or "it picked another name" does not show the file
-/// survived.
+/// The Add commands checked the name against the project's members only. When a new member was written as it was
+/// added, a folder holding another project's <c>Module1.bas</c>, which is ordinary when two <c>.vbp</c> files share
+/// one, lost that module's code to the next Add Module, with nothing said (hexide-io/HexIDE#738). Nothing is written
+/// at Add now (#500), and the save's picker is where the file's place is decided, but a suggestion that names a
+/// stranger's file is still one keystroke from replacing it. Each case stages someone else's file first and checks
+/// its bytes afterwards.
 /// </para>
 /// </summary>
 public class NewMemberFileInTheWayTests : IDisposable
@@ -108,7 +109,7 @@ public class NewMemberFileInTheWayTests : IDisposable
         var name = NextFreeName(svc, project, kind);
         await AddNew(svc, project, kind, name);
 
-        name.Should().Be(kind + "2", $"{inTheWay} is already in the project's folder, and the new file would replace it");
+        name.Should().Be(kind + "2", $"{inTheWay} is already in the project's folder, and the first save would suggest it");
         File.ReadAllBytes(foreign).Should().Equal(Foreign(inTheWay));
     }
 
@@ -165,46 +166,5 @@ public class NewMemberFileInTheWayTests : IDisposable
 
         svc.NextFreeModuleName(project, ModuleKind.StandardModule).Should().Be("Module1");
         project.WorkingDirectory.Should().BeNull();
-    }
-
-    // ── Asked for by name: refused, never renamed ────────────────────────────────────────────────────
-
-    [Theory]
-    [InlineData("Form", "Form1.frm")]
-    [InlineData("Form", "Form1.frx")]
-    [InlineData("Module", "Module1.bas")]
-    [InlineData("Class", "Class1.cls")]
-    [InlineData("UserControl", "UserControl1.ctl")]
-    [InlineData("UserControl", "UserControl1.ctx")]
-    [InlineData("PropertyPage", "PropertyPage1.pag")]
-    [InlineData("PropertyPage", "PropertyPage1.pgx")]
-    public async Task A_new_member_named_onto_a_file_already_in_the_folder_is_refused_and_the_file_kept(
-        string kind, string inTheWay)
-    {
-        // add_file takes its name from the caller, so it cannot pick another: it has to refuse.
-        var svc = MakeService();
-        var project = NewProject();
-        var foreign = Stage(inTheWay);
-
-        Func<Task> add = () => AddNew(svc, project, kind, kind + "1");
-
-        (await add.Should().ThrowAsync<FileInTheWayRefusal>()).Which.Path.Should().Be(foreign);
-        File.ReadAllBytes(foreign).Should().Equal(Foreign(inTheWay));
-        project.Forms.Should().BeEmpty();
-        project.Modules.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task A_new_member_named_onto_a_file_the_project_file_names_is_refused()
-    {
-        var svc = MakeService();
-        var project = NewProject();
-        project.PreservedItemLines.Add("Module=Kept; Module1.bas");
-
-        Func<Task> add = () => svc.AddNewModule(project, "Module1", ModuleKind.StandardModule, interactive: false);
-
-        (await add.Should().ThrowAsync<FileInTheWayRefusal>()).Which.Path.Should().Be(Path.Join(dir, "Module1.bas"));
-        File.Exists(Path.Join(dir, "Module1.bas")).Should().BeFalse();
-        project.Modules.Should().BeEmpty();
     }
 }

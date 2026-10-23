@@ -53,6 +53,24 @@ check 'scripts/check-licences.sh'            build 'a guard script'
 check '.gitignore'                           build 'unrecognised root file defaults to building'
 
 echo
+echo "Markdown read derivation:"
+# Exercise the real derivation in a temp tree whose docs/ exists, as it does in the repository.
+read_docs=$(sed -n '/^derive_read_docs() {/,/^}/p' "$S")
+fixture=$(mktemp -d)
+trap 'rm -rf "$fixture"' EXIT
+mkdir -p "$fixture/IDE" "$fixture/LspServer" "$fixture/docs"
+cat > "$fixture/IDE/Fixture.cs" <<'EOF'
+Path.Combine(Old, "docs", "README.md"), @"Module=Readme; docs\README.md"));
+EOF
+: > "$fixture/HexIDE.slnx"
+got=$(cd "$fixture"; eval "$read_docs"; derive_read_docs)
+if [ "$got" != "docs/README.md" ]; then
+  printf '  WRONG  trailing markdown literal got=%s want=docs/README.md\n' "$got"; fail=1
+else
+  echo '  ok     trailing markdown literal stays outside the path'
+fi
+
+echo
 if [ "$fail" -ne 0 ]; then
   echo "::error::ci-skippable.sh gave a wrong answer. A wrong 'skip' reports Success to a required check without building."
   exit 1

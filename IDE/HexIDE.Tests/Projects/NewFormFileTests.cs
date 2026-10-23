@@ -10,7 +10,8 @@ using HexIDE.Sidecar;
 namespace HexIDE.Tests.Projects;
 
 /// <summary>
-/// The files Add Form, Add User Control and Add Property Page write as they are added, read back from disk.
+/// The files Add Form, Add User Control and Add Property Page write at the project's next save, which is when VB6 writes
+/// them (#500), read back from disk.
 ///
 /// <para>
 /// A new form now carries what VB6 writes for one: CRLF throughout, its five <c>Attribute</c> lines, and
@@ -37,13 +38,18 @@ public class NewFormFileTests : IDisposable
     {
         var projectManager = Substitute.For<IProjectManager>();
         projectManager.LoadedProjects.Returns(_ => loaded);
+        // Every picker the save opens is answered with the name it suggests, in this test's folder.
+        var windowManager = Substitute.For<IWindowManager>();
+        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+            .Returns(ci => Task.FromResult<string?>(
+                Path.Join(dir, ci.Arg<Avalonia.Platform.Storage.FilePickerSaveOptions>().SuggestedFileName)));
         var sidecar = Substitute.For<IUserSidecarService>();
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
 
         return new ProjectService(
             () => throw new InvalidOperationException("new-project dialog must not be reached"),
-            Substitute.For<IWindowManager>(),
+            windowManager,
             Substitute.For<IEventBus>(),
             projectManager,
             Substitute.For<IRecentProjectsService>(),
@@ -64,7 +70,11 @@ public class NewFormFileTests : IDisposable
     [Fact]
     public async Task Add_Form_writes_a_form_in_VB6s_shape()
     {
-        var form = await MakeService().AddNewForm(NewProject(), "Form2", interactive: false);
+        var svc = MakeService();
+        var project = NewProject();
+        var form = await svc.AddNewForm(project, "Form2", interactive: false);
+
+        await svc.SaveProject(project, saveAs: false);
 
         var text = File.ReadAllText(form.AbsolutePath!);
         text.Replace("\r\n", "").Should().NotContain("\n");
@@ -95,9 +105,12 @@ public class NewFormFileTests : IDisposable
     public async Task A_new_designer_module_takes_none_of_a_forms_lines(string kind)
     {
         var svc = MakeService();
+        var project = NewProject();
         var module = kind == "UserControl"
-            ? await svc.AddNewUserControl(NewProject(), "Thing1", interactive: false)
-            : await svc.AddNewPropertyPage(NewProject(), "Thing1", interactive: false);
+            ? await svc.AddNewUserControl(project, "Thing1", interactive: false)
+            : await svc.AddNewPropertyPage(project, "Thing1", interactive: false);
+
+        await svc.SaveProject(project, saveAs: false);
 
         var text = File.ReadAllText(module.AbsolutePath!);
         text.Should().NotContain("StartUpPosition");
