@@ -15260,8 +15260,21 @@ The guess was that a `#Const` in an inactive branch defines nothing. **It define
 | `X = 1 : X = 2`, `X =`, `X = 1; Y = 2`, `X = 1 :` | refused |
 
 A refusal is "Invalid syntax for constant declarations", then "One or more of the properties in 'probe.vbp' was bad. Some or
-all of the properties might not be set correctly.", and `/make` built nothing. What VB6's IDE does when it opens such a project
-is unmeasured: it needs the guest's console.
+all of the properties might not be set correctly.", and `/make` built nothing.
+
+**IDE, release build** (#1524). The same project, `CondComp="ARG = 70000"`, opened in the oracle's IDE in the guest's console
+session, beside a control with `CondComp="ARG = 5"`. The module logged `ARG` and then `ran`:
+
+| run | VB6's IDE |
+|---|---|
+| the control, `VB6.EXE /runexit probe.vbp` | ran: `ARG: true`, `ran`, and VB6 closed |
+| `VB6.EXE /runexit probe.vbp` | opened the project, titled "Probe - Microsoft Visual Basic [design]", behind a message box: "Invalid syntax for constant declarations", with OK and Help |
+| ... OK | a second: "One or more of the properties in 'C:\...\probe.vbp' was bad. Some or all of the properties might not be set correctly." |
+| ... OK | VB6 closed, and the program never ran: no log at all |
+| `VB6.EXE probe.vbp`, both boxes dismissed, then F5 sent | no log either, and the IDE stayed in design. That F5 reached the IDE is not established, so this row decides nothing |
+
+So the IDE opens the project and says so twice, and `/runexit` then runs nothing: what HexIDE does, refusing to run with the
+first message, is the measured `/runexit` answer. Whether F5 afterwards runs with the arguments dropped is still open.
 
 ### Values and operators
 
