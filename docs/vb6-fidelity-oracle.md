@@ -1258,6 +1258,9 @@ above into line for `Me`, `TypeName(Me)`, the form reached from a module, both o
 declarations at Initialize, and Initialize and Load before Resize. A control used in Initialize (#1009), Activate, the
 predeclared name and `Unload` remain.
 
+#994 then brings in Activate and Deactivate, and Resize once on the first show rather than for each size the
+window reports: [A form's Resize, Activate and Deactivate](#a-forms-resize-activate-and-deactivate-2026-10-23-994).
+
 #995 then brings implicit `Me` into line: a bare name in a form's code is the form's member, after its locals, variables,
 controls and procedures and before the project's globals, for reads, assignments and calls. A member VB6's Form has and
 HexIDE does not is refused as not implemented, rather than made a variable. A read-only one assigned is VB6's compile
@@ -15141,6 +15144,115 @@ rather than the compiler: in the oracle as it stands, the release build's IDE (#
 logs to its end. One that waits is in break mode or showing a dialog, and
 running it again under On Error Resume Next tells the two apart.
 
+## Indexing a call's result (2026-10-23, #1476)
+
+Measured with `/make` in four batches, native and p-code identical on every row. A row that printed something is a
+run-time result of a built EXE on SP6's MSVBVM60. A compile error came from the oracle's release-build compiler (#1524).
+Each line printed `TypeName` and the value, or the error.
+
+### Reading
+
+| expression | vb6.exe |
+|---|---|
+| `Split("x y z")(0)`, `(2)`, `(3)` | x, z, 9 |
+| `Split(s, " ")(1)` | y |
+| `Array(1, 2)(1)` | Integer 2 |
+| `V3()(2)` and `V3()(-1)`, with `V3() As Variant` returning `Array(10, 20, 30)` | 30, and 9 |
+| `T3()(1)`, with `T3() As Long()` | Long 200: the typed array's element |
+| `Jag()(1)(0)` and `Jag()(1)(1)(1)`, with `Jag` returning `Array(Array(1, 2), Array(3, Array(4, 5)))` | 3 and 5 |
+| `WithArg(4)(2)`, with `WithArg(n)` returning `Array(n, n * 2, n * 3)` | 12 |
+| `NoArgs()(1)`, with `NoArgs() As Variant` returning `Array(5, 6)` | 6 |
+| `Col()(2)` and `Col()("a")`, with `Col() As Collection` | beta, alpha: the Collection's Item |
+| `VScalar()(0)` and `VStr()(0)`, Variant Functions returning 42 and "abc" | 13 |
+| `Split(s)(0, 1)` | 9: the wrong number of subscripts |
+| `Split(s)("1")`, `Split(s)(1.5)` | y, z: an index converts as any subscript does, 1.5 rounding to 2 |
+| `k.Items()(1)`, `k.Typed()(2)`, `k.Bag()(2)`, `k.Echo("m n")(1)`, `k.Prop()(0)` | the method's or Property Get's result, indexed |
+
+### A parameterless procedure given arguments
+
+Each was its own project: a `Private Function F` in the same module, called from `Sub Main` as `r = F(...)` under
+On Error Resume Next.
+
+| F | call | vb6.exe |
+|---|---|---|
+| `Function F()` or `Function F() As Variant`, returning `Array(5, 6)` | `F(1)` | Integer 6 |
+| the same | `F(5, 6)` | 9 |
+| `Function F()` or `As Variant`, returning 1 | `F(1)`, and `F(5, 6)` with no `As` | 13 |
+| `Function F() As Variant`, returning a 2-D array with `m(1, 0) = 7` | `F(1, 0)` | Integer 7 |
+| `Function F() As Collection` | `F(1)` | the Item |
+| `Function F() As Long`, `As String`, `As Long()` | `F(1)` | compile error, "Wrong number of arguments or invalid property assignment" |
+| `Function Opt(Optional n As Integer = 0)` returning `Array(n, n + 1)` | `Opt(1)`, `Opt(1)(1)`, `Opt()(1)` | the array for 1, then 2, then 1: an Optional parameter takes the argument |
+| `NoArgs` as above | `NoArgs(1)(0)`, `NoArgs(5)` | 13, 9 |
+
+So a parameterless procedure that returns a Variant or an object reads its arguments as an index into its result, and
+`F(1)` is `F()(1)`. A class's method and Property Get do the same: `k.Items(2)`, `k.Prop(1)`, `k.Bag(1)`. A typed
+return does not compile, even a typed array. #741's table had `Function F(): F = 1`, then `F(5, 6)`, as "Expected
+array" at compile time; in this shape it compiles and raises 13, which agrees with its TE_04 row. Both rows stand.
+
+### Writing
+
+| statement | vb6.exe |
+|---|---|
+| `a(1)(0) = 9`, with `a = Array(Array(1, 2), Array(3, 4))` | `a(1)(0)` is 9: written through to the inner array |
+| `v = a(1): v(1) = 99` | `a(1)(1)` is still 4: `v` holds a copy |
+| `V3()(1) = 5` and `NoArgs()(1) = 7` | compile, run the Function, and change nothing else |
+
+### What does not compile
+
+| expression | compile error |
+|---|---|
+| `Scalar()(0)`, with `Scalar() As Integer` | Type mismatch |
+| `Left$("abc", 2)(0)` | Type mismatch |
+| `Len("abc")(0)` | **Syntax error** |
+| `a(0)(1) = 5`, with `Dim a(1) As Integer` | Type mismatch |
+
+### The order of evaluation
+
+Each argument and subscript was a call that logged a tag.
+
+| expression | order logged |
+|---|---|
+| `F3(a1, a2, a3)` | a1, a2, a3, then the body |
+| `F3(a1, a2, a3)(i)` | a1, a2, **i**, a3, body |
+| `F2(a1, a2)(i1)(i2)` | a1, **i2, i1**, a2, body |
+| `F1(a1)(i1)(i2)` | **i2, i1**, a1, body |
+| `G2(a1, a2)(i1, i2)` | a1, **i1, i2**, a2, body |
+| `TwoArgs(a1, a2)(i)` | a1, i, a2 |
+| `Jag(...)(i1)(i2)(i3)` | i3, i2, i1, then the body |
+| `Split(t)(i)` | **i, t** |
+| `Split(s, d)(i)` | **s, d, i** |
+| `arr(i1, i2)`, read | i1, i2 |
+| `arr(i1, i2) = rhs` | rhs, i1, i2 |
+| `a(i1)(i2)(i3)`, read | i3, i2, i1 |
+| `a(w1)(w2) = rhs` | w2, rhs, w1 |
+| `a(w1)(w2)(w3) = rhs` | w3, rhs, w2, w1 |
+
+The rule for a Function's call and an array's element: all but the last of the first group's arguments or subscripts,
+left to right; then the later groups, the last group first, each left to right; then the first group's last; then the
+call. The read of `a(i1)(i2)(i3)` follows it, its first group being `(i1)`.
+
+**A library function does not follow it, and no rule I would defend covers both rows.** `Split(t)(i)` evaluates the
+index first, as the rule says. `Split(s, d)(i)` evaluates both arguments first, where the rule says s, i, d. Two rows
+were measured, nothing more.
+
+**A chain's Let** evaluates its last group, then the value, then the other groups from the last, then the first. A plain
+`arr(i1, i2) = rhs` evaluates the value first.
+
+### In HexIDE (#1476)
+
+- **The groups.** `ExpressionExecutor.ParenGroups` gives each parenthesised group, an empty `()` as a group of its own.
+  The grammar gives an argsCall only to a group with something in it, so `T3()(1)` used to read as `T3(1)`.
+- **Reading.** `EvaluateProcedureOrArrayCall` evaluates the later groups through `LaterGroups`. The argument loops call it
+  before their last argument (`ResolveCallArgs`, `EvaluateCallArgs`), which is the rule above. A library function calls
+  it before one argument and after two, as the two Split rows did, and that is no more than those two rows.
+  `IndexResult` then indexes, as the reading table says.
+- **Member chains.** A member segment's later groups go the same way (`ResolveMemberIndexed`). They used to be dropped
+  together with the first, so `k.Echo("m n")(1)` called Echo with no arguments.
+- **Parameterless procedures.** `IndexesItsResult` makes one returning a Variant or an object, given arguments, a call
+  with none and an index. A typed return given arguments is #741's.
+- **Writing.** `StatementExecutor.LetIntoIndexChain` writes in the Let order above. `Len("abc")(0)` is "Type mismatch"
+  here, a different message for a program both refuse.
+
 ## What VB6's Add Form saves (2026-10-23, #1532, design-time, IDE, release build)
 
 **The question.** A form HexIDE created started with an empty `Private Sub Form_Load()` / `End Sub`, written to the
@@ -15450,7 +15562,8 @@ file:
   element at the bottom.
 - **Lines in the designer** are stacked like any other windowless control. They used to go under every other control,
   Labels included, and so under a Frame holding one.
-- **Not done:** the `ZOrder` method is still not implemented, and a program calling it stops (#1503).
+- **Not done:** the `ZOrder` method is still not implemented, and a program calling it stops (#1503, since done: "What
+  ZOrder does at run time").
 
 **Not measured:**
 - An Image beside a Label.
@@ -15568,72 +15681,53 @@ Measured on vb6.exe, native and p-code identical, under en-GB. Each program `CVa
 
 A copy of an array is made where the result is stored, as for any Let of an array (#970).
 
-## When Err is cleared, and what a running handler traps (2026-10-23, #877)
+## What ZOrder does at run time (2026-10-23, #1503, p-code, IDE, release build)
 
-Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60 6.00.9848 (SP6) runtime. These are run-time rows, and native and p-code agree on every one. The rows add to #877's first three and to the two its review rounds measured: `/make` and the IDE agreed then. Each program logged `Err.Number`, with `Err.Description` in brackets where it matters, at the points named. `ErrLifetimeTests` runs the same programs and must print the same lines.
+**The question.** Where `ZOrder` moves a control, and whether it can move one across the windowless plane that "How a
+running form stacks its controls" measured.
 
-**Every `On Error` statement clears Err**, Description and Source included:
+**The probe.** F5 in VB6's IDE, so this is p-code, on a form whose pairs overlap, each written first-named first.
+`Form_Load` made the calls below, and a screenshot of the running form gave the result. A lone PictureBox then took
+the out-of-range positions under `On Error Resume Next`, and `Err.Number` after each went to a file.
 
-| After `Err.Raise 5` under Resume Next | `Err` |
+| Pair, in file order | Call | Result |
+|---|---|---|
+| LabelA (red), CmdA | `LabelA.ZOrder 0` | CmdA still over LabelA |
+| PicR (red), PicB (blue) | `PicB.ZOrder` | blue over red |
+| PicG (green), PicY (yellow) | `PicG.ZOrder 1` | yellow over green |
+| PicC (cyan), Frame1 holding PicIn (magenta) | `Frame1.ZOrder 0` | Frame1 and PicIn over cyan |
+| LabelE (yellow), ShapeE (green) | `ShapeE.ZOrder 0` | green over yellow |
+| LineF (blue), LabelF (yellow) | `LineF.ZOrder 1` | the Label over the Line |
+| PicK (orange), LabelK (yellow) | `PicK.ZOrder 1` | orange still over the Label |
+| CmdArr(0) "Zero", CmdArr(1) "One" | `CmdArr(1).ZOrder 0` | One over Zero |
+
+| Position | Err.Number |
 |---|---|
-| `On Error Resume Next` | 0, Description and Source empty |
-| `On Error GoTo 0` | 0 |
-| `On Error GoTo H` | 0 |
-| `On Error GoTo -1` | 0. **VB6 compiles it**, although only VBA documents it |
-| `On Error Resume Next` inside a loop, again on its second pass | 6 on the first, 0 on the second |
+| 2, -1 | 5 |
+| 0.6, "1", -0.5, Empty | 0 |
+| 1.5 | 5 |
+| "x" | 13 |
+| 32768 | 6 |
+| Null | 13 |
 
-**Every `Resume` clears it, and so does leaving a procedure from its handler.** Each callee raised 11 into `On Error GoTo H`:
+**What it shows:**
+- **`ZOrder` stays within its plane.** `ZOrder 0` (or no argument) puts a control over every control of its plane in
+  its container, and `ZOrder 1` under them. A Label brought to the front stays under a windowed control, and a
+  windowed control sent to the back stays over a Label.
+- **A container takes its contents with it, and an array element moves alone.**
+- **The position is an Integer, 0 or 1.** A half goes to the even number: 1.5 is 2, so 5, and -0.5 is 0.
+  32768 overflows (6), and a string that is no number is 13. **Null is 13**, where `CInt(Null)` is 94.
 
-| How the callee ended | `Err` seen after |
-|---|---|
-| `Exit Sub` from the handler | 0, though the handler itself read 11 |
-| `Exit Function` from the handler, which set the return value | 0, and the value is returned |
-| the handler reaching `End Function` or `End Sub` | 0, even when the caller had its own 5 set before the call |
-| the handler set `Err.Number = 7`, then `End Sub` | 0 |
-| the handler said `On Error Resume Next` or `On Error GoTo 0`, set `Err.Number = 7`, and ended or `Exit Sub`'d | 0: leaving the handler clears it, whatever mode the handler set |
-| the handler's `Resume Next`, or `Resume Back` to a label | 0 at the statement resumed, and 0 for the caller |
-| the handler raised 13 | 13 reaches the caller |
-| a handler for a callee's error 9, ending normally | the handler read 9, and the caller 0 |
-| `On Error Resume Next`, raise 11, then `Exit Sub` or `End Sub` (no handler) | **11**: leaving under Resume Next keeps it |
+**In HexIDE (#1503):** all of the above. A z-index change alone did not redraw the container: the control brought
+forward stayed under the other in the next frame. So a restack now invalidates the container.
 
-**While a handler runs, nothing in its procedure traps**, whatever `On Error` it says:
-
-| Inside a running handler for 11 | Then |
-|---|---|
-| `On Error Resume Next`, then `Err.Raise 13` | not trapped: the statements after it never ran, and **13 reached the caller**. HexIDE trapped it and ran on |
-| `On Error GoTo H` (itself), then `Err.Raise 13` | 13 reached the caller |
-| `On Error Resume Next`, then `Resume Next` | resumed. A later `Err.Raise 13` **is** trapped and continued past: the mode the handler set applies once the handler has ended |
-| `On Error GoTo H2`, then `Resume Next` | the next error went to `H2` |
-| `On Error GoTo -1`, then `On Error Resume Next`, then `Err.Raise 13` | trapped: `-1` ends the handler |
-| `On Error GoTo -1`, then `On Error GoTo H`, then `Err.Raise 13` | the same handler ran again, for 13 |
-| a helper whose first line is `On Error Resume Next`, called from the handler | the handler's `Err` is 0 after the call: Err is global |
-
-`On Error GoTo -1` under `On Error Resume Next`, outside any handler, leaves Resume Next in force: a later `Err.Raise 6` is trapped.
-
-**`Err.Raise` with no Description keeps the one already set**, until `Err.Clear`. The other fields behave as follows:
-
-| Sequence, from `Err.Clear` | `Err.Number`, `Err.Description` |
-|---|---|
-| `Err.Raise 11`, `Err.Raise 13` | 13, **"Division by zero"** |
-| `Err.Raise 1000, "S1", "custom"`, `Err.Raise 5` | 5, "custom", and Source stays "S1" |
-| `Err.Raise 1000, , "custom"`, `Err.Raise 1000` | 1000, "custom" |
-| `Err.Description = "manual"`, `Err.Raise 13` | 13, "manual" |
-| `Err.Raise 11`, `Err.Description = ""`, `Err.Raise 13` | 13, **""**: an empty Description, once set, is kept too |
-| `Err.Number = 5`, `Err.Raise 6` | 6, "Overflow": setting Number sets no Description |
-| `Err.Raise 11`, `Err.Raise 13, , ""` | 13, "" |
-| `Err.Raise 11`, then `x = 1 / 0` | 11, "Division by zero": a run-time error always sets its own |
-| `Err.Raise 5` alone | Source is "Probe", the project's name |
-
-**Measured, and not followed:** `Resume` in a handler for an `Err.Raise` inside a one-line `If`, `If tries = 0 Then Err.Raise 11`, retried the `Err.Raise` itself, not the `If`. So it raised again although the handler had made `tries` 1. It looped until `tries` overflowed, and 6 reached the caller. HexIDE's `Resume` retries the top-level statement, the `If`, which is the nested-granular `Resume` limit in `interpreter-gaps.md`, so there it runs on.
-
-### In HexIDE (#877)
-
-- `VisitOnErrorStmt` clears Err first, for every form. `GoTo -1` sets `inHandler` false and leaves the mode alone.
-- Every `Resume` clears Err.
-- `LeaveHandler` clears it when the procedure is left with its handler running.
-- `Traps` and the Resume Next catches read `!inHandler`, so a running handler traps nothing.
-- `VbErr` records whether a Description has been set, and a `Raise` with none keeps it.
-- Source is still not filled with the project's name.
+**Not measured:**
+- `ZOrder` on a form.
+- `ZOrder` on a Timer.
+- `ZOrder` with two arguments.
+- `ZOrder` on a control of a form that is loaded but not shown. `Form_Load` runs before the form is shown, and the
+  calls there took effect.
+- Native code.
 
 ## A form's Controls collection, and TypeOf on a control (2026-10-23, #1060)
 
@@ -15745,3 +15839,198 @@ to.
   Timer. A missing error, filed as #1563.
 
 **Not measured:** `Controls` on a UserControl, and on a form while its Initialize runs.
+
+## A form's Resize, Activate and Deactivate (2026-10-23, #994)
+
+**The question.** When a running form raises Resize, Activate and Deactivate:
+- on its first show, and when it's loaded without being shown;
+- when it's shown again after Hide, and loaded again after Unload;
+- when the program's active form changes, by Show, SetFocus, Hide, Unload or a click;
+- when the program loses and regains activation to another application.
+
+The lifecycle rows above give the order on show, `Form_Initialize`, `Form_Load`, `Form_Resize`, `Form_Activate`, for
+one form. These rows give the rest.
+
+**The probe.** Three projects, each built native and p-code with `/make` in session 0. Each EXE then ran in the
+guest's interactive console through the console agent, since Activate and focus need a desktop. Every form logs every
+event to a file with `Timer`'s time:
+- Initialize, Load, Resize with its `ScaleWidth`, `ScaleHeight`, `WindowState` and `Visible`;
+- Activate, Deactivate and Paint;
+- GotFocus and LostFocus, for the form and its TextBox;
+- QueryUnload, Unload and Terminate.
+
+Form1, the startup form, steps through a script on a 600 ms Timer and logs each step before and after. The driver gives
+the probe the foreground as it starts. When the probe logs "app switch window", the driver activates a Notepad it
+started, then comes back:
+- **Run 1:** by `AppActivate` of the probe's process;
+- **Runs 3a and 3b:** by a real mouse click on Form1, then on Form2, with Notepad moved clear of both forms.
+
+Native and p-code agreed line for line in every run.
+
+**Run 1, the first show and the size.** Form3's Load sets its own Width and Height. Form4 is fixed-border with no
+controls. Form5 is shown modal and unloads itself on its own Timer.
+
+| Step | Log |
+|---|---|
+| start | `Form1 initialize`, `Form1 load 3600x2400 ws0 visFalse`, `Form1 resize 3600x2400 ws0 visTrue`, `Form1 activate`, `Form1 Text1 gotfocus`, `Form1 paint` |
+| `Load Form2` | `Form2 initialize`, `Form2 load`, then the step's after: no Resize |
+| `Form2.Show` | `Form2 resize ... visTrue`, the step's after, then `Form1 Text1 lostfocus`, `Form1 deactivate`, `Form2 activate`, `Form2 Text1 gotfocus`, `Form2 paint` |
+| `Me.SetFocus`, from Form1's Timer | the step's after, then `Form2 Text1 lostfocus`, `Form2 deactivate`, `Form1 activate`, `Form1 Text1 gotfocus` |
+| `Form2.Hide`, Form2 not active | nothing |
+| `Form2.Show`, after the Hide | the step's after, then Form1's LostFocus and Deactivate, Form2's Activate, GotFocus and Paint: **no Resize** |
+| `Unload Form2`, Form2 active | `Form2 queryunload 1`, `Form2 unload`, the step's after, then `Form1 activate`, `Form1 Text1 gotfocus`: **no Deactivate for Form2** |
+| `Form2.Show`, after the Unload | `Form2 load` (no Initialize), `Form2 resize`, the step's after, then the activation |
+| `Form3.Show`, whose Load sets `Width = 6000` and `Height = 4000` | `Form3 initialize`, `Form3 load 3600x2400`, **`Form3 resize 5760x2400 visFalse`**, the line after the Width, **`Form3 resize 5760x3420 visFalse`**, the line after the Height, `load end`, **`Form3 resize 5760x3420 visTrue`**, the step's after, then the activation |
+| `Form4.Show`, fixed-border, no controls | `Form4 resize 3600x2400`, the step's after, then Form1's LostFocus and Deactivate, `Form4 activate`, **`Form4 form gotfocus`**, `Form4 paint` |
+| `Me.WindowState = vbMinimized` | `Form1 resize 0x0 ws1 visTrue`, then the step's after |
+| `Me.WindowState = vbNormal` | `Form1 resize 3600x2400 ws0`, the step's after, `Form1 paint` |
+| `Me.Width = Me.Width + 300` | `Form1 resize 3900x2400 ws0`, the step's after, `Form1 paint` |
+| `Me.Move Me.Left, Me.Top, Me.Width, Me.Height` | nothing |
+| `Form5.Show vbModal` | `Form5 initialize`, `load`, `resize`, then Form1's LostFocus and Deactivate, `Form5 activate`, GotFocus, Paint; at Form5's Timer `queryunload 1`, `unload`, the step's after, then `Form1 activate`, `Form1 Text1 gotfocus` |
+| Notepad activated, then the probe by `AppActivate` | nothing |
+| `Unload Me`, at the end | Form1's QueryUnload, Unload and Terminate, then every other form's Terminate, in the order they were made |
+
+**Run 2, hiding.**
+
+| Step | Log |
+|---|---|
+| `Form2.Hide`, Form2 active | the step's after, then `Form2 Text1 lostfocus`, `Form2 deactivate`, `Form1 activate`, `Form1 Text1 gotfocus` |
+| `Me.Hide`, Form1 not active | nothing |
+| `Me.Show`, after that | the step's after, then Form2's LostFocus and Deactivate, Form1's Activate, GotFocus and Paint: no Resize |
+| `Me.Hide`, Form1 active | the step's after, then Form1's LostFocus and Deactivate, Form2's Activate and GotFocus |
+| `Form2.Visible = False`, then `Form2.Visible = True` | as `Hide` and `Show`: nothing for the inactive form hidden, and the activation when it shows |
+| Notepad, then `AppActivate` of the probe, then `Unload Form2`, Form2 active | nothing at the switch; QueryUnload and Unload at the Unload, then nothing |
+
+**Runs 3a and 3b, coming back by a click.** Form2 is shown, and so active, before the switch to Notepad.
+
+| Back by | Log |
+|---|---|
+| a click on Form1 (p-code) | `Form2 Text1 lostfocus`, `Form2 deactivate`, `Form1 activate`, `Form1 Text1 gotfocus` |
+| a click on Form1 (native) | nothing. The driver's own `AppActivate`, as the probe started, had already brought Form1 forward after Form2's Show: the log has Form2's Deactivate and Form1's Activate there. So Form1 was the active form when the program was left |
+| a click on Form2, the active form | nothing |
+
+What these show:
+- **Resize comes once as a form is first shown after Load**, inside `Show`, before it returns, with `Visible` already
+  True. `Load` alone raises none. A form shown again after `Hide` raises none, and one loaded again after `Unload`
+  raises it again.
+- **While the form is hidden, Resize is raised for each change of its size**, inside the statement: Form3's Load raised
+  two, then the show raised a third at the same size.
+- **After the show, Resize is raised for each change of size or state**, inside the statement that made it, and not for
+  a `Move` to the size the form has. Minimized, the form reads 0 by 0 with WindowState 1.
+- **Activate and Deactivate come after the statement that activated the form has returned**, as messages Windows
+  posts. The order is the old form's control's LostFocus, the old form's Deactivate, the new form's Activate, then the
+  new form's control's GotFocus. A form with no control to take the focus is given its own GotFocus after its Activate.
+- **A form hidden while active is given Deactivate. One unloaded while active is not.** The form Windows activates next
+  is given Activate.
+- **Leaving for another application raises nothing, and nor does coming back to the form that was active.** Coming
+  back to another of the program's forms raises the pair, as a switch inside the program does. So VB6 tracks which of
+  its forms was last activated, and raises the pair only when that changes.
+- **What looked like an exception, and was not.** In run 2, `Unload Form2` after the switch raised no Activate for
+  Form1, where run 1's did. Windows activated Notepad, which lay under Form2, so no form of the program was activated.
+
+### In HexIDE (#994)
+
+**Resize.** A form's context raises it when its window first becomes visible since the form loaded, and after that
+only when the window reports a size or state that differs from the one Resize was last raised for. The window system
+reports a size more often than it changes one: at 150% scaling a desktop startup form raised three Resizes, and
+headless two. The size is compared in whole device pixels: a form 4000 twips wide is 266.67 units, which the window
+laid out again at 267 on a later show. Until the window system has sized a window, its size is the `Width` and `Height`
+it is being shown at. Before that, `ClientSize` is still the platform's default, 1024 by 768 headless.
+
+**Activate and Deactivate.** The program records the form Activate was last raised for. When one of its windows is
+activated, it raises Deactivate on that form, if it's still loaded, and Activate on the new one, both posted. A
+window's deactivation is never reported, so a switch to another application and back raises nothing. A form that
+unloads stops being the active one, so it's given no Deactivate. A window a modal form holds isn't reported, as Windows
+doesn't activate a disabled one. Posting matters on the desktop only: Win32 activates the window inside the Show, and
+with the posting removed the pair ran there, before the statement after the Show. Headless, the activation comes after
+the handler either way, so no headless test can tell.
+
+**Live, on the desktop at 150% scaling.** A two-form program logged, in order:
+- `f1 initialize`, `f1 load`, `f1 resize 5400x4200 ws0`, `f1 activate`;
+- Show2: `f2 initialize`, `f2 load`, `f2 resize 3000x1500 ws0`, the line after the Show, `f1 deactivate`, `f2 activate`;
+- Hide2, with Form2 active: `f2 deactivate`, `f1 activate`, Windows having activated Form1;
+- Form2's own Unload button: `f2 unload`, `f1 activate`;
+- Wider: one `f1 resize 5700x4200 ws0`;
+- the same width set again: nothing.
+
+**Not followed** (both #1570, and the layout after them is the same, so a missing or late event, not a wrong value):
+- **A size set while the form is hidden.** Form3's two Resizes from its own Load aren't raised. The window
+  doesn't report a size before it is shown, so the show's one Resize is the only one.
+- **A size set from code after the show** raises its Resize when the window reports the size, after the statement:
+  headless, `Debug.Print "wider": Me.Width = Me.Width + 450: Debug.Print "after"` printed `wider`, `after`, then the
+  Resize. VB6 raises it inside the statement.
+
+**A form's `Move`** stops the program, refused as not implemented: #1569.
+
+**Recorded here and left to their own issues:** GotFocus and LostFocus around Activate and Deactivate (#1101), and
+Paint (#991).
+
+**Not measured:** a form whose `.frm` starts it maximized or minimized. HexIDE raises the show's Resize at the size
+the form was designed at, and another when the window takes its maximized size.
+
+## When Err is cleared, and what a running handler traps (2026-10-23, #877)
+
+Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60 6.00.9848 (SP6) runtime. These are run-time rows, and native and p-code agree on every one. The rows add to #877's first three and to the two its review rounds measured: `/make` and the IDE agreed then. Each program logged `Err.Number`, with `Err.Description` in brackets where it matters, at the points named. `ErrLifetimeTests` runs the same programs and must print the same lines.
+
+**Every `On Error` statement clears Err**, Description and Source included:
+
+| After `Err.Raise 5` under Resume Next | `Err` |
+|---|---|
+| `On Error Resume Next` | 0, Description and Source empty |
+| `On Error GoTo 0` | 0 |
+| `On Error GoTo H` | 0 |
+| `On Error GoTo -1` | 0. **VB6 compiles it**, although only VBA documents it |
+| `On Error Resume Next` inside a loop, again on its second pass | 6 on the first, 0 on the second |
+
+**Every `Resume` clears it, and so does leaving a procedure from its handler.** Each callee raised 11 into `On Error GoTo H`:
+
+| How the callee ended | `Err` seen after |
+|---|---|
+| `Exit Sub` from the handler | 0, though the handler itself read 11 |
+| `Exit Function` from the handler, which set the return value | 0, and the value is returned |
+| the handler reaching `End Function` or `End Sub` | 0, even when the caller had its own 5 set before the call |
+| the handler set `Err.Number = 7`, then `End Sub` | 0 |
+| the handler said `On Error Resume Next` or `On Error GoTo 0`, set `Err.Number = 7`, and ended or `Exit Sub`'d | 0: leaving the handler clears it, whatever mode the handler set |
+| the handler's `Resume Next`, or `Resume Back` to a label | 0 at the statement resumed, and 0 for the caller |
+| the handler raised 13 | 13 reaches the caller |
+| a handler for a callee's error 9, ending normally | the handler read 9, and the caller 0 |
+| `On Error Resume Next`, raise 11, then `Exit Sub` or `End Sub` (no handler) | **11**: leaving under Resume Next keeps it |
+
+**While a handler runs, nothing in its procedure traps**, whatever `On Error` it says:
+
+| Inside a running handler for 11 | Then |
+|---|---|
+| `On Error Resume Next`, then `Err.Raise 13` | not trapped: the statements after it never ran, and **13 reached the caller**. HexIDE trapped it and ran on |
+| `On Error GoTo H` (itself), then `Err.Raise 13` | 13 reached the caller |
+| `On Error Resume Next`, then `Resume Next` | resumed. A later `Err.Raise 13` **is** trapped and continued past: the mode the handler set applies once the handler has ended |
+| `On Error GoTo H2`, then `Resume Next` | the next error went to `H2` |
+| `On Error GoTo -1`, then `On Error Resume Next`, then `Err.Raise 13` | trapped: `-1` ends the handler |
+| `On Error GoTo -1`, then `On Error GoTo H`, then `Err.Raise 13` | the same handler ran again, for 13 |
+| a helper whose first line is `On Error Resume Next`, called from the handler | the handler's `Err` is 0 after the call: Err is global |
+
+`On Error GoTo -1` under `On Error Resume Next`, outside any handler, leaves Resume Next in force: a later `Err.Raise 6` is trapped.
+
+**`Err.Raise` with no Description keeps the one already set**, until `Err.Clear`. The other fields behave as follows:
+
+| Sequence, from `Err.Clear` | `Err.Number`, `Err.Description` |
+|---|---|
+| `Err.Raise 11`, `Err.Raise 13` | 13, **"Division by zero"** |
+| `Err.Raise 1000, "S1", "custom"`, `Err.Raise 5` | 5, "custom", and Source stays "S1" |
+| `Err.Raise 1000, , "custom"`, `Err.Raise 1000` | 1000, "custom" |
+| `Err.Description = "manual"`, `Err.Raise 13` | 13, "manual" |
+| `Err.Raise 11`, `Err.Description = ""`, `Err.Raise 13` | 13, **""**: an empty Description, once set, is kept too |
+| `Err.Number = 5`, `Err.Raise 6` | 6, "Overflow": setting Number sets no Description |
+| `Err.Raise 11`, `Err.Raise 13, , ""` | 13, "" |
+| `Err.Raise 11`, then `x = 1 / 0` | 11, "Division by zero": a run-time error always sets its own |
+| `Err.Raise 5` alone | Source is "Probe", the project's name |
+
+**Measured, and not followed:** `Resume` in a handler for an `Err.Raise` inside a one-line `If`, `If tries = 0 Then Err.Raise 11`, retried the `Err.Raise` itself, not the `If`. So it raised again although the handler had made `tries` 1. It looped until `tries` overflowed, and 6 reached the caller. HexIDE's `Resume` retries the top-level statement, the `If`, which is the nested-granular `Resume` limit in `interpreter-gaps.md`, so there it runs on.
+
+### In HexIDE (#877)
+
+- `VisitOnErrorStmt` clears Err first, for every form. `GoTo -1` sets `inHandler` false and leaves the mode alone.
+- Every `Resume` clears Err.
+- `LeaveHandler` clears it when the procedure is left with its handler running.
+- `Traps` and the Resume Next catches read `!inHandler`, so a running handler traps nothing.
+- `VbErr` records whether a Description has been set, and a `Raise` with none keeps it.
+- Source is still not filled with the project's name.

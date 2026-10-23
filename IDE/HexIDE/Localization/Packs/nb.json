@@ -24,7 +24,7 @@
     "Str.Dialog.UnsavedMembers.NothingWritten": "Ingenting ble lagret. Prosjektfilen for {0} ville utelatt disse filene, fordi de aldri har blitt lagret:\n\n{1}\n\nEn prosjektfil kan bare oppgi en fil etter at filen er lagret. Lagre dem sammen med prosjektet, eller la prosjektet være ulagret. Endringene dine er fortsatt åpne i IDE-en.",
     "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} kunne ikke leses i denne datamaskinens tegntabell ({1}), så den ble åpnet byte for byte, som vesteuropeisk tekst (Latin-1). Lagres den uendret, skrives de samme bytene tilbake, men tegn utenfor Latin-1 kan ikke legges til i den. Tekst som er skrevet i en annen tegntabell, kan se forvansket ut.",
     "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "Disse filene kunne ikke leses i denne datamaskinens tegntabell ({1}), så de ble åpnet byte for byte, som vesteuropeisk tekst (Latin-1):\n\n{0}\n\nLagres filene uendret, skrives de samme bytene tilbake, men tegn utenfor Latin-1 kan ikke legges til i dem. Tekst som er skrevet i en annen tegntabell, kan se forvansket ut.",
-    "Str.Dialog.ConflictingNames": "Det ble funnet motstridende navn i '{0}'. Navnet '{1}' brukes. Skjemaets Attribute VB_Name sier nå også '{1}', og skrives neste gang skjemaet lagres.",
+    "Str.Dialog.ConflictingNames": "Det ble funnet motstridende navn i '{0}'. Navnet '{1}' brukes. Dens Attribute VB_Name sier nå også '{1}', og skrives neste gang den lagres.",
     "Str.Options.Language.RegionLabel": "_Region:",
     "Str.Options.Language.RegionStandard": "(Standard)",
     "Str.Options.Language.Customize": "_Tilpass oversettelser…",
