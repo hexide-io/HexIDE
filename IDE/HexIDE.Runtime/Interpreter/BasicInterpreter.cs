@@ -1224,6 +1224,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     proc.CheckedArrayReturn)
                 {
                     IsEntry = isEntry,
+                    VariantReturn = proc.IsFunction && proc.ReturnsVariant && !proc.ReturnsObject,
                     Statics = me?.Value is VbObject instance ? instance.Statics ??= new StaticLocals() : ExecutionContext.State.ModuleStatics,
                 };
                 // Debugger call stack + depth: push before running, remove THIS executor after (Remove, not
@@ -1489,6 +1490,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             callee.Parameters.Add(p.Name);
             if (p.ReadsAsVariant)
                 callee.VariantParameters.Add(p.Name);
+            if (p.DeclaredObject)
+                callee.ObjectParameters.Add(p.Name);
 
             // A blank slot at this position (`Foo 1, , 3`) occupies it only so the arguments after it bind
             // correctly. It is NOT a value: fall through to the Optional branch so the parameter takes its

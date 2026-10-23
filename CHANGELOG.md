@@ -208,6 +208,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A Let into an object variable no longer drops the object** (#1493). `k = 5`, with `k As C1` holding an instance,
+  released it, running its Terminate there and then, and stored 5, so the program ran on without it. VB6 hands the
+  value to the object's default member: a class with none raises 438, and `k` keeps the object; Nothing raises 91. That
+  holds for `As Object`, object parameters, an object Function's return name and a class's object fields too. A
+  Variant still takes the value and drops the object, as VB6's does.
+
 - **`Static` runs, and a `Static Sub` keeps its locals** (#1491). A `Static` local stopped the program. Now it keeps its
   value from one call to the next, as vb6.exe does: shared by recursive calls, kept per instance in a class or a form,
   and released with the instance. The `Static` keyword on a procedure was read and then ignored, so a `Static Sub`'s
