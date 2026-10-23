@@ -2900,6 +2900,7 @@ public static class UiAutomationDriver
         Control control, double? x, double? y, string? controlPath, out HoverLanding? landing)
     {
         landing = null;
+        TopLevel? sentTo = null;
         try
         {
             if (TopLevel.GetTopLevel(control) is not { } topLevel)
@@ -2907,6 +2908,8 @@ public static class UiAutomationDriver
                     "the control is not attached to a window, so it has no coordinates to hover at");
 
             var target = FindHoverTarget(control);
+            if (Shows(target) is not true and var shows)
+                return new InteractOutcome(false, "pointer", null, NotShowingRefusal(target, "hover", shows));
             var local = HoverPoint(target, x, y);
             if (target.TranslatePoint(local, topLevel) is not { } atTopLevel)
                 return new InteractOutcome(false, "pointer", null,
@@ -2926,7 +2929,12 @@ public static class UiAutomationDriver
             topLevel.AddHandler(InputElement.PointerMovedEvent, Saw, Avalonia.Interactivity.RoutingStrategies.Tunnel,
                 handledEventsToo: true);
             bool sent;
-            try { sent = RawPointer.Move(topLevel, atTopLevel); }
+            try
+            {
+                sentTo = topLevel;
+                sent = RawPointer.Move(topLevel, atTopLevel);
+                if (!sent) sentTo = null;
+            }
             finally { topLevel.RemoveHandler(InputElement.PointerMovedEvent, Saw); }
 
             string missed;
@@ -2937,8 +2945,9 @@ public static class UiAutomationDriver
             else
             {
                 // What the pointer is over is what a person's would be: the target, or whatever is drawn over it there. A
-                // disabled target is never hit, as the input goes to its nearest enabled ancestor, so it is taken as reached.
-                var reached = !enabled || ReferenceEquals(hit, target) || target.IsVisualAncestorOf(hit);
+                // disabled target is reached when input goes to its nearest enabled ancestor; a cover still takes the move.
+                var reached = ReferenceEquals(hit, target) || target.IsVisualAncestorOf(hit)
+                              || (!enabled && hit.IsVisualAncestorOf(target));
                 landing = reached
                     ? new HoverLanding(target, local, ThroughWindowInput: true)
                     : new HoverLanding(hit, topLevel.TranslatePoint(atTopLevel, hit) ?? local, ThroughWindowInput: true);
@@ -2971,7 +2980,15 @@ public static class UiAutomationDriver
                 ? string.Empty
                 : $" on {Describe(target)}{AddressOf(control, controlPath, target)}";
         }
-        catch (Exception ex) { return new InteractOutcome(false, "pointer", null, $"hover threw: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            // A handler can throw after the input manager has already set pointer-over and scheduled a tip.
+            // The tool has no landing to end on failure, so the driver owns this cleanup.
+            // The leave raises PointerExited, whose handler can throw too; the reply is the first failure.
+            if (sentTo is { } topLevel)
+                try { RawPointer.Leave(topLevel); } catch { }
+            return new InteractOutcome(false, "pointer", null, $"hover threw: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -3140,7 +3157,8 @@ public static class UiAutomationDriver
     private static Control FindHoverTarget(Control control)
     {
         if (control is TextEditor or TextArea) return control;
-        return control.GetVisualDescendants().OfType<Control>().FirstOrDefault(c => c is TextEditor) ?? control;
+        var editors = control.GetVisualDescendants().OfType<TextEditor>().ToList();
+        return editors.FirstOrDefault(c => Shows(c) is true) ?? editors.FirstOrDefault() ?? control;
     }
 
     /// <summary>Where on the control to hover: an explicit point, else the caret, else the centre.</summary>
