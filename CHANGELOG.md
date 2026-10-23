@@ -208,6 +208,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`Print #` writes a character the ANSI code page lacks as its best fit** (#1511). On code page 1252, Ā is written as
+  "A", Ł as "L" and α as "a", as vb6.exe writes them, and Ж, which has no fit, as "?". Every one of them was "?".
+
 - **`Debug.Assert` runs** (#1467). It stopped the program, even when its condition held. Now, in the IDE, an assertion
   that fails enters break mode at the statement, as `Stop` does, and one that holds goes on, the condition read as `If`
   reads it. A compiled program has no `Debug.Assert`, its argument not even evaluated, so the Make EXE runner skips it,
