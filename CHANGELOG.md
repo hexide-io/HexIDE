@@ -213,6 +213,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`CVar` runs** (#1466). It stopped the program as undefined. Now it returns its argument as a Variant with the
+  argument's own type, an object as the object, as vb6.exe's does. The result reads as a Variant's, so `CVar(5) * 7000` is
+  a Long 35000 where `5 * 7000` overflows.
+
 - **OK on the References dialog no longer drops the project's OLE Automation reference** (#1026). Its first row
   carried OLE Automation's GUID, so the project's own reference was hidden, and OK, even with nothing changed, took it
   out. The next save wrote the project without it, and VB6 then failed to build one that uses `StdFont` or

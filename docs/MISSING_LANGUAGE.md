@@ -115,13 +115,13 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 2 | 2 | 29 | 30 | 0 | 42 | 105 |
 | Operators | 0 | 0 | 2 | 19 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 59 | 41 | 1 | 52 | 153 |
+| Intrinsic functions | 0 | 0 | 58 | 41 | 1 | 53 | 153 |
 | Keywords and modifiers | 0 | 0 | 10 | 20 | 1 | 20 | 51 |
 | Literals, types and suffixes | 6 | 1 | 4 | 14 | 0 | 25 | 50 |
 | Compiler directives and options | 0 | 1 | 9 | 9 | 20 | 8 | 47 |
 | In-box objects | 0 | 0 | 87 | 14 | 0 | 22 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **8** | **4** | **208** | **408** | **22** | **532** | **1182** |
+| **Total** | **8** | **4** | **207** | **408** | **22** | **533** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -314,7 +314,7 @@ which is the cheaper kind to close. The named-argument operator `:=` was the oth
 | `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 
-## Dies mid-run — 202 names
+## Dies mid-run — 201 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -373,7 +373,6 @@ most of the in-box object model.
 | `Controls.Item` | **Dies** | Measured verbatim for Controls.Count: "Compile error: Variable not defined (Controls)". The same applies to Controls.Item(i); the default-member form Controls(i) instead gives "Sub or… | ExpressionExecutor.cs |
 | `Controls.Remove` | **Dies** | Measured pattern, identical to Controls.Add: "Run-time error: Unknown method Remove on <Right(EmptyVariant)>()". | StatementExecutor.cs |
 | `CreateObject` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. `Set o = CreateObject("Excel.Application")` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined… | ExpressionExecutor.cs |
-| `CVar` | **Dies** | Not registered in BuildRegistry (VB6BuiltIns.cs) or any RegisterXxx partial — the only hits anywhere in IDE/ are editor metadata. A call reaches ExpressionExecutor.cs and throws "Compile… | VB6BuiltIns.cs |
 | `CVErr` | **Dies** | Not registered in BuildRegistry (VB6BuiltIns.cs) or any RegisterXxx partial, so name resolution falls through local arrays and user procedures to the intrinsic registry, gets null back, and… | VB6BuiltIns.cs |
 | `DataBinding` | **Dies** | Measured for `Dim d As DataBinding`: VBCompileErrorException: "User-defined type not defined: DataBinding" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `DataBindings` | **Dies** | Measured for `Dim d As DataBindings`: VBCompileErrorException: "User-defined type not defined: DataBindings" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
@@ -681,7 +680,7 @@ missing.
 | `TypeOf ... Is` | Supported | `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (59 absent, 41 partial, 52 supported)
+### Intrinsic functions — 153 names (58 absent, 41 partial, 53 supported)
 
 
 **array** (3)
@@ -696,7 +695,7 @@ missing.
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `CVar` | **Dies** | Not registered in BuildRegistry (VB6BuiltIns.cs) or any RegisterXxx partial — the only hits anywhere in IDE/ are editor metadata. A call reaches ExpressionExecutor.cs and throws "Compile… | VB6BuiltIns.cs |
+| `CVar` | Supported | **[#1466](https://github.com/hexide-io/HexIDE/issues/1466):** its argument as a Variant, keeping the argument's own type (Integer for 5, Null, Empty, the array, the object itself), as vb6.exe measured. The result reads as a Variant's, so `CVar(5) * 7000` widens to a Long 35000 where `5 * 7000` overflows. `CVar$` keeps the same type, and a named argument is "Syntax error". | VB6BuiltIns.Conversion.cs |
 | `CVDate` | Supported | `CDate` under its older name, with the same answer (**#967**, measured under en-GB: `CVDate("36526")` is 01/01/2000 and `CVDate("1.5")` 01:05). Registered as `d["CVDate"] = (_, a, _) => CDate(a[0])`. | VB6BuiltIns.Conversion.cs |
 | `CVErr` | **Dies** | Not registered in BuildRegistry (VB6BuiltIns.cs) or any RegisterXxx partial, so name resolution falls through local arrays and user procedures to the intrinsic registry, gets null back, and… | VB6BuiltIns.cs |
 | `CBool` | Partial | Registered; CBool() maps Null -> Err 94, passes a Boolean through, parses a String via bool.TryParse then a numeric parse (Err 13 on garbage), and otherwise tests ToNum() != 0. Pinned:… `CBool(Empty)` is False, measured (#774; it raised 13), and `CBool("")` is 13. A Boolean control property (`Enabled = Empty`) converts through it. | VB6BuiltIns.Conversion.cs |
