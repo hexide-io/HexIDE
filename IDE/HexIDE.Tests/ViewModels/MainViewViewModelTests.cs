@@ -261,6 +261,54 @@ public class MainViewViewModelTests
         _sut.RestartProjectCommand.CanExecute(null).Should().Be(allowed);
     }
 
+    // --- MakeProjectGroupCommand ---
+
+    // VB6 greys Make Project Group out until a group is open, and offers it for a group of one project (measured, #746).
+    // HexIDE has a group whenever two projects are loaded, and may not have made its Group1 yet, so two count as one.
+    [AvaloniaTheory]
+    [InlineData(0, false, false)]
+    [InlineData(1, false, false)]
+    [InlineData(2, false, true)]
+    [InlineData(1, true, true)]
+    public void MakeProjectGroupCommand_is_offered_only_with_a_group(int projects, bool groupOpen, bool offered)
+    {
+        _projectManager.LoadedProjects.Returns(
+            Enumerable.Range(1, projects).Select(i => new ProjectDefinition(VBProjectType.EXE, "Project" + i)).ToList());
+        _projectManager.CurrentGroup.Returns(groupOpen ? new ProjectGroupDefinition("Group1") : null);
+
+        _sut.MakeProjectGroupCommand.CanExecute(null).Should().Be(offered);
+    }
+
+    [AvaloniaFact]
+    public void MakeProjectGroupCommand_is_asked_again_when_a_project_or_the_group_comes_or_goes()
+    {
+        var asked = 0;
+        _sut.MakeProjectGroupCommand.CanExecuteChanged += (_, _) => asked++;
+        var project = new ProjectDefinition(VBProjectType.EXE, "Project2");
+
+        _projectManager.ProjectLoaded += Raise.Event<System.Action<ProjectDefinition>>(project);
+        _projectManager.ProjectUnloaded += Raise.Event<System.Action<ProjectDefinition>>(project);
+        _projectManager.PropertyChanged += Raise.Event<System.ComponentModel.PropertyChangedEventHandler>(
+            _projectManager, new System.ComponentModel.PropertyChangedEventArgs(nameof(IProjectManager.CurrentGroup)));
+
+        asked.Should().Be(3);
+    }
+
+    // VB6's builds the group's projects. HexIDE has no build of a group yet (#1515), so the command says so and saves
+    // nothing, where it used to save every project and the group under a Make label.
+    [AvaloniaFact]
+    public void MakeProjectGroupCommand_says_it_is_not_implemented_and_saves_nothing()
+    {
+        _projectManager.LoadedProjects.Returns([new ProjectDefinition(VBProjectType.EXE, "Project1")]);
+        _projectManager.CurrentGroup.Returns(new ProjectGroupDefinition("Group1"));
+        _projectService.ClearReceivedCalls();
+
+        _sut.MakeProjectGroupCommand.Execute(null);
+
+        _windowManager.Received(1).MessageBox("This feature is not yet implemented", "NYI", MessageBoxButtons.Ok, MessageBoxIcon.Information);
+        _projectService.ReceivedCalls().Should().BeEmpty("nothing is saved, built or asked of the project service");
+    }
+
     // --- ProjectReferencesCommand ---
 
     [AvaloniaFact]

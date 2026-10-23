@@ -14881,7 +14881,7 @@ counted it as one for reading.
 took the value where vb6.exe raises 91, and an unset `As Object` or `As Collection` Function returned Empty. It starts
 Nothing now, and `LetIntoObjectTests` pins a fourth program.
 
-## The size of a control added from the toolbox (2026-10-23, #1473, design-time)
+## The size of a control added from the toolbox (2026-10-23, #1473, design-time, IDE, release build)
 
 **The question.** "Where the Format commands put a control" measured where VB6 puts a CommandButton added by
 double-clicking its tool: 1215 x 495, centred, then on the grid. HexIDE gave every class 50 x 50 pixels (750 x 750
@@ -15038,7 +15038,7 @@ table's own fallbacks, best fit among them. Both take the code page from `Vb6Tex
 `ExpressionExecutor`'s typed list gains `AscW`, its Variant list `ChrW` and `Str`, and its list of `$` forms that do not
 compile gains `AscW`. `DollarResult` now marks its String typed.
 
-## The name VB6's designer gives a new control (2026-10-23, #540, design-time)
+## The name VB6's designer gives a new control (2026-10-23, #540, design-time, IDE, release build)
 
 **The question.** HexIDE named the first CommandButton on a form Command0, and a pasted control took its number from
 the count of controls on the canvas. The common recollection is that VB6 starts at 1, and #929's probe saw Command1.
@@ -15140,6 +15140,39 @@ form.
 rather than the compiler: in the oracle as it stands, the release build's IDE (#1524). A project that ends
 logs to its end. One that waits is in break mode or showing a dialog, and
 running it again under On Error Resume Next tells the two apart.
+
+## Make Project Group (2026-10-23, #746, design-time, IDE, release build)
+
+**The question.** With one project loaded, HexIDE's File > Make Project Group threw on the missing group, and nothing
+said so. The issue asked whether VB6 offers the command with one project. Reading the code raised a second question:
+what the command does. HexIDE's saves every project and the group file.
+
+**The probe.** Two projects, each with an empty form, plus `group.vbg` naming both and `single.vbg` naming only the
+first. Each was opened in VB6's IDE, and I read the File menu. Where the command was offered, I chose it, then pressed
+Cancel. The folder's file times were read before and after.
+
+| Opened | Make Project Group... | Choosing it |
+|---|---|---|
+| `probe1.vbp` alone | **greyed** | |
+| `group.vbg` (two projects) | enabled | a dialog: "Build the following projects:", listing `probe1.vbp` and `probe2.vbp`, both selected; "Use Default Build Options", ticked; Build, Cancel, Help |
+| `single.vbg` (one project) | **enabled** | the same dialog, listing `probe1.vbp` alone |
+
+**What it shows:**
+- **The command needs a group open, not two projects.** A group of one project offers it; one project without a group
+  doesn't. The File menu reflects the same state: Save Project Group and Save Project Group As replace Save Project
+  and Save Project As whenever a group is open, one project or two.
+- **It builds.** It's the group's counterpart of Make *project*.exe, not a save. Opening the dialog and cancelling
+  wrote nothing: every file kept its time.
+
+**In HexIDE (#746):**
+- The command is offered only with a group open, or with two projects loaded. HexIDE's implicit Group1 can lag
+  behind a second project, so two projects count as a group. With one project and no group it is greyed out.
+- With a group, it says the feature isn't implemented yet and writes nothing, because HexIDE can't build a group
+  (#1515). It used to save every project and the group, which is Save Project Group's job, under a Make label.
+
+**Not measured:**
+- What Build writes, ticked or unticked "Use Default Build Options", and whether it saves anything first (#1515).
+- What VB6 does to a group when a project is removed from it. HexIDE drops its group at one project.
 
 ## How a running form stacks its controls (2026-10-23, #1497, IDE, release build)
 

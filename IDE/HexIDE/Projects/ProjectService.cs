@@ -1635,20 +1635,6 @@ public class ProjectService : IProjectService
                 "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
     }
 
-    public async Task MakeProjectGroup()
-    {
-        if (projectManager.LoadedProjects.Count == 0)
-        {
-            if (archives != null) await archives.Close();
-            return;
-        }
-        EnsureGroupIfMultiple();
-        // CurrentGroup is null with one project loaded and no group open. SaveFiles throws on it before
-        // anything is written; what the command should do then is #746.
-        await SaveAll([.. projectManager.LoadedProjects.SelectMany(project => FilesOf(project, false)),
-            (projectManager.CurrentGroup!, true)]);
-    }
-
     public Task SaveAllProjects(bool saveAs)
     {
         var files = projectManager.LoadedProjects.SelectMany(project => FilesOf(project, saveAs)).ToList();
