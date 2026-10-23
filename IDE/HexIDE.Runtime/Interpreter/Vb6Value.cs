@@ -12,7 +12,8 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
 {
     public bool Equals(Vb6Value other) => Type == other.Type && Equals(Value, other.Value);
 
-    public int? TryCompareTo(Vb6Value other)
+    // With text, two strings compare as Option Compare Text compares them (VbTextCompare), and anything else as without.
+    public int? TryCompareTo(Vb6Value other, bool text = false)
     {
         if (Type == other.Type)
         {
@@ -31,7 +32,9 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
             if (Type == ValueType.Date)
                 return ((DateTime)Value!).CompareTo((DateTime)other.Value!);
             if (Type == ValueType.String)
-                return String.Compare((string)Value!, (string)other.Value!, StringComparison.Ordinal);
+                return text
+                    ? VbTextCompare.Compare((string)Value!, (string)other.Value!)
+                    : String.Compare((string)Value!, (string)other.Value!, StringComparison.Ordinal);
             // True is -1 and False 0, so True is the lower: measured, #987, a Boolean True is `Case Is < False`. Select
             // Case is this comparison's only Boolean caller.
             if (Type == ValueType.Boolean)
