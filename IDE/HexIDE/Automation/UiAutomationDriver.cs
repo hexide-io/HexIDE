@@ -1263,7 +1263,8 @@ public static class UiAutomationDriver
             : treeRefusal.Contains(SelectionUnread, StringComparison.Ordinal) ? $" (whether it was selected first is not known: {treeRefusal})"
             : treeRefusal.Length > 0 ? $" (but it was not selected first: {treeRefusal})"
             : "";
-        return Ok($"double-clicked '{LabelOf(control, peer)}'{note}");
+        return Ok($"raised DoubleTapped on '{LabelOf(control, peer)}'{note}; no pointer press was sent; "
+                  + "use 'click' with 'double' in 'value' for a running form's DblClick");
     }
 
     /// <summary>
@@ -1360,8 +1361,8 @@ public static class UiAutomationDriver
     /// <summary>What <c>click</c>'s value may hold, quoted in its refusals and in the tool's description.</summary>
     public const string ClickValue =
         "a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, "
-        + "right or middle (left when omitted), and any of shift, ctrl and alt to hold, in any order and separated by "
-        + "spaces, as in '10,5 right shift'";
+        + "right or middle (left when omitted), any of shift, ctrl and alt to hold, and double for two clicks, in any order and separated by "
+        + "spaces, as in '10,5 right double' or 'double'";
 
     /// <summary>
     /// Press and release a pointer at a point on the target (#1033). PointerPressed then PointerReleased are raised on
@@ -1384,7 +1385,7 @@ public static class UiAutomationDriver
     {
         static InteractOutcome Fail(string error) => new(false, "pointer", null, error);
 
-        if (!TryParseClick(value, out var at, out var button, out var keys, out var problem))
+        if (!TryParseClick(value, out var at, out var button, out var keys, out var twice, out var problem))
             return Fail(problem);
         if (TopLevel.GetTopLevel(control) is not { } topLevel)
             return Fail("the control is not attached to a window, so it has no coordinates to click at");
@@ -1397,6 +1398,7 @@ public static class UiAutomationDriver
             return Fail($"{NothingTakesThePointer}{where}, so nothing was pressed: the point is outside the target, "
                         + "or on a part of it that is not hit-tested");
 
+        var watch = WatchProgram(topLevel as Window);
         var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
         var (held, pressKind, releaseKind, name) = button switch
         {
@@ -1424,7 +1426,7 @@ public static class UiAutomationDriver
             new[] { (KeyModifiers.Shift, "shift"), (KeyModifiers.Control, "ctrl"), (KeyModifiers.Alt, "alt") }
                 .Where(k => keys.HasFlag(k.Item1)).Select(k => k.Item2));
         var pressed = $"the {name} button{holding} at {where}{landing}";
-        return new InteractOutcome(true, "pointer", $"pressed {pressed}; the release is still to come", null, Release: () =>
+        InteractOutcome Release(bool second)
         {
             try
             {
@@ -1433,13 +1435,28 @@ public static class UiAutomationDriver
                 releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, inWindow,
                     (ulong)Environment.TickCount64, new PointerPointProperties(rawKeys, releaseKind), keys, button));
                 pointer.Capture(null);
-                return new InteractOutcome(true, "pointer", $"clicked {pressed}", null);
+                return new InteractOutcome(true, "pointer", $"{(second ? "double-clicked" : "clicked")} {pressed}", null,
+                    NextClick: twice && !second ? SecondPress : null, ClickWatch: watch);
             }
             catch (Exception ex)
             {
                 return new InteractOutcome(false, "pointer", null, $"pressed {pressed}, and the release threw: {ex.Message}");
             }
-        });
+        }
+
+        InteractOutcome SecondPress()
+        {
+            if (!control.IsEffectivelyVisible || !topLevel.IsVisible || TopLevel.GetTopLevel(control) != topLevel
+                || TopLevel.GetTopLevel(hit) != topLevel)
+                return Fail($"clicked {pressed}; the second click was not sent because the target is hidden or closed, or detached");
+            hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
+                new PointerPointProperties(held | rawKeys, pressKind), keys, clickCount: 2));
+            return new InteractOutcome(true, "pointer", $"pressed the second click of {pressed}; the release is still to come",
+                null, Release: () => Release(second: true));
+        }
+
+        return new InteractOutcome(true, "pointer", $"pressed {pressed}; the release is still to come", null,
+            Release: () => Release(second: false));
     }
 
     /// <summary>How long <c>click</c> waits for its window to draw its next frame before it hit-tests (#1065).</summary>
@@ -1502,7 +1519,15 @@ public static class UiAutomationDriver
         if (outcome.Release is not { } release)
             return outcome;
         await Task.Delay(ClickHoldMs);
-        return await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(release, Avalonia.Threading.DispatcherPriority.Input);
+        var released = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(release, Avalonia.Threading.DispatcherPriority.Input);
+        if (!released.Success || released.NextClick is not { } next)
+            return released;
+        // The first release can run Click, which may yield, unload or hide its form. Wait just as the tool does
+        // after a single click, before checking the target and sending the second press (#1389).
+        released = await WaitForProgramAsync(released.ClickWatch, released);
+        await Task.Delay(ClickHoldMs);
+        var second = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(next, Avalonia.Threading.DispatcherPriority.Input);
+        return await FinishAsync(second);
     }
 
     /// <summary>How long a reply waits, by default, for a running program to finish what an action set off.</summary>
@@ -1704,16 +1729,22 @@ public static class UiAutomationDriver
         [.. OpenWindows().Where(w => w is HexIDE.Runtime.IModuleExecutionRoot && !watch.Before.Contains(w)).Select(w => w.Title ?? "")];
 
     // `click`'s value: an optional point, a button and the keys held, in any order (ClickValue).
-    private static bool TryParseClick(string? value, out Point? at, out MouseButton button, out KeyModifiers keys, out string problem)
+    private static bool TryParseClick(string? value, out Point? at, out MouseButton button, out KeyModifiers keys, out bool twice, out string problem)
     {
         at = null;
         button = MouseButton.Left;
         keys = KeyModifiers.None;
         problem = string.Empty;
+        twice = false;
         var buttonGiven = false;
         foreach (var token in (value ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             var word = token.ToLowerInvariant();
+            if (word == "double")
+            {
+                twice = true;
+                continue;
+            }
             if (word.Contains(','))
             {
                 var parts = word.Split(',');
@@ -1741,7 +1772,7 @@ public static class UiAutomationDriver
             KeyModifiers? key = word switch { "shift" => KeyModifiers.Shift, "ctrl" or "control" => KeyModifiers.Control, "alt" => KeyModifiers.Alt, _ => null };
             if (key is not { } held)
             {
-                problem = $"'{token}' is not a point, a button or a key; click takes {ClickValue}";
+                problem = $"'{token}' is not a point, a button, a key or double; click takes {ClickValue}";
                 return false;
             }
             keys |= held;
@@ -3975,6 +4006,8 @@ public record VmMember(string Name, string Kind, string? TypeName, bool CanWrite
 /// The second part of an action that comes in two, still to be done: a <c>click</c>'s release, which
 /// <see cref="UiAutomationDriver.FinishAsync"/> raises and whose outcome is the reply. Not part of the reply.
 /// </param>
+/// <param name="NextClick">The second press of a double click, after the first release has settled. Not serialized.</param>
+/// <param name="ClickWatch">The program before the first press, waited for between clicks. Not serialized.</param>
 /// <param name="Settled">
 /// What the action left on a running form, read once the program has run what it set off: a clause for the detail, or
 /// null for none. <see cref="UiAutomationDriver.WaitForProgramAsync"/> reads it when it finds the program idle (#1280).
@@ -3986,6 +4019,8 @@ public record InteractOutcome(
     string? Error,
     [property: System.Text.Json.Serialization.JsonIgnore] bool Committed = false,
     [property: System.Text.Json.Serialization.JsonIgnore] Func<InteractOutcome>? Release = null,
-    [property: System.Text.Json.Serialization.JsonIgnore] Func<string?>? Settled = null);
+    [property: System.Text.Json.Serialization.JsonIgnore] Func<string?>? Settled = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] Func<InteractOutcome>? NextClick = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] UiAutomationDriver.ProgramWatch? ClickWatch = null);
 
 public record KeyboardFocusReport(string? FocusedPath, string? FocusReason);

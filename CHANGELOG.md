@@ -238,6 +238,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP can double-click a running form** (#1389). `interact`'s `click` accepts `double` in its value, as in
+  `10,5 double`, `10,5 right double` or plain `double`. It presses and releases twice, so the program's DblClick
+  runs, waiting for the first click's work before the second; if the target hides or closes, it stops and says so.
+  `double_click` still raises DoubleTapped and selects for the Project Explorer, but its reply now says no pointer
+  press was sent and points to `click` with `double` for a running form's DblClick.
+
 - **MCP replies name ignored arguments** (#1315). A misspelled optional parameter still lets the call run, but
   now appears in `ignoredArguments` in a JSON-object reply, or in a separate text block, with a suggested spelling
   for case, snake_case or kebab-case mismatches. Binding refusals check each parameter's actual type, so an

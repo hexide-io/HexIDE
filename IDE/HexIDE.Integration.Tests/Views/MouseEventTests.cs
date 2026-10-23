@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
+using HexIDE.Automation;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -459,6 +461,70 @@ public class MouseEventTests
             "Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4500 150", "Form Click",
             "Form DblClick", "Form MouseUp 1 0 4500 150",
             "Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4500 150", "Form Click");
+    }
+
+    private static async Task<InteractOutcome> AutomationClick(Running run, string value)
+    {
+        // As the tool does: the target must have drawn a frame, and the reply waits for the program's work.
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Dispatcher.UIThread.RunJobs();
+        var watch = UiAutomationDriver.WatchProgram(run.Window);
+        var outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(run.Window, "click", value));
+        return await UiAutomationDriver.WaitForProgramAsync(watch, outcome);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(15L)]
+    [InlineData(-1L)]
+    public async Task Automation_click_double_runs_the_forms_DblClick_once_in_the_measured_order(long timeSliceMs)
+    {
+        // Same vb6.exe order as A_double_click_on_the_form_raises_DblClick... above (#1031).
+        using var run = Start(Form(Twips, Controls), Handlers("Form", dblClick: true), Debugger(timeSliceMs));
+        var outcome = await AutomationClick(run, "300,10 double");
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Contain("double-clicked").And.Contain("left button").And.Contain("(300, 10)");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Form MouseDown 1 0 4500 150", "Form MouseUp 1 0 4500 150", "Form Click",
+            "Form DblClick", "Form MouseUp 1 0 4500 150");
+    }
+
+    [AvaloniaFact]
+    public async Task Automation_click_right_double_runs_the_forms_DblClick_in_the_measured_order()
+    {
+        // Oracle: A click with real input, form right double click: the left order with Button 2.
+        using var run = Start(Form(Twips, Controls), Handlers("Form", dblClick: true));
+        var outcome = await AutomationClick(run, "300,10 right double");
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Contain("double-clicked").And.Contain("right button");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Form MouseDown 2 0 4500 150", "Form MouseUp 2 0 4500 150", "Form Click",
+            "Form DblClick", "Form MouseUp 2 0 4500 150");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Unload Me")]
+    [InlineData("Me.Hide")]
+    public async Task Automation_click_double_stops_when_the_first_Click_removes_the_form(string action)
+    {
+        using var run = Start(Form(Twips, ""), Handlers("Form", click: false, dblClick: true)
+            + $"Private Sub Form_Click()\r\n    Debug.Print \"first click\"\r\n    {action}\r\nEnd Sub\r\n", Debugger(-1));
+        var outcome = await AutomationClick(run, "double");
+        outcome.Success.Should().BeFalse();
+        outcome.Error.Should().Contain("second click").And.Contain("hidden or closed");
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().HaveCount(3).And.NotContain("Form DblClick");
+        run.Printed[2].Should().Be("first click");
+    }
+
+    [AvaloniaFact]
+    public void Automation_double_click_explains_that_it_did_not_press()
+    {
+        using var run = Start(Form(Twips, ""), Handlers("Form", dblClick: true));
+        var outcome = UiAutomationDriver.Interact(run.Window, "double_click", null);
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Contain("DoubleTapped").And.Contain("no pointer press").And.Contain("'click'")
+            .And.Contain("'double'").And.Contain("DblClick");
+        run.Printed.Should().BeEmpty();
     }
 
     // DblClick on the controls, measured with real input, native and p-code agreeing (the oracle's "A click with real
