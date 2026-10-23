@@ -213,6 +213,13 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A running form raises Activate and Deactivate, and Resize once as it is shown** (#994). Activate and Deactivate
+  were never raised. They now come as VB6 raises them: when another of the program's forms is shown, given the focus
+  or left active by a Hide or an Unload, after the statement that did it, and not when the user switches to another
+  application and back. A form raised Resize two or three times as it was shown, as the window settled. It now
+  raises one, inside the Show, and after that one for each change of size or state. A form shown again after Hide
+  raises none.
+
 - **Indexing a call's result runs** (#1476). `Split(s)(0)`, `Array(1, 2)(1)`, `F()(1)` and `a(1)(0) = 9` stopped the
   program. They now run as vb6.exe runs them, evaluating in its order. A parameterless Function that returns a Variant
   now reads its arguments as an index into its result, so `F(1)` is `F()(1)`; it used to drop them and return the whole
