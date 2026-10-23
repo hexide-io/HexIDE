@@ -1445,9 +1445,54 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // per instance must therefore do nothing at all.
         => Task.FromResult(ControlFlow.Nothing);
 
+    /// <summary>
+    /// <c>Input #</c> (#1521): each variable in turn takes the next field, read and converted for its type as
+    /// <see cref="VbInput"/> says. At the end of the file it is 62, and a Variant is emptied first, where a typed variable
+    /// keeps what it had (measured). Only a plain variable is taken, as for <c>Line Input #</c>.
+    /// </summary>
     public override async Task<ControlFlow> VisitInputStmt(VB6Parser.InputStmtContext context)
     {
-        throw new NotImplementedException("Input not implemented");
+        RequireHash(context.valueStmt(0), "Input");
+        var number = await FileNumber(context.valueStmt(0));
+        var files = interpreter.BuiltIns.Files;
+        foreach (var target in context.valueStmt().Skip(1))
+        {
+            var name = target.GetText();
+            if (!System.Text.RegularExpressions.Regex.IsMatch(name, "^[A-Za-z][A-Za-z0-9_]*$"))
+                throw new NotImplementedException($"Input # into {name} is not implemented: only a plain variable is (#1521)");
+            var type = await InputTypeOf(name);
+            if (files.ReadField(number, VbInput.ReadingFor(type)) is not { } field)
+            {
+                if (type is null)
+                    await StoreVariable(name, Vb6Value.Variant);
+                throw new VBRunTimeException(target, VBStandardError.InputPastEndOfFile);
+            }
+            await StoreVariable(name, type is { } typed ? VbInput.ToTyped(field, typed, target) : VbInput.ToVariant(field));
+        }
+        return ControlFlow.Nothing;
+    }
+
+    // The type `Input #` reads a variable's field for, or null for a Variant. An undeclared name is created here, as a store
+    // would create it, since a DefType may type it.
+    private async Task<Vb6Value.ValueType?> InputTypeOf(string name)
+    {
+        if (!interpreter.TryReadNow(currentEnv, name, out var found, out var current, out var need))
+            (found, current) = await interpreter.ReadVariableAfter(currentEnv, name, need!);
+        if (!found)
+        {
+            if (currentModule.PrePass.RequireVariableDefinitions)
+                throw new VBVariableNotDefinedException(name);
+            AllocImplicitVariant(name);
+            interpreter.ExecutionContext.TryGetVariable(currentEnv, name, out current);
+        }
+        var declared = currentEnv.TryGetVariableLocation(name, out var location)
+            ? interpreter.ExecutionContext.State.DeclaredTypeOf(location)
+            : null;
+        declared ??= current.HasFixedType ? current.Type : null;
+        if (current.Value is VBArray || !VbInput.Reads(declared)
+            || (declared is null && VbInput.IsOneOf(current.Type, Vb6Value.ValueType.Object, Vb6Value.ValueType.UserDefinedType)))
+            throw new NotImplementedException($"Input # into {name}, {(current.Value is VBArray ? "an array" : $"a {declared ?? current.Type}")}, is not implemented (#1521)");
+        return declared;
     }
 
     public override async Task<ControlFlow> VisitKillStmt(VB6Parser.KillStmtContext context)
@@ -3322,9 +3367,41 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private static bool MemberHasArgs(VB6Parser.ICS_S_MemberCallContext m)
         => m.iCS_S_ProcedureOrArrayCall()?.argsCall().Length > 0;
 
+    /// <summary>
+    /// <c>Write #</c> (#1521): each value as <see cref="VbWrite"/> writes it, and a comma for every <c>,</c> or <c>;</c>
+    /// between them. A list ending in one ends there, with no line break, and the next <c>Write #</c> goes on from it
+    /// without another comma. <c>Spc</c> and <c>Tab</c> move as in <c>Print #</c> (all measured).
+    /// </summary>
     public override async Task<ControlFlow> VisitWriteStmt(VB6Parser.WriteStmtContext context)
     {
-        throw new NotImplementedException("Write not implemented");
+        var files = interpreter.BuiltIns.Files;
+        RequireHash(context.valueStmt(), "Write");
+        var number = await FileNumber(context.valueStmt());
+        files.Column(number);   // 52 or 54 before anything is evaluated
+        var target = new FileTarget(files, number);
+        var afterSeparator = true;
+        foreach (var child in context.outputList()?.children ?? [])
+        {
+            switch (child)
+            {
+                case VB6Parser.OutputList_ExpressionContext item:
+                    if (!afterSeparator)
+                        throw new NotImplementedException("Write # of two items with no separator between them is not implemented (#1521)");
+                    if (item.valueStmt() is { } value)
+                        files.Write(number, VbWrite.ItemText(await expressionExecutor.EvaluateValue(value)));
+                    else
+                        await PrintPosition(target, item.SPC() != null, item.argsCall()?.argCall().FirstOrDefault()?.valueStmt());
+                    afterSeparator = false;
+                    break;
+                case ITerminalNode { Symbol.Type: VB6Parser.SEMICOLON or VB6Parser.COMMA }:
+                    files.Write(number, ",");
+                    afterSeparator = true;
+                    break;
+            }
+        }
+        if (context.outputList() is null || !afterSeparator)
+            VbPrint.EndLine(target);
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitICS_B_MemberProcedureCall(VB6Parser.ICS_B_MemberProcedureCallContext context)

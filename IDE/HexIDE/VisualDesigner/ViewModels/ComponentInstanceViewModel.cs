@@ -173,6 +173,12 @@ public partial class ComponentInstanceViewModel : ObservableObject
     /// </summary>
     public bool LiesWithinContainer => ContainerBounds.Contains(new Rect(Left, Top, Width, Height));
 
+    /// <summary>
+    /// Where this component measures its contents from, in canvas space. For what is drawn inside it without being one
+    /// of the designer's components: the placeholder of a control HexIDE does not model (#157).
+    /// </summary>
+    internal Point ClientOrigin => new(Left + ClientInset.Left, Top + ClientInset.Top);
+
     /// <summary>How far inside its own bounds this component measures its contents from.</summary>
     private Thickness ClientInset =>
         instance.BaseClass is ComponentBaseClass baseClass ? baseClass.ClientInset(instance) : default;
@@ -246,17 +252,6 @@ public partial class ComponentInstanceViewModel : ObservableObject
     /// </summary>
     public bool IsLine => instance.BaseClass is LineComponentClass;
 
-    /// <summary>
-    /// Where the designer stacks this control: a Line under every other control, and one earlier in the form over a later
-    /// one, as a running form draws them (measured, #163). Everything else keeps its place in the canvas order, which
-    /// draws the last on top and holds the file's blocks the other way round (#1481), so an earlier Line is the one with
-    /// fewer Lines after it there.
-    /// </summary>
-    public int ZIndex => IsLine
-        ? -1 - parentViewModel.Components.SkipWhile(c => !ReferenceEquals(c, this)).Skip(1).Count(c => c.IsLine)
-        : 0;
-
-    internal void OnZIndexChanged() => OnPropertyChanged(nameof(ZIndex));
 
     /// <summary>How many twips one of a Line's container's units is, or twips where HexIDE cannot run that scale.</summary>
     public (double X, double Y) LineTwipsPerUnit

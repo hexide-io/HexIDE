@@ -19,7 +19,7 @@ public sealed record CompilerControlMessage(int RequestId, int Code, ImmutableAr
 /// The observed control and JSON codecs, not a compiler session or a stock LSP/DAP transport.
 /// Callers must bound WebSocket reassembly separately. Future encodings require a separate codec.
 /// </summary>
-public sealed class CompilerWireCodec
+public sealed partial class CompilerWireCodec : ICompilerSessionCodec
 {
     private const uint JsonBatchMarker = 0xffeaeaea;
     private static readonly UTF8Encoding StrictUtf8 = new(false, true);

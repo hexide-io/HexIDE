@@ -10,6 +10,8 @@
     <TestingPlatformShowTestsFailure>true</TestingPlatformShowTestsFailure>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="AwesomeAssertions" />
+    <Using Include="AwesomeAssertions" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.analyzers" PrivateAssets="all" />
     <Using Include="Xunit" />
