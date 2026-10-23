@@ -218,6 +218,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Surplus call arguments are refused** (#741): procedures and intrinsics with known limits raise VB6's
+  "Wrong number of arguments or invalid property assignment"; a declared scalar called with arguments raises
+  "Expected array". Parameterless Variant and object results still index as before (#1476).
+
 - **A running form raises Activate and Deactivate, and Resize once as it is shown** (#994). Activate and Deactivate
   were never raised. They now come as VB6 raises them: when another of the program's forms is shown, given the focus
   or left active by a Hide or an Unload, after the statement that did it, and not when the user switches to another

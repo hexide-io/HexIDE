@@ -1176,6 +1176,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 throw new VBRunTimeException(procOrArrayCall, VBStandardError.SubscriptOutOfRange);
             }
         }
+        // A declared scalar claims its name before the library does (#741). Variant and object slots keep
+        // their indexing/default-member paths; the return slot must allow Fact(n - 1) inside Fact.
+        if (argsCtx is not null && named && !string.Equals(env.ReturnName, name, StringComparison.OrdinalIgnoreCase)
+            && !env.VariantParameters.Contains(name) && env.TryGetVariableLocation(name, out var scalarLocation)
+            && interpreter.ExecutionContext.State.DeclaredTypeOf(scalarLocation) is { } scalarType
+            && VbNumeric.IsDeclarableScalar(scalarType))
+            throw new VBCompileErrorException("Expected array");
+
         // In a form's own code, a member of the form (#995). A method is called: `TextWidth("abc")`. A property called with
         // arguments is VBA's function of the name only when the arguments fit it, `Left("abc", 1)`, and never a project
         // procedure's (measured). Any other is refused: VB6 gives "Wrong number of arguments" where the property's type
@@ -1317,9 +1325,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                         ?? throw new VBSubOrFunctionNotDefinedException(memberName);
                     return IndexResult(whole, index, ctx);
                 }
-                if (MemberArgs(member) != null)
-                    throw new NotImplementedException("Parameterized property access is not supported");
-                return await interpreter.RunProcedure(vobj.ClassDef, getter, [], vobj.InstanceEnv, variable, stmtFrames)
+                var getArgs = await ResolveCallArgs(MemberArgs(member), beforeLast);
+                return await interpreter.RunProcedure(vobj.ClassDef, getter, getArgs, vobj.InstanceEnv, variable, stmtFrames)
                     ?? throw new VBSubOrFunctionNotDefinedException(memberName);
             }
             if (!interpreter.TryReadNow(vobj.InstanceEnv, memberName, out var isField, out var fieldVal, out var isFieldNeed))
