@@ -123,8 +123,19 @@ internal sealed partial class VbFiles
         CheckOpen(from, false);
         if (string.Equals(from, to, StringComparison.Ordinal)) return;
         if (!Directory.Exists(Path.GetDirectoryName(to))) Fail(VBStandardError.FileNotFound);
-        if (!SamePath(from, to) && (File.Exists(to) || Directory.Exists(to))) Fail(VBStandardError.FileAlreadyExists);
+        if (!SamePath(from, to) && !CaseOnlyRename(from, to) && (File.Exists(to) || Directory.Exists(to)))
+            Fail(VBStandardError.FileAlreadyExists);
         Access(() => { if (Directory.Exists(from)) Directory.Move(from, to); else File.Move(from, to); });
+    }
+
+    // A rename that changes only the case of the name, on a file system that ignores case (macOS's by default), where the
+    // name asked for "exists" because it is the source itself: no entry in the folder is spelled exactly as asked.
+    private static bool CaseOnlyRename(string from, string to)
+    {
+        if (!string.Equals(from, to, StringComparison.OrdinalIgnoreCase)) return false;
+        var name = Path.GetFileName(to);
+        return !Directory.EnumerateFileSystemEntries(Path.GetDirectoryName(to)!)
+            .Any(entry => string.Equals(Path.GetFileName(entry), name, StringComparison.Ordinal));
     }
 
     private static bool Matches(string name, string pattern) => Regex.IsMatch(name,

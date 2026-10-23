@@ -242,7 +242,6 @@ public class FileSystemTests : BaseVBTestFixture, IDisposable
 
     [UnixOnlyTheory]
     [InlineData("Debug.Print GetAttr(\".hidden\")",2)]
-    [InlineData("SetAttr \"a.txt\",38\nDebug.Print GetAttr(\"a.txt\")",0)]
     [InlineData("SetAttr \".hidden\",0\nDebug.Print GetAttr(\".hidden\")",2)]
     [InlineData("On Error Resume Next\nKill \".hidden\"\nDebug.Print Err.Number",53)]
     [InlineData("SetAttr \"a.txt\",1\nOn Error Resume Next\nKill \"a.txt\"\nDebug.Print Err.Number",75)]
@@ -255,6 +254,15 @@ public class FileSystemTests : BaseVBTestFixture, IDisposable
         File.WriteAllText(Path.Combine(dir,".hidden"),"h");
         await Execute(code);
         AssertDebugLog([Long(expected)]);
+    }
+
+    // The attributes a Unix host keeps: none on Linux, while macOS keeps Hidden as a file flag. GetAttr reads what the
+    // host kept, so the same SetAttr reads back differently there.
+    [UnixOnlyFact]
+    public async Task Unix_host_keeps_only_the_attributes_it_can()
+    {
+        await Execute("SetAttr \"a.txt\",38\nDebug.Print GetAttr(\"a.txt\")");
+        AssertDebugLog([Long(OperatingSystem.IsMacOS() ? 2 : 0)]);
     }
 
     [UnixOnlyTheory]

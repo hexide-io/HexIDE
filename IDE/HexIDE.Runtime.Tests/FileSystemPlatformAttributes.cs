@@ -19,3 +19,12 @@ public sealed class UnixOnlyTheoryAttribute : TheoryAttribute
         if (OperatingSystem.IsWindows()) Skip = "Unix filesystem attributes required.";
     }
 }
+
+public sealed class UnixOnlyFactAttribute : FactAttribute
+{
+    public UnixOnlyFactAttribute([CallerFilePath] string? sourceFilePath = null, [CallerLineNumber] int sourceLineNumber = -1)
+        : base(sourceFilePath, sourceLineNumber)
+    {
+        if (OperatingSystem.IsWindows()) Skip = "Unix filesystem attributes required.";
+    }
+}
