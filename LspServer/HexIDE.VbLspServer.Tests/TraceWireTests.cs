@@ -238,6 +238,12 @@ public class TraceWireTests
         return h;
     }
 
+    [Fact]
+    public async Task Harness_can_be_disposed_immediately_after_construction()
+    {
+        await using var harness = new Harness();
+    }
+
     private sealed class Harness : IAsyncDisposable
     {
         public JsonRpc Rpc { get; }
@@ -272,12 +278,7 @@ public class TraceWireTests
             return frames;
         }
 
-        public async ValueTask DisposeAsync()
-        {
-            Rpc.Dispose();
-            _server.Exit();
-            try { await _loop.WaitAsync(Timeout); } catch { /* best effort */ }
-        }
+        public ValueTask DisposeAsync() => ServerHarnessTeardown.StopAsync(_server, _loop, Rpc, Timeout);
 
         private sealed class ClientTarget
         {

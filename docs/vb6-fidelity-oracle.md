@@ -3721,8 +3721,11 @@ every numeric constant unaffected. A measurement that has been through a lossy t
 like a correct one.
 
 Seven of these — `vbTab`, `vbBack`, `vbFormFeed`, `vbNewLine`, `vbNullChar`, `vbNullString`,
-`vbVerticalTab` — are absent from HexIDE altogether; `vbTab` and `vbNullString` are already recorded as
-**Dies** in `MISSING_LANGUAGE.md`.
+`vbVerticalTab` — were absent from HexIDE altogether when this was measured; `vbTab` and `vbNullString` were
+already recorded as **Dies** in `MISSING_LANGUAGE.md`. #215 resolved all eleven through the type library the
+same day, but the inventory went on rating seven of them Dies until #1633 probed them on main: each is its
+type library value, bare, as `VBA.x`, as `VBA.Constants.x` and in a module-level `Const`, under `Option
+Explicit`. A status that a fix does not update outlives the fix.
 
 ## String literals: `""` is the only escape (2026-09-04)
 
@@ -12749,7 +12752,62 @@ names line 13, one past the Caption's line 12.
 
 HexIDE now halves a doubled quote on read and doubles each quote on write (`VbFrmFormatDeserializer.ParseValue`,
 `VbFrmFormatSerializer.WriteSimpleType`), and `FrmStringQuoteTests` holds the table. A side finding: a CommandButton
-does not model `ToolTipText` in HexIDE, so its line is kept as unknown text, and the property can't be set (#1403).
+did not model `ToolTipText` in HexIDE, so its line was kept as unknown text, and the property couldn't be set. #1403
+measured which controls have it (next section).
+
+## ToolTipText: which controls have it (2026-10-23, #1403)
+
+**The question.** HexIDE declared ToolTipText on five controls: CheckBox, Image, Label, OptionButton and PictureBox.
+Which of VB6's built-in controls have it, and how does it take a value?
+
+**The probe.** One form holding one of each intrinsic control, a menu included, built with `/make` native and p-code
+and run. Form_Load passed each control, and the form itself, to a procedure taking `o As Object`, so the member was
+reached late-bound and a control without it answered rather than failing the build. The procedure logged:
+- what `o.ToolTipText` read, and its `TypeName`;
+- the value after `= "tip"`, `= 5`, `= Null` and `= ""`, with each error.
+
+A second form, Form2, gave a CommandButton, a TextBox and a Frame a ToolTipText in the file, and read them back. Native
+and p-code gave the same logs.
+
+| Control | `o.ToolTipText` |
+|---|---|
+| CommandButton, TextBox, ComboBox, ListBox, CheckBox, OptionButton, Frame, PictureBox, Label, Image | a String, `""` |
+| DriveListBox, DirListBox, FileListBox, Data | a String, `""` |
+| HScrollBar, VScrollBar, Shape, Line, Timer, a Menu, the Form | **438** "Object doesn't support this property or method" |
+
+On every control that has it, alike:
+
+| Statement | VB6 |
+|---|---|
+| `= "tip"` | reads `tip` |
+| `= 5` | reads `5`, a **String** |
+| `= Null` | **13**, Type mismatch; the `5` stays |
+| `= ""` | reads `""` |
+| Form2's, from the file | `button tip`, `text tip`, `frame tip` |
+
+**Two more readings from building it.** The first build named `Form2.HScroll1.ToolTipText` directly, and failed to
+compile: "Method or data member not found". Form2 also gave its HScrollBar a ToolTipText line at first, and vb6.exe
+would not load the form: "The property name ToolTipText in HScroll1 is invalid".
+
+What these show:
+- **The scroll bars have no ToolTipText.** #1403 had guessed they would; vb6.exe says not. The graphical Shape and Line,
+  the Timer, a menu and a form have none either.
+- **It is a String:** a number is stored as its text.
+
+**What resisted explanation.** `ToolTipText = Null` is 13, where `Text1.Text = Null`, `Me.Caption = Null` and
+`Label1.Tag = Null` are 94 (above, "Assigning to a control property", #768). A ComboBox's `Text = Null` is 13 too (#926).
+No rule here says which String properties take Null as 13.
+
+**In HexIDE (#1403):**
+- ToolTipText is declared on the five it was missing from, the CommandButton, TextBox, ComboBox, ListBox and Frame. So
+  the Properties window lists it, and a .frm line is read as the property rather than kept as text. It is written back
+  where VB6 writes it. The DriveListBox, DirListBox, FileListBox and Data control are not implemented (#164).
+- At run time it reads and takes values on those ten as measured, Null as 13 included. The tip shown is the value, and
+  none where it is `""`.
+- A control without it is "Method or data member not found" when named directly, as in vb6.exe's build. Reached
+  late-bound, HexIDE stops with the same compile error where vb6.exe raises 438 at run time
+  ([#1433](https://github.com/hexide-io/HexIDE/issues/1433)).
+- An HScrollBar's ToolTipText line is kept as text, as any line HexIDE does not model, where vb6.exe refuses the form.
 
 ## What Save Project As does to the paths in a project file (2026-10-22, #1406)
 
@@ -15437,6 +15495,83 @@ Add Property Page (`p`), Enter on the dialog's default, then Ctrl+S and Enter. E
 HexIDE does not model and keeps as a loaded form's raw line. `ModuleDefinition.NewDesigner` makes a new UserControl or
 PropertyPage as the table shows, its `PaletteMode` kept the same way. Each new file is now VB6's byte for byte.
 
+## What VB6's Properties window lists for a UserControl and a PropertyPage (2026-10-23, #1585, design-time, IDE)
+
+**The question.** HexIDE gave a UserControl's and a PropertyPage's designer root a form's component, so both
+Properties windows listed a form's properties, Caption included, and none of their own. What does VB6's list for each?
+
+**The probe.** VB6.EXE 6.00.8176, the IDE, in the guest's console session through the agent, the same rig as #1538's.
+`probe.vbp` is a Standard EXE holding `Module1.bas` alone. Opened in the IDE, then Project > Add User Control (`u`),
+or Add Property Page (`p`), Enter on the dialog's default, then F4. The Properties window opened on its Alphabetic
+tab (`TCM_GETCURSEL` 0) with the new root selected.
+
+**Reading the list, and the trap in it.** The Properties window is `wndclass_pbrs`. Its list is a `ListBox` of style
+`0x54A10513`: owner-drawn, sorted and with no strings, since `LBS_HASSTRINGS` is clear. So `LB_GETCOUNT` gives the row
+count, 51 and 33, but `LB_GETTEXT` returns each row's item data, 4 bytes read as text, and not the name. The rows were
+read instead by scrolling the list with `LB_SETTOPINDEX`, eight rows at a time, and capturing the list's own
+rectangle each time. In each capture, the first row's value column shows the root's name, from the in-place edit box
+over the selected row, not that property's value.
+
+**A new UserControl: 51 rows.** Each with its value as VB6 showed it:
+
+| Property | Value | Property | Value | Property | Value |
+|---|---|---|---|---|---|
+| (Name) | UserControl1 | DrawWidth | 1 | MousePointer | 0 - Default |
+| AccessKeys | | EditAtDesignTime | False | OLEDropMode | 0 - None |
+| Alignable | False | Enabled | True | Palette | (None) |
+| Appearance | 1 - 3D | FillColor | &H00000000 | PaletteMode | 3 - Container |
+| AutoRedraw | False | FillStyle | 1 - Transparent | Picture | (None) |
+| BackColor | &H8000000F | Font | MS Sans Serif | PropertyPages | (None) |
+| BackStyle | 1 - Opaque | FontTransparent | True | Public | False |
+| BorderStyle | 0 - None | ForeColor | &H80000012 | RightToLeft | False |
+| CanGetFocus | True | ForwardFocus | False | ScaleHeight | 3600 |
+| ClipBehavior | 1 - Use Region | HasDC | True | ScaleLeft | 0 |
+| ClipControls | True | Height | 3600 | ScaleMode | 1 - Twip |
+| ControlContainer | False | HitBehavior | 1 - Use Region | ScaleTop | 0 |
+| DataBindingBehavior | 0 - vbNone | InvisibleAtRuntime | False | ScaleWidth | 4800 |
+| DataSourceBehavior | 0 - vbNone | KeyPreview | False | Tag | |
+| DefaultCancel | False | MaskColor | &H8000000F | ToolboxBitmap | (None) |
+| DrawMode | 13 - Copy Pen | MaskPicture | (None) | Width | 4800 |
+| DrawStyle | 0 - Solid | MouseIcon | (None) | Windowless | False |
+
+Three names were cut at the column's edge in the capture: `DataBindingBehav`, `DataSourceBehav` and
+`InvisibleAtRuntim`. They are completed here from VB6's own names, not read. The colours were cut at the list's right
+edge too, and are given as far as they could be read.
+
+**A new PropertyPage: 33 rows:**
+
+| Property | Value | Property | Value | Property | Value |
+|---|---|---|---|---|---|
+| (Name) | PropertyPage1 | FontTransparent | True | PaletteMode | 0 - Halftone |
+| Appearance | 1 - 3D | ForeColor | &H80000012 | Picture | (None) |
+| AutoRedraw | False | HasDC | True | RightToLeft | False |
+| BackColor | &H8000000F | Height | 3600 | ScaleHeight | 3600 |
+| Caption | PropertyPage1 | HelpContextID | 0 | ScaleLeft | 0 |
+| ClipControls | True | KeyPreview | False | ScaleMode | 1 - Twip |
+| DrawMode | 13 - Copy Pen | MouseIcon | (None) | ScaleTop | 0 |
+| DrawStyle | 0 - Solid | MousePointer | 0 - Default | ScaleWidth | 4800 |
+| DrawWidth | 1 | OLEDropMode | 0 - None | StandardSize | 0 - Custom |
+| FillColor | &H00000000 | Palette | (None) | Tag | |
+| FillStyle | 1 - Transparent | | | Width | 4800 |
+| Font | MS Sans Serif | | | | |
+
+**What it shows:**
+- **Neither has Left, Top or Visible**, which a form's list has.
+- **A UserControl has no Caption, and a PropertyPage has one**, the tab it shows under. Neither has a form's Icon,
+  ShowInTaskbar, StartUpPosition, MaxButton or MinButton. **A PropertyPage has no Enabled.**
+- **`PaletteMode` differs:** 3 - Container for a new UserControl, 0 - Halftone for a new PropertyPage. A new `.pag`
+  writes `PaletteMode = 0 'Halftone` (#1538), the value its window shows, and a new `.ctl` writes no `PaletteMode`.
+  Why one is written and the other not was not measured.
+
+**In HexIDE (#1585):** each root has a class of its own, `UserControlRootClass` and `PropertyPageRootClass`. Each lists
+the rows of VB6's above that HexIDE models:
+- the UserControl: (Name), BackColor, Enabled, Font, ForeColor, Height, KeyPreview, Tag and Width;
+- the PropertyPage: (Name), BackColor, Caption, Font, ForeColor, Height, KeyPreview, Tag and Width.
+
+The root's `ClientLeft` and `ClientTop` still bind to its geometry, though neither lists Left or Top. A line a file
+holds that its root doesn't list is kept as the file's own text. That includes the Caption a UserControl HexIDE made
+before #1538 carried. The rest of each list is #1631.
+
 ## Write # and Input # (2026-10-23, #1521)
 
 Measured with `/make` in ten batches, native and p-code identical on every row. All of them are run-time results of
@@ -16202,7 +16337,95 @@ measured.
 - **Not followed: the Tab key's stop at an option button that isn't selected** (#1583). A headless check of the same
   form tabbed through Option1 as well as Option2. Otherwise it took the order above. So the Tab key doesn't select an
   option that takes the focus, as `SetFocus` does. Where VB6's Tab never lands, selecting would change the user's
-  choice as they tabbed past.
+  choice as they tabbed past. Followed since #1583, under "Tab and the arrow keys among option buttons".
+
+## Tab and the arrow keys among option buttons (2026-10-23, #1583)
+
+**The question.** "GotFocus and LostFocus on each control" found that VB6's Tab key skips an option button that isn't
+selected. What does it do in a group with no option selected, and does focus by Tab select there, as `SetFocus` does?
+What do Shift+Tab and the arrow keys do? And is an option already selected when its GotFocus runs, or only after?
+
+**The probe.** Two compiled forms, native and p-code, run on the oracle guest's console session through the agent, as
+"SetFocus" was. Each form held, in TabIndex order:
+- Text1;
+- Option1, Option2 and Option3 on the form, Option2 saved `Value = -1 'True`;
+- Text2;
+- Frame1, holding Option4 and Option5, neither selected;
+- Text3.
+
+Every option's GotFocus and Click logged its name and every option's Value, as a digit for each one selected: `-2- 4-`
+is Option2 and Option4 selected. Every TextBox's GotFocus logged its name. The Timer took one step each 300 ms, by
+`SetFocus` or by `SendKeys`, and logged `Screen.ActiveControl` and the Values after each.
+- **The first form:** SetFocus Text1, Tab seven times, Shift+Tab seven times, then SetFocus Text1, Tab, and Down, Down,
+  Down, Up, Right, Left on what had the focus, then Tab and Shift+Tab.
+- **The second form:** SetFocus Text3, Shift+Tab three times, Up twice, SetFocus Option5, Up twice, SetFocus Option3,
+  Right, SetFocus Option1, Left, SetFocus Option2, then Space.
+
+Native and p-code logged the same lines, line for line: 74 for the first form and 54 for the second.
+
+**The Tab key:**
+
+| From | Key | Focus went to | Logged |
+|---|---|---|---|
+| Text1 | Tab | Option2, the selected one | `Option2_GotFocus -2- --` |
+| Option2 | Tab | Text2 | `Text2_GotFocus` |
+| Text2 | Tab | Option4, the first in a group with none selected | `Option4_GotFocus -2- 4-`, `Option4_Click -2- 4-` |
+| Option4 | Tab | Text3 | `Text3_GotFocus` |
+| Text3 | Shift+Tab | Option4, now its group's selected one | `Option4_GotFocus -2- 4-` |
+| Text3, with none selected in Frame1 | Shift+Tab | Option5, the last in the group | `Option5_GotFocus -2- -5`, `Option5_Click -2- -5` |
+
+- **An option group is one Tab stop.** With an option selected, Tab and Shift+Tab both go to it and to nothing else in
+  the group. The Tab key then selects nothing and raises no Click.
+- **A group with none selected takes the first option in the key's direction:** the lowest TabIndex for Tab, the highest
+  for Shift+Tab. It is selected there, and its Click follows its GotFocus, as under `SetFocus`. From then on the group is
+  one stop at that option.
+- **A group is the options in one container.** Option1 to Option3 on the form and Option4 and Option5 in the Frame were
+  two groups throughout, each with its own selected option.
+
+**Selected before its GotFocus runs.** Inside `Option4_GotFocus`, Option4 already read True and Option5 False. The same
+held under `SetFocus`: `Option3.SetFocus` logged `Option3_GotFocus --3 -5`, then `Option3_Click --3 -5`. "GotFocus and
+LostFocus on each control" logged Click after GotFocus and read Value only after both. HexIDE's code took that order to
+mean the option was selected after its GotFocus. It is selected first, and only the Click waits.
+
+**SetFocus on the selected option** raised its GotFocus and no Click: `Option5_GotFocus 1-- -5`. **Space on the
+selected option** raised nothing.
+
+**The arrow keys:**
+
+| From | Key | Focus went to | Logged |
+|---|---|---|---|
+| Option2, selected | Down | Option3 | `Option3_GotFocus --3 4-`, `Option3_Click --3 4-` |
+| Option3, selected | Down | Text2 | `Text2_GotFocus`; Option3 stays selected |
+| Option2, selected | Up | Option1 | `Option1_GotFocus 1-- -5`, `Option1_Click 1-- -5` |
+| Option1, selected | Up | Text1 | `Text1_GotFocus` |
+| Option5, in Frame1 | Up | Option4 | `Option4_GotFocus 1-- 4-`, `Option4_Click 1-- 4-` |
+| Option4, in Frame1 | Up | Option5: it wraps inside the Frame | `Option5_GotFocus 1-- -5`, `Option5_Click 1-- -5` |
+| Option3, selected | Right | Text2, as Down | `Text2_GotFocus` |
+| Option1, selected | Left | Text1, as Up | `Text1_GotFocus` |
+| Text2 | Down, Up, Right, Left | nowhere: the TextBox keeps them | nothing |
+
+**An arrow moves to the previous or next control in the option's own container, by TabIndex, wrapping within it.** That
+control need not be an option button. On the form the TextBoxes either side were the next and previous controls. In
+the Frame, whose only controls are the two options, it went round between them. An option button it lands on is
+selected, with GotFocus and then Click.
+
+**Not measured:**
+- a group whose selected option is disabled, hidden or has `TabStop = False`;
+- `TabStop = False` on an option that isn't selected, in a group with none selected;
+- the arrow keys on a CheckBox or a CommandButton, which Windows' dialog manager also moves between;
+- an arrow onto a control that is disabled or has `TabStop = False`.
+
+### In HexIDE (#1583)
+
+- **An option group is one Tab stop.** It is its selected option, or each of its options while none is selected, so
+  Tab and Shift+Tab reach the first in their direction. A group is the options in one container, which is how HexIDE
+  already made them exclusive. An option's own `TabStop = False` still keeps the Tab key off it.
+- **Focus by the Tab key selects an option, as `SetFocus` does,** with Click after GotFocus. Until now the Tab key was
+  kept from selecting, because it stopped at every option and selecting would have changed the user's choice.
+- **An option is selected before its GotFocus runs.** Before, a GotFocus raised at once read its own option unselected.
+  The Click is raised after the GotFocus, whether the two run at once or wait behind a running handler.
+- **Not followed: the arrow keys**, which do nothing on an option button
+  ([#1625](https://github.com/hexide-io/HexIDE/issues/1625)).
 
 ## Conditional compilation (2026-10-23, #1112)
 
@@ -18188,6 +18411,150 @@ Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60
 - `VbErr` records whether a Description has been set, and a `Raise` with none keeps it.
 - Source is still not filled with the project's name.
 
+## `Time`, and eight Dies rows that already ran (2026-10-23, #1633)
+
+**The question.** A sweep probed every name `MISSING_LANGUAGE.md` rated Dies through the interpreter on main, and eight
+ran: `,`, `Access`, `Append`, `Output`, `Read`, `Shared`, `Write` and `Time`. The sweep says only that each ran, not that
+it ran as vb6.exe runs it. Seven are `Print #` and `Open` forms that "Sequential files" (#1145) and "`Debug.Print` is the
+same Print" (#1380) had already measured, row by row, so they needed no new probe, only a test for the rows nothing
+pinned: `Access Read` and `Shared` taken on an Input file, a second Input of a file opened `Lock Read` 55, and Append
+making a missing file. `Time` had no row here.
+
+**The probe.** One program, built native and p-code with vb6.exe 6.00.8176 (the release build) and run on the MSVBVM60
+6.00.9848 (SP6) runtime, en-GB. It reads `Time` into a Variant and logs what it is. Native and p-code agreed.
+
+| Expression | vb6.exe |
+|---|---|
+| `TypeName(Time)`, `VarType` of it, `TypeName(Time())` | `Date`, 7, `Date` |
+| `Int(CDbl(Time)) = 0`, `CDbl(Time) < 1` | True, True |
+| `Year`, `Month`, `Day` of it | 1899, 12, 30 |
+| `TypeName(Time$)`, `Len(Time$)`, `Time$ Like "##:##:##"` | `String`, 8, True |
+
+So `Time` is a Date with no date part, and `Time$` its eight characters.
+
+### In HexIDE (#1633)
+
+- **`Time` and `Time()`** give each row above. `DateFunctionsTests` pins them.
+- **`Time$`** is refused, "Type hint is not supported", as every `$` form of an intrinsic is (#742).
+- **The eight rows** are re-rated: `,`, `Append`, `Output`, `Shared` and `Time` Supported; `Access`, `Read` and `Write`
+  Partial, because `For Input Access Write` is vb6.exe's compile error and runs here, a Lock holds against this program
+  only, and `Read Write` belongs to Random and Binary files, which are not implemented.
+
+## A Const declared with a type character (2026-10-23, #1614)
+
+**The question.** #1611 found that `Const KS! = 2.5D2` is the Single 250 in vb6.exe, where HexIDE stopped the program as
+the module loaded, with "Const type hints not supported". What does a type character on a Const's name do: is it the
+`As` clause it stands for, with that clause's conversions and errors? And how does it meet a name read with a character,
+another declaration of the name, and an `As` clause beside it?
+
+**The probe.** One program, built native and p-code with vb6.exe 6.00.8176 (the release build) and run on the MSVBVM60
+6.00.9848 (SP6) runtime, en-GB. It declares eleven Consts at module level, one of them `Public`, and ten of the same in
+a procedure, then logs `TypeName` and `CStr` of each through its bare name. Then fifteen one-statement projects, native,
+for what might not compile. Native and p-code agreed on every row of the program.
+
+**Result: the character is the As clause.** Each Const converts as `As` that type converts it (#873's rows), at module
+level and in a procedure alike:
+
+| Const | vb6.exe |
+|---|---|
+| `KI% = 2.5`, `KL& = 3.5` | Integer 2, Long 4 (banker's rounding) |
+| `KS! = 2.5E2`, `KD# = 1`, `KC@ = 1.23456` | Single 250, Double 1, Currency 1.2346 |
+| `KT$ = 5`, `KU$ = "x"`, and in a procedure `K$ = 1.5` | String "5", "x" and "1.5" |
+| `KB% = True`, `KN% = "7"`, `KH% = &HFFFF` | Integer -1, 7 and -1 |
+| `KE& = KI + 0.5` | Long 2 |
+| `Public Const KP% = 7` | Integer 7 |
+| `KS!` and `KT$` read with their own characters | Single 250, String "5" |
+
+**Refused, each a compile error:**
+
+| Declaration | vb6.exe |
+|---|---|
+| `Const K% = 40000`, `Const K@ = 1E20`, `Const K! = 1E39`, and `Const K% = 32768` in a procedure | Overflow |
+| `Const K% = "x"` | Type mismatch |
+| `Const K% = Null` | Invalid use of Null |
+| `Const K% As Integer = 1` | Expected: = |
+| `Const K% = 1`, then `K = 2` | Assignment to constant not permitted |
+| `Const K% = 1`, then reading `K&` | Type-declaration character does not match declared data type |
+| at module level, `Const K = 1` and `Const K% = 2`, `Const K% = 1` and `Const K& = 2`, or `Dim K` and `Const K% = 1` | Ambiguous name detected: K |
+| in a procedure, `Const K = 1` and `Const K% = 2` | Duplicate declaration in current scope |
+
+A character does not make another name. `K` and `K%` are one name, so a second declaration of it is a duplicate with or
+without a character, and the same with a plain `Const K = 1` twice.
+
+### In HexIDE (#1614)
+
+- **`BaseTypeMapper.Map(TypeHintContext)`** gives the type a character declares, and `StatementExecutor.AsDeclared`
+  takes it as the `As` clause, with that clause's conversions and compile errors. The three refusals, in `PrePass` and
+  in the module-level and procedure-level Const paths, are gone.
+- **A character and an `As` clause together** is "Expected: =".
+- **`ConstTypeCharacterTests`** runs the program and must print vb6.exe's lines, and refuses eight of the one-statement
+  projects with vb6.exe's message.
+- **Divergences kept, each filed:**
+  - a name read with a type character, `KS!`, is refused as not implemented (#742), so the program's two such rows are
+    left out of the test, and so is reading `K&` for a `K%`;
+  - a second declaration of a name at module level runs, where vb6.exe refuses it (#1622). In a procedure it is #1499.
+
+## A D exponent in a source literal (2026-10-23, #1611)
+
+**The question.** Does vb6.exe compile a `D` exponent in a numeric literal, as in `2.5D2` or `1D3`? If so, with what type
+and value? Run-time conversion reads one: `CDbl("1D3")` and `Val` were measured earlier. HexIDE's grammars did not. The
+language server's lexed one in a decimal literal only, and the interpreter's in neither, so `x = 1D3` failed to load. A
+first draft of #781 extended the interpreter's grammar from an unmeasured brief, and it was taken out in review (#1610).
+
+**The probe.** One `/make` project per literal, each logging `TypeName` and `CStr` of it, built native and p-code with
+vb6.exe 6.00.8176 (the release build) and run on the MSVBVM60 6.00.9848 (SP6) runtime, en-GB. Every project was a `.bas`
+written outside the IDE. There were two batches:
+1. 21 projects: 17 literals, a `Const`, a `#Const`, an `#If`, and a variable named `D2`.
+2. 15 edge cases, beside their E forms.
+
+Native and p-code agreed on every row.
+
+**Result: D is E.** Every row with D gave what the same row with E gives, a refusal included.
+
+| Literal | vb6.exe |
+|---|---|
+| `2.5D2`, `1D3`, `1d3`, `1D+3`, `1e3` | Double: 250, 1000, 1000, 1000, 1000 |
+| `1.5D-2`, `.5D1`, `5.D1` | Double: 0.015, 5, 50 |
+| `1D300`, `1D-400`, `-1D3` | Double: 1E+300, 0, -1000 |
+| `1D3!`, `1D3#`, `1D3@` | Single 1000, Double 1000, Currency 1000 |
+| `Const K = 1D3` | Double 1000 |
+| `Const KS! = 2.5D2` | Single 250 |
+| `#Const K = 1D3`, then `#If K = 1000` | true |
+| `#If 2.5D2 = 250` | true |
+| a variable `D2` holding 7, then `1 + D2` | 8 |
+
+**Refused, each "Syntax error":**
+- an exponent with an Integer or Long suffix: `1D3%`, `1D3&`, `1E3%` and `1E3&`;
+- a value beyond its type: `1D400` and `1E400` for a Double, `1D39!` and `1E39!` for a Single, `1D20@` and `1E20@` for
+  a Currency;
+- two exponents, as in `1D2D2`;
+- an exponent with no digits: `1D`, `1.5D`, `1D-`, and `1 D3`.
+
+A value below its type's range is not refused: `1D-400` and `1E-400` are each 0.
+
+Not measured: what the IDE's pretty-lister rewrites `1D3` to when it loads a file, since that needs the guest's console.
+`/make` compiles the file as it was written.
+
+### In HexIDE (#1611)
+
+- **Both lexers take `D` or `d` wherever they take `E`.** That is the interpreter's `INTEGERLITERAL` and `DOUBLELITERAL`,
+  and the language server's `INTEGERLITERAL`, whose `DOUBLELITERAL` had it already (grammar fix 5). A `.frx` offset such
+  as `:0D2C` is unaffected: `FRX_OFFSET` takes its colon too, so it is the longer match.
+- **`ExpressionExecutor.ExponentAsE`** reads the marker as E for every reader of a literal, the Enum fold in `PrePass`
+  included.
+- **The refusals were HexIDE's divergence for E too, and are fixed with D.** `1E3%` stopped the program with a .NET
+  `FormatException`, and `1E3&` was the Long 1000. `1E400` and `1E39!` were infinity, and `1E20@` was a Currency beyond
+  Currency's range. Each is now vb6.exe's "Syntax error", raised as a compile error where the literal is read. A literal
+  below its type's range is still not refused. Not measured: whether a long string of digits with no exponent, beyond
+  its type, is refused the same way. HexIDE refuses any literal whose value .NET reads as infinity, and any Currency
+  beyond Currency's range.
+- **`DExponentLiteralTests`** checks each accepted literal's type and value against vb6.exe's line, and that each refused
+  one is refused. `DExponentLiteralGrammarTests` checks the language server's diagnostics.
+- **Divergences kept, each filed:**
+  - `5.D1` is a literal ending in its point, which neither grammar parses (#1615);
+  - `Const KS! = 2.5D2` stops as the module loads, since a `Const` with a type character is not implemented (#1614);
+  - `1D`, `1.5D`, `1D-` and `1 D3` are refused in the parser's words, not as "Syntax error".
+
 ## GetSetting, SaveSetting, DeleteSetting and GetAllSettings (2026-10-23, #1562)
 
 Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60 6.00.9848 (SP6) runtime, under en-GB, in five batches. Native and p-code agree on every row.
@@ -18396,3 +18763,52 @@ The four run as registered intrinsics. The two statements, and `Call` and `VBA.`
   - A program and section that name no key at all, `"\"` and `"\"`, are 5 here.
   - A program whose second section cannot be deleted loses none of its sections here.
 - **Refused in other words:** `SaveSetting` with three arguments, and `SaveSetting(...)` in parentheses, are refused as the program loads, by the grammar, in the parser's words. vb6.exe says "Argument not optional" and "Syntax error".
+
+## A numeric literal ending in its point (2026-10-23, #1615)
+
+**The question.** #1611 found that vb6.exe reads `5.D1` as the Double 50, and neither of HexIDE's grammars lexed a
+literal with no digit after its point, so the module failed to load. Does vb6.exe take `5.` itself, with each suffix and
+exponent, and wherever a literal goes? And what of `%` and `&` on a literal with a point, which HexIDE rounded to an
+Integer or a Long, and which #1610's test pinned as 2 for `1.5%` and `2.5&` without a measurement?
+
+**The probe.** One `/make` project per form, each logging `TypeName` and `CStr` of it, built native and p-code with
+vb6.exe 6.00.8176 (the release build) and run on the MSVBVM60 6.00.9848 (SP6) runtime, en-GB. There were two batches:
+1. 20 projects: 12 literals, a `Const`, an `#If`, a `#Const`, two arguments, an array index, a concatenation,
+   arithmetic, and `5..5`.
+2. Six literals with a point and an Integer or Long suffix.
+
+Native and p-code agreed on every row.
+
+**Result: a literal may end in its point, and is then what it would be with a digit after it.**
+
+| Form | vb6.exe |
+|---|---|
+| `5.`, `-5.`, `0.`, `123456789012.` | Double: 5, -5, 0, 123456789012 |
+| `5.#`, `5.!`, `5.@` | Double 5, Single 5, Currency 5 |
+| `5.E1`, `5.D1`, `5.E-1` | Double: 50, 50, 0.5 |
+| `Const K = 5.` | Double 5 |
+| `#If 5. = 5`, and `#Const C = 5.` then `#If C = 5` | true |
+| `Two(5., 2.)` with `Two = a * 10 + b` | 52 |
+| `a(2.) = 7`, then `a(2)` | 7 |
+| `5. + 1`, `2.*3.` | Double 6, 6 |
+
+**Refused, each "Syntax error":**
+- `5..5`;
+- a literal with a point and an Integer or Long suffix, whole or fractional, with or without an exponent: `5.%`,
+  `5.&`, `2.5%`, `2.5&`, `.5%`, `5.0%`, `5.0&` and `2.5E1&`.
+
+So `%` and `&` never take a literal with a point. The first guess, which HexIDE made and #1610's test pinned, was that
+they round it, as `CInt` and `CLng` would: `1.5%` the Integer 2. vb6.exe refuses to compile it.
+
+### In HexIDE (#1615)
+
+- **Both lexers' `DOUBLELITERAL`** take digits, a point and no more digits, beside the forms they took: the interpreter's
+  `('0'..'9')+ DOT ('0'..'9')* | DOT ('0'..'9')+`, and the language server's `[0-9]+ DOT [0-9]* | DOT [0-9]+`. `5..5` is
+  then two literals side by side, which each parser refuses.
+- **A literal with a point and `%` or `&`** is the compile error "Syntax error", where `ExpressionExecutor` rounded it to
+  an Integer or a Long. #1610's culture test lost its `1.5%` and `2.5&` rows, which pinned that rounding.
+- **`TrailingPointLiteralTests`** runs each probe program and must print vb6.exe's lines, and refuses each refused
+  one. `TrailingPointLiteralGrammarTests` checks the language server's diagnostics, and `DExponentLiteralTests` now
+  reads `5.D1`.
+- **Divergence kept:** the language server's `DOUBLELITERAL` takes `&` but not `%`, so the editor marks `2.5%` and not
+  `2.5&`. The interpreter refuses both as the module runs.
