@@ -27,13 +27,30 @@ public sealed partial class UnmodelledControlViewModel : ObservableObject, IDisp
     private readonly ComponentInstanceViewModel? container;
 
     /// <param name="container">The modelled container it sits in, or null for the form itself.</param>
-    public UnmodelledControlViewModel(UnmodelledControl control, ComponentInstanceViewModel? container)
+    /// <param name="depth">How many of the container's carried controls are under this one: those written after it.</param>
+    public UnmodelledControlViewModel(UnmodelledControl control, ComponentInstanceViewModel? container, int depth = 0)
     {
         this.control = control;
         this.container = container;
+        Depth = depth;
         if (container is not null)
             container.PropertyChanged += OnContainerChanged;
     }
+
+    /// <summary>The modelled container it sits in, or null for the form itself.</summary>
+    internal ComponentInstanceViewModel? Container => container;
+
+    /// <summary>How many of its container's carried controls are under this one.</summary>
+    internal int Depth { get; }
+
+    /// <summary>Where the designer's canvas stacks the box among the controls, the highest on top (#1553).</summary>
+    public int DrawIndex
+    {
+        get => drawIndex;
+        internal set => SetProperty(ref drawIndex, value);
+    }
+
+    private int drawIndex;
 
     /// <summary>The control's class as its <c>Begin</c> line gives it, such as <c>MSComctlLib.ImageList</c>.</summary>
     public string TypeName => control.TypeName;
