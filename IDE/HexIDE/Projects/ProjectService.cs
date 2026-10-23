@@ -1310,7 +1310,8 @@ public class ProjectService : IProjectService
     public Task<FormDefinition> AddNewForm(ProjectDefinition project, string name, bool interactive = true) =>
         WithSaveRefusals(() =>
         {
-            var form = new FormDefinition(project, FormComponentClass.Instance, name) { TextEncoding = HostAnsi };
+            var form = FormDefinition.NewForm(project, FormComponentClass.Instance, name);
+            form.TextEncoding = HostAnsi;
             EnsureNewMemberEncodable(project, form, name + ".frm");
             EnsureNothingInTheWay(project, name, name + ".frm");
             var dir = ProjectFilesDirectory(project);

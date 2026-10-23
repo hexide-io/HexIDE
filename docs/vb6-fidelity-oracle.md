@@ -13361,6 +13361,118 @@ while it is locked. ReDim Preserve (#1459) checks the lock before it resizes any
 element a parameter is writing. Every row above that HexIDE reaches is pinned in `ByRefElementTests`. Not reached: an array of a Type
 (#178), and an array of Collection, whose declaration HexIDE refuses.
 
+## A form's StartUpPosition when its file has no line (2026-10-13, #932)
+
+**The obvious guess, and HexIDE's for as long as it had the property: a missing `StartUpPosition` line means 3,
+Windows Default.** That is the value VB6 gives a new form, so it looked like the default. It is not what VB6 reads.
+A missing line is 0, Manual. HexIDE's one default had been doing two jobs that VB6 keeps apart: the value a new form
+gets, and the meaning of a line that is not there.
+
+**The corpus first.** Of the 20 `.frm` files in VB6's Template tree, read on the oracle machine, 13 have no
+`StartUpPosition` line, and all 13 carry explicit `ClientLeft`/`ClientTop`, which is the Manual shape: About Dialog
+(2340/1935), Tip of the Day (2370/2400), and the six Menus forms (ClientLeft -9996). Of the other seven, five write 2
+(CenterScreen) and two write 3 (Windows Default). The new project's `Template/Projects/Form1.frm` writes
+`ClientLeft = 60`, `ClientTop = 348`, `LinkTopic = "Form1"` and `StartUpPosition = 3 'Windows Default` explicitly.
+
+**The probe.** VB6.EXE 6.00.8176 SP6, `/make` (native code), the exe run headless in session 0, where the screen is
+15360 x 11520 twips at 15 twips a pixel. A `Sub Main` project with six forms. Each designer block is HexIDE's, byte
+for byte, plus the lines below, and each form carries the usual five `Attribute` lines:
+
+| Form | Added to HexIDE's block |
+|---|---|
+| FA | nothing (what HexIDE wrote) |
+| FB | `StartUpPosition = 3 'Windows Default` |
+| FC | `StartUpPosition = 0 'Manual` |
+| FD | `ClientLeft = 2000` and `ClientTop = 1500`, no `StartUpPosition` |
+| FE | FD's two lines, plus `StartUpPosition = 0` |
+| FF | `StartUpPosition = 2 'CenterScreen` |
+
+For each form, `Sub Main` reads `o.StartUpPosition` late-bound, which loads it, then Left and Top, then calls `Show`
+and `DoEvents` and reads Left, Top, Width and Height. Output, verbatim:
+
+```
+Screen 15360 11520 15
+FA SUP=0 SUPErr=0 loadL=-60 loadT=-345 ShowErr=0 L=-60 T=-345 W=9720 H=7605
+FB SUP=3 SUPErr=0 loadL=1320 loadT=1320 ShowErr=0 L=1320 T=1320 W=9720 H=7605
+FC SUP=0 SUPErr=0 loadL=-60 loadT=-345 ShowErr=0 L=-60 T=-345 W=9720 H=7605
+FD SUP=0 SUPErr=0 loadL=1935 loadT=1155 ShowErr=0 L=1935 T=1155 W=9720 H=7605
+FE SUP=0 SUPErr=0 loadL=1935 loadT=1155 ShowErr=0 L=1935 T=1155 W=9720 H=7605
+FF SUP=2 SUPErr=0 loadL=-60 loadT=-345 ShowErr=0 L=2820 T=1950 W=9720 H=7605
+```
+
+- **A missing line reads back as 0.** FA equals FC, and FD equals FE.
+- **Under Manual, `ClientLeft`/`ClientTop` place the window** (FD). With neither (FA), the client area lands at (0,0)
+  and the outer rectangle at (-60,-345), so the caption is above the top of the screen. The -60/-345 frame offset is
+  #104's client-to-outer measurement.
+- **Under 3 they are ignored**, and the form cascades (FB, at 1320,1320).
+- Under 2 the form is placed only when shown (FF): Left and Top read the Manual origin until then.
+
+So a form HexIDE created before this, once given the `Attribute` block it also lacked (#516), was opened by VB6 at
+the screen's origin, caption off the top, because HexIDE wrote no line and meant 3. The reverse went wrong too: VB6 writes no line for a Manual form, which HexIDE ran
+centred and showed as "3 - Windows Default" in the grid. That half is from reading the code, not run.
+
+**In HexIDE (#932):** the property's default is 0, Manual, so a form with no line reads and runs as VB6 reads it, and is
+written back with no line. A form HexIDE creates (Add Form, the Project Explorer's Add Form, a new Standard EXE) is
+given `StartUpPosition = 3` explicitly, which the writer then emits as VB6 does. A new UserControl or PropertyPage is
+not: no VB6-authored `.ctl` or `.pag` in the corpus carries the line, and whether vb6.exe refuses one there is not
+measured. Forms HexIDE saved earlier, with no line, now read as Manual, which is what VB6 already did with them. Not
+reproduced: Windows Default's cascade, which HexIDE still runs as CenterScreen (`VBStartupPosition.ToAvalonia`).
+
+## A form's Attribute block, and a form without one (2026-10-22, #516, #931)
+
+**What VB6 writes.** A new form in VB6 carries five `Attribute` lines after its designer block:
+
+```
+Attribute VB_Name = "Form1"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+```
+
+Nineteen of the twenty `.frm` files in VB6's Template tree carry exactly these, the new project's `Form1.frm` among
+them, and one carries six. Every one is CRLF throughout and ends in `0D 0A`. HexIDE wrote a form it created with no
+block at all, and its code section in bare LF with no final line break (#516, #931).
+
+**The obvious guesses, from #516 and from comments in this tree:** that `VB_Name` is a form's identity, and that
+`VB_PredeclaredId = True` is what gives a form its default instance, so a form without the block might load but fail
+at `Form1.Show`. **Both are wrong for `vb6.exe /make`.** The block is what VB6 writes, not what it needs.
+
+**The probe.** VB6.EXE 6.00.8176 SP6. One `Sub Main` project per row, each with a `Form1.frm` and a `Module1.bas`,
+built with `/make` both as native code and as p-code (`CompilationType=-1`), and the exe run in session 0. The form's
+designer block is HexIDE's (Caption, ClientHeight 7200, ClientWidth 9600, ScaleHeight, ScaleWidth). `Sub Main`, under
+`On Error Resume Next`, reads `X.Caption` and `X.Name`, calls `X.Show` and `DoEvents`, reads `X.Visible`,
+`Forms.Count` and `Forms(0).Name`, then `Unload X`, where `X` is the name in the last column.
+
+| Row | `Form1.frm`'s code section | `X` | Result, native and p-code alike |
+|---|---|---|---|
+| P1 | no `Attribute` block, CRLF stub | `Form1` | builds; every read as P2 |
+| P2 | the five lines, then the stub (the control) | `Form1` | builds; `Caption=CapForm1`, `Name=Form1`, `Forms.Count=1`, no error anywhere |
+| P3 | no block; the Begin line says `Form7` | `Form7` | builds; `Name=Form7` |
+| P3b | the same file | `Form1`, the file's name | **does not build**: "Compile Error in File '…Module1.bas', Line 6 : Variable not defined" |
+| P4 | the five lines with `VB_Name = "FormB"`; the Begin line says `FormA` | `FormB` | **does not build**: the log says "Conflicting names were found in '…Form1.frm'. The name 'FormA' will be used.", then the same "Variable not defined" |
+| P4b | the same file | `FormA` | builds, with the same "Conflicting names" line in the log; `Name=FormA` |
+| P5 | HexIDE's old seed byte for byte: no block, `Private Sub Form_Load()` LF LF `End Sub`, no final line break | `Form1` | builds; every read as P2 |
+
+`X.Visible` read False after `Show` in every row, the control included, so it is a fact about session 0, which has no
+desktop, and says nothing about the block.
+
+- **A missing `VB_PredeclaredId` still gives a form its default instance** (P1). A form's default for it is True.
+- **The Begin line names the form.** Without a block it is the only name (P3, P3b). Where `VB_Name` disagrees, vb6.exe
+  takes the Begin line's name, logs that it did, and still builds (P4, P4b). So a form's `VB_Name` is a second copy of
+  its name that has to agree, not its identity. A rename has to keep both in step, but it is the Begin line that
+  decides.
+- **An LF code section with no final line break does not stop a build** (P5). #931 left this unmeasured. VB6 writes
+  CRLF throughout regardless, which is what a written file is compared against.
+
+What this does not cover: the VB6 IDE opening such a file, where the "Conflicting names" notice is presumably a dialog
+rather than a log line. That is unmeasured.
+
+**In HexIDE (#516, #931):** a form HexIDE creates (Add Form, the Project Explorer's Add Form, a new Standard EXE) carries
+the five lines, naming it as its Begin line does, and its file is CRLF throughout with a final line break. These match
+what VB6 writes, which is the bar, though P1 and P5 show vb6.exe would have built the old shape. HexIDE names a form it
+reads by its Begin line too, as vb6.exe does.
+
 ## ReDim Preserve (2026-10-22, #1459)
 
 **The question.** HexIDE refused every `ReDim Preserve` as not implemented, so a program that grows an array as it goes,
