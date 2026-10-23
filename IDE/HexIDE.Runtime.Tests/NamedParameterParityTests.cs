@@ -53,6 +53,20 @@ public class NamedParameterParityTests
         disagreements.Should().BeEmpty();
     }
 
+    // The sweep #1475 asked for, kept: an intrinsic added to the registry is measured for names and given a tooltip in the
+    // same change, or this names it.
+    [Fact]
+    public void Every_registered_intrinsic_says_how_it_takes_names_and_has_a_tooltip()
+    {
+        var tooltip = TooltipParameters();
+        VB6BuiltIns.RegisteredIntrinsics.Should().NotBeEmpty();
+
+        VB6BuiltIns.RegisteredIntrinsics.Where(name => !VB6BuiltIns.SaysHowItTakesNames(name))
+            .Should().BeEmpty("each intrinsic's named arguments should be measured and listed in VB6BuiltIns.NamedParameters");
+        VB6BuiltIns.RegisteredIntrinsics.Where(name => !tooltip.ContainsKey(name))
+            .Should().BeEmpty("each intrinsic should have an entry in VbSignatures.cs");
+    }
+
     private static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

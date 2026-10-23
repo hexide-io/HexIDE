@@ -13648,8 +13648,8 @@ full. These 57 compile, with exactly the names the signature table gives, and re
 CDbl, CInt, CLng, CSng, CStr, CVar, CVErr, Fix, InStr, Int, LBound, Len, Sgn, StrComp and UBound. Each has a full parameter
 tooltip, with names.
 
-Val (`String`), Round (`Number, NumDigitsAfterDecimal`) and Split (`Expression`) took names in the single-row projects,
-but they have no signature entry, so their required counts were not measured (#1475).
+Val (`String`), Round (`Number, NumDigitsAfterDecimal`) and Split (`Expression`) took names in the single-row projects.
+Their required counts, and thirteen more intrinsics', are measured below (#1475).
 
 **What resisted explanation.**
 - **Why those twenty refuse**, and no rule I would defend. Most of them are the conversions and the numeric primitives,
@@ -13669,8 +13669,8 @@ but they have no signature entry, so their required counts were not measured (#1
   compile errors from the table above, as the statement runs. Then it evaluates the named arguments in parameter order,
   in the caller, and leaves an omitted Optional to bind as it always has.
 - **Intrinsics.** These take their names from `VB6BuiltIns.NamedParameters.cs`, the 57 above. The twenty above that
-  refuse every name give "Syntax error", Array and Choose give the ParamArray error, and any other intrinsic stops the run
-  naming #1475. A name that is no procedure and no intrinsic is "Sub or Function not defined", as before.
+  refuse every name give "Syntax error", Array and Choose give the ParamArray error, and any other intrinsic stopped the
+  run naming #1475, until #1475 measured them all (below). A name that is no procedure and no intrinsic is "Sub or Function not defined", as before.
 - **RaiseEvent** gives "Syntax error" for any named argument.
 - **A control's, a form's or an object's method** stops the run naming #1474.
 
@@ -13686,6 +13686,79 @@ It checks one direction only, because the tooltip shows names for the twenty tha
   arguments as written, and a reshaped `VbSignatures.cs`.
 - **The corpus.** Two corpus cases that carried a line continuation inside a named argument now run as VB6 ran them. They
   were removed from `KnownDivergences`.
+
+### The intrinsics signature help had no entry for (2026-10-23, #1475)
+
+**The question.** The 16 intrinsics HexIDE implements without a tooltip had their named arguments refused. Which names
+does VB6 take for each, how many are required, and what do the ones with no parameters say to a name?
+
+**The probe.**
+- 53 one-call projects, made native and p-code under en-GB.
+- The 19 programs the #1475 tests run, made the same way. Their compile errors and transcript are exactly what the tests
+  pin.
+
+The names were read first from the VBA library's type information in msvbvm60.dll, then confirmed one by one. For each
+intrinsic there was:
+- a project naming every parameter;
+- one naming the required ones only;
+- one leaving out each required one in turn;
+- one with a wrong name.
+
+Native code and p-code agreed on every line.
+
+| Parameters, in order | Required | Intrinsic | Measured with every name |
+|---|---|---|---|
+| `String` | 1 | Val | `Val(String:="12")` 12 |
+| `Number, NumDigitsAfterDecimal` | 1 | Round | 2.6; `Round(Number:=2.5)` 2 |
+| `Expression, Delimiter, Limit, Compare` | 1 | Split | `Limit:=2` gives `a` and `b,c`; `Expression:="a b c"` alone splits on spaces |
+| `SourceArray, Delimiter` | 1 | Join | `ab-cd-AE`; with no Delimiter, `ab cd AE` |
+| `SourceArray, Match, Include, Compare` | 2 | Filter | `vbTextCompare` matches `ab` and `AE` |
+| `Month, Abbreviate` | 1 | MonthName | Feb; February. `MonthName(Abbreviate:=True, Month:=3)` is Mar |
+| `Weekday, Abbreviate, FirstDayOfWeek` | 1 | WeekdayName | `Weekday:=1, Abbreviate:=True, FirstDayOfWeek:=vbMonday` is Mon; Abbreviate can be skipped |
+| `Date` | 1 | DateValue | `Date:="2000-01-02"` is 36527 |
+| `Time` | 1 | TimeValue | `Time:="12:00"` is 0.5 |
+| `FileNumber` | 1 | EOF | True on an empty file |
+| `RangeNumber` | 0 | FreeFile | `RangeNumber:=1` is 256; `:=0` is 1 |
+| `Expression` | 1 | CDec, CVDate | 1.5; 2 |
+| `Number` | 1 | Hex, Oct, Str, and Hex$, Oct$, Str$ | FF; 10; " 5" |
+
+Leaving out a required parameter is "Argument not optional", in every case measured. A wrong name is "Named argument
+not found", for every one of them.
+
+**Six have no parameters, and refuse a name three ways:**
+
+| `X(X:=1)` | VB6's compile error |
+|---|---|
+| Command, Now, Time | Named arguments not allowed |
+| Date | Syntax error |
+| DoEvents, Timer | Wrong number of arguments or invalid property assignment |
+
+**Aside.** `WeekdayName(Weekday:=1)`, with no FirstDayOfWeek, is Monday under en-GB. The day a week starts on there comes
+from the locale. That makes it a fact about WeekdayName's default, not about names, so the tests give FirstDayOfWeek
+explicitly.
+
+**What this overturned.**
+- **That the C-conversions all refuse names.** CDec and CVDate take `Expression`, where CBool through CVar and CVErr are
+  "Syntax error" (#1465).
+- **That the type library is the whole story.** It lists Hex, Oct and Str on a hidden interface with no parameters, yet each
+  takes `Number`, and a wrong name is caught.
+- **That the VBA documentation's names are VB6's.** It calls Round's parameters `expression` and `numdecimalplaces`. VB6
+  takes `Number` and `NumDigitsAfterDecimal`, as its type library says.
+
+**What resisted explanation.**
+- **Why the no-parameter six split three ways.** Date's "Syntax error" fits Date being a keyword as well as a function.
+  Command, Now and Time against DoEvents and Timer I can't explain.
+
+#### In HexIDE (#1475)
+
+- **The table.** `VB6BuiltIns.NamedParameters.cs` now lists 73 intrinsics with their names and required counts.
+- **The six with no parameters** raise the errors above.
+- **The tooltips.** All 16 have a signature-help entry, Command and DoEvents included.
+- **The guard.** `NamedParameterParityTests` now also fails when a registered intrinsic is missing from every table, or
+  has no tooltip. An intrinsic added later is then measured in the same change. The sweep the issue asked for is kept
+  as that test.
+- **An intrinsic HexIDE doesn't implement at all** is answered, with names or without, by the "not implemented" its
+  caller already gives.
 
 ## The TabIndex a new or pasted control takes (2026-10-22, #925, design-time)
 
