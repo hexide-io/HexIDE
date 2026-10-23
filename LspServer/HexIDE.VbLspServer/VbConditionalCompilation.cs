@@ -28,8 +28,14 @@ public sealed record VbCompilationContext(IReadOnlyDictionary<string, short>? Ar
 /// <c>And</c>, <c>Or</c>, <c>Xor</c>, <c>Eqv</c>, <c>Imp</c> and the six comparisons, with VB6's semantics for that subset:
 /// <c>Not</c> is bitwise, so <c>Not 1</c> is -2 and true. Anything else makes a condition undetermined: a string, a
 /// fraction, arithmetic, a function, <c>Like</c>, or a name that is no <c>#Const</c> or built-in in a document no project
-/// lists. A block with an undetermined condition keeps its first branch for the parser, and reports no diagnostics anywhere in
-/// it, so the server never squiggles code vb6.exe may not compile.
+/// lists. A block with an undetermined condition keeps one branch for the parser, and reports no diagnostics anywhere in it,
+/// so the server never squiggles code vb6.exe may not compile.
+/// </para>
+/// <para>
+/// Which branch matters, because this grammar's recovery from an error can swallow every error after it: a kept
+/// <c>Declare PtrSafe</c> would leave the rest of the module looking clean. So the first branch that might be the one is kept,
+/// and where the parse's first error is inside an undetermined block, the module is parsed again keeping the last instead,
+/// and the parse whose first error comes later answers (<see cref="VbDiagnosticsProvider"/>).
 /// </para>
 /// </summary>
 internal static class VbConditionalCompilation
@@ -40,11 +46,11 @@ internal static class VbConditionalCompilation
         public bool HoldsBack(int line) => Error is not null || Undetermined.Any(r => r.Contains(line));
     }
 
-    internal static Applied Apply(string source, VbCompilationContext context)
+    internal static Applied Apply(string source, VbCompilationContext context, UndeterminedBranch keep = UndeterminedBranch.First)
     {
         try
         {
-            var applied = ConditionalCompilation.Preprocess(source, new Evaluator(context));
+            var applied = ConditionalCompilation.Preprocess(source, new Evaluator(context), keep);
             return new Applied(applied.Text, applied.UndeterminedLines, null);
         }
         catch (ConditionalCompilationException e)

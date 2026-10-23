@@ -6,6 +6,7 @@ using System.Diagnostics;   // Stopwatch (the reported parse only)
 using Antlr4.Runtime;
 using Antlr4.Runtime.Atn;   // PredictionMode (two-stage SLL->LL prediction)
 using Antlr4.Runtime.Misc;  // ParseCanceledException (BailErrorStrategy)
+using HexIDE.Language;      // UndeterminedBranch (conditional compilation, #1112)
 
 namespace HexIDE.VbLspServer;
 
@@ -237,13 +238,25 @@ public static class VbDiagnosticsProvider
     {
         // The module's directives first, so an inactive branch is never parsed, as in vb6.exe (#1112). Its lines stay
         // where they were, only emptied, so every position the parse reports is the document's own.
-        var applied = VbConditionalCompilation.Apply(source, compilation ?? VbCompilationContext.NoProject);
+        var context = compilation ?? VbCompilationContext.NoProject;
+        var applied = VbConditionalCompilation.Apply(source, context);
         var reportedBefore = diagnostics?.Count ?? 0;
-        var tree = ParseOnce(applied.Text, diagnostics, report, protectedRegions, out var leftOutAnError);
-        if (leftOutAnError && protectedRegions is not null)
+        var tree = ParseApplied(applied.Text, diagnostics, report, protectedRegions);
+        if (diagnostics is not null && applied.Undetermined.Count > 0
+            && FirstErrorLine(diagnostics, reportedBefore) is { } firstError && applied.HoldsBack(firstError))
         {
-            diagnostics?.RemoveRange(reportedBefore, diagnostics.Count - reportedBefore);
-            tree = ParseOnce(protectedRegions.Blank(applied.Text), diagnostics, report, protectedRegions, out _);
+            // The parse stumbled inside a block nobody can choose, and its recovery may have swallowed every real error after
+            // it. Read each such block's last branch instead, where code for several compilers keeps the oldest one's, and let
+            // whichever parse got further answer.
+            var lastBranches = VbConditionalCompilation.Apply(source, context, UndeterminedBranch.Last);
+            var retried = new List<LspDiagnostic>();
+            var retriedTree = ParseApplied(lastBranches.Text, retried, report, protectedRegions);
+            if ((FirstErrorLine(retried, 0) ?? int.MaxValue) > firstError)
+            {
+                diagnostics.RemoveRange(reportedBefore, diagnostics.Count - reportedBefore);
+                diagnostics.AddRange(retried);
+                (applied, tree) = (lastBranches, retriedTree);
+            }
         }
         if (diagnostics is not null)
         {
@@ -256,6 +269,27 @@ public static class VbDiagnosticsProvider
                 diagnostics.Add(VbConditionalCompilation.Diagnostic(error, source));
         }
         return tree;
+    }
+
+    // One parse of the text conditional compilation left, read again without the protected lines when an error landed there.
+    private static VisualBasic6Parser.StartRuleContext? ParseApplied(
+        string text, List<LspDiagnostic>? diagnostics, ParseReport? report, VbProtectedRegions? protectedRegions)
+    {
+        var reportedBefore = diagnostics?.Count ?? 0;
+        var tree = ParseOnce(text, diagnostics, report, protectedRegions, out var leftOutAnError);
+        if (!leftOutAnError || protectedRegions is null)
+            return tree;
+        diagnostics?.RemoveRange(reportedBefore, diagnostics.Count - reportedBefore);
+        return ParseOnce(protectedRegions.Blank(text), diagnostics, report, protectedRegions, out _);
+    }
+
+    // The 1-based line of the earliest diagnostic from index `from` on, or null where there is none.
+    private static int? FirstErrorLine(List<LspDiagnostic> diagnostics, int from)
+    {
+        int? first = null;
+        for (var i = from; i < diagnostics.Count; i++)
+            first = Math.Min(first ?? int.MaxValue, diagnostics[i].Range.Start.Line + 1);
+        return first;
     }
 
     private static VisualBasic6Parser.StartRuleContext? ParseOnce(

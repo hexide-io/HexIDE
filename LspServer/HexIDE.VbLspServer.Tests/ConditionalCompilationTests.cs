@@ -165,6 +165,67 @@ public sealed class ConditionalCompilationTests : IDisposable
         applied.Text.Contains('B').Should().Be(branch == "B");
     }
 
+    // Found on the running IDE: the undetermined VBA7 block kept its PtrSafe branch, the grammar's recovery from that error
+    // swallowed the real one below it, and the module showed clean. The last branch, the VB6 one, parses, so it answers.
+    [Fact]
+    public void An_undetermined_block_the_parser_stumbles_in_does_not_hide_the_errors_after_it()
+    {
+        const string code = """
+            Attribute VB_Name = "CondProbe"
+            Option Explicit
+
+            #If VBA7 Then
+            Private Declare PtrSafe Function GetTickCount Lib "kernel32" () As LongPtr
+            #Else
+            Private Declare Function GetTickCount Lib "kernel32" () As Long
+            #End If
+
+            Sub Main()
+            #If Win16 Then
+                this is not VB at all ((
+            #Else
+                x = = 1
+            #End If
+            End Sub
+            """;
+
+        Lines(Diagnose(code)).Should().Equal(13);
+        Lines(Diagnose(code.Replace("    x = = 1", "    x = 1"))).Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("#If S = \"x\" Then\nA\n#ElseIf 0 Then\nB\n#Else\nC\n#End If\n", "\nA\n\n\n\n\n\n", "\n\n\n\n\nC\n\n")]
+    [InlineData("#If S = \"x\" Then\nA\n#ElseIf 1 Then\nB\n#Else\nC\n#End If\n", "\nA\n\n\n\n\n\n", "\n\n\nB\n\n\n\n")]
+    [InlineData("#If S = \"x\" Then\nA\n#End If\n", "\nA\n\n", "\nA\n\n")]
+    [InlineData("#If 1 Then\nA\n#Else\nB\n#End If\n", "\nA\n\n\n\n", "\nA\n\n\n\n")]
+    [InlineData("#If 0 Then\n#If S = \"x\" Then\nA\n#Else\nB\n#End If\n#End If\nC\n", "\n\n\n\n\n\n\nC\n", "\n\n\n\n\n\n\nC\n")]
+    [InlineData("#If S = \"x\" Then\n#If T = \"y\" Then\nA\n#Else\nB\n#End If\n#Else\nC\n#End If\n",
+        "\n\nA\n\n\n\n\n\n\n", "\n\n\n\n\n\n\nC\n\n")]
+    public void An_undetermined_block_keeps_its_first_or_its_last_possible_branch(string code, string first, string last)
+    {
+        VbConditionalCompilation.Apply(code, VbCompilationContext.NoProject).Text.Should().Be(first);
+        VbConditionalCompilation.Apply(code, VbCompilationContext.NoProject, UndeterminedBranch.Last).Text.Should().Be(last);
+    }
+
+    [Fact]
+    public void The_lines_the_last_branch_empties_are_inactive_in_line_order()
+    {
+        var applied = ConditionalCompilation.Preprocess("#If S = \"x\" Then\nA\nA\n#ElseIf 0 Then\nB\n#Else\nC\n#End If\n",
+            new IdentityEvaluator(), UndeterminedBranch.Last);
+
+        applied.InactiveLines.Should().Equal(new LineRange(2, 3), new LineRange(5, 5));
+    }
+
+    // Enough of an evaluator to drive the scanner alone: a number is its value, and anything else cannot be told.
+    private sealed class IdentityEvaluator : IConstantEvaluator<string, long?>
+    {
+        public string? Parse(string text) => text;
+        public long? Evaluate(string expression, Func<string, long?> lookup) => long.TryParse(expression, out var n) ? n : null;
+        public bool? Holds(long? condition) => condition is { } n ? n != 0 : null;
+        public long? Constant(long? value) => value;
+        public long? Name(string name) => null;
+    }
+
     // A name that is no #Const or built-in might be a project argument, unless the project that lists the document says it
     // is not one, in which case it is 0, as vb6.exe reads it.
     [Fact]

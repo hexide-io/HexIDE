@@ -15,11 +15,27 @@ namespace HexIDE.Language;
 /// </param>
 /// <param name="InactiveLines">The inactive branches' lines, 1-based and inclusive, which the code window can grey (#1113).</param>
 /// <param name="UndeterminedLines">
-/// Whole <c>#If</c> blocks, from <c>#If</c> to <c>#End If</c>, whose branch the evaluator could not choose. Their first
-/// branch is the one kept, so a parser has something to read, but nothing there can be said to be compiled or not.
-/// The interpreter's evaluator always chooses, so it never reports one.
+/// Whole <c>#If</c> blocks, from <c>#If</c> to <c>#End If</c>, whose branch the evaluator could not choose. One of the branches
+/// that might be the one is kept, as <see cref="UndeterminedBranch"/> says, so a parser has something to read, but nothing
+/// there can be said to be compiled or not. The interpreter's evaluator always chooses, so it never reports one.
 /// </param>
 public sealed record PreprocessedSource(string Text, IReadOnlyList<LineRange> InactiveLines, IReadOnlyList<LineRange> UndeterminedLines);
+
+/// <summary>
+/// Which branch an undetermined block keeps for the parser: the first that might be the one, or the last. A branch after one
+/// whose condition holds cannot be the one, and neither can a branch whose condition does not.
+/// </summary>
+public enum UndeterminedBranch
+{
+    /// <summary>The first branch that might be the one.</summary>
+    First,
+
+    /// <summary>
+    /// The last branch that might be the one. Code written for several compilers usually puts the oldest compiler's code
+    /// last, as <c>#If VBA7 Then … #Else … #End If</c> does.
+    /// </summary>
+    Last,
+}
 
 /// <summary>Lines <see cref="First"/> to <see cref="Last"/>, 1-based and inclusive.</summary>
 public readonly record struct LineRange(int First, int Last)
@@ -89,9 +105,11 @@ public static partial class ConditionalCompilation
 
     /// <summary>
     /// <paramref name="source"/> with its conditional compilation applied, its expressions valued by <paramref name="evaluator"/>.
-    /// A directive's error is a <see cref="ConditionalCompilationException"/> at its line.
+    /// A directive's error is a <see cref="ConditionalCompilationException"/> at its line. <paramref name="keep"/> decides which
+    /// branch an undetermined block keeps, and changes nothing else.
     /// </summary>
-    public static PreprocessedSource Preprocess<TExpression, TValue>(string source, IConstantEvaluator<TExpression, TValue> evaluator)
+    public static PreprocessedSource Preprocess<TExpression, TValue>(string source, IConstantEvaluator<TExpression, TValue> evaluator,
+        UndeterminedBranch keep = UndeterminedBranch.First)
         where TExpression : class
     {
         if (!source.Contains('#'))
@@ -131,6 +149,25 @@ public static partial class ConditionalCompilation
             }
         }
 
+        // A branch begins at physical line `start`, under a condition that holds, does not, or cannot be told (#Else holds).
+        void Enter(Branch branch, bool? holds, int start)
+        {
+            var possible = !branch.Definite && holds != false;
+            branch.Definite |= holds == true;
+            branch.Undetermined |= holds is null;
+            // Under Last every branch that might be the one is read, and all but the last are emptied at #End If.
+            branch.Active = branch.ParentActive && possible && (keep == UndeterminedBranch.Last || !branch.Taken);
+            branch.Taken |= possible;
+            branch.Start = possible ? start : -1;
+        }
+
+        // The branch reading now ends before physical line `end`.
+        static void Leave(Branch branch, int end)
+        {
+            if (branch.Start >= 0)
+                branch.Possible.Add((branch.Start, end - 1));
+        }
+
         for (var first = 0; first < lines.Count;)
         {
             var last = first;
@@ -147,8 +184,9 @@ public static partial class ConditionalCompilation
                 {
                     var holds = Holds(d.Expression!, line);
                     // A condition nobody can value keeps its branch, so a parser has something to read, and marks the block.
-                    open.Push(new Branch(active, line)
-                        { Active = active && holds != false, Taken = holds != false, Undetermined = holds is null });
+                    var branch = new Branch(active, line);
+                    Enter(branch, holds, last + 1);
+                    open.Push(branch);
                     break;
                 }
                 case { Kind: DirectiveKind.ElseIf } d:
@@ -159,9 +197,8 @@ public static partial class ConditionalCompilation
                     if (branch.SeenElse)
                         throw new ConditionalCompilationException(ElseIfAfterElse, line);
                     var holds = Holds(d.Expression!, line);
-                    branch.Active = branch.ParentActive && !branch.Taken && holds != false;
-                    branch.Taken |= holds != false;
-                    branch.Undetermined |= holds is null;
+                    Leave(branch, first);
+                    Enter(branch, holds, last + 1);
                     break;
                 }
                 case { Kind: DirectiveKind.Else }:
@@ -171,8 +208,9 @@ public static partial class ConditionalCompilation
                     var branch = open.Peek();
                     if (branch.SeenElse)
                         throw new ConditionalCompilationException(ElseAfterElse, line);
-                    branch.Active = branch.ParentActive && !branch.Taken;
-                    branch.Taken = branch.SeenElse = true;
+                    Leave(branch, first);
+                    Enter(branch, true, last + 1);
+                    branch.SeenElse = true;
                     break;
                 }
                 case { Kind: DirectiveKind.EndIf }:
@@ -180,8 +218,20 @@ public static partial class ConditionalCompilation
                     if (open.Count == 0)
                         throw new ConditionalCompilationException(NoIf, line);
                     var branch = open.Pop();
+                    Leave(branch, first);
                     if (branch.Undetermined)
                         undetermined.Add(new LineRange(branch.Line, last + 1));
+                    if (keep == UndeterminedBranch.Last && branch.ParentActive)
+                    {
+                        // Each branch that might have been the one was read; all but the last are emptied now.
+                        foreach (var (start, end) in branch.Possible.SkipLast(1))
+                        {
+                            for (var i = start; i <= end; i++)
+                                blank[i] = true;
+                            if (start <= end)
+                                inactive.Add(new LineRange(start + 1, end + 1));
+                        }
+                    }
                     break;
                 }
                 case { Kind: DirectiveKind.Const } d:
@@ -210,7 +260,7 @@ public static partial class ConditionalCompilation
         var text = new StringBuilder(source.Length);
         for (var i = 0; i < lines.Count; i++)
             text.Append(blank[i] ? "" : lines[i].Text).Append(lines[i].Ending);
-        return new PreprocessedSource(text.ToString(), inactive, undetermined);
+        return new PreprocessedSource(text.ToString(), keep == UndeterminedBranch.Last ? Merged(inactive) : inactive, undetermined);
     }
 
     /// <summary>
@@ -240,15 +290,33 @@ public static partial class ConditionalCompilation
     [GeneratedRegex(@"^\s*(?<name>[A-Za-z][A-Za-z0-9_]*)\s*=\s*(?<value>[+-]?[0-9]+)\s*$")]
     private static partial Regex ArgumentPair();
 
-    // One #If's state: whether the branch reading now is the one selected, and whether an earlier branch already was.
+    // One #If's state: whether the branch reading now is read, whether an earlier branch might have been the one (Taken) or
+    // certainly was (Definite), and where each branch that might be the one lies, for UndeterminedBranch.Last.
     private sealed class Branch(bool parentActive, int line)
     {
         public bool ParentActive { get; } = parentActive;
         public int Line { get; } = line;
         public bool Active { get; set; }
         public bool Taken { get; set; }
+        public bool Definite { get; set; }
         public bool SeenElse { get; set; }
         public bool Undetermined { get; set; }
+        public int Start { get; set; } = -1;
+        public List<(int Start, int End)> Possible { get; } = [];
+    }
+
+    // Ranges in line order with neighbours joined: those UndeterminedBranch.Last empties arrive after the lines below them.
+    private static List<LineRange> Merged(List<LineRange> ranges)
+    {
+        var merged = new List<LineRange>();
+        foreach (var range in ranges.OrderBy(r => r.First))
+        {
+            if (merged.Count > 0 && merged[^1].Last >= range.First - 1)
+                merged[^1] = merged[^1] with { Last = Math.Max(merged[^1].Last, range.Last) };
+            else
+                merged.Add(range);
+        }
+        return merged;
     }
 
     private enum DirectiveKind { If, ElseIf, Else, EndIf, Const }

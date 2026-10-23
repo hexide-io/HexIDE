@@ -160,9 +160,14 @@ branch, keeping the line breaks, so every position in every answer is still the 
   semantics for that subset (`Not` is bitwise, so `Not 1` is `-2` and true). Anything else leaves the condition
   **undetermined**: a string, a fraction, arithmetic, a function such as `Len`, `Like`, or a name that is neither
   a `#Const` nor `Win32` or `Win16` in a document no project lists, where it might be an argument. An
-  undetermined block keeps its first branch for the parser, so the outline has something to show, and **reports
+  undetermined block keeps one branch for the parser, so the outline has something to show, and **reports
   nothing anywhere inside it**, from its `#If` to its `#End If`, because which of its lines `vb6.exe` compiles
-  is not known. None of those is a binding question, so each is depth: a fuller evaluator closes them. An
+  is not known. Which branch matters: this grammar's recovery from an error can swallow every error after it, so a
+  kept `Declare PtrSafe` once left a module with a real error further down looking clean, found on the running
+  IDE. So the first branch that might be the one is kept, and where the parse's first error falls inside an
+  undetermined block the module is parsed again keeping each such block's last instead, where code written for
+  several compilers keeps the oldest one's, and the parse whose first error comes later answers. That is at most
+  one extra parse. None of those is a binding question, so each is depth: a fuller evaluator closes them. An
   evaluation error, such as `"Variable not defined"` for a function `vb6.exe` refuses in a directive, is not
   reported for the same reason; the interpreter reports it when the module loads.
 - ◐ A document no `.vbp` lists, or that two list with different arguments, or whose project's `CondComp`
