@@ -115,13 +115,13 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 2 | 2 | 29 | 30 | 0 | 42 | 105 |
 | Operators | 0 | 0 | 2 | 19 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 59 | 41 | 1 | 52 | 153 |
+| Intrinsic functions | 0 | 0 | 58 | 41 | 1 | 53 | 153 |
 | Keywords and modifiers | 0 | 0 | 10 | 20 | 1 | 20 | 51 |
 | Literals, types and suffixes | 6 | 1 | 4 | 14 | 0 | 25 | 50 |
 | Compiler directives and options | 0 | 1 | 9 | 9 | 20 | 8 | 47 |
 | In-box objects | 0 | 0 | 87 | 14 | 0 | 22 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **8** | **4** | **208** | **408** | **22** | **532** | **1182** |
+| **Total** | **8** | **4** | **207** | **408** | **22** | **533** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -314,7 +314,7 @@ which is the cheaper kind to close. The named-argument operator `:=` was the oth
 | `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 
-## Dies mid-run — 202 names
+## Dies mid-run — 201 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -373,7 +373,6 @@ most of the in-box object model.
 | `Controls.Item` | **Dies** | Measured verbatim for Controls.Count: "Compile error: Variable not defined (Controls)". The same applies to Controls.Item(i); the default-member form Controls(i) instead gives "Sub or… | ExpressionExecutor.cs |
 | `Controls.Remove` | **Dies** | Measured pattern, identical to Controls.Add: "Run-time error: Unknown method Remove on <Right(EmptyVariant)>()". | StatementExecutor.cs |
 | `CreateObject` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. `Set o = CreateObject("Excel.Application")` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined… | ExpressionExecutor.cs |
-| `CVar` | **Dies** | Not registered in BuildRegistry (VB6BuiltIns.cs) or any RegisterXxx partial — the only hits anywhere in IDE/ are editor metadata. A call reaches ExpressionExecutor.cs and throws "Compile… | VB6BuiltIns.cs |
 | `CVErr` | **Dies** | Not registered in BuildRegistry (VB6BuiltIns.cs) or any RegisterXxx partial, so name resolution falls through local arrays and user procedures to the intrinsic registry, gets null back, and… | VB6BuiltIns.cs |
 | `DataBinding` | **Dies** | Measured for `Dim d As DataBinding`: VBCompileErrorException: "User-defined type not defined: DataBinding" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `DataBindings` | **Dies** | Measured for `Dim d As DataBindings`: VBCompileErrorException: "User-defined type not defined: DataBindings" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
@@ -420,7 +419,7 @@ most of the in-box object model.
 | `Hyperlink` | **Dies** | Measured for `Dim h As Hyperlink`: VBCompileErrorException: "User-defined type not defined: Hyperlink" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `IMEStatus` | **Dies** | but is not implemented. Not in BuildRegistry and zero occurrences anywhere in HexIDE.Runtime, including the editor-metadata files (VbSignatures.cs / VbKeywordNormalizer.cs). | ExpressionExecutor.cs |
 | `Input` | **Dies** | fails at name resolution: `Input` is in `ambiguousKeyword` (Grammar/VB6.g4) so `Input(n, f)` parses as a procedure-or-array call, but the name is unregistered. Probed `Debug.Print Input(5… | ExpressionExecutor.cs |
-| `Input #` | **Dies** | `inputStmt : INPUT WS valueStmt (WS? COMMA WS? valueStmt)+` (Grammar/VB6.g4); the visitor body is the throw. Probed `Input #1, s` -> NotImplementedException: "Input not implemented". | StatementExecutor.cs |
+| `Input #` | **Dies** | **[#1521](https://github.com/hexide-io/HexIDE/issues/1521).** `inputStmt : INPUT WS valueStmt (WS? COMMA WS? valueStmt)+` (Grammar/VB6.g4); the visitor body is the throw. Probed `Input #1, s` -> NotImplementedException: "Input not implemented". | StatementExecutor.cs |
 | `InputB` | **Dies** | fails at name resolution: a plain identifier (not a lexer keyword), unregistered. Probed `Debug.Print InputB(5, 1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function… | ExpressionExecutor.cs |
 | `InStrB` | **Dies** | Not registered (VB6BuiltIns.cs); no occurrence of "InStrB" under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (InStrB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `IPmt` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (IPmt)". Named in the deferral list at… | VB6BuiltIns.cs |
@@ -523,7 +522,7 @@ most of the in-box object model.
 | `Win16` | **Dies** | Not defined anywhere in the interpreter (the same repo-wide grep as Win32 returned no Win16 hits at all). Reachable only from #If, which throws first (PrePass.cs / StatementExecutor.cs). | PrePass.cs |
 | `Win32` | **Dies** | Not defined anywhere in the interpreter. A repo-wide grep for a Win32 conditional-compilation constant across IDE/ and LspServer/ (.cs and .g4) returned only unrelated hits - Avalonia… | PrePass.cs |
 | `Write` | **Dies** | WRITE is a lexer token used both in openStmt's `Access Write` / `Access Read Write` clause and as the head of writeStmt (Grammar/VB6.g4, 630-632). As a clause keyword: probed `Open "z.txt"… | StatementExecutor.cs |
-| `Write #` | **Dies** | `writeStmt : WRITE WS valueStmt WS? COMMA (WS? outputList)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Write #1, "x"` -> NotImplementedException: "Write not implemented". | StatementExecutor.cs |
+| `Write #` | **Dies** | **[#1521](https://github.com/hexide-io/HexIDE/issues/1521).** `writeStmt : WRITE WS valueStmt WS? COMMA (WS? outputList)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Write #1, "x"` -> NotImplementedException: "Write not implemented". | StatementExecutor.cs |
 
 ## Full inventory by category
 
@@ -560,7 +559,7 @@ missing.
 | `FileCopy` | **Dies** | `filecopyStmt : FILECOPY WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `FileCopy "a.txt", "b.txt"` -> NotImplementedException: "Filecopy not… | StatementExecutor.cs |
 | `Get` | **Dies** | `getStmt : GET WS valueStmt WS? COMMA WS? valueStmt? WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Get #1, 1, v` -> NotImplementedException: "Get not… | StatementExecutor.cs |
 | `GoSub...Return` | **Dies** | throws `"GoSub not implemented"` — Both halves parse and both throw. GoSub: (StatementExecutor.cs). Return: `throw new NotImplementedException("Return not implemented")` (:1172)… | StatementExecutor.cs |
-| `Input #` | **Dies** | `inputStmt : INPUT WS valueStmt (WS? COMMA WS? valueStmt)+` (Grammar/VB6.g4); the visitor body is the throw. Probed `Input #1, s` -> NotImplementedException: "Input not implemented". | StatementExecutor.cs |
+| `Input #` | **Dies** | **[#1521](https://github.com/hexide-io/HexIDE/issues/1521).** `inputStmt : INPUT WS valueStmt (WS? COMMA WS? valueStmt)+` (Grammar/VB6.g4); the visitor body is the throw. Probed `Input #1, s` -> NotImplementedException: "Input not implemented". | StatementExecutor.cs |
 | `Kill` | **Dies** | `killStmt : KILL WS valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Kill "z.txt"` -> NotImplementedException: "Kill not implemented". | StatementExecutor.cs |
 | `Line Input #` | Partial | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** reads a line of an Input file in the ANSI code page, ending at CR or CR LF but not a lone LF, and stopping at Ctrl+Z; 62 past the end, with the variable unchanged (all measured). Into a plain variable only: an array element or a member is refused as not implemented. | StatementExecutor.cs, VbFiles.cs |
 | `Lock` | **Dies** | `lockStmt : LOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Lock #1, 1 To 2` -> NotImplementedException: "Lock… | StatementExecutor.cs |
@@ -572,7 +571,7 @@ missing.
 | `On...GoTo` | **Dies** | throws `"OnGoTo not implemented"` — (onGoToStmt, VB6.g4) and throws at run time. Verbatim: Measured: `On i GoTo L1, L2` -> NotImplementedException: OnGoTo not implemented. | StatementExecutor.cs |
 | `Open` | Partial | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** For Input, Output and Append run as measured: Output truncates, a missing Input file is 53, a number in use or a second Output of one file is 55, `""` is 75 and `#0` is 52. `Access` is taken; a `Lock` keeps the file from this program only. For Random and For Binary are refused as not implemented. | StatementExecutor.cs, VbFiles.cs |
 | `Preserve` | Supported | **[#1459](https://github.com/hexide-io/HexIDE/issues/1459):** `ReDim Preserve` keeps the elements still in range and changes only the last dimension's upper bound, as vb6.exe does (measured, native and p-code): a grow keeps every value and fills the new elements with the type's default, a shrink drops the elements past the new bound and terminates an object held only there, and any other bound changing, the number of dimensions included, is 9 and leaves the array as it was. Too big is 7 and leaves it as it was, where a plain ReDim erases it. A Variant holding an array keeps its type; an Empty Variant, or one holding a scalar, is 13. An `As` clause naming another type is the compile error "Can't change data types of array elements", or 13 on a Variant. A fixed array named directly is "Array already dimensioned", 10 through a parameter, and an array whose element a running call holds ByRef is 10 (#1455). An undimensioned dynamic array is dimensioned, as a plain ReDim does it. | StatementExecutor.cs, Vb6Value.cs |
-| `Print #` | Partial | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** writes in the ANSI code page as vb6.exe measured: numbers with a space for the sign and one after, dates with one after, Booleans, strings and Null as they read, `;` joining, `,` moving to the next 14-column zone, and CR LF unless the statement ends in either. `Tab` and `Spc` move as measured ([#1380](https://github.com/hexide-io/HexIDE/issues/1380)). | StatementExecutor.cs |
+| `Print #` | Partial | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** writes in the ANSI code page as vb6.exe measured, a character it lacks as its best fit (Ā is "A", Ж "?", [#1511](https://github.com/hexide-io/HexIDE/issues/1511)): numbers with a space for the sign and one after, dates with one after, Booleans, strings and Null as they read, `;` joining, `,` moving to the next 14-column zone, and CR LF unless the statement ends in either. `Tab` and `Spc` move as measured ([#1380](https://github.com/hexide-io/HexIDE/issues/1380)). | StatementExecutor.cs |
 | `Put` | **Dies** | `putStmt : PUT WS valueStmt WS? COMMA WS? valueStmt? WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Put #1, 1, v` -> NotImplementedException: "Put not… | StatementExecutor.cs |
 | `Reset` | **Dies** | `resetStmt : RESET` (Grammar/VB6.g4) - a bare keyword with no operands; the visitor body is the throw. Probed `Reset` -> NotImplementedException: "Reset not implemented". | StatementExecutor.cs |
 | `Return` | **Dies** | throws `"Return not implemented"` — (returnStmt, VB6.g4) and throws at run time. Verbatim: | StatementExecutor.cs |
@@ -585,7 +584,7 @@ missing.
 | `SetAttr` | **Dies** | `setattrStmt : SETATTR WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `SetAttr "a.txt", 0` -> NotImplementedException: "Setattr not… | StatementExecutor.cs |
 | `Unlock` | **Dies** | `unlockStmt : UNLOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Unlock #1, 1 To 2` -> NotImplementedException:… | StatementExecutor.cs |
 | `Width #` | **Dies** | `widthStmt : WIDTH WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Width #1, 80` -> NotImplementedException: "Width not implemented". | StatementExecutor.cs |
-| `Write #` | **Dies** | `writeStmt : WRITE WS valueStmt WS? COMMA (WS? outputList)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Write #1, "x"` -> NotImplementedException: "Write not implemented". | StatementExecutor.cs |
+| `Write #` | **Dies** | **[#1521](https://github.com/hexide-io/HexIDE/issues/1521).** `writeStmt : WRITE WS valueStmt WS? COMMA (WS? outputList)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Write #1, "x"` -> NotImplementedException: "Write not implemented". | StatementExecutor.cs |
 | `Resume line` | Partial | `resumeStmt : RESUME (WS (NEXT \| ambiguousIdentifier))?` (VB6.g4). An identifier target becomes ResumeSignal(ResumeKind.Label) and the driver does `ResolveLabel(labels, r.Label!)`… | StatementExecutor.cs |
 | `ChDir` | Partial | Implemented and oracle-pinned. VisitChDirStmt evaluates the argument, coerces to string, assigns Environment.CurrentDirectory, and maps… | StatementExecutor.cs |
 | `Const` | Partial | **#1003:** a store into a Const is refused, with VB6's message for the statement (measured): `MK = 2` and `Set MK = Nothing` are "Assignment to constant not permitted", a For counter, a For Each variable or a Mid target is "Variable required - can't assign to this expression", and `ReDim MK(2)` or `Erase MK` is "Expected array", raised as the statement runs. It used to overwrite the constant. **#760:** a procedure's Consts are declared at its entry, ahead of its Dims, so `Dim a(P)` sees `P` (measured: `Const P = 2.5` then `Dim a(P)` is `a(0 To 2)`). A missing compile error: `Dim a(N)` above `Const N = 3` in a procedure runs, where VB6 refuses it ("Variable not defined" under Option Explicit, "Constant expression required" without, measured). **#873:** a Const's `As` type converts its value as a store into that type does, at module and procedure level (`As Integer = 2.5` is 2, `As String = 5` "5", `As Date = 1` 31/12/1899), and a value the type cannot hold is VB6's compile error ("Overflow" for `As Byte = 300`, "Type mismatch" for `As Integer = "x"`, "Invalid use of Null" for `As Integer = Null`), where the As clause was ignored; a String given to `As Date` is read as `CDate` reads it, and one that is no date is "Type mismatch", a serial beyond the range included ([#967](https://github.com/hexide-io/HexIDE/issues/967), measured); Currency from a Double still rounds its decimal form ([#966](https://github.com/hexide-io/HexIDE/issues/966)). A module-level Const is checked against VB6's rules for a constant expression as it runs, before it is evaluated (all measured with `/make`): a Const or Enum below, the Const itself, a variable, a user function and any function call, `Len` included, are "Constant expression required"; a constant qualified by its library, container, module, Enum or the project is read (`VBA.vbCrLf`, `KeyCodeConstants.vbKeyA`, `Module2.Cols.colMax`), and another module's declaration is found before a built-in constant of the same name; another module's Public Const is read, bare ([#880](https://github.com/hexide-io/HexIDE/issues/880)) or qualified, once that module's declarations have run, and refused before ([#893](https://github.com/hexide-io/HexIDE/issues/893)); and the module naming itself is "Circular dependencies between modules". A procedure's Consts are not checked yet ([#894](https://github.com/hexide-io/HexIDE/issues/894)) — Module-level names are hoisted by PrePass (so a Sub declared before the Const can still see it) and filled by the runtime visitor; local Consts inside a Sub work; multiple per line work… | StatementExecutor.cs, PrePass.cs |
@@ -681,7 +680,7 @@ missing.
 | `TypeOf ... Is` | Supported | `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (59 absent, 41 partial, 52 supported)
+### Intrinsic functions — 153 names (58 absent, 41 partial, 53 supported)
 
 
 **array** (3)
@@ -696,7 +695,7 @@ missing.
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `CVar` | **Dies** | Not registered in BuildRegistry (VB6BuiltIns.cs) or any RegisterXxx partial — the only hits anywhere in IDE/ are editor metadata. A call reaches ExpressionExecutor.cs and throws "Compile… | VB6BuiltIns.cs |
+| `CVar` | Supported | **[#1466](https://github.com/hexide-io/HexIDE/issues/1466):** its argument as a Variant, keeping the argument's own type (Integer for 5, Null, Empty, the array, the object itself), as vb6.exe measured. The result reads as a Variant's, so `CVar(5) * 7000` widens to a Long 35000 where `5 * 7000` overflows. `CVar$` keeps the same type, and a named argument is "Syntax error". | VB6BuiltIns.Conversion.cs |
 | `CVDate` | Supported | `CDate` under its older name, with the same answer (**#967**, measured under en-GB: `CVDate("36526")` is 01/01/2000 and `CVDate("1.5")` 01:05). Registered as `d["CVDate"] = (_, a, _) => CDate(a[0])`. | VB6BuiltIns.Conversion.cs |
 | `CVErr` | **Dies** | Not registered in BuildRegistry (VB6BuiltIns.cs) or any RegisterXxx partial, so name resolution falls through local arrays and user procedures to the intrinsic registry, gets null back, and… | VB6BuiltIns.cs |
 | `CBool` | Partial | Registered; CBool() maps Null -> Err 94, passes a Boolean through, parses a String via bool.TryParse then a numeric parse (Err 13 on garbage), and otherwise tests ToNum() != 0. Pinned:… `CBool(Empty)` is False, measured (#774; it raised 13), and `CBool("")` is 13. A Boolean control property (`Enabled = Empty`) converts through it. | VB6BuiltIns.Conversion.cs |
