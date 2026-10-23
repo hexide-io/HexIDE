@@ -169,7 +169,8 @@ public class PrePass : VB6BaseVisitor<object?>
 
     public override object? VisitOptionBaseStmt(VB6Parser.OptionBaseStmtContext context)
     {
-        ArrayBase = int.Parse(context.INTEGERLITERAL().GetText());
+        ArrayBase = int.Parse(context.INTEGERLITERAL().GetText(), System.Globalization.NumberStyles.Integer,
+            System.Globalization.CultureInfo.InvariantCulture);
         return default;
     }
 
