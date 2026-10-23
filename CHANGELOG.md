@@ -213,6 +213,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Bare Print no longer prevents a form from loading** (#993). The interpreter and editor accept its output list.
+  Reaching it still stops the run at the form's unimplemented Print method (#989); standard and class modules refuse
+  it at runtime, naming #993, pending a VB6 measurement.
+
 - **Indexing a call's result runs** (#1476). `Split(s)(0)`, `Array(1, 2)(1)`, `F()(1)` and `a(1)(0) = 9` stopped the
   program. They now run as vb6.exe runs them, evaluating in its order. A parameterless Function that returns a Variant
   now reads its arguments as an index into its result, so `F(1)` is `F()(1)`; it used to drop them and return the whole

@@ -536,7 +536,9 @@ outputList_Expression
    ;
 
 printStmt
+   // A form's Print shares the output list; keep file Print first (#993).
    : PRINT WS valueStmt WS? COMMA (WS? outputList)?
+   | PRINT (WS outputList)?
    ;
 
 propertyGetStmt

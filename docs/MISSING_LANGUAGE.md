@@ -113,7 +113,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Statements | 2 | 2 | 27 | 32 | 0 | 42 | 105 |
+| Statements | 2 | 2 | 27 | 33 | 0 | 42 | 106 |
 | Operators | 0 | 0 | 2 | 19 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 58 | 41 | 1 | 53 | 153 |
 | Keywords and modifiers | 0 | 0 | 10 | 20 | 1 | 20 | 51 |
@@ -121,7 +121,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Compiler directives and options | 0 | 1 | 9 | 9 | 20 | 8 | 47 |
 | In-box objects | 0 | 0 | 84 | 14 | 0 | 25 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **8** | **4** | **202** | **410** | **22** | **536** | **1182** |
+| **Total** | **8** | **4** | **202** | **411** | **22** | **536** | **1183** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -571,6 +571,7 @@ missing.
 | `On...GoTo` | **Dies** | throws `"OnGoTo not implemented"` — (onGoToStmt, VB6.g4) and throws at run time. Verbatim: Measured: `On i GoTo L1, L2` -> NotImplementedException: OnGoTo not implemented. | StatementExecutor.cs |
 | `Open` | Partial | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** For Input, Output and Append run as measured: Output truncates, a missing Input file is 53, a number in use or a second Output of one file is 55, `""` is 75 and `#0` is 52. `Access` is taken; a `Lock` keeps the file from this program only. For Random and For Binary are refused as not implemented. | StatementExecutor.cs, VbFiles.cs |
 | `Preserve` | Supported | **[#1459](https://github.com/hexide-io/HexIDE/issues/1459):** `ReDim Preserve` keeps the elements still in range and changes only the last dimension's upper bound, as vb6.exe does (measured, native and p-code): a grow keeps every value and fills the new elements with the type's default, a shrink drops the elements past the new bound and terminates an object held only there, and any other bound changing, the number of dimensions included, is 9 and leaves the array as it was. Too big is 7 and leaves it as it was, where a plain ReDim erases it. A Variant holding an array keeps its type; an Empty Variant, or one holding a scalar, is 13. An `As` clause naming another type is the compile error "Can't change data types of array elements", or 13 on a Variant. A fixed array named directly is "Array already dimensioned", 10 through a parameter, and an array whose element a running call holds ByRef is 10 (#1455). An undimensioned dynamic array is dimensioned, as a plain ReDim does it. | StatementExecutor.cs, Vb6Value.cs |
+| `Print` | Partial | **#993:** parses with an optional output list, so an unreached statement no longer prevents form loading. In a form, reaching it takes the same not-implemented refusal as `Me.Print` (#989). In standard and class modules it stops with a not-implemented refusal naming #993; VB6 behaviour there is unmeasured. | StatementExecutor.cs |
 | `Print #` | Partial | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** writes in the ANSI code page as vb6.exe measured, a character it lacks as its best fit (Ā is "A", Ж "?", [#1511](https://github.com/hexide-io/HexIDE/issues/1511)): numbers with a space for the sign and one after, dates with one after, Booleans, strings and Null as they read, `;` joining, `,` moving to the next 14-column zone, and CR LF unless the statement ends in either. `Tab` and `Spc` move as measured ([#1380](https://github.com/hexide-io/HexIDE/issues/1380)). | StatementExecutor.cs |
 | `Put` | **Dies** | `putStmt : PUT WS valueStmt WS? COMMA WS? valueStmt? WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Put #1, 1, v` -> NotImplementedException: "Put not… | StatementExecutor.cs |
 | `Reset` | **Dies** | `resetStmt : RESET` (Grammar/VB6.g4) - a bare keyword with no operands; the visitor body is the throw. Probed `Reset` -> NotImplementedException: "Reset not implemented". | StatementExecutor.cs |
