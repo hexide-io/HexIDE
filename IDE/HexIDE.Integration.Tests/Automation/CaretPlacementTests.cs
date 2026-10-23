@@ -274,4 +274,70 @@ public class CaretPlacementTests : IDisposable
         CaretPlacement.Where(vm, 2, 3).Should().EndWith("That is not line 2, column 3, as asked: the editor moved it, so "
             + "type_text would write there.");
     }
+
+    [AvaloniaFact]
+    public void Set_property_reads_the_carried_file_caret_after_the_view_clamps_it()
+    {
+        var vm = new RelatedDocumentEditorViewModel(lsp);
+        vm.Document.Text = "0123456789";
+        var view = new RelatedDocumentEditorView { DataContext = vm };
+        var window = new Window { Width = 800, Height = 600, Content = view };
+        windows.Add(window);
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        var editor = view.FindControl<TextEditor>("TextEditor")!;
+
+        var outcome = UiAutomationDriver.Interact(editor, "set_property", "CaretOffset=99999");
+
+        editor.CaretOffset.Should().Be(10);
+        vm.CaretOffset.Should().Be(10);
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Be("set RelatedDocumentEditorViewModel.CaretOffset: sent 99999, now 10");
+        UiAutomationDriver.Interact(editor, "set_property", "CaretOffset=5").Detail.Should()
+            .Be("set RelatedDocumentEditorViewModel.CaretOffset = 5");
+    }
+
+    [AvaloniaFact]
+    public void Set_property_reads_the_code_editor_caret_even_when_the_model_keeps_the_sent_offset()
+    {
+        var vm = Model();
+        // Replace the generated header too: the buffer has exactly ten characters on either checkout's line endings.
+        vm.Document.Text = "0123456789";
+        var editor = Show(vm);
+        var before = editor.CaretOffset;
+
+        var outcome = UiAutomationDriver.Interact(editor, "set_property", "CaretOffset=99999");
+
+        vm.CaretOffset.Should().Be(99999);
+        editor.CaretOffset.Should().Be(before);
+        outcome.Success.Should().BeTrue(outcome.Error);
+        outcome.Detail.Should().Be("set CodeEditorViewModel.CaretOffset: sent 99999, now "
+            + before.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    [AvaloniaFact]
+    public void Set_property_reads_an_ordinary_setter_in_invariant_culture_and_explains_a_refusal()
+    {
+        var previous = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("fr-FR");
+            var target = new Border { DataContext = new ClampingModel() };
+            UiAutomationDriver.Interact(target, "set_property", "Width=99.5").Detail.Should()
+                .Be("set ClampingModel.Width: sent 99.5, now 10.5");
+            UiAutomationDriver.Interact(target, "set_property", "Width=5.5").Detail.Should()
+                .Be("set ClampingModel.Width = 5.5");
+            var refused = UiAutomationDriver.Interact(target, "set_property", "Refused=1");
+            refused.Success.Should().BeFalse();
+            refused.Error.Should().Be("set_property 'Refused=1' was refused: locked");
+        }
+        finally { System.Globalization.CultureInfo.CurrentCulture = previous; }
+    }
+
+    private sealed class ClampingModel
+    {
+        private decimal width;
+        public decimal Width { get => width; set => width = Math.Min(value, 10.5m); }
+        public int Refused { get => 0; set => throw new InvalidOperationException("locked"); }
+    }
 }
