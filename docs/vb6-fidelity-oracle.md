@@ -3680,8 +3680,11 @@ every numeric constant unaffected. A measurement that has been through a lossy t
 like a correct one.
 
 Seven of these — `vbTab`, `vbBack`, `vbFormFeed`, `vbNewLine`, `vbNullChar`, `vbNullString`,
-`vbVerticalTab` — are absent from HexIDE altogether; `vbTab` and `vbNullString` are already recorded as
-**Dies** in `MISSING_LANGUAGE.md`.
+`vbVerticalTab` — were absent from HexIDE altogether when this was measured; `vbTab` and `vbNullString` were
+already recorded as **Dies** in `MISSING_LANGUAGE.md`. #215 resolved all eleven through the type library the
+same day, but the inventory went on rating seven of them Dies until #1633 probed them on main: each is its
+type library value, bare, as `VBA.x`, as `VBA.Constants.x` and in a module-level `Const`, under `Option
+Explicit`. A status that a fix does not update outlives the fix.
 
 ## String literals: `""` is the only escape (2026-09-04)
 

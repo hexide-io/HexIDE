@@ -120,8 +120,8 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Literals, types and suffixes | 6 | 1 | 4 | 14 | 0 | 25 | 50 |
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
 | In-box objects | 0 | 0 | 84 | 14 | 0 | 25 | 123 |
-| Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **7** | **3** | **177** | **430** | **20** | **547** | **1184** |
+| Intrinsic constants | 0 | 0 | 0 | 261 | 0 | 360 | 621 |
+| **Total** | **7** | **3** | **169** | **430** | **20** | **555** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -307,7 +307,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | `Function` | **Won't load** | **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)).** `Function GetName$()` -> "extraneous input '$' expecting {':', '(', NEWLINE, WS}", and the whole module with it; `Function Twice%(ByVal x As Integer)` the same with `%`. VB6 compiles a `$`-declared Function (oracle TR_01, TR_02, TB_01); no oracle row covers a `Function` declared with `% & ! # @`. VB6.g4's `functionStmt` has no `typeHint?` after the name, though `propertyGetStmt` in the same file has one and the LSP server's grammar has it on both; `GrammarParityTests` compares rule inventories, not alternatives, so it does not see the gap. **[#1444](https://github.com/hexide-io/HexIDE/issues/1444):** a return declared as a scalar converts what is stored into its name there and then, as a variable of that type does, and a failure is raised inside the procedure, where its own handler traps it (measured: `FS = 5` As String is "5", `FD = "0.5"` As Date 00:05, `FB = "abc"` As Boolean 13, and `FI = 40000` As Integer 6, inside each). Otherwise as before — PrePass.VisitFunctionStmt registers a ProcedureInfo (name, params, return type, body, IsPrivate). The return is by assignment to the procedure's own name; an unassigned return yields the… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
 | `Function...End Function` | **Won't load** | **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)); see `Function`.** **[#975](https://github.com/hexide-io/HexIDE/issues/975):** one declared `As Long()` returns its array (measured), where it returned a Long 0, and **[#986](https://github.com/hexide-io/HexIDE/issues/986):** takes only an array of its own type, a mismatch raising 13 or VB6's compile error "Can't assign to array" as VB6 does (measured), and a String stored into one declared `As Byte()`, which VB6 converts, stops the run as not implemented ([#998](https://github.com/hexide-io/HexIDE/issues/998)). The production quoted below has no `typeHint?` after the name, so `Function GetName$()` does not parse. Otherwise as before — The whole construct - `(visibility WS)? (STATIC WS)? FUNCTION WS name (argList)? (asTypeClause)? ... END_FUNCTION` - is collected by PrePass.VisitFunctionStmt and executed by… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
 
-## Dies mid-run — 177 names
+## Dies mid-run — 169 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -477,14 +477,6 @@ most of the in-box object model.
 | `Unlock` | **Dies** | `unlockStmt : UNLOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Unlock #1, 1 To 2` -> NotImplementedException:… | StatementExecutor.cs |
 | `VarPtr` | **Dies** | Zero hits anywhere in IDE/ outside obj/bin — not registered, not in the grammar, not in editor metadata; ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined… | VB6BuiltIns.cs |
 | `VB_PredeclaredId` | **Dies** | but is silently discarded - no throw, and no behaviour. Emitted in the canonical class header (ModuleFileFormat.cs) and preserved verbatim, but a repo-wide grep for a consumer across… | ModuleFileFormat.cs |
-| `vbBack` | **Dies** | member of the `VBA.Constants` MODULE, not of any enum, which is why an inventory that walked only `TKIND_ENUM` would have missed the whole family. Value `Chr(8)`, read from the real type library and cross-checked against a compiled program's `Asc`/`Len`. Resolved by `VB6InBoxLibraries` and covered by `InBoxConstantTests`; see docs/vb6-inbox-constants.md | VB6InBoxLibraries.cs |
-| `vbFormFeed` | **Dies** | member of the `VBA.Constants` MODULE, not of any enum, which is why an inventory that walked only `TKIND_ENUM` would have missed the whole family. Value `Chr(12)`, read from the real type library and cross-checked against a compiled program's `Asc`/`Len`. Resolved by `VB6InBoxLibraries` and covered by `InBoxConstantTests`; see docs/vb6-inbox-constants.md | VB6InBoxLibraries.cs |
-| `vbNewLine` | **Dies** | member of the `VBA.Constants` MODULE, not of any enum, which is why an inventory that walked only `TKIND_ENUM` would have missed the whole family. Value CRLF, read from the real type library and cross-checked against a compiled program's `Asc`/`Len`. Resolved by `VB6InBoxLibraries` and covered by `InBoxConstantTests`; see docs/vb6-inbox-constants.md | VB6InBoxLibraries.cs |
-| `vbNullChar` | **Dies** | member of the `VBA.Constants` MODULE, not of any enum, which is why an inventory that walked only `TKIND_ENUM` would have missed the whole family. Value `Chr(0)`, read from the real type library and cross-checked against a compiled program's `Asc`/`Len`. Resolved by `VB6InBoxLibraries` and covered by `InBoxConstantTests`; see docs/vb6-inbox-constants.md | VB6InBoxLibraries.cs |
-| `vbNullString` | **Dies** | member of the `VBA.Constants` MODULE, not of any enum, which is why an inventory that walked only `TKIND_ENUM` would have missed the whole family. Value a zero-length string, read from the real type library and cross-checked against a compiled program's `Asc`/`Len`. Resolved by `VB6InBoxLibraries` and covered by `InBoxConstantTests`; see docs/vb6-inbox-constants.md | VB6InBoxLibraries.cs |
-| `vbTab` | **Dies** | member of the `VBA.Constants` MODULE, not of any enum, which is why an inventory that walked only `TKIND_ENUM` would have missed the whole family. Value `Chr(9)`, read from the real type library and cross-checked against a compiled program's `Asc`/`Len`. Resolved by `VB6InBoxLibraries` and covered by `InBoxConstantTests`; see docs/vb6-inbox-constants.md | VB6InBoxLibraries.cs |
-| `vbUseCompareOption` | **Dies** | **not a VB6 name at all.** Widely documented as a member of `VbCompareMethod` with value -1, but the type library declares only three members (`vbBinaryCompare` 0, `vbTextCompare` 1, `vbDatabaseCompare` 2). Measured: `VbCompareMethod.vbUseCompareOption` is a compile error in real vb6.exe - "Method or data member not found" - so refusing it is FAITHFUL, not a gap. NB the bare form appears to compile, because without `Option Explicit` it is just an undeclared Variant evaluating to Empty; the qualified form is the decisive probe. The documentation is wrong | n/a |
-| `vbVerticalTab` | **Dies** | member of the `VBA.Constants` MODULE, not of any enum, which is why an inventory that walked only `TKIND_ENUM` would have missed the whole family. Value `Chr(11)`, read from the real type library and cross-checked against a compiled program's `Asc`/`Len`. Resolved by `VB6InBoxLibraries` and covered by `InBoxConstantTests`; see docs/vb6-inbox-constants.md | VB6InBoxLibraries.cs |
 | `Width #` | **Dies** | `widthStmt : WIDTH WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Width #1, 80` -> NotImplementedException: "Width not implemented". | StatementExecutor.cs |
 | `Write` | **Dies** | WRITE is a lexer token used both in openStmt's `Access Write` / `Access Read Write` clause and as the head of writeStmt (Grammar/VB6.g4). As a clause keyword: probed `Open "z.txt"… | StatementExecutor.cs |
 | `Time (statement)` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
@@ -1144,18 +1136,19 @@ Constants are half the language surface by count and would swamp a table, so the
 family. They also have almost no nuance individually: a constant either resolves to the right value or it
 does not.
 
-**The interesting gap is structural, not per-name.** In VB6 these are not flat constants — they are
-members of *enums* published by the VBA and VB type libraries (`ColorConstants`, `VbMsgBoxStyle`,
-`KeyCodeConstants`, `VbVarType`, and so on), which is why the Object Browser was full of them. HexIDE
-implements the **values** as a flat name→value table (`TryGetBuiltInConstant`) but does **not** register
-the **enum types**. So `Dim x As VbMsgBoxStyle` fails, and the type-qualified form
-`ColorConstants.vbRed` fails, for every intrinsic constant.
+**They resolve as VB6 resolves them.** In VB6 these are not flat constants: they are members of *enums*,
+and of one *module*, published by the VBA and VB type libraries (`ColorConstants`, `VbMsgBoxStyle`,
+`KeyCodeConstants`, `VbVarType`, `VBA.Constants` and so on), which is why the Object Browser was full of
+them. Since [#215](https://github.com/hexide-io/HexIDE/issues/215) HexIDE resolves each through its library, from a dump of the real type libraries: bare,
+qualified by its library (`VBA.vbCancel`) or its container (`VbMsgBoxResult.vbCancel`) or both, and an
+in-box enum is a type (`Dim x As VbMsgBoxResult`). `InBoxConstantTests` runs each form.
 
-Two corrections to the obvious readings of that. It fails **uniformly** — for the Supported rows as much
-as the Partial ones — so enum qualification does not explain the Supported/Partial split and cannot be
-used to predict it. And the Object Browser does not merely lack the *grouping*: it shows **no intrinsic
-constant at all**, because its VBA library is built solely from the LSP `vb/builtinSymbols` response,
-which enumerates `VbSignatures.GetAll()` — a 97-entry list that contains none of them.
+This section went on describing the flat name-to-value table #215 replaced, in which no enum type was
+registered, for weeks after it stopped being true, and eight rows were rated Dies on that reading ([#1633](https://github.com/hexide-io/HexIDE/issues/1633)).
+
+**The Object Browser still shows none of them.** Its VBA library is built solely from the LSP
+`vb/builtinSymbols` response, which enumerates `VbSignatures.GetAll()` — a 97-entry list that contains no
+constant. So it lacks not merely the *grouping* but every intrinsic constant.
 
 The larger cause of Partial is a constant whose **consumer** is absent: a correct value that nothing can
 use. Be careful reading these rows, though — the grading is inconsistent on exactly this point. The
@@ -1178,7 +1171,7 @@ pass happened to attack, not a real distinction.
 | Printer paper bin (PrinterObjectConstants / DMBIN_*) | 12 | 0 | 0 | 12 |
 | Constants: scale mode (ScaleModeConstants) | 11 | 0 | 0 | 11 |
 | IME mode (VbIMEMode) | 0 | 11 | 0 | 11 |
-| String constants (miscellaneous) | 3 | 0 | 7 | 10 |
+| String constants (miscellaneous) | 10 | 0 | 0 | 10 |
 | Clipboard formats (ClipBoardConstants) | 0 | 9 | 0 | 9 |
 | IME status (IMEStatus returns) | 0 | 9 | 0 | 9 |
 | StrConv (VbStrConv) | 0 | 9 | 0 | 9 |
@@ -1206,7 +1199,7 @@ pass happened to attack, not a real distinction.
 | Picture type (PictureTypeConstants) | 5 | 0 | 0 | 5 |
 | PopupMenu flags | 0 | 5 | 0 | 5 |
 | CallType (VbCallType) | 0 | 4 | 0 | 4 |
-| Comparison (VbCompareMethod) | 1 | 2 | 1 | 4 |
+| Comparison (VbCompareMethod) | 2 | 2 | 0 | 4 |
 | Constants: hit-test (HitResultConstants) | 4 | 0 | 0 | 4 |
 | DDE LinkError codes (LinkErrorConstants) | 0 | 4 | 0 | 4 |
 | Form StartUpPosition | 3 | 1 | 0 | 4 |
@@ -1255,18 +1248,31 @@ pass happened to attack, not a real distinction.
 | DrawStyle (DrawStyleConstants) - NOT a Shell window style | 1 | 0 | 0 | 1 |
 | Error numbering | 1 | 0 | 0 | 1 |
 
-### Constants that do not resolve at all — 8
+### Constants by name — 12
+
+The family table counts every constant; these twelve are listed by name as well. Eleven are the members of
+the `VBA.Constants` module, which belongs to no enum, so an inventory that walked only `TKIND_ENUM` would
+miss the whole family, and they are the ones a reader comes looking for: `vbCrLf`, `vbNewLine`, `vbTab`.
+The twelfth, `vbUseCompareOption`, is documented widely and declared nowhere.
+
+Seven of the eleven were rated Dies here from before [#215](https://github.com/hexide-io/HexIDE/issues/215) until [#1633](https://github.com/hexide-io/HexIDE/issues/1633), and so was `vbUseCompareOption`:
+that made `vbNewLine` and `vbTab` read as the largest cliff in this inventory, when every one resolves.
+`InBoxConstantTests` runs each of the eleven bare, qualified both ways and in a module-level `Const`.
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `vbBack` | **Dies** | member of the `VBA.Constants` MODULE, not of any enum, which is why an inventory that walked only `TKIND_ENUM` would have missed the whole family. Value `Chr(8)`, read from the real type library and cross-checked against a compiled program's `Asc`/`Len`. Resolved by `VB6InBoxLibraries` and covered by `InBoxConstantTests`; see docs/vb6-inbox-constants.md | VB6InBoxLibraries.cs |
-| `vbFormFeed` | **Dies** | member of the `VBA.Constants` MODULE, not of any enum, which is why an inventory that walked only `TKIND_ENUM` would have missed the whole family. Value `Chr(12)`, read from the real type library and cross-checked against a compiled program's `Asc`/`Len`. Resolved by `VB6InBoxLibraries` and covered by `InBoxConstantTests`; see docs/vb6-inbox-constants.md | VB6InBoxLibraries.cs |
-| `vbNewLine` | **Dies** | member of the `VBA.Constants` MODULE, not of any enum, which is why an inventory that walked only `TKIND_ENUM` would have missed the whole family. Value CRLF, read from the real type library and cross-checked against a compiled program's `Asc`/`Len`. Resolved by `VB6InBoxLibraries` and covered by `InBoxConstantTests`; see docs/vb6-inbox-constants.md | VB6InBoxLibraries.cs |
-| `vbNullChar` | **Dies** | member of the `VBA.Constants` MODULE, not of any enum, which is why an inventory that walked only `TKIND_ENUM` would have missed the whole family. Value `Chr(0)`, read from the real type library and cross-checked against a compiled program's `Asc`/`Len`. Resolved by `VB6InBoxLibraries` and covered by `InBoxConstantTests`; see docs/vb6-inbox-constants.md | VB6InBoxLibraries.cs |
-| `vbNullString` | **Dies** | member of the `VBA.Constants` MODULE, not of any enum, which is why an inventory that walked only `TKIND_ENUM` would have missed the whole family. Value a zero-length string, read from the real type library and cross-checked against a compiled program's `Asc`/`Len`. Resolved by `VB6InBoxLibraries` and covered by `InBoxConstantTests`; see docs/vb6-inbox-constants.md | VB6InBoxLibraries.cs |
-| `vbTab` | **Dies** | member of the `VBA.Constants` MODULE, not of any enum, which is why an inventory that walked only `TKIND_ENUM` would have missed the whole family. Value `Chr(9)`, read from the real type library and cross-checked against a compiled program's `Asc`/`Len`. Resolved by `VB6InBoxLibraries` and covered by `InBoxConstantTests`; see docs/vb6-inbox-constants.md | VB6InBoxLibraries.cs |
-| `vbUseCompareOption` | **Dies** | **not a VB6 name at all.** Widely documented as a member of `VbCompareMethod` with value -1, but the type library declares only three members (`vbBinaryCompare` 0, `vbTextCompare` 1, `vbDatabaseCompare` 2). Measured: `VbCompareMethod.vbUseCompareOption` is a compile error in real vb6.exe - "Method or data member not found" - so refusing it is FAITHFUL, not a gap. NB the bare form appears to compile, because without `Option Explicit` it is just an undeclared Variant evaluating to Empty; the qualified form is the decisive probe. The documentation is wrong | n/a |
-| `vbVerticalTab` | **Dies** | member of the `VBA.Constants` MODULE, not of any enum, which is why an inventory that walked only `TKIND_ENUM` would have missed the whole family. Value `Chr(11)`, read from the real type library and cross-checked against a compiled program's `Asc`/`Len`. Resolved by `VB6InBoxLibraries` and covered by `InBoxConstantTests`; see docs/vb6-inbox-constants.md | VB6InBoxLibraries.cs |
+| `vbBack` | Supported | Member of the `VBA.Constants` module. `Chr(8)`, read from the type library and cross-checked against a compiled program's `Asc` and `Len`. Resolves bare, as `VBA.vbBack`, as `VBA.Constants.vbBack` and in a module-level `Const`, since [#215](https://github.com/hexide-io/HexIDE/issues/215). **[#1633](https://github.com/hexide-io/HexIDE/issues/1633):** rated Dies here until this correction, long after it resolved. | VB6InBoxLibraries.cs |
+| `vbCr` | Supported | Member of the `VBA.Constants` module. `Chr(13)`, read from the type library and cross-checked against a compiled program's `Asc` and `Len`. Resolves bare, as `VBA.vbCr`, as `VBA.Constants.vbCr` and in a module-level `Const`, since [#215](https://github.com/hexide-io/HexIDE/issues/215). | VB6InBoxLibraries.cs |
+| `vbCrLf` | Supported | Member of the `VBA.Constants` module. CR LF, read from the type library and cross-checked against a compiled program's `Asc` and `Len`. Resolves bare, as `VBA.vbCrLf`, as `VBA.Constants.vbCrLf` and in a module-level `Const`, since [#215](https://github.com/hexide-io/HexIDE/issues/215). | VB6InBoxLibraries.cs |
+| `vbFormFeed` | Supported | Member of the `VBA.Constants` module. `Chr(12)`, read from the type library and cross-checked against a compiled program's `Asc` and `Len`. Resolves bare, as `VBA.vbFormFeed`, as `VBA.Constants.vbFormFeed` and in a module-level `Const`, since [#215](https://github.com/hexide-io/HexIDE/issues/215). **[#1633](https://github.com/hexide-io/HexIDE/issues/1633):** rated Dies here until this correction, long after it resolved. | VB6InBoxLibraries.cs |
+| `vbLf` | Supported | Member of the `VBA.Constants` module. `Chr(10)`, read from the type library and cross-checked against a compiled program's `Asc` and `Len`. Resolves bare, as `VBA.vbLf`, as `VBA.Constants.vbLf` and in a module-level `Const`, since [#215](https://github.com/hexide-io/HexIDE/issues/215). | VB6InBoxLibraries.cs |
+| `vbNewLine` | Supported | Member of the `VBA.Constants` module. CR LF, read from the type library and cross-checked against a compiled program's `Asc` and `Len`. Resolves bare, as `VBA.vbNewLine`, as `VBA.Constants.vbNewLine` and in a module-level `Const`, since [#215](https://github.com/hexide-io/HexIDE/issues/215). **[#1633](https://github.com/hexide-io/HexIDE/issues/1633):** rated Dies here until this correction, long after it resolved. | VB6InBoxLibraries.cs |
+| `vbNullChar` | Supported | Member of the `VBA.Constants` module. `Chr(0)`, read from the type library and cross-checked against a compiled program's `Asc` and `Len`. Resolves bare, as `VBA.vbNullChar`, as `VBA.Constants.vbNullChar` and in a module-level `Const`, since [#215](https://github.com/hexide-io/HexIDE/issues/215). **[#1633](https://github.com/hexide-io/HexIDE/issues/1633):** rated Dies here until this correction, long after it resolved. | VB6InBoxLibraries.cs |
+| `vbNullString` | Supported | Member of the `VBA.Constants` module. A zero-length String, read from the type library and cross-checked against a compiled program's `Asc` and `Len`. Resolves bare, as `VBA.vbNullString`, as `VBA.Constants.vbNullString` and in a module-level `Const`, since [#215](https://github.com/hexide-io/HexIDE/issues/215). **[#1633](https://github.com/hexide-io/HexIDE/issues/1633):** rated Dies here until this correction, long after it resolved. | VB6InBoxLibraries.cs |
+| `vbObjectError` | Supported | Member of the `VBA.Constants` module. The Long -2147221504, read from the type library and cross-checked against a compiled program's `Asc` and `Len`. Resolves bare, as `VBA.vbObjectError`, as `VBA.Constants.vbObjectError` and in a module-level `Const`, since [#215](https://github.com/hexide-io/HexIDE/issues/215). | VB6InBoxLibraries.cs |
+| `vbTab` | Supported | Member of the `VBA.Constants` module. `Chr(9)`, read from the type library and cross-checked against a compiled program's `Asc` and `Len`. Resolves bare, as `VBA.vbTab`, as `VBA.Constants.vbTab` and in a module-level `Const`, since [#215](https://github.com/hexide-io/HexIDE/issues/215). **[#1633](https://github.com/hexide-io/HexIDE/issues/1633):** rated Dies here until this correction, long after it resolved. | VB6InBoxLibraries.cs |
+| `vbUseCompareOption` | Supported | **Not a VB6 name at all.** Widely documented as a member of `VbCompareMethod` with value -1, but the type library declares only three members (`vbBinaryCompare` 0, `vbTextCompare` 1, `vbDatabaseCompare` 2). Measured: `VbCompareMethod.vbUseCompareOption` is a compile error in vb6.exe, "Method or data member not found", and HexIDE refuses it in the same words. The bare form is an undeclared Variant, `Empty`, in both. **[#1633](https://github.com/hexide-io/HexIDE/issues/1633):** it was rated Dies, which counted a faithful refusal as a gap. | VB6InBoxLibraries.cs |
+| `vbVerticalTab` | Supported | Member of the `VBA.Constants` module. `Chr(11)`, read from the type library and cross-checked against a compiled program's `Asc` and `Len`. Resolves bare, as `VBA.vbVerticalTab`, as `VBA.Constants.vbVerticalTab` and in a module-level `Const`, since [#215](https://github.com/hexide-io/HexIDE/issues/215). **[#1633](https://github.com/hexide-io/HexIDE/issues/1633):** rated Dies here until this correction, long after it resolved. | VB6InBoxLibraries.cs |
 
 ## The signature-help trap
 
