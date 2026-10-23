@@ -27,70 +27,701 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
 
     private List<string?> Printed() => debug.Select(v => v.Value as string).ToList();
 
+    // The Types and helpers of the probes for Binary_Put_writes_each_type_as_vb6_exe_did.
+    private string Probe1 => $$"""
+
+        Private Type TRec
+            i As Integer
+            s As String
+            l As Long
+        End Type
+
+        Private Type TVar
+            v As Variant
+            b As Byte
+        End Type
+
+        Public Sub L(ByVal s As String)
+            Debug.Print s
+        End Sub
+
+        Public Function P(ByVal name As String) As String
+            P = "{{Folder}}" & name
+        End Function
+
+        Public Function E() As String
+            E = " err " & Err.Number
+            Err.Clear
+        End Function
+
+        Public Sub Fresh(ByVal name As String)
+            On Error Resume Next
+            Kill P(name)
+            Err.Clear
+        End Sub
+
+        Public Function Hx(ByVal name As String) As String
+            Dim f As Integer, b() As Byte, i As Long, r As String
+            f = FreeFile
+            Open P(name) For Binary As #f
+            If LOF(f) > 0 Then
+                ReDim b(0 To LOF(f) - 1)
+                Get #f, 1, b
+                For i = 0 To UBound(b)
+                    r = r & Right$("0" & Hex$(b(i)), 2) & " "
+                Next
+            End If
+            Close #f
+            Hx = "[" & Trim$(r) & "]"
+        End Function
+
+        Public Function Where(ByVal n As Integer) As String
+            Dim r As String, v As Variant
+            On Error Resume Next
+            v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            r = " LOF " & v
+            v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            r = r & " Loc " & v
+            v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            r = r & " Seek " & v
+            v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            Where = r & " EOF " & v
+        End Function
+        """;
+
+    // The Types and helpers of the probes for Binary_positions_reads_and_Variants_read_back_as_vb6_exe_did, Random_records_lengths_and_access_as_vb6_exe_did, EOF_and_Len_on_Binary_and_Random_as_vb6_exe_did, Arrays_and_their_descriptors_as_vb6_exe_did, Variants_and_expressions_as_vb6_exe_did, Positions_targets_and_modes_as_vb6_exe_did, A_second_handle_on_one_file_as_vb6_exe_did, Types_packed_and_nested_as_vb6_exe_did.
+    private string Probe2 => $$"""
+
+        Private Type TRec
+            i As Integer
+            s As String
+            l As Long
+        End Type
+
+        Private Type TVar
+            v As Variant
+            b As Byte
+        End Type
+
+        Private Type TMix
+            b As Byte
+            l As Long
+        End Type
+
+        Private Type TOuter
+            a As Integer
+            inner As TRec
+            z As Byte
+        End Type
+
+        Private Type TVarS
+            v As Variant
+        End Type
+
+        Private Type TAll
+            bo As Boolean
+            cu As Currency
+            dt As Date
+            si As Single
+            db As Double
+        End Type
+
+        Public Sub L(ByVal s As String)
+            Debug.Print s
+        End Sub
+
+        Public Function P(ByVal name As String) As String
+            P = "{{Folder}}" & name
+        End Function
+
+        Public Function E() As String
+            E = " err " & Err.Number
+            Err.Clear
+        End Function
+
+        Public Sub Fresh(ByVal name As String)
+            On Error Resume Next
+            Kill P(name)
+            Err.Clear
+        End Sub
+
+        Public Function Hx(ByVal name As String) As String
+            Dim f As Integer, b() As Byte, i As Long, r As String
+            f = FreeFile
+            Open P(name) For Binary As #f
+            If LOF(f) > 0 Then
+                ReDim b(0 To LOF(f) - 1)
+                Get #f, 1, b
+                For i = 0 To UBound(b)
+                    r = r & Right$("0" & Hex$(b(i)), 2) & " "
+                Next
+            End If
+            Close #f
+            Hx = "[" & Trim$(r) & "]"
+        End Function
+
+        Public Function Where(ByVal n As Integer) As String
+            Dim r As String, v As Variant
+            On Error Resume Next
+            v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            r = " LOF " & v
+            v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            r = r & " Loc " & v
+            v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            r = r & " Seek " & v
+            v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            Where = r & " EOF " & v
+        End Function
+
+        Public Sub MakeHex(ByVal name As String, ByVal hx As String)
+            Dim f As Integer, b() As Byte, i As Long, n As Long
+            Fresh name
+            hx = Replace(hx, " ", "")
+            n = Len(hx) \ 2
+            f = FreeFile
+            Open P(name) For Binary As #f
+            If n > 0 Then
+                ReDim b(0 To n - 1)
+                For i = 0 To n - 1
+                    b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
+                Next
+                Put #f, 1, b
+            End If
+            Close #f
+        End Sub
+
+        Public Function Bounds(a As Variant) As String
+            Dim r As String
+            On Error Resume Next
+            r = LBound(a) & " To " & UBound(a)
+            If Err.Number Then r = "err" & Err.Number: Err.Clear
+            Bounds = r
+        End Function
+        """;
+
+    // The Types and helpers of the probes for Text_reads_on_a_Binary_file_as_vb6_exe_did, What_Put_writes_for_an_expression_as_vb6_exe_did.
+    private string Probe3 => $$"""
+
+        Private Type TRec
+            i As Integer
+            s As String
+            l As Long
+        End Type
+
+        Private Type TVar
+            v As Variant
+            b As Byte
+        End Type
+
+        Private Type TMix
+            b As Byte
+            l As Long
+        End Type
+
+        Private Type TOuter
+            a As Integer
+            inner As TRec
+            z As Byte
+        End Type
+
+        Private Type TVarS
+            v As Variant
+        End Type
+
+        Private Type TAll
+            bo As Boolean
+            cu As Currency
+            dt As Date
+            si As Single
+            db As Double
+        End Type
+
+        Public Sub L(ByVal s As String)
+            Debug.Print s
+        End Sub
+
+        Public Function P(ByVal name As String) As String
+            P = "{{Folder}}" & name
+        End Function
+
+        Public Function E() As String
+            E = " err " & Err.Number
+            Err.Clear
+        End Function
+
+        Public Sub Fresh(ByVal name As String)
+            On Error Resume Next
+            Kill P(name)
+            Err.Clear
+        End Sub
+
+        Public Function Hx(ByVal name As String) As String
+            Dim f As Integer, b() As Byte, i As Long, r As String
+            f = FreeFile
+            Open P(name) For Binary As #f
+            If LOF(f) > 0 Then
+                ReDim b(0 To LOF(f) - 1)
+                Get #f, 1, b
+                For i = 0 To UBound(b)
+                    r = r & Right$("0" & Hex$(b(i)), 2) & " "
+                Next
+            End If
+            Close #f
+            Hx = "[" & Trim$(r) & "]"
+        End Function
+
+        Public Function Where(ByVal n As Integer) As String
+            Dim r As String, v As Variant
+            On Error Resume Next
+            v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            r = " LOF " & v
+            v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            r = r & " Loc " & v
+            v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            r = r & " Seek " & v
+            v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            Where = r & " EOF " & v
+        End Function
+
+        Public Sub MakeHex(ByVal name As String, ByVal hx As String)
+            Dim f As Integer, b() As Byte, i As Long, n As Long
+            Fresh name
+            hx = Replace(hx, " ", "")
+            n = Len(hx) \ 2
+            f = FreeFile
+            Open P(name) For Binary As #f
+            If n > 0 Then
+                ReDim b(0 To n - 1)
+                For i = 0 To n - 1
+                    b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
+                Next
+                Put #f, 1, b
+            End If
+            Close #f
+        End Sub
+
+        Public Function Bounds(a As Variant) As String
+            Dim r As String
+            On Error Resume Next
+            r = LBound(a) & " To " & UBound(a)
+            If Err.Number Then r = "err" & Err.Number: Err.Clear
+            Bounds = r
+        End Function
+
+        Public Function VI() As Integer
+            VI = 4
+        End Function
+
+        Public Function VV() As Variant
+            VV = 4
+        End Function
+
+        Public Function First(ByVal name As String, ByVal n As Long) As String
+            Dim f As Integer, b() As Byte, i As Long, r As String
+            f = FreeFile
+            Open P(name) For Binary As #f
+            ReDim b(0 To n - 1)
+            Get #f, 1, b
+            Close #f
+            For i = 0 To n - 1
+                r = r & Right$("0" & Hex$(b(i)), 2) & " "
+            Next
+            First = "[" & Trim$(r) & "]"
+        End Function
+
+        Public Function Show(ByVal s As String) As String
+            Dim i As Long, c As String, r As String
+            For i = 1 To Len(s)
+                c = Mid$(s, i, 1)
+                If AscW(c) < 32 Or AscW(c) > 126 Then r = r & "<" & AscW(c) & ">" Else r = r & c
+            Next
+            Show = "[" & r & "]"
+        End Function
+        """;
+
+    // The Types and helpers of the probes for Round_trips_and_record_overflows_as_vb6_exe_did.
+    private string Probe4 => $$"""
+
+        Private Type TRec
+            i As Integer
+            s As String
+            l As Long
+        End Type
+
+        Private Type TVar
+            v As Variant
+            b As Byte
+        End Type
+
+        Private Type TMix
+            b As Byte
+            l As Long
+        End Type
+
+        Private Type TOuter
+            a As Integer
+            inner As TRec
+            z As Byte
+        End Type
+
+        Private Type TVarS
+            v As Variant
+        End Type
+
+        Private Type TAll
+            bo As Boolean
+            cu As Currency
+            dt As Date
+            si As Single
+            db As Double
+        End Type
+
+        Private gi() As Integer
+
+        Public Sub L(ByVal s As String)
+            Debug.Print s
+        End Sub
+
+        Public Function P(ByVal name As String) As String
+            P = "{{Folder}}" & name
+        End Function
+
+        Public Function E() As String
+            E = " err " & Err.Number
+            Err.Clear
+        End Function
+
+        Public Sub Fresh(ByVal name As String)
+            On Error Resume Next
+            Kill P(name)
+            Err.Clear
+        End Sub
+
+        Public Function Hx(ByVal name As String) As String
+            Dim f As Integer, b() As Byte, i As Long, r As String
+            f = FreeFile
+            Open P(name) For Binary As #f
+            If LOF(f) > 0 Then
+                ReDim b(0 To LOF(f) - 1)
+                Get #f, 1, b
+                For i = 0 To UBound(b)
+                    r = r & Right$("0" & Hex$(b(i)), 2) & " "
+                Next
+            End If
+            Close #f
+            Hx = "[" & Trim$(r) & "]"
+        End Function
+
+        Public Function Where(ByVal n As Integer) As String
+            Dim r As String, v As Variant
+            On Error Resume Next
+            v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            r = " LOF " & v
+            v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            r = r & " Loc " & v
+            v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            r = r & " Seek " & v
+            v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            Where = r & " EOF " & v
+        End Function
+
+        Public Sub MakeHex(ByVal name As String, ByVal hx As String)
+            Dim f As Integer, b() As Byte, i As Long, n As Long
+            Fresh name
+            hx = Replace(hx, " ", "")
+            n = Len(hx) \ 2
+            f = FreeFile
+            Open P(name) For Binary As #f
+            If n > 0 Then
+                ReDim b(0 To n - 1)
+                For i = 0 To n - 1
+                    b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
+                Next
+                Put #f, 1, b
+            End If
+            Close #f
+        End Sub
+
+        Public Function Bounds(a As Variant) As String
+            Dim r As String
+            On Error Resume Next
+            r = LBound(a) & " To " & UBound(a)
+            If Err.Number Then r = "err" & Err.Number: Err.Clear
+            Bounds = r
+        End Function
+
+        Public Sub LockedGet(x As Integer)
+            Get #1, 1, gi
+            L "  Random Get into the array while its element is passed ByRef:" & E() & " bounds " & Bounds(gi)
+        End Sub
+
+        Public Sub LockedBinaryGet(x As Integer)
+            Get #1, 1, gi
+            L "  Binary Get into the array while its element is passed ByRef:" & E() & " gi(0) " & gi(0)
+        End Sub
+
+        Public Function Show(ByVal s As String) As String
+            Dim i As Long, c As String, r As String
+            For i = 1 To Len(s)
+                c = Mid$(s, i, 1)
+                If AscW(c) < 32 Or AscW(c) > 126 Then r = r & "<" & AscW(c) & ">" Else r = r & c
+            Next
+            Show = "[" & r & "]"
+        End Function
+        """;
+
+    // The Types and helpers of the probes for Get_into_a_locked_array_as_vb6_exe_did.
+    private string Probe5 => $$"""
+
+        Private Type TRec
+            i As Integer
+            s As String
+            l As Long
+        End Type
+
+        Private Type TVar
+            v As Variant
+            b As Byte
+        End Type
+
+        Private Type TMix
+            b As Byte
+            l As Long
+        End Type
+
+        Private Type TOuter
+            a As Integer
+            inner As TRec
+            z As Byte
+        End Type
+
+        Private Type TVarS
+            v As Variant
+        End Type
+
+        Private Type TAll
+            bo As Boolean
+            cu As Currency
+            dt As Date
+            si As Single
+            db As Double
+        End Type
+
+        Private gi() As Integer
+
+        Public Sub L(ByVal s As String)
+            Debug.Print s
+        End Sub
+
+        Public Function P(ByVal name As String) As String
+            P = "{{Folder}}" & name
+        End Function
+
+        Public Function E() As String
+            E = " err " & Err.Number
+            Err.Clear
+        End Function
+
+        Public Sub Fresh(ByVal name As String)
+            On Error Resume Next
+            Kill P(name)
+            Err.Clear
+        End Sub
+
+        Public Function Hx(ByVal name As String) As String
+            Dim f As Integer, b() As Byte, i As Long, r As String
+            f = FreeFile
+            Open P(name) For Binary As #f
+            If LOF(f) > 0 Then
+                ReDim b(0 To LOF(f) - 1)
+                Get #f, 1, b
+                For i = 0 To UBound(b)
+                    r = r & Right$("0" & Hex$(b(i)), 2) & " "
+                Next
+            End If
+            Close #f
+            Hx = "[" & Trim$(r) & "]"
+        End Function
+
+        Public Function Where(ByVal n As Integer) As String
+            Dim r As String, v As Variant
+            On Error Resume Next
+            v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            r = " LOF " & v
+            v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            r = r & " Loc " & v
+            v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            r = r & " Seek " & v
+            v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            Where = r & " EOF " & v
+        End Function
+
+        Public Sub MakeHex(ByVal name As String, ByVal hx As String)
+            Dim f As Integer, b() As Byte, i As Long, n As Long
+            Fresh name
+            hx = Replace(hx, " ", "")
+            n = Len(hx) \ 2
+            f = FreeFile
+            Open P(name) For Binary As #f
+            If n > 0 Then
+                ReDim b(0 To n - 1)
+                For i = 0 To n - 1
+                    b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
+                Next
+                Put #f, 1, b
+            End If
+            Close #f
+        End Sub
+
+        Public Function Bounds(a As Variant) As String
+            Dim r As String
+            On Error Resume Next
+            r = LBound(a) & " To " & UBound(a)
+            If Err.Number Then r = "err" & Err.Number: Err.Clear
+            Bounds = r
+        End Function
+
+        Public Sub LockedGet(x As Integer)
+            On Error Resume Next
+            Get #1, 1, gi
+            L "  Random Get into the array while its element is passed ByRef:" & E() & " bounds " & Bounds(gi)
+        End Sub
+
+        Public Sub LockedBinaryGet(x As Integer)
+            Get #1, 1, gi
+            L "  Binary Get into the array while its element is passed ByRef:" & E() & " gi(0) " & gi(0)
+        End Sub
+
+        Public Function Show(ByVal s As String) As String
+            Dim i As Long, c As String, r As String
+            For i = 1 To Len(s)
+                c = Mid$(s, i, 1)
+                If AscW(c) < 32 Or AscW(c) > 126 Then r = r & "<" & AscW(c) & ">" Else r = r & c
+            Next
+            Show = "[" & r & "]"
+        End Function
+        """;
+
+    // The Types and helpers of the probes for EOF_after_a_Put_and_what_a_failed_field_is_left_as_vb6_exe_did, After_a_read_past_the_end_the_next_Get_or_Put_is_at_the_end_as_vb6_exe_did.
+    private string Probe6 => $$"""
+
+        Private Type TRec
+            i As Integer
+            s As String
+            l As Long
+        End Type
+
+        Private Type TVar
+            v As Variant
+            b As Byte
+        End Type
+
+        Private Type TMix
+            b As Byte
+            l As Long
+        End Type
+
+        Private Type TOuter
+            a As Integer
+            inner As TRec
+            z As Byte
+        End Type
+
+        Private Type TVarS
+            v As Variant
+        End Type
+
+        Private Type TAll
+            bo As Boolean
+            cu As Currency
+            dt As Date
+            si As Single
+            db As Double
+        End Type
+
+        Private Type TIS
+            i As Integer
+            s As String
+        End Type
+
+        Public Sub L(ByVal s As String)
+            Debug.Print s
+        End Sub
+
+        Public Function P(ByVal name As String) As String
+            P = "{{Folder}}" & name
+        End Function
+
+        Public Function E() As String
+            E = " err " & Err.Number
+            Err.Clear
+        End Function
+
+        Public Sub Fresh(ByVal name As String)
+            On Error Resume Next
+            Kill P(name)
+            Err.Clear
+        End Sub
+
+        Public Function Hx(ByVal name As String) As String
+            Dim f As Integer, b() As Byte, i As Long, r As String
+            f = FreeFile
+            Open P(name) For Binary As #f
+            If LOF(f) > 0 Then
+                ReDim b(0 To LOF(f) - 1)
+                Get #f, 1, b
+                For i = 0 To UBound(b)
+                    r = r & Right$("0" & Hex$(b(i)), 2) & " "
+                Next
+            End If
+            Close #f
+            Hx = "[" & Trim$(r) & "]"
+        End Function
+
+        Public Function Where(ByVal n As Integer) As String
+            Dim r As String, v As Variant
+            On Error Resume Next
+            v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            r = " LOF " & v
+            v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            r = r & " Loc " & v
+            v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            r = r & " Seek " & v
+            v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+            Where = r & " EOF " & v
+        End Function
+
+        Public Sub MakeHex(ByVal name As String, ByVal hx As String)
+            Dim f As Integer, b() As Byte, i As Long, n As Long
+            Fresh name
+            hx = Replace(hx, " ", "")
+            n = Len(hx) \ 2
+            f = FreeFile
+            Open P(name) For Binary As #f
+            If n > 0 Then
+                ReDim b(0 To n - 1)
+                For i = 0 To n - 1
+                    b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
+                Next
+                Put #f, 1, b
+            End If
+            Close #f
+        End Sub
+
+        Public Function Bounds(a As Variant) As String
+            Dim r As String
+            On Error Resume Next
+            r = LBound(a) & " To " & UBound(a)
+            If Err.Number Then r = "err" & Err.Number: Err.Clear
+            Bounds = r
+        End Function
+        """;
+
     // each scalar type, Variants of each, arrays and Types, written alone to a Binary file.
     [Fact]
     public async Task Binary_Put_writes_each_type_as_vb6_exe_did()
     {
-        await Run($$"""""
-
-            Private Type TRec
-                i As Integer
-                s As String
-                l As Long
-            End Type
-
-            Private Type TVar
-                v As Variant
-                b As Byte
-            End Type
-
-            Public Sub L(ByVal s As String)
-                Debug.Print s
-            End Sub
-
-            Public Function P(ByVal name As String) As String
-                P = "{{Folder}}" & name
-            End Function
-
-            Public Function E() As String
-                E = " err " & Err.Number
-                Err.Clear
-            End Function
-
-            Public Sub Fresh(ByVal name As String)
-                On Error Resume Next
-                Kill P(name)
-                Err.Clear
-            End Sub
-
-            Public Function Hx(ByVal name As String) As String
-                Dim f As Integer, b() As Byte, i As Long, r As String
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If LOF(f) > 0 Then
-                    ReDim b(0 To LOF(f) - 1)
-                    Get #f, 1, b
-                    For i = 0 To UBound(b)
-                        r = r & Right$("0" & Hex$(b(i)), 2) & " "
-                    Next
-                End If
-                Close #f
-                Hx = "[" & Trim$(r) & "]"
-            End Function
-
-            Public Function Where(ByVal n As Integer) As String
-                Dim r As String, v As Variant
-                On Error Resume Next
-                v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = " LOF " & v
-                v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Loc " & v
-                v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Seek " & v
-                v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                Where = r & " EOF " & v
-            End Function
-
+        await Run(Probe1 + Environment.NewLine + """""
             Sub Main()
                 Dim t As String
                 On Error Resume Next
@@ -417,114 +1048,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task Binary_positions_reads_and_Variants_read_back_as_vb6_exe_did()
     {
-        await Run($$"""
-
-            Private Type TRec
-                i As Integer
-                s As String
-                l As Long
-            End Type
-
-            Private Type TVar
-                v As Variant
-                b As Byte
-            End Type
-
-            Private Type TMix
-                b As Byte
-                l As Long
-            End Type
-
-            Private Type TOuter
-                a As Integer
-                inner As TRec
-                z As Byte
-            End Type
-
-            Private Type TVarS
-                v As Variant
-            End Type
-
-            Private Type TAll
-                bo As Boolean
-                cu As Currency
-                dt As Date
-                si As Single
-                db As Double
-            End Type
-
-            Public Sub L(ByVal s As String)
-                Debug.Print s
-            End Sub
-
-            Public Function P(ByVal name As String) As String
-                P = "{{Folder}}" & name
-            End Function
-
-            Public Function E() As String
-                E = " err " & Err.Number
-                Err.Clear
-            End Function
-
-            Public Sub Fresh(ByVal name As String)
-                On Error Resume Next
-                Kill P(name)
-                Err.Clear
-            End Sub
-
-            Public Function Hx(ByVal name As String) As String
-                Dim f As Integer, b() As Byte, i As Long, r As String
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If LOF(f) > 0 Then
-                    ReDim b(0 To LOF(f) - 1)
-                    Get #f, 1, b
-                    For i = 0 To UBound(b)
-                        r = r & Right$("0" & Hex$(b(i)), 2) & " "
-                    Next
-                End If
-                Close #f
-                Hx = "[" & Trim$(r) & "]"
-            End Function
-
-            Public Function Where(ByVal n As Integer) As String
-                Dim r As String, v As Variant
-                On Error Resume Next
-                v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = " LOF " & v
-                v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Loc " & v
-                v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Seek " & v
-                v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                Where = r & " EOF " & v
-            End Function
-
-            Public Sub MakeHex(ByVal name As String, ByVal hx As String)
-                Dim f As Integer, b() As Byte, i As Long, n As Long
-                Fresh name
-                hx = Replace(hx, " ", "")
-                n = Len(hx) \ 2
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If n > 0 Then
-                    ReDim b(0 To n - 1)
-                    For i = 0 To n - 1
-                        b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
-                    Next
-                    Put #f, 1, b
-                End If
-                Close #f
-            End Sub
-
-            Public Function Bounds(a As Variant) As String
-                Dim r As String
-                On Error Resume Next
-                r = LBound(a) & " To " & UBound(a)
-                If Err.Number Then r = "err" & Err.Number: Err.Clear
-                Bounds = r
-            End Function
-
+        await Run(Probe2 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
                 On Error Resume Next
@@ -676,114 +1200,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task Random_records_lengths_and_access_as_vb6_exe_did()
     {
-        await Run($$"""
-
-            Private Type TRec
-                i As Integer
-                s As String
-                l As Long
-            End Type
-
-            Private Type TVar
-                v As Variant
-                b As Byte
-            End Type
-
-            Private Type TMix
-                b As Byte
-                l As Long
-            End Type
-
-            Private Type TOuter
-                a As Integer
-                inner As TRec
-                z As Byte
-            End Type
-
-            Private Type TVarS
-                v As Variant
-            End Type
-
-            Private Type TAll
-                bo As Boolean
-                cu As Currency
-                dt As Date
-                si As Single
-                db As Double
-            End Type
-
-            Public Sub L(ByVal s As String)
-                Debug.Print s
-            End Sub
-
-            Public Function P(ByVal name As String) As String
-                P = "{{Folder}}" & name
-            End Function
-
-            Public Function E() As String
-                E = " err " & Err.Number
-                Err.Clear
-            End Function
-
-            Public Sub Fresh(ByVal name As String)
-                On Error Resume Next
-                Kill P(name)
-                Err.Clear
-            End Sub
-
-            Public Function Hx(ByVal name As String) As String
-                Dim f As Integer, b() As Byte, i As Long, r As String
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If LOF(f) > 0 Then
-                    ReDim b(0 To LOF(f) - 1)
-                    Get #f, 1, b
-                    For i = 0 To UBound(b)
-                        r = r & Right$("0" & Hex$(b(i)), 2) & " "
-                    Next
-                End If
-                Close #f
-                Hx = "[" & Trim$(r) & "]"
-            End Function
-
-            Public Function Where(ByVal n As Integer) As String
-                Dim r As String, v As Variant
-                On Error Resume Next
-                v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = " LOF " & v
-                v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Loc " & v
-                v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Seek " & v
-                v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                Where = r & " EOF " & v
-            End Function
-
-            Public Sub MakeHex(ByVal name As String, ByVal hx As String)
-                Dim f As Integer, b() As Byte, i As Long, n As Long
-                Fresh name
-                hx = Replace(hx, " ", "")
-                n = Len(hx) \ 2
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If n > 0 Then
-                    ReDim b(0 To n - 1)
-                    For i = 0 To n - 1
-                        b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
-                    Next
-                    Put #f, 1, b
-                End If
-                Close #f
-            End Sub
-
-            Public Function Bounds(a As Variant) As String
-                Dim r As String
-                On Error Resume Next
-                r = LBound(a) & " To " & UBound(a)
-                If Err.Number Then r = "err" & Err.Number: Err.Clear
-                Bounds = r
-            End Function
-
+        await Run(Probe2 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
                 On Error Resume Next
@@ -958,114 +1375,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task EOF_and_Len_on_Binary_and_Random_as_vb6_exe_did()
     {
-        await Run($$"""
-
-            Private Type TRec
-                i As Integer
-                s As String
-                l As Long
-            End Type
-
-            Private Type TVar
-                v As Variant
-                b As Byte
-            End Type
-
-            Private Type TMix
-                b As Byte
-                l As Long
-            End Type
-
-            Private Type TOuter
-                a As Integer
-                inner As TRec
-                z As Byte
-            End Type
-
-            Private Type TVarS
-                v As Variant
-            End Type
-
-            Private Type TAll
-                bo As Boolean
-                cu As Currency
-                dt As Date
-                si As Single
-                db As Double
-            End Type
-
-            Public Sub L(ByVal s As String)
-                Debug.Print s
-            End Sub
-
-            Public Function P(ByVal name As String) As String
-                P = "{{Folder}}" & name
-            End Function
-
-            Public Function E() As String
-                E = " err " & Err.Number
-                Err.Clear
-            End Function
-
-            Public Sub Fresh(ByVal name As String)
-                On Error Resume Next
-                Kill P(name)
-                Err.Clear
-            End Sub
-
-            Public Function Hx(ByVal name As String) As String
-                Dim f As Integer, b() As Byte, i As Long, r As String
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If LOF(f) > 0 Then
-                    ReDim b(0 To LOF(f) - 1)
-                    Get #f, 1, b
-                    For i = 0 To UBound(b)
-                        r = r & Right$("0" & Hex$(b(i)), 2) & " "
-                    Next
-                End If
-                Close #f
-                Hx = "[" & Trim$(r) & "]"
-            End Function
-
-            Public Function Where(ByVal n As Integer) As String
-                Dim r As String, v As Variant
-                On Error Resume Next
-                v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = " LOF " & v
-                v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Loc " & v
-                v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Seek " & v
-                v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                Where = r & " EOF " & v
-            End Function
-
-            Public Sub MakeHex(ByVal name As String, ByVal hx As String)
-                Dim f As Integer, b() As Byte, i As Long, n As Long
-                Fresh name
-                hx = Replace(hx, " ", "")
-                n = Len(hx) \ 2
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If n > 0 Then
-                    ReDim b(0 To n - 1)
-                    For i = 0 To n - 1
-                        b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
-                    Next
-                    Put #f, 1, b
-                End If
-                Close #f
-            End Sub
-
-            Public Function Bounds(a As Variant) As String
-                Dim r As String
-                On Error Resume Next
-                r = LBound(a) & " To " & UBound(a)
-                If Err.Number Then r = "err" & Err.Number: Err.Clear
-                Bounds = r
-            End Function
-
+        await Run(Probe2 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
                 On Error Resume Next
@@ -1239,114 +1549,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task Arrays_and_their_descriptors_as_vb6_exe_did()
     {
-        await Run($$"""
-
-            Private Type TRec
-                i As Integer
-                s As String
-                l As Long
-            End Type
-
-            Private Type TVar
-                v As Variant
-                b As Byte
-            End Type
-
-            Private Type TMix
-                b As Byte
-                l As Long
-            End Type
-
-            Private Type TOuter
-                a As Integer
-                inner As TRec
-                z As Byte
-            End Type
-
-            Private Type TVarS
-                v As Variant
-            End Type
-
-            Private Type TAll
-                bo As Boolean
-                cu As Currency
-                dt As Date
-                si As Single
-                db As Double
-            End Type
-
-            Public Sub L(ByVal s As String)
-                Debug.Print s
-            End Sub
-
-            Public Function P(ByVal name As String) As String
-                P = "{{Folder}}" & name
-            End Function
-
-            Public Function E() As String
-                E = " err " & Err.Number
-                Err.Clear
-            End Function
-
-            Public Sub Fresh(ByVal name As String)
-                On Error Resume Next
-                Kill P(name)
-                Err.Clear
-            End Sub
-
-            Public Function Hx(ByVal name As String) As String
-                Dim f As Integer, b() As Byte, i As Long, r As String
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If LOF(f) > 0 Then
-                    ReDim b(0 To LOF(f) - 1)
-                    Get #f, 1, b
-                    For i = 0 To UBound(b)
-                        r = r & Right$("0" & Hex$(b(i)), 2) & " "
-                    Next
-                End If
-                Close #f
-                Hx = "[" & Trim$(r) & "]"
-            End Function
-
-            Public Function Where(ByVal n As Integer) As String
-                Dim r As String, v As Variant
-                On Error Resume Next
-                v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = " LOF " & v
-                v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Loc " & v
-                v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Seek " & v
-                v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                Where = r & " EOF " & v
-            End Function
-
-            Public Sub MakeHex(ByVal name As String, ByVal hx As String)
-                Dim f As Integer, b() As Byte, i As Long, n As Long
-                Fresh name
-                hx = Replace(hx, " ", "")
-                n = Len(hx) \ 2
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If n > 0 Then
-                    ReDim b(0 To n - 1)
-                    For i = 0 To n - 1
-                        b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
-                    Next
-                    Put #f, 1, b
-                End If
-                Close #f
-            End Sub
-
-            Public Function Bounds(a As Variant) As String
-                Dim r As String
-                On Error Resume Next
-                r = LBound(a) & " To " & UBound(a)
-                If Err.Number Then r = "err" & Err.Number: Err.Clear
-                Bounds = r
-            End Function
-
+        await Run(Probe2 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
                 On Error Resume Next
@@ -1459,114 +1662,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task Variants_and_expressions_as_vb6_exe_did()
     {
-        await Run($$"""
-
-            Private Type TRec
-                i As Integer
-                s As String
-                l As Long
-            End Type
-
-            Private Type TVar
-                v As Variant
-                b As Byte
-            End Type
-
-            Private Type TMix
-                b As Byte
-                l As Long
-            End Type
-
-            Private Type TOuter
-                a As Integer
-                inner As TRec
-                z As Byte
-            End Type
-
-            Private Type TVarS
-                v As Variant
-            End Type
-
-            Private Type TAll
-                bo As Boolean
-                cu As Currency
-                dt As Date
-                si As Single
-                db As Double
-            End Type
-
-            Public Sub L(ByVal s As String)
-                Debug.Print s
-            End Sub
-
-            Public Function P(ByVal name As String) As String
-                P = "{{Folder}}" & name
-            End Function
-
-            Public Function E() As String
-                E = " err " & Err.Number
-                Err.Clear
-            End Function
-
-            Public Sub Fresh(ByVal name As String)
-                On Error Resume Next
-                Kill P(name)
-                Err.Clear
-            End Sub
-
-            Public Function Hx(ByVal name As String) As String
-                Dim f As Integer, b() As Byte, i As Long, r As String
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If LOF(f) > 0 Then
-                    ReDim b(0 To LOF(f) - 1)
-                    Get #f, 1, b
-                    For i = 0 To UBound(b)
-                        r = r & Right$("0" & Hex$(b(i)), 2) & " "
-                    Next
-                End If
-                Close #f
-                Hx = "[" & Trim$(r) & "]"
-            End Function
-
-            Public Function Where(ByVal n As Integer) As String
-                Dim r As String, v As Variant
-                On Error Resume Next
-                v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = " LOF " & v
-                v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Loc " & v
-                v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Seek " & v
-                v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                Where = r & " EOF " & v
-            End Function
-
-            Public Sub MakeHex(ByVal name As String, ByVal hx As String)
-                Dim f As Integer, b() As Byte, i As Long, n As Long
-                Fresh name
-                hx = Replace(hx, " ", "")
-                n = Len(hx) \ 2
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If n > 0 Then
-                    ReDim b(0 To n - 1)
-                    For i = 0 To n - 1
-                        b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
-                    Next
-                    Put #f, 1, b
-                End If
-                Close #f
-            End Sub
-
-            Public Function Bounds(a As Variant) As String
-                Dim r As String
-                On Error Resume Next
-                r = LBound(a) & " To " & UBound(a)
-                If Err.Number Then r = "err" & Err.Number: Err.Clear
-                Bounds = r
-            End Function
-
+        await Run(Probe2 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
                 On Error Resume Next
@@ -1852,114 +1948,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task Positions_targets_and_modes_as_vb6_exe_did()
     {
-        await Run($$"""
-
-            Private Type TRec
-                i As Integer
-                s As String
-                l As Long
-            End Type
-
-            Private Type TVar
-                v As Variant
-                b As Byte
-            End Type
-
-            Private Type TMix
-                b As Byte
-                l As Long
-            End Type
-
-            Private Type TOuter
-                a As Integer
-                inner As TRec
-                z As Byte
-            End Type
-
-            Private Type TVarS
-                v As Variant
-            End Type
-
-            Private Type TAll
-                bo As Boolean
-                cu As Currency
-                dt As Date
-                si As Single
-                db As Double
-            End Type
-
-            Public Sub L(ByVal s As String)
-                Debug.Print s
-            End Sub
-
-            Public Function P(ByVal name As String) As String
-                P = "{{Folder}}" & name
-            End Function
-
-            Public Function E() As String
-                E = " err " & Err.Number
-                Err.Clear
-            End Function
-
-            Public Sub Fresh(ByVal name As String)
-                On Error Resume Next
-                Kill P(name)
-                Err.Clear
-            End Sub
-
-            Public Function Hx(ByVal name As String) As String
-                Dim f As Integer, b() As Byte, i As Long, r As String
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If LOF(f) > 0 Then
-                    ReDim b(0 To LOF(f) - 1)
-                    Get #f, 1, b
-                    For i = 0 To UBound(b)
-                        r = r & Right$("0" & Hex$(b(i)), 2) & " "
-                    Next
-                End If
-                Close #f
-                Hx = "[" & Trim$(r) & "]"
-            End Function
-
-            Public Function Where(ByVal n As Integer) As String
-                Dim r As String, v As Variant
-                On Error Resume Next
-                v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = " LOF " & v
-                v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Loc " & v
-                v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Seek " & v
-                v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                Where = r & " EOF " & v
-            End Function
-
-            Public Sub MakeHex(ByVal name As String, ByVal hx As String)
-                Dim f As Integer, b() As Byte, i As Long, n As Long
-                Fresh name
-                hx = Replace(hx, " ", "")
-                n = Len(hx) \ 2
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If n > 0 Then
-                    ReDim b(0 To n - 1)
-                    For i = 0 To n - 1
-                        b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
-                    Next
-                    Put #f, 1, b
-                End If
-                Close #f
-            End Sub
-
-            Public Function Bounds(a As Variant) As String
-                Dim r As String
-                On Error Resume Next
-                r = LBound(a) & " To " & UBound(a)
-                If Err.Number Then r = "err" & Err.Number: Err.Clear
-                Bounds = r
-            End Function
-
+        await Run(Probe2 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
                 On Error Resume Next
@@ -2108,114 +2097,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task A_second_handle_on_one_file_as_vb6_exe_did()
     {
-        await Run($$"""
-
-            Private Type TRec
-                i As Integer
-                s As String
-                l As Long
-            End Type
-
-            Private Type TVar
-                v As Variant
-                b As Byte
-            End Type
-
-            Private Type TMix
-                b As Byte
-                l As Long
-            End Type
-
-            Private Type TOuter
-                a As Integer
-                inner As TRec
-                z As Byte
-            End Type
-
-            Private Type TVarS
-                v As Variant
-            End Type
-
-            Private Type TAll
-                bo As Boolean
-                cu As Currency
-                dt As Date
-                si As Single
-                db As Double
-            End Type
-
-            Public Sub L(ByVal s As String)
-                Debug.Print s
-            End Sub
-
-            Public Function P(ByVal name As String) As String
-                P = "{{Folder}}" & name
-            End Function
-
-            Public Function E() As String
-                E = " err " & Err.Number
-                Err.Clear
-            End Function
-
-            Public Sub Fresh(ByVal name As String)
-                On Error Resume Next
-                Kill P(name)
-                Err.Clear
-            End Sub
-
-            Public Function Hx(ByVal name As String) As String
-                Dim f As Integer, b() As Byte, i As Long, r As String
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If LOF(f) > 0 Then
-                    ReDim b(0 To LOF(f) - 1)
-                    Get #f, 1, b
-                    For i = 0 To UBound(b)
-                        r = r & Right$("0" & Hex$(b(i)), 2) & " "
-                    Next
-                End If
-                Close #f
-                Hx = "[" & Trim$(r) & "]"
-            End Function
-
-            Public Function Where(ByVal n As Integer) As String
-                Dim r As String, v As Variant
-                On Error Resume Next
-                v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = " LOF " & v
-                v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Loc " & v
-                v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Seek " & v
-                v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                Where = r & " EOF " & v
-            End Function
-
-            Public Sub MakeHex(ByVal name As String, ByVal hx As String)
-                Dim f As Integer, b() As Byte, i As Long, n As Long
-                Fresh name
-                hx = Replace(hx, " ", "")
-                n = Len(hx) \ 2
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If n > 0 Then
-                    ReDim b(0 To n - 1)
-                    For i = 0 To n - 1
-                        b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
-                    Next
-                    Put #f, 1, b
-                End If
-                Close #f
-            End Sub
-
-            Public Function Bounds(a As Variant) As String
-                Dim r As String
-                On Error Resume Next
-                r = LBound(a) & " To " & UBound(a)
-                If Err.Number Then r = "err" & Err.Number: Err.Clear
-                Bounds = r
-            End Function
-
+        await Run(Probe2 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
                 On Error Resume Next
@@ -2494,114 +2376,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task Types_packed_and_nested_as_vb6_exe_did()
     {
-        await Run($$"""
-
-            Private Type TRec
-                i As Integer
-                s As String
-                l As Long
-            End Type
-
-            Private Type TVar
-                v As Variant
-                b As Byte
-            End Type
-
-            Private Type TMix
-                b As Byte
-                l As Long
-            End Type
-
-            Private Type TOuter
-                a As Integer
-                inner As TRec
-                z As Byte
-            End Type
-
-            Private Type TVarS
-                v As Variant
-            End Type
-
-            Private Type TAll
-                bo As Boolean
-                cu As Currency
-                dt As Date
-                si As Single
-                db As Double
-            End Type
-
-            Public Sub L(ByVal s As String)
-                Debug.Print s
-            End Sub
-
-            Public Function P(ByVal name As String) As String
-                P = "{{Folder}}" & name
-            End Function
-
-            Public Function E() As String
-                E = " err " & Err.Number
-                Err.Clear
-            End Function
-
-            Public Sub Fresh(ByVal name As String)
-                On Error Resume Next
-                Kill P(name)
-                Err.Clear
-            End Sub
-
-            Public Function Hx(ByVal name As String) As String
-                Dim f As Integer, b() As Byte, i As Long, r As String
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If LOF(f) > 0 Then
-                    ReDim b(0 To LOF(f) - 1)
-                    Get #f, 1, b
-                    For i = 0 To UBound(b)
-                        r = r & Right$("0" & Hex$(b(i)), 2) & " "
-                    Next
-                End If
-                Close #f
-                Hx = "[" & Trim$(r) & "]"
-            End Function
-
-            Public Function Where(ByVal n As Integer) As String
-                Dim r As String, v As Variant
-                On Error Resume Next
-                v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = " LOF " & v
-                v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Loc " & v
-                v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Seek " & v
-                v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                Where = r & " EOF " & v
-            End Function
-
-            Public Sub MakeHex(ByVal name As String, ByVal hx As String)
-                Dim f As Integer, b() As Byte, i As Long, n As Long
-                Fresh name
-                hx = Replace(hx, " ", "")
-                n = Len(hx) \ 2
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If n > 0 Then
-                    ReDim b(0 To n - 1)
-                    For i = 0 To n - 1
-                        b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
-                    Next
-                    Put #f, 1, b
-                End If
-                Close #f
-            End Sub
-
-            Public Function Bounds(a As Variant) As String
-                Dim r As String
-                On Error Resume Next
-                r = LBound(a) & " To " & UBound(a)
-                If Err.Number Then r = "err" & Err.Number: Err.Clear
-                Bounds = r
-            End Function
-
+        await Run(Probe2 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
                 On Error Resume Next
@@ -2678,144 +2453,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task Text_reads_on_a_Binary_file_as_vb6_exe_did()
     {
-        await Run($$"""
-
-            Private Type TRec
-                i As Integer
-                s As String
-                l As Long
-            End Type
-
-            Private Type TVar
-                v As Variant
-                b As Byte
-            End Type
-
-            Private Type TMix
-                b As Byte
-                l As Long
-            End Type
-
-            Private Type TOuter
-                a As Integer
-                inner As TRec
-                z As Byte
-            End Type
-
-            Private Type TVarS
-                v As Variant
-            End Type
-
-            Private Type TAll
-                bo As Boolean
-                cu As Currency
-                dt As Date
-                si As Single
-                db As Double
-            End Type
-
-            Public Sub L(ByVal s As String)
-                Debug.Print s
-            End Sub
-
-            Public Function P(ByVal name As String) As String
-                P = "{{Folder}}" & name
-            End Function
-
-            Public Function E() As String
-                E = " err " & Err.Number
-                Err.Clear
-            End Function
-
-            Public Sub Fresh(ByVal name As String)
-                On Error Resume Next
-                Kill P(name)
-                Err.Clear
-            End Sub
-
-            Public Function Hx(ByVal name As String) As String
-                Dim f As Integer, b() As Byte, i As Long, r As String
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If LOF(f) > 0 Then
-                    ReDim b(0 To LOF(f) - 1)
-                    Get #f, 1, b
-                    For i = 0 To UBound(b)
-                        r = r & Right$("0" & Hex$(b(i)), 2) & " "
-                    Next
-                End If
-                Close #f
-                Hx = "[" & Trim$(r) & "]"
-            End Function
-
-            Public Function Where(ByVal n As Integer) As String
-                Dim r As String, v As Variant
-                On Error Resume Next
-                v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = " LOF " & v
-                v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Loc " & v
-                v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Seek " & v
-                v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                Where = r & " EOF " & v
-            End Function
-
-            Public Sub MakeHex(ByVal name As String, ByVal hx As String)
-                Dim f As Integer, b() As Byte, i As Long, n As Long
-                Fresh name
-                hx = Replace(hx, " ", "")
-                n = Len(hx) \ 2
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If n > 0 Then
-                    ReDim b(0 To n - 1)
-                    For i = 0 To n - 1
-                        b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
-                    Next
-                    Put #f, 1, b
-                End If
-                Close #f
-            End Sub
-
-            Public Function Bounds(a As Variant) As String
-                Dim r As String
-                On Error Resume Next
-                r = LBound(a) & " To " & UBound(a)
-                If Err.Number Then r = "err" & Err.Number: Err.Clear
-                Bounds = r
-            End Function
-
-            Public Function VI() As Integer
-                VI = 4
-            End Function
-
-            Public Function VV() As Variant
-                VV = 4
-            End Function
-
-            Public Function First(ByVal name As String, ByVal n As Long) As String
-                Dim f As Integer, b() As Byte, i As Long, r As String
-                f = FreeFile
-                Open P(name) For Binary As #f
-                ReDim b(0 To n - 1)
-                Get #f, 1, b
-                Close #f
-                For i = 0 To n - 1
-                    r = r & Right$("0" & Hex$(b(i)), 2) & " "
-                Next
-                First = "[" & Trim$(r) & "]"
-            End Function
-
-            Public Function Show(ByVal s As String) As String
-                Dim i As Long, c As String, r As String
-                For i = 1 To Len(s)
-                    c = Mid$(s, i, 1)
-                    If AscW(c) < 32 Or AscW(c) > 126 Then r = r & "<" & AscW(c) & ">" Else r = r & c
-                Next
-                Show = "[" & r & "]"
-            End Function
-
+        await Run(Probe3 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
                 On Error Resume Next
@@ -2955,144 +2593,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task What_Put_writes_for_an_expression_as_vb6_exe_did()
     {
-        await Run($$"""""
-
-            Private Type TRec
-                i As Integer
-                s As String
-                l As Long
-            End Type
-
-            Private Type TVar
-                v As Variant
-                b As Byte
-            End Type
-
-            Private Type TMix
-                b As Byte
-                l As Long
-            End Type
-
-            Private Type TOuter
-                a As Integer
-                inner As TRec
-                z As Byte
-            End Type
-
-            Private Type TVarS
-                v As Variant
-            End Type
-
-            Private Type TAll
-                bo As Boolean
-                cu As Currency
-                dt As Date
-                si As Single
-                db As Double
-            End Type
-
-            Public Sub L(ByVal s As String)
-                Debug.Print s
-            End Sub
-
-            Public Function P(ByVal name As String) As String
-                P = "{{Folder}}" & name
-            End Function
-
-            Public Function E() As String
-                E = " err " & Err.Number
-                Err.Clear
-            End Function
-
-            Public Sub Fresh(ByVal name As String)
-                On Error Resume Next
-                Kill P(name)
-                Err.Clear
-            End Sub
-
-            Public Function Hx(ByVal name As String) As String
-                Dim f As Integer, b() As Byte, i As Long, r As String
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If LOF(f) > 0 Then
-                    ReDim b(0 To LOF(f) - 1)
-                    Get #f, 1, b
-                    For i = 0 To UBound(b)
-                        r = r & Right$("0" & Hex$(b(i)), 2) & " "
-                    Next
-                End If
-                Close #f
-                Hx = "[" & Trim$(r) & "]"
-            End Function
-
-            Public Function Where(ByVal n As Integer) As String
-                Dim r As String, v As Variant
-                On Error Resume Next
-                v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = " LOF " & v
-                v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Loc " & v
-                v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Seek " & v
-                v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                Where = r & " EOF " & v
-            End Function
-
-            Public Sub MakeHex(ByVal name As String, ByVal hx As String)
-                Dim f As Integer, b() As Byte, i As Long, n As Long
-                Fresh name
-                hx = Replace(hx, " ", "")
-                n = Len(hx) \ 2
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If n > 0 Then
-                    ReDim b(0 To n - 1)
-                    For i = 0 To n - 1
-                        b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
-                    Next
-                    Put #f, 1, b
-                End If
-                Close #f
-            End Sub
-
-            Public Function Bounds(a As Variant) As String
-                Dim r As String
-                On Error Resume Next
-                r = LBound(a) & " To " & UBound(a)
-                If Err.Number Then r = "err" & Err.Number: Err.Clear
-                Bounds = r
-            End Function
-
-            Public Function VI() As Integer
-                VI = 4
-            End Function
-
-            Public Function VV() As Variant
-                VV = 4
-            End Function
-
-            Public Function First(ByVal name As String, ByVal n As Long) As String
-                Dim f As Integer, b() As Byte, i As Long, r As String
-                f = FreeFile
-                Open P(name) For Binary As #f
-                ReDim b(0 To n - 1)
-                Get #f, 1, b
-                Close #f
-                For i = 0 To n - 1
-                    r = r & Right$("0" & Hex$(b(i)), 2) & " "
-                Next
-                First = "[" & Trim$(r) & "]"
-            End Function
-
-            Public Function Show(ByVal s As String) As String
-                Dim i As Long, c As String, r As String
-                For i = 1 To Len(s)
-                    c = Mid$(s, i, 1)
-                    If AscW(c) < 32 Or AscW(c) > 126 Then r = r & "<" & AscW(c) & ">" Else r = r & c
-                Next
-                Show = "[" & r & "]"
-            End Function
-
+        await Run(Probe3 + Environment.NewLine + """""
             Sub Main()
                 Dim t As String
                 On Error Resume Next
@@ -3439,135 +2940,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task Round_trips_and_record_overflows_as_vb6_exe_did()
     {
-        await Run($$"""
-
-            Private Type TRec
-                i As Integer
-                s As String
-                l As Long
-            End Type
-
-            Private Type TVar
-                v As Variant
-                b As Byte
-            End Type
-
-            Private Type TMix
-                b As Byte
-                l As Long
-            End Type
-
-            Private Type TOuter
-                a As Integer
-                inner As TRec
-                z As Byte
-            End Type
-
-            Private Type TVarS
-                v As Variant
-            End Type
-
-            Private Type TAll
-                bo As Boolean
-                cu As Currency
-                dt As Date
-                si As Single
-                db As Double
-            End Type
-
-            Private gi() As Integer
-
-            Public Sub L(ByVal s As String)
-                Debug.Print s
-            End Sub
-
-            Public Function P(ByVal name As String) As String
-                P = "{{Folder}}" & name
-            End Function
-
-            Public Function E() As String
-                E = " err " & Err.Number
-                Err.Clear
-            End Function
-
-            Public Sub Fresh(ByVal name As String)
-                On Error Resume Next
-                Kill P(name)
-                Err.Clear
-            End Sub
-
-            Public Function Hx(ByVal name As String) As String
-                Dim f As Integer, b() As Byte, i As Long, r As String
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If LOF(f) > 0 Then
-                    ReDim b(0 To LOF(f) - 1)
-                    Get #f, 1, b
-                    For i = 0 To UBound(b)
-                        r = r & Right$("0" & Hex$(b(i)), 2) & " "
-                    Next
-                End If
-                Close #f
-                Hx = "[" & Trim$(r) & "]"
-            End Function
-
-            Public Function Where(ByVal n As Integer) As String
-                Dim r As String, v As Variant
-                On Error Resume Next
-                v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = " LOF " & v
-                v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Loc " & v
-                v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Seek " & v
-                v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                Where = r & " EOF " & v
-            End Function
-
-            Public Sub MakeHex(ByVal name As String, ByVal hx As String)
-                Dim f As Integer, b() As Byte, i As Long, n As Long
-                Fresh name
-                hx = Replace(hx, " ", "")
-                n = Len(hx) \ 2
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If n > 0 Then
-                    ReDim b(0 To n - 1)
-                    For i = 0 To n - 1
-                        b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
-                    Next
-                    Put #f, 1, b
-                End If
-                Close #f
-            End Sub
-
-            Public Function Bounds(a As Variant) As String
-                Dim r As String
-                On Error Resume Next
-                r = LBound(a) & " To " & UBound(a)
-                If Err.Number Then r = "err" & Err.Number: Err.Clear
-                Bounds = r
-            End Function
-
-            Public Sub LockedGet(x As Integer)
-                Get #1, 1, gi
-                L "  Random Get into the array while its element is passed ByRef:" & E() & " bounds " & Bounds(gi)
-            End Sub
-
-            Public Sub LockedBinaryGet(x As Integer)
-                Get #1, 1, gi
-                L "  Binary Get into the array while its element is passed ByRef:" & E() & " gi(0) " & gi(0)
-            End Sub
-
-            Public Function Show(ByVal s As String) As String
-                Dim i As Long, c As String, r As String
-                For i = 1 To Len(s)
-                    c = Mid$(s, i, 1)
-                    If AscW(c) < 32 Or AscW(c) > 126 Then r = r & "<" & AscW(c) & ">" Else r = r & c
-                Next
-                Show = "[" & r & "]"
-            End Function
-
+        await Run(Probe4 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
                 On Error Resume Next
@@ -3696,136 +3069,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task Get_into_a_locked_array_as_vb6_exe_did()
     {
-        await Run($$"""
-
-            Private Type TRec
-                i As Integer
-                s As String
-                l As Long
-            End Type
-
-            Private Type TVar
-                v As Variant
-                b As Byte
-            End Type
-
-            Private Type TMix
-                b As Byte
-                l As Long
-            End Type
-
-            Private Type TOuter
-                a As Integer
-                inner As TRec
-                z As Byte
-            End Type
-
-            Private Type TVarS
-                v As Variant
-            End Type
-
-            Private Type TAll
-                bo As Boolean
-                cu As Currency
-                dt As Date
-                si As Single
-                db As Double
-            End Type
-
-            Private gi() As Integer
-
-            Public Sub L(ByVal s As String)
-                Debug.Print s
-            End Sub
-
-            Public Function P(ByVal name As String) As String
-                P = "{{Folder}}" & name
-            End Function
-
-            Public Function E() As String
-                E = " err " & Err.Number
-                Err.Clear
-            End Function
-
-            Public Sub Fresh(ByVal name As String)
-                On Error Resume Next
-                Kill P(name)
-                Err.Clear
-            End Sub
-
-            Public Function Hx(ByVal name As String) As String
-                Dim f As Integer, b() As Byte, i As Long, r As String
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If LOF(f) > 0 Then
-                    ReDim b(0 To LOF(f) - 1)
-                    Get #f, 1, b
-                    For i = 0 To UBound(b)
-                        r = r & Right$("0" & Hex$(b(i)), 2) & " "
-                    Next
-                End If
-                Close #f
-                Hx = "[" & Trim$(r) & "]"
-            End Function
-
-            Public Function Where(ByVal n As Integer) As String
-                Dim r As String, v As Variant
-                On Error Resume Next
-                v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = " LOF " & v
-                v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Loc " & v
-                v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Seek " & v
-                v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                Where = r & " EOF " & v
-            End Function
-
-            Public Sub MakeHex(ByVal name As String, ByVal hx As String)
-                Dim f As Integer, b() As Byte, i As Long, n As Long
-                Fresh name
-                hx = Replace(hx, " ", "")
-                n = Len(hx) \ 2
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If n > 0 Then
-                    ReDim b(0 To n - 1)
-                    For i = 0 To n - 1
-                        b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
-                    Next
-                    Put #f, 1, b
-                End If
-                Close #f
-            End Sub
-
-            Public Function Bounds(a As Variant) As String
-                Dim r As String
-                On Error Resume Next
-                r = LBound(a) & " To " & UBound(a)
-                If Err.Number Then r = "err" & Err.Number: Err.Clear
-                Bounds = r
-            End Function
-
-            Public Sub LockedGet(x As Integer)
-                On Error Resume Next
-                Get #1, 1, gi
-                L "  Random Get into the array while its element is passed ByRef:" & E() & " bounds " & Bounds(gi)
-            End Sub
-
-            Public Sub LockedBinaryGet(x As Integer)
-                Get #1, 1, gi
-                L "  Binary Get into the array while its element is passed ByRef:" & E() & " gi(0) " & gi(0)
-            End Sub
-
-            Public Function Show(ByVal s As String) As String
-                Dim i As Long, c As String, r As String
-                For i = 1 To Len(s)
-                    c = Mid$(s, i, 1)
-                    If AscW(c) < 32 Or AscW(c) > 126 Then r = r & "<" & AscW(c) & ">" Else r = r & c
-                Next
-                Show = "[" & r & "]"
-            End Function
-
+        await Run(Probe5 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
                 On Error Resume Next
@@ -3854,119 +3098,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task EOF_after_a_Put_and_what_a_failed_field_is_left_as_vb6_exe_did()
     {
-        await Run($$"""
-
-            Private Type TRec
-                i As Integer
-                s As String
-                l As Long
-            End Type
-
-            Private Type TVar
-                v As Variant
-                b As Byte
-            End Type
-
-            Private Type TMix
-                b As Byte
-                l As Long
-            End Type
-
-            Private Type TOuter
-                a As Integer
-                inner As TRec
-                z As Byte
-            End Type
-
-            Private Type TVarS
-                v As Variant
-            End Type
-
-            Private Type TAll
-                bo As Boolean
-                cu As Currency
-                dt As Date
-                si As Single
-                db As Double
-            End Type
-
-            Private Type TIS
-                i As Integer
-                s As String
-            End Type
-
-            Public Sub L(ByVal s As String)
-                Debug.Print s
-            End Sub
-
-            Public Function P(ByVal name As String) As String
-                P = "{{Folder}}" & name
-            End Function
-
-            Public Function E() As String
-                E = " err " & Err.Number
-                Err.Clear
-            End Function
-
-            Public Sub Fresh(ByVal name As String)
-                On Error Resume Next
-                Kill P(name)
-                Err.Clear
-            End Sub
-
-            Public Function Hx(ByVal name As String) As String
-                Dim f As Integer, b() As Byte, i As Long, r As String
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If LOF(f) > 0 Then
-                    ReDim b(0 To LOF(f) - 1)
-                    Get #f, 1, b
-                    For i = 0 To UBound(b)
-                        r = r & Right$("0" & Hex$(b(i)), 2) & " "
-                    Next
-                End If
-                Close #f
-                Hx = "[" & Trim$(r) & "]"
-            End Function
-
-            Public Function Where(ByVal n As Integer) As String
-                Dim r As String, v As Variant
-                On Error Resume Next
-                v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = " LOF " & v
-                v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Loc " & v
-                v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Seek " & v
-                v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                Where = r & " EOF " & v
-            End Function
-
-            Public Sub MakeHex(ByVal name As String, ByVal hx As String)
-                Dim f As Integer, b() As Byte, i As Long, n As Long
-                Fresh name
-                hx = Replace(hx, " ", "")
-                n = Len(hx) \ 2
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If n > 0 Then
-                    ReDim b(0 To n - 1)
-                    For i = 0 To n - 1
-                        b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
-                    Next
-                    Put #f, 1, b
-                End If
-                Close #f
-            End Sub
-
-            Public Function Bounds(a As Variant) As String
-                Dim r As String
-                On Error Resume Next
-                r = LBound(a) & " To " & UBound(a)
-                If Err.Number Then r = "err" & Err.Number: Err.Clear
-                Bounds = r
-            End Function
-
+        await Run(Probe6 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
                 On Error Resume Next
@@ -4043,119 +3175,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task After_a_read_past_the_end_the_next_Get_or_Put_is_at_the_end_as_vb6_exe_did()
     {
-        await Run($$"""
-
-            Private Type TRec
-                i As Integer
-                s As String
-                l As Long
-            End Type
-
-            Private Type TVar
-                v As Variant
-                b As Byte
-            End Type
-
-            Private Type TMix
-                b As Byte
-                l As Long
-            End Type
-
-            Private Type TOuter
-                a As Integer
-                inner As TRec
-                z As Byte
-            End Type
-
-            Private Type TVarS
-                v As Variant
-            End Type
-
-            Private Type TAll
-                bo As Boolean
-                cu As Currency
-                dt As Date
-                si As Single
-                db As Double
-            End Type
-
-            Private Type TIS
-                i As Integer
-                s As String
-            End Type
-
-            Public Sub L(ByVal s As String)
-                Debug.Print s
-            End Sub
-
-            Public Function P(ByVal name As String) As String
-                P = "{{Folder}}" & name
-            End Function
-
-            Public Function E() As String
-                E = " err " & Err.Number
-                Err.Clear
-            End Function
-
-            Public Sub Fresh(ByVal name As String)
-                On Error Resume Next
-                Kill P(name)
-                Err.Clear
-            End Sub
-
-            Public Function Hx(ByVal name As String) As String
-                Dim f As Integer, b() As Byte, i As Long, r As String
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If LOF(f) > 0 Then
-                    ReDim b(0 To LOF(f) - 1)
-                    Get #f, 1, b
-                    For i = 0 To UBound(b)
-                        r = r & Right$("0" & Hex$(b(i)), 2) & " "
-                    Next
-                End If
-                Close #f
-                Hx = "[" & Trim$(r) & "]"
-            End Function
-
-            Public Function Where(ByVal n As Integer) As String
-                Dim r As String, v As Variant
-                On Error Resume Next
-                v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = " LOF " & v
-                v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Loc " & v
-                v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                r = r & " Seek " & v
-                v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
-                Where = r & " EOF " & v
-            End Function
-
-            Public Sub MakeHex(ByVal name As String, ByVal hx As String)
-                Dim f As Integer, b() As Byte, i As Long, n As Long
-                Fresh name
-                hx = Replace(hx, " ", "")
-                n = Len(hx) \ 2
-                f = FreeFile
-                Open P(name) For Binary As #f
-                If n > 0 Then
-                    ReDim b(0 To n - 1)
-                    For i = 0 To n - 1
-                        b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
-                    Next
-                    Put #f, 1, b
-                End If
-                Close #f
-            End Sub
-
-            Public Function Bounds(a As Variant) As String
-                Dim r As String
-                On Error Resume Next
-                r = LBound(a) & " To " & UBound(a)
-                If Err.Number Then r = "err" & Err.Number: Err.Clear
-                Bounds = r
-            End Function
-
+        await Run(Probe6 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
                 On Error Resume Next

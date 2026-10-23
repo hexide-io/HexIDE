@@ -632,15 +632,17 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // Source numbers always use a point, whatever the host's culture (#781).
             var text = ExponentAsE(doubleliteral.GetText());
             char suffix = text[^1];
-            if (suffix is '#' or '!' or '&' or '@' or '%')
+            // A literal with a point and an Integer or Long suffix does not compile: 2.5%, 5.& and 2.5E1& are each "Syntax
+            // error" (measured, #1615). It was rounded to an Integer or a Long.
+            if (suffix is '&' or '%')
+                throw new VBCompileErrorException("Syntax error");
+            if (suffix is '#' or '!' or '@')
             {
                 var body = text[..^1];
                 return InTypeRange(suffix switch
                 {
                     '!' => new Vb6Value(float.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)),
-                    '&' => new Vb6Value((long)Math.Round(double.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture), MidpointRounding.ToEven)), // & forces Long
                     '@' => Vb6Value.NewCurrency(decimal.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)), // @ forces Currency
-                    '%' => new Vb6Value((int)Math.Round(double.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture), MidpointRounding.ToEven)), // % forces Integer
                     _ => new Vb6Value(double.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)), // #
                 });
             }
