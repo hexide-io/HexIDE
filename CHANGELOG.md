@@ -238,6 +238,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A CommandButton, TextBox, ComboBox, ListBox and Frame have ToolTipText** (#1403). Only five controls declared it,
+  so on these the Properties window did not list it, a running form showed no tip, and code could not read or set
+  it. Measured on vb6.exe across every intrinsic control: these five have it, and the scroll bars, Shape, Line, Timer
+  and menus do not. On all ten that have it, ToolTipText now reads and takes values at run time as vb6.exe's does.
+
 - **A ComboBox's Style is modelled, and a Dropdown List runs as one** (#1428). Style was kept as a preserved line, so
   the Properties window could not show or set it, and a program reading or writing a Dropdown List's Text was stopped
   as not implemented. Now Style is offered with VB6's three names and reads as an Integer, and a Dropdown List's Text
