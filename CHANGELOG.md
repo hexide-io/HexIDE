@@ -236,6 +236,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A Let into an array variable takes only what vb6.exe's does** (#998, #1588). It stored whatever it was given:
+  `a = Array(1, 2)` left an `Integer()` a Variant array, Empty left a `String()` Empty, and `b = "ab"` left a `Byte()`
+  a String. Now an array of exactly the element type is copied, a String into a `Byte()` becomes its bytes, and anything
+  else is error 13 and leaves the array as it was, or VB6's compile error "Can't assign to array" where the statement
+  shows the type. A Function declared to return a `Byte()` converts a String too, where it stopped the program.
+
 - **MCP paths for indented list items resolve** (#1357). `dump_visual_tree` trims names in paths while keeping
   the reported name as drawn. Names that become duplicates after trimming use positional paths, as do blank names.
 

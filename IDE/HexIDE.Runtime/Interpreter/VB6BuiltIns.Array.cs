@@ -51,6 +51,21 @@ public partial class VB6BuiltIns
         return v;
     }
 
+    /// <summary>
+    /// A String's bytes, as VB6 makes them when a String is stored into a Byte() (measured, #998): two to a character, low
+    /// byte first, from 0, so "ab" is 97 0 98 0, ChrW(256) is 0 1, and "" is a Byte() 0 To -1.
+    /// </summary>
+    internal static Vb6Value StringBytes(string text)
+    {
+        var bytes = new List<Vb6Value>(text.Length * 2);
+        foreach (var c in text)
+        {
+            bytes.Add(new Vb6Value((byte)(c & 0xFF)));
+            bytes.Add(new Vb6Value((byte)(c >> 8)));
+        }
+        return MakeArray(Vb6Value.ValueType.Byte, bytes);
+    }
+
     // Split(expr, [delimiter=" "], [limit=-1], [compare]) -> a 0-based String array.
     private static Vb6Value Split(IReadOnlyList<Vb6Value> a)
     {
