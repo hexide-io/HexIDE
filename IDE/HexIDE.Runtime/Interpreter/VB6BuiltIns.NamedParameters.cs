@@ -133,10 +133,23 @@ public partial class VB6BuiltIns
         }
     }
 
+    // Known maxima and required positions are checked together (#741, #1512).
     // Too few positional arguments follow the no-names set's Syntax error, or the named table's omission message
     // (measured, #1512). InStr and StrComp need two; the other no-names intrinsics need one.
-    private static void CheckRequiredIntrinsicArguments(string name, IReadOnlyList<Vb6Value> args)
+    private static void CheckIntrinsicArgumentCount(string name, IReadOnlyList<Vb6Value> args)
     {
+        // Only known signatures impose a maximum (#741); Array/Choose and unlisted intrinsics stay unlimited.
+        int? maximum = NamedParameterTable.TryGetValue(name, out var signature) ? signature.Names.Length
+            : TakesNoNamedArguments.Contains(name) ? name.ToUpperInvariant() switch
+            {
+                "INSTR" => 4,
+                "STRCOMP" => 3,
+                "LBOUND" or "UBOUND" => 2,
+                _ => 1,
+            } : null;
+        if (maximum is { } limit && args.Count > limit)
+            throw new VBCompileErrorException("Wrong number of arguments or invalid property assignment");
+
         int required;
         string message;
         if (TakesNoNamedArguments.Contains(name))

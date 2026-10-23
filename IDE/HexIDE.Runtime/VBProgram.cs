@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using HexIDE.Runtime.Interpreter.ConditionalCompilation;
 using System.Threading.Tasks;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
@@ -25,6 +26,13 @@ public interface IFormView
 
     /// <summary>Whether the window is showing: false once it has been hidden, made invisible or closed.</summary>
     bool IsShown { get; }
+
+    /// <summary>
+    /// The window's client size in whole device pixels, and its state, whose change Resize reports (#994). Pixels, as VB6's
+    /// sizes are: a form 4000 twips wide is 266.67 units, which the window lays out again at 267. A minimized window has no
+    /// size: VB6 raises Resize once as it minimizes, whatever the backend does to the window then.
+    /// </summary>
+    (Avalonia.Size Size, Avalonia.Controls.WindowState State) Extent { get; }
 
     /// <summary>
     /// The modal form holding this one, or null (#822). A held form is drawn as it was and takes no input: no pointer, no
@@ -58,6 +66,8 @@ public sealed class VBProgram : IFormProgram
     private readonly HashSet<VbObject> loaded = new(ReferenceEqualityComparer.Instance);
     // The modal forms displayed, innermost last.
     private readonly List<VBWindowContext> modals = [];
+    // The form Activate was last raised for, until another is activated or it unloads.
+    private VBWindowContext? active;
     private readonly TaskCompletionSource ended = new();
     private bool finishing;
 
@@ -133,8 +143,10 @@ public sealed class VBProgram : IFormProgram
                     others.Add((form.Name, FormCodeText.WholeFile(form)));
 
         ExecutionContext = rootContext.ExecutionContext;
+        // The project's Conditional Compilation Arguments, or vb6.exe's refusal of them before anything runs (#1112).
+        var compilation = project is null ? null : CompilationConstants.ForProject(project);
         interpreter = new BasicInterpreter(rootContext.StandardLibrary, ExecutionContext, rootContext.RootEnv,
-            primaryCode, primaryName, additional, classModules, primaryKind, others)
+            primaryCode, primaryName, additional, classModules, primaryKind, others, compilation)
         {
             DebugController = debugController,
             Events = Events,
@@ -316,6 +328,33 @@ public sealed class VBProgram : IFormProgram
             throw new Debugging.StopExecutionSignal();
     }
 
+    /// <summary>
+    /// One of the program's windows has been activated (#994): Deactivate for the form Activate was last raised for, if it
+    /// is still loaded, then Activate for this one. Measured on vb6.exe in the console, native and p-code:
+    /// <list type="bullet">
+    /// <item>both come after the statement that activated the form, a Show or a SetFocus, has returned, as messages Windows
+    /// posts. So a Show raises its Resize first, inside the statement;</item>
+    /// <item>a form hidden while it was active is given Deactivate, and one unloaded is not;</item>
+    /// <item>leaving for another application raises nothing, and coming back raises nothing unless it is to another of the
+    /// program's forms. So a window's deactivation is never reported, only which form is activated.</item>
+    /// </list>
+    /// A window a modal form holds is never activated, as Windows doesn't activate a disabled one, so its host doesn't
+    /// report it.
+    /// </summary>
+    public void Activated(VBWindowContext context)
+    {
+        if (ReferenceEquals(active, context) || context.FormInstance is not { FormLoaded: true })
+            return;
+        var previous = active;
+        active = context;
+        // Posted: they wait for the handler that is running. Win32 activates the window inside Show, and without this the
+        // pair ran there, before the statement after the Show; headless, the activation comes after the handler anyway. A
+        // window is shown before it is activated, so a Show's Resize has run by then.
+        using var posting = Events.Posting();
+        previous?.ExecuteSub("Form_Deactivate");
+        context.ExecuteSub("Form_Activate");
+    }
+
     /// <summary>A form has loaded: the program holds it until it unloads, as VB6's Forms does.</summary>
     internal void Loaded(VBWindowContext context)
     {
@@ -330,6 +369,9 @@ public sealed class VBProgram : IFormProgram
     /// </summary>
     internal async Task Unloaded(VBWindowContext context)
     {
+        // The active form unloaded is given no Deactivate, and the form Windows activates next its Activate (measured, #994).
+        if (ReferenceEquals(active, context))
+            active = null;
         var instance = context.FormInstance!;
         if (loaded.Remove(instance))
             await interpreter.ReleaseRef(Vb6Value.NewObject(instance));

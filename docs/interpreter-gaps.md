@@ -55,8 +55,9 @@ Platform: 4 · Partial: 12 · Other: 0.
 >   the no-op was measured and found wrong) · **Option Compare / Option Private
 >   Module** (now tolerated — the module loads; `Option Compare Text` accepted-but-always-Binary is the residual
 >   divergence) · **Deftype** (#169: a letter table the pre-pass collects, consulted wherever a declaration has no As
->   clause; oracle-pinned).
-> - **→ Deferred:** Load/Unload · `#If`/`#Const` (now a **clean compile error**, not a raw crash) · chained
+>   clause; oracle-pinned) · **Conditional compilation** (#1112: `#If` and `#Const` applied to the module's text before the
+>   parse, so an inactive branch is never parsed; oracle-pinned).
+> - **→ Deferred:** Load/Unload · chained
 >   index groups (`Split(s)(0)`) · AddressOf · string-vs-number comparison (`5 < "10"`) · **Declare … Lib** (no longer
 >   fails the module load — the declaration is skipped, so the module runs; an actual call raises the clean "Sub or
 >   Function not defined") · selection/system/financial intrinsics (IIf/Choose/Switch are
@@ -74,7 +75,7 @@ _Original per-item findings (retained for detail; dispositions above supersede t
 - ~~**Deftype** (DefInt/DefLng/DefStr A-Z…) — grammar parses it but StatementExecutor.cs:164-167 throws and PrePass has no handler; VB6 declaration-section default-typing by first letter (runtime, so not CST-walled). Undocumented.~~
   — **FIXED 2026-10-23 (#169)**: the pre-pass collects a letter table, which is collection, not binding, and every
   declaration with no As clause reads it. Oracle-pinned; see the oracle's "DefType".
-- **Conditional compilation** (`#If/#ElseIf/#Else/#End If`, `#Const`) — PrePass.cs:202 throws so any module with `#If` fails to load wholesale; VB6 compiles only the selected branch. Undocumented (ROADMAP `#Const` row is serialization-only; LSP `#If` is folding-only).
+- ~~**Conditional compilation** (`#If/#ElseIf/#Else/#End If`, `#Const`)~~ — **FIXED 2026-10-23** ([#1112](https://github.com/hexide-io/HexIDE/issues/1112)): each module's directives are applied to its text before the parse, so an inactive branch is never parsed, and every directive is evaluated as vb6.exe measured; see the oracle's "Conditional compilation". This is collection, not binding: it reads constants and never relates one symbol to another.
 - **Array-element / call-result lead in a member chain** (`arr(i).Name`, `GetObj(x).Foo`) — ExpressionExecutor.cs:406-411 accepts only a bare-variable lead, so a call/array lead silently misroutes into the leading-dot `With` branch (wrong object / Error 91); write path throws (StatementExecutor.cs:527-529). Valid core VB6. Undocumented (only the UDT-array sub-case is walled).
 - ~~**Chained index groups** (`Split(s)(0)`, `Array(1,2)(1)`, `f(1)(2)`)~~ — **FIXED 2026-10-23** ([#1476](https://github.com/hexide-io/HexIDE/issues/1476)): a call's result, an array's element and a member's result index and write as vb6.exe measured, in its order of evaluation; see the oracle's "Indexing a call's result".
 - **AddressOf** — parses but throws (ExpressionExecutor.cs:816); VB6 passes a procedure address as a Declare-API callback. Undocumented (natural home is a Declare/Win32 wall).
@@ -193,11 +194,9 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   are ordinary VB6. `ClassifyRadixLiteral` (`ExpressionExecutor.cs:389`) already parses `&H`/`&O`,
   oracle-pinned.
 - ~~**Multi-level qualified member access**~~ — **READS FIXED 2026-09-02 (#173)**. A module qualifier is simply the first step of an ordinary chain; measured to four levels (`Module1.p.In1.Z`). Folded through the same `ResolveMemberChain` as unqualified chains — they were only ever different in the KIND of the first step. **Chained assignment (`a.b.c = 5`) is still refused**: the prefix may resolve to a UDT, which is a value type, so whether the write reaches its owner is an aliasing question with its own tests to write.
-- **Parameterized `Property Get`/`Let`/`Set`** — the method branch resolves arguments at
-  `ExpressionExecutor.cs:503`; the property branch detects them and throws eight lines later at `:510-511`,
-  then passes `[]`. Same receiver, same `RunProcedure`. A Collection now exists (#1471), but its `Item` is a member of an
-  in-box object that takes its index as an argument, not a parameterised `Property Get` of the program's own class,
-  so it carves nothing out of this row.
+- **Parameterized `Property Let`/`Set`** remain refused. A class's parameterized `Property Get` now
+  passes its index arguments through the ordinary procedure binder (#741), including the surplus-argument
+  compile error. A Collection's `Item` is separately implemented as an in-box object's member (#1471).
 - **Fixed-length strings** (`Dim s As String * n`) — the width is a CST child of the declaration; the
   behaviour is store-time coercion on a declared type, the mechanism `CoerceOnStore` already runs for
   Integer/Long/Date. The UDT-field leg needs a new coercion site: `VbUdt.TrySet` writes the field bag with
@@ -282,4 +281,9 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
 
 ## Other
 
-_(none)_
+- **Parameterless `Left` sharing the library name (#741, oracle TE_01):** with
+  `Function Left() As String: Left = "noparams"`, VB6 answers `"a"` for `Left("abc", 1)`, passing over
+  the user function to the library. HexIDE raises the compile error "Wrong number of arguments or invalid
+  property assignment" as the statement executes. VB6 does not give parameterless `Right` the same
+  treatment; the difference is **unexplained**. This deliberately refuses a valid program rather than
+  returning a wrong value. Parameterless Variant/object result indexing remains supported (#1476).

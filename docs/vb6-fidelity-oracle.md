@@ -1258,6 +1258,9 @@ above into line for `Me`, `TypeName(Me)`, the form reached from a module, both o
 declarations at Initialize, and Initialize and Load before Resize. A control used in Initialize (#1009), Activate, the
 predeclared name and `Unload` remain.
 
+#994 then brings in Activate and Deactivate, and Resize once on the first show rather than for each size the
+window reports: [A form's Resize, Activate and Deactivate](#a-forms-resize-activate-and-deactivate-2026-10-23-994).
+
 #995 then brings implicit `Me` into line: a bare name in a form's code is the form's member, after its locals, variables,
 controls and procedures and before the project's globals, for reads, assignments and calls. A member VB6's Form has and
 HexIDE does not is refused as not implemented, rather than made a variable. A read-only one assigned is VB6's compile
@@ -11371,6 +11374,9 @@ one Label at Left 120, Top 120, 360 x 360. The program logs each step under `On 
   ClientHeight plus VB6's 19-pixel bar tall, so the canvas gets the whole ClientHeight.
 - **A form's Width and Height** read and set the client size, not the outer one: #1072. The fit-to-content idiom
   above still lands right, because here the difference between Width and ScaleWidth is 0.
+- **#1072 then makes them the outer size**, with the themed desktop's frame: [A form's Width and Height: the frame round its
+  client area](#a-forms-width-and-height-the-frame-round-its-client-area-2026-10-23-1072). Session 0's frame, measured here, is
+  smaller.
 
 ## Menus at run time, and the menu bar (2026-10-17, #1126, #1127)
 
@@ -16009,3 +16015,484 @@ to.
   Timer. A missing error, filed as #1563.
 
 **Not measured:** `Controls` on a UserControl, and on a form while its Initialize runs.
+
+## Conditional compilation (2026-10-23, #1112)
+
+Five `/make` batches, about 160 projects, every one built native and p-code. **The two agreed on every row.** A row that
+printed is a built EXE's own log, on SP6's MSVBVM60. A compile error came from the oracle's release-build compiler (#1524),
+and is quoted as `/make` wrote it. Every `#If` row was the shape below, so a printed `true` or `false` is which branch was
+compiled:
+
+```vb
+#If <condition> Then
+    L "<condition>: true"
+#Else
+    L "<condition>: false"
+#End If
+```
+
+A shape that might not compile was a project of its own, since one compile error stops the build.
+
+### What is a directive
+
+| line | vb6.exe |
+|---|---|
+| `#If 1 Then`, `#ElseIf 1 Then`, `#Else`, `#End If` | directives |
+| `#EndIf`, one word | a directive |
+| indented, as `    #If 1 Then` | a directive |
+| `#If 1 Then ' a comment` | a directive |
+| `#If 1 _` then `And 1 Then` on the next line | one directive, continued |
+| `#Const LC = _` then `1` on the next line | one directive, continued |
+| `#Const W = 1 ' a comment` | a directive |
+| `#If 1` with no `Then`, then `#End If` | not a directive: "An # ElseIf, # Else, or # EndIf must be preceded by an # If clause", at the `#End If` |
+| `#If 1 Then L "x"`, and `#If 1 Then: L "x"` | not a directive: the same error, at the `#End If` |
+| `10 #If 1 Then`, behind a line label | not a directive: the same error |
+| `#ElseIf 1` with no `Then`, inside `#If 0` | not a directive: skipped as inactive text, so its branch never runs |
+| `#Else whatever`, and `#Else If 1 Then`, inside an inactive branch | not a directive: skipped |
+| `#Else If 0 Then` after an active branch | not a directive, so it is code: "Syntax error" |
+| `#If (( Then` | not a directive: the stray-`#End If` error |
+| `#If (( Then` nested inside `#If 0` | not a directive: its `#End If` closes the outer `#If`, and the outer's is then stray |
+| `#ElseIf (( Then` after an active branch | not a directive, so it is code: "Syntax error" |
+| `#Const NV`, no `=` | "Expected: =", as code |
+| `#Const Z = ((` inside `#If 0` | builds: not a directive, and inactive |
+| `' a comment _`, then `#If 0 Then` | the comment goes on to the next line, so the `#If` is part of it, and the code after runs |
+
+So a line is a directive only when it is well formed: `#If e Then`, `#ElseIf e Then`, `#Else`, `#End If` or `#EndIf`, or
+`#Const name = e`, indented or not, with nothing after but a comment. Any other `#` line is code, a syntax error where it is
+active, and skipped where it is not.
+
+### Inactive code is never parsed
+
+| program | vb6.exe |
+|---|---|
+| `this is not valid vb ((` inside `#If 0`, at module level or in a procedure | builds |
+| `#If VBA7 Then` / `Private Declare PtrSafe Function ...` / `#Else` / the same without `PtrSafe` | builds |
+| an inactive `Declare`, `Dim` or garbage after the last `End Sub` | builds: no "Only comments may appear after End Sub" |
+| `#If 1` / `Private Sub F(ByVal x As Integer)` / `#Else` / `Private Sub F()` / `#End If`, then one body | builds and runs the first |
+| a whole procedure, `Both`, defined in each branch | the active one runs |
+| `Private Const KX = 1` and `= 2` in the two branches | `KX` is 1 |
+
+### Every directive is evaluated, active or not
+
+The guess was that a nested `#If` inside an inactive branch is skipped with the rest. **It is not.**
+
+| program | vb6.exe |
+|---|---|
+| `#If 0` / `#If Chr(65) = "A" Then` / `#End If` / `#End If` | "Variable not defined", at the nested `#If` |
+| `#If 0` / `#If 1` / `#ElseIf 1 / 0 Then` / ... | "Division by zero" |
+| `#If 1` / ... / `#ElseIf 1 / 0 Then`, after the taken branch | "Division by zero" |
+| `#If 1` / ... / `#ElseIf Chr(65) = "A" Then`, after the taken branch | "Variable not defined" |
+| `#If 0` / `#If 1 Then` / `#End If`, with the outer never closed | "You must terminate the # If block with an # EndIf" |
+
+### `#Const` takes no notice of `#If`
+
+The guess was that a `#Const` in an inactive branch defines nothing. **It defines its constant all the same.**
+
+| program | vb6.exe |
+|---|---|
+| `#If 0` / `#Const Z = 1` / `#End If`, then `#If Z` | true |
+| `#Const Y = 1`, then `#If 0` / `#Const Y = 2` / `#End If` | "Duplicate definition" |
+| `#If 0` / `#Const Z = Chr(65)` / `#End If` | "Variable not defined" |
+| `#Const A = 1` then `#Const A = 2` | "Duplicate definition" |
+| `#Const Q = 1` inside `Sub Main`, then `#Const Q = 2` at module level | "Duplicate definition" |
+| `#If LATE` before `#Const LATE = 1`, and after | false, then true: a `#Const` holds from its line on |
+| `#Const P = 1` inside `Sub Main`, read in `Sub Other` below it | true: across procedures |
+| Module1's `#Const A = 1`, read in Module2 | false: the module's alone |
+| `#Const R = R + 1` | `R` is 1: the right side reads `R` before it is defined |
+| `#Const ARG = ARG + 1`, with `CondComp="ARG = 5"` | `ARG` is 6 |
+| `#Const Win32 = 0` | `Win32` false: a built-in may be shadowed |
+| `#Const ARG = 7`, with `CondComp="ARG = 5"` | `ARG = 7` true, `ARG = 5` false |
+| Module2's `#Const Q = 9`, with `CondComp="Q = 4"` | 4 in Module1, 9 in Module2 |
+| `#Const SC = "a" & 1` | `SC = "a1"` true |
+| `#Const K = v`, with `Dim v As Integer` | `K = 0` true: a variable is an undefined name to a directive |
+| `#Const BIG = 32767 * 2` | "Overflow" |
+
+### What a name is
+
+| condition | vb6.exe |
+|---|---|
+| `Foo`, `Not Foo`, `Foo = 0` | false, true, true |
+| `CStr(Foo) = "0"`, `CStr(Foo) = ""` | true, false: an undefined name is 0, not Empty |
+| `Abs(Foo) = 0`, `Foo + 1 = 1`, `Foo & "x" = "0x"` | true, true, true |
+| `Len(Foo) = 0` | false |
+| `Empty`, `Empty = 0`, `Empty = ""`, `CStr(Empty) = ""` | false, true, true, true: `Empty` is Empty |
+| `a = 1`, with `#Const A = 1` | true: names in any case |
+| `Const KK = 3`, then `#If KK = 3` | false: an ordinary `Const` is undefined to a directive |
+| `Win16`, `Win32`, `Not Win32`, `Not Win16` | false, true, **true**, true: `Not` is bitwise, so `Not 1` is -2 |
+| `Win32 = 1`, `Win32 = -1`, `Win32 = True` | true, false, false |
+| `VBA6`, `VBA7`, `Win64`, `Mac`, `Not Win64` | false, false, false, false, true: not defined under VB6 |
+| `CBool(Win32)`, `Not CBool(Win16)` | true, true: a constant through `CBool` first gives `Not` a Boolean to work on |
+
+### The project's arguments
+
+`CondComp` is the `.vbp` line Project Properties' Make tab writes.
+
+| `CondComp` | vb6.exe |
+|---|---|
+| `ARG = 5 : FLAG = 1` | `ARG = 5`, `FLAG`, and `ARG = "5"` true; Module2 reads `ARG` too |
+| `A=1:B=2` | builds: the spaces are optional |
+| `X = +1` | `X = 1` |
+| `x = 3` | `X` is 3: names in any case |
+| `NEG = -1`, `M = 32767`, `N = -32768`, `ZERO = 0` | as written |
+| `Win32 = 0` | `Win32` false: an argument may shadow a built-in |
+| `VBA7 = 1` | `VBA7` true |
+| `""`, empty | no arguments |
+| `BIG = 70000`, `X = 32768`, `X = -32769` | refused |
+| `HEX = &H10`, `T = True`, `DD = 1.5`, `SARG = ""x""` | refused |
+| `X = 1 : X = 2`, `X =`, `X = 1; Y = 2`, `X = 1 :` | refused |
+
+A refusal is "Invalid syntax for constant declarations", then "One or more of the properties in 'probe.vbp' was bad. Some or
+all of the properties might not be set correctly.", and `/make` built nothing.
+
+**IDE, release build** (#1524). The same project, `CondComp="ARG = 70000"`, opened in the oracle's IDE in the guest's console
+session, beside a control with `CondComp="ARG = 5"`. The module logged `ARG` and then `ran`:
+
+| run | VB6's IDE |
+|---|---|
+| the control, `VB6.EXE /runexit probe.vbp` | ran: `ARG: true`, `ran`, and VB6 closed |
+| `VB6.EXE /runexit probe.vbp` | opened the project, titled "Probe - Microsoft Visual Basic [design]", behind a message box: "Invalid syntax for constant declarations", with OK and Help |
+| ... OK | a second: "One or more of the properties in 'C:\...\probe.vbp' was bad. Some or all of the properties might not be set correctly." |
+| ... OK | VB6 closed, and the program never ran: no log at all |
+| `VB6.EXE probe.vbp`, both boxes dismissed, then F5 sent | no log either, and the IDE stayed in design. That F5 reached the IDE is not established, so this row decides nothing |
+
+So the IDE opens the project and says so twice, and `/runexit` then runs nothing: what HexIDE does, refusing to run with the
+first message, is the measured `/runexit` answer. Whether F5 afterwards runs with the arguments dropped is still open.
+
+### Values and operators
+
+Constants, an argument or a built-in or a `#Const`, are Variants. Literals are typed, as in running code.
+
+| condition | vb6.exe |
+|---|---|
+| `1 + 1 = 2`, `5 \ 2 = 2`, `7 Mod 3 = 1`, `2 ^ 3 = 8`, `7 / 2 = 3.5` | true |
+| `-1`, `0`, `0.4` | true, false, true: any number but 0 holds |
+| `1 And 2`, `1 Or 2`, `3 Xor 3`, `1 Eqv 1`, `0 Imp 0` | false, true, false, true, true: bitwise |
+| `Not 0`, `Not 1`, `Not -1` | true, true, false |
+| `True`, `False`, `True = -1`, `True + True = -2` | true, false, true, true |
+| `-2 ^ 2 = 4` | **false**: `^` binds tighter than the minus, so it is -4 |
+| `7 \ 2 * 2 = 1`, `2 + 3 * 4 = 14`, `10 - 2 - 3 = 5` | true |
+| `2.5 \ 1 = 2`, `3.5 \ 1 = 4`, `-7 Mod 3 = -1` | true: banker's rounding |
+| `Not 1 = 2`, `(Not 1) = -2`, `1 < 2 = True`, `1 = 1 = True` | true: `Not` binds below the comparisons |
+| `&H10 = 16`, `1.5 = 1.5`, `#1/2/2000# > #1/1/2000#`, `#1/1/2000# < 40000` | true |
+| `"1" + 1 = 2`, `"1" & 1 = "11"` | true |
+| `32767 + 1 > 0`, `2147483647 + 1 > 0` | "Overflow": typed |
+| `M + 1 = 32768`, `M * 2 = 65534`, with `#Const M = 32767` | true: a Variant widens |
+| `ML + 1 = 2147483648#`, with `#Const ML = 2147483647` | true |
+| `1 / 0` | "Division by zero" |
+| `1 Is 1` | "Type mismatch" |
+
+### Comparison
+
+Strings compare as text, whatever `Option Compare` says, `Like` included:
+
+| condition | vb6.exe |
+|---|---|
+| `"a" = "A"`, `"B" > "a"`, `"a" < "B"`, `"10" < "9"` | true |
+| `"Z" < "a"`, under Binary and under `Option Compare Text` | false |
+| `"ABC" Like "a*"`, `"abc" Like "a*"` | true |
+| `SA = "A"`, `SA < "B"`, with `#Const SA = "a"` | true |
+
+A String against a number depends on which side is the Variant. With `#Const N5 = 5`, `#Const S5 = "5"`, `#Const SA = "a"`
+and `#Const S10 = "10"`:
+
+| condition | vb6.exe | so |
+|---|---|---|
+| `5 < "10"`, `"5" = 5`, `1 = "1.0"`, `1 = " 1"` | true | typed against typed: the String read as a number |
+| `0 = ""`, `0 = "a"`, `0 < "a"`, `"abc" > 5` | "Type mismatch" | ... and Type mismatch where it is not one |
+| `#1/1/2000# = "1/1/2000"` | true | ... or as a date beside a Date |
+| `N5 < "10"`, `N5 = "5.0"` | false | a Variant number against a typed String: as text |
+| `Foo = ""`, `Foo < ""`, `Foo > ""` | false, false, true | ... "0" against "" |
+| `Win32 = "1"`, `ARG = "5"` | true | ... |
+| `S5 = 5`, `S5 < 10`, `S10 > 9`, `S5 = 5.0` | true | a Variant String against a typed number: as numbers where it reads as one |
+| `SA = 5`, `5 < SA`, `SA > 5` | false, true, true | ... and the number first where it does not, with no error |
+| `N5 = S5`, `N5 < S5`, `N5 > SA` | false, true, false | Variant against Variant: the number first, whatever the String |
+| `N5 + S5 = 10`, `N5 & S5 = "55"`, `S5 + 1 = 6`, `Not S5 = -6` | true | arithmetic reads the String as a number |
+| `SA + 1` | "Type mismatch" | |
+
+That is the language reference's rule except in one place: it has a typed number against a Variant String that does not
+read as a number be Type mismatch, and here it is the number first, with no error.
+
+### Functions
+
+| called | vb6.exe |
+|---|---|
+| `Int(2.5) = 2`, `Fix(-2.5) = -2`, `Abs(-1) = 1`, `Sgn(-5) = -1`, `Int(Win32) = 1` | true |
+| `Len("abc") = 3`, `LenB("ab") = 4` | true |
+| `CBool`, `CByte(200)`, `CCur(1.5)`, `CDate(1) = #12/31/1899#`, `CDbl`, `CInt("5")`, `CLng(70000)`, `CSng(1.5)`, `CStr(5) = "5"`, `CVar(5)` | each true |
+| `CInt(2.5) = 2` | true: banker's rounding |
+| `Len(5)` | "Variable required - can't assign to this expression", as in code |
+| `CVErr(5) = 5` | "Type mismatch": CVErr is accepted, and an Error is no number |
+| `CDec`, `Asc`, `Chr`, `Left`, `UCase`, `Val`, `IIf`, `Hex`, `Str`, `Sqr`, `Round`, `VarType`, `TypeName`, `Year(Now)` | "Variable not defined" |
+| a user's `Function MyF()` | "Variable not defined" |
+
+So a directive may call `Int`, `Fix`, `Abs`, `Sgn`, `Len`, `LenB`, `CBool`, `CByte`, `CCur`, `CDate`, `CDbl`, `CInt`, `CLng`,
+`CSng`, `CStr`, `CVar` and `CVErr`, and nothing else. `CDec` is the one conversion missing.
+
+### The condition
+
+| condition | vb6.exe |
+|---|---|
+| `"1"`, `"True"`, `#1/1/2000#` | true |
+| `"False"` | false |
+| `""`, `"abc"` | "Type mismatch" |
+| `Null` | "Invalid use of Null" |
+| `Nothing` | "Invalid use of object" |
+
+### Structure
+
+| program | vb6.exe |
+|---|---|
+| `#End If` with no `#If` | "An # ElseIf, # Else, or # EndIf must be preceded by an # If clause" |
+| `#Else` then `#ElseIf 1 Then` | "An # ElseIf must be preceded by an # If or # ElseIf and followed by an # Else or # EndIf" |
+| `#Else` twice | "An # Else clause must be preceded by an # If" |
+| an `#If` never closed | "You must terminate the # If block with an # EndIf", reported at the module's last line |
+| nesting, and `#ElseIf` after a false `#If` | the first branch that holds, and only that one |
+
+`/make` numbered each compile error from 0, counting from the line after `Attribute VB_Name`, so its number is two less
+than the file's own line number; every error row fits that. A directive error came before any syntax error elsewhere in the
+module, so the directives are processed first.
+
+### In HexIDE (#1112)
+
+- **`ConditionalCompiler.Preprocess`** applies a module's conditional compilation to its text before the parse. Every
+  directive line, and every line of an inactive branch, is made empty, so the lines keep their numbers and an inactive branch
+  is never parsed. The text is the parser's alone: the code window shows the module as written, and a save writes it
+  byte for byte (`ConditionalCompilerTests`). It also gives the inactive lines, for the code window to grey (#1113).
+- **A directive's error is a compile error as the module loads**, before anything runs, naming the module and the line. The
+  unterminated `#If` is reported at its own line rather than the module's last.
+- **The expression** is read by the interpreter's own parser and evaluated by `ConstantExpression`, with the interpreter's
+  own operators, made static to share them: the overflow, the widening and the rounding are the runtime's. Comparison and
+  the function list are its own, as above. The text comparison is HexIDE's approximation, `OrdinalIgnoreCase`, as for a
+  Collection's keys (#1479).
+- **`CompilationArguments`** reads the `.vbp`'s `CondComp`, which round-trips verbatim, and refuses what vb6.exe refuses,
+  with its message, before the program runs.
+- **Divergences:**
+  - every personality takes VB6's built-ins. VBA documents `VBA6`, `VBA7` and `Win32` as 1, and `Win64` as 1 in a 64-bit
+    host, unmeasured here, but `VBA7 = 1` would select declarations HexIDE cannot parse (#1548). That waits for #1113's
+    "view as" work;
+  - `Like` is refused, not implemented, until HexIDE has `Like` (#1547);
+  - `CVErr` is refused, not implemented: HexIDE has no `CVErr`;
+  - `-2 ^ 2` is 4 here, where it is -4, because the lexer reads the minus as part of the number, here as everywhere (#1073);
+  - a `#` line that is not a directive fails in HexIDE's parser, with its own message, where vb6.exe's is "Syntax error" or
+    "Expected: =".
+
+## A form's Width and Height: the frame round its client area (2026-10-23, #1072)
+
+**The question.** A form's Width and Height at run time are its outer size ("Move, ScaleWidth and ScaleHeight"
+measured 90 and 375 twips more than the client for one Fixed Single form). How big is the frame for each BorderStyle,
+with a menu bar and with no caption bar? And what does Width read back after an assignment, since the window is whole
+pixels?
+
+**The probe.** Built EXEs, native and p-code, on the SP6 runtime (#1524). Each was run twice: in session 0, through
+PowerShell Direct, and in the guest's console, through the console agent, where Windows 10 draws the themed frame. Every
+form has a 2520 by 2520 twip client area and `StartUpPosition` Manual. `Sub Main`, for each form:
+- `Load` it and log `Width`, `Height`, `ScaleWidth`, `ScaleHeight` and the differences;
+- `Show` it, `DoEvents` and log again;
+- set `Width = 4000` and `Height = 3000`, `DoEvents`, log, and `Unload` it.
+
+Three rounds, the second and third for the rows the first left open. Native and p-code agreed on every line, and so did
+each form's loaded and shown rows: the frame is there before the form is shown. `Screen.TwipsPerPixelX` is 15.
+
+**Width - ScaleWidth by Height - ScaleHeight, in twips:**
+
+| Form | Session 0 | Console |
+|---|---|---|
+| 0 None | 0 × 0 | 0 × 0 |
+| 1 Fixed Single | 90 × 375 | 90 × 435 |
+| 2 Sizable | 120 × 405 | 240 × 585 |
+| 3 Fixed Dialog | 90 × 375 | 90 × 435 |
+| 4 Fixed ToolWindow | 90 × 330 | 90 × 435 |
+| 5 Sizable ToolWindow | 120 × 360 | 240 × 585 |
+| 0 None, with a menu | 90 × 660 | 90 × 735 |
+| 1 Fixed Single, with a menu | 90 × 660 | 90 × 735 |
+| 2 Sizable, with a menu | 120 × 690 | 240 × 885 |
+| 3 Fixed Dialog, with a menu | 90 × 660 | 90 × 735 |
+| 4 Fixed ToolWindow, with a menu | 90 × 615 | 90 × 735 |
+| 1 Fixed Single, `ControlBox = False`, `Caption = ""` | 30 × 30 | 30 × 30 |
+| 2 Sizable, the same | 120 × 120 | 240 × 240 |
+| 2 Sizable, the same but `MinButton` and `MaxButton` left True | 120 × 120 | 240 × 240 |
+| 3 Fixed Dialog, the same | 90 × 90 | 90 × 90 |
+| 4 Fixed ToolWindow, the same | 30 × 30 | 30 × 30 |
+| 5 Sizable ToolWindow, the same | 120 × 120 | 240 × 240 |
+| 1 Fixed Single, `ControlBox = False`, a Caption | 90 × 375 | 90 × 435 |
+| 1 Fixed Single, `Caption = ""`, the control box | 90 × 375 | 90 × 435 |
+| 2 Sizable, `ControlBox = False`, a Caption | 120 × 405 | 240 × 585 |
+| 2 Sizable, `Caption = ""`, the control box | 120 × 405 | 240 × 585 |
+
+**After `Width = 4000` and `Height = 3000`**, console:
+
+| Form | Width, Height | ScaleWidth, ScaleHeight |
+|---|---|---|
+| 0 None | 4000, 3000 | 4005, 3000 |
+| 1 Fixed Single | 4000, 3000 | 3915, 2565 |
+| 2 Sizable | 4000, 3000 | 3765, 2415 |
+| 1 Fixed Single, with a menu | 4000, 3000 | 3915, 2265 |
+| 2 Sizable, with a menu | 4000, 3000 | 3765, 2115 |
+| 1 Fixed Single, no caption bar | 4000, 3000 | 3975, 2970 |
+
+What these show:
+- **The console's frame is one rule.** A border, across and down: 240 for the sizable styles, 90 for the fixed ones,
+  and none for None. A caption bar adds 345 down, and a menu bar 300 more.
+- **There is no caption bar only when ControlBox is False and the Caption is empty.** Either alone keeps it, and
+  MinButton and MaxButton don't matter. Without one, Fixed Single and Fixed ToolWindow have a border of 30, a pixel
+  each side, and Fixed Dialog keeps 90.
+- **A borderless form with a menu** has Fixed Single's border and caption bar.
+- **A tool window's frame is the ordinary one** on the themed desktop. Only session 0 draws a smaller caption.
+- **Width and Height read back as assigned, but the window is whole pixels.** 4000 twips is 266.67 pixels. The window is
+  267, so the client area is 267 less the frame: 261 pixels, 3915 twips. A borderless form's client is all 267, 4005.
+- **Session 0's frame is smaller**, being unthemed: 120 across a sizable form, 375 down a fixed one, and a menu bar of
+  285. "Move, ScaleWidth and ScaleHeight" and "Menus at run time, and the menu bar" were measured there.
+
+### In HexIDE (#1072)
+
+`FormFrame` gives a form's window the console's frame, worked out once from its file's BorderStyle, ControlBox, Caption
+and menu bar. A program then reads Width and Height as the client area plus that frame, or as the value it last
+assigned, while the window keeps the size that value gave it. An assignment rounds the outer size to whole pixels and
+gives the window the client area left inside the frame. Read and write use the same frame, so `Width - ScaleWidth` is
+the frame and the fit-to-content idiom lands where it did.
+
+**The frame is VB6's, not the window's.** HexIDE draws every form as a sizable window with a full title bar (#1575). A
+frame read from the window would be Sizable's for every form, would be unknown until the form is shown and so change
+across Show, and would differ between hosts. The table is stable from Load onwards and the same everywhere. What that
+costs is screen arithmetic, such as `(Screen.Width - Width) / 2`, which is off by the difference between the two frames
+until #1575 makes them one. A form's Left and Top don't work at run time yet anyway (#852).
+
+**The console's values, not session 0's,** because the themed frame is what a user's desktop draws. A classic-theme
+profile would supply session 0's to `FormFrame` instead.
+
+**Not followed or not measured:**
+- The single-view host's forms, which are not windows, still read their client size.
+- A frame that changes at run time, as when a program empties the Caption of a form whose ControlBox is False. HexIDE
+  keeps the frame the form's file gave it. Unmeasured.
+- What a user's resize does to the value read back. HexIDE reads the new size, since the window no longer has the size
+  the assignment gave it.
+- A Width or Height smaller than the frame: HexIDE gives the window no client area. Unmeasured.
+- Other dpi settings: HexIDE counts 15 twips to a pixel, as at 96 dpi.
+
+## A form's Resize, Activate and Deactivate (2026-10-23, #994)
+
+**The question.** When a running form raises Resize, Activate and Deactivate:
+- on its first show, and when it's loaded without being shown;
+- when it's shown again after Hide, and loaded again after Unload;
+- when the program's active form changes, by Show, SetFocus, Hide, Unload or a click;
+- when the program loses and regains activation to another application.
+
+The lifecycle rows above give the order on show, `Form_Initialize`, `Form_Load`, `Form_Resize`, `Form_Activate`, for
+one form. These rows give the rest.
+
+**The probe.** Three projects, each built native and p-code with `/make` in session 0. Each EXE then ran in the
+guest's interactive console through the console agent, since Activate and focus need a desktop. Every form logs every
+event to a file with `Timer`'s time:
+- Initialize, Load, Resize with its `ScaleWidth`, `ScaleHeight`, `WindowState` and `Visible`;
+- Activate, Deactivate and Paint;
+- GotFocus and LostFocus, for the form and its TextBox;
+- QueryUnload, Unload and Terminate.
+
+Form1, the startup form, steps through a script on a 600 ms Timer and logs each step before and after. The driver gives
+the probe the foreground as it starts. When the probe logs "app switch window", the driver activates a Notepad it
+started, then comes back:
+- **Run 1:** by `AppActivate` of the probe's process;
+- **Runs 3a and 3b:** by a real mouse click on Form1, then on Form2, with Notepad moved clear of both forms.
+
+Native and p-code agreed line for line in every run.
+
+**Run 1, the first show and the size.** Form3's Load sets its own Width and Height. Form4 is fixed-border with no
+controls. Form5 is shown modal and unloads itself on its own Timer.
+
+| Step | Log |
+|---|---|
+| start | `Form1 initialize`, `Form1 load 3600x2400 ws0 visFalse`, `Form1 resize 3600x2400 ws0 visTrue`, `Form1 activate`, `Form1 Text1 gotfocus`, `Form1 paint` |
+| `Load Form2` | `Form2 initialize`, `Form2 load`, then the step's after: no Resize |
+| `Form2.Show` | `Form2 resize ... visTrue`, the step's after, then `Form1 Text1 lostfocus`, `Form1 deactivate`, `Form2 activate`, `Form2 Text1 gotfocus`, `Form2 paint` |
+| `Me.SetFocus`, from Form1's Timer | the step's after, then `Form2 Text1 lostfocus`, `Form2 deactivate`, `Form1 activate`, `Form1 Text1 gotfocus` |
+| `Form2.Hide`, Form2 not active | nothing |
+| `Form2.Show`, after the Hide | the step's after, then Form1's LostFocus and Deactivate, Form2's Activate, GotFocus and Paint: **no Resize** |
+| `Unload Form2`, Form2 active | `Form2 queryunload 1`, `Form2 unload`, the step's after, then `Form1 activate`, `Form1 Text1 gotfocus`: **no Deactivate for Form2** |
+| `Form2.Show`, after the Unload | `Form2 load` (no Initialize), `Form2 resize`, the step's after, then the activation |
+| `Form3.Show`, whose Load sets `Width = 6000` and `Height = 4000` | `Form3 initialize`, `Form3 load 3600x2400`, **`Form3 resize 5760x2400 visFalse`**, the line after the Width, **`Form3 resize 5760x3420 visFalse`**, the line after the Height, `load end`, **`Form3 resize 5760x3420 visTrue`**, the step's after, then the activation |
+| `Form4.Show`, fixed-border, no controls | `Form4 resize 3600x2400`, the step's after, then Form1's LostFocus and Deactivate, `Form4 activate`, **`Form4 form gotfocus`**, `Form4 paint` |
+| `Me.WindowState = vbMinimized` | `Form1 resize 0x0 ws1 visTrue`, then the step's after |
+| `Me.WindowState = vbNormal` | `Form1 resize 3600x2400 ws0`, the step's after, `Form1 paint` |
+| `Me.Width = Me.Width + 300` | `Form1 resize 3900x2400 ws0`, the step's after, `Form1 paint` |
+| `Me.Move Me.Left, Me.Top, Me.Width, Me.Height` | nothing |
+| `Form5.Show vbModal` | `Form5 initialize`, `load`, `resize`, then Form1's LostFocus and Deactivate, `Form5 activate`, GotFocus, Paint; at Form5's Timer `queryunload 1`, `unload`, the step's after, then `Form1 activate`, `Form1 Text1 gotfocus` |
+| Notepad activated, then the probe by `AppActivate` | nothing |
+| `Unload Me`, at the end | Form1's QueryUnload, Unload and Terminate, then every other form's Terminate, in the order they were made |
+
+**Run 2, hiding.**
+
+| Step | Log |
+|---|---|
+| `Form2.Hide`, Form2 active | the step's after, then `Form2 Text1 lostfocus`, `Form2 deactivate`, `Form1 activate`, `Form1 Text1 gotfocus` |
+| `Me.Hide`, Form1 not active | nothing |
+| `Me.Show`, after that | the step's after, then Form2's LostFocus and Deactivate, Form1's Activate, GotFocus and Paint: no Resize |
+| `Me.Hide`, Form1 active | the step's after, then Form1's LostFocus and Deactivate, Form2's Activate and GotFocus |
+| `Form2.Visible = False`, then `Form2.Visible = True` | as `Hide` and `Show`: nothing for the inactive form hidden, and the activation when it shows |
+| Notepad, then `AppActivate` of the probe, then `Unload Form2`, Form2 active | nothing at the switch; QueryUnload and Unload at the Unload, then nothing |
+
+**Runs 3a and 3b, coming back by a click.** Form2 is shown, and so active, before the switch to Notepad.
+
+| Back by | Log |
+|---|---|
+| a click on Form1 (p-code) | `Form2 Text1 lostfocus`, `Form2 deactivate`, `Form1 activate`, `Form1 Text1 gotfocus` |
+| a click on Form1 (native) | nothing. The driver's own `AppActivate`, as the probe started, had already brought Form1 forward after Form2's Show: the log has Form2's Deactivate and Form1's Activate there. So Form1 was the active form when the program was left |
+| a click on Form2, the active form | nothing |
+
+What these show:
+- **Resize comes once as a form is first shown after Load**, inside `Show`, before it returns, with `Visible` already
+  True. `Load` alone raises none. A form shown again after `Hide` raises none, and one loaded again after `Unload`
+  raises it again.
+- **While the form is hidden, Resize is raised for each change of its size**, inside the statement: Form3's Load raised
+  two, then the show raised a third at the same size.
+- **After the show, Resize is raised for each change of size or state**, inside the statement that made it, and not for
+  a `Move` to the size the form has. Minimized, the form reads 0 by 0 with WindowState 1.
+- **Activate and Deactivate come after the statement that activated the form has returned**, as messages Windows
+  posts. The order is the old form's control's LostFocus, the old form's Deactivate, the new form's Activate, then the
+  new form's control's GotFocus. A form with no control to take the focus is given its own GotFocus after its Activate.
+- **A form hidden while active is given Deactivate. One unloaded while active is not.** The form Windows activates next
+  is given Activate.
+- **Leaving for another application raises nothing, and nor does coming back to the form that was active.** Coming
+  back to another of the program's forms raises the pair, as a switch inside the program does. So VB6 tracks which of
+  its forms was last activated, and raises the pair only when that changes.
+- **What looked like an exception, and was not.** In run 2, `Unload Form2` after the switch raised no Activate for
+  Form1, where run 1's did. Windows activated Notepad, which lay under Form2, so no form of the program was activated.
+
+### In HexIDE (#994)
+
+**Resize.** A form's context raises it when its window first becomes visible since the form loaded, and after that
+only when the window reports a size or state that differs from the one Resize was last raised for. The window system
+reports a size more often than it changes one: at 150% scaling a desktop startup form raised three Resizes, and
+headless two. The size is compared in whole device pixels: a form 4000 twips wide is 266.67 units, which the window
+laid out again at 267 on a later show. Until the window system has sized a window, its size is the `Width` and `Height`
+it is being shown at. Before that, `ClientSize` is still the platform's default, 1024 by 768 headless.
+
+**Activate and Deactivate.** The program records the form Activate was last raised for. When one of its windows is
+activated, it raises Deactivate on that form, if it's still loaded, and Activate on the new one, both posted. A
+window's deactivation is never reported, so a switch to another application and back raises nothing. A form that
+unloads stops being the active one, so it's given no Deactivate. A window a modal form holds isn't reported, as Windows
+doesn't activate a disabled one. Posting matters on the desktop only: Win32 activates the window inside the Show, and
+with the posting removed the pair ran there, before the statement after the Show. Headless, the activation comes after
+the handler either way, so no headless test can tell.
+
+**Live, on the desktop at 150% scaling.** A two-form program logged, in order:
+- `f1 initialize`, `f1 load`, `f1 resize 5400x4200 ws0`, `f1 activate`;
+- Show2: `f2 initialize`, `f2 load`, `f2 resize 3000x1500 ws0`, the line after the Show, `f1 deactivate`, `f2 activate`;
+- Hide2, with Form2 active: `f2 deactivate`, `f1 activate`, Windows having activated Form1;
+- Form2's own Unload button: `f2 unload`, `f1 activate`;
+- Wider: one `f1 resize 5700x4200 ws0`;
+- the same width set again: nothing.
+
+**Not followed** (both #1570, and the layout after them is the same, so a missing or late event, not a wrong value):
+- **A size set while the form is hidden.** Form3's two Resizes from its own Load aren't raised. The window
+  doesn't report a size before it is shown, so the show's one Resize is the only one.
+- **A size set from code after the show** raises its Resize when the window reports the size, after the statement:
+  headless, `Debug.Print "wider": Me.Width = Me.Width + 450: Debug.Print "after"` printed `wider`, `after`, then the
+  Resize. VB6 raises it inside the statement.
+
+**A form's `Move`** stops the program, refused as not implemented: #1569.
+
+**Recorded here and left to their own issues:** GotFocus and LostFocus around Activate and Deactivate (#1101), and
+Paint (#991).
+
+**Not measured:** a form whose `.frm` starts it maximized or minimized. HexIDE raises the show's Resize at the size
+the form was designed at, and another when the window takes its maximized size.

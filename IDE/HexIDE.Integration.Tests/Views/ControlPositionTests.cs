@@ -212,8 +212,9 @@ public class ControlPositionTests
     [AvaloniaFact]
     public void A_forms_own_Width_is_twips_whatever_its_ScaleMode()
     {
-        // Measured: a pixel form's Me.Width is 4800, twips, for ClientWidth 4680, the frame included. HexIDE reads the
-        // client width, and the frame is #852's, so only the unit and the type are pinned: it read 312, pixels, a Double.
+        // Measured: a pixel form's Me.Width is 4800, twips, for ClientWidth 4680, the frame included. That was session 0's
+        // unthemed frame; HexIDE adds the themed desktop's, 240 (#1072, FormOuterSizeTests), so only the unit and the type
+        // are pinned here. It used to read 312, pixels, a Double.
         var run = RunLoad(Form(PixelForm, TextBox), "Debug.Print TypeName(Me.Width) & \" \" & (Me.Width >= 4680)");
 
         run.Errors.Should().BeEmpty();
