@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Media;
 using HexIDE.Runtime.BuiltinControls;
@@ -58,6 +59,22 @@ public class ComboBoxComponentClass : ComponentBaseClass
             Cursor = instance.GetPropertyOrDefault(MousePointerProperty).ToCursor(),
             FlowDirection = instance.GetPropertyOrDefault(RightToLeftProperty) ? FlowDirection.RightToLeft : FlowDirection.LeftToRight
         };
+    }
+
+    /// <summary>
+    /// VB6's designer draws a Dropdown List's box with the control's name: the name it has now, after a rename too, and not
+    /// a Text saved in the file (measured, #1604). The running control shows nothing there until an item is selected. The
+    /// name is drawn as an item is, in the control's ForeColor, not as a hint.
+    /// </summary>
+    public override Control InstantiateForDesigner(ComponentInstance instance)
+    {
+        var control = Instantiate(instance);
+        if (control is VBComboBox { IsDropdownList: true } combo)
+        {
+            combo.PlaceholderText = instance.GetPropertyOrDefault(NameProperty);
+            combo[!ComboBox.PlaceholderForegroundProperty] = combo[!TemplatedControl.ForegroundProperty];
+        }
+        return control;
     }
 
     /// <summary>A Dropdown List: its Text is never written to the .frm, as VB6's designer never writes it (measured).</summary>

@@ -1702,6 +1702,8 @@ What these show:
 Not measured: what Style 2 does in the designer to a combo whose Name has been changed, which would show whether it is
 the name now or the name the control was drawn with.
 
+A Dropdown List's box shows the name it has now: "What VB6's designer draws in a Dropdown List's box" (#1604).
+
 ### In HexIDE (#926)
 
 - **A drawn TextBox or ComboBox** starts with its name as its Text, and a control with no Caption is no longer given one.
@@ -1712,6 +1714,52 @@ the name now or the name the control was drawn with.
 - **A Dropdown List's Text** is never written to the .frm, and is ignored at load. At run time it was refused as not
   implemented until #1428 modelled the Style (below).
 - **Click and Change** come as measured since #1429, which records them with real input.
+
+### What VB6's designer draws in a Dropdown List's box (2026-10-23, #1604)
+
+**The question.** "Drawn in the VB6 IDE's designer" saw a drawn combo set to Style 2 still showing its name, `Combo3`, in
+its box. It left two cases open:
+- a Dropdown List read from a file, which has no Text line to show;
+- a Dropdown List renamed in the Properties window: does the box show the new name, or the name it was drawn with?
+
+**The probe.** In the guest's console session, the VB6 IDE opened a project holding one form, through the agent. The form
+held, from its file:
+- `Combo1` and `cboList`, two Dropdown Lists with no Text line;
+- `Combo3`, a Dropdown List whose file saved `Text = "x"`;
+- `Combo4`, a Dropdown Combo with `Text = "Combo4"`.
+
+The designer was opened from the Project window, as in "What VB6's Properties window shows a position in". Combo1 was
+selected in the Properties window's object box. Then F4, Home and the keys `cboNew`, and Enter. Home put the caret at
+the start of the (Name) row's value, so the name became `cboNewCombo1`. The form was saved with Ctrl+S, and every step
+was captured by a screenshot.
+
+| Combo | Its box in the designer |
+|---|---|
+| Combo1, from the file | `Combo1` |
+| cboList, from the file | `cboList` |
+| Combo3, whose file saved `Text = "x"` | `Combo3`, not `x` |
+| Combo4, a Dropdown Combo | `Combo4`, its Text |
+| Combo1 renamed `cboNewCombo1` | `cboNewCombo1`, at once |
+
+The save wrote `Begin VB.ComboBox cboNewCombo1` with no Text line. It also wrote **no Text line for Combo3**: the `x` the
+file had held was dropped.
+
+**What it shows:**
+- **The designer draws a Dropdown List's box with the control's name**, whether it was drawn or read from a file.
+- **It is the name the control has now.** A rename shows at once.
+- **A Text saved in the file is not drawn,** and the next save drops it, as "Drawn in the VB6 IDE's designer" found
+  that a Dropdown List's Text is never written.
+
+**Not measured:** what Text a renamed Dropdown List takes when its Style goes back to 0. A second run meant to set the
+Style lost its keys to the (Name) row: it renamed the control `S` and then refused `0` as a name, with "Not a legal object
+name: '0'". Its box showed `S` at once, which agrees with the rename row above.
+
+### In HexIDE (#1604)
+
+- **The designer draws a Dropdown List's box with the control's current name,** in its ForeColor, as an item would be
+  drawn. A Text saved in the file isn't drawn. The running control still shows nothing there until an item is selected.
+- **This is the designer's first control that draws differently from the running one.** `ComponentBaseClass` has
+  `InstantiateForDesigner` for it, which the designer's renderer calls. Every other class returns its running control.
 
 ### Style, and a Dropdown List's Text from code (2026-10-23, #1428)
 
