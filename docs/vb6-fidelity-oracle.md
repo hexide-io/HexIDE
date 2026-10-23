@@ -14545,6 +14545,7 @@ counted it as one for reading.
 **#169 found one more.** An object Function's return name started Empty before any Set. So `F = 5` in `F() As Object`
 took the value where vb6.exe raises 91, and an unset `As Object` or `As Collection` Function returned Empty. It starts
 Nothing now, and `LetIntoObjectTests` pins a fourth program.
+
 ## The size of a control added from the toolbox (2026-10-23, #1473, design-time)
 
 **The question.** "Where the Format commands put a control" measured where VB6 puts a CommandButton added by
