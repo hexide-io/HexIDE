@@ -10,11 +10,13 @@ namespace HexIDE.Desktop.Server;
 internal static class ToolFilters
 {
     /// <summary>
-    /// The session guard (#1306) and then the failure reporting (#603). The guard comes first, so a call from another
+    /// Text is checked before SDK request deserialization (#1337), then the session guard (#1306) and failure
+    /// reporting (#603). Among tool-call filters the guard comes first, so a call from another
     /// agent session is told it reached the wrong IDE, not how to fix its arguments for a tool on an IDE that is not
     /// its own.
     /// </summary>
     public static IMcpServerBuilder Register(IMcpServerBuilder builder, string? session) =>
         SessionGuard.Register(builder, session)
+            .WithMessageFilters(filters => filters.AddIncomingFilter(ToolFailures.TextFilter))
             .WithRequestFilters(filters => filters.AddCallToolFilter(ToolFailures.Filter));
 }

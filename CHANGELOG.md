@@ -242,6 +242,24 @@ there isn't one yet. Anything may change between 0.x releases.
   else is error 13 and leaves the array as it was, or VB6's compile error "Can't assign to array" where the statement
   shows the type. A Function declared to return a `Byte()` converts a String too, where it stopped the program.
 
+- **A helper's `On Error Resume Next` no longer sees its caller's stale error** (#877). `On Error`, `Resume` and leaving a procedure from its handler now clear `Err`, as vb6.exe does, so `If Err.Number <> 0 Then` after them reads only what has happened since. While a handler runs, an error in it now goes to the caller even after `On Error Resume Next`, where HexIDE used to trap it and run on. `On Error GoTo -1` runs, and `Err.Raise` with no Description keeps the one already set, as vb6.exe's does.
+
+- **MCP window wording matches how `auto` picks** (#1321). `interact` now says it usually picks a running form, and the unknown-window refusal describes its preference for another visible window, a dialog first.
+
+- **A running form has the window its file describes** (#1575). Every form ran as a sizable window with a title bar,
+  minimize and maximize buttons and a close box, whatever its BorderStyle, ControlBox, MinButton and MaxButton said. A
+  Fixed Single or Fixed Dialog form can no longer be resized by its border, a borderless form has no frame, a form
+  with ControlBox False has no close box, and the tool windows have a tool window's caption. On Windows the window is
+  given the styles vb6.exe gives it, measured for 20 combinations.
+
+- **MCP refuses arguments containing an unpaired UTF-16 surrogate** (#1337). The reply now names the tool and
+  parameter, says the argument is not valid text and that nothing was done. It previously returned only the SDK's
+  `-32603 "An error occurred."` before any tool ran.
+
+- **MCP `press_key` reaches access keys and menus** (#1523). Keys now pass through the window input path,
+  so Alt+W activates a button captioned `One &Wide`. The reply names `window-input`, or `routed-key`
+  when focus or platform input is unavailable and the previous routed delivery is used.
+
 - **A carried control's box is drawn in its place among the designer's controls** (#1553). The designer drew the box
   for every control it carries as text over every control it models, so a control brought in front of one was saved in
   front of it (#1498) but still drawn under its box. The boxes now stack with the controls, as VB6 stacks the control:

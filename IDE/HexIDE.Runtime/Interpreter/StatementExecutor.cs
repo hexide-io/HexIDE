@@ -47,8 +47,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// A handler further down the stack never sees an error raised above an entry (measured, #1011).</summary>
     internal bool IsEntry { get; init; }
 
-    // Whether a run-time error raised in this activation now would be trapped by it.
-    private bool Traps => errorMode == ErrorMode.ResumeNext || errorMode == ErrorMode.GoToLabel && !inHandler;
+    // Whether a run-time error raised in this activation now would be trapped by it. Nothing is while its handler runs,
+    // whatever On Error the handler has said since: the error goes to the caller (measured, #877).
+    private bool Traps => errorMode != ErrorMode.None && !inHandler;
+
+    // Whether an error raised now continues with the next statement: On Error Resume Next, and no handler running.
+    private bool ResumesNext => errorMode == ErrorMode.ResumeNext && !inHandler;
 
     // Object-holding slots this activation OWNS (its own `Dim` locals, appended in declaration order), released by
     // RunProcedure at scope-exit for reference counting (Phase 4.2). Non-null only for a PROCEDURE-body executor —
@@ -446,7 +450,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 }
             }
             catch (Exception ex) when (Locate(ex, stmt)) { throw; }
-            catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+            catch (VBRunTimeException ex) when (ResumesNext)
             {
                 // On Error Resume Next: a runtime error unwinds the C# stack to the innermost enclosing block;
                 // record it in the global Err and continue with the next statement. Only VBRunTimeException is
@@ -915,7 +919,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             collection = await expressionExecutor.EvaluateValue(context.valueStmt());
         }
-        catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+        catch (VBRunTimeException ex) when (ResumesNext)
         {
             var empties = DeclaredOtherThanAnArray(context.valueStmt())
                 ?? throw new NotImplementedException(
@@ -951,7 +955,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     "For Each over this object, such as a control array, is not supported yet: only arrays, a Collection and a form's Controls are."),
                 _ => new VBRunTimeException(context, VBStandardError.TypeMismatch),
             };
-            if (errorMode != ErrorMode.ResumeNext)
+            if (!ResumesNext)
                 throw refusal;
             interpreter.Err.Capture(refusal);
             return await RunUninitialisedForEach(context, varName, emptiesElement: collection.Value is not VBArray);
@@ -1035,7 +1039,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     }
                     await interpreter.ReleaseRef(previous);
                 }
-                catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+                catch (VBRunTimeException ex) when (ResumesNext)
                 {
                     interpreter.Err.Capture(ex);
                     if (!first)
@@ -1124,7 +1128,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             stepD = state.Step = context.valueStmt(2) is { } stepStmt ? await ForBound(stepStmt, context, counterType) : 1;
             forState[context] = state;
         }
-        catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+        catch (VBRunTimeException ex) when (ResumesNext)
         {
             interpreter.Err.Capture(ex);
             // In p-code a header that raised still steps by 1 when there is no Step clause, but only for an Integer or
@@ -1387,7 +1391,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 throw;
             }
-            catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+            catch (VBRunTimeException ex) when (ResumesNext)
             {
                 interpreter.Err.Capture(ex);
                 return null;
@@ -1439,7 +1443,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     break;
                 }
                 catch (Exception ex) when (Locate(ex, stmt)) { throw; }
-                catch (VBRunTimeException ex) when (errorMode != ErrorMode.ResumeNext && HaltsHere())
+                catch (VBRunTimeException ex) when (!ResumesNext && HaltsHere())
                 {
                     // The statement alone runs again, not the statements before it on the line (#1011).
                     _suspendedAtTopLevel = false;
@@ -2092,6 +2096,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitOnErrorStmt(VB6Parser.OnErrorStmtContext context)
     {
+        // Every form clears Err, so a helper's On Error Resume Next starts clean whatever its caller left (measured, #877).
+        interpreter.Err.Clear();
         if (context.RESUME() != null)
         {
             errorMode = ErrorMode.ResumeNext;   // On Error Resume Next
@@ -2101,7 +2107,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             // On Error GoTo <target>. `GoTo 0` disables handling; a real label installs a handler.
             var target = context.valueStmt().GetText();
-            if (target == "0")
+            if (target == "-1")
+            {
+                // VB6 compiles it: it leaves the handler, so the handler traps the next error, and keeps the mode as it
+                // was, so On Error Resume Next still traps after it (measured, #877).
+                inHandler = false;
+            }
+            else if (target == "0")
             {
                 errorMode = ErrorMode.None;
                 handlerLabel = null;
@@ -2396,7 +2408,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 {
                     matched = await CaseTestMatches(subCond, value);
                 }
-                catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+                catch (VBRunTimeException ex) when (ResumesNext)
                 {
                     interpreter.Err.Capture(ex);
                     matched = true;
@@ -3428,7 +3440,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             target = await expressionExecutor.EvaluateValue(context.implicitCallStmt_InStmt());
         }
-        catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+        catch (VBRunTimeException ex) when (ResumesNext)
         {
             // Resume Next goes on into the body with no object, so every leading-dot member raises 91 (measured, #839).
             interpreter.Err.Capture(ex);
@@ -3865,7 +3877,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 try
                 {
                     if (await Visit(stmts[pc]) != ControlFlow.Nothing)
+                    {
+                        LeaveHandler();
                         return;   // Exit Sub/Function/Property — leave the body
+                    }
                     pc++;
                 }
                 finally
@@ -3883,6 +3898,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (faultPc < 0)
                     throw Raised(new VBRunTimeException(r.Context, VBStandardError.ResumeWithoutError));   // Error 20
                 inHandler = false;
+                interpreter.Err.Clear();   // every Resume clears it (measured, #877)
                 pc = r.Kind switch
                 {
                     ResumeKind.Same => faultPc,        // retry the faulting statement
@@ -3898,7 +3914,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 inHandler = true;
                 pc = ResolveLabel(labels, handlerLabel!);
             }
-            catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+            catch (VBRunTimeException ex) when (ResumesNext)
             {
                 interpreter.Err.Capture(ex);
                 faultPc = pc;
@@ -3913,6 +3929,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 retry = true;
             }
         }
+        LeaveHandler();
+    }
+
+    // A procedure left from its handler, by Exit or by its end, clears Err, as a Resume would, whatever On Error the
+    // handler said; one left under On Error Resume Next keeps it, so its caller still sees the error (measured, #877).
+    private void LeaveHandler()
+    {
+        if (inHandler)
+            interpreter.Err.Clear();
     }
 
     /// <summary>
