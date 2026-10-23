@@ -22,12 +22,12 @@ namespace HexIDE.IDE;
 public static class ForegroundWindow
 {
     /// <summary>
-    /// The window a caller asked for: the frontmost one by default, the IDE's own window on request, or one named by its
-    /// title or, for a running form, its form's name.
+    /// The window a caller asked for: by default a visible window other than the IDE's own (a dialog first),
+    /// falling back to the IDE; the IDE's own window on request; or one named by its title or a running form's name.
     /// </summary>
     /// <remarks>
-    /// <para>Exists because "frontmost" is the wrong answer for a whole class of question. While a VB6
-    /// program runs — <b>including while it is paused at a breakpoint</b> — the frontmost window is the
+    /// <para>Exists because the default is the wrong answer for a whole class of question. While a VB6
+    /// program runs — <b>including while it is paused at a breakpoint</b> — <c>"auto"</c> usually picks the
     /// program's form, so every tool that resolves a path against it is addressing the program rather than
     /// the IDE, and the IDE's own editor becomes unreachable at exactly the moment its debugger state is
     /// worth looking at. That is gap 4 in <c>docs/mcp-server-gaps.md</c>, and it costs more than pixels:
@@ -39,15 +39,16 @@ public static class ForegroundWindow
     /// has to be passed in, not arranged for.</para>
     ///
     /// <para><b>A name, not a third value.</b> A <c>"form"</c> scope was considered and left out: <c>"auto"</c>
-    /// already resolves to the running form whenever one is up, so it would name a case that is already
+    /// already usually picks a running form when one is up, so it would name a case that is already
     /// covered — and it would suggest an ability to pick <i>which</i> form, which an enum cannot do once a
     /// project shows more than one. A program of several forms does (#822), so a name picks one: a window's title,
     /// or a running form's name.</para>
     /// </remarks>
     /// <param name="scope">
-    /// <c>"auto"</c> or null for the frontmost window; <c>"ide"</c> (or <c>"main"</c>) for the IDE's own
-    /// window, whatever is in front of it; or a window's title, or a running form's name, for that window. A program
-    /// of several forms (#822) has one frontmost and the rest behind it, and only a name reaches those.
+    /// <c>"auto"</c> or null prefers any other visible window to the IDE, whether or not it is on top:
+    /// a dialog first, then the one with focus, then the one opened last. <c>"ide"</c> (or <c>"main"</c>)
+    /// picks the IDE's own window; a window's title or a running form's name picks that window. A program
+    /// of several forms (#822) needs a name to reach a form the default does not pick.
     /// </param>
     public static (Window? Window, string? Error) Pick(
         string? scope, Window mainWindow, IReadOnlyList<Window> windows)
@@ -77,7 +78,7 @@ public static class ForegroundWindow
         // window the default would not have given them, so falling back would answer a different question
         // than the one asked and look like it worked.
         var open = windows.Where(w => w != mainWindow && w.IsVisible).ToList();
-        return (null, $"Unknown window '{scope}'. Use \"auto\" (the frontmost window, the default), "
+        return (null, $"Unknown window '{scope}'. Use \"auto\" (the default: any visible window other than the IDE's own, a dialog first), "
                     + "\"ide\" (the IDE window, even while a program is running), or the name or title of an open "
                     + (open.Count == 0
                         ? "window, and none is open beside the IDE."
@@ -93,8 +94,9 @@ public static class ForegroundWindow
             : $"\"{w.Title}\""));
 
     /// <summary>
-    /// Picks the frontmost visible window, falling back to <paramref name="mainWindow"/> when nothing
-    /// else is on screen.
+    /// Prefers a visible window other than <paramref name="mainWindow"/>: a dialog first, then the one
+    /// with focus, then the one opened last, excluding windows that own another visible window. Falls
+    /// back to <paramref name="mainWindow"/> when no candidate remains; does not read z-order.
     /// </summary>
     /// <param name="mainWindow">The application's main window; returned when no other candidate exists.</param>
     /// <param name="windows">All top-level windows, in creation order (as the lifetime reports them).</param>
