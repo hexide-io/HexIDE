@@ -113,15 +113,15 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Statements | 1 | 2 | 19 | 40 | 0 | 45 | 107 |
+| Statements | 1 | 2 | 18 | 40 | 0 | 46 | 107 |
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 45 | 47 | 0 | 61 | 153 |
+| Intrinsic functions | 0 | 0 | 41 | 47 | 0 | 65 | 153 |
 | Keywords and modifiers | 0 | 0 | 4 | 23 | 1 | 23 | 51 |
 | Literals, types and suffixes | 6 | 0 | 3 | 14 | 0 | 27 | 50 |
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
 | In-box objects | 0 | 0 | 84 | 14 | 0 | 25 | 123 |
 | Intrinsic constants | 0 | 0 | 0 | 258 | 0 | 363 | 621 |
-| **Total** | **7** | **2** | **157** | **430** | **20** | **568** | **1184** |
+| **Total** | **7** | **2** | **152** | **430** | **20** | **573** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -164,7 +164,8 @@ That is the honest answer to "will my code run?" — the arithmetic will; the pl
 not. Text files run since [#1145](https://github.com/hexide-io/HexIDE/issues/1145): `Open` For Input, Output and
 Append, `Line Input #`, `Print #`, `Close`, `FreeFile` and `EOF`; `Input #` and `Write #` since
 [#1521](https://github.com/hexide-io/HexIDE/issues/1521); `Kill`, `Dir` and the other filesystem statements since [#1561](https://github.com/hexide-io/HexIDE/issues/1561). Still absent as a block:
-Random and Binary files, `Get`, `Put`, the `Input` function, `LOF`, `Loc` and `Seek`.
+Random and Binary files, `Get` and `Put` ([#1646](https://github.com/hexide-io/HexIDE/issues/1646)). `LOF`, `Loc`, `Seek` and the `Input` function run since
+[#1645](https://github.com/hexide-io/HexIDE/issues/1645).
 
 ## Silently wrong — 7 names
 
@@ -313,7 +314,7 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 | `Function` | **Won't load** | **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)).** `Function GetName$()` -> "extraneous input '$' expecting {':', '(', NEWLINE, WS}", and the whole module with it; `Function Twice%(ByVal x As Integer)` the same with `%`. VB6 compiles a `$`-declared Function (oracle TR_01, TR_02, TB_01); no oracle row covers a `Function` declared with `% & ! # @`. VB6.g4's `functionStmt` has no `typeHint?` after the name, though `propertyGetStmt` in the same file has one and the LSP server's grammar has it on both; `GrammarParityTests` compares rule inventories, not alternatives, so it does not see the gap. **[#1444](https://github.com/hexide-io/HexIDE/issues/1444):** a return declared as a scalar converts what is stored into its name there and then, as a variable of that type does, and a failure is raised inside the procedure, where its own handler traps it (measured: `FS = 5` As String is "5", `FD = "0.5"` As Date 00:05, `FB = "abc"` As Boolean 13, and `FI = 40000` As Integer 6, inside each). Otherwise as before — PrePass.VisitFunctionStmt registers a ProcedureInfo (name, params, return type, body, IsPrivate). The return is by assignment to the procedure's own name; an unassigned return yields the… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
 | `Function...End Function` | **Won't load** | **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)); see `Function`.** **[#975](https://github.com/hexide-io/HexIDE/issues/975):** one declared `As Long()` returns its array (measured), where it returned a Long 0, and **[#986](https://github.com/hexide-io/HexIDE/issues/986):** takes only an array of its own type, a mismatch raising 13 or VB6's compile error "Can't assign to array" as VB6 does (measured), and a String stored into one declared `As Byte()`, which VB6 converts, stops the run as not implemented ([#998](https://github.com/hexide-io/HexIDE/issues/998)). The production quoted below has no `typeHint?` after the name, so `Function GetName$()` does not parse. Otherwise as before — The whole construct - `(visibility WS)? (STATIC WS)? FUNCTION WS name (argList)? (asTypeClause)? ... END_FUNCTION` - is collected by PrePass.VisitFunctionStmt and executed by… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
 
-## Dies mid-run — 157 names
+## Dies mid-run — 152 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -397,8 +398,7 @@ most of the in-box object model.
 | `GoSub...Return` | **Dies** | throws `"GoSub not implemented"` — Both halves parse and both throw. GoSub: (StatementExecutor.cs). Return: `throw new NotImplementedException("Return not implemented")`… | StatementExecutor.cs |
 | `Hyperlink` | **Dies** | Measured for `Dim h As Hyperlink`: VBCompileErrorException: "User-defined type not defined: Hyperlink" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `IMEStatus` | **Dies** | but is not implemented. Not in BuildRegistry and zero occurrences anywhere in HexIDE.Runtime, including the editor-metadata files (VbSignatures.cs / VbKeywordNormalizer.cs). | ExpressionExecutor.cs |
-| `Input` | **Dies** | fails at name resolution: `Input` is in `ambiguousKeyword` (Grammar/VB6.g4) so `Input(n, f)` parses as a procedure-or-array call, but the name is unregistered. Probed `Debug.Print Input(5… | ExpressionExecutor.cs |
-| `InputB` | **Dies** | fails at name resolution: a plain identifier (not a lexer keyword), unregistered. Probed `Debug.Print InputB(5, 1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function… | ExpressionExecutor.cs |
+| `InputB` | **Dies** | **[#1645](https://github.com/hexide-io/HexIDE/issues/1645):** refused as not implemented: vb6.exe returns a byte string, `LenB` 3 and `Len` 1 for three bytes (measured), which HexIDE has not got ([#1510](https://github.com/hexide-io/HexIDE/issues/1510)). | VB6BuiltIns.cs |
 | `InStrB` | **Dies** | Not registered (VB6BuiltIns.cs); no occurrence of "InStrB" under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (InStrB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `IPmt` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (IPmt)". Named in the deferral list at… | VB6BuiltIns.cs |
 | `IRR` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (IRR)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
@@ -411,9 +411,7 @@ most of the in-box object model.
 | `LoadResData` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResData)". | ExpressionExecutor.cs |
 | `LoadResPicture` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResPicture)". | ExpressionExecutor.cs |
 | `LoadResString` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResString)". | ExpressionExecutor.cs |
-| `Loc` | **Dies** | fails at name resolution: unregistered. Probed `Debug.Print Loc(1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined (Loc)". docs/interpreter-gaps.md. | ExpressionExecutor.cs |
 | `Lock` | **Dies** | `lockStmt : LOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Lock #1, 1 To 2` -> NotImplementedException: "Lock… | StatementExecutor.cs |
-| `LOF` | **Dies** | fails at name resolution: unregistered. Probed `Debug.Print LOF(1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined (LOF)". docs/interpreter-gaps.md. | ExpressionExecutor.cs |
 | `LSet` | **Dies** | throws `"Lset not implemented"` — The grammar has the rule — `lsetStmt : LSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt` (VB6.g4), reachable from blockStmt (VB6.g4) — but the… | StatementExecutor.cs, VB6.g4 |
 | `Mid$` | **Dies** | **Tracked by [#742](https://github.com/hexide-io/HexIDE/issues/742).** — `Mid$` lexes as MID + DOLLAR, and DOLLAR is a `typeHint` (VB6.g4) which `iCS_S_ProcedureOrArrayCall` accepts (VB6.g4). The letStmt handler rejects it BEFORE reaching the Mid-statement… | StatementExecutor.cs |
 | `MidB` | **Dies** | Not registered (VB6BuiltIns.cs); no occurrence of "MidB" under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (MidB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
@@ -463,8 +461,6 @@ most of the in-box object model.
 | `Screen.TwipsPerPixelX` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
 | `Screen.TwipsPerPixelY` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
 | `Screen.Width` | **Dies** | The unresolved object is explicitly refused as not implemented before its member is read (#871), with or without Option Explicit. | ExpressionExecutor.cs |
-| `Seek (function)` | **Dies** | fails at name resolution: SEEK is a lexer keyword but is listed in `ambiguousKeyword`, so `Seek(1)` parses as a call. Probed `Debug.Print Seek(1)` -> VBSubOrFunctionNotDefinedException:… | ExpressionExecutor.cs |
-| `Seek (statement)` | **Dies** | `seekStmt : SEEK WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Seek #1, 1` -> NotImplementedException: "Seek not implemented". | StatementExecutor.cs |
 | `SelectedControls` | **Dies** | Measured for `Dim s As SelectedControls`: VBCompileErrorException: "User-defined type not defined: SelectedControls" (StatementExecutor.cs). | StatementExecutor.cs |
 | `SendKeys` | **Dies** | throws `"Sendkeys not implemented"` — Grammar rule `sendkeysStmt : SENDKEYS WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4) with a real SENDKEYS token; the visitor body is a single… | StatementExecutor.cs |
 | `SLN` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (SLN)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
@@ -486,7 +482,7 @@ load, Dies, Partial, No-op, Supported — because a reader of a coverage documen
 missing.
 
 
-### Statements — 107 names (1 silently wrong, 21 absent, 40 partial, 45 supported)
+### Statements — 107 names (1 silently wrong, 20 absent, 40 partial, 46 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -535,7 +531,7 @@ missing.
 | `RSet` | **Dies** | throws `"Rset not implemented"` — The grammar has the rule — `rsetStmt : RSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt` (VB6.g4), reachable from blockStmt (VB6.g4) — but the… | StatementExecutor.cs, VB6.g4 |
 | `SavePicture` | **Dies** | throws `"Savepicture not implemented"` — The grammar has `savepictureStmt : SAVEPICTURE WS valueStmt WS? COMMA WS? valueStmt` (VB6.g4) and SAVEPICTURE is a real token, but the visitor body… | StatementExecutor.cs |
 | `SaveSetting` | Supported | **#1562:** runs as vb6.exe measured, as a statement, by `Call`, and as `VBA.SaveSetting`, with its named arguments. The setting is kept as text, a backslash in the program or section name makes a path, an empty name is 5, and Null 94. On Windows it writes the registry key VB6 uses, `HKCU\Software\VB and VBA Program Settings`; elsewhere `program-settings.json` in the user-data directory | VB6BuiltIns.Settings.cs |
-| `Seek (statement)` | **Dies** | `seekStmt : SEEK WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Seek #1, 1` -> NotImplementedException: "Seek not implemented". | StatementExecutor.cs |
+| `Seek (statement)` | Supported | **[#1645](https://github.com/hexide-io/HexIDE/issues/1645):** `Seek #n, position`, or with no `#`, moves the next read or write to that byte, as vb6.exe measured: below 1 is 63; past the end an Input file is at its end and an Output file's next Print fills the gap with NULs; on an Append file it writes over what is there. Random and Binary files cannot be opened yet ([#1646](https://github.com/hexide-io/HexIDE/issues/1646)). | StatementExecutor.cs, VbFiles.cs |
 | `SendKeys` | **Dies** | throws `"Sendkeys not implemented"` — Grammar rule `sendkeysStmt : SENDKEYS WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4) with a real SENDKEYS token; the visitor body is a single… | StatementExecutor.cs |
 | `SetAttr` | Partial | Filesystem operations implemented against compiled VB6 measurements (#1561); host attributes, long-name wildcard matching and interpreter-local current directory: see fidelity oracle. | VbFiles.FileSystem.cs |
 | `Unlock` | **Dies** | `unlockStmt : UNLOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Unlock #1, 1 To 2` -> NotImplementedException:… | StatementExecutor.cs |
@@ -637,7 +633,7 @@ missing.
 | `TypeOf ... Is` | Supported | **[#1060](https://github.com/hexide-io/HexIDE/issues/1060):** a control was False whatever the type named, so the usual loop over a form's Controls did nothing, silently. Measured and fixed: a control is its class, with its library or without (`TextBox`, `VB.TextBox`, `MSComDlg.CommonDialog`), a `Control` and an `Object`; a control array and Controls are an `Object`, and Controls is no `Collection`; a form is a `Form`. `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (45 absent, 47 partial, 61 supported)
+### Intrinsic functions — 153 names (41 absent, 47 partial, 65 supported)
 
 
 **array** (3)
@@ -706,11 +702,11 @@ missing.
 | `FileDateTime` | Partial | Filesystem operations implemented against compiled VB6 measurements (#1561); host attributes, long-name wildcard matching and interpreter-local current directory: see fidelity oracle. | VbFiles.FileSystem.cs |
 | `FileLen` | Partial | Filesystem operations implemented against compiled VB6 measurements (#1561); host attributes, long-name wildcard matching and interpreter-local current directory: see fidelity oracle. | VbFiles.FileSystem.cs |
 | `GetAttr` | Partial | Filesystem operations implemented against compiled VB6 measurements (#1561); host attributes, long-name wildcard matching and interpreter-local current directory: see fidelity oracle. | VbFiles.FileSystem.cs |
-| `Input` | **Dies** | fails at name resolution: `Input` is in `ambiguousKeyword` (Grammar/VB6.g4) so `Input(n, f)` parses as a procedure-or-array call, but the name is unregistered. Probed `Debug.Print Input(5… | ExpressionExecutor.cs |
-| `InputB` | **Dies** | fails at name resolution: a plain identifier (not a lexer keyword), unregistered. Probed `Debug.Print InputB(5, 1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function… | ExpressionExecutor.cs |
-| `Loc` | **Dies** | fails at name resolution: unregistered. Probed `Debug.Print Loc(1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined (Loc)". docs/interpreter-gaps.md. | ExpressionExecutor.cs |
-| `LOF` | **Dies** | fails at name resolution: unregistered. Probed `Debug.Print LOF(1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined (LOF)". docs/interpreter-gaps.md. | ExpressionExecutor.cs |
-| `Seek (function)` | **Dies** | fails at name resolution: SEEK is a lexer keyword but is listed in `ambiguousKeyword`, so `Seek(1)` parses as a call. Probed `Debug.Print Seek(1)` -> VBSubOrFunctionNotDefinedException:… | ExpressionExecutor.cs |
+| `Input` | Supported | **[#1645](https://github.com/hexide-io/HexIDE/issues/1645):** `Input(n, #f)`, or with no `#`, reads the next n characters in the ANSI code page, line breaks, commas and quotes included, as vb6.exe measured: the count rounds to even, 0 reads nothing, negative is 5, short of the count before the end or a Ctrl+Z is 62 with the variable kept, and an Output or Append file is 54. `Input(LOF(f), f)` reads the whole file. `Input$` is Input. Takes no names, as measured. | VbFiles.cs |
+| `InputB` | **Dies** | **[#1645](https://github.com/hexide-io/HexIDE/issues/1645):** refused as not implemented: vb6.exe returns a byte string, `LenB` 3 and `Len` 1 for three bytes (measured), which HexIDE has not got ([#1510](https://github.com/hexide-io/HexIDE/issues/1510)). | VB6BuiltIns.cs |
+| `Loc` | Supported | **[#1645](https://github.com/hexide-io/HexIDE/issues/1645):** in 128-byte blocks, as vb6.exe measured: an Input file's the bytes read divided by 128, rounded up and at least 1; an Output or Append file's the bytes written divided by 128, rounded down. Takes `FileNumber` by name. Random and Binary files cannot be opened yet ([#1646](https://github.com/hexide-io/HexIDE/issues/1646)). | VbFiles.cs |
+| `LOF` | Supported | **[#1645](https://github.com/hexide-io/HexIDE/issues/1645):** the file's length in bytes, a Long, as vb6.exe measured: an Output or Append file's counts what is printed and not yet written out, where `FileLen` still reads 0. Takes `FileNumber` by name; `LOF(#1)` is "Syntax error". Random and Binary files cannot be opened yet ([#1646](https://github.com/hexide-io/HexIDE/issues/1646)). | VbFiles.cs |
+| `Seek (function)` | Supported | **[#1645](https://github.com/hexide-io/HexIDE/issues/1645):** the byte the next read or write is at, from 1, a Long, as vb6.exe measured. An Append file's counts from 1 at its opening, and after a read reaches a Ctrl+Z it is the length plus the Ctrl+Z's position plus 1, both as measured. Takes `FileNumber` by name. Random and Binary files cannot be opened yet ([#1646](https://github.com/hexide-io/HexIDE/issues/1646)). | VbFiles.cs |
 | `Spc` | Partial | **[#1380](https://github.com/hexide-io/HexIDE/issues/1380):** in `Print #` and `Debug.Print`, `Spc(n)` writes n spaces, as vb6.exe measured. `Spc` with no count is refused ("Spc with no count is not implemented"), and a negative count, unmeasured, writes nothing. A form's `Print` method is not implemented, so neither is `Spc` in it. | VbPrint.cs |
 | `Tab` | Partial | **[#1380](https://github.com/hexide-io/HexIDE/issues/1380):** in `Print #` and `Debug.Print`, `Tab(n)` moves to column n, on the next line when the line is past it, and a bare `Tab` moves to the next zone, as vb6.exe measured. A form's `Print` method is not implemented, so neither is `Tab` in it. | VbPrint.cs |
 
