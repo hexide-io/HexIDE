@@ -6,6 +6,9 @@ public class ExecutionState
 {
     public Dictionary<int, Vb6Value> memory = new();
 
+    /// <summary>The slots of a standard module's procedures' <c>Static</c> locals, for the run (#1491).</summary>
+    internal StaticLocals ModuleStatics { get; } = new();
+
     /// <summary>
     /// The type a slot was DECLARED with, for the slots that have one. A slot with no entry here is a
     /// Variant, and that difference is what VB6 draws almost every arithmetic distinction from — `Dim l As

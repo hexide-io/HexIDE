@@ -240,7 +240,7 @@ public class PrePass : VB6BaseVisitor<object?>
             }
         }
         else
-            throw new NotImplementedException("non dim variables not supported");
+            throw new VBCompileErrorException("Invalid outside procedure");   // `Static` at module level (measured, #1491)
 
         return default;
     }
