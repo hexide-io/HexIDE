@@ -281,4 +281,75 @@ public class NamedArgumentTests : BaseVBTestFixture
 
         (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage(message);
     }
+
+    [Fact]
+    public async Task Val_Round_Split_and_the_rest_take_their_names()
+    {
+        await Run("""
+            Dim p As Variant, arr(2) As String
+            arr(0) = "ab": arr(1) = "cd": arr(2) = "AE"
+            Debug.Print "Val " & Val(String:="12")
+            Debug.Print "Round " & Round(Number:=2.567, NumDigitsAfterDecimal:=1) & " " & Round(Number:=2.5)
+            p = Split(Expression:="a b c"): Debug.Print "Split " & UBound(p) & " " & p(1)
+            p = Split(Expression:="a,b,c", Delimiter:=",", Limit:=2, Compare:=vbBinaryCompare): Debug.Print "Split " & UBound(p) & " " & p(1)
+            Debug.Print "Join " & Join(SourceArray:=arr, Delimiter:="-") & " / " & Join(SourceArray:=arr)
+            p = Filter(SourceArray:=arr, Match:="a", Include:=True, Compare:=vbTextCompare): Debug.Print "Filter " & UBound(p) & " " & p(1)
+            p = Filter(SourceArray:=arr, Match:="a"): Debug.Print "Filter " & UBound(p) & " " & p(0)
+            Debug.Print "MonthName " & MonthName(Month:=2, Abbreviate:=True) & " " & MonthName(Month:=2) & " " & MonthName(Abbreviate:=True, Month:=3)
+            Debug.Print "WeekdayName " & WeekdayName(Weekday:=1, Abbreviate:=True, FirstDayOfWeek:=vbMonday) & " " & WeekdayName(Weekday:=2, FirstDayOfWeek:=vbSunday)
+            Debug.Print "DateValue " & CDbl(DateValue(Date:="2000-01-02")) & ", TimeValue " & CDbl(TimeValue(Time:="12:00"))
+            Debug.Print "CDec " & CDec(Expression:=1.5) & ", CVDate " & CDbl(CVDate(Expression:=2))
+            Debug.Print "Hex " & Hex(Number:=255) & ", Oct " & Oct(Number:=8) & ", Str [" & Str(Number:=5) & "]"
+            Debug.Print "Hex$ " & Hex$(Number:=255) & ", Str$ [" & Str$(Number:=5) & "]"
+            Debug.Print "FreeFile " & FreeFile(RangeNumber:=1)
+
+            """);
+
+        AssertDebugLog(Lines("""
+            Val 12
+            Round 2.6 2
+            Split 2 b
+            Split 1 b,c
+            Join ab-cd-AE / ab cd AE
+            Filter 1 AE
+            Filter 0 ab
+            MonthName Feb February Mar
+            WeekdayName Mon Monday
+            DateValue 36527, TimeValue 0.5
+            CDec 1.5, CVDate 2
+            Hex FF, Oct 10, Str [ 5]
+            Hex$ FF, Str$ [ 5]
+            FreeFile 256
+            """));
+    }
+
+    // Measured for #1475, each in a project of its own.
+    [Theory]
+    [InlineData("x = Round(NumDigitsAfterDecimal:=1)", "*Argument not optional*")]
+    [InlineData("x = Split(Delimiter:=\",\")", "*Argument not optional*")]
+    [InlineData("x = Join(Delimiter:=\"-\")", "*Argument not optional*")]
+    [InlineData("x = Filter(Match:=\"a\")", "*Argument not optional*")]
+    [InlineData("x = Filter(SourceArray:=x)", "*Argument not optional*")]
+    [InlineData("x = MonthName(Abbreviate:=True)", "*Argument not optional*")]
+    [InlineData("x = WeekdayName(Abbreviate:=True)", "*Argument not optional*")]
+    [InlineData("x = Val(Foo:=\"12\")", "*Named argument not found*")]
+    [InlineData("x = Round(Number:=2.5, Digits:=1)", "*Named argument not found*")]
+    [InlineData("x = Hex(Foo:=255)", "*Named argument not found*")]
+    [InlineData("x = CDec(Foo:=1.5)", "*Named argument not found*")]
+    [InlineData("x = EOF(Foo:=1)", "*Named argument not found*")]
+    [InlineData("x = Now(X:=1)", "*Named arguments not allowed*")]
+    [InlineData("x = Time(X:=1)", "*Named arguments not allowed*")]
+    [InlineData("x = Command(X:=1)", "*Named arguments not allowed*")]
+    [InlineData("x = Date(X:=1)", "*Syntax error*")]
+    [InlineData("x = Timer(X:=1)", "*Wrong number of arguments or invalid property assignment*")]
+    [InlineData("x = DoEvents(X:=1)", "*Wrong number of arguments or invalid property assignment*")]
+    public async Task What_VB6_refuses_of_those_is_refused(string statement, string message)
+    {
+        var run = () => Run("""
+            Dim x As Variant
+
+            """ + statement + "\n");
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage(message);
+    }
 }
