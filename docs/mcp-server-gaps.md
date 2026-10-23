@@ -17,7 +17,9 @@ unstated arguments cannot be checked by the next reader, and it can be wrong wit
 entry here concluded that a document tab's content was "neither drivable nor readable" from a
 `dump_visual_tree` run with its default `interactiveOnly: true`, which filters out plain text. With
 `interactiveOnly: false` every field was there (#362). Write `dump_visual_tree(root: …, interactiveOnly: false,
-maxDepth: 14)`, not "`dump_visual_tree` returns only the tab chrome".
+maxDepth: 14)`, not "`dump_visual_tree` returns only the tab chrome". Misspelled arguments such as
+`dump_visual_tree {"interactive_only": false}` now run with an explicit ignored-argument note and a suggestion
+of `interactiveOnly` (#1315); an omitted argument still uses its declared default.
 
 ---
 

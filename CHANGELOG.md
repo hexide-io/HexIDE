@@ -238,6 +238,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP replies name ignored arguments** (#1315). A misspelled optional parameter still lets the call run, but
+  now appears in `ignoredArguments` in a JSON-object reply, or in a separate text block, with a suggested spelling
+  for case, snake_case or kebab-case mismatches. Binding refusals check each parameter's actual type, so an
+  overflowing `int`, numeric string or array item is named without blaming a valid `long`; serializer paths stay.
+
 - **A ComboBox's Style is modelled, and a Dropdown List runs as one** (#1428). Style was kept as a preserved line, so
   the Properties window could not show or set it, and a program reading or writing a Dropdown List's Text was stopped
   as not implemented. Now Style is offered with VB6's three names and reads as an Integer, and a Dropdown List's Text
