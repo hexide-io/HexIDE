@@ -176,8 +176,10 @@ public class UnmodelledControlPlaceholderTests
         Dispatcher.UIThread.RunJobs();
         try
         {
-            var layer = view.FindControl<ItemsControl>("UnmodelledControlsLayer")!;
-            var boxes = layer.GetVisualDescendants().OfType<Classic.Avalonia.Theme.ClassicBorderDecorator>().ToList();
+            // Drawn on the controls' canvas, in their places among the controls (#1553).
+            var canvas = view.GetVisualDescendants().OfType<HexIDE.Controls.DesignerCanvas>().Single();
+            var boxes = canvas.GetVisualChildren().OfType<Avalonia.Controls.Presenters.ContentPresenter>()
+                .SelectMany(p => p.GetVisualDescendants().OfType<Classic.Avalonia.Theme.ClassicBorderDecorator>().Take(1)).ToList();
             boxes.Select(AutomationProperties.GetName).Should().BeEquivalentTo(["Gauge1", "imlIcons"],
                 "automation addresses the box by the control's name, as it does a modelled control");
 
