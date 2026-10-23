@@ -152,26 +152,14 @@ public class VBComboBox : ComboBox
         }
         var index = item is null ? ItemCount - 1 : IndexFromContainer(item);
         // vb6.exe's list moves its selection with the press and its edit box takes the item's text after, so a GotFocus
-        // the press raises reads the new ListIndex and the Text from before (measured, #1603).
-        if (editBox is { IsFocused: false } box)
-        {
-            textBeforePick = Text ?? "";
-            try
-            {
-                SelectedIndex = index;
-                box.Focus(NavigationMethod.Pointer);
-            }
-            finally
-            {
-                textBeforePick = null;
-            }
-        }
-        else
-            SelectedIndex = index;
+        // the press raises reads the new ListIndex and the Text from before (measured, #1603). That Text is held until the
+        // Click's turn, which comes after the GotFocus's however the run's queue schedules the two.
+        textBeforePick = editBox is { IsFocused: false } ? Text ?? "" : null;
+        SelectedIndex = index;
         Picked();
     }
 
-    // The Text a Simple Combo shows while a press on its list moves the focus to it.
+    // The Text a Simple Combo shows from a press on its list that moves the focus to it, until that press's Click.
     private string? textBeforePick;
 
     /// <summary>
@@ -306,7 +294,14 @@ public class VBComboBox : ComboBox
             box.Focus(NavigationMethod.Pointer);
         if (IsEditable)
             editBox?.SelectAll();
-        this.ExecuteSub(ComponentBaseClass.ClickEvent);
+        if (textBeforePick is null)
+            this.ExecuteSub(ComponentBaseClass.ClickEvent);
+        else
+            this.ExecuteSubIf(ComponentBaseClass.ClickEvent, () =>
+            {
+                textBeforePick = null;
+                return true;
+            });
     }
 
     /// <summary><c>ListIndex = n</c> from code: Click when it moves the selection, and none when it doesn't (measured).</summary>
