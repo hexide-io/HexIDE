@@ -16764,7 +16764,7 @@ Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60
 
 ## Option Compare Text, and VB6's text compare (2026-10-23, #1567)
 
-Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60 6.00.9848 (SP6) runtime, under en-GB, in eight batches. Native and p-code agree on every row of every batch.
+Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60 6.00.9848 (SP6) runtime, under en-GB, in nine batches. Native and p-code agree on every row of every batch.
 
 **The question.** What `Option Compare Text` changes, and what VB6's text compare actually is. The same compare serves:
 - `StrComp` and the string functions given a compare of 1;
@@ -17276,6 +17276,39 @@ InStr, InStrRev, Replace, Split and Filter with a compare of 1 do not search by 
 </details>
 
 **Measured, and no rule I would defend:** why a search refuses the merges the compare makes (¹ and 1, Chr(0) and nothing) while keeping the expansions. The rows are consistent with a search that folds case and expands ß, æ, œ and þ, and does nothing else. That is a description of the answers, not a reason for them.
+
+### A Variant selector, and a search with a start
+
+A ninth batch measured what the first eight left out. It was prompted by mutants that survived the tests built from them.
+
+**Select Case with a Variant on either side.** Each of these was run in the Binary module and the Text module:
+- a Variant selector against a literal, against `To`, against `Is <` and against `Is =`;
+- a Variant against a Variant;
+- a Variant function's result on either side, and on both;
+- an expression selector, `v & ""`;
+- `Is >` and `Is <` against a Variant.
+
+Every one compares as text in the Text module: `var-lit var-to var-is-lt var-is-eq var-var var-fn str-fn fn-lit fn-fn expr-lit var-is-gt-var var-us-lt-var`. In the Binary module only `"A" < "b"` holds: `- - var-is-lt - - - - - - - - -`.
+
+**Split and InStrRev as text.**
+
+| Row | Call | vb6.exe |
+|---|---|---|
+| split-case | `Parts(Split("aXbxc", "x", -1, 1))` | 3 [97][98][99] |
+| split-case-bin | `Parts(Split("aXbxc", "x", -1, 0))` | 2 [97.88.98][99] |
+| split-ss-sz | `Parts(Split("a" & Chr(223) & "b", "ss", -1, 1))` | 2 [97][98] |
+| split-sz-ss | `Parts(Split("assb", Chr(223), -1, 1))` | 2 [97][98] |
+| split-limit | `Parts(Split("aXbxc", "x", 2, 1))` | 2 [97][98.120.99] |
+| instrrev-start | `InStrRev("abcABC", "B", 4, 1)` | 2 |
+| instrrev-start-bin | `InStrRev("abcABC", "B", 4, 0)` | 0 |
+| instrrev-start-sz | `InStrRev("ss" & Chr(223), "ss", 2, 1)` | 1 |
+| instrrev-start-mid-sz | `InStrRev("a" & Chr(223) & "b", "s", 2, 1)` | 2 |
+| instrrev-start-before-sz | `InStrRev("a" & Chr(223) & "b", "s", 1, 1)` | 0 |
+| instrrev-start-end-sz | `InStrRev("s" & Chr(223), "ss", 1, 1)` | 0 |
+
+As text, `"ss"` splits `"aßb"` at its one ß, and `"ß"` splits `"assb"` at its two s. InStrRev's start bounds where a
+match may end: with a start of 2, `"s"` is found in the ß at 2, and `"ss"` is not found in `"sß"` with a start of 1, since
+the only match ends inside the ß.
 
 ### Scope
 

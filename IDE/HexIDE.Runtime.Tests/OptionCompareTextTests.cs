@@ -2107,6 +2107,305 @@ public class OptionCompareTextTests : BaseVBTestFixture
             """));
     }
 
+    // Select Case with a Variant selector, a Variant Case value, a Variant function on either side and an expression
+    // selector, in a Binary module and a Text module; and Split and InStrRev as text where binary differs, where a
+    // match is shorter than the delimiter, and with a start that falls inside an expansion.
+    [Fact]
+    public async Task A_Variant_selector_or_Case_value_and_a_text_Split_or_InStrRev_with_a_start()
+    {
+        await RunModules("""""""
+            Option Compare Binary
+            Public Sub L(ByVal s As String)
+                Debug.Print s
+            End Sub
+
+            Public Function Codes(ByVal s As String) As String
+                Dim i As Long, r As String
+                For i = 1 To Len(s)
+                    If i > 1 Then r = r & "."
+                    r = r & AscW(Mid$(s, i, 1))
+                Next
+                Codes = "[" & r & "]"
+            End Function
+
+            Public Function Parts(v As Variant) As String
+                Dim i As Long, r As String
+                For i = LBound(v) To UBound(v)
+                    r = r & Codes(v(i))
+                Next
+                Parts = (UBound(v) - LBound(v) + 1) & " " & r
+            End Function
+
+
+            Public Function VarAB() As Variant
+                VarAB = "A"
+            End Function
+
+            Public Function VarLowB() As Variant
+                VarLowB = "a"
+            End Function
+
+            Public Function CaseRowsB() As String
+                Dim v As Variant, w As Variant, s As String, r As String
+                v = "a"
+                Select Case v
+                    Case "A": r = r & "var-lit "
+                    Case Else: r = r & "- "
+                End Select
+                v = "B"
+                Select Case v
+                    Case "a" To "c": r = r & "var-to "
+                    Case Else: r = r & "- "
+                End Select
+                v = "A"
+                Select Case v
+                    Case Is < "b": r = r & "var-is-lt "
+                    Case Else: r = r & "- "
+                End Select
+                v = "abc"
+                Select Case v
+                    Case Is = "ABC": r = r & "var-is-eq "
+                    Case Else: r = r & "- "
+                End Select
+                v = "a": w = "A"
+                Select Case v
+                    Case w: r = r & "var-var "
+                    Case Else: r = r & "- "
+                End Select
+                v = "a"
+                Select Case v
+                    Case VarAB(): r = r & "var-fn "
+                    Case Else: r = r & "- "
+                End Select
+                s = "a"
+                Select Case s
+                    Case VarAB(): r = r & "str-fn "
+                    Case Else: r = r & "- "
+                End Select
+                Select Case VarLowB()
+                    Case "A": r = r & "fn-lit "
+                    Case Else: r = r & "- "
+                End Select
+                Select Case VarLowB()
+                    Case VarAB(): r = r & "fn-fn "
+                    Case Else: r = r & "- "
+                End Select
+                v = "a"
+                Select Case v & ""
+                    Case "A": r = r & "expr-lit "
+                    Case Else: r = r & "- "
+                End Select
+                v = "B": w = "a"
+                Select Case v
+                    Case Is > w: r = r & "var-is-gt-var "
+                    Case Else: r = r & "- "
+                End Select
+                v = "_": w = "A"
+                Select Case v
+                    Case Is < w: r = r & "var-us-lt-var "
+                    Case Else: r = r & "- "
+                End Select
+                CaseRowsB = Trim$(r)
+            End Function
+
+            Sub S0()
+                On Error Resume Next
+                Dim r As Variant
+                Err.Clear
+                r = Parts(Split("aXbxc", "x", -1, 1))
+                If Err.Number <> 0 Then L "split-case: err " & Err.Number Else L "split-case: " & r
+            End Sub
+
+            Sub S1()
+                On Error Resume Next
+                Dim r As Variant
+                Err.Clear
+                r = Parts(Split("aXbxc", "x", -1, 0))
+                If Err.Number <> 0 Then L "split-case-bin: err " & Err.Number Else L "split-case-bin: " & r
+            End Sub
+
+            Sub S2()
+                On Error Resume Next
+                Dim r As Variant
+                Err.Clear
+                r = Parts(Split("a" & Chr(223) & "b", "ss", -1, 1))
+                If Err.Number <> 0 Then L "split-ss-sz: err " & Err.Number Else L "split-ss-sz: " & r
+            End Sub
+
+            Sub S3()
+                On Error Resume Next
+                Dim r As Variant
+                Err.Clear
+                r = Parts(Split("assb", Chr(223), -1, 1))
+                If Err.Number <> 0 Then L "split-sz-ss: err " & Err.Number Else L "split-sz-ss: " & r
+            End Sub
+
+            Sub S4()
+                On Error Resume Next
+                Dim r As Variant
+                Err.Clear
+                r = Parts(Split("aXbxc", "x", 2, 1))
+                If Err.Number <> 0 Then L "split-limit: err " & Err.Number Else L "split-limit: " & r
+            End Sub
+
+            Sub S5()
+                On Error Resume Next
+                Dim r As Variant
+                Err.Clear
+                r = InStrRev("abcABC", "B", 4, 1)
+                If Err.Number <> 0 Then L "instrrev-start: err " & Err.Number Else L "instrrev-start: " & r
+            End Sub
+
+            Sub S6()
+                On Error Resume Next
+                Dim r As Variant
+                Err.Clear
+                r = InStrRev("abcABC", "B", 4, 0)
+                If Err.Number <> 0 Then L "instrrev-start-bin: err " & Err.Number Else L "instrrev-start-bin: " & r
+            End Sub
+
+            Sub S7()
+                On Error Resume Next
+                Dim r As Variant
+                Err.Clear
+                r = InStrRev("ss" & Chr(223), "ss", 2, 1)
+                If Err.Number <> 0 Then L "instrrev-start-sz: err " & Err.Number Else L "instrrev-start-sz: " & r
+            End Sub
+
+            Sub S8()
+                On Error Resume Next
+                Dim r As Variant
+                Err.Clear
+                r = InStrRev("a" & Chr(223) & "b", "s", 2, 1)
+                If Err.Number <> 0 Then L "instrrev-start-mid-sz: err " & Err.Number Else L "instrrev-start-mid-sz: " & r
+            End Sub
+
+            Sub S9()
+                On Error Resume Next
+                Dim r As Variant
+                Err.Clear
+                r = InStrRev("a" & Chr(223) & "b", "s", 1, 1)
+                If Err.Number <> 0 Then L "instrrev-start-before-sz: err " & Err.Number Else L "instrrev-start-before-sz: " & r
+            End Sub
+
+            Sub S10()
+                On Error Resume Next
+                Dim r As Variant
+                Err.Clear
+                r = InStrRev("s" & Chr(223), "ss", 1, 1)
+                If Err.Number <> 0 Then L "instrrev-start-end-sz: err " & Err.Number Else L "instrrev-start-end-sz: " & r
+            End Sub
+
+            Sub Main()
+                S0
+                S1
+                S2
+                S3
+                S4
+                S5
+                S6
+                S7
+                S8
+                S9
+                S10
+                L "select-case: B=" & CaseRowsB() & " | T=" & Module2.CaseRowsT()
+            End Sub
+
+            Main
+
+            """"""",
+            ("Module2", """""""
+            Option Compare Text
+
+            Public Function VarAT() As Variant
+                VarAT = "A"
+            End Function
+
+            Public Function VarLowT() As Variant
+                VarLowT = "a"
+            End Function
+
+            Public Function CaseRowsT() As String
+                Dim v As Variant, w As Variant, s As String, r As String
+                v = "a"
+                Select Case v
+                    Case "A": r = r & "var-lit "
+                    Case Else: r = r & "- "
+                End Select
+                v = "B"
+                Select Case v
+                    Case "a" To "c": r = r & "var-to "
+                    Case Else: r = r & "- "
+                End Select
+                v = "A"
+                Select Case v
+                    Case Is < "b": r = r & "var-is-lt "
+                    Case Else: r = r & "- "
+                End Select
+                v = "abc"
+                Select Case v
+                    Case Is = "ABC": r = r & "var-is-eq "
+                    Case Else: r = r & "- "
+                End Select
+                v = "a": w = "A"
+                Select Case v
+                    Case w: r = r & "var-var "
+                    Case Else: r = r & "- "
+                End Select
+                v = "a"
+                Select Case v
+                    Case VarAT(): r = r & "var-fn "
+                    Case Else: r = r & "- "
+                End Select
+                s = "a"
+                Select Case s
+                    Case VarAT(): r = r & "str-fn "
+                    Case Else: r = r & "- "
+                End Select
+                Select Case VarLowT()
+                    Case "A": r = r & "fn-lit "
+                    Case Else: r = r & "- "
+                End Select
+                Select Case VarLowT()
+                    Case VarAT(): r = r & "fn-fn "
+                    Case Else: r = r & "- "
+                End Select
+                v = "a"
+                Select Case v & ""
+                    Case "A": r = r & "expr-lit "
+                    Case Else: r = r & "- "
+                End Select
+                v = "B": w = "a"
+                Select Case v
+                    Case Is > w: r = r & "var-is-gt-var "
+                    Case Else: r = r & "- "
+                End Select
+                v = "_": w = "A"
+                Select Case v
+                    Case Is < w: r = r & "var-us-lt-var "
+                    Case Else: r = r & "- "
+                End Select
+                CaseRowsT = Trim$(r)
+            End Function
+
+            """""""));
+
+        AssertDebugLog(Lines("""
+            split-case: 3 [97][98][99]
+            split-case-bin: 2 [97.88.98][99]
+            split-ss-sz: 2 [97][98]
+            split-sz-ss: 2 [97][98]
+            split-limit: 2 [97][98.120.99]
+            instrrev-start: 2
+            instrrev-start-bin: 0
+            instrrev-start-sz: 1
+            instrrev-start-mid-sz: 2
+            instrrev-start-before-sz: 0
+            instrrev-start-end-sz: 0
+            select-case: B=- - var-is-lt - - - - - - - - - | T=var-lit var-to var-is-lt var-is-eq var-var var-fn str-fn fn-lit fn-fn expr-lit var-is-gt-var var-us-lt-var
+            """));
+    }
+
     private static List<Vb6Value> Lines(string text) =>
         text.ReplaceLineEndings("\n").Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => new Vb6Value(l)).ToList();
 }
