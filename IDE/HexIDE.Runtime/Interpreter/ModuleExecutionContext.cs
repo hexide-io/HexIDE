@@ -43,19 +43,25 @@ public class ModuleExecutionContext
             // interface. Anything else is Err 13 "Type mismatch" at the Set — measured, both for two unrelated
             // classes and for an interface-typed slot given a non-implementer. Nothing always stores (its Value
             // is null); a control or proxy is outside this model.
-            if (state.DeclaredClassOf(loc) is { } declaredClass
-                && value.Value is VbObject incoming
-                && !VbInterface.IsAssignableTo(incoming, declaredClass))
-                throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
-            // A Collection, likewise, goes only into a Collection-typed slot of the class-typed ones (measured, #1471).
-            if (state.DeclaredClassOf(loc) is { } classTyped && value.Value is VbCollection
-                && !ExpressionExecutor.IsCollectionType(classTyped))
-                throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
+            CheckObjectStore(value, state.DeclaredClassOf(loc), ctx);
             state[loc] = value;
             return true;
         }
 
         return false;
+    }
+
+    // Scalar slots and array elements enforce the same object type (measured, #1482).
+    internal static void CheckObjectStore(Vb6Value value, string? declaredClass, ParserRuleContext? ctx = null)
+    {
+        if (declaredClass is not null
+            && value.Value is VbObject incoming
+            && !VbInterface.IsAssignableTo(incoming, declaredClass))
+            throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
+        // A Collection, likewise, goes only into a Collection-typed slot of the class-typed ones (measured, #1471).
+        if (declaredClass is { } classTyped && value.Value is VbCollection
+            && !ExpressionExecutor.IsCollectionType(classTyped))
+            throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
     }
 
     public bool TryGetVariable(ExecutionEnvironment env, string name, out Vb6Value value) =>

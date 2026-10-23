@@ -47,6 +47,8 @@ internal static class ObjectAsValue
         // A Collection's default member is Item, which needs an index: `v = c` is 450 (measured, #1471, early-bound and
         // late). In an expression VB6 refuses it before the program runs, as "Argument not optional", where it is early-bound.
         VbCollection => throw new VBRunTimeException(context, VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment),
+        // So is a form's Controls: `v = Controls` is 450, and v stays Empty (measured, #1060).
+        FormControls => throw new VBRunTimeException(context, VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment),
         ICSharpProxy => throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
         _ => value,
     };

@@ -92,7 +92,12 @@ public class CorpusConformanceTests
         ["separator-with-declarations/hashconst-value-continued"] = "OTHER-REJECTION",
         ["whitespace-and-eol-edges/eof-mid-continuation-no-trailing-newline"] = "OTHER-REJECTION",
 
-        // ===== FALSE ACCEPTANCES (52) — the mild direction. =====
+        // ===== FALSE ACCEPTANCES (53) — the mild direction. =====
+
+        // Bare Print now parses as a statement (#993), including before a colon. This case's GoTo Print
+        // already parses through ambiguousIdentifier; accepting the statement exposes that permissive target rule.
+        // Print is still not a label, and executing the GoTo cannot find it.
+        ["label-name-reserved/keyword-as-a-label-print"] = "GOTO-RESERVED-TARGET (#993)",
 
         // BRACKETED-IDENTIFIER-NOT-VB6 (2)
         //   `ambiguousIdentifier` has a `[name]` alternative. **VB6 has no such syntax.** Measured:

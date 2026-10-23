@@ -66,6 +66,8 @@ internal static class FormMembers
         // A form's Name is its module's, read-only at run time: no property of the window holds it.
         if (IsName(name))
             return new Vb6Value(form.ClassName);
+        if (IsControls(name) && form.Controls is { } controls)
+            return new Vb6Value(controls);
         if (IsScaleSize(name, out var vertical) && window is Avalonia.Controls.Window shown)
             return AvaloniaInterop.ControlPositions.ScaleSize(shown, vertical);
         if (IsWindowState(name) && window is Avalonia.Controls.Window stateWindow)
@@ -112,6 +114,21 @@ internal static class FormMembers
         form.BuiltInMembersFor(name)!.Call(name, args);
 
     private static bool IsName(string name) => string.Equals(name, "Name", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Whether a member is the form's Controls collection, whose default member takes an index (#1060).</summary>
+    public static bool IsControls(string name) => string.Equals(name, "Controls", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// <c>Controls(i)</c> on a form, bare or through its name: the collection's default member, Item. A form whose controls
+    /// no loader has placed has no collection, and is refused as before.
+    /// </summary>
+    public static Vb6Value ControlsItem(VbObject form, IReadOnlyList<Vb6Value> args)
+    {
+        form.BuiltInMembersFor("Controls");
+        return form.Controls is { } controls
+            ? controls.Item(args)
+            : throw new NotImplementedException($"Reading {form.ClassName}'s Controls is not implemented: no controls were placed on it");
+    }
 
     private static bool IsWindowState(string name) => string.Equals(name, "WindowState", StringComparison.OrdinalIgnoreCase);
 
@@ -163,7 +180,5 @@ internal static class FormMembers
     /// refusal that names its issue tells the reader whether it is known, and where to look.
     /// </summary>
     internal static string TrackedBy(string name) =>
-        string.Equals(name, "Controls", StringComparison.OrdinalIgnoreCase) ? ": the form's Controls collection is #1060"
-        : name.StartsWith("Scale", StringComparison.OrdinalIgnoreCase) ? ": the form's coordinate system is #990"
-        : "";
+        name.StartsWith("Scale", StringComparison.OrdinalIgnoreCase) ? ": the form's coordinate system is #990" : "";
 }

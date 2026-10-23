@@ -82,7 +82,7 @@
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.RemoveProjectCommand}"
                               ExecutingCommand="{CompiledBinding RemoveProjectCommand}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.MakeProjectGroupCommand}"
-                              ExecutingCommand="{CompiledBinding MakeProjectGroup}" />
+                              ExecutingCommand="{CompiledBinding MakeProjectGroupCommand}" />
 
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.StepIntoCommand}"
                               ExecutingCommand="{CompiledBinding StepInto}" />

@@ -50,14 +50,20 @@ public class NewFormSeedTests
     }
 
     [Fact]
-    public void The_seed_every_form_starts_from_is_CRLF_too()
+    public void The_seed_every_form_starts_from_has_no_code()
     {
-        // The shared constructor also builds the designer half of a new UserControl or PropertyPage, which takes
-        // no Attribute block of a form's, but whose code reaches a file all the same.
-        var code = new FormDefinition(Project, FormComponentClass.Instance, "Form1").Code;
+        // It used to be an empty Form_Load, written to the file at the first save (#1532). The shared constructor also
+        // builds the designer half of a new UserControl or PropertyPage, where a form's event has no business either.
+        new FormDefinition(Project, FormComponentClass.Instance, "Form1").Code.Should().BeEmpty();
+    }
 
-        code.Replace("\r\n", "").Should().NotContain("\n");
-        code.Should().EndWith("\r\n");
+    [Fact]
+    public void A_new_form_is_written_ending_at_its_Attribute_block_as_VB6s_Add_Form_saves_one()
+    {
+        // Measured in VB6's IDE (#1532): Project > Add Form, then Ctrl+S, writes a form whose last line is
+        // "Attribute VB_Exposed = False" and its CRLF. VB6 adds a procedure only when the developer asks for one.
+        Written(FormDefinition.NewForm(Project, FormComponentClass.Instance, "Form1"))
+            .Should().EndWith("End\r\n" + VbAttributes);
     }
 
     [Fact]
