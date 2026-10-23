@@ -238,6 +238,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A `D` exponent in a numeric literal loads, as vb6.exe compiles it** (#1611). `x = 1D3` failed to load, and the
+  editor marked it. `D` is now an exponent marker wherever `E` is, in both grammars. A literal vb6.exe refuses to
+  build, such as `1E400`, `1E3%` or `1E20@`, is now its compile error "Syntax error", where HexIDE gave infinity, a
+  Long or a Currency beyond Currency's range, or stopped with a .NET error.
+
 - **A refused MCP call names a blocking dialog once** (#1325). Closing a form under a MsgBox, or typing or pressing a key under stacked dialogs, no longer repeats the dialog in the reply’s note. A refusal never claims the call reached past a dialog; calls that acted behind one still say so.
 
 - **A CommandButton, TextBox, ComboBox, ListBox and Frame have ToolTipText** (#1403). Only five controls declared it,
