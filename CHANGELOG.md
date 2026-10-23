@@ -213,6 +213,13 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`Write #` and `Input #` run** (#1521). Both stopped the program as not implemented. `Write #` now writes
+  as vb6.exe does: quoted strings, `.5` with no leading zero, `#TRUE#`, `#NULL#` and `#2003-01-02#`, with a point under
+  any locale. `Input #` reads each field for the variable it fills, so a Variant comes back typed by what the field holds,
+  as an Integer, Currency, Decimal, Double, Boolean or Date. A typed variable takes vb6.exe's rules: 0 for text in a
+  number, and 6 or 13 leave the variable as it was. A program that saves its settings with one and loads them with the
+  other now runs.
+
 - **`CCur` and `CDec` preserve decimal precision in Strings** (#1531). Plain decimal numbers are read in the
   program's locale without rounding through a Double, including the Currency and Decimal maxima. Out-of-range
   Strings raise run-time error 6. Hex, octal and exponent forms keep their existing conversion.

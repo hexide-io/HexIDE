@@ -113,7 +113,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Statements | 2 | 2 | 29 | 30 | 0 | 42 | 105 |
+| Statements | 2 | 2 | 27 | 32 | 0 | 42 | 105 |
 | Operators | 0 | 0 | 2 | 19 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 58 | 41 | 1 | 53 | 153 |
 | Keywords and modifiers | 0 | 0 | 10 | 20 | 1 | 20 | 51 |
@@ -121,6 +121,8 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Compiler directives and options | 0 | 1 | 9 | 9 | 20 | 8 | 47 |
 | In-box objects | 0 | 0 | 87 | 14 | 0 | 22 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
+| **Total** | **8** | **4** | **206** | **410** | **22** | **532** | **1182** |
+
 | **Total** | **8** | **4** | **207** | **408** | **22** | **533** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
@@ -314,6 +316,8 @@ which is the cheaper kind to close. The named-argument operator `:=` was the oth
 | `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 
+## Dies mid-run — 200 names
+
 ## Dies mid-run — 201 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
@@ -419,6 +423,8 @@ most of the in-box object model.
 | `Hyperlink` | **Dies** | Measured for `Dim h As Hyperlink`: VBCompileErrorException: "User-defined type not defined: Hyperlink" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `IMEStatus` | **Dies** | but is not implemented. Not in BuildRegistry and zero occurrences anywhere in HexIDE.Runtime, including the editor-metadata files (VbSignatures.cs / VbKeywordNormalizer.cs). | ExpressionExecutor.cs |
 | `Input` | **Dies** | fails at name resolution: `Input` is in `ambiguousKeyword` (Grammar/VB6.g4) so `Input(n, f)` parses as a procedure-or-array call, but the name is unregistered. Probed `Debug.Print Input(5… | ExpressionExecutor.cs |
+
+
 | `Input #` | **Dies** | **[#1521](https://github.com/hexide-io/HexIDE/issues/1521).** `inputStmt : INPUT WS valueStmt (WS? COMMA WS? valueStmt)+` (Grammar/VB6.g4); the visitor body is the throw. Probed `Input #1, s` -> NotImplementedException: "Input not implemented". | StatementExecutor.cs |
 | `InputB` | **Dies** | fails at name resolution: a plain identifier (not a lexer keyword), unregistered. Probed `Debug.Print InputB(5, 1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function… | ExpressionExecutor.cs |
 | `InStrB` | **Dies** | Not registered (VB6BuiltIns.cs); no occurrence of "InStrB" under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (InStrB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
@@ -522,6 +528,8 @@ most of the in-box object model.
 | `Win16` | **Dies** | Not defined anywhere in the interpreter (the same repo-wide grep as Win32 returned no Win16 hits at all). Reachable only from #If, which throws first (PrePass.cs / StatementExecutor.cs). | PrePass.cs |
 | `Win32` | **Dies** | Not defined anywhere in the interpreter. A repo-wide grep for a Win32 conditional-compilation constant across IDE/ and LspServer/ (.cs and .g4) returned only unrelated hits - Avalonia… | PrePass.cs |
 | `Write` | **Dies** | WRITE is a lexer token used both in openStmt's `Access Write` / `Access Read Write` clause and as the head of writeStmt (Grammar/VB6.g4, 630-632). As a clause keyword: probed `Open "z.txt"… | StatementExecutor.cs |
+
+
 | `Write #` | **Dies** | **[#1521](https://github.com/hexide-io/HexIDE/issues/1521).** `writeStmt : WRITE WS valueStmt WS? COMMA (WS? outputList)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Write #1, "x"` -> NotImplementedException: "Write not implemented". | StatementExecutor.cs |
 
 ## Full inventory by category
@@ -531,7 +539,7 @@ load, Dies, Partial, No-op, Supported — because a reader of a coverage documen
 missing.
 
 
-### Statements — 105 names (2 silently wrong, 31 absent, 30 partial, 42 supported)
+### Statements — 105 names (2 silently wrong, 29 absent, 32 partial, 42 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -559,6 +567,8 @@ missing.
 | `FileCopy` | **Dies** | `filecopyStmt : FILECOPY WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `FileCopy "a.txt", "b.txt"` -> NotImplementedException: "Filecopy not… | StatementExecutor.cs |
 | `Get` | **Dies** | `getStmt : GET WS valueStmt WS? COMMA WS? valueStmt? WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Get #1, 1, v` -> NotImplementedException: "Get not… | StatementExecutor.cs |
 | `GoSub...Return` | **Dies** | throws `"GoSub not implemented"` — Both halves parse and both throw. GoSub: (StatementExecutor.cs). Return: `throw new NotImplementedException("Return not implemented")` (:1172)… | StatementExecutor.cs |
+| `Input #` | Partial | **[#1521](https://github.com/hexide-io/HexIDE/issues/1521):** each variable takes the next field, read for its type as vb6.exe reads it. A numeric variable reads a number, which a blank ends, and 0 where the field starts with none; a String reads the text to the comma; a Variant is typed by what the field holds (Integer, Long, Currency up to 4 places, Decimal beyond, Double for an exponent, `#TRUE#`, `#NULL#`, a `#date#`). A point is a point under any locale. At the end of the file it is 62, and a Variant is emptied first. **Partial:** only a plain variable is taken, as for `Line Input #`, and `#ERROR n#` into a Variant is refused, since HexIDE has no Error values. | StatementExecutor.cs, VbFiles.cs, VbInput.cs |
+
 | `Input #` | **Dies** | **[#1521](https://github.com/hexide-io/HexIDE/issues/1521).** `inputStmt : INPUT WS valueStmt (WS? COMMA WS? valueStmt)+` (Grammar/VB6.g4); the visitor body is the throw. Probed `Input #1, s` -> NotImplementedException: "Input not implemented". | StatementExecutor.cs |
 | `Kill` | **Dies** | `killStmt : KILL WS valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Kill "z.txt"` -> NotImplementedException: "Kill not implemented". | StatementExecutor.cs |
 | `Line Input #` | Partial | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** reads a line of an Input file in the ANSI code page, ending at CR or CR LF but not a lone LF, and stopping at Ctrl+Z; 62 past the end, with the variable unchanged (all measured). Into a plain variable only: an array element or a member is refused as not implemented. | StatementExecutor.cs, VbFiles.cs |
@@ -584,6 +594,8 @@ missing.
 | `SetAttr` | **Dies** | `setattrStmt : SETATTR WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `SetAttr "a.txt", 0` -> NotImplementedException: "Setattr not… | StatementExecutor.cs |
 | `Unlock` | **Dies** | `unlockStmt : UNLOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Unlock #1, 1 To 2` -> NotImplementedException:… | StatementExecutor.cs |
 | `Width #` | **Dies** | `widthStmt : WIDTH WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Width #1, 80` -> NotImplementedException: "Width not implemented". | StatementExecutor.cs |
+| `Write #` | Partial | **[#1521](https://github.com/hexide-io/HexIDE/issues/1521):** writes as vb6.exe measured: strings quoted, with an inner quote doubled; numbers with no leading zero, fixed while that takes at most 15 digits (7 for a Single), a point under any locale; `#TRUE#`, `#NULL#`, `#2003-01-02 13:45:00#`; Empty as nothing; a comma for every `,` or `;`, and no line break after a trailing one. **Partial:** an object, array or user-defined type is refused, and two items with no separator between them. | StatementExecutor.cs, VbWrite.cs |
+
 | `Write #` | **Dies** | **[#1521](https://github.com/hexide-io/HexIDE/issues/1521).** `writeStmt : WRITE WS valueStmt WS? COMMA (WS? outputList)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Write #1, "x"` -> NotImplementedException: "Write not implemented". | StatementExecutor.cs |
 | `Resume line` | Partial | `resumeStmt : RESUME (WS (NEXT \| ambiguousIdentifier))?` (VB6.g4). An identifier target becomes ResumeSignal(ResumeKind.Label) and the driver does `ResolveLabel(labels, r.Label!)`… | StatementExecutor.cs |
 | `ChDir` | Partial | Implemented and oracle-pinned. VisitChDirStmt evaluates the argument, coerces to string, assigns Environment.CurrentDirectory, and maps… | StatementExecutor.cs |

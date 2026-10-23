@@ -79,7 +79,8 @@ VB6. A control is refused in a Let and in a numeric conversion, and still gives 
 For contrast: these are ordinary language surface that simply isn't implemented **yet**. They are on the fidelity
 roadmap, not walled off — expect them to arrive over time:
 
-- **File & directory I/O** — `Open`/`Close`/`Print #`/`Input #`/`Get`/`Put`, `Kill`/`Name`/`MkDir`, `FreeFile`/`EOF`/`Dir`
+- **File & directory I/O** — Binary and Random files (`Get`/`Put`), `Kill`/`Name`/`MkDir`, `Dir`. Text files run:
+  `Open`, `Close`, `Print #`, `Write #`, `Line Input #`, `Input #`, `FreeFile` and `EOF` (#1145, #1521)
 - **Some intrinsics** — the `$`-typed string twins (`Left$`, `Mid$`, `Format$`), `Like`, `Switch`, the financial
   functions, and some string/format helpers
 - **`Collection`** and `For Each` over non-array enumerables
