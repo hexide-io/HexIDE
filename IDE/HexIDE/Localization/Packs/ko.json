@@ -755,6 +755,7 @@
     "Str.Document.CodeSuffix": "코드",
     "Str.Document.FormSuffix": "Form",
     "Str.Document.UserControlSuffix": "UserControl",
+    "Str.Document.PropertyPageSuffix": "PropertyPage",
     "Str.PropCategory.Misc": "기타",
     "Str.PropCategory.Appearance": "모양",
     "Str.PropCategory.Behavior": "동작",

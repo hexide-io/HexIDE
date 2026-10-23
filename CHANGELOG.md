@@ -218,6 +218,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The designer draws and names a UserControl or PropertyPage as VB6's does** (#1544). Each was drawn in a form's
+  window frame, with a title bar and caption buttons, a PropertyPage's tab read `(Form)`, and the Properties window's
+  object box gave both the class `Form`. Each is now a borderless surface, as neither has a window of its own at run
+  time, its tab reads `(UserControl)` or `(PropertyPage)`, and the object box names its class.
+
 - **A form's Width and Height are its outer size at run time** (#1072). They read and set the client area, so a
   program got a form 90 to 240 twips narrower and 345 to 885 shorter than vb6.exe reports. They now include the frame
   VB6 draws on the themed Windows desktop for the form's BorderStyle, caption bar and menu bar, read back as assigned,
