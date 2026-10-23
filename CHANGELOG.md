@@ -213,6 +213,13 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A new form has no code, and an event procedure is added as VB6 adds one** (#1532). A form HexIDE created started
+  with an empty `Form_Load` procedure, and its first save wrote it to the file. VB6's Add Form saves a form ending at its
+  `Attribute` lines (measured in the IDE), and adds `Form_Load` when the form is double-clicked. HexIDE's double-click
+  wrote that procedure `Public`, in bare LF, after two bare line feeds. Now a double-click, or an event picked in the
+  Procedure box, writes it `Private`, in the file's line breaks, at the end and one blank line below any code, with the
+  caret on the blank line inside.
+
 - **Object and Collection arrays** (#1482). Elements start as Nothing, accept Set with the same type checks as
   scalar variables, and release their objects on Erase. Class arrays now report TypeName "Object()", too.
 
