@@ -208,6 +208,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Ctrl+S on a new UserControl or PropertyPage saves its .ctl or .pag** (#474). From its designer or its code window,
+  Ctrl+S saved the designer half as a form: it asked for a `.frm`, wrote the edit there, and left the `.ctl` the project
+  names unwritten. A save from either half is now the module's save. It asks for the `.ctl` or `.pag` once, and writes
+  it in place after that.
+
 - **A control array's elements name themselves with their index in automation** (#1320). The Properties window's
   object selector and the designer's canvas named every element of `optSize` as `optSize`, so a caller could not tell
   which was selected, and `select "optSize(1)"` matched nothing. Each element is now `optSize(0)`, `optSize(1)` and so

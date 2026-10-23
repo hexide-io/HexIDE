@@ -540,6 +540,15 @@ public class ProjectService : IProjectService
     private async Task<IReadOnlyList<Destination>> SaveFiles(
         IReadOnlyList<(object Document, bool SaveAs)> files, bool announceSave = true, bool ownCommand = false)
     {
+        // A UserControl's or PropertyPage's designer half is one file with its module, and the file the project names is
+        // the module's. Saved as a form, a new one has no path (#500) and asked for a .frm, and wrote the edit there
+        // beside a .ctl that was never written (#474). So whatever is handed in, its module is saved.
+        files = [.. files
+            .Select(file => file.Document is FormDefinition { OwningModule: { } module } && DesignerPartOf(module) is not null
+                ? (module, file.SaveAs)
+                : file)
+            .DistinctBy(file => file.Document, ReferenceEqualityComparer.Instance)];
+
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
         var destinations = new List<Destination>();
@@ -1970,6 +1979,9 @@ public class ProjectService : IProjectService
             WriteCompanionBinary(modulePath, companion, designerPart);
         AtomicWriteText(modulePath, text, encodedText);
         module.AbsolutePath = modulePath;
+        // Both halves are the one file, as every load gives them (#474).
+        if (DesignerPartOf(module) is { } written)
+            written.AbsolutePath = modulePath;
 
         // As SerializeFormToFile: the .ctl/.pag half of the same refresh trigger (#273 task 3.3a). The code here is
         // the MODULE's, which is the pairing this path writes and the one the code window composes from. Gated
