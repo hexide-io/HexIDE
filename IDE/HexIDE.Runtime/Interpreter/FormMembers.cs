@@ -84,6 +84,10 @@ internal static class FormMembers
     /// </summary>
     public static void Write(VbObject form, string name, VB6FormMembers.Member member, Vb6Value value)
     {
+        // VB6 raises 382 for it through an Object, the only way a program it compiles can assign it; early-bound, it refuses
+        // the statement at compile time (measured, #1431).
+        if (IsName(name))
+            throw IdentityMembers.ReadOnlyAtRunTime("Name");
         if (!member.CanLet)
             throw new VBCompileErrorException(AssignToReadOnly);
         if (IsScaleSize(name, out _))

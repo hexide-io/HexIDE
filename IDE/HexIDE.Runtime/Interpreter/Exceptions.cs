@@ -141,7 +141,11 @@ public struct VBStandardError
     public static readonly VBStandardError ComponentNotFound = new(337, "Component not found");
     public static readonly VBStandardError ComponentDidNotRunCorrectly = new(338, "Component did not run correctly");
     public static readonly VBStandardError ControlArrayElementDoesntExist = new(340, "Control array element doesn't exist");
+    /// <summary>VB6's 340 names the index it was given, read, written or unloaded (measured, #1386).</summary>
+    public static VBStandardError ControlArrayElementIsMissing(int index) =>
+        new(ControlArrayElementDoesntExist.ErrNo, $"Control array element '{index}' doesn't exist");
     public static readonly VBStandardError InvalidControlArrayIndex = new(341, "Invalid control array index");
+    public static readonly VBStandardError ObjectNotAnArray = new(343, "Object not an array");
     public static readonly VBStandardError ObjectAlreadyLoaded = new(360, "Object already loaded");
     public static readonly VBStandardError CantLoadOrUnloadThisObject = new(361, "Can't load or unload this object");
     public static readonly VBStandardError CantUnloadControlsCreatedAtDesignTime = new(362, "Can't unload controls created at design time");

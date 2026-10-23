@@ -589,6 +589,7 @@
     "Str.PropDesc.Checked": "Om der vises et flueben ved siden af menupunktet.",
     "Str.PropDesc.WindowList": "Om denne menu viser de åbne MDI-underordnede vinduer.",
     "Str.PropDesc.Locked": "Om kontrolelementets indhold kan redigeres.",
+    "Str.PropDesc.MultiSelect": "Om der kan vælges mere end ét element, og hvordan.",
     "Str.PropDesc.StartUpPosition": "Hvor formularen placeres på skærmen, når den åbnes første gang.",
     "Str.PropDesc.ShowInTaskbar": "Om formularen vises på proceslinjen.",
     "Str.PropDesc.TabIndex": "Kontrolelementets placering i formularens tabulatorrækkefølge.",

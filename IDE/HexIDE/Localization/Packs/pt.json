@@ -589,6 +589,7 @@
     "Str.PropDesc.Checked": "Se aparece uma marca de verificação junto ao item de menu.",
     "Str.PropDesc.WindowList": "Se este menu lista as janelas-filho MDI abertas.",
     "Str.PropDesc.Locked": "Se o conteúdo do controlo pode ser editado.",
+    "Str.PropDesc.MultiSelect": "Se é possível selecionar mais do que um elemento, e como.",
     "Str.PropDesc.StartUpPosition": "Onde o formulário é colocado no ecrã quando abre pela primeira vez.",
     "Str.PropDesc.ShowInTaskbar": "Se o formulário aparece na barra de tarefas.",
     "Str.PropDesc.TabIndex": "A posição do controlo na ordem de tabulação do formulário.",

@@ -589,6 +589,7 @@
     "Str.PropDesc.Checked": "اینکه علامت تیک کنار مورد منو ظاهر شود.",
     "Str.PropDesc.WindowList": "اینکه این منو پنجره‌های فرزند MDI باز را فهرست کند.",
     "Str.PropDesc.Locked": "اینکه محتوای کنترل قابل ویرایش باشد.",
+    "Str.PropDesc.MultiSelect": "اینکه بیش از یک مورد قابل انتخاب باشد، و چگونه.",
     "Str.PropDesc.StartUpPosition": "محل قرارگیری فرم روی صفحه هنگام نخستین باز شدن.",
     "Str.PropDesc.ShowInTaskbar": "اینکه فرم در نوار وظیفه ظاهر شود.",
     "Str.PropDesc.TabIndex": "موقعیت کنترل در ترتیب Tab فرم.",

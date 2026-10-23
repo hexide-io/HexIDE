@@ -244,14 +244,14 @@ project's name, the document's own name, and the extension its kind will be save
   report carries no URI at all, so the client files the answer under the name it asked about.
 
 The rule reads the path and nothing else: a document whose path is unset is named `untitled:`, and any
-other is named by its path. A file in a folder the IDE chose — the scratch folder a never-saved project
-writes its documents into — is named `file:` like any other, because that is where the bytes are and it is
-inside the root servers are told about; naming it `untitled:` would show a server that indexes the root the
-same module twice. Today the IDE writes a newly added form or module into that folder at once, so most new
-documents are `file:` from the start. [#500](https://github.com/hexide-io/HexIDE/issues/500) proposes that a
-new document wait for the project's first save, as VB6 does, which would make `untitled:` the ordinary name
-of every new document. **A saved document whose file is then deleted keeps its `file:` name**: `untitled:`
-means "no file yet", not "file missing".
+other is named by its path. A newly added form or module has no file until the project is saved, as in VB6
+([#500](https://github.com/hexide-io/HexIDE/issues/500)), so `untitled:` is the ordinary name of every new
+document. Its first save writes the file and renames it to its `file:` name, as a close of the `untitled:`
+name and an open of the file. A file in a folder the IDE chose, such as the temporary folder the
+`--newproject` option saves its project into, is named `file:` like any other, because that is where the
+bytes are and it is inside the root servers are told about; naming it `untitled:` would show a server that
+indexes the root the same module twice. **A saved document whose file is then deleted keeps its `file:`
+name**: `untitled:` means "no file yet", not "file missing".
 
 All five foreign servers the suite drives were asked about an `untitled:` document on 2026-09-20, each under
 an extension it claims, and the frames were read rather than the client's own events. The table records the
@@ -553,9 +553,9 @@ the registry's own record of what is open rather than by the document that trigg
 teardown stops every server and the triggering document's claimants are a smaller set. A move is noticed
 when a document is next opened, not when the project changes. A save that gives a document its first file
 re-opens it under its new name, and that open notices the move. A save that writes no document to a new file
-notices nothing. Save Project As of a project already saved asks only where the project file goes, and so
-does the first save of a project whose documents were written into its scratch folder when they were added:
-a document is asked for a path only when it has none (`ProjectService.DestinationOf`). The running servers
+notices nothing. Save Project As of a project already saved asks only where the project file goes, as does
+one of the project `--newproject` saved into a temporary folder: a document is asked for a path only when it
+has none (`ProjectService.DestinationOf`). The running servers
 then keep the old root until a document is next opened. That much is read from the code; neither save has
 been driven against a running server to watch it happen.
 

@@ -589,6 +589,7 @@
     "Str.PropDesc.Checked": "मेनू आइटम के पास चेक मार्क दिखे या नहीं।",
     "Str.PropDesc.WindowList": "यह मेनू खुली MDI चाइल्ड विंडो सूचीबद्ध करे या नहीं।",
     "Str.PropDesc.Locked": "कंट्रोल की सामग्री संपादित की जा सके या नहीं।",
+    "Str.PropDesc.MultiSelect": "एक से अधिक आइटम चुने जा सकें या नहीं, और कैसे।",
     "Str.PropDesc.StartUpPosition": "फ़ॉर्म पहली बार खुलने पर स्क्रीन पर कहाँ रखा जाए।",
     "Str.PropDesc.ShowInTaskbar": "फ़ॉर्म टास्कबार में दिखे या नहीं।",
     "Str.PropDesc.TabIndex": "फ़ॉर्म के Tab क्रम में कंट्रोल की स्थिति।",

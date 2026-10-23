@@ -14,13 +14,14 @@ namespace HexIDE.Runtime.Tests;
 /// result is a save that looks successful and silently removes a control's picture, with the bytes still
 /// sitting on disk unreferenced.
 ///
-/// There are three ways it goes missing and only one announces itself, which is why the gate needs both a
-/// flag and a count:
-///   - an UNMODELLED CONTROL carrying an .frx reference — flagged during the walk
+/// A record cited by a property HexIDE does not model, or by an unmodelled control, is no longer one of them:
+/// it is carried with the lines citing it, and the save puts it back (#60). Two ways remain, and only one
+/// announces itself, which is why the gate needs both a flag and a count:
 ///   - a MODELLED control carrying a property that is named but whose CLR type is not byte[] — dropped
-///     with no diagnostic at all. ODBC Log In's ComboBox List is exactly this.
-///   - the COMPANION ITSELF absent or truncated, so a citation on an entirely ordinary property cannot be
-///     honoured. Nothing about the form is unusual; the file beside it is what is missing (#146).
+///     with no diagnostic at all. ODBC Log In's ComboBox List was exactly this, until List was modelled.
+///   - the COMPANION ITSELF absent or truncated, so a citation cannot be honoured, whether the property citing
+///     it is modelled or carried. Nothing about the form is unusual; the file beside it is what is missing
+///     (#146).
 ///
 /// The count is taken against what the .frm CITES, not against what the companion yielded. Counting the
 /// companion cannot see that third case — with no companion there is nothing to count, and with a truncated
@@ -77,23 +78,24 @@ public class BlobLossGateTests
     }
 
     [Fact]
-    public void AnUnmodelledControlCarryingABlob_HoldsTheFormReadOnly()
+    public void AnUnmodelledControlCarryingABlob_IsCarried_AndTheFormStaysSavable()
     {
         var form = Load(UnmodelledOwnerForm, OneBlob());
 
-        // The whole control is preserved as raw text, so its blob is never collected.
-        form.UnfaithfulSaveCauses.Should().HaveFlag(UnfaithfulSaveCause.UnreproducibleBinaryContent);
-        form.CanSaveFaithfully.Should().BeFalse();
+        // The whole control is preserved as raw text, and its blob goes with it (#60). It used to be dropped,
+        // which held the form read-only.
+        form.UnfaithfulSaveCauses.Should().NotHaveFlag(UnfaithfulSaveCause.UnreproducibleBinaryContent);
+        form.CanSaveFaithfully.Should().BeTrue();
     }
 
     [Fact]
-    public void AModelledControlWithAnUnmodelledBlobProperty_HoldsTheFormReadOnly()
+    public void AModelledControlWithAnUnmodelledBlobProperty_IsCarried_AndTheFormStaysSavable()
     {
         var form = Load(UnmodelledPropertyForm, OneBlob());
 
-        // Label is modelled; Label.Picture is not. Nothing flags this — the count is what catches it, and
-        // this is the case the old gate was blind to.
-        form.UnfaithfulSaveCauses.Should().HaveFlag(UnfaithfulSaveCause.UnreproducibleBinaryContent);
+        // Label is modelled; Label.Picture is not. Its line is carried with the blob it cites (#60).
+        form.UnfaithfulSaveCauses.Should().NotHaveFlag(UnfaithfulSaveCause.UnreproducibleBinaryContent);
+        form.CanSaveFaithfully.Should().BeTrue();
     }
 
     [Fact]
@@ -110,8 +112,8 @@ public class BlobLossGateTests
     public void CausesAccumulate_RatherThanOverwritingEachOther()
     {
         // A ListBox is not a container, so the Label nested inside it would be re-parented onto the form on
-        // save — and it carries a blob-backed property the writer cannot re-emit. Two independent causes on
-        // one form.
+        // save — and it cites a blob its companion does not hold, so the writer cannot re-emit it. Two
+        // independent causes on one form. (With the blob there, the Label's picture would be carried, #60.)
         //
         // The fixture used to be a Frame, which was the point when a Frame held a form read-only. Frames no
         // longer do, so keeping it would have made this assert only the binary half while still claiming to
@@ -125,7 +127,7 @@ public class BlobLossGateTests
             "      End\r\n   End\r\n" +
             "End\r\nAttribute VB_Name = \"Form1\"\r\n";
 
-        var form = Load(both, OneBlob());
+        var form = Load(both);
 
         // If one cause overwrote the other, fixing containers would appear to free a form that is still
         // losing a picture.

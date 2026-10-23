@@ -56,8 +56,9 @@ public class SymbolFontTests
     public void Each_byte_goes_to_its_glyph_in_the_private_use_range()
     {
         SymbolFontText.ToSymbolGlyphs("PMJ").Should().Be(Glyphs(0xF050, 0xF04D, 0xF04A));
-        // An access key's ampersand, a line break and a character already in the range are left as they are.
-        SymbolFontText.ToSymbolGlyphs("&P" + "\r\n" + Glyphs(0xF04D)).Should().Be("&" + Glyphs(0xF050) + "\r\n" + Glyphs(0xF04D));
+        // A line break and a character already in the range are left as they are. An ampersand is mapped like any other:
+        // the text is as shown, with the caption's access key already read (#920).
+        SymbolFontText.ToSymbolGlyphs("&P" + "\r\n" + Glyphs(0xF04D)).Should().Be(Glyphs(0xF026, 0xF050) + "\r\n" + Glyphs(0xF04D));
 
         // Above 127, the byte is the ANSI code page's. On a Windows-1252 machine the euro is byte 128, and what HexIDE's
         // Chr$(&H81) gives today, U+0081, is byte 129, the circled one.

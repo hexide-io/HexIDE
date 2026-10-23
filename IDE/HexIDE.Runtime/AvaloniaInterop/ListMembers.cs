@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.AvaloniaInterop;
@@ -20,6 +21,22 @@ namespace HexIDE.Runtime.AvaloniaInterop;
 /// <item>The selection follows its item through all of these, and is emptied when its item is removed. None raises
 /// Click.</item>
 /// </list>
+/// A ListBox's Selected(i), SelCount and Text (#1395), measured the same way (the oracle's "A ListBox's Selected, SelCount
+/// and Text"):
+/// <list type="bullet">
+/// <item>Selected(i) is a Boolean, and 381 outside the list, read or written. Set True it selects item i, and set False
+/// on the selected item it selects none, with Click only when the selection moves, as for ListIndex.</item>
+/// <item>SelCount is an Integer, 0 or 1.</item>
+/// <item>Text reads the selected item's text, or "". Written, it selects the first item whose whole text it is, without
+/// regard to case, or none, and raises Click every time.</item>
+/// <item>On a list with MultiSelect 1 or 2, Selected(i) and SelCount read and set a selection of any size, and Text
+/// reads the focused item, which ListIndex names. Text written raises Click and changes nothing (#1413).</item>
+/// <item>MultiSelect itself reads as an Integer, and assigning it is the compile error "Can't assign to read-only
+/// property" (measured, #1413).</item>
+/// </list>
+/// A ComboBox's Text (#926), measured the same way (the oracle's "A ComboBox's Text, at each Style"). At Style 0 and 1 it
+/// is the edit box's: written, it does nothing when it is the Text already, and otherwise takes any text, clearing the
+/// selection even for an item's text. Null is 13. A Dropdown List's is refused (#1428).
 /// </summary>
 internal static class ListMembers
 {
@@ -35,6 +52,22 @@ internal static class ListMembers
         value = default;
         if (control is not SelectingItemsControl list || !IsList(control))
             return false;
+        if (control is VBListBox listBox && member.Equals("SelCount", StringComparison.OrdinalIgnoreCase))
+        {
+            value = new Vb6Value(listBox.SelectedCount);
+            return true;
+        }
+        if (control is VBComboBox combo && member.Equals("Text", StringComparison.OrdinalIgnoreCase))
+        {
+            RequireEditable(combo);
+            value = new Vb6Value(combo.Text ?? "");
+            return true;
+        }
+        if (control is VBListBox textList && member.Equals("Text", StringComparison.OrdinalIgnoreCase))
+        {
+            value = new Vb6Value(textList.ListIndexText);
+            return true;
+        }
         if (member.Equals("ListCount", StringComparison.OrdinalIgnoreCase))
         {
             // An Integer: a VB6 list holds at most 32767 items.
@@ -47,10 +80,24 @@ internal static class ListMembers
         return false;
     }
 
-    public static bool TrySet(Control control, string member)
+    public static bool TrySet(Control control, string member, Vb6Value value)
     {
         if (!IsList(control))
             return false;
+        if (control is VBListBox listBox && member.Equals("Text", StringComparison.OrdinalIgnoreCase))
+        {
+            listBox.SetTextFromCode(Text(value));
+            return true;
+        }
+        if (control is VBComboBox combo && member.Equals("Text", StringComparison.OrdinalIgnoreCase))
+        {
+            RequireEditable(combo);
+            // Type mismatch, where the list's own members take Null as 94 (measured).
+            if (value.IsNull)
+                throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            combo.SetTextFromCode(Text(value));
+            return true;
+        }
         if (member.Equals("ListCount", StringComparison.OrdinalIgnoreCase))
             throw new VBCompileErrorException(AssignToReadOnly);
         if (member.Equals("List", StringComparison.OrdinalIgnoreCase))
@@ -81,10 +128,46 @@ internal static class ListMembers
             list.Items.Add(text);
             return;
         }
+        // Avalonia drops the selection of an item replaced; VB6 keeps it. On a multi-select list each item keeps its own,
+        // which is not measured.
+        if (list is VBListBox { IsMultiSelect: true } multi)
+        {
+            var wasSelected = multi.Selection.IsSelected(index);
+            list.Items[index] = text;
+            if (wasSelected)
+                multi.Selection.Select(index);
+            return;
+        }
         var selected = list.SelectedIndex;
         list.Items[index] = text;
-        // Avalonia drops the selection of an item replaced; VB6 keeps it.
         list.SelectedIndex = selected;
+    }
+
+    /// <summary><c>Selected(i)</c>, read: whether item i is selected; 381 outside the list.</summary>
+    public static Vb6Value ReadSelected(VBListBox list, IReadOnlyList<Vb6Value> indexes) =>
+        new(list.IsItemSelected(ItemIndex(list, indexes, "Selected")));
+
+    /// <summary>
+    /// <c>Selected(i) = b</c>: True selects item i, and False clears it. Click comes only when that changes something.
+    /// The index and the value are converted first, as arguments are, and the range is checked after.
+    /// </summary>
+    public static void WriteSelected(VBListBox list, IReadOnlyList<Vb6Value> indexes, Vb6Value value)
+    {
+        var index = Index(indexes, "Selected");
+        // "True" and any non-zero number are True, Null is 94 and "x" 13 (measured).
+        var selected = (bool)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Boolean, null).Value!;
+        if (index < 0 || index >= list.ItemCount)
+            throw new VBRunTimeException(VBStandardError.InvalidPropertyArrayIndex);
+        list.SetSelectedFromCode(index, selected);
+    }
+
+    // An index into the items: 381 outside them, from 0 to ListCount - 1 (measured for Selected).
+    private static int ItemIndex(SelectingItemsControl list, IReadOnlyList<Vb6Value> indexes, string member)
+    {
+        var index = Index(indexes, member);
+        if (index < 0 || index >= list.ItemCount)
+            throw new VBRunTimeException(VBStandardError.InvalidPropertyArrayIndex);
+        return index;
     }
 
     /// <summary><c>AddItem item[, index]</c>: appends, or inserts at 0 to ListCount.</summary>
@@ -131,6 +214,15 @@ internal static class ListMembers
         Convert.ToInt32(VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Integer, null).Value);
 
     // An item is a String, as CStr makes it; Null is 94 (measured).
+    // A Dropdown List's Text selects an item or raises 383 (measured), which needs its Style modelled (#1428). An edit
+    // box's Text there would take anything, so it is refused rather than answered wrong.
+    private static void RequireEditable(VBComboBox combo)
+    {
+        if (combo.IsDropdownList)
+            throw new NotImplementedException(
+                $"Text on a ComboBox whose Style is {combo.ComboStyle} is not implemented: HexIDE runs no Dropdown List yet (#1428)");
+    }
+
     private static string Text(Vb6Value value) =>
         (string)VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, null).Value!;
 }

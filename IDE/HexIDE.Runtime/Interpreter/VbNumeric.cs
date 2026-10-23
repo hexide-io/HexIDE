@@ -272,6 +272,10 @@ public static class VbNumeric
             return new Vb6Value(VbDisplay.ToText(v));
         if (target == VT.Boolean)
             return VB6BuiltIns.CBool(v);
+        // A String into a Date is read as CDate reads it, a date first and then a serial (measured, #967). ToNum read the
+        // serial alone, so `d = "1/2/2003"` was 13, and `d = "1,5"` the 15th day rather than 1 May.
+        if (target == VT.Date && v.Type == VT.String)
+            return VB6BuiltIns.StringToDate((string)v.Value!, ctx);
         // Narrow's ToDouble answers 0.0 for a String rather than parsing it, so `Dim i As Integer : i = "12"`
         // would silently store 0 and `i = "abc"` would too. ToNum is the interpreter's own already-pinned
         // string→number rule, Err 13 and all. Routed only for Strings, so the Currency/Decimal paths below

@@ -777,6 +777,9 @@ iCS_B_ProcedureCall
 
 iCS_B_MemberProcedureCall
    : implicitCallStmt_InStmt? DOT ambiguousIdentifier typeHint? (WS argsCall)? dictionaryCallStmt?
+   // Print's output list may be separators alone, `Debug.Print ,`, where any other call's arguments may not: `Foo ,` is
+   // VB6's "Syntax error" (measured, #1409).
+   | implicitCallStmt_InStmt? DOT PRINT WS? (COMMA | SEMICOLON) (WS? (COMMA | SEMICOLON))*
    ;
 
 // iCS_S_MembersCall first, so that member calls are not resolved as separate iCS_S_VariableOrProcedureCalls
@@ -2366,7 +2369,7 @@ IDENTIFIER
 // the conformance corpus found. At least one space is still required: an underscore with none before it
 // is a syntax error in VB6 too. Measured against vb6.exe; see corpus/continuation-and-separator.
 LINE_CONTINUATION
-   : [ \t]+ '_' [ \t]* '\r'? '\n' -> channel(HIDDEN)
+   : [ \t]+ '_' [ \t]* ('\r'? '\n' | '\r') -> channel(HIDDEN)
    ;
 
 // The separator INSIDE a multi-word keyword: End Sub, Exit For, On Error, Option Explicit.
@@ -2403,8 +2406,11 @@ fragment KWSEP
 // merely OPTIONAL: with nothing required after the underscore, ` _ _` and ` _ x` are absorbed as far as
 // the underscore and the rest is read as an ordinary statement. Both are syntax errors in VB6 — nothing
 // may follow a continuation on its line — so the alternative has to name EOF rather than shrug.
+//
+// A line ends at CRLF, a lone LF or a lone CR, here and in LINE_CONTINUATION, as VB6's do: a lone CR ends a statement,
+// a continuation and a comment alike (measured, #1426). A form's code reaches the interpreter as it was read.
 NEWLINE
-   : WS? '\r'? '\n' (WS '_' [ \t]* ('\r'? '\n' | EOF))* WS?
+   : WS? ('\r'? '\n' | '\r') (WS '_' [ \t]* ('\r'? '\n' | '\r' | EOF))* WS?
    ;
 
 

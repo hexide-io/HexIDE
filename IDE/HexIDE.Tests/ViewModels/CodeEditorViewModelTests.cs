@@ -175,14 +175,13 @@ public class CodeEditorViewModelTests : IDisposable
     [AvaloniaFact]
     public void AModuleWhoseHeaderWasNotRecognisedGetsNoPrefix()
     {
-        // hexide-io/HexIDE#472: recognition is positional and tests only line 0, so a leading blank line
-        // is enough to leave the WHOLE file in Code with an empty recorded header. Prepending the canonical
-        // literal on top of that would show the developer two headers. Null means "never read from disk";
-        // empty means "read, and nothing was split off" -- ToFileContent conflates them with IsNullOrEmpty,
-        // which is the defect, and the buffer must not.
+        // A header the reader did not recognise, such as one under a comment, leaves the WHOLE file in Code with
+        // an empty recorded header (hexide-io/HexIDE#472). Prepending the canonical literal on top of that would show
+        // the developer two headers. Null means "never read from disk"; empty means "read, and nothing was split
+        // off", and the buffer must tell them apart.
         var module = TestHelpers.CreateModule(name: "Module1");
         module.RecordOriginalHeader("");
-        module.UpdateCode("\r\nAttribute VB_Name = \"Module1\"\r\nOption Explicit\r\n");
+        module.UpdateCode("' generated\r\nAttribute VB_Name = \"Module1\"\r\nOption Explicit\r\n");
 
         var vm = CreateSut().Initialize(module);
 

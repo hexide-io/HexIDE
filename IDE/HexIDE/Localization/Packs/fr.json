@@ -589,6 +589,7 @@
     "Str.PropDesc.Checked": "Indique si une coche apparaît à côté de l'élément de menu.",
     "Str.PropDesc.WindowList": "Indique si ce menu répertorie les fenêtres enfants MDI ouvertes.",
     "Str.PropDesc.Locked": "Indique si le contenu du contrôle peut être modifié.",
+    "Str.PropDesc.MultiSelect": "Indique si plusieurs éléments peuvent être sélectionnés, et comment.",
     "Str.PropDesc.StartUpPosition": "L'emplacement de la feuille à l'écran lors de sa première ouverture.",
     "Str.PropDesc.ShowInTaskbar": "Indique si la feuille apparaît dans la barre des tâches.",
     "Str.PropDesc.TabIndex": "La position du contrôle dans l'ordre de tabulation de la feuille.",

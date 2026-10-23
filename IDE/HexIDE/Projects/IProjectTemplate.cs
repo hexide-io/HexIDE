@@ -13,7 +13,7 @@ public interface IProjectTemplate : IAddinProjectTemplate
     {
         var project = new ProjectDefinition(VBProjectType.EXE, name);
 
-        project.AddForm(new FormDefinition(project, FormComponentClass.Instance, "Form1"));
+        project.AddForm(FormDefinition.NewForm(project, FormComponentClass.Instance, "Form1"));
 
         // OLE Automation — always present in a new VB6 Standard EXE
         project.AddReference(new VbReference(

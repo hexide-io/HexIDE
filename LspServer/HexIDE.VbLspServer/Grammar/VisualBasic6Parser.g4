@@ -777,6 +777,9 @@ iCS_B_ProcedureCall
 
 iCS_B_MemberProcedureCall
     : implicitCallStmt_InStmt? DOT ambiguousIdentifier typeHint? (WS argsCall)? dictionaryCallStmt?
+    // Print's output list may be separators alone, `Debug.Print ,`, where any other call's arguments may not: `Foo ,` is
+    // VB6's "Syntax error" (measured, #1409).
+    | implicitCallStmt_InStmt? DOT PRINT WS? (COMMA | SEMICOLON) (WS? (COMMA | SEMICOLON))*
     ;
 
 // iCS_S_MembersCall first, so that member calls are not resolved as separate iCS_S_VariableOrProcedureCalls

@@ -589,6 +589,7 @@
     "Str.PropDesc.Checked": "功能表項目旁是否顯示核取記號。",
     "Str.PropDesc.WindowList": "此功能表是否列出開啟的 MDI 子視窗。",
     "Str.PropDesc.Locked": "控制項內容是否可編輯。",
+    "Str.PropDesc.MultiSelect": "是否可以選取多個項目，以及如何選取。",
     "Str.PropDesc.StartUpPosition": "表單首次開啟時在螢幕上的位置。",
     "Str.PropDesc.ShowInTaskbar": "表單是否顯示於工作列。",
     "Str.PropDesc.TabIndex": "控制項在表單 Tab 順序中的位置。",

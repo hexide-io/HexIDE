@@ -589,6 +589,7 @@
     "Str.PropDesc.Checked": "Menü öğesinin yanında bir onay işaretinin görünüp görünmeyeceği.",
     "Str.PropDesc.WindowList": "Bu menünün açık MDI alt pencerelerini listeleyip listelemeyeceği.",
     "Str.PropDesc.Locked": "Denetimin içeriğinin düzenlenip düzenlenemeyeceği.",
+    "Str.PropDesc.MultiSelect": "Birden fazla öğenin seçilip seçilemeyeceği ve nasıl seçileceği.",
     "Str.PropDesc.StartUpPosition": "Form ilk açıldığında ekranda nereye yerleştirileceği.",
     "Str.PropDesc.ShowInTaskbar": "Formun görev çubuğunda görünüp görünmeyeceği.",
     "Str.PropDesc.TabIndex": "Denetimin formun sekme sırasındaki konumu.",

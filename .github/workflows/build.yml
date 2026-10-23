@@ -8,6 +8,18 @@ on:
     branches:
       - '**'
 
+# The fewest tests each suite may run and still pass (#1448). One run of the Integration suite went green after 978 of its
+# 1682 tests and said nothing about it: no warning, no skip, exit code 0. That is the fail-open shape the foreign-server
+# fixture exists to prevent, one level up. Microsoft.Testing.Platform's --minimum-expected-tests turns a short run into a
+# failure. Each floor is about 90% of its suite when it was set, so adding tests never needs an edit here, and a run that
+# loses a tenth of a suite fails. Raise a floor once its suite has grown well past it.
+env:
+  MIN_TESTS_RUNTIME: 3300       # 3659 when set
+  MIN_TESTS_TWINBASIC: 200      # 226
+  MIN_TESTS_IDE: 2900           # 3212
+  MIN_TESTS_INTEGRATION: 1500   # 1682
+  MIN_TESTS_LSP_SERVER: 320     # 362
+
 jobs:
   # ── May the build jobs be skipped for this pull request? ──────────────────────────────────────────
   # A docs-only change cannot break a build, and being told so costs 6m 40s of build-ide. That is paid
@@ -142,10 +154,10 @@ jobs:
               'IDE/HexIDE.Tests/LspClient/LspSpecificationModel.cs') }}
 
       - name: Run Runtime Tests
-        run: dotnet test HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj
+        run: dotnet test HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_RUNTIME }}
 
       - name: Run container reader tests
-        run: dotnet test HexIDE.TwinBasic.Tests/HexIDE.TwinBasic.Tests.csproj
+        run: dotnet test HexIDE.TwinBasic.Tests/HexIDE.TwinBasic.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_TWINBASIC }}
 
       # The IDE half and the server half are separate builds, and nothing in this job produced the server
       # until now. One test needs it: the only one where HexIDE's own client speaks to HexIDE's own
@@ -179,9 +191,9 @@ jobs:
         run: |
           if [ "$CONTRIBUTOR_PR" = "true" ]; then
             echo "Outside contributor's pull request: translation completeness is reported by the next step, not here."
-            dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey"
+            dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey" --minimum-expected-tests ${{ env.MIN_TESTS_IDE }}
           else
-            dotnet test HexIDE.Tests/HexIDE.Tests.csproj
+            dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_IDE }}
           fi
 
       - name: Report translation completeness (outside contributors' pull requests, non-blocking)
@@ -197,7 +209,7 @@ jobs:
         run: echo "::warning title=Translations needed before merge::One or more shipped language packs lack keys added to en.json. Expected for a contribution. The maintainer adds them on merge. The step above names the packs and keys."
 
       - name: Run Integration Tests (headless Avalonia UI)
-        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj
+        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }}
 
       # First-party add-in signing: restore the publisher key from a repo secret so the (Exists-gated)
       # PackAIChatAddin target signs and bundles the add-ins. Forks/PRs receive no secret → the value is
@@ -311,10 +323,10 @@ jobs:
               'IDE/HexIDE.Tests/LspClient/LspSpecificationModel.cs') }}
 
       - name: Run Runtime Tests
-        run: dotnet test HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj
+        run: dotnet test HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_RUNTIME }}
 
       - name: Run container reader tests
-        run: dotnet test HexIDE.TwinBasic.Tests/HexIDE.TwinBasic.Tests.csproj
+        run: dotnet test HexIDE.TwinBasic.Tests/HexIDE.TwinBasic.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_TWINBASIC }}
 
       # One test speaks to HexIDE's own server over a real process, and nothing in this job has produced
       # it yet. Without this step it skips, and the variable below turns that skip into a failure.
@@ -329,10 +341,12 @@ jobs:
       - name: Run ViewModel Tests
         env:
           HEXIDE_REQUIRE_FOREIGN_LSP: '1'
-        run: dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey"
+        run: >-
+          dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey"
+          --minimum-expected-tests ${{ env.MIN_TESTS_IDE }}
 
       - name: Run Integration Tests (headless Avalonia UI)
-        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj
+        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_INTEGRATION }}
 
   build-lsp-server:
     needs: changes
@@ -355,7 +369,7 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Run VB LSP Server Tests
-        run: dotnet test HexIDE.VbLspServer.Tests/HexIDE.VbLspServer.Tests.csproj
+        run: dotnet test HexIDE.VbLspServer.Tests/HexIDE.VbLspServer.Tests.csproj -- --minimum-expected-tests ${{ env.MIN_TESTS_LSP_SERVER }}
 
       - name: Build VB LSP Server
         run: dotnet build HexIDE.VbLspServer/HexIDE.VbLspServer.csproj
