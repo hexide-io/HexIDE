@@ -208,6 +208,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Val, Round, Split and 13 more intrinsics take named arguments** (#1475). `Val(String:="12")`,
+  `Round(Number:=2.567, NumDigitsAfterDecimal:=1)` and `Split(Expression:="a b c")` stopped the program, because
+  signature help had no entry for them, and so neither did the interpreter's table of names. All 16 are now measured
+  against vb6.exe and listed, each with a tooltip: their names, how many are required, and what a wrong or missing name
+  gives. Now, Date, Timer and the other intrinsics with no parameters refuse a name with VB6's own compile error.
+
 - **A Let into an object variable no longer drops the object** (#1493). `k = 5`, with `k As C1` holding an instance,
   released it, running its Terminate there and then, and stored 5, so the program ran on without it. VB6 hands the
   value to the object's default member: a class with none raises 438, and `k` keeps the object; Nothing raises 91. That
