@@ -41,8 +41,8 @@ public partial class VB6BuiltIns
     // StrComp(string1, string2[, compare]): -1, 0 or 1 as an Integer, or Null where either string is Null. Measured (#1560):
     // the compare is read first, as CLng reads it (0.5 is 0 and 1.5 is 2), so a Null one is 94 whatever the strings are; 0
     // is binary and 1 text (VbTextCompare), 2 and a negative are 5. Then the strings, an array being 13 even beside a Null,
-    // and anything else read as & reads it, so StrComp(5, "5") is 0. Given no compare it is binary, whatever the module's
-    // Option Compare says (#1572).
+    // and anything else read as & reads it, so StrComp(5, "5") is 0. Given no compare, vb6.exe takes the calling module's
+    // Option Compare (measured); this compares binary there until #1572.
     private static Vb6Value StrComp(IReadOnlyList<Vb6Value> a)
     {
         var text = Supplied(a, 2) && IsTextCompare(CompareArgument(a[2]));

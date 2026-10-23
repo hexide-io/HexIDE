@@ -347,6 +347,8 @@ there isn't one yet. Anything may change between 0.x releases.
   program's locale without rounding through a Double, including the Currency and Decimal maxima. Out-of-range
   Strings raise run-time error 6. Hex, octal and exponent forms keep their existing conversion.
 
+- **StrComp, StrConv, Environ, Switch and Error() run** (#1560). Each stopped the program that called it. All five were measured on vb6.exe first: StrConv's case goes through the ANSI code page as VB6's does, Switch reads its conditions only until one holds, and Error(n) answers from vb6.exe's text for every number from 0 to 65535. Err.Raise with no Description now takes that same text, so `Err.Raise 340` is "Application-defined or object-defined error", as in VB6, and 21 messages that had other words have vb6.exe's. UCase and LCase now keep the case of µ, ı and four others, as vb6.exe does, where they took .NET's.
+
 - **`Option Compare Text` compares as vb6.exe does** (#1567). A module saying it still compared strings as Binary in `=`, `<`, `>` and `Select Case`, so `"abc" = "ABC"` was False. Now those compare by vb6.exe's own text order, measured character by character: case and accents, the hyphen and apostrophe that a Windows sort sets aside, and ß, æ, œ and þ as their two letters. The same compare now serves a Collection's keys, and a compare of 1 in InStr, InStrRev, Replace, Split and Filter, which had read it as "ignore case" and kept "straße" and "strasse" apart (#1479).
 
 - **A duplicate Collection key's error 457 has vb6.exe's words** (#1567): "This key is already associated with an element of this collection". The oracle had recorded them since the Collection was measured, and `Err.Description` still gave other words.

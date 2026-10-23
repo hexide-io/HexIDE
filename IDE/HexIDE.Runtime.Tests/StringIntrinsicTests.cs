@@ -7,7 +7,7 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// StrComp, StrConv, Environ, Switch and Error (#1560), as vb6.exe measured them. Rows left out, with the issue each
-/// waits on: strcomp-3 (#881), strconv-from-unicode (#1510), strconv-from-unicode-e (#1510), strconv-from-unicode-unmapped (#1510), strconv-from-unicode-empty (#1510), strconv-roundtrip (#1510), strconv-unicode-of-string (#1510), strconv-unicode-odd (#1510), strconv-unicode-high (#1510), strconv-from-then-len (#1510), strconv-type-from (#1510), text-strcomp-default (#1572), text-strcomp-B-a (#1572).
+/// waits on or why: strcomp-3 (#881), strconv-from-unicode (#1510), strconv-from-unicode-e (#1510), strconv-from-unicode-unmapped (#1510), strconv-from-unicode-empty (#1510), strconv-roundtrip (#1510), strconv-unicode-of-string (#1510), strconv-unicode-odd (#1510), strconv-unicode-high (#1510), strconv-from-then-len (#1510), strconv-type-from (#1510), text-strcomp-default (#1572), text-strcomp-B-a (#1572), environ-order-inversions (it describes the host), environ-count-below-200 (it describes the host).
 /// </summary>
 public class StringIntrinsicTests : BaseVBTestFixture
 {
@@ -2556,6 +2556,109 @@ public class StringIntrinsicTests : BaseVBTestFixture
             switch-object-cond: err 450 Wrong number of arguments or invalid property assignment
             switch-date-cond: String d
             switch-cond-error-after-true: Integer 1
+            """));
+    }
+
+    // Environ(255) is "" past the last variable and Environ(256) is 5, so the bound is 255, not the count; Empty is 5.
+    [Fact]
+    public async Task Environ_counts_to_255_and_past_the_last_is_empty()
+    {
+        await Run("""""""
+
+            Public Sub L(ByVal s As String)
+                Debug.Print s
+            End Sub
+
+            Public Function Codes(ByVal s As String) As String
+                Dim i As Long, r As String
+                For i = 1 To Len(s)
+                    If i > 1 Then r = r & "."
+                    r = r & AscW(Mid$(s, i, 1))
+                Next
+                Codes = "[" & r & "]"
+            End Function
+
+            Public Function Count() As Long
+                Dim n As Long
+                Do While Environ(n + 1) <> ""
+                    n = n + 1
+                Loop
+                Count = n
+            End Function
+
+            Public Function Inversions() As Long
+                Dim i As Long, a As String, b As String, k As Long
+                For i = 1 To Count() - 1
+                    a = Environ(i): b = Environ(i + 1)
+                    If StrComp(Left$(a, InStr(a, "=") - 1), Left$(b, InStr(b, "=") - 1), vbTextCompare) > 0 Then k = k + 1
+                Next
+                Inversions = k
+            End Function
+
+            Public Function Show(v As Variant) As String
+                If IsNull(v) Then
+                    Show = "Null"
+                ElseIf IsEmpty(v) Then
+                    Show = "Empty"
+                Else
+                    Show = TypeName(v) & " " & CStr(v)
+                End If
+            End Function
+
+            Sub R0()
+                On Error Resume Next
+                Dim r As Variant
+                Err.Clear
+                r = Environ(200) = ""
+                If Err.Number <> 0 Then L "environ-200-is-empty: err " & Err.Number & " " & Err.Description Else L "environ-200-is-empty: " & Show(r)
+            End Sub
+
+            Sub R1()
+                On Error Resume Next
+                Dim r As Variant
+                Err.Clear
+                r = Environ(255) = ""
+                If Err.Number <> 0 Then L "environ-255-is-empty: err " & Err.Number & " " & Err.Description Else L "environ-255-is-empty: " & Show(r)
+            End Sub
+
+            Sub R2()
+                On Error Resume Next
+                Dim r As Variant
+                Err.Clear
+                r = Environ(Empty)
+                If Err.Number <> 0 Then L "environ-empty-arg: err " & Err.Number & " " & Err.Description Else L "environ-empty-arg: " & Show(r)
+            End Sub
+
+            Sub R3()
+                On Error Resume Next
+                Dim r As Variant
+                Err.Clear
+                r = Inversions()
+                If Err.Number <> 0 Then L "environ-order-inversions: err " & Err.Number & " " & Err.Description Else L "environ-order-inversions: " & Show(r)
+            End Sub
+
+            Sub R4()
+                On Error Resume Next
+                Dim r As Variant
+                Err.Clear
+                r = Count() < 200
+                If Err.Number <> 0 Then L "environ-count-below-200: err " & Err.Number & " " & Err.Description Else L "environ-count-below-200: " & Show(r)
+            End Sub
+
+            Sub Main()
+                R0
+                R1
+                R2
+            End Sub
+
+            Main
+
+            """"""");
+
+        AssertDebugLog(Lines("""
+            environ-200-is-empty: Boolean True
+            environ-255-is-empty: Boolean True
+            environ-empty-arg: err 5 Invalid procedure call or argument
             """));
     }
 

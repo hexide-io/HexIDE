@@ -21,8 +21,9 @@ public partial class VB6BuiltIns
     /// <summary>
     /// Environ(name) is the variable's value, "" where there is none; Environ(n) is the n-th variable as "NAME=value", ""
     /// past the last. Measured: a String is a name, even "1", and a name ignores spaces around it and its case, so "path"
-    /// and " PATH" are both PATH, while "" is 5. A number is read as CInt reads it, 1.5 being 2: 0, a negative, True and
-    /// 256 up are 5, and past an Integer 6. Null is 94. Which variable is the first is the host's order, by name, and the
+    /// and " PATH" are both PATH, while "" is 5. A number is read as CInt reads it, 1.5 being 2: 0, a negative, True, Empty
+    /// and 256 up are 5, and past an Integer 6. 255 is the bound, not the count: Environ(255) past the last is "". Null is
+    /// 94. The variables are counted in order of name, as vb6.exe gave them (no two neighbours out of order), and the
     /// Windows-only ones whose names start with "=" are not counted (measured: Environ(1) holds its "=" after a name).
     /// </summary>
     private static string Environ(Vb6Value expression)
