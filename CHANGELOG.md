@@ -208,6 +208,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Indexing a call's result runs** (#1476). `Split(s)(0)`, `Array(1, 2)(1)`, `F()(1)` and `a(1)(0) = 9` stopped the
+  program. They now run as vb6.exe runs them, evaluating in its order. A parameterless Function that returns a Variant
+  now reads its arguments as an index into its result, so `F(1)` is `F()(1)`; it used to drop them and return the whole
+  array. A method's result indexed after its arguments, `k.Echo("m n")(1)`, used to call it with no arguments at all.
+
 - **A control-array element renamed out of its array can be renamed back** (#1276). Renaming `optSize(0)` to
   `optBoard` worked, but every way back was refused as a duplicate name, so the array stayed split. A name is now
   taken by name and Index together, as in VB6: an element may take an array's name where its Index is free there.
