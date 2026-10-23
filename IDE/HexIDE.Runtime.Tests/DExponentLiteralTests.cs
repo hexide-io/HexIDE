@@ -17,6 +17,7 @@ public class DExponentLiteralTests : BaseVBTestFixture
     [InlineData("1D3", "1D3: Double 1000")]
     [InlineData("1D300", "1D300: Double 1E+300")]
     [InlineData(".5D1", ".5D1: Double 5")]
+    [InlineData("5.D1", "5.D1: Double 50")]
     [InlineData("1d3", "1d3: Double 1000")]
     [InlineData("1.5D-2", "1.5D-2: Double 0.015")]
     [InlineData("1D+3", "1D+3: Double 1000")]
@@ -76,16 +77,6 @@ public class DExponentLiteralTests : BaseVBTestFixture
         var run = () => Run($"Debug.Print TypeName({literal})\n");
 
         (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Syntax error*");
-    }
-
-    // vb6.exe reads 5.D1 as "5.D1: Double 50". Neither grammar reads a literal ending in its point (#1615), so it
-    // is refused as the module loads. Pinned so that fixing #1615 moves it into the theory above.
-    [Fact]
-    public async Task A_literal_ending_in_its_point_is_not_read_yet()
-    {
-        var run = () => Run("Debug.Print TypeName(5.D1)\n");
-
-        await run.Should().ThrowAsync<VBCompileErrorException>();
     }
 
     // The probe also had `Const KS! = 2.5D2`, a Single 250 in vb6.exe, which waits for a Const with a type character (#1614).
