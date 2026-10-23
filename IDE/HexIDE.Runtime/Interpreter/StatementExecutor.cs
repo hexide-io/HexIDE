@@ -47,8 +47,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// A handler further down the stack never sees an error raised above an entry (measured, #1011).</summary>
     internal bool IsEntry { get; init; }
 
-    // Whether a run-time error raised in this activation now would be trapped by it.
-    private bool Traps => errorMode == ErrorMode.ResumeNext || errorMode == ErrorMode.GoToLabel && !inHandler;
+    // Whether a run-time error raised in this activation now would be trapped by it. Nothing is while its handler runs,
+    // whatever On Error the handler has said since: the error goes to the caller (measured, #877).
+    private bool Traps => errorMode != ErrorMode.None && !inHandler;
+
+    // Whether an error raised now continues with the next statement: On Error Resume Next, and no handler running.
+    private bool ResumesNext => errorMode == ErrorMode.ResumeNext && !inHandler;
 
     // Object-holding slots this activation OWNS (its own `Dim` locals, appended in declaration order), released by
     // RunProcedure at scope-exit for reference counting (Phase 4.2). Non-null only for a PROCEDURE-body executor —
@@ -446,7 +450,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 }
             }
             catch (Exception ex) when (Locate(ex, stmt)) { throw; }
-            catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+            catch (VBRunTimeException ex) when (ResumesNext)
             {
                 // On Error Resume Next: a runtime error unwinds the C# stack to the innermost enclosing block;
                 // record it in the global Err and continue with the next statement. Only VBRunTimeException is
@@ -915,7 +919,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             collection = await expressionExecutor.EvaluateValue(context.valueStmt());
         }
-        catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+        catch (VBRunTimeException ex) when (ResumesNext)
         {
             var empties = DeclaredOtherThanAnArray(context.valueStmt())
                 ?? throw new NotImplementedException(
@@ -951,7 +955,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     "For Each over this object, such as a control array, is not supported yet: only arrays, a Collection and a form's Controls are."),
                 _ => new VBRunTimeException(context, VBStandardError.TypeMismatch),
             };
-            if (errorMode != ErrorMode.ResumeNext)
+            if (!ResumesNext)
                 throw refusal;
             interpreter.Err.Capture(refusal);
             return await RunUninitialisedForEach(context, varName, emptiesElement: collection.Value is not VBArray);
@@ -1035,7 +1039,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     }
                     await interpreter.ReleaseRef(previous);
                 }
-                catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+                catch (VBRunTimeException ex) when (ResumesNext)
                 {
                     interpreter.Err.Capture(ex);
                     if (!first)
@@ -1124,7 +1128,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             stepD = state.Step = context.valueStmt(2) is { } stepStmt ? await ForBound(stepStmt, context, counterType) : 1;
             forState[context] = state;
         }
-        catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+        catch (VBRunTimeException ex) when (ResumesNext)
         {
             interpreter.Err.Capture(ex);
             // In p-code a header that raised still steps by 1 when there is no Step clause, but only for an Integer or
@@ -1387,7 +1391,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 throw;
             }
-            catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+            catch (VBRunTimeException ex) when (ResumesNext)
             {
                 interpreter.Err.Capture(ex);
                 return null;
@@ -1439,7 +1443,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     break;
                 }
                 catch (Exception ex) when (Locate(ex, stmt)) { throw; }
-                catch (VBRunTimeException ex) when (errorMode != ErrorMode.ResumeNext && HaltsHere())
+                catch (VBRunTimeException ex) when (!ResumesNext && HaltsHere())
                 {
                     // The statement alone runs again, not the statements before it on the line (#1011).
                     _suspendedAtTopLevel = false;
@@ -2071,6 +2075,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitOnErrorStmt(VB6Parser.OnErrorStmtContext context)
     {
+        // Every form clears Err, so a helper's On Error Resume Next starts clean whatever its caller left (measured, #877).
+        interpreter.Err.Clear();
         if (context.RESUME() != null)
         {
             errorMode = ErrorMode.ResumeNext;   // On Error Resume Next
@@ -2080,7 +2086,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             // On Error GoTo <target>. `GoTo 0` disables handling; a real label installs a handler.
             var target = context.valueStmt().GetText();
-            if (target == "0")
+            if (target == "-1")
+            {
+                // VB6 compiles it: it leaves the handler, so the handler traps the next error, and keeps the mode as it
+                // was, so On Error Resume Next still traps after it (measured, #877).
+                inHandler = false;
+            }
+            else if (target == "0")
             {
                 errorMode = ErrorMode.None;
                 handlerLabel = null;
@@ -2375,7 +2387,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 {
                     matched = await CaseTestMatches(subCond, value);
                 }
-                catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+                catch (VBRunTimeException ex) when (ResumesNext)
                 {
                     interpreter.Err.Capture(ex);
                     matched = true;
@@ -2403,6 +2415,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// </summary>
     private async Task<bool> CaseTestMatches(VB6Parser.SC_CondExprContext subCond, Vb6Value value)
     {
+        // Strings compare as the module's Option Compare says, the Select's own module (measured, #1567).
+        var text = currentModule.PrePass.OptionCompareText;
         if (subCond is VB6Parser.CaseCondExprIsContext caseIs)
         {
             var val = await expressionExecutor.EvaluateScalar(caseIs.valueStmt());
@@ -2410,10 +2424,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (op.IS() != null || op.LIKE() != null)
                 throw new NotImplementedException("Operator " + op.GetText() + " not impleemented");
             if (op.EQ() != null)
-                return CaseMatches(value, val, caseIs);
+                return CaseMatches(value, val, caseIs, text);
             if (op.NEQ() != null)
-                return CaseDiffers(value, val, caseIs);
-            var order = Ruled(value, val) ? CompareCase(value, ForSelector(value, val, caseIs)) : value.TryCompareTo(val);
+                return CaseDiffers(value, val, caseIs, text);
+            var order = Ruled(value, val)
+                ? CompareCase(value, ForSelector(value, val, caseIs), text)
+                : value.TryCompareTo(val, text);
             if (op.LT() != null)
                 return order is < 0;
             if (op.LEQ() != null)
@@ -2425,18 +2441,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw new NotImplementedException("Operator " + op.GetText() + " not impleemented");
         }
         if (subCond is VB6Parser.CaseCondExprValueContext caseCondExpr)
-            return CaseMatches(value, await expressionExecutor.EvaluateScalar(caseCondExpr.valueStmt()), caseCondExpr);
+            return CaseMatches(value, await expressionExecutor.EvaluateScalar(caseCondExpr.valueStmt()), caseCondExpr, text);
         if (subCond is VB6Parser.CaseCondExprToContext caseTo)
         {
             var from = await expressionExecutor.EvaluateScalar(caseTo.valueStmt(0));
             var to = await expressionExecutor.EvaluateScalar(caseTo.valueStmt(1));
             if (!Ruled(value, from) || !Ruled(value, to))
-                return value.TryCompareTo(from) is >= 0 && value.TryCompareTo(to) is <= 0;
+                return value.TryCompareTo(from, text) is >= 0 && value.TryCompareTo(to, text) is <= 0;
             // Both bounds are converted before either is compared, so a bound that cannot convert raises even when the
             // other has already ruled the selector out.
             var low = ForSelector(value, from, caseTo);
             var high = ForSelector(value, to, caseTo);
-            return CompareCase(value, low) is >= 0 && CompareCase(value, high) is <= 0;
+            return CompareCase(value, low, text) is >= 0 && CompareCase(value, high, text) is <= 0;
         }
         throw new NotImplementedException($"Unepexected Select-Case");
     }
@@ -2477,7 +2493,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// corresponding Select Case is not. Sharing a comparison helper between the two would be wrong, and
     /// was the obvious thing to do.
     /// </para></summary>
-    private static bool MainCaseMatches(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx)
+    private static bool MainCaseMatches(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx, bool text)
     {
         // Empty has not decided what it is yet, so it takes its partner's zero — the same rule
         // GetTwoValuesSameTypesOrNull applies for `=`. Measured: an unassigned Variant matches `Case 0`.
@@ -2490,7 +2506,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (!VbNumeric.IsDeclarableScalar(selector.Type))
             return selector.Equals(caseValue);
 
-        return VbNumeric.CoerceOnStore(caseValue, selector.Type, ctx).Equals(selector);
+        var coerced = VbNumeric.CoerceOnStore(caseValue, selector.Type, ctx);
+        return text && selector.Type == Vb6Value.ValueType.String
+            ? VbTextCompare.AreEqual((string)selector.Value!, (string)coerced.Value!)
+            : coerced.Equals(selector);
     }
 
     // Whether the measured rules decide this test: a typed selector, whatever the Case value, or a Variant one against a
@@ -2507,25 +2526,25 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     /// <summary>How the selector compares with a Case value <see cref="ForSelector"/> has prepared: below zero, zero or above
     /// zero, or null where the two are not ordered, which matches no test.</summary>
-    private static int? CompareCase(Vb6Value selector, Vb6Value prepared) =>
-        HasFixedScalarType(selector) ? selector.TryCompareTo(prepared) : CompareAsVariants(selector, prepared);
+    private static int? CompareCase(Vb6Value selector, Vb6Value prepared, bool text) =>
+        HasFixedScalarType(selector) ? selector.TryCompareTo(prepared, text) : CompareAsVariants(selector, prepared, text);
 
     /// <summary>Whether an equality Case, <c>Case x</c> or <c>Case Is = x</c>, matches the selector.</summary>
-    private static bool CaseMatches(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx) =>
+    private static bool CaseMatches(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx, bool text) =>
         Ruled(selector, caseValue)
-            ? CompareCase(selector, ForSelector(selector, caseValue, ctx)) is 0
-            : MainCaseMatches(selector, caseValue, ctx);
+            ? CompareCase(selector, ForSelector(selector, caseValue, ctx), text) is 0
+            : MainCaseMatches(selector, caseValue, ctx, text);
 
     /// <summary><c>Case Is &lt;&gt; x</c>. Null differs from nothing (measured: a Null selector is not <c>Is &lt;&gt; 1</c>).
     /// An object, array or UDT against a Variant selector is compared for identity, as it was before any of this was
     /// measured.</summary>
-    private static bool CaseDiffers(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx)
+    private static bool CaseDiffers(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx, bool text)
     {
         if (!Ruled(selector, caseValue))
-            return !MainCaseMatches(selector, caseValue, ctx);
+            return !MainCaseMatches(selector, caseValue, ctx, text);
         if (!HasFixedScalarType(selector) && (KindOf(selector) == CaseKind.Other || KindOf(caseValue) == CaseKind.Other))
             return !selector.Equals(caseValue);
-        return CompareCase(selector, ForSelector(selector, caseValue, ctx)) is { } order && order != 0;
+        return CompareCase(selector, ForSelector(selector, caseValue, ctx), text) is { } order && order != 0;
     }
 
     /// <summary>
@@ -2544,7 +2563,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// Null is below, above and equal to nothing.</item>
     /// </list>
     /// </summary>
-    private static int? CompareAsVariants(Vb6Value selector, Vb6Value caseValue)
+    private static int? CompareAsVariants(Vb6Value selector, Vb6Value caseValue, bool text)
     {
         var s = KindOf(selector);
         var c = KindOf(caseValue);
@@ -2555,7 +2574,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (caseValue.HasFixedType && c != CaseKind.Empty)
         {
             if (c == CaseKind.Text)
-                return Math.Sign(string.CompareOrdinal(TextOf(selector), (string)caseValue.Value!));
+                return CompareText(TextOf(selector), (string)caseValue.Value!, text);
             if (s != CaseKind.Text)
                 return NumberOf(selector).CompareTo(NumberOf(caseValue));
             var read = caseValue.Type == Vb6Value.ValueType.Boolean
@@ -2568,7 +2587,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (s == CaseKind.Text && c == CaseKind.Number)
             return 1;
         if (s == CaseKind.Text || c == CaseKind.Text)
-            return Math.Sign(string.CompareOrdinal(TextOf(selector), TextOf(caseValue)));
+            return CompareText(TextOf(selector), TextOf(caseValue), text);
         return NumberOf(selector).CompareTo(NumberOf(caseValue));
     }
 
@@ -2583,6 +2602,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         : CaseKind.Other;
 
     // Empty is "", and a number or a Boolean is written as CStr writes it.
+    private static int CompareText(string a, string b, bool text) =>
+        text ? VbTextCompare.Compare(a, b) : Math.Sign(string.CompareOrdinal(a, b));
+
     private static string TextOf(Vb6Value v) =>
         v.Type == Vb6Value.ValueType.EmptyVariant ? "" : v.Value as string ?? VbDisplay.ToText(v);
 
@@ -3397,7 +3419,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             target = await expressionExecutor.EvaluateValue(context.implicitCallStmt_InStmt());
         }
-        catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+        catch (VBRunTimeException ex) when (ResumesNext)
         {
             // Resume Next goes on into the body with no object, so every leading-dot member raises 91 (measured, #839).
             interpreter.Err.Capture(ex);
@@ -3834,7 +3856,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 try
                 {
                     if (await Visit(stmts[pc]) != ControlFlow.Nothing)
+                    {
+                        LeaveHandler();
                         return;   // Exit Sub/Function/Property — leave the body
+                    }
                     pc++;
                 }
                 finally
@@ -3852,6 +3877,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (faultPc < 0)
                     throw Raised(new VBRunTimeException(r.Context, VBStandardError.ResumeWithoutError));   // Error 20
                 inHandler = false;
+                interpreter.Err.Clear();   // every Resume clears it (measured, #877)
                 pc = r.Kind switch
                 {
                     ResumeKind.Same => faultPc,        // retry the faulting statement
@@ -3867,7 +3893,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 inHandler = true;
                 pc = ResolveLabel(labels, handlerLabel!);
             }
-            catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+            catch (VBRunTimeException ex) when (ResumesNext)
             {
                 interpreter.Err.Capture(ex);
                 faultPc = pc;
@@ -3882,6 +3908,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 retry = true;
             }
         }
+        LeaveHandler();
+    }
+
+    // A procedure left from its handler, by Exit or by its end, clears Err, as a Resume would, whatever On Error the
+    // handler said; one left under On Error Resume Next keeps it, so its caller still sees the error (measured, #877).
+    private void LeaveHandler()
+    {
+        if (inHandler)
+            interpreter.Err.Clear();
     }
 
     /// <summary>

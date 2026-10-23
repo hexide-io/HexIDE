@@ -16498,11 +16498,13 @@ assigned, while the window keeps the size that value gave it. An assignment roun
 gives the window the client area left inside the frame. Read and write use the same frame, so `Width - ScaleWidth` is
 the frame and the fit-to-content idiom lands where it did.
 
-**The frame is VB6's, not the window's.** HexIDE draws every form as a sizable window with a full title bar (#1575). A
-frame read from the window would be Sizable's for every form, would be unknown until the form is shown and so change
-across Show, and would differ between hosts. The table is stable from Load onwards and the same everywhere. What that
-costs is screen arithmetic, such as `(Screen.Width - Width) / 2`, which is off by the difference between the two frames
-until #1575 makes them one. A form's Left and Top don't work at run time yet anyway (#852).
+**The frame is VB6's, not the window's.** HexIDE drew every form as a sizable window with a full title bar until #1575,
+which gives the window vb6.exe's own styles ("A form's window styles", below). A frame read from the window would still
+be unknown until the form is shown, and so change across Show, and would differ between hosts: the frame Windows draws
+for those styles depends on its version, theme and dpi. The table is stable from Load onwards and the same everywhere.
+What that costs is screen arithmetic, such as `(Screen.Width - Width) / 2`, which is off wherever the host draws a frame
+other than the themed Windows 10 one the table was measured on. A form's Left and Top don't work at run time yet anyway
+(#852).
 
 **The console's values, not session 0's,** because the themed frame is what a user's desktop draws. A classic-theme
 profile would supply session 0's to `FormFrame` instead.
@@ -16515,6 +16517,104 @@ profile would supply session 0's to `FormFrame` instead.
   the assignment gave it.
 - A Width or Height smaller than the frame: HexIDE gives the window no client area. Unmeasured.
 - Other dpi settings: HexIDE counts 15 twips to a pixel, as at 96 dpi.
+
+## A form's window styles: BorderStyle, ControlBox, MinButton and MaxButton (2026-10-23, #1575)
+
+**The question.** A running form was a sizable window with a title bar and every button, whatever its file said. What
+window does vb6.exe make for each combination of BorderStyle, ControlBox, Caption, MinButton, MaxButton, ShowInTaskbar
+and a menu?
+
+**The probe.** One project of 20 forms built by `/make`, native and p-code, in session 0 on the Windows 10 guest. Sub
+Main loads and shows each form in turn and reads:
+- `GetWindowLong(hWnd, GWL_STYLE)` and `GWL_EXSTYLE`;
+- the form's own MinButton, MaxButton, ControlBox, ShowInTaskbar and BorderStyle;
+- `WM_GETICON` for the small and big icons, and the class's icons.
+
+A window's styles are set as it is made, whatever desktop it is on, so session 0 answers this. **Native and p-code
+agree on every row.**
+
+| Form | The file says | Style | Extended style |
+|---|---|---|---|
+| B0 | BorderStyle 0 | `16000000` | `00040000` |
+| B0m | BorderStyle 0, a menu | `16CB0000` | `00040100` |
+| B1 | BorderStyle 1 | `16CB0000` | `00040100` |
+| B1x0 | 1, MinButton and MaxButton False | `16C80000` | `00040100` |
+| B1x1 | 1, MinButton and MaxButton True | `16CB0000` | `00040100` |
+| B2 | nothing (Sizable) | `16CF0000` | `00040100` |
+| B2n0 | MinButton False | `16CD0000` | `00040100` |
+| B2a0 | MaxButton False | `16CE0000` | `00040100` |
+| B2c0 | ControlBox False | `16C70000` | `00040100` |
+| B2c0e | ControlBox False, Caption empty | `16870000` | `00040100` |
+| B2c0x1 | ControlBox False, MinButton and MaxButton True | `16C70000` | `00040100` |
+| B3 | BorderStyle 3 | `16C80080` | `00040101` |
+| B3x1 | 3, MinButton and MaxButton True | `16C80080` | `00040101` |
+| B4 | BorderStyle 4 | `16CB0000` | `00040180` |
+| B5 | BorderStyle 5 | `16CF0000` | `00040180` |
+| B5x1 | 5, MinButton and MaxButton True | `16CF0000` | `00040180` |
+| B1c0e | 1, ControlBox False, Caption empty | `16830000` | `00040000` |
+| B2t0 | ShowInTaskbar False | `16CF0000` | `00000100` |
+| B3t1 | 3, ShowInTaskbar True | `16C80080` | `00040101` |
+| B4t1 | 4, ShowInTaskbar True | `16CB0000` | `00040180` |
+
+Every form read its properties back as the file gave them, and all four are True where the file leaves them out, for
+every BorderStyle: B3 and B4 read ShowInTaskbar True, and B3 reads MinButton and MaxButton True although its window has
+neither box.
+
+**Decoded.** The style's `16000000` is the visible, clip-siblings and clip-children bits every form has. Above them:
+`00800000` border, `00400000` dialog frame (the two together are the caption), `00080000` system menu, `00040000`
+resizing frame, `00020000` minimize box, `00010000` maximize box, and in the low word `00000080`. The extended style's
+`00040000` is the taskbar's, `00000100` the window edge, `00000080` the tool window's and `00000001` the dialog modal
+frame. So:
+- **None has no frame at all**, and a menu gives it Fixed Single's window (B0m reads as B1).
+- **Every other style has a border, and a caption** unless ControlBox is False and the Caption empty.
+- **The resizing frame goes with the two sizable styles**, 2 and 5.
+- **The system menu goes with ControlBox**, and so the close box does.
+- **The minimize and maximize boxes follow MinButton and MaxButton**, on the tool windows too, and with ControlBox False:
+  B2c0 has both and no system menu.
+- **A Fixed Dialog never has either box**, whatever the file says, and has `00000080` and the dialog modal frame
+  instead.
+- **The two tool windows have the tool-window bit.**
+- **ShowInTaskbar is the taskbar bit and nothing else** (B2t0).
+- **The window edge** is there wherever there is a caption or a resizing frame, and not on B0 or B1c0e.
+
+**Every form has a big icon and no small one**, Fixed Dialog included, and its class has neither.
+
+**What resisted explanation.** `00000080` in the style's low word is `DS_MODALFRAME` on a dialog's class. What it means
+on a form's, which is not a dialog class, is not established; it is replicated as read.
+
+**In HexIDE (#1575):** `FormChrome` works the styles out from the file, once, as the window is made. On Windows they
+reach the window through Avalonia's style callback, which replaces only the frame bits above and the tool-window and
+dialog-modal-frame bits. Avalonia keeps the rest: visibility, clipping, the window's state, the taskbar bit from
+ShowInTaskbar, and the window edge, which Windows sets itself. On other hosts the same rules drive Avalonia's own
+CanResize, WindowDecorations, CanMinimize and CanMaximize.
+
+**Read back from HexIDE's own windows** on 2026-10-23, with `GetWindowLong` on the running forms of a nine-form project
+(B0, B1, B1x0, B2c0, B2c0e, B3x1, B4, B5, B1c0e) and its Sizable Form1: every style was the table's, and every client
+area was the file's 2520 × 1500 twips. The extended styles matched too, apart from Avalonia's no-redirection-bitmap bit,
+`00200000`. A screen capture of the same windows showed:
+- no frame on B0;
+- no icon and no buttons where there is no system menu;
+- a small caption with a close box alone on the tool windows;
+- a close box alone on the Fixed Dialog;
+- a border alone where there is no caption.
+
+`WM_SYSCOMMAND SC_MAXIMIZE`, what the maximize box sends, maximized B1, whose file leaves MaxButton out.
+
+**Not followed:** HexIDE's windows carry both a small and a big icon, Avalonia's own. So the Fixed Dialog showed an icon
+on its caption ([#1594](https://github.com/hexide-io/HexIDE/issues/1594)). Off Windows, a Fixed Single form whose
+MaxButton is True has no maximize box, because Avalonia allows one only on a window it can resize; on Windows the box is
+drawn and maximizes. Nor does Avalonia have a tool window's caption, or a caption bar with no close box.
+
+**Not measured:**
+- What Windows draws for these styles on the console, against vb6.exe's own window. Above, only HexIDE's windows were
+  seen.
+- That a Fixed Dialog's caption shows no icon because there is no small icon. That is the usual account, not measured
+  here (#1594).
+- That the menu keeps the caption bar on a borderless form whose ControlBox is False and whose Caption is empty, as
+  #1072's frame has always taken it to. B0m had both.
+- What VB6's designer sets when BorderStyle changes
+  ([#1596](https://github.com/hexide-io/HexIDE/issues/1596)).
+- A Caption or ControlBox changed at run time. HexIDE keeps the window the file gave it, as it keeps the frame.
 
 ## A form's Resize, Activate and Deactivate (2026-10-23, #994)
 
@@ -16747,3 +16847,1167 @@ Each row ran `r = (s Like p)` on Variant operands in two modules, one `Option Co
 - The case fold is the model above.
 - The ligature and sharp-s rows are False under Text here, the same limit `Split` and `Filter` have (#1479). `LikeOperatorTests` pins each of them beside vb6.exe's answer.
 - Two rows are not reproduced yet: `CVErr` is unimplemented, and so is `StrConv` (#1560).
+
+## InStr and InStrRev at the ends (2026-10-23, #1567)
+
+Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60 6.00.9848 (SP6) runtime, native and p-code identical. InStr was measured with no compare, with 0 and with 1, and all three agree on every row. HexIDE's answers before the fix are in the last column.
+
+| Call | vb6.exe | HexIDE before |
+|---|---|---|
+| `InStr(1, "abc", "")`, `InStr(3, "abc", "")` | 1, 3 | 1, 3 |
+| `InStr(4, "abc", "")` | **4** | 0 |
+| `InStr(5, "abc", "")`, `InStr(100, "abc", "")` | **5, 100**: an empty string2 is found at start, however far past the end | 0 |
+| `InStr(1, "", "")`, `InStr(2, "", "")` | 0: an empty string1 holds nothing, an empty string2 included | 0 |
+| `InStr(4, "abc", "a")`, `InStr(5, "abc", "c")` | 0 | 0 |
+| `InStr("abc", "")`, `InStr("", "")` | 1, 0 | 1, 0 |
+| `InStrRev("abc", "")`, `InStrRev("abc", "", 2)` | 3, 2 | **4, 3** |
+| `InStrRev("abc", "", 5)`, `InStrRev("abc", "", 5, 1)` | 0 | 4 |
+| `InStrRev("abc", "c", 4)` | **0**: a start past the end is 0, even where the text is there to find | 3 |
+| `InStrRev("", "")` | 0 | 0 |
+
+`InStrRev("abc", "")` was 4 because .NET's `LastIndexOf` of an empty string answers one past the index it is given; that is also why every empty-string row of InStrRev was one too high.
+
+## Option Compare Text, and VB6's text compare (2026-10-23, #1567)
+
+Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60 6.00.9848 (SP6) runtime, under en-GB, in nine batches. Native and p-code agree on every row of every batch.
+
+**The question.** What `Option Compare Text` changes, and what VB6's text compare actually is. The same compare serves:
+- `StrComp` and the string functions given a compare of 1;
+- `Option Compare Text`'s comparison operators and `Select Case`;
+- a Collection's keys.
+
+The obvious guess is "case-insensitive", and HexIDE used `OrdinalIgnoreCase` for it. The second guess is "the locale's collation", which on .NET means ICU. Both are wrong, and the measurements say by how much.
+
+### The operators, Select Case and the module
+
+Each expression was evaluated inline in a module saying `Option Compare Binary` and in one saying `Option Compare Text`. `sv` and `su` are Strings holding `"abc"` and `"ABC"`, and `vv` and `vu` are Variants holding the same.
+
+| Row | Expression | Binary module | Text module |
+|---|---|---|---|
+| eq-case | `"abc" = "ABC"` | Boolean False | Boolean True |
+| ne-case | `"abc" <> "ABC"` | Boolean True | Boolean False |
+| lt-a-B | `"a" < "B"` | Boolean False | Boolean True |
+| lt-B-a | `"B" < "a"` | Boolean True | Boolean False |
+| le-a-A | `"a" <= "A"` | Boolean False | Boolean True |
+| lt-a-A | `"a" < "A"` | Boolean False | Boolean False |
+| gt-a-A | `"a" > "A"` | Boolean True | Boolean False |
+| lt-us-a | `"_" < "a"` | Boolean True | Boolean True |
+| lt-Z-us | `"Z" < "_"` | Boolean True | Boolean False |
+| lt-br-a | `"[" < "a"` | Boolean True | Boolean True |
+| lt-1-a | `"1" < "a"` | Boolean True | Boolean True |
+| lt-sp-a | `" " < "a"` | Boolean True | Boolean True |
+| eq-trailing | `"a" = "a "` | Boolean False | Boolean False |
+| eq-e-acute-e | `Chr(233) = "e"` | Boolean False | Boolean False |
+| lt-e-e-acute | `"e" < Chr(233)` | Boolean True | Boolean True |
+| lt-e-acute-f | `Chr(233) < "f"` | Boolean False | Boolean True |
+| lt-E-acute-f | `Chr(201) < "f"` | Boolean False | Boolean True |
+| eq-sz-ss | `Chr(223) = "ss"` | Boolean False | Boolean True |
+| eq-ae | `Chr(230) = "ae"` | Boolean False | Boolean True |
+| eq-hyphen | `"coop" = "co-op"` | Boolean False | Boolean False |
+| lt-hyphen | `"co-op" < "coop"` | Boolean True | Boolean False |
+| eq-vars | `sv = su` | Boolean False | Boolean True |
+| eq-variants | `vv = vu` | Boolean False | Boolean True |
+| eq-var-str | `vv = su` | Boolean False | Boolean True |
+| lt-vars | `su < sv` | Boolean True | Boolean False |
+| eq-null | `"a" = Null` | Null | Null |
+| str-num | `"10" < 9` | Boolean False | Boolean False |
+| str-num-eq | `"5" = 5` | Boolean True | Boolean True |
+| cross-module | `BinaryEquals("abc", "ABC")`, a function in the Binary module | Boolean False | Boolean False |
+| instr | `InStr("ABC", "b")` | Long 0 | Long 2 |
+| instr-start | `InStr(1, "ABC", "b")` | Long 0 | Long 2 |
+| instr-explicit-0 | `InStr(1, "ABC", "b", 0)` | Long 0 | Long 0 |
+| instrrev | `InStrRev("ABCabc", "B")` | Long 2 | Long 5 |
+| replace | `Replace("ABCabc", "b", "x")` | String ABCaxc | String AxCaxc |
+| split | `Split("aXbxc", "x")` | String() 2 | String() 3 |
+| filter | `Filter(Array("A", "b", "a"), "a")` | String() 1 | String() 2 |
+| strcomp | `StrComp("a", "A")` | Integer 1 | Integer 0 |
+| like | `"ABC" Like "a*"` | Boolean False | Boolean True |
+| collection-key | `c.Add 1, "abc"` then `c.Add 2, "ABC"` | err 457 This key is already associated with an element of this collection | err 457 This key is already associated with an element of this collection |
+| select-case | the five Select Case tests below | else else is-lt else range-A-z | case-A range is-lt is-eq else |
+
+The five Select Case tests, in order:
+1. `"a"` against `Case "A"`;
+2. `"B"` against `Case "a" To "c"`;
+3. `"A"` against `Case Is < "b"`;
+4. `"abc"` against `Case Is = "ABC"`;
+5. `"_"` against `Case "A" To "z"`.
+
+What the table says:
+- **Option Compare belongs to the module the comparison is written in.** `BinaryEquals`, a function in the Binary module, compares as Binary when the Text module calls it.
+- **A string function given no compare takes the module's mode:** InStr, InStrRev, Replace, Split, Filter and StrComp all answer as text in the Text module, and an explicit 0 overrides that. HexIDE does not do that yet (#1572).
+- **A Collection's keys are text in both modules.**
+- **A String against a number compares as numbers in both modes.** HexIDE raises 13 for it in either mode (#211).
+- **A row was dropped.** The probe had a row `lt-apos`, but a quoting slip in its generator compared `"its"` with itself. The order below has `"its"` < `"it's"`.
+
+### The whole Text order
+
+321 strings were sorted by a stable insertion sort using `StrComp(a, b, vbTextCompare)`, and logged as groups of strings it found equal. The strings were:
+- every single character `Chr(0)` to `Chr(255)`;
+- the empty string;
+- 64 longer strings: candidate expansions, word-sort cases and near neighbours.
+
+The same sort by `<` in a Text module gave the identical sequence.
+
+In the list below, characters are shown by their AscW code where they would not print, and multi-character strings are in quotes.
+
+<details><summary>The 234 groups, in order</summary>
+
+```text
+""
+<0> = <173>
+<1>
+<2>
+<3>
+<4>
+<5>
+<6>
+<7>
+<8>
+<14>
+<15>
+<16>
+<17>
+<18>
+<19>
+<20>
+<21>
+<22>
+<23>
+<24>
+<25>
+<26>
+<27>
+<28>
+<29>
+<30>
+<31>
+<127>
+' = '
+"''"
+- = -
+"--"
+–
+—
+<32>
+<160>
+<9>
+<10>
+<11>
+<12>
+<13>
+!
+"
+#
+$
+%
+"%0"
+"%o"
+&
+(
+)
+*
+,
+.
+"..."
+/
+:
+;
+?
+@
+[
+\
+]
+^ = ˆ
+_
+`
+{
+|
+}
+~
+¡
+¦
+¨
+¯
+´
+¸
+¿
+˜
+‘
+’
+‚
+“
+”
+„
+‹
+›
+¢
+£
+¤
+¥
+€
++
+<
+=
+>
+±
+«
+»
+×
+÷
+§
+©
+¬
+®
+°
+µ
+¶
+·
+…
+†
+‡
+•
+‰
+<129>
+<141>
+<143>
+<144>
+<157>
+0
+¼
+½
+¾
+1 = ¹
+"1/2"
+"1/4"
+2 = ²
+3 = ³
+"3/4"
+4
+5
+6
+7
+8
+9
+A = a = a
+"a'"
+"a-"
+"'a"
+"-a"
+ª
+Á = á
+À = à
+Â = â
+Ä = ä
+Ã = ã
+Å = å
+"a<32>b"
+"aa" = "aa"
+"ab"
+"a'b"
+"a-b"
+Æ = æ = "ae" = "AE" = "Ae"
+"ae<32>"
+"ao"
+B = b = b
+C = c
+Ç = ç
+"ch"
+"coo"
+"coop"
+"co-op"
+"cop"
+D = d
+Ð = ð
+"dh" = "DH"
+"dz"
+E = e
+É = é
+È = è
+Ê = ê
+Ë = ë
+F = f
+ƒ
+"ff"
+"ffi"
+"fi"
+"fl"
+G = g
+H = h
+I = i
+Í = í
+Ì = ì
+Î = î
+Ï = ï
+"ij" = "IJ"
+"it"
+"its"
+"it's"
+"itss"
+J = j
+K = k
+L = l
+"lj"
+"ll"
+M = m
+N = n
+Ñ = ñ
+"nj"
+O = o
+º
+Ó = ó
+Ò = ò
+Ô = ô
+Ö = ö
+Õ = õ
+Ø = ø
+Œ = œ = "oe" = "OE" = "Oe"
+P = p
+Q = q
+R = r
+"rr"
+S = s
+Š = š
+ß = "ss" = "SS" = "Ss"
+"ss<32>"
+T = t
+Þ = þ = "th" = "TH" = "Th"
+"TM" = "tm"
+™
+U = u
+Ú = ú
+Ù = ù
+Û = û
+Ü = ü
+"ue" = "Ue" = "UE"
+V = v
+W = w
+X = x
+Y = y
+Ý = ý
+Ÿ = ÿ
+Z = z
+Ž = ž
+```
+
+</details>
+
+### Its structure
+
+Two probes took the order apart:
+- **Level.** For each pair of neighbouring single characters `c1 < c2`, the probe compared `StrComp(c1 & "b", c2 & "a", 1)`. -1 means the two differ at the first level. +1 means they differ only below it.
+- **Kind.** For each character `c`, the probe compared `StrComp("a" & c & "b", "ab", 1)` and `StrComp("a" & c & "b", "aba", 1)`. 0 means ignorable; -1 means a primary weight below b; +1 then -1 means ignored at the first level but not at a lower one; +1 then +1 means a primary weight above b.
+
+What they found:
+- **121 primary classes.** Within a class, case is ignored and the accented forms follow the plain letter in a fixed order. For a, that is a, then ª, á, à, â, ä, ã, å.
+- **Accents compare left to right, after the whole first level.** `"aà"` < `"áA"`, and `"àa"` < `"àà"`.
+- **31 word-sort characters,** ignored at the first two levels and compared after them: controls 1 to 8, 14 to 31 and 127, then `'`, `-`, the en dash and the em dash, in that order.
+  - Their **position** counts the letters before them, an expansion counting as two and an ignorable as none.
+  - **A later position sorts first.** So `"abc'"` < `"ab'c"` < `"a'bc"` < `"'abc"`, and `"coop"` < `"coop-"` < `"coo-p"` < `"co-op"` < `"c-oop"`.
+- **2 ignorables, Chr(0) and the soft hyphen.** `"a" & Chr(0) & "b"` = `"ab"`. Yet `""` < `Chr(0)`: an empty string is below any other, even one with nothing to compare. That is consistent with VarBstrCmp handling an empty string before it compares anything.
+- **7 expansions:** ß = ss; æ and Æ = ae; œ and Œ = oe; þ and Þ = th.
+  - A sweep compared every `Chr(128)` to `Chr(255)` with all 26 one-letter and 676 two-letter lower-case strings. It found exactly these seven, and no others.
+  - ¹, ² and ³ are ties with 1, 2 and 3, not expansions. `^` and `ˆ` tie too.
+  - ½, ™, … and ƒ are none of these: they are characters of their own.
+- **Where the rest fall.**
+  - Tab, LF, VT, FF and CR are symbols after the space and the no-break space.
+  - µ is a symbol, not a letter.
+  - The five codes cp1252 leaves undefined (129, 141, 143, 144, 157) sort together just before the digits.
+
+The position rule was settled by a third probe. Here B is ß, Z is æ, N is Chr(0) and T the soft hyphen:
+
+| Pair | StrComp |
+|---|---|
+| `B-` against `s-s` | -1 |
+| `B-` against `ss-` | 0 |
+| `s-s` against `ss-` | 1 |
+| `Z-` against `a-e` | -1 |
+| `Z-` against `ae-` | 0 |
+| `-B` against `-ss` | 0 |
+| `xB-y` against `xs-sy` | -1 |
+| `xB-y` against `xss-y` | 0 |
+| `aN-b` against `a-b` | 0 |
+| `Na-b` against `a-b` | 0 |
+| `a-Nb` against `a-b` | 0 |
+| `aT-b` against `a-b` | 0 |
+| `Ta-b` against `a-b` | 0 |
+| `a-Tb` against `a-b` | 0 |
+| `aT-b` against `a-Tb` | 0 |
+| `aTb-` against `ab-` | 0 |
+| `aTb-` against `ab-T` | 0 |
+| `aN` against `a` | 0 |
+| `N` against `T` | 0 |
+| `N` against `TT` | 0 |
+| `NT-` against `-` | 0 |
+| `xTe-y` against `xe-y` | 0 |
+| `xTT-y` against `x-y` | 0 |
+| `aB'` against `ass'` | 0 |
+| `a'B` against `a's's` | -1 |
+
+### The model, and a held-out check
+
+A comparer built from those findings goes level by level:
+1. the primary weights;
+2. then the accents;
+3. then the word-sort marks, each a position and a rank, a later position first.
+
+It reproduces all 51,360 pairs of the order. That is the data it was built from, so a **held-out** set was measured too.
+
+The held-out set was 569 strings:
+- 110 random words, and four variants of each;
+- 18 strings that differ only in word-sort characters;
+- the empty string.
+
+Each variant changed its word in one to three ways:
+- a change of case;
+- an accent swapped in;
+- a word-sort character inserted;
+- an ignorable inserted;
+- a symbol inserted;
+- an expansion swapped either way;
+- a letter dropped.
+
+The comparer then got 1 of its 161,596 pairs wrong: it had counted a soft hyphen in a word-sort position. With the position counting only letters, it gets 0 of 161,596 wrong.
+
+The same pairs against the alternatives, on Windows (where .NET uses ICU) and under Linux's ICU 78, which agree to the pair:
+
+| Comparer | Wrong, of the order's 51,360 | Wrong, of the held-out 161,596 |
+|---|---|---|
+| `OrdinalIgnoreCase` | 14,856 | 28,364 |
+| ICU, en-GB, ignoring case, kana type and width | 2,699 | 4,455 |
+| the same, with the 7 expansions first | 2,614 | 3,732 |
+| lower case, then ICU with no options | 2,693 | 4,455 |
+| the same, with the 7 expansions first | 2,605 | 3,732 |
+| **the measured rows** | **0** | **0** |
+
+ICU orders the punctuation and symbols differently from vb6.exe. It also keeps ß from ss, and merges ª with a and the no-break space with the space, each of which vb6.exe does the other way round.
+
+**Our own wrong expectation, recorded:** before this was measured, this session told the supervisor that ICU "gets every row right except the hyphen word sort". ß = ss was in the rows it had, and ICU gets it wrong.
+
+### Searching is another rule
+
+InStr, InStrRev, Replace, Split and Filter with a compare of 1 do not search by the comparer:
+- **A search matches character by character, case ignored, with the 7 expansions read as their letters, and nothing else merges.**
+  - Chr(0), the soft hyphen, ¹ and the word-sort characters match only themselves.
+  - So `InStr(1, "ab", "a" & Chr(0) & "b", 1)` is 0 and `InStr(1, "x" & Chr(185), "1", 1)` is 0, although each pair compares equal.
+- **InStr, InStrRev and Filter take a match that starts or ends inside an expansion,** and report the character it starts in.
+  - `InStr(1, "ß", "s", 1)` is 1, `InStr(1, "xæy", "ey", 1)` is 2, and `Filter(Array("ß"), "s", True, 1)` keeps the element.
+- **Replace and Split take only whole characters.**
+  - `Replace("straße", "s", "X", 1, -1, 1)` replaces only the first s, `"ss"` replaces the ß, and `Split("aßb", "s", -1, 1)` does not split.
+
+<details><summary>The 79 search rows</summary>
+
+| Row | Call | vb6.exe |
+|---|---|---|
+| instr-half-sz | `InStr(1, Chr(223), "s", 1)` | 1 |
+| instr-sz-ss | `InStr(1, "stra" & Chr(223) & "e", "ss", 1)` | 5 |
+| instr-sz-es | `InStr(1, "stra" & Chr(223) & "e", "es", 1)` | 0 |
+| instr-sz-sse | `InStr(1, "stra" & Chr(223) & "e", "sse", 1)` | 5 |
+| instr-sz-as | `InStr(1, "stra" & Chr(223) & "e", "as", 1)` | 4 |
+| instr-sz-ass | `InStr(1, "stra" & Chr(223) & "e", "ass", 1)` | 4 |
+| instr-ss-sz | `InStr(1, "strasse", Chr(223), 1)` | 5 |
+| instr-ss-sze | `InStr(1, "strasse", Chr(223) & "e", 1)` | 5 |
+| instr-sss-sz | `InStr(1, "asssb", Chr(223), 1)` | 2 |
+| instr-sz-from-2 | `InStr(2, "stra" & Chr(223) & "e", "ss", 1)` | 5 |
+| instr-sz-from-5 | `InStr(5, "stra" & Chr(223) & "e", "s", 1)` | 5 |
+| instr-ae-half | `InStr(1, "x" & Chr(230) & "y", "a", 1)` | 2 |
+| instr-ae-e | `InStr(1, "x" & Chr(230) & "y", "ey", 1)` | 2 |
+| instr-ae-whole | `InStr(1, "aeb", Chr(230), 1)` | 1 |
+| instr-nul-skip | `InStr(1, "a" & Chr(0) & "bc", "bc", 1)` | 3 |
+| instr-nul-lead-needle | `InStr(1, "a" & Chr(0) & "bc", Chr(0) & "bc", 1)` | 2 |
+| instr-nul-in-needle | `InStr(1, "abc", "a" & Chr(0) & "b", 1)` | 0 |
+| instr-nul-spans | `InStr(1, "a" & Chr(0) & "bc", "ab", 1)` | 0 |
+| instr-shy-spans | `InStr(1, "a" & Chr(173) & "bc", "ab", 1)` | 0 |
+| instr-shy-lead | `InStr(1, Chr(173) & "abc", "ab", 1)` | 2 |
+| instr-nul-needle | `InStr(1, "abc", Chr(0), 1)` | 0 |
+| instr-nul-needle-has | `InStr(1, "a" & Chr(0), Chr(0), 1)` | 2 |
+| instr-empty-needle | `InStr(1, "xyz", "", 1)` | 1 |
+| instr-empty-needle-3 | `InStr(3, "xyz", "", 1)` | 3 |
+| instr-hy-coop | `InStr(1, "co-op", "coop", 1)` | 0 |
+| instr-coop-hy | `InStr(1, "coop", "co-op", 1)` | 0 |
+| instr-hy-op | `InStr(1, "co-op", "op", 1)` | 4 |
+| instr-hy-dash-op | `InStr(1, "co-op", "-op", 1)` | 3 |
+| instr-hy-o-o | `InStr(1, "co-op", "o-o", 1)` | 2 |
+| instr-hy-alone | `InStr(1, "co-op", "-", 1)` | 3 |
+| instr-hy-in-empty | `InStr(1, "coop", "-", 1)` | 0 |
+| instr-ctl-spans | `InStr(1, "x" & Chr(1) & "y", "xy", 1)` | 0 |
+| instr-ctl-needle | `InStr(1, "xy", "x" & Chr(1) & "y", 1)` | 0 |
+| instr-a-dash | `InStr(1, "a-", "a", 1)` | 1 |
+| instr-dash-a | `InStr(1, "-a", "a", 1)` | 2 |
+| instr-accent | `InStr(1, Chr(201), "e", 1)` | 0 |
+| instr-case | `InStr(1, "AbC", "bc", 1)` | 2 |
+| instrrev-half-sz | `InStrRev("stra" & Chr(223) & "e", "s", -1, 1)` | 5 |
+| instrrev-sz-ss | `InStrRev("stra" & Chr(223) & "e", "ss", -1, 1)` | 5 |
+| instrrev-nul | `InStrRev("a" & Chr(0) & "b", "b", -1, 1)` | 3 |
+| instrrev-hy | `InStrRev("co-op", "coop", -1, 1)` | 0 |
+| replace-sz-s | `Codes(Replace("stra" & Chr(223) & "e", "s", "X", 1, -1, 1))` | [88.116.114.97.223.101] |
+| replace-sz-ss | `Codes(Replace("stra" & Chr(223) & "e", "ss", "X", 1, -1, 1))` | [115.116.114.97.88.101] |
+| replace-ss-sz | `Codes(Replace("strasse", Chr(223), "X", 1, -1, 1))` | [115.116.114.97.88.101] |
+| replace-nul-ab | `Codes(Replace("a" & Chr(0) & "bc", "ab", "X", 1, -1, 1))` | [97.0.98.99] |
+| replace-nul-b | `Codes(Replace("a" & Chr(0) & "bc", "b", "X", 1, -1, 1))` | [97.0.88.99] |
+| replace-hy-coop | `Codes(Replace("co-op", "coop", "X", 1, -1, 1))` | [99.111.45.111.112] |
+| replace-hy-op | `Codes(Replace("co-op", "op", "X", 1, -1, 1))` | [99.111.45.88] |
+| split-sz-s | `Parts(Split("a" & Chr(223) & "b", "s", -1, 1))` | 1 [97.223.98] |
+| split-nul | `Parts(Split("a" & Chr(0) & "b" & Chr(0) & "c", Chr(0), -1, 1))` | 3 [97][98][99] |
+| split-hy | `Parts(Split("co-op", "coop", -1, 1))` | 1 [99.111.45.111.112] |
+| filter-hy | `UBound(Filter(Array("co-op"), "coop", True, 1))` | -1 |
+| filter-nul | `UBound(Filter(Array("a" & Chr(0) & "b"), "ab", True, 1))` | -1 |
+| filter-half-sz | `UBound(Filter(Array(Chr(223)), "s", True, 1))` | 0 |
+| filter-ae-ey | `UBound(Filter(Array("x" & Chr(230) & "y"), "ey", True, 1))` | 0 |
+| instr-shy-vs-nul | `InStr(1, "a" & Chr(173) & "b", "a" & Chr(0) & "b", 1)` | 0 |
+| instr-sup1-1 | `InStr(1, "x" & Chr(185), "1", 1)` | 0 |
+| instr-1-sup1 | `InStr(1, "x1", Chr(185), 1)` | 0 |
+| instr-en-em | `InStr(1, "a" & Chr(150) & "b", "a" & Chr(151) & "b", 1)` | 0 |
+| instr-apos-rsquo | `InStr(1, "a'b", "a" & Chr(146) & "b", 1)` | 0 |
+| replace-ae-ey | `Codes(Replace("x" & Chr(230) & "y", "ey", "Z", 1, -1, 1))` | [120.230.121] |
+| replace-ae-a | `Codes(Replace("x" & Chr(230) & "y", "a", "Z", 1, -1, 1))` | [120.230.121] |
+| split-ae-ey | `Parts(Split("x" & Chr(230) & "y", "ey", -1, 1))` | 1 [120.230.121] |
+| instr-szs-sss | `InStr(1, Chr(223) & "s", "sss", 1)` | 1 |
+| instr-ssz-sss | `InStr(1, "s" & Chr(223), "sss", 1)` | 1 |
+| replace-ssz-sss | `Codes(Replace("s" & Chr(223), "sss", "Z", 1, -1, 1))` | [90] |
+| replace-szs-ss | `Codes(Replace(Chr(223) & "s", "ss", "Z", 1, -1, 1))` | [90.115] |
+| replace-ssz-ss | `Codes(Replace("s" & Chr(223), "ss", "Z", 1, -1, 1))` | [115.90] |
+| instr-ssz-ss | `InStr(1, "s" & Chr(223), "ss", 1)` | 1 |
+| instrrev-szs-ss | `InStrRev(Chr(223) & "s", "ss", -1, 1)` | 1 |
+| instrrev-ssz-ss | `InStrRev("s" & Chr(223), "ss", -1, 1)` | 2 |
+| instr-AE-E | `InStr(1, Chr(198), "E", 1)` | 1 |
+| filter-nul | `UBound(Filter(Array("a" & Chr(0)), Chr(0), True, 1))` | 0 |
+| instr-sz-sz | `InStr(1, "x" & Chr(223), Chr(223), 1)` | 2 |
+| instr-sz-half-needle | `InStr(1, "xs", Chr(223), 1)` | 0 |
+| replace-count-sz | `Codes(Replace(Chr(223) & Chr(223), "s", "Z", 1, -1, 1))` | [223.223] |
+| instr-accent-in-expansion | `InStr(1, Chr(230), "a" & Chr(233), 1)` | 0 |
+| instr-empty-past | `InStr(5, "abc", "", 1)` | 5 |
+| instr-empty-end | `InStr(4, "abc", "", 1)` | 4 |
+
+</details>
+
+**Measured, and no rule I would defend:** why a search refuses the merges the compare makes (¹ and 1, Chr(0) and nothing) while keeping the expansions. The rows are consistent with a search that folds case and expands ß, æ, œ and þ, and does nothing else. That is a description of the answers, not a reason for them.
+
+### A Variant selector, and a search with a start
+
+A ninth batch measured what the first eight left out. It was prompted by mutants that survived the tests built from them.
+
+**Select Case with a Variant on either side.** Each of these was run in the Binary module and the Text module:
+- a Variant selector against a literal, against `To`, against `Is <` and against `Is =`;
+- a Variant against a Variant;
+- a Variant function's result on either side, and on both;
+- an expression selector, `v & ""`;
+- `Is >` and `Is <` against a Variant.
+
+Every one compares as text in the Text module: `var-lit var-to var-is-lt var-is-eq var-var var-fn str-fn fn-lit fn-fn expr-lit var-is-gt-var var-us-lt-var`. In the Binary module only `"A" < "b"` holds: `- - var-is-lt - - - - - - - - -`.
+
+**Split and InStrRev as text.**
+
+| Row | Call | vb6.exe |
+|---|---|---|
+| split-case | `Parts(Split("aXbxc", "x", -1, 1))` | 3 [97][98][99] |
+| split-case-bin | `Parts(Split("aXbxc", "x", -1, 0))` | 2 [97.88.98][99] |
+| split-ss-sz | `Parts(Split("a" & Chr(223) & "b", "ss", -1, 1))` | 2 [97][98] |
+| split-sz-ss | `Parts(Split("assb", Chr(223), -1, 1))` | 2 [97][98] |
+| split-limit | `Parts(Split("aXbxc", "x", 2, 1))` | 2 [97][98.120.99] |
+| instrrev-start | `InStrRev("abcABC", "B", 4, 1)` | 2 |
+| instrrev-start-bin | `InStrRev("abcABC", "B", 4, 0)` | 0 |
+| instrrev-start-sz | `InStrRev("ss" & Chr(223), "ss", 2, 1)` | 1 |
+| instrrev-start-mid-sz | `InStrRev("a" & Chr(223) & "b", "s", 2, 1)` | 2 |
+| instrrev-start-before-sz | `InStrRev("a" & Chr(223) & "b", "s", 1, 1)` | 0 |
+| instrrev-start-end-sz | `InStrRev("s" & Chr(223), "ss", 1, 1)` | 0 |
+
+As text, `"ss"` splits `"aßb"` at its one ß, and `"ß"` splits `"assb"` at its two s. InStrRev's start bounds where a
+match may end: with a start of 2, `"s"` is found in the ß at 2, and `"ss"` is not found in `"sß"` with a start of 1, since
+the only match ends inside the ß.
+
+### Scope
+
+- **Measured under en-GB only, on the characters cp1252 holds.** HexIDE applies the same rows in every locale, which is a wrong-value risk wherever Windows tailors the sort, such as Swedish å, ä and ö, or Turkish i. #1573 owes that measurement.
+- **A character outside cp1252 is unmeasured.** HexIDE sorts it after all of them, by its invariant lower case.
+- **Like is a different operation.** Its `Option Compare Text` is a per-character case fold (#1547), and nothing here measured Like against the compare.
+
+### In HexIDE (#1567)
+
+- `VbTextCompare` holds the measured rows, generated from this order in `VbTextCompare.Table.cs`, with the seven expansions. It also has the search rule.
+- `TextCompareTests` replays every pair of the order and of the held-out set, and the position pairs. `OptionCompareTextTests` runs the operator and search probes as programs.
+- The rule is used by:
+  - the comparison operators and `Select Case` in an `Option Compare Text` module, the module being the one the comparison is written in;
+  - a Collection's keys, hashed on what the comparer compares;
+  - InStr, InStrRev, Replace, Split and Filter with a compare of 1.
+- There is no ICU anywhere in it, so every host gives the same answers.
+
+## StrComp, StrConv, Environ, Switch and Error(), and the case of a character (2026-10-23, #1560)
+
+Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60 6.00.9848 (SP6) runtime, under en-GB, in eight batches. Native and p-code agree on every row.
+
+**The question.** The five functions stopped any program that called them, so how each behaves had to be measured before it was written: its arguments, their errors and their order, and its answers. Three things came out of the measuring:
+- a table of error messages;
+- a rule for the case of a character, which UCase and LCase had wrong;
+- the names of the functions' named arguments.
+
+Environ's rows compare values rather than print them, since an environment variable's value has no place here.
+
+### StrComp
+
+| Row | Call | vb6.exe |
+|---|---|---|
+| strcomp-lt | `StrComp("a", "b")` | Integer -1 |
+| strcomp-gt | `StrComp("b", "a")` | Integer 1 |
+| strcomp-eq | `StrComp("a", "a")` | Integer 0 |
+| strcomp-case-default | `StrComp("a", "A")` | Integer 1 |
+| strcomp-case-0 | `StrComp("a", "A", 0)` | Integer 1 |
+| strcomp-case-1 | `StrComp("a", "A", 1)` | Integer 0 |
+| strcomp-case-vbText | `StrComp("a", "A", vbTextCompare)` | Integer 0 |
+| strcomp-2 | `StrComp("a", "A", 2)` | err 5 Invalid procedure call or argument |
+| strcomp-3 | `StrComp("a", "A", 3)` | Integer 0 |
+| strcomp-minus1 | `StrComp("a", "A", -1)` | err 5 Invalid procedure call or argument |
+| strcomp-minus2 | `StrComp("a", "A", -2)` | err 5 Invalid procedure call or argument |
+| strcomp-1.5 | `StrComp("a", "A", 1.5)` | err 5 Invalid procedure call or argument |
+| strcomp-0.5 | `StrComp("a", "A", 0.5)` | Integer 1 |
+| strcomp-str1 | `StrComp("a", "A", "1")` | Integer 0 |
+| strcomp-cmp-null | `StrComp("a", "A", Null)` | err 94 Invalid use of Null |
+| strcomp-cmp-empty | `StrComp("a", "A", Empty)` | Integer 1 |
+| strcomp-null-l | `StrComp(Null, "a")` | Null |
+| strcomp-null-r | `StrComp("a", Null)` | Null |
+| strcomp-null-both | `StrComp(Null, Null)` | Null |
+| strcomp-empty | `StrComp(Empty, "")` | Integer 0 |
+| strcomp-num | `StrComp(10, 9)` | Integer -1 |
+| strcomp-num-str | `StrComp(5, "5")` | Integer 0 |
+| strcomp-bool | `StrComp(True, "True")` | Integer 0 |
+| strcomp-prefix | `StrComp("ab", "abc")` | Integer -1 |
+| strcomp-empty-a | `StrComp("", "a")` | Integer -1 |
+| strcomp-B-a | `StrComp("B", "a")` | Integer -1 |
+| strcomp-B-a-text | `StrComp("B", "a", 1)` | Integer 1 |
+| strcomp-us-a-text | `StrComp("_", "a", 1)` | Integer -1 |
+| strcomp-us-A-bin | `StrComp("_", "A", 0)` | Integer 1 |
+| strcomp-sz-ss-text | `StrComp(Chr(223), "ss", 1)` | Integer 0 |
+| strcomp-ae-text | `StrComp(Chr(230), "ae", 1)` | Integer 0 |
+| strcomp-e-acute-text | `StrComp(Chr(233), "e", 1)` | Integer 1 |
+| strcomp-e-acute-f-text | `StrComp(Chr(233), "f", 1)` | Integer -1 |
+| strcomp-e-acute-f-bin | `StrComp(Chr(233), "f", 0)` | Integer 1 |
+| strcomp-hyphen-text | `StrComp("co-op", "coop", 1)` | Integer 1 |
+| strcomp-apos-text | `StrComp("it's", "its", 1)` | Integer 1 |
+| strcomp-nul | `StrComp("a" & Chr(0), "a")` | Integer 1 |
+| strcomp-array | `StrComp(Array(1), "a")` | err 13 Type mismatch |
+| strcomp-type | `StrComp("a", "b")` | Integer |
+
+- **The compare is read first, as CLng reads it.** So 0.5 is 0 and 1.5 is 2, a Null compare is 94 whatever the strings are, `"1"` is 1, and Empty is 0.
+- **0 is binary and 1 text,** the text compare #1567 measured. 2 and a negative are 5.
+- **3 compares as text,** consistent with reading 3 and up as a locale identifier, which is Filter's finding too (#881).
+- **Then the strings.** An array is 13 even beside a Null (`StrComp(Null, Array(1))` is 13), a Null string makes the answer Null, and anything else is read as `&` reads it: `StrComp(5, "5")` and `StrComp(True, "True")` are 0.
+- **The answer is an Integer.**
+- **Given no compare, StrComp takes the Option Compare of the module that calls it.** In an `Option Compare Text` module, `StrComp("a", "A")` is 0 and `StrComp("B", "a")` is 1. A compare of 0 or Empty there is still binary: both give 1 for `"a"` against `"A"`. HexIDE still compares binary with no compare (#1572).
+
+### StrConv
+
+| Row | Call | vb6.exe |
+|---|---|---|
+| strconv-upper | `StrConv("hello World", vbUpperCase)` | String HELLO WORLD |
+| strconv-lower | `StrConv("hello World", vbLowerCase)` | String hello world |
+| strconv-proper | `StrConv("hello wORLD", vbProperCase)` | String Hello World |
+| strconv-proper-digit | `StrConv("1st place", vbProperCase)` | String 1st Place |
+| strconv-proper-apos | `StrConv("o'neil's", vbProperCase)` | String O'neil's |
+| strconv-proper-hyphen | `StrConv("jean-luc", vbProperCase)` | String Jean-luc |
+| strconv-proper-dot | `StrConv("a.b,c;d", vbProperCase)` | String A.b,c;d |
+| strconv-proper-tab | `StrConv("a" & vbTab & "b" & vbCrLf & "c" & vbLf & "d" & vbCr & "e", vbProperCase)` | [65 9 66 13 10 67 10 68 13 69] |
+| strconv-proper-nul | `StrConv("a" & Chr(0) & "b", vbProperCase)` | [65 0 66] |
+| strconv-proper-ff | `StrConv("a" & Chr(12) & "b" & Chr(11) & "c", vbProperCase)` | [65 12 66 11 67] |
+| strconv-proper-spaces | `StrConv("  two  spaces", vbProperCase)` | String   Two  Spaces |
+| strconv-proper-accent | `StrConv(Chr(233) & "cole " & Chr(201) & "COLE", vbProperCase)` | [201 99 111 108 101 32 201 99 111 108 101] |
+| strconv-proper-nbsp | `StrConv("a" & Chr(160) & "b", vbProperCase)` | [65 160 98] |
+| strconv-upper-sz | `StrConv(Chr(223), vbUpperCase)` | [223] |
+| strconv-upper-y-uml | `StrConv(Chr(255), vbUpperCase)` | [376] |
+| strconv-upper-mu | `StrConv(Chr(181), vbUpperCase)` | [181] |
+| strconv-upper-dotless | `StrConv(ChrW(&H131), vbUpperCase)` | [73] |
+| strconv-lower-dotted | `StrConv(ChrW(&H130), vbLowerCase)` | [105] |
+| strconv-upper-tr | `StrConv("i", vbUpperCase, 1055)` | [73] |
+| strconv-lower-tr | `StrConv("I", vbLowerCase, 1055)` | [105] |
+| strconv-upper-lcid-0 | `StrConv("i", vbUpperCase, 0)` | [73] |
+| strconv-upper-lcid-bad | `StrConv("i", vbUpperCase, 99999)` | err 5 Invalid procedure call or argument |
+| strconv-from-unicode | `StrConv("ab", vbFromUnicode)` | String ? |
+| strconv-from-unicode-e | `StrConv(Chr(233) & ChrW(&H20AC), vbFromUnicode)` | String ? |
+| strconv-from-unicode-unmapped | `StrConv(ChrW(&H2100) & ChrW(&HFF41), vbFromUnicode)` | String ? |
+| strconv-from-unicode-empty | `StrConv("", vbFromUnicode)` | String  |
+| strconv-roundtrip | `StrConv(StrConv("abc", vbFromUnicode), vbUnicode)` | String abc |
+| strconv-unicode-of-string | `StrConv("abc", vbUnicode)` | [97 0 98 0 99 0] |
+| strconv-unicode-odd | `StrConv("a" & ChrB(98), vbUnicode)` | [97 0 98] |
+| strconv-unicode-high | `StrConv(ChrB(128) & ChrB(233), vbUnicode)` | [8364 233] |
+| strconv-from-then-len | `LenB(StrConv("abc", vbFromUnicode))` | Long 3 |
+| strconv-upper-from | `StrConv("ab", vbUpperCase Or vbFromUnicode)` | err 5 Invalid procedure call or argument |
+| strconv-upper-lower | `StrConv("ab", vbUpperCase Or vbLowerCase)` | String Ab |
+| strconv-0 | `StrConv("ab", 0)` | String ab |
+| strconv-wide | `StrConv("ab", vbWide)` | err 5 Invalid procedure call or argument |
+| strconv-narrow | `StrConv("ab", vbNarrow)` | err 5 Invalid procedure call or argument |
+| strconv-katakana | `StrConv("ab", vbKatakana)` | err 5 Invalid procedure call or argument |
+| strconv-hiragana | `StrConv("ab", vbHiragana)` | err 5 Invalid procedure call or argument |
+| strconv-256 | `StrConv("ab", 256)` | err 5 Invalid procedure call or argument |
+| strconv-512 | `StrConv("ab", 512)` | err 5 Invalid procedure call or argument |
+| strconv-null | `StrConv(Null, vbUpperCase)` | Null |
+| strconv-null-conv | `StrConv("ab", Null)` | err 94 Invalid use of Null |
+| strconv-num | `StrConv(5.5, vbUpperCase)` | String 5.5 |
+| strconv-bool | `StrConv(True, vbUpperCase)` | String TRUE |
+| strconv-empty | `StrConv(Empty, vbUpperCase)` | String  |
+| strconv-type | `StrConv("ab", vbUpperCase)` | String |
+| strconv-type-from | `StrConv("ab", vbFromUnicode)` | String |
+| strconv-conv-1.5 | `StrConv("ab", 1.5)` | String ab |
+| strconv-conv-str | `StrConv("ab", "1")` | String AB |
+
+- **The conversion is read first, as CLng reads it, and checked before the string.** So `StrConv(Null, Null)` is 94 and `StrConv(Null, 256)` is 5.
+- **What each conversion does:**
+  - 1 is upper case, 2 lower and 3 proper (`vbUpperCase Or vbLowerCase` is proper), and 0 leaves the string alone.
+  - Wide, narrow, katakana and hiragana (4 to 32) are 5 on this Western system.
+  - 256 and 512 are 5, and so is 64 or 128 with a case, or the two together.
+- **The locale identifier.** `LocaleID` is checked when given: 0, 1, 1055 and 2057 are accepted, and 99999 and -1 are 5. An accepted one changes nothing, even Turkish's 1055.
+- **Upper and lower case go through the ANSI code page:**
+  - A character the code page lacks becomes its best fit, or "?" where there is none. 一 is "?", α and ā are "A" in upper case, and Greek capital Α is "?" in lower case.
+  - A case the code page lacks is not taken. ƒ stays ƒ, Ƒ not being in 1252, although UCase makes it Ƒ.
+  - A conversion of 0 does neither: ā and 一 come back as themselves.
+- **Proper case starts a word after Chr(0), a tab, LF, VT, FF, CR or a space, and after nothing else.** A sweep of every `Chr(0)` to `Chr(255)` between two letters found exactly those seven. So `"o'neil's"` is `"O'neil's"`, `"jean-luc"` is `"Jean-luc"`, `"a.b,c;d"` is `"A.b,c;d"`, and the no-break space joins words.
+
+### Environ
+
+| Row | Call | vb6.exe |
+|---|---|---|
+| environ-path-len | `Len(Environ("PATH")) > 0` | Boolean True |
+| environ-path-case | `Environ("path") = Environ("PATH")` | Boolean True |
+| environ-missing | `Environ("HEXIDE_NO_SUCH_VARIABLE")` | String  |
+| environ-empty | `Environ("")` | err 5 Invalid procedure call or argument |
+| environ-type | `Environ("PATH")` | String |
+| environ-dollar-type | `Environ$("PATH")` | String |
+| environ-1-has-eq | `InStr(Environ(1), "=") > 1` | Boolean True |
+| environ-1-type | `Environ(1)` | String |
+| environ-0 | `Environ(0)` | err 5 Invalid procedure call or argument |
+| environ-minus1 | `Environ(-1)` | err 5 Invalid procedure call or argument |
+| environ-256 | `Len(Environ(256))` | err 5 Invalid procedure call or argument |
+| environ-huge | `Environ(100000)` | err 6 Overflow |
+| environ-str-1 | `Environ("1")` | String  |
+| environ-1.5-is-2 | `Environ(1.5) = Environ(2)` | Boolean True |
+| environ-2.5-is-2 | `Environ(2.5) = Environ(2)` | Boolean True |
+| environ-null | `Environ(Null)` | err 94 Invalid use of Null |
+| environ-name-eq | `Environ("PATH=")` | String  |
+| environ-name-space-is-name | `Environ(" PATH") = Environ("PATH")` | Boolean True |
+| environ-name-trailing-space | `Environ("PATH ") = Environ("PATH")` | Boolean True |
+| environ-bool | `Environ(True)` | err 5 Invalid procedure call or argument |
+| environ-int-var-is-number | `Environ(CInt(1)) = Environ(1)` | Boolean True |
+| environ-str-num-is-name | `Environ("1") = Environ(1)` | Boolean False |
+| environ-name-of-first | `Environ(Left(Environ(1), InStr(Environ(1), "=") - 1)) = Mid(Environ(1), InStr(Environ(1), "=") + 1)` | Boolean True |
+| environ-200-is-empty | `Environ(200) = ""` | Boolean True |
+| environ-255-is-empty | `Environ(255) = ""` | Boolean True |
+| environ-empty-arg | `Environ(Empty)` | err 5 Invalid procedure call or argument |
+| environ-order-inversions | `Inversions()` | Long 0 |
+| environ-count-below-200 | `Count() < 200` | Boolean True |
+
+- **A String is a name, even `"1"`.** A name ignores its case and spaces around it, so `"path"`, `" PATH"` and `"PATH "` are PATH. A missing name is `""`, as is one holding "=". `""` is 5.
+- **A number is an index, read as CInt reads it.** 1.5 and 2.5 are 2, while 0, a negative, True and Empty are 5, and 100000 is 6.
+- **255 is the bound, not the number of variables.** 200 and 255, both past the last variable, are `""`, and 256 is 5.
+- **The entry it gives is `NAME=value`,** and the first one's "=" comes after a name.
+- **The entries come in order of name.** `Inversions()` counts neighbouring entries whose names are out of text-compare order, over `Count()` entries, `Count()` being the first n for which `Environ(n + 1)` is `""`. It found none. That is one guest's environment, so it shows the order is by name there, not how VB6 orders names it was given out of order.
+- **Null is 94.**
+
+### Switch
+
+| Row | Call | vb6.exe |
+|---|---|---|
+| switch-first | `Switch(True, "a", True, "b")` | String a |
+| switch-second | `Switch(False, 1, True, 2)` | Integer 2 |
+| switch-none | `Switch(False, 1, False, 2)` | Null |
+| switch-odd | `Switch(True, 1, False)` | err 5 Invalid procedure call or argument |
+| switch-one | `Switch(True)` | err 5 Invalid procedure call or argument |
+| switch-num-cond | `Switch(0, "zero", 2, "two")` | String two |
+| switch-str-cond | `Switch("True", "s")` | String s |
+| switch-str-cond-bad | `Switch("x", "s")` | err 13 Type mismatch |
+| switch-null-cond | `Switch(Null, 1, True, 2)` | Integer 2 |
+| switch-empty-cond | `Switch(Empty, 1, True, 2)` | Integer 2 |
+| switch-type | `Switch(True, 5)` | Integer |
+| switch-null-value | `Switch(True, Null)` | Null |
+| switch-evaluates-values | `Switch(True, F("v1", 1), False, F("v2", 2))` | Integer 1 |
+| switch-evaluates-conds | `Switch(F("c1", True), 1, F("c2", True), 2)` | Integer 1 |
+| switch-array-cond | `Switch(Array(1), 1)` | err 13 Type mismatch |
+| switch-14-pairs | `Switch(False, 1, False, 2, False, 3, False, 4, False, 5, False, 6, False, 7, True, 8)` | Integer 8 |
+
+- **Every argument is evaluated before Switch is called,** values and expressions alike. Both calls ran in each of the two rows that log them.
+- **An odd count is 5,** one argument included.
+- **Each expression is read as CBool reads it until one holds.**
+  - "True", 2 and a Date hold, while "x" and an array are 13.
+  - A Collection is 450, since it has no default value to read.
+  - A Null or Empty expression does not hold, and raises nothing.
+  - **An expression after the one that held is not read,** so `Switch(True, 1, "x", 2)` is 1, not 13.
+- **The value comes back as it is,** an Integer as an Integer and Null as Null.
+- **Eight pairs are fine.** The row is labelled `switch-14-pairs`, a slip in the probe: its call has eight.
+
+### Error
+
+| Row | Call | vb6.exe |
+|---|---|---|
+| error-6 | `Error(6)` | String Overflow |
+| error-dollar-6 | `Error$(6)` | String Overflow |
+| error-0 | `Error(0)` | String  |
+| error-1 | `Error(1)` | String Application-defined or object-defined error |
+| error-1000 | `Error(1000)` | String Application-defined or object-defined error |
+| error-32767 | `Error(32767)` | String Application-defined or object-defined error |
+| error-65535 | `Error(65535)` | String Application-defined or object-defined error |
+| error-65536 | `Error(65536)` | err 6 Overflow |
+| error-minus1 | `Error(-1)` | String Application-defined or object-defined error |
+| error-6.6 | `Error(6.6)` | String Out of memory |
+| error-5.5 | `Error(5.5)` | String Overflow |
+| error-str | `Error("6")` | String Overflow |
+| error-null | `Error(Null)` | err 94 Invalid use of Null |
+| error-empty | `Error(Empty)` | String  |
+| error-none-clean | `Error` | String  |
+| error-none-clean-parens | `Error()` | String  |
+| error-type | `Error(6)` | String |
+| error-dollar-null | `Error$(Null)` | err 94 Invalid use of Null |
+| error-vbObjectError | `Error(vbObjectError + 1)` | String Application-defined or object-defined error |
+
+- **The number is read as CLng reads it,** so 65535.5 is 65536 and `"6"` is 6.
+- **Past 65535 it is 6,** as it is past a Long. Any negative number is "Application-defined or object-defined error", True's -1 and `vbObjectError + 1` included.
+- **Null is 94, an array 13, and Empty is 0,** whose text is "".
+- **Error with no number** is the text of the error Err holds: its Description, or where none has been set, its number's text.
+  - After `Err.Raise 11`, `Error` and `Error()` are "Division by zero".
+  - After `Err.Raise 1000, , "custom text"`, `Error` is "custom text".
+  - After `Err.Clear` and `Err.Number = 6`, `Error` is "Overflow".
+
+### The text of every error number
+
+`Error(n)` was called for every n from 0 to 65535. These 88 numbers have a text of their own; the other 65,448 are "Application-defined or object-defined error".
+
+<details><summary>The 88 texts</summary>
+
+| Number | Text |
+|---|---|
+| 0 | (empty) |
+| 3 | Return without GoSub |
+| 5 | Invalid procedure call or argument |
+| 6 | Overflow |
+| 7 | Out of memory |
+| 9 | Subscript out of range |
+| 10 | This array is fixed or temporarily locked |
+| 11 | Division by zero |
+| 13 | Type mismatch |
+| 14 | Out of string space |
+| 16 | Expression too complex |
+| 17 | Can't perform requested operation |
+| 18 | User interrupt occurred |
+| 20 | Resume without error |
+| 28 | Out of stack space |
+| 35 | Sub or Function not defined |
+| 47 | Too many DLL application clients |
+| 48 | Error in loading DLL |
+| 49 | Bad DLL calling convention |
+| 51 | Internal error |
+| 52 | Bad file name or number |
+| 53 | File not found |
+| 54 | Bad file mode |
+| 55 | File already open |
+| 57 | Device I/O error |
+| 58 | File already exists |
+| 59 | Bad record length |
+| 61 | Disk full |
+| 62 | Input past end of file |
+| 63 | Bad record number |
+| 67 | Too many files |
+| 68 | Device unavailable |
+| 70 | Permission denied |
+| 71 | Disk not ready |
+| 74 | Can't rename with different drive |
+| 75 | Path/File access error |
+| 76 | Path not found |
+| 91 | Object variable or With block variable not set |
+| 92 | For loop not initialized |
+| 93 | Invalid pattern string |
+| 94 | Invalid use of Null |
+| 96 | Unable to sink events of object because the object is already firing events to the maximum number of event receivers that it supports |
+| 97 | Can not call friend function on object which is not an instance of defining class |
+| 98 | A property or method call cannot include a reference to a private object, either as an argument or as a return value |
+| 321 | Invalid file format |
+| 322 | Can't create necessary temporary file |
+| 325 | Invalid format in resource file |
+| 380 | Invalid property value |
+| 381 | Invalid property array index |
+| 382 | Set not supported at runtime |
+| 383 | Set not supported (read-only property) |
+| 385 | Need property array index |
+| 387 | Set not permitted |
+| 393 | Get not supported at runtime |
+| 394 | Get not supported (write-only property) |
+| 422 | Property not found |
+| 423 | Property or method not found |
+| 424 | Object required |
+| 429 | ActiveX component can't create object |
+| 430 | Class does not support Automation or does not support expected interface |
+| 432 | File name or class name not found during Automation operation |
+| 438 | Object doesn't support this property or method |
+| 440 | Automation error |
+| 442 | Connection to type library or object library for remote process has been lost. Press OK for dialog to remove reference. |
+| 443 | Automation object does not have a default value |
+| 445 | Object doesn't support this action |
+| 446 | Object doesn't support named arguments |
+| 447 | Object doesn't support current locale setting |
+| 448 | Named argument not found |
+| 449 | Argument not optional |
+| 450 | Wrong number of arguments or invalid property assignment |
+| 451 | Property let procedure not defined and property get procedure did not return an object |
+| 452 | Invalid ordinal |
+| 453 | Specified DLL function not found |
+| 454 | Code resource not found |
+| 455 | Code resource lock error |
+| 457 | This key is already associated with an element of this collection |
+| 458 | Variable uses an Automation type not supported in Visual Basic |
+| 459 | Object or class does not support the set of events |
+| 460 | Invalid clipboard format |
+| 461 | Method or data member not found |
+| 462 | The remote server machine does not exist or is unavailable |
+| 463 | Class not registered on local machine |
+| 481 | Invalid picture |
+| 482 | Printer error |
+| 735 | Can't save file to TEMP |
+| 744 | Search text not found |
+| 746 | Replacements too long |
+
+</details>
+
+**Err.Raise with no Description takes its text from the same table.** `Err.Raise 340`, `360`, `400` and `31004` are all "Application-defined or object-defined error", although a form or control raising 340 itself has words of its own. HexIDE had given those raise-time words to Err.Raise too.
+
+**21 of HexIDE's own texts had other words** than vb6.exe's for the same number. They are recorded here because the guess each one made is the one the next reader will make:
+
+| Number | vb6.exe | HexIDE had |
+|---|---|---|
+| 35 | Sub or Function not defined | Sub, Function, or Property not defined |
+| 97 | Can not call friend function on object which is not an instance of defining class | A Friend procedure can only be called on an instance of the class that defines it |
+| 98 | A property or method call cannot include a reference to a private object, either as an argument or as a return value | A private object can't be passed to, or returned from, a property or method call |
+| 322 | Can't create necessary temporary file | Cant create necessary temporary file |
+| 382 | Set not supported at runtime | Property Set can't be executed at run time |
+| 383 | Set not supported (read-only property) | Property Set can't be used with a read-only property |
+| 385 | Need property array index | Need property-array index |
+| 387 | Set not permitted | Property Set not permitted |
+| 393 | Get not supported at runtime | Property Get can't be executed at run time |
+| 394 | Get not supported (write-only property) | Property Get can't be executed on write-only property |
+| 429 | ActiveX component can't create object | Component can't create object or return reference to this object |
+| 430 | Class does not support Automation or does not support expected interface | Class doesn't support Automation |
+| 442 | Connection to type library or object library for remote process has been lost. Press OK for dialog to remove reference. | Lost the connection to the remote process's type or object library |
+| 443 | Automation object does not have a default value | Automation object doesn't have a default value |
+| 449 | Argument not optional | Argument not optional or invalid property assignment |
+| 451 | Property let procedure not defined and property get procedure did not return an object | Object not a collection |
+| 453 | Specified DLL function not found | Specified not found |
+| 458 | Variable uses an Automation type not supported in Visual Basic | Variable uses a type not supported in Visual Basic |
+| 459 | Object or class does not support the set of events | This component doesn't provide that set of events |
+| 460 | Invalid clipboard format | Invalid Clipboard format |
+| 735 | Can't save file to TEMP | Can't save file to TEMP directory |
+
+
+### The case of a character
+
+UCase, LCase and StrConv's upper and lower case were compared for every character `Chr(0)` to `Chr(255)` gives; these are the ones that change, letters A to Z aside:
+
+<details><summary>The table</summary>
+
+| Chr | Character | UCase | LCase | StrConv upper | StrConv lower |
+|---|---|---|---|---|---|
+| 131 | U+0192 | U+0191 | U+0192 | U+0192 | U+0192 |
+| 138 | U+0160 | U+0160 | U+0161 | U+0160 | U+0161 |
+| 140 | U+0152 | U+0152 | U+0153 | U+0152 | U+0153 |
+| 142 | U+017D | U+017D | U+017E | U+017D | U+017E |
+| 154 | U+0161 | U+0160 | U+0161 | U+0160 | U+0161 |
+| 156 | U+0153 | U+0152 | U+0153 | U+0152 | U+0153 |
+| 158 | U+017E | U+017D | U+017E | U+017D | U+017E |
+| 159 | U+0178 | U+0178 | U+00FF | U+0178 | U+00FF |
+| 192 | U+00C0 | U+00C0 | U+00E0 | U+00C0 | U+00E0 |
+| 193 | U+00C1 | U+00C1 | U+00E1 | U+00C1 | U+00E1 |
+| 194 | U+00C2 | U+00C2 | U+00E2 | U+00C2 | U+00E2 |
+| 195 | U+00C3 | U+00C3 | U+00E3 | U+00C3 | U+00E3 |
+| 196 | U+00C4 | U+00C4 | U+00E4 | U+00C4 | U+00E4 |
+| 197 | U+00C5 | U+00C5 | U+00E5 | U+00C5 | U+00E5 |
+| 198 | U+00C6 | U+00C6 | U+00E6 | U+00C6 | U+00E6 |
+| 199 | U+00C7 | U+00C7 | U+00E7 | U+00C7 | U+00E7 |
+| 200 | U+00C8 | U+00C8 | U+00E8 | U+00C8 | U+00E8 |
+| 201 | U+00C9 | U+00C9 | U+00E9 | U+00C9 | U+00E9 |
+| 202 | U+00CA | U+00CA | U+00EA | U+00CA | U+00EA |
+| 203 | U+00CB | U+00CB | U+00EB | U+00CB | U+00EB |
+| 204 | U+00CC | U+00CC | U+00EC | U+00CC | U+00EC |
+| 205 | U+00CD | U+00CD | U+00ED | U+00CD | U+00ED |
+| 206 | U+00CE | U+00CE | U+00EE | U+00CE | U+00EE |
+| 207 | U+00CF | U+00CF | U+00EF | U+00CF | U+00EF |
+| 208 | U+00D0 | U+00D0 | U+00F0 | U+00D0 | U+00F0 |
+| 209 | U+00D1 | U+00D1 | U+00F1 | U+00D1 | U+00F1 |
+| 210 | U+00D2 | U+00D2 | U+00F2 | U+00D2 | U+00F2 |
+| 211 | U+00D3 | U+00D3 | U+00F3 | U+00D3 | U+00F3 |
+| 212 | U+00D4 | U+00D4 | U+00F4 | U+00D4 | U+00F4 |
+| 213 | U+00D5 | U+00D5 | U+00F5 | U+00D5 | U+00F5 |
+| 214 | U+00D6 | U+00D6 | U+00F6 | U+00D6 | U+00F6 |
+| 216 | U+00D8 | U+00D8 | U+00F8 | U+00D8 | U+00F8 |
+| 217 | U+00D9 | U+00D9 | U+00F9 | U+00D9 | U+00F9 |
+| 218 | U+00DA | U+00DA | U+00FA | U+00DA | U+00FA |
+| 219 | U+00DB | U+00DB | U+00FB | U+00DB | U+00FB |
+| 220 | U+00DC | U+00DC | U+00FC | U+00DC | U+00FC |
+| 221 | U+00DD | U+00DD | U+00FD | U+00DD | U+00FD |
+| 222 | U+00DE | U+00DE | U+00FE | U+00DE | U+00FE |
+| 224 | U+00E0 | U+00C0 | U+00E0 | U+00C0 | U+00E0 |
+| 225 | U+00E1 | U+00C1 | U+00E1 | U+00C1 | U+00E1 |
+| 226 | U+00E2 | U+00C2 | U+00E2 | U+00C2 | U+00E2 |
+| 227 | U+00E3 | U+00C3 | U+00E3 | U+00C3 | U+00E3 |
+| 228 | U+00E4 | U+00C4 | U+00E4 | U+00C4 | U+00E4 |
+| 229 | U+00E5 | U+00C5 | U+00E5 | U+00C5 | U+00E5 |
+| 230 | U+00E6 | U+00C6 | U+00E6 | U+00C6 | U+00E6 |
+| 231 | U+00E7 | U+00C7 | U+00E7 | U+00C7 | U+00E7 |
+| 232 | U+00E8 | U+00C8 | U+00E8 | U+00C8 | U+00E8 |
+| 233 | U+00E9 | U+00C9 | U+00E9 | U+00C9 | U+00E9 |
+| 234 | U+00EA | U+00CA | U+00EA | U+00CA | U+00EA |
+| 235 | U+00EB | U+00CB | U+00EB | U+00CB | U+00EB |
+| 236 | U+00EC | U+00CC | U+00EC | U+00CC | U+00EC |
+| 237 | U+00ED | U+00CD | U+00ED | U+00CD | U+00ED |
+| 238 | U+00EE | U+00CE | U+00EE | U+00CE | U+00EE |
+| 239 | U+00EF | U+00CF | U+00EF | U+00CF | U+00EF |
+| 240 | U+00F0 | U+00D0 | U+00F0 | U+00D0 | U+00F0 |
+| 241 | U+00F1 | U+00D1 | U+00F1 | U+00D1 | U+00F1 |
+| 242 | U+00F2 | U+00D2 | U+00F2 | U+00D2 | U+00F2 |
+| 243 | U+00F3 | U+00D3 | U+00F3 | U+00D3 | U+00F3 |
+| 244 | U+00F4 | U+00D4 | U+00F4 | U+00D4 | U+00F4 |
+| 245 | U+00F5 | U+00D5 | U+00F5 | U+00D5 | U+00F5 |
+| 246 | U+00F6 | U+00D6 | U+00F6 | U+00D6 | U+00F6 |
+| 248 | U+00F8 | U+00D8 | U+00F8 | U+00D8 | U+00F8 |
+| 249 | U+00F9 | U+00D9 | U+00F9 | U+00D9 | U+00F9 |
+| 250 | U+00FA | U+00DA | U+00FA | U+00DA | U+00FA |
+| 251 | U+00FB | U+00DB | U+00FB | U+00DB | U+00FB |
+| 252 | U+00FC | U+00DC | U+00FC | U+00DC | U+00FC |
+| 253 | U+00FD | U+00DD | U+00FD | U+00DD | U+00FD |
+| 254 | U+00FE | U+00DE | U+00FE | U+00DE | U+00FE |
+| 255 | U+00FF | U+0178 | U+00FF | U+0178 | U+00FF |
+
+</details>
+
+Ten calls on characters beyond those letters settle the rule:
+
+| Call | Character | vb6.exe | Its case maps back |
+|---|---|---|---|
+| `UCase(ChrW(&HFF41))` | fullwidth a, U+FF41 | U+FF21 | yes |
+| `LCase(ChrW(&HFF21))` | fullwidth A, U+FF21 | U+FF41 | yes |
+| `UCase(ChrW(&H3B1))` | alpha, U+03B1 | U+0391 | yes |
+| `LCase(ChrW(&H391))` | capital alpha, U+0391 | U+03B1 | yes |
+| `UCase(ChrW(&H3C2))` | final sigma, U+03C2 | U+03C2 (itself) | no |
+| `UCase(ChrW(&HB5))` | micro sign, U+00B5 | U+00B5 (itself) | no |
+| `UCase(ChrW(&H131))` | dotless i, U+0131 | U+0131 (itself) | no |
+| `LCase(ChrW(&H130))` | capital I with dot, U+0130 | U+0130 (itself) | no |
+| `UCase(ChrW(&H17F))` | long s, U+017F | U+017F (itself) | no |
+| `LCase(ChrW(&H212A))` | Kelvin sign, U+212A | U+212A (itself) | no |
+
+**A character takes its other case only where that case maps back to it.**
+- **In upper case:** ƒ is Ƒ and ÿ is Ÿ, because each maps back. µ, ς, ſ and ı keep their case, because the upper case Unicode gives them (Μ, Σ, S, I) lowers to another character.
+- **In lower case:** the Kelvin sign and İ keep theirs.
+
+It is the rule VbLike's text fold was measured to follow (#1547). HexIDE's UCase and LCase used .NET's invariant casing, which maps all six.
+
+### Named arguments
+
+Measured as #1465 measured the rest, one project per spelling:
+- **StrConv** takes `String`, `Conversion` and `LocaleID`, the first two required. `LCID`, the name its documentation gives, is "Named argument not found".
+- **Error and Error$** take `ErrorNumber`, which is optional. `Number` is "Named argument not found".
+- **Switch's** parameter is a ParamArray: `Switch(VarExpr:=True)` and `Switch(Expr:=True, Value:=1)` are "Argument in ParamArray may not be named".
+
+### The edges
+
+| Row | Call | vb6.exe |
+|---|---|---|
+| strconv-upper-nonansi | `Codes(StrConv(ChrW(&H4E00) & ChrW(&H3B1) & ChrW(&H101) & ChrW(&H20AC), vbUpperCase))` | String [63.65.65.8364] |
+| strconv-lower-nonansi | `Codes(StrConv(ChrW(&H391) & ChrW(&H100), vbLowerCase))` | String [63.97] |
+| strconv-proper-nonansi | `Codes(StrConv(ChrW(&H101) & "b c" & ChrW(&H3B1), vbProperCase))` | String [65.98.32.67.97] |
+| strconv-0-nonansi | `Codes(StrConv(ChrW(&H101) & ChrW(&H4E00), 0))` | String [257.19968] |
+| strconv-upper-unicode | `StrConv("ab", vbUpperCase Or vbUnicode)` | err 5 Invalid procedure call or argument |
+| strconv-unicode-from | `StrConv("ab", vbUnicode Or vbFromUnicode)` | err 5 Invalid procedure call or argument |
+| strconv-null-null | `StrConv(Null, Null)` | err 94 Invalid use of Null |
+| strconv-null-bad | `StrConv(Null, 256)` | err 5 Invalid procedure call or argument |
+| strconv-lcid-null | `StrConv("a", vbUpperCase, Null)` | err 94 Invalid use of Null |
+| strconv-lcid-2057 | `StrConv("a", vbUpperCase, 2057)` | String A |
+| strconv-lcid-1 | `StrConv("a", vbUpperCase, 1)` | String A |
+| strconv-lcid-minus1 | `StrConv("a", vbUpperCase, -1)` | err 5 Invalid procedure call or argument |
+| strconv-proper-after-nul-lead | `Codes(StrConv(Chr(0) & "ab", vbProperCase))` | String [0.65.98] |
+| strconv-proper-mixed | `StrConv("mcDONALD o'BRIEN", vbProperCase)` | String Mcdonald O'brien |
+| strconv-array | `StrConv(Array("a"), vbUpperCase)` | err 13 Type mismatch |
+| strcomp-null-and-null-compare | `StrComp(Null, "a", Null)` | err 94 Invalid use of Null |
+| strcomp-array-and-null | `StrComp(Array(1), Null)` | err 13 Type mismatch |
+| strcomp-null-and-array | `StrComp(Null, Array(1))` | err 13 Type mismatch |
+| error-minus-70000 | `Error(-70000)` | String Application-defined or object-defined error |
+| error-long-max | `Error(2147483647)` | err 6 Overflow |
+| error-long-min | `Error(-2147483648#)` | String Application-defined or object-defined error |
+| error-past-long | `Error(2147483648#)` | err 6 Overflow |
+| error-true | `Error(True)` | String Application-defined or object-defined error |
+| error-65535-5 | `Error(65535.5)` | err 6 Overflow |
+| error-array | `Error(Array(6))` | err 13 Type mismatch |
+| switch-object-cond | `Switch(New Collection, 1)` | err 450 Wrong number of arguments or invalid property assignment |
+| switch-date-cond | `Switch(#1/1/2000#, "d")` | String d |
+| switch-cond-error-after-true | `Switch(True, 1, "x", 2)` | Integer 1 |
+
+### In HexIDE (#1560)
+
+All five functions are in the registry with their measured parameter names.
+- **StrComp** uses `VbTextCompare` for a compare of 1.
+- **StrConv's** cases go through the ANSI code page, best fit included, and use `VbCase`.
+- **Environ** reads the process's environment, ignoring case. Its index counts the variables sorted by name, ignoring case, with those whose names start with "=" left out. .NET gives the environment in no order, so HexIDE sorts it.
+- **Error** reads `VbErrorMessages`, as Err.Raise now does, and the interpreter's Err when given no number.
+- **UCase and LCase** use `VbCase`.
+
+Not done here, each with its issue:
+- **vbUnicode and vbFromUnicode** make byte strings (#1510).
+- **A compare of 3 and up** (#881).
+- **StrComp given no compare in a Text module** (#1572).
+
+## When Err is cleared, and what a running handler traps (2026-10-23, #877)
+
+Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60 6.00.9848 (SP6) runtime. These are run-time rows, and native and p-code agree on every one. The rows add to #877's first three and to the two its review rounds measured: `/make` and the IDE agreed then. Each program logged `Err.Number`, with `Err.Description` in brackets where it matters, at the points named. `ErrLifetimeTests` runs the same programs and must print the same lines.
+
+**Every `On Error` statement clears Err**, Description and Source included:
+
+| After `Err.Raise 5` under Resume Next | `Err` |
+|---|---|
+| `On Error Resume Next` | 0, Description and Source empty |
+| `On Error GoTo 0` | 0 |
+| `On Error GoTo H` | 0 |
+| `On Error GoTo -1` | 0. **VB6 compiles it**, although only VBA documents it |
+| `On Error Resume Next` inside a loop, again on its second pass | 6 on the first, 0 on the second |
+
+**Every `Resume` clears it, and so does leaving a procedure from its handler.** Each callee raised 11 into `On Error GoTo H`:
+
+| How the callee ended | `Err` seen after |
+|---|---|
+| `Exit Sub` from the handler | 0, though the handler itself read 11 |
+| `Exit Function` from the handler, which set the return value | 0, and the value is returned |
+| the handler reaching `End Function` or `End Sub` | 0, even when the caller had its own 5 set before the call |
+| the handler set `Err.Number = 7`, then `End Sub` | 0 |
+| the handler said `On Error Resume Next` or `On Error GoTo 0`, set `Err.Number = 7`, and ended or `Exit Sub`'d | 0: leaving the handler clears it, whatever mode the handler set |
+| the handler's `Resume Next`, or `Resume Back` to a label | 0 at the statement resumed, and 0 for the caller |
+| the handler raised 13 | 13 reaches the caller |
+| a handler for a callee's error 9, ending normally | the handler read 9, and the caller 0 |
+| `On Error Resume Next`, raise 11, then `Exit Sub` or `End Sub` (no handler) | **11**: leaving under Resume Next keeps it |
+
+**While a handler runs, nothing in its procedure traps**, whatever `On Error` it says:
+
+| Inside a running handler for 11 | Then |
+|---|---|
+| `On Error Resume Next`, then `Err.Raise 13` | not trapped: the statements after it never ran, and **13 reached the caller**. HexIDE trapped it and ran on |
+| `On Error GoTo H` (itself), then `Err.Raise 13` | 13 reached the caller |
+| `On Error Resume Next`, then `Resume Next` | resumed. A later `Err.Raise 13` **is** trapped and continued past: the mode the handler set applies once the handler has ended |
+| `On Error GoTo H2`, then `Resume Next` | the next error went to `H2` |
+| `On Error GoTo -1`, then `On Error Resume Next`, then `Err.Raise 13` | trapped: `-1` ends the handler |
+| `On Error GoTo -1`, then `On Error GoTo H`, then `Err.Raise 13` | the same handler ran again, for 13 |
+| a helper whose first line is `On Error Resume Next`, called from the handler | the handler's `Err` is 0 after the call: Err is global |
+
+`On Error GoTo -1` under `On Error Resume Next`, outside any handler, leaves Resume Next in force: a later `Err.Raise 6` is trapped.
+
+**`Err.Raise` with no Description keeps the one already set**, until `Err.Clear`. The other fields behave as follows:
+
+| Sequence, from `Err.Clear` | `Err.Number`, `Err.Description` |
+|---|---|
+| `Err.Raise 11`, `Err.Raise 13` | 13, **"Division by zero"** |
+| `Err.Raise 1000, "S1", "custom"`, `Err.Raise 5` | 5, "custom", and Source stays "S1" |
+| `Err.Raise 1000, , "custom"`, `Err.Raise 1000` | 1000, "custom" |
+| `Err.Description = "manual"`, `Err.Raise 13` | 13, "manual" |
+| `Err.Raise 11`, `Err.Description = ""`, `Err.Raise 13` | 13, **""**: an empty Description, once set, is kept too |
+| `Err.Number = 5`, `Err.Raise 6` | 6, "Overflow": setting Number sets no Description |
+| `Err.Raise 11`, `Err.Raise 13, , ""` | 13, "" |
+| `Err.Raise 11`, then `x = 1 / 0` | 11, "Division by zero": a run-time error always sets its own |
+| `Err.Raise 5` alone | Source is "Probe", the project's name |
+
+**Measured, and not followed:** `Resume` in a handler for an `Err.Raise` inside a one-line `If`, `If tries = 0 Then Err.Raise 11`, retried the `Err.Raise` itself, not the `If`. So it raised again although the handler had made `tries` 1. It looped until `tries` overflowed, and 6 reached the caller. HexIDE's `Resume` retries the top-level statement, the `If`, which is the nested-granular `Resume` limit in `interpreter-gaps.md`, so there it runs on.
+
+### In HexIDE (#877)
+
+- `VisitOnErrorStmt` clears Err first, for every form. `GoTo -1` sets `inHandler` false and leaves the mode alone.
+- Every `Resume` clears Err.
+- `LeaveHandler` clears it when the procedure is left with its handler running.
+- `Traps` and the Resume Next catches read `!inHandler`, so a running handler traps nothing.
+- `VbErr` records whether a Description has been set, and a `Raise` with none keeps it.
+- Source is still not filled with the project's name.

@@ -23,8 +23,8 @@ public partial class VB6BuiltIns
         d["Trim"]       = (_, a, _) => NullOrStr(a[0], s => s.Trim(' '));
         d["LTrim"]      = (_, a, _) => NullOrStr(a[0], s => s.TrimStart(' '));
         d["RTrim"]      = (_, a, _) => NullOrStr(a[0], s => s.TrimEnd(' '));
-        d["UCase"]      = (_, a, _) => NullOrStr(a[0], s => s.ToUpperInvariant());
-        d["LCase"]      = (_, a, _) => NullOrStr(a[0], s => s.ToLowerInvariant());
+        d["UCase"]      = (_, a, _) => NullOrStr(a[0], VbCase.Upper);
+        d["LCase"]      = (_, a, _) => NullOrStr(a[0], VbCase.Lower);
         d["StrReverse"] = (_, a, _) => NullOrStr(a[0], s => { var c = s.ToCharArray(); Array.Reverse(c); return new string(c); });
         d["Space"]      = (_, a, _) => new Vb6Value(new string(' ', Math.Max(0, AsInt(a[0]))));
         d["String"]     = (_, a, _) => new Vb6Value(new string(CharArg(a[1]), Math.Max(0, AsInt(a[0]))));
@@ -34,6 +34,91 @@ public partial class VB6BuiltIns
         d["AscW"]       = (_, a, _) => new Vb6Value((int)(short)FirstCharacterOf(a[0]));
         d["Str"]        = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(StrFn(a[0]));
         d["Val"]        = (_, a, _) => new Vb6Value(Val(AsStr(a[0])));
+        d["StrComp"]    = (_, a, _) => StrComp(a);
+        d["StrConv"]    = (_, a, _) => StrConv(a);
+    }
+
+    // StrComp(string1, string2[, compare]): -1, 0 or 1 as an Integer, or Null where either string is Null. Measured (#1560):
+    // the compare is read first, as CLng reads it (0.5 is 0 and 1.5 is 2), so a Null one is 94 whatever the strings are; 0
+    // is binary and 1 text (VbTextCompare), 2 and a negative are 5. Then the strings, an array being 13 even beside a Null,
+    // and anything else read as & reads it, so StrComp(5, "5") is 0. Given no compare, vb6.exe takes the calling module's
+    // Option Compare (measured); this compares binary there until #1572.
+    private static Vb6Value StrComp(IReadOnlyList<Vb6Value> a)
+    {
+        var text = Supplied(a, 2) && IsTextCompare(CompareArgument(a[2]));
+        var first = StrCompOperand(a[0]);
+        var second = StrCompOperand(a[1]);
+        if (first is null || second is null)
+            return Vb6Value.Null;
+        return new Vb6Value(text ? VbTextCompare.Compare(first, second) : Math.Sign(string.CompareOrdinal(first, second)));
+    }
+
+    private static string? StrCompOperand(Vb6Value v) =>
+        v.Value is VBArray ? throw new VBRunTimeException(VBStandardError.TypeMismatch) : v.IsNull ? null : AsStr(v);
+
+    /// <summary>
+    /// StrConv(string, conversion[, LCID]). Measured (#1560), native and p-code alike:
+    /// <list type="bullet">
+    /// <item>The conversion is read first, as CLng reads it (1.5 is 2), a Null one being 94, and checked before the string:
+    /// 1 is upper case, 2 lower and 3 proper, and 0 leaves the string alone. 4 to 32 (wide, narrow, katakana, hiragana)
+    /// are 5 on a Western system, and so are 256, 512, and 64 or 128 with anything else. 64 (vbUnicode) and 128
+    /// (vbFromUnicode) alone make a byte string, which HexIDE does not have (#1510), so they are refused.</item>
+    /// <item>An LCID Windows does not know is 5, and a Null one 94. A known one, even Turkish, changes nothing.</item>
+    /// <item>A Null string is Null and an array 13; anything else is read as &amp; reads it, so True is "TRUE" in upper
+    /// case.</item>
+    /// <item>The case goes through the ANSI code page: a character it lacks becomes its best fit, or "?" (ı is "I" in upper
+    /// case, and 一 is "?"), and a case it lacks is not taken (ƒ stays ƒ, Ƒ not being in 1252). 0 does neither.</item>
+    /// <item>Proper case starts a word after Chr(0), a tab, LF, VT, FF, CR or a space, and after nothing else, so
+    /// "o'neil's" is "O'neil's" and "jean-luc" "Jean-luc".</item>
+    /// </list>
+    /// </summary>
+    private static Vb6Value StrConv(IReadOnlyList<Vb6Value> a)
+    {
+        var conversion = CompareArgument(a[1]);
+        long cases = conversion & 3, rest = conversion & ~3L;
+        if (conversion < 0 || (rest & ~(64L | 128L)) != 0 || rest == (64L | 128L) || (rest != 0 && cases != 0))
+            throw InvalidCall();
+        if (Supplied(a, 2))
+            CheckLocaleIdentifier(a[2]);
+        if (a[0].Value is VBArray)
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        if (a[0].IsNull)
+            return Vb6Value.Null;
+        if (rest != 0)
+            throw new NotImplementedException(
+                "StrConv with vbUnicode or vbFromUnicode makes a byte string, which HexIDE does not have yet (#1510).");
+        var s = AsStr(a[0]);
+        return new Vb6Value(cases == 0 ? s : CaseThroughCodePage(s, (int)cases));
+    }
+
+    private static void CheckLocaleIdentifier(Vb6Value lcid)
+    {
+        var id = CompareArgument(lcid);
+        if (id == 0)
+            return;
+        try
+        {
+            _ = System.Globalization.CultureInfo.GetCultureInfo((int)id);
+        }
+        catch (Exception e) when (e is System.Globalization.CultureNotFoundException or ArgumentOutOfRangeException)
+        {
+            throw InvalidCall();
+        }
+    }
+
+    // StrConv's upper (1), lower (2) or proper (3) case, made through the ANSI code page (see StrConv).
+    private static string CaseThroughCodePage(string s, int cases)
+    {
+        var ansi = AnsiText();
+        var sb = new StringBuilder(s.Length);
+        var wordStart = true;
+        foreach (var c in ansi.GetString(ansi.GetBytes(s)))
+        {
+            var mapped = cases == 1 || cases == 3 && wordStart ? VbCase.Upper(c) : VbCase.Lower(c);
+            sb.Append(mapped != c && ansi.GetString(ansi.GetBytes(mapped.ToString())) != mapped.ToString() ? c : mapped);
+            wordStart = c is '\0' or '\t' or '\n' or '\v' or '\f' or '\r' or ' ';
+        }
+        return sb.ToString();
     }
 
     private static Vb6Value NullOrStr(Vb6Value v, Func<string, string> fn) =>
@@ -96,9 +181,29 @@ public partial class VB6BuiltIns
         if (a[i].IsNull || a[i + 1].IsNull) return Vb6Value.Null;
         if (start < 1) throw InvalidCall();
         string s1 = AsStr(a[i]), s2 = AsStr(a[i + 1]);
+        // An empty string1 holds nothing, and an empty string2 is found at start, however far past the end (measured, #1567).
+        if (s1.Length == 0) return new Vb6Value(0L);
+        if (s2.Length == 0) return new Vb6Value((long)start);
         if (start > s1.Length) return new Vb6Value(0L);
-        var cmp = compare == 1 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        return new Vb6Value((long)s1.IndexOf(s2, start - 1, cmp) + 1);   // 1-based; 0 when not found
+        // As text a match may start or end inside an expansion: "s" is in "ß" (measured, #1567).
+        return new Vb6Value((long)Find(s1, s2, start - 1, compare == 1, wholeCharacters: false, out _) + 1);   // 0 when not found
+    }
+
+    /// <summary>Where <paramref name="find"/> is next in <paramref name="s"/> from the 0-based <paramref name="start"/>, or -1,
+    /// as a compare of 0 (binary) or 1 (text) searches, and how many characters of <paramref name="s"/> the match spans: as
+    /// text "ss" spans the one character ß. <paramref name="wholeCharacters"/> is how Replace and Split search, which take
+    /// only a match that starts and ends on whole characters (see <see cref="VbTextCompare.IndexOf"/>).</summary>
+    internal static int Find(string s, string find, int start, bool text, bool wholeCharacters, out int length) =>
+        Find(s, find, start, text ? new VbTextCompare.Searchable(s) : null, wholeCharacters, out length);
+
+    // The same, for a caller that searches one string many times, as Replace and Split do, with the string folded for a text
+    // search once (text) or not at all (null, a binary search).
+    internal static int Find(string s, string find, int start, VbTextCompare.Searchable? text, bool wholeCharacters, out int length)
+    {
+        if (text != null)
+            return text.IndexOf(find, start, wholeCharacters, out length);
+        length = find.Length;
+        return s.IndexOf(find, start, StringComparison.Ordinal);
     }
 
     private static Vb6Value InStrRev(IReadOnlyList<Vb6Value> a)
@@ -108,10 +213,15 @@ public partial class VB6BuiltIns
         string s1 = AsStr(a[0]), s2 = AsStr(a[1]);
         int start = Supplied(a, 2) ? AsInt(a[2]) : -1;
         int compare = Supplied(a, 3) ? AsInt(a[3]) : 0;
-        var cmp = compare == 1 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        int from = start < 0 ? s1.Length - 1 : Math.Min(start - 1, s1.Length - 1);
+        // A start past the end is 0, even where the text is there to find (measured, #1567).
+        if (start > s1.Length) return new Vb6Value(0L);
+        int from = start < 0 ? s1.Length - 1 : start - 1;
         if (from < 0 || s1.Length == 0) return new Vb6Value(0L);
-        return new Vb6Value((long)s1.LastIndexOf(s2, from, cmp) + 1);
+        // An empty string2 is found at start: .NET's LastIndexOf would say one past it.
+        if (s2.Length == 0) return new Vb6Value((long)from + 1);
+        return new Vb6Value((long)(compare == 1
+            ? VbTextCompare.LastIndexOf(s1, s2, from)
+            : s1.LastIndexOf(s2, from, StringComparison.Ordinal)) + 1);
     }
 
     private static string Replace(IReadOnlyList<Vb6Value> a)
@@ -124,24 +234,20 @@ public partial class VB6BuiltIns
         if (start < 1) throw InvalidCall();
         string sub = start <= s.Length ? s.Substring(start - 1) : "";
         if (find.Length == 0 || count == 0) return sub;
-        var cmp = compare == 1 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         var sb = new StringBuilder();
+        var text = compare == 1 ? new VbTextCompare.Searchable(sub) : null;
         int i = 0, done = 0;
-        while (i <= sub.Length - find.Length)
+        while (count < 0 || done < count)
         {
-            if ((count < 0 || done < count) && string.Compare(sub, i, find, 0, find.Length, cmp) == 0)
-            {
-                sb.Append(repl);
-                i += find.Length;
-                done++;
-            }
-            else
-            {
-                sb.Append(sub[i]);
-                i++;
-            }
+            // As text a match is whole characters, and need not be find's length: "ss" replaces the one character ß.
+            var at = Find(sub, find, i, text, wholeCharacters: true, out var length);
+            if (at < 0)
+                break;
+            sb.Append(sub, i, at - i).Append(repl);
+            i = at + length;
+            done++;
         }
-        sb.Append(sub.Substring(i));
+        sb.Append(sub, i, sub.Length - i);
         return sb.ToString();
     }
 
