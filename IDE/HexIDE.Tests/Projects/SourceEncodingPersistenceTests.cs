@@ -1147,6 +1147,10 @@ public class SourceEncodingPersistenceTests : IDisposable
             form.TextEncoding.Should().Be(new Vb6TextEncoding(1250));
             control.TextEncoding.Should().Be(new Vb6TextEncoding(1250));
             control.FormPart!.TextEncoding.Should().Be(new Vb6TextEncoding(1250));
+            // Written by its first save, not as it is added (#500).
+            windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+                .Returns(Task.FromResult<string?>(Path.Join(dir, "Café1.frm")));
+            (await svc.SaveForm(form, saveAs: false)).Should().BeTrue();
             File.ReadAllBytes(form.AbsolutePath!).Should().Contain(0xE9, "é is written as its one Windows-1250 byte");
         }
         finally
