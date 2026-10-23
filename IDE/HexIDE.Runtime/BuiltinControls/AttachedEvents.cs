@@ -14,20 +14,24 @@ namespace HexIDE.Runtime.BuiltinControls;
 
 public static class AttachedEvents
 {
-    // The control's own focus only: GotFocus and LostFocus bubble, and a part inside the control taking the focus is not
-    // the control's GotFocus.
+    // The control's own focus only. GotFocus and LostFocus bubble, and the focus moving between the control and a part of
+    // it, such as a ListBox's item or a ComboBox's text box, is neither: VB6 raises one GotFocus as the control is entered
+    // and one LostFocus as it is left (measured, #1101). A control inside a container is its own, as a pointer event's is,
+    // so a PictureBox loses the focus to a TextBox it holds.
     public static void AttachFocusEvents<T>() where T : Control
     {
         InputElement.GotFocusEvent.AddClassHandler<T>((control, e) =>
         {
-            if (ReferenceEquals(e.Source, control))
+            if (e is FocusChangedEventArgs moved
+                && OwnsThePointerEvent(control, moved.NewFocusedElement) && !OwnsThePointerEvent(control, moved.OldFocusedElement))
                 control.ExecuteSub(ComponentBaseClass.GotFocusEvent);
-        });
+        }, handledEventsToo: true);
         InputElement.LostFocusEvent.AddClassHandler<T>((control, e) =>
         {
-            if (ReferenceEquals(e.Source, control))
+            if (e is FocusChangedEventArgs moved
+                && OwnsThePointerEvent(control, moved.OldFocusedElement) && !OwnsThePointerEvent(control, moved.NewFocusedElement))
                 control.ExecuteSub(ComponentBaseClass.LostFocusEvent);
-        });
+        }, handledEventsToo: true);
     }
 
     public static void AttachClick<T>(ClickRelease release = ClickRelease.Anywhere) where T : Control

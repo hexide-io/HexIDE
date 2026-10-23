@@ -108,7 +108,12 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
 
     public void SetContent(Control content) => Content = content;
 
-    public void ShowForm() => Show();
+    // A disabled form is shown without being activated, so the control that had the focus keeps it (measured, #1101).
+    public void ShowForm()
+    {
+        ShowActivated = IsEnabled;
+        Show();
+    }
 
     public void HideForm() => Hide();
 
