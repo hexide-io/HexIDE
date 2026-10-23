@@ -159,6 +159,36 @@ public class DapSessionTests
     }
 
     [Fact]
+    public async Task Disconnect_discards_evaluation_reply_before_disconnect_is_acknowledged()
+    {
+        await using var peer = new Peer();
+        await using var session = new DapSession(peer.Client);
+        await Launch(peer, session);
+        var stop = await Stop(peer, session);
+        var evaluation = session.EvaluateAsync(stop, 0, "wait", Token);
+        var held = await peer.Receive();
+        held.GetProperty("command").GetString().Should().Be("evaluate");
+        var ending = session.DisconnectAsync(Token);
+        var disconnect = await peer.Receive();
+        disconnect.GetProperty("command").GetString().Should().Be("disconnect");
+        try
+        {
+            // Hold the disconnect acknowledgement until the late evaluation is consumed.
+            // This forces the ordering that the process fixture's two replies can race over.
+            await peer.Reply(held, """{"result":"obsolete-evaluation","variablesReference":0}""");
+            await ((Func<Task>)(() => evaluation.WaitAsync(Patience, Token)))
+                .Should().ThrowExactlyAsync<InvalidOperationException>();
+            session.IsCurrent(stop).Should().BeFalse();
+            ending.IsCompleted.Should().BeFalse();
+        }
+        finally
+        {
+            await peer.Reply(disconnect);
+            await ending.WaitAsync(Patience, Token);
+        }
+    }
+
+    [Fact]
     public async Task Breakpoint_replacement_is_valid_while_running_and_stopped_and_empty_means_clear()
     {
         await using var peer = new Peer();

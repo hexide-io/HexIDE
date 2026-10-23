@@ -229,7 +229,15 @@ public sealed class DapSession : IAsyncDisposable
 
     public async Task DisconnectAsync(CancellationToken token = default)
     {
-        try { await Request("disconnect", new { terminateDebuggee = true }, token).ConfigureAwait(false); }
+        try
+        {
+            // End inspection before sending: pending replies can arrive before the adapter
+            // acknowledges disconnect, and must fail their post-response CheckStop too.
+            lock (_sync)
+                if (_snapshot.State is not (DapSessionState.Ended or DapSessionState.Faulted))
+                    Change(DapSessionState.Ended);
+            await Request("disconnect", new { terminateDebuggee = true }, token).ConfigureAwait(false);
+        }
         finally { await DisposeAsync().ConfigureAwait(false); }
     }
 
