@@ -218,6 +218,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A form's Width and Height are its outer size at run time** (#1072). They read and set the client area, so a
+  program got a form 90 to 240 twips narrower and 345 to 885 shorter than vb6.exe reports. They now include the frame
+  VB6 draws on the themed Windows desktop for the form's BorderStyle, caption bar and menu bar, read back as assigned,
+  and leave the client area that is left inside the frame. `Width = (Width - ScaleWidth) + needed` lands as before.
+
 - **Surplus call arguments are refused** (#741): procedures and intrinsics with known limits raise VB6's
   "Wrong number of arguments or invalid property assignment"; a declared scalar called with arguments raises
   "Expected array". Parameterless Variant and object results still index as before (#1476).
