@@ -182,10 +182,19 @@ connection's open rather than going ahead of it. Before this, the change was dro
 and a second server still starting was opened twice, the second time at a lower version with the text from
 before the edit ([#719](https://github.com/hexide-io/HexIDE/issues/719)).
 
-Two paths can still send a version that does not rise, both filed:
-- a debounced change crossing the flush that superseded it, with identical text
-  ([#720](https://github.com/hexide-io/HexIDE/issues/720));
-- two editors holding one name ([#721](https://github.com/hexide-io/HexIDE/issues/721)).
+**Every window holding one name holds one document.** One file shared by two projects of a group opens two code
+windows that both name it by its file, and a server has one document for that name. So the windows' sessions share
+it, per client: the first window to hold it opens it, every window draws its versions from one sequence, and the
+last window to let go closes it. A rename closes the old name only for its last holder and opens the new one only
+for its first. A window that joins an open document sends nothing of its own, because its copy as it opened could
+undo another window's unsaved edits on the server. It shows what was last published for the document, and its own
+edits reach the server as the next versions. The sequence is drawn where the edits are made, as above, so a send
+cannot renumber older text. Before this, each window kept its own count, the server was opened twice and discarded
+whichever count was behind, and either window's close closed the document for both
+([#721](https://github.com/hexide-io/HexIDE/issues/721)).
+
+One path can still send a version that does not rise, and it is filed: a debounced change crossing the flush
+that superseded it, with identical text ([#720](https://github.com/hexide-io/HexIDE/issues/720)).
 
 **On reconnect, tracked documents are replayed** through the same code path as a first open, carrying the
 version this connection has been tracking rather than `1`. Resetting to `1` would put the client's count
@@ -428,7 +437,7 @@ same call push takes — so **nothing downstream can tell the two apart**, which
 than a convenience. There is no separate pacing for this: edits are already coalesced before they reach the
 client, and a second authority over the same question would answer it differently.
 
-Three things about the model are worth stating because each one fails quietly if missed.
+Four things about the model are worth stating because each one fails quietly if missed.
 
 **Declaring it is half a negotiation, and shipping that half alone is worse than shipping neither.** A
 server is entitled to read `textDocument.diagnostic` as "the client will ask, so I need not announce" and
@@ -448,6 +457,13 @@ once this client declares it can ask, what `rumdl` publishes is an empty set whi
 back as the answer. The dropped publications are recorded in the protocol inspector rather than discarded
 silently, because "my `publishDiagnostics` is ignored" otherwise looks like a broken client to the person
 whose server advertised the alternative.
+
+**A server that takes no document sync is still asked, by design.** It is sent no document contents, so it
+answers from what it can read itself, such as the file on disk, and the protocol does not require a document
+to be open before it is asked about. Such a server is asked on open and when it asks for a refresh; it hears
+of no change and no save, so those asks never reach it. Asking only about documents that had been sent would
+leave it no way to give diagnostics at all, which is why
+[#432](https://github.com/hexide-io/HexIDE/issues/432) was closed rather than fixed.
 
 `workspace/diagnostic` — the same model at workspace scope — is **not** implemented; see the limitations
 table. `workspace/diagnostic/refresh` is, because it is the only way a server that speaks when spoken to can
@@ -719,8 +735,8 @@ than inferred.
 | ○ | `textDocument/documentColor` | → |  |
 | ✅ | `textDocument/documentHighlight` | → |  |
 | ○ | `textDocument/documentLink` | → |  |
-| ✅ | `textDocument/documentSymbol` | → |  |
-| ✅ | `textDocument/foldingRange` | → | Asked when an editor attaches, 500 ms after a change, and when a server comes up — the first of those runs before the first server of a session has initialized |
+| ✅ | `textDocument/documentSymbol` | → | Both answers are read. The client declares `hierarchicalDocumentSymbolSupport`, because a server that honours it sends the flat form to a client that does not, and the outline loses its nesting ([#463](https://github.com/hexide-io/HexIDE/issues/463)) |
+| ✅ | `textDocument/foldingRange` | → | Asked when an editor attaches, 500 ms after a change, and when a server comes up — the first of those runs before the first server of a session has initialized. The client declares `lineFoldingOnly`, because a fold is read by whole lines: told nothing, clangd ends a fold part-way along its closing line, and collapsing it hid the closing brace ([#1363](https://github.com/hexide-io/HexIDE/issues/1363)) |
 | ✅ | `textDocument/formatting` | → |  |
 | ✅ | `textDocument/hover` | → |  |
 | ○ | `textDocument/implementation` | → |  |

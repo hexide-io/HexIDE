@@ -252,7 +252,10 @@ public record TextDocumentClientCapabilities(
     [property: JsonPropertyName("hover")] HoverClientCapabilities? Hover = null,
     [property: JsonPropertyName("synchronization")] TextDocumentSyncClientCapabilities? Synchronization = null,
     [property: JsonPropertyName("codeLens")] CodeLensClientCapabilities? CodeLens = null,
-    [property: JsonPropertyName("diagnostic")] DiagnosticClientCapabilities? Diagnostic = null);
+    [property: JsonPropertyName("diagnostic")] DiagnosticClientCapabilities? Diagnostic = null,
+    // Appended, never inserted, for the reason on InitializeParams.Trace.
+    [property: JsonPropertyName("documentSymbol")] DocumentSymbolClientCapabilities? DocumentSymbol = null,
+    [property: JsonPropertyName("foldingRange")] FoldingRangeClientCapabilities? FoldingRange = null);
 
 /// <summary>
 /// What the client can do at workspace scope.
@@ -342,6 +345,47 @@ public record PublishDiagnosticsClientCapabilities(
 /// </para>
 /// </remarks>
 public record DiagnosticClientCapabilities();
+
+/// <summary>
+/// Declares that the client takes <c>textDocument/documentSymbol</c>'s answer as a tree.
+/// </summary>
+/// <remarks>
+/// <b>This changes what a server sends, not whether it sends.</b> The request has two legal answers, the
+/// <c>DocumentSymbol[]</c> tree and the flat <c>SymbolInformation[]</c>, and a server that honours this
+/// declaration sends the tree only to a client that made it. The client reads both, so leaving it out broke
+/// nothing visibly: it flattened every outline from such a server instead. Measured against clangd: a
+/// namespace holding a struct and a function came back as five symbols at the top level, and as the
+/// namespace holding the other two once this was declared (hexide-io/HexIDE#463).
+///
+/// <para>
+/// <c>symbolKind</c> is deliberately absent. Without it a server keeps to the kinds from <c>File</c> to
+/// <c>Array</c>, as it did when the client declared nothing here, so this declaration changes the shape of
+/// the answer and nothing else. <c>dynamicRegistration</c> follows the rule in
+/// <see cref="CodeLensClientCapabilities"/>.
+/// </para>
+/// </remarks>
+public record DocumentSymbolClientCapabilities(
+    [property: JsonPropertyName("hierarchicalDocumentSymbolSupport")] bool HierarchicalDocumentSymbolSupport = false);
+
+/// <summary>
+/// Declares that the client folds a server's ranges by whole lines.
+/// </summary>
+/// <remarks>
+/// <b>True of the reader, not of the editor.</b> <c>Vb6FoldingAdapter.FromServer</c> reads a fold's lines and
+/// ignores its characters, so this says what the client does with a range today. A server that honours it ends a
+/// fold on the line before its closing line. One told nothing may end it part-way along that line instead: clangd
+/// ends each fold just before its closing brace, and read by whole lines the fold then hid the brace
+/// (hexide-io/HexIDE#1363). The editor can fold part-way along a line, so the change that makes the reader honour
+/// a fold's characters removes this declaration with it (hexide-io/HexIDE#1022).
+///
+/// <para>
+/// <c>rangeLimit</c>, <c>foldingRangeKind</c> and <c>foldingRange.collapsedText</c> are absent: nothing here limits
+/// the number of folds, reads a fold's kind, or shows a server's label. <c>dynamicRegistration</c> follows the
+/// rule in <see cref="CodeLensClientCapabilities"/>.
+/// </para>
+/// </remarks>
+public record FoldingRangeClientCapabilities(
+    [property: JsonPropertyName("lineFoldingOnly")] bool LineFoldingOnly = false);
 
 /// <summary>
 /// Asks a server what it currently has to say about one document.

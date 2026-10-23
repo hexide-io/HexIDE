@@ -141,7 +141,11 @@ public struct VBStandardError
     public static readonly VBStandardError ComponentNotFound = new(337, "Component not found");
     public static readonly VBStandardError ComponentDidNotRunCorrectly = new(338, "Component did not run correctly");
     public static readonly VBStandardError ControlArrayElementDoesntExist = new(340, "Control array element doesn't exist");
+    /// <summary>VB6's 340 names the index it was given, read, written or unloaded (measured, #1386).</summary>
+    public static VBStandardError ControlArrayElementIsMissing(int index) =>
+        new(ControlArrayElementDoesntExist.ErrNo, $"Control array element '{index}' doesn't exist");
     public static readonly VBStandardError InvalidControlArrayIndex = new(341, "Invalid control array index");
+    public static readonly VBStandardError ObjectNotAnArray = new(343, "Object not an array");
     public static readonly VBStandardError ObjectAlreadyLoaded = new(360, "Object already loaded");
     public static readonly VBStandardError CantLoadOrUnloadThisObject = new(361, "Can't load or unload this object");
     public static readonly VBStandardError CantUnloadControlsCreatedAtDesignTime = new(362, "Can't unload controls created at design time");
@@ -151,7 +155,7 @@ public struct VBStandardError
     public static readonly VBStandardError TheSpecifiedFileIsOutOfDateThisProgramRequiresALaterVersion = new(368, "This file is an older version than the program requires");
     public static readonly VBStandardError TheSpecifiedObjectCantBeUsedAsAnOwnerFormForShow = new(371, "That object can't act as the owner form for Show");
     public static readonly VBStandardError InvalidPropertyValue = new(380, "Invalid property value");
-    public static readonly VBStandardError InvalidPropertyArrayIndex = new(381, "Invalid property-array index");
+    public static readonly VBStandardError InvalidPropertyArrayIndex = new(381, "Invalid property array index");
     public static readonly VBStandardError PropertySetCantBeExecutedAtRunTime = new(382, "Property Set can't be executed at run time");
     public static readonly VBStandardError PropertySetCantBeUsedWithAReadOnlyProperty = new(383, "Property Set can't be used with a read-only property");
     public static readonly VBStandardError NeedPropertyArrayIndex = new(385, "Need property-array index");

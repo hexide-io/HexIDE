@@ -28,8 +28,27 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   by D2.
 
 ### D2. Reset-project prompt stands in for E&C — for EVERY edit
-- **VB6:** applied most edits live; showed *"This action will reset your project. Do you want to continue?"* only
-  for edits it *couldn't* apply (structural changes). A comment or a simple in-line tweak applied with no reset.
+- **VB6:** applies most edits live. A comment, a body line, even a new module-level `Dim` apply with no prompt. For an
+  edit it can't apply live, it asks as the caret leaves the line, and it has two prompts (measured, #1329; the oracle's
+  "The reset prompt" section):
+  - **"This action will reset your project, proceed anyway?"** (OK, Cancel, Help), for retyping a module variable or
+    changing a procedure's parameters. Cancel puts the line back and stays in break mode; OK keeps the edit and ends
+    the run.
+  - **"This edit requires a Reset"** (OK, Help), which can't be declined, for a duplicate declaration.
+  - In run mode the code window takes no typing at all, so neither prompt arises there.
+  - This bullet used to quote the prompt as "…Do you want to continue?" with Yes and No. That was never measured, and
+    it is HexIDE's wording, not VB6's. The wording and buttons are #1360.
+- **Which windows the prompt holds (measured, #1329):**
+  - **VB6:** the running form owns it, and every top-level window of the process is disabled while it waits: the IDE
+    and the program together. The program is paused in break mode anyway, and run mode offers no prompt.
+  - **HexIDE:** the code window's own window owns it (#1298), and only that window is disabled. With the code window
+    docked, that is the IDE's main window, while the running form keeps running and taking clicks. With the IDE
+    minimized, the fallback owner is the running form, and the IDE stays enabled. Linux, docked, agrees: the prompt is
+    over the IDE's main window and the running form takes clicks. Minimized was not reachable there under Xvfb with
+    no window manager, and macOS is unchecked.
+  - **The difference:** HexIDE can't hold the whole IDE and program together while it asks in run mode. A modal over
+    one window is all Avalonia offers, and the program isn't paused. Floating a code window, which would split the
+    IDE's windows further, currently hides it instead (#1361).
 - **HexIDE:** the interpreter can apply *no* edit live, so **every** edit while running/paused pops that same
   prompt (Yes = reset + keep the edit; No = revert). So HexIDE over-prompts relative to VB6 (it resets even for a
   comment).
@@ -238,6 +257,15 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   so it can never affect the resumed program walk if it leaks across an async intrinsic's UI-thread yield. (The
   original guard sat only in `CallProcedure` and missed the method/Property-Get/qualified/`New` paths + could leak —
   both found by the cross-model adversarial review.)
+
+### D28. A `?` line ending in `;` or `,` leaves no line open (deliberate, #1386)
+- **VB6:** `? 6;` prints ` 6 ` and leaves the caret after it, on the same line. What is typed next joins that line, so
+  `? 7` there becomes ` 6 ? 7`, and Enter answers "Compile error: Invalid in Immediate pane" (measured).
+- **HexIDE:** the items print as VB6 prints them, ` 6 `, and the next line typed starts a line of its own.
+- **Why:** the joined line is a trap rather than a use. Nothing typed after an open line can be evaluated, since VB6 reads
+  the whole line, output included. The Fidelity Principle reproduces what VB6 means to do, not where it trips.
+- **Status:** **by design.** A `?` line otherwise prints exactly as `Debug.Print` does (the oracle's "A `?` line in the
+  Immediate window").
 
 ---
 

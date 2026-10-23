@@ -504,14 +504,20 @@ public class CorpusConformanceTests
             {
                 var id = el.GetProperty("id").GetString()!;
                 var key = $"{name}/{id}";
-                // A case may declare itself undeliverable by the compile harness (the line-ending cases).
-                // That is deliberate and stays silent.
+                // A case may declare itself undeliverable by the compile harness. That is deliberate and stays
+                // silent.
                 if (el.TryGetProperty("skip", out _)) continue;
+
+                // A case measured by another harness carries its verdict, and how it was measured, itself: the
+                // line-ending cases, which vb6-legality.ps1 cannot deliver because it writes every case CRLF.
+                // Not in results.json, which that script regenerates whole from the cases it ran.
+                string? vb6 = el.TryGetProperty("measured", out var measured) ? measured.GetProperty("actual").GetString()
+                    : verdicts.TryGetValue(key, out var recorded) ? recorded : null;
 
                 // A case with no recorded verdict is NOT deliberate. It contributes nothing while looking
                 // exactly like coverage, so someone can add cases, watch the gate stay green, and believe
                 // they measured something. Collected rather than skipped.
-                if (!verdicts.TryGetValue(key, out var vb6)) { unmeasured.Add(key); continue; }
+                if (vb6 is null) { unmeasured.Add(key); continue; }
                 if (vb6 is not ("legal" or "illegal")) continue;   // timeouts prove nothing either way
 
                 var scope = el.TryGetProperty("scope", out var s) ? s.GetString() : "statement";

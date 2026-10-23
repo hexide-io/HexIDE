@@ -510,7 +510,14 @@ public sealed class VBLspClient : ILspClient
                     // will ask, so I need not announce" and stop publishing — measured against ruff, which
                     // publishes freely without this line and publishes nothing at all with it. So this
                     // declaration and the request that follows it are one change and cannot be separated.
-                    Diagnostic: new DiagnosticClientCapabilities()),
+                    Diagnostic: new DiagnosticClientCapabilities(),
+                    // Not a gate like the three above: the reader below already takes both answers, so
+                    // nothing goes silent without this. What goes is the nesting, because a server that
+                    // honours it sends the flat form to a client that never said it could take the tree.
+                    DocumentSymbol: new DocumentSymbolClientCapabilities(HierarchicalDocumentSymbolSupport: true),
+                    // Says how the reader takes a fold, which is by whole lines. Told nothing, a server may end a
+                    // fold part-way along its closing line, and a fold read by whole lines then hides that line.
+                    FoldingRange: new FoldingRangeClientCapabilities(LineFoldingOnly: true)),
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
                     WorkspaceFolders: true)));

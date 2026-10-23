@@ -98,33 +98,28 @@ public class ProjectService : IProjectService
     /// host's file system compares names. A project with no file of its own has no kept lines to resolve.
     /// </summary>
     private static bool KeptLineNames(ProjectDefinition project, string line, string absolutePath) =>
-        project.AbsolutePath is { } projectPath
+        // Relative to the folder the line was read in, which a Save As to another folder does not change (#737).
+        (project.ItemLinesDirectory ?? (project.AbsolutePath is { } projectPath ? Path.GetDirectoryName(projectPath) : null))
+            is { } linesDirectory
         && KeptLinePath(line) is { } relative
         && string.Equals(
-            Path.GetFullPath(Path.Join(Path.GetDirectoryName(projectPath)!, ToLocalRelativePath(relative))),
+            Path.GetFullPath(Path.Join(linesDirectory, ToLocalRelativePath(relative))),
             Path.GetFullPath(absolutePath),
             OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
-    /// <summary>The file a kept member line names, or null for a line that names no member file.</summary>
-    private static string? KeptLinePath(string line)
-    {
-        var eq = line.IndexOf('=');
-        if (eq < 0)
-            return null;
-        var key = line[..eq].Trim();
-        var value = line[(eq + 1)..].Trim();
-        if (key.Equals(SerializedProject.ModuleKey, StringComparison.OrdinalIgnoreCase)
-            || key.Equals(SerializedProject.ClassKey, StringComparison.OrdinalIgnoreCase))
-        {
-            var semi = value.IndexOf(';');
-            return semi < 0 ? value : value[(semi + 1)..].Trim();
-        }
-        return key.Equals(SerializedProject.FormKey, StringComparison.OrdinalIgnoreCase)
-            || key.Equals(SerializedProject.UserControlKey, StringComparison.OrdinalIgnoreCase)
-            || key.Equals(SerializedProject.PropertyPageKey, StringComparison.OrdinalIgnoreCase)
-            ? value
+    /// <summary>
+    /// The file a kept member line names, or null for a line that names no member file. A UserDocument names one, but
+    /// is never loaded, so no member joining the project takes its place.
+    /// </summary>
+    private static string? KeptLinePath(string line) =>
+        SerializedProject.ItemLineFile(line) is { } file
+        && (file.Key.Equals(SerializedProject.FormKey, StringComparison.OrdinalIgnoreCase)
+            || file.Key.Equals(SerializedProject.ModuleKey, StringComparison.OrdinalIgnoreCase)
+            || file.Key.Equals(SerializedProject.ClassKey, StringComparison.OrdinalIgnoreCase)
+            || file.Key.Equals(SerializedProject.UserControlKey, StringComparison.OrdinalIgnoreCase)
+            || file.Key.Equals(SerializedProject.PropertyPageKey, StringComparison.OrdinalIgnoreCase))
+            ? line.Substring(file.Start, file.Length)
             : null;
-    }
 
     /// <summary>
     /// The project-file line for a member that did not load, so a save writes it back rather than dropping
@@ -1315,7 +1310,8 @@ public class ProjectService : IProjectService
     public Task<FormDefinition> AddNewForm(ProjectDefinition project, string name, bool interactive = true) =>
         WithSaveRefusals(() =>
         {
-            var form = new FormDefinition(project, FormComponentClass.Instance, name) { TextEncoding = HostAnsi };
+            var form = FormDefinition.NewForm(project, FormComponentClass.Instance, name);
+            form.TextEncoding = HostAnsi;
             EnsureNewMemberEncodable(project, form, name + ".frm");
             EnsureNothingInTheWay(project, name, name + ".frm");
             var dir = ProjectFilesDirectory(project);
@@ -2019,6 +2015,10 @@ public class ProjectService : IProjectService
         var serialized = new ProjectSerializer().Serialize(definition, projectPath);
         AtomicWriteText(projectPath, serialized,
             Vb6TextFile.EncodeDocument(definition.Name, serialized, definition.TextEncoding));
+        // A kept line names its file from the folder it was read in. A project the loader did not read has that folder
+        // pinned here, before its own path moves, or the next save would read its kept lines from the new one (#737).
+        if (definition.AbsolutePath is { } previous)
+            definition.ItemLinesDirectory ??= Path.GetDirectoryName(previous);
         definition.AbsolutePath = projectPath;
     }
 
@@ -2036,6 +2036,13 @@ public class ProjectService : IProjectService
         var path = project.AbsolutePath;
         if (path is null)
             return true; // never saved
+
+        // A member with no file changes the project file for certain, since the next save lists it, and the render
+        // below cannot show that: the serializer skips a member with no path. The Project Explorer's Add Form adds
+        // one, and a project counted clean then stayed out of the close prompt, so the form it listed was saved
+        // and the project file never named it (#1359).
+        if (UnlistedMembers(project, writtenWithIt: _ => false).Count > 0)
+            return true;
 
         return !BaselineMatches(path, new ProjectSerializer().Serialize(project, path));
     }

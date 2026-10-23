@@ -42,6 +42,7 @@ public class HScrollBarComponentClass : ScrollBarComponentClass
 {
     public override string Name => "HScroll";
     public override string VBTypeName => "VB.HScrollBar";
+    public override (int Width, int Height) AddedSize => (1215, 255);
 
     protected override Orientation Orientation => Orientation.Horizontal;
 

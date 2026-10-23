@@ -119,22 +119,23 @@ public class FormDeserializer
                 // lines inside the block are replayed exactly as they were read, so a Begin/End pair
                 // generated at some other level would sit at odds with its own contents. A component at
                 // depth d was written at indent (d-1)*3, which is the step VB6 uses.
-                var subtreeLines = ReconstructRawSubtree(serializedComponent, depth - 1);
-                // The subtree's TEXT survives, but any blob it points at is never collected, so a
-                // regenerated companion would omit it. Record the loss so the save leaves the file alone.
-                //
-                // Asked of the component's OWN properties, not of subtreeLines. It used to test the
-                // reconstructed lines — which ReconstructRawSubtree has already stripped of every
-                // FRX-citing property group (see its `continue`), so the condition could never be true and
-                // this detector had been dead since it was written. The count in the gate below was
-                // carrying the whole case alone (#146).
-                if (CitesCompanionBinary(serializedComponent))
+                // The records its lines cite go with it, so a save puts them back and rewrites those citations to
+                // wherever they land (#60). Web Browser.frm's ImageList holds six pictures this way. They used to be
+                // dropped with the lines citing them, which held the form read-only.
+                var subtreeRecords = new Dictionary<int, byte[]>();
+                var everyCitationResolved = true;
+                var subtreeLines = ReconstructRawSubtree(
+                    serializedComponent, depth - 1, frxBlobs, subtreeRecords, ref everyCitationResolved);
+                capturedBlobs.UnionWith(subtreeRecords.Values);
+                // A record it cites is not in the companion, so a save could not put it back.
+                if (!everyCitationResolved)
                     form.MarkUnmodelledBinaryProperty();
                 // Recorded on the component it was read from, so the writer can put it back inside that
                 // container rather than just inside the root's closing End. The root is always a modelled
                 // class — VisualRootTypes is checked above and every member of it maps to
                 // FormComponentClass — so parent is never null here.
-                parent!.AddPreservedChildSubtree(ordinal, preservedSubtreesSeen++, string.Join("\r\n", subtreeLines));
+                parent!.AddPreservedChildSubtree(ordinal, preservedSubtreesSeen++, string.Join("\r\n", subtreeLines),
+                    subtreeRecords.Count > 0 ? subtreeRecords : null);
                 // A CommonDialog is kept the same way, but it runs (#1084) and saves byte for byte, so there is nothing to
                 // warn of: the warning used to tell the user, as the project opened, that a control which works did not.
                 if (!serializedComponent.Type.Equals("MSComDlg.CommonDialog", StringComparison.OrdinalIgnoreCase))
@@ -492,16 +493,21 @@ public class FormDeserializer
             {
                 if (knownNames.Contains(name) && !unparsedKnownNames.Contains(name))
                     continue;
-                if (rawLines.Any(l => FrxDeserializer.IsFrxReference(l)))
+                // Carried with the records it cites, so a save puts them back and rewrites its citations to wherever
+                // they land (#60).
+                var records = new Dictionary<int, byte[]>();
+                if (!AddCitedRecords(rawLines, frxBlobs, records))
                 {
-                    // The property is dropped, so a save can no longer reproduce the blob it referenced.
-                    // Record that on the form: the save path uses it to leave the companion binary
-                    // untouched rather than truncating or deleting the user's images.
+                    // A record it cites is not in the companion, so a save could not put it back. The property is
+                    // dropped, and the form records it: the save path then leaves the companion untouched rather
+                    // than truncating or deleting the user's images.
                     form.MarkUnmodelledBinaryProperty();
-                    errorSink.LogError($"Unknown binary-referencing property '{name}' in '{serializedComponent.Name}' cannot be preserved in phase 1 — deferred to binary round-trip phase.");
+                    errorSink.LogError($"Property '{name}' in '{serializedComponent.Name}' cites a record its companion does not hold, so the form cannot be saved.");
                     continue;
                 }
-                instance.UnknownRawProperties.Add(new ComponentInstance.UnknownRawProperty(name, rawLines));
+                capturedBlobs.UnionWith(records.Values);
+                instance.UnknownRawProperties.Add(
+                    new ComponentInstance.UnknownRawProperty(name, rawLines, records.Count > 0 ? records : null));
             }
 
             for (var i = 0; i < serializedComponent.SubComponents.Count; i++)
@@ -526,11 +532,12 @@ public class FormDeserializer
             form.MarkUnfaithfulToSave(UnfaithfulSaveCause.NestedContainers,
                 "it nests a control inside a class that is not a container, which HexIDE would re-parent onto the form on save");
 
-        // Binary content the writer cannot re-emit. Two ways it goes missing, and only the first announces
-        // itself: a property on an unmodelled control (flagged during the walk), and a property that IS
-        // named on a modelled control but whose CLR type is not byte[], which is dropped with no diagnostic
-        // at all — ODBC Log In's ComboBox List is exactly that. The count comparison is the safety net for
-        // the silent case, and it is why this is not simply "did anything set the flag".
+        // Binary content the writer cannot re-emit. A record HexIDE does not model is carried now, with the
+        // property or preserved block citing it (#60), so what is left is a citation the companion cannot honour,
+        // and a property that IS named on a modelled control but whose CLR type is not byte[]. The first is
+        // flagged during the walk. The second is dropped with no diagnostic at all, as ODBC Log In's ComboBox List
+        // was until List was modelled as its record. The count comparison is the safety net for that silent case,
+        // and it is why this is not simply "did anything set the flag".
         //
         // The bytes themselves are never lost: WriteCompanionBinary leaves the companion alone. What is
         // lost is the reference, so the picture disappears from the control while the file that holds it
@@ -618,25 +625,32 @@ public class FormDeserializer
     }
 
     /// <summary>
-    /// Does this component, or anything nested inside it, cite the companion binary?
-    ///
-    /// Read from the component's own raw properties, because the reconstructed subtree has had exactly
-    /// those lines removed — testing the reconstruction for them is what made the old check dead.
+    /// Adds the companion records <paramref name="lines"/> cite to <paramref name="records"/>, keyed by the offset
+    /// each cites. False when one of them is not in the companion, or there is no companion.
     /// </summary>
-    private static bool CitesCompanionBinary(VBSerializedComponent component)
+    private static bool AddCitedRecords(
+        IEnumerable<string> lines, IReadOnlyDictionary<int, byte[]>? frxBlobs, Dictionary<int, byte[]> records)
     {
-        foreach (var (_, rawLines) in component.OrderedRawProperties)
-            if (rawLines.Any(FrxDeserializer.IsFrxReference))
-                return true;
-
-        foreach (var sub in component.SubComponents)
-            if (CitesCompanionBinary(sub))
-                return true;
-
-        return false;
+        var resolved = true;
+        foreach (var line in lines)
+        {
+            if (FrxDeserializer.Citation(line) is not { } citation)
+                continue;
+            if (frxBlobs is not null && frxBlobs.TryGetValue(citation.Offset, out var record))
+                records[citation.Offset] = record;
+            else
+                resolved = false;
+        }
+        return resolved;
     }
 
-    private static List<string> ReconstructRawSubtree(VBSerializedComponent component, int indentLevel)
+    /// <summary>
+    /// The block an unmodelled control was read from, with the records its lines cite added to
+    /// <paramref name="records"/>. When one of them is not in the companion, the property citing it is left out and
+    /// <paramref name="resolved"/> is cleared.
+    /// </summary>
+    private static List<string> ReconstructRawSubtree(VBSerializedComponent component, int indentLevel,
+        IReadOnlyDictionary<int, byte[]>? frxBlobs, Dictionary<int, byte[]> records, ref bool resolved)
     {
         var indent = new string(' ', indentLevel * 3);
         var lines = new List<string>();
@@ -647,13 +661,18 @@ public class FormDeserializer
 
         foreach (var (_, rawLines) in component.OrderedRawProperties)
         {
-            if (rawLines.Any(l => FrxDeserializer.IsFrxReference(l)))
-                continue; // skip binary-referencing lines (deferred to binary phase)
+            // A record it cites is not in the companion. Dropped, as a carried property is, so nothing in the model
+            // cites a record it does not hold; the form is held read-only.
+            if (!AddCitedRecords(rawLines, frxBlobs, records))
+            {
+                resolved = false;
+                continue;
+            }
             lines.AddRange(rawLines);
         }
 
         foreach (var sub in component.SubComponents)
-            lines.AddRange(ReconstructRawSubtree(sub, indentLevel + 1));
+            lines.AddRange(ReconstructRawSubtree(sub, indentLevel + 1, frxBlobs, records, ref resolved));
 
         lines.Add($"{indent}End");
         return lines;

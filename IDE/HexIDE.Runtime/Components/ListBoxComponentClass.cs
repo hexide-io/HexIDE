@@ -16,18 +16,20 @@ public class ListBoxComponentClass : ComponentBaseClass
         ListProperty,
         ItemDataProperty,
         LockedProperty,
+        MultiSelectProperty,
         // Same reason as CommandButton.Picture: held so the blob survives, not because dragging draws it.
         DragIconProperty,
         MousePointerProperty,
         RightToLeftProperty,
         AppearanceProperty,
         TabStopProperty,
-        TabIndexProperty], [ClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
+        TabIndexProperty], [ClickEvent, DblClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
     {
     }
 
     public override string Name => "List";
     public override string VBTypeName => "VB.ListBox";
+    public override (int Width, int Height) AddedSize => (1215, 450);
 
     protected override Control InstantiateInternal(ComponentInstance instance)
     {
@@ -39,7 +41,8 @@ public class ListBoxComponentClass : ComponentBaseClass
             [AttachedProperties.ForeColorProperty] = instance.GetPropertyOrDefault(ForeColorProperty),
             [AttachedProperties.FontProperty] = instance.GetPropertyOrDefault(FontProperty),
             Cursor = instance.GetPropertyOrDefault(MousePointerProperty).ToCursor(),
-            FlowDirection = instance.GetPropertyOrDefault(RightToLeftProperty) ? FlowDirection.RightToLeft : FlowDirection.LeftToRight
+            FlowDirection = instance.GetPropertyOrDefault(RightToLeftProperty) ? FlowDirection.RightToLeft : FlowDirection.LeftToRight,
+            MultiSelect = instance.GetPropertyOrDefault(MultiSelectProperty)
         };
     }
 

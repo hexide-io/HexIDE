@@ -146,7 +146,12 @@ public static class AvaloniaInteroperability
         Register<VBTimer, int>(VBProperties.IntervalProperty, VBTimer.IntervalProperty);
 
         Register<ComboBox, int>(VBProperties.ListIndexProperty, SelectingItemsControl.SelectedIndexProperty);
-        Register<ListBox, int>(VBProperties.ListIndexProperty, SelectingItemsControl.SelectedIndexProperty);
+        // A multi-select list's ListIndex is its focused item, not a selected one (#1413).
+        Register<ListBox, int>(VBProperties.ListIndexProperty, l => l is VBListBox v ? v.ListIndex : l.SelectedIndex,
+            (l, index) => l.SelectedIndex = index);
+        // Read-only to a program: TrySet refuses it before it gets here.
+        Register<VBListBox, VBMultiSelect>(VBProperties.MultiSelectProperty, l => l.MultiSelect,
+            (_, _) => throw new VBCompileErrorException("Can't assign to read-only property"));
 
         // A Line's members are read and written by LineMembers, which types and checks them as VB6 does (#163). They are
         // bound here as well so that the Locals window lists them, as it lists every bound property.
@@ -209,6 +214,10 @@ public static class AvaloniaInteroperability
         if (MenuMembers.IsMenu(control) && MenuMembers.TrySet(control, property, value) is { } menuMember)
             return menuMember;
 
+        // VB6 refuses it at compile time, whatever the value (measured, #1413).
+        if (ReferenceEquals(property, VBProperties.MultiSelectProperty))
+            throw new VBCompileErrorException("Can't assign to read-only property");
+
         // VB6 accepts this and resets BackColor to the appearance's default (measured, #795). Setting the property
         // alone would leave the old BackColor, a wrong value; failing to find it would be a trappable 461 that On
         // Error Resume Next swallows into the same wrong value. So it is refused, untrappably, until #796.
@@ -233,6 +242,18 @@ public static class AvaloniaInteroperability
                 if (control is ItemsControl items && ReferenceEquals(property, VBProperties.ListIndexProperty)
                     && converted is int index && (index < -1 || index >= items.ItemCount))
                     throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+                // A ListBox raises Click when code moves its selection (measured, #1374).
+                if (control is VBListBox list && ReferenceEquals(property, VBProperties.ListIndexProperty) && converted is int listIndex)
+                {
+                    list.SetListIndexFromCode(listIndex);
+                    return true;
+                }
+                // And so does a ComboBox (measured, #1429).
+                if (control is VBComboBox combo && ReferenceEquals(property, VBProperties.ListIndexProperty) && converted is int comboIndex)
+                {
+                    combo.SetListIndexFromCode(comboIndex);
+                    return true;
+                }
                 // A transparent Label keeps the BackColor it has: VB6 drops one assigned at run time, without an
                 // error, so it reads back the old colour and shows that colour if the label is later made opaque
                 // (measured, #795). Only once the label is opaque does an assignment take. The value is converted
@@ -395,12 +416,8 @@ public static class AvaloniaInteroperability
     private static int EnumValue(Type type, Vb6Value value)
     {
         var number = System.Convert.ToInt32(Coerce(value, Vb6Value.ValueType.Integer));
-        // MousePointer accepts every value from 0 to 15, and 99 (measured). VBCursorType leaves out 4, 5, 13 and 14
-        // (#120), so its own members cannot say which are valid.
-        var valid = type == typeof(VBCursorType)
-            ? number is >= 0 and <= 15 or 99
-            : Enum.IsDefined(type, number);
-        return valid ? number : throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+        // MousePointer's members are exactly what VB6 accepts, 0 to 15 and 99, measured (#768, #120).
+        return Enum.IsDefined(type, number) ? number : throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
     }
 
     /// <summary>

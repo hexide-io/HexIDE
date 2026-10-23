@@ -19,6 +19,10 @@ public partial class FontDialogViewModel
     /// <summary>The sample's size in pixels: the dialog's sizes are points, 12 drawing at 16 (#910).</summary>
     public double PreviewFontSize => SelectedSize * 96.0 / 72.0;
 
+    /// <summary>The sample's face. Bound straight to the name, the sample drew in the default face: the compiled binding
+    /// does not make a FontFamily of a string (#1353).</summary>
+    public FontFamily PreviewFontFamily => new(SelectedFamily);
+
     public IReadOnlyList<string> FontFamilies { get; }
     public IReadOnlyList<string> FontStyles { get; } = ["Regular", "Bold", "Italic", "Bold Italic"];
     private static readonly double[] StandardSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
