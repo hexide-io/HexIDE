@@ -243,6 +243,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP replies distinguish dialogs sharing a title** (#1365). The modal note names a message box or run-time error dialog, its first line of text and its actual buttons; other dialogs include their buttons. The window parameter explains how to discover open windows through an unknown-name refusal.
+
 - **MCP replies name ignored arguments** (#1315). A misspelled optional parameter still lets the call run, but
   now appears in `ignoredArguments` in a JSON-object reply, or in a separate text block, with a suggested spelling
   for case, snake_case or kebab-case mismatches. Binding refusals check each parameter's actual type, so an
