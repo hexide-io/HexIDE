@@ -247,6 +247,11 @@ there isn't one yet. Anything may change between 0.x releases.
   targets that are not showing** (#1328). Containers prefer a showing editor; the tool explains the real mouse's effect
   on the tip, cursor and pointer-over.
 
+- **The arrow keys move between controls from an option button, a check box and a command button** (#1625). They did
+  nothing there. Up and Left now go to the previous control in the same container and Down and Right to the next, by
+  TabIndex and wrapping, as VB6's do, and an option button they land on is selected. As in VB6, a control whose
+  TabStop is False is reached, and one that can't take the focus, such as a Label or a Frame, is passed over.
+
 - **A Const declared with a type character runs, as vb6.exe's does** (#1614). `Const K% = 2.5` stopped the program as
   the module loaded, with "Const type hints not supported". The character is now the As clause it stands for: `K` is
   the Integer 2, `Const K$ = 5` the String "5", and `Const K% = 40000` is vb6.exe's compile error "Overflow".
