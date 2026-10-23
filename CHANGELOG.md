@@ -226,6 +226,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP `press_key` reaches access keys and menus** (#1523). Keys now pass through the window input path,
+  so Alt+W activates a button captioned `One &Wide`. The reply names `window-input`, or `routed-key`
+  when focus or platform input is unavailable and the previous routed delivery is used.
+
 - **MCP reply numbers use a decimal point in every culture** (#1550). Coordinates, sizes, scroll percentages and
   wait durations now use invariant formatting, so a fractional click point can be read and sent back unchanged.
 

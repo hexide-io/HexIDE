@@ -2597,11 +2597,12 @@ public static class UiAutomationDriver
         };
     }
 
-    /// <summary>Presses a key (optionally with modifiers) on the resolved control by raising real
-    /// KeyDown/KeyUp events — for navigation/commands (Enter, Tab, Backspace, Escape, Ctrl+S, …) that
+    /// <summary>Presses a key (optionally with modifiers) through the window input path, with a routed
+    /// KeyDown/KeyUp fallback — for navigation/commands (Enter, Tab, Backspace, Escape, Ctrl+S, …) that
     /// `type_text` doesn't cover.</summary>
     public static InteractOutcome PressKey(Control control, string key, string? modifiers, string? controlPath = null)
     {
+        var mechanism = "keyboard"; // No input path has been used yet.
         try
         {
             if (!Enum.TryParse<Key>((key ?? string.Empty).Trim(), ignoreCase: true, out var parsedKey))
@@ -2623,8 +2624,8 @@ public static class UiAutomationDriver
                         : $"'{Describe(control)}' has nothing under it that can take keyboard focus, so a key "
                         + "press there would go nowhere. Address a focusable control, or a text surface.");
 
-            // The key is raised on the target whether or not it took focus, and Enter on a Button clicks it, so a
-            // hidden one was pressed through this tool exactly as interact used to press it (#1069).
+            // The routed fallback can reach the target even if it cannot take focus, and Enter clicks a Button:
+            // refuse a hidden target before either input path can press it (#1069).
             if (Shows(target) is not true and var targetShows)
                 return new InteractOutcome(false, "keyboard", null, NotShowingRefusal(target, "press_key", targetShows));
 
@@ -2635,9 +2636,15 @@ public static class UiAutomationDriver
                 && RefusedInReadOnlyRegion(pressedIn, span, "press_key") is { } refused)
                 return refused;
 
-            target.Focus();
-            // As the keyboard device delivers it, key bindings first, so an Enter bound to a search searches (#943 review).
-            DeliverKey(target, parsedKey, mods, typed: null);
+            var focused = target.Focus();
+            mechanism = focused ? "window-input" : "routed-key";
+            var throughWindow = focused && RawKeyboard.Press(target, parsedKey, mods);
+            // Keep delivery to a target that cannot take focus, or whose platform input is unavailable.
+            if (!throughWindow)
+            {
+                mechanism = "routed-key";
+                DeliverKey(target, parsedKey, mods, typed: null);
+            }
 
             // Naming the receiver is half the point. Both gaps this closes presented as "reports success and
             // nothing happens", and in each the answer was that the event went to a control other than the
@@ -2646,9 +2653,9 @@ public static class UiAutomationDriver
             var where = ReferenceEquals(target, control)
                 ? string.Empty
                 : $" on {Describe(target)}{AddressOf(control, controlPath, target)}";
-            return new InteractOutcome(true, "keyboard", $"pressed {chord}{parsedKey}{where}", null);
+            return new InteractOutcome(true, mechanism, $"pressed {chord}{parsedKey}{where}", null);
         }
-        catch (Exception ex) { return new InteractOutcome(false, "keyboard", null, $"press_key threw: {ex.Message}"); }
+        catch (Exception ex) { return new InteractOutcome(false, mechanism, null, $"press_key threw: {ex.Message}"); }
     }
 
     /// <summary>
@@ -2939,6 +2946,62 @@ public static class UiAutomationDriver
     {
         if (TopLevel.GetTopLevel(control) is { } topLevel)
             RawPointer.Leave(topLevel);
+    }
+
+    /// <summary>Uses the same platform callback as hover. Reflection is needed for Avalonia's private input API.</summary>
+    private static class RawKeyboard
+    {
+        private static class Members
+        {
+            private const System.Reflection.BindingFlags Instance =
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public;
+            public static readonly System.Reflection.PropertyInfo? InputRoot = typeof(TopLevel).GetProperty("InputRoot", Instance);
+            public static readonly System.Reflection.PropertyInfo? PlatformInput = typeof(Avalonia.Platform.ITopLevelImpl).GetProperty("Input");
+            public static readonly System.Reflection.PropertyInfo? Keyboard = typeof(InputElement).Assembly
+                .GetType("Avalonia.Input.KeyboardDevice")?.GetProperty("Instance",
+                    System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+            public static readonly System.Reflection.ConstructorInfo? NewEvent = typeof(Avalonia.Input.Raw.RawKeyEventArgs)
+                .GetConstructors().FirstOrDefault(c => c.GetParameters().Length == 9);
+            static Members() { }
+        }
+
+        public static bool Press(Control target, Key key, KeyModifiers mods)
+        {
+            Action<Avalonia.Input.Raw.RawInputEventArgs> input;
+            Avalonia.Input.Raw.RawInputEventArgs down;
+            Avalonia.Input.Raw.RawInputEventArgs up;
+            try
+            {
+                if (TopLevel.GetTopLevel(target) is not { PlatformImpl: { } impl } topLevel
+                    || Members.PlatformInput?.GetValue(impl) is not Action<Avalonia.Input.Raw.RawInputEventArgs> found
+                    || Members.InputRoot?.GetValue(topLevel) is not IInputRoot root
+                    || Members.Keyboard?.GetValue(null) is not IInputDevice keyboard
+                    || Members.NewEvent is not { } constructor)
+                    return false;
+                // press_key names logical keys, not a keyboard layout. Supply their QWERTY physical key and symbol:
+                // AccessKeyHandler needs KeySymbol, Alt without Control, and focus inside its owner on every OS.
+                var physical = Enum.GetValues<PhysicalKey>().FirstOrDefault(p => p.ToQwertyKey() == key);
+                var symbol = physical.ToQwertyKeySymbol(mods.HasFlag(KeyModifiers.Shift));
+                var rawMods = (mods.HasFlag(KeyModifiers.Control) ? RawInputModifiers.Control : RawInputModifiers.None)
+                    | (mods.HasFlag(KeyModifiers.Shift) ? RawInputModifiers.Shift : RawInputModifiers.None)
+                    | (mods.HasFlag(KeyModifiers.Alt) ? RawInputModifiers.Alt : RawInputModifiers.None)
+                    | (mods.HasFlag(KeyModifiers.Meta) ? RawInputModifiers.Meta : RawInputModifiers.None);
+                object[] Args(Avalonia.Input.Raw.RawKeyEventType type) =>
+                    [keyboard, (ulong)Environment.TickCount64, root, type, key, rawMods, physical, symbol!, KeyDeviceType.Keyboard];
+                down = (Avalonia.Input.Raw.RawInputEventArgs)constructor.Invoke(Args(Avalonia.Input.Raw.RawKeyEventType.KeyDown));
+                up = (Avalonia.Input.Raw.RawInputEventArgs)constructor.Invoke(Args(Avalonia.Input.Raw.RawKeyEventType.KeyUp));
+                input = found;
+            }
+            catch (Exception ex) when (ex is System.Reflection.TargetInvocationException or TypeInitializationException
+                                           or MemberAccessException or InvalidCastException or ArgumentException)
+            {
+                return false;
+            }
+            // A program exception must not cause a second delivery through the fallback.
+            input(down);
+            input(up);
+            return true;
+        }
     }
 
     /// <summary>
