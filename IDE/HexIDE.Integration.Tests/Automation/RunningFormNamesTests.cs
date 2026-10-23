@@ -201,11 +201,11 @@ public class RunningFormNamesTests
     public void A_caption_reads_without_its_access_key_marker(string caption, string shown) =>
         VBCaption.AsShown(caption).Should().Be(shown);
 
-    // Not measured on vb6.exe (#920 owes it). &&&x follows the documented DrawText rule read left to right; a lone
-    // trailing & has no character to mark, so it is kept as drawn. Pinned so a measurement that disagrees fails here.
+    // Measured on vb6.exe (#920, the oracle's "A caption's access key"): A&&&Bc draws A&Bc, and a trailing & is not drawn
+    // at all. The guess pinned here before the measurement kept it.
     [AvaloniaTheory]
     [InlineData("&&&Save", "&Save")]
-    [InlineData("Ends &", "Ends &")]
-    public void Unmeasured_captions_follow_the_documented_prefix_rule(string caption, string shown) =>
+    [InlineData("Ends &", "Ends ")]
+    public void Captions_vb6_reads_left_to_right(string caption, string shown) =>
         VBCaption.AsShown(caption).Should().Be(shown);
 }

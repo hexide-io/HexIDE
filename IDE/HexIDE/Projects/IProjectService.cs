@@ -16,12 +16,12 @@ public interface IProjectService
     Task SaveAllProjects(bool saveAs);
     /// <summary>
     /// The name Add Form gives a new form: the first free <c>Form{n}</c> (<see cref="ProjectNaming.NextFreeName"/>)
-    /// whose file, and the binary file beside it, would not be written where a file already is.
+    /// whose file, and the binary file beside it, are not already in the project's folder.
     /// </summary>
     /// <remarks>
-    /// The name decides a path, because a new member is written as it is added. So a name the project does not use
-    /// can still be taken: by another project's file in a shared folder, or by a file the project file names for a
-    /// member that did not load (hexide-io/HexIDE#738).
+    /// The name is the file name the form's first save suggests. So a name the project does not use can still be
+    /// taken: by another project's file in a shared folder, or by a file the project file names for a member that did
+    /// not load (hexide-io/HexIDE#738).
     /// </remarks>
     string NextFreeFormName(ProjectDefinition project);
 
@@ -31,13 +31,13 @@ public interface IProjectService
     /// </summary>
     string NextFreeModuleName(ProjectDefinition project, ModuleKind kind);
 
-    /// <summary>Writes a new form's file and adds the form to <paramref name="project"/>.</summary>
+    /// <summary>
+    /// Adds a new form to <paramref name="project"/>, with no file: the project's next save writes it, asking where,
+    /// as VB6 does (#489, #500). The same holds for the other three Add methods.
+    /// </summary>
     /// <param name="interactive">As for <see cref="SaveForm"/>.</param>
     /// <exception cref="HexIDE.IDE.SourceEncodingRefusal">The new file's code page, or the project file's, cannot
-    /// hold <paramref name="name"/>. Nothing was created and nothing was added.</exception>
-    /// <exception cref="FileInTheWayRefusal">The new file, or the binary file beside it, would be written where a
-    /// file already is, or where the project file names one. Nothing was written and nothing was added. The same
-    /// holds for the other three Add methods.</exception>
+    /// hold <paramref name="name"/>. Nothing was added.</exception>
     Task<FormDefinition> AddNewForm(ProjectDefinition project, string name, bool interactive = true);
     Task<ModuleDefinition> AddNewModule(ProjectDefinition project, string name, ModuleKind kind, bool interactive = true);
     Task<ModuleDefinition> AddNewUserControl(ProjectDefinition project, string name, bool interactive = true);
@@ -121,7 +121,6 @@ public interface IProjectService
 
     Task MakeProject();
     Task MakeProject(ProjectDefinition project);
-    Task MakeProjectGroup();
     Task EditProjectProperties(ProjectDefinition project);
     Task EditProjectReferences(ProjectDefinition project);
     Task EditProjectComponents(ProjectDefinition project);

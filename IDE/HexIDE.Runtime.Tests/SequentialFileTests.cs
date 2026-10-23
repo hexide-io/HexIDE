@@ -137,6 +137,27 @@ public class SequentialFileTests : BaseVBTestFixture, IDisposable
         string.Join(" ", File.ReadAllBytes(PathOf("print.txt")).Select(b => b.ToString("X2"))).Should().Be(expected);
     }
 
+    // A character the code page has no byte for is written as Windows writes it: its best fit, Ā as "A", Ł as "L" and α as
+    // "a", and "?" only where there is none, as for Ж (measured on 1252, #1511). Every one of them was "?".
+    [Fact]
+    public async Task A_character_the_code_page_lacks_is_written_as_its_best_fit()
+    {
+        await Run($$"""
+            Dim f As Integer
+            f = FreeFile
+            Open "{{PathOf("print.txt")}}" For Output As #f
+            Print #f, ChrW(&H100) & ChrW(&H416) & ChrW(&H2019) & ChrW(&H141) & ChrW(&H3B1) & ChrW(&H20AC);
+            Close #f
+            f = FreeFile
+            Open "{{PathOf("append.txt")}}" For Append As #f
+            Print #f, ChrW(&H100);
+            Close #f
+            """);
+
+        string.Join(" ", File.ReadAllBytes(PathOf("print.txt")).Select(b => b.ToString("X2"))).Should().Be("41 3F 92 4C 61 80");
+        string.Join(" ", File.ReadAllBytes(PathOf("append.txt")).Select(b => b.ToString("X2"))).Should().Be("41");
+    }
+
     [Fact]
     public async Task A_date_is_printed_as_it_reads_with_a_space_after()
     {

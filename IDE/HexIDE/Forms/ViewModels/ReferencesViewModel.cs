@@ -14,8 +14,21 @@ namespace HexIDE.Forms.ViewModels;
 
 public partial class ReferencesViewModel : ObservableObject, IDialog
 {
-    private static readonly VbReference VbaBuiltIn =
-        new("{00020430-0000-0000-C000-000000000046}", "2.0", 0, null, "Visual Basic For Applications");
+    /// <summary>
+    /// The rows VB6 heads the list with, checked and fixed, which no project lists: its file has no line for them
+    /// (measured, docs/vb6-fidelity-oracle.md "The References dialog's fixed rows").
+    /// </summary>
+    /// <remarks>
+    /// The first used to carry OLE Automation's GUID, and the project's own OLE Automation reference was left out of
+    /// the list as if it were that row. OK then kept only the rows that were not fixed, so it dropped the reference,
+    /// and the next save wrote the project without it (#1026).
+    /// </remarks>
+    private static readonly string[] BuiltInNames =
+    [
+        "Visual Basic For Applications",
+        "Visual Basic runtime objects and procedures",
+        "Visual Basic objects and procedures",
+    ];
 
     public string Title { get; }
     public bool CanResize => true;
@@ -39,18 +52,15 @@ public partial class ReferencesViewModel : ObservableObject, IDialog
         Title = $"References - {definition.Name}";
         this.windowManager = windowManager;
 
-        // VBA built-in is always checked and cannot be removed
-        References.Add(new ReferencesReferenceViewModel(VbaBuiltIn, isChecked: true, isBuiltIn: true));
+        foreach (var name in BuiltInNames)
+            References.Add(ReferencesReferenceViewModel.BuiltIn(name));
 
-        // References already in the project (excluding VBA, which is implicit)
-        var projectRefs = definition.References
-            .Where(r => !string.Equals(r.Guid, VbaBuiltIn.Guid, StringComparison.OrdinalIgnoreCase));
-
+        // Every reference the project has, in its order, OLE Automation among them.
         var projectRefGuids = new HashSet<string>(
-            projectRefs.Select(r => r.Guid),
+            definition.References.Select(r => r.Guid),
             StringComparer.OrdinalIgnoreCase);
 
-        foreach (var r in projectRefs)
+        foreach (var r in definition.References)
             References.Add(new ReferencesReferenceViewModel(r, isChecked: true, isBuiltIn: false));
 
         // Available type libraries from the registry that are not already added
@@ -61,7 +71,8 @@ public partial class ReferencesViewModel : ObservableObject, IDialog
             References.Add(new ReferencesReferenceViewModel(r, isChecked: false, isBuiltIn: false));
         }
 
-        selectedReference = References.FirstOrDefault();
+        // VB6 opens on the last checked row (measured).
+        selectedReference = References.LastOrDefault(r => r.IsChecked);
 
         OkCommand = new DelegateCommand(() => CloseRequested?.Invoke(true));
         CancelCommand = new DelegateCommand(() => CloseRequested?.Invoke(false));
@@ -76,8 +87,9 @@ public partial class ReferencesViewModel : ObservableObject, IDialog
         MoveDownCommand.RaiseCanExecutedChanged();
     }
 
+    // Nothing moves above the fixed rows: VB6 disables Up on the first row below them (measured).
     private bool CanMoveUp() =>
-        selectedReference is { IsBuiltIn: false } && References.IndexOf(selectedReference) > 1;
+        selectedReference is { IsBuiltIn: false } && References.IndexOf(selectedReference) > BuiltInNames.Length;
 
     private bool CanMoveDown() =>
         selectedReference is { IsBuiltIn: false } &&
@@ -87,7 +99,7 @@ public partial class ReferencesViewModel : ObservableObject, IDialog
     {
         if (selectedReference == null) return;
         var idx = References.IndexOf(selectedReference);
-        if (idx > 1)
+        if (idx > BuiltInNames.Length)
             References.Move(idx, idx - 1);
         MoveUpCommand.RaiseCanExecutedChanged();
         MoveDownCommand.RaiseCanExecutedChanged();
@@ -146,6 +158,10 @@ public partial class ReferencesViewModel : ObservableObject, IDialog
 
 public partial class ReferencesReferenceViewModel
 {
+    /// <summary>A fixed row: checked, unmovable, and no reference of the project, so it has no GUID.</summary>
+    public static ReferencesReferenceViewModel BuiltIn(string name) =>
+        new(new VbReference("", "", 0, null, name), isChecked: true, isBuiltIn: true);
+
     public ReferencesReferenceViewModel(VbReference reference, bool isChecked, bool isBuiltIn)
     {
         Guid = reference.Guid;

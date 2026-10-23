@@ -396,7 +396,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     private static readonly HashSet<string> KnownFileTypes = ["form", "module", "classmodule", "usercontrol", "propertypage"];
 
     [McpServerTool(Name = "add_file")]
-    [Description("Adds a new form or module to the startup project, or to the loaded project `project` names (without regard to case), saves the new file to disk, and returns its path, with 'project' and 'document' naming what was added. type must be 'Form', 'Module', 'ClassModule', 'UserControl', or 'PropertyPage'. name must be a VB6 name (a letter, then letters, digits and underscores) not already used by a form, module or class in the project, and whose file (or the .frx, .ctx or .pgx beside it) is not already in the project's folder or named by its project file, since the new file would replace it; anything else is refused before a file is written, as is a name the new file's code page, or the project file's, cannot hold. The project file itself is NOT saved, as in VB6: the note says so, and says when the file went to the project's temporary folder because it has not been saved anywhere of the user's choosing.")]
+    [Description("Adds a new form or module to the startup project, or to the loaded project `project` names (without regard to case), with 'project' and 'document' naming what was added. Nothing is written to disk, as in VB6: the new document has no file, and 'path' is null, until the project is saved. Save Project then asks where to put each new form and module, and the project file if it has none, in that order (forms, then modules, then the project file); a caller answers each picker with answer_next_file_dialog, armed beforehand. type must be 'Form', 'Module', 'ClassModule', 'UserControl', or 'PropertyPage'. name must be a VB6 name (a letter, then letters, digits and underscores) not already used by a form, module or class in the project; anything else is refused, as is a name the new file's code page, or the project file's, cannot hold.")]
     public async Task<AddFileResult> AddFileAsync(string name, string type, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(async () =>
@@ -426,17 +426,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return new AddFileResult(false, null,
                     $"'{name}' is already the name of a form, module or class in {into.Name}. VB6 gives them one namespace, so two cannot share a name. Nothing was added.");
 
-            // Written after the file is saved, so it describes where the file actually went. A project nobody
-            // has saved somewhere of their choosing keeps its files in a scratch folder under TEMP; --newproject
-            // even saves its .vbp there, so "has a path" is not the test. Being inside that folder is.
-            string Note(string? path)
-            {
-                const string unlisted = " The project file does not list the new file until the project is saved.";
-                return into.WorkingDirectory is { Length: > 0 } scratch && path is not null
-                       && path.StartsWith(scratch, StringComparison.OrdinalIgnoreCase)
-                    ? $"The file is in {into.Name}'s temporary folder, because the project has not been saved anywhere of your choosing; Save Project As gives it a home." + unlisted
-                    : unlisted.TrimStart();
-            }
+            // A null path reads as "something went wrong" unless the reply says it is the expected state: a new
+            // document has no file until the project is saved, as in VB6 (#500), and the save asks where.
+            string Note(DocumentIdentity added) =>
+                $"{added.Name} has no file yet, as in VB6: Save Project writes it, asking where with a file dialog "
+                + "(answer it with answer_next_file_dialog, armed first), and the project file lists it from then.";
 
             try
             {
@@ -449,8 +443,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     "propertypage" => DocumentIdentity.For(await ctx.ProjectService.AddNewPropertyPage(into, name, interactive: false)),
                     _ => throw new System.Diagnostics.UnreachableException(),
                 };
-                var path = added.AbsolutePath;
-                return new AddFileResult(true, path, null, Note(path), added.Project.Name, added.Name);
+                return new AddFileResult(true, added.AbsolutePath, null, Note(added), added.Project.Name, added.Name);
             }
             // Caught here, on the UI thread, for the reason SaveQuietlyAsync gives.
             catch (SourceEncodingRefusal refusal)

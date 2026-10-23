@@ -866,6 +866,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         bufferPrefix = FormCodeText.Prefix(formElement);
         Document.Text = bufferPrefix + formElement.Code;
         ClearUndoHistoryAfterLoad();
+        PlaceCaretBelowHeader();
 
         PopulateObjectNames();
 
@@ -905,6 +906,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         bufferPrefix = FormCodeText.Prefix(moduleElement);
         Document.Text = bufferPrefix + moduleElement.Code;
         ClearUndoHistoryAfterLoad();
+        PlaceCaretBelowHeader();
 
         // A module with a designer half lists its controls like a form's editor does; one without falls
         // back to "(General)" alone, which is what this used to hardcode.
@@ -926,6 +928,17 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// pops one entry past the header writes on the assumption that it is something the developer typed.
     /// </remarks>
     private void ClearUndoHistoryAfterLoad() => Document.UndoStack.ClearAll();
+
+    /// <summary>
+    /// Opens the window with its caret on the first line that can be typed on, below the header (#1518).
+    /// </summary>
+    /// <remarks>
+    /// Offset 0 is the header's first line, which only the IDE changes, so a window opened there refused the first
+    /// keystroke and showed nothing. VB6 shows no header, and its View Code puts the caret in the code. Set as the
+    /// document loads, before there is a view, so a place asked for afterwards, by navigation or a breakpoint, moves it
+    /// as before.
+    /// </remarks>
+    private void PlaceCaretBelowHeader() => CaretOffset = PastReadOnlyRegion(0);
 
     /// <summary>
     /// Hands this document to the language layer.
