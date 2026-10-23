@@ -236,6 +236,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A running form has the window its file describes** (#1575). Every form ran as a sizable window with a title bar,
+  minimize and maximize buttons and a close box, whatever its BorderStyle, ControlBox, MinButton and MaxButton said. A
+  Fixed Single or Fixed Dialog form can no longer be resized by its border, a borderless form has no frame, a form
+  with ControlBox False has no close box, and the tool windows have a tool window's caption. On Windows the window is
+  given the styles vb6.exe gives it, measured for 20 combinations.
+
 - **MCP refuses arguments containing an unpaired UTF-16 surrogate** (#1337). The reply now names the tool and
   parameter, says the argument is not valid text and that nothing was done. It previously returned only the SDK's
   `-32603 "An error occurred."` before any tool ran.
