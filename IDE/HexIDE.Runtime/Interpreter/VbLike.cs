@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Interpreter;
 /// alike (the oracle's "Like"):
 /// <list type="bullet">
 /// <item><c>?</c> is any one character, a UTF-16 code unit (half a surrogate pair is one); <c>*</c> is any run, the empty
-/// one included; <c>#</c> is a digit, <c>0</c> to <c>9</c> or a fullwidth <c>０</c> to <c>９</c>, and no other.</item>
+/// one included; <c>#</c> is a digit, <c>0</c> to <c>9</c> or a fullwidth one, U+FF10 to U+FF19, and no other.</item>
 /// <item><c>[list]</c> is one character in the list and <c>[!list]</c> one not in it. A list holds characters and
 /// ranges, <c>a-z</c>, compared by code unit, not by the ANSI byte. A <c>-</c> at either end, or after a range, is itself.
 /// Inside a list <c>*</c>, <c>?</c>, <c>#</c> and <c>[</c> are themselves, and <c>[!]</c> is a <c>!</c>.</item>
@@ -52,7 +52,7 @@ internal static class VbLike
                     var matched = element switch
                     {
                         '?' => true,
-                        '#' => c is >= '0' and <= '9' or >= '０' and <= '９',
+                        '#' => c is >= '0' and <= '9' or >= '\uFF10' and <= '\uFF19',
                         '[' => InList(c, pattern, p, textCompare, out next),
                         _ => Same(c, element, textCompare),
                     };
