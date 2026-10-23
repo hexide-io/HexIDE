@@ -597,28 +597,367 @@ public class ConditionalCompilationTests : BaseVBTestFixture
             refusal.WithMessage($"*{message}*");
     }
 
-    // Like is text comparison in an #If (measured: "ABC" Like "a*" is true), and HexIDE has no Like yet (#1547).
+    // Like in a directive (#1598), measured on vb6.exe, native and p-code alike, in a Binary module and a Text one: it
+    // matches as text in both, as a directive's other comparisons do, and a directive orders text as vb6.exe does. Each
+    // expected line is what vb6.exe logged.
     [Fact]
-    public async Task Like_is_refused_until_it_is_implemented()
+    public async Task Like_matches_as_text_in_either_module_and_text_orders_as_vb6_exe_orders_it()
     {
-        var run = () => RunProgram(null, """"""
-            Sub Main()
-            #If "abc" Like "a*" Then
-                L """abc"" Like ""a*"": true"
+        await RunProgram(null, """"""
+            Option Compare Binary
+
+            #Const KLike = "abc" Like "a*"
+
+            #If "a" Like "A" Then
+            Public Const B0 As String = "True"
             #Else
-                L """abc"" Like ""a*"": false"
+            Public Const B0 As String = "False"
             #End If
-                L "compiled"
-            End Sub
+            #If "M" Like "[a-z]" Then
+            Public Const B1 As String = "True"
+            #Else
+            Public Const B1 As String = "False"
+            #End If
+            #If "_" Like "[A-z]" Then
+            Public Const B2 As String = "True"
+            #Else
+            Public Const B2 As String = "False"
+            #End If
+            #If "abc" Like "a*" Then
+            Public Const B3 As String = "True"
+            #Else
+            Public Const B3 As String = "False"
+            #End If
+            #If 5 Like "#" Then
+            Public Const B4 As String = "True"
+            #Else
+            Public Const B4 As String = "False"
+            #End If
+            #If "abc" Like "x*" Then
+            Public Const B5 As String = "True"
+            #Else
+            Public Const B5 As String = "False"
+            #End If
+            #If "" Like "[" Then
+            Public Const B6 As String = "True"
+            #Else
+            Public Const B6 As String = "False"
+            #End If
+            #If CStr("a" Like "a") = "True" Then
+            Public Const B7 As String = "True"
+            #Else
+            Public Const B7 As String = "False"
+            #End If
+            #If KLike = True Then
+            Public Const B8 As String = "True"
+            #Else
+            Public Const B8 As String = "False"
+            #End If
+            #If CStr(KLike) = "True" Then
+            Public Const B9 As String = "True"
+            #Else
+            Public Const B9 As String = "False"
+            #End If
+            #If KLike = -1 Then
+            Public Const B10 As String = "True"
+            #Else
+            Public Const B10 As String = "False"
+            #End If
+            #If "_" < "a" Then
+            Public Const B11 As String = "True"
+            #Else
+            Public Const B11 As String = "False"
+            #End If
+            #If "co-op" > "coop" Then
+            Public Const B12 As String = "True"
+            #Else
+            Public Const B12 As String = "False"
+            #End If
+            #If "it's" > "its" Then
+            Public Const B13 As String = "True"
+            #Else
+            Public Const B13 As String = "False"
+            #End If
+            #If "a" < "B" Then
+            Public Const B14 As String = "True"
+            #Else
+            Public Const B14 As String = "False"
+            #End If
+            #If "abc" = "ABC" Then
+            Public Const B15 As String = "True"
+            #Else
+            Public Const B15 As String = "False"
+            #End If
+
             Public Sub L(ByVal s As String)
                 Debug.Print s
             End Sub
-            Main
 
+            Sub Main()
+                L "binary like-case: " & B0
+                L "text like-case: " & Module2.T0
+                L "binary like-range-text: " & B1
+                L "text like-range-text: " & Module2.T1
+                L "binary like-range-binary: " & B2
+                L "text like-range-binary: " & Module2.T2
+                L "binary like-star: " & B3
+                L "text like-star: " & Module2.T3
+                L "binary like-digit: " & B4
+                L "text like-digit: " & Module2.T4
+                L "binary like-false: " & B5
+                L "text like-false: " & Module2.T5
+                L "binary like-empty-bad-pattern: " & B6
+                L "text like-empty-bad-pattern: " & Module2.T6
+                L "binary like-cstr: " & B7
+                L "text like-cstr: " & Module2.T7
+                L "binary like-const-true: " & B8
+                L "text like-const-true: " & Module2.T8
+                L "binary like-const-cstr: " & B9
+                L "text like-const-cstr: " & Module2.T9
+                L "binary like-const-minus1: " & B10
+                L "text like-const-minus1: " & Module2.T10
+                L "binary text-underscore: " & B11
+                L "text text-underscore: " & Module2.T11
+                L "binary text-hyphen: " & B12
+                L "text text-hyphen: " & Module2.T12
+                L "binary text-apostrophe: " & B13
+                L "text text-apostrophe: " & Module2.T13
+                L "binary text-case-order: " & B14
+                L "text text-case-order: " & Module2.T14
+                L "binary text-equal-case: " & B15
+                L "text text-equal-case: " & Module2.T15
+            End Sub
+
+            Main
+            """""", """"""
+            Option Compare Text
+
+            #Const KLike = "abc" Like "a*"
+
+            #If "a" Like "A" Then
+            Public Const T0 As String = "True"
+            #Else
+            Public Const T0 As String = "False"
+            #End If
+            #If "M" Like "[a-z]" Then
+            Public Const T1 As String = "True"
+            #Else
+            Public Const T1 As String = "False"
+            #End If
+            #If "_" Like "[A-z]" Then
+            Public Const T2 As String = "True"
+            #Else
+            Public Const T2 As String = "False"
+            #End If
+            #If "abc" Like "a*" Then
+            Public Const T3 As String = "True"
+            #Else
+            Public Const T3 As String = "False"
+            #End If
+            #If 5 Like "#" Then
+            Public Const T4 As String = "True"
+            #Else
+            Public Const T4 As String = "False"
+            #End If
+            #If "abc" Like "x*" Then
+            Public Const T5 As String = "True"
+            #Else
+            Public Const T5 As String = "False"
+            #End If
+            #If "" Like "[" Then
+            Public Const T6 As String = "True"
+            #Else
+            Public Const T6 As String = "False"
+            #End If
+            #If CStr("a" Like "a") = "True" Then
+            Public Const T7 As String = "True"
+            #Else
+            Public Const T7 As String = "False"
+            #End If
+            #If KLike = True Then
+            Public Const T8 As String = "True"
+            #Else
+            Public Const T8 As String = "False"
+            #End If
+            #If CStr(KLike) = "True" Then
+            Public Const T9 As String = "True"
+            #Else
+            Public Const T9 As String = "False"
+            #End If
+            #If KLike = -1 Then
+            Public Const T10 As String = "True"
+            #Else
+            Public Const T10 As String = "False"
+            #End If
+            #If "_" < "a" Then
+            Public Const T11 As String = "True"
+            #Else
+            Public Const T11 As String = "False"
+            #End If
+            #If "co-op" > "coop" Then
+            Public Const T12 As String = "True"
+            #Else
+            Public Const T12 As String = "False"
+            #End If
+            #If "it's" > "its" Then
+            Public Const T13 As String = "True"
+            #Else
+            Public Const T13 As String = "False"
+            #End If
+            #If "a" < "B" Then
+            Public Const T14 As String = "True"
+            #Else
+            Public Const T14 As String = "False"
+            #End If
+            #If "abc" = "ABC" Then
+            Public Const T15 As String = "True"
+            #Else
+            Public Const T15 As String = "False"
+            #End If
             """""");
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#1547*");
+        AssertDebugLog(Lines("""
+            binary like-case: True
+            text like-case: True
+            binary like-range-text: True
+            text like-range-text: True
+            binary like-range-binary: False
+            text like-range-binary: False
+            binary like-star: True
+            text like-star: True
+            binary like-digit: True
+            text like-digit: True
+            binary like-false: False
+            text like-false: False
+            binary like-empty-bad-pattern: False
+            text like-empty-bad-pattern: False
+            binary like-cstr: True
+            text like-cstr: True
+            binary like-const-true: True
+            text like-const-true: True
+            binary like-const-cstr: True
+            text like-const-cstr: True
+            binary like-const-minus1: True
+            text like-const-minus1: True
+            binary text-underscore: True
+            text text-underscore: True
+            binary text-hyphen: True
+            text text-hyphen: True
+            binary text-apostrophe: True
+            text text-apostrophe: True
+            binary text-case-order: True
+            text text-case-order: True
+            binary text-equal-case: True
+            text text-equal-case: True
+            """));
     }
+
+    // What vb6.exe refuses to build, a Like pattern it cannot read or Null, measured one project each (#1598).
+    [Theory]
+    [InlineData("c-bad-pattern")]
+    [InlineData("c-const-bad-pattern")]
+    [InlineData("c-like-null")]
+    [InlineData("c-null-like")]
+    [InlineData("c-reversed-range")]
+    public async Task A_Like_vb6_exe_refuses_is_refused_as_the_module_loads(string name)
+    {
+        var (message, module1) = LikeRefused[name];
+
+        var run = () => RunProgram(null, module1);
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage($"*{message}*");
+    }
+
+    private static readonly Dictionary<string, (string Message, string Module1)> LikeRefused = new()
+    {
+        ["c-bad-pattern"] = ("Invalid pattern string", """
+            #If "a" Like "[" Then
+            Public Const R As String = "True"
+            #Else
+            Public Const R As String = "False"
+            #End If
+
+            Public Sub L(ByVal s As String)
+                Debug.Print s
+            End Sub
+
+            Sub Main()
+                L "ran: " & R
+            End Sub
+
+            Main
+            """),
+        ["c-const-bad-pattern"] = ("Invalid pattern string", """
+            #Const KBad = "a" Like "["
+
+            #If KBad Then
+            Public Const R As String = "True"
+            #Else
+            Public Const R As String = "False"
+            #End If
+
+            Public Sub L(ByVal s As String)
+                Debug.Print s
+            End Sub
+
+            Sub Main()
+                L "ran: " & R
+            End Sub
+
+            Main
+            """),
+        ["c-like-null"] = ("Invalid use of Null", """
+            #If "a" Like Null Then
+            Public Const R As String = "True"
+            #Else
+            Public Const R As String = "False"
+            #End If
+
+            Public Sub L(ByVal s As String)
+                Debug.Print s
+            End Sub
+
+            Sub Main()
+                L "ran: " & R
+            End Sub
+
+            Main
+            """),
+        ["c-null-like"] = ("Invalid use of Null", """
+            #If Null Like "a" Then
+            Public Const R As String = "True"
+            #Else
+            Public Const R As String = "False"
+            #End If
+
+            Public Sub L(ByVal s As String)
+                Debug.Print s
+            End Sub
+
+            Sub Main()
+                L "ran: " & R
+            End Sub
+
+            Main
+            """),
+        ["c-reversed-range"] = ("Invalid pattern string", """
+            #If "b" Like "[z-a]" Then
+            Public Const R As String = "True"
+            #Else
+            Public Const R As String = "False"
+            #End If
+
+            Public Sub L(ByVal s As String)
+                Debug.Print s
+            End Sub
+
+            Sub Main()
+                L "ran: " & R
+            End Sub
+
+            Main
+            """),
+    };
 
     // vb6.exe accepts CVErr in an #If, where CVErr(5) = 5 is Type mismatch. HexIDE has no CVErr, and says so.
     [Fact]

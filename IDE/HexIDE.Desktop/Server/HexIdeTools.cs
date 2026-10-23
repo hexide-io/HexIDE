@@ -642,7 +642,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return (null, null, $"'{controlName}' was not {(propClass == VBProperties.NameProperty ? "renamed" : "changed")}: {ex.Message}");
             }
 
-            designerVm?.PushSetPropertyCommand(control, propClass, before, parsed);
+            // With what VB6's designer changes along with it, applied with a designer open or not (#1428).
+            var consequences = designerVm is not null
+                ? designerVm.PushSetPropertyCommand(control, propClass, before, parsed)
+                : Equals(before, parsed) ? [] : control.BaseClass.ApplyDesignerConsequences(control, propClass);
 
             // The third path that bypasses the designer's undo stack (#273 task 3.3). With a designer open
             // the push above commits, flushes and announces; with none there is nothing to push to, so the
@@ -663,6 +666,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // raised it.
             stored = $"{PropertyText.AddressedName(control)}.{propClass.Name.Trim('(', ')')} is now "
                      + PropertyText.Display(control.GetBoxedPropertyOrDefault(propClass)) + ", and the file is saved.";
+            foreach (var change in consequences)
+                stored += $" Its {change.Property.Name} is now {PropertyText.Display(change.After)}, was "
+                          + $"{PropertyText.Display(change.Before)}, as VB6's designer changes it with {propClass.Name.Trim('(', ')')}.";
             if (leaves is { Others: > 0 } left && !string.Equals(before as string, parsed as string, StringComparison.OrdinalIgnoreCase))
                 stored += $" It was {before}({left.Index}), and has left that array, whose other {left.Others} "
                           + $"element{(left.Others == 1 ? "" : "s")} keep the name. It keeps Index {left.Index}, so naming it "
@@ -2310,8 +2316,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "type_text")]
-    [Description("Types text into the control at 'target' (a path from dump_visual_tree) by inserting at the caret via the control's own API, writing over a standing selection as a person's typing does (the reply says how many characters it replaced), reported as mechanism \"document\" because it is an edit and not key events ('mode' \"keyboard\" sends key events instead, as a person types); a read-only or disabled surface is refused, as a person's typing would be — works on the code editor (AvaloniaEdit), which has no value provider for 'interact set_value'. If 'target' isn't itself a text surface, the nearest descendant editor/textbox is used (the AvaloniaEdit editor is preferred over incidental textboxes). When that happens the reply gives the path of the surface that took the text. In the default mode multi-line text is inserted verbatim (include \\n for new lines); exact, reliable, and not altered by live auto-indent/IntelliSense. For a typing cadence, call this once per line. Use press_key for Enter/Tab/commands. In a code window it is also refused while the caret, or a selection it would write over, is in the file's header or a member's Attribute lines, which only the IDE changes; the reply says where the editable code starts, as an offset into the whole file, which is the text get_file_content returns. At the end of a declaration whose Attribute lines follow it, the text from its first line break on goes after those lines, with its line breaks written as the file's, as a person's paste does there; the reply says so and gives the caret's new offset. 'window' picks the top-level window the path is resolved against; its own description lists the values. " + ProgramWaitNote)]
+    [Description("Types text into the control at 'target' (a path from dump_visual_tree) by inserting at the caret via the control's own API, writing over a standing selection as a person's typing does (the reply says how many characters it replaced), reported as mechanism \"document\" because it is an edit and not key events ('mode' \"keyboard\" sends key events instead, as a person types); a read-only or disabled surface is refused, as a person's typing would be — works on the code editor (AvaloniaEdit), which has no value provider for 'interact set_value'. See 'target' for descendant surface selection and refusals. In the default mode multi-line text is inserted verbatim (include \\n for new lines); exact, reliable, and not altered by live auto-indent/IntelliSense. For a typing cadence, call this once per line. Use press_key for Enter/Tab/commands. In a code window it is also refused while the caret, or a selection it would write over, is in the file's header or a member's Attribute lines, which only the IDE changes; the reply says where the editable code starts, as an offset into the whole file, which is the text get_file_content returns. At the end of a declaration whose Attribute lines follow it, the text from its first line break on goes after those lines, with its line breaks written as the file's, as a person's paste does there; the reply says so and gives the caret's new offset. 'window' picks the top-level window the path is resolved against; its own description lists the values. " + ProgramWaitNote)]
     public async Task<InteractOutcome> TypeTextAsync(
+        [Description("A path from dump_visual_tree. A target that is not showing is refused. If the target is not itself a text surface, a descendant editor/textbox is used (AvaloniaEdit is preferred over incidental textboxes); the reply gives the path of the surface that took the text. A target holding more than one showing surface of the chosen kind is refused, with their paths listed. A dropdown that is not editable is refused with a pointer to select.")]
         string target, string text, [Description(WindowParameter)] string? window = null,
         [Description("\"document\" (the default) inserts the text at the caret in one edit, exact and untouched by "
                      + "auto-indent, completion or auto-close. \"keyboard\" types it as a person does, a key at a time, to "

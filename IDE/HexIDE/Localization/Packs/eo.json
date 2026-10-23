@@ -590,6 +590,7 @@
     "Str.PropDesc.WindowList": "Ĉu ĉi tiu menuo listigas la malfermitajn MDI idofenestrojn.",
     "Str.PropDesc.Locked": "Ĉu la enhavo de la regilo povas esti redaktata.",
     "Str.PropDesc.MultiSelect": "Ĉu pli ol unu ero povas esti elektata, kaj kiel.",
+    "Str.PropDesc.Style": "Kiel la regilo estas desegnata kaj kiel ĝi kondutas.",
     "Str.PropDesc.StartUpPosition": "Kie la formularo estas metita sur la ekrano kiam ĝi unue malfermiĝas.",
     "Str.PropDesc.ShowInTaskbar": "Ĉu la formularo aperas en la taskopleto.",
     "Str.PropDesc.TabIndex": "La pozicio de la regilo en la taba ordo de la formularo.",

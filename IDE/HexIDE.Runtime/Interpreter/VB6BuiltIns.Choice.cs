@@ -34,5 +34,19 @@ public partial class VB6BuiltIns
             var index = Math.Truncate(ToNum(a[0]));
             return index >= 1 && index <= a.Count - 1 ? a[(int)index].AsVariant() : Vb6Value.Null;
         };
+        // Switch(expr1, value1[, expr2, value2, ...]) is the value after the first expression that holds, or Null where none
+        // does (#1560, measured). Every argument is evaluated before Switch is called, values as well as expressions. An odd
+        // count is 5, one argument included. Each expression is read as CBool reads it, until one holds: "True", 2 and a Date
+        // hold, "x" and an array are 13, and a Null or Empty one does not hold and raises nothing. One after the expression
+        // that held is not read, so `Switch(True, 1, "x", 2)` is 1. The value comes back as itself, a Null included.
+        d["Switch"] = (_, a, _) =>
+        {
+            if (a.Count == 0 || a.Count % 2 != 0)
+                throw InvalidCall();
+            for (var i = 0; i < a.Count; i += 2)
+                if (!a[i].IsNull && CBool(a[i]).Value is true)
+                    return a[i + 1].AsVariant();
+            return Vb6Value.Null;
+        };
     }
 }

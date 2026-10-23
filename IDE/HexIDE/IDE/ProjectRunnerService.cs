@@ -792,6 +792,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
             (Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)
                 ?.MainWindow?.Clipboard);
 
+        public IVbSettingsStore Settings => VbSettingsStores.ForThisUser();
+
         /// <summary>
         /// A CommonDialog's Open or Save As (#1084), through the IDE's own pickers, so an automation client answers one
         /// with answer_next_file_dialog as it answers the IDE's.

@@ -39,15 +39,36 @@ public class InvokeCommandMethodTests
         public new void DeleteForm() => Deleted += 10;
     }
 
+    private class BaseVm
+    {
+        public int Saved { get; private set; }
+        public void Save() => Saved++;
+        private bool CanPublish(object? _) => false;
+        public void Publish() => Saved++;
+    }
+
+    private sealed class DerivedSaveVm : BaseVm
+    {
+        public bool CanSave(object? _) => false;
+    }
+
+    private sealed class HiddenSaveVm : BaseVm
+    {
+        public new void Publish() => Save();
+        public bool CanPublish(object? _) => true;
+    }
+
     static InvokeCommandMethodTests()
     {
         foreach (var name in new[] { "DeleteForm", "Guarded", "Broken", "Throws", "Pending", "Faulted", "Cancelled" })
             XamlCommandBindings.Register(typeof(ProjectVm), name, 0);
         XamlCommandBindings.Register(typeof(ProjectVm), "Rename", 1);
+        XamlCommandBindings.Register(typeof(BaseVm), "Save", 0);
+        XamlCommandBindings.Register(typeof(BaseVm), "Publish", 0);
         XamlCommandBindings.Register(typeof(DerivedVm), "DeleteForm", 0);
     }
 
-    private static InteractOutcome Invoke(ProjectVm vm, string name)
+    private static InteractOutcome Invoke(object vm, string name)
     {
         var button = new Button { Content = "Go", DataContext = vm };
         var window = new Window { Content = button, Width = 300, Height = 200 };
@@ -81,6 +102,43 @@ public class InvokeCommandMethodTests
         vm.Allowed = true;
         Invoke(vm, "Guarded").Detail.Should().Be("called method 'Guarded' on ProjectVm", "a Can method guarded it");
         vm.Deleted.Should().Be(1);
+    }
+
+    [AvaloniaFact]
+    public void A_private_guard_on_the_bound_methods_base_type_is_honoured()
+    {
+        var vm = new DerivedVm { Allowed = false };
+
+        var outcome = Invoke(vm, "Guarded");
+
+        outcome.Success.Should().BeFalse();
+        outcome.Error.Should().Be("'CanGuarded'(null) on DerivedVm returned false");
+        vm.Deleted.Should().Be(0);
+    }
+
+    [AvaloniaFact]
+    public void A_guard_below_the_bound_methods_declaring_type_is_ignored()
+    {
+        var vm = new DerivedSaveVm();
+
+        var outcome = Invoke(vm, "Save");
+
+        outcome.Success.Should().BeTrue();
+        outcome.Detail.Should().Be(
+            "called method 'Save' on DerivedSaveVm; no Can method guards it, so check that it did what was meant");
+        vm.Saved.Should().Be(1);
+    }
+
+    [AvaloniaFact]
+    public void A_hidden_method_uses_the_guard_from_the_type_the_binding_matched()
+    {
+        var vm = new HiddenSaveVm();
+
+        var outcome = Invoke(vm, "Publish");
+
+        outcome.Success.Should().BeFalse();
+        outcome.Error.Should().Be("'CanPublish'(null) on HiddenSaveVm returned false");
+        vm.Saved.Should().Be(0);
     }
 
     [AvaloniaFact]

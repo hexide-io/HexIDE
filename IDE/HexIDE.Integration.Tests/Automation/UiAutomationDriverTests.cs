@@ -1079,6 +1079,36 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task Type_text_refuses_hidden_dropdown_targets_before_finding_a_surface(bool keyboard, bool panelTarget)
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "a" }, Width = 100, IsVisible = !panelTarget };
+        var panel = new StackPanel { IsVisible = false, Children = { combo } };
+        Control target = panelTarget ? panel : combo;
+        AutomationProperties.SetName(target, panelTarget ? "Hidden panel" : "Hidden dropdown");
+        var window = new Window { Content = panel, Width = 300, Height = 300 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var outcome = keyboard
+                ? await UiAutomationDriver.TypeKeysAsync(target, "x")
+                : UiAutomationDriver.TypeText(target, "x");
+
+            outcome.Success.Should().BeFalse();
+            outcome.Mechanism.Should().Be(keyboard ? "keyboard" : "document");
+            outcome.Error.Should().Contain("is not showing").And.Contain(panelTarget ? "Hidden panel" : "Hidden dropdown")
+                .And.NotContain("'expand'").And.NotContain("has no text surface");
+            combo.IsDropDownOpen.Should().BeFalse();
+            combo.SelectedIndex.Should().Be(-1);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public async Task Type_text_by_keys_passes_over_a_dropdown_s_hidden_text_box()
     {
@@ -1086,7 +1116,9 @@ public class UiAutomationDriverTests
         var box = new TextBox { Width = 100 };
         var panel = new StackPanel { Children = { combo, box } };
         var lone = new ComboBox { ItemsSource = new[] { "a" }, Width = 100 };
-        var window = new Window { Content = new StackPanel { Children = { panel, lone } }, Width = 300, Height = 300 };
+        var hiddenBox = new TextBox { Width = 100 };
+        var hiddenPanel = new StackPanel { IsVisible = false, Children = { hiddenBox } };
+        var window = new Window { Content = new StackPanel { Children = { panel, lone, hiddenPanel } }, Width = 300, Height = 300 };
         window.Show();
         Dispatcher.UIThread.RunJobs();
         try
@@ -1098,6 +1130,11 @@ public class UiAutomationDriverTests
             var noSurface = await UiAutomationDriver.TypeKeysAsync(lone, "abc");
             noSurface.Success.Should().BeFalse();
             noSurface.Error.Should().Contain("has no text surface").And.NotContain("is not showing");
+
+            var hidden = await UiAutomationDriver.TypeKeysAsync(hiddenPanel, "abc");
+            hidden.Success.Should().BeFalse();
+            hidden.Error.Should().Contain("is not showing");
+            hiddenBox.Text.Should().BeNullOrEmpty();
         }
         finally { window.Close(); }
     }
