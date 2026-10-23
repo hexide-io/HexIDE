@@ -303,19 +303,20 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// A control added by double-clicking its tool: centred on the form as Center in Form centres one, then put on the
     /// nearest grid line when Align to Grid is on, as VB6 puts it (measured, #929: a 1215 x 495 button on a 6000 x 4500
     /// form went to 2400, 2040, where its centre is 2392.5, 2002.5). A position exactly between two lines goes to the
-    /// higher: 12.5 grid units became 13 (measured), where the default to-even rounding gives 12.
+    /// higher: 12.5 grid units became 13 (measured), where the default to-even rounding gives 12. Its size is its class's
+    /// <see cref="ComponentBaseClass.AddedSize"/>, the one VB6 gives it (measured, #1473).
     /// </summary>
     public void SpawnControlCenter(ComponentBaseClass componentClass)
     {
-        const double size = 50;
-        var left = Twips(Form.Width) / 2 - Twips(size) / 2;
-        var top = Twips(Form.Height) / 2 - Twips(size) / 2;
+        var (width, height) = componentClass.AddedSize;
+        var left = Twips(Form.Width) / 2 - width / 2;
+        var top = Twips(Form.Height) / 2 - height / 2;
         if (settingsService.AlignToGrid)
         {
             left = OnGrid(left, settingsService.GridWidth);
             top = OnGrid(top, settingsService.GridHeight);
         }
-        SpawnControlAt(componentClass, new Rect(Pixels(left), Pixels(top), size, size));
+        SpawnControlAt(componentClass, new Rect(Pixels(left), Pixels(top), Pixels(width), Pixels(height)));
 
         static long OnGrid(long twips, int gridPixels)
         {
