@@ -244,6 +244,8 @@ there isn't one yet. Anything may change between 0.x releases.
   selects the item it names, or raises 383 as vb6.exe does. Setting Style to Dropdown List in the designer resets
   the Text to the control's name, as VB6's designer does.
 
+- **MCP `type_text` refuses hidden targets before finding an editor** (#1317), in both modes, so a hidden dropdown is no longer told to expand itself. Its target description explains ambiguous surfaces and non-editable dropdowns; `select` now also refuses realized rows whose visibility cannot be read.
+
 - **MCP command guards follow the compiled XAML binding** (#1324). `invoke_command` now finds private guards
   on base types and ignores guards below the bound method's type, so its refusal agrees with the menu.
 
