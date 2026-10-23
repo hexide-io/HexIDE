@@ -15239,7 +15239,7 @@ The guess was that a `#Const` in an inactive branch defines nothing. **It define
 | `Win16`, `Win32`, `Not Win32`, `Not Win16` | false, true, **true**, true: `Not` is bitwise, so `Not 1` is -2 |
 | `Win32 = 1`, `Win32 = -1`, `Win32 = True` | true, false, false |
 | `VBA6`, `VBA7`, `Win64`, `Mac`, `Not Win64` | false, false, false, false, true: not defined under VB6 |
-| `CBool(Win32)`, `Not CBool(Win16)` | true, true: twinBASIC's advice for `Not` works here too |
+| `CBool(Win32)`, `Not CBool(Win16)` | true, true: a constant through `CBool` first gives `Not` a Boolean to work on |
 
 ### The project's arguments
 
