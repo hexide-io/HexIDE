@@ -591,6 +591,7 @@
     "Str.PropDesc.WindowList": "Luetteleeko tämä valikko avoimet MDI-aliikkunat.",
     "Str.PropDesc.Locked": "Voiko ohjausobjektin sisältöä muokata.",
     "Str.PropDesc.MultiSelect": "Voiko valita useamman kuin yhden kohteen, ja miten.",
+    "Str.PropDesc.Style": "Miten ohjausobjekti piirretään ja miten se toimii.",
     "Str.PropDesc.StartUpPosition": "Lomakkeen sijainti näytöllä sen ensimmäistä kertaa avautuessa.",
     "Str.PropDesc.ShowInTaskbar": "Näkyykö lomake tehtäväpalkissa.",
     "Str.PropDesc.TabIndex": "Ohjausobjektin paikka lomakkeen sarkainjärjestyksessä.",

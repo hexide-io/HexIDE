@@ -858,7 +858,7 @@ public class VBLoader
 
     /// <summary>The form's own component in its definition.</summary>
     public static ComponentInstance FormComponentOf(FormDefinition element) =>
-        element.Components.FirstOrDefault(x => x.BaseClass == FormComponentClass.Instance)
+        element.Components.FirstOrDefault(x => x.BaseClass is FormComponentClass)
         ?? throw new Exception("No form found");
 
     /// <summary>

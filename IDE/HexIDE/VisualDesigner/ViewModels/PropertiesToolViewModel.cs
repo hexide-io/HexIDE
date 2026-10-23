@@ -211,7 +211,7 @@ public partial class PropertiesToolViewModel : Tool
             Avalonia.Threading.Dispatcher.UIThread.Post(() => row.UpdateValueNoRaise(before));
 
         if (committed && !Equals(before, after))
-            currentDocument.UndoStack.Push(new SetPropertyCommand(instance, propertyClass, before, after));
+            currentDocument.PushSetPropertyCommand(instance, propertyClass, before, after);
     }
 }
 

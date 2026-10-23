@@ -296,6 +296,36 @@ public class SequentialFileTests : BaseVBTestFixture, IDisposable
             "freefile-2 256 0");
     }
 
+    // The clauses the inventory rated Dies after #1145 had made them run (#1633): Access Read and Shared are taken on an
+    // Input file, a second Input of a file opened Lock Read is 55 as Lock Write's is, and Append makes a missing file.
+    [Fact]
+    public async Task Access_Shared_Lock_Read_and_Append_answer_as_vb6_exe_did()
+    {
+        File.WriteAllText(PathOf("ab.txt"), "a\r\nb");
+        await Run($$"""
+            Dim s As String
+            On Error Resume Next
+            Open "{{PathOf("ab.txt")}}" For Input Access Read As #1
+            Line Input #1, s
+            Debug.Print "access-read " & Err.Number & " [" & s & "]": Err.Clear
+            Open "{{PathOf("ab.txt")}}" For Input Shared As #2
+            Line Input #2, s
+            Debug.Print "shared " & Err.Number & " [" & s & "]": Err.Clear
+            Close
+            Open "{{PathOf("ab.txt")}}" For Input Lock Read As #1
+            Open "{{PathOf("ab.txt")}}" For Input As #2
+            Debug.Print "lock-read " & Err.Number: Err.Clear
+            Close
+            Open "{{PathOf("new.txt")}}" For Append As #1
+            Print #1, "made"
+            Close #1
+            Debug.Print "append-missing " & Err.Number
+            """);
+
+        Printed().Should().Equal("access-read 0 [a]", "shared 0 [a]", "lock-read 55", "append-missing 0");
+        File.ReadAllText(PathOf("new.txt")).Should().Be("made\r\n");
+    }
+
     [Fact]
     public async Task A_file_number_can_be_a_variable_an_expression_or_written_without_its_hash()
     {

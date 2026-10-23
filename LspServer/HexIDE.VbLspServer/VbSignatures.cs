@@ -132,11 +132,46 @@ internal static class VbSignatures
                 new SignatureEntry("StrReverse(Expression As String) As String", ["Expression"],
                     "Returns a string in which the character order of a specified string is reversed.")
             ],
+            ["GetSetting"] =
+            [
+                new SignatureEntry("GetSetting(AppName As String, Section As String, Key As String, [Default]) As String",
+                    ["AppName", "Section", "Key", "Default"],
+                    "The text a program saved under a key with SaveSetting, or the default where it saved none.")
+            ],
+            ["GetAllSettings"] =
+            [
+                new SignatureEntry("GetAllSettings(AppName As String, Section As String)",
+                    ["AppName", "Section"],
+                    "Every key in a section with its text, as a String array of two columns, or Empty where the section holds none.")
+            ],
+            ["SaveSetting"] =
+            [
+                new SignatureEntry("SaveSetting(AppName As String, Section As String, Key As String, Setting As String)",
+                    ["AppName", "Section", "Key", "Setting"],
+                    "Keeps a piece of text under the program's name, a section and a key, for GetSetting to read in a later run.")
+            ],
+            ["DeleteSetting"] =
+            [
+                new SignatureEntry("DeleteSetting(AppName As String, [Section], [Key])",
+                    ["AppName", "Section", "Key"],
+                    "Deletes one key's text, a whole section, or, with no section, every section the program has.")
+            ],
             ["StrComp"] =
             [
                 new SignatureEntry("StrComp(String1, String2, [Compare As VbCompareMethod]) As Integer",
                     ["String1", "String2", "Compare"],
                     "Returns a value indicating the result of a string comparison.")
+            ],
+            ["StrConv"] =
+            [
+                new SignatureEntry("StrConv(String, Conversion As VbStrConv, [LocaleID As Long]) As String",
+                    ["String", "Conversion", "LocaleID"],
+                    "Returns a string converted as specified.")
+            ],
+            ["Error"] =
+            [
+                new SignatureEntry("Error([ErrorNumber]) As String", ["ErrorNumber"],
+                    "Returns the error message that corresponds to a given error number.")
             ],
             ["Format"] =
             [
@@ -250,6 +285,11 @@ internal static class VbSignatures
             ["DoEvents"]     = [new SignatureEntry("DoEvents() As Integer", [], "Lets waiting events run before the program goes on.")],
             ["FreeFile"]     = [new SignatureEntry("FreeFile([RangeNumber As Integer]) As Integer", ["RangeNumber"], "Returns the next file number free for Open.")],
             ["EOF"]          = [new SignatureEntry("EOF(FileNumber As Integer) As Boolean", ["FileNumber"], "Returns whether a file has been read to its end.")],
+            ["LOF"]          = [new SignatureEntry("LOF(FileNumber As Integer) As Long", ["FileNumber"], "Returns the length of an open file in bytes.")],
+            ["Loc"]          = [new SignatureEntry("Loc(FileNumber As Integer) As Long", ["FileNumber"], "Returns the position in an open file, in 128-byte blocks for a sequential one.")],
+            ["Seek"]         = [new SignatureEntry("Seek(FileNumber As Integer) As Long", ["FileNumber"], "Returns the byte the next read or write of an open file is at, from 1.")],
+            ["Input"]        = [new SignatureEntry("Input(Number As Long, [#]FileNumber As Integer) As String", ["Number", "FileNumber"], "Returns the next characters of a file open for Input.")],
+            ["InputB"]       = [new SignatureEntry("InputB(Number As Long, [#]FileNumber As Integer) As String", ["Number", "FileNumber"], "Returns the next bytes of a file open for Input.")],
             ["Environ"]      = [new SignatureEntry("Environ(Expression) As String", ["Expression"], "Returns the value of an operating system environment variable.")],
             ["RGB"]          = [new SignatureEntry("RGB(Red As Integer, Green As Integer, Blue As Integer) As Long", ["Red", "Green", "Blue"], "Returns a Long representing an RGB colour value.")],
             ["QBColor"]      = [new SignatureEntry("QBColor(Color As Integer) As Long", ["Color"], "Returns the RGB colour code corresponding to a QBasic colour number.")],

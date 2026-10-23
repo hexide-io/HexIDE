@@ -1,4 +1,5 @@
 using System.Linq;
+using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
@@ -62,6 +63,36 @@ public class ComboBoxSerializationTests
         saved.Should().Contain(Combo3 + Combo2 + Combo1 + Text1);
         Named(form, "Combo1").GetPropertyOrDefault(VBProperties.TextProperty).Should().Be("Combo1");
         Named(form, "Combo2").GetPropertyOrDefault(VBProperties.TextProperty).Should().Be("Combo2");
+    }
+
+    // Style is modelled (#1428): read as its value, not kept as a line, and written where VB6's designer writes it.
+    [Fact]
+    public void Style_is_read_as_its_value_and_written_back_as_VB6_wrote_it()
+    {
+        var (form, saved) = RoundTrip(Combo3 + Combo2 + Combo1);
+
+        Named(form, "Combo3").GetPropertyOrDefault(VBProperties.ComboStyleProperty).Should().Be(VBComboStyle.DropdownList);
+        Named(form, "Combo2").GetPropertyOrDefault(VBProperties.ComboStyleProperty).Should().Be(VBComboStyle.SimpleCombo);
+        Named(form, "Combo1").GetPropertyOrDefault(VBProperties.ComboStyleProperty).Should().Be(VBComboStyle.DropdownCombo);
+        form.Components.SelectMany(c => c.UnknownRawProperties).Should().NotContain(p => p.Name == "Style");
+        saved.Should().Contain(Combo3 + Combo2 + Combo1);
+    }
+
+    // A Style set in the designer goes where VB6's designer put Combo2's, between Left and TabIndex, with its name; and
+    // back to Dropdown Combo, which VB6 never writes, it goes.
+    [Fact]
+    public void A_Style_set_in_the_model_is_written_with_its_name_and_the_default_is_dropped()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var form = new FormDeserializer().Deserialize(project, Head + Combo1 + Tail, new NullSink())!;
+
+        Named(form, "Combo1").SetProperty(VBProperties.ComboStyleProperty, VBComboStyle.SimpleCombo);
+        var (simple, _) = new FormSerializer().Serialize(form, "Form1.frm");
+        Named(form, "Combo1").SetProperty(VBProperties.ComboStyleProperty, VBComboStyle.DropdownCombo);
+        var (dropdown, _) = new FormSerializer().Serialize(form, "Form1.frm");
+
+        simple.Should().Contain("      Left            =   1800\r\n      Style           =   1  'Simple Combo\r\n      TabIndex        =   1\r\n");
+        dropdown.Should().Contain(Combo1);
     }
 
     // VB6's designer never writes a Dropdown List's Text, and its run time ignores one, so a hand-written line goes.

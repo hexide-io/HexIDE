@@ -580,34 +580,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return ControlFlow.Nothing;
     }
 
-    /// <summary>
-    /// A file number. <c>#f</c> is lexed as one token: the number, or the variable, after the <c>#</c>. Without the
-    /// <c>#</c> it is an ordinary expression, as in <c>Close 3</c>, which VB6 takes too (measured).
-    /// </summary>
-    private async Task<int> FileNumber(VB6Parser.ValueStmtContext valueStmt)
-    {
-        var text = valueStmt.GetText();
-        Vb6Value value;
-        if (text.StartsWith('#'))
-        {
-            var name = text[1..];
-            if (int.TryParse(name, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var literal))
-                return literal;
-            if (!interpreter.TryReadNow(currentEnv, name, out var found, out value, out var need))
-                (found, value) = await interpreter.ReadVariableAfter(currentEnv, name, need!);
-            if (!found)
-            {
-                // An undeclared name is an Empty Variant, so number 0, where Option Explicit doesn't refuse it.
-                if (currentModule.PrePass.RequireVariableDefinitions)
-                    throw new VBVariableNotDefinedException(name);
-                value = new Vb6Value(0);
-            }
-        }
-        else
-            value = await expressionExecutor.EvaluateValue(valueStmt);
-        return Convert.ToInt32(VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Long, valueStmt).Value,
-            System.Globalization.CultureInfo.InvariantCulture);
-    }
+    /// <summary>A file number, <c>#f</c> or an expression, as <see cref="ExpressionExecutor.FileNumber"/> reads it.</summary>
+    private Task<int> FileNumber(VB6Parser.ValueStmtContext valueStmt) => expressionExecutor.FileNumber(valueStmt);
 
     /// <summary>A variable a statement stores into, as a Let stores into it: created where Option Explicit allows.</summary>
     private async Task StoreVariable(string name, Vb6Value value)
@@ -630,8 +604,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // the initializer and fill the slot. The slot is marked a constant, so any other store into it is refused (#1003).
         foreach (var sub in context.constSubStmt())
         {
-            if (sub.typeHint() != null)
-                throw new NotImplementedException("Const type hints not supported");
             // Inside a procedure the Const was declared at entry (HoistDeclaredLocals), so the statement has nothing
             // left to do when execution reaches it.
             if (ownedSlots != null)
@@ -666,7 +638,30 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitDeleteSettingStmt(VB6Parser.DeleteSettingStmtContext context)
     {
-        throw new NotImplementedException("DeleteSetting not implemented");
+        await RunSettingStatement("DeleteSetting", context.valueStmt());
+        return ControlFlow.Nothing;
+    }
+
+    // SaveSetting and DeleteSetting are statements in the grammar and intrinsics in VB6, which runs `Call SaveSetting(...)` and
+    // `VBA.SaveSetting ...` as well (measured, #1562), so each runs as the intrinsic. A named argument, `AppName:="x"`, is
+    // placed by the intrinsic's parameter names, as a call's is.
+    private async Task RunSettingStatement(string name, IReadOnlyList<VB6Parser.ValueStmtContext> arguments)
+    {
+        var args = new List<CallArg>(arguments.Count);
+        foreach (var argument in arguments)
+        {
+            if (argument is VB6Parser.VsAssignContext assign)
+            {
+                var value = assign.valueStmt();
+                args.Add(new CallArg(Vb6Value.Missing, null, Name: assign.implicitCallStmt_InStmt().GetText(),
+                    Deferred: async () => new CallArg(await expressionExecutor.EvaluateValue(value), null)));
+                continue;
+            }
+            if (args.Count > 0 && args[^1].Name is not null)
+                throw new VBCompileErrorException("Syntax error");
+            args.Add(new CallArg(await expressionExecutor.EvaluateValue(argument), null));
+        }
+        await interpreter.BuiltIns.EvaluateBuiltInFunction(name, await VB6BuiltIns.ArrangeIntrinsicArguments(name, args));
     }
 
     // The pre-pass collected the module's DefType statements (#169); running one does nothing. Inside a procedure it does not
@@ -1520,30 +1515,42 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     }
 
     /// <summary>
-    /// A store into the name of a Function or Property Get declared to return an array, `As Integer()` or `As Variant()`,
-    /// takes only an array of exactly that type, whose bounds it keeps (measured, #986, native and p-code). What VB6 can
-    /// see is wrong while compiling is its compile error "Can't assign to array", raised here as the statement runs: an
-    /// array variable declared with another element type, or a scalar whose type the statement itself shows. Anything
-    /// else is 13, and the caller's target is left as it was: a Variant holding the wrong thing, Empty, Null, or a call
-    /// that returns a Variant, such as Array or Split.
+    /// The value a Let of a whole array stores: into a dynamic array variable, a ByRef array parameter, or the name of a
+    /// Function or Property Get declared to return an array, `As Integer()` or `As Variant()`. Each takes only an array of
+    /// exactly its element type, whose bounds it keeps (measured, #986, #998 and #1588, native and p-code, for every element
+    /// type, named and through a Variant). What VB6 can see is wrong while compiling is its compile error, raised here as the
+    /// statement runs: "Can't assign to array" for an array variable declared with another element type or a scalar whose
+    /// type the statement itself shows, and "Invalid use of object" for `Nothing`. Anything else is 13, and the target is
+    /// left as it was: Empty, Null, a number, a String, Nothing or an array of another type held by a Variant, or a call
+    /// that returns one, such as Array or Split.
     /// <para>
-    /// The one conversion VB6 makes is a String into a Byte(), which takes the String's bytes (measured: "ab" is
-    /// 97 0 98 0, from a literal, a String variable or a Variant). A Byte() variable converts the same way, and neither is
-    /// implemented, so that store is refused rather than given an error VB6 does not raise (#998).
+    /// The one conversion VB6 makes is a String into a Byte(), which takes the String's bytes, from a literal, a Const, a
+    /// String variable or a Variant: "ab" is a Byte() 0 To 3 holding 97 0 98 0, and "" a Byte() 0 To -1 (measured).
     /// </para>
     /// </summary>
-    private void CheckArrayReturn(Vb6Value.ValueType declared, Vb6Value value, VB6Parser.LetStmtContext context)
+    private Vb6Value ArrayStore(Vb6Value.ValueType declared, Vb6Value value, VB6Parser.LetStmtContext context)
     {
         if (value.Type == declared)
-            return;
+            return value;
         if (declared == ByteArray && value.Type == Vb6Value.ValueType.String)
-            throw new NotImplementedException(
-                "A String stored into a Function declared As Byte() is converted into its bytes by VB6, which HexIDE does not do yet (#998)");
+            return VB6BuiltIns.StringBytes((string?)value.Value ?? "");
+        if (value.Type == Vb6Value.ValueType.Object && context.valueStmt() is VB6Parser.VsLiteralContext { } literal
+            && literal.literal()?.NOTHING() != null)
+            throw new VBCompileErrorException("Invalid use of object");
         var seenWhileCompiling = value.Type.IsArray ? IsDeclaredArrayVariable(context.valueStmt()) : IsTypedBySyntax(context.valueStmt());
         if (seenWhileCompiling)
             throw new VBCompileErrorException("Can't assign to array");
         throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
     }
+
+    // Whether a Let stores a whole array: into a variable declared as one, or into the name of a Function declared to
+    // return one. Neither reads an object's default member: Nothing, or an object held by a Variant, is refused as the
+    // wrong value rather than given 438 (measured, #1588).
+    private bool IntoArray(VB6Parser.LetStmtContext context) =>
+        context.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } target && target.dictionaryCallStmt() is null
+        && target.GetText() is { } name
+        && ((checkedArrayReturn is not null && string.Equals(name, procName, StringComparison.OrdinalIgnoreCase))
+            || (currentEnv.TryGetVariableLocation(name, out var location) && interpreter.ExecutionContext.State.IsDeclaredArray(location)));
 
     private static readonly Vb6Value.ValueType ByteArray = new(Vb6Value.ValueType.Byte, true);
 
@@ -1595,12 +1602,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     }
 
     // The value a Let stores, with the refusals every Let makes of it.
-    private async Task<Vb6Value> LetValue(VB6Parser.LetStmtContext context)
+    private async Task<Vb6Value> LetValue(VB6Parser.LetStmtContext context, bool intoArray = false)
     {
         var value = await expressionExecutor.EvaluateValue(context.valueStmt());
 
         if (context.PLUS_EQ() != null || context.MINUS_EQ() != null)
             throw new NotImplementedException("+-/-= not implemented in variable assignment");
+        if (intoArray && value.Type == Vb6Value.ValueType.Object)
+            return value;   // ArrayStore refuses it
 
         // A Let of an object stores its default member's value, into a Variant as readily as into a Long (measured): a
         // class instance is refused or 438 (ObjectAsValue). `Nothing` stays 438. VB6 also empties a Variant target of
@@ -1632,7 +1641,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             && chain.ambiguousIdentifier() is not null && chain.typeHint() is null && chain.dictionaryCallStmt() is null)
             return await LetIntoIndexChain(context, chain, chainGroups);
 
-        var value = await LetValue(context);
+        var value = await LetValue(context, IntoArray(context));
 
         if (context.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } varOrProcCall)
         {
@@ -1678,16 +1687,23 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 RefuseLetIntoObject(oldLet, identifier, context);
             }
             if (checkedArrayReturn is { } declaredReturn && string.Equals(identifier, procName, StringComparison.OrdinalIgnoreCase))
-                CheckArrayReturn(declaredReturn, value, context);
-            // A fixed array cannot be assigned an array (measured, #970). Named directly it does not compile: "Can't assign
-            // to array", raised here as the statement runs. Through a ByRef parameter sharing it, it is 13, and the array is
-            // left as it was. Fixedness is the declaring slot's (ExecutionState.MarkFixedArray), as for ReDim.
-            if (value.Type.IsArray && currentEnv.TryGetVariableLocation(identifier, out var letLocation)
-                && interpreter.ExecutionContext.State.IsFixedArray(letLocation))
+                value = ArrayStore(declaredReturn, value, context);
+            else if (currentEnv.TryGetVariableLocation(identifier, out var letLocation)
+                     && interpreter.ExecutionContext.State.IsDeclaredArray(letLocation) && oldLet.Type.IsArray)
             {
-                if (currentEnv.Parameters.Contains(identifier))
-                    throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
-                throw new VBCompileErrorException("Can't assign to array");
+                // A fixed array cannot be assigned at all (measured, #970, #1588). Named directly it does not compile, whatever
+                // the value, a Variant's included: "Can't assign to array", raised here as the statement runs. Through a ByRef
+                // parameter sharing it, it is 13, and the array is left as it was. Fixedness is the declaring slot's
+                // (ExecutionState.MarkFixedArray), as for ReDim.
+                if (interpreter.ExecutionContext.State.IsFixedArray(letLocation))
+                {
+                    if (currentEnv.Parameters.Contains(identifier))
+                        throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
+                    throw new VBCompileErrorException("Can't assign to array");
+                }
+                // A dynamic one takes what a Function declared with its type takes. The slot's array carries the declared
+                // type, since nothing else is ever stored there, and a ByRef parameter's is its caller's.
+                value = ArrayStore(oldLet.Type, value, context);
             }
             interpreter.ExecutionContext.TryUpdateVariable(currentEnv, identifier, interpreter.CopyForStore(value));
             // Refcount (Phase 4.2): a Variant slot that held an object and is now overwritten by a scalar drops
@@ -2355,12 +2371,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitSaveSettingStmt(VB6Parser.SaveSettingStmtContext context)
     {
-        throw new NotImplementedException("SaveSetting not implemented");
+        await RunSettingStatement("SaveSetting", context.valueStmt());
+        return ControlFlow.Nothing;
     }
 
+    // `Seek #n, position`, or with no #, on a sequential file (#1645): VbFiles.Seek says what it does.
     public override async Task<ControlFlow> VisitSeekStmt(VB6Parser.SeekStmtContext context)
     {
-        throw new NotImplementedException("Seek not implemented");
+        var number = await FileNumber(context.valueStmt(0));
+        var position = await expressionExecutor.EvaluateValue(context.valueStmt(1));
+        interpreter.BuiltIns.Files.Seek(number, Convert.ToInt64(
+            VbNumeric.CoerceOnStore(position, Vb6Value.ValueType.Long, context.valueStmt(1)).Value, System.Globalization.CultureInfo.InvariantCulture));
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitSelectCaseStmt(VB6Parser.SelectCaseStmtContext context)
@@ -3295,8 +3317,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// </summary>
     private async Task DeclareLocalConst(VB6Parser.ConstSubStmtContext sub)
     {
-        if (sub.typeHint() != null)
-            throw new NotImplementedException("Const type hints not supported");
         var name = sub.ambiguousIdentifier().GetText();
         if (!declaredLocals.Add(name))
             return;
@@ -3320,15 +3340,30 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// <c>As Byte = 300</c>, <c>As Byte = -1</c>, <c>As Integer = 32768</c>, a Currency or a Date beyond its range are
     /// "Overflow", and <c>As Integer = "x"</c> "Type mismatch". <c>As Variant</c> keeps the value as it is (2.5, a Double).
     /// It stored the value as the initialiser gave it, whatever the As clause said.
+    /// <para>
+    /// A type character on the name is that As clause, with the same conversions and the same errors (measured, #1614):
+    /// <c>Const K% = 2.5</c> is the Integer 2, <c>Const K$ = 5</c> the String "5", and <c>Const K% = 40000</c> "Overflow".
+    /// Both together, <c>Const K% As Integer = 1</c>, does not compile: "Expected: =".
+    /// </para>
     /// </summary>
     private static Vb6Value AsDeclared(VB6Parser.ConstSubStmtContext sub, Vb6Value value)
     {
-        if (sub.asTypeClause() is not { } asType)
+        Vb6Value.ValueType type;
+        if (sub.typeHint() is { } hint)
+        {
+            if (sub.asTypeClause() != null)
+                throw new VBCompileErrorException("Expected: =");
+            type = BaseTypeMapper.Map(hint);
+        }
+        else if (sub.asTypeClause() is { } asType)
+        {
+            if (BaseTypeMapper.Map(asType.type()?.baseType()) is not { } declared || asType.fieldLength() != null)
+                throw new NotImplementedException(
+                    $"Const {sub.ambiguousIdentifier().GetText()} As {asType.type()?.GetText()} is not supported.");
+            type = declared;
+        }
+        else
             return value;
-        var type = BaseTypeMapper.Map(asType.type()?.baseType());
-        if (type is null || asType.fieldLength() != null)
-            throw new NotImplementedException(
-                $"Const {sub.ambiguousIdentifier().GetText()} As {asType.type()?.GetText()} is not supported.");
         if (type == Vb6Value.ValueType.EmptyVariant)
             return value;
         try

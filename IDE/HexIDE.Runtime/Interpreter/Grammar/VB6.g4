@@ -328,7 +328,7 @@ deftypeStmt
    ;
 
 deleteSettingStmt
-   : DELETESETTING WS valueStmt WS? COMMA WS? valueStmt (WS? COMMA WS? valueStmt)?
+   : DELETESETTING WS valueStmt (WS? COMMA WS? valueStmt (WS? COMMA WS? valueStmt)?)?
    ;
 
 doLoopStmt
@@ -2292,13 +2292,17 @@ HEXLITERAL
    ;
 
 
+// D is an exponent marker as E is, in either case: vb6.exe compiles 2.5D2 and 1d3, each a Double unless a suffix types
+// it (measured, #1611). A .frx offset such as `:0D2C` is unaffected: FRX_OFFSET takes its colon too, so it is the
+// longer match there. A literal may end in its point, `5.` or `5.E1`, as vb6.exe compiles it (measured, #1615); `5..5`
+// is then two literals side by side, which the parser refuses, as vb6.exe does.
 INTEGERLITERAL
-   : (PLUS | MINUS)? ('0' .. '9') + (('e' | 'E') INTEGERLITERAL)* (HASH | AMPERSAND | EXCLAMATIONMARK | AT | PERCENT)?
+   : (PLUS | MINUS)? ('0' .. '9') + (('e' | 'E' | 'd' | 'D') INTEGERLITERAL)* (HASH | AMPERSAND | EXCLAMATIONMARK | AT | PERCENT)?
    ;
 
 
 DOUBLELITERAL
-   : (PLUS | MINUS)? ('0' .. '9')* DOT ('0' .. '9') + (('e' | 'E') (PLUS | MINUS)? ('0' .. '9') +)* (HASH | AMPERSAND | EXCLAMATIONMARK | AT | PERCENT)?
+   : (PLUS | MINUS)? (('0' .. '9') + DOT ('0' .. '9')* | DOT ('0' .. '9') +) (('e' | 'E' | 'd' | 'D') (PLUS | MINUS)? ('0' .. '9') +)* (HASH | AMPERSAND | EXCLAMATIONMARK | AT | PERCENT)?
    ;
 
 

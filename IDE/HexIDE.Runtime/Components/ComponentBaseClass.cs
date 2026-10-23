@@ -21,13 +21,19 @@ public abstract class ComponentBaseClass : IComponentClass
     /// False for a control with no Left, Top, Width or Height, which is the Line: its geometry is two endpoints (#163). A
     /// program reading one of them is 438 in VB6 (measured), and the .frm never holds them.
     /// </param>
+    /// <param name="hasVisible">
+    /// False for a class whose Properties window has no Visible: a UserControl's or PropertyPage's designer root (measured,
+    /// #1585).
+    /// </param>
     protected ComponentBaseClass(IReadOnlyList<PropertyClass> extendedProperties, IReadOnlyList<EventClass>? events,
-        bool hasBounds)
+        bool hasBounds, bool hasVisible = true)
     {
         var properties = new List<PropertyClass>(extendedProperties) { NameProperty };
         if (hasBounds)
             properties.AddRange([LeftProperty, TopProperty, WidthProperty, HeightProperty]);
-        properties.AddRange([VisibleProperty, TagProperty]);
+        if (hasVisible)
+            properties.Add(VisibleProperty);
+        properties.Add(TagProperty);
         Properties = properties;
         PropertiesByName = Properties.ToDictionary(p => p.Name, p => p, StringComparer.OrdinalIgnoreCase);   // #811
         Events = events ?? [];
@@ -86,6 +92,9 @@ public abstract class ComponentBaseClass : IComponentClass
     /// </summary>
     public virtual Thickness ClientInset(ComponentInstance instance) => default;
 
+    /// <inheritdoc/>
+    public virtual IReadOnlyList<PropertyChange> ApplyDesignerConsequences(ComponentInstance instance, PropertyClass property) => [];
+
     /// <summary>
     /// The Canvas a container class hands to its control at instantiation.
     ///
@@ -110,7 +119,8 @@ public abstract class ComponentBaseClass : IComponentClass
         // Disabled by its own Enabled, or by what it is: a UserControl whose .ctl saved Enabled = False is disabled wherever
         // it is placed, and the extender has no Enabled of its own (measured, #1101).
         control.IsEnabled = control.IsEnabled && instance.GetPropertyOrDefault(EnabledProperty);
-        ToolTip.SetTip(control, instance.GetPropertyOrDefault(ToolTipTextProperty));
+        // No tip at all where the text is empty, as VB6 shows none (#1403).
+        ToolTip.SetTip(control, instance.GetPropertyOrDefault(ToolTipTextProperty) is { Length: > 0 } tip ? tip : null);
         if (instance.GetPropertyOrDefault(TagProperty) is {} tag)
             control.Tag = tag;
         KeyboardNavigation.SetTabIndex(control, instance.GetPropertyOrDefault(TabIndexProperty));

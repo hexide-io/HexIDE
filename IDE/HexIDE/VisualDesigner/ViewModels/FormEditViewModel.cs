@@ -585,7 +585,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         {
             var vm = new ComponentInstanceViewModel(this, comp);
             viewModels[comp] = vm;
-            if (comp.BaseClass == FormComponentClass.Instance)
+            // A UserControl's and a PropertyPage's roots are classes of their own (#1585).
+            if (comp.BaseClass is FormComponentClass)
                 Form = vm;
             AllComponents.Add(vm);
         }
@@ -1291,10 +1292,26 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         }
     }
 
-    public void PushSetPropertyCommand(ComponentInstance target, PropertyClass property, object? before, object? after)
+    /// <summary>
+    /// Record a property just set on <paramref name="target"/> as one undoable change, with what VB6's designer changes
+    /// along with it, which this applies (<see cref="ComponentBaseClass.ApplyDesignerConsequences"/>). Returns those.
+    /// </summary>
+    public IReadOnlyList<PropertyChange> PushSetPropertyCommand(ComponentInstance target, PropertyClass property, object? before, object? after)
     {
-        if (!Equals(before, after))
-            UndoStack.Push(new Commands.SetPropertyCommand(target, property, before, after));
+        if (Equals(before, after))
+            return [];
+        var command = new Commands.SetPropertyCommand(target, property, before, after);
+        var consequences = target.BaseClass.ApplyDesignerConsequences(target, property);
+        if (consequences.Count == 0)
+        {
+            UndoStack.Push(command);
+            return consequences;
+        }
+        var inner = new List<IDesignerCommand> { command };
+        foreach (var change in consequences)
+            inner.Add(new Commands.SetPropertyCommand(target, change.Property, change.Before, change.After));
+        UndoStack.Push(new Commands.BatchCommand(command.Description, inner));
+        return consequences;
     }
 
     /// <summary>

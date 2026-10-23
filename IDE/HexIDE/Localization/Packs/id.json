@@ -591,6 +591,7 @@
     "Str.PropDesc.WindowList": "Apakah menu ini mencantumkan jendela anak MDI yang terbuka.",
     "Str.PropDesc.Locked": "Apakah isi kontrol dapat diedit.",
     "Str.PropDesc.MultiSelect": "Apakah lebih dari satu item dapat dipilih, dan bagaimana caranya.",
+    "Str.PropDesc.Style": "Cara kontrol digambar dan cara kontrol berperilaku.",
     "Str.PropDesc.StartUpPosition": "Tempat form ditempatkan di layar saat pertama kali dibuka.",
     "Str.PropDesc.ShowInTaskbar": "Apakah form muncul di taskbar.",
     "Str.PropDesc.TabIndex": "Posisi kontrol dalam urutan Tab form.",

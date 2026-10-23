@@ -64,6 +64,10 @@ HexIDE.Desktop --user-data-dir ./demo-profile
 - **The directory is created on first use**, so a new one starts from HexIDE's defaults exactly as a first
   install would. That is also what a typo gets you: an empty profile, not an error.
 - **A relative path is relative to where you ran HexIDE from**, as it is for any other program.
+- **A program's `SaveSetting` settings move with it on Linux and macOS, but not on Windows.** There they
+  are kept in the registry key VB6 itself uses, so a program run in HexIDE and the same program compiled by
+  VB6 share them, and this flag does not move them. Elsewhere they are in `program-settings.json` in this
+  directory.
 - **Logs are not per-user files** and stay in their usual place.
 - **Add-ins still load.** They live beside the executable, not in this directory; only the record of which
   ones you allowed moves, so a fresh profile asks about each third-party add-in again.

@@ -36,13 +36,24 @@ public partial class VB6BuiltIns
         ["DatePart"] = new(["Interval", "Date", "FirstDayOfWeek", "FirstWeekOfYear"], 2),
         ["DateSerial"] = new(["Year", "Month", "Day"], 3),
         ["DateValue"] = new(["Date"], 1),
+        // The settings four (measured, #1562): DeleteSetting's section is optional, so `DeleteSetting "App"` deletes the
+        // program's every section; SaveSetting's value is Setting, not Value, and GetSetting's default Default.
+        ["DeleteSetting"] = new(["AppName", "Section", "Key"], 1),
         ["Day"] = new(["Date"], 1),
         ["Environ"] = new(["Expression"], 1),
         ["EOF"] = new(["FileNumber"], 1),
+        // LOF, Loc and Seek take FileNumber by name; another name is "Named argument not found" (measured, #1645).
+        ["LOF"] = new(["FileNumber"], 1),
+        ["Loc"] = new(["FileNumber"], 1),
+        ["Seek"] = new(["FileNumber"], 1),
+        // Error's one parameter is optional: Error with no number is the text of the error Err holds (measured, #1560).
+        ["Error"] = new(["ErrorNumber"], 0),
         ["Exp"] = new(["Number"], 1),
         ["Filter"] = new(["SourceArray", "Match", "Include", "Compare"], 2),
         ["Format"] = new(["Expression", "Format", "FirstDayOfWeek", "FirstWeekOfYear"], 1),
         ["FreeFile"] = new(["RangeNumber"], 0),
+        ["GetAllSettings"] = new(["AppName", "Section"], 2),
+        ["GetSetting"] = new(["AppName", "Section", "Key", "Default"], 3),
         ["GetObject"] = new(["Pathname", "Class"], 0),
         // Hex, Oct and Str take `Number` though their type library lists no parameters (measured, #1475).
         ["Hex"] = new(["Number"], 1),
@@ -76,6 +87,7 @@ public partial class VB6BuiltIns
         ["Rnd"] = new(["Number"], 0),
         ["Round"] = new(["Number", "NumDigitsAfterDecimal"], 1),
         ["RTrim"] = new(["String"], 1),
+        ["SaveSetting"] = new(["AppName", "Section", "Key", "Setting"], 4),
         ["Second"] = new(["Time"], 1),
         ["Shell"] = new(["Pathname", "WindowStyle"], 1),
         ["Sin"] = new(["Number"], 1),
@@ -84,6 +96,9 @@ public partial class VB6BuiltIns
         ["Sqr"] = new(["Number"], 1),
         ["Str"] = new(["Number"], 1),
         ["String"] = new(["Number", "Character"], 2, OmittedIsSyntaxError: true),
+        // LocaleID, not the LCID its documentation names: `StrConv(String:="a", Conversion:=1, LCID:=0)` is "Named argument
+        // not found" (measured, #1560).
+        ["StrConv"] = new(["String", "Conversion", "LocaleID"], 2),
         ["StrReverse"] = new(["Expression"], 1),
         ["Tan"] = new(["Number"], 1),
         ["TimeSerial"] = new(["Hour", "Minute", "Second"], 3),
@@ -101,8 +116,8 @@ public partial class VB6BuiltIns
     // Measured to take no names at all: a named argument to one is VB6's "Syntax error".
     private static readonly HashSet<string> TakesNoNamedArguments = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Abs", "CBool", "CByte", "CCur", "CDate", "CDbl", "CInt", "CLng", "CSng", "CStr", "CVar", "CVErr", "Fix", "InStr", "Int",
-        "LBound", "Len", "LenB", "Sgn", "StrComp", "UBound",
+        "Abs", "CBool", "CByte", "CCur", "CDate", "CDbl", "CInt", "CLng", "CSng", "CStr", "CVar", "CVErr", "Fix", "InStr", "Input",
+        "InputB", "Int", "LBound", "Len", "LenB", "Sgn", "StrComp", "UBound",
     };
 
     // The intrinsics with no parameters, which VB6 refuses a name in three ways (measured, #1475: `Now(X:=1)`).
@@ -116,9 +131,9 @@ public partial class VB6BuiltIns
         ["Timer"] = "Wrong number of arguments or invalid property assignment",
     };
 
-    // A ParamArray from the first parameter: `Array(ArgList:=1)` and `Choose(Index:=1, Choice:="a")` are "Argument in
-    // ParamArray may not be named" (measured).
-    private static readonly HashSet<string> NamedIsAParamArray = new(StringComparer.OrdinalIgnoreCase) { "Array", "Choose" };
+    // A ParamArray from the first parameter: `Array(ArgList:=1)`, `Choose(Index:=1, Choice:="a")` and `Switch(VarExpr:=True)`
+    // are "Argument in ParamArray may not be named" (measured; Switch with #1560).
+    private static readonly HashSet<string> NamedIsAParamArray = new(StringComparer.OrdinalIgnoreCase) { "Array", "Choose", "Switch" };
 
     // A blank slot is missing syntax; a supplied Optional Variant can hold Missing as a value (#1512).
     internal sealed class IntrinsicArgumentValues(int capacity) : List<Vb6Value>(capacity)
@@ -143,6 +158,8 @@ public partial class VB6BuiltIns
             : TakesNoNamedArguments.Contains(name) ? name.ToUpperInvariant() switch
             {
                 "INSTR" => 4,
+                // Input with three is "Syntax error", not this check's message (measured, #1645): Input itself refuses it.
+                "INPUT" or "INPUTB" => int.MaxValue,
                 "STRCOMP" => 3,
                 "LBOUND" or "UBOUND" => 2,
                 _ => 1,
@@ -155,7 +172,9 @@ public partial class VB6BuiltIns
         if (TakesNoNamedArguments.Contains(name))
         {
             required = name.Equals("InStr", StringComparison.OrdinalIgnoreCase)
-                || name.Equals("StrComp", StringComparison.OrdinalIgnoreCase) ? 2 : 1;
+                || name.Equals("StrComp", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("Input", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("InputB", StringComparison.OrdinalIgnoreCase) ? 2 : 1;
             message = "Syntax error";
         }
         else if (NamedParameterTable.TryGetValue(name, out var parameters))

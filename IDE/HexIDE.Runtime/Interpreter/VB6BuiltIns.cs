@@ -99,7 +99,9 @@ public partial class VB6BuiltIns
         if (TakesTheArgumentItself.Contains(name) || (index == 0 && TakesAnArrayFirst.Contains(name))
             || (index >= 1 && TakesItsChoicesThemselves.Contains(name))
             || (index == 1 && string.Equals(name, "Join", StringComparison.OrdinalIgnoreCase))
-            || string.Equals(name, "Filter", StringComparison.OrdinalIgnoreCase))
+            || string.Equals(name, "Filter", StringComparison.OrdinalIgnoreCase)
+            // GetSetting reads its default only when it is the answer (measured, #1562).
+            || (index == 3 && string.Equals(name, "GetSetting", StringComparison.OrdinalIgnoreCase)))
             return arg;
         if (ReadsADefaultMemberIfAny.Contains(name))
             return ObjectAsValue.DefaultMemberIfAny(arg);
@@ -150,6 +152,8 @@ public partial class VB6BuiltIns
         RegisterFormat(d);
         RegisterColor(d);
         RegisterChoice(d);
+        RegisterSettings(d);
+        RegisterInteraction(d);
         // The command line, a String (measured): empty in a made program run with none.
         d["Command"] = (self, a, _) => a.Count == 0
             ? new Vb6Value(self.CommandLine)
@@ -162,6 +166,15 @@ public partial class VB6BuiltIns
         d["GetAttr"] = (self, a, _) => new Vb6Value((long)self.Files.GetAttributes(AsStr(a[0])));
         d["Dir"] = (self, a, _) => new Vb6Value(self.Files.Dir(Supplied(a, 0) ? (a[0].IsNull ? throw new VBRunTimeException(VBStandardError.TypeMismatch) : AsStr(a[0])) : null, Supplied(a, 1) ? AsInt(a[1]) : 0));
         d["EOF"] = (self, a, _) => new Vb6Value(self.Files.Eof(AsInt(a[0])));
+        // LOF, Loc and Seek are Longs, and Input a String (measured, #1645). Input's file number may be written #n: the
+        // expression executor reads it as a file number. InputB returns a byte string, which HexIDE has not got (#1510).
+        d["LOF"] = (self, a, _) => new Vb6Value(self.Files.Length(AsInt(a[0])));
+        d["Loc"] = (self, a, _) => new Vb6Value(self.Files.Loc(AsInt(a[0])));
+        d["Seek"] = (self, a, _) => new Vb6Value(self.Files.SeekPosition(AsInt(a[0])));
+        d["Input"] = (self, a, _) => a.Count == 2
+            ? new Vb6Value(self.Files.Read(AsInt(a[1]), AsInt(a[0])))
+            : throw new VBCompileErrorException("Syntax error");
+        d["InputB"] = (_, _, _) => throw new NotImplementedException("InputB is not implemented: it returns a byte string, which HexIDE has not got (#1510)");
         // DoEvents, for code run with no window, as a module test's is: nothing can be waiting, so it does nothing. A program
         // running in a window reaches BasicInterpreter.CallBuiltIn first, which runs what is waiting, as VB6 does (#766).
         // VB6 returns the open-form count; Integer 0 lets both `DoEvents` and `x = DoEvents` run (documented approximation).
