@@ -805,20 +805,6 @@ command it is bound to through its automation peer. That route was measured on t
 and `inspect_element` look where the binding resolves, or have the refusal say that the command is bound elsewhere
 and that `invoke` on the item reaches it. [#1336](https://github.com/hexide-io/HexIDE/issues/1336).
 
-## A lone surrogate in a call's arguments gets a bare `-32603` before any tool runs
-
-**Symptom.** Recorded in #1274's review, through a raw request rather than a client's tool call; the request was not
-recorded. A string argument holding an unpaired surrogate, such as an escaped U+D800 with no low surrogate after it,
-is answered with the SDK's JSON-RPC error `-32603` "An error occurred." before any tool runs. The reply names no tool,
-parameter or character, and does not say that nothing was done. Not yet reproduced through a client, which may
-escape or refuse such a string before sending it.
-
-**Workaround.** Send a surrogate pair whole, or the character itself.
-
-**Suggested fix.** Reproduce it with the SDK's own client, as `McpRestartTests` drive the server, and answer it as
-the server has answered an argument the SDK cannot bind since #1270: refused, naming the parameter and the problem,
-and saying nothing was done. [#1337](https://github.com/hexide-io/HexIDE/issues/1337).
-
 ## Two sessions that set neither variable reach the same IDE, and nothing in a reply says so (narrowed 2026-10-22)
 
 **Symptom.** Measured 2026-10-22 with two Debug IDEs, one on port 5128 with a new project and one on 5130 with
@@ -934,3 +920,21 @@ for a running form's Frame, PictureBox, Label and Image.
 
 **Suggested fix.** Count an explicitly set `AutomationProperties.Name` as the AutomationId already counts, so a view's
 author is not left to discover the override. Folded into #1436.
+
+## No tool can see a running form's frame
+
+**Symptom (2026-10-23, #1575, Windows, Debug).** A change to a running form's window, its border, caption bar and
+buttons, could not be checked through the tools. `take_snapshot(window: "B3x1")` on a running Fixed Dialog returned
+a 252 × 150 image at scale 1.5: the form's 168 × 100 client area, with no caption bar, border or buttons.
+`inspect_element(target: "Window", window: "B3x1")` returned `boundingRect [0,0,168,100]`, `providers []` and
+`dataContextMembers []`, and nothing about whether the window can be resized, its decorations, its buttons or whether
+it is a tool window.
+
+**Workaround.** From outside the IDE: `GetWindowLong` with `GWL_STYLE` and `GWL_EXSTYLE` through a PowerShell
+P/Invoke on the windows HexIDE's process owns, and a screen capture of their rectangles. Both bypass the surface a
+real caller uses.
+
+**Suggested fix.** Have `inspect_element` on a `Window` report `canResize`, `windowDecorations`, `canMinimize`,
+`canMaximize` and `showInTaskbar`, and on Windows the native style and extended style, which is what a VB6 program's
+own `GetWindowLong` reads. Give `take_snapshot` a way to capture a window with its frame, and say in the reply where
+the host cannot. [#1595](https://github.com/hexide-io/HexIDE/issues/1595).

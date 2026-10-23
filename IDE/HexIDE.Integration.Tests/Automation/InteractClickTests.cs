@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -109,24 +110,41 @@ public class InteractClickTests
     public async Task A_click_reply_uses_invariant_coordinates_under_a_comma_culture()
     {
         var scene = Build();
-        var originalCulture = CultureInfo.CurrentCulture;
         try
         {
-            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
             scene.Pad.Width = 180;
             scene.Window.UpdateLayout();
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
             Dispatcher.UIThread.RunJobs();
 
-            var outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Pad, "click", "150.5,20"));
+            var expectedCulture = CultureInfo.CurrentCulture.Name;
+            InteractOutcome pressed;
+            DispatcherOperation<string> queuedCulture;
+            // DoClick parses the point and formats the entire reply synchronously, including the text its release
+            // reuses. Do not pump jobs or await under de-DE: Avalonia restores a queued operation's ExecutionContext
+            // without reverting it afterwards. Suppress capture too, so work posted by the press cannot retain de-DE.
+            using (ExecutionContext.SuppressFlow())
+            {
+                var originalCulture = CultureInfo.CurrentCulture;
+                try
+                {
+                    CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+                    pressed = UiAutomationDriver.Interact(scene.Pad, "click", "150.5,20");
+                    // Exercise deferred work too, without relying on a particular hit target or dispatcher timing.
+                    queuedCulture = Dispatcher.UIThread.InvokeAsync(() => CultureInfo.CurrentCulture.Name);
+                }
+                finally { CultureInfo.CurrentCulture = originalCulture; }
+            }
+            var outcome = await UiAutomationDriver.FinishAsync(pressed);
 
             outcome.Success.Should().BeTrue(outcome.Error);
             outcome.Detail.Should().Contain("(150.5, 20)").And.Contain("(160.5, 80)")
                 .And.NotContain("150,5");
+            (await queuedCulture).Should().Be(expectedCulture, "work queued under de-DE must not retain it");
+            CultureInfo.CurrentCulture.Name.Should().Be(expectedCulture);
         }
         finally
         {
-            CultureInfo.CurrentCulture = originalCulture;
             scene.Window.Close();
         }
     }
