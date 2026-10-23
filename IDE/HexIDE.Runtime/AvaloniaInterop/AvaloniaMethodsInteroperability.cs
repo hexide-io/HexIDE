@@ -63,6 +63,9 @@ public static class AvaloniaMethodsInteroperability
         if (method.Equals("move", StringComparison.OrdinalIgnoreCase) && c is not Window)
             return Move(c, args);
 
+        if (method.Equals("zorder", StringComparison.OrdinalIgnoreCase) && c is not Window)
+            return ZOrder(c, args);
+
         if (method.Equals("setfocus", StringComparison.OrdinalIgnoreCase) && args.Count == 0 && (c is IFormView || c.Focusable))
             return SetFocus(c);
 
@@ -122,6 +125,40 @@ public static class AvaloniaMethodsInteroperability
         for (var i = 0; i < args.Count; i++)
             if (!AvaloniaInteroperability.TrySet(c, MoveOrder[i], args[i]))
                 throw new NotImplementedException($"The Move method is not implemented for {VBProps.GetName(c) ?? c.GetType().Name}");
+        return Vb6Value.Nothing;
+    }
+
+    /// <summary>
+    /// A control's ZOrder (#1503), as measured on vb6.exe at run time ("What ZOrder does at run time" in the oracle):
+    /// <list type="bullet">
+    /// <item>0, the default, puts it over every control of its plane in its container, and 1 under them. A Label never
+    /// rises over a windowed control, nor a windowed control sinks under a Label.</item>
+    /// <item>A container takes its contents with it, and an array element moves alone.</item>
+    /// <item>The position is an Integer: 2 and -1 are 5, a half goes to even, 32768 is 6, and "x" is 13. So is Null,
+    /// where CInt gives 94.</item>
+    /// </list>
+    /// </summary>
+    private static Vb6Value ZOrder(Control c, IReadOnlyList<Vb6Value> args)
+    {
+        if (args.Count > 1)
+            throw new NotImplementedException("The ZOrder method with more than one argument is not implemented");
+        var position = 0;
+        if (args.Count == 1 && !args[0].IsMissing)
+        {
+            if (args[0].IsNull)
+                throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            position = Convert.ToInt32(VB6BuiltIns.NarrowNum(args[0], Vb6Value.ValueType.Integer).Value);
+        }
+        if (position is not (0 or 1))
+            throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
+        if (c.Parent is Panel container)
+        {
+            var windowless = ControlStacking.IsWindowless(c);
+            if (position == 0)
+                ControlStacking.PlaceOver(c, windowless, container);
+            else
+                ControlStacking.PlaceUnder(c, windowless, container);
+        }
         return Vb6Value.Nothing;
     }
 

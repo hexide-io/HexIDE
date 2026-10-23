@@ -14,31 +14,30 @@ public sealed class ContainerReaderTests
     {
         var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", fixture);
         var bytes = File.ReadAllBytes(path);
-        Assert.Equal(hash, Convert.ToHexStringLower(SHA256.HashData(bytes)));
+        Convert.ToHexStringLower(SHA256.HashData(bytes)).Should().Be(hash);
         using var input = new MemoryStream(bytes, writable: false);
         var container = TwinBasicContainerReader.Read(input, cancellationToken: TestContext.Current.CancellationToken);
-        Assert.Equal(1, container.Version);
+        container.Version.Should().Be(1);
         using var expected = JsonDocument.Parse(File.ReadAllText(path + ".json"));
         var entries = Walk(container.Root, "").ToArray();
-        Assert.Equal(expected.RootElement.GetArrayLength(), entries.Length);
+        entries.Length.Should().Be(expected.RootElement.GetArrayLength());
         for (var i = 0; i < entries.Length; i++)
         {
             var (entry, entryPath) = entries[i];
             var row = expected.RootElement[i];
-            Assert.Equal(row.GetProperty("path").GetString(), entryPath);
-            Assert.Equal(row.GetProperty("name").GetString(), entry.Name);
-            Assert.Equal(row.GetProperty("revision").GetUInt64(), entry.Revision);
-            Assert.Equal(row.GetProperty("flags").GetUInt32(), entry.Flags);
-            Assert.Equal(row.GetProperty("category").GetByte(), entry.Category);
-            Assert.Equal(row.GetProperty("kind").GetString(), entry is TwinBasicFile ? "file" : "directory");
+            entryPath.Should().Be(row.GetProperty("path").GetString());
+            entry.Name.Should().Be(row.GetProperty("name").GetString());
+            entry.Revision.Should().Be(row.GetProperty("revision").GetUInt64());
+            entry.Flags.Should().Be(row.GetProperty("flags").GetUInt32());
+            entry.Category.Should().Be(row.GetProperty("category").GetByte());
+            (entry is TwinBasicFile ? "file" : "directory").Should().Be(row.GetProperty("kind").GetString());
             if (entry is not TwinBasicFile file) continue;
-            Assert.Equal(row.GetProperty("length").GetInt32(), file.Content.Length);
-            Assert.Equal(row.GetProperty("sha256").GetString(),
-                Convert.ToHexStringLower(SHA256.HashData(file.Content.AsSpan())));
-            Assert.Equal(row.GetProperty("revisions").EnumerateArray().Select(x => x.GetUInt32()), file.Revisions);
+            file.Content.Length.Should().Be(row.GetProperty("length").GetInt32());
+            Convert.ToHexStringLower(SHA256.HashData(file.Content.AsSpan())).Should().Be(row.GetProperty("sha256").GetString());
+            file.Revisions.Should().Equal(row.GetProperty("revisions").EnumerateArray().Select(x => x.GetUInt32()));
         }
-        Assert.True(input.CanRead);
-        Assert.Equal(bytes, File.ReadAllBytes(path));
+        input.CanRead.Should().BeTrue();
+        File.ReadAllBytes(path).Should().Equal(bytes);
     }
 
     private static IEnumerable<(TwinBasicEntry Entry, string Path)> Walk(TwinBasicEntry entry, string path)
@@ -61,14 +60,14 @@ public sealed class ContainerReaderTests
             w.Write(2u); w.Write(uint.MaxValue); w.Write(42u);
         }, children: 2);
         var root = Read(bytes).Root;
-        Assert.Empty(Assert.IsType<TwinBasicDirectory>(root.Children[0]).Children);
-        var file = Assert.IsType<TwinBasicFile>(root.Children[1]);
-        Assert.Equal("é.twin", file.Name);
-        Assert.Equal(ulong.MaxValue, file.Revision);
-        Assert.Equal(0x80000007u, file.Flags);
-        Assert.Equal(255, file.Category);
-        Assert.Equal(new byte[] { 0, 255, 0xC3, 0x28 }, file.Content);
-        Assert.Equal(new uint[] { uint.MaxValue, 42 }, file.Revisions);
+        root.Children[0].Should().BeOfType<TwinBasicDirectory>().Which.Children.Should().BeEmpty();
+        var file = root.Children[1].Should().BeOfType<TwinBasicFile>().Which;
+        file.Name.Should().Be("é.twin");
+        file.Revision.Should().Be(ulong.MaxValue);
+        file.Flags.Should().Be(0x80000007u);
+        file.Category.Should().Be(255);
+        file.Content.Should().Equal(new byte[] { 0, 255, 0xC3, 0x28 });
+        file.Revisions.Should().Equal(new uint[] { uint.MaxValue, 42 });
     }
 
     [Fact]
@@ -78,9 +77,9 @@ public sealed class ContainerReaderTests
         for (var length = 0; length < bytes.Length; length++)
         {
             using var input = new MemoryStream(bytes[..length]);
-            var error = Assert.Throws<TwinBasicFormatException>(() => TwinBasicContainerReader.Read(input, cancellationToken: TestContext.Current.CancellationToken));
-            Assert.InRange(error.Offset, 0, length);
-            Assert.True(input.CanRead);
+            var error = FluentActions.Invoking(() => TwinBasicContainerReader.Read(input, cancellationToken: TestContext.Current.CancellationToken)).Should().ThrowExactly<TwinBasicFormatException>().Which;
+            error.Offset.Should().BeInRange(0, length);
+            input.CanRead.Should().BeTrue();
         }
     }
 
@@ -92,24 +91,24 @@ public sealed class ContainerReaderTests
     {
         var bytes = Archive(FileEntry);
         bytes[offset] = value;
-        var error = Assert.Throws<TwinBasicFormatException>(() => Read(bytes));
-        Assert.Contains(reason, error.Message);
-        Assert.Equal(offset, error.Offset);
+        var error = FluentActions.Invoking(() => Read(bytes)).Should().ThrowExactly<TwinBasicFormatException>().Which;
+        error.Message.Should().Contain(reason);
+        error.Offset.Should().Be(offset);
     }
 
     [Fact]
     public void Root_version_one_is_a_directory_even_when_empty()
     {
-        Assert.Empty(Read(Archive(_ => { }, 0)).Root.Children);
+        Read(Archive(_ => { }, 0)).Root.Children.Should().BeEmpty();
     }
 
     [Fact]
     public void Rejects_trailing_bytes()
     {
         var bytes = Archive(FileEntry);
-        var error = Assert.Throws<TwinBasicFormatException>(() => Read([.. bytes, 0]));
-        Assert.Equal(bytes.Length, error.Offset);
-        Assert.Contains("trailing", error.Message);
+        var error = FluentActions.Invoking(() => Read([.. bytes, 0])).Should().ThrowExactly<TwinBasicFormatException>().Which;
+        error.Offset.Should().Be(bytes.Length);
+        error.Message.Should().Contain("trailing");
     }
 
     [Fact]
@@ -117,9 +116,9 @@ public sealed class ContainerReaderTests
     {
         var bytes = Archive(FileEntry);
         bytes[33] = 255; // First byte of the child's name.
-        var error = Assert.Throws<TwinBasicFormatException>(() => Read(bytes));
-        Assert.Contains("UTF-8", error.Message);
-        Assert.Equal(33, error.Offset);
+        var error = FluentActions.Invoking(() => Read(bytes)).Should().ThrowExactly<TwinBasicFormatException>().Which;
+        error.Message.Should().Contain("UTF-8");
+        error.Offset.Should().Be(33);
     }
 
     [Theory]
@@ -131,8 +130,8 @@ public sealed class ContainerReaderTests
     {
         var bytes = Archive(FileEntry);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(offset), uint.MaxValue);
-        var error = Assert.Throws<TwinBasicFormatException>(() => Read(bytes));
-        Assert.Contains(reason, error.Message);
+        var error = FluentActions.Invoking(() => Read(bytes)).Should().ThrowExactly<TwinBasicFormatException>().Which;
+        error.Message.Should().Contain(reason);
     }
 
     [Fact]
@@ -140,20 +139,20 @@ public sealed class ContainerReaderTests
     {
         var bytes = Archive(FileEntry);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(47), uint.MaxValue);
-        var error = Assert.Throws<TwinBasicFormatException>(() => Read(bytes));
-        Assert.Equal("//a", error.EntryPath); // Empty root name is retained.
-        Assert.Equal(47, error.Offset);
+        var error = FluentActions.Invoking(() => Read(bytes)).Should().ThrowExactly<TwinBasicFormatException>().Which;
+        error.EntryPath.Should().Be("//a"); // Empty root name is retained.
+        error.Offset.Should().Be(47);
     }
 
     [Fact]
     public void Configurable_limits_allow_the_boundary_and_refuse_one_more()
     {
         var bytes = Archive(FileEntry);
-        Assert.Single(Read(bytes, new(MaxContainerBytes: bytes.Length, MaxEntries: 2, MaxDepth: 1, MaxNameBytes: 1)).Root.Children);
-        Assert.Throws<TwinBasicFormatException>(() => Read(bytes, new(MaxContainerBytes: bytes.Length - 1)));
-        Assert.Throws<TwinBasicFormatException>(() => Read(bytes, new(MaxEntries: 1)));
-        Assert.Throws<TwinBasicFormatException>(() => Read(bytes, new(MaxDepth: 0)));
-        Assert.Throws<TwinBasicFormatException>(() => Read(Archive(w => { Header(w, 2, "long"); w.Write(0u); }), new(MaxNameBytes: 3)));
+        Read(bytes, new(MaxContainerBytes: bytes.Length, MaxEntries: 2, MaxDepth: 1, MaxNameBytes: 1)).Root.Children.Should().ContainSingle();
+        FluentActions.Invoking(() => Read(bytes, new(MaxContainerBytes: bytes.Length - 1))).Should().ThrowExactly<TwinBasicFormatException>();
+        FluentActions.Invoking(() => Read(bytes, new(MaxEntries: 1))).Should().ThrowExactly<TwinBasicFormatException>();
+        FluentActions.Invoking(() => Read(bytes, new(MaxDepth: 0))).Should().ThrowExactly<TwinBasicFormatException>();
+        FluentActions.Invoking(() => Read(Archive(w => { Header(w, 2, "long"); w.Write(0u); }), new(MaxNameBytes: 3))).Should().ThrowExactly<TwinBasicFormatException>();
     }
 
     [Fact]
@@ -164,8 +163,8 @@ public sealed class ContainerReaderTests
             Header(w, 2, "d"); w.Write(1u); FileEntry(w);
             FileEntry(w);
         }, 2);
-        Assert.Throws<TwinBasicFormatException>(() => Read(bytes, new(MaxEntries: 3)));
-        Assert.Equal(4, Walk(Read(bytes, new(MaxEntries: 4)).Root, "").Count());
+        FluentActions.Invoking(() => Read(bytes, new(MaxEntries: 3))).Should().ThrowExactly<TwinBasicFormatException>();
+        Walk(Read(bytes, new(MaxEntries: 4)).Root, "").Count().Should().Be(4);
     }
 
     [Fact]
@@ -176,7 +175,7 @@ public sealed class ContainerReaderTests
             for (var i = 0; i < 130; i++) { Header(w, 2, "d"); w.Write(1u); }
             FileEntry(w);
         });
-        Assert.Contains("nesting", Assert.Throws<TwinBasicFormatException>(() => Read(bytes)).Message);
+        FluentActions.Invoking(() => Read(bytes)).Should().ThrowExactly<TwinBasicFormatException>().Which.Message.Should().Contain("nesting");
     }
 
     [Fact]
@@ -185,16 +184,16 @@ public sealed class ContainerReaderTests
         var bytes = Archive(w => { FileEntry(w); FileEntry(w); }, 2);
         var result = Read(bytes);
         Array.Clear(bytes);
-        Assert.Equal(2, result.Root.Children.Length);
-        Assert.Equal(new byte[] { 1, 2, 3 }, Assert.IsType<TwinBasicFile>(result.Root.Children[0]).Content);
+        result.Root.Children.Length.Should().Be(2);
+        result.Root.Children[0].Should().BeOfType<TwinBasicFile>().Which.Content.Should().Equal(new byte[] { 1, 2, 3 });
     }
 
     [Fact]
     public void Reads_short_nonseekable_streams_and_does_not_close_them()
     {
         using var input = new ShortStream(Archive(FileEntry));
-        Assert.Single(TwinBasicContainerReader.Read(input, cancellationToken: TestContext.Current.CancellationToken).Root.Children);
-        Assert.True(input.CanRead);
+        TwinBasicContainerReader.Read(input, cancellationToken: TestContext.Current.CancellationToken).Root.Children.Should().ContainSingle();
+        input.CanRead.Should().BeTrue();
     }
 
     [Fact]
@@ -202,7 +201,7 @@ public sealed class ContainerReaderTests
     {
         using var input = new MemoryStream([99, 99, .. Archive(FileEntry)]);
         input.Position = 2;
-        Assert.Single(TwinBasicContainerReader.Read(input, cancellationToken: TestContext.Current.CancellationToken).Root.Children);
+        TwinBasicContainerReader.Read(input, cancellationToken: TestContext.Current.CancellationToken).Root.Children.Should().ContainSingle();
     }
 
     [Fact]
@@ -210,9 +209,9 @@ public sealed class ContainerReaderTests
     {
         using var source = new CancellationTokenSource();
         using var input = new ShortStream(Archive(FileEntry), source.Cancel);
-        Assert.Throws<OperationCanceledException>(() => TwinBasicContainerReader.Read(input, cancellationToken: source.Token));
-        Assert.True(input.CanRead);
-        Assert.Throws<OperationCanceledException>(() => TwinBasicContainerReader.Read(input, cancellationToken: source.Token));
+        FluentActions.Invoking(() => TwinBasicContainerReader.Read(input, cancellationToken: source.Token)).Should().ThrowExactly<OperationCanceledException>();
+        input.CanRead.Should().BeTrue();
+        FluentActions.Invoking(() => TwinBasicContainerReader.Read(input, cancellationToken: source.Token)).Should().ThrowExactly<OperationCanceledException>();
     }
 
     [Fact]
@@ -220,17 +219,17 @@ public sealed class ContainerReaderTests
     {
         using var source = new CancellationTokenSource();
         using var input = new ShortStream([], source.Cancel);
-        Assert.Throws<OperationCanceledException>(() => TwinBasicContainerReader.Read(input, cancellationToken: source.Token));
-        Assert.True(input.CanRead);
+        FluentActions.Invoking(() => TwinBasicContainerReader.Read(input, cancellationToken: source.Token)).Should().ThrowExactly<OperationCanceledException>();
+        input.CanRead.Should().BeTrue();
     }
 
     [Fact]
     public void Invalid_policy_is_rejected_before_reading()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => Read([], new(MaxDepth: 257)));
-        Assert.Throws<ArgumentOutOfRangeException>(() => Read([], new(MaxContainerBytes: 0)));
-        Assert.Throws<ArgumentOutOfRangeException>(() => Read([], new(MaxEntries: 0)));
-        Assert.Throws<ArgumentOutOfRangeException>(() => Read([], new(MaxNameBytes: 0)));
+        FluentActions.Invoking(() => Read([], new(MaxDepth: 257))).Should().ThrowExactly<ArgumentOutOfRangeException>();
+        FluentActions.Invoking(() => Read([], new(MaxContainerBytes: 0))).Should().ThrowExactly<ArgumentOutOfRangeException>();
+        FluentActions.Invoking(() => Read([], new(MaxEntries: 0))).Should().ThrowExactly<ArgumentOutOfRangeException>();
+        FluentActions.Invoking(() => Read([], new(MaxNameBytes: 0))).Should().ThrowExactly<ArgumentOutOfRangeException>();
     }
 
     private static TwinBasicContainer Read(byte[] bytes, TwinBasicReadLimits? limits = null)

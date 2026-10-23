@@ -290,6 +290,9 @@ public sealed class VBLspClient : ILspClient
             Note(ConversationDirection.Local, ConversationEntryKind.Note, null, unobservable);
 
         var rpc = new JsonRpc(handler, new LspNotificationReceiver(this));
+        var cancellation = new LspCancellationStrategy(rpc, _logger);
+        rpc.CancellationStrategy = cancellation;
+        rpc.AddLocalRpcTarget(cancellation);
         rpc.Disconnected += OnRpcDisconnected;
         _rpc = rpc;
         rpc.StartListening();

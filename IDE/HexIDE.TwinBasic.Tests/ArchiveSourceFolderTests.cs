@@ -30,9 +30,9 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         File.Copy(Path.Combine(AppContext.BaseDirectory, "Fixtures", "impexp.twinproj"), Source);
         var original = File.ReadAllBytes(Source);
         var result = Sync();
-        Assert.True(result.Changed);
-        Assert.EndsWith(Path.Combine(".hexide", ".twinproj", "project.twinproj"), result.Directory);
-        Assert.True(Directory.Exists(Target));
+        result.Changed.Should().BeTrue();
+        result.Directory.Should().EndWith(Path.Combine(".hexide", ".twinproj", "project.twinproj"));
+        Directory.Exists(Target).Should().BeTrue();
         using var input = new MemoryStream(original);
         var project = ArchiveProjectSnapshot.Read(input, Source, cancellationToken: Token);
         var entries = JsonNode.Parse(File.ReadAllText(Manifest))!["Entries"]!.AsArray();
@@ -40,28 +40,28 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         void Verify(ArchiveProjectEntry entry)
         {
             var metadata = entries[index++]!;
-            Assert.Equal(entry.Identity.Segments, metadata["Path"]!.AsArray().Select(x => x!.GetValue<string>()));
-            Assert.Equal(entry.Name, metadata["Name"]!.GetValue<string>());
-            Assert.Equal(entry.Source.Category, metadata["Category"]!.GetValue<byte>());
-            Assert.Equal(entry.Source.Flags, metadata["Flags"]!.GetValue<uint>());
-            Assert.Equal(entry.Source.Revision, metadata["Revision"]!.GetValue<ulong>());
+            metadata["Path"]!.AsArray().Select(x => x!.GetValue<string>()).Should().Equal(entry.Identity.Segments);
+            metadata["Name"]!.GetValue<string>().Should().Be(entry.Name);
+            metadata["Category"]!.GetValue<byte>().Should().Be(entry.Source.Category);
+            metadata["Flags"]!.GetValue<uint>().Should().Be(entry.Source.Flags);
+            metadata["Revision"]!.GetValue<ulong>().Should().Be(entry.Source.Revision);
             var path = Path.Combine([Target, .. entry.Identity.Segments]);
             if (entry is ArchiveProjectFolder folder)
             {
-                Assert.True(Directory.Exists(path));
+                Directory.Exists(path).Should().BeTrue();
                 foreach (var child in folder.Children) Verify(child);
             }
             else
             {
                 var file = (ArchiveProjectDocument)entry;
-                Assert.Equal(file.File.Content.ToArray(), File.ReadAllBytes(path));
-                Assert.Equal(file.File.Revisions, metadata["Revisions"]!.AsArray().Select(x => x!.GetValue<uint>()));
+                File.ReadAllBytes(path).Should().Equal(file.File.Content.ToArray());
+                metadata["Revisions"]!.AsArray().Select(x => x!.GetValue<uint>()).Should().Equal(file.File.Revisions);
             }
         }
         Verify(project.Root);
-        Assert.Equal(project.EntryCount, index);
-        Assert.Equal(original, File.ReadAllBytes(Source));
-        Assert.DoesNotContain(directory, File.ReadAllText(Manifest));
+        index.Should().Be(project.EntryCount);
+        File.ReadAllBytes(Source).Should().Equal(original);
+        File.ReadAllText(Manifest).Should().NotContain(directory);
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         byte[] bytes = [0xEF, 0xBB, 0xBF, 0, 0xFF, 0x80, 13, 10, 10, 13];
         Save(Folder("Resources", FileNode("payload.bin", bytes)));
         Sync();
-        Assert.Equal(bytes, File.ReadAllBytes(Path.Combine(Target, "Resources", "payload.bin")));
+        File.ReadAllBytes(Path.Combine(Target, "Resources", "payload.bin")).Should().Equal(bytes);
     }
 
     [Fact]
@@ -83,15 +83,15 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         var member = Path.Combine(Target, "main.twin");
         File.SetLastWriteTimeUtc(member, oldTime);
         File.SetLastWriteTimeUtc(Manifest, oldTime);
-        Assert.False(Sync().Changed);
-        Assert.Equal(oldTime, File.GetLastWriteTimeUtc(member));
-        Assert.Equal(oldTime, File.GetLastWriteTimeUtc(Manifest));
-        Assert.Equal("state", File.ReadAllText(Path.Combine(Target, ".meta")));
+        Sync().Changed.Should().BeFalse();
+        File.GetLastWriteTimeUtc(member).Should().Be(oldTime);
+        File.GetLastWriteTimeUtc(Manifest).Should().Be(oldTime);
+        File.ReadAllText(Path.Combine(Target, ".meta")).Should().Be("state");
         var second = Path.Combine(directory, "second.twinproj");
         File.Copy(Source, second);
         var other = new ArchiveSourceFolder().Synchronize(second, Token);
-        Assert.NotEqual(Target, other.Directory);
-        Assert.Equal(manifest, File.ReadAllBytes(Manifest));
+        other.Directory.Should().NotBe(Target);
+        File.ReadAllBytes(Manifest).Should().Equal(manifest);
     }
 
     [Fact]
@@ -104,14 +104,14 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         Directory.CreateDirectory(Path.Combine(directory, ".git"));
         File.WriteAllText(Path.Combine(directory, ".git", "sentinel"), "git");
         Save(Folder("Sources", FileNode("new.twin", "new")));
-        Assert.True(Sync().Changed);
-        Assert.False(File.Exists(Path.Combine(Target, "old.twin")));
-        Assert.Equal("new", File.ReadAllText(Path.Combine(Target, "Sources", "new.twin")));
-        var backup = Assert.Single(Directory.GetFiles(Control, "old.twin", SearchOption.AllDirectories));
-        Assert.Equal("old", File.ReadAllText(backup));
-        Assert.Equal("keep", File.ReadAllText(sibling));
-        Assert.Equal("git", File.ReadAllText(Path.Combine(directory, ".git", "sentinel")));
-        Assert.False(File.Exists(Path.Combine(Control, "pending.json")));
+        Sync().Changed.Should().BeTrue();
+        File.Exists(Path.Combine(Target, "old.twin")).Should().BeFalse();
+        File.ReadAllText(Path.Combine(Target, "Sources", "new.twin")).Should().Be("new");
+        var backup = Directory.GetFiles(Control, "old.twin", SearchOption.AllDirectories).Should().ContainSingle().Which;
+        File.ReadAllText(backup).Should().Be("old");
+        File.ReadAllText(sibling).Should().Be("keep");
+        File.ReadAllText(Path.Combine(directory, ".git", "sentinel")).Should().Be("git");
+        File.Exists(Path.Combine(Control, "pending.json")).Should().BeFalse();
     }
 
     [Theory]
@@ -140,9 +140,12 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         var before = Inventory(Target);
         var metadata = File.Exists(Manifest) ? File.ReadAllBytes(Manifest) : null;
         Save(FileNode("main.twin", "updated archive"));
-        Assert.Throws<IOException>(() => Sync());
-        Assert.Equal(before, Inventory(Target));
-        Assert.Equal(metadata, File.Exists(Manifest) ? File.ReadAllBytes(Manifest) : null);
+        FluentActions.Invoking(() => Sync()).Should().ThrowExactly<IOException>();
+        Inventory(Target).Should().Equal(before);
+        if (metadata is null)
+            (File.Exists(Manifest) ? File.ReadAllBytes(Manifest) : null).Should().BeNull();
+        else
+            (File.Exists(Manifest) ? File.ReadAllBytes(Manifest) : null).Should().Equal(metadata);
     }
 
     [Theory]
@@ -161,14 +164,14 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         if (existing) { Save(FileNode("old", "original")); Sync(); }
         Save(FileNode("new", "replacement"));
         var sync = new ArchiveSourceFolder { Checkpoint = point => { if (point == checkpoint) throw new InjectedFailure(); } };
-        Assert.Throws<InjectedFailure>(() => sync.Synchronize(Source, Token));
+        FluentActions.Invoking(() => sync.Synchronize(Source, Token)).Should().ThrowExactly<InjectedFailure>();
         Sync();
-        Assert.Equal("replacement", File.ReadAllText(Path.Combine(Target, "new")));
-        Assert.False(File.Exists(Path.Combine(Target, "old")));
-        Assert.False(File.Exists(Path.Combine(Control, "pending.json")));
-        Assert.False(Sync().Changed);
+        File.ReadAllText(Path.Combine(Target, "new")).Should().Be("replacement");
+        File.Exists(Path.Combine(Target, "old")).Should().BeFalse();
+        File.Exists(Path.Combine(Control, "pending.json")).Should().BeFalse();
+        Sync().Changed.Should().BeFalse();
         if (existing)
-            Assert.Contains(Directory.GetFiles(Control, "old", SearchOption.AllDirectories), p => File.ReadAllText(p) == "original");
+            Directory.GetFiles(Control, "old", SearchOption.AllDirectories).Should().Contain(p => File.ReadAllText(p) == "original");
     }
 
     [Fact]
@@ -181,13 +184,12 @@ public sealed class ArchiveSourceFolderTests : IDisposable
             Checkpoint = point =>
             {
                 if (point == "old-moved")
-                    File.WriteAllText(Assert.Single(Directory.GetFiles(Control, "main", SearchOption.AllDirectories),
-                        p => Path.GetFileName(Path.GetDirectoryName(p)) == "previous"), "late edit");
+                    File.WriteAllText(Directory.GetFiles(Control, "main", SearchOption.AllDirectories).Should().ContainSingle(p => Path.GetFileName(Path.GetDirectoryName(p)) == "previous").Which, "late edit");
             }
         };
-        Assert.Throws<IOException>(() => sync.Synchronize(Source, Token));
-        Assert.Throws<IOException>(() => Sync());
-        Assert.Equal("late edit", File.ReadAllText(Path.Combine(Target, "main")));
+        FluentActions.Invoking(() => sync.Synchronize(Source, Token)).Should().ThrowExactly<IOException>();
+        FluentActions.Invoking(() => Sync()).Should().ThrowExactly<IOException>();
+        File.ReadAllText(Path.Combine(Target, "main")).Should().Be("late edit");
     }
 
     [Fact]
@@ -196,13 +198,13 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         Save(FileNode("main", "old")); Sync();
         Save(FileNode("main", "new"));
         var sync = new ArchiveSourceFolder { Checkpoint = _ => Save(FileNode("main", "changed again")) };
-        Assert.Throws<IOException>(() => sync.Synchronize(Source, Token));
-        Assert.Equal("old", File.ReadAllText(Path.Combine(Target, "main")));
+        FluentActions.Invoking(() => sync.Synchronize(Source, Token)).Should().ThrowExactly<IOException>();
+        File.ReadAllText(Path.Combine(Target, "main")).Should().Be("old");
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(Token);
         sync.Checkpoint = _ => cancellation.Cancel();
-        Assert.Throws<OperationCanceledException>(() => sync.Synchronize(Source, cancellation.Token));
-        Assert.Equal("old", File.ReadAllText(Path.Combine(Target, "main")));
-        Assert.False(File.Exists(Path.Combine(Control, "pending.json")));
+        FluentActions.Invoking(() => sync.Synchronize(Source, cancellation.Token)).Should().ThrowExactly<OperationCanceledException>();
+        File.ReadAllText(Path.Combine(Target, "main")).Should().Be("old");
+        File.Exists(Path.Combine(Control, "pending.json")).Should().BeFalse();
     }
 
     [Fact]
@@ -210,12 +212,12 @@ public sealed class ArchiveSourceFolderTests : IDisposable
     {
         Save(FileNode("main", "old")); Sync();
         Directory.Delete(Control, recursive: true);
-        Assert.False(Sync().Changed);
+        Sync().Changed.Should().BeFalse();
         Directory.Delete(Control, recursive: true);
         Save(FileNode("main", "new"));
-        Assert.Throws<IOException>(() => Sync());
-        Assert.Equal("old", File.ReadAllText(Path.Combine(Target, "main")));
-        Assert.False(Directory.Exists(Control));
+        FluentActions.Invoking(() => Sync()).Should().ThrowExactly<IOException>();
+        File.ReadAllText(Path.Combine(Target, "main")).Should().Be("old");
+        Directory.Exists(Control).Should().BeFalse();
     }
 
     [Theory]
@@ -233,8 +235,8 @@ public sealed class ArchiveSourceFolderTests : IDisposable
     public void Unrepresentable_names_are_rejected_before_creating_any_output(string name)
     {
         Save(FileNode(name, "data"));
-        Assert.Throws<IOException>(() => Sync());
-        Assert.False(Directory.Exists(Path.Combine(directory, ".hexide")));
+        FluentActions.Invoking(() => Sync()).Should().ThrowExactly<IOException>();
+        Directory.Exists(Path.Combine(directory, ".hexide")).Should().BeFalse();
     }
 
     [Theory]
@@ -243,8 +245,8 @@ public sealed class ArchiveSourceFolderTests : IDisposable
     public void Portable_collisions_are_rejected_on_every_host(string one, string two)
     {
         Save(FileNode(one, "1"), FileNode(two, "2"));
-        Assert.Throws<IOException>(() => Sync());
-        Assert.False(Directory.Exists(Path.Combine(directory, ".hexide")));
+        FluentActions.Invoking(() => Sync()).Should().ThrowExactly<IOException>();
+        Directory.Exists(Path.Combine(directory, ".hexide")).Should().BeFalse();
     }
 
     [Fact]
@@ -253,22 +255,22 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         Save(FileNode("main", "data"));
         Directory.CreateDirectory(Control);
         File.WriteAllText(Path.Combine(Control, "keep"), "original");
-        Assert.Throws<IOException>(() => Sync());
-        Assert.Equal(new[] { "keep" }, Directory.GetFiles(Control).Select(Path.GetFileName));
+        FluentActions.Invoking(() => Sync()).Should().ThrowExactly<IOException>();
+        Directory.GetFiles(Control).Select(Path.GetFileName).Should().Equal(new[] { "keep" });
         Directory.Delete(Control, recursive: true);
         Directory.CreateDirectory(Target);
         File.WriteAllText(Path.Combine(Target, "keep"), "original");
-        Assert.Throws<IOException>(() => Sync());
-        Assert.False(Directory.Exists(Control));
+        FluentActions.Invoking(() => Sync()).Should().ThrowExactly<IOException>();
+        Directory.Exists(Control).Should().BeFalse();
     }
 
     [Fact]
     public void Concurrent_sync_cannot_acquire_the_active_lease()
     {
         Save(FileNode("main", "data"));
-        var sync = new ArchiveSourceFolder { Checkpoint = point => { if (point == "staged") Assert.Throws<IOException>(() => Sync()); } };
+        var sync = new ArchiveSourceFolder { Checkpoint = point => { if (point == "staged") FluentActions.Invoking(() => Sync()).Should().ThrowExactly<IOException>(); } };
         sync.Synchronize(Source, Token);
-        Assert.False(Sync().Changed);
+        Sync().Changed.Should().BeFalse();
     }
 
     [Fact]
@@ -282,14 +284,14 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         var member = Path.Combine(Target, "main");
         File.Delete(member);
         File.CreateSymbolicLink(member, outside);
-        Assert.Throws<IOException>(() => Sync());
+        FluentActions.Invoking(() => Sync()).Should().ThrowExactly<IOException>();
         File.Delete(member);
         File.WriteAllText(member, "data");
         var lease = Path.Combine(Control, "lock");
         File.Delete(lease);
         File.CreateSymbolicLink(lease, outside);
-        Assert.Throws<IOException>(() => Sync());
-        Assert.Equal("data", File.ReadAllText(outside));
+        FluentActions.Invoking(() => Sync()).Should().ThrowExactly<IOException>();
+        File.ReadAllText(outside).Should().Be("data");
     }
 
     [Fact]
@@ -303,12 +305,12 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         try
         {
             var throughAlias = new ArchiveSourceFolder().Synchronize(Path.Combine(alias, "project.twinproj"), Token);
-            Assert.Equal(first.Directory, throughAlias.Directory);
-            Assert.False(throughAlias.Changed);
+            throughAlias.Directory.Should().Be(first.Directory);
+            throughAlias.Changed.Should().BeFalse();
             // Resolving parent aliases must not permit a link as the archive file itself.
             var linkedSource = Path.Combine(directory, "linked.twinproj");
             File.CreateSymbolicLink(linkedSource, Source);
-            Assert.Throws<IOException>(() => new ArchiveSourceFolder().Synchronize(linkedSource, Token));
+            FluentActions.Invoking(() => new ArchiveSourceFolder().Synchronize(linkedSource, Token)).Should().ThrowExactly<IOException>();
         }
         finally { Directory.Delete(alias); }
     }
@@ -329,8 +331,8 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         try
         {
             var result = new ArchiveSourceFolder().Synchronize(Path.Combine(alias, "project.twinproj"), Token);
-            Assert.Equal(first.Directory, result.Directory);
-            Assert.False(result.Changed);
+            result.Directory.Should().Be(first.Directory);
+            result.Changed.Should().BeFalse();
         }
         finally
         {
@@ -345,11 +347,11 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         Save(FileNode("main.twin", "line one\r\nline two\n")); Sync();
         Git("init", "--quiet");
         var files = Git("ls-files", "--others", "--exclude-standard");
-        Assert.Contains(".hexide/.twinproj/project.twinproj/main.twin", files);
-        Assert.Contains(".hexide/.twinproj/.manifests/project.twinproj.json", files);
-        Assert.DoesNotContain(".twinproj-sync", files);
+        files.Should().Contain(".hexide/.twinproj/project.twinproj/main.twin");
+        files.Should().Contain(".hexide/.twinproj/.manifests/project.twinproj.json");
+        files.Should().NotContain(".twinproj-sync");
         Git("-c", "core.autocrlf=true", "add", ".");
-        Assert.Equal("line one\r\nline two\n", Git("show", ":.hexide/.twinproj/project.twinproj/main.twin"));
+        Git("show", ":.hexide/.twinproj/project.twinproj/main.twin").Should().Be("line one\r\nline two\n");
     }
 
     [Fact]
@@ -357,8 +359,8 @@ public sealed class ArchiveSourceFolderTests : IDisposable
     {
         Save(FileNode("main", "data")); Sync();
         File.WriteAllText(Path.Combine(Control, "baseline.json"), "{ broken");
-        Assert.Throws<IOException>(() => Sync());
-        Assert.Equal("data", File.ReadAllText(Path.Combine(Target, "main")));
+        FluentActions.Invoking(() => Sync()).Should().ThrowExactly<IOException>();
+        File.ReadAllText(Path.Combine(Target, "main")).Should().Be("data");
     }
 
     [Fact]
@@ -366,11 +368,11 @@ public sealed class ArchiveSourceFolderTests : IDisposable
     {
         Save(FileNode("main", "data"));
         var sync = new ArchiveSourceFolder { Checkpoint = point => { if (point == "new-moved") throw new InjectedFailure(); } };
-        Assert.Throws<InjectedFailure>(() => sync.Synchronize(Source, Token));
+        FluentActions.Invoking(() => sync.Synchronize(Source, Token)).Should().ThrowExactly<InjectedFailure>();
         File.WriteAllText(Path.Combine(Target, "main"), "user edit");
-        Assert.Throws<IOException>(() => Sync());
-        Assert.Equal("user edit", File.ReadAllText(Path.Combine(Target, "main")));
-        Assert.True(File.Exists(Path.Combine(Control, "pending.json")));
+        FluentActions.Invoking(() => Sync()).Should().ThrowExactly<IOException>();
+        File.ReadAllText(Path.Combine(Target, "main")).Should().Be("user edit");
+        File.Exists(Path.Combine(Control, "pending.json")).Should().BeTrue();
     }
 
     [Theory]
@@ -392,8 +394,8 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         }
         File.WriteAllText(Manifest, json.ToJsonString());
         File.WriteAllText(Path.Combine(Control, "baseline.json"), json.ToJsonString());
-        Assert.Throws<IOException>(() => Sync());
-        Assert.Equal("data", File.ReadAllText(Path.Combine(Target, "main")));
+        FluentActions.Invoking(() => Sync()).Should().ThrowExactly<IOException>();
+        File.ReadAllText(Path.Combine(Target, "main")).Should().Be("data");
     }
 
     private string Git(params string[] args)
@@ -403,8 +405,8 @@ public sealed class ArchiveSourceFolderTests : IDisposable
         using var process = Process.Start(start)!;
         var output = process.StandardOutput.ReadToEnd();
         var error = process.StandardError.ReadToEnd();
-        Assert.True(process.WaitForExit(10_000), "Git timed out.");
-        Assert.True(process.ExitCode == 0, error);
+        process.WaitForExit(10_000).Should().BeTrue("Git timed out.");
+        (process.ExitCode == 0).Should().BeTrue(error);
         return output;
     }
 
