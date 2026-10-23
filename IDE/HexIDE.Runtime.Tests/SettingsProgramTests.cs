@@ -1511,6 +1511,47 @@ public class SettingsProgramTests : BaseVBTestFixture
             """));
     }
 
+    // A Collection or Nothing as the default is no error where the key has a value, and 450 or 91 where it has none.
+    // A failed assignment leaves r as it was, so the missing rows print the earlier value.
+    [Fact]
+    public async Task An_object_default_is_read_only_when_it_is_the_answer()
+    {
+        using (VbLocale.Use(EnGb))
+            await Run("""""""
+
+                Public Sub L(ByVal s As String)
+                    Debug.Print s
+                End Sub
+
+                Sub Main()
+                    On Error Resume Next
+                    Dim r As Variant
+                    Dim c As New Collection
+                    c.Add "one"
+                    SaveSetting "HexProbe1562Obj", "S", "K", "v"
+                    Err.Clear: r = GetSetting("HexProbe1562Obj", "S", "K", c)
+                    L "collection-default-key-present: " & Err.Number & " " & r
+                    Err.Clear: r = GetSetting("HexProbe1562Obj", "S", "NoKey", c)
+                    L "collection-default-key-missing: " & Err.Number & " " & r
+                    Err.Clear: r = GetSetting("HexProbe1562Obj", "S", "K", Nothing)
+                    L "nothing-default-key-present: " & Err.Number & " " & r
+                    Err.Clear: r = GetSetting("HexProbe1562Obj", "S", "NoKey", Nothing)
+                    L "nothing-default-key-missing: " & Err.Number & " " & r
+                    DeleteSetting "HexProbe1562Obj"
+                End Sub
+
+                Main
+
+                """"""");
+
+        AssertDebugLog(Lines("""
+            collection-default-key-present: 0 v
+            collection-default-key-missing: 450 v
+            nothing-default-key-present: 0 v
+            nothing-default-key-missing: 91 v
+            """));
+    }
+
     private static List<Vb6Value> Lines(string text) =>
         text.ReplaceLineEndings("\n").Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => new Vb6Value(l)).ToList();
 }

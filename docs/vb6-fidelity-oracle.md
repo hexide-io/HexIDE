@@ -16326,7 +16326,7 @@ the form was designed at, and another when the window takes its maximized size.
 
 ## GetSetting, SaveSetting, DeleteSetting and GetAllSettings (2026-10-23, #1562)
 
-Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60 6.00.9848 (SP6) runtime, under en-GB, in four batches. Native and p-code agree on every row.
+Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60 6.00.9848 (SP6) runtime, under en-GB, in five batches. Native and p-code agree on every row.
 
 Each row ran under `On Error Resume Next` against the guest's own registry, with the probe's program name `HexProbe1562` (`A` in the tables). A row logs any error its setup statements raised, then what it read back. `Show` prints a value's type and text, and an array's bounds and every row with its two types. `BS` is a constant holding a backslash. Between batches, PowerShell on the guest read the registry directly, and seeded it with values of other registry types, as another program could write them.
 
@@ -16496,7 +16496,7 @@ Each row ran under `On Error Resume Next` against the guest's own registry, with
 | getall-two-dims | `r = UBound(GetAllSettings(A, "S1"), 2)` | Long [1] |
 
 - **The names are converted before any is checked.** Null is 94 and an array 13, so `SaveSetting "", "S1", "K", Null` is 94, not 5.
-- **The default is converted only when it is the answer.** An array default is 13 where the key is missing, and no error where it is present. A Collection default is 450 where the key is missing; where it is present is not measured.
+- **The default is converted only when it is the answer.** An array default is 13 where the key is missing, and no error where it is present. So too for an object, measured in a fifth batch: a Collection default is 450 and Nothing 91 where the key is missing, and either is no error where the key has a value.
 - **`Call SaveSetting(...)`, `Call DeleteSetting(...)`, `VBA.SaveSetting`, `VBA.GetAllSettings` and `VBA.Interaction.GetSetting` all run.** The four are intrinsics of the VBA library as well as statements in the grammar.
 - **Empty assigned to a `String` array is 13, and leaves the array unallocated.** That is array assignment, not these four, and is #1588.
 
