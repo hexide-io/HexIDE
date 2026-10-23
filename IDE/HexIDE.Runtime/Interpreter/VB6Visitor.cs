@@ -170,10 +170,10 @@ public abstract class VB6Visitor<T> : VB6BaseVisitor<T>
                 // Dim itself is built directly in VisitVariableStmt, not here.
                 type = Vb6Value.ValueType.UserDefinedType;
             else
-                type = BaseTypeMapper.Map(asTypeClause.type().baseType())
-                    ?? throw new NotImplementedException("base type " + asTypeClause.type().baseType().GetChild(0) + " not implemented"
-                        + (asTypeClause.type().baseType() is { } objectType && (objectType.OBJECT() != null || objectType.COLLECTION() != null)
-                            ? " (#1482)" : ""));
+                type = asTypeClause.type().baseType() is { } objectBase && (objectBase.OBJECT() != null || objectBase.COLLECTION() != null)
+                    ? Vb6Value.ValueType.Object
+                    : BaseTypeMapper.Map(asTypeClause.type().baseType())
+                    ?? throw new NotImplementedException("base type " + asTypeClause.type().baseType().GetChild(0) + " not implemented");
         }
 
         if (isArray)

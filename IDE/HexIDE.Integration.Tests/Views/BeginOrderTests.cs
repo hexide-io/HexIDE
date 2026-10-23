@@ -461,11 +461,11 @@ public class BeginOrderTests
     public void A_Line_brought_to_front_is_drawn_over_the_other_Line()
     {
         var (vm, form) = Open("Line1,Line2");
-        (Find(vm, "Line1").ZIndex, Find(vm, "Line2").ZIndex).Should().Be((-1, -2), "the first Line is drawn over the second");
+        Drawn(vm).Should().Be("Line2,Line1", "the first Line is drawn over the second");
 
         vm.BringToFront(Find(vm, "Line2"));
 
         Saved(vm, form).Should().Be("Line2,Line1");
-        (Find(vm, "Line1").ZIndex, Find(vm, "Line2").ZIndex).Should().Be((-2, -1));
+        Drawn(vm).Should().Be("Line1,Line2");
     }
 }

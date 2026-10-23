@@ -897,6 +897,12 @@ public partial class MainViewViewModel : ObservableObject
             () => FocusedProjectUtil.FocusedOrStartupProject != null);
         RemoveProjectCommand = new DelegateCommand(() => projectService.UnloadProject(FocusedProjectUtil.FocusedOrStartupProject!).ListenErrors(),
             () => FocusedProjectUtil.FocusedOrStartupProject != null);
+        // Offered only with a group open, as VB6 offers it (measured, #746). Two projects loaded are a group, even before
+        // HexIDE has made its Group1.
+        MakeProjectGroupCommand = new DelegateCommand(MakeProjectGroup,
+            () => projectManager.CurrentGroup != null || projectManager.LoadedProjects.Count > 1);
+        projectManager.ProjectLoaded += _ => MakeProjectGroupCommand.RaiseCanExecutedChanged();
+        projectManager.ProjectUnloaded += _ => MakeProjectGroupCommand.RaiseCanExecutedChanged();
         RunWithVb6Command = new DelegateCommand(
             () => vb6Toolchain.RunWithVb6Async(FocusedProjectUtil.FocusedOrStartupProject!).ListenErrors(),
             () => FocusedProjectUtil.FocusedOrStartupProject != null && vb6Toolchain.IsAvailable);
@@ -954,6 +960,7 @@ public partial class MainViewViewModel : ObservableObject
         projectManager.ObservePropertyChanged(x => x.CurrentGroup)
             .Subscribe(_ =>
             {
+                MakeProjectGroupCommand.RaiseCanExecutedChanged();
                 OnPropertyChanged(nameof(Title));
                 OnPropertyChanged(nameof(WindowTitle));
                 RaiseDynamicMenuHeaders();
@@ -1055,6 +1062,17 @@ public partial class MainViewViewModel : ObservableObject
         windowManager.MessageBox("This feature is not yet implemented", "NYI", MessageBoxButtons.Ok, MessageBoxIcon.Information);
     }
 
+    /// <summary>
+    /// VB6's Make Project Group builds the group's projects, through a "Build the following projects" dialog (measured,
+    /// #746). HexIDE has no build of a group yet (#1515), so it says so and writes nothing. It used to save every project
+    /// and the group, which is Save Project Group's job, under a Make label.
+    /// </summary>
+    private void MakeProjectGroup()
+    {
+        Log.Information("Make Project Group: building a project group is not implemented yet (#1515); nothing is written");
+        NYI();
+    }
+
     public void SaveProject() => projectService.SaveAllProjects(false).ListenErrors();
 
     public void SaveProjectAs() => projectService.SaveAllProjects(true).ListenErrors();
@@ -1113,6 +1131,8 @@ public partial class MainViewViewModel : ObservableObject
 
     public DelegateCommand RemoveProjectCommand { get; }
 
+    public DelegateCommand MakeProjectGroupCommand { get; }
+
     public DelegateCommand RunWithVb6Command { get; }
 
     public DelegateCommand MakeWithVb6Command { get; }
@@ -1145,8 +1165,6 @@ public partial class MainViewViewModel : ObservableObject
         else
             await projectService.CreateNewProject(projectTemplate);
     }
-
-    public void MakeProjectGroup() => projectService.MakeProjectGroup().ListenErrors();
 
     private void DebuggingNotImplementedYet() =>
         windowManager.MessageBox("Debugging is not yet implemented. Maybe one day?", icon: MessageBoxIcon.Information).ListenErrors();

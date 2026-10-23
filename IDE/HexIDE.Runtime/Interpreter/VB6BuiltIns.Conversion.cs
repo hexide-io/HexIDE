@@ -41,6 +41,20 @@ public partial class VB6BuiltIns
         if (v.IsMissing)
             v = new Vb6Value(MissingArgumentNumber);
         v = RefuseNonScalar(v);
+        if (v.Type == VT.String && (target == VT.Currency || target == VT.Decimal))
+        {
+            // Preserve decimal digits and exact half-to-even rounding (measured, #1531).
+            // Other accepted forms (hex, octal, exponents) retain the Double reader.
+            try
+            {
+                var number = decimal.TryParse(AsStr(v).Trim(), NumberStyle & ~NumberStyles.AllowExponent,
+                    VbLocale.Current, out var parsed)
+                    ? Vb6Value.NewDecimal(parsed)
+                    : new Vb6Value(ToNum(v));
+                return VbNumeric.Narrow(number, target, null);
+            }
+            catch (OverflowException) { throw new VBRunTimeException(VBStandardError.Overflow); }
+        }
         var num = v.Type == VT.String || v.Type == VT.Boolean ? new Vb6Value(ToNum(v)) : v;
         return VbNumeric.Narrow(num, target, null);
     }

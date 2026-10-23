@@ -27,7 +27,7 @@ public class XamlCommandBindingsTests
     {
         // OnInitialized reruns startup; MakeProject skips the guard on the MakeProjectCommand the menu binds.
         UiAutomationDriver.CommandMethods(typeof(MainViewViewModel)).Select(m => m.Name)
-            .Should().NotContain(["OnInitialized", "SaveLayout", "MakeProject"]).And.Contain("MakeProjectGroup");
+            .Should().NotContain(["OnInitialized", "SaveLayout", "MakeProject"]).And.Contain("SaveProjectAs");
     }
 
     [Fact]
