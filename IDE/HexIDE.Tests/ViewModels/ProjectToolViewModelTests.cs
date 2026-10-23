@@ -287,6 +287,26 @@ public class ProjectToolViewModelTests
     }
 
     [Fact]
+    public void AddFormCommand_AddsAFormCarryingWhatVb6WritesForOne()
+    {
+        // The explorer's own Add Form, which adds a form with no file yet. Its first save writes what it holds, so
+        // it has to hold VB6's Attribute block and StartUpPosition = 3 as Project > Add Form's does (#516, #932).
+        var proj = TestHelpers.CreateProject();
+        var vm = CreateVmWithLoadedProject(proj, out var projVm);
+        vm.SelectedItem = projVm;
+        projectService.NextFreeFormName(proj).Returns("Form9");
+        var before = proj.Forms.Count;
+
+        vm.AddFormCommand.Execute(null);
+
+        var added = proj.Forms.Should().HaveCount(before + 1).And.Subject.Last();
+        added.Name.Should().Be("Form9");
+        added.Code.Should().StartWith("Attribute VB_Name = \"Form9\"\r\n");
+        added.Components[0].GetPropertyOrDefault(HexIDE.Runtime.Components.VBProperties.StartUpPositionProperty)
+            .Should().Be(HexIDE.Runtime.BuiltinTypes.VBStartupPosition.StartUpWindowsDefault);
+    }
+
+    [Fact]
     public void AddFormCommand_CanExecute_TrueWhenFormSelected()
     {
         var proj = TestHelpers.CreateProjectWithForm("P", "F1");

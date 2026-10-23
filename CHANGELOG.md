@@ -208,6 +208,20 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A new form is written as VB6 writes one** (#931, #932, #516). Its code section was bare LF with no final line
+  break, it had none of the five `Attribute` lines VB6 writes for a form, and it had no `StartUpPosition` line, which
+  VB6 reads as Manual: the form opened at the screen's origin with its title bar off the top. A form HexIDE creates now
+  has all three, and says `StartUpPosition = 3 'Windows Default`. A form with no such line, as VB6 writes a Manual
+  one, now runs where its file puts it rather than centred, which is how vb6.exe reads it.
+
+- **The designer draws and saves controls in VB6's stacking order** (#1481). In VB6 the first `Begin` block in a
+  container is the control on top, and windowless controls (Label, Shape, Line, Image) are drawn under the windowed
+  ones and written after them. HexIDE drew the last block on top and wrote a new control last, so a control added here
+  was the bottom one when VB6 opened the file, and Bring to Front and Send to Back each saved the opposite of what they
+  showed. Now a new or pasted control is written first in its plane, Bring to Front and Send to Back move a control
+  within its plane and take a container's contents with it, and a loaded form is drawn as VB6 draws it. A pasted
+  container keeps its source's stacking, where VB6 turns its contents over.
+
 - **`Debug.Assert` runs** (#1467). It stopped the program, even when its condition held. Now, in the IDE, an assertion
   that fails enters break mode at the statement, as `Stop` does, and one that holds goes on, the condition read as `If`
   reads it. A compiled program has no `Debug.Assert`, its argument not even evaluated, so the Make EXE runner skips it,

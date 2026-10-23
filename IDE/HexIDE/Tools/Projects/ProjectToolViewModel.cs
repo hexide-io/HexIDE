@@ -144,7 +144,7 @@ public partial class ProjectToolViewModel : Tool
             // cannot also hold a form called Form1 -- VB6 gives forms and modules one namespace. Nor a name whose
             // file is already in the folder, which Save Project would then offer as this form's own (#738).
             var name = projectService.NextFreeFormName(project);
-            project.AddForm(new FormDefinition(project, FormComponentClass.Instance, name));
+            project.AddForm(FormDefinition.NewForm(project, FormComponentClass.Instance, name));
         }, () => GetSelectedProject() != null);
 
         projectManager.ProjectLoaded += OnProjectLoaded;
