@@ -755,6 +755,7 @@
     "Str.Document.CodeSuffix": "Κώδικας",
     "Str.Document.FormSuffix": "Φόρμα",
     "Str.Document.UserControlSuffix": "UserControl",
+    "Str.Document.PropertyPageSuffix": "PropertyPage",
     "Str.PropCategory.Misc": "Διάφορα",
     "Str.PropCategory.Appearance": "Εμφάνιση",
     "Str.PropCategory.Behavior": "Συμπεριφορά",

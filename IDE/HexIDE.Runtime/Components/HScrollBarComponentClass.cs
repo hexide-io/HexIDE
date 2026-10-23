@@ -14,7 +14,7 @@ public abstract class ScrollBarComponentClass : ComponentBaseClass
         ValueProperty,
         MaxProperty,
         TabStopProperty,
-        TabIndexProperty], [ChangeEvent])
+        TabIndexProperty], [ChangeEvent, GotFocusEvent, LostFocusEvent])
     {
     }
 

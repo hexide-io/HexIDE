@@ -10,6 +10,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **`Like` runs** (#1547). Any program that used it stopped there. It now matches as vb6.exe does: `?`, `*`, `#`, `[list]` and `[!list]`, under the module's `Option Compare`, with error 93 for a pattern it cannot read. That behaviour was measured over about 190 rows, native and p-code. One known difference remains. Under `Option Compare Text`, vb6.exe takes a ligature or a sharp s for the letters it stands for, so `"ß" Like "ss"` is True there and False here (#1479).
+
+- **VB6 filesystem operations** (#1561): `CurDir`, `MkDir`, `RmDir`, `FileLen`, `FileDateTime`, `GetAttr`, `SetAttr`, `FileCopy`, `Name`, `Kill` and stateful `Dir`, using compiled VB6 measurements.
+
 - **Conditional compilation runs: `#If`, `#ElseIf`, `#Else`, `#End If` and `#Const`** (#1112). A module holding any
   `#If` stopped the program as it loaded, and `#Const` did not parse. Now each branch is chosen as vb6.exe chooses it,
   measured with `/make`, native and p-code. The names are the module's `#Const`s, the project's Conditional Compilation
@@ -17,6 +21,12 @@ there isn't one yet. Anything may change between 0.x releases.
   compiler, such as VBA7's `Declare PtrSafe`, runs unchanged. A directive's error stops the program as it loads, even in a
   branch never taken, as vb6.exe refuses to build. The module saves exactly as written: the selection exists only for the
   parser. Every personality uses VB6's constants for now (#1548), and `Like` in an `#If` waits for `Like` itself (#1547).
+
+- **The language server no longer squiggles code vb6.exe never compiles** (#1112). An inactive `#If` branch is no longer
+  parsed, so a VBA7 `Declare PtrSafe` behind `#If VBA7 Then`, or a procedure whose `#If` gives it two headers, has no
+  error marks. The branches are the project's: the server reads `CondComp` from the `.vbp` that lists the document. A
+  directive out of place is reported on its line in vb6.exe's words. Where a condition is beyond the server's reduced
+  evaluator, such as a string comparison or a function, nothing inside that block is marked.
 
 - **A control's `ZOrder` method** (#1503). `ZOrder 0`, or no argument, brings a control to the front of the controls
   like it in its container, and `ZOrder 1` sends it to the back, as measured on vb6.exe. A Label never rises over a
@@ -229,6 +239,18 @@ there isn't one yet. Anything may change between 0.x releases.
 - **MCP `press_key` reaches access keys and menus** (#1523). Keys now pass through the window input path,
   so Alt+W activates a button captioned `One &Wide`. The reply names `window-input`, or `routed-key`
   when focus or platform input is unavailable and the previous routed delivery is used.
+
+- **The designer draws and names a UserControl or PropertyPage as VB6's does** (#1544). Each was drawn in a form's
+  window frame, with a title bar and caption buttons, a PropertyPage's tab read `(Form)`, and the Properties window's
+  object box gave both the class `Form`. Each is now a borderless surface, as neither has a window of its own at run
+  time, its tab reads `(UserControl)` or `(PropertyPage)`, and the object box names its class.
+
+- **Every focusable control raises GotFocus and LostFocus, and a form or UserControl saved disabled runs disabled**
+  (#1101). Only the TextBox and the CommandButton raised them. The CheckBox, OptionButton, ListBox, ComboBox, scroll
+  bars and PictureBox now do, as vb6.exe does: one GotFocus as a control is entered, however its items or edit box take
+  the focus. The ListBox, scroll bars and PictureBox take the focus, where `SetFocus` on one was refused. An option
+  button given the focus by `SetFocus` is selected, raising Click after GotFocus. A form or a UserControl's `.ctl`
+  saved with `Enabled = 0 'False` dropped that line and ran enabled. A disabled form is shown without taking the focus.
 
 - **MCP reply numbers use a decimal point in every culture** (#1550). Coordinates, sizes, scroll percentages and
   wait durations now use invariant formatting, so a fractional click point can be read and sent back unchanged.

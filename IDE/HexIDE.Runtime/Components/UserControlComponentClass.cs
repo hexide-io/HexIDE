@@ -23,8 +23,15 @@ public class UserControlComponentClass : ComponentBaseClass
 
     public override string VBTypeName => _typeName;
 
-    protected override Control InstantiateInternal(ComponentInstance instance) =>
-        VBLoader.SpawnComponentsForDesigner(_formPart, _registry);
+    // A UserControl whose .ctl saves Enabled = False is disabled where it is placed, and so is what it holds (measured,
+    // #1101).
+    protected override Control InstantiateInternal(ComponentInstance instance)
+    {
+        var control = VBLoader.SpawnComponentsForDesigner(_formPart, _registry);
+        control.IsEnabled = _formPart.Components.First(c => c.BaseClass is FormComponentClass)
+            .GetPropertyOrDefault(VBProperties.EnabledProperty);
+        return control;
+    }
 
     public static UserControlComponentClass ForModule(string typeName, FormDefinition formPart,
         IReadOnlyDictionary<string, ComponentBaseClass> registry) => new(typeName, formPart, registry);

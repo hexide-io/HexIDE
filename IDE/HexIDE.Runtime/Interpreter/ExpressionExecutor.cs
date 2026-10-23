@@ -954,12 +954,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// <summary>The library's functions that have a <c>$</c> form, every one measured to compile and answer a String.</summary>
     private static readonly HashSet<string> DollarForms = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Chr", "ChrB", "ChrW", "Command", "CurDir", "Environ", "Error", "Format", "Hex", "LCase", "Left", "LeftB", "LTrim", "Mid",
+        "Chr", "ChrB", "ChrW", "Command", "CurDir", "Dir", "Environ", "Error", "Format", "Hex", "LCase", "Left", "LeftB", "LTrim", "Mid",
         "MidB", "Oct", "Right", "RightB", "RTrim", "Space", "Str", "String", "Trim", "UCase",
     };
 
     /// <summary>The <c>$</c> forms read with no parentheses, as a variable is: measured for each.</summary>
-    private static readonly HashSet<string> BareDollarForms = new(StringComparer.OrdinalIgnoreCase) { "Command" };
+    private static readonly HashSet<string> BareDollarForms = new(StringComparer.OrdinalIgnoreCase) { "Command", "CurDir", "Dir" };
 
     /// <summary>Library functions on which VB6 refuses a <c>$</c> at compile time (measured).</summary>
     private static readonly HashSet<string> DollarRefused = new(StringComparer.OrdinalIgnoreCase)
@@ -1651,6 +1651,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     private static string AmpString(Vb6Value v) => VbDisplay.ToText(v);
 
+    // An operand of Like as text: an array is 13 and Nothing 91, as a conversion's are (measured).
+    private static string LikeOperand(Vb6Value v) => VbDisplay.ToText(VB6BuiltIns.RefuseNonScalar(v));
+
     /// <summary>An operator's result, a Variant's when either operand is (measured, #987: `v + 1` with `v` holding 4, and
     /// `i + v` with `i` an Integer, are Variant selectors), and otherwise as the operator produced it, which is typed when
     /// both operands are (#122).</summary>
@@ -1743,7 +1746,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     public override async Task<object?> VisitVsCompare(VB6Parser.VsCompareContext context)
     {
         if (context.LIKE() != null)
-            throw new NotImplementedException("Like is not implemented");
+        {
+            // Null on either side is Null; anything else is taken as the text & would make of it (#1547).
+            var (text, pattern) = await GetTwoValues(context.valueStmt());
+            if (text.IsNull || pattern.IsNull)
+                return Vb6Value.Null;
+            return new Vb6Value(VbLike.Matches(LikeOperand(text), LikeOperand(pattern),
+                currentModule?.PrePass.OptionCompareText == true));
+        }
         if (context.IS() != null)
         {
             // Reference identity on the underlying object (Nothing = null). One line covers a Is b, x Is Nothing,
