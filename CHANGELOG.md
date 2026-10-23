@@ -213,6 +213,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **View Code opens with the caret in the code** (#1518). It opened at the top of the file, on the folded header that
+  only the IDE may change, so the first keystroke was refused and nothing appeared. Since #1369 that was every new
+  form's first View Code too. Now a code window opened with nowhere asked for puts its caret on the first line below
+  the header, as VB6's View Code does. Navigating to a procedure or a breakpoint still puts it there.
+
 - **`Write #` and `Input #` run** (#1521). Both stopped the program as not implemented. `Write #` now writes
   as vb6.exe does: quoted strings, `.5` with no leading zero, `#TRUE#`, `#NULL#` and `#2003-01-02#`, with a point under
   any locale. `Input #` reads each field for the variable it fills, so a Variant comes back typed by what the field holds,
