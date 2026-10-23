@@ -215,6 +215,59 @@ there isn't one yet. Anything may change between 0.x releases.
   showed. Now a new or pasted control is written first in its plane, Bring to Front and Send to Back move a control
   within its plane and take a container's contents with it, and a loaded form is drawn as VB6 draws it. A pasted
   container keeps its source's stacking, where VB6 turns its contents over.
+
+- **ChrW and AscW run, and Chr and Asc go through the ANSI code page** (#1134). `ChrW` and `AscW` stopped the program
+  as undefined. `Chr` and `Asc` ran, but in UTF-16 units, so `Chr(&H80)` was a control character where VB6 on a 1252
+  machine gives "€", and `Asc("€")` was 8364 where VB6 gives 128. All four now follow vb6.exe, measured:
+  - **ChrW:** a negative code is its unsigned unit, so `ChrW(&HF050)` is U+F050.
+  - **AscW:** a signed Integer.
+  - **Asc:** best-fits a character the code page lacks, so Ā is "A".
+  - **Errors:** each raises 5 out of range, 94 for Null and 6 past a Long. `Asc(Null)` is 94 where it returned Null.
+
+  A `$` form's result is now a typed String, as VB6's is, so `Select Case Mid$("9", 1)` compares text. Plain `Str` is a
+  Variant, as `Mid` and `Chr` are.
+
+- **An undeclared variable passed ByRef takes the procedure's write** (#1505). `Bump a12`, with `a12` never declared
+  and `Sub Bump(x)` adding 1 to `x`, left `a12` Empty, so the program ran on with a wrong value and nothing said why. VB6
+  declares the variable where it is passed, and the write lands in it. Now HexIDE does the same for a Sub, a Function, a
+  class's method and a named argument, under DefType too. A name in parentheses, or given to a ByVal parameter, is still
+  a copy, as in VB6.
+
+- **A new control is numbered from 1, as VB6 numbers it** (#540). The first button on a form was Command0, and a
+  pasted control took its number from the count of controls on the form, so its name skipped a gap VB6 would have
+  filled. A new or pasted control now takes the lowest number from 1 that no control on the form has. That is
+  Command2 beside Command1 and Command3, Text1 beside Text5, and a deleted control's number again, as measured.
+- **`DefInt A-Z` and the rest of DefType run** (#169). A DefType statement stopped the program. Now each declaration with
+  no As clause takes its type from the first letter of its name, as vb6.exe does. That covers an undeclared variable, a
+  `Dim` or `Static`, a field, a parameter and a Function's return, and under DefObj each is an object variable. A `Const`
+  keeps its value's type. A DefType that overlaps another, follows a declaration or sits inside a procedure is VB6's own
+  compile error. Two defects found on the way are fixed too:
+  - a `Set` into a name never declared raised 424, where VB6 declares it, as a Let does;
+  - a Function `As Object` or `As Collection` returned Empty before any Set, not Nothing, so `F = 5` in one took the
+    value where VB6 raises 91.
+
+- **A control added by double-clicking its tool takes the size VB6 gives it** (#1473). Every class came out 50 x 50
+  pixels, a square CommandButton among them, and that size went into the saved file. Now a CommandButton is 1215 x 495
+  twips, as are most classes, while a ComboBox, ListBox and either scroll bar each have their own size, all as
+  measured. Each is centred by its own size and put on the grid, where VB6 puts it.
+- **Val, Round, Split and 13 more intrinsics take named arguments** (#1475). `Val(String:="12")`,
+  `Round(Number:=2.567, NumDigitsAfterDecimal:=1)` and `Split(Expression:="a b c")` stopped the program, because
+  signature help had no entry for them, and so neither did the interpreter's table of names. All 16 are now measured
+  against vb6.exe and listed, each with a tooltip: their names, how many are required, and what a wrong or missing name
+  gives. Now, Date, Timer and the other intrinsics with no parameters refuse a name with VB6's own compile error.
+
+- **A Let into an object variable no longer drops the object** (#1493). `k = 5`, with `k As C1` holding an instance,
+  released it, running its Terminate there and then, and stored 5, so the program ran on without it. VB6 hands the
+  value to the object's default member: a class with none raises 438, and `k` keeps the object; Nothing raises 91. That
+  holds for `As Object`, object parameters, an object Function's return name and a class's object fields too. A
+  Variant still takes the value and drops the object, as VB6's does.
+
+- **`Static` runs, and a `Static Sub` keeps its locals** (#1491). A `Static` local stopped the program. Now it keeps its
+  value from one call to the next, as vb6.exe does: shared by recursive calls, kept per instance in a class or a form,
+  and released with the instance. The `Static` keyword on a procedure was read and then ignored, so a `Static Sub`'s
+  locals silently started again at zero on every call. Now they keep their values too, though a Static Function's own
+  return value starts again, as VB6's does.
+
 - **`Dim o As New C1` runs** (#435). The whole module stopped loading at the first `As New`. Now a variable declared
   `As New` holds Nothing until it is used, and its first use makes the object, as vb6.exe does, for a class and for a
   Collection, at procedure and module level and as a class field. Every use counts: `If o Is Nothing` makes the object,

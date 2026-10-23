@@ -66,6 +66,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private readonly string? procName;
     private readonly Vb6Value.ValueType? checkedArrayReturn;
 
+    /// <summary>
+    /// Where this activation's <c>Static</c> locals keep their slots between calls: its instance's, or its module's for
+    /// the run (#1491). Null for a module-init or class-field-init executor, where <c>Static</c> does not compile.
+    /// </summary>
+    internal StaticLocals? Statics { get; init; }
+
+    /// <summary>
+    /// Whether this activation is a Function or Property Get whose return is a Variant's, untyped or <c>As Variant</c>,
+    /// so its name takes a Let as a Variant does. Its slot carries no Variant mark (#1493).
+    /// </summary>
+    internal bool VariantReturn { get; init; }
+
     private ExpressionExecutor expressionExecutor => new ExpressionExecutor(interpreter, currentEnv, currentModule, withTargets, stmtFrames);
 
     public StatementExecutor(BasicInterpreter interpreter,
@@ -653,10 +665,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         throw new NotImplementedException("DeleteSetting not implemented");
     }
 
-    public override async Task<ControlFlow> VisitDeftypeStmt(VB6Parser.DeftypeStmtContext context)
-    {
-        throw new NotImplementedException("Deftype not implemented");
-    }
+    // The pre-pass collected the module's DefType statements (#169); running one does nothing. Inside a procedure it does not
+    // compile (measured).
+    public override Task<ControlFlow> VisitDeftypeStmt(VB6Parser.DeftypeStmtContext context) =>
+        ownedSlots != null ? throw new VBCompileErrorException("Invalid inside procedure") : Task.FromResult(ControlFlow.Nothing);
 
     public override async Task<ControlFlow> VisitDoBlockLoop(VB6Parser.DoBlockLoopContext context)
     {
@@ -1028,6 +1040,39 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, objectVariable ? Vb6Value.Nothing : Vb6Value.Variant);
         await interpreter.ReleaseRef(last);
         return ControlFlow.Nothing;
+    }
+
+    /// <summary>
+    /// Whether a Let into this name is a Let into an object variable: one declared as a class, <c>As Object</c> or
+    /// <c>As Collection</c>, or any other slot that holds an object and is not a Variant's. A Variant, an untyped or
+    /// <c>As Variant</c> parameter, and a Variant Function's own name take the value instead (measured, #1493).
+    /// </summary>
+    private bool IsObjectVariable(ExecutionEnvironment env, string name, int slot) =>
+        env.ObjectParameters.Contains(name)
+        || !interpreter.ExecutionContext.State.IsVariant(slot) && !env.VariantParameters.Contains(name)
+           && !(VariantReturn && string.Equals(name, procName, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// A Let into an object variable assigns the default member of the object it holds, and the object stays (measured,
+    /// #1493): 438 for a class instance with none, as for a Collection, and 91 for Nothing. It released the object and
+    /// stored the value. A class's own default member (#174) and a control's (#790) are not implemented, so those are
+    /// refused. Anything else the variable holds is left to the store.
+    /// </summary>
+    private static void RefuseLetIntoObject(Vb6Value held, string target, ParserRuleContext context)
+    {
+        if (!IsObjectReference(held))
+            return;
+        throw held.Value switch
+        {
+            null => new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet),
+            VbObject { ClassDef.PrePass.DeclaresDefaultMember: true } withDefault => new NotImplementedException(
+                $"`{target} = …` assigns the default member of the {withDefault.ClassName} it holds, which is not implemented "
+                + "for a class yet (#174). Name the member instead."),
+            VbObject or VbCollection => new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
+            _ => new NotImplementedException(
+                $"`{target} = …` assigns the default member of the object it holds, which is not implemented (#790). "
+                + "Name the property instead."),
+        };
     }
 
     // An object reference, or Nothing: what an object variable can hold.
@@ -1541,14 +1586,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out oldLet);
             }
             // A Let into a variable declared As Collection assigns its default member, which needs an index: VB6's "Argument
-            // not optional". Into an Object holding one it is 438, and a Variant simply takes the value (measured, #1471).
-            if (currentEnv.TryGetVariableLocation(identifier, out var letSlot)
-                && !interpreter.ExecutionContext.State.IsVariant(letSlot) && !currentEnv.VariantParameters.Contains(identifier))
+            // not optional" (measured, #1471). Into any other object variable it is the held object's default member, and a
+            // Variant simply takes the value (#1493).
+            if (currentEnv.TryGetVariableLocation(identifier, out var letSlot) && IsObjectVariable(currentEnv, identifier, letSlot))
             {
                 if (interpreter.ExecutionContext.State.DeclaredClassOf(letSlot) is { } letClass && ExpressionExecutor.IsCollectionType(letClass))
                     throw new VBCompileErrorException("Argument not optional");
-                if (oldLet.Value is VbCollection)
-                    throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+                RefuseLetIntoObject(oldLet, identifier, context);
             }
             if (checkedArrayReturn is { } declaredReturn && string.Equals(identifier, procName, StringComparison.OrdinalIgnoreCase))
                 CheckArrayReturn(declaredReturn, value, context);
@@ -1643,6 +1687,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     (isField, oldFieldLet) = await interpreter.ReadVariableAfter(vobj.InstanceEnv, fieldName, isFieldNeed!);
                 if (isField)
                 {
+                    // An object field takes a Let as an object variable does (measured, #1493: `h.o = 8` is 438).
+                    if (vobj.InstanceEnv.TryGetVariableLocation(fieldName, out var fieldSlot)
+                        && !interpreter.ExecutionContext.State.IsVariant(fieldSlot))
+                        RefuseLetIntoObject(oldFieldLet, context.implicitCallStmt_InStmt().GetText(), context);
                     interpreter.ExecutionContext.TryUpdateVariable(vobj.InstanceEnv, fieldName, interpreter.CopyForStore(value));
                     // A field that held an object, now overwritten by a scalar via Let, drops that reference.
                     await interpreter.ReleaseRef(oldFieldLet);
@@ -2448,7 +2496,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // `Set Me.Picture` isn't either.
                 if (FormMembers.TryBare(interpreter.ExecutionContext, currentEnv, id, out var form, out _))
                     throw new NotImplementedException($"Set on {form.ClassName}'s own {id} is not implemented");
-                throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Variable " + id + " is not declared");
+                // An undeclared name is made on its first use, as a Let makes it (#171), a Variant or the DefType's type
+                // (measured, #169: `Set o1 = New Collection` under DefObj, and with none). It was 424.
+                if (currentModule.PrePass.RequireVariableDefinitions)
+                    throw new VBVariableNotDefinedException(id);
+                AllocImplicitVariant(id);
+                interpreter.ExecutionContext.TryInspectVariable(currentEnv, id, out oldVal);
             }
             // Phase-5 event-sink bind detection: `id` is a `WithEvents` field of the current class AND resolves to
             // the actual instance field slot — NOT a procedure-local of the same name shadowing it (the shadowing
@@ -2616,11 +2669,21 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         throw new NotImplementedException("Unlock not implemented");
     }
 
-    // A variable VB6 creates on first use is a Variant, and is marked one for ReDim (ExecutionState.MarkVariant).
-    private void AllocImplicitVariant(string name)
+    private void AllocImplicitVariant(string name) => AllocImplicitVariable(interpreter, currentEnv, currentModule, name);
+
+    // A variable VB6 creates on first use is a Variant, and is marked one for ReDim (ExecutionState.MarkVariant), unless a
+    // DefType covers its first letter, which types it as a Dim would (measured, #169). First use is a store, or an argument
+    // (#1505).
+    internal static void AllocImplicitVariable(BasicInterpreter interpreter, ExecutionEnvironment env, ModuleInfo module, string name)
     {
-        interpreter.ExecutionContext.AllocVariable(currentEnv, name, Vb6Value.Variant);
-        if (currentEnv.TryGetVariableLocation(name, out var location))
+        if (module.PrePass.DefaultTypeOf(name) is { } defaultType)
+        {
+            interpreter.ExecutionContext.AllocVariable(env, name, new Vb6Value(defaultType),
+                VbNumeric.IsDeclarableScalar(defaultType) ? defaultType : null);
+            return;
+        }
+        interpreter.ExecutionContext.AllocVariable(env, name, Vb6Value.Variant);
+        if (env.TryGetVariableLocation(name, out var location))
             interpreter.ExecutionContext.State.MarkVariant(location);
     }
 
@@ -2797,14 +2860,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
 
         // `Dim`, `Private`, and `Public` module/local declarations all allocate the same way (visibility isn't
-        // tracked). Class fields are usually declared `Private`/`Public`.
-        if (context.DIM() != null || context.visibility() != null)
+        // tracked). Class fields are usually declared `Private`/`Public`. A procedure's `Static` was declared at entry
+        // with the rest; outside a procedure it does not compile (measured, #1491).
+        if (context.DIM() != null || context.visibility() != null || Statics is not null)
         {
             foreach (var subStmt in context.variableListStmt().variableSubStmt())
                 await DeclareLocal(subStmt);
         }
         else
-            throw new NotImplementedException("non dim variables not supported");
+            throw new VBCompileErrorException("Invalid outside procedure");
 
         return default;
     }
@@ -2827,6 +2891,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // existing value. The first Dim rebinds the name to a fresh slot, so it still shadows a module var.
                 if (!declaredLocals.Add(subStmt.ambiguousIdentifier().GetText()))
                     return;
+                // A Static local is made at its procedure's first call, and every later call binds the name to that
+                // same slot, which the call does not release (#1491).
+                var keep = Statics is not null && StaticLocals.Declares(subStmt) ? Statics : null;
+                if (keep is not null && keep.TryGet(subStmt, out var kept))
+                {
+                    currentEnv.DefineVariable(subStmt.ambiguousIdentifier().GetText(), kept);
+                    return;
+                }
                 bool isArray = false;
                 List<(int, int)>? dimensions = null;
                 if (subStmt.LPAREN() != null && subStmt.RPAREN() != null) // array
@@ -2908,7 +2980,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 }
                 else
                 {
-                    var type = ExtractType(asType, isArray);
+                    // With no As clause the type is the DefType's for the name's letter, if one covers it (measured, #169).
+                    // DefObj's is an Object slot, Nothing until Set, as `As Object` makes; an array of them is #1482.
+                    var defaultType = asType is null ? currentModule.PrePass.DefaultTypeOf(subStmt.ambiguousIdentifier().GetText()) : null;
+                    if (isArray && defaultType == Vb6Value.ValueType.Object)
+                        throw new NotImplementedException("An array of objects is not implemented (#1482)");
+                    var type = defaultType is not null
+                        ? (isArray ? new Vb6Value.ValueType(defaultType, true) : defaultType)
+                        : ExtractType(asType, isArray);
                     value = dimensions != null ? new Vb6Value(type, dimensions) : new Vb6Value(type);
                     if (dimensions != null && value.Value is VBArray fixedArr) fixedArr.IsDynamic = false;   // `Dim a(N)` = fixed
                 }
@@ -2934,7 +3013,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // Track this local so RunProcedure releases its reference (fires Class_Terminate) at scope-exit,
                 // in declaration order. Every Dim slot is tracked (a Variant can later hold an object via Set);
                 // ReleaseRef no-ops non-objects. Only proc-body executors have ownedSlots (module/field-init = null).
-                if (ownedSlots != null && currentEnv.TryGetVariableLocation(localName, out var localLoc))
+                // A Static's slot is kept instead, for the next call.
+                if (keep is not null && currentEnv.TryGetOwnVariableLocation(localName, out var staticLoc))
+                    keep.Add(subStmt, staticLoc);
+                else if (ownedSlots != null && currentEnv.TryGetVariableLocation(localName, out var localLoc))
                     ownedSlots.Add(localLoc);
             }
         }

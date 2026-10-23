@@ -475,19 +475,20 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// A control added by double-clicking its tool: centred on the form as Center in Form centres one, then put on the
     /// nearest grid line when Align to Grid is on, as VB6 puts it (measured, #929: a 1215 x 495 button on a 6000 x 4500
     /// form went to 2400, 2040, where its centre is 2392.5, 2002.5). A position exactly between two lines goes to the
-    /// higher: 12.5 grid units became 13 (measured), where the default to-even rounding gives 12.
+    /// higher: 12.5 grid units became 13 (measured), where the default to-even rounding gives 12. Its size is its class's
+    /// <see cref="ComponentBaseClass.AddedSize"/>, the one VB6 gives it (measured, #1473).
     /// </summary>
     public void SpawnControlCenter(ComponentBaseClass componentClass)
     {
-        const double size = 50;
-        var left = Twips(Form.Width) / 2 - Twips(size) / 2;
-        var top = Twips(Form.Height) / 2 - Twips(size) / 2;
+        var (width, height) = componentClass.AddedSize;
+        var left = Twips(Form.Width) / 2 - width / 2;
+        var top = Twips(Form.Height) / 2 - height / 2;
         if (settingsService.AlignToGrid)
         {
             left = OnGrid(left, settingsService.GridWidth);
             top = OnGrid(top, settingsService.GridHeight);
         }
-        SpawnControlAt(componentClass, new Rect(Pixels(left), Pixels(top), size, size));
+        SpawnControlAt(componentClass, new Rect(Pixels(left), Pixels(top), Pixels(width), Pixels(height)));
 
         static long OnGrid(long twips, int gridPixels)
         {
@@ -528,14 +529,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void SpawnControlAt(ComponentBaseClass baseClass, Rect rect)
     {
-        // Name = base + the LOWEST unused index, so a name freed by a delete is reused and we never collide with an
-        // existing control. The old `baseClass.Name + Components.Count` collided after a delete: e.g. add Command0 +
-        // Command1, delete Command0 → Count is 1 again → a second control also named "Command1".
-        // Every name on the form, a preserved control's too (#854).
-        var used = ComponentNaming.NamesInUse(AllComponents.Select(c => c.Instance));
-        int index = 0;
-        while (used.Contains(baseClass.Name + index)) index++;
-        var newName = baseClass.Name + index;
+        var newName = FreeName(baseClass);
         Log.Debug("FormEditViewModel: Spawning {ControlType} as {ControlName} at ({Left},{Top} {Width}x{Height})",
             baseClass.Name, newName, rect.Left, rect.Top, rect.Width, rect.Height);
         var instance = new ComponentInstance(baseClass, newName);
@@ -1040,7 +1034,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         ComponentInstanceViewModel Build(DesignerClipboard.ClipboardEntry entry, ComponentInstance? container, double shiftX,
             double shiftY)
         {
-            var newName = GenerateName(entry.BaseClass);
+            var newName = FreeName(entry.BaseClass);
             var newInstance = new ComponentInstance(entry.BaseClass, newName);
             foreach (var kvp in entry.Properties)
             {
@@ -1142,15 +1136,18 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             UndoStack.Push(new Commands.SetPropertyCommand(target, property, before, after));
     }
 
-    private string GenerateName(IComponentClass baseClass)
+    /// <summary>
+    /// The name a control added or pasted takes: its class's prefix and the lowest number from 1 that no name on the form
+    /// has, a preserved control's included, in any case (#854). VB6's designer names a new control and a pasted one so,
+    /// filling a gap a file left or a delete made (measured, #540): beside Command1 and Command3 the next is Command2, and
+    /// beside Text5 it is Text1.
+    /// </summary>
+    private string FreeName(IComponentClass baseClass)
     {
-        // Every name on the form, a preserved control's too, in any case (#854).
-        var existingNames = ComponentNaming.NamesInUse(AllComponents.Select(c => c.Instance));
-        int n = Components.Count;
-        string candidate;
-        do { candidate = baseClass.Name + n++; }
-        while (existingNames.Contains(candidate));
-        return candidate;
+        var used = ComponentNaming.NamesInUse(AllComponents.Select(c => c.Instance));
+        var index = 1;
+        while (used.Contains(baseClass.Name + index)) index++;
+        return baseClass.Name + index;
     }
 
     public void BeginDrag(IReadOnlyList<ComponentInstanceViewModel> targets)

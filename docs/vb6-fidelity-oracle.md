@@ -2211,6 +2211,113 @@ The whole implementation is a letter-range → type table consulted when an unde
 No relationship between symbols appears anywhere in it, which is why it sits inside the pre-pass boundary
 in `CLAUDE.md` rather than against it.
 
+### Everything a DefType types, measured (2026-10-23, #169)
+
+Measured on vb6.exe, native and p-code identical, under en-GB. Each program `DefTypeTests` pins was made as written.
+
+**Overturned, and it was ours.** The section above says DefType "cannot be measured with `Option Explicit` on at all",
+being a rule about undeclared variables. It is wider than that: it types every declaration with no As clause, and those
+exist under `Option Explicit`. With `Option Explicit` and `DefInt A-Z`, `Dim x` then `x = 2.6` is an Integer 3, and
+`Function F()` returns an Integer.
+
+Under `DefBool B`, `DefByte Y`, `DefInt I-J, K`, `DefLng N`, `DefCur C`, `DefSng S`, `DefDbl D`, `DefDate T`, `DefStr Z`,
+`DefObj O` and `DefVar V`:
+
+| probe | result |
+|---|---|
+| `b1 = 1` | Boolean True |
+| `y1 = 300`, then `y1 = 200` | 6, then Byte 200 |
+| `i1 = 2.6`, `j1 = 2.5` | Integer 3, Integer 2 |
+| `k1 = 40000` | 6 |
+| `n1 = 70000` | Long 70000 |
+| `c1 = 1.23456` | Currency 1.2346 |
+| `s1 = 1.5`, `d1 = 1.5` | Single, Double |
+| `t1 = 2` | Date, serial 2 |
+| `z1 = 5` | String "5" |
+| `Set o1 = New Collection` | Collection |
+| `v1 = 5` | a Variant holding an Integer |
+| `a1 = 2.6`, no DefType covering A | Double |
+| `i9`, `z9`, `o9`, `b9`, `t9`, `v9`, never assigned | Integer 0, String "", Nothing, Boolean, Date, Empty |
+| `Dim i5, z5, a5, i6(2)` | Integer, String, Empty, `Integer()` |
+| module-level `Dim im, zm, am` | Integer, String, Empty |
+| `Const I8 = 2.6`, `Const Z8 = 5` | **Double 2.6, Integer**: a Const keeps its value's type |
+| `Function IFun()` returning 2.6 | Integer 3 |
+| `Function ZFun()` returning 5 | String |
+| `Sub ITake(i7)` given 2.6 | Integer 3 inside it |
+| `Sub ZTake(ByVal z7)` given 5 | String "5" inside it |
+| `Static is1`, then `is1 = is1 + 1` twice | Integer 1, then 2 |
+| `For i3 = 1 To 2` | Integer 3 after it |
+| `Set a2 = New Collection`, `a2` never declared, no DefType covering A | Collection: a Set declares as a Let does |
+| `i2 = 2.6` in another module with no DefType | Double: a DefType is its own module's |
+| a class's own `DefInt A-Z`: field `cnt`, local `q`, `Function Count()` | Integer, Integer 3, Integer |
+| `DefStr Z-X`, then `x = 5` | String: a range written backwards covers X to Z |
+| `DefInt a-c`, then `b = 2.6` | Integer 3: lower case names the same letters |
+
+**DefObj**, under `DefObj O`:
+
+| probe | result |
+|---|---|
+| `Dim o5`, and module-level `Dim om` | Nothing, Nothing |
+| `Set o5 = New Collection`, `Set om = New Collection` | Collection, Collection |
+| `o5 = 5`, `o5` holding a Collection | 438 |
+| `Dim o8`, then `o8 = 5` | 91 |
+| `o6 = 5`, `o6` never declared | 91 |
+| `Function OFun()` with `Set OFun = New Collection` | Collection |
+| `Sub OTake(o7)` given a Collection, then Nothing | Collection, Nothing |
+| `o7 = 5` in `Sub OLet(o7)` given Nothing | 91 |
+| `OBad = 5` in `Function OBad()` before any Set | 91, and the call returns Nothing |
+
+So DefObj makes each of these an `As Object`. A `Function F() As Object` and a `Function F() As Collection` that are
+never Set behave the same way: `TypeName` is Nothing and `Is Nothing` is True. A Let into the first's name before a Set
+is 91. A Let into the second's does not compile ("Argument not optional"), as for a variable.
+
+**A DefType'd variable is a typed operand** (#122), as a Dim'd one is. Under `DefInt P`:
+
+| probe | result |
+|---|---|
+| `p1 = 30000`, then `p1 * 3` | 6 |
+| `p9 + 32767 + 1`, `p9` never assigned | 6 |
+| `Dim p5`, then `p5 = 30000: p5 * 3` | 6 |
+| `PFun() * 3`, `Function PFun()` returning 30000 | 6 |
+| `b1 = 30000: b1 * 3`, no DefType covering B | Long 90000 |
+
+**Where it must sit.** A DefType after any declaration is "Deftype statements must precede declarations". That holds
+after a `Dim`, a `Public` or `Private` variable, a `Const` (Public or not), a `Type`, an `Enum` and a `Declare`. After
+`Option Base`, `Option Compare` or another DefType it compiles. Inside a procedure it is "Invalid inside procedure".
+After a procedure it is VB6's general "Only comments may appear after End Sub, End Function, or End Property", as
+for a label there (see "Line labels", below). HexIDE gives that error for nothing at module level, so it runs such a module
+with the DefType applied.
+
+**The other compile errors:**
+- `DefInt AB` is "Expected: letter".
+- `DefDec E` is "Expected: line number or label or statement or end of statement". VB6 has no DefDec, though the
+  grammar lexes it.
+- `DefInt A-C` then `DefInt B` is "Duplicate Deftype statement", even though both are Integer. So is `DefInt A-Z` then
+  `DefStr A-Z`.
+
+**Two things HexIDE does not do yet**, measured here and filed:
+- **A ReDim that declares.** Under `DefInt I`, `ReDim i4(2)` on a name never declared is `Integer()`, and `ReDim a4(2)`
+  is `Variant()`. HexIDE refuses both as "Unknown variable" (#1495).
+- **An undeclared variable passed ByRef.** With `Sub Bump(x As Integer)` and `i12` never declared, `Bump i12` twice
+  leaves `i12` an Integer 2. Without DefType, `Bump a12` with `Sub Bump(x)` leaves an Integer 2, and `Fill b12` with
+  `s = "filled"` leaves a String. HexIDE loses the write in all three (#1505). **Since fixed by #1505**; see "An
+  undeclared variable passed ByRef".
+
+### In HexIDE (#169)
+
+`PrePass.VisitDeftypeStmt` collects each module's DefType statements into a 26-letter table, raising the compile errors
+above, and `PrePass.DefaultTypeOf(name)` reads it. It is consulted wherever a declaration has no As clause:
+- `StatementExecutor.AllocImplicitVariant`, for a variable made on first use, whether by a Let, a Set, a For or a
+  statement that stores;
+- `ExpressionExecutor`'s read of a name never assigned;
+- `StatementExecutor.DeclareLocal`, for a `Dim`, a `Static`, a module's variable and a class's field;
+- `PrePass.ParseParams` and `PrePass.ReturnOf`, for parameters and returns.
+
+The slot the pre-pass hoists for a module-level variable is not typed. The module's Dim statement, run when the module
+starts, makes the slot the program uses, and `DeclareLocal` types that one.
+
+A type character on such a variable is #742 and #739.
+
 ## Variant arithmetic promotes; a declared type is a ceiling (2026-09-02, #122)
 
 Re-measured because the rule as originally filed was wrong in a way that would have shipped a silent bug.
@@ -13545,8 +13652,8 @@ full. These 57 compile, with exactly the names the signature table gives, and re
 CDbl, CInt, CLng, CSng, CStr, CVar, CVErr, Fix, InStr, Int, LBound, Len, Sgn, StrComp and UBound. Each has a full parameter
 tooltip, with names.
 
-Val (`String`), Round (`Number, NumDigitsAfterDecimal`) and Split (`Expression`) took names in the single-row projects,
-but they have no signature entry, so their required counts were not measured (#1475).
+Val (`String`), Round (`Number, NumDigitsAfterDecimal`) and Split (`Expression`) took names in the single-row projects.
+Their required counts, and thirteen more intrinsics', are measured below (#1475).
 
 **What resisted explanation.**
 - **Why those twenty refuse**, and no rule I would defend. Most of them are the conversions and the numeric primitives,
@@ -13566,8 +13673,8 @@ but they have no signature entry, so their required counts were not measured (#1
   compile errors from the table above, as the statement runs. Then it evaluates the named arguments in parameter order,
   in the caller, and leaves an omitted Optional to bind as it always has.
 - **Intrinsics.** These take their names from `VB6BuiltIns.NamedParameters.cs`, the 57 above. The twenty above that
-  refuse every name give "Syntax error", Array and Choose give the ParamArray error, and any other intrinsic stops the run
-  naming #1475. A name that is no procedure and no intrinsic is "Sub or Function not defined", as before.
+  refuse every name give "Syntax error", Array and Choose give the ParamArray error, and any other intrinsic stopped the
+  run naming #1475, until #1475 measured them all (below). A name that is no procedure and no intrinsic is "Sub or Function not defined", as before.
 - **RaiseEvent** gives "Syntax error" for any named argument.
 - **A control's, a form's or an object's method** stops the run naming #1474.
 
@@ -13583,6 +13690,79 @@ It checks one direction only, because the tooltip shows names for the twenty tha
   arguments as written, and a reshaped `VbSignatures.cs`.
 - **The corpus.** Two corpus cases that carried a line continuation inside a named argument now run as VB6 ran them. They
   were removed from `KnownDivergences`.
+
+### The intrinsics signature help had no entry for (2026-10-23, #1475)
+
+**The question.** The 16 intrinsics HexIDE implements without a tooltip had their named arguments refused. Which names
+does VB6 take for each, how many are required, and what do the ones with no parameters say to a name?
+
+**The probe.**
+- 53 one-call projects, made native and p-code under en-GB.
+- The 19 programs the #1475 tests run, made the same way. Their compile errors and transcript are exactly what the tests
+  pin.
+
+The names were read first from the VBA library's type information in msvbvm60.dll, then confirmed one by one. For each
+intrinsic there was:
+- a project naming every parameter;
+- one naming the required ones only;
+- one leaving out each required one in turn;
+- one with a wrong name.
+
+Native code and p-code agreed on every line.
+
+| Parameters, in order | Required | Intrinsic | Measured with every name |
+|---|---|---|---|
+| `String` | 1 | Val | `Val(String:="12")` 12 |
+| `Number, NumDigitsAfterDecimal` | 1 | Round | 2.6; `Round(Number:=2.5)` 2 |
+| `Expression, Delimiter, Limit, Compare` | 1 | Split | `Limit:=2` gives `a` and `b,c`; `Expression:="a b c"` alone splits on spaces |
+| `SourceArray, Delimiter` | 1 | Join | `ab-cd-AE`; with no Delimiter, `ab cd AE` |
+| `SourceArray, Match, Include, Compare` | 2 | Filter | `vbTextCompare` matches `ab` and `AE` |
+| `Month, Abbreviate` | 1 | MonthName | Feb; February. `MonthName(Abbreviate:=True, Month:=3)` is Mar |
+| `Weekday, Abbreviate, FirstDayOfWeek` | 1 | WeekdayName | `Weekday:=1, Abbreviate:=True, FirstDayOfWeek:=vbMonday` is Mon; Abbreviate can be skipped |
+| `Date` | 1 | DateValue | `Date:="2000-01-02"` is 36527 |
+| `Time` | 1 | TimeValue | `Time:="12:00"` is 0.5 |
+| `FileNumber` | 1 | EOF | True on an empty file |
+| `RangeNumber` | 0 | FreeFile | `RangeNumber:=1` is 256; `:=0` is 1 |
+| `Expression` | 1 | CDec, CVDate | 1.5; 2 |
+| `Number` | 1 | Hex, Oct, Str, and Hex$, Oct$, Str$ | FF; 10; " 5" |
+
+Leaving out a required parameter is "Argument not optional", in every case measured. A wrong name is "Named argument
+not found", for every one of them.
+
+**Six have no parameters, and refuse a name three ways:**
+
+| `X(X:=1)` | VB6's compile error |
+|---|---|
+| Command, Now, Time | Named arguments not allowed |
+| Date | Syntax error |
+| DoEvents, Timer | Wrong number of arguments or invalid property assignment |
+
+**Aside.** `WeekdayName(Weekday:=1)`, with no FirstDayOfWeek, is Monday under en-GB. The day a week starts on there comes
+from the locale. That makes it a fact about WeekdayName's default, not about names, so the tests give FirstDayOfWeek
+explicitly.
+
+**What this overturned.**
+- **That the C-conversions all refuse names.** CDec and CVDate take `Expression`, where CBool through CVar and CVErr are
+  "Syntax error" (#1465).
+- **That the type library is the whole story.** It lists Hex, Oct and Str on a hidden interface with no parameters, yet each
+  takes `Number`, and a wrong name is caught.
+- **That the VBA documentation's names are VB6's.** It calls Round's parameters `expression` and `numdecimalplaces`. VB6
+  takes `Number` and `NumDigitsAfterDecimal`, as its type library says.
+
+**What resisted explanation.**
+- **Why the no-parameter six split three ways.** Date's "Syntax error" fits Date being a keyword as well as a function.
+  Command, Now and Time against DoEvents and Timer I can't explain.
+
+#### In HexIDE (#1475)
+
+- **The table.** `VB6BuiltIns.NamedParameters.cs` now lists 73 intrinsics with their names and required counts.
+- **The six with no parameters** raise the errors above.
+- **The tooltips.** All 16 have a signature-help entry, Command and DoEvents included.
+- **The guard.** `NamedParameterParityTests` now also fails when a registered intrinsic is missing from every table, or
+  has no tooltip. An intrinsic added later is then measured in the same change. The sweep the issue asked for is kept
+  as that test.
+- **An intrinsic HexIDE doesn't implement at all** is answered, with names or without, by the "not implemented" its
+  caller already gives.
 
 ## The TabIndex a new or pasted control takes (2026-10-22, #925, design-time)
 
@@ -14135,7 +14315,7 @@ When Sub Main returns, the objects still held terminate: the Static's first, the
 **Refused, by issue:**
 - an array `As New` (#1482);
 - a Type's field `As New` (#1488);
-- `Static` (#1491);
+- `Static`, until #1491 made it run;
 - `ReDim` of an undeclared name (#1495);
 - `As New` of a type HexIDE has no class for, such as a form, by #435's own message.
 
@@ -14143,7 +14323,7 @@ When Sub Main returns, the objects still held terminate: the Static's first, the
 - #877: an `On Error` statement doesn't clear Err;
 - #1006: `Set Module2.pm = Nothing` stores nothing;
 - #1490: objects held at the end of the program don't terminate;
-- #1493: `o = 5` releases the object.
+- #1493: `o = 5` released the object, until #1493.
 
 **`AsNewTests`** pins five programs, seven compile errors and five refusals.
 
@@ -14210,3 +14390,420 @@ Picture4, Picture3.
 - Bring to Front with several controls selected.
 - A paste while a container is selected.
 - The `ZOrder` method at run time.
+
+## Static (2026-10-23, #1491)
+
+**The question.** `Static n As Long` stopped the program: "non dim variables not supported". The `Static` keyword on a
+procedure was parsed and then ignored, so a `Static Sub`'s locals started again at zero on every call: silently wrong.
+#1491 asked what a Static keeps and for how long:
+- its first value;
+- recursion;
+- a `Static Sub` or `Function`;
+- arrays;
+- a class's and a form's Statics, and when they end.
+
+**The probe.**
+- Two Sub Main programs, the second with four classes and a form, made native and p-code under en-GB.
+- 34 one-statement compile projects.
+- Two two-form projects started from Form1, the second without `New Form2`.
+- `StaticTests`' 4 transcript programs and 2 parse refusals, and the form project `StaticInFormTests` runs, made the same
+  way. They logged exactly what the tests pin, and gave the compile errors the tests expect.
+
+Native code and p-code agreed on every line.
+
+### What a Static keeps
+
+| Program | VB6 |
+|---|---|
+| a Sub with `Static n As Long: n = n + 1`, called three times | 1, 2, 3 |
+| two Subs, each with its own `Static n` | separate: 10, 20 in the second while the first counts on |
+| a recursive Sub, `Static n`, three levels deep, then called again | 1, 2, 3 on the way down; 3 at every level on the way back; 4 on the next call. **One slot for every frame** |
+| `Private Static Sub` with `Dim a As Long` and `Dim s As String` | 1, then 2; "z", then "zz" |
+| `Private Static Function F() As Long` with `Dim m`, and `F = F + 1` | `m` counts 1, 2; **`F` is 1 on every call**: a Static Function's own return value is not Static |
+| `Bump n`, passing the Static ByRef to a Sub that adds 100 | 100, then 200 |
+| `Static q` inside a `For` run three times, `q = q + 1` | 3, then 6: the statement re-run does nothing |
+| `Static u` inside an `If` that is never taken | `u` exists and counts 1, 2 |
+
+### First values, and what it holds
+
+- Each type starts at its own zero:
+  - Integer, Long, Byte: 0, with TypeName Integer, Long, Byte;
+  - Boolean: False;
+  - Single, Double, Currency: TypeName Single, Double, Currency;
+  - Date: 0;
+  - String: "";
+  - Variant and untyped: Empty;
+  - `As Object`, a class and `As Collection`: Nothing;
+  - `fa(2) As Long`: `Long()`, UBound 2;
+  - `da() As Long`: `Long()`;
+  - a Type: its fields' zeros.
+- Every kind keeps what it was given:
+  - a fixed array's element;
+  - a dynamic array grown by `ReDim Preserve`;
+  - a Type's fields;
+  - a String;
+  - a Variant;
+  - an object, and a Collection with its items.
+- `Erase` of a Static fixed array zeros it, and of a dynamic one deallocates it. The next call finds `fa(0)` 0 again,
+  and the array as it was ReDimmed last.
+
+### A class's, and a form's
+
+| Program | VB6 |
+|---|---|
+| two instances of a class, each calling a method with `Static n` | each counts from 1: **a class's Statics are its instance's** |
+| `Static times` in Class_Initialize | 1 for each instance |
+| a `Public Static Sub` in a class | per instance |
+| a Static in a Private method reached through a Public one | per instance, as if called directly |
+| `Set k = Nothing` on an instance holding a field object and three methods' Static objects, made in the order Hold, B, A | Class_Terminate, then the field's object, then the Statics' in the module's order, **Hold, A, B**, not the order they were made |
+| a form's `Public Sub Tick()` with `Static n`, after `Load Form2` | 1, 2 |
+| `Unload Form2`, then `Form2.Tick` | 3: **a Static survives Unload** |
+| `Set Form2 = Nothing` (Form_Terminate), then `Form2.Tick` | 1: a new instance starts again |
+| `New Form2`, loaded, `Tick` twice | 1, 2: its own |
+| a Sub's `Static t As C` still holding its object when Sub Main returns | the object terminates as the program ends (#1490) |
+
+### Static As New
+
+`As New` works on a Static as it does on a Dim (#435), and the object it makes is kept from call to call:
+
+| Program | VB6 |
+|---|---|
+| `Static s As New Made`, then `s.Name = s.Name & "x"`, three calls | made once, at the first call's use; "x", "xx", "xxx" |
+| the third call ending `Set s = Nothing` | it terminates there |
+| `Static c As New Made`, with `Set c = Nothing` at the end of the first call | the second call makes a new one, its Name "" |
+| a class method with `Static c As New Collection: c.Add 1`, twice on one instance and once on a second | 1, 2, then 1 |
+
+### What VB6 refuses to compile
+
+| Declaration | VB6's compile error |
+|---|---|
+| `Static n As Long` at a standard module's level, or a class module's | Invalid outside procedure |
+| `Dim n` then `Static n` in one procedure; `Static n` twice | Duplicate declaration in current scope |
+| `Private Sub S(Static x As Long)` | Syntax error |
+| `Sub S(Static x As Long)`, at the top of the module | Expected: identifier |
+| `Static Const C = 1` | Syntax error |
+| `Dim L As Long` in a Sub, then a call of the module's Sub `L` | Expected Sub, Function, or Property: the local hides the procedure, so the call no longer names one |
+
+Every `Static` form compiles: a fixed or dynamic array, a Type, a Date, an untyped Static, `As Object`, `As Collection`,
+a class, and two names on one line.
+
+### What this overturned
+
+- **That a Static Function's own name is Static too.** Its other locals are, and its return value starts at its zero on
+  every call.
+- **That a class's Statics are released as they were made.** They are released in the order the module declares them,
+  after the fields.
+
+### What resisted explanation
+
+- Why `Sub S(Static x As Long)` is "Expected: identifier" at the top of a module, and "Syntax error" when the Sub is
+  Private further down.
+
+### In HexIDE (#1491)
+
+**What it does:**
+- A Static local's slot is made the first time its procedure declares it, and found again by the declaration's own parse
+  node at every later call, a recursive one included. The call never releases it.
+- A standard module's procedures keep their Statics for the run.
+- A class's or a form's are kept per instance. When the instance terminates, they are released after its fields, in
+  source order.
+- A `Static Sub`, `Function` or `Property` makes every Dim local Static. Its parameters and a Function's return value are
+  not.
+- `Static` outside a procedure is "Invalid outside procedure". A Static parameter or a `Static Const` does not parse.
+
+**Known divergences:**
+- #1490: a standard module's Static, like a module variable, keeps its object past the end of the program.
+- A duplicate `Dim` or `Static` in one procedure is not refused (#1499). The first declaration wins.
+- `New Form2` is #822, so the form test leaves out the second instance.
+
+**What pins it:**
+- `StaticTests` pins four programs and three refusals.
+- `StaticInFormTests` pins the form program.
+
+## A Let into an object variable (2026-10-23, #1493)
+
+**The obvious guess is that `k = 5`, with `k As C1` holding an instance, replaces the object with 5. It assigns the
+default member of the object `k` holds.** A class with none raises 438, and `k` keeps the object. Holding Nothing,
+the same Let raises 91. A Variant is different: it takes the value and drops the object.
+
+**The question.** HexIDE released the object at `k = 5`, so its Terminate ran there, and stored 5. The program ran on
+with the object gone, and `k.Name` on the next line failed to compile. #1493 asked which targets are object variables
+for a Let, and what each does.
+
+**The probe.**
+- Two Sub Main programs, made native and p-code under en-GB.
+- The 3 programs `LetIntoObjectTests` runs, made the same way. They logged exactly what the tests pin.
+
+Native code and p-code agreed on every line. `C1` logs its Initialize and Terminate.
+
+### Object variables
+
+| Target, holding an instance of `C1`, which has no default member | VB6 |
+|---|---|
+| `Dim k As C1`: `k = 5`, and `k = "x"` | 438 both times; `k` still the instance |
+| `Dim o As Object`: `o = 5` | 438; `o` still the instance |
+| `Dim an As New C1`, untouched: `an = 5` | the instance is made, then 438 (#435) |
+| a ByRef parameter `x As C1`: `x = 6` | 438; the caller's variable still the instance |
+| a ByRef or ByVal parameter `x As Object`, and a ByVal `x As C1` | 438 |
+| `Function F() As C1`, holding an instance: `F = 7` | 438; the Function returns the instance |
+| `Function FObject() As Object`, the same | 438; it returns the instance |
+| a class's `Public o As C1`: `h.o = 8`, and `.o = 9` in `With h` | 438; the field still the instance |
+| a class's `Private mo As C1`, from inside: `mo = 5` | 438 |
+
+| Target, holding Nothing | VB6 |
+|---|---|
+| `Dim n As C1`: `n = 5` | 91; `n` still Nothing |
+| `Dim o2 As Object`: `o2 = 5` | 91 |
+
+### Variants
+
+| Target, holding an instance | VB6 |
+|---|---|
+| `Dim v As Variant`: `v = 5` | no error. The instance terminates at the Let, and `v` is 5, an Integer |
+| an untyped `u`, and a class's `Public v As Variant` | the same |
+| a ByRef `x As Variant`, and a ByVal untyped `x` | the same |
+| `Function FVariant() As Variant` and an untyped Function, holding an instance | the same, and the Function returns the Integer |
+
+### A default member
+
+`d = 11`, with `d` holding an instance of a class whose `Property Get Value` carries `Attribute Value.VB_UserMemId = 0`,
+calls its `Property Let Value` with 11. There is no error, and `d.Value` is 11 afterwards.
+
+### Aside: a variable that hides a procedure
+
+The first probe declared a local `r As C1` in Sub Main while the module had a Sub `R` that logs. Every `R "label"` then
+named the variable. It compiled, and under `On Error Resume Next` it raised and logged nothing. A `Dim L As Long` in
+the same position is a compile error ("Expected Sub, Function, or Property", #1491's probes). So an object variable
+standing where a procedure call should be compiles, as a late call of its default member, and a Long does not.
+
+### What this overturned
+
+- **That a Let into an object variable replaces what it holds.** Only a Variant's does. Any declared object variable
+  hands the value to its object's default member, and keeps the object whatever happens.
+- **That `As Object` is a Variant for this purpose.** It reads late, as a Variant does (#1005), but a Let into it is
+  438, as into a class-typed variable.
+
+### In HexIDE (#1493)
+
+**What counts as an object variable.** A Let target is one when it is any of:
+- declared as a class, `As Object` or `As Collection`;
+- an `As Object` parameter (`ExecutionEnvironment.ObjectParameters`, new);
+- any other slot that holds an object and isn't a Variant's.
+
+**What a Let into one does.** It refuses before anything is released or stored:
+- 438 for a class with no default member, and for a Collection;
+- 91 for Nothing;
+- a refusal naming #174 for a class with a default member;
+- a refusal naming #790 for a control.
+
+**Where it was hard to tell a Variant apart.** An untyped or `As Variant` Function's own name takes the value. Its
+slot has no Variant mark, so the executor is told (`VariantReturn`). `ProcedureInfo.ReturnsObject` and
+`ParamInfo.DeclaredObject` now separate `As Object` from Variant, where `ReturnsVariant` and `ReadsAsVariant` had
+counted it as one for reading.
+
+**Not covered:**
+- a Type's field declared as a class;
+- an element of an object array (#1482).
+
+**`LetIntoObjectTests`** pins three programs and the default-member refusal.
+
+**#169 found one more.** An object Function's return name started Empty before any Set. So `F = 5` in `F() As Object`
+took the value where vb6.exe raises 91, and an unset `As Object` or `As Collection` Function returned Empty. It starts
+Nothing now, and `LetIntoObjectTests` pins a fourth program.
+
+## The size of a control added from the toolbox (2026-10-23, #1473, design-time)
+
+**The question.** "Where the Format commands put a control" measured where VB6 puts a CommandButton added by
+double-clicking its tool: 1215 x 495, centred, then on the grid. HexIDE gave every class 50 x 50 pixels (750 x 750
+twips). Each class needed its own measurement.
+
+**The probe.** An empty 6000 x 4500 form with the default 120-twip grid, in VB6's IDE. I double-clicked every intrinsic
+tool except OLE, whose double-click opens a dialog, clicking an empty corner of the form first each time, then saved.
+Every control went onto the form, none into another. The values are VB6's file.
+
+| Class | Width x Height | Left, Top |
+|---|---|---|
+| CommandButton, Label, TextBox, Frame, CheckBox, OptionButton, PictureBox, Shape, Image | 1215 x 495 | 2400, 2040 |
+| ComboBox | 1215 x 315 | 2400, 2040 |
+| ListBox | 1215 x 450 | 2400, 2040 |
+| HScrollBar | 1215 x 255 | 2400, 2160 |
+| VScrollBar | 255 x 1335 | 2880, 1560 |
+| DriveListBox | 1215 x 315 | 2400, 2040 |
+| DirListBox | 1215 x 315 | 2400, 2040 |
+| FileListBox | 1215 x 480 | 2400, 2040 |
+| Data | 1215 x 300 | 2400, 2160 |
+| Timer | none written | 2400, 2040 |
+| Line | X1 2400, Y1 2040, X2 3600, Y2 2520 | |
+
+**What it shows:**
+- **Most classes take 1215 x 495.** The ComboBox, the list boxes, the scroll bars and the Data control each have a size
+  of their own.
+- **Each is centred by its own size, halves truncated, then put on the grid, a half going up.** For example, the
+  VScrollBar: 3000 - 127 = 2873, on the grid 2880; and 2250 - 667 = 1583, on the grid 1560. The Data control is
+  2250 - 150 = 2100, 17.5 units, which goes up to 2160.
+- **A Timer writes no size, but is placed as a 1215 x 495 control would be.**
+- **A Line is a diagonal** from the centred, gridded corner, 1200 across and 480 down.
+- **A click with a tool selected and no drag adds nothing.** The CommandButton tool was pressed, a click on the form
+  made no control, and the toolbox went back to the pointer.
+
+**In HexIDE (#1473):**
+- A control added by a double-click takes its class's size and is placed by it, for every class the toolbox holds.
+- A click without a drag already added nothing.
+- The DriveListBox, DirListBox, FileListBox, Data, Image and Line rows wait for those controls to reach the toolbox;
+  the Image's is already the default.
+
+**Not measured:**
+- A form with another font, which may change the ComboBox's and the list boxes' heights.
+- A grid other than 120 twips.
+- A double-click while a container is selected, measured only as "after a click inside a Frame" ("Where VB6's designer
+  puts a control's block").
+
+## An undeclared variable passed ByRef (2026-10-23, #1505)
+
+Measured on vb6.exe, native and p-code identical, under en-GB, with no `Option Explicit`. Each program
+`ByRefUndeclaredTests` pins was made as written.
+
+A name nothing claims, passed as an argument, is declared where it is passed, as a Let would declare it. A ByRef
+parameter then writes into it.
+
+| probe | result |
+|---|---|
+| `Bump a12` twice, with `Sub Bump(x)` doing `x = x + 1` | `a12` is an Integer 2 |
+| `Fill b12`, with `Sub Fill(ByRef s)` doing `s = "filled"` | String "filled" |
+| `Fill s:=c12`, the same by name | String "filled" |
+| `r = BumpF(d12)`, a Function that adds 1 to `x` and returns `x * 10` | `d12` an Integer 1, `r` 10 |
+| `Bump (f12)` | Empty: the parentheses pass a copy |
+| `Keep h12`, with `Sub Keep(ByVal x)` doing `x = 9` | Empty |
+| `Bump Seven`, with `Function Seven()` returning 7 | `Seven` is still 7: a Function's name is called, not declared |
+| `BumpI i12` twice under `DefInt I`, with `Sub BumpI(x As Integer)` | an Integer 2 |
+| `k.Bump e12` twice, a class's `Sub Bump(x)` | an Integer 2 |
+
+**The obvious guess, and HexIDE had made it.** A read of an undeclared name is Empty, so an argument would be only a
+value. It is not: VB6 declares the variable at the argument, so the procedure's write lands in it.
+
+### In HexIDE (#1505)
+
+`ExpressionExecutor.ResolveArg` passes a ByRef parameter the caller's slot when the argument is a variable
+(`TryGetArgLocation`). A name never declared had no slot, because the read path deliberately declares nothing, so that
+a watch expression cannot create a variable (#171). The argument was therefore passed as a copy.
+
+The read now records the bare name it found unclaimed (`unclaimedRead`). When that is the argument being resolved,
+`DeclareUnclaimed` declares it with `StatementExecutor.AllocImplicitVariable`, the same helper a store uses, so a DefType
+still applies. A watch or Immediate-window evaluation still declares nothing: it suppresses implicit declaration, so the
+read refuses before it records anything, and it refuses user procedure calls anyway.
+
+## Chr, Asc, ChrW and AscW (2026-10-23, #1134)
+
+Measured on vb6.exe, native and p-code identical, on a machine whose ANSI code page is 1252, under en-GB. Each program
+`CharacterCodeTests` pins was made as written.
+
+**Chr and Asc go through the ANSI code page; ChrW and AscW do not.** HexIDE had Chr and Asc working in UTF-16 units,
+which agrees with VB6 only below &H80 and, by coincidence, from &HA0 to &HFF.
+
+| probe | result |
+|---|---|
+| `AscW(Chr(&H80))` | 8364: "€" |
+| `AscW(Chr(&H81))`, `&H8D`, `&H8F`, `&H90`, `&H9D` | 129, 141, 143, 144, 157: a byte 1252 leaves undefined is its own code point |
+| `AscW(Chr(&H9F))` | 376: "Ÿ" |
+| `AscW(Chr(&HA0))`, `AscW(Chr(255))` | 160, 255 |
+| `Chr(256)`, `Chr(-1)`, `Chr(32767)`, `Chr(True)` | 5 each |
+| `Chr(3000000000#)` | 6 |
+| `Chr(Null)` | 94 |
+| `Chr("x")` | 13; `Chr("66")` is "B" |
+| `AscW(Chr(65.5))`, `AscW(Chr(66.5))` | 66, 66: half to even |
+| `Len(Chr(0))`, `Len(Chr(Empty))` | 1, 1 |
+| `Asc(ChrW(8364))` | 128 |
+| `Asc(ChrW(&H81))`, `Asc(ChrW(&H178))`, `Asc(ChrW(&H2019))` | 129, 159, 146 |
+| `Asc(ChrW(&H100))` | **65**: Ā best-fits to "A" |
+| `Asc(ChrW(&H416))` | 63: Ж has no fit, so "?" |
+| `Asc("AB")`, `Asc(65)`, `Asc(True)` | 65, 54, 84: the argument is made text first |
+| `Asc("")`, `Asc(Empty)` | 5, 5 |
+| `Asc(Null)` | 94 |
+| `AscW(ChrW(&H20AC))` | 8364 |
+| `AscW(ChrW(&HF050))`, `AscW(ChrW(61520))` | -4016, -4016: `&HF050` is an Integer, -4016, taken as its unsigned unit |
+| `ChrW(-4016) = ChrW(61520)` | True |
+| `AscW(ChrW(65535))`, `AscW(ChrW(-32768))`, `AscW(ChrW(True))` | -1, -32768, -1 |
+| `ChrW(65536)`, `ChrW(-32769)` | 5, 5 |
+| `ChrW(3000000000#)` | 6 |
+| `ChrW(Null)`, `AscW(Null)` | 94, 94 |
+| `AscW(ChrW(65.5))` | 66 |
+| `Len(ChrW(Empty))`, `Len(ChrW(&HD800))`, `Len(ChrW(0))` | 1, 1, 1: a lone surrogate is one unit |
+| `AscW("AB")`, `AscW(66)`, `AscW(1.5)` | 65, 54, 49 |
+| `AscW("")`, `AscW(Empty)` | 5, 5 |
+| `ChrW(CharCode:=65)`, `AscW(String:="A")` | "A", 65 |
+| `ChrW(Code:=65)`, `AscW(Str:="A")` | do not compile: "Named argument not found" |
+| `ChrW()`, `AscW()` | do not compile: "Argument not optional" (HexIDE: #1512) |
+| `AscW$("A")` | does not compile: "Type-declaration character does not match declared data type" |
+| `TypeName(AscW("A"))`, `TypeName(Asc("A"))`, `TypeName(ChrW(65))` | Integer, Integer, String |
+
+**Typed or Variant**, by #987's probe:
+- `AscW("A")` against `Case Is < 65.4` takes Case Else, and `AscW("A") * 7000` is 6: typed, as `Asc` is.
+- `AscW(v)`, with `v` a Variant holding "A", behaves the same way.
+- `ChrW(57)` against `Case Is > 10` takes Case Else: a Variant, as `Chr` is.
+
+**Every `$` form that answers text answers a typed String.** "9" from each of them, against `Case Is > 10`, takes the
+Case: `Chr$(57)`, `ChrW$(57)`, `Format$(9)`, `Hex$(9)`, `LCase$("9")`, `Left$("9", 1)`, `LTrim$("9")`, `Mid$("9", 1)`,
+`Oct$(9)`, `Right$("9", 1)`, `RTrim$("9")`, `String$(1, "9")`, `Trim$("9")` and `UCase$("9")`. `Str$(19)`, which is
+" 19", takes Case Else, which is the typed reading the other way round. Their plain forms are Variants: `Mid("9", 1)`,
+`Left("9", 1)`, `Format(9)` and `Hex(9)` take Case Else, and **`Str(19)` takes the Case**, read as 19.
+
+**Print # best-fits too.** `Print #` of Ā, Ж and ’ to a file opened For Output writes the bytes 65, 63 and 146, read back
+with `Get`. So the earlier row "`ChrW$(&H416)` is written as '?'" is true, but Ж has no fit, so it could not tell a
+best fit from a plain replacement. HexIDE writes Ā as "?" (#1511).
+
+**Not measured here:**
+- **A double-byte ANSI code page** (932). VB6 is documented to give `Chr` a range of -32768 to 65535 there, a code above
+  255 being a lead and a trail byte, and `Asc` a possibly negative pair. Unmeasured, so HexIDE refuses a code beyond
+  ASCII under one (#1509).
+- **ChrB and the rest of the byte-string family.** A first `ChrB` probe did not compile. HexIDE's strings cannot hold a
+  one-byte string at all (#1510).
+
+### In HexIDE (#1134)
+
+`VB6BuiltIns.ChrInCodePage` decodes a byte with the ANSI code page's table, and `AscInCodePage` encodes with that
+table's own fallbacks, best fit among them. Both take the code page from `Vb6TextEncoding.Ansi`, so a Debug build's
+`--ansi-code-page` reaches them, and both refuse beyond ASCII when the table is double-byte. `CharCode` and
+`FirstCharacterOf` hold the argument rules the four share.
+
+`ExpressionExecutor`'s typed list gains `AscW`, its Variant list `ChrW` and `Str`, and its list of `$` forms that do not
+compile gains `AscW`. `DollarResult` now marks its String typed.
+
+## The name VB6's designer gives a new control (2026-10-23, #540, design-time)
+
+**The question.** HexIDE named the first CommandButton on a form Command0, and a pasted control took its number from
+the count of controls on the canvas. The common recollection is that VB6 starts at 1, and #929's probe saw Command1.
+Still open: whether VB6 fills a gap or counts on from the highest number, whether a number freed by a delete comes
+back, and whether a paste follows the same rule.
+
+**The probe.** A form saved holding Command1, Command3 and Text5, opened in VB6's IDE. Each step below was saved, and
+the names are VB6's file. To add a control, I clicked an empty part of the form, then double-clicked the tool. To
+paste, I selected the control, used Edit > Copy and Edit > Paste, and answered **No** to "You already have a control
+named 'Command3'. Do you want to create a control array?".
+
+| Form before | Step | New name |
+|---|---|---|
+| Command1, Command3, Text5 | add a CommandButton | **Command2** |
+| Command1, Command2, Command3, Text5 | add a TextBox | **Text1** |
+| Command1, Command3, Text5 | paste Command3 | **Command2**, caption still "Command3" |
+| Command1, Command2, Command3, Text5 | paste Text5 | **Text1**, Text still "Text5" |
+| Command1, Command2, Command3, Text1, Text5, after Command4 was pasted and deleted | add a CommandButton | **Command4** |
+| Command1, Command3, Text5, after Command2 was added and deleted | add a CommandButton | **Command2** |
+
+**What it shows:**
+- **A new or pasted control takes its class's prefix and the lowest number from 1 that no control on the form has.**
+  It fills a gap a file left (Command2 beside Command1 and Command3), and it does not count on from the highest
+  number (Text1 beside Text5).
+- **A number freed by a delete comes back**, in the middle (Command2) and at the top (Command4). So VB6 doesn't keep a
+  per-session counter, which would have given Command5. The name depends only on what is on the form.
+- **A paste answered No follows the same rule, and keeps the copied caption or text.** Only the name is new.
+
+**In HexIDE (#540):**
+- Both routes now name a control the same way, from 1. A new control used to start at 0, and a paste at the number of
+  controls on the canvas.
+- A name a preserved control holds still counts as taken (#854).
+- HexIDE's paste never asks the array question. It does what VB6's No does.
+
+**Not measured:**
+- A paste answered **Yes**, which makes a control array.
+- Several controls pasted at once, where each presumably takes the lowest free number in turn.
+- A gap in a control array's indexes.

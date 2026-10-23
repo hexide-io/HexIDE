@@ -411,6 +411,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // teardown order is unpinned — Dictionary order — no oracle constraint yet.)
         foreach (var slot in o.InstanceEnv.variableToLocation.Values)
             await ReleaseRef(ExecutionContext.State[slot]);
+        // Then its procedures' Statics, in the order the module declares them (measured, #1491).
+        if (o.Statics is { } statics)
+            foreach (var slot in statics.InSourceOrder())
+                await ReleaseRef(ExecutionContext.State[slot]);
     }
 
     // Class_Initialize / Class_Terminate are lifecycle HOOKS, not ordinary methods: their `Me` is not a counted
@@ -1215,8 +1219,14 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             if (proc.Body != null)
             {
                 // The callee runs with its OWN per-activation statement-frame stack (re-entrancy isolation).
+                // A class's or a form's Statics are its instance's, and a standard module's are the run's (#1491).
                 var executor = new StatementExecutor(this, callee, owner, ownedSlots, new Stack<List<Vb6Value>>(), proc.Name,
-                    proc.CheckedArrayReturn) { IsEntry = isEntry };
+                    proc.CheckedArrayReturn)
+                {
+                    IsEntry = isEntry,
+                    VariantReturn = proc.IsFunction && proc.ReturnsVariant && !proc.ReturnsObject,
+                    Statics = me?.Value is VbObject instance ? instance.Statics ??= new StaticLocals() : ExecutionContext.State.ModuleStatics,
+                };
                 // Debugger call stack + depth: push before running, remove THIS executor after (Remove, not
                 // RemoveAt(Count-1), so overlapping async re-entrancy pops the right frame). Reflects the physical
                 // call stack — matching VB6's Call Stack, which shows a re-entrant handler's frames above the
@@ -1304,6 +1314,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 : Enums.ContainsKey(rn) ? new Vb6Value(0L)
                 : Modules.TryGet(rn, out var rc) && rc.Kind == InterpreterModuleKind.Class ? Vb6Value.Nothing
                 : new Vb6Value(proc.ReturnType))
+            // An `As Object` return, DefObj's included, and an `As Collection` one start at Nothing too, so a Let into the
+            // first before a Set is 91 (measured, #169). They started Empty, which took the value.
+            : proc.ReturnsObject ? Vb6Value.Nothing
             : new Vb6Value(proc.ReturnType);
 
     /// <summary>Resolve a procedure name as seen from <paramref name="currentModule"/>: the current module's own
@@ -1480,6 +1493,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             callee.Parameters.Add(p.Name);
             if (p.ReadsAsVariant)
                 callee.VariantParameters.Add(p.Name);
+            if (p.DeclaredObject)
+                callee.ObjectParameters.Add(p.Name);
 
             // A blank slot at this position (`Foo 1, , 3`) occupies it only so the arguments after it bind
             // correctly. It is NOT a value: fall through to the Optional branch so the parameter takes its
