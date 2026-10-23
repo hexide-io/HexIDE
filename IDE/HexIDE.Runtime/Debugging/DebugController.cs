@@ -154,6 +154,13 @@ public sealed class DebugController : IDebugController
         return SuspendAtBreakAsync(StopReason.StopStatement, line, module, frame);
     }
 
+    public ValueTask EnterBreakFromAssertionAsync(int line, string module, IDebugFrame? frame)
+    {
+        if (_isAborting)
+            throw new StopExecutionSignal();
+        return SuspendAtBreakAsync(StopReason.Assertion, line, module, frame);
+    }
+
     public Func<VBRunTimeException, Task<bool>>? HaltHost { get; set; }
 
     public bool CanHalt => HaltHost is not null;

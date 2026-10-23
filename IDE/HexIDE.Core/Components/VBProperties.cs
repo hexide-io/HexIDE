@@ -179,7 +179,20 @@ public static class VBProperties
 
     public static PropertyClass<bool> LockedProperty = new PropertyClass<bool>("Locked", "Whether the control's contents can be edited.", PropertyCategory.Behavior, false);
 
-    public static PropertyClass<VBStartupPosition> StartUpPositionProperty = new PropertyClass<VBStartupPosition>("StartUpPosition", "Where the form is placed on screen when it first opens.", PropertyCategory.Position, VBStartupPosition.StartUpWindowsDefault);
+    /// <summary>A ListBox's MultiSelect: set at design time, and read-only to a program (measured, #1413).</summary>
+    public static PropertyClass<VBMultiSelect> MultiSelectProperty = new PropertyClass<VBMultiSelect>("MultiSelect", "Whether more than one item can be selected, and how.", PropertyCategory.Behavior, VBMultiSelect.None);
+
+    /// <summary>
+    /// A form's <c>StartUpPosition</c>. Its default is 0, Manual, because that is what VB6 reads a missing line as,
+    /// and the default is also what a missing line is read as here.
+    /// </summary>
+    /// <remarks>
+    /// It was 3, Windows Default, which is the value VB6 gives a new form. One default was doing two jobs VB6 keeps
+    /// apart, and the second was wrong: measured on the oracle (#932), a form with no line reads back 0 and opens at
+    /// its ClientLeft/ClientTop, or at the origin without them. So HexIDE never wrote the line for a new form, and
+    /// centred VB6's own About Dialog, which has none. A new form now says 3 itself (<see cref="HexIDE.Runtime.ProjectElements.FormDefinition.NewForm"/>).
+    /// </remarks>
+    public static PropertyClass<VBStartupPosition> StartUpPositionProperty = new PropertyClass<VBStartupPosition>("StartUpPosition", "Where the form is placed on screen when it first opens.", PropertyCategory.Position, VBStartupPosition.StartUpManual);
 
     public static PropertyClass<bool> ShowInTaskbarProperty = new PropertyClass<bool>("ShowInTaskbar", "Whether the form appears in the taskbar.", PropertyCategory.Misc, true);
 

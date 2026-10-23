@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Antlr4.Runtime;
 
 namespace HexIDE.Runtime.Interpreter;
 
@@ -34,8 +35,8 @@ public partial class VB6BuiltIns
         // Constructors -> Date.
         d["DateSerial"] = (_, a, _) => DateSerial(AsInt(a[0]), AsInt(a[1]), AsInt(a[2]));
         d["TimeSerial"] = (_, a, _) => TimeSerial(AsInt(a[0]), AsInt(a[1]), AsInt(a[2]));
-        d["DateValue"]  = (_, a, _) => new Vb6Value(AsDate(a[0]).Date);
-        d["TimeValue"]  = (_, a, _) => new Vb6Value(Epoch + AsDate(a[0]).TimeOfDay);
+        d["DateValue"]  = (_, a, _) => new Vb6Value(AsDateText(a[0]).Date);
+        d["TimeValue"]  = (_, a, _) => new Vb6Value(Epoch + AsDateText(a[0]).TimeOfDay);
 
         // Arithmetic.
         d["DateAdd"]  = (_, a, _) => DateAdd(Interval(a[0]), AsInt(a[1]), AsDate(a[2]));
@@ -65,6 +66,28 @@ public partial class VB6BuiltIns
     internal static DateTime OnZeroDateIfTimeOnly(DateTime parsed)
         => parsed.Date == DateTime.MinValue ? Epoch + parsed.TimeOfDay : parsed;
 
+    private static readonly Regex DotBetweenDigits = new(@"(?<=\d)\.(?=\d)", RegexOptions.CultureInvariant);
+    private static readonly Regex CommaBetweenDigits = new(@"(?<=\d) *, *(?=\d)", RegexOptions.CultureInvariant);
+    private static readonly Regex TwoNumbers = new(@"^\s*(\d{1,4})\s*[/\- ]\s*(\d{1,4})\s*$", RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// A String read as a Date, by <c>CDate</c> and by a store into a Date alike, which VB6 gives one answer through
+    /// (measured, #967): a date or a time in the program's locale first, and failing that the number <c>CDbl</c> reads,
+    /// as a serial. So <c>"1/2/2003"</c> is a date, <c>"36526.5"</c> noon on 1 January 2000, and <c>"&amp;H10"</c>,
+    /// <c>"(3)"</c> and <c>"1e3"</c> the days they count. Text that is neither, or a serial outside the Date range, is
+    /// Type mismatch, not Overflow: <c>"2958466"</c> and <c>"1e400"</c> are 13, where <c>CDate(3000000#)</c> is 6.
+    /// </summary>
+    internal static Vb6Value StringToDate(string text, ParserRuleContext? ctx)
+    {
+        if (TryReadDate(text.Trim(), out var date))
+            return new Vb6Value(OnZeroDateIfTimeOnly(date));
+        double serial;
+        try { serial = ToNum(new Vb6Value(text)); }
+        catch (VBRunTimeException) { throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch); }
+        try { return new Vb6Value(DateTime.FromOADate(serial)); }
+        catch (ArgumentException) { throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch); }
+    }
+
     // The first two numbers of a date, when they could be a day and a month: one or two digits each, separated by
     // what VB6 reads between them. A dot is not among them: under en-GB, "1.2.2003" is not a date at all (measured).
     private static readonly Regex LeadingDayAndMonth = new(@"^(\s*)(\d{1,2})([/\- ]+)(\d{1,2})(?!\d)", RegexOptions.CultureInvariant);
@@ -84,6 +107,16 @@ public partial class VB6BuiltIns
     internal static bool TryReadDate(string text, out DateTime result)
     {
         var culture = VbLocale.Current;
+        // A dot between two digits separates a time's parts, never a date's (measured under en-GB, #967): "1.5" is 01:05,
+        // "10.30.15" 10:30:15, "1.5 PM" 13:05 and "1/2/2003 1.5" 01:05 on that day, while "1.2.2003" and "13.1.2003" are
+        // no date (#800), and "1.60" and "24.0" no time. .NET takes a dot as a date separator in any culture. A locale
+        // whose own date separator is a dot is left to its own reading, which is not measured.
+        if (culture.DateTimeFormat.DateSeparator != "." && text.Contains('.'))
+            text = DotBetweenDigits.Replace(text, culture.DateTimeFormat.TimeSeparator);
+        // A comma between two numbers separates a date's parts, as a slash does (measured under en-GB): "1,5" is 1 May,
+        // "1,13" 13 January and "1,5 10:30" 10:30 on 1 May. Not where a comma is the decimal separator, which is not measured.
+        if (culture.NumberFormat.NumberDecimalSeparator != "," && text.Contains(','))
+            text = CommaBetweenDigits.Replace(text, culture.DateTimeFormat.DateSeparator);
         if (DateTime.TryParse(text, culture, DateTimeStyles.NoCurrentDateDefault, out result))
             return true;
         // Text in exactly the shapes CStr writes always reads back. The lenient parse above does not guarantee it:
@@ -94,25 +127,65 @@ public partial class VB6BuiltIns
                 format, DateTimeStyles.NoCurrentDateDefault, out result))
             return true;
         var leading = LeadingDayAndMonth.Match(text);
-        if (!leading.Success)
-            return false;
-        var swapped = leading.Groups[1].Value + leading.Groups[4].Value + leading.Groups[3].Value + leading.Groups[2].Value
-                      + text[leading.Length..];
-        return DateTime.TryParse(swapped, culture, DateTimeStyles.NoCurrentDateDefault, out result);
+        if (leading.Success)
+        {
+            var swapped = leading.Groups[1].Value + leading.Groups[4].Value + leading.Groups[3].Value + leading.Groups[2].Value
+                          + text[leading.Length..];
+            if (DateTime.TryParse(swapped, culture, DateTimeStyles.NoCurrentDateDefault, out result))
+                return true;
+        }
+        return TryMonthAndYear(text, culture, out result);
     }
 
-    // VB6 date serial (OLE Automation) — accepts a Date, a numeric serial, or a parseable string.
+    // Two numbers that are no day and month either way round are a month and a year, or failing that a year and a month,
+    // on the first of the month, with a year below 100 in the regional window (measured under en-GB, #967): "1,000" and
+    // "1 000" are 1 January 2000, "12,345" 1 December 345, and "0,5" 1 May 2000. "31,13" is neither, and is the number
+    // 3113. .NET reads "1/2003" so but not "1/000", and never a year first.
+    private static bool TryMonthAndYear(string text, CultureInfo culture, out DateTime result)
+    {
+        result = default;
+        var pair = TwoNumbers.Match(text);
+        if (!pair.Success || !int.TryParse(pair.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var first)
+            || !int.TryParse(pair.Groups[2].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var second))
+            return false;
+        return TryFirstOfMonth(first, second, culture, out result) || TryFirstOfMonth(second, first, culture, out result);
+    }
+
+    private static bool TryFirstOfMonth(int month, int year, CultureInfo culture, out DateTime result)
+    {
+        result = default;
+        if (month is < 1 or > 12 || year > 9999)
+            return false;
+        if (year < 100)
+            year = culture.DateTimeFormat.Calendar.ToFourDigitYear(year);
+        result = new DateTime(year, month, 1);
+        return true;
+    }
+
+    // VB6 date serial (OLE Automation) — accepts a Date, a numeric serial, or a String as CDate reads it, a serial
+    // included (measured, #967: DateAdd("d", 1, "36526") is 02/01/2000, Year("1,000") 2000, Format("36526", "dd/mm/yyyy")
+    // 01/01/2000, and DateAdd("d", 1, "2958466") 13).
     private static DateTime AsDate(Vb6Value v)
     {
         if (v.Value is DateTime dt) return dt;
-        if (v.Value is string s && TryReadDate(s, out var pd))
-            return OnZeroDateIfTimeOnly(pd);
+        if (v.Value is string s)
+            return (DateTime)StringToDate(s, null).Value!;
         if (Vb6Value.TryNumericToDouble(v, out var oa))
         {
             try { return DateTime.FromOADate(oa); }
             catch (ArgumentException) { throw InvalidCall(); }
         }
         throw new VBRunTimeException(VBStandardError.TypeMismatch);
+    }
+
+    // DateValue and TimeValue read a String as date text only, with no serial (measured, #967: DateValue("36526") and
+    // TimeValue("36526.5") are 13, where TimeValue("1.5") is 01:05). Anything else is read as AsDate reads it.
+    private static DateTime AsDateText(Vb6Value v)
+    {
+        if (v.Value is not string s)
+            return AsDate(v);
+        return TryReadDate(s.Trim(), out var date)
+            ? OnZeroDateIfTimeOnly(date) : throw new VBRunTimeException(VBStandardError.TypeMismatch);
     }
 
     // 1=Sunday..7=Saturday shifted so the firstDayOfWeek day is 1.

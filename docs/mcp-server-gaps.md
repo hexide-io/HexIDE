@@ -857,3 +857,46 @@ with the list.
 **Suggested fix.** Have the note give the dialog's first line of text or its kind beside its title, and give the open
 windows on request, or say in the `window` description that an unknown name lists them.
 [#1365](https://github.com/hexide-io/HexIDE/issues/1365).
+
+## No call double-clicks a running form: `double_click` raises only `DoubleTapped`, and two `click`s are too far apart
+
+**Symptom (2026-10-22, #1031, Windows).** A running form's `DblClick` comes from a double click's second press, told by
+the press's click count. `interact {"target":"<a Label on a running form>","action":"double_click"}` raises Avalonia's
+`DoubleTapped` and selects the target, with no pointer press, and answers `success: true`; the program's `Label1_DblClick`
+never runs, and nothing in the reply says no press was sent. Two `interact {"action":"click"}` calls in a row each press
+with a click count of 1, and an MCP round trip puts them past the 500 ms double-click time anyway.
+
+**Workaround.** None through the surface. `MouseEventTests` drives a double click headlessly, with real pointer input.
+
+**Suggested fix.** Accept `double` in `click`'s value, as in `10,5 double`, raising press, release, press and release
+with the second press's click count 2. Have `double_click`'s reply say it raised `DoubleTapped` and no press.
+[#1389](https://github.com/hexide-io/HexIDE/issues/1389).
+
+## No call presses on a control and releases elsewhere, so a drag on a running form can't be driven
+
+**Symptom (2026-10-22, #1373, Windows).** Whether dragging off a control cancels its Click is a drag: a press on the
+control, moves with the button held, and a release somewhere else. `interact {"target":"<a Label on a running form>",
+"action":"click","value":"10,5"}` presses and releases at that one point, and `click`'s own remarks call a drag
+"beyond it". No other call raises a pointer press.
+
+**Workaround.** None through the surface. `MouseEventTests` drives the drags headlessly with `MouseDown`, `MouseMove`
+and `MouseUp`.
+
+**Suggested fix.** Let `click` take a release point, as in `10,5 to 200,30`: press on the target, move with the button
+held, release at the second point to whatever holds the pointer.
+[#1402](https://github.com/hexide-io/HexIDE/issues/1402).
+
+## A control's path changes when it gains a provider, so a saved path stops resolving as text grows
+
+**Symptom (2026-10-22, #1386, Windows).** While paused, `dump_visual_tree {"window":"ide","root":"<Imm>","maxDepth":4,
+"interactiveOnly":false}`, with `<Imm>` the Immediate window's `.../TitleBar[Immediate]/Pane[Immediate]/Custom`, gave
+`<Imm>/Pane[PART_ScrollViewer]/None` for its text area, and `type_text` on that path worked for three lines. The fourth
+`type_text` on the same path answered `no child matching 'Pane[PART_ScrollViewer]' under '<Imm>'`. A fresh dump showed
+`<Imm>/None[Editor]`, the TextEditor, now with `providers: ["scroll"]`, holding the scroll viewer. The control view hides a
+`None` node with no provider and no focus, and the editor stopped qualifying once its text overflowed.
+
+**Workaround.** Dump again and use the new path; `<Imm>/None[Editor]` takes `type_text` and `press_key` from then on.
+
+**Suggested fix.** Decide whether a node is hidden on what its content can't change: leave `scroll` out of it, or never
+hide a node with an x:Name or AutomationId. And when a segment misses, say which node has appeared above it.
+[#1436](https://github.com/hexide-io/HexIDE/issues/1436).

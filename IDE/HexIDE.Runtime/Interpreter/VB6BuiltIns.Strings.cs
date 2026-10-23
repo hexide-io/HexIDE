@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using HexIDE.IDE;
 
 namespace HexIDE.Runtime.Interpreter;
 
@@ -27,8 +28,10 @@ public partial class VB6BuiltIns
         d["StrReverse"] = (_, a, _) => NullOrStr(a[0], s => { var c = s.ToCharArray(); Array.Reverse(c); return new string(c); });
         d["Space"]      = (_, a, _) => new Vb6Value(new string(' ', Math.Max(0, AsInt(a[0]))));
         d["String"]     = (_, a, _) => new Vb6Value(new string(CharArg(a[1]), Math.Max(0, AsInt(a[0]))));
-        d["Chr"]        = (_, a, _) => new Vb6Value(((char)AsInt(a[0])).ToString());
-        d["Asc"]        = (_, a, _) => Asc(a[0]);
+        d["Chr"]        = (_, a, _) => new Vb6Value(ChrInCodePage(CharCode(a[0]), AnsiText()));
+        d["Asc"]        = (_, a, _) => new Vb6Value(AscInCodePage(FirstCharacterOf(a[0]), AnsiText()));
+        d["ChrW"]       = (_, a, _) => ChrW(a[0]);
+        d["AscW"]       = (_, a, _) => new Vb6Value((int)(short)FirstCharacterOf(a[0]));
         d["Str"]        = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(StrFn(a[0]));
         d["Val"]        = (_, a, _) => new Vb6Value(Val(AsStr(a[0])));
     }
@@ -147,12 +150,76 @@ public partial class VB6BuiltIns
             ? (AsStr(v).Length > 0 ? AsStr(v)[0] : throw InvalidCall())
             : (char)AsInt(v);
 
-    private static Vb6Value Asc(Vb6Value v)
+    private static Encoding? ansiText;
+
+    // The ANSI code page's table with Windows' own fallbacks, best fit among them, as Chr and Asc read it (#1134).
+    private static Encoding AnsiText()
     {
-        if (v.IsNull) return Vb6Value.Null;
+        var codePage = Vb6TextEncoding.Ansi.CodePage;
+        if (ansiText?.CodePage != codePage)
+            ansiText = CodePagesEncodingProvider.Instance.GetEncoding(codePage) ?? Encoding.GetEncoding(codePage);
+        return ansiText;
+    }
+
+    // A character code, as Chr and ChrW take it: rounded half to even (65.5 and 66.5 are both 66), True is -1, Empty 0, a
+    // numeric string is read as a number, Null is 94, and past a Long is 6 (all measured, #1134).
+    private static int CharCode(Vb6Value v)
+    {
+        if (v.IsNull) throw InvalidUseOfNull();
+        if (v.Type == Vb6Value.ValueType.EmptyVariant) return 0;
+        var code = Math.Round(AsDouble(v), MidpointRounding.ToEven);
+        return code is >= int.MinValue and <= int.MaxValue ? (int)code : throw new VBRunTimeException(VBStandardError.Overflow);
+    }
+
+    // The first UTF-16 unit of the text, as Asc and AscW read it: anything else is made text first (Asc(True) is "T"'s), an
+    // empty string or Empty is 5, and Null 94 (measured, #1134).
+    private static char FirstCharacterOf(Vb6Value v)
+    {
+        if (v.IsNull) throw InvalidUseOfNull();
         var s = AsStr(v);
-        if (s.Length == 0) throw InvalidCall();
-        return new Vb6Value((int)s[0]);
+        return s.Length > 0 ? s[0] : throw InvalidCall();
+    }
+
+    /// <summary>
+    /// Chr: the character a byte of the ANSI code page stands for, read with that code page's table. On 1252, &amp;H80 is
+    /// "€", and the five bytes 1252 leaves undefined are their own code points, &amp;H81 U+0081. Outside 0 to 255 it is 5
+    /// (all measured, #1134). A double-byte code page, such as 932, has not been measured, so a code beyond ASCII is refused
+    /// there rather than guessed.
+    /// </summary>
+    internal static string ChrInCodePage(int code, Encoding ansi)
+    {
+        if (code is >= 0 and < 128)
+            return ((char)code).ToString();
+        RefuseDoubleByte(ansi, "Chr");
+        return code is >= 0 and <= 255 ? ansi.GetString([(byte)code]) : throw InvalidCall();
+    }
+
+    /// <summary>
+    /// Asc: the character's byte in the ANSI code page, found as Windows finds it, best fit first, so Ā is 65, "A", and "?"
+    /// (63) for a character with none, such as Ж (measured, #1134). A double-byte code page is refused beyond ASCII, as
+    /// <see cref="ChrInCodePage"/> is.
+    /// </summary>
+    internal static int AscInCodePage(char c, Encoding ansi)
+    {
+        if (c < 128)
+            return c;
+        RefuseDoubleByte(ansi, "Asc");
+        return ansi.GetBytes(c.ToString())[0];
+    }
+
+    private static void RefuseDoubleByte(Encoding ansi, string function)
+    {
+        if (!ansi.IsSingleByte)
+            throw new NotImplementedException(
+                $"{function} beyond ASCII under the double-byte ANSI code page {ansi.CodePage} has not been measured against VB6 yet (#1509)");
+    }
+
+    // ChrW: a UTF-16 unit, -32768 to 65535, a negative code being its unsigned unit, so ChrW(&HF050), an Integer -4016, is
+    // U+F050. Outside that it is 5 (measured, #1134).
+    private static Vb6Value ChrW(Vb6Value v)
+    {
+        var code = CharCode(v);
+        return code is >= short.MinValue and <= ushort.MaxValue ? new Vb6Value(((char)(code & 0xFFFF)).ToString()) : throw InvalidCall();
     }
 
     private static string StrFn(Vb6Value v)

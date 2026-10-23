@@ -335,7 +335,7 @@ public static class GuardedContent
             // declarator's, would read the same with two of its lines joined into one.
             lines.Append('\n');
         }
-        return lines.Replace("\r\n", "\n").ToString();
+        return lines.Replace("\r\n", "\n").Replace('\r', '\n').ToString();
     }
 
     /// <summary>
@@ -380,7 +380,7 @@ public static class GuardedContent
     private static List<string> LinesOf(string text)
     {
         var lines = new List<string>();
-        foreach (var line in text.Replace("\r\n", "\n").Split('\n'))
+        foreach (var line in SourceLines.Split(text))
             lines.Add(line);
         if (lines.Count > 0 && lines[^1].Length == 0)
             lines.RemoveAt(lines.Count - 1);

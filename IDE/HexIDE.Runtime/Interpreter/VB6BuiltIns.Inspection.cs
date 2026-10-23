@@ -65,6 +65,7 @@ public partial class VB6BuiltIns
         VbErr => "ErrObject",
         VbApp => "App",
         VbClipboard => "Clipboard",
+        VbCollection => "Collection",
         // A control array is an Object to TypeName: measured on a menu array, `TypeName(mnuLevel)` (#1126).
         HexIDE.Runtime.BuiltinControls.ControlArrayGroup => "Object",
         _ => StripVb(px.GetType().Name),

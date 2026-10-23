@@ -260,6 +260,8 @@ Phase-4.2 refcount oracle):
 2. VB6 needs **CRLF + ASCII** source. The `Write` tool emits LF; convert before `/make`
    (`($c -replace "\`r\`n","\`n") -replace "\`n","\`r\`n"` then `WriteAllText(..., ASCII)`), or the module fails to
    load (same misleading *"User-defined type not defined"*).
+   *Narrowed 2026-10-22 (#1020):* this holds for a class and a form, whose designer block must be CRLF. A `.bas` with
+   lone-LF or lone-CR line ends loads and runs; see "A lone CR or LF in VB6 source".
 3. Launching `vb6.exe` trips the shell sandbox — run the make/run PowerShell with `dangerouslyDisableSandbox:
    true` (it only writes to the scratch dir; this is the authorized dev-time toolchain). Avoid `Remove-Item` near
    the `C:\Program Files (x86)\…` path in the same command — the path-guard blocks it; let `/make` overwrite and
@@ -849,6 +851,9 @@ log under `On Error Resume Next`). Form has a 2-element `CommandButton` array `C
 | `Command1(9).Caption = "x"` (write) | **Err 340** | same on the write side |
 | `TypeName(Command1(0))` | `"CommandButton"` | an element's type is the control type, not "Object" |
 
+(2026-10-22, #1386: 340's message names the index, "Control array element '9' doesn't exist", read, written or unloaded.
+See "A member indexed through its object".)
+
 Compile facts (from `/make` succeeding): `.Count`/`.LBound`/`.UBound`/`(i).Index` all **compile** — the array
 name is a first-class object with those members. Not probed (textbook VB6, will pin via the interpreter's own live
 test): the shared event handler is `Private Sub Command1_Click(Index As Integer)` and the fired element's `Index`
@@ -939,6 +944,40 @@ in #95 on the strength of this measurement rather than on that assumption.
 outside it. This is the sharpest evidence that the two controls' `Value` properties cannot share a type: the
 literal that *selects* an option button is *refused* by a check box.
 
+
+## Two controls of one name (2026-10-12, #854)
+
+Measured when #854 was filed, and recorded here by its fix. The probe was a Standard EXE built with `vb6.exe /make`
+(6.00.8176 SP6) from a form holding two `Begin` lines of one name and no `Index`, the shape HexIDE's save could write.
+Its `Form_Load` wrote `Me.Controls.Count` and each control's Name and TypeName to a file.
+
+**The build does not fail.**
+- `/make` exits 0.
+- Its `/out` log says `Errors during load. Refer to '...\Form1.log' for details`, then that the build succeeded.
+- `Form1.log` holds `Line 48: Did not find an index property and control Data1 already exists.` The line number
+  follows the file's layout.
+
+**Both controls carrying the name are missing from the program,** the original as well as the second.
+- A form of Timer1, Data2, Data1, and a TextBox renamed `Data1`: the program has 2 controls, Timer1 and Data2. With
+  unique names it has 4.
+- A CommandButton renamed `OLE1` beside an OLE control `OLE1`: `Me.Controls.Count` is 0, against 2. `TypeName(OLE1)` is
+  "Empty", and `Action`, `DoVerb`, `CreateEmbed` and `Delete` on it each raise 424.
+
+**Case does not matter.**
+- `Begin VB.CommandButton ole1` beside `Begin VB.OLE OLE1` loses both.
+- `Begin VB.TextBox timer1` after Timer1, Data2 and Data1 logs `control timer1 already exists`, and the program has
+  only Data2 and Data1.
+
+So vb6.exe compares control names without regard to case when it loads a form.
+
+**What was and was not measured.** The controls before the second block survived, including those between the two
+blocks. Each probe put the second block last, so what happens to controls after it is not measured. Opening, running
+or re-saving such a form in the VB6 IDE was not measured either. The fuller table from the same survey is #856's to
+record: a pair of CommandButtons that never finished building, and the OLE and Data controls' own rows.
+
+HexIDE could write such a form. Its designer checked a new name only against the controls it models, which leaves out
+a control kept as preserved text, and mostly with case. A rename, a control drawn from the toolbox and a paste now
+check against every name on the form, without regard to case (`ComponentNaming.NamesInUse`).
 
 ## A form-based game's runtime surface (2026-10-12)
 
@@ -1332,7 +1371,7 @@ conversion comes before the range check. Nothing is changed when either step ref
   separator, and VB6 skips it. HexIDE's string-to-number rule allows none and raises 13 (#770). Not probed: a
   locale whose decimal separator is the comma.
 - **`MousePointer` 4, 5, 13 and 14 are accepted.** `VBCursorType`'s comment called them gaps in VB6's numbering.
-  They are not (#120).
+  They are not (#120). Their names and pointers are measured under "MousePointer's names and pointers".
 - **`Tag` is a String.** HexIDE declared it as an object and stored whatever it was given.
 - **`CStr` of a Date leaves out what is zero.** A midnight date has no time, and a time has no date. HexIDE wrote
   both (#771). A Single shows seven significant digits and a Double fifteen. HexIDE showed more (#772). Both were
@@ -1491,6 +1530,261 @@ reads back `02/01/2003` under en-GB, as measured above. It was refused until the
 - **Not measured:** `Label1.Caption = o` with `o` set to `Nothing` never reaches the conversion in HexIDE; what
   VB6 raises there is unmeasured.
 
+
+## A list's members: ListCount, List(i), AddItem's index and RemoveItem (2026-10-22, #821)
+
+What do a ListBox's and a ComboBox's list members do, in range and out of it? Three `/make` probes, each built native
+and p-code, all six builds agreeing line for line. Each runs in Form_Load after `Me.Show`, under `On Error Resume Next`,
+on four controls: a ListBox, a ComboBox with Style 0 (Dropdown Combo), one with Style 2 (Dropdown List), and a ListBox
+with `Sorted = True`. **The four agree on every row** but the two marked, so the table gives one answer.
+
+Each control starts with `c`, `a` and `b` added, in that order, which the sorted list keeps as `a`, `b`, `c`. A row's
+`ListIndex` and `ListCount` are read after it.
+
+| Statement | VB6 |
+|---|---|
+| `ListCount`, empty, then with three items | `0`, `3`, an **Integer** |
+| `ListCount = 5` | compile error **"Can't assign to read-only property"** |
+| `List(0)`, empty | `""`, Err 0 |
+| `List(0)`, `List(2)` | `c`, `b`, Strings (sorted: `a`, `c`) |
+| `List(3)` (= ListCount), `List(-1)`, `List(-2)`, `List(100)` | `""` each, **Err 0** |
+| `List("1")`, `List(1.6)` | `a`, `b`: the index is converted to an Integer, rounding |
+| `List(40000)` | Err **6** Overflow |
+| `List("q")` | Err 13 |
+| `List(Null)` | Err 94 |
+| `List()` | compile error "Argument not optional" |
+| `ListIndex = 1`, then `List(1) = "B"`, the selected item | replaced; **no Click**, `ListIndex` 1; a ComboBox's `Text` becomes `B` |
+| `List(3) = "d"` (= ListCount) | **appended**, ListCount 4, Err 0 |
+| `List(-1) = "z"` | **appended**, at the end, Err 0 |
+| `List(10) = "e"`, past ListCount | Err **381** "Invalid property array index" |
+| `List(-2) = "y"` | Err **-2147024882** "Out of memory"; nothing added. A **ComboBox's `ListIndex` moves from 1 to 2** |
+| `AddItem "z", 0`, with the item at 1 selected | inserted at 0; **`ListIndex` 2**, the selection follows its item; no Click |
+| `AddItem "y", ListCount` | appended |
+| `AddItem "w", ListCount + 1`, `AddItem "v", -1`, `AddItem "w", 10` | Err **5** "Invalid procedure call or argument" |
+| `AddItem "u", "1"` | inserted at 1: the index is converted |
+| `AddItem "x", 40000` | Err 6 |
+| `AddItem "n", Null` | Err **13**, not 94 |
+| `AddItem Null` | Err 94 |
+| `AddItem "z", 0` on the **sorted** list | inserted at 0 all the same: `z` first, before `a` |
+| `AddItem "q", 0`, empty; `AddItem "r", 2`, one item | the first inserted; the second Err 5 |
+| `RemoveItem ListCount`, `RemoveItem -1`, `RemoveItem 10`, `RemoveItem 0` empty | Err 5 |
+| `RemoveItem 40000` | Err 6 |
+| `RemoveItem 0`, with the item at 3 selected | removed; `ListIndex` 2; no Click |
+| `ListIndex = 0`, then `RemoveItem 0`, the selected item | removed; `ListIndex` **-1**; no Click from the removal; a ComboBox's `Text` becomes `""` |
+| `ListIndex = 1`, then `RemoveItem 0` | removed; `ListIndex` 0 |
+
+What these show:
+- **A ListBox and a ComboBox of either style are one list.** Only `Text` and the one row below tell them apart.
+- **Reading is forgiving and writing is not.** Any `List(i)` read that converts to an Integer is `""` outside the
+  list, while a write outside it is an error. The exceptions are `ListCount` and `-1`, which both append.
+- **AddItem takes 0 to ListCount and RemoveItem 0 to ListCount - 1**, and both raise 5 outside that. An index converts
+  as an Integer argument does: a String that reads as a number is taken, past 32767 is Overflow.
+- **The selection follows its item** through AddItem and RemoveItem, and empties when its item is removed. None of them
+  raises Click.
+- **`Sorted` does not override AddItem's index.**
+
+What resisted explanation:
+- **`List(-2) = "y"` raises "Out of memory"**, -2147024882 (`0x8007000E`, E_OUTOFMEMORY), where 381 would be the
+  obvious error, and on a ComboBox only, it moves `ListIndex` from 1 to 2 though nothing was added. Presumably the
+  write reaches the window as an insert at position -2, which the control refuses as if memory had run out; no rule
+  here explains the ComboBox's selection moving.
+- **`List(-1) = "z"` appends** rather than raising, as if -1 meant "at the end".
+- **`AddItem "n", Null` is 13 where `List(Null)` and `AddItem Null` are 94.**
+
+### HexIDE
+
+Before #821, `ListCount` and `List(i)` were "Method or data member not found", `RemoveItem` was not implemented, and
+`AddItem` appended whatever its index said.
+
+Since #821, `ListMembers` gives a ListBox and a ComboBox every row above but two.
+- **`List(i)`** is caught by name with its index, on the read path in `ExpressionExecutor` and the write path in
+  `StatementExecutor`, before the property lookup that would find the design-time `List` instead.
+- **An index converts** by `VbNumeric.CoerceOnStore` to an Integer, which gives 6, 13 and 94 as measured. AddItem's
+  Null index is 13 before it.
+- **The selection** follows its item through AddItem and RemoveItem because Avalonia's does. A replaced item loses its
+  selection in Avalonia, so `List(i) =` sets it back.
+- **381's text** was HexIDE's "Invalid property-array index", unmeasured; it is now VB6's "Invalid property array
+  index".
+- **Pinned** in `ListMembersTests`, on a ListBox and a ComboBox.
+
+What it still does not do:
+- **A ComboBox's `ListIndex` moving 1 to 2 after `List(-2) = "y"`.** HexIDE leaves it where it was. The error is
+  raised, and no program is likely to read the selection after it.
+- **A Dropdown List's `Text`** (#1428). A Dropdown Combo's two `Text` rows run as measured since #926.
+- **`Sorted`,** which HexIDE has no property for.
+- **`ListCount = 5`** is the compile error's text, raised when the statement runs, not before the program does.
+
+## A ComboBox's Text, at each Style, from code (2026-10-22, #926)
+
+**The probe.** A form with four ComboBoxes, built with `/make` and run, native and p-code giving byte-identical logs:
+- `Combo1`, Style 0 (Dropdown Combo), saved with `Text = "Combo1"`;
+- `Combo2`, Style 1 (Simple Combo), saved with `Text = "Combo2"`;
+- `Combo3`, Style 2 (Dropdown List), with no Text line;
+- `Combo4`, Style 2, saved with `Text = "x"`.
+
+Each of the first three was filled with `apple`, `Banana` and `cherry`, then given each Text in turn. Every handler for
+Click and Change logged its name, and each row was read under `On Error Resume Next`.
+
+| Read at load | VB6 |
+|---|---|
+| `TypeName(Combo1.Text)` | **String** |
+| `Combo1.Text`, `Combo2.Text` | `Combo1`, `Combo2`, as saved |
+| `Combo3.Text`, and **`Combo4.Text`, saved as `x`** | `""` each: **a Dropdown List ignores a saved Text** |
+| `ListIndex` of each | -1 |
+| `Style` of each | `0`, `1`, `2`, an **Integer** |
+
+| Statement | Style 0 and Style 1, alike | Style 2 |
+|---|---|---|
+| `Text = "Banana"`, an item's text | Text `Banana`, **`ListIndex` -1**, **Change** | selects it: `ListIndex` 1, **Click** |
+| `Text = "banana"`, its text in other case | Text `banana`, `ListIndex` -1, Change | `Banana`, already selected, stays so; Text `Banana`; **Click all the same** |
+| `Text = "Ban"`, `"zz"` or `""` | that Text, `ListIndex` -1, Change | Err **383**, nothing changed, no event |
+| `Text = "cherry"` | Text `cherry`, Change | selects it, `ListIndex` 2, Click |
+| `ListIndex = 0` | Text `apple`, `ListIndex` 0, **Click, and no Change** | Text `apple`, Click |
+| `ListIndex = -1` | Text `""`, Click, no Change | Text `""`, Click |
+| `Text = Null` | Err **13**, not 94; nothing changed | Err 13 |
+| `Text = 5` | Text `5`, Change | Err 383 |
+
+What these show:
+- **A Style 0 or 1 combo's Text is its edit box's,** free of the list. Setting it to an item's text selects nothing, and
+  every assignment here raised Change. The second probe, below, asks what this one did not.
+- **A Style 2 combo's Text is its selected item.** Setting it selects the first item whose whole text matches without
+  regard to case, and raises Click every time. With no match it is 383, "'Text' property is read-only".
+- **Moving `ListIndex` changes a Style 0 combo's Text** without raising Change.
+
+**A second probe,** the same way, on a Style 0 and a Style 1 combo filled with `apple`, `Banana` and `cherry`. The two
+styles gave the same rows, and native and p-code the same logs:
+
+| Statement | VB6 |
+|---|---|
+| `Text = Text`, unchanged | nothing: **no Change**, `ListIndex` -1 still |
+| `ListIndex = 1` | Text `Banana`, Click |
+| `Text = "zz"`, with item 1 selected | Text `zz`, **`ListIndex` -1**, Change |
+| `Text = "cherry"`, another item's text, with item 1 selected | Text `cherry`, **`ListIndex` -1**: it selects nothing; Change |
+| `Text = "Banana"`, the selected item's own text | **nothing**: `ListIndex` 1 still, no Change |
+| `Text = "banana"`, that text in other case | Text `banana`, **`ListIndex` -1**, Change |
+| `ListIndex = 2`, then `ListIndex = 2` again | Click the first time, **none the second** |
+| `Text = "cherry"`, with item 2, `cherry`, selected | nothing |
+| `Clear` | Text `""`, `ListIndex` -1 |
+
+So **a Style 0 or 1 combo's `Text = s` does nothing when `s` is its Text already,** compared exactly. Otherwise it puts `s`
+in the edit box, clears the selection and raises Change.
+
+What resisted explanation:
+- **`Text = Null` is 13, Type mismatch,** where a TextBox's `SelText = Null` and the list's `List(Null)` are 94.
+
+### Drawn in the VB6 IDE's designer
+
+**The probe.** In the guest's console session, the VB6 IDE opened a project holding an empty Form1. Each toolbox icon was
+double-clicked, which adds that control to the form at its default size, centred: a TextBox, then three ComboBoxes. Style
+was set in the Properties window by Ctrl+Shift+S, the value's number and Enter, and the form saved with Ctrl+S. Every
+step was checked by a screenshot. The saved blocks:
+
+| Drawn | What the designer wrote |
+|---|---|
+| TextBox | `Text = "Text1"`, Height 495, Width 1215 |
+| ComboBox, Style left at 0 | `Text = "Combo1"`, Height 315, Width 1215 |
+| ComboBox, Style set to 1 | `Style = 1 'Simple Combo`, `Text = "Combo2"`, Height 315 |
+| ComboBox, Style set to 2 | `Style = 2 'Dropdown List`, **no Text line**. The designer still showed `Combo3` in the box |
+| That combo, Style set back to 0 | `Text = "Combo3"` |
+| Combo1 given `Text = zz` in the Properties window | `Text = "zz"` |
+| Then Style 2 | the Properties window's **Text read `Combo1`** |
+| Then Style 0 again | `Text = "Combo1"`: the `zz` is gone |
+
+What these show:
+- **A drawn TextBox or ComboBox starts with its own name as its Text,** as its Caption would be for a control that has
+  one. The names count from 1 (#540).
+- **Setting Style to 2 resets the Text to the control's name,** and a Dropdown List's Text is never written. Going back
+  to 0 or 1 writes that name.
+
+Not measured: what Style 2 does in the designer to a combo whose Name has been changed, which would show whether it is
+the name now or the name the control was drawn with.
+
+### In HexIDE (#926)
+
+- **A drawn TextBox or ComboBox** starts with its name as its Text, and a control with no Caption is no longer given one.
+- **A Dropdown Combo's and a Simple Combo's Text** reads and writes at run time as both probes measured. That includes
+  `Null` as 13, and the two #821 rows in which the selected item's text follows it. Avalonia's editable combo would select
+  the item a Text matches, without regard to case, so while code sets the Text every item reads as a text no program can
+  set, and none matches.
+- **A Dropdown List's Text** is never written to the .frm, and is ignored at load. At run time, reading or writing it is
+  refused as not implemented, naming #1428, because what it does there needs the Style modelled.
+- **Click and Change** come as measured since #1429, which records them with real input.
+- **Not done:** the designer resetting a combo's Text to its name when its Style becomes 2 (#1428).
+
+## A ComboBox's Click, Change and DropDown, with real input (2026-10-22, #1429)
+
+**The probe.** A form with a Dropdown Combo (Combo1), a Simple Combo (Combo2) and a Dropdown List (Combo3), each holding
+`apple`, `Banana` and `cherry`. It drives itself from a Timer, run in the guest's console session where it has the
+foreground:
+- the mouse with `SetCursorPos` and `mouse_event`;
+- the arrow button and each list item found with `GetComboBoxInfo`, `GetWindowRect` and `CB_GETITEMHEIGHT`;
+- the keys with VB6's own `SendKeys`.
+
+Each handler logged its event with `ListIndex` and `Text`. Native and p-code gave byte-identical logs, in both runs.
+
+| Combo1, a Dropdown Combo | VB6 raised |
+|---|---|
+| click the arrow | **DropDown**, before the list shows |
+| click `cherry` in the list | **Click**, `ListIndex` 2, Text `cherry`; **no Change** |
+| type `x` | **Change**, Text `x`: the item's text was selected, so the key replaced it; `ListIndex` -1 |
+| Backspace | Change, Text `""` |
+| Up, list closed, nothing selected | **Click**, `ListIndex` 0, `apple`; no Change |
+| Down, list closed | Click, `ListIndex` 1 |
+| Home, Shift+End, type `apple` | **a Change per key**, `a` to `apple`, and **`ListIndex` -1 throughout**: typing an item's text selects nothing |
+| F4 | DropDown |
+| Down, list open | **Click at once**, `ListIndex` 2 |
+| Down again, on the last item | nothing |
+| Enter | **nothing**: the Click came with the move |
+| F4, Up, list open, Escape | DropDown, Click at the Up; **Escape undoes nothing**, `ListIndex` stays 1 |
+| Alt+Down, then Escape | DropDown, and nothing else |
+| click the arrow, then the item already selected | DropDown, then **Click all the same** |
+
+| Combo2, a Simple Combo | VB6 raised |
+|---|---|
+| click `Banana` in its list | Click, `ListIndex` 1 |
+| type `x` | Change, Text `x`, `ListIndex` -1 |
+| Down | Click, `ListIndex` 0 |
+| click `Banana`, then click it again | Click, and **Click again** |
+
+| Combo3, a Dropdown List | VB6 raised |
+|---|---|
+| click the arrow | DropDown |
+| click `Banana` | Click, `ListIndex` 1 |
+| Down, list closed | Click, `cherry` |
+| type `a` | **Click**, `apple`: the first item starting with the letter |
+| F4, Down, Down, Enter | DropDown, then a Click at each Down, `apple` then `Banana`; nothing at Enter |
+| F4, Up, Escape | DropDown, Click at the Up, `apple`; Escape undoes nothing |
+| click the arrow, then the item already selected | DropDown, Click |
+
+What these show:
+- **Click is a choice, not a change.** It comes from every pick of an item by the mouse, even of the item already
+  selected, and from every arrow key that moves the selection, open or closed.
+- **Change is the edit box's,** from typing and from code's Text. Choosing an item puts its text in the box with no
+  Change.
+- **Typing selects nothing** in a Dropdown or Simple Combo, even an item's whole text. A Dropdown List takes a letter as
+  a pick.
+- **DropDown comes as the list opens,** by the mouse, F4 or Alt+Down.
+- Code: `ListIndex = n` raises Click when it moves the selection, and not when it doesn't. `Text = s` raises Change
+  unless `s` is the Text already. Neither `Clear`, `AddItem`, `RemoveItem` nor `List(i) =` raises either (the oracle's
+  "A ComboBox's Text" and "A list's members").
+
+What resisted explanation:
+- **F4 then Down, with Text `apple` and nothing selected, selected `Banana`,** not `apple`. So the open list seems to
+  start from the item the edit box's text matches, though `ListIndex` read -1 in DropDown. One case is not a rule:
+  whether the match is exact, without regard to case or by prefix is not measured.
+
+### In HexIDE (#1429)
+
+- **Every row above runs as measured** but that one, which is left out of the tests: there HexIDE's Down selects the
+  first item.
+- **Click is raised where the input is taken,** not from Avalonia's selection, which also moves for a list edit that
+  raises nothing.
+- **The arrow keys are the combo's own,** list open or closed. Avalonia's move only the focus in an open list, and from
+  no selection its Up selects nothing.
+- **Avalonia's editable combo selects the item a new Text matches,** without regard to case. Typing therefore reads every
+  item as a text no one can type, and an item chosen whose text another shares, `Banana` and `banana`, stays chosen.
+- **Not measured:** a Simple Combo's list, always shown in VB6, which HexIDE draws as a dropdown (#1428), and whether
+  arrow keys, like the mouse, leave the chosen item's text selected in the edit box.
 
 ## Out of stack space — Error 28 (2026-08-22, #80)
 
@@ -1916,6 +2210,113 @@ decide which wins.
 The whole implementation is a letter-range → type table consulted when an undeclared variable is created.
 No relationship between symbols appears anywhere in it, which is why it sits inside the pre-pass boundary
 in `CLAUDE.md` rather than against it.
+
+### Everything a DefType types, measured (2026-10-23, #169)
+
+Measured on vb6.exe, native and p-code identical, under en-GB. Each program `DefTypeTests` pins was made as written.
+
+**Overturned, and it was ours.** The section above says DefType "cannot be measured with `Option Explicit` on at all",
+being a rule about undeclared variables. It is wider than that: it types every declaration with no As clause, and those
+exist under `Option Explicit`. With `Option Explicit` and `DefInt A-Z`, `Dim x` then `x = 2.6` is an Integer 3, and
+`Function F()` returns an Integer.
+
+Under `DefBool B`, `DefByte Y`, `DefInt I-J, K`, `DefLng N`, `DefCur C`, `DefSng S`, `DefDbl D`, `DefDate T`, `DefStr Z`,
+`DefObj O` and `DefVar V`:
+
+| probe | result |
+|---|---|
+| `b1 = 1` | Boolean True |
+| `y1 = 300`, then `y1 = 200` | 6, then Byte 200 |
+| `i1 = 2.6`, `j1 = 2.5` | Integer 3, Integer 2 |
+| `k1 = 40000` | 6 |
+| `n1 = 70000` | Long 70000 |
+| `c1 = 1.23456` | Currency 1.2346 |
+| `s1 = 1.5`, `d1 = 1.5` | Single, Double |
+| `t1 = 2` | Date, serial 2 |
+| `z1 = 5` | String "5" |
+| `Set o1 = New Collection` | Collection |
+| `v1 = 5` | a Variant holding an Integer |
+| `a1 = 2.6`, no DefType covering A | Double |
+| `i9`, `z9`, `o9`, `b9`, `t9`, `v9`, never assigned | Integer 0, String "", Nothing, Boolean, Date, Empty |
+| `Dim i5, z5, a5, i6(2)` | Integer, String, Empty, `Integer()` |
+| module-level `Dim im, zm, am` | Integer, String, Empty |
+| `Const I8 = 2.6`, `Const Z8 = 5` | **Double 2.6, Integer**: a Const keeps its value's type |
+| `Function IFun()` returning 2.6 | Integer 3 |
+| `Function ZFun()` returning 5 | String |
+| `Sub ITake(i7)` given 2.6 | Integer 3 inside it |
+| `Sub ZTake(ByVal z7)` given 5 | String "5" inside it |
+| `Static is1`, then `is1 = is1 + 1` twice | Integer 1, then 2 |
+| `For i3 = 1 To 2` | Integer 3 after it |
+| `Set a2 = New Collection`, `a2` never declared, no DefType covering A | Collection: a Set declares as a Let does |
+| `i2 = 2.6` in another module with no DefType | Double: a DefType is its own module's |
+| a class's own `DefInt A-Z`: field `cnt`, local `q`, `Function Count()` | Integer, Integer 3, Integer |
+| `DefStr Z-X`, then `x = 5` | String: a range written backwards covers X to Z |
+| `DefInt a-c`, then `b = 2.6` | Integer 3: lower case names the same letters |
+
+**DefObj**, under `DefObj O`:
+
+| probe | result |
+|---|---|
+| `Dim o5`, and module-level `Dim om` | Nothing, Nothing |
+| `Set o5 = New Collection`, `Set om = New Collection` | Collection, Collection |
+| `o5 = 5`, `o5` holding a Collection | 438 |
+| `Dim o8`, then `o8 = 5` | 91 |
+| `o6 = 5`, `o6` never declared | 91 |
+| `Function OFun()` with `Set OFun = New Collection` | Collection |
+| `Sub OTake(o7)` given a Collection, then Nothing | Collection, Nothing |
+| `o7 = 5` in `Sub OLet(o7)` given Nothing | 91 |
+| `OBad = 5` in `Function OBad()` before any Set | 91, and the call returns Nothing |
+
+So DefObj makes each of these an `As Object`. A `Function F() As Object` and a `Function F() As Collection` that are
+never Set behave the same way: `TypeName` is Nothing and `Is Nothing` is True. A Let into the first's name before a Set
+is 91. A Let into the second's does not compile ("Argument not optional"), as for a variable.
+
+**A DefType'd variable is a typed operand** (#122), as a Dim'd one is. Under `DefInt P`:
+
+| probe | result |
+|---|---|
+| `p1 = 30000`, then `p1 * 3` | 6 |
+| `p9 + 32767 + 1`, `p9` never assigned | 6 |
+| `Dim p5`, then `p5 = 30000: p5 * 3` | 6 |
+| `PFun() * 3`, `Function PFun()` returning 30000 | 6 |
+| `b1 = 30000: b1 * 3`, no DefType covering B | Long 90000 |
+
+**Where it must sit.** A DefType after any declaration is "Deftype statements must precede declarations". That holds
+after a `Dim`, a `Public` or `Private` variable, a `Const` (Public or not), a `Type`, an `Enum` and a `Declare`. After
+`Option Base`, `Option Compare` or another DefType it compiles. Inside a procedure it is "Invalid inside procedure".
+After a procedure it is VB6's general "Only comments may appear after End Sub, End Function, or End Property", as
+for a label there (see "Line labels", below). HexIDE gives that error for nothing at module level, so it runs such a module
+with the DefType applied.
+
+**The other compile errors:**
+- `DefInt AB` is "Expected: letter".
+- `DefDec E` is "Expected: line number or label or statement or end of statement". VB6 has no DefDec, though the
+  grammar lexes it.
+- `DefInt A-C` then `DefInt B` is "Duplicate Deftype statement", even though both are Integer. So is `DefInt A-Z` then
+  `DefStr A-Z`.
+
+**Two things HexIDE does not do yet**, measured here and filed:
+- **A ReDim that declares.** Under `DefInt I`, `ReDim i4(2)` on a name never declared is `Integer()`, and `ReDim a4(2)`
+  is `Variant()`. HexIDE refuses both as "Unknown variable" (#1495).
+- **An undeclared variable passed ByRef.** With `Sub Bump(x As Integer)` and `i12` never declared, `Bump i12` twice
+  leaves `i12` an Integer 2. Without DefType, `Bump a12` with `Sub Bump(x)` leaves an Integer 2, and `Fill b12` with
+  `s = "filled"` leaves a String. HexIDE loses the write in all three (#1505). **Since fixed by #1505**; see "An
+  undeclared variable passed ByRef".
+
+### In HexIDE (#169)
+
+`PrePass.VisitDeftypeStmt` collects each module's DefType statements into a 26-letter table, raising the compile errors
+above, and `PrePass.DefaultTypeOf(name)` reads it. It is consulted wherever a declaration has no As clause:
+- `StatementExecutor.AllocImplicitVariant`, for a variable made on first use, whether by a Let, a Set, a For or a
+  statement that stores;
+- `ExpressionExecutor`'s read of a name never assigned;
+- `StatementExecutor.DeclareLocal`, for a `Dim`, a `Static`, a module's variable and a class's field;
+- `PrePass.ParseParams` and `PrePass.ReturnOf`, for parameters and returns.
+
+The slot the pre-pass hoists for a module-level variable is not typed. The module's Dim statement, run when the module
+starts, makes the slot the program uses, and `DeclareLocal` types that one.
+
+A type character on such a variable is #742 and #739.
 
 ## Variant arithmetic promotes; a declared type is a ceiling (2026-09-02, #122)
 
@@ -3786,6 +4187,13 @@ OCX-persisted bytes, at any level of effort. For that data, blob **pass-through 
 bytes at their original offsets, never re-encode — is the only correct strategy that will ever exist**, not
 a pragmatic shortcut.
 
+**Narrowed (2026-10-22, #60): the bytes, not the offsets.** Pass-through as built keeps every record's bytes and never
+re-encodes one, but it doesn't pin a record to its original offset. Records are laid out in the order the `.frm` cites
+them, which is VB6's own layout, and every citation is rewritten to wherever its record lands. For a form nobody
+changed, that gives the original offsets; `Web Browser.frm` and its `.frx` come back byte for byte. Once a record HexIDE
+models changes size, an OCX's record held at its original offset would overlap it, and a citation left as read would
+address the wrong bytes.
+
 This splits the binary layer cleanly:
 
 | Blob source | Relationship |
@@ -5095,7 +5503,8 @@ and neither does whether a year is there at all. It never rescues a date impossi
 first, or a month and a year.
 
 **A dot is not a date separator under en-GB at all**, not even for a date possible as it stands: `CDate("1.2.2003")`
-is Type mismatch. .NET reads it as 1 February, so HexIDE does too. That predates #777 and is #800.
+is Type mismatch. .NET reads it as 1 February, so HexIDE did too, from before #777 until #800 was fixed with #967
+(*A String read as a Date*, which has the dot rule).
 
 **Not measured:** a month-first locale. HexIDE swaps the same way under one, which is the obvious reading of the
 rule but has not been run.
@@ -5635,6 +6044,46 @@ The losses, against the table:
 - Alt+O on `&One &Wide` and Alt+Q on `&Quick &Yak` do nothing.
 - A menu underlines its first marked letter where VB6 underlines its last.
 
+## MousePointer's names and pointers (2026-10-22, #120)
+
+**Names.** A form gave seventeen Labels one MousePointer value each, 0 to 15 and 99, written bare (`MousePointer = 4`
+with no comment). The VB6 IDE opened the project in the guest's console session. Driven by keys, it opened the form's
+code window, added a comment line so the form was changed, and saved it with Ctrl+S. The file it wrote:
+
+| Value | Written | Value | Written |
+|---|---|---|---|
+| 0 | not written: the default | 9 | `9  'Size W E` |
+| 1 | `1  'Arrow` | 10 | `10  'Up Arrow` |
+| 2 | `2  'Cross` | 11 | `11  'Hourglass` |
+| 3 | `3  'I-Beam` | 12 | `12  'No Drop` |
+| **4** | **`4  'Icon`** | **13** | **`13  'Arrow and Hourglass`** |
+| **5** | **`5  'Size`** | **14** | **`14  'Arrow and Question`** |
+| 6 | `6  'Size NE SW` | 15 | `15  'Size All` |
+| 7 | `7  'Size N S` | 99 | `99  'Custom` |
+| 8 | `8  'Size NW SE` | | |
+
+The four in bold had no member in HexIDE (#120). The other thirteen match the names it already had, which were
+mined from VB98's Template tree or carried without a measurement until now.
+
+**Pointers.** The same form, built as p-code and run in the console session. The pointer was moved to the middle of
+each Label, and `GetCursorInfo`'s handle was compared with the shared handles `LoadCursor` gives for Windows' standard
+cursors:
+
+| Value | Cursor | Value | Cursor |
+|---|---|---|---|
+| 0 Default | `IDC_ARROW` | 9 | `IDC_SIZEWE` |
+| 1 | `IDC_ARROW` | 10 | `IDC_UPARROW` |
+| 2 | `IDC_CROSS` | 11 | `IDC_WAIT` |
+| 3 | `IDC_IBEAM` | 12 | `IDC_NO` |
+| **4 Icon** | **`IDC_ARROW`** | **13** | **`IDC_APPSTARTING`** |
+| **5 Size** | **`IDC_SIZEALL`** | **14** | **`IDC_HELP`** |
+| 6 | `IDC_SIZENESW` | 15 | `IDC_SIZEALL` |
+| 7 | `IDC_SIZENS` | 99, no MouseIcon | `IDC_ARROW` |
+| 8 | `IDC_SIZENWSE` | | |
+
+On this Windows 10, `LoadCursor` returns nothing for `IDC_ICON` and `IDC_SIZE`. Both are obsolete. So Icon draws the
+plain arrow, and Size draws the same pointer as Size All. Another Windows version may differ; that is not measured.
+
 ## RGB, QBColor and MsgBox's style (2026-10-12)
 
 **The questions.** What `RGB` and `QBColor` return, and of what type, at their edges. And what `MsgBox` does with a
@@ -5986,7 +6435,8 @@ about case:
 - **Reading or writing another module's `Public` variable or `Const` from a form (#256).** `kpi * 2` read from
   the form reads Empty, and a write to `module1.abc` does not reach it. The tests read and write within one
   module instead.
-- **`ListCount` (#821).** The tests read the list's items instead.
+- **`ListCount` (#821).** The tests read the list's items instead. `ListCount` exists since #821, and its name is
+  matched in any case, but these tests were not changed.
 
 `Me` and the form's own name do resolve in any case on that path, where `VBLoader.RunForm` binds them, and are
 tested there.
@@ -7640,8 +8090,8 @@ and a Const and an Enum member are typed unless the Const is `As Variant`. Main 
 so `K * m` widened to a Long 35000 where VB6 overflows.
 
 **Not reachable in HexIDE:** `As Collection` and a local `Dim o As Object`, which it does not declare yet, and
-`Property Get Q() As MyEnum`, whose `Q = mFive` reads another module's Enum member unqualified, which is Empty here
-(#889). The other rows are pinned in `SelectCaseMatchingTests`.
+`Property Get Q() As MyEnum`, whose `Q = mFive` reads another module's Enum member unqualified, which was Empty here
+until #889 and is read now, though that row is not pinned. The other rows are pinned in `SelectCaseMatchingTests`.
 
 ### HexIDE
 
@@ -7663,8 +8113,8 @@ What main does with these rows, for #987's reference:
 - **The flag** is unmarked for a typed Function's result and the conversion functions, so `F() * 7000` and
   `CInt(v) * 7000` widen where VB6 raises 6. A Variant array element or Type field holding a literal keeps the
   literal's type, so `w(0) * 7000` raises 6 where VB6 widens.
-- **A Type field's store** is not converted (#221), so a typed field read is only as good as its store: `u.b = 200`,
-  `x = u.b + u.b` with `b As Byte` is 400 here, where VB6 raises 6.
+- **A Type field's store** was not converted until #221, so a typed field read was only as good as its store: `u.b = 200`,
+  `x = u.b + u.b` with `b As Byte` was 400 here, where VB6 raises 6. It raises 6 now (*A store into a UDT field*).
 - **Not run here:** `Mid$` (#742), and `CVar`, which HexIDE does not have.
 
 **HexIDE, after #987.** A value is typed, a Variant's, or neither, and *neither* is what main did, in both observers, so a
@@ -7869,6 +8319,22 @@ store into a variable of that type converts it, and a value that will not conver
 runs. HexIDE passes the ByVal Boolean and String cases through unconverted (run under HexIDE: `S 5` arrives as an
 Integer, and `B "abc"` runs with a String where VB6 raises 13), and its code sends the Date and ByRef cases down the
 same branch. #874 is the fix.
+
+**HexIDE, since #874.** A copied argument and an Optional default convert into the parameter's declared type through
+the conversion a store into a variable uses, and the parameter's slot is typed, so a store into it converts too. Every
+row above is pinned in `TypedParameterTests`, with a second probe, native and p-code identical under en-GB:
+
+| Call or store | VB6 |
+|---|---|
+| `NI "12"` / `NI "2.5"` / `NI "abc"` / `NI "40000"`, `ByVal x As Integer` | Integer 12 / 2 / 13 at the call / 6 at the call |
+| `NIR "12"`, `x As Integer`, ByRef | Integer 12 |
+| `ND "1.5"` / `ND "&H10"`, `ByVal x As Double` | Double 1.5 / 16 |
+| `Optional x As String = 5` / `As Date = "1/2/2003"` / `As Boolean = 1` / `As Integer = 2.5`, omitted | String "5" / Date 01/02/2003 / Boolean True / Integer 2 |
+| `x = 5` in a `ByVal x As String` parameter / `x = "0.5"` in `ByVal x As Date` | String "5" / Date 00:05:00 |
+| `x = "abc"` in a `ByVal x As Boolean` parameter, under Resume Next | 13, and `x` keeps True |
+
+A numeric parameter given a String was read as 0: `Narrow` takes a String's number as 0, and only `CoerceOnStore`
+parses it. So `NI "12"` was 0 here, a wrong value #874's own table did not reach.
 
 ## A member call inside While...Wend (2026-10-13, #882)
 
@@ -8210,8 +8676,8 @@ A procedure's Consts are not checked yet. What is refused:
   required" without it;
 - the module's own name as a qualifier is "Circular dependencies between modules";
 - another module's Public Const, bare (since #880) or qualified, is read once that module's declarations have run,
-  and refused naming #893 before; another module's Enum member
-  unqualified is refused naming #889, rather than sized from Empty. Qualified by its Enum's name it is read;
+  and refused naming #893 before; another module's Public Enum member, bare or qualified by its Enum's name, is
+  read, a class's included (#889);
 - a built-in no probe has asked about is refused, rather than guessed either way.
 
 `LenB` and `CVar` are allowed in a bound but not implemented in HexIDE, so a bound using them stops there as any use
@@ -8303,13 +8769,14 @@ it as `CDate` does.
 |---|---|
 | `c = 1.00005`, `c` a Currency; `CCur(1.00005)` | 1.0001; 1.0001 (HexIDE gives 1 for both, #966) |
 | `CCur(2.00005)`; `CCur(0.00015)` | 2; 0.0001: the Doubles nearest those lie below the midpoint (HexIDE gives 2 and 0.0002, #966) |
-| `dd = "1/2/2003"`, `dd` a Date | 01/02/2003, no error (HexIDE raises 13, #967) |
+| `dd = "1/2/2003"`, `dd` a Date | 01/02/2003, no error (HexIDE raised 13 until #967) |
 | `dd = "abc"` | 13 |
 
 **HexIDE, after this.** A module-level or procedure Const converts into its `As` type through the same conversion a
 store uses, and a conversion that would raise 6 or 13 is "Overflow" or "Type mismatch", raised as the Const runs. A
 store of a String into a Date read as `CDate` reads it, in the program's locale, where every date string was 13;
-round five reverted that, below, because HexIDE's `CDate` has no numeric fallback (#967). A Const of an object or
+round five reverted that, below, because HexIDE's `CDate` had no numeric fallback (#967, since fixed: *A String read as
+a Date*). A Const of an object or
 fixed-length String type is refused loudly. Currency from a Double still rounds the decimal form
 (#966).
 
@@ -8392,7 +8859,7 @@ Strings is a String, and with a number it is not. A typed Const cannot hold Null
 - **Reverted from round four:** a store of a String into a Date goes through `ToNum` again, as on main. Round four
   sent it through `CDate`, which has no numeric fallback, so `d = "36526"` became 13, and which accepts a dotted
   date, so `d = "1.2.2003"` became silently 1 February (#800). So `d = "1/2/2003"` is 13 again, where VB6 gives a
-  date, and a `Const … As Date` given a String is refused loudly. Both are #967.
+  date, and a `Const … As Date` given a String is refused loudly. Both are #967, fixed since: *A String read as a Date*.
 - HexIDE's `CCur(0.00015)` is 0.0002, where VB6 gives 0.0001: #966 is wrong in both directions.
 
 **Round six: the copy comes out, and fixedness is the declaration's.** Copying on Let is VB6's rule, but the change
@@ -9545,9 +10012,9 @@ gaps elsewhere: the probes that stored through a qualifier (`Module2.X = 1`) hav
 qualified store raises 424 (#1006); `Module2.A(2)` is read through a Function of Module2's, because it reads the whole
 array (#965); and the Collection row uses a class, because HexIDE cannot create a Collection with `New` yet.
 
-What it still does not do: another module's Public Enum member, bare, is #889, and a module-level Const or bound that
-reads a Const of a module whose declarations have not run yet is refused naming #893, where VB6 reads it in either list
-order.
+What it still does not do: a module-level Const or bound that reads a Const of a module whose declarations have not run
+yet is refused naming #893, where VB6 reads it in either list order. Another module's Public Enum member, bare, is read
+since #889 (*Another module's Enum members, bare*).
 
 ## A control's position at run time (2026-10-14, #933)
 
@@ -9732,7 +10199,7 @@ dispatch, so MouseMove costs nothing where nobody handles it. Pinned in `MouseEv
 input, from every row above that HexIDE can reach.
 
 What it still does not do:
-- **DblClick** is raised by nothing (#1031).
+- **DblClick** is raised by nothing (#1031). Since #1031 it is: *A click with real input* below.
 - **The form's own Click** is raised by nothing, as before. Since #1364 it is: *A click with real input* below.
 - **Shift's mask and MouseMove's buttons** are taken from the pointer event, which is where they live in Avalonia;
   VB6 takes them from the device, which is the same thing for real input.
@@ -9793,6 +10260,51 @@ What these show:
   Image, a PictureBox or the form because VB6 raises their Click from real input, and from where the cursor is, not
   from the message.
 
+**And the controls with no DblClick, or a different one** (2026-10-22, #1031). Two more probes the same way, both
+built native and p-code, all four builds agreeing line for line. The third holds Command1, an empty Frame1, Option1 and
+Check1. The fourth holds Option1 and Option2, neither selected when the form loads.
+
+| Input | VB6 |
+|---|---|
+| click on Frame1, inside it | MouseDown, MouseUp, Click |
+| double click on Frame1 | MouseDown, MouseUp, Click, DblClick, MouseUp |
+| double click on Command1 | MouseDown, Click, MouseUp, then the same again: two clicks, no DblClick |
+| double click on Check1 | MouseDown, Click, MouseUp, twice; `Value` 1, then 0, then 1 |
+| click on Option1, not selected | MouseDown, **Click** (`Value` True), MouseUp |
+| double click on Option1, not selected | MouseDown, Click, MouseUp, **MouseDown, DblClick**, MouseUp |
+| double click on Option1, already selected | MouseDown, MouseUp, MouseDown, DblClick, MouseUp: no Click |
+
+What these add:
+- **A CommandButton and a CheckBox have no DblClick,** and a double click on either is two whole clicks, as VB6.OLB's
+  event lists say.
+- **A Frame double-clicks as a Label does.**
+- **An OptionButton's second press raises MouseDown, then DblClick.** Every other control with a DblClick raises it in
+  place of that MouseDown.
+- **An OptionButton raises Click only when it becomes selected,** before MouseUp, as a CheckBox does. A click on one
+  already selected raises none.
+
+**And a press released somewhere else** (2026-10-22, #1373). One more probe the same way, native and p-code agreeing
+line for line, holding a windowless Label1, an Image1 with no picture, a TextBox Text1, a Frame1, a PictureBox Picture1
+and a ListBox List1 with three items. Each was clicked, then pressed and released on the form's empty area:
+
+| Input | VB6 |
+|---|---|
+| click on Label1, Image1, Text1, Frame1, Picture1 | MouseDown, MouseUp, Click |
+| press on Label1, Image1, Frame1 or Picture1, release on the form | MouseDown, MouseUp from the control's origin (Label1 `5580 2430`); **no Click** |
+| press on Text1, release on the form | MouseDown, MouseUp (`5550 1080`), **Click** |
+| press on List1's first item, release on the form | MouseDown, **Click**, MouseUp (`2070 2400`) |
+| press on Label1, move onto the form, back onto Label1, release | MouseDown, MouseUp, Click |
+| press on Text1, move onto the form, back onto Text1, release | MouseDown, MouseUp, Click |
+| press on Label1, release on Text1 | Label1 MouseDown, Label1 MouseUp (`480 1470`); no Click, and nothing on Text1 |
+
+What these add:
+- **A Label, an Image, a Frame and a PictureBox raise Click only for a release over them**, whether or not the pointer
+  left them on the way, as the form does.
+- **A TextBox and a ListBox raise Click wherever the release lands.** The obvious guess, that a TextBox checks as a
+  Label does, was wrong. Both are controls that keep the pointer for a drag of their own, a text selection or a
+  list selection, which may be why, but that is a guess.
+- **MouseUp always goes to the pressed control,** in its own coordinates.
+
 ### HexIDE
 
 Before #1364, nothing raised the form's own Click.
@@ -9803,14 +10315,238 @@ Since #1364, the form raises Click on the release, after MouseUp, for the left, 
   client, gives the form its MouseUp and no Click.
 - **Double click:** the press's click count leaves out the Click VB6 does not raise on a double click's second release.
   A third click is a new Click.
-- **Pinned** in `MouseEventTests`, with real headless pointer input, from the form's rows above, all but DblClick.
+- **Pinned** in `MouseEventTests`, with real headless pointer input, from the form's rows above.
+
+Since #1031, DblClick is raised on a double click's second press, by the press's click count, on the form and on each
+control VB6 gives one: a Label, an Image, a PictureBox, a TextBox, a Frame, a ListBox and an OptionButton.
+- **In place of that press's MouseDown,** and its release raises no Click. An OptionButton raises MouseDown, then
+  DblClick, as measured.
+- **A CommandButton and a CheckBox** raise none, so a double click on either stays two clicks.
+- **The code window** offers DblClick wherever it is declared.
+- **Pinned** in `MouseEventTests`: the form with a third click after, a Label, a TextBox, a Frame, an OptionButton, a
+  CommandButton, and a control array's Index.
 
 What it still does not do:
-- **DblClick** is raised by nothing, on the form or any control, so a double click's second press still raises a
-  MouseDown (#1031).
-- **A press on a Label, an Image, a PictureBox, a TextBox or a ListBox** raises that control's Click wherever the
-  release lands. Only a CommandButton, through Avalonia's own Button, checks (#1373).
-- **A ListBox raises Click after MouseUp** (#1374).
+- **A ComboBox and a FileListBox** have a DblClick in VB6, and HexIDE has neither control's events yet.
+- **A press on a Label, an Image, a PictureBox or a TextBox** raises that control's Click wherever the release lands.
+  Only a CommandButton, through Avalonia's own Button, checks (#1373). Since #1373, a Label, an Image, a Frame and a
+  PictureBox raise it only for a release over them: `AttachClick` with `ClickRelease.OverTheControl` hit-tests the
+  release through the window, since the pressed control has the pointer. A TextBox keeps `Anywhere`, as measured, and
+  so does a ListBox (*A ListBox's Click* below). Pinned in `MouseEventTests`, one case per row of *And a press released
+  somewhere else*.
+- **A ListBox raises Click after MouseUp** (#1374). Since #1374 it raises it before: *A ListBox's Click* below.
+
+## A ListBox's Click: a left press on an item, or code or a key that moves the selection (2026-10-22, #1374)
+
+Where does a ListBox raise Click? Four `/make` probes, each built native and p-code, all eight builds agreeing line for
+line. Each holds List1, 2400 by 1200 twips at (120, 120) on a twips form, given `a`, `b` and `c` in Form_Load. With
+integral height the list draws five rows of 13 pixels, so its client area ends 65 pixels down and the empty part below
+`c` starts at 39. Every handler appends its name and `ListIndex` to a file.
+
+**Code**, in Form_Load, after `Me.Show` unless the row says otherwise, with `ListIndex` 1 to start:
+
+| Statement | VB6 |
+|---|---|
+| `ListIndex = 1`, before `Me.Show`, from -1 | **Click**, `ListIndex` 1 inside it |
+| `ListIndex = 2` | Click, 2 inside it |
+| `ListIndex = 2` again | no Click |
+| `ListIndex = -1` | Click, -1 inside it |
+| `ListIndex = -1` again | no Click |
+| `AddItem "z", 0`, with `c` selected at 2 | no Click; `ListIndex` 3 after: the selection follows its item |
+| `RemoveItem 0`, then | no Click; `ListIndex` 2 after |
+| `RemoveItem 2`, the selected item | no Click; `ListIndex` -1 after |
+| `ListIndex = 0` (Click), then `Clear` | no Click from `Clear`; `ListIndex` -1 after |
+| `Selected(1) = True`, from -1 | Click, 1 inside it; Err 0 |
+| `Selected(1) = False`, the selected item | Click, -1 inside it |
+| `Text = "x"`, from -1, `x` the first item | Click, 0 inside it |
+| `ListIndex = 5`, with two items | Err 380, no Click, `ListIndex` unchanged |
+
+**The keyboard**, the list focused, with `c` selected at 2:
+
+| Input | VB6 |
+|---|---|
+| Up arrow | KeyDown 38, **Click** (1), KeyUp |
+| Up arrow again | KeyDown, Click (0), KeyUp |
+| Up arrow on the first item | KeyDown, KeyUp: no Click |
+
+**The mouse**, real input in the console session, as in *A click with real input*:
+
+| Input | VB6 |
+|---|---|
+| left click on `a`, nothing selected | MouseDown (`ListIndex` already 0), **Click**, MouseUp |
+| left click on `a` again, already selected | MouseDown, Click, MouseUp: Click though nothing changed |
+| left click in the empty area below `c`, 52 pixels down | MouseDown, MouseUp: no Click, selection unchanged |
+| left click 65 pixels down, on the list's bottom edge | nothing at all, on the list or the form |
+| press on `a`, move to `c`, release | MouseDown (0), MouseMove (**2**), Click (2), MouseUp (2) |
+| press on `c`, move into the empty area, release | MouseDown (2), MouseMove (2), Click (2), MouseUp (2) |
+| press in the empty area, move onto `a`, release | MouseDown (2), MouseMove (2), MouseUp (2): no Click, and `a` not selected |
+| right click on `a`, nothing selected | MouseDown `2` (`ListIndex` -1), MouseUp: no Click, nothing selected |
+| right click on `b`, selected; on `c`, not selected | MouseDown, MouseUp: no Click, the selection stays on `b` |
+| middle click on `a` | MouseDown `4`, MouseUp: no Click |
+| left double click on `a` | MouseDown (0), Click, MouseUp, DblClick, MouseMove, MouseUp |
+
+What these show:
+- **From code or a key, Click follows the selection.** It comes when `ListIndex`, `Selected` or `Text` moves it, and
+  when an arrow key does, with `ListIndex` already the new value; it does not come when the value is set again, or
+  when the key can go no further.
+- **AddItem, RemoveItem and Clear never raise it,** though each can shift or empty the selection.
+- **From the mouse, Click follows a left press on an item, not the selection.** It comes on the release, before
+  MouseUp, whether or not the selection changed and wherever the release lands. The press selects at once, so MouseDown
+  already reads the new index, and the selection follows the pointer over the items while the button is held.
+- **A left press in the empty area, and any right or middle press,** raises MouseDown and MouseUp only. It selects
+  nothing, and the selection does not follow it onto an item.
+
+What resisted explanation:
+- **A click on the bottom edge raised nothing anywhere,** not even the form's MouseDown. The point is just past the
+  client area, on what is presumably the list's border, but no rule here says why that border swallows a click.
+- **The double click's MouseMove** with the button held, between DblClick and the last MouseUp, has no matching move
+  in the driver, which sets the cursor once before both clicks. It was logged in all four builds.
+
+### HexIDE
+
+Before #1374, a ListBox raised Click on every release, after MouseUp: for a press in the empty area and a right or
+middle click too, and never from code or a key. A right press selected the item under it.
+
+Since #1374, `VBListBox` raises Click from the two places VB6 does.
+- **A left press on an item** is remembered, and its release raises Click before MouseUp, unless it is a double click's
+  second (#1031). While the button is held, the item under the pointer is selected. The release may land anywhere,
+  off the list included, as VB6's may (measured in *And a press released somewhere else*, #1373).
+- **A right or middle press** is marked handled on its way down, so Avalonia's ListBox selects nothing for it. Its
+  MouseDown and MouseUp still come, since those take handled presses.
+- **An arrow key** raises Click when the selection it leaves differs from the one it found.
+- **`ListIndex` set from code** raises Click when the value changes. A selection change in general does not raise it,
+  so AddItem and Clear raise none.
+- **Pinned** in `MouseEventTests`: a click on an item and again on it, a click below the items, a press moved onto
+  another item, off the items, and from below them onto one, a right and a middle click on an item, the double click,
+  and the arrow keys. `ListBoxClickTests` pins the `ListIndex` rows, a plain `AddItem` and `Clear`.
+
+What it still does not do:
+- **`RemoveItem` and `AddItem`'s index** are #821's, and **`Selected(i)` and `Text`** #1395's, so their rows wait on
+  those.
+
+## A ListBox's Selected, SelCount and Text, with MultiSelect and without (2026-10-22, #1395)
+
+One `/make` probe, built native and p-code, **all 201 lines agreeing**. Its form holds three ListBoxes:
+
+- `List1`, with MultiSelect 0;
+- `List2`, with MultiSelect 1, Simple;
+- `List3`, with MultiSelect 2, Extended.
+
+After `Me.Show` in Form_Load, each list is filled with `a`, `bc`, `b`, `c`, `b`, so `bc` starts with `b` and `b` comes twice. Then each runs the same statements under `On Error Resume Next`. After every statement, and inside every Click, the probe logs `ListIndex`, each item's `Selected`, `SelCount` and `Text`. **Simple and Extended agree on every row**, so "multi" below means either.
+
+**Reading.** The same on all three lists:
+
+| Read | Result |
+|---|---|
+| `Selected(0)` | `False`, a Boolean |
+| `Selected(5)`, at `ListCount`; `Selected(-1)`, `(100)`, `(-2)` | 381, "Invalid property array index" |
+| `Selected(40000)` | 6, Overflow |
+| `Selected("1")`, `Selected(1.6)` | `False`, Err 0: the index is coerced |
+| `Selected(0)` on an empty list | 381 |
+| `SelCount` | an Integer: 0 with nothing selected, then the number selected |
+| `Text`, nothing selected, MultiSelect 0 | `""`, a String |
+| `Text`, nothing selected, multi | `a`: the item at `ListIndex` |
+
+**Writing `Selected`, with MultiSelect 0.** Each row follows the one above it:
+
+| Statement | Click | Then |
+|---|---|---|
+| `Selected(1) = True`, from -1 | once, `ListIndex` 1 inside it | `bc` selected |
+| `Selected(1) = True`, already selected | none | |
+| `Selected(3) = True` | once, `ListIndex` 3 | `c` alone: the selection moves |
+| `Selected(3) = False`, the selected item | once, `ListIndex` -1 | nothing selected |
+| `Selected(0) = False`, not selected | none | |
+| `Selected(5) = True`, at `ListCount`; `Selected(-1) = True` or `False`; `Selected(100) = True` | none | 381, and nothing changes |
+| `Selected(2) = "True"`, then `= 0`, then `= 5` | once each | selected, cleared, selected: any non-zero number is True |
+| `Selected(2) = Null` / `Selected(2) = "x"` | none | 94 / 13 |
+| `Selected(0) = True` on an empty list | none | 381 |
+
+**Writing `Text`, with MultiSelect 0.** **Every `Text =` raises Click, once**, even when the selection doesn't move. Here it differs from `Selected` and `ListIndex`, which raise it only when the selection moves.
+
+| Statement | `ListIndex` after, and inside the Click |
+|---|---|
+| `Text = "b"`, from -1 | 2: the first item whose whole text matches. Neither `bc`, which only starts with it, nor the second `b` |
+| `Text = "B"`, from -1 | 2: without regard to case |
+| `Text = "x"`, no item's text, from -1 | -1, and Click still comes |
+| `Text = "x"`, from 0 | -1 |
+| `Text = ""`, from 0 | -1 |
+| `Text = "bc"`, then `Text = "bc"` again | 1, then 1, with a Click each time |
+| `Text = 5` | -1: it is the text `5`, which no item has |
+| `Text = Null` | 94, no Click |
+| `Text = "a"` on an empty list | -1, with a Click |
+
+**With MultiSelect 1 or 2, `ListIndex` is the item with the focus, not a selected one.**
+- After `AddItem` it is 0 with nothing selected, and after `Clear` it is 0 with no items at all.
+- `Selected(i) = True` adds item i to the selection, raises Click, and moves `ListIndex` to i. So `Selected(1) = True` then `Selected(3) = True` leaves both selected, `SelCount` 2.
+- `Selected(i) = False` removes it, raises Click, and leaves `ListIndex` where it was. Setting `Selected` to what it already is raises none, as with MultiSelect 0.
+- `ListIndex = n` moves the focus and raises Click, and selects nothing and clears nothing. `ListIndex = -1` leaves `Text` empty.
+- **`Text = s` raises Click and changes nothing else**, whatever `s` is: no item is selected or focused, even one whose text is `s`.
+- The errors are MultiSelect 0's: 381, 6, 94 and 13, for the same statements.
+
+**With real input** (#1413). A second probe has `List1` with MultiSelect 1 and `List2` with MultiSelect 2, each holding `a` to `f`, and every handler logs the list's state as above. It ran in the guest's console session, driven by `SetCursorPos`, `mouse_event` and `keybd_event`. It was built native and p-code, and **all 117 lines agree**. Each row follows the one above it, on the same list. "Click" is the list's Click, which comes between MouseDown and MouseUp, as with MultiSelect 0.
+
+MultiSelect 1, Simple:
+
+| Input | Events | Selected after | `ListIndex` |
+|---|---|---|---|
+| click `a` | MouseDown, Click, MouseUp; `a` is already selected inside MouseDown | `a` | 0 |
+| click `c` | the same | `a`, `c` | 2 |
+| click `a` again | the same | `c` | 0 |
+| Shift+click `e` | the same: Shift does nothing | `c`, `e` | 4 |
+| Ctrl+click `f` | the same: Ctrl does nothing | `c`, `e`, `f` | 5 |
+| Up | KeyDown, Click | unchanged: only the focus moves | 4 |
+| Space | KeyDown, Click | `e` toggled off: `c`, `f` | 4 |
+| Down, then Space | Click each time | `f` toggled off: `c` | 5 |
+| Shift+Up | KeyDown for each key, then Click | unchanged | 4 |
+| double click `b` | MouseDown, Click, MouseUp, DblClick, MouseUp | `b` toggled once: `b`, `c` | 1 |
+| press `d`, drag to `f`, release | MouseDown, then Click with `ListIndex` 5, then MouseUp | `d` toggled at the press, and nothing else: `b`, `c`, `d` | 5 |
+| click below the items | MouseDown, MouseUp, no Click | unchanged | 5 |
+| right click `e` | MouseDown and MouseUp with Button 2, no Click | unchanged | 5 |
+
+MultiSelect 2, Extended:
+
+| Input | Events | Selected after | `ListIndex` |
+|---|---|---|---|
+| click `a` | MouseDown, Click, MouseUp | `a` alone | 0 |
+| click `c` | the same | `c` alone | 2 |
+| Ctrl+click `e` | the same | `c`, `e` | 4 |
+| Ctrl+click `c` | the same | `e` | 2 |
+| Shift+click `f` | inside MouseDown nothing is selected; then Click and MouseUp | **`d`, `e`, `f`** | 5 |
+| Up | KeyDown, Click | `e` alone | 4 |
+| Shift+Up | KeyDown for each key, then Click | `d`, `e` | 3 |
+| Ctrl+Up | KeyDown for each key, then Click | `c` alone, as Up alone would give | 2 |
+| Ctrl+Space | KeyDown for each key, then Click | unchanged | 2 |
+| Space | KeyDown, Click | unchanged | 2 |
+| press `a`, drag to `d`, release | MouseDown with `a` alone, then Click, then MouseUp | `a` to `d` | 3 |
+| double click `b` | MouseDown, Click, MouseUp, DblClick, MouseUp | `b` alone | 1 |
+| click below the items | MouseDown, MouseUp, no Click | unchanged | 1 |
+| right click `e` | MouseDown and MouseUp with Button 2, no Click | unchanged | 1 |
+
+So:
+- **A left press on an item always raises Click, at the release.** A press below the items and a right press change nothing and raise none, as with MultiSelect 0.
+- **Simple toggles the item pressed** and ignores Shift and Ctrl. A drag moves only the focus, and the arrow keys move only the focus. Space toggles the focused item.
+- **Extended selects the item pressed alone.** Ctrl toggles it. A drag selects from the item pressed to the one released over. Up and Down select the next item alone, and Shift with either extends the selection.
+- **Every key the list takes raises Click**, whether or not anything changed: Up on a Simple list, and Space on an Extended one. With MultiSelect 0 a key raises Click only when the selection moves (*A ListBox's Click*).
+- **The Shift+click looked unexplained, and a third probe explained it.** After Ctrl+click `c` had removed `c`, leaving `e`, Shift+click `f` selected `d` to `f`. That is neither `c` to `f`, from the last item clicked, nor `e` to `f`, from the one still selected. The rule, from the probe below, is that the range runs from the anchor and the anchor keeps its own state. Ctrl+Up selecting `c` alone is measured too, not inferred.
+
+**The anchor** (a third probe, the second's form with `ListIndex` and `Text` logged before any `AddItem`). It was driven the same way, on the Extended list only, and **native and p-code agree**. Each group starts from a plain click:
+
+| Input | Inside MouseDown | Selected after | `ListIndex` |
+|---|---|---|---|
+| click `c`, Shift+click `f` | `c` | `c` to `f` | 5 |
+| click `a`, Ctrl+click `c`, Shift+click `f` | `c`: `a` is cleared at the press | `c` to `f` | 5 |
+| click `c`, Ctrl+click `c`, so nothing is selected, then Shift+click `a` | nothing | **`a`, `b`**: the range stops short of `c` | 0 |
+| click `c`, Ctrl+click `e`, Ctrl+click `c`, Shift+click `f` | nothing | **`d` to `f`**, as before | 5 |
+| click `e`, Shift+click `b` | `e` | `b` to `e` | 1 |
+| click `b`, Shift+Down, Shift+Down, Shift+Up | | `b`, `c`; then `b` to `d`; then `b`, `c` | 2, 3, 2 |
+| click `a`, Ctrl+click `d`, Shift+click `f` | `d` | `d` to `f`: `a` is cleared | 5 |
+| then Ctrl+Shift+click `b` | `d`: `e` and `f` are cleared at the press | `b` to `d` | 1 |
+
+So **Shift selects from the anchor to the item and clears the rest.** The anchor is the last item pressed or reached without Shift: by a click, a Ctrl+click or a plain arrow key. The anchor keeps its own state: when Ctrl+click has just deselected it, the range is every item from the anchor to the one clicked, less the anchor. The press leaves only the anchor's own state, and the range appears by the Click at the release. Ctrl+Shift+click gave the same range as Shift+click here, with nothing else selected to show whether it would have kept other items.
+
+**Before any `AddItem`** a multi list's `ListIndex` is already 0, on both lists, and `Text` is `""`.
+
+**`MultiSelect` itself.** `List1.MultiSelect` reads 1, an Integer, and `List2.MultiSelect` 2. Assigning it, `List1.MultiSelect = 0`, is the compile error "Can't assign to read-only property", built as p-code. A form re-saved by the VB6 IDE, with hexide-frm's #120 recipe (bare values, the code dirtied, then Ctrl+S), writes `MultiSelect     =   1  'Simple` and `MultiSelect     =   2  'Extended`, after `Left` and before `TabIndex`. A list given `MultiSelect = 0` has the line dropped.
 
 ## One handler at a time (2026-10-14, #766)
 
@@ -10990,6 +11726,76 @@ So a number has a space before it where its sign would go and one after, and a d
 Boolean and Null have none. A comma moves to the next 14-column zone, and a statement ending in `;` or `,` writes no
 line break.
 
+**`Debug.Print` is the same Print** (2026-10-22, #1380). A compiled program drops `Debug.Print`, so it was measured in the
+IDE. In the guest's console session VB6 opened a project whose Sub Main prints 25 cases, each after a marker line, and
+ran it with F5. Ctrl+G, Ctrl+Home, Ctrl+Shift+End and Ctrl+C then copied the Immediate window to the clipboard. The
+first attempt copied nothing; with screenshots between the keys, the second copied all of it. The same 25 cases went
+through `Print #` to a file in a compiled probe, native and p-code. **All three agree line for line**, apart from the
+Immediate window's own two empty lines at its end.
+
+| Statement | Line, between brackets |
+|---|---|
+| `1; "a"; 2` | `[ 1 a 2 ]` |
+| `1, 2` | `[ 1             2 ]` |
+| `"x";` then `"y"` | `[xy]` |
+| `"p",` then `"q"` | `[p             q]` |
+| `-1; -2.5; 3` | `[-1 -2.5  3 ]` |
+| `True; False` | `[TrueFalse]` |
+| `#1/2/2003#; "d"` | `[02/01/2003 d]` |
+| `Null; Empty; "e"` | `[Nulle]` |
+| `"a", "b", "c"` | `[a             b             c]` |
+| `"123456789012345", "z"` | `[123456789012345             z]`: column 16 moves to 29 |
+| `CCur(1.5); CSng(0.1); CDbl(1E+20)` | `[ 1.5  0.1  1E+20 ]` |
+| `CByte(5); CLng(-7); CInt(0)` | `[ 5 -7  0 ]` |
+| `1.5E-10` | **`[ 0.00000000015 ]`** |
+| nothing | `[]` |
+| `, "lead"` | `[              lead]`: a leading comma moves to column 15 |
+| `"a",` then `,` then `"b"` | `[a                           b]`: two zones, to column 29 |
+| `1;` then `2` | `[ 1  2 ]` |
+| `Spc(3); "x"; Tab(10); "y"` | `[   x     y]`: `x` at column 4, `y` at 10 |
+| `Tab(5); "x"` | `[    x]` |
+| `"a"; Tab; "b"` | `[a             b]`: `Tab` alone is a comma |
+| `"a"; Spc(0); "b"` | `[ab]` |
+| `"abc"; Tab(2); "d"` | `[abc]`, then `[ d]`: a column already passed **starts a new line** |
+| `"x"; Tab(0); "y"` | `[x]`, then `[y]`: `Tab(0)` is column 1, passed too |
+
+What these add to the table above:
+- **`Debug.Print` formats as `Print #` does,** zones, spacing and an open line included.
+- **`Tab(n)` moves to column n**, and to n on the next line when the line is already past it. `Spc(n)` writes n spaces.
+- **A line a run leaves open stays open for the next run, column and all.** A second probe ran one Sub Main twice
+  with F5: `Debug.Print "abc"; Tab(10); "x";`. The Immediate window then held `abc      xabc` and `         x`. The
+  second run's `abc` continued the first run's line, and its `Tab(10)` found the column at 13, past 10, so it went to
+  the next line. A column restarted for each run would have given `abc      xabc      x`. The copy read
+  `         xg`: the copy step's own Ctrl+G typed a `g` at the caret, which a screenshot taken before it does not show.
+  That probe's first attempt also copied nothing. It ran again with 15 seconds for VB6 to open, and the Immediate
+  window opened from the View menu before F5.
+
+**Separators with no item** (2026-10-22, #1409). A third IDE probe ran with F5 and was copied the same way. Each case
+below is one or more `Debug.Print` statements, then the line they print:
+
+| Statements | Line |
+|---|---|
+| `"a";`, then `;`, then `"b"` | `ab`: `;` alone writes nothing, and the line stays open |
+| `;`, then `"x"` | `x`: nor does it end a line, even at the start of one |
+| `, ,`, then `"y"` | `y` at column 29: one zone for each comma |
+| `"a";`, then `;;`, then `"b"` | `ab` |
+| `,;`, then `"z"` / `;,`, then `"w"` | `z` / `w` at column 15 |
+| `"abc";`, then `,`, then `"v"` | `v` at column 15 |
+| `;"u"` | `u` |
+| `; "t";`, then `"--10"` | `t--10`: the line stays open |
+
+So a statement of separators alone is an ordinary output list, as `Print #` reads one. A procedure's call is another
+matter. In a `/make` probe with `Sub Foo(Optional a, Optional b, Optional c)`, `Foo ,` is the compile error "Syntax
+error", native and p-code, and so are `Foo , ,` and `Foo ;`, built as p-code. `Foo , 2` builds and runs, with `a` and
+`c` missing. A list of
+separators alone belongs to Print only.
+- **`1.5E-10`, a Double, prints as `0.00000000015`,** most likely just its text. *Turning a number or a date into
+  text* keeps a Double fixed while its digits fit, as `0.000012345` is, and goes to E notation for `0.00001 / 3`.
+  HexIDE's `CStr` gives `0.00000000015` too, but `CStr` of this value was not measured on vb6.exe.
+- **`CDbl(1E+20)` has its sign space,** ` 1E+20 `. The row above gives it as `1E+20 `, starting its zone, but its own
+  hex dump, pinned in `SequentialFileTests`, has ten spaces after ` 0.1 `: nine to reach column 29, then the sign. So the
+  two are one result, read two ways.
+
 **Opening, numbering and closing:**
 
 | Probe | Result |
@@ -11296,6 +12102,44 @@ and every row agreed.
 **In HexIDE (#1150):** every row runs as measured but the last, since HexIDE's TextBox doesn't model MaxLength. Avalonia
 moves a caret placed inside a line break past it, so the selection code sets is remembered and read back while
 Avalonia's has not moved. Once the user moves it, the selection is Avalonia's.
+
+### Keys after a selection set from code (2026-10-22, #1385)
+
+**The probe.** Found by the Notepad demo: Select All from its menu, then Ctrl+End and Ctrl+V, pasted at the start in
+HexIDE. A form with a single-line box (Text1) and two MultiLine ones (Text2, Text3). A Timer sets each selection from code,
+straight after `SetFocus`, then sends the key with VB6's own `SendKeys`, and the next tick logs `SelStart` and
+`SelLength`. It ran in the guest's console session, where the form has the foreground. Native and p-code agreed on every
+row. The same build run in session 0, with no foreground, logged nothing changed; read that as no input, not as VB6's
+answer.
+
+| Box, text `abcdef` | Selection from code | Key | Then SelStart, SelLength, Text |
+|---|---|---|---|
+| Text1 | 0, 6 | Ctrl+End | 6, 0 |
+| Text2 (MultiLine) | 0, 6 | Ctrl+End | 6, 0 |
+| Text1 | 2, 0 | Ctrl+End | 6, 0 |
+| Text1 | 2, 2 | Ctrl+Home | 0, 0 |
+| Text2 (MultiLine) | 2, 2 | Ctrl+Home | 0, 0 |
+| Text1 | 0, 6 | Ctrl+Home | 0, 0 |
+| Text1 | 2, 2 | `X` typed | 3, 0, `abXef` |
+
+And the Notepad's own sequence, in Text3: `Text = "ab" & vbCrLf & "cd"`, `SelStart = 0`, `SelLength = Len(Text)`,
+`Clipboard.SetText SelText`, then the keys.
+
+| After | SelStart, SelLength | Text |
+|---|---|---|
+| the selection and the copy | 0, 6 | `ab CRLF cd` |
+| Ctrl+End | 6, 0 | `ab CRLF cd` |
+| `e` typed | 7, 0 | `ab CRLF cde` |
+| Ctrl+V | 13, 0 | `ab CRLF cdeab CRLF cd` |
+
+None of this is surprising: it's the Win32 edit control's own behaviour. It's recorded because HexIDE got the first row
+wrong.
+
+**In HexIDE (#1385):** every row runs as measured. Avalonia keeps its caret at a selection's anchor, `SelectionStart`, and
+moves `SelectionEnd`. Code's selection used to leave the caret at its end, and with that at the end of the text, Ctrl+End
+found nothing to move and collapsed the selection to its start, 0. The issue first read this as `SelStart` reading the
+wrong place. It read the right one: the paste had gone in at 0, and with the whole text copied, the result looks the same
+from either end. Typing a character after Ctrl+End, as the probe does, tells them apart.
 ## A form's WindowState (2026-10-17, #1152)
 
 **The probes.** Found by the Notepad demo, whose `Form_Resize` begins `If WindowState = vbMinimized Then Exit Sub`.
@@ -11683,3 +12527,2527 @@ to VB6.
   one window owns it, and the program keeps running under it.
 - **Two differences in when it asks.** HexIDE asks in run mode as well as in break mode, where VB6's code window takes
   no typing while the program runs. And it asks for every edit, where VB6 applies most edits live (D2).
+
+## A form whose two names disagree (2026-10-22, #473)
+
+**The question.** A `.frm` names its form twice: on the designer block's `Begin` line and in `Attribute VB_Name`. VB6
+writes the two equal. HexIDE renamed only the first until #1059 fixed #473, so files saved before that can disagree.
+Which name does VB6 honour? #473 recorded that for a module VB6 binds on `VB_Name` (see the `Folder1\Module1.bas`
+probes), and nobody had asked for a form.
+
+**The probe.** A Standard EXE starting from `Sub Main`, built with `vb6.exe /make` as p-code (6.00.8176 SP6). Its form
+was `Begin VB.Form frmRenamed` with `Attribute VB_Name = "Form1"`, in `Form1.frm`, listed as `Form=Form1.frm`. The
+module had no `Option Explicit`, so whichever name was not the form compiled as an implicit Variant. `Sub Main`
+printed `TypeName` of each name, each `.Name`, `Forms(0).Name`, and the `Me.Name` that `Form_Load` saw.
+
+**The `Begin` line wins, and VB6 says so.**
+- The build succeeds and exits 0. The `/out` log reads `Conflicting names were found in '…\Form1.frm'.  The name
+  'frmRenamed' will be used.`, then that the build succeeded.
+- At run time:
+  - `TypeName(frmRenamed)` is `frmRenamed`, its `.Name` is `frmRenamed`, and `Me.Name` in `Form_Load` is `frmRenamed`;
+  - `Forms(0).Name` is `frmRenamed`;
+  - `TypeName(Form1)` is `Empty`: it is an implicit variable.
+- The VB6 IDE, opening the project, shows the same message in a dialog with OK and Help. Its Project Explorer lists
+  `frmRenamed (Form1.frm)`.
+- After OK, a one-line code change, and Ctrl+S, the IDE wrote `Attribute VB_Name = "frmRenamed"`. It repaired the
+  attribute to the `Begin` line's name. `LinkTopic = "Form1"` was left as it was.
+
+So for a form, the opposite of a module: the designer block's name is the form's name, and `VB_Name` follows it.
+
+**Case alone is a disagreement.** With `Begin VB.Form frmRenamed` and `Attribute VB_Name = "FRMRENAMED"`, `/make`
+logs the same warning, "The name 'frmRenamed' will be used.", and builds.
+
+**A UserControl and a PropertyPage follow the same rule.** The probe was an ActiveX control project:
+- `UserControl=Gauge.ctl` holding `Begin VB.UserControl ucBegin` and `Attribute VB_Name = "Gauge"`;
+- `PropertyPage=Page1.pag` holding `Begin VB.PropertyPage ppBegin` and `Attribute VB_Name = "Page1"`.
+
+`/make` logs `Conflicting names were found in '…\Gauge.ctl'.  The name 'ucBegin' will be used.`, and the same for the
+page naming `ppBegin`, and builds the OCX. Which name a form must use for such a control is measured below.
+
+HexIDE takes a form's name from the `Begin` line too, so a program runs the same. It neither warns nor repairs on
+load, and that is #1407. A UserControl or PropertyPage it names after its file instead, which is #1411.
+
+**Which name a form uses for a UserControl (#1411).** The probes were five Standard EXEs called `probe`, each with a
+private UserControl and a form holding one instance of it, `Begin probe.<name> uc1`, built with `/make` as p-code:
+
+| File | `Begin` | `VB_Name` | The form says | `/make` |
+|---|---|---|---|---|
+| `Gauge.ctl` | `ctlDial` | `ctlDial` | `probe.ctlDial` | builds |
+| `Gauge.ctl` | `ctlDial` | `ctlDial` | `probe.Gauge` | fails |
+| `Dial.ctl` | `ucBegin` | `Gauge` | `probe.ucBegin` | builds, after the conflicting-names warning |
+| `Dial.ctl` | `ucBegin` | `Gauge` | `probe.Gauge` | fails |
+| `Dial.ctl` | `ucBegin` | `Gauge` | `probe.Dial` | fails |
+
+Each failure logs `Line 11: Class probe.<name> of control uc1 was not a loaded control class.` in `Form1.log`, and the
+form "could not be loaded". So the control's class is its `Begin` line's name and nothing else: not its file's, and
+not its `VB_Name`, even when the two agree with each other.
+
+**The IDE repairs a UserControl as it repairs a form.** It opened the third project with the dialog "Conflicting names
+were found in '…\Dial.ctl'.  The name 'ucBegin' will be used." After a one-line change to the control's code, Ctrl+S
+wrote `Attribute VB_Name = "ucBegin"` into `Dial.ctl`, which kept its file name. The project file still read
+`UserControl=Dial.ctl`.
+
+## A quote inside a .frm string (2026-10-22, #218)
+
+**The question.** How does VB6 read and write a `"` inside a string property of a `.frm`? HexIDE kept both quotes of
+a doubled pair on read, and wrote a lone quote unescaped. Its reader and writer agreed with each other, so its own
+files round-tripped. They disagreed with VB6 in both directions. The `.vbp` reader already halved doubled quotes, but
+a `.vbp` and a `.frm` come from different writers inside VB6, so this was measured, not assumed.
+
+**The probe.** A Standard EXE, built with `vb6.exe /make` as p-code (`CompilationType=-1`), on 6.00.8176 SP6. Its form
+gave these string properties a doubled quote:
+- the form's `Caption` and `LinkTopic`;
+- five Labels' `Caption`s, one with a `Tag`;
+- a CommandButton's `ToolTipText`;
+- a TextBox's `Text`.
+
+`Form_Load` wrote each value and its `Len` to a file, then ended. A second copy of the form wrote one Label's
+`Caption` as HexIDE did, with its quotes single. The first form was then opened in the VB6 IDE, dirtied with a
+comment line in its code, and saved with Ctrl+S.
+
+**Read: a doubled quote is one quote, in every string property tried.**
+
+| In the `.frm` | Read back | `Len` |
+|---|---|---|
+| `Caption = "He said ""hi"""` | `He said "hi"` | 12 |
+| `Caption = """"` | `"` | 1 |
+| `Caption = """Start"` | `"Start` | 6 |
+| `Caption = "End"""` | `End"` | 4 |
+| `Caption = """"""` | `""` | 2 |
+| form `Caption = "F""orm"` | `F"orm` | 5 |
+| form `LinkTopic = "Link""Topic"` | `Link"Topic` | |
+| `Tag = "t""g"` | `t"g` | |
+| CommandButton `ToolTipText = "tip""s"` | `tip"s` | |
+| TextBox `Text = "a""b"` | `a"b` | 3 |
+
+**Write: the IDE doubles every quote.** Its save wrote all ten string lines exactly as the probe had them. The save
+did not keep the probe's control order. It moved the CommandButton and the TextBox ahead of the five Labels, giving
+the Labels TabIndex 2 to 6. That was not examined further.
+
+**A quote written single breaks the form, and the build fails.**
+- `Caption = "He said "hi""`: `/make` exits 1.
+- Its `/out` log reads `Errors during load. Refer to '…\Form1.log' for details`, then `'…\Form1.frm' could not be
+  loaded.`, then `Build of 'probe.exe' failed.`
+- `Form1.log` holds `Line 13: Syntax error: property hi"" in lbl1 was missing an '='.`
+
+So the reader ends the string at the second quote, and takes the rest of the line for another property. The log
+names line 13, one past the Caption's line 12.
+
+**Not measured:**
+- A font's `Name` with a quote, which names no real face. HexIDE reads and writes it through the same code as every
+  other string.
+- Strings VB6 keeps in the `.frx`, such as a multi-line TextBox's `Text`, which are stored with a length rather than
+  quoted.
+- What the VB6 IDE does when opening the malformed form.
+
+HexIDE now halves a doubled quote on read and doubles each quote on write (`VbFrmFormatDeserializer.ParseValue`,
+`VbFrmFormatSerializer.WriteSimpleType`), and `FrmStringQuoteTests` holds the table. A side finding: a CommandButton
+does not model `ToolTipText` in HexIDE, so its line is kept as unknown text, and the property can't be set (#1403).
+
+## What Save Project As does to the paths in a project file (2026-10-22, #1406)
+
+**The question.** A `.vbp` names files by paths relative to its own folder. Save Project As writes it into another
+folder and moves nothing else. Which paths does VB6 rewrite to name the same file from the new folder? #737 settled
+the member lines HexIDE keeps without loading. This settles the keys HexIDE does not model.
+
+**The probe.** It started from the VB98 Template's add-in project (`Addin.vbp`, `ADDIN.FRM`, `ADDIN.DSR`, `ADDIN.DCA`),
+copied to `proj` with these additions:
+- `Module=Module1; sub\Module1.bas`;
+- `ResFile32="res\probe.res"`, a 32-byte `.res` holding only the null header entry;
+- `HelpFile="help\probe.hlp"`, naming a file that does not exist;
+- `Path32="out"`.
+
+The VB6 IDE (6.00.8176 SP6) opened it. File > Save Project As then saved it to `proj\deeper\Saved.vbp`, and again to a
+sibling folder, `other\Saved2.vbp`. Each saved file was read back.
+
+| Line read in `proj` | Written in `proj\deeper` | Written in `other` |
+|---|---|---|
+| `Form=AddIn.frm` | `Form=..\AddIn.frm` | `Form=..\proj\AddIn.frm` |
+| `Designer=AddIn.Dsr` | `Designer=..\AddIn.Dsr` | `Designer=..\proj\AddIn.Dsr` |
+| `Module=Module1; sub\Module1.bas` | `Module=Module1; ..\sub\Module1.bas` | `Module=Module1; ..\proj\sub\Module1.bas` |
+| `ResFile32="res\probe.res"` | `ResFile32="..\res\probe.res"` | `ResFile32="..\proj\res\probe.res"` |
+| `Path32="out"`, with `ExeName32="Probe.dll"` | `Path32="..\out"` | `Path32="..\proj\out"` |
+| `Path32="out"`, with no `ExeName32` | no `Path32` line | no `Path32` line |
+| `HelpFile="help\probe.hlp"` | `HelpFile="help\probe.hlp"` | `HelpFile="help\probe.hlp"` |
+| `Reference=…#..\..\STDOLE2.TLB#OLE Automation` | `…#..\..\..\Windows\SysWOW64\stdole2.tlb#…` | `…#..\..\Windows\SysWOW64\stdole2.tlb#…` |
+
+**What it shows:**
+- **Rebased:** every member line, `Designer=`, `ResFile32=` and `Path32=` are named from the new folder.
+- **Kept as typed:** `HelpFile=`.
+- **Dropped:** `Path32=` without an `ExeName32=`. The first run's project had no `ExeName32`, and neither of its saves
+  kept the line. With `ExeName32` added, both saves rebased it. Why VB6 ties the two together was not examined.
+- **Re-derived, not rebased:** a reference's library path. The Template's `..\..\STDOLE2.TLB` names no file from
+  `proj`, and VB6 wrote the path of the library registered for that GUID, named from the new folder, for all four
+  references. So VB6 consults the registry, and does not resolve the old path.
+
+HexIDE now rebases `Designer=`, `ResFile32=`, `Path32=` and a reference's relative path the way it rebases member
+lines (`SerializedProject.RebaseItemLine` and `RebasePath`), and leaves `HelpFile=` as it was. Two differences from
+VB6 remain:
+- **A reference's path is the file's own, rebased.** HexIDE cannot read the registry on every host. Where the library
+  has not moved, the path is the same one VB6 writes.
+- **`Path32` is kept without an `ExeName32`,** where VB6 drops it. The line does nothing without a target, so this is
+  left alone.
+
+## Where and how VB6 writes a project's description (2026-10-22, #42)
+
+**The question.** Project Properties sets a project's description, and HexIDE wrote it nowhere. Which key does VB6 write
+it under, where among the other keys, and how? No `.vbp` in `corpus/` or `demo/` carries one, and the position matters as
+much as the name: `ProjectSerializer` places the lines it does not model by counting the keys it does, in VB6's order.
+
+**The probe.** Two copies of one project: a form, a reference to `stdole2.tlb`, and the keys `Startup`, `Command32`,
+`Name="probe"`, `HelpContextID="0"`, `CompatibleMode="0"` and the three version numbers. `none.vbp` has no description.
+`quoted.vbp` adds `Description="He said ""hi"""` after `HelpContextID`. The VB6 IDE (6.00.8176 SP6) opened each, and
+File > Save Project As saved it to a new name. The saved files were read back.
+
+| Read | Written by Save Project As |
+|---|---|
+| `none.vbp`, no `Description` line | `Name="probe"`, `HelpContextID="0"`, `CompatibleMode="0"`: no `Description` line |
+| `quoted.vbp`, `Description="He said ""hi"""` | `Name="probe"`, `HelpContextID="0"`, `Description="He said ""hi"""`, `CompatibleMode="0"` |
+
+**What it shows:**
+- **The key is `Description`,** written quoted, with a quote inside doubled, as `Name` is.
+- **It sits after `HelpContextID` and before `CompatibleMode`.** The VB98 Template agrees: `Addin.vbp` and
+  `DHTML Application.vbp` carry it there, after `Name` and `HelpContextID`.
+- **No description, no line.** VB6 does not write an empty `Description=""`. The Template's four other projects
+  have no line.
+
+HexIDE now reads `Description` into the project and writes it there. A file read without one has room made for the line
+after its `HelpContextID`, so a description typed in later lands where VB6 puts it. One case is inferred, not measured:
+a project HexIDE created has no `HelpContextID` line, so HexIDE writes `Description` straight after `Name`. That is
+VB6's order with the missing line left out. What VB6 itself writes when it saves such a file, presumably a
+`HelpContextID="0"` of its own, was not probed.
+
+## A control's Name and Index, at run time (2026-10-22, #1431)
+
+**The question.** HexIDE stopped a program that read a control's `Name`, with a compile error `On Error` cannot trap. What
+does each kind of control give, and what does assigning it do? The same for `Index`, which "Control arrays" above
+measured only on an element.
+
+**The probes.** A form with a ComboBox, TextBox, Label, CommandButton, Frame, Timer, Image, Shape, Line, an OptionButton
+array `Option1(0)` and `Option1(1)`, a menu `mnuFile` and a menu array `mnuOpen(0)`, and a second, empty form, `Form2`.
+`Form_Load` logs one line a read, under `On Error Resume Next`, then unloads. Each was made native and p-code, and run in
+the guest's session 0; nothing here needs input or painting. The two logs were identical, row for row. An assignment
+early-bound stops the make, so each of those had a probe of its own.
+
+### Name
+
+| Read | VB6 |
+|---|---|
+| `Label1.Name`, `Line1.Name`, `Shape1.Name`, `Image1.Name`, `Timer1.Name`, `Frame1.Name`, `Command1.Name`, `Text1.Name`, `Combo1.Name` | the control's name, Err 0 |
+| `Option1(1).Name` | `Option1`, a **String**: the array's name, with no index |
+| `mnuFile.Name` / `mnuOpen(0).Name` | `mnuFile` / `mnuOpen` |
+| `o.Name`, `Dim o As Object: Set o = Combo1` / `c.Name`, `Dim c As Control` | `Combo1` |
+| `c.Name` in `For Each c In Me.Controls` | each control's name |
+| `Me.Name` / `Form1.Name` from Form1's code / `Form2.Name` | `Form1`, a String / `Form1` / `Form2` |
+| `f.Name`, `Dim f As Form2: Set f = New Form2` / `frm.Name`, `Dim frm As Form: Set frm = f` | `Form2` / `Form2`: a new instance is named after its form |
+| `o.Name`, `Set o = Me` / `Set o = Form2` | `Form1` / `Form2` |
+
+| Assignment | VB6 |
+|---|---|
+| `o.Name = "zz"`, `o` an Object holding Combo1 | **382**, "'Name' property cannot be set at run time"; `Combo1.Name` still reads `Combo1` |
+| `c.Name = "zz"`, `c` a **Control** holding Text1 | **382**, the same |
+| `o.Name = "zz"`, `o` an Object holding `Me` / `Form2` | **382**, the same |
+| `Combo1.Name = "zz"` | compile error, "Can't assign to read-only property" |
+| `frm.Name = "zz"`, `frm` a **Form** | compile error, "Can't assign to read-only property" |
+| `Me.Name = "zz"` | compile error, "Function or interface marked as restricted, or the function uses an Automation type not supported in Visual Basic" |
+
+### Index
+
+| Read | VB6 |
+|---|---|
+| `Option1(0).Index` / `mnuOpen(0).Index` | `0`, an **Integer** |
+| `o.Index`, `o` an Object holding `Option1(1)` | `1` |
+| `o.Index` on Combo1, `c.Index` on Label1 (a Control), `o.Index` on Line1 | **343**, "Object not an array" |
+| `c.Index` in `For Each c In Me.Controls` | an element's index; **343** for every other control, a menu among them |
+| `o.Index`, `o` an Object holding `Me` | **438**, "Object doesn't support this property or method" |
+
+| Assignment | VB6 |
+|---|---|
+| `o.Index = 5`, `o` an Object holding `Option1(1)` | **382**, "'Index' property cannot be set at run time"; it still reads `1` |
+| `Option1(0).Index = 3` | compile error, "Can't assign to read-only property" |
+
+**What it shows:**
+- **Every control has a Name, the lightweight ones and menus too.** An element's is its array's: nothing in `Name` tells
+  two elements apart, and `Index` is what does.
+- **A variable `As Control` binds late, and one `As Form` binds early.** The same assignment is a run-time 382 through
+  a Control and a compile error through a Form. Through an Object, both are late.
+- **So a program VB6 compiles can assign `Name` or `Index` only through an Object or a Control,** and always gets the
+  382. The three early-bound refusals are the compiler's, and a program with one never runs.
+- **`Index` outside an array is 343 for a control and 438 for a form.** A control has the member and no array to give it
+  meaning; a form doesn't have the member.
+- **`Me.Controls` runs in the order the .frm lists its controls,** and then its menus: Timer1, Frame1, Command1,
+  `Option1(1)`, `Option1(0)`, Combo1, Text1, Image1, Shape1, Line1, Label1, mnuFile, `mnuOpen(0)`. The .frm here lists
+  `Option1(1)` before `Option1(0)`, and the collection kept that order. This is for #1060: HexIDE has no Controls
+  collection yet.
+
+### A member no object has, late-bound
+
+Measured alongside, on a form with a TextBox and a class `Class1` with one Public field, under `On Error Resume Next`,
+native and p-code identical:
+
+| Statement | VB6 |
+|---|---|
+| `v = o.Foo` / `o.Foo = 1` / `o.Foo`, `o` an Object holding Text1 | **438**, "Object doesn't support this property or method", each |
+| `v = c.Foo` / `c.Foo = 1`, `c` a Control holding Text1 | **438**, each |
+| `v = o.Foo`, `o` holding `Me` | **438** |
+| `v = o.Foo` / `o.Foo = 1`, `o` holding a `Class1` | **438**, each |
+
+So late-bound, a member that isn't there is always 438, read, written or called, on a control, a form or a class.
+Early-bound it is the compile error "Method or data member not found", which is why HexIDE raises that. HexIDE at the
+time of measuring, for comparison: the reads were that compile error, which `On Error` cannot trap; the writes, a trappable
+461; the call, refused as not implemented (#1433).
+
+### In HexIDE (#1431)
+
+- **Every row above reads and refuses as measured,** but those for a form made with `New` (#822) and for `Me.Controls`
+  (#1060), neither of which HexIDE has yet.
+- **An early-bound assignment is the 382 too, when the statement runs.** HexIDE doesn't tell early binding from late, so
+  it gives every assignment what VB6 gives the only kind it compiles. That's the translation `interpreter-core` prescribes
+  for a compile-time refusal, and #1340's for a TextBox's MultiLine.
+- **Not measured:** a UserControl's Name, which VB6 is recalled to give through its Extender; and the Name of a control
+  added at run time with `Controls.Add`.
+
+## A lone CR or LF in VB6 source (2026-10-22, #1020)
+
+**The question.** Almost every HexIDE reader of a module's lines split on `\n` alone. A lone CR therefore ended no line
+for them, though it did for the `.frm` designer reader and the code window. Which does VB6 do? Nothing here recorded a
+lone CR, and the one line-ending fact recorded, that an LF-terminated module fails to load, turns out to be about classes.
+
+**The probe.** Each case is one project, written byte for byte on the guest so nothing normalised the line endings under
+test. `Sub Main` in `Module1.bas`, or `Form_Load` in a startup form, writes what it ran to a file. A class case also holds
+`C.cls`, whose `Property Get Value` carries `Attribute Value.VB_UserMemId = 0`, and `Main` reads `n = c` from a `New C`,
+under `On Error Resume Next`. So `n` is 42 when the attribute made `Value` the default member, and the error is 438 when
+it did not. Each was built with `vb6.exe /make` (6.00.8176 SP6) and the result run.
+
+| Probe | The file | `/make` | Ran |
+|---|---|---|---|
+| p1 | `.bas`, every line ending with a lone CR, the `VB_Name` line included | built | `x` = 7 |
+| p6 | `.bas`, every line ending with a lone LF | built | `x` = 7 |
+| p2 | CRLF `.bas`; `x = 1`, a lone CR, `x = x + 10` | built | `x` = 11 |
+| p5 | CRLF `.bas`; the same with a lone LF | built | `x` = 11 |
+| p3crlf | CRLF `.cls`; `Property Get Value() As Long`, then its `VB_UserMemId` line | built | `n` = 42, error 0 |
+| p3 | the same, with a lone CR ending the `Property Get` line | built | `n` = 42, error 0 |
+| p4 | the same, with a lone CR and then a CRLF ending it | built | `n` = 0, error 438 |
+| p11 | `.cls`; `VERSION` … `END` CRLF, every line after it ending with a lone CR | built | `n` = 42, error 0 |
+| p9 | `.cls`, every line ending with a lone CR | "`C.cls` could not be loaded" | |
+| p10 | `.cls`, every line ending with a lone LF | "could not be loaded" | |
+| p12 | `.cls`; `VERSION` … `END` with lone CRs, everything after it CRLF | "could not be loaded" | |
+| p13 | `.cls`; only the `VERSION` line ending with a lone CR | "could not be loaded" | |
+| p14crlf | CRLF `.frm` | built | ran |
+| p14 | `.frm`; designer block CRLF, every code line after it ending with a lone CR | built | ran |
+| p15 | `.frm`, every line ending with a lone CR | "Errors during load"; its log: "The file … could not be loaded", line 0 | |
+| p16 | `.frm`, every line ending with a lone LF | the same | |
+
+Two more probes, meant to end only the `VB_Name` line with a CRLF or with a lone CR, came out byte-identical to p6 and to
+a plain CRLF module. Their regular expressions did not match, so they measured nothing and are left out.
+
+**Continuations and comments, measured the same way for #1426.** Each is a CRLF `.bas` whose `Sub Main` starts with
+`x` at 0. One terminator is a lone CR or LF, as named, and the byte counts of CR and LF were read back from the
+written file before each build.
+
+| Probe | The lines, and the terminator after the first | Ran |
+|---|---|---|
+| p17crlf | `x = 1 + _`, CRLF, `10` | `x` = 11 |
+| p17 | the same, a lone CR | `x` = 11 |
+| p18 | the same, a lone LF | `x` = 11 |
+| p19 | `x = 1 ' note`, a lone CR, `x = x + 10` | `x` = 11 |
+| p20 | `x = 1: Rem note`, a lone CR, `x = x + 10` | `x` = 11 |
+| p21 | `x = 1 ' note`, a lone LF, `x = x + 10` | `x` = 11 |
+| p22crlf | `x = 1 ' note _`, CRLF, `x = x + 10` | `x` = 1 |
+| p22 | the same, a lone CR | `x` = 1 |
+| p23 | the same, a lone LF | `x` = 1 |
+
+All nine built.
+
+**What it shows:**
+- **In code, CRLF, a lone CR and a lone LF each end a line,** the `.bas` header's `Attribute VB_Name` line included.
+  A module's lines can all end with a lone CR, or all with a lone LF, and it builds and runs as its CRLF twin.
+- **The same three end a continued line and a comment.** ` _` and then a lone CR or LF continues the statement (p17,
+  p18). A `'` or `Rem` comment stops at a lone CR or LF, and the next line runs (p19–p21). A comment ending in ` _`
+  continues past any of the three, and the line after it is comment too (p22, p23, as p22crlf).
+- **An attribute line binds by the line above it, with a lone CR counting as a line end.** A lone CR between a
+  `Property Get` and its attribute changes nothing (p3). A lone CR and then a CRLF is a blank line, and the attribute
+  under it binds to nothing (p4).
+- **A designer block must be CRLF.** A class's `VERSION` … `END` and a form's designer block are refused unless every line
+  ends CRLF. The `VERSION` line alone ending with a lone CR is enough (p13). Below the block, the code reads as a
+  `.bas` does (p11, p14).
+
+**Overturned.** The class-probe gotcha above says VB6 needs CRLF source "or the module fails to load". That is true of a
+class, which fails as p10 does, and of a form; it is not true of a `.bas`, which loads with any of the three (p1, p6). Its
+misleading "User-defined type not defined" is what the class's use reports when the class itself could not be loaded.
+
+HexIDE now finds lines by this rule wherever it reads a module's or a form's lines: the header split, the `VB_Name`
+retarget, the read-only regions and the guard, and the reduction of a formatting edit. Its readers accept a CR-only or
+LF-only designer block, which VB6 refuses. A `.bas` or `.cls` saved after a load is written with CRLF throughout, since
+the header split rejoins its lines that way. To VB6 that is the same file. The interpreter's grammar ends a line at a
+lone CR too since #1426, and the corpus's three line-ending cases carry these verdicts. The bundled server's position
+model still ends one only at `\n` (#1052). Not probed: the VB6 IDE's own
+open and save, which may rewrite a lone CR as it loads.
+
+## A member indexed through its object, and a `?` line in the Immediate window (2026-10-22, #1386)
+
+**The question.** Paused in the Notepad demo's Find dialog, the Immediate window answered "Syntax error" for
+`? frmNotepad.txtEdit(0).Text`, and for any `?` with more than one item. Was that the Immediate window's parse, or the
+interpreter? And what does VB6's Immediate window print for a `?` line?
+
+It was the interpreter. The same expression in a program, `v = Form1.Text1(0).Text`, stopped the run with "Method or data
+member not found". `Form1.Text1` found the control array as a field of the form and dropped the `(0)`. The Immediate
+window reports every compile error as "Syntax error", which hid that.
+
+### Through its object, in a compiled program
+
+**The probe.** Form1 has a TextBox array, `Text1(0)` "first" and `Text1(1)` "second". Its `Form_Load` shows Form2 and
+calls `Form2.Probe`, which reads Form1's controls under `On Error Resume Next` and logs each line. Class1 has `Public V As
+Variant`. Made native and p-code, and run in the guest's session 0. The two logs were identical.
+
+| Statement, in Form2's code | VB6 |
+|---|---|
+| `v = Form1.Text1(0).Text` / `Form1.Text1(1).Text` | `first` / `second` |
+| `v = Form1.Text1(9).Text` | **340**, "Control array element '9' doesn't exist" |
+| `v = Form1.Text1("1").Text` | `second`: a String index is taken as a number |
+| `v = Form1.Text1.Count` / `Form1.Text1(1).Index` | `2` / `1` |
+| `Form1.Text1(0).Text = "w"` | Err 0, and it reads `w` |
+| `v = o.Text1(1).Text`, `Dim o As Object: Set o = Form1` | `second` |
+| `v = k.V(1)`, `Dim k As Class1`, after `k.V = Array(10, 20, 30)` | `20` |
+| `v = k.V(5)` | **9**, "Subscript out of range" |
+| `v = o.V(2)`, `Set o = k` | **451**, and nothing read |
+| `k.V(1) = 99` | Err 0, and `k.V(1)` still reads `20` |
+
+**In the form's own code**, a second probe:
+
+| Statement, in Form1's code | VB6 |
+|---|---|
+| `v = Text1(9).Text` / `Text1(9).Text = "x"` | **340**, "Control array element '9' doesn't exist", each |
+| `v = Text1(300).Text` | **340**, "Control array element '300' doesn't exist" |
+| `v = Me.Text1(9).Text` / `Unload Text1(9)` / `v = Text1("9").Text` | **340**, naming `9`, each |
+
+**What it shows:**
+- **A control array through its form, early- or late-bound, is the bare array.** The index picks the element, and a missing
+  one is 340.
+- **340's message names the index** it was given, read, written or unloaded. "Control arrays" above recorded the number
+  alone.
+- **A class's Variant field holding an array is indexed only early-bound.** Through an Object, the index goes to the
+  property itself, which takes none: 451. Assigning an element writes into a copy, and nothing says so. HexIDE can't tell
+  the two bindings apart, so it refuses the index (#1435) rather than give one answer for both.
+
+### A `?` line in the VB6 IDE's Immediate window
+
+**The probe.** The same Form1, with a Form2 whose `Probe` sets `Dim n As Integer: n = 7` and then `Stop`s. In the guest's
+console session, VB6 6.00.8176 opened the project, F5 ran it to the Stop, and a script typed each line into the Immediate
+window, then copied the window through the clipboard. Each line below is copied as it was, between brackets so trailing
+spaces show.
+
+| Typed | Printed |
+|---|---|
+| `? 5` / `? 1 + 1` / `? n` | `[ 5 ]` / `[ 2 ]` / `[ 7 ]` |
+| `? -3` / `? 1.5` | `[-3 ]` / `[ 1.5 ]` |
+| `? "abc"` / `? True` / `? Null` | `[abc]` / `[True]` / `[Null]` |
+| `? 1; "a"; 2` | `[ 1 a 2 ]` |
+| `? 1, 2` | `[ 1             2 ]` |
+| `? "a"; "b"` | `[ab]` |
+| `? Form1.Caption` | `[One]` |
+| `? Form1.Text1(0).Text` | `[first]` |
+| `? Form1.Text1(1).Text; Len(Form1.Text1(1).Text)` | `[second 6 ]` |
+| `? Form1.Text1.Count` | `[ 2 ]` |
+| `? 6;`, then `? 7` typed | `[ 6 ]` with the caret left after it; `? 7` joined that line as ` 6 ? 7`, and Enter gave "Compile error: Invalid in Immediate pane" |
+
+**What it shows:**
+- **A `?` line is Print, exactly as `Debug.Print` prints.** A number has a space where its sign would go and one after,
+  `;` joins and `,` moves to the next 14-column zone (the table under "`Debug.Print` is the same Print").
+- **It reads a control array through its form from another form's code.**
+- **A trailing `;` leaves the line open**, and the Immediate window doesn't start a new line for what is typed next.
+
+**Not measured:** `Print 4` and `?5` typed there. In three runs of four, Ctrl+G left no caret in the Immediate window,
+so the typing went nowhere. In one, after a click in the Immediate pane, it went into the code window. Neither row's
+answer could be told from those runs. A click inside the pane fixed one run of the three.
+
+### In HexIDE (#1386)
+
+- **`Form1.Text1(0)` is the element,** with the bare array's 340, now naming the index in every case.
+- **A `?` line prints as Print does,** single items and lists. A bare expression, with no `?`, still answers the value
+  alone, as it did. That's HexIDE's own, since VB6's Immediate window has no bare expression.
+- **A `?` line ending in `;` prints its items,** and the next line still starts a line of its own (debugger divergence D28).
+- **`k.V(1)` is refused as not implemented** (#1435). It used to read the whole array.
+
+## Another module's Enum members, bare (2026-10-22, #889)
+
+**The question.** A member of another module's Public Enum, read unqualified, read as Empty in HexIDE, with no error
+without `Option Explicit`. What does VB6 see, and where does a name clash?
+
+**The probes.** Module2 has `Public Enum Cols` (`colA`, `colB`, `colMax`) and `Private Enum Hidden` (`hidA = 7`). Class1
+has `Public Enum ClsE` (`clsA = 40`) and a Function returning `colMax`, and so does Form1. Sub Main in Module1, under
+`Option Explicit`, logs each read. Probes that VB6 refuses to build are a project each, read from `/make`'s answer. Made
+native and p-code; every log and every refusal was identical.
+
+| In Module1 | VB6 |
+|---|---|
+| `colMax` / `TypeName(colMax)` | `2` / `Long` |
+| `colA + colMax` | `2` |
+| `For i = 0 To colMax` | runs 3 times |
+| `Private Const K = colMax + 1` | `3`, a Long |
+| `Private d1(colMax) As Long` | 0 To 2 |
+| `Module2.colMax` / `Cols.colB` | `2` / `1` |
+| `clsA`, Class1's Public Enum member | `40`, a Long |
+| `Private Const KC = clsA + 1` / `Private d2(clsA) As Long` | `41`, a Long / 0 To 40 |
+| a Function in Class1, and one in Form1, returning `colMax` | `2`, each |
+| `Dim colB As Integer: colB = 9`, then `colB` / `colA` | `9`: the local comes first / `0` |
+| `hidA`, Module2's Private Enum member | compile error, "Variable not defined" |
+| `colA = 5` | compile error, "Assignment to constant not permitted" |
+| `colB`, with Module3's `Public Enum E3` also declaring `colB = 20` | compile error, "Ambiguous name detected: colB" |
+| `Cols.colB`, `E3.colB`, `Module3.colB`, the same project | `1`, `20`, `20` |
+| `Private Const KB = colB`, the same project | compile error, "Ambiguous name detected: colB" |
+| `colB`, with Module3's `Public colB As Long` | compile error, "Ambiguous name detected: colB" |
+
+**What it shows:**
+- **A Public Enum's members are project-wide names,** as a standard module's Public variables and Consts are (*Another
+  module's Public names, bare*), and **a class module's are too**. Each is a Long constant, so it sizes an array and
+  folds into a Const.
+- **They clash as those do.** Two modules' members of one name, or a member beside another module's Public variable,
+  are ambiguous where used bare, and only there: qualified, each reads its own.
+- **A local, and the module's own names, come first.**
+
+### In HexIDE (#889)
+
+- `ProjectNames` lists each other standard or class module's Public Enum members beside the Public variables and Consts,
+  so a bare read finds the read-only slot that module's pre-pass hoisted the member into. Assigning it is refused as a
+  constant, as VB6 refuses it.
+- A module-level Const or bound reads such a member as the constant it is, where #873 refused it, and two of them are
+  ambiguous there too.
+- **Not measured:** an Enum declared in a form, which HexIDE leaves out of the table, and a member beside another
+  module's Public Sub or Function of the name, which HexIDE treats as it treats a Public variable there: ambiguous.
+
+## A String read as a Date (2026-10-22, #967, #800)
+
+**The question.** HexIDE read a String into a Date by two rules. A store (`d = s`) read it as a number, so every date string was 13. `CDate` read it as a date with no numeric fallback, so a serial was 13, and it took a dot as a date separator (#800). What one rule does VB6 apply, and which other conversions share it?
+
+**The probes.** For each string, a `Sub Main` logs `CDate(s)`, then a store into a Date, then `IsDate(s)`, each value as `TypeName`, `CStr` and `CDbl`. Four projects were built under en-GB, native and p-code, and every line both builds logged was identical. The table gives `CStr`, with `CDbl` in brackets. A string with no year in it gives a date in the current year: these rows were measured in 2026.
+
+**What it shows:**
+- **`CDate` and a store into a Date give one answer for every string.**
+- **A date or a time comes first, in the user's locale.** Failing that, VB6 takes the number `CDbl` would read as a serial. That covers `&H` and `&O`, an `e` or `d` exponent, parentheses or a trailing minus as a negative, a leading plus, a trailing point and thousands commas.
+- **A serial outside the Date range is 13, not 6.** `"2958466"`, `"-657435"` and `"1e400"` are all 13, where `CDate(3000000#)` is 6.
+- **Under en-GB a dot between digits separates a time's parts, never a date's.**
+  - `"1.5"` is 01:05, `"1.5.3"` 01:05:03, and `"1.5 PM"` 13:05.
+  - `"1.60"`, `"24.0"` and `"25.5"` are no time, so they read as the numbers they are.
+  - `"1.2.2003"` is neither, so it is 13.
+- **A comma between numbers separates a date's parts,** with or without spaces around it. `"1,5"` is 1 May, `"13,1"` and `"1,13"` are 13 January, and `"1,5,2003"` is 1 May 2003.
+- **Two numbers that are no day and month either way round are a month and a year, or failing that a year and a month.** A year below 100 is in the regional window.
+  - `"1,000"`, `"1,00"` and `"1 000"` are January 2000, `"12,345"` is December 345, and `"0,5"` is May 2000.
+  - `"31,13"` is neither, so it is the number 3113.
+  - The order holds across 24 more pairs (below): `"31,2"` and `"2,31"` are both February 2031, `"29,2"` is February
+    2029 because 29 February this year does not exist, `"1,50"` is 1950 and `"5,100"` May 100. `"0,13"`, `"13,13"` and
+    `"0,0"` are neither, so they are the numbers 13, 1313 and 0.
+- **`IsDate` is True exactly when the date reading succeeds.** A number is never a date to it, but a dotted time is: `IsDate("0.5")` is True, and `CDate("0.5")` is 00:05, not noon.
+
+| String | `CDate(s)`, and `d = s` with `d` a Date | `IsDate(s)` |
+|---|---|---|
+| `"1/2/2003"` | `01/02/2003 (37653)`, a Date | True |
+| `"abc"` | Err 13 | False |
+| `"36526"` | `01/01/2000 (36526)`, a Date | False |
+| `"36526.5"` | `01/01/2000 12:00:00 (36526.5)`, a Date | False |
+| `" 2 "` (padded) | `01/01/1900 (2)`, a Date | False |
+| `"-1"` | `29/12/1899 (-1)`, a Date | False |
+| `"1.2.2003"` | Err 13 | False |
+| `"13.1.2003"` | Err 13 | False |
+| `"1-2-2003"` | `01/02/2003 (37653)`, a Date | True |
+| `"2003-01-02"` | `02/01/2003 (37623)`, a Date | True |
+| `"1 Feb 2003"` | `01/02/2003 (37653)`, a Date | True |
+| `"Feb 1, 2003"` | `01/02/2003 (37653)`, a Date | True |
+| `"10:30"` | `10:30:00 (0.4375)`, a Date | True |
+| `"1/2/2003 10:30"` | `01/02/2003 10:30:00 (37653.4375)`, a Date | True |
+| `""` (empty) | Err 13 | False |
+| `"  "` (two spaces) | Err 13 | False |
+| `"&H10"` | `15/01/1900 (16)`, a Date | False |
+| `"1e3"` | `26/09/1902 (1000)`, a Date | False |
+| `"3000000"` | Err 13 | False |
+| `"1,5"` | `01/05/2026 (46143)`, a Date | True |
+| `"True"` | Err 13 | False |
+| `"12/31/2003"` | `31/12/2003 (37986)`, a Date | True |
+| `"0"` | `00:00:00 (0)`, a Date | False |
+| `"0.5"` | `00:05:00 (3.47222222222222E-03)`, a Date | True |
+| `"31/12/2003"` | `31/12/2003 (37986)`, a Date | True |
+| `"2003/1/2"` | `02/01/2003 (37623)`, a Date | True |
+| `"1/2"` | `01/02/2026 (46054)`, a Date | True |
+| `"1.5"` | `01:05:00 (4.51388888888889E-02)`, a Date | True |
+| `"$5"` | Err 13 | False |
+| `"(3)"` | `27/12/1899 (-3)`, a Date | False |
+| `"2."` | `01/01/1900 (2)`, a Date | False |
+| `"  36526  "` (padded) | `01/01/2000 (36526)`, a Date | False |
+| `"1.30"` | `01:30:00 (0.0625)`, a Date | True |
+| `"23.59"` | `23:59:00 (0.999305555555556)`, a Date | True |
+| `"24.0"` | `23/01/1900 (24)`, a Date | False |
+| `"25.5"` | `24/01/1900 12:00:00 (25.5)`, a Date | False |
+| `"1.60"` | `31/12/1899 14:24:00 (1.6)`, a Date | False |
+| `"1.5.3"` | `01:05:03 (4.51736111111111E-02)`, a Date | True |
+| `"1.5 PM"` | `13:05:00 (0.545138888888889)`, a Date | True |
+| `"10.30.15"` | `10:30:15 (0.437673611111111)`, a Date | True |
+| `"0.25"` | `00:25:00 (1.73611111111111E-02)`, a Date | True |
+| `"1.2.3"` | `01:02:03 (4.30902777777778E-02)`, a Date | True |
+| `"100.5"` | `09/04/1900 12:00:00 (100.5)`, a Date | False |
+| `"-1.5"` | `29/12/1899 12:00:00 (-1.5)`, a Date | False |
+| `"1.5e1"` | `14/01/1900 (15)`, a Date | False |
+| `"1.05"` | `01:05:00 (4.51388888888889E-02)`, a Date | True |
+| `"12.5.30"` | `12:05:30 (0.503819444444444)`, a Date | True |
+| `"1,2003"` | `01/01/2003 (37622)`, a Date | True |
+| `"1,5,2003"` | `01/05/2003 (37742)`, a Date | True |
+| `"1,5 10:30"` | `01/05/2026 10:30:00 (46143.4375)`, a Date (HexIDE: Err 13, #1445) | True |
+| `"13,1"` | `13/01/2026 (46035)`, a Date | True |
+| `"1,13"` | `13/01/2026 (46035)`, a Date | True |
+| `"1,5,3"` | `01/05/2003 (37742)`, a Date | True |
+| `"2958465"` | `31/12/9999 (2958465)`, a Date | False |
+| `"2958466"` | Err 13 | False |
+| `"-657434"` | `01/01/100 (-657434)`, a Date | False |
+| `"-657435"` | Err 13 | False |
+| `"2958465.5"` | `31/12/9999 12:00:00 (2958465.5)`, a Date | False |
+| `"1.5.2003 10:30"` | Err 13 | False |
+| `"10:30.5"` | `10:30:05 (0.43755787037037)`, a Date | True |
+| `"1:2:3"` | `01:02:03 (4.30902777777778E-02)`, a Date | True |
+| `"1 2 2003"` | `01/02/2003 (37653)`, a Date | True |
+| `"1/2/3"` | `01/02/2003 (37653)`, a Date | True |
+| `"12:00 PM"` | `12:00:00 (0.5)`, a Date | True |
+| `"13:00 PM"` | `13:00:00 (0.541666666666667)`, a Date | True |
+| `"1e400"` | Err 13 | False |
+| `"1."` | `31/12/1899 (1)`, a Date | False |
+| `".5"` | `12:00:00 (0.5)`, a Date | False |
+| `"1d2"` | `09/04/1900 (100)`, a Date | False |
+| `"&O17"` | `14/01/1900 (15)`, a Date | False |
+| `"1/2/2003 1.5"` | `01/02/2003 01:05:00 (37653.0451388889)`, a Date | True |
+| `"Jan 2003"` | `01/01/2003 (37622)`, a Date | True |
+| `"2003"` | `25/06/1905 (2003)`, a Date | False |
+| `"30/2/2003"` | Err 13 | False |
+| `"13.1.2003"` | Err 13 | False |
+| `"1/2/2003"` | `01/02/2003 (37653)`, a Date | True |
+| `"1,5"` | `01/05/2026 (46143)`, a Date | True |
+| `"1.5"` | `01:05:00 (4.51388888888889E-02)`, a Date | True |
+| `"1,000"` | `01/01/2000 (36526)`, a Date | True |
+| `"1,000.5"` | `26/09/1902 12:00:00 (1000.5)`, a Date | False |
+| `"12,345"` | `01/12/345 (-567616)`, a Date | True |
+| `"123,456"` | `03/01/2238 (123456)`, a Date | False |
+| `"1,5.5"` | `14/01/1900 12:00:00 (15.5)`, a Date | False |
+| `"£5"` | Err 13 | False |
+| `"5%"` | Err 13 | False |
+| `"+5"` | `04/01/1900 (5)`, a Date | False |
+| `"5-"` | `25/12/1899 (-5)`, a Date | False |
+| `"1 000"` | `01/01/2000 (36526)`, a Date | True |
+| `"1,00"` | `01/01/2000 (36526)`, a Date | True |
+| `"31,12"` | `31/12/2026 (46387)`, a Date | True |
+| `"31,13"` | `09/07/1908 (3113)`, a Date | False |
+| `"0,5"` | `01/05/2000 (36647)`, a Date | True |
+| `"1,5,2003 10:30"` | `01/05/2003 10:30:00 (37742.4375)`, a Date | True |
+| `"Feb 1,2003"` | `01/02/2003 (37653)`, a Date | True |
+| `"1, 5"` | `01/05/2026 (46143)`, a Date | True |
+| `"1 ,5"` | `01/05/2026 (46143)`, a Date | True |
+| `"2003,1,2"` | `02/01/2003 (37623)`, a Date | True |
+| `"1,2,3,4"` | `18/05/1903 (1234)`, a Date | False |
+| `"10:30,5"` | Err 13 | False |
+| `"1.5,2003"` | `31/12/1899 12:28:51 (1.52003)`, a Date (HexIDE: Err 13, #1446) | False |
+| `"5,1.5"` | `19/02/1900 12:00:00 (51.5)`, a Date | False |
+| `"1,5 PM"` | Err 13 | False |
+
+**Two numbers,** measured afterwards for the review, native and p-code identical:
+
+| String | `CDate(s)`, and `d = s` with `d` a Date | `IsDate(s)` |
+|---|---|---|
+| `"31,2"` | `01/02/2031 (47880)`, a Date | True |
+| `"31/2"` | `01/02/2031 (47880)`, a Date | True |
+| `"32,12"` | `01/12/2032 (48549)`, a Date | True |
+| `"5,0"` | `01/05/2000 (36647)`, a Date | True |
+| `"0,13"` | `12/01/1900 (13)`, a Date | False |
+| `"13/2003"` | Err 13 | False |
+| `"2,31"` | `01/02/2031 (47880)`, a Date | True |
+| `"2/31"` | `01/02/2031 (47880)`, a Date | True |
+| `"12,99"` | `01/12/1999 (36495)`, a Date | True |
+| `"1,50"` | `01/01/1950 (18264)`, a Date | True |
+| `"6 99"` | `01/06/1999 (36312)`, a Date | True |
+| `"13,5"` | `13/05/2026 (46155)`, a Date | True |
+| `"31,1"` | `31/01/2026 (46053)`, a Date | True |
+| `"45,6"` | `01/06/2045 (53114)`, a Date | True |
+| `"99,12"` | `01/12/1999 (36495)`, a Date | True |
+| `"100,5"` | `01/05/100 (-657314)`, a Date | True |
+| `"5,100"` | `01/05/100 (-657314)`, a Date | True |
+| `"0,0"` | `00:00:00 (0)`, a Date | False |
+| `"0/1"` | `01/01/2000 (36526)`, a Date | True |
+| `"1/0"` | `01/01/2000 (36526)`, a Date | True |
+| `"13,13"` | `05/08/1903 (1313)`, a Date | False |
+| `"29,2"` | `01/02/2029 (47150)`, a Date | True |
+| `"2,29"` | `01/02/2029 (47150)`, a Date | True |
+| `"30 2"` | `01/02/2030 (47515)`, a Date | True |
+
+`"£5"` was sent as cp1252 byte 0xA3, and the guest's log shows it as `?`. Both VB6 and HexIDE give 13.
+
+**The other doors,** from the same probes, native and p-code identical:
+
+| Statement | VB6 |
+|---|---|
+| `Const C As Date = "36526"` / `"1.5"` / `"1,13"` | 01/01/2000 / 01:05:00 / 13 January this year, each a Date |
+| `Const C As Date = "2958466"` / `""` / `"1.2.2003"` | compile error "Type mismatch", each |
+| `Sub P(ByVal d As Date)`, given `"1/2/2003"` / `"36526"` / `"abc"` | 01/02/2003 / 01/01/2000, each a Date / 13 |
+| `a(0) = "1/2/2003": a(1) = "36526"`, `a` a Date array | 01/02/2003 / 01/01/2000 |
+| `u.d = "1,5"`, `d` a Date field | 1 May this year, a Date |
+| `F = s` in a Function `As Date`, given `"0.5"` | 00:05:00, a Date |
+| `CVDate("36526")` / `CVDate("1.5")` | 01/01/2000 / 01:05:00 |
+| `DateAdd("d", 1, "36526")` / `"1.5"` / `"1,000"` / `"2958466"` | 02/01/2000 / 31/12/1899 01:05:00 / 02/01/2000 / 13 |
+| `Year("36526")`, `Year("1,000")`, `Month("0,5")`, `Hour("1.5")`, `Weekday("36526")` | 2000, 2000, 5, 1, 7 |
+| `DateDiff("d", "36526", "36527")`, `DatePart("yyyy", "1,000")` | 1, 2000 |
+| `DateValue("36526")` / `DateValue("1/2/2003 10:30")` | 13 / 01/02/2003 |
+| `TimeValue("36526.5")` / `TimeValue("1.5")` | 13 / 01:05:00 |
+| `Format("36526", "dd/mm/yyyy")` / `Format("1.5", "hh:nn")` | 01/01/2000 / 01:05 |
+| `CDate(36526.5)` / `CDate(3000000#)` / `CDate(2958465.99999)` | noon on 01/01/2000 / 6 / 31/12/9999 23:59:59 |
+
+So every door that converts a String into a Date reads it as `CDate` does. The exceptions are `DateValue` and `TimeValue`, which take date text only and no serial.
+
+**A second locale can't be probed from inside the program.** `SetThreadLocale 1031`, for de-DE, moved `GetThreadLocale` from 2057 to 1031. Afterwards, `"13.1.2003"` was still 13, `"1,5"` still 1 May and `"1.5"` still 01:05. VB6's conversion follows the user locale, not the thread's. So measuring de-DE means changing the guest's regional settings, which affects everyone sharing it, and that was not done.
+
+### In HexIDE (#967, #800)
+
+- **One reading for every door,** `VB6BuiltIns.StringToDate`.
+  - It tries `TryReadDate` in the program's locale first. Failing that, it takes `ToNum`'s number as a serial. If neither works, or the serial is outside the range, the result is 13.
+  - `CDate` uses it, and so does `CVDate`, which is new. So do a store into a declared Date variable or array element, a Date Const, and every date function through `AsDate`, `Format` included.
+  - `DateValue` and `TimeValue` read date text only.
+- **What `TryReadDate` now does:**
+  - A dot between digits becomes the time separator, unless the locale's date separator is a dot.
+  - A comma between digits becomes the date separator, unless the locale's decimal separator is a comma.
+  - Two numbers that .NET can't read as a day and a month are read as a month and a year, then as a year and a month.
+- **Every row above matches,** pinned in `StringToDateTests` and `ConstAsTypeTests`, except these:
+  - `"1,5 10:30"` is 13 (#1445).
+  - `"1.5,2003"` is 13 (#1446).
+  - A `ByVal` Date parameter, a UDT's Date field and a Date Function's return read it so too, since #874, #221 and #1444.
+- **Not measured:**
+  - A locale whose date separator is a dot, or whose decimal separator is a comma. HexIDE leaves those to .NET's reading.
+  - A month-first locale.
+
+## A Function's return, converted where it is assigned (2026-10-22, #1444)
+
+**The question.** HexIDE converted a Function's value into its declared return type only for the numeric types, and only as
+the Function returned. So `FS = 5`, in a Function `As String`, returned an Integer, and `FD = "0.5"`, in one `As Date`,
+returned a String. Where does VB6 convert, and for which types?
+
+**The probes.** Each Function takes a Variant, stores it into its own name under `On Error Resume Next`, and logs
+`Err.Number` before it returns. The caller, also under `On Error Resume Next`, logs `TypeName`, `CStr` and `Err.Number` of
+what came back. A second project puts a Property Get and a Function in a class. Made native and p-code under en-GB; every
+line was identical.
+
+| Store, in the procedure | Inside, `Err.Number` | The caller reads |
+|---|---|---|
+| `FD = "0.5"`, a Function `As Date` | 0 | Date 00:05:00 (0.00347…) |
+| `FD = "1/2/2003"` / `"36526"` / `2.5` | 0 | Date 01/02/2003 / 01/01/2000 / 01/01/1900 12:00:00 |
+| `FD = "abc"` | 13 | Date 00:00:00, and `Err.Number` still 13 |
+| `FS = 5` / `True` / `2.5` / `#1/2/2003#`, `As String` | 0 | String "5" / "True" / "2.5" / "02/01/2003" |
+| `FB = 5` / `0` / `"True"`, `As Boolean` | 0 | Boolean True / False / True |
+| `FB = "abc"` | 13 | Boolean False, and 13 |
+| `FI = 40000`, `As Integer` | 6 | Integer 0, and 6 |
+| `FI = 2.5` / `"12"` | 0 | Integer 2 / 12 |
+| `FC = 1.23456`, `As Currency` | 0 | Currency 1.2346 |
+| `FN = "abc"`, `As Date`, with no handler in `FN` | — | the caller's 13; its assignment is skipped |
+| `FV = "0.5"`, a Function with no As clause | — | String "0.5" |
+| A standard module's `Property Get PD() As Date`, `PD = "1/2/2003"` | — | Date 01/02/2003 |
+| A class's `Property Get PD() As Date`, `PD = "0.5"` / `PS() As String`, `PS = 2.5` | — | Date 00:05:00 / String "2.5" |
+| A class's `Property Get PI() As Integer`, `PI = 40000` | 6 | Integer 0, and 6 |
+| A class's `Function FB(v) As Boolean`, given 5 / `"abc"` | 0 / 13 | Boolean True / False, and 13 |
+
+**What it shows:**
+- **A store into a typed Function's or Property Get's name converts as a store into a variable of that type does,** and
+  at the store. So the error is raised inside the procedure, where its own handler traps it, and the procedure then
+  returns its type's zero.
+- **The caller still sees `Err.Number` 13 after the procedure returned normally,** having trapped the error itself. An End
+  Function does not clear it.
+- **A String into a Date return is read as `CDate` reads it** (*A String read as a Date*).
+
+### In HexIDE (#1444)
+
+A Function's return slot is allocated with its declared scalar type, as a `Dim`'s is, so a store into the name goes
+through the same conversion as a store into a variable. Every row above is pinned in `TypedReturnTests` except the
+standard module's Property Get, which HexIDE does not reach by name (#977). An Enum or UDT return is unchanged.
+
+## A store into a UDT field (2026-10-22, #221)
+
+**The question.** HexIDE stored a value into a Type's field as it was given. So `u.l = 5`, with `l As Long`, read back as
+an Integer, which eleven corpus cases had measured as a Long and sat recorded as known divergences. What does VB6 do at the
+edges: an overflow, a String that is no number, a nested Type, `With`, and a field passed ByRef?
+
+**The probe.** A Sub Main, under `On Error Resume Next`, stores into each field of `Private Type T` (Integer, Long, Double,
+String, Boolean, Date, Currency, `String * 5`, Variant, a nested Type with an Integer, and an Integer array of three), and
+logs `TypeName`, the value and `Err.Number` after each. Each store follows the ones above it on the same `u`, so a failed
+store shows what the field kept. Made native and p-code under en-GB; every line was identical.
+
+| Store | VB6 |
+|---|---|
+| `u.i = 5` / `u.l = 5` / `u.d = 5` | Integer 5 / Long 5 / Double 5 |
+| `u.l = "12"`, then `u.l = "abc"` | Long 12, then 13, and `u.l` keeps 12 |
+| `u.i = 5`, then `u.i = 40000`, then `u.i = 2.5` | 6, and `u.i` keeps 5; then Integer 2 |
+| `u.s = 5` | String "5" |
+| `u.b = 5`, then `u.b = "abc"` | Boolean True, then 13, and `u.b` keeps True |
+| `u.dt = "1/2/2003"` / `u.dt = 1` | Date 01/02/2003 / 31/12/1899 |
+| `u.c = 1.23456` | Currency 1.2346 |
+| `u.f = "abcdefg"` / `u.f = 5`, `f As String * 5` | String "abcde", Len 5 / String "5    ", Len 5 |
+| `u.v = 5`, `v As Variant` | Integer 5 |
+| `u.inner.x = "7"`, then `u.inner.x = 40000` | Integer 7, then 6, and it keeps 7 |
+| `u.arr(1) = "12"`, then `u.arr(1) = 40000` | Integer 12, then 6, and it keeps 12 |
+| `a(1).l = 5` / `a(1).s = 2.5`, `a` an array of `T` | Long 5 / String "2.5" |
+| `With u` / `.l = 7` / `.s = True` / `End With` | Long 7, String "True" |
+| `PL u.l`, where `Sub PL(x As Long)` stores `x = "9"` | Long 9: the field is passed by reference |
+
+**What it shows:** a store into a field converts as a store into a variable of the field's type does, through every way
+of reaching the field, and a value that will not convert raises 13 or 6 before the store, so the field keeps what it held.
+
+### In HexIDE (#221)
+
+A Type's typed fields carry their declared types, and `VbUdt.TrySet`, the one store into a field, converts through
+`VbNumeric.CoerceOnStore`, as a store into a variable does. Every row above matches and is pinned in `UdtFieldStoreTests`,
+except these, which HexIDE does not reach yet:
+- a `String * 5` field, which HexIDE refuses as not implemented (#179);
+- an array field, which it refuses the same way, and an array of a Type, whose element is not found (#178);
+- `PL u.l` left the field at 7 until #1451, because a field argument was copied and never written back (*A UDT field
+  passed ByRef*).
+
+The eleven corpus cases recorded as `DECLARED-TYPE-ON-STORE` now match `vb6.exe` and are gated, and the four
+`ModuleScopeTests` that pinned the Integer read a Long.
+
+## A UDT field passed ByRef (2026-10-22, #1451)
+
+**The question.** HexIDE copied a UDT field given to a ByRef parameter and never wrote the copy back, so `PL u.l`, with
+`PL(x As Long)` storing `x = "9"`, left `u.l` at 7. Does VB6 pass the field itself, or copy it in and out? The two differ
+while the procedure runs, and when it fails after storing.
+
+**The probe.** A Sub Main, under `On Error Resume Next`, passes fields of `Private Type T` (`l As Long`, `s As String`,
+`v As Variant`, and a nested Type with `y As Long`) to Subs that store into their parameter, and logs each field after the
+call. One Sub stores into its parameter and then reads the module-level variable the field belongs to. Made native and
+p-code under en-GB; every line was identical.
+
+| Call | The procedure | The field after |
+|---|---|---|
+| `PL u.l`, `u.l` 7 | `PL(x As Long)`: `x = "9"` | Long 9 |
+| `PS u.s`, `u.s` "a" | `PS(x As String)`: `x = x & "!"` | String "a!" |
+| `PV u.l` | `PV(x As Variant)`: `x = 12` | Long 12 |
+| `PVS u.l` | `PVS(x As Variant)`: `x = "hello"` | 13, and `u.l` keeps 7 |
+| `PVS u.v` | the same, given a Variant field | String "hello" |
+| `PU u.l` | `PU(x)`, untyped: reads `x`, then `x = 2.5` | it reads Long 7; then Long 2 |
+| `PL u.inner.y` | `PL`, given a nested Type's field | Long 9 |
+| `PE u.l` | `PE(x As Long)`: `x = 5`, then `Err.Raise 5` | Long 5, and 5 |
+| `PA g.l`, `g` a module's `T` | `PA(x As Long)`: `x = 3`, then reads `g.l` | it reads 3 inside; Long 3 |
+| `PBV u.l` | `PBV(ByVal x As Long)`: `x = 99` | Long 7 |
+| `PL (u.l)` | `PL`, the argument in parentheses | Long 7 |
+| `PL2 u.l` | `PL2(y As Long)`: `PL y` | Long 9 |
+| `PI u.l` | `PI(x As Integer)` | compile error, "ByRef argument type mismatch" |
+
+**What it shows:**
+- **VB6 passes the field itself.** A store through the parameter is in the field at once: the procedure reads it back
+  through the module's variable while it is still running. The store survives an error raised after it.
+- **A store through the parameter converts into the field's type,** whatever the parameter's: a Variant parameter given a
+  Long field stores 12 as a Long and 2.5 as 2, and refuses "hello" with 13.
+- **ByVal, or the argument in parentheses, passes a copy.** A parameter of another type is refused at compile time, as it
+  is for a variable.
+- **The parameter reads as the field does.** A second probe, under the same conditions, passed fields holding 5 to Subs
+  that evaluate `x * 7000` under `On Error Resume Next`:
+
+  | Argument | `PI(x As Integer)` | `PV(x As Variant)` | `PU(x)` |
+  |---|---|---|---|
+  | `u.i`, `i As Integer` | 6 | 35000 | 35000 |
+  | `u.v`, `v As Variant` | refused | 35000 | 35000 |
+  | `n`, `Dim n As Integer` | 6 | 35000 | not probed |
+
+  So a typed parameter given a typed field is typed, as it is given a variable, and a Variant parameter reads a Variant's
+  either way (#1001).
+
+The same probe, for an array element, native and p-code:
+
+| Call | The element after |
+|---|---|
+| `PL a(1)`, `a` a Long array, `a(1)` 7 | Long 9 |
+| `PV w(1)`, `w` a Variant array | String "v" |
+| `PV a(1)`, the Long array | 13, and `a(1)` keeps 7 |
+| `PV v(1)`, `v` a Variant holding `Array(1, 2, 3)` | String "v" |
+
+So an array element is passed by reference too, and converts into the array's element type the same way.
+
+### In HexIDE (#1451)
+
+A field argument carries the Type instance holding it and its name. A ByRef parameter of the field's type, or an untyped
+or Variant one, gets a slot that reads and writes the field itself, linked for as long as the call runs, so every store
+converts through the field's own `TrySet`. The slot is declared as the field is, typed or a Variant, which is what makes
+`x * 7000` overflow in `PI u.i`. Every field row above is pinned in `ByRefFieldTests`. `PI u.l` is copied rather
+than refused, as a variable of another type is. Not done here: a field reached through `With`, an index or an array of a
+Type (#178), and the array-element rows, which #1455 passes by reference (*An array element passed ByRef*). `PL2 u.l` is 9, the field passed on through a second ByRef
+parameter.
+
+## An array element passed ByRef (2026-10-22, #1455)
+
+**The question.** HexIDE copied an array element given to a ByRef parameter, so `PL a(1)`, with `PL(x As Long)` storing 9,
+left `a(1)` as it was, and `Swap s(0), s(1)` swapped nothing. Does VB6 pass the element itself, and what may the procedure do
+to the array while it holds one?
+
+**The probe.** Three Sub Main programs under `On Error Resume Next`, logging after each call. Made native and p-code under
+en-GB; every line was identical. The three programs `ByRefElementTests` runs were then made the same way, and logged exactly
+what the tests pin.
+
+| Call | The procedure | VB6 | HexIDE before |
+|---|---|---|---|
+| `PL a(1)`, `a` a Long array, `a(1)` 7 | `PL(x As Long)`: `x = "9"` | Long 9 | Long 7 |
+| `PV w(1)`, `w` a Variant array | `PV(x As Variant)`: `x = "v"` | String "v" | Integer 7 |
+| `PV a(1)`, the Long array | the same | 13, and `a(1)` keeps 7 | Long 7, no error |
+| `PV v(1)`, `v` a Variant holding `Array(1, 2, 3)` | the same | String "v" | Integer 2 |
+| `PLI al(gi)`, `gi` 1 | `PLI(x As Long)`: `gi = 2`, then `x = 9` | `al(1)` 9, `al(2)` 0 | both 0 |
+| `PL m(1, 2)`, a two-dimensional Long array | `PL` | 9 | 0 |
+| `Swap s(0), s(1)`, holding 2 and 1 | `t = a: a = b: b = t` | 1 2 | 2 1 |
+| `PL al(0 + 0)` | `PL` | 9 | 4 |
+| `PL (al(0))` | `PL`, the argument in parentheses | 4 | 4 |
+| `PL2 al(1)` | `PL2(y As Long)`: `PL y` | 9 | not probed |
+| `PG g(1)`, `g` a module's Long array, `g(1)` 7 | `x = 9`, reads `g(1)`; `g(1) = 4`, reads `x` | reads 9, then `x` is 4; `g(1)` 4 | not probed |
+| `PL ua(1).l`, `ua` an array of a Type | `PL` | 9 | not reached (#178) |
+| `PO oc(1)`, `oc` an array of Collection | `PO(c As Collection)`: `Set c = New Collection` | Collection | not reached |
+
+A parameter reads as the element does, as it reads a field (*A UDT field passed ByRef*): given `a(1)` of an Integer array
+holding 5, `x * 7000` is 6 in `PI(x As Integer)` and 35000 in `PV(x As Variant)` and `PU(x)`; given `w(1)` of a Variant
+array, 35000 in either.
+
+**While the call runs, the array is locked.** `PRD d(1)`, with `d` a module-level dynamic Long array `ReDim d(2)`:
+
+| Inside the procedure | VB6 |
+|---|---|
+| `ReDim d(5)` | 10, "This array is fixed or temporarily locked", and `UBound(d)` stays 2 |
+| `ReDim Preserve d(5)` | 10, and `UBound(d)` stays 2 |
+| `ReDim d("x")` or `ReDim Preserve d("x")` | 13: the bounds are converted first |
+| `ReDim d(5 To 2)` or `ReDim Preserve d(5 To 2)` | 10, ahead of the inverted range's 9 |
+| `Erase d` | 10 |
+| `d = e`, `e` a Long array `ReDim e(3)` | 10, and `UBound(d)` stays 2 |
+| `v = 5`, inside `PVV v(1)` with `v` a Variant holding `Array(1, 2, 3)` | 10, and `v` is still `Variant()` |
+| a store through the parameter | lands: `d(1)` is 9 after the call |
+| `ReDim d(4)` after the call returns | works: `UBound(d)` 4 |
+
+**What it shows:**
+- **VB6 passes the element itself,** the same in every shape it was given: one or two dimensions, a typed, Variant or object
+  array, an array held in a Variant, a field of an element, and an element passed on through a second ByRef parameter.
+- **The subscripts are evaluated once, at the call.** `PLI al(gi)` writes `al(1)` although the procedure has made `gi` 2.
+- **A store through the parameter converts into the array's element type,** and one that won't, raises: `PV a(1)` storing
+  "v" into the Long array is 13.
+- **The array is locked until the call returns.** Anything that would replace or free its storage raises 10, and leaves it
+  as it was.
+- **Parentheses pass a copy,** as they do for a variable.
+
+### In HexIDE (#1455)
+
+An element argument carries its array and its subscripts, evaluated once at the call, and a ByRef parameter of the element's
+type, or an untyped or Variant one, gets a slot that reads and writes the element for as long as the call runs, as #1451's
+does for a field. The slot is declared as the element reads. The call locks the array (`VBArray.LockCount`), and ReDim,
+ReDim Preserve, Erase, and a store into a variable holding the array (`ModuleExecutionContext.TryUpdateVariable`) raise 10
+while it is locked. ReDim Preserve (#1459) checks the lock before it resizes anything, so none can resize an array whose
+element a parameter is writing. Every row above that HexIDE reaches is pinned in `ByRefElementTests`. Not reached: an array of a Type
+(#178), and an array of Collection, whose declaration HexIDE refuses.
+
+## A form's StartUpPosition when its file has no line (2026-10-13, #932)
+
+**The obvious guess, and HexIDE's for as long as it had the property: a missing `StartUpPosition` line means 3,
+Windows Default.** That is the value VB6 gives a new form, so it looked like the default. It is not what VB6 reads.
+A missing line is 0, Manual. HexIDE's one default had been doing two jobs that VB6 keeps apart: the value a new form
+gets, and the meaning of a line that is not there.
+
+**The corpus first.** Of the 20 `.frm` files in VB6's Template tree, read on the oracle machine, 13 have no
+`StartUpPosition` line, and all 13 carry explicit `ClientLeft`/`ClientTop`, which is the Manual shape: About Dialog
+(2340/1935), Tip of the Day (2370/2400), and the six Menus forms (ClientLeft -9996). Of the other seven, five write 2
+(CenterScreen) and two write 3 (Windows Default). The new project's `Template/Projects/Form1.frm` writes
+`ClientLeft = 60`, `ClientTop = 348`, `LinkTopic = "Form1"` and `StartUpPosition = 3 'Windows Default` explicitly.
+
+**The probe.** VB6.EXE 6.00.8176 SP6, `/make` (native code), the exe run headless in session 0, where the screen is
+15360 x 11520 twips at 15 twips a pixel. A `Sub Main` project with six forms. Each designer block is HexIDE's, byte
+for byte, plus the lines below, and each form carries the usual five `Attribute` lines:
+
+| Form | Added to HexIDE's block |
+|---|---|
+| FA | nothing (what HexIDE wrote) |
+| FB | `StartUpPosition = 3 'Windows Default` |
+| FC | `StartUpPosition = 0 'Manual` |
+| FD | `ClientLeft = 2000` and `ClientTop = 1500`, no `StartUpPosition` |
+| FE | FD's two lines, plus `StartUpPosition = 0` |
+| FF | `StartUpPosition = 2 'CenterScreen` |
+
+For each form, `Sub Main` reads `o.StartUpPosition` late-bound, which loads it, then Left and Top, then calls `Show`
+and `DoEvents` and reads Left, Top, Width and Height. Output, verbatim:
+
+```
+Screen 15360 11520 15
+FA SUP=0 SUPErr=0 loadL=-60 loadT=-345 ShowErr=0 L=-60 T=-345 W=9720 H=7605
+FB SUP=3 SUPErr=0 loadL=1320 loadT=1320 ShowErr=0 L=1320 T=1320 W=9720 H=7605
+FC SUP=0 SUPErr=0 loadL=-60 loadT=-345 ShowErr=0 L=-60 T=-345 W=9720 H=7605
+FD SUP=0 SUPErr=0 loadL=1935 loadT=1155 ShowErr=0 L=1935 T=1155 W=9720 H=7605
+FE SUP=0 SUPErr=0 loadL=1935 loadT=1155 ShowErr=0 L=1935 T=1155 W=9720 H=7605
+FF SUP=2 SUPErr=0 loadL=-60 loadT=-345 ShowErr=0 L=2820 T=1950 W=9720 H=7605
+```
+
+- **A missing line reads back as 0.** FA equals FC, and FD equals FE.
+- **Under Manual, `ClientLeft`/`ClientTop` place the window** (FD). With neither (FA), the client area lands at (0,0)
+  and the outer rectangle at (-60,-345), so the caption is above the top of the screen. The -60/-345 frame offset is
+  #104's client-to-outer measurement.
+- **Under 3 they are ignored**, and the form cascades (FB, at 1320,1320).
+- Under 2 the form is placed only when shown (FF): Left and Top read the Manual origin until then.
+
+So a form HexIDE created before this, once given the `Attribute` block it also lacked (#516), was opened by VB6 at
+the screen's origin, caption off the top, because HexIDE wrote no line and meant 3. The reverse went wrong too: VB6 writes no line for a Manual form, which HexIDE ran
+centred and showed as "3 - Windows Default" in the grid. That half is from reading the code, not run.
+
+**In HexIDE (#932):** the property's default is 0, Manual, so a form with no line reads and runs as VB6 reads it, and is
+written back with no line. A form HexIDE creates (Add Form, the Project Explorer's Add Form, a new Standard EXE) is
+given `StartUpPosition = 3` explicitly, which the writer then emits as VB6 does. A new UserControl or PropertyPage is
+not: no VB6-authored `.ctl` or `.pag` in the corpus carries the line, and whether vb6.exe refuses one there is not
+measured. Forms HexIDE saved earlier, with no line, now read as Manual, which is what VB6 already did with them. Not
+reproduced: Windows Default's cascade, which HexIDE still runs as CenterScreen (`VBStartupPosition.ToAvalonia`).
+
+## A form's Attribute block, and a form without one (2026-10-22, #516, #931)
+
+**What VB6 writes.** A new form in VB6 carries five `Attribute` lines after its designer block:
+
+```
+Attribute VB_Name = "Form1"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+```
+
+Nineteen of the twenty `.frm` files in VB6's Template tree carry exactly these, the new project's `Form1.frm` among
+them, and one carries six. Every one is CRLF throughout and ends in `0D 0A`. HexIDE wrote a form it created with no
+block at all, and its code section in bare LF with no final line break (#516, #931).
+
+**The obvious guesses, from #516 and from comments in this tree:** that `VB_Name` is a form's identity, and that
+`VB_PredeclaredId = True` is what gives a form its default instance, so a form without the block might load but fail
+at `Form1.Show`. **Both are wrong for `vb6.exe /make`.** The block is what VB6 writes, not what it needs.
+
+**The probe.** VB6.EXE 6.00.8176 SP6. One `Sub Main` project per row, each with a `Form1.frm` and a `Module1.bas`,
+built with `/make` both as native code and as p-code (`CompilationType=-1`), and the exe run in session 0. The form's
+designer block is HexIDE's (Caption, ClientHeight 7200, ClientWidth 9600, ScaleHeight, ScaleWidth). `Sub Main`, under
+`On Error Resume Next`, reads `X.Caption` and `X.Name`, calls `X.Show` and `DoEvents`, reads `X.Visible`,
+`Forms.Count` and `Forms(0).Name`, then `Unload X`, where `X` is the name in the last column.
+
+| Row | `Form1.frm`'s code section | `X` | Result, native and p-code alike |
+|---|---|---|---|
+| P1 | no `Attribute` block, CRLF stub | `Form1` | builds; every read as P2 |
+| P2 | the five lines, then the stub (the control) | `Form1` | builds; `Caption=CapForm1`, `Name=Form1`, `Forms.Count=1`, no error anywhere |
+| P3 | no block; the Begin line says `Form7` | `Form7` | builds; `Name=Form7` |
+| P3b | the same file | `Form1`, the file's name | **does not build**: "Compile Error in File '…Module1.bas', Line 6 : Variable not defined" |
+| P4 | the five lines with `VB_Name = "FormB"`; the Begin line says `FormA` | `FormB` | **does not build**: the log says "Conflicting names were found in '…Form1.frm'. The name 'FormA' will be used.", then the same "Variable not defined" |
+| P4b | the same file | `FormA` | builds, with the same "Conflicting names" line in the log; `Name=FormA` |
+| P5 | HexIDE's old seed byte for byte: no block, `Private Sub Form_Load()` LF LF `End Sub`, no final line break | `Form1` | builds; every read as P2 |
+
+`X.Visible` read False after `Show` in every row, the control included, so it is a fact about session 0, which has no
+desktop, and says nothing about the block.
+
+- **A missing `VB_PredeclaredId` still gives a form its default instance** (P1). A form's default for it is True.
+- **The Begin line names the form.** Without a block it is the only name (P3, P3b). Where `VB_Name` disagrees, vb6.exe
+  takes the Begin line's name, logs that it did, and still builds (P4, P4b). So a form's `VB_Name` is a second copy of
+  its name that has to agree, not its identity. A rename has to keep both in step, but it is the Begin line that
+  decides.
+- **An LF code section with no final line break does not stop a build** (P5). #931 left this unmeasured. VB6 writes
+  CRLF throughout regardless, which is what a written file is compared against.
+
+What this does not cover: the VB6 IDE opening such a file, where the "Conflicting names" notice is presumably a dialog
+rather than a log line. That is unmeasured.
+
+**In HexIDE (#516, #931):** a form HexIDE creates (Add Form, the Project Explorer's Add Form, a new Standard EXE) carries
+the five lines, naming it as its Begin line does, and its file is CRLF throughout with a final line break. These match
+what VB6 writes, which is the bar, though P1 and P5 show vb6.exe would have built the old shape. HexIDE names a form it
+reads by its Begin line too, as vb6.exe does.
+
+## ReDim Preserve (2026-10-22, #1459)
+
+**The question.** HexIDE refused every `ReDim Preserve` as not implemented, so a program that grows an array as it goes,
+reading lines or collecting matches, stopped at the first one. The mechanism is well known; the edges were not, and #1459
+listed them: which bounds may change, shrinking, a fixed array, an `As` clause, Variants and parameters, the lock #1455 added,
+and Type and object elements.
+
+**The probe.** Three Sub Main programs under `On Error Resume Next`, each statement's `Err.Number` taken before anything else
+is read, and each array's bounds printed by a helper that walks `UBound(x, n)` until it raises. Four further projects, one per
+expected compile error. Made native and p-code under en-GB; every line was identical. The three programs `RedimPreserveTests`
+runs were then made the same way, and logged exactly what the tests pin.
+
+| Statement, on what | VB6 |
+|---|---|
+| `ReDim Preserve a(4)`, `a` a Long array `(0 To 2)` with `a(2)` 7 | `(0 To 4)`, `a(2)` 7, `a(4)` a Long 0 |
+| `ReDim Preserve a(2)`, the same bounds | no error, nothing lost |
+| `ReDim Preserve c(2)`, `c` `(0 To 4)` | `(0 To 2)`, `c(1)` kept; `c(4)` is then 9 |
+| `ReDim Preserve c(0)` | `(0 To 0)`, `c(0)` kept |
+| `ReDim Preserve c(-1)`, and `c(5 To 2)` | 9, and `c` is still `(0 To 4)` |
+| `ReDim Preserve m(1, 4)`, `m` `(0 To 1, 0 To 2)` | `(0 To 1, 0 To 4)`, every element kept |
+| `ReDim Preserve m(1, 1)` | `(0 To 1, 0 To 1)`, `m(1, 1)` kept |
+| `ReDim Preserve m(0 To 1, 0 To 3)`, the first dimension written out unchanged | `(0 To 1, 0 To 3)` |
+| `ReDim Preserve m(2, 2)`: the first dimension changes | 9, `m` unchanged |
+| `ReDim Preserve m(1, 1 To 2)`: the last dimension's lower bound changes | 9, `m` unchanged |
+| `ReDim Preserve m(4)`, two dimensions to one; `ReDim Preserve a(2, 3)`, one to two | 9 each, unchanged |
+| `ReDim Preserve bb(2 To 5)` and `bb(0 To 5)`, `bb` `(1 To 3)` | 9 each, `bb` unchanged |
+| `ReDim Preserve bb(1 To 1)`, and `bb(1 To 6)` | `(1 To 1)`, and `(1 To 6)` with every element kept |
+| `ReDim Preserve u(3)`, `u` a `Dim u() As Long` never dimensioned | `(0 To 3)` |
+| `ReDim Preserve s(3)`, a String array; `w(3)`, a Variant array | the new elements are `""` and `Empty`; `w(1)` stays an Integer |
+| `ReDim Preserve a(2147483647)` | 7, and `a` is still `(0 To 2)` with its values |
+| `ReDim Preserve a(1 To 2147483647)` | 9: the bounds are checked before the size |
+| `ReDim Preserve a("x")`, and `a(4.5)` | 13 and unchanged; `(0 To 4)` |
+| `ReDim Preserve v(4)`, `v = Array(1, 2, 3)` | `Variant()` `(0 To 4)`, `v(2)` 3, `v(4)` Empty |
+| `ReDim Preserve tv(5)`, `tv` a Variant holding a copy of a Long array | `Long()` `(0 To 5)`, `tv(5)` a Long |
+| `ReDim Preserve ev(2)`, `ev` an Empty Variant; `tv(2)`, `tv` holding 5 | 13 each, and each is left as it was |
+| `ReDim Preserve v(2, 2)`, `v` holding a copy of `m` | 9, unchanged |
+| `ReDim Preserve a(4) As Long`, the array's own type | no error |
+| `ReDim Preserve a(4) As Integer`, and `As Variant`, on a declared Long array | compile error: "Can't change data types of array elements" |
+| `ReDim Preserve v(4) As Long`, `v` holding `Array(...)`; `tv(4) As Integer`, `tv` holding a `Long()` | 13 each, unchanged |
+| `ReDim Preserve v(4) As Variant`, `v` holding `Array(...)` | no error |
+| `ReDim Preserve f(5)`, `f` a `Dim f(3) As Long` | compile error: "Array already dimensioned" |
+| `ReDim Preserve x(6)` in `GF(x() As Long)`, given that `f`; and `x("x")`, `x(5 To 2)` there | 10, `f` unchanged; 13; 10 |
+| `ReDim Preserve x(6)` in `GP(x() As Long)`, `GV(x)` and `GVV(x As Variant)`, given a dynamic Long array | the caller's array is `(0 To 6)`, its values kept |
+| `ReDim Preserve ta(3)`, `ta` an array of a Type | every field of the kept elements kept, the new ones empty |
+| `ReDim Preserve ov(3)`, then `ov(0)`, `ov` a Variant array holding two `Class1` objects | grows with both kept; the shrink terminates the object held only in `ov(1)` during the statement |
+| inside `For Each x In a`: `ReDim Preserve a(5)` | 10 (#1460) |
+
+**What it shows:**
+- **Only the last dimension's upper bound may change.** Any other bound changing, the number of dimensions included, is 9 and
+  leaves the array as it was. The lower bound of a one-dimensional array may not move either way.
+- **A shrink drops the elements past the new bound**, and an object held only there is released by the statement itself. One
+  element is the least; fewer is 9.
+- **Too big is 7 and leaves the array as it was**, unlike a plain ReDim, which erases it (*ReDim*, #849).
+- **A Variant is preserved in place and keeps its type**, but a Variant holding no array is 13, where a plain ReDim gives it
+  one.
+- **An `As` clause may only repeat the type.** On a declared array anything else does not compile; on a Variant it is 13.
+- **The error order** is a plain ReDim's: the bounds are converted (13), then a fixed or locked array is refused (10), then
+  the shape is checked (9), then the size (7).
+
+### In HexIDE (#1459)
+
+ReDim Preserve takes ReDim's own path, so the bounds conversion and the fixed-array and lock checks come first, in that
+order. Then `StatementExecutor.TryPreserve` refuses what VB6 refuses and calls `VBArray.Preserve`, which builds the resized
+storage before it lets go of the old (so a 7 leaves the array as it was) and resizes in place, so a parameter sharing the
+caller's slot sees it. The elements dropped by a shrink are released after the resize. An undimensioned dynamic array goes
+on to a plain ReDim.
+
+Run through HexIDE, the probes gave VB6's answer on every row above except two: the array of a Type, whose elements HexIDE
+does not reach yet (#178), and the `For Each` row, which is #1460. `RedimPreserveTests` pins the rows its three programs
+cover, and the compile errors. One row is worth noting: `GVV(x As Variant)` gives VB6's answer although a plain ReDim through
+a `v As Variant` parameter resizes only the parameter (#970), because Preserve resizes the shared array in place.
+
+## IIf and Choose (2026-10-22, #1461, #1464)
+
+**The question.** HexIDE had neither, so a program that called either stopped there. Both are said to be simple; the
+details that matter are the ones people get wrong, so they were measured before anything was written.
+
+**Two obvious guesses, both wrong:**
+- **The obvious guess is that IIf evaluates only the part it returns. It evaluates both.** `IIf(n <> 0, 1 / n, 0)` with
+  n 0 is 11, Division by zero, and a part with a side effect runs whichever is chosen, the true part first. Code that guards
+  a division with IIf is broken in VB6, and HexIDE raising 11 there is the faithful answer, though it will look like a
+  HexIDE bug to someone who expects the guard to work.
+- **The obvious guess, and the documentation's, is that Choose rounds a fractional index. It truncates.** `Choose(1.6, "a",
+  "b", "c")` is "a", and `Choose(0.5, …)` is Null.
+
+**The probe.** A Sub Main under `On Error Resume Next`, logging each result's `TypeName` and text, and three compile-error
+projects. Made native and p-code under en-GB; every line was identical. The three programs `IIfChooseTests` runs were then
+made the same way, and logged exactly what the tests pin.
+
+| IIf | VB6 |
+|---|---|
+| `IIf(True, F("true part", 1), F("false part", 2))` | both evaluated, true part first; Integer 1 |
+| `IIf(True, 1, 1 / 0)`; `IIf(n <> 0, 1 / n, 0)`, n 0 | 11 each |
+| `IIf(True, 5, "a")`, `IIf(False, 5, "a")`, `IIf(False, 5, 2.5)`, `IIf(True, 5&, 2)` | Integer 5, String "a", Double 2.5, Long 5 |
+| `IIf(True, Null, 1)`, `IIf(True, Empty, 1)` | Null, Empty |
+| `Set o = IIf(True, c, Nothing)`, and `False` | the object (Collection, or a class), and Nothing |
+| condition Null | the false part, no error |
+| condition "True", "0", 2, 0.4, Empty | true, false, true, true, false |
+| condition "abc" | 13 |
+| condition a Collection; a class with no default member | 450 (its default member, `Item`, wants an index); 438 |
+| `IIf(True, 5, 6) * 7000`; `IIf(True, i, 6) * 7000`, i an Integer 5 | Long 35000 each: the result is a Variant |
+| `IIf(True, 1)`; `IIf(True, 1, 2, 3)` | compile errors: "Argument not optional"; "Wrong number of arguments or invalid property assignment" |
+
+| Choose | VB6 |
+|---|---|
+| `Choose(2, F("one", "a"), F("two", "b"), F("three", "c"))` | all three evaluated, in order; String "b" |
+| `Choose(1, 1, 1 / 0)` | 11 |
+| index 1.4, 1.5, 1.6; 2.5; 3.5 | "a", "a", "a"; "b"; "c": truncated |
+| index 0.5, -0.6, 0, -1, 4 (of three) | Null each |
+| index True (-1), 40000, 1E+20 | Null each: no 6 |
+| `Choose(1)`, no choices | Null |
+| index Null; "2"; "x" | 94; "b"; 13 |
+| `Choose(2, 5, "x")`; `Choose(1, 5, 6) * 7000` | String "x"; Long 35000 |
+| `Set o = Choose(1, c, Nothing)` | the object |
+| `Choose()` | compile error: "Argument not optional" |
+
+### In HexIDE (#1461, #1464)
+
+Both are intrinsics in `VB6BuiltIns.Choice.cs`. Their arguments are evaluated before the call, as every intrinsic's are,
+which is what VB6 does here too. The registry hands them their parts as themselves (`TakesItsChoicesThemselves`), so an
+object comes back as the object, and reads only the first argument as a value. Every row above is pinned in
+`IIfChooseTests` except the Collection ones: HexIDE does not have `Collection` yet (#1010), so those use a class.
+
+## Where the Format commands put a control (2026-10-22, #929, design-time)
+
+**The question.** HexIDE's Center in Form, Align Centers and Make Equal spacing worked in fractional pixels, so a
+control centred on an odd difference landed at x.5 px, and a save wrote `Left = 4192.5`. The issue proposed whole
+pixels with the midpoint rounded to even, by analogy with the run-time rule for `Label1.Left = 2.5`. What VB6's own
+designer does had not been measured.
+
+**The probes.** Two forms opened in VB6's IDE through the console agent, with controls sized so that each exact answer
+is a half twip. Each command was run from the Format menu, with the mouse driven for Ctrl+click through the agent's
+`exec` action. Each control was then selected on its own, and its position read from the toolbar's readout.
+
+| Command | Case | Exact | VB6 |
+|---|---|---|---|
+| Center in Form, horizontally | form 4680 wide, button 1215 | 1732.5 | **1733** |
+| Center in Form, horizontally | button 1200 | 1740 | 1740 |
+| Center in Form, horizontally | button 1210, not a whole pixel | 1735 | 1735 |
+| Center in Form, vertically | form 3195 high, button 510 | 1342.5 | **1342** |
+| Align Centers | reference at 600, 1200 wide; other 1215 wide | 592.5 | **593** |
+| Align Middles | reference at 300, 495 high; other 510 high | 292.5 | **292** |
+| Horizontal Spacing, Make Equal | 1200-wide buttons at 300, 2000 and 4005 | 300, 2152.5, 4005 | **300, 2152, 4005** |
+| Toolbox double-click (CommandButton) | form 6000 × 4500, new button 1215 × 495 | 2392.5, 2002.5 | **2400, 2040** |
+| Toolbox double-click (CommandButton) | form 4365 × 3495: 13.125 and 12.5 grid units | 1575, 1500 | **1560, 1560** |
+
+**What it shows:**
+- **VB6 works in whole twips, not whole pixels.** 1733 is 115.53 px. The obvious guess, whole pixels rounded to even,
+  is wrong twice over.
+- **It halves each size on its own and truncates**, so no rounding rule fits. Across, 1732.5 went up to 1733; down,
+  1342.5 went down to 1342. Both are ScaleWidth\2 - Width\2: 2340 - 607 and 1597 - 255. Align Centers is the
+  reference's Left + its Width\2 - the control's Width\2 (600 + 600 - 607 = 593), and Align Middles the same in the
+  other direction (300 + 247 - 255 = 292).
+- **The reference is the control selected last**: the one with solid handles, which didn't move. The toolbar's
+  readout went on showing the first control selected.
+- **Make Equal truncates the gap and leaves the last control where it was.** 1305 twips of space between three buttons
+  became gaps of 652 and 653, and the outermost two didn't move. With more than three controls, whether the leftover
+  twips all go to the last gap was not measured; leaving the last control fixed implies that they do.
+- **A control added by double-clicking a tool is centred, then put on the nearest grid line** (120 twips, with Align
+  Controls to Grid on): 2392.5 became 2400, and 2002.5 became 2040, where 1920 was the line below. A third probe
+  settled the two cases those left open: 13.125 grid units went to 13, so it is the nearest line and not the next
+  one up, and 12.5 went to 13, so a position exactly between two lines goes to the higher. To-even rounding, .NET's
+  default, gives 12 there.
+- **VB6 named the first CommandButton Command1** (#540).
+- Make Equal spacing was measured only across. HexIDE applies the same rule down.
+
+## Named arguments (2026-10-22, #1465)
+
+**The obvious guess is that named arguments are evaluated in the order they are written. They are evaluated in parameter
+order.**
+- `Foo c:=F("c", 3), a:=F("a", 1)` calls `F("a", …)` first.
+- This holds into the program's own Subs, its Functions and its class methods, and into intrinsics:
+  - `Mid(Start:=F(…), String:=F(…))` evaluates String first.
+  - `Replace(Replace:=…, Find:=…, Expression:=…)` evaluates Expression, then Find, then Replace.
+- Positional arguments come before every named one, and they fill the first parameters. So parameter order is the order of
+  the whole call.
+
+**The second guess worth recording is that a name the editor's signature help shows is one VB6 takes.** For twenty
+intrinsics it is not. `Len(Expression:="abc")` does not compile, and neither does any named argument to `Abs`, the `C…`
+conversions, `InStr` or `UBound`, although signature help names their parameters (list below).
+
+**The question.** HexIDE stopped at every `name:=value` with "Assign is not implemented". #1465 asked:
+- how a named argument binds, beside positional ones and beside a skipped one, with `IsMissing`;
+- which compile errors VB6 gives;
+- what an intrinsic, a class method and an event take.
+
+**The probe.**
+- **52 projects of one statement each.** One project per row, so that a compile error names its own row. These were Sub
+  Main programs whose helpers log what they were given, and an `F(tag, v)` that logs its tag and returns `v`, to show the
+  order.
+- **79 compile-only projects, one per intrinsic.** Each took an intrinsic that has a signature entry whose parameter names
+  are plain identifiers, and named every parameter.
+- **132 projects on the required parameters.** For each intrinsic that compiled, one project named only the parameters
+  claimed to be required, and one more left out each of those in turn.
+- **Three RaiseEvent projects**, and four that give more positional arguments than there are parameters.
+
+Every project was made native and p-code under en-GB, and every line was identical. The 28 programs that
+`NamedArgumentTests` runs were then made the same way. They logged exactly what the tests pin, and gave exactly the compile
+errors the tests expect.
+
+The procedures used below are:
+- `Foo(a As Integer, Optional b As Integer = 2, Optional c)`, which logs `a`, `b`, and `c` or "c missing";
+- `G(a As Long, b As Long) As Long`, which returns `a - b`;
+- `Inc(n As Long)`, which adds 1;
+- `M(x As Integer, Optional y As Integer = 5)` and `Twice(Optional ByVal n As Long = 1) As Long`, both methods of a class.
+
+| Call | VB6 |
+|---|---|
+| `Foo 1, c:=5` | a=1 b=2 c=5 |
+| `Foo a:=1` | a=1 b=2, c missing (`IsMissing` True) |
+| `Foo c:=3, a:=1` | a=1 b=2 c=3 |
+| `Foo 1, b:=4` | a=1 b=4, c missing |
+| `Foo B:=7, A:=8` | a=8 b=7: a name matches in any case |
+| `Foo 1, , c:=9` | a=1 b=2 c=9 |
+| `Call Foo(c:=1, a:=2)` | a=2 b=2 c=1 |
+| `x = G(b:=2, a:=10)`, and `G(b:=2, a:=10)` inside an expression | 8, both |
+| `Inc n:=v`, `v` 4 | `v` 5: ByRef through a name |
+| `k.M y:=1, x:=2`; `k.Twice(n:=21)`, also inside an expression | M x=2 y=1; 42 |
+| `Bar 1`, `Bar a:=1`, `Bar 1, c:=2`, with `Bar(a As Integer, Optional c)` | `IsMissing(c)` True, True, False |
+| `Foo c:=F("c", 3), a:=F("a", 1)` | evaluates a, then c |
+| `Foo F("a", 1), c:=F("c", 3), b:=F("b", 2)` | a, b, c |
+| `x = G(b:=F("b", 2), a:=F("a", 10))`; `k.M y:=F("y", 1), x:=F("x", 2)` | a, then b; x, then y |
+| `Mid(Start:=F("start", 2), String:=F("string", "abcdef"))` | string, start; "bcdef" |
+| `Mid(F("string", "abcdef"), Length:=F("length", 2), Start:=F("start", 3))` | string, start, length; "cd" |
+| `Replace(Replace:=F(…), Find:=F(…), Expression:=F(…))` | expression, find, replace |
+| `Left(Length:=F(…), String:=F(…))`; `Round(NumDigitsAfterDecimal:=F(…), Number:=F(…))` | string, length; number, digits |
+| `IIf(FalsePart:=F("false", 2), TruePart:=F("true", 1), Expression:=F("expression", False))` | expression, true, false; 2 |
+| `Mid(String:="abcdef", Start:=2, Length:=3)`; `Mid(Start:=2, String:="abcdef")` | "bcd"; "bcdef" |
+| `Left(String:="abc", Length:=2)`; `Replace(Expression:="aXbX", Find:="X", Replace:="-")` | "ab"; "a-b-" |
+| `Format(Expression:=1.5, Format:="0.00")`; `DateSerial(Year:=2003, Month:=2, Day:=1)` | "1.50"; 2003-02-01 |
+| `DateAdd(Interval:="d", Number:=1, Date:=#2/1/2003#)`; `Round(Number:=2.567, NumDigitsAfterDecimal:=1)` | 2003-02-02; 2.6 |
+| `Trim(String:=" a ")`, `UCase(String:="abc")`, `Chr(CharCode:=65)`, `Val(String:="12")` | "a", "ABC", "A", 12 |
+| `String(Number:=3, Character:="z")`, `Space(Number:=2)`, `InStrRev(StringCheck:="abcabc", StringMatch:="b")` | "zzz", two spaces, 5 |
+| `IIf(Expression:=True, TruePart:=1, FalsePart:=2)`; `Split(Expression:="a b c")(1)` | 1; "b" |
+| `MsgBox` with all five of its names; `InputBox` with all seven of its own | compile (being modal, these were not run) |
+
+**The compile errors:**
+
+| Call | VB6's compile error |
+|---|---|
+| `Foo d:=1` | Named argument not found |
+| `Foo a:=1, a:=2`; `Foo 1, a:=2`; `Foo 1, , b:=4` | Named argument already specified |
+| `Foo b:=3`, with the required `a` left out | Argument not optional |
+| `Foo a:=1, 2`, positional after named; `Foo a:=1, , c:=3`, a blank after named | Syntax error |
+| `Foo 1, 2, 3, 4, c:=5`, and `Foo 1, 2, 3, 4`; `Mid("abc", 1, 1, 1, Start:=1)`, and `Mid("abc", 1, 1, 1)` | Wrong number of arguments or invalid property assignment |
+| `Pa 1, x:=2`, with `Pa(a As Integer, ParamArray x())`; `Array(ArgList:=1)`; `Choose(Index:=1, Choice:="a")` | Argument in ParamArray may not be named |
+| `RaiseEvent E(b:=1, a:=2)`, and `RaiseEvent E(1, b:=5)` | Syntax error |
+| `Left(Str:="abc", Length:=2)`; `MsgBox Message:="x"` | Named argument not found |
+| `Mid(String:="abc", Length:=2)` | Argument not optional |
+| `String(Number:=3)`, and `String(Character:="z")` | **Syntax error**, where every other intrinsic missing a required parameter gives "Argument not optional" |
+| `Bar a:=1` and `x = Baz(a:=1)`, neither defined; `CLDbl(Expression:=x)` | Sub or Function not defined |
+
+**The intrinsics that take names.** Every intrinsic with an entry in the language server's `VbSignatures.cs` was named in
+full. These 57 compile, with exactly the names the signature table gives, and require the number shown:
+
+| Names, in order | Required | Intrinsics |
+|---|---:|---|
+| `Number` | 1 | Atn, Cos, Exp, Log, Sin, Space, Sqr, Tan |
+| `Number` | 0 | Rnd |
+| `String` | 1 | Asc, AscW, LCase, LTrim, RTrim, Trim, UCase |
+| `CharCode` | 1 | Chr, ChrW |
+| `Date` | 1 | Day, Month, Year |
+| `Time` | 1 | Hour, Minute, Second |
+| `Expression` | 1 | Environ, IsDate, IsEmpty, IsError, IsNull, IsNumeric, IsObject, StrReverse |
+| `VarName` | 1 | IsArray, TypeName, VarType |
+| `ArgName` | 1 | IsMissing |
+| `Color` | 1 | QBColor |
+| `Class, ServerName` | 1 | CreateObject |
+| `Pathname, Class` | 0 | GetObject |
+| `Pathname, WindowStyle` | 1 | Shell |
+| `Interval, Number, Date` | 3 | DateAdd |
+| `Interval, Date1, Date2, FirstDayOfWeek, FirstWeekOfYear` | 3 | DateDiff |
+| `Interval, Date, FirstDayOfWeek, FirstWeekOfYear` | 2 | DatePart |
+| `Year, Month, Day` | 3 | DateSerial |
+| `Hour, Minute, Second` | 3 | TimeSerial |
+| `Date, FirstDayOfWeek` | 1 | Weekday |
+| `Expression, Format, FirstDayOfWeek, FirstWeekOfYear` | 1 | Format |
+| `Expression, TruePart, FalsePart` | 3 | IIf |
+| `Prompt, Buttons, Title, HelpFile, Context` | 1 | MsgBox |
+| `Prompt, Title, Default, XPos, YPos, HelpFile, Context` | 1 | InputBox |
+| `String, Length` | 2 | Left, Right |
+| `String, Start, Length` | 2 | Mid |
+| `StringCheck, StringMatch, Start, Compare` | 2 | InStrRev |
+| `Expression, Find, Replace, Start, Count, Compare` | 3 | Replace |
+| `Red, Green, Blue` | 3 | RGB |
+| `Number, Character` | 2 | String |
+
+**The intrinsics that refuse every name.** Any named argument to these 20 is "Syntax error": Abs, CBool, CByte, CCur, CDate,
+CDbl, CInt, CLng, CSng, CStr, CVar, CVErr, Fix, InStr, Int, LBound, Len, Sgn, StrComp and UBound. Each has a full parameter
+tooltip, with names.
+
+Val (`String`), Round (`Number, NumDigitsAfterDecimal`) and Split (`Expression`) took names in the single-row projects.
+Their required counts, and thirteen more intrinsics', are measured below (#1475).
+
+**What resisted explanation.**
+- **Why those twenty refuse**, and no rule I would defend. Most of them are the conversions and the numeric primitives,
+  which suggests intrinsics compiled inline rather than called through the library's type information. But that reading
+  leaves InStr and StrComp unexplained, so I record the list and not a rule.
+- **Why String alone gives "Syntax error"** for a missing required parameter, which is the same oddity.
+
+**Not measured:**
+- a `Property` with arguments, which HexIDE refuses with or without names;
+- the methods of controls, forms and other objects (#1474).
+
+### In HexIDE (#1465)
+
+**How a call takes its arguments:**
+- **The program's own Subs, Functions and class methods.** A named argument reaches the call unevaluated, as its name and
+  a thunk. At the top of `RunProcedure`, before anything of the call is set up, `NamedArguments.Arrange` raises VB6's
+  compile errors from the table above, as the statement runs. Then it evaluates the named arguments in parameter order,
+  in the caller, and leaves an omitted Optional to bind as it always has.
+- **Intrinsics.** These take their names from `VB6BuiltIns.NamedParameters.cs`, the 57 above. The twenty above that
+  refuse every name give "Syntax error", Array and Choose give the ParamArray error, and any other intrinsic stopped the
+  run naming #1475, until #1475 measured them all (below). A name that is no procedure and no intrinsic is "Sub or Function not defined", as before.
+- **RaiseEvent** gives "Syntax error" for any named argument.
+- **A control's, a form's or an object's method** stops the run naming #1474.
+
+**The two tables.** The editor's signature help and the runtime keep separate tables. The runtime's is the one that runs.
+`NamedParameterParityTests` reads `VbSignatures.cs` as text and fails closed:
+- every intrinsic the runtime takes names for must have an entry there, with the same names in the same order;
+- the file must yield entries at all.
+
+It checks one direction only, because the tooltip shows names for the twenty that VB6 refuses.
+
+**Checked against the tests and the corpus.**
+- **The tests.** Three mutants each fail the tests they should: a renamed parameter in the runtime table, evaluating named
+  arguments as written, and a reshaped `VbSignatures.cs`.
+- **The corpus.** Two corpus cases that carried a line continuation inside a named argument now run as VB6 ran them. They
+  were removed from `KnownDivergences`.
+
+### The intrinsics signature help had no entry for (2026-10-23, #1475)
+
+**The question.** The 16 intrinsics HexIDE implements without a tooltip had their named arguments refused. Which names
+does VB6 take for each, how many are required, and what do the ones with no parameters say to a name?
+
+**The probe.**
+- 53 one-call projects, made native and p-code under en-GB.
+- The 19 programs the #1475 tests run, made the same way. Their compile errors and transcript are exactly what the tests
+  pin.
+
+The names were read first from the VBA library's type information in msvbvm60.dll, then confirmed one by one. For each
+intrinsic there was:
+- a project naming every parameter;
+- one naming the required ones only;
+- one leaving out each required one in turn;
+- one with a wrong name.
+
+Native code and p-code agreed on every line.
+
+| Parameters, in order | Required | Intrinsic | Measured with every name |
+|---|---|---|---|
+| `String` | 1 | Val | `Val(String:="12")` 12 |
+| `Number, NumDigitsAfterDecimal` | 1 | Round | 2.6; `Round(Number:=2.5)` 2 |
+| `Expression, Delimiter, Limit, Compare` | 1 | Split | `Limit:=2` gives `a` and `b,c`; `Expression:="a b c"` alone splits on spaces |
+| `SourceArray, Delimiter` | 1 | Join | `ab-cd-AE`; with no Delimiter, `ab cd AE` |
+| `SourceArray, Match, Include, Compare` | 2 | Filter | `vbTextCompare` matches `ab` and `AE` |
+| `Month, Abbreviate` | 1 | MonthName | Feb; February. `MonthName(Abbreviate:=True, Month:=3)` is Mar |
+| `Weekday, Abbreviate, FirstDayOfWeek` | 1 | WeekdayName | `Weekday:=1, Abbreviate:=True, FirstDayOfWeek:=vbMonday` is Mon; Abbreviate can be skipped |
+| `Date` | 1 | DateValue | `Date:="2000-01-02"` is 36527 |
+| `Time` | 1 | TimeValue | `Time:="12:00"` is 0.5 |
+| `FileNumber` | 1 | EOF | True on an empty file |
+| `RangeNumber` | 0 | FreeFile | `RangeNumber:=1` is 256; `:=0` is 1 |
+| `Expression` | 1 | CDec, CVDate | 1.5; 2 |
+| `Number` | 1 | Hex, Oct, Str, and Hex$, Oct$, Str$ | FF; 10; " 5" |
+
+Leaving out a required parameter is "Argument not optional", in every case measured. A wrong name is "Named argument
+not found", for every one of them.
+
+**Six have no parameters, and refuse a name three ways:**
+
+| `X(X:=1)` | VB6's compile error |
+|---|---|
+| Command, Now, Time | Named arguments not allowed |
+| Date | Syntax error |
+| DoEvents, Timer | Wrong number of arguments or invalid property assignment |
+
+**Aside.** `WeekdayName(Weekday:=1)`, with no FirstDayOfWeek, is Monday under en-GB. The day a week starts on there comes
+from the locale. That makes it a fact about WeekdayName's default, not about names, so the tests give FirstDayOfWeek
+explicitly.
+
+**What this overturned.**
+- **That the C-conversions all refuse names.** CDec and CVDate take `Expression`, where CBool through CVar and CVErr are
+  "Syntax error" (#1465).
+- **That the type library is the whole story.** It lists Hex, Oct and Str on a hidden interface with no parameters, yet each
+  takes `Number`, and a wrong name is caught.
+- **That the VBA documentation's names are VB6's.** It calls Round's parameters `expression` and `numdecimalplaces`. VB6
+  takes `Number` and `NumDigitsAfterDecimal`, as its type library says.
+
+**What resisted explanation.**
+- **Why the no-parameter six split three ways.** Date's "Syntax error" fits Date being a keyword as well as a function.
+  Command, Now and Time against DoEvents and Timer I can't explain.
+
+#### In HexIDE (#1475)
+
+- **The table.** `VB6BuiltIns.NamedParameters.cs` now lists 73 intrinsics with their names and required counts.
+- **The six with no parameters** raise the errors above.
+- **The tooltips.** All 16 have a signature-help entry, Command and DoEvents included.
+- **The guard.** `NamedParameterParityTests` now also fails when a registered intrinsic is missing from every table, or
+  has no tooltip. An intrinsic added later is then measured in the same change. The sweep the issue asked for is kept
+  as that test.
+- **An intrinsic HexIDE doesn't implement at all** is answered, with names or without, by the "not implemented" its
+  caller already gives.
+
+## The TabIndex a new or pasted control takes (2026-10-22, #925, design-time)
+
+**The question.** HexIDE gave a new control the highest TabIndex of every component plus one, the Form's and a
+Timer's included, and a paste kept its source's. VB6's own files show what it saves (every Label, Frame and focusable
+control numbered densely from 0; no Timer, Image, Line or Shape numbered), but not what its designer hands out as a form
+is built, nor what a paste takes.
+
+**The probe.** A form holding Label1 (0), Command1 (1), Frame1 (2) with Check1 inside (3), and Timer1, opened in VB6's
+IDE through the console agent. These steps were taken in order: double-click the CommandButton tool, the Timer tool,
+then the CommandButton tool again; copy Command1 and paste it, answering No to "create a control array?"; copy Frame1
+and paste it, answering No twice, once for the Frame and once for its CheckBox; then File > Save Form1.frm. The values
+below are VB6's saved file.
+
+| Control | How it arrived | TabIndex |
+|---|---|---|
+| Command2 | toolbox double-click | 4 |
+| Timer2 | toolbox double-click | none |
+| Command3 | toolbox double-click, after the Timer | 5 |
+| Command4 | paste of Command1 (TabIndex 1) | 6 |
+| Frame2 | paste of Frame1 (TabIndex 2) | 7 |
+| Check2 | inside the pasted Frame2, from Check1 (TabIndex 3) | 8 |
+
+**What it shows:**
+- **A new control takes the next number after the highest.** A Timer takes none and uses none up. On a form numbered
+  densely, as this one was, "the next after the highest" and "the count of numbered controls" agree; a form with gaps
+  was not tried, and VB6 renumbers those when it loads one (`docs/vb6-designer-geometry.md`).
+- **A pasted control takes a new number, not its source's.** A pasted container takes one, and then what it holds
+  takes the ones after.
+- **Two things outside #925, recorded so they are not lost:**
+  - VB6 pasted both copies at the form's top-left, `Left = 0`, `Top = 0`, not offset from the original as HexIDE
+    pastes (#1480).
+  - VB6 wrote every control added in the session ahead of the ones the file already held, the newest first: Frame2,
+    Command4, Command3, Timer2, Command2, then Frame1 and the rest as read. HexIDE appends a new control's block last
+    (#1481).
+
+## Collection (2026-10-22, #1471)
+
+**The obvious guess is that a key which isn't a String raises 13, "Type mismatch". It does only when the key names no
+item.**
+- `c.Add x, 5` raises 457, "This key is already associated with an element of this collection", when the Collection
+  holds five items or more. It raises 13 when there are fewer.
+- A key that isn't a String is first looked up as `Item` would look up an index, and finding an item counts as a
+  duplicate.
+- This holds for every numeric type, a Date, a Variant holding a number, and through `Key:=` and a late-bound call.
+
+**The second guess is that For Each walks a copy. It walks the Collection itself, with a cursor.**
+- Remove the current item and the loop goes on to the next one.
+- Add an item at the end and the loop reaches it. Add one before the current item and the loop doesn't.
+- Point the variable at another Collection and the loop ends.
+
+**The third: keys are not merely case-insensitive.** They compare as `StrComp(a, b, vbTextCompare)` compares, so
+"straße" and "strasse" are one key, as are "ae" and "æ".
+
+**How the first was found, because it nearly went down as something else.**
+- The same statement, `d.Add "bad", 5, , 0`, gave 13 in one probe and 457 in a test's program.
+- The first reading was that a duplicate-key error on the line before had left something behind. That was the
+  difference between the two programs that was easiest to see.
+- Taking the test's statements out one at a time disproved it. Only the statements that changed Count changed the
+  answer.
+- A matrix then gave the rule: the count of items, ten key values, two integer types, four key names, and where the
+  keyed item sat. 457 came exactly when the key was from 1 to Count.
+
+**The question.** HexIDE had no Collection. `Dim c As Collection` declared Nothing, and `New Collection` stopped the
+run. #1471 asked for:
+- `Add`, `Item`, `Remove` and `Count`;
+- For Each and `!`;
+- VB6's errors for each.
+
+**The probe.**
+- **82 projects**, each made native and p-code under en-GB. These were Sub Main programs logging each statement's
+  outcome under `On Error Resume Next`, plus one-statement projects for the compile errors.
+- **The 19 programs `CollectionTests` runs.** These were made the same way, as written. They logged exactly what the
+  tests pin, and gave exactly the compile errors the tests expect.
+- Native code and p-code agreed on every line but one, a one-line For Each over Nothing (below).
+
+### Item, and what an index is
+
+`c` holds "apple" keyed "a", then "pear".
+
+| Expression | VB6 |
+|---|---|
+| `c(1)`, `c(2)`, `c("a")`, `c("A")` | apple, pear, apple, apple |
+| `c.Item(1)`, `c.Item(Index:=2)`, `c!a`, `c![A]` | apple, pear, apple, apple |
+| `c(0)`, `c(3)`, `c(-1)` | 9 |
+| `c("zz")`, `c("2")` | **5**: a String is always a key, even one that reads as a number |
+| `c(1.5)`, `c(2.5)` | pear, pear: half to even |
+| `c(0.5)`, `c(Empty)`, `c(True)` | 9 |
+| `c(Null)`, `c(2147483648#)` | 13 |
+| `c(CByte(1))`, `c(CCur(2))`, `c(#1/1/1900#)` | apple, pear, pear |
+
+### Keys
+
+| `c.Add`, on the Collection above | VB6 |
+|---|---|
+| key "a" again; key "A" | 457 |
+| key "1" | accepted, and distinct from position 1: `c(1)` is apple, `c("1")` the new item |
+| key "" | accepted; `c("")` finds it |
+| key "a " | accepted, distinct from "a" |
+| key Null, key Empty, key `#1/2/2003#` | 13 |
+| key "é", then key "É" | 457 |
+| key "straße", then key "strasse" | 457 |
+
+**Key equality is `StrComp(a, b, vbTextCompare) = 0`.** Each of 14 pairs was added as two keys and compared with
+`StrComp`, and the two agreed on every pair. **The same:** a/A, ae/æ, AE/Æ, ss/ß, 1/¹, oe/œ, th/þ, and "a" & `Chr(0)`
+against "a". **Different:** e/é, co-op/coop, a/ª, o/ö, `''`/`'`, and "x" & `Chr(160)` against "x ". #1479 has the
+table beside .NET's ordinal and ICU compares, neither of which agrees.
+
+### A key that isn't a String
+
+At Count 3, three unkeyed items:
+
+| Key | VB6 |
+|---|---|
+| 1, 3, 1.5, `CByte(2)`, `CCur(2)`, `CSng(2)`, `CDate(2)`, `CDec(2)`, a Variant holding 2, `Key:=2` | **457** |
+| 4, 0, -1, 3.5, 0.5, True, False, 2147483648# | 13 |
+| an array, a Collection | 13 |
+| key 2 with Before and After both given | 5 |
+| key 2 with Before 0, and with Before a missing key | 457 |
+| key 9 with Before 0, and with Before a missing key | 13 |
+| `o.Add "bad", 2` late-bound; `o.Add "bad", 9` | 457; 13 |
+| key 1 or 0 on an empty Collection | 13 |
+
+The matrix ran 0 to 8 unkeyed items around one keyed item, with keys "kk", "a", "zz" and "x", the keyed item first or
+last, and Integer and Long keys 0 to 9. In every one of its 108 rows, key `k` gave 457 exactly when 1 ≤ `k` ≤ Count,
+and 13 otherwise.
+
+### Add's place, and the order it checks things in
+
+`d` holds "x", "y".
+
+| Statement | VB6 |
+|---|---|
+| `d.Add "b0", , 1`; `d.Add "a9", , , 3`; `d.Add "bk", "kk", 2`; `d.Add "ak", , "kk"`; `d.Add "ak2", , , "kk"` | order b0 ak bk ak2 x y a9 |
+| Before 0, Before Count+1, After 0, After Count+1 | 9 |
+| Before and After both | 5 |
+| Before or After a key that isn't there | 5 |
+| Before 1.5 | accepted, rounded half to even |
+| Before Null; Before Empty | 13; 9 |
+| After Count | accepted, at the end |
+| `d.Add Item:="n1", Key:="nk"`; `d.Add "n2", Before:=1`; `d.Add After:=2, Item:="n3"` | as positionally |
+
+**The order is:**
+1. Before and After both given (5).
+2. The key: a non-String key gives 13 or 457 as above, and a duplicate key 457.
+3. The position: 9, or 5 for a missing key.
+
+| Statement, on a Collection of two | VB6 |
+|---|---|
+| a duplicate key with Before 0, and with After 0 | 457 |
+| key 5 with Before 0, and with After 0 | 13 |
+| a duplicate key, or key 5, with Before and After | 5 |
+| key Null with Before a missing key | 13 |
+| a duplicate key with Before a missing key | 457 |
+| Before 0 and After 0; Before a missing key and After 0 | 5 |
+
+### Remove
+
+| Statement | VB6 |
+|---|---|
+| `Remove 1`; `Remove "nk"`; `Remove Index:=1`; `Remove "KK"` for key "kk" | removed |
+| `Remove 1.5` | removes item 2 |
+| `Remove "nk"` again; `Remove ""` | 5 |
+| `Remove 0`, `Remove Count+1`, `Remove Empty`, `Remove True` | 9 |
+| `Remove Null`, `Remove 2147483648#` | 13 |
+
+### The object itself
+
+- `TypeName` is "Collection", `VarType` 9, and `IsObject` True.
+- `TypeOf c Is Collection`, `Is Object` and `Is VBA.Collection` are all True. A Class1 instance `Is Collection` is
+  False.
+- `New VBA.Collection`, `Call c.Add(…)`, `c.Add (5)`, and `.Add`, `.Count`, `.Item` and `!nine` inside `With c` all work.
+- `Set e = d` shares the Collection: `e.Add` shows in `d.Count`, and `Set d = Nothing` leaves `e` holding it.
+- An item is a copy of what was added. A String changed after `Add` is unchanged in the Collection, and so is an array
+  (its item's `TypeName` is "Variant()").
+- A Collection can hold itself: `c(c.Count) Is c` is True.
+- Passed ByRef or ByVal, the callee adds to the caller's Collection either way. `Set c = New Collection` in the callee
+  replaces the caller's only when it was passed ByRef.
+- Items keep their types: Integer, Byte (`VarType` 17), String, Single, Null, Empty and Date.
+
+**What it refuses, measured:**
+- **Assigning an item**, whether `c(1) = "x"`, `Set c(1) = New Collection`, `c!k = "y"` or `c.Item(1) = 5`, is 424, and
+  the item is unchanged. That is for an item that is there: the index is looked up first (#1492, below).
+- **Through Nothing**, `e.Count`, `e(1)` and `e.Add 1` are 91.
+- **`c.Foo`** compiles and raises 438.
+- **`v = c` and `v = New Collection`** are 450, and so is `v = o` with `o` an Object holding one.
+- **`"x" & c` and `c + 1`** don't compile: "Argument not optional".
+- **`c = 5`**, with `c As Collection`, doesn't compile: "Argument not optional".
+- **`o = 5`**, with `o As Object` holding a Collection, is 438, and `o` still holds the Collection.
+- **`w = 5`**, with `w` a Variant holding a Collection, simply makes `w` an Integer.
+
+**The compile errors, through a variable declared As Collection:**
+
+| Statement | VB6's compile error |
+|---|---|
+| `c.Add`; `v = c.Item`; `c.Remove` | Argument not optional |
+| `c.Add 1, , , , 5`; `v = c(1, 2)`; `v = c.Count(1)`; `c.Remove 1, 2` | Wrong number of arguments or invalid property assignment |
+| `c.Add 1, Kay:="a"` | Named argument not found |
+| `c.Count = 5` | Function call on left-hand side of assignment must return Variant or Object |
+| `v = c!1` | Syntax error |
+| `For Each y In c`, `y As Long`; the same with `y As String` | For Each control variable must be Variant or Object |
+
+**The same mistakes late-bound**, through an Object or a Variant, are run-time errors:
+
+| Statement | VB6 |
+|---|---|
+| `o.Add`; `o.Add 1, , , , 5`; `o.Add Key:="b"`, no Item | 450 |
+| `o.Item`; `o.Remove`; `o.Remove 1, 2`; `o()`; `o(1, 2)` | 450 |
+| `o.Add 1, Item:=2`; `o.Add 1, Kay:="z"` | 448 |
+| `o.Count(1)` | **451**, "Property let procedure not defined and property get procedure did not return an object" |
+| `o.Foo` | 438 |
+
+A Variant holding one gives the same: `w.Add 1, Kay:="z"` is 448, and `w.Add` 450.
+
+### An empty Collection, and assigning an item (#1492)
+
+**An index into an empty Collection is 5, whatever it is.** A position, a key, Null and Empty are all 5 there, where a
+Collection with items gives 9, 5, 13 and 9. This was found while measuring #435, after the tables above had pinned 9 for
+a position without ever asking about an empty Collection.
+
+`e` is an empty Collection:
+
+| Statement | VB6 |
+|---|---|
+| `v = e(1)`, `e(0)`, `e(2)`, `e(-1)`, `e("k")`, `e(Null)`, `e(Empty)`, `e.Item(Index:=1)` | 5 |
+| `e.Remove 1`, `e.Remove 0`, `e.Remove "k"` | 5 |
+| `e.Add "x", , 1`, `e.Add "x", , 0`, `e.Add "x", , , 1`, `e.Add "x", , "k"` | 5 |
+| `e.Add "x", 1`, a key that isn't a String | 13, as the key rule above gives |
+| `v = o(1)` and `o.Remove 1`, late-bound | 5 |
+| `v = c(1)`, after `c.Remove 1` emptied it | 5 |
+
+**Assigning an item looks the index up first.** So the 424 above holds only for an item that is there, and late-bound
+the forms differ. `c` holds "a" keyed "k", then "b"; `o` is an Object and `w` a Variant, each holding `c`.
+
+| Statement | VB6 |
+|---|---|
+| `c(1) = 5`, `c("k") = 5`, `c!k = 5`, `c.Item(1) = 5`, `Set c(1) = Nothing` | 424 |
+| `c(3) = 5`, `c(0) = 5`, `c.Item(3) = 5`, `Set c(3) = Nothing` | 9 |
+| `c("zz") = 5`, `c!zz = 5` | 5 |
+| `e(1) = 5`, `e("k") = 5`, `e!k = 5`, `Set e(1) = Nothing`, on an empty `e` | 5 |
+| `o(1) = 5`, `o.Item(1) = 5`, `o!k = 5`, `w!k = 5`, `w.Item(1) = 5` | **451** |
+| `o(3) = 5`, `w.Item(3) = 5`; `w!zz = 5` | 9; 5 |
+| `w(1) = 5`, `w(3) = 5`, `Set w(1) = Nothing`, `Set o(1) = Nothing` | **438**, with no look at the index |
+
+The item is unchanged in every row.
+
+**What resisted explanation:** why late-bound `Set o(1) = x` and `w(1) = x` skip the look, when `o(1) = x` makes it.
+
+**In HexIDE (#1492):** `VbCollection.Position` gives 5 first in an empty Collection. `ItemAssigned` makes the look and
+chooses 424, 451 or 438 by the form and by whether the reference is early-bound.
+
+### For Each
+
+Each loop prints its variable, starting from a Collection holding "a", "b", "c" unless the row says otherwise.
+
+| Loop | VB6 prints |
+|---|---|
+| plain | a b c, and afterwards `x` is Empty |
+| `f.Remove 1` while on "a" | a **b** c: the loop goes on to what now follows the current place |
+| `f.Remove 2` while on "b", over b c d | b **d**: the removed item is never reached |
+| `f.Add "z"` on the first pass, over b d | b d **z**: an item added at the end is reached |
+| `f.Add "first", , 1` on the first pass, over b d z | b d z: one added before is not |
+| `f.Remove 1` twice while on "a", over a b c d | a **c** d |
+| `f.Remove 1` three times while on "b" | a b, then the loop ends, with Count 0 |
+| `Exit For` on "b" | `x` keeps "b" |
+| a loop over `f` inside a loop over `f` | each keeps its own place: aa ab ac … |
+| `Set f = New Collection: f.Add "new"` while on "a", over a b | **a**, then the loop ends; `f(1)` is "new" |
+| over an empty Collection, `x` "unchanged" | nothing, and afterwards `x` is **Empty** |
+| `x = x * 10` in the body, over 1 2 | the items are unchanged |
+
+- **When a loop finishes, a Variant variable is left Empty and an object variable Nothing.**
+- **An object loop variable over an item that isn't an object** raises 424. Under Resume Next, over "s" then 2, the body
+  runs once with the variable Nothing, and the second item's 424 ends the loop. A Collection-typed loop variable does
+  the same.
+- **A class-typed loop variable** compiles. A Long or String one is "For Each control variable must be Variant or
+  Object".
+
+**Over Nothing**, For Each raises 424, which a handler sees as 424. Under Resume Next:
+- the body runs once, with `Err` 424 and the variable unchanged;
+- then `Next` raises 92, "For loop not initialized";
+- and the variable is left Empty.
+
+That is the same through `w As Collection` and `w As Object`, written on one line or on several, with or without a
+body. **The one exception is p-code's alone: `For Each v In w: Next`, a one-line loop with an empty body.** There p-code
+raises 424, skips the `Next`, runs anything after it on the line, and leaves `v` unchanged. Native code gives 92 and
+Empty, as for every other form (#1486).
+
+### An object held by a Collection
+
+`Class1` prints "terminate" and its Name when it ends.
+
+- **An item is released when its last reference goes:**
+  - on `Remove`, by position or key;
+  - on `Set c = Nothing`;
+  - on `Set c = New Collection`, the old items first to last;
+  - when a procedure's local Collection goes out of scope;
+  - when a Function's returned Collection is discarded at the end of the statement, as in `MakeC.Add 5`;
+  - when the object holding the Collection in a field terminates (its own `Class_Terminate` first, then the items);
+  - on `Erase` of an array of Collections.
+- **Removing an item another variable still holds** terminates nothing. It ends when that variable lets go.
+- **An object added twice** terminates on its second removal, not its first.
+- **For Each's variable holds the current item.** Removed inside the loop, the item terminates as the loop moves past
+  it. After `Exit For`, removing it terminates nothing until the variable is cleared with `v = Empty`.
+- **A Collection-typed variable refuses a class instance**, 13, and a Class1 variable refuses a Collection, 13. The
+  variable stays Nothing, and the refused `New` object terminates at the end of the statement.
+- `IsObject(c(1))` is True and `TypeName(c(1))` is "Class1". `c(1).Hello`, `c("one").Name = "uno"` and `c!one.Name`
+  reach the object.
+
+### A Let into a Variant from a temporary object (#1485)
+
+This is general, not the Collection's own, but it was measured here. A Let into a Variant from a temporary object
+leaves the Variant **Empty** when the object's default value can't be fetched. The temporary may be `New X`, or the
+object a Function returns. From a variable, the Variant keeps its value.
+
+| Statement, `v` holding "-" | Error | `v` after |
+|---|---|---|
+| `v = New Collection`; `v = MakeC()`; `v = MakeV()` | 450 | **Empty** |
+| `v = c`; `v = o`; `v = w`, each holding a Collection | 450 | "-" |
+| `v = New Class1`; `v = MakeK()`, Class1 having no default member | 438 | **Empty** |
+| `v = k`, a Class1 variable | 438 | "-" |
+| `v = 5`, then `v = New Collection` | 450 | **Empty** |
+| `arr(0) = New Collection`, `arr` an array of Variant | 450 | **Empty** |
+| `s = MakeV()`, `s As String` | 450 | "-" |
+
+### `As New`, for #435
+
+`Dim d As New Collection`; `Set e = d`; `e.Add` ten items; `Set d = Nothing`. Then `d.Count` is 0, a new Collection made
+on the next use of `d`, and `e.Count` is still 10.
+
+### What this overturned
+
+- **That a key which isn't a String is always 13.** That was HexIDE's first model, built from a probe on a Collection
+  of two. At five items or more the same statement is 457.
+- **That the 457 followed the error before it.** It was the first reading of the transcript that contradicted the
+  probe. Taking statements out one at a time showed the earlier error was irrelevant, and that Count decided.
+- **That `Debug.Print c` could be measured in a made program.** Debug.Print is compiled out of an exe, so the row
+  measured nothing and was dropped.
+
+### What resisted explanation
+
+- **Why `Add` looks a non-String key up as a position at all.** Sharing `Item`'s lookup would explain it, but that is
+  a guess at the implementation. What is recorded is the rule the 108 matrix rows and the edges agree on.
+- **Why p-code alone skips the `Next` of a one-line empty For Each.**
+
+**VB6's own texts**, where HexIDE's are reworded under `Exceptions.cs`'s policy:
+- 457 is "This key is already associated with an element of this collection";
+- 451 is "Property let procedure not defined and property get procedure did not return an object".
+
+**Every run-time error above gave `Err.Source` "Probe"**, the project's name (#1483).
+
+**Not measured:**
+- what VB6's Locals window shows for a Collection;
+- `c.[_NewEnum]` called directly;
+- a Collection's keys under a locale other than en-GB.
+
+### In HexIDE (#1471)
+
+**The object.**
+- `VbCollection` is an in-box object reached through the proxy path, as `Err` and `App` are.
+- It carries the reference count that class instances carry. Its items go through the same `AddRef` and `ReleaseRef`
+  at every store, and a `New Collection` or a Function's returned Collection is held by the statement until it is
+  stored, as a class instance is.
+- `TypeName`, `TypeOf`, a Collection-typed variable's refusal of a class instance, and the 450 a Collection gives as a
+  value all follow the tables above.
+
+**The calls.**
+- `Add`, `Item`, `Remove` and `Count` take positional and named arguments, through the `INamedParameterSource` hook
+  that #1474 can use for other objects.
+- Too few or too many arguments raise VB6's compile errors as the statement runs.
+- Reached through an Object or a Variant, those compile errors become VB6's late-bound 448, 450 and 451.
+  `VbCollection.IsEarlyBound` decides which, from the name the reference was read through.
+
+**Keys.** These compare as `OrdinalIgnoreCase`, which Split and Filter's text compare also uses (#1479). That is wrong
+on 7 of the 14 pairs above: "straße" and "strasse" are two keys in HexIDE and one in VB6. The difference can only give
+a missing 457 or a failed lookup (5), never another item's value. A non-String key is looked up as a position first,
+as measured.
+
+**For Each and `!`.**
+- For Each keeps a cursor on the Collection. `Add` and `Remove` move it as VB6's moves.
+- `c!key`, `c![a key]` and `!key` inside `With` are the default member with the key as a String. `!` on any other
+  object still stops the run.
+
+**The debugger.** Locals and Watch open a Collection to "Item 1", "Item 2" and so on, each its own node, so an object
+item opens to its fields. That is HexIDE's choice: VB6's Locals window was not measured.
+
+**Not yet:**
+- `Dim c As New Collection` (#435);
+- an array `As Collection` or `As Object` (#1482);
+- `Err.Source` (#1483);
+- the emptied Variant (#1485);
+- the one-line For Each (#1486);
+- `c.[_NewEnum]` called directly.
+
+**`CollectionTests`.** It pins seven programs and twelve compile errors, each made with vb6.exe as written.
+
+## As New (2026-10-22 and 23, #435)
+
+**The obvious guess is that `Dim o As New C1` makes its object when the declaration runs. It makes it on first use, and
+every use counts.**
+- `o Is Nothing` makes the object, and is therefore always False.
+- So do `TypeName(o)`, `VarType(o)`, `IsObject(o)` and `TypeOf o Is C1`.
+- So do `Set p = o` and `Set v = o`, passing `o` ByRef, ByVal or as a Variant, `With o`, and either side of `o Is p`.
+- So does `v = o`, which then raises 438 for a class with no default member.
+- Nothing is made by the Dim, by `Set o = Nothing` on an untouched variable, or by `Set o = New C1`, which makes the one
+  object it names.
+
+**The second guess is that after `Set o = Nothing` the variable is Nothing. It is, until the next use makes a new
+object**: a new instance, with Initialize run again and its fields back at their defaults.
+
+**The third, which nobody would guess: For Each touches its loop variable before the first item.** With
+`o As New C1`, `For Each o In c` makes an object, then releases it as it stores the first item. Over an empty Collection
+it makes one, and releases it when the loop leaves `o` Nothing.
+
+**The question.** `Dim o As New C1` stopped the program before it ran, in the pre-pass, so the whole module was refused.
+#435 asked when VB6 makes the object, what makes another, and which declarations take `New`.
+
+**The probe.**
+- Five Sub Main programs, made native and p-code under en-GB.
+- Eleven one-statement compile projects.
+- The 12 programs `AsNewTests` runs, made the same way. They logged exactly what the tests pin, and gave exactly the
+  compile errors the tests expect.
+
+Native code and p-code agreed on every line. `C1` numbers each object it makes and logs its Initialize and Terminate, so
+the logs say which object each line is.
+
+### What makes the object
+
+Each row is a procedure with `Dim o As New C1, p As C1, v As Variant`, the statement, then the procedure's end:
+
+| Statement | VB6 |
+|---|---|
+| none | nothing made |
+| `o.Go` | made, then Go |
+| `L o Is Nothing` | made; **False** |
+| `TypeName(o)`; `VarType(o)`; `IsObject(o)`; `TypeOf o Is C1` | made; C1; 9; True; True |
+| `Set p = o`, then `p Is Nothing` | made; False |
+| `Set v = o`, then `TypeName(v)` | made; C1 |
+| `v = o` | made, then 438 |
+| `TakesRef o`, `x As C1` ByRef; `TakesVal o`, ByVal; `TakesVariant o`, ByVal Variant | made before the call; the callee sees it |
+| `With o: .Name = "w": End With` | made; it terminates as "w" |
+| `Set o = New C1` | one object, the New's |
+| `Set o = Nothing`, untouched | nothing made |
+| `o Is p` and `p Is o`, `p` Nothing | made; False |
+| `a Is b`, both `As New` and untouched | both made; False |
+
+Every object made terminates when the procedure ends.
+
+### After Nothing, and through another name
+
+| Program | VB6 |
+|---|---|
+| `o.Name = "first": o.Go`, `Set o = Nothing`, `o.Go` | the first terminates as "first"; the next use makes a new one, its Name "" |
+| `Set o = p`, `p` Nothing, then `o.Go` | a new one |
+| `Set p = o`, `Set o = Nothing`, then `o.Go` | `p` keeps the first; `o` gets a new one; `p Is o` is False |
+| `Clear o`, a Sub doing `Set x = Nothing` on its ByRef `x As C1` | the caller's object terminates there; **in the callee `x Is Nothing` is True**; back in the caller, the next use makes a new one |
+| the same with the parameter named `o`, as the caller's variable is | the same: True in the callee |
+| `Dim a As New C1, b As New C1`, using `b` then `a` | each made on its use; they terminate in declaration order, `a` then `b` |
+| `Dim q As New C1` inside a loop run three times, `q.Go` each pass | one object, reached all three times |
+
+So a ByRef parameter reads the Nothing its caller's variable holds: the `As New` belongs to the name it was declared with.
+
+### Through a member, a module and a field
+
+| Program | VB6 |
+|---|---|
+| a class `H` with `Private m As New C1` and `Public c As New Collection`; `Set h = New H` | neither field made |
+| `h.Touch`, which uses `m` | `m` made |
+| `Set h = Nothing` | H's Terminate, then `m`'s |
+| `Public o As New C1` in `H`; `h.o.Go`, `Set h.o = Nothing`, `h.o.Go` | a new one on the second use, through the member |
+| `Set h.c = Nothing`, then `h.c.Count` | 0, a new Collection |
+| `Public pm As New C1` in Module2; `Module2.pm.Go`, then `pm.Go` | one object |
+| `Dim mo As New C1` at module level, used in Sub Main | made on first use; terminates when the program ends |
+
+### Collection
+
+`Dim c As New Collection` behaves as a class does:
+- `c.Add 1: c.Add 2`, `Set c = Nothing`, then `c.Count` is 0;
+- For Each over an untouched one runs no pass and raises nothing;
+- `e Is Nothing` is False;
+- `TypeName(f)` is "Collection" and `f.Count` 0.
+
+`c(1) = 5` on an untouched one makes it, then raises 5, as an empty Collection does (#1492). `d = 5` does not compile:
+"Argument not optional", as for `As Collection`.
+
+### An Initialize that raises
+
+`C2`'s Class_Initialize raises 5:
+- Under Resume Next, `e.Go` runs Initialize and gives 5. A second `e.Go` runs Initialize again and gives 5 again, and so
+  does `e Is Nothing`.
+- The variable stays Nothing, so every use tries again.
+- With `On Error GoTo`, the handler sees 5.
+
+### Arrays, a Type's field, and a Static
+
+- **Arrays.**
+  - `Dim a(1) As New C1`: each element is made on its own first use. `a(1) Is Nothing` makes `a(1)`, and after
+    `Set a(0) = Nothing` the next use makes another.
+  - `ReDim b(1) As New C1` works the same way. It needs no Dim, even under Option Explicit (#1495).
+  - For Each over the array, with a Variant loop variable, sees each untouched element as Nothing and makes none.
+    After `Erase a`, the next use makes a new one.
+  - An object loop variable over an array does not compile: "For Each control variable on arrays must be Variant".
+- **A Type's field `m As New C1`** compiles. `t.m.Go` makes it, and `t.m Is Nothing` is False. `u = t` copies the
+  reference, so `u.m Is t.m` is True and one object terminates.
+- **`Static s As New C1`** in a Sub called twice makes one object, which terminates when the program ends.
+- **In a class method, `Static s As New Collection`** is per instance: on one instance it counts 1 then 2, and on a second
+  instance 1.
+
+### What VB6 refuses to compile
+
+| Declaration | VB6's compile error |
+|---|---|
+| `Dim x As New Integer`, `As New String`, `As New Variant`, `As New Object` | Syntax error |
+| `Dim x As New E`, an Enum; `Dim x As New U`, a Type | Invalid use of New keyword |
+| `Sub S(x As New C1)`; `Function F() As New C1` | Syntax error |
+| `Dim d As New Collection`, then `d = 5` | Argument not optional |
+
+### When the program ends
+
+When Sub Main returns, the objects still held terminate: the Static's first, then the module variable's (#1490).
+
+### What this overturned
+
+- **That the declaration makes the object.** It was the issue's own assumption to check, and the reason to measure
+  before pinning anything.
+- **That For Each only writes its variable.** It reads it first, so an `As New` loop variable makes and drops an
+  object, even when the loop runs no pass.
+
+### What resisted explanation
+
+- Why For Each reads a variable it is about to overwrite.
+- Why a Type's field may be `As New` when a variable of a Type may not be.
+
+### In HexIDE (#435)
+
+**One mechanism, shared with a form's default instance (#822).**
+- A Dim, Private or Public `As New` marks its slot with what it makes: a class's name, or "Collection".
+- A read of the slot while it holds Nothing raises a request, `AutoInstanceNeeded`. The read path's retry loop, the one
+  that already makes a form's default instance, answers it: `New` makes the object, it is stored, and the read is made
+  again.
+- An Initialize that raises leaves the slot Nothing, so the next use tries again.
+- A read through a parameter, the one other name a slot is reached by, makes nothing.
+- Locals and Watch read without asking, so looking makes no object. That is HexIDE's choice: what VB6's Locals window
+  shows for an untouched `As New` variable was not measured.
+
+**What reads count.**
+- Every expression read counts. So do the Let target's read, `!` and `c(1) =` on a Collection, a module-qualified read,
+  and For Each's first read of its variable.
+- For's and For Each's own looks at the variable, to see it exists or release what it held, do not.
+
+**Refused, by issue:**
+- an array `As New` (#1482);
+- a Type's field `As New` (#1488);
+- `Static`, until #1491 made it run;
+- `ReDim` of an undeclared name (#1495);
+- `As New` of a type HexIDE has no class for, such as a form, by #435's own message.
+
+**Known divergences the probes met, none of them `As New`'s:**
+- #877: an `On Error` statement doesn't clear Err;
+- #1006: `Set Module2.pm = Nothing` stores nothing;
+- #1490: objects held at the end of the program don't terminate;
+- #1493: `o = 5` released the object, until #1493.
+
+**`AsNewTests`** pins five programs, seven compile errors and five refusals.
+
+## Where VB6's designer puts a control's block (2026-10-23, #1481, design-time)
+
+**The question.** `docs/vb6-designer-geometry.md` said that `Begin` order is z-order and that windowless controls have a
+plane of their own. The direction was measured only for two Lines (`docs/vb6-fidelity-oracle.md`, "The Line control"),
+and nothing recorded where VB6's designer writes a control it adds or reorders. HexIDE drew the last block on top and
+wrote a new control's block last.
+
+**The probe.** A form, opened in VB6's IDE through the console agent. Its blocks were Picture1 (red), Picture2 (blue),
+then Frame1 holding Picture3 (green) and Picture4 (yellow). The two pictures in each pair overlapped. After each step
+below I saved with File > Save, read the form-level and Frame-level block order from VB6's file, and took a
+screenshot.
+
+| Step | What VB6 showed | Blocks VB6 then wrote |
+|---|---|---|
+| Opened, then F5 | red over blue, green over yellow, at design time and at run time | Picture1, Picture2, Frame1 (Picture3, Picture4) |
+| Bring to Front on Picture2 | blue over red | **Picture2**, Picture1, Frame1 (Picture3, Picture4) |
+| Send to Back on Picture3 | yellow over green | Picture2, Picture1, Frame1 (Picture4, **Picture3**) |
+| Click inside Frame1, then double-click the CommandButton tool | Command1 at the form's centre, over Frame1 | **Command1**, Picture2, Picture1, Frame1 (...) |
+| Draw a CommandButton inside Frame1 | Command2 in the Frame | ..., Frame1 (**Command2**, Picture4, Picture3) |
+| Copy Frame1, paste, No to each array prompt | the copy at 0, 0, its contents the other way up: green over yellow | **Frame2 (Picture6, Picture5, Command3)**, Command1, ... |
+| Double-click the Label tool | Label1 at the form's centre, hidden under Command1 at the same place | ..., Frame1 (...), **Label1** |
+| Draw a second Label | Label2 | ..., Frame1 (...), **Label2**, Label1 |
+| Send to Back on Label2 | | ..., Frame1 (...), Label1, **Label2** |
+| Bring to Front on Label2 | | ..., Frame1 (...), **Label2**, Label1 |
+| Send to Back on Command1 | | Frame2 (...), Picture2, Picture1, Frame1 (...), **Command1**, Label2, Label1 |
+
+In the pasted Frame2, Picture6 is the copy of Picture3, Picture5 of Picture4, and Command3 of Command2. Their TabIndexes
+were 8 for Command3, 9 for Picture5 and 10 for Picture6. The array prompts came in the source's order: Frame1, Command2,
+Picture4, Picture3.
+
+**What it shows:**
+- **The first block in a container is its top control,** in VB6's designer and in the running form alike.
+- **Each container's blocks run windowed controls first, then windowless ones** (Label, Shape, Line, Image). A
+  windowless control is drawn under every windowed control in its container, whatever the order: Label1, written
+  last, was hidden under Command1. The VB98 template corpus agrees, 60 windowed blocks before any windowless sibling
+  and none after one.
+- **A new or pasted control goes first in its plane's run.** A windowed control goes first in its container, and a
+  Label goes first among the Labels, after every windowed control.
+- **Bring to Front and Send to Back move a block to the start or the end of its plane's run.** A Label stays behind
+  the windowed controls, a windowed control sent to back stays ahead of the Labels, and a container takes what it
+  holds. Neither changes the TabIndex.
+- **A pasted container's contents come out the other way up.** VB6 pastes them one at a time, in the source's order,
+  and each goes on top. So the copy stacks them in reverse, while its names and TabIndexes follow the source's order.
+- **Double-clicking a tool after a click inside a Frame adds the control to the form**, not to the Frame. Whether the
+  click had selected the Frame was not captured.
+
+**In HexIDE (#1481):**
+- **What follows the measurements:**
+  - The designer draws each container's first block on top.
+  - A new or pasted control is written first in its plane.
+  - Bring to Front and Send to Back move a control within its plane, with what it holds.
+  - A loaded form is saved in the order it was read.
+- **One deliberate divergence:** a pasted container keeps its source's stacking. A copy that turns its contents over
+  is an artefact of pasting them one at a time, not a design, so HexIDE does not reproduce it.
+- **Two gaps, filed:**
+  - The running form still draws the last block on top (#1497).
+  - A control added in front of one HexIDE carries as text is written after it (#1498).
+
+**Not measured:**
+- A Shape, Line or Image beside a Label in the windowless plane. Only Labels were tried.
+- Bring to Front with several controls selected.
+- A paste while a container is selected.
+- The `ZOrder` method at run time.
+
+## Static (2026-10-23, #1491)
+
+**The question.** `Static n As Long` stopped the program: "non dim variables not supported". The `Static` keyword on a
+procedure was parsed and then ignored, so a `Static Sub`'s locals started again at zero on every call: silently wrong.
+#1491 asked what a Static keeps and for how long:
+- its first value;
+- recursion;
+- a `Static Sub` or `Function`;
+- arrays;
+- a class's and a form's Statics, and when they end.
+
+**The probe.**
+- Two Sub Main programs, the second with four classes and a form, made native and p-code under en-GB.
+- 34 one-statement compile projects.
+- Two two-form projects started from Form1, the second without `New Form2`.
+- `StaticTests`' 4 transcript programs and 2 parse refusals, and the form project `StaticInFormTests` runs, made the same
+  way. They logged exactly what the tests pin, and gave the compile errors the tests expect.
+
+Native code and p-code agreed on every line.
+
+### What a Static keeps
+
+| Program | VB6 |
+|---|---|
+| a Sub with `Static n As Long: n = n + 1`, called three times | 1, 2, 3 |
+| two Subs, each with its own `Static n` | separate: 10, 20 in the second while the first counts on |
+| a recursive Sub, `Static n`, three levels deep, then called again | 1, 2, 3 on the way down; 3 at every level on the way back; 4 on the next call. **One slot for every frame** |
+| `Private Static Sub` with `Dim a As Long` and `Dim s As String` | 1, then 2; "z", then "zz" |
+| `Private Static Function F() As Long` with `Dim m`, and `F = F + 1` | `m` counts 1, 2; **`F` is 1 on every call**: a Static Function's own return value is not Static |
+| `Bump n`, passing the Static ByRef to a Sub that adds 100 | 100, then 200 |
+| `Static q` inside a `For` run three times, `q = q + 1` | 3, then 6: the statement re-run does nothing |
+| `Static u` inside an `If` that is never taken | `u` exists and counts 1, 2 |
+
+### First values, and what it holds
+
+- Each type starts at its own zero:
+  - Integer, Long, Byte: 0, with TypeName Integer, Long, Byte;
+  - Boolean: False;
+  - Single, Double, Currency: TypeName Single, Double, Currency;
+  - Date: 0;
+  - String: "";
+  - Variant and untyped: Empty;
+  - `As Object`, a class and `As Collection`: Nothing;
+  - `fa(2) As Long`: `Long()`, UBound 2;
+  - `da() As Long`: `Long()`;
+  - a Type: its fields' zeros.
+- Every kind keeps what it was given:
+  - a fixed array's element;
+  - a dynamic array grown by `ReDim Preserve`;
+  - a Type's fields;
+  - a String;
+  - a Variant;
+  - an object, and a Collection with its items.
+- `Erase` of a Static fixed array zeros it, and of a dynamic one deallocates it. The next call finds `fa(0)` 0 again,
+  and the array as it was ReDimmed last.
+
+### A class's, and a form's
+
+| Program | VB6 |
+|---|---|
+| two instances of a class, each calling a method with `Static n` | each counts from 1: **a class's Statics are its instance's** |
+| `Static times` in Class_Initialize | 1 for each instance |
+| a `Public Static Sub` in a class | per instance |
+| a Static in a Private method reached through a Public one | per instance, as if called directly |
+| `Set k = Nothing` on an instance holding a field object and three methods' Static objects, made in the order Hold, B, A | Class_Terminate, then the field's object, then the Statics' in the module's order, **Hold, A, B**, not the order they were made |
+| a form's `Public Sub Tick()` with `Static n`, after `Load Form2` | 1, 2 |
+| `Unload Form2`, then `Form2.Tick` | 3: **a Static survives Unload** |
+| `Set Form2 = Nothing` (Form_Terminate), then `Form2.Tick` | 1: a new instance starts again |
+| `New Form2`, loaded, `Tick` twice | 1, 2: its own |
+| a Sub's `Static t As C` still holding its object when Sub Main returns | the object terminates as the program ends (#1490) |
+
+### Static As New
+
+`As New` works on a Static as it does on a Dim (#435), and the object it makes is kept from call to call:
+
+| Program | VB6 |
+|---|---|
+| `Static s As New Made`, then `s.Name = s.Name & "x"`, three calls | made once, at the first call's use; "x", "xx", "xxx" |
+| the third call ending `Set s = Nothing` | it terminates there |
+| `Static c As New Made`, with `Set c = Nothing` at the end of the first call | the second call makes a new one, its Name "" |
+| a class method with `Static c As New Collection: c.Add 1`, twice on one instance and once on a second | 1, 2, then 1 |
+
+### What VB6 refuses to compile
+
+| Declaration | VB6's compile error |
+|---|---|
+| `Static n As Long` at a standard module's level, or a class module's | Invalid outside procedure |
+| `Dim n` then `Static n` in one procedure; `Static n` twice | Duplicate declaration in current scope |
+| `Private Sub S(Static x As Long)` | Syntax error |
+| `Sub S(Static x As Long)`, at the top of the module | Expected: identifier |
+| `Static Const C = 1` | Syntax error |
+| `Dim L As Long` in a Sub, then a call of the module's Sub `L` | Expected Sub, Function, or Property: the local hides the procedure, so the call no longer names one |
+
+Every `Static` form compiles: a fixed or dynamic array, a Type, a Date, an untyped Static, `As Object`, `As Collection`,
+a class, and two names on one line.
+
+### What this overturned
+
+- **That a Static Function's own name is Static too.** Its other locals are, and its return value starts at its zero on
+  every call.
+- **That a class's Statics are released as they were made.** They are released in the order the module declares them,
+  after the fields.
+
+### What resisted explanation
+
+- Why `Sub S(Static x As Long)` is "Expected: identifier" at the top of a module, and "Syntax error" when the Sub is
+  Private further down.
+
+### In HexIDE (#1491)
+
+**What it does:**
+- A Static local's slot is made the first time its procedure declares it, and found again by the declaration's own parse
+  node at every later call, a recursive one included. The call never releases it.
+- A standard module's procedures keep their Statics for the run.
+- A class's or a form's are kept per instance. When the instance terminates, they are released after its fields, in
+  source order.
+- A `Static Sub`, `Function` or `Property` makes every Dim local Static. Its parameters and a Function's return value are
+  not.
+- `Static` outside a procedure is "Invalid outside procedure". A Static parameter or a `Static Const` does not parse.
+
+**Known divergences:**
+- #1490: a standard module's Static, like a module variable, keeps its object past the end of the program.
+- A duplicate `Dim` or `Static` in one procedure is not refused (#1499). The first declaration wins.
+- `New Form2` is #822, so the form test leaves out the second instance.
+
+**What pins it:**
+- `StaticTests` pins four programs and three refusals.
+- `StaticInFormTests` pins the form program.
+
+## A Let into an object variable (2026-10-23, #1493)
+
+**The obvious guess is that `k = 5`, with `k As C1` holding an instance, replaces the object with 5. It assigns the
+default member of the object `k` holds.** A class with none raises 438, and `k` keeps the object. Holding Nothing,
+the same Let raises 91. A Variant is different: it takes the value and drops the object.
+
+**The question.** HexIDE released the object at `k = 5`, so its Terminate ran there, and stored 5. The program ran on
+with the object gone, and `k.Name` on the next line failed to compile. #1493 asked which targets are object variables
+for a Let, and what each does.
+
+**The probe.**
+- Two Sub Main programs, made native and p-code under en-GB.
+- The 3 programs `LetIntoObjectTests` runs, made the same way. They logged exactly what the tests pin.
+
+Native code and p-code agreed on every line. `C1` logs its Initialize and Terminate.
+
+### Object variables
+
+| Target, holding an instance of `C1`, which has no default member | VB6 |
+|---|---|
+| `Dim k As C1`: `k = 5`, and `k = "x"` | 438 both times; `k` still the instance |
+| `Dim o As Object`: `o = 5` | 438; `o` still the instance |
+| `Dim an As New C1`, untouched: `an = 5` | the instance is made, then 438 (#435) |
+| a ByRef parameter `x As C1`: `x = 6` | 438; the caller's variable still the instance |
+| a ByRef or ByVal parameter `x As Object`, and a ByVal `x As C1` | 438 |
+| `Function F() As C1`, holding an instance: `F = 7` | 438; the Function returns the instance |
+| `Function FObject() As Object`, the same | 438; it returns the instance |
+| a class's `Public o As C1`: `h.o = 8`, and `.o = 9` in `With h` | 438; the field still the instance |
+| a class's `Private mo As C1`, from inside: `mo = 5` | 438 |
+
+| Target, holding Nothing | VB6 |
+|---|---|
+| `Dim n As C1`: `n = 5` | 91; `n` still Nothing |
+| `Dim o2 As Object`: `o2 = 5` | 91 |
+
+### Variants
+
+| Target, holding an instance | VB6 |
+|---|---|
+| `Dim v As Variant`: `v = 5` | no error. The instance terminates at the Let, and `v` is 5, an Integer |
+| an untyped `u`, and a class's `Public v As Variant` | the same |
+| a ByRef `x As Variant`, and a ByVal untyped `x` | the same |
+| `Function FVariant() As Variant` and an untyped Function, holding an instance | the same, and the Function returns the Integer |
+
+### A default member
+
+`d = 11`, with `d` holding an instance of a class whose `Property Get Value` carries `Attribute Value.VB_UserMemId = 0`,
+calls its `Property Let Value` with 11. There is no error, and `d.Value` is 11 afterwards.
+
+### Aside: a variable that hides a procedure
+
+The first probe declared a local `r As C1` in Sub Main while the module had a Sub `R` that logs. Every `R "label"` then
+named the variable. It compiled, and under `On Error Resume Next` it raised and logged nothing. A `Dim L As Long` in
+the same position is a compile error ("Expected Sub, Function, or Property", #1491's probes). So an object variable
+standing where a procedure call should be compiles, as a late call of its default member, and a Long does not.
+
+### What this overturned
+
+- **That a Let into an object variable replaces what it holds.** Only a Variant's does. Any declared object variable
+  hands the value to its object's default member, and keeps the object whatever happens.
+- **That `As Object` is a Variant for this purpose.** It reads late, as a Variant does (#1005), but a Let into it is
+  438, as into a class-typed variable.
+
+### In HexIDE (#1493)
+
+**What counts as an object variable.** A Let target is one when it is any of:
+- declared as a class, `As Object` or `As Collection`;
+- an `As Object` parameter (`ExecutionEnvironment.ObjectParameters`, new);
+- any other slot that holds an object and isn't a Variant's.
+
+**What a Let into one does.** It refuses before anything is released or stored:
+- 438 for a class with no default member, and for a Collection;
+- 91 for Nothing;
+- a refusal naming #174 for a class with a default member;
+- a refusal naming #790 for a control.
+
+**Where it was hard to tell a Variant apart.** An untyped or `As Variant` Function's own name takes the value. Its
+slot has no Variant mark, so the executor is told (`VariantReturn`). `ProcedureInfo.ReturnsObject` and
+`ParamInfo.DeclaredObject` now separate `As Object` from Variant, where `ReturnsVariant` and `ReadsAsVariant` had
+counted it as one for reading.
+
+**Not covered:**
+- a Type's field declared as a class;
+- an element of an object array (#1482).
+
+**`LetIntoObjectTests`** pins three programs and the default-member refusal.
+
+**#169 found one more.** An object Function's return name started Empty before any Set. So `F = 5` in `F() As Object`
+took the value where vb6.exe raises 91, and an unset `As Object` or `As Collection` Function returned Empty. It starts
+Nothing now, and `LetIntoObjectTests` pins a fourth program.
+
+## The size of a control added from the toolbox (2026-10-23, #1473, design-time)
+
+**The question.** "Where the Format commands put a control" measured where VB6 puts a CommandButton added by
+double-clicking its tool: 1215 x 495, centred, then on the grid. HexIDE gave every class 50 x 50 pixels (750 x 750
+twips). Each class needed its own measurement.
+
+**The probe.** An empty 6000 x 4500 form with the default 120-twip grid, in VB6's IDE. I double-clicked every intrinsic
+tool except OLE, whose double-click opens a dialog, clicking an empty corner of the form first each time, then saved.
+Every control went onto the form, none into another. The values are VB6's file.
+
+| Class | Width x Height | Left, Top |
+|---|---|---|
+| CommandButton, Label, TextBox, Frame, CheckBox, OptionButton, PictureBox, Shape, Image | 1215 x 495 | 2400, 2040 |
+| ComboBox | 1215 x 315 | 2400, 2040 |
+| ListBox | 1215 x 450 | 2400, 2040 |
+| HScrollBar | 1215 x 255 | 2400, 2160 |
+| VScrollBar | 255 x 1335 | 2880, 1560 |
+| DriveListBox | 1215 x 315 | 2400, 2040 |
+| DirListBox | 1215 x 315 | 2400, 2040 |
+| FileListBox | 1215 x 480 | 2400, 2040 |
+| Data | 1215 x 300 | 2400, 2160 |
+| Timer | none written | 2400, 2040 |
+| Line | X1 2400, Y1 2040, X2 3600, Y2 2520 | |
+
+**What it shows:**
+- **Most classes take 1215 x 495.** The ComboBox, the list boxes, the scroll bars and the Data control each have a size
+  of their own.
+- **Each is centred by its own size, halves truncated, then put on the grid, a half going up.** For example, the
+  VScrollBar: 3000 - 127 = 2873, on the grid 2880; and 2250 - 667 = 1583, on the grid 1560. The Data control is
+  2250 - 150 = 2100, 17.5 units, which goes up to 2160.
+- **A Timer writes no size, but is placed as a 1215 x 495 control would be.**
+- **A Line is a diagonal** from the centred, gridded corner, 1200 across and 480 down.
+- **A click with a tool selected and no drag adds nothing.** The CommandButton tool was pressed, a click on the form
+  made no control, and the toolbox went back to the pointer.
+
+**In HexIDE (#1473):**
+- A control added by a double-click takes its class's size and is placed by it, for every class the toolbox holds.
+- A click without a drag already added nothing.
+- The DriveListBox, DirListBox, FileListBox, Data, Image and Line rows wait for those controls to reach the toolbox;
+  the Image's is already the default.
+
+**Not measured:**
+- A form with another font, which may change the ComboBox's and the list boxes' heights.
+- A grid other than 120 twips.
+- A double-click while a container is selected, measured only as "after a click inside a Frame" ("Where VB6's designer
+  puts a control's block").
+
+## An undeclared variable passed ByRef (2026-10-23, #1505)
+
+Measured on vb6.exe, native and p-code identical, under en-GB, with no `Option Explicit`. Each program
+`ByRefUndeclaredTests` pins was made as written.
+
+A name nothing claims, passed as an argument, is declared where it is passed, as a Let would declare it. A ByRef
+parameter then writes into it.
+
+| probe | result |
+|---|---|
+| `Bump a12` twice, with `Sub Bump(x)` doing `x = x + 1` | `a12` is an Integer 2 |
+| `Fill b12`, with `Sub Fill(ByRef s)` doing `s = "filled"` | String "filled" |
+| `Fill s:=c12`, the same by name | String "filled" |
+| `r = BumpF(d12)`, a Function that adds 1 to `x` and returns `x * 10` | `d12` an Integer 1, `r` 10 |
+| `Bump (f12)` | Empty: the parentheses pass a copy |
+| `Keep h12`, with `Sub Keep(ByVal x)` doing `x = 9` | Empty |
+| `Bump Seven`, with `Function Seven()` returning 7 | `Seven` is still 7: a Function's name is called, not declared |
+| `BumpI i12` twice under `DefInt I`, with `Sub BumpI(x As Integer)` | an Integer 2 |
+| `k.Bump e12` twice, a class's `Sub Bump(x)` | an Integer 2 |
+
+**The obvious guess, and HexIDE had made it.** A read of an undeclared name is Empty, so an argument would be only a
+value. It is not: VB6 declares the variable at the argument, so the procedure's write lands in it.
+
+### In HexIDE (#1505)
+
+`ExpressionExecutor.ResolveArg` passes a ByRef parameter the caller's slot when the argument is a variable
+(`TryGetArgLocation`). A name never declared had no slot, because the read path deliberately declares nothing, so that
+a watch expression cannot create a variable (#171). The argument was therefore passed as a copy.
+
+The read now records the bare name it found unclaimed (`unclaimedRead`). When that is the argument being resolved,
+`DeclareUnclaimed` declares it with `StatementExecutor.AllocImplicitVariable`, the same helper a store uses, so a DefType
+still applies. A watch or Immediate-window evaluation still declares nothing: it suppresses implicit declaration, so the
+read refuses before it records anything, and it refuses user procedure calls anyway.
+
+## Chr, Asc, ChrW and AscW (2026-10-23, #1134)
+
+Measured on vb6.exe, native and p-code identical, on a machine whose ANSI code page is 1252, under en-GB. Each program
+`CharacterCodeTests` pins was made as written.
+
+**Chr and Asc go through the ANSI code page; ChrW and AscW do not.** HexIDE had Chr and Asc working in UTF-16 units,
+which agrees with VB6 only below &H80 and, by coincidence, from &HA0 to &HFF.
+
+| probe | result |
+|---|---|
+| `AscW(Chr(&H80))` | 8364: "€" |
+| `AscW(Chr(&H81))`, `&H8D`, `&H8F`, `&H90`, `&H9D` | 129, 141, 143, 144, 157: a byte 1252 leaves undefined is its own code point |
+| `AscW(Chr(&H9F))` | 376: "Ÿ" |
+| `AscW(Chr(&HA0))`, `AscW(Chr(255))` | 160, 255 |
+| `Chr(256)`, `Chr(-1)`, `Chr(32767)`, `Chr(True)` | 5 each |
+| `Chr(3000000000#)` | 6 |
+| `Chr(Null)` | 94 |
+| `Chr("x")` | 13; `Chr("66")` is "B" |
+| `AscW(Chr(65.5))`, `AscW(Chr(66.5))` | 66, 66: half to even |
+| `Len(Chr(0))`, `Len(Chr(Empty))` | 1, 1 |
+| `Asc(ChrW(8364))` | 128 |
+| `Asc(ChrW(&H81))`, `Asc(ChrW(&H178))`, `Asc(ChrW(&H2019))` | 129, 159, 146 |
+| `Asc(ChrW(&H100))` | **65**: Ā best-fits to "A" |
+| `Asc(ChrW(&H416))` | 63: Ж has no fit, so "?" |
+| `Asc("AB")`, `Asc(65)`, `Asc(True)` | 65, 54, 84: the argument is made text first |
+| `Asc("")`, `Asc(Empty)` | 5, 5 |
+| `Asc(Null)` | 94 |
+| `AscW(ChrW(&H20AC))` | 8364 |
+| `AscW(ChrW(&HF050))`, `AscW(ChrW(61520))` | -4016, -4016: `&HF050` is an Integer, -4016, taken as its unsigned unit |
+| `ChrW(-4016) = ChrW(61520)` | True |
+| `AscW(ChrW(65535))`, `AscW(ChrW(-32768))`, `AscW(ChrW(True))` | -1, -32768, -1 |
+| `ChrW(65536)`, `ChrW(-32769)` | 5, 5 |
+| `ChrW(3000000000#)` | 6 |
+| `ChrW(Null)`, `AscW(Null)` | 94, 94 |
+| `AscW(ChrW(65.5))` | 66 |
+| `Len(ChrW(Empty))`, `Len(ChrW(&HD800))`, `Len(ChrW(0))` | 1, 1, 1: a lone surrogate is one unit |
+| `AscW("AB")`, `AscW(66)`, `AscW(1.5)` | 65, 54, 49 |
+| `AscW("")`, `AscW(Empty)` | 5, 5 |
+| `ChrW(CharCode:=65)`, `AscW(String:="A")` | "A", 65 |
+| `ChrW(Code:=65)`, `AscW(Str:="A")` | do not compile: "Named argument not found" |
+| `ChrW()`, `AscW()` | do not compile: "Argument not optional" (HexIDE: #1512) |
+| `AscW$("A")` | does not compile: "Type-declaration character does not match declared data type" |
+| `TypeName(AscW("A"))`, `TypeName(Asc("A"))`, `TypeName(ChrW(65))` | Integer, Integer, String |
+
+**Typed or Variant**, by #987's probe:
+- `AscW("A")` against `Case Is < 65.4` takes Case Else, and `AscW("A") * 7000` is 6: typed, as `Asc` is.
+- `AscW(v)`, with `v` a Variant holding "A", behaves the same way.
+- `ChrW(57)` against `Case Is > 10` takes Case Else: a Variant, as `Chr` is.
+
+**Every `$` form that answers text answers a typed String.** "9" from each of them, against `Case Is > 10`, takes the
+Case: `Chr$(57)`, `ChrW$(57)`, `Format$(9)`, `Hex$(9)`, `LCase$("9")`, `Left$("9", 1)`, `LTrim$("9")`, `Mid$("9", 1)`,
+`Oct$(9)`, `Right$("9", 1)`, `RTrim$("9")`, `String$(1, "9")`, `Trim$("9")` and `UCase$("9")`. `Str$(19)`, which is
+" 19", takes Case Else, which is the typed reading the other way round. Their plain forms are Variants: `Mid("9", 1)`,
+`Left("9", 1)`, `Format(9)` and `Hex(9)` take Case Else, and **`Str(19)` takes the Case**, read as 19.
+
+**Print # best-fits too.** `Print #` of Ā, Ж and ’ to a file opened For Output writes the bytes 65, 63 and 146, read back
+with `Get`. So the earlier row "`ChrW$(&H416)` is written as '?'" is true, but Ж has no fit, so it could not tell a
+best fit from a plain replacement. HexIDE writes Ā as "?" (#1511).
+
+**Not measured here:**
+- **A double-byte ANSI code page** (932). VB6 is documented to give `Chr` a range of -32768 to 65535 there, a code above
+  255 being a lead and a trail byte, and `Asc` a possibly negative pair. Unmeasured, so HexIDE refuses a code beyond
+  ASCII under one (#1509).
+- **ChrB and the rest of the byte-string family.** A first `ChrB` probe did not compile. HexIDE's strings cannot hold a
+  one-byte string at all (#1510).
+
+### In HexIDE (#1134)
+
+`VB6BuiltIns.ChrInCodePage` decodes a byte with the ANSI code page's table, and `AscInCodePage` encodes with that
+table's own fallbacks, best fit among them. Both take the code page from `Vb6TextEncoding.Ansi`, so a Debug build's
+`--ansi-code-page` reaches them, and both refuse beyond ASCII when the table is double-byte. `CharCode` and
+`FirstCharacterOf` hold the argument rules the four share.
+
+`ExpressionExecutor`'s typed list gains `AscW`, its Variant list `ChrW` and `Str`, and its list of `$` forms that do not
+compile gains `AscW`. `DollarResult` now marks its String typed.
+
+## The name VB6's designer gives a new control (2026-10-23, #540, design-time)
+
+**The question.** HexIDE named the first CommandButton on a form Command0, and a pasted control took its number from
+the count of controls on the canvas. The common recollection is that VB6 starts at 1, and #929's probe saw Command1.
+Still open: whether VB6 fills a gap or counts on from the highest number, whether a number freed by a delete comes
+back, and whether a paste follows the same rule.
+
+**The probe.** A form saved holding Command1, Command3 and Text5, opened in VB6's IDE. Each step below was saved, and
+the names are VB6's file. To add a control, I clicked an empty part of the form, then double-clicked the tool. To
+paste, I selected the control, used Edit > Copy and Edit > Paste, and answered **No** to "You already have a control
+named 'Command3'. Do you want to create a control array?".
+
+| Form before | Step | New name |
+|---|---|---|
+| Command1, Command3, Text5 | add a CommandButton | **Command2** |
+| Command1, Command2, Command3, Text5 | add a TextBox | **Text1** |
+| Command1, Command3, Text5 | paste Command3 | **Command2**, caption still "Command3" |
+| Command1, Command2, Command3, Text5 | paste Text5 | **Text1**, Text still "Text5" |
+| Command1, Command2, Command3, Text1, Text5, after Command4 was pasted and deleted | add a CommandButton | **Command4** |
+| Command1, Command3, Text5, after Command2 was added and deleted | add a CommandButton | **Command2** |
+
+**What it shows:**
+- **A new or pasted control takes its class's prefix and the lowest number from 1 that no control on the form has.**
+  It fills a gap a file left (Command2 beside Command1 and Command3), and it does not count on from the highest
+  number (Text1 beside Text5).
+- **A number freed by a delete comes back**, in the middle (Command2) and at the top (Command4). So VB6 doesn't keep a
+  per-session counter, which would have given Command5. The name depends only on what is on the form.
+- **A paste answered No follows the same rule, and keeps the copied caption or text.** Only the name is new.
+
+**In HexIDE (#540):**
+- Both routes now name a control the same way, from 1. A new control used to start at 0, and a paste at the number of
+  controls on the canvas.
+- A name a preserved control holds still counts as taken (#854).
+- HexIDE's paste never asks the array question. It does what VB6's No does.
+
+**Not measured:**
+- A paste answered **Yes**, which makes a control array.
+- Several controls pasted at once, where each presumably takes the lowest free number in turn.
+- A gap in a control array's indexes.
+
+## Debug.Assert (2026-10-23, #1467)
+
+Measured with vb6.exe in two places. The IDE was driven with `vb6.exe /runexit`, in session 0 as the `/make` probes are,
+and the compiled EXE was built both native and p-code, the two agreeing. Each program the tests pin was run as written.
+
+**In the IDE**, `Debug.Assert X` with `L` logging each side of it:
+
+| X | result |
+|---|---|
+| `True`, `5`, `-1`, `"True"` | goes on |
+| `F()`, returning True and logging "F called" | goes on; F is called |
+| `False`, `0`, `Empty`, `Null`, `"False"` | break mode at the statement |
+| `G()`, returning False and logging "G called" | G is called, then break mode |
+| `"abc"` | 13, which On Error Resume Next traps |
+| `1 / 0` | 11, trapped |
+| `False`, or `G()`, under On Error Resume Next | still break mode |
+
+So the condition is read as `If` reads it (#847): Null and Empty do not hold, where `CBool(Null)` raises 94.
+
+**Telling break mode from an error.** A project that breaks leaves the IDE waiting, which `/runexit` cannot end, so the
+probe's timeout reports it, with nothing logged after the assertion. An error dialog would wait the same way. So each
+waiting case was also run under On Error Resume Next: there an error is trapped and the next line logs it, as "abc" and
+`1 / 0` show. Null, Empty, 0 and "False" still waited, so they break rather than raise.
+
+**Not measured:** what Continue (F5) does after the break, since session 0 has no one to press it. HexIDE goes on with
+the statement after the assertion, as it does after `Stop`.
+
+**In a compiled EXE**, native and p-code:
+
+| statement | result |
+|---|---|
+| `Debug.Assert False` | skipped |
+| `Debug.Assert G()` | skipped, and **G is never called** |
+| `Debug.Assert "abc"`, `Debug.Assert 1 / 0` | skipped: nothing is raised |
+| `Debug.Print F()` | **F is called**, though nothing is printed |
+
+The two `Debug` statements differ here. The compiler removes `Debug.Assert` with its argument, but evaluates
+`Debug.Print`'s arguments and discards only the printing. "Debug statements are removed at compile time", as the issue
+had it, is true of the first and not of the second.
+
+**Compile errors:** `Debug.Assert` with no condition, and `Debug.Assert True, False`, are each "Syntax error".
+
+### In HexIDE (#1467)
+
+`StatementExecutor` takes `Debug.Assert` as a statement beside `Debug.Print`:
+- **With a debugger** (`DebugController`, which every IDE run has), it evaluates the condition with `ConditionHolds`, the
+  same reading `If` uses. When the condition does not hold it suspends through
+  `IDebugController.EnterBreakFromAssertionAsync`.
+- **Headless** (the Make EXE runner and the test fixture), it returns before evaluating anything, as `Stop` ends the
+  program there.
+
+The break carries a new `StopReason.Assertion`, which `get_debug_state` and `run_project`'s note report.
+`Call Debug.Assert(x)` reaches `DebugProxy.Call` with no statement to break at, and is refused, naming the statement
+form.
+
+**A reusable harness.** `vb6.exe /runexit project.vbp`, run in the guest with a timeout, measures what the VB6 IDE does
+rather than the compiler. A project that ends logs to its end. One that waits is in break mode or showing a dialog, and
+running it again under On Error Resume Next tells the two apart.

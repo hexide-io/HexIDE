@@ -179,7 +179,9 @@ public class VbFrmFormatSerializer
             switch (Type.GetTypeCode(type))
             {
                 case TypeCode.String:
-                    Sink.WriteLine($"{field}=   \"{value}\"");
+                    // A quote inside the string is written doubled, as VB6 writes it. Written single, it ends the
+                    // string early, and vb6.exe refuses the whole form (#218, measured).
+                    Sink.WriteLine($"{field}=   \"{((string)value).Replace("\"", "\"\"")}\"");
                     break;
                 case TypeCode.Int32:
                     if (type.IsEnum)

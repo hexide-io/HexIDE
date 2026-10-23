@@ -131,6 +131,31 @@ public static class FrxDeserializer
         return declared == record.Length - 4 ? 4 : 0;
     }
 
+    /// <summary>
+    /// Where a line's <c>"name.frx":HHHH</c> citation sits and the offset it names, or null when it has none. The
+    /// span runs from the opening quote to the last hex digit, so a writer can replace the whole citation, the
+    /// companion's name included.
+    /// </summary>
+    public static (int Start, int Length, int Offset)? Citation(string line)
+    {
+        foreach (var marker in CitationMarkers)
+        {
+            var at = line.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            if (at < 0) continue;
+            var start = line.LastIndexOf('"', at);
+            var digits = at + marker.Length;
+            var end = digits;
+            while (end < line.Length && char.IsAsciiHexDigit(line[end])) end++;
+            if (start < 0 || end == digits
+                || !int.TryParse(line.AsSpan(digits, end - digits), System.Globalization.NumberStyles.HexNumber, null, out var offset))
+                return null;
+            return (start, end - start, offset);
+        }
+        return null;
+    }
+
+    private static readonly string[] CitationMarkers = [".frx\":", ".ctx\":", ".pgx\":"];
+
     /// <summary>Returns true if the property value looks like a binary resource reference (.frx/.ctx/.pgx).</summary>
     public static bool IsFrxReference(string value)
         => value.Contains(".frx\":", StringComparison.OrdinalIgnoreCase)
