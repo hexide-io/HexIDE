@@ -10,6 +10,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **A control's `ZOrder` method** (#1503). `ZOrder 0`, or no argument, brings a control to the front of the controls
+  like it in its container, and `ZOrder 1` sends it to the back, as measured on vb6.exe. A Label never rises over a
+  windowed control, a container takes its contents, and the position is 0 or 1 or it raises VB6's error. A program
+  that called it used to stop as not implemented.
+
 - **A control HexIDE does not model is shown in the designer** (#157). An ImageList, a Toolbar or any other control
   HexIDE carries without modelling used to be invisible, so a developer could move a button onto it unknowing. Now
   each is a box where VB6's IDE puts one: at its position, sized by its `Width` and `Height`, or 1200 by 480 twips

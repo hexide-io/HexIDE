@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia;
@@ -151,5 +152,94 @@ public class RuntimeStackingTests
         At(window, canvas, 375, 55).Should().Be(Blue, "the loaded element is drawn where nothing covers it");
         At(window, canvas, 345, 40).Should().Be(Red, "PicArr(0) covers it");
         At(window, canvas, 345, 65).Should().Be(Green, "and so does PicGreen");
+    }
+
+    // ── ZOrder (#1503) ───────────────────────────────────────────────────────────────────────────────────
+
+    private static async Task<(Window Window, Canvas Canvas, string Printed)> Ordered(string controls, string code)
+    {
+        var (canvas, window, ctx, env) = ContainerRuntimeHarness.Laid(Form(controls));
+        var printed = await ContainerRuntimeHarness.Run(ctx, env, code + "\r\n");
+        Dispatcher.UIThread.RunJobs();
+        return (window, canvas, string.Join(" ", printed.Select(v => v.Value?.ToString())));
+    }
+
+    [AvaloniaFact]
+    public async Task ZOrder_0_puts_a_control_over_the_others_and_ZOrder_1_under_them()
+    {
+        var (window, canvas, _) = await Ordered(
+            Box("VB.PictureBox", "PicRed", "&H000000FF&", 10, 10, 60, 40) +
+            Box("VB.PictureBox", "PicBlue", "&H00FF0000&", 40, 30, 60, 40) +
+            Box("VB.PictureBox", "PicGreen", "&H0000FF00&", 150, 10, 60, 40) +
+            Box("VB.PictureBox", "PicYellow", "&H0000FFFF&", 180, 30, 60, 40),
+            "PicBlue.ZOrder\r\nPicGreen.ZOrder 1");
+
+        At(window, canvas, 55, 40).Should().Be(Blue, "ZOrder with no argument brings PicBlue to the front");
+        At(window, canvas, 195, 40).Should().Be(Yellow, "ZOrder 1 sends PicGreen to the back");
+    }
+
+    [AvaloniaFact]
+    public async Task ZOrder_never_takes_a_control_out_of_its_plane()
+    {
+        var (window, canvas, _) = await Ordered(
+            Box("VB.Label", "LabelA", "&H000000FF&", 10, 110, 100, 40) +
+            Box("VB.CommandButton", "CmdA", "", 40, 125, 81, 33) +
+            Box("VB.PictureBox", "PicOrange", "&H000080FF&", 150, 110, 60, 40) +
+            Box("VB.Label", "LabelK", "&H0000FFFF&", 180, 125, 60, 40),
+            "LabelA.ZOrder 0\r\nPicOrange.ZOrder 1");
+
+        At(window, canvas, 60, 140).Should().Be(At(window, canvas, 115, 150), "a Label brought to the front stays under the button");
+        At(window, canvas, 195, 140).Should().Be(Color.FromRgb(255, 128, 0), "a PictureBox sent to the back stays over the Label");
+    }
+
+    [AvaloniaFact]
+    public async Task ZOrder_moves_a_windowless_control_among_the_windowless_ones()
+    {
+        var (window, canvas, _) = await Ordered(
+            Box("VB.Label", "LabelE", "&H0000FFFF&", 150, 180, 70, 40) +
+            Box("VB.Shape", "ShapeE", "&H0000FF00&", 170, 195, 100, 40) +
+            Line("LineF", 235) + Box("VB.Label", "LabelF", "&H0000FFFF&", 10, 220, 100, 30),
+            "ShapeE.ZOrder 0\r\nLineF.ZOrder 1");
+
+        At(window, canvas, 200, 210).Should().Be(Green, "ShapeE is brought over LabelE");
+        At(window, canvas, 60, 235).Should().Be(Yellow, "LineF is sent under LabelF");
+    }
+
+    [AvaloniaFact]
+    public async Task ZOrder_moves_a_container_with_its_contents_and_an_array_element_alone()
+    {
+        var (window, canvas, _) = await Ordered(
+            Box("VB.PictureBox", "PicCyan", "&H00FFFF00&", 10, 100, 60, 40) +
+            "   Begin VB.PictureBox Holder \r\n      BorderStyle     =   0  'None\r\n" +
+            "      Height          =   1200\r\n      Left            =   450\r\n      Top             =   1650\r\n" +
+            "      Width           =   1500\r\n" +
+            Box("VB.PictureBox", "PicIn", "&H00FF00FF&", 0, 0, 50, 40).Replace("\r\n   ", "\r\n      ") +
+            "   End\r\n" +
+            Box("VB.PictureBox", "PicArr", "&H000000FF&", 250, 10, 60, 40, "      Index           =   0\r\n") +
+            Box("VB.PictureBox", "PicArr", "&H00FF0000&", 280, 30, 60, 40, "      Index           =   1\r\n"),
+            "Holder.ZOrder\r\nPicArr(1).ZOrder");
+
+        // The holder is at 30, 110, so PicIn covers 30 to 80 and 110 to 150, over PicCyan from 30 to 70 and 110 to 140.
+        At(window, canvas, 50, 125).Should().Be(Color.FromRgb(255, 0, 255), "the holder came to the front with PicIn in it");
+        At(window, canvas, 295, 40).Should().Be(Blue, "PicArr(1) came over PicArr(0)");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("2", "5")]
+    [InlineData("-1", "5")]
+    [InlineData("0.6", "0")]
+    [InlineData("\"1\"", "0")]
+    [InlineData("\"x\"", "13")]
+    [InlineData("32768", "6")]
+    [InlineData("1.5", "5")]
+    [InlineData("-0.5", "0")]
+    [InlineData("Null", "13")]
+    [InlineData("Empty", "0")]
+    public async Task ZOrders_position_is_an_Integer_that_must_be_0_or_1(string argument, string error)
+    {
+        var (_, _, printed) = await Ordered(Box("VB.PictureBox", "Pic1", "&H00808080&", 10, 10, 40, 30),
+            $"On Error Resume Next\r\nPic1.ZOrder {argument}\r\nDebug.Print Err.Number");
+
+        printed.Should().Be(error);
     }
 }
