@@ -12,6 +12,9 @@ namespace HexIDE.Runtime.Interpreter;
 public interface IBasicStandardLibrary
 {
     ITextClipboard Clipboard => throw new NotImplementedException("This host does not implement the clipboard (#1156)");
+
+    /// <summary>Where SaveSetting and GetSetting keep a program's settings (#1562): see <see cref="VbSettingsStores"/>.</summary>
+    IVbSettingsStore Settings => throw new NotImplementedException("This host does not keep a program's settings (#1562)");
     Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon);
     Task<string?> InputBox(string prompt, string? title, string defaultText);
 

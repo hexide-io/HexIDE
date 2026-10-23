@@ -126,6 +126,30 @@ internal static class VbSignatures
                 new SignatureEntry("StrReverse(Expression As String) As String", ["Expression"],
                     "Returns a string in which the character order of a specified string is reversed.")
             ],
+            ["GetSetting"] =
+            [
+                new SignatureEntry("GetSetting(AppName As String, Section As String, Key As String, [Default]) As String",
+                    ["AppName", "Section", "Key", "Default"],
+                    "The text a program saved under a key with SaveSetting, or the default where it saved none.")
+            ],
+            ["GetAllSettings"] =
+            [
+                new SignatureEntry("GetAllSettings(AppName As String, Section As String)",
+                    ["AppName", "Section"],
+                    "Every key in a section with its text, as a String array of two columns, or Empty where the section holds none.")
+            ],
+            ["SaveSetting"] =
+            [
+                new SignatureEntry("SaveSetting(AppName As String, Section As String, Key As String, Setting As String)",
+                    ["AppName", "Section", "Key", "Setting"],
+                    "Keeps a piece of text under the program's name, a section and a key, for GetSetting to read in a later run.")
+            ],
+            ["DeleteSetting"] =
+            [
+                new SignatureEntry("DeleteSetting(AppName As String, [Section], [Key])",
+                    ["AppName", "Section", "Key"],
+                    "Deletes one key's text, a whole section, or, with no section, every section the program has.")
+            ],
             ["StrComp"] =
             [
                 new SignatureEntry("StrComp(String1, String2, [Compare As VbCompareMethod]) As Integer",

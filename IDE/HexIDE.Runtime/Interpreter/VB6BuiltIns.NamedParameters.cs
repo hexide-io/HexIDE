@@ -32,6 +32,9 @@ public partial class VB6BuiltIns
         ["DatePart"] = new(["Interval", "Date", "FirstDayOfWeek", "FirstWeekOfYear"], 2),
         ["DateSerial"] = new(["Year", "Month", "Day"], 3),
         ["DateValue"] = new(["Date"], 1),
+        // The settings four (measured, #1562): DeleteSetting's section is optional, so `DeleteSetting "App"` deletes the
+        // program's every section; SaveSetting's value is Setting, not Value, and GetSetting's default Default.
+        ["DeleteSetting"] = new(["AppName", "Section", "Key"], 1),
         ["Day"] = new(["Date"], 1),
         ["Environ"] = new(["Expression"], 1),
         ["EOF"] = new(["FileNumber"], 1),
@@ -39,6 +42,8 @@ public partial class VB6BuiltIns
         ["Filter"] = new(["SourceArray", "Match", "Include", "Compare"], 2),
         ["Format"] = new(["Expression", "Format", "FirstDayOfWeek", "FirstWeekOfYear"], 1),
         ["FreeFile"] = new(["RangeNumber"], 0),
+        ["GetAllSettings"] = new(["AppName", "Section"], 2),
+        ["GetSetting"] = new(["AppName", "Section", "Key", "Default"], 3),
         ["GetObject"] = new(["Pathname", "Class"], 0),
         // Hex, Oct and Str take `Number` though their type library lists no parameters (measured, #1475).
         ["Hex"] = new(["Number"], 1),
@@ -72,6 +77,7 @@ public partial class VB6BuiltIns
         ["Rnd"] = new(["Number"], 0),
         ["Round"] = new(["Number", "NumDigitsAfterDecimal"], 1),
         ["RTrim"] = new(["String"], 1),
+        ["SaveSetting"] = new(["AppName", "Section", "Key", "Setting"], 4),
         ["Second"] = new(["Time"], 1),
         ["Shell"] = new(["Pathname", "WindowStyle"], 1),
         ["Sin"] = new(["Number"], 1),
