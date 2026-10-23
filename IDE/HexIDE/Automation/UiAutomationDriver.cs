@@ -511,8 +511,17 @@ public static class UiAutomationDriver
                     var invoked = LabelOf(control, peer);
                     if (peer.GetProvider<IInvokeProvider>() is { } inv)
                     {
+#if DEBUG
+                        // Read only after visibility/peer guards, inside the same exception boundary as the invoke.
+                        var saveWatch = control is Button saveButton ? UiSaveFeedback.Watch(saveButton.Command) : null;
+#endif
                         inv.Invoke();
-                        return Ok($"invoked {ControlTypeOf(peer)} '{invoked}'");
+                        var outcome = Ok($"invoked {ControlTypeOf(peer)} '{invoked}'");
+#if DEBUG
+                        return UiSaveFeedback.After(saveWatch, outcome);
+#else
+                        return outcome;
+#endif
                     }
                     // MenuItemAutomationPeer exposes NO providers at all — not invoke, not
                     // expandCollapse — so every verb failed on a menu and none of it was reachable.
@@ -1410,6 +1419,11 @@ public static class UiAutomationDriver
         var rawKeys = (keys.HasFlag(KeyModifiers.Shift) ? RawInputModifiers.Shift : RawInputModifiers.None)
                       | (keys.HasFlag(KeyModifiers.Control) ? RawInputModifiers.Control : RawInputModifiers.None)
                       | (keys.HasFlag(KeyModifiers.Alt) ? RawInputModifiers.Alt : RawInputModifiers.None);
+#if DEBUG
+        var saveButton = (hit as Control)?.GetSelfAndVisualAncestors().OfType<Button>().FirstOrDefault();
+        var saveWatch = button == MouseButton.Left && saveButton is { IsEffectivelyEnabled: true }
+            ? UiSaveFeedback.Watch(saveButton.Command) : null;
+#endif
         hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
             new PointerPointProperties(held | rawKeys, pressKind), keys));
 
@@ -1433,7 +1447,12 @@ public static class UiAutomationDriver
                 releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, inWindow,
                     (ulong)Environment.TickCount64, new PointerPointProperties(rawKeys, releaseKind), keys, button));
                 pointer.Capture(null);
-                return new InteractOutcome(true, "pointer", $"clicked {pressed}", null);
+                var outcome = new InteractOutcome(true, "pointer", $"clicked {pressed}", null);
+#if DEBUG
+                return UiSaveFeedback.After(saveWatch, outcome);
+#else
+                return outcome;
+#endif
             }
             catch (Exception ex)
             {
