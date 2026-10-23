@@ -234,6 +234,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP command guards follow the compiled XAML binding** (#1324). `invoke_command` now finds private guards
+  on base types and ignores guards below the bound method's type, so its refusal agrees with the menu.
+
+
 - **The designer draws and names a UserControl or PropertyPage as VB6's does** (#1544). Each was drawn in a form's
   window frame, with a title bar and caption buttons, a PropertyPage's tab read `(Form)`, and the Properties window's
   object box gave both the class `Form`. Each is now a borderless surface, as neither has a window of its own at run
