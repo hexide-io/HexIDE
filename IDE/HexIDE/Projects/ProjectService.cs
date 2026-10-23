@@ -364,7 +364,7 @@ public class ProjectService : IProjectService
         // Establish the "nothing edited yet" point for the save-changes prompt.
         SnapshotRenderBaselines(project);
         // After the baselines, so that a form whose VB_Name is made to agree comes up edited: its file still disagrees.
-        var conflictingNames = ReconcileFormNames(project);
+        var conflictingNames = ReconcileDesignerNames(project);
 
         if (serializedProject.SkippedUserDocumentPaths.Count > 0)
         {
@@ -393,27 +393,34 @@ public class ProjectService : IProjectService
     }
 
     /// <summary>
-    /// Makes each form's <c>Attribute VB_Name</c> agree with its <c>Begin</c> line where the two differ, even in case
-    /// alone, and returns a notice for each, in VB6's words (#1407).
+    /// Makes the <c>Attribute VB_Name</c> of each form, UserControl and PropertyPage agree with its <c>Begin</c> line
+    /// where the two differ, even in case alone, and returns a notice for each, in VB6's words (#1407, #1411).
     /// </summary>
     /// <remarks>
-    /// VB6 names such a form by its <c>Begin</c> line, as HexIDE already did. It says so as the project opens, and its
-    /// next save writes <c>VB_Name</c> to match (measured: the oracle's "A form whose two names disagree"). The rewrite
-    /// is to the model, which no code window shows yet, so the form comes up edited, and the next save writes it.
+    /// VB6 names each of these by its <c>Begin</c> line, as the loader now does too. It says so as the project opens, and
+    /// its next save writes <c>VB_Name</c> to match (measured for a form and a UserControl: the oracle's "A form whose two
+    /// names disagree"). The rewrite is to the model, which no code window shows yet, so the document comes up edited,
+    /// and the next save writes it. A UserControl's or PropertyPage's attribute run is in its module's code, which is
+    /// what its save writes.
     /// </remarks>
-    private List<string> ReconcileFormNames(ProjectDefinition project)
+    private List<string> ReconcileDesignerNames(ProjectDefinition project)
     {
         var notices = new List<string>();
         foreach (var form in project.Forms)
-        {
-            var name = form.Name;
-            if (name.Length == 0 || FormCodeText.VbNameOf(form.Code) is not { } vbName
-                || string.Equals(vbName, name, StringComparison.Ordinal))
-                continue;
-            form.UpdateCode(FormCodeText.RetargetVbName(form.Code, name));
-            notices.Add(string.Format(localization.GetString("Str.Dialog.ConflictingNames"), form.AbsolutePath ?? name, name));
-        }
+            Reconcile(form.Name, form.Code, form.UpdateCode, form.AbsolutePath);
+        foreach (var module in project.Modules)
+            if (module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage && module.FormPart is not null)
+                Reconcile(module.Name, module.Code, module.UpdateCode, module.AbsolutePath);
         return notices;
+
+        void Reconcile(string name, string code, Action<string> update, string? path)
+        {
+            if (name.Length == 0 || FormCodeText.VbNameOf(code) is not { } vbName
+                || string.Equals(vbName, name, StringComparison.Ordinal))
+                return;
+            update(FormCodeText.RetargetVbName(code, name));
+            notices.Add(string.Format(localization.GetString("Str.Dialog.ConflictingNames"), path ?? name, name));
+        }
     }
 
     private static IReadOnlyDictionary<string, ComponentBaseClass> BuildUserControlRegistry(
@@ -568,6 +575,15 @@ public class ProjectService : IProjectService
     private async Task<IReadOnlyList<Destination>> SaveFiles(
         IReadOnlyList<(object Document, bool SaveAs)> files, bool announceSave = true, bool ownCommand = false)
     {
+        // A UserControl's or PropertyPage's designer half is one file with its module, and the file the project names is
+        // the module's. Saved as a form, a new one has no path (#500) and asked for a .frm, and wrote the edit there
+        // beside a .ctl that was never written (#474). So whatever is handed in, its module is saved.
+        files = [.. files
+            .Select(file => file.Document is FormDefinition { OwningModule: { } module } && DesignerPartOf(module) is not null
+                ? (module, file.SaveAs)
+                : file)
+            .DistinctBy(file => file.Document, ReferenceEqualityComparer.Instance)];
+
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
         var destinations = new List<Destination>();
@@ -1984,6 +2000,9 @@ public class ProjectService : IProjectService
             WriteCompanionBinary(modulePath, companion, designerPart);
         AtomicWriteText(modulePath, text, encodedText);
         module.AbsolutePath = modulePath;
+        // Both halves are the one file, as every load gives them (#474).
+        if (DesignerPartOf(module) is { } written)
+            written.AbsolutePath = modulePath;
 
         // As SerializeFormToFile: the .ctl/.pag half of the same refresh trigger (#273 task 3.3a). The code here is
         // the MODULE's, which is the pairing this path writes and the one the code window composes from. Gated

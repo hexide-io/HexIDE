@@ -10,6 +10,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **A control's `ZOrder` method** (#1503). `ZOrder 0`, or no argument, brings a control to the front of the controls
+  like it in its container, and `ZOrder 1` sends it to the back, as measured on vb6.exe. A Label never rises over a
+  windowed control, a container takes its contents, and the position is 0 or 1 or it raises VB6's error. A program
+  that called it used to stop as not implemented.
+
 - **A control HexIDE does not model is shown in the designer** (#157). An ImageList, a Toolbar or any other control
   HexIDE carries without modelling used to be invisible, so a developer could move a button onto it unknowing. Now
   each is a box where VB6's IDE puts one: at its position, sized by its `Width` and `Height`, or 1200 by 480 twips
@@ -219,6 +224,32 @@ there isn't one yet. Anything may change between 0.x releases.
   application and back. A form raised Resize two or three times as it was shown, as the window settled. It now
   raises one, inside the Show, and after that one for each change of size or state. A form shown again after Hide
   raises none.
+
+- **Cancelling a language-server request now reaches the server** (#944). The cancellation notification
+  failed to serialize on every keystroke that abandoned a completion request. It now sends the original
+  request’s bare ID, so a server can stop that work; the client still awaits the server’s response.
+
+- **A disabled menu item says it is disabled in automation** (#1534). `invoke_menu_item` used to blame keyboard
+  focus when a disabled item had a routed command. It now reads the materialised item's enabled state first;
+  when the menu has not been read, the refusal says its disabled state is unknown and how to check it.
+
+- **An automation click outside its target says so** (#1530). When the point lands on another control,
+  `interact` now gives the target's size and names what took the press, rather than saying it covers the target.
+
+- **Ctrl+S on a new UserControl or PropertyPage saves its .ctl or .pag** (#474). From its designer or its code window,
+  Ctrl+S saved the designer half as a form: it asked for a `.frm`, wrote the edit there, and left the `.ctl` the project
+  names unwritten. A save from either half is now the module's save. It asks for the `.ctl` or `.pag` once, and writes
+  it in place after that.
+
+- **A UserControl or PropertyPage is named by its `Begin` line, as VB6 names it** (#1411). HexIDE named it after its
+  file, so `Gauge.ctl` holding `Begin VB.UserControl ctlDial` was "Gauge". A form using the control as VB6 does, as
+  `Begin probe.ctlDial`, then found no such control, and kept it as text it could neither draw nor run. Where its
+  `Begin` line and `VB_Name` disagree, the project now opens with VB6's warning and makes `VB_Name` agree, as #1407
+  does for a form.
+
+- **Bare Print no longer prevents a form from loading** (#993). The interpreter and editor accept its output list.
+  Reaching it still stops the run at the form's unimplemented Print method (#989); standard and class modules refuse
+  it at runtime, naming #993, pending a VB6 measurement.
 
 - **Indexing a call's result runs** (#1476). `Split(s)(0)`, `Array(1, 2)(1)`, `F()(1)` and `a(1)(0) = 9` stopped the
   program. They now run as vb6.exe runs them, evaluating in its order. A parameterless Function that returns a Variant
