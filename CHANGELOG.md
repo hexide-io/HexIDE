@@ -236,6 +236,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Ending an external debug session discards pending evaluations immediately** (#1599). A late adapter reply could
+  reach the Immediate window while End was waiting for disconnect. The stopped context now expires before disconnect
+  is sent, so an answer arriving during teardown cannot be shown as a current evaluation.
+
 - **A carried control's box is drawn in its place among the designer's controls** (#1553). The designer drew the box
   for every control it carries as text over every control it models, so a control brought in front of one was saved in
   front of it (#1498) but still drawn under its box. The boxes now stack with the controls, as VB6 stacks the control:
