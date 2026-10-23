@@ -1246,8 +1246,8 @@ public class SettingsProgramTests : BaseVBTestFixture
     }
 
     // The fourth batch: the default is read only when it is the answer, the names are converted before any is
-    // checked, Call and VBA. reach the same statements, and GetAllSettings assigns to a String array. Empty assigned
-    // to a String array, which vb6.exe refuses with 13, is left out: that is #1588, array assignment, not these four.
+    // checked, Call and VBA. reach the same statements, and GetAllSettings assigns to a String array, Empty included,
+    // which vb6.exe refuses with 13 as it refuses any Empty into a String array (#998).
     [Fact]
     public async Task What_is_converted_when_and_the_other_ways_to_call_them()
     {
@@ -1478,6 +1478,7 @@ public class SettingsProgramTests : BaseVBTestFixture
                     R14
                     R15
                     R16
+                    R17
                     R18
                     Clean
                 End Sub
@@ -1507,6 +1508,8 @@ public class SettingsProgramTests : BaseVBTestFixture
             vba-delete: String [gone]
             interaction-get: String [v]
             getall-into-string-array: String [0 K]
+            getall-missing-into-string-array: setup err 13 Type mismatch
+            getall-missing-into-string-array: err 9 Subscript out of range
             getall-two-dims: Long [1]
             """));
     }
