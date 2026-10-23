@@ -119,9 +119,9 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Keywords and modifiers | 0 | 0 | 10 | 20 | 1 | 20 | 51 |
 | Literals, types and suffixes | 6 | 1 | 4 | 14 | 0 | 25 | 50 |
 | Compiler directives and options | 0 | 1 | 9 | 9 | 20 | 8 | 47 |
-| In-box objects | 0 | 0 | 88 | 13 | 0 | 22 | 123 |
+| In-box objects | 0 | 0 | 87 | 14 | 0 | 22 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **8** | **4** | **211** | **407** | **22** | **530** | **1182** |
+| **Total** | **8** | **4** | **210** | **408** | **22** | **530** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -314,7 +314,7 @@ which is the cheaper kind to close. The named-argument operator `:=` was the oth
 | `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 
-## Dies mid-run — 205 names
+## Dies mid-run — 204 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -389,7 +389,6 @@ most of the in-box object model.
 | `DataObjectFiles` | **Dies** | Measured for `Dim f As DataObjectFiles`: VBCompileErrorException: "User-defined type not defined: DataObjectFiles" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `Date` | **Dies** | throws `"Date not implemented"` — The grammar has a dedicated rule `dateStmt : DATE WS? EQ WS? valueStmt` (VB6.g4), listed in the block alternatives at VB6.g4 ahead of letStmt so it… | StatementExecutor.cs |
 | `DDB` | **Dies** | Not registered in BuildRegistry (VB6BuiltIns.cs) or any RegisterXxx partial; the call resolves to no local array, no user procedure and no intrinsic, so ExpressionExecutor.cs throws… | VB6BuiltIns.cs |
-| `Debug.Assert` | **Dies** | as an ICS_B_MemberProcedureCall and throws at run time. DebugProxy.Call handles only "Print"; everything else hits `throw new Exception("No method named " + method)`. Measured verbatim:… | DebugProxy.cs |
 | `DeleteSetting` | **Dies** | throws `"DeleteSetting not implemented"` — Grammar rule `deleteSettingStmt : DELETESETTING WS valueStmt WS? COMMA WS? valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4) with a real DELETESETTING… | StatementExecutor.cs |
 | `Dir` | **Dies** | fails at name resolution: unregistered in every VB6BuiltIns partial. Probed `Debug.Print Dir("*.*")` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined… | ExpressionExecutor.cs |
 | `Environ` | **Dies** | Not in BuildRegistry; the only runtime hit is the highlighter list VbKeywordNormalizer.cs. `Environ("PATH")` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined… | ExpressionExecutor.cs |
@@ -1043,7 +1042,7 @@ missing.
 | `Option Base` | Supported | Collected by PrePass ('ArrayBase = int.Parse(context.INTEGERLITERAL().GetText());', PrePass.cs) and applied on both declaration paths: module-level Dim arrays (PrePass.cs) and… | PrePass.cs |
 | `Version` | Supported | Handled on three independent paths. Form/control files: the deserializer skips the line ('if (line.StartsWith("VERSION")) { continue; }', VbFrmFormatDeserializer.cs) and the serializer… | VbFrmFormatDeserializer.cs |
 
-### In-box objects — 123 names (88 absent, 13 partial, 22 supported)
+### In-box objects — 123 names (87 absent, 14 partial, 22 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -1104,7 +1103,7 @@ missing.
 | `DataObject.GetFormat` | **Dies** | Measured: VBMethodOrDataMemberNotFoundException: "Method or data member not found (GetFormat(1) in Right(EmptyVariant))". | Exceptions.cs |
 | `DataObject.SetData` | **Dies** | Measured: VBRunTimeException: "Unknown method SetData on <Right(EmptyVariant)>()" (StatementExecutor.cs). | StatementExecutor.cs |
 | `DataObjectFiles` | **Dies** | Measured for `Dim f As DataObjectFiles`: VBCompileErrorException: "User-defined type not defined: DataObjectFiles" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
-| `Debug.Assert` | **Dies** | as an ICS_B_MemberProcedureCall and throws at run time. DebugProxy.Call handles only "Print"; everything else hits `throw new Exception("No method named " + method)`. Measured verbatim:… | DebugProxy.cs |
+| `Debug.Assert` | Partial | **[#1467](https://github.com/hexide-io/HexIDE/issues/1467):** under the debugger, a condition that does not hold enters break mode at the statement, as `Stop` does, and one that holds goes on. The condition is read as `If` reads it (Null, Empty, 0 and "False" break; "abc" is a trappable 13), and On Error Resume Next does not skip the break. Headless, as a compiled EXE, the statement is skipped and its argument not evaluated. All measured, the IDE with `vb6.exe /runexit`. `get_debug_state` reports the break as `Assertion`. **Partial:** `Call Debug.Assert(x)` is refused, naming the statement form. | StatementExecutor.cs, DebugController.cs |
 | `Err.HelpContext` | **Dies** | TryGetProperty (VbErr.cs) has cases only for number/description/source; the fall-through in ExpressionExecutor then requires a Control and otherwise throws… | ExpressionExecutor.cs |
 | `Err.HelpFile` | **Dies** | Measured: `Debug.Print Err.HelpFile` -> VBMethodOrDataMemberNotFoundException, "Method or data member not found (HelpFile in Right(CSharpProxyObject))". No case in… | VbErr.cs |
 | `Err.LastDllError` | **Dies** | Measured verbatim: "Method or data member not found (LastDllError in Right(CSharpProxyObject))". | VbErr.cs |
@@ -1147,7 +1146,7 @@ missing.
 | `SelectedControls` | **Dies** | Measured for `Dim s As SelectedControls`: VBCompileErrorException: "User-defined type not defined: SelectedControls" (StatementExecutor.cs). | StatementExecutor.cs |
 | `App.ProductName` | Partial | Resolves, but is hardwired to the empty string regardless of the project - it is not read from AppInfo at all. VbApp.cs is: case "productname": value = ""; return true; | VbApp.cs |
 | `ClipBoardConstants` | Partial | The nine MEMBER constants are all registered in the built-in constant table and resolve as bare names - vbCFBitmap=2, vbCFDIB=8, vbCFEMetafile=14, vbCFFiles=15, vbCFLink=-16640… | VB6BuiltIns.cs |
-| `Debug` | Partial | Seeded as a program-global CSharpProxy in every module env (BasicInterpreter.cs). DebugProxy.Call implements exactly one member, `Print`, matched in any case. Every other member falls to `throw… | DebugProxy.cs |
+| `Debug` | Partial | Seeded as a program-global CSharpProxy in every module env (BasicInterpreter.cs). `Print` and, as a statement, `Assert` ([#1467](https://github.com/hexide-io/HexIDE/issues/1467)) are implemented. DebugProxy.Call implements exactly one member, `Print`, matched in any case. Every other member falls to `throw… | DebugProxy.cs |
 | `Debug.Print` | Partial | A class instance or App raises 438, as VB6's does (measured in the IDE, where Debug.Print runs, for a class, App and Screen; HexIDE has no Screen), or is refused naming #174 for a class with a default member, or prints Err's Number, where it printed the CLR type name. **A control still prints its .NET type name** (#790). **[#1380](https://github.com/hexide-io/HexIDE/issues/1380):** prints every item, formatted as `Print #` formats it (spacing, zones, `Spc`, `Tab`, a line left open by `;` or `,`), which is what the VB6 IDE's Immediate window showed, line for line. A line a run leaves open stays open for the next run, with its column, as measured. A list of separators alone, `Debug.Print ,` or `Debug.Print ;`, prints as it does in VB6, moving a zone for each comma ([#1409](https://github.com/hexide-io/HexIDE/issues/1409)). Each item also reaches IBasicStandardLibrary.DebugPrint as its typed Vb6Value, which the tests assert on, and a bare `Debug.Print` prints a blank line. | DebugProxy.cs |
 | `Err` | Partial | **#840:** used as a value, Err is its Number (measured: `"v=" & Err`, `x = Err`, `Err + 1`, `VarType(Err)` is 3). So is it as a condition: `If Err Then`, `While Err`, `Do While Err` and `Loop While Err` each read the Number (measured, one pass each in the loops). — One program-global VbErr shared by every module env (BasicInterpreter.cs, BasicInterpreter.cs). Number/Description/Source are readable and writable through ICSharpPropertyBag; Clear and… | VbErr.cs |
 | `Err.Raise` | Partial | VbErr.Call `case "raise"` forwards only the first three arguments - `Raise(ToLong(args[0]), args.Count >= 2 ? ... : null, args.Count >= 3 ? ... : null)`. Arguments 4 (HelpFile) and 5… | VbErr.cs |

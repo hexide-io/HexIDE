@@ -208,6 +208,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`Debug.Assert` runs** (#1467). It stopped the program, even when its condition held. Now, in the IDE, an assertion
+  that fails enters break mode at the statement, as `Stop` does, and one that holds goes on, the condition read as `If`
+  reads it. A compiled program has no `Debug.Assert`, its argument not even evaluated, so the Make EXE runner skips it,
+  as vb6.exe's EXE does. `get_debug_state` reports the break as `Assertion`.
+
 - **An undeclared variable passed ByRef takes the procedure's write** (#1505). `Bump a12`, with `a12` never declared
   and `Sub Bump(x)` adding 1 to `x`, left `a12` Empty, so the program ran on with a wrong value and nothing said why. VB6
   declares the variable where it is passed, and the write lands in it. Now HexIDE does the same for a Sub, a Function, a
