@@ -61,6 +61,15 @@
     <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.GrayTextBrushKey}"          Color="#808080" />
     <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.InactiveCaptionBrushKey}"   Color="#ABABAB" />
     <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.InactiveCaptionTextBrushKey}" Color="#666666" />
+    <!-- Six VB6 system colours nothing above sets, which a control given one painted DeepPink in (#908). Windows 10's
+         values: vb6.exe paints a Label in each exactly as GetSysColor answers, measured on the oracle guest (the oracle's
+         "Seven system colours"). Only VB6 programs and the designer read these. -->
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.ScrollBarBrushKey}"         Color="#C8C8C8" />
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.ActiveCaptionBrushKey}"     Color="#99B4D1" />
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.ActiveBorderBrushKey}"      Color="#B4B4B4" />
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.InactiveBorderBrushKey}"    Color="#F4F7FC" />
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.InfoTextBrushKey}"          Color="#000000" />
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.InfoBrushKey}"              Color="#FFFFE1" />
 
     <!-- Dock tool panel title bar (VB6 docked tool window header: light grayish-blue) -->
     <SolidColorBrush x:Key="DockTitleBarBrush" Color="#BFCDDB" />

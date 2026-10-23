@@ -45,7 +45,8 @@ internal enum VbFileMode
 /// A program's open files, by number: <c>Open</c>, <c>Line Input #</c>, <c>Print #</c>, <c>Close</c>, <c>FreeFile</c> and
 /// <c>EOF</c> (#1145), and the fields of <c>Input #</c> (#1521). Measured on vb6.exe, native and p-code agreeing (the oracle's "Sequential files"):
 /// <list type="bullet">
-/// <item>Text is in the ANSI code page both ways. A character it has no byte for is written as <c>?</c>.</item>
+/// <item>Text is in the ANSI code page both ways. A character it has no byte for is written as its best fit, Ā as
+/// <c>A</c>, or as <c>?</c> where there is none (#1511).</item>
 /// <item>A line ends at CR or CR LF, and not at a lone LF, which stays in the line. A trailing line break makes no empty
 /// last line. In Input mode Ctrl+Z ends the file.</item>
 /// <item>Output truncates, Append adds or creates, and Input of a missing file is 53. A number already open is 55, and so
@@ -346,14 +347,17 @@ internal sealed class VbFiles
     private static Encoding? ansi;
     private static int ansiCodePage;
 
-    // The ANSI code page, and '?' for a character it has no byte for (measured: ChrW$(&H416) is written as '?').
+    // The ANSI code page, writing a character it has no byte for as Windows does: its best fit, Ā as "A" and Ł as "L", and
+    // '?' only where there is none, as for Ж (measured, #1511). The code page's own encoding does that; a plain '?'
+    // replacement, which this was, wrote every one of them as '?'.
     private static Encoding Ansi()
     {
         var codePage = Vb6TextEncoding.Ansi.CodePage;
         if (ansi is null || ansiCodePage != codePage)
         {
-            ansi = CodePagesEncodingProvider.Instance.GetEncoding(codePage, new EncoderReplacementFallback("?"), DecoderFallback.ReplacementFallback)
-                   ?? Encoding.GetEncoding(codePage, new EncoderReplacementFallback("?"), DecoderFallback.ReplacementFallback);
+            var table = (Encoding)(CodePagesEncodingProvider.Instance.GetEncoding(codePage) ?? Encoding.GetEncoding(codePage)).Clone();
+            table.DecoderFallback = DecoderFallback.ReplacementFallback;
+            ansi = table;
             ansiCodePage = codePage;
         }
         return ansi;

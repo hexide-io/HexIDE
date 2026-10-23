@@ -2099,6 +2099,32 @@ So: keep the geometry, which is VB6's intended behaviour and is exactly reproduc
 the emptiness, which is a shortcoming rather than a design. Per the Fidelity Principle, a divergence — and
 recorded here so it stays deliberate.
 
+### Its size when the file records none, and what the box is (2026-10-22, #157)
+
+**The question.** The probe above had a `Width` and `Height`. An ImageList records neither: `Web Browser.frm`'s has
+`Left`, `Top`, `_ExtentX` and `_ExtentY` (HIMETRIC) and nothing else. The obvious guess is that the extents size it.
+
+**The probe.** One form holding three controls of an unregistered class (a made-up GUID, `NOSUCH.OCX`), each beside a
+real CommandButton of the size it should come out as. It was opened in VB6's IDE through the console agent. Each
+control was then selected with Tab, and its position and size read from the toolbar's readout.
+
+| Control | What the file records | VB6's readout |
+|---|---|---|
+| `Ext1` | `Left` 240, `Top` 240, `_ExtentX` 3528, `_ExtentY` 1764 (2000 × 1000 twips) | 240, 240, **1200 × 480** |
+| `Sized1` | `Left` 240, `Top` 1680, `Width` 3015, `Height` 495, extents for 1000 × 500 | 240, 1680, **3015 × 495** |
+| `Bare1` | `Left` 240, `Top` 3000, nothing else | 240, 3000, **1200 × 480** |
+
+**What it shows:**
+- **`Width` and `Height` size the box when the file has them, and 1200 × 480 twips when it has neither.** The extents
+  play no part, so the guess was wrong: `Web Browser.frm`'s ImageList comes out 1200 × 480. A file recording only one
+  of the two was not probed.
+- **The box is a PictureBox.** The Properties window names each one "`Ext1` PictureBox". VB6's load log says first
+  "Class NoSuchLib.Extent of control Ext1 was not a loaded control class", then "The property name _ExtentX in Ext1
+  is invalid", and the same for `_ExtentY` and `_Version`. A PictureBox has none of the three. What VB6 writes when
+  such a form is saved was not probed.
+- **So its border is a PictureBox's, the sunken one.** The section above calls it both "etched" and "sunken"; it is the
+  second. HexIDE's box (#157) is drawn sunken to match, and labelled, which is the divergence argued above.
+
 ## Bitwise And / Or / Xor / Not — the result-type ladder (2026-09-02, #166)
 
 Measured with `scripts/vb6-oracle.ps1`. Every row below is `vb6.exe` output, not inference — and two of them
@@ -5847,6 +5873,38 @@ HexIDE had a ListBox's and ComboBox's `ForeColor` default as the button text (`&
 control's. It now overrides it to `&H80000008`. A `.frm` carrying `&H80000019&`, or a palette colour, is now kept
 as written and saved back, where it used to be dropped on save; creating a control with the first used to throw.
 
+## Seven system colours (2026-10-22, #908)
+
+**The probe.** A pixel-mode form holding eight Labels, each with no caption and one system colour as its BackColor.
+It was built as p-code and run in the oracle guest's console session, through the agent described in "Reaching the
+VB6 *IDE*, not just the compiler" above. 1.5 seconds after load, a Timer logged three values for each Label:
+- the BackColor, read back;
+- `Me.Point` at the Label's centre;
+- `GetSysColor` for the colour's index, called through a `Declare`.
+
+The values below are written as `RRGGBB`, not as the `&H00BBGGRR` a COLORREF holds.
+
+| Colour | BackColor | Index | Point | GetSysColor |
+|---|---|---|---|---|
+| Scroll Bars | `&H80000000` | 0, `COLOR_SCROLLBAR` | `C8C8C8` | `C8C8C8` |
+| Active Title Bar | `&H80000002` | 2, `COLOR_ACTIVECAPTION` | `99B4D1` | `99B4D1` |
+| Active Border | `&H8000000A` | 10, `COLOR_ACTIVEBORDER` | `B4B4B4` | `B4B4B4` |
+| Inactive Border | `&H8000000B` | 11, `COLOR_INACTIVEBORDER` | `F4F7FC` | `F4F7FC` |
+| ToolTip Text | `&H80000017` | 23, `COLOR_INFOTEXT` | `000000` | `000000` |
+| ToolTip | `&H80000018` | 24, `COLOR_INFOBK` | `FFFFE1` | `FFFFE1` |
+| Window Frame | `&H80000006` | 6, `COLOR_WINDOWFRAME` | `646464` | `646464` |
+| Button Face, as a control | `&H8000000F` | 15, `COLOR_BTNFACE` | `F0F0F0` | `F0F0F0` |
+
+So vb6.exe paints a system colour exactly as `GetSysColor` answers for its low byte, on this Windows 10 with its
+default colours. The last two rows are controls. Window Frame's `646464` matches what #1077 measured from a Flat
+label's border, by a different route. Button Face's `F0F0F0` matches the value HexIDE already had.
+
+HexIDE had no value for the first six. A control given one painted `DeepPink`, the fallback for a resource nothing
+defines, in the designer and at run time. Its theme now carries these values (`Themes/Classic.axaml`). They are
+Windows 10's, so they follow #806's rule that a theme pack does not restyle the user's program. Two things are not
+measured: another Windows version's colours, and a user's own colour scheme. Both are what #1137's platform skins
+would own.
+
 ## The fonts a form names (2026-10-17, #1132, #1133)
 
 **The probe.** A form with four Labels at Size 12, built native and run on the oracle guest's console session, and
@@ -5970,6 +6028,79 @@ HexIDE resolves that colour. HexIDE's Classic palette keeps its own values for f
 VB6's and the shades are the palette's. Window frame had no colour at all, so `vbWindowFrame` resolved to nothing; it is
 now Windows 10's `646464`. That is the Windows 10 measurement inside an otherwise Win98-era palette, whose window frame
 would be black, which is why black was the obvious guess.
+
+## A caption's access key (2026-10-22, #920)
+
+**The probe.** One form, built as **p-code** with `vb6.exe /make` on the Win10 guest and run in its console session.
+It holds six CommandButtons, a CheckBox, an OptionButton, seven Labels each followed in the tab order by a TextBox,
+two Frames, and four top-level menus with no items under them. Each caption uses its letters once across the whole
+form, so a key can only reach one control. Every Click, and every TextBox's GotFocus, appends a line to a log.
+
+A driver in the console session switched keyboard cues on (`SPI_SETKEYBOARDCUES`), so underlines draw without Alt
+held, and put the setting back afterwards. It screenshotted the form, then sent each Alt+letter with `SendKeys`,
+followed by Esc, writing a marker line into the log before each. Built p-code only. Captions are drawn and keys are
+dispatched by the runtime and by Windows, not by compiled code, so native code has nothing to differ on.
+
+| Caption | Control | Drawn | Underlined | Keys that reach it |
+|---|---|---|---|---|
+| `Tom && Jerry` | CommandButton | `Tom & Jerry` | — | none: Alt+J and Alt+T reach nothing |
+| `File_Name` | CommandButton | `File_Name` | — | none: Alt+N reaches nothing |
+| `Trail&` | CommandButton | `Trail` | — | none |
+| `A&&&Bc` | CommandButton | `A&Bc` | B | Alt+B |
+| `&One &Wide` | CommandButton | `One Wide` | **W only** | **Alt+O and Alt+W both** raise Click |
+| `Hex_&Kit` | CommandButton | `Hex_Kit` | K | Alt+K |
+| `Chk && Box` | CheckBox | `Chk & Box` | — | |
+| `Opt_Ion` | OptionButton | `Opt_Ion` | — | none: Alt+I reaches nothing |
+| `Lab && Rat` | Label | `Lab & Rat` | — | none: Alt+R reaches nothing |
+| `Lab && Rat`, UseMnemonic False | Label | `Lab && Rat` | — | |
+| `Zip_Code` | Label | `Zip_Code` | — | none: Alt+C reaches nothing |
+| `&Quick &Yak` | Label | `Quick Yak` | **Y only** | **Alt+Q and Alt+Y both** move focus to the next TextBox |
+| `Hush&` | Label | `Hush`, **with an underline after it** | the empty place after the text | none: Alt+H reaches nothing |
+| `&Mute`, UseMnemonic False | Label | `&Mute` | — | none: Alt+M reaches nothing |
+| `Pre_&Vex` | Label | `Pre_Vex` | V | Alt+V |
+| `Fra && Me` | Frame | `Fra & Me` | — | |
+| `Fra_&Xen` | Frame | `Fra_Xen` | X | Alt+X moves focus to the next control |
+| `Menu && More` | menu | `Menu & More` | — | |
+| `Menu_Bar` | menu | `Menu_Bar` | — | |
+| `&Go &Upward` | menu | `Go Upward` | **U only** | **Alt+G only**: Alt+U reaches nothing |
+| `Dot_&Edge` | menu | `Dot_Edge` | E | Alt+E |
+
+So, read left to right:
+- `&&` is one `&`.
+- A single `&` is hidden and marks the character after it.
+- A trailing `&` marks nothing and is not drawn.
+- `_` is an ordinary character everywhere.
+
+**What was overturned.**
+- `VBCaption.AsShown` kept a trailing `&` as drawn, and a test pinned it "so a measurement that disagrees fails here". A
+  button drops it.
+- A Label draws something different from the button: an underline where the marked character would be, as `Hush_`.
+  That reads like Windows' `DrawText` underlining a character that isn't there. HexIDE draws `Hush`, as the button does,
+  and does not reproduce the underline.
+
+**What resists one rule.** A caption that marks two characters is underlined at the **last** on every control and on
+the menu bar, but the two disagree about keys:
+- a CommandButton and a Label answer to **every** marked character;
+- a top-level menu answers only to the **first**, and so underlines a letter its key is not.
+
+Alt+U was sent twice, once after other keys and once as the first key of a fresh run, and reached nothing both times.
+No rule here explains why the two differ; they are recorded as measured.
+
+**A reading that was confounded and re-run.** In the first run, Alt+Y came straight after Alt+Q. Alt+Q had already
+moved focus to the TextBox after `&Quick &Yak`, so Alt+Y could not raise its GotFocus, and logged nothing. A second
+run sent Alt+K first, to put focus elsewhere, and then Alt+Y reached the TextBox.
+
+**What HexIDE does with it** (#920). Avalonia's AccessText marks its key with `_` and draws `__` as one underscore,
+but takes its key from the first underscore in its text whether it is doubled or not. So:
+- A caption with no marked character, or with an underscore before its key, is drawn as plain text, with no key.
+- Any other caption is an AccessText.
+- A control takes the last marked character as its key, the one VB6 underlines; a menu takes the first, the one VB6
+  answers to.
+
+The losses, against the table:
+- Alt+K on `Hex_&Kit` and Alt+V on `Pre_&Vex` do nothing.
+- Alt+O on `&One &Wide` and Alt+Q on `&Quick &Yak` do nothing.
+- A menu underlines its first marked letter where VB6 underlines its last.
 
 ## MousePointer's names and pointers (2026-10-22, #120)
 
@@ -11584,7 +11715,8 @@ Three probes, each compiled native and as p-code. Every line of output was the s
 - Even widths on a vertical line;
 - a wide diagonal's end caps;
 - DrawMode other than 13;
-- a Line beside a Label, Shape or Image, which share its windowless plane;
+- a Line beside a Label, Shape or Image, which share its windowless plane (measured since for a Label: "How a running
+  form stacks its controls", #1497);
 - what VB6's designer writes when it saves a Line, including DrawMode's comment;
 - a Line in a PictureBox with a user scale.
 
@@ -11593,7 +11725,8 @@ Three probes, each compiled native and as p-code. Every line of output was the s
   user scale's Single factor, and the drawing, pixel for pixel, including the About Dialog's rule.
 - **The divergences:**
   - every DrawMode draws as Copy Pen;
-  - a Line is drawn under every other control, Labels included;
+  - a Line is drawn under every other control, Labels included (until #1497, which stacks it among the windowless
+    controls by file order, as measured there);
   - a wide diagonal's ends are round caps, not measured;
   - the default member is not implemented.
 - **Refused:** a Line on a form whose ScaleLeft or ScaleTop is not 0, such as a y-up graph's, since HexIDE
@@ -11641,7 +11774,7 @@ keeping the value it had. A Variant read into holds a String.
 | `Print #f, Null` (in a Variant) | `Null CR LF` |
 | `Print #f, "e"; Empty; "e"` | `ee CR LF` |
 | `Print #f, #1/2/2003#` | `02/01/2003 CR LF`: the date as it reads, then a space |
-| `Print #f, ChrW$(&H416)` | `? CR LF`: code page 1252 has no byte for it |
+| `Print #f, ChrW$(&H416)` | `? CR LF`: code page 1252 has no byte for it, and no best fit either (Ā is `A`: see "Print # and the ANSI best fit", #1511) |
 | `Print #f, CCur(2.5), CSng(0.1), CDbl(1E+20)` | ` 2.5 `, ` 0.1 ` and `1E+20 `, each starting a zone |
 | `"12345678901234567890", "x"` | 8 spaces before `x`: column 20 moves to 28 |
 | `"12345678901234", "x"` | 14 spaces: a zone boundary already reached still moves on, to 28 |
@@ -13361,6 +13494,30 @@ while it is locked. ReDim Preserve (#1459) checks the lock before it resizes any
 element a parameter is writing. Every row above that HexIDE reaches is pinned in `ByRefElementTests`. Not reached: an array of a Type
 (#178), and an array of Collection, whose declaration HexIDE refuses.
 
+## The References dialog's fixed rows (2026-10-22, #1026, design-time)
+
+**The question.** HexIDE's References dialog headed its list with one fixed row, "Visual Basic For Applications",
+carrying OLE Automation's GUID. So the project's own OLE Automation reference never showed, and OK dropped it. The fix
+needed to know what VB6's dialog lists, which had only been described from memory.
+
+**The probe.** A Standard EXE whose `.vbp` has two references, OLE Automation then Microsoft Scripting Runtime, opened in
+VB6's IDE through the console agent. Project > References was opened, each of the first four rows selected with the
+arrow keys, and Space pressed on the first.
+
+**What it shows:**
+- **Three fixed rows head the list, checked:** Visual Basic For Applications (`VB98\VBA6.DLL`), Visual Basic runtime
+  objects and procedures (`SysWOW64\msvbvm60.dll\3`) and Visual Basic objects and procedures (`VB98\VB6.OLB`). The
+  `.vbp` has no line for any of them. Space on the first is refused: "Can't remove control or reference; in use".
+- **The project's references follow, checked, in the file's order:** OLE Automation (`SysWOW64\stdole2.tlb`), then
+  Microsoft Scripting Runtime. OLE Automation is an ordinary row, not one of the fixed ones. The unchecked libraries
+  come after.
+- **Priority arrows:** both are disabled on each fixed row. On OLE Automation, the first row below them, Up is disabled
+  and Down enabled. So nothing moves above the fixed rows.
+- **The dialog opens with the last checked row selected**, Microsoft Scripting Runtime here, not the first.
+- **Two details HexIDE does not copy yet** (#1468): the title names the project's file, "References - probe.vbp", where
+  HexIDE names the project; and the Language reads "English/Standard" on the fixed rows but "Standard" on OLE
+  Automation, where HexIDE shows "English/Standard" for every row.
+
 ## A form's StartUpPosition when its file has no line (2026-10-13, #932)
 
 **The obvious guess, and HexIDE's for as long as it had the property: a missing `StartUpPosition` line means 3,
@@ -14494,7 +14651,8 @@ Picture4, Picture3.
 - **One deliberate divergence:** a pasted container keeps its source's stacking. A copy that turns its contents over
   is an artefact of pasting them one at a time, not a design, so HexIDE does not reproduce it.
 - **Two gaps, filed:**
-  - The running form still draws the last block on top (#1497).
+  - The running form still draws the last block on top (#1497, since fixed: "How a running form stacks its
+    controls").
   - A control added in front of one HexIDE carries as text is written after it (#1498).
 
 **Not measured:**
@@ -14723,7 +14881,7 @@ counted it as one for reading.
 took the value where vb6.exe raises 91, and an unset `As Object` or `As Collection` Function returned Empty. It starts
 Nothing now, and `LetIntoObjectTests` pins a fourth program.
 
-## The size of a control added from the toolbox (2026-10-23, #1473, design-time)
+## The size of a control added from the toolbox (2026-10-23, #1473, design-time, IDE, release build)
 
 **The question.** "Where the Format commands put a control" measured where VB6 puts a CommandButton added by
 double-clicking its tool: 1215 x 495, centred, then on the grid. HexIDE gave every class 50 x 50 pixels (750 x 750
@@ -14861,7 +15019,7 @@ Case: `Chr$(57)`, `ChrW$(57)`, `Format$(9)`, `Hex$(9)`, `LCase$("9")`, `Left$("9
 
 **Print # best-fits too.** `Print #` of Ā, Ж and ’ to a file opened For Output writes the bytes 65, 63 and 146, read back
 with `Get`. So the earlier row "`ChrW$(&H416)` is written as '?'" is true, but Ж has no fit, so it could not tell a
-best fit from a plain replacement. HexIDE writes Ā as "?" (#1511).
+best fit from a plain replacement. HexIDE wrote Ā as "?" until #1511.
 
 **Not measured here:**
 - **A double-byte ANSI code page** (932). VB6 is documented to give `Chr` a range of -32768 to 65535 there, a code above
@@ -14880,7 +15038,7 @@ table's own fallbacks, best fit among them. Both take the code page from `Vb6Tex
 `ExpressionExecutor`'s typed list gains `AscW`, its Variant list `ChrW` and `Str`, and its list of `$` forms that do not
 compile gains `AscW`. `DollarResult` now marks its String typed.
 
-## The name VB6's designer gives a new control (2026-10-23, #540, design-time)
+## The name VB6's designer gives a new control (2026-10-23, #540, design-time, IDE, release build)
 
 **The question.** HexIDE named the first CommandButton on a form Command0, and a pasted control took its number from
 the count of controls on the canvas. The common recollection is that VB6 starts at 1, and #929's probe saw Command1.
@@ -14925,7 +15083,9 @@ named 'Command3'. Do you want to create a control array?".
 Measured with vb6.exe in two places. The IDE was driven with `vb6.exe /runexit`, in session 0 as the `/make` probes are,
 and the compiled EXE was built both native and p-code, the two agreeing. Each program the tests pin was run as written.
 
-**In the IDE**, `Debug.Assert X` with `L` logging each side of it:
+**In the IDE, release build**, `Debug.Assert X` with `L` logging each side of it. These rows ran on the oracle's IDE,
+VB6.EXE 6.00.8176 with VBA6.DLL 6.0.8169, which is VB6's original release and not SP6 (#1524). Re-measure them once SP6
+is installed. The compiled-EXE rows below ran on MSVBVM60 6.00.9848, SP6's runtime, and stand.
 
 | X | result |
 |---|---|
@@ -14960,7 +15120,8 @@ The two `Debug` statements differ here. The compiler removes `Debug.Assert` with
 `Debug.Print`'s arguments and discards only the printing. "Debug statements are removed at compile time", as the issue
 had it, is true of the first and not of the second.
 
-**Compile errors:** `Debug.Assert` with no condition, and `Debug.Assert True, False`, are each "Syntax error".
+**Compile errors:** `Debug.Assert` with no condition, and `Debug.Assert True, False`, are each "Syntax error". A compile
+error is the compiler's answer, so these came from the release build's compiler even in a `/make` (#1524).
 
 ### In HexIDE (#1467)
 
@@ -14976,7 +15137,8 @@ The break carries a new `StopReason.Assertion`, which `get_debug_state` and `run
 form.
 
 **A reusable harness.** `vb6.exe /runexit project.vbp`, run in the guest with a timeout, measures what the VB6 IDE does
-rather than the compiler. A project that ends logs to its end. One that waits is in break mode or showing a dialog, and
+rather than the compiler: in the oracle as it stands, the release build's IDE (#1524). A project that ends
+logs to its end. One that waits is in break mode or showing a dialog, and
 running it again under On Error Resume Next tells the two apart.
 
 ## Write # and Input # (2026-10-23, #1521)
@@ -15150,3 +15312,190 @@ Refused, untrappably and by name:
 - a date between `#`s in any shape but the four measured (`#yyyy-mm-dd#`, `#yyyy-mm-dd hh:mm:ss#`, `#hh:mm:ss#`,
   `#m/d/yyyy#`). .NET's lenient parser would read `#1/2#` as this year's 2 January. A form no date parser takes stays
   the String as written, as `#abc#` measured.
+
+## Make Project Group (2026-10-23, #746, design-time, IDE, release build)
+
+**The question.** With one project loaded, HexIDE's File > Make Project Group threw on the missing group, and nothing
+said so. The issue asked whether VB6 offers the command with one project. Reading the code raised a second question:
+what the command does. HexIDE's saves every project and the group file.
+
+**The probe.** Two projects, each with an empty form, plus `group.vbg` naming both and `single.vbg` naming only the
+first. Each was opened in VB6's IDE, and I read the File menu. Where the command was offered, I chose it, then pressed
+Cancel. The folder's file times were read before and after.
+
+| Opened | Make Project Group... | Choosing it |
+|---|---|---|
+| `probe1.vbp` alone | **greyed** | |
+| `group.vbg` (two projects) | enabled | a dialog: "Build the following projects:", listing `probe1.vbp` and `probe2.vbp`, both selected; "Use Default Build Options", ticked; Build, Cancel, Help |
+| `single.vbg` (one project) | **enabled** | the same dialog, listing `probe1.vbp` alone |
+
+**What it shows:**
+- **The command needs a group open, not two projects.** A group of one project offers it; one project without a group
+  doesn't. The File menu reflects the same state: Save Project Group and Save Project Group As replace Save Project
+  and Save Project As whenever a group is open, one project or two.
+- **It builds.** It's the group's counterpart of Make *project*.exe, not a save. Opening the dialog and cancelling
+  wrote nothing: every file kept its time.
+
+**In HexIDE (#746):**
+- The command is offered only with a group open, or with two projects loaded. HexIDE's implicit Group1 can lag
+  behind a second project, so two projects count as a group. With one project and no group it is greyed out.
+- With a group, it says the feature isn't implemented yet and writes nothing, because HexIDE can't build a group
+  (#1515). It used to save every project and the group, which is Save Project Group's job, under a Make label.
+
+**Not measured:**
+- What Build writes, ticked or unticked "Use Default Build Options", and whether it saves anything first (#1515).
+- What VB6 does to a group when a project is removed from it. HexIDE drops its group at one project.
+
+## How a running form stacks its controls (2026-10-23, #1497, IDE, release build)
+
+**The question.** "Where VB6's designer puts a control's block" measured windowed controls at run time, and the
+windowless plane only in the designer. It left three things open:
+- a windowless control written *before* a windowed one;
+- a Line or a Shape beside a Label;
+- where a control-array element loaded at run time goes.
+
+**The probe.** A form, written by hand so that each pair overlaps and the first-named control comes first in the
+file:
+
+| Pair, in file order | Designer | Run time (F5) |
+|---|---|---|
+| LabelA (red), then CommandA | the button over the Label | the same |
+| LabelB (yellow), then LineB (blue, 8 wide) | the Label over the Line; the Line shows only past the Label's ends | the same |
+| LineC, then LabelC | the Line over the Label | the same |
+| ShapeD (solid green), then LabelD (yellow) | the Shape over the Label | the same |
+| LabelE, then ShapeE | the Label over the Shape | the same |
+| CommandF, then CmdArr(0); `Form_Load` loads CmdArr(1) and moves it over both | | CmdArr(1) is under both |
+
+**What it shows:**
+- **A windowless control is drawn under a windowed one even when its block comes first.** VB6 never writes a
+  file that way, so only a hand-written file shows it.
+- **Among the windowless controls, the first block is on top, whatever the class.** A Label covers a Line or
+  a Shape written after it, and is covered by one written before it.
+- **A control-array element loaded at run time goes under every windowed control already there.** That covers its
+  own array's elements and other controls alike. The designer puts a new control on top, so `Load` does the
+  opposite.
+- **Design time and run time agree on every pair.**
+
+**In HexIDE (#1497):**
+- **The running form stacks by these rules.** Each control placed on a container goes under every control of its
+  plane already there. Placing a form's controls in file order therefore puts the first on top, and a `Load`ed
+  element at the bottom.
+- **Lines in the designer** are stacked like any other windowless control. They used to go under every other control,
+  Labels included, and so under a Frame holding one.
+- **Not done:** the `ZOrder` method is still not implemented, and a program calling it stops (#1503).
+
+**Not measured:**
+- An Image beside a Label.
+- A windowless element loaded at run time. HexIDE puts it at the bottom of the windowless plane, by the same rule.
+- `ZOrder` at run time.
+
+## Too few arguments to an intrinsic (2026-10-23, #1512)
+
+Measured with `/make`, one project per call since the compile error stops the build, native and p-code agreeing on every
+row. Each call was `x = <call>` with `x` a Variant. Eleven rows were measured separately with `scripts/vb6-oracle.ps1`,
+and agree wherever the two overlap.
+
+A compile error is the compiler's answer, not the runtime's. So these rows come from the oracle's VB6.EXE 6.00.8176 and
+VBA6.DLL 6.0.8169, the release build, even though built EXEs run on SP6's MSVBVM60 (#1524). Re-measure them once SP6 is
+installed.
+
+**"Syntax error":**
+
+| calls | |
+|---|---|
+| `Abs()`, `Int()`, `Fix()`, `Sgn()` | the arithmetic intrinsics |
+| `CBool()`, `CByte()`, `CCur()`, `CDate()`, `CDbl()`, `CInt()`, `CLng()`, `CSng()`, `CStr()`, `CVar()`, `CVErr()` | every conversion but `CDec` and `CVDate` |
+| `Len()`, `LenB()`, `LBound()`, `UBound()` | |
+| `InStr("a")`, `StrComp("a")` | one argument of two |
+| `String()`, `String(3)` | none, and one of two |
+
+**"Argument not optional":**
+
+| calls | |
+|---|---|
+| `CDec()`, `CVDate()` | the two conversions outside the first set |
+| `Chr()`, `Chr$()`, `ChrW()`, `Asc()`, `AscW()`, `Hex()`, `Oct()`, `Str()`, `Val()` | |
+| `LCase()`, `UCase()`, `Trim()`, `Space()`, `Round()` | |
+| `IsNull()`, `TypeName()`, `VarType()`, `Format()`, `Split()`, `Join()` | |
+| `Mid("a")`, `Mid$("a")`, `Left("a")`, `Right("a")`, `Mid("abc", , 2)` | the length, or the start, left out |
+| `Replace("a", "b")`, `IIf(True, 1)`, `DateAdd("d", 1)` | one argument short |
+
+**Too many:** `Chr(65, 66)` is "Wrong number of arguments or invalid property assignment".
+
+**None needed:** `Array()` compiles, and gives an empty `Variant()`.
+
+**Comparing it with the named-argument rule.** The "Syntax error" set is the set that refuses a named argument with
+"Syntax error" (#1465, `TakesNoNamedArguments`), name for name, with two differences:
+- `String` takes its names, `Number` and `Character`, yet is "Syntax error" short of an argument, which
+  `OmittedIsSyntaxError` already records.
+- `LenB`'s named-argument row is unmeasured.
+
+`CDec` and `CVDate` take names, and fall with the rest. This is a measured correlation across these 53 calls, not a rule
+VB6 documents, so an intrinsic outside the table should be measured, not inferred.
+
+### In HexIDE
+
+Unchanged here: a call with too few arguments still fails as #1512 describes. These rows are what that fix pins.
+
+## Print # and the ANSI best fit (2026-10-23, #1511)
+
+Measured on vb6.exe under code page 1252, native and p-code identical. Each file was read back byte by byte with `Get`
+in Binary mode.
+
+| statement | bytes written |
+|---|---|
+| `Print #f, ChrW(&H100) & ChrW(&H416) & ChrW(&H2019) & ChrW(&H141) & ChrW(&H3B1) & ChrW(&H20AC);` | `41 3F 92 4C 61 80` |
+| `Write #f, ChrW(&H100) & ChrW(&H416), ChrW(&H141)` | `22 41 3F 22 2C 22 4C 22 0D 0A` |
+| `Print #f, ChrW(&H100);`, to a file opened For Append | `41` |
+
+Taking the characters in turn:
+- **Best fits:** Ā is "A", Ł is "L", and Greek α is "a".
+- **No fit:** Ж is "?".
+- **1252's own bytes:** ’ is 92 and € is 80.
+
+`Write #` best-fits inside its quotes as `Print #` does, and Append as Output does. This is the table the clipboard
+section above measured (U+0100 to A, U+0416 to ?), and the one `Asc` uses (#1134): Windows' own conversion to the ANSI
+code page, not a `?` for every character the code page lacks.
+
+### In HexIDE (#1511)
+
+`VbFiles.Ansi()` is the code page's own encoding, cloned so that only its decoder fallback is replaced. Its encoder keeps
+the table's best fit. Before, both directions had a `?` replacement, so every character 1252 lacked was written as `?`.
+`Line Input #` reads as before. `Write #` is not implemented yet ([#1521](https://github.com/hexide-io/HexIDE/issues/1521)), so only its measurement is recorded.
+
+## CVar (2026-10-23, #1466)
+
+Measured on vb6.exe, native and p-code identical, under en-GB. Each program `CVarTests` pins was made as written.
+
+**CVar returns its argument as a Variant, with the argument's own type.** It converts nothing.
+
+| probe | result |
+|---|---|
+| `TypeName(CVar(5))`, `CVar("5")`, `CVar(Null)`, `CVar(Empty)` | Integer, String, Null, Empty |
+| `TypeName(CVar(n))`, `n As Integer` | Integer |
+| `TypeName(CVar(2.5))`, `CVar(70000)`, `CVar(True)`, `CVar(#1/2/2000#)` | Double, Long, Boolean, Date |
+| `TypeName(CVar(a))`, `a(1) As Integer` | `Integer()`: the typed array, not a Variant array |
+| `TypeName(CVar(Array(1, 2)))` | `Variant()` |
+| `TypeName(CVar(c))`, `c` a Collection | Collection: the object itself |
+| `TypeName(CVar(k))`, `k` a class with a default `Value` of 7 | K1, and `IsObject(CVar(k))` True: the object, not its default member. `CVar(k) + 1` is 8 and `VarType(CVar(k))` 2, both of which read the default member |
+| `TypeName(CVar(Nothing))` | Nothing |
+| `v = CVar(a)`, then `v(0) = 9` | `a(0)` is still 1: the Variant holds a copy |
+
+**The result reads as a Variant's** (#987's probe):
+- `CVar(5) * 7000` and `CVar(n) * 7000` are a Long 35000, where `5 * 7000` is 6.
+- `CVar(5)` against `Case Is < 5.4` takes the Case.
+- `CVar("9")` against `Case Is > 10` takes Case Else, read as 9.
+- `CVar("5") + 1` is a Double 6, and `CVar("abc") + 1` is 13.
+
+**Two compile-time surprises:**
+- **`CVar$` compiles, and ignores the `$`.** `TypeName(CVar$(5))` is Integer and `CVar$("9")` takes Case Else, as `CVar` does. `CVar$(Null)` is Null, not 94, so it does not behave as the `$` forms that answer a String do.
+- **`CVar()` is "Syntax error", not "Argument not optional"** (HexIDE: #1512). `CVar(Expression:=5)` is "Syntax error" too (#1465).
+
+### In HexIDE (#1466)
+
+`d["CVar"]` returns its argument unchanged. It is listed:
+- in `ExpressionExecutor.VariantIntrinsics`, so the result reads as a Variant's;
+- in `DollarIgnored`, for `CVar$`;
+- in `VB6BuiltIns.TakesTheArgumentItself`, so an object reaches it as the object, as it reaches `TypeName`.
+
+A copy of an array is made where the result is stored, as for any Let of an array (#970).

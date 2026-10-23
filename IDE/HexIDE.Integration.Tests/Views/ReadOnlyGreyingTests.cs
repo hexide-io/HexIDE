@@ -126,6 +126,26 @@ public class ReadOnlyGreyingTests : IDisposable
         });
     }
 
+    /// <summary>
+    /// Takes Classic.axaml out of the application's resources, where the harness keeps it as App.axaml does (#908), and
+    /// puts it back when disposed: a theme that resolves none of the IDE's keys.
+    /// </summary>
+    private static IDisposable NoTheme()
+    {
+        var merged = Application.Current!.Resources.MergedDictionaries;
+        var classic = merged.OfType<ResourceInclude>()
+            .Where(r => r.Source?.ToString() == "avares://HexIDE/Themes/Classic.axaml").ToList();
+        var at = classic.Select(merged.IndexOf).ToList();
+        foreach (var dictionary in classic)
+            merged.Remove(dictionary);
+        return new Restore(() =>
+        {
+            for (var i = 0; i < classic.Count; i++)
+                merged.Insert(Math.Min(at[i], merged.Count), classic[i]);
+            Dispatcher.UIThread.RunJobs();
+        });
+    }
+
     private sealed class Restore(Action undo) : IDisposable
     {
         public void Dispose() => undo();
@@ -581,6 +601,7 @@ public class ReadOnlyGreyingTests : IDisposable
     {
         // No literal stands in for a theme that does not resolve the key: here, no theme at all is merged, so the
         // header keeps its syntax colours rather than taking a grey no theme could reach.
+        using var _ = NoTheme();
         var vm = OpenForm();
         var editor = Show(vm);
         ExpandHeader(editor);

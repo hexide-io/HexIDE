@@ -98,7 +98,7 @@ public partial class VB6BuiltIns
     private static readonly HashSet<string> TakesNoNamedArguments = new(StringComparer.OrdinalIgnoreCase)
     {
         "Abs", "CBool", "CByte", "CCur", "CDate", "CDbl", "CInt", "CLng", "CSng", "CStr", "CVar", "CVErr", "Fix", "InStr", "Int",
-        "LBound", "Len", "Sgn", "StrComp", "UBound",
+        "LBound", "Len", "LenB", "Sgn", "StrComp", "UBound",
     };
 
     // The intrinsics with no parameters, which VB6 refuses a name in three ways (measured, #1475: `Now(X:=1)`).
@@ -115,6 +115,44 @@ public partial class VB6BuiltIns
     // A ParamArray from the first parameter: `Array(ArgList:=1)` and `Choose(Index:=1, Choice:="a")` are "Argument in
     // ParamArray may not be named" (measured).
     private static readonly HashSet<string> NamedIsAParamArray = new(StringComparer.OrdinalIgnoreCase) { "Array", "Choose" };
+
+    // A blank slot is missing syntax; a supplied Optional Variant can hold Missing as a value (#1512).
+    internal sealed class IntrinsicArgumentValues(int capacity) : List<Vb6Value>(capacity)
+    {
+        internal HashSet<int> Omitted { get; } = new();
+
+        internal void AddArgument(Vb6Value value, bool omitted)
+        {
+            if (omitted)
+                Omitted.Add(Count);
+            Add(value);
+        }
+    }
+
+    // Too few positional arguments follow the no-names set's Syntax error, or the named table's omission message
+    // (measured, #1512). InStr and StrComp need two; the other no-names intrinsics need one.
+    private static void CheckRequiredIntrinsicArguments(string name, IReadOnlyList<Vb6Value> args)
+    {
+        int required;
+        string message;
+        if (TakesNoNamedArguments.Contains(name))
+        {
+            required = name.Equals("InStr", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("StrComp", StringComparison.OrdinalIgnoreCase) ? 2 : 1;
+            message = "Syntax error";
+        }
+        else if (NamedParameterTable.TryGetValue(name, out var parameters))
+        {
+            required = parameters.Required;
+            message = parameters.OmittedIsSyntaxError ? "Syntax error" : "Argument not optional";
+        }
+        else
+            return;
+
+        for (var i = 0; i < required; i++)
+            if (i >= args.Count || (args is IntrinsicArgumentValues values && values.Omitted.Contains(i)))
+                throw new VBCompileErrorException(message);
+    }
 
     /// <summary>The intrinsics that take named arguments, and their parameters, for NamedParameterParityTests.</summary>
     internal static IReadOnlyDictionary<string, IntrinsicParameters> IntrinsicsTakingNamedArguments => NamedParameterTable;
@@ -153,9 +191,9 @@ public partial class VB6BuiltIns
             else if (Builtins.ContainsKey(name))
                 throw new NotImplementedException($"Named arguments to {name} are not implemented yet");
         }
-        var values = new List<Vb6Value>(args.Count);
+        var values = new IntrinsicArgumentValues(args.Count);
         foreach (var arg in args)
-            values.Add(arg.Value);
+            values.AddArgument(arg.Value, arg.Omitted);
         return values;
     }
 }
