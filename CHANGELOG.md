@@ -226,6 +226,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP reply numbers use a decimal point in every culture** (#1550). Coordinates, sizes, scroll percentages and
+  wait durations now use invariant formatting, so a fractional click point can be read and sent back unchanged.
+
 - **A form's Width and Height are its outer size at run time** (#1072). They read and set the client area, so a
   program got a form 90 to 240 twips narrower and 345 to 885 shorter than vb6.exe reports. They now include the frame
   VB6 draws on the themed Windows desktop for the form's BorderStyle, caption bar and menu bar, read back as assigned,
