@@ -2173,6 +2173,9 @@ public static class UiAutomationDriver
         && (ItemsControl.ItemsControlFromItemContainer(c) ?? c.FindAncestorOfType<ItemsControl>()) is { } owner
         && owner.IndexFromContainer(c) < 0;
 
+    private static bool InReleasedRow(Control c) =>
+        c.GetSelfAndVisualAncestors().OfType<Control>().Any(Released);
+
     // value = the command name: a public ICommand property on the target's DataContext, or a public parameterless
     // method, which is what a Command bound to a method calls (#836).
     private static InteractOutcome ReflectInvokeCommand(Control control, string? value)
@@ -3157,7 +3160,7 @@ public static class UiAutomationDriver
     private static Control FindHoverTarget(Control control)
     {
         if (control is TextEditor or TextArea) return control;
-        var editors = control.GetVisualDescendants().OfType<TextEditor>().ToList();
+        var editors = control.GetVisualDescendants().OfType<TextEditor>().Where(c => !InReleasedRow(c)).ToList();
         return editors.FirstOrDefault(c => Shows(c) is true) ?? editors.FirstOrDefault() ?? control;
     }
 
@@ -3213,7 +3216,7 @@ public static class UiAutomationDriver
         // Only what shows. A ComboBox that is not editable keeps a TextBox in its template, hidden, and choosing that
         // over the ComboBox had every key refused as aimed at a hidden control, once #1069 refused those; a person's
         // key goes to the ComboBox.
-        var descendants = control.GetVisualDescendants().OfType<Control>().Where(c => Hidden(c) is not true).ToList();
+        var descendants = control.GetVisualDescendants().OfType<Control>().Where(c => Hidden(c) is not true && !InReleasedRow(c)).ToList();
 
         // An AvaloniaEdit surface, innermost first: its TextArea is where key handling lives.
         if (descendants.FirstOrDefault(c => c is TextArea) is { } area) return area;
@@ -3256,7 +3259,7 @@ public static class UiAutomationDriver
     // control, where press_key passed it over (#1256).
     private static List<Control> TextSurfacesUnder(Control control) =>
         [.. control.GetVisualDescendants().OfType<Control>()
-            .Where(c => c is TextEditor or TextArea or TextBox && !HiddenByItsTemplate(c))];
+            .Where(c => c is TextEditor or TextArea or TextBox && !HiddenByItsTemplate(c) && !InReleasedRow(c))];
 
     // Hidden within its own control's template, whatever that control's own state: read on the chain from the part up to
     // the control, so a hidden pane holding a dropdown still has its dropdown's part left out (#1256 review).
