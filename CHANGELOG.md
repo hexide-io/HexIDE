@@ -236,6 +236,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Ending an external debug session discards pending evaluations immediately** (#1599). A late adapter reply could
+  reach the Immediate window while End was waiting for disconnect. The stopped context now expires before disconnect
+  is sent, so an answer arriving during teardown cannot be shown as a current evaluation.
+
 - **Numeric source literals keep their value on every locale** (#781). A made EXE on German regional settings read `0.6 * 10` as 60 and `1.5!` as 15; French settings could stop the program with a parse error. Literal parsing now uses the invariant culture, including suffixes, exponents and conditional compilation. Runtime string conversions retain their locale rules.
 
 - **Persian words in MCP replies remain readable** (#1316). A zero-width non-joiner between Arabic-script
