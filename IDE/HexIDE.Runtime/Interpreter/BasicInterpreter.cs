@@ -1182,11 +1182,19 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 i => proc.Parameters[i].ParamArray);
         }
 
+        // Surplus arguments are VB6's compile error, raised at execution here (#741). Optional slots count;
+        // ParamArray has no maximum. #1476 callers already index parameterless Variant/object results.
+        if (proc.Parameters.Count > 0 && args.Count > proc.Parameters.Count && !proc.Parameters.Any(p => p.ParamArray))
+            throw new VBCompileErrorException("Wrong number of arguments or invalid property assignment");
+        if (proc.Parameters.Count == 0 && args.Count > 0 && !proc.ReturnsVariant && !proc.ReturnsObject)
+            throw new VBCompileErrorException("Wrong number of arguments or invalid property assignment");
+
         var callee = (baseEnv ?? owner.ModuleEnv).Clone();
         // Object-holding slots this activation OWNS and must Release at scope-exit: ByVal object params (added by
         // BindParameters) then the body's own Dim locals (appended by the StatementExecutor in declaration order).
         // NOT the return-name (its hold transfers to the caller) and NOT ByRef params (they alias the caller slot).
         var ownedSlots = new List<int>();
+        callee.ReturnName = proc.IsFunction ? proc.Name : null;
         bool countMe = me is not null && !IsLifecycleHook(proc.Name);
         if (me is { } m)
         {

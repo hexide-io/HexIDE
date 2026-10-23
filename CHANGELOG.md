@@ -213,6 +213,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Surplus call arguments are refused** (#741): procedures and intrinsics with known limits raise VB6's
+  "Wrong number of arguments or invalid property assignment"; a declared scalar called with arguments raises
+  "Expected array". Parameterless Variant and object results still index as before (#1476).
+
 - **Indexing a call's result runs** (#1476). `Split(s)(0)`, `Array(1, 2)(1)`, `F()(1)` and `a(1)(0) = 9` stopped the
   program. They now run as vb6.exe runs them, evaluating in its order. A parameterless Function that returns a Variant
   now reads its arguments as an index into its result, so `F(1)` is `F()(1)`; it used to drop them and return the whole

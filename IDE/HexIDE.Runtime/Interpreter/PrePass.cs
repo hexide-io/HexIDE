@@ -614,15 +614,13 @@ public class PrePass : VB6BaseVisitor<object?>
 
     public override object? VisitPropertyGetStmt(VB6Parser.PropertyGetStmtContext context)
     {
-        // `Property Get Name() As T` — Function-like: returns via its own name. A parameterized getter
-        // (`Property Get Item(i)`) is a wall, so the index argList must be empty. A complexType return
+        // Property Get is Function-like: returns via its own name and binds its declared parameters at the call.
+        // A complexType return
         // (`As Node`) carries its concrete name so the return slot seeds a real UDT / Nothing (see RunProcedure).
         var name = context.ambiguousIdentifier().GetText();
         if (context.typeHint() != null)
             throw new NotImplementedException("Type-hinted Property Get is not supported");
         var args = ParseParams(context.argList());
-        if (args.Count != 0)
-            throw new NotImplementedException($"Parameterized Property Get '{name}' is not supported");
         var returnUdt = context.asTypeClause()?.type()?.complexType()?.GetText();
         var (returnType, returnsVariant, returnsObject) = ReturnOf(context.asTypeClause(), name);
         GetOrAddProperty(name).Get = new ProcedureInfo(name, true, args, returnUdt != null ? Vb6Value.ValueType.UserDefinedType : returnType,
