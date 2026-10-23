@@ -208,6 +208,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`CVar` runs** (#1466). It stopped the program as undefined. Now it returns its argument as a Variant with the
+  argument's own type, an object as the object, as vb6.exe's does. The result reads as a Variant's, so `CVar(5) * 7000` is
+  a Long 35000 where `5 * 7000` overflows.
+
 - **ChrW and AscW run, and Chr and Asc go through the ANSI code page** (#1134). `ChrW` and `AscW` stopped the program
   as undefined. `Chr` and `Asc` ran, but in UTF-16 units, so `Chr(&H80)` was a control character where VB6 on a 1252
   machine gives "€", and `Asc("€")` was 8364 where VB6 gives 128. All four now follow vb6.exe, measured:
