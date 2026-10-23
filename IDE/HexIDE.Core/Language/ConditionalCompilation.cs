@@ -213,6 +213,33 @@ public static partial class ConditionalCompilation
         return new PreprocessedSource(text.ToString(), inactive, undetermined);
     }
 
+    /// <summary>
+    /// A project's Conditional Compilation Arguments, its <c>.vbp</c>'s <c>CondComp</c> value without the quotes, or false
+    /// where vb6.exe refuses the line. Measured with <c>/make</c>: pairs of <c>name = n</c> separated by colons, the spaces
+    /// optional and the names in any case, <c>n</c> a whole number from -32768 to 32767 with an optional sign. Anything else
+    /// refuses the whole line: 70000, <c>&amp;H10</c>, <c>True</c>, 1.5, a string, a semicolon, a name given twice, an empty
+    /// value, or a colon at the end. No value, or an empty one, is no arguments.
+    /// </summary>
+    public static bool TryParseArguments(string? text, out IReadOnlyDictionary<string, short> arguments)
+    {
+        var values = new Dictionary<string, short>(StringComparer.OrdinalIgnoreCase);
+        arguments = values;
+        if (string.IsNullOrWhiteSpace(text))
+            return true;
+        foreach (var part in text.Split(':'))
+        {
+            if (ArgumentPair().Match(part) is not { Success: true } pair
+                || !short.TryParse(pair.Groups["value"].Value, System.Globalization.NumberStyles.AllowLeadingSign,
+                    System.Globalization.CultureInfo.InvariantCulture, out var value)
+                || !values.TryAdd(pair.Groups["name"].Value, value))
+                return false;
+        }
+        return true;
+    }
+
+    [GeneratedRegex(@"^\s*(?<name>[A-Za-z][A-Za-z0-9_]*)\s*=\s*(?<value>[+-]?[0-9]+)\s*$")]
+    private static partial Regex ArgumentPair();
+
     // One #If's state: whether the branch reading now is the one selected, and whether an earlier branch already was.
     private sealed class Branch(bool parentActive, int line)
     {

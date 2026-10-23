@@ -18,6 +18,12 @@ there isn't one yet. Anything may change between 0.x releases.
   branch never taken, as vb6.exe refuses to build. The module saves exactly as written: the selection exists only for the
   parser. Every personality uses VB6's constants for now (#1548), and `Like` in an `#If` waits for `Like` itself (#1547).
 
+- **The language server no longer squiggles code vb6.exe never compiles** (#1112). An inactive `#If` branch is no longer
+  parsed, so a VBA7 `Declare PtrSafe` behind `#If VBA7 Then`, or a procedure whose `#If` gives it two headers, has no
+  error marks. The branches are the project's: the server reads `CondComp` from the `.vbp` that lists the document. A
+  directive out of place is reported on its line in vb6.exe's words. Where a condition is beyond the server's reduced
+  evaluator, such as a string comparison or a function, nothing inside that block is marked.
+
 - **A control's `ZOrder` method** (#1503). `ZOrder 0`, or no argument, brings a control to the front of the controls
   like it in its container, and `ZOrder 1` sends it to the back, as measured on vb6.exe. A Label never rises over a
   windowed control, a container takes its contents, and the position is 0 or 1 or it raises VB6's error. A program

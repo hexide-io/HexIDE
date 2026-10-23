@@ -21,11 +21,12 @@ public static class VbDiagnosticsProvider
     // this on once a workspace symbol table can resolve those names.
     public const bool EnableUndeclaredVariableCheck = false;
 
-    public static List<LspDiagnostic> GetDiagnostics(string source)
+    /// <param name="compilation">The document's project, for its conditional compilation (#1112); none by default.</param>
+    public static List<LspDiagnostic> GetDiagnostics(string source, VbCompilationContext? compilation = null)
     {
         var regions = VbProtectedRegions.Of(source);
         var diagnostics = new List<LspDiagnostic>();
-        var tree = ParseSource(source, diagnostics, protectedRegions: regions);
+        var tree = ParseSource(source, diagnostics, protectedRegions: regions, compilation: compilation);
 
         // Only run scope analysis when the syntax is clean — syntax errors can produce
         // an incomplete parse tree which would cause spurious undeclared-variable warnings.
@@ -39,11 +40,12 @@ public static class VbDiagnosticsProvider
     /// Parses source once, returns both the diagnostics list and the parse tree.
     /// Use this when callers also need the tree (e.g. to extract declared types).
     /// </summary>
-    public static (List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree) GetDiagnosticsAndTree(string source)
+    public static (List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree) GetDiagnosticsAndTree(string source,
+        VbCompilationContext? compilation = null)
     {
         var regions = VbProtectedRegions.Of(source);
         var diagnostics = new List<LspDiagnostic>();
-        var tree = ParseSource(source, diagnostics, protectedRegions: regions);
+        var tree = ParseSource(source, diagnostics, protectedRegions: regions, compilation: compilation);
 
         if (EnableUndeclaredVariableCheck && diagnostics.Count == 0 && tree is not null)
             diagnostics.AddRange(OutsideProtectedLines(VbScopeAnalyzer.GetOptionExplicitDiagnostics(tree), regions));
@@ -80,14 +82,14 @@ public static class VbDiagnosticsProvider
     /// stage cannot change it.
     /// </remarks>
     public static (List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree, ParseReport Report)
-        GetDiagnosticsAndTreeReported(string source)
+        GetDiagnosticsAndTreeReported(string source, VbCompilationContext? compilation = null)
     {
         var report = new ParseReport();
         var diagnostics = new List<LspDiagnostic>();
 
         var startedAt = Stopwatch.GetTimestamp();
         var regions = VbProtectedRegions.Of(source);
-        var tree = ParseSource(source, diagnostics, report, regions);
+        var tree = ParseSource(source, diagnostics, report, regions, compilation);
         report.Elapsed = Stopwatch.GetElapsedTime(startedAt);
 
         if (EnableUndeclaredVariableCheck && diagnostics.Count == 0 && tree is not null)
@@ -119,8 +121,8 @@ public static class VbDiagnosticsProvider
     /// SingleThreadScheduler's one worker for the full parse regardless of the budget.
     /// </summary>
     public static Task<(List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree)?>
-        TryGetDiagnosticsAndTreeWithin(string source, TimeSpan budget)
-        => RunWithin(() => GetDiagnosticsAndTree(source), budget);
+        TryGetDiagnosticsAndTreeWithin(string source, TimeSpan budget, VbCompilationContext? compilation = null)
+        => RunWithin(() => GetDiagnosticsAndTree(source, compilation), budget);
 
     /// <summary>
     /// <see cref="TryGetDiagnosticsAndTreeWithin"/> with a <see cref="ParseReport"/> attached. Identical
@@ -128,8 +130,8 @@ public static class VbDiagnosticsProvider
     /// the abandoned parse is discarded along with its result rather than being handed back half-written.
     /// </summary>
     public static Task<(List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree, ParseReport Report)?>
-        TryGetDiagnosticsAndTreeReportedWithin(string source, TimeSpan budget)
-        => RunWithinCore(() => GetDiagnosticsAndTreeReported(source), budget);
+        TryGetDiagnosticsAndTreeReportedWithin(string source, TimeSpan budget, VbCompilationContext? compilation = null)
+        => RunWithinCore(() => GetDiagnosticsAndTreeReported(source, compilation), budget);
 
     /// <summary>
     /// The budget race itself, with the work passed in.
@@ -231,15 +233,29 @@ public static class VbDiagnosticsProvider
     /// </remarks>
     internal static VisualBasic6Parser.StartRuleContext? ParseSource(
         string source, List<LspDiagnostic>? diagnostics = null, ParseReport? report = null,
-        VbProtectedRegions? protectedRegions = null)
+        VbProtectedRegions? protectedRegions = null, VbCompilationContext? compilation = null)
     {
+        // The module's directives first, so an inactive branch is never parsed, as in vb6.exe (#1112). Its lines stay
+        // where they were, only emptied, so every position the parse reports is the document's own.
+        var applied = VbConditionalCompilation.Apply(source, compilation ?? VbCompilationContext.NoProject);
         var reportedBefore = diagnostics?.Count ?? 0;
-        var tree = ParseOnce(source, diagnostics, report, protectedRegions, out var leftOutAnError);
-        if (!leftOutAnError || protectedRegions is null)
-            return tree;
-
-        diagnostics?.RemoveRange(reportedBefore, diagnostics.Count - reportedBefore);
-        return ParseOnce(protectedRegions.Blank(source), diagnostics, report, protectedRegions, out _);
+        var tree = ParseOnce(applied.Text, diagnostics, report, protectedRegions, out var leftOutAnError);
+        if (leftOutAnError && protectedRegions is not null)
+        {
+            diagnostics?.RemoveRange(reportedBefore, diagnostics.Count - reportedBefore);
+            tree = ParseOnce(protectedRegions.Blank(applied.Text), diagnostics, report, protectedRegions, out _);
+        }
+        if (diagnostics is not null)
+        {
+            // Nothing is said about a block whose branch could not be chosen, nor, after a directive's own error, about
+            // anything else: vb6.exe refuses the module there.
+            for (var i = diagnostics.Count - 1; i >= reportedBefore; i--)
+                if (applied.HoldsBack(diagnostics[i].Range.Start.Line + 1))
+                    diagnostics.RemoveAt(i);
+            if (applied.Error is { } error)
+                diagnostics.Add(VbConditionalCompilation.Diagnostic(error, source));
+        }
+        return tree;
     }
 
     private static VisualBasic6Parser.StartRuleContext? ParseOnce(

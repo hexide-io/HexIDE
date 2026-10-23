@@ -54,6 +54,24 @@ check 'scripts/check-licences.sh'            build 'a guard script'
 check '.gitignore'                           build 'unrecognised root file defaults to building'
 
 echo
+echo "Source the language server compiles from IDE/, by link:"
+# build-lsp-server must run for a change to any of these, and today it does because the classifier gives one answer for
+# both jobs. A classifier that ever answers per job must send these to build-lsp-server. Each is derived from the
+# server's project files, so a link added later is checked too, and a classifier that ever skipped one fails here
+# rather than reporting green on a server nothing rebuilt (#1112).
+check 'IDE/HexIDE.Core/Language/ConditionalCompilation.cs' build 'the directive scanner, linked into the server (#1112)'
+linked=0
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  linked=$((linked + 1))
+  check "$f" build 'linked into the language server'
+done < <(grep -ohE '<Compile Include="[^"]+"' LspServer/*/*.csproj | sed -E 's/<Compile Include="(.*)"/\1/' \
+           | tr '\\' '/' | sed -E 's#^(\.\./)+##')
+if [ "$linked" -eq 0 ]; then
+  echo "  WRONG  no linked source found in LspServer/*/*.csproj, where the directive scanner should be"; fail=1
+fi
+
+echo
 echo "Markdown read derivation:"
 # Exercise the real derivation in a temp tree whose docs/ exists, as it does in the repository.
 read_docs=$(sed -n '/^derive_read_docs() {/,/^}/p' "$S")
