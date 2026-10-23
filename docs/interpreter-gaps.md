@@ -54,7 +54,7 @@ Platform: 4 · Partial: 12 · Other: 0.
 >   2026-09-02 — `Console.Beep()`, platform-guarded and fail-safe; the earlier cross-platform justification for
 >   the no-op was measured and found wrong) · **Option Compare / Option Private
 >   Module** (now tolerated — the module loads; `Option Compare Text` is recorded per module and honoured by `Like`
->   (#1547); the comparison operators' always-Binary is the residual divergence) · **Deftype** (#169: a letter table the pre-pass collects, consulted wherever a declaration has no As
+>   (#1547), the comparison operators and Select Case (#1567); a string function given no compare is the residual divergence, #1572) · **Deftype** (#169: a letter table the pre-pass collects, consulted wherever a declaration has no As
 >   clause; oracle-pinned) · **Conditional compilation** (#1112: `#If` and `#Const` applied to the module's text before the
 >   parse, so an inactive branch is never parsed; oracle-pinned).
 > - **→ Deferred:** Load/Unload · chained
@@ -85,7 +85,11 @@ _Original per-item findings (retained for detail; dispositions above supersede t
   **Residual gap (new):** string-vs-*number* comparison (`5 < "10"`) throws Type Mismatch where VB6 coerces the
   numeric string and compares numerically — `GetTwoValuesSameTypes` rejects any type mismatch. Still **Missed**.
 - **Declare Sub/Function … Lib** — PrePass.cs:161-162 throws so any module with a `Declare` fails to load; VB6 foundational for Win32 API. Undocumented (absent from the boundary map — violates the spec's every-wall-documented rule).
-- **Option Compare [Binary|Text] / Option Private Module** — PrePass.cs:46-50 throws for both (module fails to load); VB6 sets default string-comparison method / hides module members. `Option Compare Text` is runtime semantics so not CST-walled. Undocumented.
+- ~~**Option Compare [Binary|Text] / Option Private Module** — PrePass.cs:46-50 throws for both (module fails to load).~~ Both load. **`Option Compare Text` is done (#1567)** for the comparison operators, `Select Case` and, with a compare of 1, InStr, InStrRev, Replace, Split, Filter and a Collection's keys, all through `VbTextCompare`, whose rows are vb6.exe's measured order. Three things remain:
+  - **Other locales are a wrong-value risk, not just a gap.** The rows were measured under en-GB and are applied in every locale. Where Windows tailors the sort, such as Swedish å, ä and ö, or Turkish i, HexIDE would give en-GB's answer and nothing would say so (#1573).
+  - **A character outside cp1252 is unmeasured.** It sorts after every measured one, by its invariant lower case.
+  - **A string function given no compare compares as Binary** in a Text module, where VB6 takes the module's mode (#1572).
+  `Like` keeps its own per-character fold (#1547), which nothing has measured against the compare. A different comparer was weighed and refused: .NET's ICU collation, and Windows' NLS mode, which is process-wide. Measured on the same pairs, ICU got 6,337 of the 212,956 wrong, against the rows' 0.
 - **Static local variables / Static procedure modifier** — **done (#1491).** A Static's slot is kept per declaration, for the run in a standard module and per instance in a class or form, and a `Static` procedure makes its Dim locals Static (oracle, "Static"). Collected at procedure entry like any local; nothing relates one declaration to another.
 - **Selection/system/financial intrinsics** (IIf, Choose, Switch, Partition, Environ, Command, Shell, CallByName, Error(), and the 13 financials Pmt/FV/PV/NPV/IRR/Rate/NPer/IPmt/PPmt/MIRR/DDB/SLN/SYD) — all unregistered in every `VB6BuiltIns` partial (throw Sub-or-Function-not-defined, even via `VBA.`/`VB.` qualifiers); genuine VBA Interaction/Information/Financial members. RGB and QBColor have since been added, measured (#826).
 

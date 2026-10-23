@@ -20,11 +20,9 @@ namespace HexIDE.Runtime.Interpreter;
 /// </summary>
 public sealed class VbCollection(BasicInterpreter interpreter) : ICSharpAsyncProxy, INamedParameterSource
 {
-    // A key is equal to another as VB6's text compare finds it, which HexIDE approximates with OrdinalIgnoreCase, as
-    // Split's and Filter's vbTextCompare does (#1479). VB6 also takes some pairs this keeps apart to be one key, such as
-    // "strasse" and "straße": so one of those is found where VB6 raises 5, or added where VB6 raises 457. That is a
-    // missing error or a lookup that fails, never another item's value.
-    internal static readonly StringComparer KeyComparer = StringComparer.OrdinalIgnoreCase;
+    // A key is equal to another as VB6's text compare finds it (measured, #1479): "strasse" and "straße" are one key, and
+    // so are "a" and "a" & Chr(0), while "e" and "é" are two. VbTextCompare compares and hashes them as vb6.exe does.
+    internal static readonly StringComparer KeyComparer = VbTextCompare.Comparer;
 
     private sealed record Entry(Vb6Value Value, string? Key);
 

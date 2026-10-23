@@ -50,6 +50,54 @@ public class StringFunctionsTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(expected)]);
     }
 
+    // At the ends, measured with vb6.exe, native and p-code alike, and the same with a compare of 0, of 1 and none
+    // (#1567): InStr finds an empty string2 at start, however far past the end start is, and an empty string1 holds
+    // nothing, an empty string2 included. InStrRev with a start past the end is 0, even where the text is there to find.
+    [Theory]
+    [InlineData("InStr(1, \"abc\", \"\")", 1L)]
+    [InlineData("InStr(3, \"abc\", \"\")", 3L)]
+    [InlineData("InStr(4, \"abc\", \"\")", 4L)]
+    [InlineData("InStr(5, \"abc\", \"\")", 5L)]
+    [InlineData("InStr(100, \"abc\", \"\")", 100L)]
+    [InlineData("InStr(1, \"\", \"\")", 0L)]
+    [InlineData("InStr(2, \"\", \"\")", 0L)]
+    [InlineData("InStr(4, \"abc\", \"a\")", 0L)]
+    [InlineData("InStr(5, \"abc\", \"c\")", 0L)]
+    [InlineData("InStr(3, \"abc\", \"c\")", 3L)]
+    [InlineData("InStr(1, \"abc\", \"\", 0)", 1L)]
+    [InlineData("InStr(3, \"abc\", \"\", 0)", 3L)]
+    [InlineData("InStr(4, \"abc\", \"\", 0)", 4L)]
+    [InlineData("InStr(5, \"abc\", \"\", 0)", 5L)]
+    [InlineData("InStr(100, \"abc\", \"\", 0)", 100L)]
+    [InlineData("InStr(1, \"\", \"\", 0)", 0L)]
+    [InlineData("InStr(2, \"\", \"\", 0)", 0L)]
+    [InlineData("InStr(4, \"abc\", \"a\", 0)", 0L)]
+    [InlineData("InStr(5, \"abc\", \"c\", 0)", 0L)]
+    [InlineData("InStr(3, \"abc\", \"c\", 0)", 3L)]
+    [InlineData("InStr(1, \"abc\", \"\", 1)", 1L)]
+    [InlineData("InStr(3, \"abc\", \"\", 1)", 3L)]
+    [InlineData("InStr(4, \"abc\", \"\", 1)", 4L)]
+    [InlineData("InStr(5, \"abc\", \"\", 1)", 5L)]
+    [InlineData("InStr(100, \"abc\", \"\", 1)", 100L)]
+    [InlineData("InStr(1, \"\", \"\", 1)", 0L)]
+    [InlineData("InStr(2, \"\", \"\", 1)", 0L)]
+    [InlineData("InStr(4, \"abc\", \"a\", 1)", 0L)]
+    [InlineData("InStr(5, \"abc\", \"c\", 1)", 0L)]
+    [InlineData("InStr(3, \"abc\", \"c\", 1)", 3L)]
+    [InlineData("InStr(\"abc\", \"\")", 1L)]
+    [InlineData("InStr(\"\", \"\")", 0L)]
+    [InlineData("InStrRev(\"abc\", \"\")", 3L)]
+    [InlineData("InStrRev(\"abc\", \"\", 2)", 2L)]
+    [InlineData("InStrRev(\"abc\", \"\", 5)", 0L)]
+    [InlineData("InStrRev(\"abc\", \"\", 5, 1)", 0L)]
+    [InlineData("InStrRev(\"\", \"\")", 0L)]
+    [InlineData("InStrRev(\"abc\", \"c\", 4)", 0L)]
+    public async Task InStr_and_InStrRev_at_the_ends(string expr, long expected)
+    {
+        await Run($"Debug.Print {expr}\n");
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
     // Asc, by contrast, really is Integer — measured. It is not one rule applied everywhere, which is why
     // this stayed a separate case rather than being folded into the Long theory above.
     [Theory]
