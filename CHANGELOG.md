@@ -228,6 +228,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP reply numbers use a decimal point in every culture** (#1550). Coordinates, sizes, scroll percentages and
+  wait durations now use invariant formatting, so a fractional click point can be read and sent back unchanged.
+
 - **A form's Width and Height are its outer size at run time** (#1072). They read and set the client area, so a
   program got a form 90 to 240 twips narrower and 345 to 885 shorter than vb6.exe reports. They now include the frame
   VB6 draws on the themed Windows desktop for the form's BorderStyle, caption bar and menu bar, read back as assigned,
@@ -283,6 +286,12 @@ there isn't one yet. Anything may change between 0.x releases.
   `Control` and as an `Object`, and a form as a `Form`. `Unload c` unloads a control-array element held in a
   variable. `Controls.Add` and `Remove` are still refused (#1556).
 
+- **A new form, UserControl or PropertyPage is the file VB6 makes, byte for byte** (#1538). A new form was 6000 × 4500
+  inside and had no `ClientLeft`, `ClientTop` or `LinkTopic`. A new UserControl had a `Caption`, which a UserControl
+  doesn't have, and `Attribute VB_Name` alone. Each now carries what VB6's Add Form, Add User
+  Control and Add Property Page write (measured in the IDE): a form 4560 × 3015 at 120, 465 with its `LinkTopic`, and a
+  UserControl or PropertyPage 4800 × 3600 at 0, 0 with its own five `Attribute` lines.
+
 - **A new form has no code, and an event procedure is added as VB6 adds one** (#1532). A form HexIDE created started
   with an empty `Form_Load` procedure, and its first save wrote it to the file. VB6's Add Form saves a form ending at its
   `Attribute` lines (measured in the IDE), and adds `Form_Load` when the form is double-clicked. HexIDE's double-click
@@ -311,6 +320,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **An intrinsic called with too few arguments raises VB6's compile error** (#1512). Calls such as `Chr()`
   now report "Argument not optional" or "Syntax error", as measured in VB6, instead of stopping with a .NET exception.
+
+- **A control added, brought to front or sent to back stacks past the controls HexIDE carries as text, as VB6's does**
+  (#1498). A control HexIDE does not model, such as an OCX's, was written back where it was read, whatever the designer
+  did around it. So a button added to Web Browser.frm went in after its toolbar, and the form's ImageList was written
+  ahead of a PictureBox nobody had moved. VB6 stacks an OCX control like any other (measured): a new control goes in
+  front of the toolbar, and Send to Back puts it behind the ImageList. A form loaded and saved untouched is unchanged.
 
 - **`Print #` writes a character the ANSI code page lacks as its best fit** (#1511). On code page 1252, Ā is written as
   "A", Ł as "L" and α as "a", as vb6.exe writes them, and Ж, which has no fit, as "?". Every one of them was "?".

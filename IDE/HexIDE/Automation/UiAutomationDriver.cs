@@ -1378,8 +1378,8 @@ public static class UiAutomationDriver
             return Fail("the control is not attached to a window, so it has no coordinates to click at");
         var local = at ?? new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
         if (control.TranslatePoint(local, topLevel) is not { } inWindow)
-            return Fail($"could not translate ({local.X:0.#}, {local.Y:0.#}) on '{Describe(control)}' into window coordinates");
-        var where = $"({local.X:0.#}, {local.Y:0.#}) on '{Describe(control)}', which is ({inWindow.X:0.#}, {inWindow.Y:0.#}) in the window";
+            return Fail($"could not translate ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) on '{Describe(control)}' into window coordinates");
+        var where = $"({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) on '{Describe(control)}', which is ({inWindow.X.ToString("0.#", CultureInfo.InvariantCulture)}, {inWindow.Y.ToString("0.#", CultureInfo.InvariantCulture)}) in the window";
         // What a real press there reaches: the topmost element at that point that takes the pointer.
         if (topLevel.InputHitTest(inWindow) is not Avalonia.Interactivity.Interactive hit)
             return Fail($"{NothingTakesThePointer}{where}, so nothing was pressed: the point is outside the target, "
@@ -1405,8 +1405,8 @@ public static class UiAutomationDriver
         var landing = landed is null || ReferenceEquals(landed, control) ? ""
             : control.IsVisualAncestorOf(landed) ? $", landing on its part '{Describe(landed)}'"
             : !new Rect(control.Bounds.Size).Contains(local)
-                ? $"; ({local.X:0.#}, {local.Y:0.#}) is outside '{Describe(control)}', which is "
-                  + $"{control.Bounds.Width:0.#} × {control.Bounds.Height:0.#}, and the press landed on '{Describe(landed)}'"
+                ? $"; ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) is outside '{Describe(control)}', which is "
+                  + $"{control.Bounds.Width.ToString("0.#", CultureInfo.InvariantCulture)} × {control.Bounds.Height.ToString("0.#", CultureInfo.InvariantCulture)}, and the press landed on '{Describe(landed)}'"
                 : $"; the press landed on '{Describe(landed)}', which covers the target there";
         var holding = keys == KeyModifiers.None ? "" : " holding " + string.Join(" and ",
             new[] { (KeyModifiers.Shift, "shift"), (KeyModifiers.Control, "ctrl"), (KeyModifiers.Alt, "alt") }
@@ -1454,7 +1454,7 @@ public static class UiAutomationDriver
         if (!drawn && outcome is { Success: false, Error: { } error } && error.StartsWith(NothingTakesThePointer, StringComparison.Ordinal))
             outcome = outcome with
             {
-                Error = error + $"; or its window, which drew no frame in the {wait.TotalMilliseconds:0} ms the click waited, "
+                Error = error + $"; or its window, which drew no frame in the {wait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms the click waited, "
                         + "has nothing drawn there yet, since a press is hit-tested against what was drawn: try again once it shows",
             };
         return outcome;
@@ -1625,7 +1625,7 @@ public static class UiAutomationDriver
             if (Environment.TickCount64 >= deadline)
                 return outcome with
                 {
-                    Detail = outcome.Detail + $" (the program was still running {state.Started} {wait.TotalSeconds:0.#}s "
+                    Detail = outcome.Detail + $" (the program was still running {state.Started} {wait.TotalSeconds.ToString("0.#", CultureInfo.InvariantCulture)}s "
                              + $"later, so the form may still change{opened})",
                 };
             await Task.Delay(20, ct).ConfigureAwait(false);
@@ -1787,7 +1787,7 @@ public static class UiAutomationDriver
             : owner.TemplatedParent == control
                 ? $"'{Describe(owner)}' (the target's own {(owner is ScrollBar ? "scroll bar" : "scroller")})"
                 : $"'{Describe(owner)}' (the nearest container of the target that scrolls {axis})";
-        var position = $"now {after:0.#}% of the way along, showing {ViewSizeAlong(scroller, move.Vertical):0.#}% of the content at a time";
+        var position = $"now {after.ToString("0.#", CultureInfo.InvariantCulture)}% of the way along, showing {ViewSizeAlong(scroller, move.Vertical).ToString("0.#", CultureInfo.InvariantCulture)}% of the content at a time";
         return Math.Abs(after - before) < 0.01
             ? Err($"did not scroll {where} {value}: it is already at that end ({position})")
             : Ok($"scrolled {where} {value}: {position}");
@@ -2504,7 +2504,7 @@ public static class UiAutomationDriver
             var moved = ReferenceEquals(at, start) ? "" : $"; focus moved on to {Describe(at)}, where the keys after it went";
             var slow = unanswered == 0 ? ""
                 : $"; the language server had not answered {unanswered} key(s)' completion or parameter-info request "
-                  + $"within {PopupWait.TotalMilliseconds:0} ms, so a list may still open";
+                  + $"within {PopupWait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms, so a list may still open";
             return new InteractOutcome(true, KeyboardMechanism,
                 $"typed {keys.Count} key(s) into {surface.GetType().Name}{address} as a person types them{caret}{moved}{slow}", null);
         }
@@ -2866,7 +2866,7 @@ public static class UiAutomationDriver
             var local = HoverPoint(target, x, y);
             if (target.TranslatePoint(local, topLevel) is not { } atTopLevel)
                 return new InteractOutcome(false, "pointer", null,
-                    $"could not translate ({local.X:0.#}, {local.Y:0.#}) on '{Describe(target)}' into window coordinates");
+                    $"could not translate ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) on '{Describe(target)}' into window coordinates");
 
             // Through the window's input, as the platform delivers a real move: hit-tested against what was drawn, routed,
             // and seen by the input manager, which a declared ToolTip.Tip opens from (#1265). Events raised on the control
@@ -2904,7 +2904,7 @@ public static class UiAutomationDriver
                     : $"; it landed on {Describe(hit)}, not the target, as that is what is drawn at the point, so it is what a "
                       + "person's pointer there would be over";
                 return new InteractOutcome(true, "pointer",
-                    $"hovered ({local.X:0.#}, {local.Y:0.#}){Where()} through the window's input{landed}", null);
+                    $"hovered ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}){Where()} through the window's input{landed}", null);
             }
 
             var pointer = new Avalonia.Input.Pointer(
@@ -2920,7 +2920,7 @@ public static class UiAutomationDriver
 
             landing = new HoverLanding(target, local);
             return new InteractOutcome(true, "pointer",
-                $"hovered ({local.X:0.#}, {local.Y:0.#}){Where()} (raised on the control, as the move through the window's input "
+                $"hovered ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}){Where()} (raised on the control, as the move through the window's input "
                 + $"{missed}, so a declared tooltip will not open)", null);
 
             string Where() => ReferenceEquals(target, control)

@@ -75,6 +75,8 @@ public class BeginOrderTests
     [
         ("Picture", "VB.PictureBox"), ("Frame", "VB.Frame"), ("Command", "VB.CommandButton"), ("Label", "VB.Label"),
         ("Line", "VB.Line"), ("Timer", "VB.Timer"), ("mnu", "VB.Menu"),
+        // Classes HexIDE does not model, so it carries their blocks as text: Web Browser.frm's (#1498).
+        ("tb", "MSComctlLib.Toolbar"), ("brw", "SHDocVwCtl.WebBrowser"), ("iml", "MSComctlLib.ImageList"),
     ];
 
     // Every control at its own place, so a copy can be told from its source's sibling by where it is.
@@ -195,6 +197,9 @@ public class BeginOrderTests
     [InlineData("Command1,Line1,Line2,Timer1")]
     [InlineData("Label1,Command1,Label2")]
     [InlineData("Command1,Label1,mnuFile(mnuOpen,mnuExit),mnuHelp")]
+    [InlineData("tbToolBar,brwWebBrowser,Timer1,Picture1(Label1),imlIcons")]
+    [InlineData("Picture1(tbToolBar,Command1,imlIcons),Label1,imlOther")]
+    [InlineData("Command1,imlIcons,mnuFile(mnuOpen),tbToolBar,mnuHelp")]
     public void A_loaded_form_is_saved_in_the_order_it_was_read(string spec)
     {
         var (vm, form) = Open(spec);
@@ -341,6 +346,93 @@ public class BeginOrderTests
 
         Drawn(vm).Should().Be(drawn);
         Saved(vm, form).Should().Be(saved);
+    }
+
+    // ── controls HexIDE carries as text ──────────────────────────────────────────────────────────────────
+
+    // Measured on VB6's own Web Browser.frm (#1498): a CommandButton added there was written first, ahead of the toolbar;
+    // sent to back, last, after the ImageList; brought to front again, first. A carried control is a control to VB6, so
+    // it stacks with the rest. HexIDE wrote each block it carries at the place it was read, so the button went in after
+    // the toolbar, and the ImageList ahead of a PictureBox nobody moved.
+    private const string WebBrowser = "tbToolBar,brwWebBrowser,Timer1,Picture1(Label1),imlIcons";
+
+    [AvaloniaFact]
+    public void A_control_added_goes_ahead_of_every_control_HexIDE_carries_and_moves_past_them_as_VB6s_does()
+    {
+        var (vm, form) = Open(WebBrowser);
+
+        var added = Add(vm, CommandButtonComponentClass.Instance);
+        Saved(vm, form).Should().Be($"{added},{WebBrowser}");
+
+        vm.SendToBack(Find(vm, added));
+        Saved(vm, form).Should().Be($"{WebBrowser},{added}");
+
+        vm.BringToFront(Find(vm, added));
+        Saved(vm, form).Should().Be($"{added},{WebBrowser}");
+    }
+
+    [AvaloniaFact]
+    public void An_undone_Send_to_Back_puts_the_control_back_ahead_of_the_carried_ones()
+    {
+        var (vm, form) = Open(WebBrowser);
+        var added = Add(vm, CommandButtonComponentClass.Instance);
+
+        vm.SendToBack(Find(vm, added));
+        vm.UndoStack.Undo();
+        Saved(vm, form).Should().Be($"{added},{WebBrowser}");
+
+        vm.UndoStack.Redo();
+        Saved(vm, form).Should().Be($"{WebBrowser},{added}");
+    }
+
+    // Nothing modelled moves in either: the only change is where the control stands against the carried one.
+    [AvaloniaTheory]
+    [InlineData("tbToolBar,Command1", true, "Command1,tbToolBar")]
+    [InlineData("Command1,imlIcons", false, "imlIcons,Command1")]
+    [InlineData("Picture1(tbToolBar,Command1)", true, "Picture1(Command1,tbToolBar)")]
+    public void Bring_to_Front_and_Send_to_Back_move_a_control_past_a_carried_one_alone(string spec, bool toFront, string saved)
+    {
+        var (vm, form) = Open(spec);
+
+        if (toFront)
+            vm.BringToFront(Find(vm, "Command1"));
+        else
+            vm.SendToBack(Find(vm, "Command1"));
+
+        Saved(vm, form).Should().Be(saved);
+        vm.UndoStack.Undo();
+        Saved(vm, form).Should().Be(spec);
+    }
+
+    // VB6 writes every windowed control before every windowless one, so a carried block it wrote after a Label is a
+    // windowless control: a windowed one sent to back stays over it, and a Label sent to back goes under it.
+    [AvaloniaFact]
+    public void A_carried_control_written_after_a_Label_is_windowless_and_stacks_with_the_Labels()
+    {
+        var (vm, form) = Open("Command1,Picture1,Label1,imlIcons");
+
+        vm.SendToBack(Find(vm, "Command1"));
+        Saved(vm, form).Should().Be("Picture1,Command1,Label1,imlIcons");
+
+        var added = Add(vm, LabelComponentClass.Instance);
+        Saved(vm, form).Should().Be($"Picture1,Command1,{added},Label1,imlIcons");
+
+        vm.SendToBack(Find(vm, "Label1"));
+        Saved(vm, form).Should().Be($"Picture1,Command1,{added},imlIcons,Label1");
+    }
+
+    [AvaloniaFact]
+    public void A_container_cut_and_pasted_keeps_its_carried_controls_where_they_were_among_its_own()
+    {
+        var (vm, form) = Open("Command1,Picture1(tbToolBar,Command2,imlIcons)");
+        var picture = Find(vm, "Picture1");
+        vm.SelectedComponent = picture;
+        vm.SetSelectedComponents([picture]);
+
+        vm.CutSelectedControls();
+        vm.PasteControls();
+
+        Saved(vm, form).Should().Be("Picture1(tbToolBar,Command2,imlIcons),Command1");
     }
 
     // ── menus ────────────────────────────────────────────────────────────────────────────────────────────
