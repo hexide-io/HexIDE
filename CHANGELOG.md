@@ -215,6 +215,24 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **A helper's `On Error Resume Next` no longer sees its caller's stale error** (#877). `On Error`, `Resume` and leaving a procedure from its handler now clear `Err`, as vb6.exe does, so `If Err.Number <> 0 Then` after them reads only what has happened since. While a handler runs, an error in it now goes to the caller even after `On Error Resume Next`, where HexIDE used to trap it and run on. `On Error GoTo -1` runs, and `Err.Raise` with no Description keeps the one already set, as vb6.exe's does.
 
+- **A form's `Controls` collection runs, and `TypeOf` knows a control's class** (#1060). `For Each c In Controls`,
+  `Controls.Count`, `Controls(i)` and `Controls("Name")` stopped the run as not implemented. They now hold every control
+  in the order the file holds them, menus and each control-array element included, as vb6.exe does, with VB6's
+  errors for an index out of range or a name not there. `TypeOf c Is TextBox` was False for every control, so the
+  usual loop over a form's controls would have done nothing, silently. It now matches a control by its class, as a
+  `Control` and as an `Object`, and a form as a `Form`. `Unload c` unloads a control-array element held in a
+  variable. `Controls.Add` and `Remove` are still refused (#1556).
+
+- **A new form has no code, and an event procedure is added as VB6 adds one** (#1532). A form HexIDE created started
+  with an empty `Form_Load` procedure, and its first save wrote it to the file. VB6's Add Form saves a form ending at its
+  `Attribute` lines (measured in the IDE), and adds `Form_Load` when the form is double-clicked. HexIDE's double-click
+  wrote that procedure `Public`, in bare LF, after two bare line feeds. Now a double-click, or an event picked in the
+  Procedure box, writes it `Private`, in the file's line breaks, at the end and one blank line below any code, with the
+  caret on the blank line inside.
+
+- **Object and Collection arrays** (#1482). Elements start as Nothing, accept Set with the same type checks as
+  scalar variables, and release their objects on Erase. Class arrays now report TypeName "Object()", too.
+
 - **View Code opens with the caret in the code** (#1518). It opened at the top of the file, on the folded header that
   only the IDE may change, so the first keystroke was refused and nothing appeared. Since #1369 that was every new
   form's first View Code too. Now a code window opened with nowhere asked for puts its caret on the first line below
