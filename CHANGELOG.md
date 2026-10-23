@@ -208,6 +208,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A form whose `Begin` line and `Attribute VB_Name` disagree opens as VB6 opens it** (#1407). HexIDE already named
+  such a form by its `Begin` line, as VB6 does, but said nothing and saved the contradiction back. HexIDE itself wrote
+  such files before #1059. Opening the project now shows VB6's "Conflicting names were found…" warning. The form's
+  `VB_Name` is made to agree, and the form comes up edited, so its next save writes it, as VB6's does. Case alone
+  counts as a disagreement, as it does in VB6.
+
 - **The form designer draws a form at the size it runs** (#924). The designer drew the whole window, frame and
   caption bar included, at the form's client size, so the area controls were designed in was 8 pixels narrower and
   about 25 shorter than the running form. A layout drawn flush to the edges ran with a margin, and resizing the form

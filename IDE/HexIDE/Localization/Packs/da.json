@@ -24,6 +24,7 @@
     "Str.Dialog.UnsavedMembers.NothingWritten": "Intet blev gemt. Projektfilen for {0} ville udelade disse filer, fordi de aldrig er blevet gemt:\n\n{1}\n\nEn projektfil kan først angive en fil, når filen er gemt. Gem dem sammen med projektet, eller lad projektet være ugemt. Dine ændringer er stadig åbne i IDE'et.",
     "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} kunne ikke læses i denne computers tegntabel ({1}), så kildefilen blev åbnet byte for byte som vesteuropæisk tekst (Latin-1). Hvis den gemmes uændret, skrives de samme bytes tilbage, men tegn uden for Latin-1 kan ikke tilføjes til kildefilen. Tekst, der er skrevet i en anden tegntabel, kan se forvansket ud.",
     "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "Disse filer kunne ikke læses i denne computers tegntabel ({1}), så de blev åbnet byte for byte som vesteuropæisk tekst (Latin-1):\n\n{0}\n\nHvis de gemmes uændrede, skrives de samme bytes tilbage, men tegn uden for Latin-1 kan ikke tilføjes til filerne. Tekst, der er skrevet i en anden tegntabel, kan se forvansket ud.",
+    "Str.Dialog.ConflictingNames": "Der blev fundet modstridende navne i '{0}'. Navnet '{1}' bruges. Formularens Attribute VB_Name siger nu også '{1}' og skrives, næste gang formularen gemmes.",
     "Str.Options.Language.RegionLabel": "_Region:",
     "Str.Options.Language.RegionStandard": "(Standard)",
     "Str.Options.Language.Customize": "_Tilpas oversættelser…",

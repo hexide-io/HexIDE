@@ -363,6 +363,8 @@ public class ProjectService : IProjectService
 
         // Establish the "nothing edited yet" point for the save-changes prompt.
         SnapshotRenderBaselines(project);
+        // After the baselines, so that a form whose VB_Name is made to agree comes up edited: its file still disagrees.
+        var conflictingNames = ReconcileFormNames(project);
 
         if (serializedProject.SkippedUserDocumentPaths.Count > 0)
         {
@@ -386,6 +388,32 @@ public class ProjectService : IProjectService
         }
 
         await ReportReadByteForByte(readByteForByte);
+        if (conflictingNames.Count > 0)
+            await windowManager.MessageBox(string.Join("\n\n", conflictingNames), icon: MessageBoxIcon.Warning);
+    }
+
+    /// <summary>
+    /// Makes each form's <c>Attribute VB_Name</c> agree with its <c>Begin</c> line where the two differ, even in case
+    /// alone, and returns a notice for each, in VB6's words (#1407).
+    /// </summary>
+    /// <remarks>
+    /// VB6 names such a form by its <c>Begin</c> line, as HexIDE already did. It says so as the project opens, and its
+    /// next save writes <c>VB_Name</c> to match (measured: the oracle's "A form whose two names disagree"). The rewrite
+    /// is to the model, which no code window shows yet, so the form comes up edited, and the next save writes it.
+    /// </remarks>
+    private List<string> ReconcileFormNames(ProjectDefinition project)
+    {
+        var notices = new List<string>();
+        foreach (var form in project.Forms)
+        {
+            var name = form.Name;
+            if (name.Length == 0 || FormCodeText.VbNameOf(form.Code) is not { } vbName
+                || string.Equals(vbName, name, StringComparison.Ordinal))
+                continue;
+            form.UpdateCode(FormCodeText.RetargetVbName(form.Code, name));
+            notices.Add(string.Format(localization.GetString("Str.Dialog.ConflictingNames"), form.AbsolutePath ?? name, name));
+        }
+        return notices;
     }
 
     private static IReadOnlyDictionary<string, ComponentBaseClass> BuildUserControlRegistry(
