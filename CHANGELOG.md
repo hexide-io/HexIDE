@@ -10,6 +10,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **VB6 filesystem operations** (#1561): `CurDir`, `MkDir`, `RmDir`, `FileLen`, `FileDateTime`, `GetAttr`, `SetAttr`, `FileCopy`, `Name`, `Kill` and stateful `Dir`, using compiled VB6 measurements.
+
 - **Conditional compilation runs: `#If`, `#ElseIf`, `#Else`, `#End If` and `#Const`** (#1112). A module holding any
   `#If` stopped the program as it loaded, and `#Const` did not parse. Now each branch is chosen as vb6.exe chooses it,
   measured with `/make`, native and p-code. The names are the module's `#Const`s, the project's Conditional Compilation
@@ -231,6 +233,18 @@ there isn't one yet. Anything may change between 0.x releases.
   shown once more to anyone who saw the old one, which said "code".
 
 ### Fixed
+
+- **The designer draws and names a UserControl or PropertyPage as VB6's does** (#1544). Each was drawn in a form's
+  window frame, with a title bar and caption buttons, a PropertyPage's tab read `(Form)`, and the Properties window's
+  object box gave both the class `Form`. Each is now a borderless surface, as neither has a window of its own at run
+  time, its tab reads `(UserControl)` or `(PropertyPage)`, and the object box names its class.
+
+- **Every focusable control raises GotFocus and LostFocus, and a form or UserControl saved disabled runs disabled**
+  (#1101). Only the TextBox and the CommandButton raised them. The CheckBox, OptionButton, ListBox, ComboBox, scroll
+  bars and PictureBox now do, as vb6.exe does: one GotFocus as a control is entered, however its items or edit box take
+  the focus. The ListBox, scroll bars and PictureBox take the focus, where `SetFocus` on one was refused. An option
+  button given the focus by `SetFocus` is selected, raising Click after GotFocus. A form or a UserControl's `.ctl`
+  saved with `Enabled = 0 'False` dropped that line and ran enabled. A disabled form is shown without taking the focus.
 
 - **MCP reply numbers use a decimal point in every culture** (#1550). Coordinates, sizes, scroll percentages and
   wait durations now use invariant formatting, so a fractional click point can be read and sent back unchanged.

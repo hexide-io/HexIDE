@@ -954,12 +954,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// <summary>The library's functions that have a <c>$</c> form, every one measured to compile and answer a String.</summary>
     private static readonly HashSet<string> DollarForms = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Chr", "ChrB", "ChrW", "Command", "CurDir", "Environ", "Error", "Format", "Hex", "LCase", "Left", "LeftB", "LTrim", "Mid",
+        "Chr", "ChrB", "ChrW", "Command", "CurDir", "Dir", "Environ", "Error", "Format", "Hex", "LCase", "Left", "LeftB", "LTrim", "Mid",
         "MidB", "Oct", "Right", "RightB", "RTrim", "Space", "Str", "String", "Trim", "UCase",
     };
 
     /// <summary>The <c>$</c> forms read with no parentheses, as a variable is: measured for each.</summary>
-    private static readonly HashSet<string> BareDollarForms = new(StringComparer.OrdinalIgnoreCase) { "Command" };
+    private static readonly HashSet<string> BareDollarForms = new(StringComparer.OrdinalIgnoreCase) { "Command", "CurDir", "Dir" };
 
     /// <summary>Library functions on which VB6 refuses a <c>$</c> at compile time (measured).</summary>
     private static readonly HashSet<string> DollarRefused = new(StringComparer.OrdinalIgnoreCase)
