@@ -208,6 +208,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`Static` runs, and a `Static Sub` keeps its locals** (#1491). A `Static` local stopped the program. Now it keeps its
+  value from one call to the next, as vb6.exe does: shared by recursive calls, kept per instance in a class or a form,
+  and released with the instance. The `Static` keyword on a procedure was read and then ignored, so a `Static Sub`'s
+  locals silently started again at zero on every call. Now they keep their values too, though a Static Function's own
+  return value starts again, as VB6's does.
+
 - **`Dim o As New C1` runs** (#435). The whole module stopped loading at the first `As New`. Now a variable declared
   `As New` holds Nothing until it is used, and its first use makes the object, as vb6.exe does, for a class and for a
   Collection, at procedure and module level and as a class field. Every use counts: `If o Is Nothing` makes the object,

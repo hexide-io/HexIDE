@@ -69,6 +69,29 @@ public class StaticTests : BaseVBTestFixture
 
         """;
 
+    // Says when it is made and when it ends.
+    private const string Made = """
+        Public Name As String
+        Private Sub Class_Initialize()
+            Debug.Print "  made"
+        End Sub
+        Private Sub Class_Terminate()
+            Debug.Print "  term " & Name
+        End Sub
+
+        """;
+
+    // A Collection As New, kept per instance.
+    private const string Holder = """
+        Public Name As String
+        Public Sub Add()
+            Static c As New Collection
+            c.Add 1
+            Debug.Print "  " & Name & " count " & c.Count
+        End Sub
+
+        """;
+
     [Fact]
     public async Task A_Static_keeps_its_value_from_one_call_to_the_next()
     {
@@ -304,6 +327,62 @@ public class StaticTests : BaseVBTestFixture
               Counter term k again
               term k again.f
               term k again.Hold
+            end
+            """));
+    }
+
+    [Fact]
+    public async Task A_Static_As_New_is_made_at_its_first_use_and_kept_until_set_to_Nothing()
+    {
+        await RunClasses("""
+            Private Sub Uses(ByVal last As Boolean)
+                Static s As New Made
+                s.Name = s.Name & "x"
+                Debug.Print "  uses " & s.Name
+                If last Then Set s = Nothing
+            End Sub
+            Private Sub Clears(ByVal clear As Boolean)
+                Static c As New Made
+                Debug.Print "  c.Name [" & c.Name & "]"
+                c.Name = "set"
+                If clear Then Set c = Nothing: Debug.Print "  cleared"
+            End Sub
+
+            Dim h As Holder, h2 As Holder
+            Debug.Print "module:"
+            Uses False: Uses False: Uses True
+            Debug.Print "after Nothing:"
+            Clears True: Clears False: Clears True
+            Debug.Print "class:"
+            Set h = New Holder: h.Name = "h"
+            Set h2 = New Holder: h2.Name = "h2"
+            h.Add: h.Add: h2.Add
+            Set h = Nothing: Set h2 = Nothing
+            Debug.Print "end"
+
+            """, ("Made", Made), ("Holder", Holder));
+
+        AssertDebugLog(Lines("""
+            module:
+              made
+              uses x
+              uses xx
+              uses xxx
+              term xxx
+            after Nothing:
+              made
+              c.Name []
+              term set
+              cleared
+              made
+              c.Name []
+              c.Name [set]
+              term set
+              cleared
+            class:
+              h count 1
+              h count 2
+              h2 count 1
             end
             """));
     }
