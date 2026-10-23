@@ -10,6 +10,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **A control HexIDE does not model is shown in the designer** (#157). An ImageList, a Toolbar or any other control
+  HexIDE carries without modelling used to be invisible, so a developer could move a button onto it unknowing. Now
+  each is a box where VB6's IDE puts one: at its position, sized by its `Width` and `Height`, or 1200 by 480 twips
+  when it records neither, as VB6 measures it. The box names the control's class and says HexIDE does not support
+  it; it cannot be selected or moved, and the control is still saved exactly as it was read.
 - **A ComboBox raises Click, Change and DropDown** (#1429). It raised none, so a program's `Combo1_Click` and
   `Combo1_Change` never ran, whatever the user or code did. Now each comes where vb6.exe raises it, measured with real
   input, native and p-code:
@@ -213,6 +218,67 @@ there isn't one yet. Anything may change between 0.x releases.
   `Begin probe.ctlDial`, then found no such control, and kept it as text it could neither draw nor run. Where its
   `Begin` line and `VB_Name` disagree, the project now opens with VB6's warning and makes `VB_Name` agree, as #1407
   does for a form.
+
+- **Bare Print no longer prevents a form from loading** (#993). The interpreter and editor accept its output list.
+  Reaching it still stops the run at the form's unimplemented Print method (#989); standard and class modules refuse
+  it at runtime, naming #993, pending a VB6 measurement.
+
+- **Indexing a call's result runs** (#1476). `Split(s)(0)`, `Array(1, 2)(1)`, `F()(1)` and `a(1)(0) = 9` stopped the
+  program. They now run as vb6.exe runs them, evaluating in its order. A parameterless Function that returns a Variant
+  now reads its arguments as an index into its result, so `F(1)` is `F()(1)`; it used to drop them and return the whole
+  array. A method's result indexed after its arguments, `k.Echo("m n")(1)`, used to call it with no arguments at all.
+
+- **A form's `Controls` collection runs, and `TypeOf` knows a control's class** (#1060). `For Each c In Controls`,
+  `Controls.Count`, `Controls(i)` and `Controls("Name")` stopped the run as not implemented. They now hold every control
+  in the order the file holds them, menus and each control-array element included, as vb6.exe does, with VB6's
+  errors for an index out of range or a name not there. `TypeOf c Is TextBox` was False for every control, so the
+  usual loop over a form's controls would have done nothing, silently. It now matches a control by its class, as a
+  `Control` and as an `Object`, and a form as a `Form`. `Unload c` unloads a control-array element held in a
+  variable. `Controls.Add` and `Remove` are still refused (#1556).
+
+- **A new form has no code, and an event procedure is added as VB6 adds one** (#1532). A form HexIDE created started
+  with an empty `Form_Load` procedure, and its first save wrote it to the file. VB6's Add Form saves a form ending at its
+  `Attribute` lines (measured in the IDE), and adds `Form_Load` when the form is double-clicked. HexIDE's double-click
+  wrote that procedure `Public`, in bare LF, after two bare line feeds. Now a double-click, or an event picked in the
+  Procedure box, writes it `Private`, in the file's line breaks, at the end and one blank line below any code, with the
+  caret on the blank line inside.
+
+- **Object and Collection arrays** (#1482). Elements start as Nothing, accept Set with the same type checks as
+  scalar variables, and release their objects on Erase. Class arrays now report TypeName "Object()", too.
+
+- **View Code opens with the caret in the code** (#1518). It opened at the top of the file, on the folded header that
+  only the IDE may change, so the first keystroke was refused and nothing appeared. Since #1369 that was every new
+  form's first View Code too. Now a code window opened with nowhere asked for puts its caret on the first line below
+  the header, as VB6's View Code does. Navigating to a procedure or a breakpoint still puts it there.
+
+- **`Write #` and `Input #` run** (#1521). Both stopped the program as not implemented. `Write #` now writes
+  as vb6.exe does: quoted strings, `.5` with no leading zero, `#TRUE#`, `#NULL#` and `#2003-01-02#`, with a point under
+  any locale. `Input #` reads each field for the variable it fills, so a Variant comes back typed by what the field holds,
+  as an Integer, Currency, Decimal, Double, Boolean or Date. A typed variable takes vb6.exe's rules: 0 for text in a
+  number, and 6 or 13 leave the variable as it was. A program that saves its settings with one and loads them with the
+  other now runs.
+
+- **`CCur` and `CDec` preserve decimal precision in Strings** (#1531). Plain decimal numbers are read in the
+  program's locale without rounding through a Double, including the Currency and Decimal maxima. Out-of-range
+  Strings raise run-time error 6. Hex, octal and exponent forms keep their existing conversion.
+
+- **An intrinsic called with too few arguments raises VB6's compile error** (#1512). Calls such as `Chr()`
+  now report "Argument not optional" or "Syntax error", as measured in VB6, instead of stopping with a .NET exception.
+
+- **`Print #` writes a character the ANSI code page lacks as its best fit** (#1511). On code page 1252, Ā is written as
+  "A", Ł as "L" and α as "a", as vb6.exe writes them, and Ж, which has no fit, as "?". Every one of them was "?".
+
+- **`CVar` runs** (#1466). It stopped the program as undefined. Now it returns its argument as a Variant with the
+  argument's own type, an object as the object, as vb6.exe's does. The result reads as a Variant's, so `CVar(5) * 7000` is
+  a Long 35000 where `5 * 7000` overflows.
+
+- **OK on the References dialog no longer drops the project's OLE Automation reference** (#1026). Its first row
+  carried OLE Automation's GUID, so the project's own reference was hidden, and OK, even with nothing changed, took it
+  out. The next save wrote the project without it, and VB6 then failed to build one that uses `StdFont` or
+  `OLE_COLOR`. The dialog now lists what VB6's does, as measured: three fixed rows (Visual Basic For Applications and
+  VB's two libraries), then every reference of the project in its order, OLE Automation among them. Nothing moves
+  above the fixed rows, and it opens on the last checked row.
+
 - **A form whose `Begin` line and `Attribute VB_Name` disagree opens as VB6 opens it** (#1407). HexIDE already named
   such a form by its `Begin` line, as VB6 does, but said nothing and saved the contradiction back. HexIDE itself wrote
   such files before #1059. Opening the project now shows VB6's "Conflicting names were found…" warning. The form's
@@ -255,6 +321,11 @@ there isn't one yet. Anything may change between 0.x releases.
   has all three, and says `StartUpPosition = 3 'Windows Default`. A form with no such line, as VB6 writes a Manual
   one, now runs where its file puts it rather than centred, which is how vb6.exe reads it.
 
+- **A running form stacks overlapping controls as VB6 does** (#1497). The first block in a container is drawn on top,
+  and a Label, Shape, Line or Image under every other kind of control, whatever the order. Among those, the first is on
+  top, so a Line no longer goes under every Label. A control-array element loaded at run time goes under the controls
+  already there. HexIDE drew the last block on top, so a form's overlapping controls came out upside down. The
+  designer stacks Lines the same way, so a Line in a Frame is drawn over the Frame rather than under it.
 - **The designer draws and saves controls in VB6's stacking order** (#1481). In VB6 the first `Begin` block in a
   container is the control on top, and windowless controls (Label, Shape, Line, Image) are drawn under the windowed
   ones and written after them. HexIDE drew the last block on top and wrote a new control last, so a control added here
@@ -279,6 +350,11 @@ there isn't one yet. Anything may change between 0.x releases.
   A `$` form's result is now a typed String, as VB6's is, so `Select Case Mid$("9", 1)` compares text. Plain `Str` is a
   Variant, as `Mid` and `Chr` are.
 
+- **Make Project Group is offered only with a group open, as VB6 offers it** (#746). With one project loaded it
+  was offered anyway, then failed on the missing group and said nothing. It is now greyed out until a group is
+  open or a second project is loaded. With a group, it used to save every project and the group under a Make
+  label. VB6's builds them, which HexIDE can't do yet (#1515), so it now says the feature isn't implemented and
+  writes nothing. Save Project Group still saves.
 - **An undeclared variable passed ByRef takes the procedure's write** (#1505). `Bump a12`, with `a12` never declared
   and `Sub Bump(x)` adding 1 to `x`, left `a12` Empty, so the program ran on with a wrong value and nothing said why. VB6
   declares the variable where it is passed, and the write lands in it. Now HexIDE does the same for a Sub, a Function, a

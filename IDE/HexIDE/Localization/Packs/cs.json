@@ -325,6 +325,7 @@
     "Str.Dialog.UnfaithfulSave.Body.One": "Tento formulář nebyl uložen, protože jej HexIDE zatím nedokáže věrně reprodukovat:\n\n{0}\n\nJeho soubor na disku zůstává nezměněný. Uložení by formulář nenápadně změnilo — Visual Basic 6 výsledek otevře bez jakéhokoli varování, a právě proto je takové poškození snadné přehlédnout — a tak jej HexIDE raději ponechává beze změny, než aby jej poškodil.",
     "Str.Dialog.UnfaithfulSave.Body.Many": "Tyto formuláře nebyly uloženy, protože je HexIDE zatím nedokáže věrně reprodukovat:\n\n{0}\n\nJejich soubory na disku zůstávají nezměněné. Uložení by formuláře nenápadně změnilo — Visual Basic 6 výsledky otevře bez jakéhokoli varování, a právě proto je takové poškození snadné přehlédnout — a tak je HexIDE raději ponechává beze změny, než aby je poškodil.",
     "Str.Designer.ReadOnly.Banner": "Jen pro čtení — HexIDE zatím nedokáže tento formulář věrně reprodukovat, takže uložení by jej změnilo. Můžete si jej prohlédnout a spustit, ale změny se neuloží.",
+    "Str.Designer.Unmodelled.NotSupported": "V HexIDE není podporováno",
     "Str.Designer.Context.Cut": "_Vyjmout",
     "Str.Designer.Context.Copy": "_Kopírovat",
     "Str.Designer.Context.Paste": "V_ložit",
