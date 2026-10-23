@@ -213,6 +213,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Cancelling a language-server request now reaches the server** (#944). The cancellation notification
+  failed to serialize on every keystroke that abandoned a completion request. It now sends the original
+  request’s bare ID, so a server can stop that work; the client still awaits the server’s response.
+
 - **OK on the References dialog no longer drops the project's OLE Automation reference** (#1026). Its first row
   carried OLE Automation's GUID, so the project's own reference was hidden, and OK, even with nothing changed, took it
   out. The next save wrote the project without it, and VB6 then failed to build one that uses `StdFont` or
