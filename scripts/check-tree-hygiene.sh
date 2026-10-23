@@ -12,7 +12,7 @@
 # editor backups in the tree, dangling relative links in Markdown, machine-specific absolute
 # paths, C# code that writes to a fixed absolute path, personal-identity references, a
 # third-party project named outside the places we agreed it may be, and unresolved
-# merge-conflict markers. Warns (exit 0) on TWO things, both
+# merge-conflict markers, and xUnit assertions in test sources. Warns (exit 0) on TWO things, both
 # expected and neither blocking: key material .gitignore already covers, and the
 # upstream-attribution mention. Exits 2, having scanned nothing, when git cannot read the tree.
 #
@@ -266,6 +266,14 @@ done < <(git grep --untracked -lI 'AvaloniaVisualBasic' -- . "${EXCLUDE[@]}")
 while IFS= read -r hit; do
   [ -n "$hit" ] && note "unresolved merge-conflict marker: $hit"
 done < <(git grep --untracked -nIE '^(<<<<<<<|>>>>>>>) ' -- . "${EXCLUDE[@]}")
+
+# 9. Test assertions belong to AwesomeAssertions; xUnit supplies the framework and runner.
+# Match every *.Tests project directory, including future projects and untracked C# files.
+# The left boundary excludes Debug.Assert and identifiers ending in Assert; a capitalised
+# member avoids VB6's legitimate Debug.Assert statements embedded in test input strings.
+while IFS= read -r hit; do
+  [ -n "$hit" ] && note "xUnit Assert API in test source (use AwesomeAssertions): $hit"
+done < <(git grep --untracked -nIE '(^|[^.[:alnum:]_])Assert\.[[:upper:]][[:alnum:]_]*' -- ':(glob)**/*.Tests/**/*.cs')
 
 echo
 if [ "$fails" -eq 0 ]; then

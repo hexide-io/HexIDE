@@ -220,8 +220,7 @@ public class FormInstanceTests
             + "Private Sub Form_Resize()\n    Debug.Print \"resize\"\nEnd Sub\n");
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().StartWith(["initialize: UBound(a)=5 n=0", "load"]);
-        run.Printed.Skip(2).Should().NotBeEmpty("showing the window resizes it").And.OnlyContain(line => line == "resize");
+        run.Printed.Should().Equal(["initialize: UBound(a)=5 n=0", "load", "resize"], "showing the window raises Resize once (#994)");
     }
 
     [AvaloniaFact]

@@ -73,7 +73,7 @@ public record AppInfo(
     /// model. Modelling a key means the writer owns emitting it, and the <c>.vbp</c> currently round-trips
     /// byte-for-byte against VB6's own files — not worth risking that gate to read a caption.
     /// </remarks>
-    private static string? PreSectionValue(ProjectElements.ProjectDefinition project, string key)
+    internal static string? PreSectionValue(ProjectElements.ProjectDefinition project, string key)
     {
         foreach (var (_, raw) in project.UnknownPreSectionLines)
         {

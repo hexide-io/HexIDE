@@ -811,7 +811,7 @@ than inferred.
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `$/cancelRequest` | ↔ | Tokens are passed to StreamJsonRpc, but **cancelling one does not unblock the client's await**: it notifies and then waits for the server to acknowledge. Measured while fixing [#231](https://github.com/hexide-io/HexIDE/issues/231) |
+| ○ | `$/cancelRequest` | ↔ | Cancelling a token sends `$/cancelRequest` with the original request’s bare numeric or string `id` (#944), so a server can stop abandoned work. **Cancelling does not unblock the client’s await**: it still waits for the server to answer, as measured in [#231](https://github.com/hexide-io/HexIDE/issues/231) / [PR #291](https://github.com/hexide-io/HexIDE/pull/291). |
 | ✅ | `$/logTrace` | ← | Raised as an event and logged. A server's own account of its reasoning, which a wire capture cannot reconstruct |
 | ○ | `$/progress` | ↔ |  |
 | ✅ | `$/setTrace` | → | Changes the level on a running server. A notification, so **no server ever confirms it**, and the protocol defines no capability for asking |
