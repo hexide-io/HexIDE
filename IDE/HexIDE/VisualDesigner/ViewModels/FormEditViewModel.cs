@@ -87,7 +87,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// container's run of blocks in the file, where VB6 puts the control on top first (measured, #1481), so the list is
     /// built from the file on load (<see cref="DrawOrder"/>) and turned back into it on save
     /// (<see cref="ComponentsAsSaved"/>). A container comes before what it holds, which is drawn over it. Loaded menus are
-    /// here too, last; they are never drawn.
+    /// here too, last; they are never drawn. A Line is stacked by this order like any other control: among the windowless
+    /// ones, under every windowed control in its container, as a running form draws it (measured, #1497).
     /// </summary>
     public ObservableCollection<ComponentInstanceViewModel> Components { get; } = new();
 
@@ -462,13 +463,6 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         settingsService = null!;
         localization = null!;
         ToolsBoxToolViewModel = null!;
-        // A Line's place among the Lines is read from this list, so a reorder changes it.
-        Components.CollectionChanged += (_, _) =>
-        {
-            foreach (var component in Components)
-                if (component.IsLine)
-                    component.OnZIndexChanged();
-        };
     }
 
     /// <summary>

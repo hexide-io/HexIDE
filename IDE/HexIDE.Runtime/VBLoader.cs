@@ -477,14 +477,13 @@ public class VBLoader
             control.IsVisible = false;
         }
 
-        // A Line lays itself out from its endpoints, which are in its container's scale (#163). A line earlier in the
-        // .frm is drawn over a later one (measured), and every line is drawn under the controls.
+        // A Line lays itself out from its endpoints, which are in its container's scale (#163).
         if (control is VBLine line)
-        {
             line.Resolve(LineComponentClass.TwipsPerUnit(component, form));
-            line.ZIndex = -1 - target.Children.OfType<VBLine>().Count();
-        }
 
+        // Under what its plane already holds there, so the first block in a container is drawn on top, and a windowless
+        // control under every windowed one, as VB6 runs a form (measured, #1497).
+        ControlStacking.PlaceUnder(control, componentClass.IsWindowless, target);
         target.Children.Add(control);
         onPlaced?.Invoke(component, control, target);
 
