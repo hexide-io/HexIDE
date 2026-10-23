@@ -23,6 +23,9 @@ public partial class VB6BuiltIns
         d["CDate"] = (_, a, _) => CDate(a[0]);
         // CDate under its older name, and the same answer (measured: CVDate("36526") is 01/01/2000, CVDate("1.5") 01:05).
         d["CVDate"] = (_, a, _) => CDate(a[0]);
+        // Its argument as a Variant, keeping the argument's own type: Integer for 5, Null for Null, the array or the object
+        // itself (measured, #1466). ExpressionExecutor reads the result as a Variant's, so CVar(5) * 7000 widens to a Long.
+        d["CVar"]  = (_, a, _) => a[0];
         d["Hex"]   = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(RadixStr(a[0], 16));
         d["Oct"]   = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(RadixStr(a[0], 8));
     }
@@ -38,6 +41,20 @@ public partial class VB6BuiltIns
         if (v.IsMissing)
             v = new Vb6Value(MissingArgumentNumber);
         v = RefuseNonScalar(v);
+        if (v.Type == VT.String && (target == VT.Currency || target == VT.Decimal))
+        {
+            // Preserve decimal digits and exact half-to-even rounding (measured, #1531).
+            // Other accepted forms (hex, octal, exponents) retain the Double reader.
+            try
+            {
+                var number = decimal.TryParse(AsStr(v).Trim(), NumberStyle & ~NumberStyles.AllowExponent,
+                    VbLocale.Current, out var parsed)
+                    ? Vb6Value.NewDecimal(parsed)
+                    : new Vb6Value(ToNum(v));
+                return VbNumeric.Narrow(number, target, null);
+            }
+            catch (OverflowException) { throw new VBRunTimeException(VBStandardError.Overflow); }
+        }
         var num = v.Type == VT.String || v.Type == VT.Boolean ? new Vb6Value(ToNum(v)) : v;
         return VbNumeric.Narrow(num, target, null);
     }

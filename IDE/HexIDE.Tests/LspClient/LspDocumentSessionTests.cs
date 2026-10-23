@@ -442,6 +442,31 @@ public class LspDocumentSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task TwoWindowsOverANeverSavedDocumentTakeItsFirstNameTogether()
+    {
+        // Every new document is named untitled: until its project is saved (#500), and its first save renames it
+        // to its file. With two windows over it, the server must see one close of the untitled name, sent by its
+        // last holder, and one open of the file, sent by the first: not a second open, and not an ordinary close
+        // that would leave the other window editing a document no server has (#721).
+        const string untitled = "untitled:Project1/Module1.bas";
+        const string saved = "file:///c:/proj/Module1.bas";
+        var first = SessionOver(new TextDocument("Sub A()\nEnd Sub"), untitled);
+        var second = SessionOver(new TextDocument("Sub A()\nEnd Sub"), untitled);
+        first.Start();
+        second.Start();
+
+        await first.RenameAsync(saved, TestContext.Current.CancellationToken);
+        await second.RenameAsync(saved, TestContext.Current.CancellationToken);
+
+        await _client.Received(1).OpenDocumentAsync(untitled, Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        await _client.Received(1).CloseDocumentForRenameAsync(untitled, Arg.Any<CancellationToken>());
+        await _client.DidNotReceive().CloseDocumentAsync(untitled, Arg.Any<CancellationToken>());
+        await _client.Received(1).OpenDocumentAsync(saved, "Sub A()\nEnd Sub", false, Arg.Any<CancellationToken>());
+        first.Uri.Should().Be(saved);
+        second.Uri.Should().Be(saved);
+    }
+
+    [Fact]
     public void AWindowThatJoinsShowsWhatWasAlreadyPublished()
     {
         // It sends no open, so nothing will answer one: it shows what the document's other window shows.

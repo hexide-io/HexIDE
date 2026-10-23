@@ -68,8 +68,9 @@ transform that treats them alike corrupts one of them.
 `Shape`, `Line`, `Image`) are drawn beneath every windowed control in their container, whatever the order, and VB6
 writes each container's windowed blocks first and its windowless ones after them. A control VB6 adds or pastes goes
 first in its plane's run, and Bring to Front and Send to Back move a block to the start or the end of that run. The
-designer draws a form VB6 wrote the same way (#1481); the running form still draws the last block on top
-([#1497](https://github.com/hexide-io/HexIDE/issues/1497)). For two Lines the direction is measured too: the one
+designer draws a form VB6 wrote the same way (#1481), and so does the running form
+([#1497](https://github.com/hexide-io/HexIDE/issues/1497)), where a control-array element loaded at run time goes under
+its plane's controls, as VB6 puts it (measured). For two Lines the direction is measured too: the one
 earlier in the file is drawn over the later one (`docs/vb6-fidelity-oracle.md`, "The Line control"), and HexIDE draws
 Lines that way.
 
