@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -26,6 +27,9 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     private string Folder => dir + "\\";
 
     private List<string?> Printed() => debug.Select(v => v.Value as string).ToList();
+
+    // The guest's locale, which its dates were printed and read in: CDate("1/2/2003") is 1 February.
+    private static readonly CultureInfo EnGb = CultureInfo.GetCultureInfo("en-GB");
 
     // The Types and helpers of the probes for Binary_Put_writes_each_type_as_vb6_exe_did.
     private string Probe1 => $$"""
@@ -721,6 +725,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task Binary_Put_writes_each_type_as_vb6_exe_did()
     {
+        using var locale = VbLocale.Use(EnGb);
         await Run(Probe1 + Environment.NewLine + """""
             Sub Main()
                 Dim t As String
@@ -1048,6 +1053,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task Binary_positions_reads_and_Variants_read_back_as_vb6_exe_did()
     {
+        using var locale = VbLocale.Use(EnGb);
         await Run(Probe2 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
@@ -1200,6 +1206,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task Random_records_lengths_and_access_as_vb6_exe_did()
     {
+        using var locale = VbLocale.Use(EnGb);
         await Run(Probe2 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
@@ -1375,6 +1382,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task EOF_and_Len_on_Binary_and_Random_as_vb6_exe_did()
     {
+        using var locale = VbLocale.Use(EnGb);
         await Run(Probe2 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
@@ -1549,6 +1557,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task Arrays_and_their_descriptors_as_vb6_exe_did()
     {
+        using var locale = VbLocale.Use(EnGb);
         await Run(Probe2 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
@@ -1662,6 +1671,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task Variants_and_expressions_as_vb6_exe_did()
     {
+        using var locale = VbLocale.Use(EnGb);
         await Run(Probe2 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
@@ -1948,6 +1958,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task Positions_targets_and_modes_as_vb6_exe_did()
     {
+        using var locale = VbLocale.Use(EnGb);
         await Run(Probe2 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
@@ -2097,6 +2108,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task A_second_handle_on_one_file_as_vb6_exe_did()
     {
+        using var locale = VbLocale.Use(EnGb);
         await Run(Probe2 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
@@ -2376,6 +2388,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task Types_packed_and_nested_as_vb6_exe_did()
     {
+        using var locale = VbLocale.Use(EnGb);
         await Run(Probe2 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
@@ -2453,6 +2466,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task Text_reads_on_a_Binary_file_as_vb6_exe_did()
     {
+        using var locale = VbLocale.Use(EnGb);
         await Run(Probe3 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
@@ -2593,6 +2607,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task What_Put_writes_for_an_expression_as_vb6_exe_did()
     {
+        using var locale = VbLocale.Use(EnGb);
         await Run(Probe3 + Environment.NewLine + """""
             Sub Main()
                 Dim t As String
@@ -2940,6 +2955,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task Round_trips_and_record_overflows_as_vb6_exe_did()
     {
+        using var locale = VbLocale.Use(EnGb);
         await Run(Probe4 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
@@ -3069,6 +3085,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task Get_into_a_locked_array_as_vb6_exe_did()
     {
+        using var locale = VbLocale.Use(EnGb);
         await Run(Probe5 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
@@ -3098,6 +3115,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task EOF_after_a_Put_and_what_a_failed_field_is_left_as_vb6_exe_did()
     {
+        using var locale = VbLocale.Use(EnGb);
         await Run(Probe6 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
@@ -3175,6 +3193,7 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
     [Fact]
     public async Task After_a_read_past_the_end_the_next_Get_or_Put_is_at_the_end_as_vb6_exe_did()
     {
+        using var locale = VbLocale.Use(EnGb);
         await Run(Probe6 + Environment.NewLine + """
             Sub Main()
                 Dim t As String
