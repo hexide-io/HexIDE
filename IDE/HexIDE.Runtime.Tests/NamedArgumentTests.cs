@@ -289,6 +289,8 @@ public class NamedArgumentTests : BaseVBTestFixture
             Dim p As Variant, arr(2) As String
             arr(0) = "ab": arr(1) = "cd": arr(2) = "AE"
             Debug.Print "Val " & Val(String:="12")
+            Debug.Print "StrConv " & StrConv(String:="a", Conversion:=1, LocaleID:=0) & " " & StrConv("b", Conversion:=1)
+            Debug.Print "Error " & Error(ErrorNumber:=6) & " " & Error$(ErrorNumber:=11)
             Debug.Print "Round " & Round(Number:=2.567, NumDigitsAfterDecimal:=1) & " " & Round(Number:=2.5)
             p = Split(Expression:="a b c"): Debug.Print "Split " & UBound(p) & " " & p(1)
             p = Split(Expression:="a,b,c", Delimiter:=",", Limit:=2, Compare:=vbBinaryCompare): Debug.Print "Split " & UBound(p) & " " & p(1)
@@ -307,6 +309,8 @@ public class NamedArgumentTests : BaseVBTestFixture
 
         AssertDebugLog(Lines("""
             Val 12
+            StrConv A B
+            Error Overflow Division by zero
             Round 2.6 2
             Split 2 b
             Split 1 b,c
@@ -337,6 +341,11 @@ public class NamedArgumentTests : BaseVBTestFixture
     [InlineData("x = Hex(Foo:=255)", "*Named argument not found*")]
     [InlineData("x = CDec(Foo:=1.5)", "*Named argument not found*")]
     [InlineData("x = EOF(Foo:=1)", "*Named argument not found*")]
+    [InlineData("x = StrConv(String:=\"a\", Conversion:=1, LCID:=0)", "*Named argument not found*")]
+    [InlineData("x = StrConv(Conversion:=1)", "*Argument not optional*")]
+    [InlineData("x = StrConv(String:=\"a\")", "*Argument not optional*")]
+    [InlineData("x = Error(Number:=6)", "*Named argument not found*")]
+    [InlineData("x = Switch(VarExpr:=True)", "*Argument in ParamArray may not be named*")]
     [InlineData("x = Now(X:=1)", "*Named arguments not allowed*")]
     [InlineData("x = Time(X:=1)", "*Named arguments not allowed*")]
     [InlineData("x = Command(X:=1)", "*Named arguments not allowed*")]
