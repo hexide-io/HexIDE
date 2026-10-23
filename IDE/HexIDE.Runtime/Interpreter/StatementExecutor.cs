@@ -666,7 +666,30 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitDeleteSettingStmt(VB6Parser.DeleteSettingStmtContext context)
     {
-        throw new NotImplementedException("DeleteSetting not implemented");
+        await RunSettingStatement("DeleteSetting", context.valueStmt());
+        return ControlFlow.Nothing;
+    }
+
+    // SaveSetting and DeleteSetting are statements in the grammar and intrinsics in VB6, which runs `Call SaveSetting(...)` and
+    // `VBA.SaveSetting ...` as well (measured, #1562), so each runs as the intrinsic. A named argument, `AppName:="x"`, is
+    // placed by the intrinsic's parameter names, as a call's is.
+    private async Task RunSettingStatement(string name, IReadOnlyList<VB6Parser.ValueStmtContext> arguments)
+    {
+        var args = new List<CallArg>(arguments.Count);
+        foreach (var argument in arguments)
+        {
+            if (argument is VB6Parser.VsAssignContext assign)
+            {
+                var value = assign.valueStmt();
+                args.Add(new CallArg(Vb6Value.Missing, null, Name: assign.implicitCallStmt_InStmt().GetText(),
+                    Deferred: async () => new CallArg(await expressionExecutor.EvaluateValue(value), null)));
+                continue;
+            }
+            if (args.Count > 0 && args[^1].Name is not null)
+                throw new VBCompileErrorException("Syntax error");
+            args.Add(new CallArg(await expressionExecutor.EvaluateValue(argument), null));
+        }
+        await interpreter.BuiltIns.EvaluateBuiltInFunction(name, await VB6BuiltIns.ArrangeIntrinsicArguments(name, args));
     }
 
     // The pre-pass collected the module's DefType statements (#169); running one does nothing. Inside a procedure it does not
@@ -2376,7 +2399,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitSaveSettingStmt(VB6Parser.SaveSettingStmtContext context)
     {
-        throw new NotImplementedException("SaveSetting not implemented");
+        await RunSettingStatement("SaveSetting", context.valueStmt());
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitSeekStmt(VB6Parser.SeekStmtContext context)

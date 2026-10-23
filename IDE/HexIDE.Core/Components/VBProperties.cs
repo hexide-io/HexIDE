@@ -182,6 +182,9 @@ public static class VBProperties
     /// <summary>A ListBox's MultiSelect: set at design time, and read-only to a program (measured, #1413).</summary>
     public static PropertyClass<VBMultiSelect> MultiSelectProperty = new PropertyClass<VBMultiSelect>("MultiSelect", "Whether more than one item can be selected, and how.", PropertyCategory.Behavior, VBMultiSelect.None);
 
+    /// <summary>A ComboBox's Style: set at design time, and read-only to a program (measured, #1428).</summary>
+    public static PropertyClass<VBComboStyle> ComboStyleProperty = new PropertyClass<VBComboStyle>("Style", "How the control is drawn and how it behaves.", PropertyCategory.Behavior, VBComboStyle.DropdownCombo);
+
     /// <summary>
     /// A form's <c>StartUpPosition</c>. Its default is 0, Manual, because that is what VB6 reads a missing line as,
     /// and the default is also what a missing line is read as here.

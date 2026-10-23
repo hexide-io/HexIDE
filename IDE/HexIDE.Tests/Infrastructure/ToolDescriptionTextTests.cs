@@ -76,6 +76,15 @@ public class ToolDescriptionTextTests
     }
 
     [Fact]
+    public void Type_text_explains_descendant_surface_refusals()
+    {
+        ToolSource.Tools.Single(t => t.Name == "type_text").AllText
+            .Should().Contain("more than one showing surface of the chosen kind is refused")
+            .And.Contain("with their paths listed")
+            .And.Contain("dropdown that is not editable is refused with a pointer to select");
+    }
+
+    [Fact]
     public void Close_says_which_message_boxes_refuse_it()
     {
         // An OK-only box has no Cancel, yet its close box answers vbOK; only Yes/No and Abort/Retry/Ignore refuse.

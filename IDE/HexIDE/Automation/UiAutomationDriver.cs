@@ -985,8 +985,11 @@ public static class UiAutomationDriver
         // A window with a modal dialog over it takes no close-box click or Alt+F4 until the dialog is answered, so a
         // person cannot close it, and a close from here would close the dialog with it (#829 review).
         if (window.OwnedWindows.FirstOrDefault(w => w.IsDialog && w.IsVisible) is { } over)
+        {
+            OpenDialogs.NamedInReply(over);
             return Err($"'{title}' has a dialog open over it, '{TitleOf(over)}', and takes no close until that is "
                        + "answered, as a person finds; nothing was done. Answer or close that dialog first");
+        }
         if (PlatformClosing?.GetValue(window.PlatformImpl) is not Func<WindowCloseReason, bool> closing)
             return Err($"this build of Avalonia does not expose a window's close-box handling, so '{title}' cannot be "
                        + "closed as a person closes it; nothing was done");
@@ -1054,7 +1057,7 @@ public static class UiAutomationDriver
         // Matched among the rows that show, as a person reads them: a hidden row (the Properties window hides those
         // of a collapsed category) is neither selected by its text nor allowed to make a showing one ambiguous. One
         // that only a hidden row matches is refused as addressing it by path is, rather than reported as missing.
-        var hiddenRows = candidates.Where(c => Hidden(c.Control) is true).ToList();
+        var hiddenRows = candidates.Where(c => Shows(c.Control) is not true).ToList();
         var hiddenNamesake = false;
         if (hiddenRows.Count > 0)
         {
@@ -1062,7 +1065,7 @@ public static class UiAutomationDriver
             var hiddenMatches = MatchByDiscriminator(hiddenRows, value).matches;
             hiddenNamesake = hiddenMatches.Count > 0;
             if (MatchByDiscriminator(candidates, value).matches.Count == 0 && hiddenMatches is [var onlyHidden, ..])
-                return Err(NotShowingRefusal(onlyHidden, "select")
+                return Err(NotShowingRefusal(onlyHidden, "select", Shows(onlyHidden))
                            + (CollapsedNodesHolding(onlyHidden) is [var outermost, ..] holders && Shows(outermost) is true
                                ? $" Make it show first, as a person would: 'expand' "
                                  + string.Join(", then ", holders.Select(h => $"'{LabelOf(h)}'"))
@@ -2229,13 +2232,22 @@ public static class UiAutomationDriver
                       + "that owns the DataContext lists both");
         }
 
-        // Avalonia's convention: a bool Can{name}(object) on the type or a base, of any visibility, given the
-        // CommandParameter, which is null here.
-        var can = dc.GetType().GetMethod("Can" + name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
-            [typeof(object)]);
+        // Avalonia resolves bool Can{name}(object) from the bound method's declaring type upwards,
+        // at every visibility, not from the DataContext's runtime type. Use the type the compiled binding
+        // matched so a method hidden with new does not move the guard lookup below that binding.
+        // The CommandParameter passed to the guard is null here.
+        XamlCommandBindings.Arity(dc.GetType(), name, out var boundType);
+        MethodInfo? can = null;
+        for (var t = boundType ?? method.DeclaringType; t is not null; t = t.BaseType)
+        {
+            can = t.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                .FirstOrDefault(m => m.Name == "Can" + name && m.ReturnType == typeof(bool)
+                    && m.GetParameters() is [{ ParameterType: var parameterType }] && parameterType == typeof(object));
+            if (can is not null) break;
+        }
         try
         {
-            if (can is { ReturnType: var r } && r == typeof(bool) && !(bool)can.Invoke(dc, [null])!)
+            if (can is not null && !(bool)can.Invoke(dc, [null])!)
                 return ReflectErr($"'Can{name}'(null) on {type} returned false");
 
             var result = method.Invoke(dc, null);
@@ -2308,6 +2320,8 @@ public static class UiAutomationDriver
     {
         try
         {
+            if (Shows(control) is not true and var shows)
+                return new InteractOutcome(false, TypedMechanism, null, NotShowingRefusal(control, "type_text", shows));
             if (FindTextSurface(control) is not { } surface)
                 return new InteractOutcome(false, TypedMechanism, null,
                     NoTextSurface(control));
@@ -2431,6 +2445,8 @@ public static class UiAutomationDriver
     {
         try
         {
+            if (Shows(control) is not true and var shows)
+                return new InteractOutcome(false, KeyboardMechanism, null, NotShowingRefusal(control, "type_text", shows));
             if (FindTextSurface(control) is not { } surface)
                 return new InteractOutcome(false, KeyboardMechanism, null,
                     NoTextSurface(control));
@@ -2681,7 +2697,8 @@ public static class UiAutomationDriver
     /// Why a person's keys would not reach <paramref name="at"/>: a modal dialog open over its window, or over a window that
     /// holds it, disables the window and takes the keys. Null when none is. The window's focus stays where it was, so a
     /// check on focus passes: keys went into the code under the reset prompt, to be reverted with it (#1290). A dialog over
-    /// another window is left to the reply's note, as a person could click past it. The dialog is recorded as named.
+    /// another window is left to the reply's note, as a person could click past it. All blocking dialogs are recorded as
+    /// named: those under the top one cannot be answered before it either.
     /// </summary>
     private static string? KeysTakenBy(Control at, string what, string done)
     {
@@ -2694,7 +2711,8 @@ public static class UiAutomationDriver
         if (open.Where(d => OpenDialogs.Blocks(d, window)).FirstOrDefault(d => !open.Any(o => OpenDialogs.Blocks(o, d)))
             is not { } holding)
             return null;
-        OpenDialogs.NamedInReply(holding);
+        foreach (var dialog in open.Where(d => OpenDialogs.Blocks(d, window)))
+            OpenDialogs.NamedInReply(dialog);
         return $"'{TitleOf(holding)}', a modal dialog over {OpenDialogs.OwnerOf(holding)}, is open and waits for an answer, so "
             + $"a person's keys would go to it, not to {what}; nothing was {done}. Answer it first: dump_visual_tree with "
             + "'window' set to its title shows it, and interact answers it";

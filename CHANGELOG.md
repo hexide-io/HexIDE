@@ -10,6 +10,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **GetSetting, SaveSetting, DeleteSetting and GetAllSettings run** (#1562). A program that remembered anything between runs used to stop, often in `Form_Load`, before its first form appeared. All four were measured on vb6.exe first. On Windows they use the registry key VB6 itself uses, so a program run in HexIDE and the same program compiled by VB6 share their settings. On Linux and macOS they are kept in `program-settings.json` in HexIDE's user-data directory, which `--user-data-dir` moves.
+
 - **`Like` runs** (#1547). Any program that used it stopped there. It now matches as vb6.exe does: `?`, `*`, `#`, `[list]` and `[!list]`, under the module's `Option Compare`, with error 93 for a pattern it cannot read. That behaviour was measured over about 190 rows, native and p-code. One known difference remains. Under `Option Compare Text`, vb6.exe takes a ligature or a sharp s for the letters it stands for, so `"ß" Like "ss"` is True there and False here (#1479).
 
 - **VB6 filesystem operations** (#1561): `CurDir`, `MkDir`, `RmDir`, `FileLen`, `FileDateTime`, `GetAttr`, `SetAttr`, `FileCopy`, `Name`, `Kill` and stateful `Dir`, using compiled VB6 measurements.
@@ -237,6 +239,29 @@ there isn't one yet. Anything may change between 0.x releases.
 ### Fixed
 
 - **MCP reports keyboard focus and presses where it is** (#1627). `inspect_element` reports `isFocused`, and `dump_visual_tree` names the focused path, or explains when no control in that window has focus. `press_key` at a container keeps the focus inside it, so Tab advances from the current control. An explicit target still takes focus first; the reply names where that move came from, since it raises a running program's focus events.
+
+- **A `D` exponent in a numeric literal loads, as vb6.exe compiles it** (#1611). `x = 1D3` failed to load, and the
+  editor marked it. `D` is now an exponent marker wherever `E` is, in both grammars. A literal vb6.exe refuses to
+  build, such as `1E400`, `1E3%` or `1E20@`, is now its compile error "Syntax error", where HexIDE gave infinity, a
+  Long or a Currency beyond Currency's range, or stopped with a .NET error.
+
+- **A refused MCP call names a blocking dialog once** (#1325). Closing a form under a MsgBox, or typing or pressing a key under stacked dialogs, no longer repeats the dialog in the reply’s note. A refusal never claims the call reached past a dialog; calls that acted behind one still say so.
+
+- **A CommandButton, TextBox, ComboBox, ListBox and Frame have ToolTipText** (#1403). Only five controls declared it,
+  so on these the Properties window did not list it, a running form showed no tip, and code could not read or set
+  it. Measured on vb6.exe across every intrinsic control: these five have it, and the scroll bars, Shape, Line, Timer
+  and menus do not. On all ten that have it, ToolTipText now reads and takes values at run time as vb6.exe's does.
+
+- **A ComboBox's Style is modelled, and a Dropdown List runs as one** (#1428). Style was kept as a preserved line, so
+  the Properties window could not show or set it, and a program reading or writing a Dropdown List's Text was stopped
+  as not implemented. Now Style is offered with VB6's three names and reads as an Integer, and a Dropdown List's Text
+  selects the item it names, or raises 383 as vb6.exe does. Setting Style to Dropdown List in the designer resets
+  the Text to the control's name, as VB6's designer does.
+
+- **MCP `type_text` refuses hidden targets before finding an editor** (#1317), in both modes, so a hidden dropdown is no longer told to expand itself. Its target description explains ambiguous surfaces and non-editable dropdowns; `select` now also refuses realized rows whose visibility cannot be read.
+
+- **MCP command guards follow the compiled XAML binding** (#1324). `invoke_command` now finds private guards
+  on base types and ignores guards below the bound method's type, so its refusal agrees with the menu.
 
 - **A Let into an array variable takes only what vb6.exe's does** (#998, #1588). It stored whatever it was given:
   `a = Array(1, 2)` left an `Integer()` a Variant array, Empty left a `String()` Empty, and `b = "ab"` left a `Byte()`

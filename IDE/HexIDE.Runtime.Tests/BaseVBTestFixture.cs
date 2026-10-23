@@ -95,7 +95,7 @@ public abstract class BaseVBTestFixture
 
     protected async Task Run(string code) => await Dumped([("Module1", false, code)], async () =>
     {
-        var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs), context, rootEnv, code,
+        var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs, SettingsStore), context, rootEnv, code,
             compilationConstants: Compilation);
         await vb.Execute();
     });
@@ -134,7 +134,7 @@ public abstract class BaseVBTestFixture
         string code, string moduleName = "Module1", params (string Name, string Code)[] classModules)
     {
         var dbg = new DebugController();
-        var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs), context, rootEnv, code, moduleName, null,
+        var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs, SettingsStore), context, rootEnv, code, moduleName, null,
             classModules.Length == 0 ? null : classModules) { DebugController = dbg };
         return (vb, dbg);
     }
@@ -144,7 +144,7 @@ public abstract class BaseVBTestFixture
     protected async Task RunModules(string primaryCode, params (string Name, string Code)[] modules) =>
         await Dumped([("Module1", false, primaryCode), .. modules.Select(m => (m.Name, false, m.Code))], async () =>
         {
-            var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs), context, rootEnv, primaryCode, "Module1", modules,
+            var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs, SettingsStore), context, rootEnv, primaryCode, "Module1", modules,
                 compilationConstants: Compilation);
             await vb.Execute();
         });
@@ -154,14 +154,22 @@ public abstract class BaseVBTestFixture
     protected async Task RunClasses(string primaryCode, params (string Name, string Code)[] classModules) =>
         await Dumped([("Module1", false, primaryCode), .. classModules.Select(m => (m.Name, true, m.Code))], async () =>
         {
-            var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs), context, rootEnv, primaryCode, "Module1", null, classModules,
+            var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs, SettingsStore), context, rootEnv, primaryCode, "Module1", null, classModules,
                 compilationConstants: Compilation);
             await vb.Execute();
         });
 
-    protected class MockStdLib(List<Vb6Value> debug, System.Text.StringBuilder? written = null, List<string>? dialogs = null)
-        : IBasicStandardLibrary
+    /// <summary>
+    /// Where the fixture's programs keep SaveSetting's settings (#1562): in memory, for the life of the fixture, as the
+    /// registry keeps them from one run to the next. A test may set a value no program can, as another program may.
+    /// </summary>
+    protected InMemoryVbSettingsStore SettingsStore { get; } = new();
+
+    protected class MockStdLib(List<Vb6Value> debug, System.Text.StringBuilder? written = null, List<string>? dialogs = null,
+        IVbSettingsStore? settings = null) : IBasicStandardLibrary
     {
+        public IVbSettingsStore Settings => settings ?? throw new NotImplementedException("This test keeps no settings (#1562)");
+
         public void DebugWrite(string text)
         {
             if (written is not null)
