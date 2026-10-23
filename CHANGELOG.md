@@ -236,6 +236,13 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Persian words in MCP replies remain readable** (#1316). A zero-width non-joiner between Arabic-script
+  letters (including their combining marks) is written as itself. Joiners elsewhere remain escaped.
+
+- **A helper's `On Error Resume Next` no longer sees its caller's stale error** (#877). `On Error`, `Resume` and leaving a procedure from its handler now clear `Err`, as vb6.exe does, so `If Err.Number <> 0 Then` after them reads only what has happened since. While a handler runs, an error in it now goes to the caller even after `On Error Resume Next`, where HexIDE used to trap it and run on. `On Error GoTo -1` runs, and `Err.Raise` with no Description keeps the one already set, as vb6.exe's does.
+
+- **MCP window wording matches how `auto` picks** (#1321). `interact` now says it usually picks a running form, and the unknown-window refusal describes its preference for another visible window, a dialog first.
+
 - **A running form has the window its file describes** (#1575). Every form ran as a sizable window with a title bar,
   minimize and maximize buttons and a close box, whatever its BorderStyle, ControlBox, MinButton and MaxButton said. A
   Fixed Single or Fixed Dialog form can no longer be resized by its border, a borderless form has no frame, a form
