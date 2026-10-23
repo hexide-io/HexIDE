@@ -124,6 +124,9 @@ public class PrePass : VB6BaseVisitor<object?>
             : throw new VBCompileErrorException("Expected: letter");
     public int ArrayBase { get; private set; } = 0;
 
+    /// <summary>Whether the module says <c>Option Compare Text</c>; Binary otherwise, as VB6 defaults.</summary>
+    public bool OptionCompareText { get; private set; }
+
     /// <summary>
     /// Whether a procedure here carries <c>Attribute Name.VB_UserMemId = 0</c>, or a module-level variable
     /// <c>Attribute Name.VB_VarUserMemId = 0</c>, which makes it the class's default member. VB6 writes the attribute
@@ -171,10 +174,12 @@ public class PrePass : VB6BaseVisitor<object?>
     }
 
     public override object? VisitOptionCompareStmt(VB6Parser.OptionCompareStmtContext context)
-        // Accepted but not honoured — HexIDE always compares strings ordinally (Option Compare Binary). `Option
-        // Compare Text` (case-insensitive) is a documented divergence (see docs/interpreter-gaps.md); the directive
-        // must NOT fail the whole module load, so it is a no-op rather than a throw.
-        => default;
+    {
+        // Recorded for the module. Like honours it (#1547); the comparison operators still compare strings ordinally,
+        // as Option Compare Binary does, which is a documented divergence (docs/interpreter-gaps.md).
+        OptionCompareText = context.TEXT() != null;
+        return default;
+    }
 
     public override object? VisitOptionPrivateModuleStmt(VB6Parser.OptionPrivateModuleStmtContext context)
         // Accepted as a no-op — HexIDE doesn't enforce cross-project module-member visibility. Skipped (not thrown)
