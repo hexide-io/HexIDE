@@ -236,6 +236,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A carried control's box is drawn in its place among the designer's controls** (#1553). The designer drew the box
+  for every control it carries as text over every control it models, so a control brought in front of one was saved in
+  front of it (#1498) but still drawn under its box. The boxes now stack with the controls, as VB6 stacks the control:
+  over its Frame or PictureBox, and over or under each control as the file and Bring to Front or Send to Back put it.
+
 - **The designer draws and names a UserControl or PropertyPage as VB6's does** (#1544). Each was drawn in a form's
   window frame, with a title bar and caption buttons, a PropertyPage's tab read `(Form)`, and the Properties window's
   object box gave both the class `Form`. Each is now a borderless surface, as neither has a window of its own at run

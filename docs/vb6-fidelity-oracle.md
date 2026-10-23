@@ -14705,6 +14705,11 @@ it, read from the file on load. A control added, pasted or brought to front goes
 under them. A save turns the counts back into where each carried block goes, through the same placement the writer
 uses, so a form loaded and saved untouched comes back byte for byte.
 
+**In HexIDE (#1553):** the designer draws each carried control's box at its place in that stack too. It used to draw
+every box over every modelled control, so a control brought in front of one was saved in front of it and still drawn
+under its box. A box now goes over the last control in its container that has fewer carried controls under it than the
+box has, or over the container itself where there is none.
+
 **Inferred, not measured:** a carried block VB6 wrote after a Label is taken to be windowless, since VB6 writes every
 windowed block first. A windowed control sent to back stays over such a block, and a Label sent to back goes under it.
 No corpus file has a carried block after a windowless one.
