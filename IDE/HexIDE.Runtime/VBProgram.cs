@@ -243,7 +243,7 @@ public sealed class VBProgram : IFormProgram
         var context = view.Context;
         context.Attach(this, form, FormCodeText.WholeFile(definition), existing);
         var instance = context.FormInstance!;
-        view.SetContent(VBLoader.SpawnComponents(definition, ExecutionContext, instance.InstanceEnv, context.StandardLibrary));
+        view.SetContent(VBLoader.SpawnComponents(definition, ExecutionContext, instance.InstanceEnv, context.StandardLibrary, instance));
         context.HoldControlsUntilLoad();
         context.CloseWindow = view.CloseForm;
         Register(context);

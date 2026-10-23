@@ -58,6 +58,7 @@
         <Compile Include="..\HexIDE.Desktop\Server\OpenDialogNote.cs" Link="Infrastructure\OpenDialogNote.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\ReplyJson.cs" Link="Infrastructure\ReplyJson.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\InlineSnapshot.cs" Link="Infrastructure\InlineSnapshot.cs" />
+        <Compile Include="..\HexIDE.Desktop\Server\MenuCommandRefusal.cs" Link="Infrastructure\MenuCommandRefusal.cs" />
     </ItemGroup>
 
     <!-- VB6's Template tree is found one way in both test projects: the folder or the one above it, a set variable
