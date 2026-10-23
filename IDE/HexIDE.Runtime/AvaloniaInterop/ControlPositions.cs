@@ -44,6 +44,9 @@ internal static class ControlPositions
     /// <summary>The value a program reads, from the control's position in pixels.</summary>
     public static Vb6Value Read(Control control, PropertyClass property, double pixels)
     {
+        // A form's own Width and Height are its outer size, its frame included (#1072).
+        if (control is Window form && IsSize(property))
+            return new Vb6Value((float)FormFrame.Read(form, IsVertical(property)));
         // A whole number of twips, which is what VB6 holds; the pixels came from twips, so this only drops the noise of
         // the division.
         var twips = Math.Round(pixels * VBScaleModeExtensions.PixelToTwips);
@@ -57,6 +60,10 @@ internal static class ControlPositions
         if (double.IsNaN(twips) || twips < int.MinValue - 0.5 || twips >= int.MaxValue + 0.5)
             throw new VBRunTimeException(VBStandardError.Overflow);
         twips = Math.Round(twips, MidpointRounding.ToEven);
+        // A form's outer size: the window takes the client area that is left inside the frame, and keeps a menu bar above
+        // it (#1072, #1127).
+        if (control is Window form && IsSize(property))
+            return FormFrame.ClientFor(form, IsVertical(property), twips) + (IsVertical(property) ? MenuBarHeight(form) : 0);
         if (control is VBLabel && IsSize(property) && twips < VBScaleModeExtensions.PixelToTwips)
             twips = VBScaleModeExtensions.PixelToTwips;
         return twips / VBScaleModeExtensions.PixelToTwips;
@@ -81,16 +88,24 @@ internal static class ControlPositions
         var what = vertical ? "ScaleHeight" : "ScaleWidth";
         var canvas = form.GetLogicalDescendants().OfType<Canvas>().FirstOrDefault();
         var mode = canvas is null ? VBScaleMode.Twip : VBProps.GetScaleMode(canvas);
+        return new Vb6Value((float)(ClientPixels(form, vertical) * VBScaleModeExtensions.PixelToTwips / TwipsPerUnit(mode, vertical, what)));
+    }
+
+    /// <summary>A form's client area across or down, in whole pixels: the window less the menu bar it holds.</summary>
+    public static double ClientPixels(Window form, bool vertical)
+    {
         var pixels = vertical ? form.Height : form.Width;
         if (double.IsNaN(pixels))
             pixels = vertical ? form.ClientSize.Height : form.ClientSize.Width;
         // The window holds the bar here, above the canvas, so the client area is what is left below it. The bar is
         // visible exactly when VBLoader.HasMenuBar made the window taller for it.
-        if (vertical && form.GetLogicalDescendants().OfType<Menu>().FirstOrDefault(menu => menu.IsVisible) is { } bar)
-            pixels -= bar.Height;
-        var whole = Math.Floor(Math.Max(0, pixels) + 1e-9);
-        return new Vb6Value((float)(whole * VBScaleModeExtensions.PixelToTwips / TwipsPerUnit(mode, vertical, what)));
+        if (vertical)
+            pixels -= MenuBarHeight(form);
+        return Math.Floor(Math.Max(0, pixels) + 1e-9);
     }
+
+    private static double MenuBarHeight(Window form) =>
+        form.GetLogicalDescendants().OfType<Menu>().FirstOrDefault(menu => menu.IsVisible) is { } bar ? bar.Height : 0;
 
     // How many twips one of the program's units is, for this property of this control.
     private static double TwipsPerUnit(Control control, PropertyClass property)

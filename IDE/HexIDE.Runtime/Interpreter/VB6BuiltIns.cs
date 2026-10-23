@@ -54,7 +54,7 @@ public partial class VB6BuiltIns
 
     public async Task<Vb6Value?> EvaluateBuiltInFunction(string name, List<Vb6Value> args)
     {
-        CheckRequiredIntrinsicArguments(name, args);
+        CheckIntrinsicArgumentCount(name, args);
 
         // An unknown name is not a built-in, and its callers say so loudly ("Sub or Function not defined", or not
         // implemented). Found first, so that an object argument cannot turn that into a trappable 438.
@@ -132,6 +132,11 @@ public partial class VB6BuiltIns
 
     /// <summary>Whether <paramref name="name"/> is a built-in function this interpreter implements.</summary>
     public static bool IsBuiltInFunction(string name) => Builtins.ContainsKey(name);
+
+    /// <summary>A built-in function by name, for a caller with no interpreter: an <c>#If</c>'s conversions (#1112), which
+    /// take no state, so it passes no <c>self</c>.</summary>
+    internal static bool TryGetBuiltIn(string name, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out BuiltinFn? function) =>
+        Builtins.TryGetValue(name, out function);
 
     private static Dictionary<string, BuiltinFn> BuildRegistry()
     {

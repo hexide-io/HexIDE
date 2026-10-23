@@ -2677,14 +2677,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return new MutateResult(false, $"'{path}' is a submenu or has no command");
 
             if (!command.CanExecute(found.CommandParameter))
-                return new MutateResult(false, command is Avalonia.Labs.Input.RoutedCommand
-                    // The refusal used to stop at "canExecute returned false", and the one thing that changes
-                    // the answer, where keyboard focus is, was nowhere in it. (#678)
-                    ? $"'{path}' cannot execute where keyboard focus is now ({FocusedElementName(window)}). It is a routed "
-                      + "command, which acts on the focused control as a real click does, so an item that belongs to a "
-                      + "document needs focus in that document: open_file, view_designer or activate_document_tab give it, "
-                      + "and so does press_key on it. An item that is disabled in the menu is refused the same way."
-                    : $"'{path}' cannot execute now: the item is disabled.");
+                return new MutateResult(false,
+                    MenuCommandRefusal.Describe(found, path, () => FocusedElementName(window)));
 
             command.Execute(found.CommandParameter);
             return new MutateResult(true, null, $"Invoked '{found.Header ?? path}'.");
