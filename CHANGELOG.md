@@ -208,6 +208,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A Let into an object variable no longer drops the object** (#1493). `k = 5`, with `k As C1` holding an instance,
+  released it, running its Terminate there and then, and stored 5, so the program ran on without it. VB6 hands the
+  value to the object's default member: a class with none raises 438, and `k` keeps the object; Nothing raises 91. That
+  holds for `As Object`, object parameters, an object Function's return name and a class's object fields too. A
+  Variant still takes the value and drops the object, as VB6's does.
+
 - **`Dim o As New C1` runs** (#435). The whole module stopped loading at the first `As New`. Now a variable declared
   `As New` holds Nothing until it is used, and its first use makes the object, as vb6.exe does, for a class and for a
   Collection, at procedure and module level and as a class field. Every use counts: `If o Is Nothing` makes the object,
