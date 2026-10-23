@@ -4,6 +4,35 @@ using HexIDE.IDE;
 
 namespace HexIDE.Runtime.Interpreter;
 
+/// <summary>How <c>Input #</c> reads a field, which depends on what it reads into (measured, #1521).</summary>
+internal enum InputReading
+{
+    /// <summary>A Variant, Boolean or Date: the first character decides. A quote begins a quoted field, a <c>#</c> a
+    /// <c>#</c> form, a digit, sign, point or <c>&amp;</c> a number, which a blank ends, and anything else text to the
+    /// comma, its trailing blanks dropped.</summary>
+    ByFirstCharacter,
+
+    /// <summary>A numeric variable: every field is read as a number, which a blank ends, quotes and <c>#</c> included, so
+    /// <c>#ERROR 5#</c> is two fields and <c>a b</c> is too.</summary>
+    Number,
+
+    /// <summary>A String: a quoted field, or else the text to the comma, blanks and <c>#</c> forms kept as written.</summary>
+    Text,
+}
+
+internal enum InputFieldKind
+{
+    /// <summary>Nothing before the comma or line end.</summary>
+    Empty,
+    Quoted,
+    Hash,
+    Number,
+    Text,
+}
+
+/// <summary>A field <c>Input #</c> read, and its text as written: a quoted field without its quotes.</summary>
+internal readonly record struct InputField(InputFieldKind Kind, string Text);
+
 /// <summary>The modes of <c>Open</c> that HexIDE runs: the sequential ones (#1145).</summary>
 internal enum VbFileMode
 {
@@ -14,7 +43,7 @@ internal enum VbFileMode
 
 /// <summary>
 /// A program's open files, by number: <c>Open</c>, <c>Line Input #</c>, <c>Print #</c>, <c>Close</c>, <c>FreeFile</c> and
-/// <c>EOF</c> (#1145). Measured on vb6.exe, native and p-code agreeing (the oracle's "Sequential files"):
+/// <c>EOF</c> (#1145), and the fields of <c>Input #</c> (#1521). Measured on vb6.exe, native and p-code agreeing (the oracle's "Sequential files"):
 /// <list type="bullet">
 /// <item>Text is in the ANSI code page both ways. A character it has no byte for is written as its best fit, Ā as
 /// <c>A</c>, or as <c>?</c> where there is none (#1511).</item>
@@ -148,6 +177,94 @@ internal sealed class VbFiles
         file.Position = end;
         return line;
     }
+
+    /// <summary>
+    /// The next field for <c>Input #</c> (#1521), or null at the end of the file. Blanks before it are skipped. A field ends
+    /// at a comma or a CR, which it takes with it, CR LF as one; a lone LF is an ordinary character (measured). After a
+    /// quoted field, a <c>#</c> form or a number, blanks are skipped, then a comma or a line end is taken, and anything
+    /// else begins the next field: <c>"a" junk</c> is two fields, and so are <c>5 x</c> and <c>1 2</c>. How a field is read
+    /// depends on <paramref name="reading"/>, as <see cref="InputReading"/> says.
+    /// </summary>
+    public InputField? ReadField(int number, InputReading reading)
+    {
+        var file = Get(number);
+        if (file.Mode != VbFileMode.Input)
+            throw new VBRunTimeException(VBStandardError.BadFileMode);
+        var bytes = file.Input;
+        var p = file.Position;
+        while (p < bytes.Length && bytes[p] is (byte)' ' or (byte)'\t')
+            p++;
+        if (p >= bytes.Length || bytes[p] == CtrlZ)
+        {
+            file.Position = p;
+            return null;
+        }
+        var first = bytes[p];
+        InputField field;
+        if (first == (byte)',')
+        {
+            field = new InputField(InputFieldKind.Empty, "");
+            p++;
+        }
+        else if (first == (byte)'\r')
+        {
+            field = new InputField(InputFieldKind.Empty, "");
+            p = AfterLineEnd(bytes, p);
+        }
+        else if (first == (byte)'"' && reading != InputReading.Number)
+        {
+            // To the next quote, or to the end of the file, line ends and all (measured): a doubled quote ends the field.
+            var end = Scan(bytes, p + 1, b => b == (byte)'"');
+            field = new InputField(InputFieldKind.Quoted, Ansi().GetString(bytes, p + 1, end - p - 1));
+            p = AfterField(bytes, end < bytes.Length && bytes[end] == (byte)'"' ? end + 1 : end);
+        }
+        else if (first == (byte)'#' && reading == InputReading.ByFirstCharacter)
+        {
+            // To the closing #, or to the comma or line end when there is none: `#,5` is "#" and 5 (measured).
+            var end = Scan(bytes, p + 1, b => b is (byte)'#' or (byte)',' or (byte)'\r');
+            if (end < bytes.Length && bytes[end] == (byte)'#')
+                end++;
+            field = new InputField(InputFieldKind.Hash, Ansi().GetString(bytes, p, end - p));
+            p = AfterField(bytes, end);
+        }
+        else if (reading == InputReading.Number || (reading == InputReading.ByFirstCharacter && IsNumberStart(first)))
+        {
+            var end = Scan(bytes, p, b => b is (byte)' ' or (byte)'\t' or (byte)',' or (byte)'\r');
+            field = new InputField(InputFieldKind.Number, Ansi().GetString(bytes, p, end - p));
+            p = AfterField(bytes, end);
+        }
+        else
+        {
+            var end = Scan(bytes, p, b => b is (byte)',' or (byte)'\r');
+            field = new InputField(InputFieldKind.Text, Ansi().GetString(bytes, p, end - p).TrimEnd(' ', '\t'));
+            p = AfterField(bytes, end);
+        }
+        file.Position = p;
+        return field;
+    }
+
+    private static bool IsNumberStart(byte b) => b is >= (byte)'0' and <= (byte)'9' or (byte)'+' or (byte)'-' or (byte)'.' or (byte)'&';
+
+    // The first position from `start` that `stop` matches, or the end of the file, which a Ctrl+Z also marks.
+    private static int Scan(byte[] bytes, int start, Func<byte, bool> stop)
+    {
+        var p = start;
+        while (p < bytes.Length && bytes[p] != CtrlZ && !stop(bytes[p]))
+            p++;
+        return p;
+    }
+
+    private static int AfterField(byte[] bytes, int p)
+    {
+        while (p < bytes.Length && bytes[p] is (byte)' ' or (byte)'\t')
+            p++;
+        if (p < bytes.Length && bytes[p] == (byte)',')
+            return p + 1;
+        return p < bytes.Length && bytes[p] == (byte)'\r' ? AfterLineEnd(bytes, p) : p;
+    }
+
+    private static int AfterLineEnd(byte[] bytes, int cr) =>
+        cr + 1 < bytes.Length && bytes[cr + 1] == (byte)'\n' ? cr + 2 : cr + 1;
 
     /// <summary>Whether a read would find nothing: the end of the file, or a Ctrl+Z. An Output file is always True.</summary>
     public bool Eof(int number)

@@ -126,6 +126,28 @@ public class InteractClickTests
     }
 
     [AvaloniaFact]
+    public async Task A_click_outside_the_target_reaches_another_control_and_says_it_is_outside()
+    {
+        var scene = Build();
+        try
+        {
+            var padPressed = 0;
+            var coverPressed = 0;
+            scene.Pad.PointerPressed += (_, _) => padPressed++;
+            scene.Cover.PointerPressed += (_, _) => coverPressed++;
+
+            var outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Pad, "click", "220,20"));
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Mechanism.Should().Be("pointer");
+            (padPressed, coverPressed).Should().Be((0, 1));
+            outcome.Detail.Should().Be("clicked the left button at (220, 20) on 'Border', which is (230, 80) in the window; "
+                + "(220, 20) is outside 'Border', which is 100 × 60, and the press landed on 'Border'");
+        }
+        finally { scene.Window.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task What_the_press_set_off_runs_before_the_release()
     {
         // A person's release comes after the press has had its effect. Raised in the same dispatcher job, a running form's

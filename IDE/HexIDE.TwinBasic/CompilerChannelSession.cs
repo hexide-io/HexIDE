@@ -1,4 +1,3 @@
-using System.Net.WebSockets;
 using System.Threading.Channels;
 
 namespace HexIDE.TwinBasic;
@@ -9,11 +8,11 @@ internal sealed record CompilerChannelSessionLimits(int MaximumMessageBytes = 16
     int MaximumQueuedMessages = 256, int MaximumQueuedBytes = 32 * 1024 * 1024,
     TimeSpan? ConnectionTimeout = null, TimeSpan? MessageTimeout = null);
 
-internal sealed record CompilerChannelMessage(CompilerChannel Channel, WebSocketMessageType Type, ReadOnlyMemory<byte> Bytes);
+internal sealed record CompilerChannelMessage(CompilerChannel Channel, CompilerChannelData Data, int ReceivedBytes);
 internal sealed record CompilerSessionTermination(bool WasDisposed, string? Error);
 
 /// <summary>
-/// Owns all four compiler sockets. Messages remain opaque and ordered within each channel;
+/// Owns all four compiler sockets. Decoded messages stay ordered within each channel;
 /// this is not a request dispatcher, language client or debugger adapter. Failure is terminal.
 /// </summary>
 internal sealed class CompilerChannelSession : IDisposable, IAsyncDisposable
@@ -68,6 +67,7 @@ internal sealed class CompilerChannelSession : IDisposable, IAsyncDisposable
             Validate(rootEndpoint, limits);
             deadline.CancelAfter(limits.ConnectionTimeout ?? TimeSpan.FromSeconds(30));
             var info = root.Connection;
+            // Endpoint names are protocol vocabulary, independent of message encoding (#1217).
             foreach (var (channel, name, port) in new[]
             {
                 (CompilerChannel.FileSystem, "fs", info.FileSystemPort),
@@ -130,7 +130,7 @@ internal sealed class CompilerChannelSession : IDisposable, IAsyncDisposable
                 {
                     if (ended) return;
                     if (message.Bytes.Length > limits.MaximumQueuedBytes - queuedBytes ||
-                        !messages.Writer.TryWrite(new(channel, message.Type, message.Bytes)))
+                        !messages.Writer.TryWrite(new(channel, root.Codec.DecodeChannel(message.Type, message.Bytes), message.Bytes.Length)))
                         throw new InvalidDataException("Compiler session incoming queue exceeded its limit.");
                     queuedBytes += message.Bytes.Length;
                 }
@@ -155,7 +155,7 @@ internal sealed class CompilerChannelSession : IDisposable, IAsyncDisposable
                 ThrowIfEnded();
                 if (messages.Reader.TryRead(out var message))
                 {
-                    queuedBytes -= message.Bytes.Length;
+                    queuedBytes -= message.ReceivedBytes;
                     return message;
                 }
             }
@@ -164,15 +164,15 @@ internal sealed class CompilerChannelSession : IDisposable, IAsyncDisposable
     }
 
     /// <summary>Keep the send buffer unchanged until completion. Cancellation after dispatch is terminal.</summary>
-    public async Task SendAsync(CompilerChannel channel, ReadOnlyMemory<byte> bytes, WebSocketMessageType type,
+    public async Task SendAsync(CompilerChannel channel, CompilerChannelData message,
         CancellationToken cancellationToken = default)
     {
         if (!transports.TryGetValue(channel, out var transport)) throw new ArgumentOutOfRangeException(nameof(channel));
-        if (type is not (WebSocketMessageType.Binary or WebSocketMessageType.Text)) throw new ArgumentOutOfRangeException(nameof(type));
-        if (bytes.Length > limits.MaximumMessageBytes) throw new InvalidDataException("Compiler message exceeds the byte limit.");
+        var encoded = root.Codec.EncodeChannel(message);
+        if (encoded.Bytes.Length > limits.MaximumMessageBytes) throw new InvalidDataException("Compiler message exceeds the byte limit.");
         cancellationToken.ThrowIfCancellationRequested();
         lock (gate) ThrowIfEnded();
-        try { await transport.SendWithTimeoutAsync(bytes, type,
+        try { await transport.SendWithTimeoutAsync(encoded.Bytes, encoded.Type,
             limits.MessageTimeout ?? TimeSpan.FromSeconds(30), cancellationToken).ConfigureAwait(false); }
         catch
         {

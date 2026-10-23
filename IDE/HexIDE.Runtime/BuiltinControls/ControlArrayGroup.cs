@@ -32,6 +32,15 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
 
     public ControlArrayGroup(string name) => Name = name;
 
+    /// <summary>The form's Controls collection, which an element loaded or unloaded at run time joins or leaves (#1060).</summary>
+    internal FormControls? FormControls { get; set; }
+
+    // The array each element is in, so a statement given the element itself, `Unload c`, can find it (#1060).
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control, ControlArrayGroup> owners = new();
+
+    /// <summary>The control array <paramref name="control"/> is an element of, if it is one.</summary>
+    internal static bool TryGetArrayOf(Control control, out ControlArrayGroup group) => owners.TryGetValue(control, out group!);
+
     public string Name { get; }
 
     public int Count => elements.Count;
@@ -45,6 +54,7 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
     public void AddDesignTimeElement(int index, Control control, ComponentInstance component, Canvas parentCanvas)
     {
         elements[index] = control;
+        owners.AddOrUpdate(control, this);
         designTimeIndices.Add(index);
         hosts[index] = parentCanvas;
         if (index < templateIndex)
@@ -61,6 +71,7 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
     public void AddDesignTimeMenuElement(int index, Control control, ItemsControl parent, System.Func<Control, Control> newLike)
     {
         elements[index] = control;
+        owners.AddOrUpdate(control, this);
         designTimeIndices.Add(index);
         menuHosts[index] = parent;
         newMenuLike = newLike;
@@ -104,7 +115,9 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
         VBProps.SetRunTimeId(control);
         parent.Children.Add(control);
         elements[index] = control;
+        owners.AddOrUpdate(control, this);
         hosts[index] = parent;
+        FormControls?.Loaded(control);
     }
 
     // A new element of a menu control array, copied from the first as it stands, and placed in its menu after the
@@ -122,7 +135,9 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
         var position = below is not null ? menu.Items.IndexOf(below) + 1 : menu.Items.IndexOf(elements[elements.Keys.First()]);
         menu.Items.Insert(position, item);
         elements[index] = item;
+        owners.AddOrUpdate(item, this);
         menuHosts[index] = menu;
+        FormControls?.Loaded(item);
     }
 
     /// <summary>VB6 <c>Unload Command1(i)</c> — remove a runtime-loaded element. Err 340 if the index doesn't
@@ -146,6 +161,8 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
         elements.Remove(index);
         hosts.Remove(index);
         menuHosts.Remove(index);
+        owners.Remove(control);
+        FormControls?.Unloaded(control);
     }
 
     // VB6: a control array's LBound/UBound are the lowest/highest indices present. An empty array (every element

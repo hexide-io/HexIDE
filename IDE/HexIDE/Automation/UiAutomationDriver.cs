@@ -1404,7 +1404,10 @@ public static class UiAutomationDriver
         var landed = hit as Control;
         var landing = landed is null || ReferenceEquals(landed, control) ? ""
             : control.IsVisualAncestorOf(landed) ? $", landing on its part '{Describe(landed)}'"
-            : $"; the press landed on '{Describe(landed)}', which covers the target there";
+            : !new Rect(control.Bounds.Size).Contains(local)
+                ? $"; ({local.X:0.#}, {local.Y:0.#}) is outside '{Describe(control)}', which is "
+                  + $"{control.Bounds.Width:0.#} × {control.Bounds.Height:0.#}, and the press landed on '{Describe(landed)}'"
+                : $"; the press landed on '{Describe(landed)}', which covers the target there";
         var holding = keys == KeyModifiers.None ? "" : " holding " + string.Join(" and ",
             new[] { (KeyModifiers.Shift, "shift"), (KeyModifiers.Control, "ctrl"), (KeyModifiers.Alt, "alt") }
                 .Where(k => keys.HasFlag(k.Item1)).Select(k => k.Item2));
