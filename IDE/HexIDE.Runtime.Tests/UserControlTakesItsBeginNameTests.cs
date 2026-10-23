@@ -15,7 +15,7 @@ namespace HexIDE.Runtime.Tests;
 /// VB6's name found no such class, and kept the control as text it could not draw or run.
 /// </summary>
 /// <remarks>
-/// Measured with <c>vb6.exe /make</c> (6.00.8176 SP6, p-code), on a Standard EXE called <c>probe</c> with a private
+/// Measured with <c>vb6.exe /make</c> (6.00.8176, the original release, p-code), on a Standard EXE called <c>probe</c> with a private
 /// UserControl. These are the probes' own layouts:
 /// <list type="bullet">
 ///   <item><c>Gauge.ctl</c> holding <c>Begin VB.UserControl ctlDial</c> and <c>VB_Name = "ctlDial"</c>: a form's

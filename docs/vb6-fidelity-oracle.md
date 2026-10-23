@@ -22,6 +22,37 @@ date functions; graphics) should extend it the same way.
 - **Method:** compile a tiny `Sub Main` console-less program with `VB6.EXE /make`, run the produced `.exe`, and
   read back a file it wrote with `TypeName(expr)` + the value for each case.
 
+### Which VB6 the oracle is (#1524)
+
+**Until 2026-10-23 the oracle was VB6's original release, with an SP6-level runtime. From 2026-10-24 it is SP6
+throughout.** Sections dated before 2026-10-24 that call the oracle "6.00.8176 (the original release)" were wrong about the compiler.
+6.00.8176 is the original release build, and every other file in the guest's VB98 folder agreed. They now say "the
+original release". SP6 went in on 2026-10-24, from the Microsoft-signed `Vs6sp6B.exe` the maintainer supplied, and the
+`VisualStudio\6.0\ServicePacks` key now reads `latest = 6`.
+
+| File | Until 2026-10-23: the original release | From 2026-10-24: SP6 |
+|---|---|---|
+| `VB6.EXE`, the IDE and `/make` | 6.00.8176 | **6.00.9782** |
+| `VBA6.DLL`, the engine the IDE runs code with | 6.0.8169 | **6.0.9782** |
+| `C2.EXE`, the native code generator | 12.00.8041.0 | **12.00.8783.0** |
+| `LINK.EXE` | 6.00.8168.0 | **6.00.8447.0** |
+| `MSVBVM60.DLL` (SysWOW64), the runtime a built EXE runs on | 6.00.9848, SP6-level, supplied by Windows | 6.00.9848, unchanged |
+
+**So which build a row measured depends on what it read**, not on its date alone:
+
+- **What a built EXE printed at run time**, native or p-code, came from MSVBVM60 6.00.9848, which SP6 did not change.
+  Those rows stand as written, whenever they were measured.
+- **A compile error** comes from VB6.EXE and VBA6.DLL, not the runtime, even when the program was built with `/make`.
+  Before 2026-10-24, that was the release build.
+- **Anything run in the IDE** (`/runexit`, the Immediate window, `Debug.Assert`, break mode, the reset prompt), and
+  everything the designer drew or saved, ran on the release VB6.EXE and VBA6.DLL before 2026-10-24.
+- **Native code** came from the release C2.EXE and LINK.EXE before 2026-10-24. Where a native result could depend on
+  code generation rather than the runtime, the row measured the release build.
+
+Re-measuring the release-build rows on SP6 is #1663. A row SP6 changes keeps both answers, since a release-versus-SP6
+difference is a finding in its own right. The release state is kept as the Hyper-V checkpoint *VB6 6.00.8176 release,
+before SP6 (#1524)*, so a comparison can still be made. A section measured from 2026-10-24 on names the SP6 builds.
+
 ### Reaching the VB6 *IDE*, not just the compiler (2026-09-20)
 
 Everything above answers "what does VB6 **accept**", which `VB6.EXE /make` can do with no desktop at all.
@@ -785,7 +816,7 @@ Verified: a module-level object held live, then `End` — the class's `Class_Ter
 The section above measured one object at module level, and stated the form events without measuring them. Three
 probes now cover both. Each is a Standard EXE with a `Class1` whose `Class_Terminate` logs, and forms whose
 `QueryUnload`, `Unload` and `Terminate` log. Every log line is written by opening, appending and closing the file,
-so nothing waits in a buffer that `End` could discard. Real `vb6.exe` 6.00.8176 (SP6), run in session 0.
+so nothing waits in a buffer that `End` could discard. Real `vb6.exe` 6.00.8176 (the original release), run in session 0.
 
 | Probe | Log |
 |---|---|
@@ -948,7 +979,7 @@ literal that *selects* an option button is *refused* by a check box.
 ## Two controls of one name (2026-10-12, #854)
 
 Measured when #854 was filed, and recorded here by its fix. The probe was a Standard EXE built with `vb6.exe /make`
-(6.00.8176 SP6) from a form holding two `Begin` lines of one name and no `Index`, the shape HexIDE's save could write.
+(6.00.8176, the original release) from a form holding two `Begin` lines of one name and no `Index`, the shape HexIDE's save could write.
 Its `Form_Load` wrote `Me.Controls.Count` and each control's Name and TypeName to a file.
 
 **The build does not fail.**
@@ -981,7 +1012,7 @@ check against every name on the form, without regard to case (`ComponentNaming.N
 
 ## A form-based game's runtime surface (2026-10-12)
 
-Measured to decide what a form front end for `demo/battleship` may rely on. Real `vb6.exe` 6.00.8176 (SP6).
+Measured to decide what a form front end for `demo/battleship` may rely on. Real `vb6.exe` 6.00.8176 (the original release).
 One Standard EXE, `Startup="Form1"`, with a `.bas` (`Public Const K = 5`, `Public G As Long`, a logging
 `Sub L` that opens `App.Path & "\log.txt"` For Append per line so nothing is lost to buffering) and a `Source`
 class raising `Event ResultV(ByVal r As Integer)` and `Event ResultR(r As Integer)`. Form1 holds `Label1`
@@ -1270,7 +1301,7 @@ procedure: refused as not implemented, because the error VB6 gives depends on wh
 ## Assigning to a control property (2026-10-12, #768)
 
 Measured to decide what `Label1.Caption = 5` stores, and what every other property does with a value of another
-type. Real `vb6.exe` 6.00.8176 (SP6), guest locale **en-GB** (decimal point `.`, thousands separator `,`).
+type. Real `vb6.exe` 6.00.8176 (the original release), guest locale **en-GB** (decimal point `.`, thousands separator `,`).
 
 **Harness.** One Standard EXE, `Startup="Form1"`, with `Label1`, `Text1`, `Command1`, `Check1` and a disabled
 `Timer1` (Interval 500). Four `/make` runs over PowerShell Direct, each `Form_Load` writing a log and ending
@@ -4775,7 +4806,7 @@ $udt     = 'Option Explicit', 'Public Type verify', '    x As Long', 'End Type'
 #   End Function
 ```
 
-VB6 6.00.8176 (SP6), in the oracle guest. The harness sanity pair (`CByte(100) + CByte(100)` and
+VB6 6.00.8176 (the original release), in the oracle guest. The harness sanity pair (`CByte(100) + CByte(100)` and
 `CByte(200) + CByte(100)`) reproduced `200 | Byte` and `ERR6` in the same session.
 
 | Run | Code | `Type verify` in scope | Result |
@@ -4812,7 +4843,7 @@ decides.
 
 Measured because HexIDE parses that log to put compiler errors in the editor, and because
 hexide-io/HexIDE#273 turns on whether a line number means the file or the code view. Both answers were
-guessed in the code and both guesses were wrong. Real `vb6.exe` 6.00.8176 (SP6), `VB6.EXE /make <abs .vbp>
+guessed in the code and both guesses were wrong. Real `vb6.exe` 6.00.8176 (the original release), `VB6.EXE /make <abs .vbp>
 /out <abs log>`, every case reproduced in two separate runs (a4 in three).
 
 **The format**, exact bytes, ANSI, CRLF, and the log always opens with a bare empty line:
@@ -5088,7 +5119,7 @@ Two readings were in play, and the probes were written so that they predict diff
 
 The second is not a straw man: it has been implemented elsewhere.
 
-**The probe.** VB6.EXE 6.00.8176 (SP6) with runtime MSVBVM60 6.00.9848, in the oracle guest. Three Standard
+**The probe.** VB6.EXE 6.00.8176 (the original release) with runtime MSVBVM60 6.00.9848, in the oracle guest. Three Standard
 EXE projects, built from standard modules, every one of them `Option Explicit`, so that a name binding
 nothing is a compile error rather than an implicit Variant. Each probe is a `Public Sub` placed in the module
 whose declarations set up its scenario:
@@ -5474,7 +5505,7 @@ a rule.
 ## A running program's locale is the user's regional settings (2026-10-12, #777)
 
 Measured to decide which culture the interpreter should format and read text in, and whether a two-digit year is
-a fixed rule or a regional one. Real `vb6.exe` 6.00.8176 (SP6), guest locale **en-GB**, one expression batch
+a fixed rule or a regional one. Real `vb6.exe` 6.00.8176 (the original release), guest locale **en-GB**, one expression batch
 through `scripts/vb6-oracle.ps1`.
 
 | Expression | Value | Type | Err |
@@ -5588,7 +5619,7 @@ rule but has not been run.
 ## Turning a number or a date into text (2026-10-12, #772, #771)
 
 `CStr`, `&`, storing into a String, `Format` with no mask and `Str` all turn a value into text. Two runs of
-`scripts/vb6-oracle.ps1` measured them, about 110 rows, on vb6.exe 6.00.8176 (SP6) in an **en-GB** guest
+`scripts/vb6-oracle.ps1` measured them, about 110 rows, on vb6.exe 6.00.8176 (the original release) in an **en-GB** guest
 (decimal point `.`, short date `dd/MM/yyyy`, long time `HH:mm:ss`). Each row is `CStr(...)` unless it says
 otherwise, and every one came back a String. `CSng(x)` rounds a Double literal to a Single, as written.
 
@@ -5787,7 +5818,7 @@ short date. Since #777 the interpreter has a locale of its own, taken from the u
 ## A control where a value is wanted is its default member (2026-10-12, #790)
 
 Measured to decide what HexIDE should do with `s = Text1` until it has default members. Real `vb6.exe` 6.00.8176
-(SP6), guest locale en-GB. Two `/make` runs of a form holding `Text1`, `Label1`, `Command1` and `Check1`, each
+(the original release), guest locale en-GB. Two `/make` runs of a form holding `Text1`, `Label1`, `Command1` and `Check1`, each
 statement under `On Error Resume Next`, with the value, its `TypeName` and `Err.Number` logged.
 
 | Statement | Result | Err |
@@ -5822,7 +5853,7 @@ refusal now covers controls only.
 
 ## A Label's colours, read back and painted (2026-10-12, #795)
 
-Measured to decide what a Label and a TextBox should read back and paint. Real `vb6.exe` 6.00.8176 (SP6), guest
+Measured to decide what a Label and a TextBox should read back and paint. Real `vb6.exe` 6.00.8176 (the original release), guest
 locale en-GB. Two `/make` runs of a form whose own BackColor is light yellow, `&H00C0FFFF&`, so a transparent
 label shows. Each run was made twice:
 - once in session 0, which logs the read-backs, and where `GetPixel` returns `&HFFFFFFFF` for every point,
@@ -6570,7 +6601,7 @@ third's Q1 to Q3, the three questions it asked of VB6's saves. A module inside a
 
 ### Method
 
-**The compiler half.** VB6.EXE 6.00.8176 (SP6) in the Hyper-V guest `Win10` (locale en-GB), driven over PowerShell
+**The compiler half.** VB6.EXE 6.00.8176 (the original release) in the Hyper-V guest `Win10` (locale en-GB), driven over PowerShell
 Direct as `VB6.EXE /make <abs .vbp> /out <abs log>` with `CreateNoWindow` and a 90-second timeout, every project
 under `C:\hexoracle-p4\make\<probe>-<variant>\`. Sixty probes, each one class (`Class1.cls` with the canonical
 13-line header of the 2026-09-19 entry's b1) or, for p06e and p13d, a second standard module. p10a to p10f also
@@ -11223,7 +11254,7 @@ and HexIDE takes a side on each. A dialog closed without an answer takes Debug. 
 **How it was found.** The Battleship demo (#1071) gives a 5 x 5 board `gSize * gSize \ 2` shots, which VB6 makes 12.
 HexIDE made it 10, from `5 * (5 \ 2)`.
 
-**The probe.** [The scripted harness](#the-scripted-harness--scriptsvb6-oracleps1), VB6.EXE 6.00.8176 (SP6) in the
+**The probe.** [The scripted harness](#the-scripted-harness--scriptsvb6-oracleps1), VB6.EXE 6.00.8176 (the original release) in the
 oracle guest. Each expression was assigned to a Variant and logged with its `TypeName`. There were three `/make` runs:
 - 22 expressions;
 - 21 more, one per pair of adjacent levels the first run left out;
@@ -11328,7 +11359,7 @@ which library names refuse or ignore a `$`. Two questions remained: which librar
 what the `$` changes on them. A `Variant` that receives the result reads `String` either way, so the type can't tell
 the two forms apart. A Null can.
 
-**The probe.** [The scripted harness](#the-scripted-harness--scriptsvb6-oracleps1), VB6.EXE 6.00.8176 (SP6) in the
+**The probe.** [The scripted harness](#the-scripted-harness--scriptsvb6-oracleps1), VB6.EXE 6.00.8176 (the original release) in the
 oracle guest, one `/make` of 69 expressions under `Option Explicit`. Each function was called three times:
 - **the `$` form** with an ordinary argument;
 - **the plain form** with a Null;
@@ -11378,7 +11409,7 @@ Not probed: `Command$`, `Date$`, `Time$`, `Dir$`, `Input$` and `InputB$`. HexIDE
 **The question.** The Battleship demo's board lays out its grid with `Label.Move`, and fits the form to it with
 `Width = (Width - ScaleWidth) + needed`. HexIDE had neither. What do they do?
 
-**The probe.** VB6.EXE 6.00.8176 (SP6) in the oracle guest, native code, one compiled program. `Sub Main` loads a
+**The probe.** VB6.EXE 6.00.8176 (the original release) in the oracle guest, native code, one compiled program. `Sub Main` loads a
 form without showing it. The form has `BorderStyle = 1` (Fixed Single), `ClientWidth` and `ClientHeight` of 2520, and
 one Label at Left 120, Top 120, 360 x 360. The program logs each step under `On Error Resume Next`:
 
@@ -12647,7 +12678,7 @@ writes the two equal. HexIDE renamed only the first until #1059 fixed #473, so f
 Which name does VB6 honour? #473 recorded that for a module VB6 binds on `VB_Name` (see the `Folder1\Module1.bas`
 probes), and nobody had asked for a form.
 
-**The probe.** A Standard EXE starting from `Sub Main`, built with `vb6.exe /make` as p-code (6.00.8176 SP6). Its form
+**The probe.** A Standard EXE starting from `Sub Main`, built with `vb6.exe /make` as p-code (6.00.8176, the original release). Its form
 was `Begin VB.Form frmRenamed` with `Attribute VB_Name = "Form1"`, in `Form1.frm`, listed as `Form=Form1.frm`. The
 module had no `Option Explicit`, so whichever name was not the form compiled as an implicit Variant. `Sub Main`
 printed `TypeName` of each name, each `.Name`, `Forms(0).Name`, and the `Me.Name` that `Form_Load` saw.
@@ -12706,7 +12737,7 @@ a doubled pair on read, and wrote a lone quote unescaped. Its reader and writer 
 files round-tripped. They disagreed with VB6 in both directions. The `.vbp` reader already halved doubled quotes, but
 a `.vbp` and a `.frm` come from different writers inside VB6, so this was measured, not assumed.
 
-**The probe.** A Standard EXE, built with `vb6.exe /make` as p-code (`CompilationType=-1`), on 6.00.8176 SP6. Its form
+**The probe.** A Standard EXE, built with `vb6.exe /make` as p-code (`CompilationType=-1`), on 6.00.8176, the original release. Its form
 gave these string properties a doubled quote:
 - the form's `Caption` and `LinkTopic`;
 - five Labels' `Caption`s, one with a `Tag`;
@@ -12824,7 +12855,7 @@ copied to `proj` with these additions:
 - `HelpFile="help\probe.hlp"`, naming a file that does not exist;
 - `Path32="out"`.
 
-The VB6 IDE (6.00.8176 SP6) opened it. File > Save Project As then saved it to `proj\deeper\Saved.vbp`, and again to a
+The VB6 IDE (6.00.8176, the original release) opened it. File > Save Project As then saved it to `proj\deeper\Saved.vbp`, and again to a
 sibling folder, `other\Saved2.vbp`. Each saved file was read back.
 
 | Line read in `proj` | Written in `proj\deeper` | Written in `other` |
@@ -12863,7 +12894,7 @@ much as the name: `ProjectSerializer` places the lines it does not model by coun
 
 **The probe.** Two copies of one project: a form, a reference to `stdole2.tlb`, and the keys `Startup`, `Command32`,
 `Name="probe"`, `HelpContextID="0"`, `CompatibleMode="0"` and the three version numbers. `none.vbp` has no description.
-`quoted.vbp` adds `Description="He said ""hi"""` after `HelpContextID`. The VB6 IDE (6.00.8176 SP6) opened each, and
+`quoted.vbp` adds `Description="He said ""hi"""` after `HelpContextID`. The VB6 IDE (6.00.8176, the original release) opened each, and
 File > Save Project As saved it to a new name. The saved files were read back.
 
 | Read | Written by Save Project As |
@@ -12984,7 +13015,7 @@ lone CR, and the one line-ending fact recorded, that an LF-terminated module fai
 test. `Sub Main` in `Module1.bas`, or `Form_Load` in a startup form, writes what it ran to a file. A class case also holds
 `C.cls`, whose `Property Get Value` carries `Attribute Value.VB_UserMemId = 0`, and `Main` reads `n = c` from a `New C`,
 under `On Error Resume Next`. So `n` is 42 when the attribute made `Value` the default member, and the error is 438 when
-it did not. Each was built with `vb6.exe /make` (6.00.8176 SP6) and the result run.
+it did not. Each was built with `vb6.exe /make` (6.00.8176, the original release) and the result run.
 
 | Probe | The file | `/make` | Ran |
 |---|---|---|---|
@@ -13638,7 +13669,7 @@ gets, and the meaning of a line that is not there.
 (CenterScreen) and two write 3 (Windows Default). The new project's `Template/Projects/Form1.frm` writes
 `ClientLeft = 60`, `ClientTop = 348`, `LinkTopic = "Form1"` and `StartUpPosition = 3 'Windows Default` explicitly.
 
-**The probe.** VB6.EXE 6.00.8176 SP6, `/make` (native code), the exe run headless in session 0, where the screen is
+**The probe.** VB6.EXE 6.00.8176, the original release, `/make` (native code), the exe run headless in session 0, where the screen is
 15360 x 11520 twips at 15 twips a pixel. A `Sub Main` project with six forms. Each designer block is HexIDE's, byte
 for byte, plus the lines below, and each form carries the usual five `Attribute` lines:
 
@@ -13702,7 +13733,7 @@ block at all, and its code section in bare LF with no final line break (#516, #9
 `VB_PredeclaredId = True` is what gives a form its default instance, so a form without the block might load but fail
 at `Form1.Show`. **Both are wrong for `vb6.exe /make`.** The block is what VB6 writes, not what it needs.
 
-**The probe.** VB6.EXE 6.00.8176 SP6. One `Sub Main` project per row, each with a `Form1.frm` and a `Module1.bas`,
+**The probe.** VB6.EXE 6.00.8176, the original release. One `Sub Main` project per row, each with a `Form1.frm` and a `Module1.bas`,
 built with `/make` both as native code and as p-code (`CompilationType=-1`), and the exe run in session 0. The form's
 designer block is HexIDE's (Caption, ClientHeight 7200, ClientWidth 9600, ScaleHeight, ScaleWidth). `Sub Main`, under
 `On Error Resume Next`, reads `X.Caption` and `X.Name`, calls `X.Show` and `DoEvents`, reads `X.Visible`,
@@ -15238,8 +15269,8 @@ Measured with vb6.exe in two places. The IDE was driven with `vb6.exe /runexit`,
 and the compiled EXE was built both native and p-code, the two agreeing. Each program the tests pin was run as written.
 
 **In the IDE, release build**, `Debug.Assert X` with `L` logging each side of it. These rows ran on the oracle's IDE,
-VB6.EXE 6.00.8176 with VBA6.DLL 6.0.8169, which is VB6's original release and not SP6 (#1524). Re-measure them once SP6
-is installed. The compiled-EXE rows below ran on MSVBVM60 6.00.9848, SP6's runtime, and stand.
+VB6.EXE 6.00.8176 with VBA6.DLL 6.0.8169, which is VB6's original release and not SP6 (#1524). SP6 is installed from
+2026-10-24, and re-measuring them is #1663. The compiled-EXE rows below ran on MSVBVM60 6.00.9848, SP6's runtime, and stand.
 
 | X | result |
 |---|---|
@@ -15830,8 +15861,8 @@ row. Each call was `x = <call>` with `x` a Variant. Eleven rows were measured se
 and agree wherever the two overlap.
 
 A compile error is the compiler's answer, not the runtime's. So these rows come from the oracle's VB6.EXE 6.00.8176 and
-VBA6.DLL 6.0.8169, the release build, even though built EXEs run on SP6's MSVBVM60 (#1524). Re-measure them once SP6 is
-installed.
+VBA6.DLL 6.0.8169, the release build, even though built EXEs run on SP6's MSVBVM60 (#1524). SP6 is installed from
+2026-10-24, and re-measuring them is #1663.
 
 **"Syntax error":**
 
