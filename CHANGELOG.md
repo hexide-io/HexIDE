@@ -213,6 +213,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Ctrl+S on a new UserControl or PropertyPage saves its .ctl or .pag** (#474). From its designer or its code window,
+  Ctrl+S saved the designer half as a form: it asked for a `.frm`, wrote the edit there, and left the `.ctl` the project
+  names unwritten. A save from either half is now the module's save. It asks for the `.ctl` or `.pag` once, and writes
+  it in place after that.
+
 - **A UserControl or PropertyPage is named by its `Begin` line, as VB6 names it** (#1411). HexIDE named it after its
   file, so `Gauge.ctl` holding `Begin VB.UserControl ctlDial` was "Gauge". A form using the control as VB6 does, as
   `Begin probe.ctlDial`, then found no such control, and kept it as text it could neither draw nor run. Where its
