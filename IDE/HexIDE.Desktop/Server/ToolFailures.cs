@@ -1,4 +1,6 @@
 using System.Runtime.InteropServices;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using ModelContextProtocol;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
@@ -31,6 +33,62 @@ namespace HexIDE.Desktop.Server;
 /// </remarks>
 internal static class ToolFailures
 {
+    /// <summary>
+    /// Checks text before the SDK converts its JsonNode request to CallToolRequestParams. That conversion writes
+    /// the node again, and an escaped lone surrogate throws there before any tool-call filter can run (#1337).
+    /// </summary>
+    public static McpMessageHandler TextFilter(McpMessageHandler next) => async (context, ct) =>
+    {
+        if (context.JsonRpcMessage is JsonRpcRequest { Method: "tools/call", Params: JsonObject parameters } call
+            && parameters["arguments"] is { } arguments)
+        {
+            var problems = new List<string>();
+            try
+            {
+                if (arguments is JsonObject named)
+                {
+                    foreach (var argument in named)
+                        if (InvalidText(argument.Value))
+                            problems.Add($"'{argument.Key}' is not valid text (an unpaired UTF-16 surrogate)");
+                }
+                else if (InvalidText(arguments))
+                    problems.Add("the request's arguments are not valid text (an unpaired UTF-16 surrogate)");
+            }
+            catch (InvalidOperationException)
+            {
+                // An invalid property name cannot itself be quoted in a reply.
+                problems.Add("the request's arguments are not valid text (an unpaired UTF-16 surrogate)");
+            }
+            if (problems.Count > 0)
+            {
+                string? tool;
+                try { tool = parameters["name"]?.GetValue<string>(); }
+                catch (InvalidOperationException) { tool = null; }
+                await context.Server.SendMessageAsync(new JsonRpcResponse
+                {
+                    Id = call.Id,
+                    Result = JsonSerializer.SerializeToNode(Refused(tool ?? "(unnamed)", problems)),
+                }, ct);
+                return;
+            }
+        }
+        await next(context, ct);
+    };
+
+    private static bool InvalidText(JsonNode? node)
+    {
+        if (node is JsonObject obj)
+            return obj.Any(property => InvalidText(property.Value));
+        if (node is JsonArray array)
+            return array.Any(InvalidText);
+        if (node is JsonValue value && value.GetValueKind() == JsonValueKind.String)
+        {
+            try { _ = value.GetValue<string>(); }
+            catch (InvalidOperationException) { return true; }
+        }
+        return false;
+    }
+
     public static McpRequestHandler<CallToolRequestParams, CallToolResult> Filter(
         McpRequestHandler<CallToolRequestParams, CallToolResult> next) =>
         async (request, ct) =>
