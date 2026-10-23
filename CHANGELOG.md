@@ -236,6 +236,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Numeric source literals keep their value on every locale** (#781). A made EXE on German regional settings read `0.6 * 10` as 60 and `1.5!` as 15; French settings could stop the program with a parse error. Literal parsing now uses the invariant culture, including suffixes, exponents and conditional compilation. Runtime string conversions retain their locale rules.
+
 - **MCP refuses arguments containing an unpaired UTF-16 surrogate** (#1337). The reply now names the tool and
   parameter, says the argument is not valid text and that nothing was done. It previously returned only the SDK's
   `-32603 "An error occurred."` before any tool ran.
