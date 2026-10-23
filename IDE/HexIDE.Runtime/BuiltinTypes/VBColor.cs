@@ -26,8 +26,19 @@ public static class VBColorExtensions
         if (Application.Current!.TryGetResource(GetKey(color.SystemColor), null, out var resource)
             && resource is IBrush brush)
             return brush;
+
+        // Pink, so a missing colour shows. Logged once per colour, so it can be traced to the key nothing defines; seven
+        // went unnoticed until someone saw the pink (#908).
+        lock (UnresolvedSystemColors)
+        {
+            if (UnresolvedSystemColors.Add(color.SystemColor))
+                Serilog.Log.Warning("No colour is defined for the system colour {SystemColor} ({Key}); drawing it DeepPink",
+                    color.SystemColor, GetKey(color.SystemColor));
+        }
         return Brushes.DeepPink;
     }
+
+    private static readonly System.Collections.Generic.HashSet<VbSystemColor> UnresolvedSystemColors = new();
 
     public static SystemResourceKey GetKey(this VbSystemColor color)
     {

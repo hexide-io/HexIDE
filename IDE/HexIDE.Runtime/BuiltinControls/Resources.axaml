@@ -141,7 +141,9 @@
                     <!-- The caption paints its own background over that edge. That mask is how a group box
                          breaks its border for the text; the frame's BackColor defaults to button face, so
                          there is always something to mask with. -->
+                    <!-- The caption is drawn as VB6 draws it, && as one & and its access key marked (#920). -->
                     <ContentPresenter Content="{TemplateBinding Header}"
+                                      ContentTemplate="{x:Static builtinControls:AccessTextDataTemplate.Access}"
                                       Background="{TemplateBinding Background}"
                                       Foreground="{TemplateBinding Foreground}"
                                       Padding="3,0"

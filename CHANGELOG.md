@@ -213,6 +213,23 @@ there isn't one yet. Anything may change between 0.x releases.
   now reads its arguments as an index into its result, so `F(1)` is `F()(1)`; it used to drop them and return the whole
   array. A method's result indexed after its arguments, `k.Echo("m n")(1)`, used to call it with no arguments at all.
 
+- **Six VB6 system colours no longer draw hot pink** (#908). A control given Scroll Bars, Active Title Bar, Active
+  Border, Inactive Border, ToolTip Text or ToolTip (`vbInfoBackground`) painted DeepPink, in the designer and at run
+  time, because no colour was defined for them. They now take Windows 10's values, as measured on vb6.exe, and a
+  system colour that still has none is named in the log.
+
+- **A caption's `&&` and `_` are drawn as VB6 draws them** (#920). `Tom && Jerry` drew `Tom _ Jerry`, and
+  `File_Name` drew `FileName` with Alt+N as its key, on buttons, check boxes, option buttons, labels and menus, in the
+  designer and at run time. A Frame drew `Fra && Me` with both ampersands. Now `&&` is one `&`, an underscore is a
+  letter, a trailing `&` is not drawn, and a caption marking two letters takes the one VB6 does, all as measured on
+  vb6.exe. A caption with an underscore before its access key now has no key, because Avalonia would take the
+  underscore as the key instead.
+
+- **A control array's elements name themselves with their index in automation** (#1320). The Properties window's
+  object selector and the designer's canvas named every element of `optSize` as `optSize`, so a caller could not tell
+  which was selected, and `select "optSize(1)"` matched nothing. Each element is now `optSize(0)`, `optSize(1)` and so
+  on, the spelling `set_control_property` and `move_control` take.
+
 - **A control-array element renamed out of its array can be renamed back** (#1276). Renaming `optSize(0)` to
   `optBoard` worked, but every way back was refused as a duplicate name, so the array stayed split. A name is now
   taken by name and Index together, as in VB6: an element may take an array's name where its Index is free there.
