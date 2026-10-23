@@ -43,10 +43,11 @@ public static class OpenDialogs
     /// <summary>
     /// What the reply should say of the modal dialogs open once the call is done, read on the UI thread, or null when there
     /// are none to name. Not named: the window the call acted in, a dialog under it, and one the wait for a program named.
+    /// A call that did not act still names an unreported dialog, without claiming it reached behind it.
     /// Exactly that one: the wait names a dialog only while the program is busy, and names one at most, so a dialog over an
     /// idle program, as a compile error reached from a click leaves, or one beside another, was named by neither (#1253).
     /// </summary>
-    public static string? Note(DialogWatch watch, IEnumerable<Window> windows)
+    public static string? Note(DialogWatch watch, IEnumerable<Window> windows, bool acted = true)
     {
         var known = new HashSet<Window>();
         for (var at = watch.Target; at is not null; at = at.Owner as Window)
@@ -58,7 +59,8 @@ public static class OpenDialogs
 
         var parts = named.Select(d => $"'{d.Title}', a modal dialog over {OwnerOf(d)}, "
             + (!watch.Before.Contains(d) ? "opened during this call and waits for an answer."
-                : Blocks(d, watch.Target) ? "is still open and waits for an answer; this call reached past it, as a person could not."
+                : Blocks(d, watch.Target) ? "is still open and waits for an answer"
+                    + (acted ? "; this call reached past it, as a person could not." : ".")
                 : "is open and waits for an answer."));
         return string.Join(" ", parts) + " dump_visual_tree with 'window' set to its title shows it, and interact answers it.";
     }

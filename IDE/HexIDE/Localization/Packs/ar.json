@@ -591,6 +591,7 @@
     "Str.PropDesc.WindowList": "ما إذا كانت هذه القائمة تعرض نوافذ MDI الفرعية المفتوحة.",
     "Str.PropDesc.Locked": "ما إذا كان يمكن تحرير محتويات عنصر التحكم.",
     "Str.PropDesc.MultiSelect": "ما إذا كان يمكن تحديد أكثر من عنصر واحد، وكيفية ذلك.",
+    "Str.PropDesc.Style": "كيف يُرسم عنصر التحكم وكيف يتصرف.",
     "Str.PropDesc.StartUpPosition": "موضع النموذج على الشاشة عند فتحه لأول مرة.",
     "Str.PropDesc.ShowInTaskbar": "ما إذا كان النموذج يظهر في شريط المهام.",
     "Str.PropDesc.TabIndex": "موضع عنصر التحكم في ترتيب التنقّل بمفتاح Tab في النموذج.",
