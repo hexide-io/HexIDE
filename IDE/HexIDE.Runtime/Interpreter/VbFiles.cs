@@ -36,7 +36,7 @@ internal enum VbFileMode
 /// directory, wherever HexIDE happened to be started, is never used, since a file written there is one the developer
 /// never chose.</para>
 /// </remarks>
-internal sealed class VbFiles
+internal sealed partial class VbFiles
 {
     private const byte CtrlZ = 0x1A;
 
