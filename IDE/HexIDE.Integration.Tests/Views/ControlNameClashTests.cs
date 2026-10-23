@@ -33,8 +33,8 @@ public class ControlNameClashTests
            Begin VB.Data Data1
               Caption         =   "Data1"
            End
-           Begin VB.Data Command0
-              Caption         =   "Command0"
+           Begin VB.Data Command1
+              Caption         =   "Command1"
            End
            Begin VB.Data Text2
               Caption         =   "Text2"
@@ -106,7 +106,7 @@ public class ControlNameClashTests
 
         vm.SpawnControlAt(CommandButtonComponentClass.Instance, new Rect(10, 10, 80, 25));
 
-        vm.SelectedComponent!.Name.Should().Be("Command1", "Command0 is the preserved Data control's name");
+        vm.SelectedComponent!.Name.Should().Be("Command2", "Command1 is the preserved Data control's name");
     }
 
     [AvaloniaFact]
@@ -129,7 +129,7 @@ public class ControlNameClashTests
 
         var names = ComponentNaming.NamesInUse(form.Components);
 
-        names.Should().Contain(["Form1", "Timer1", "Text1", "Data1", "Data2", "Command0", "Text2"]);
+        names.Should().Contain(["Form1", "Timer1", "Text1", "Data1", "Data2", "Command1", "Text2"]);
         names.Contains("DATA1").Should().BeTrue("VB6 compares control names without regard to case");
     }
 }

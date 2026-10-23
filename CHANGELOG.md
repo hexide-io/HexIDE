@@ -225,6 +225,10 @@ there isn't one yet. Anything may change between 0.x releases.
   class's method and a named argument, under DefType too. A name in parentheses, or given to a ByVal parameter, is still
   a copy, as in VB6.
 
+- **A new control is numbered from 1, as VB6 numbers it** (#540). The first button on a form was Command0, and a
+  pasted control took its number from the count of controls on the form, so its name skipped a gap VB6 would have
+  filled. A new or pasted control now takes the lowest number from 1 that no control on the form has. That is
+  Command2 beside Command1 and Command3, Text1 beside Text5, and a deleted control's number again, as measured.
 - **`DefInt A-Z` and the rest of DefType run** (#169). A DefType statement stopped the program. Now each declaration with
   no As clause takes its type from the first letter of its name, as vb6.exe does. That covers an undeclared variable, a
   `Dim` or `Static`, a field, a parameter and a Function's return, and under DefObj each is an object variable. A `Const`
