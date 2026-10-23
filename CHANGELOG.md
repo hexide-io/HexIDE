@@ -208,6 +208,15 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`DefInt A-Z` and the rest of DefType run** (#169). A DefType statement stopped the program. Now each declaration with
+  no As clause takes its type from the first letter of its name, as vb6.exe does. That covers an undeclared variable, a
+  `Dim` or `Static`, a field, a parameter and a Function's return, and under DefObj each is an object variable. A `Const`
+  keeps its value's type. A DefType that overlaps another, follows a declaration or sits inside a procedure is VB6's own
+  compile error. Two defects found on the way are fixed too:
+  - a `Set` into a name never declared raised 424, where VB6 declares it, as a Let does;
+  - a Function `As Object` or `As Collection` returned Empty before any Set, not Nothing, so `F = 5` in one took the
+    value where VB6 raises 91.
+
 - **A Let into an object variable no longer drops the object** (#1493). `k = 5`, with `k As C1` holding an instance,
   released it, running its Terminate there and then, and stored 5, so the program ran on without it. VB6 hands the
   value to the object's default member: a class with none raises 438, and `k` keeps the object; Nothing raises 91. That

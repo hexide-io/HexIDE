@@ -54,8 +54,9 @@ Platform: 4 · Partial: 12 · Other: 0.
 >   2026-09-02 — `Console.Beep()`, platform-guarded and fail-safe; the earlier cross-platform justification for
 >   the no-op was measured and found wrong) · **Option Compare / Option Private
 >   Module** (now tolerated — the module loads; `Option Compare Text` accepted-but-always-Binary is the residual
->   divergence).
-> - **→ Deferred:** Load/Unload · Deftype · `#If`/`#Const` (now a **clean compile error**, not a raw crash) · chained
+>   divergence) · **Deftype** (#169: a letter table the pre-pass collects, consulted wherever a declaration has no As
+>   clause; oracle-pinned).
+> - **→ Deferred:** Load/Unload · `#If`/`#Const` (now a **clean compile error**, not a raw crash) · chained
 >   index groups (`Split(s)(0)`) · AddressOf · string-vs-number comparison (`5 < "10"`) · **Declare … Lib** (no longer
 >   fails the module load — the declaration is skipped, so the module runs; an actual call raises the clean "Sub or
 >   Function not defined") · selection/system/financial intrinsics (IIf/Choose/Switch are
@@ -70,7 +71,9 @@ _Original per-item findings (retained for detail; dispositions above supersede t
 - **DoEvents** — wholly absent from the interpreter (0 hits); VB6 intrinsic that yields to the message queue and returns the open-form count. Undocumented.
 - **Erase** — `VisitEraseStmt` throws (StatementExecutor.cs:253-255); VB6 reinitialises fixed arrays / frees dynamic-array storage. Undocumented.
 - **Mid statement** (`Mid(s,i,n) = ...`) — `VisitMidStmt` throws (StatementExecutor.cs:675); VB6 replaces chars in place without lengthening. Every doc reference is to the Mid *function*. Undocumented.
-- **Deftype** (DefInt/DefLng/DefStr A-Z…) — grammar parses it but StatementExecutor.cs:164-167 throws and PrePass has no handler; VB6 declaration-section default-typing by first letter (runtime, so not CST-walled). Undocumented.
+- ~~**Deftype** (DefInt/DefLng/DefStr A-Z…) — grammar parses it but StatementExecutor.cs:164-167 throws and PrePass has no handler; VB6 declaration-section default-typing by first letter (runtime, so not CST-walled). Undocumented.~~
+  — **FIXED 2026-10-23 (#169)**: the pre-pass collects a letter table, which is collection, not binding, and every
+  declaration with no As clause reads it. Oracle-pinned; see the oracle's "DefType".
 - **Conditional compilation** (`#If/#ElseIf/#Else/#End If`, `#Const`) — PrePass.cs:202 throws so any module with `#If` fails to load wholesale; VB6 compiles only the selected branch. Undocumented (ROADMAP `#Const` row is serialization-only; LSP `#If` is folding-only).
 - **Array-element / call-result lead in a member chain** (`arr(i).Name`, `GetObj(x).Foo`) — ExpressionExecutor.cs:406-411 accepts only a bare-variable lead, so a call/array lead silently misroutes into the leading-dot `With` branch (wrong object / Error 91); write path throws (StatementExecutor.cs:527-529). Valid core VB6. Undocumented (only the UDT-array sub-case is walled).
 - **Chained index groups** (`Split(s)(0)`, `Array(1,2)(1)`, `f(1)(2)`, [#1476](https://github.com/hexide-io/HexIDE/issues/1476)) — ExpressionExecutor.cs:481-482 / StatementExecutor.cs:612 throw for >1 argsCall group; VB6 allows direct indexing of an array-valued call result. Undocumented.
