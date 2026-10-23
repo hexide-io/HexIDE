@@ -213,6 +213,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`Print #` writes a character the ANSI code page lacks as its best fit** (#1511). On code page 1252, Ā is written as
+  "A", Ł as "L" and α as "a", as vb6.exe writes them, and Ж, which has no fit, as "?". Every one of them was "?".
+
 - **`CVar` runs** (#1466). It stopped the program as undefined. Now it returns its argument as a Variant with the
   argument's own type, an object as the object, as vb6.exe's does. The result reads as a Variant's, so `CVar(5) * 7000` is
   a Long 35000 where `5 * 7000` overflows.
