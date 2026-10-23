@@ -34,19 +34,10 @@ public class AddItemTextTests
     public async Task A_list_holds_the_text_CStr_makes_of_the_item(string code, string expected)
     {
         var (_, canvas, ctx, env) = ContainerRuntimeHarness.Spawn(FormWithList);
-        // The program in the oracle's locale, and the thread pinned to invariant as the IDE pins it: the source's
-        // literals are read in the thread's culture (#781), so a host writing a decimal comma would change `0.1`.
-        var saved = CultureInfo.CurrentCulture;
-        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
-        try
-        {
-            using (VbLocale.Use(CultureInfo.GetCultureInfo("en-GB")))
-                await ContainerRuntimeHarness.Run(ctx, env, code + "\n");
-        }
-        finally
-        {
-            CultureInfo.CurrentCulture = saved;
-        }
+        // The program uses the oracle's locale explicitly. Literal parsing is invariant (#1610), so there is
+        // no need to change the dispatcher's ambient culture across an await (#1612).
+        using (VbLocale.Use(CultureInfo.GetCultureInfo("en-GB")))
+            await ContainerRuntimeHarness.Run(ctx, env, code + "\n");
 
         var list = (ItemsControl)ContainerRuntimeHarness.Child(canvas, "List1");
         list.Items.Cast<object?>().Should().Equal([expected]);
