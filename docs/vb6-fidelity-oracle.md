@@ -15080,7 +15080,9 @@ named 'Command3'. Do you want to create a control array?".
 Measured with vb6.exe in two places. The IDE was driven with `vb6.exe /runexit`, in session 0 as the `/make` probes are,
 and the compiled EXE was built both native and p-code, the two agreeing. Each program the tests pin was run as written.
 
-**In the IDE**, `Debug.Assert X` with `L` logging each side of it:
+**In the IDE, release build**, `Debug.Assert X` with `L` logging each side of it. These rows ran on the oracle's IDE,
+VB6.EXE 6.00.8176 with VBA6.DLL 6.0.8169, which is VB6's original release and not SP6 (#1524). Re-measure them once SP6
+is installed. The compiled-EXE rows below ran on MSVBVM60 6.00.9848, SP6's runtime, and stand.
 
 | X | result |
 |---|---|
@@ -15115,7 +15117,8 @@ The two `Debug` statements differ here. The compiler removes `Debug.Assert` with
 `Debug.Print`'s arguments and discards only the printing. "Debug statements are removed at compile time", as the issue
 had it, is true of the first and not of the second.
 
-**Compile errors:** `Debug.Assert` with no condition, and `Debug.Assert True, False`, are each "Syntax error".
+**Compile errors:** `Debug.Assert` with no condition, and `Debug.Assert True, False`, are each "Syntax error". A compile
+error is the compiler's answer, so these came from the release build's compiler even in a `/make` (#1524).
 
 ### In HexIDE (#1467)
 
@@ -15131,7 +15134,8 @@ The break carries a new `StopReason.Assertion`, which `get_debug_state` and `run
 form.
 
 **A reusable harness.** `vb6.exe /runexit project.vbp`, run in the guest with a timeout, measures what the VB6 IDE does
-rather than the compiler. A project that ends logs to its end. One that waits is in break mode or showing a dialog, and
+rather than the compiler: in the oracle as it stands, the release build's IDE (#1524). A project that ends
+logs to its end. One that waits is in break mode or showing a dialog, and
 running it again under On Error Resume Next tells the two apart.
 
 ## Print # and the ANSI best fit (2026-10-23, #1511)
