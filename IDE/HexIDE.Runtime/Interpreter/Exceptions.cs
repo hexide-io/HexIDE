@@ -189,7 +189,7 @@ public struct VBStandardError
     public static readonly VBStandardError SpecifiedNotFound = new(453, "Specified not found");
     public static readonly VBStandardError CodeResourceNotFound = new(454, "Code resource not found");
     public static readonly VBStandardError CodeResourceLockError = new(455, "Code resource lock error");
-    public static readonly VBStandardError ThisKeyIsAlreadyAssociatedWithAnElementOfThisCollection = new(457, "An element with this key already exists in the collection");
+    public static readonly VBStandardError ThisKeyIsAlreadyAssociatedWithAnElementOfThisCollection = new(457, "This key is already associated with an element of this collection");
     public static readonly VBStandardError VariableUsesATypeNotSupportedInVisualBasic = new(458, "Variable uses a type not supported in Visual Basic");
     public static readonly VBStandardError ThisComponentDoesntSupportTheSetOfEvents = new(459, "This component doesn't provide that set of events");
     public static readonly VBStandardError InvalidClipboardFormat = new(460, "Invalid Clipboard format");

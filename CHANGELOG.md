@@ -338,6 +338,8 @@ there isn't one yet. Anything may change between 0.x releases.
   program's locale without rounding through a Double, including the Currency and Decimal maxima. Out-of-range
   Strings raise run-time error 6. Hex, octal and exponent forms keep their existing conversion.
 
+- **A duplicate Collection key's error 457 has vb6.exe's words** (#1567): "This key is already associated with an element of this collection". The oracle had recorded them since the Collection was measured, and `Err.Description` still gave other words.
+
 - **`InStr` and `InStrRev` agree with vb6.exe at the ends** (#1567). `InStr` with an empty string to find returned 0 once the start was past the end, where VB6 returns the start, and `InStrRev` found text before a start past the end, where VB6 returns 0. `InStrRev("abc", "")` was 4, not 3.
 
 - **An intrinsic called with too few arguments raises VB6's compile error** (#1512). Calls such as `Chr()`

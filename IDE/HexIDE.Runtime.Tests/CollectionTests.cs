@@ -150,6 +150,21 @@ public class CollectionTests : BaseVBTestFixture
             """));
     }
 
+    // vb6.exe's words for 457, as the oracle has recorded them since the Collection was measured; HexIDE had others.
+    [Fact]
+    public async Task A_duplicate_key_is_457_in_vb6s_words()
+    {
+        await Run("""
+            On Error Resume Next
+            Dim c As New Collection
+            c.Add 1, "k"
+            c.Add 2, "K"
+            Debug.Print Err.Number & " " & Err.Description
+            """);
+
+        AssertDebugLog([new Vb6Value("457 This key is already associated with an element of this collection")]);
+    }
+
     [Fact]
     public async Task Add_places_an_item_by_Before_or_After_and_checks_in_VB6s_order()
     {
