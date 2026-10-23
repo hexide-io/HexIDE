@@ -100,6 +100,10 @@ public partial class FormEditView : UserControl
         }
     }
 
+    // A control HexIDE does not model is carried, not edited (#157): a press on its box selects nothing and starts no
+    // marquee, which handling it here is enough to ensure, since OnFormPressed ignores a handled press.
+    private void OnUnmodelledControlPressed(object? sender, PointerPressedEventArgs e) => e.Handled = true;
+
     // PointerPressed on the form canvas background (fires only when not handled by a child control).
     private void OnFormPressed(object? sender, PointerPressedEventArgs e)
     {
