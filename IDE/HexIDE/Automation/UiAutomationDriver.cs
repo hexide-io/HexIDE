@@ -159,6 +159,13 @@ public static class UiAutomationDriver
             note = $"{omitted} member(s) declared by the Dock framework's base types (layout plumbing such as "
                  + "Proportion and CanFloat) are not listed; set_property still reaches them by name.";
 
+        if (ResolvedCommand(control) is { } bound)
+        {
+            members = [new VmMember("Command", "command", bound.Command.GetType().Name, false),
+                .. members.Where(m => m.Name != "Command")];
+            note = string.Join(" ", new[] { note, BoundCommandNote(bound) }.Where(n => n is not null));
+        }
+
         return new UiNodeDetail(
             path,
             ControlTypeOf(peer),
@@ -2173,18 +2180,63 @@ public static class UiAutomationDriver
         && (ItemsControl.ItemsControlFromItemContainer(c) ?? c.FindAncestorOfType<ItemsControl>()) is { } owner
         && owner.IndexFromContainer(c) < 0;
 
-    // value = the command name: a public ICommand property on the target's DataContext, or a public parameterless
+    private sealed record ControlCommand(System.Windows.Input.ICommand Command, object? Parameter, string Binding);
+
+    // Read the effective value, including compiled bindings and bindings through a different DataContext.
+    // The binding description is diagnostic text, not a stable grammar from which to guess a member name.
+    private static ControlCommand? ResolvedCommand(Control control)
+    {
+        (System.Windows.Input.ICommand? Command, object? Parameter, AvaloniaProperty? Property) resolved = control switch
+        {
+            MenuItem item => (item.Command, item.CommandParameter, MenuItem.CommandProperty),
+            Button button => (button.Command, button.CommandParameter, Button.CommandProperty),
+            _ => (null, null, (AvaloniaProperty?)null),
+        };
+        var (command, parameter, property) = resolved;
+        if (command is null || property is null) return null;
+        var binding = Avalonia.Data.BindingOperations.GetBindingExpressionBase(control, property);
+        // Description is available at runtime but absent from Avalonia's reference assembly. Treat it as optional:
+        // diagnostic metadata must never stop the already resolved command from running.
+        var description = Safe(() => binding?.GetType().GetProperty("Description", BindingFlags.Public | BindingFlags.Instance)
+            ?.GetValue(binding) as string, null);
+        return new ControlCommand(command, parameter, description
+            ?? (binding is null ? "a directly assigned command" : "a binding whose source description is unavailable"));
+    }
+
+    private static string BoundCommandNote(ControlCommand bound) =>
+        $"The target's Command is bound to {bound.Binding}. "
+        + (bound.Binding.StartsWith("#", StringComparison.Ordinal) && bound.Binding.Contains("DataContext", StringComparison.Ordinal)
+            ? "It is bound through another element's DataContext. "
+            : "This is the resolved control command; its source need not be the target's own DataContext. ")
+        + "Use invoke_command with value 'Command' (with the target's CommandParameter), or invoke on this control to run it.";
+
+    // value = Command for the control’s resolved command, a public ICommand property on its DataContext, or a public parameterless
     // method, which is what a Command bound to a method calls (#836).
     private static InteractOutcome ReflectInvokeCommand(Control control, string? value)
     {
         try
         {
             if (NullIfEmpty(value) is not { } name) return ReflectErr("invoke_command requires 'value' = the command name");
-            if (control.DataContext is not { } dc) return ReflectErr("target has no DataContext");
+            var bound = ResolvedCommand(control);
+            if (name == "Command" && bound is not null)
+            {
+                if (!bound.Command.CanExecute(bound.Parameter))
+                    return ReflectErr("'Command'.CanExecute(CommandParameter) returned false");
+                bound.Command.Execute(bound.Parameter);
+                return new InteractOutcome(true, "reflection", "executed target's Command with its CommandParameter", null);
+            }
+            if (control.DataContext is not { } dc)
+                return ReflectErr("target has no DataContext" + (bound is null ? "" : ". " + BoundCommandNote(bound)));
             if (dc.GetType().GetProperty(name, BindingFlags.Public | BindingFlags.Instance) is not { } prop)
-                return ReflectInvokeMethod(dc, name);
+            {
+                var result = ReflectInvokeMethod(dc, name);
+                return !result.Success && bound is not null
+                    ? result with { Error = result.Error + ". " + BoundCommandNote(bound) }
+                    : result;
+            }
             if (prop.GetValue(dc) is not System.Windows.Input.ICommand cmd)
-                return ReflectErr($"'{name}' on {dc.GetType().Name} is not an ICommand");
+                return ReflectErr($"'{name}' on {dc.GetType().Name} is not an ICommand"
+                    + (bound is null ? "" : ". " + BoundCommandNote(bound)));
             if (!cmd.CanExecute(null))
                 return ReflectErr($"'{name}'.CanExecute(null) returned false");
             cmd.Execute(null);

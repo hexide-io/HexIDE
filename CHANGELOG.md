@@ -238,6 +238,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP commands bound through another view model are reachable** (#1336). `inspect_element` lists a menu item’s or button’s resolved `Command` and its binding; `invoke_command` accepts `Command`, checks `CanExecute` with the control’s `CommandParameter`, and runs it. A wrong name explains the binding and how to invoke it, including on the designer’s Delete item.
+
 - **A Const declared with a type character runs, as vb6.exe's does** (#1614). `Const K% = 2.5` stopped the program as
   the module loaded, with "Const type hints not supported". The character is now the As clause it stands for: `K` is
   the Integer 2, `Const K$ = 5` the String "5", and `Const K% = 40000` is vb6.exe's compile error "Overflow".
