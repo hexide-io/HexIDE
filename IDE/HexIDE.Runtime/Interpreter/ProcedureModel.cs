@@ -91,7 +91,7 @@ public sealed record ProcedureInfo(
         void Walk(Antlr4.Runtime.Tree.IParseTree node)
         {
             if (node is VB6Parser.VariableStmtContext v
-                && (v.DIM() != null || v.visibility() != null)
+                && (v.DIM() != null || v.STATIC() != null || v.visibility() != null)
                 && v.variableListStmt() is { } list)
             {
                 foreach (var sub in list.variableSubStmt())

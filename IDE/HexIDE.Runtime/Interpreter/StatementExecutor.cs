@@ -67,6 +67,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private readonly Vb6Value.ValueType? checkedArrayReturn;
 
     /// <summary>
+    /// Where this activation's <c>Static</c> locals keep their slots between calls: its instance's, or its module's for
+    /// the run (#1491). Null for a module-init or class-field-init executor, where <c>Static</c> does not compile.
+    /// </summary>
+    internal StaticLocals? Statics { get; init; }
+
+    /// <summary>
     /// Whether this activation is a Function or Property Get whose return is a Variant's, untyped or <c>As Variant</c>,
     /// so its name takes a Let as a Variant does. Its slot carries no Variant mark (#1493).
     /// </summary>
@@ -2839,14 +2845,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
 
         // `Dim`, `Private`, and `Public` module/local declarations all allocate the same way (visibility isn't
-        // tracked). Class fields are usually declared `Private`/`Public`.
-        if (context.DIM() != null || context.visibility() != null)
+        // tracked). Class fields are usually declared `Private`/`Public`. A procedure's `Static` was declared at entry
+        // with the rest; outside a procedure it does not compile (measured, #1491).
+        if (context.DIM() != null || context.visibility() != null || Statics is not null)
         {
             foreach (var subStmt in context.variableListStmt().variableSubStmt())
                 await DeclareLocal(subStmt);
         }
         else
-            throw new NotImplementedException("non dim variables not supported");
+            throw new VBCompileErrorException("Invalid outside procedure");
 
         return default;
     }
@@ -2869,6 +2876,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // existing value. The first Dim rebinds the name to a fresh slot, so it still shadows a module var.
                 if (!declaredLocals.Add(subStmt.ambiguousIdentifier().GetText()))
                     return;
+                // A Static local is made at its procedure's first call, and every later call binds the name to that
+                // same slot, which the call does not release (#1491).
+                var keep = Statics is not null && StaticLocals.Declares(subStmt) ? Statics : null;
+                if (keep is not null && keep.TryGet(subStmt, out var kept))
+                {
+                    currentEnv.DefineVariable(subStmt.ambiguousIdentifier().GetText(), kept);
+                    return;
+                }
                 bool isArray = false;
                 List<(int, int)>? dimensions = null;
                 if (subStmt.LPAREN() != null && subStmt.RPAREN() != null) // array
@@ -2976,7 +2991,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // Track this local so RunProcedure releases its reference (fires Class_Terminate) at scope-exit,
                 // in declaration order. Every Dim slot is tracked (a Variant can later hold an object via Set);
                 // ReleaseRef no-ops non-objects. Only proc-body executors have ownedSlots (module/field-init = null).
-                if (ownedSlots != null && currentEnv.TryGetVariableLocation(localName, out var localLoc))
+                // A Static's slot is kept instead, for the next call.
+                if (keep is not null && currentEnv.TryGetOwnVariableLocation(localName, out var staticLoc))
+                    keep.Add(subStmt, staticLoc);
+                else if (ownedSlots != null && currentEnv.TryGetVariableLocation(localName, out var localLoc))
                     ownedSlots.Add(localLoc);
             }
         }
