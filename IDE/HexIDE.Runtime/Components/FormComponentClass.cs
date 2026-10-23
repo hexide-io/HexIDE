@@ -10,6 +10,8 @@ public class FormComponentClass : ComponentBaseClass
 {
     public FormComponentClass() : base([CaptionProperty,
     BackColorProperty,
+    // A form or a UserControl saved with Enabled = False runs disabled (#1101). Undeclared, the saved line was dropped.
+    EnabledProperty,
     ForeColorProperty,
     IconProperty,
     ShowInTaskbarProperty,
@@ -47,6 +49,7 @@ public class FormComponentClass : ComponentBaseClass
             [AttachedProperties.FontProperty] = instance.GetPropertyOrDefault(FontProperty),
             WindowStartupLocation = instance.GetPropertyOrDefault(StartUpPositionProperty).ToAvalonia(),
             ShowInTaskbar = instance.GetPropertyOrDefault(ShowInTaskbarProperty),
+            IsEnabled = instance.GetPropertyOrDefault(EnabledProperty),
             Position = new PixelPoint((int)instance.GetPropertyOrDefault(LeftProperty), (int)instance.GetPropertyOrDefault(TopProperty))
         };
         VBProps.SetName(form, instance.GetPropertyOrDefault(NameProperty));

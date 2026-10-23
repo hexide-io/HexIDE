@@ -218,6 +218,13 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Every focusable control raises GotFocus and LostFocus, and a form or UserControl saved disabled runs disabled**
+  (#1101). Only the TextBox and the CommandButton raised them. The CheckBox, OptionButton, ListBox, ComboBox, scroll
+  bars and PictureBox now do, as vb6.exe does: one GotFocus as a control is entered, however its items or edit box take
+  the focus. The ListBox, scroll bars and PictureBox take the focus, where `SetFocus` on one was refused. An option
+  button given the focus by `SetFocus` is selected, raising Click after GotFocus. A form or a UserControl's `.ctl`
+  saved with `Enabled = 0 'False` dropped that line and ran enabled. A disabled form is shown without taking the focus.
+
 - **Cancelling a language-server request now reaches the server** (#944). The cancellation notification
   failed to serialize on every keystroke that abandoned a completion request. It now sends the original
   request’s bare ID, so a server can stop that work; the client still awaits the server’s response.
