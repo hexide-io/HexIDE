@@ -15,18 +15,18 @@ public sealed class ArchiveProjectTests : IDisposable
     {
         using var stream = File.OpenRead(Path.Combine(AppContext.BaseDirectory, "Fixtures", "impexp.twinproj"));
         var project = ArchiveProjectSnapshot.Read(stream, Path.Combine(directory, "impexp.twinproj"), cancellationToken: Token);
-        Assert.True(project.IsReadOnly);
-        Assert.Equal(project.Container.Root.Name, project.Name);
-        Assert.Equal(project.Container.Root.Children.Select(x => x.Name), project.Root.Children.Select(x => x.Name));
-        Assert.Equal(17, project.EntryCount); // Root, five directories and eleven files.
-        var sources = Assert.IsType<ArchiveProjectFolder>(project.Root.Children.Single(x => x.Name == "Sources"));
-        var source = Assert.IsType<ArchiveProjectDocument>(sources.Children.First());
-        Assert.True(source.IsReadOnly);
-        Assert.Equal(ArchiveTextStatus.Available, source.ReadText().Status);
-        Assert.Equal(new[] { "Sources", source.Name }, source.Identity.Segments);
-        Assert.True(project.TryGetEntry(source.Identity, out var found));
-        Assert.Same(source, found);
-        Assert.True(stream.CanRead);
+        project.IsReadOnly.Should().BeTrue();
+        project.Name.Should().Be(project.Container.Root.Name);
+        project.Root.Children.Select(x => x.Name).Should().Equal(project.Container.Root.Children.Select(x => x.Name));
+        project.EntryCount.Should().Be(17); // Root, five directories and eleven files.
+        var sources = project.Root.Children.Single(x => x.Name == "Sources").Should().BeOfType<ArchiveProjectFolder>().Which;
+        var source = sources.Children.First().Should().BeOfType<ArchiveProjectDocument>().Which;
+        source.IsReadOnly.Should().BeTrue();
+        source.ReadText().Status.Should().Be(ArchiveTextStatus.Available);
+        source.Identity.Segments.Should().Equal(new[] { "Sources", source.Name });
+        project.TryGetEntry(source.Identity, out var found).Should().BeTrue();
+        found.Should().BeSameAs(source);
+        stream.CanRead.Should().BeTrue();
     }
 
     [Fact]
@@ -37,11 +37,11 @@ public sealed class ArchiveProjectTests : IDisposable
         var again = Read(bytes, "a.twinproj");
         var other = Read(bytes, "b.twinproj");
         var id = Document(first).Identity;
-        Assert.Equal(id, Document(again).Identity);
-        Assert.Equal(id.GetHashCode(), Document(again).Identity.GetHashCode());
-        Assert.NotEqual(id, Document(other).Identity);
-        Assert.False(other.TryGetEntry(id, out _));
-        Assert.True(again.TryGetEntry(id, out _));
+        Document(again).Identity.Should().Be(id);
+        Document(again).Identity.GetHashCode().Should().Be(id.GetHashCode());
+        Document(other).Identity.Should().NotBe(id);
+        other.TryGetEntry(id, out _).Should().BeFalse();
+        again.TryGetEntry(id, out _).Should().BeTrue();
     }
 
     [Fact]
@@ -50,9 +50,9 @@ public sealed class ArchiveProjectTests : IDisposable
         var bytes = Container(FileNode("../Main.twin", "one"));
         var first = Read(bytes, "a.twinproj");
         var again = Read(bytes, Path.Combine("not-created", "..", "a.twinproj"));
-        Assert.Equal(Document(first).Identity, Document(again).Identity);
-        Assert.Equal(new[] { "../Main.twin" }, Document(first).Identity.Segments);
-        Assert.False(Directory.Exists(Path.Combine(directory, "not-created")));
+        Document(again).Identity.Should().Be(Document(first).Identity);
+        Document(first).Identity.Segments.Should().Equal(new[] { "../Main.twin" });
+        Directory.Exists(Path.Combine(directory, "not-created")).Should().BeFalse();
     }
 
     [Fact]
@@ -61,8 +61,8 @@ public sealed class ArchiveProjectTests : IDisposable
         var bytes = Container(FileNode("a.twin", "one"), FileNode("A.twin", "two"));
         var first = Read(bytes, "p.twinproj");
         var other = Read(bytes, "P.twinproj");
-        Assert.Equal(OperatingSystem.IsWindows(), first.Root.Identity.Equals(other.Root.Identity));
-        Assert.NotEqual(first.Root.Children[0].Identity, first.Root.Children[1].Identity);
+        first.Root.Identity.Equals(other.Root.Identity).Should().Be(OperatingSystem.IsWindows());
+        first.Root.Children[1].Identity.Should().NotBe(first.Root.Children[0].Identity);
     }
 
     [Fact]
@@ -72,11 +72,11 @@ public sealed class ArchiveProjectTests : IDisposable
             FileNode("a/b.twin", "flat"), Folder("a", FileNode("b.twin", "nested")),
             FileNode("", "empty"), FileNode(".", "dot"), FileNode("..", "parent"),
             FileNode("a\\b.twin", "backslash"), FileNode("%2F?#.twin", "punctuation")));
-        var nested = Assert.IsType<ArchiveProjectFolder>(project.Root.Children[1]).Children[0];
-        Assert.NotEqual(project.Root.Children[0].Identity, nested.Identity);
-        Assert.NotEqual(project.Root.Identity, project.Root.Children[2].Identity);
-        Assert.Equal(9, project.EntryCount);
-        Assert.Equal("%2F?#.twin", project.Root.Children[6].Identity.Segments.Single());
+        var nested = project.Root.Children[1].Should().BeOfType<ArchiveProjectFolder>().Which.Children[0];
+        nested.Identity.Should().NotBe(project.Root.Children[0].Identity);
+        project.Root.Children[2].Identity.Should().NotBe(project.Root.Identity);
+        project.EntryCount.Should().Be(9);
+        project.Root.Children[6].Identity.Segments.Single().Should().Be("%2F?#.twin");
     }
 
     [Fact]
@@ -84,19 +84,19 @@ public sealed class ArchiveProjectTests : IDisposable
     {
         var bytes = Container(FileNode("same", "one"), Folder("same"));
         using var stream = new MemoryStream(bytes);
-        Assert.Equal(2, TwinBasicContainerReader.Read(stream, cancellationToken: Token).Root.Children.Length);
-        var error = Assert.Throws<ArchiveProjectAmbiguityException>(() => Read(bytes));
-        Assert.Equal("same", error.EntryName);
-        Assert.Empty(error.Parent.Segments);
+        TwinBasicContainerReader.Read(stream, cancellationToken: Token).Root.Children.Length.Should().Be(2);
+        var error = FluentActions.Invoking(() => Read(bytes)).Should().ThrowExactly<ArchiveProjectAmbiguityException>().Which;
+        error.EntryName.Should().Be("same");
+        error.Parent.Segments.Should().BeEmpty();
     }
 
     [Fact]
     public void Equal_leaf_names_in_different_folders_are_not_ambiguous()
     {
         var project = Read(Container(Folder("one", FileNode("main.twin", "1")), Folder("two", FileNode("main.twin", "2"))));
-        var one = Assert.IsType<ArchiveProjectFolder>(project.Root.Children[0]).Children[0];
-        var two = Assert.IsType<ArchiveProjectFolder>(project.Root.Children[1]).Children[0];
-        Assert.NotEqual(one.Identity, two.Identity);
+        var one = project.Root.Children[0].Should().BeOfType<ArchiveProjectFolder>().Which.Children[0];
+        var two = project.Root.Children[1].Should().BeOfType<ArchiveProjectFolder>().Which.Children[0];
+        two.Identity.Should().NotBe(one.Identity);
     }
 
     [Theory]
@@ -115,8 +115,8 @@ public sealed class ArchiveProjectTests : IDisposable
     {
         var file = Document(Read(Container(FileNode(name, "not necessarily valid JSON", category))));
         var text = file.ReadText();
-        Assert.Equal(isText ? ArchiveTextStatus.Available : ArchiveTextStatus.UnsupportedType, text.Status);
-        Assert.Equal(isText ? "not necessarily valid JSON" : null, text.Text);
+        text.Status.Should().Be(isText ? ArchiveTextStatus.Available : ArchiveTextStatus.UnsupportedType);
+        text.Text.Should().Be(isText ? "not necessarily valid JSON" : null);
     }
 
     [Fact]
@@ -124,39 +124,39 @@ public sealed class ArchiveProjectTests : IDisposable
     {
         byte[] bytes = [0xEF, 0xBB, 0xBF, .. Encoding.UTF8.GetBytes("é\r\n空\n")];
         var file = Document(Read(Container(FileNode("a.twin", bytes))));
-        Assert.Equal("é\r\n空\n", file.ReadText().Text);
-        Assert.Equal(bytes, file.File.Content);
+        file.ReadText().Text.Should().Be("é\r\n空\n");
+        file.File.Content.Should().Equal(bytes);
     }
 
     [Fact]
     public void Invalid_utf8_and_oversized_text_remain_available_as_raw_bytes()
     {
         var invalid = Document(Read(Container(FileNode("a.twin", new byte[] { 0xFF }))));
-        Assert.Equal(new ArchiveText(ArchiveTextStatus.InvalidUtf8, null), invalid.ReadText());
-        Assert.Equal(new byte[] { 0xFF }, invalid.File.Content);
+        invalid.ReadText().Should().Be(new ArchiveText(ArchiveTextStatus.InvalidUtf8, null));
+        invalid.File.Content.Should().Equal(new byte[] { 0xFF });
         var valid = Document(Read(Container(FileNode("a.twin", "1234"))));
-        Assert.Equal(new ArchiveText(ArchiveTextStatus.TooLarge, null), valid.ReadText(3));
-        Assert.Equal("1234", valid.ReadText(4).Text);
-        Assert.Throws<ArgumentOutOfRangeException>(() => valid.ReadText(-1));
+        valid.ReadText(3).Should().Be(new ArchiveText(ArchiveTextStatus.TooLarge, null));
+        valid.ReadText(4).Text.Should().Be("1234");
+        FluentActions.Invoking(() => valid.ReadText(-1)).Should().ThrowExactly<ArgumentOutOfRangeException>();
     }
 
     [Fact]
     public void Empty_text_is_available_and_not_confused_with_an_unavailable_preview()
     {
         var file = Document(Read(Container(FileNode("a.twin", ""))));
-        Assert.Equal(new ArchiveText(ArchiveTextStatus.Available, ""), file.ReadText(0));
+        file.ReadText(0).Should().Be(new ArchiveText(ArchiveTextStatus.Available, ""));
     }
 
     [Fact]
     public void Metadata_and_empty_folders_survive_projection()
     {
         var project = Read(Container(Folder("empty"), FileNode("source.twin", "source", 254, uint.MaxValue)));
-        Assert.Empty(Assert.IsType<ArchiveProjectFolder>(project.Root.Children[0]).Children);
-        var file = Assert.IsType<ArchiveProjectDocument>(project.Root.Children[1]);
-        Assert.Equal(254, file.Source.Category);
-        Assert.Equal(uint.MaxValue, file.Source.Flags);
-        Assert.Equal(ulong.MaxValue, file.Source.Revision);
-        Assert.Equal(new uint[] { 23 }, file.File.Revisions);
+        project.Root.Children[0].Should().BeOfType<ArchiveProjectFolder>().Which.Children.Should().BeEmpty();
+        var file = project.Root.Children[1].Should().BeOfType<ArchiveProjectDocument>().Which;
+        file.Source.Category.Should().Be(254);
+        file.Source.Flags.Should().Be(uint.MaxValue);
+        file.Source.Revision.Should().Be(ulong.MaxValue);
+        file.File.Revisions.Should().Equal(new uint[] { 23 });
     }
 
     [Fact]
@@ -166,15 +166,15 @@ public sealed class ArchiveProjectTests : IDisposable
         var workspace = new ArchiveProjectWorkspace();
         var first = workspace.Open(path, cancellationToken: Token);
         File.WriteAllBytes(path, Container(FileNode("main.twin", "new")));
-        Assert.Same(first, workspace.Open(path, cancellationToken: Token));
-        Assert.Single(workspace.Projects);
-        Assert.Equal("old", Document(first).ReadText().Text);
+        workspace.Open(path, cancellationToken: Token).Should().BeSameAs(first);
+        workspace.Projects.Should().ContainSingle();
+        Document(first).ReadText().Text.Should().Be("old");
         var replacement = workspace.Reload(path, cancellationToken: Token);
-        Assert.NotSame(first, replacement);
-        Assert.Equal("new", Document(replacement).ReadText().Text);
-        Assert.Equal("old", Document(first).ReadText().Text);
-        Assert.Equal(Document(first).Identity, Document(replacement).Identity);
-        Assert.Same(replacement, workspace.Projects.Single());
+        replacement.Should().NotBeSameAs(first);
+        Document(replacement).ReadText().Text.Should().Be("new");
+        Document(first).ReadText().Text.Should().Be("old");
+        Document(replacement).Identity.Should().Be(Document(first).Identity);
+        workspace.Projects.Single().Should().BeSameAs(replacement);
     }
 
     [Fact]
@@ -185,11 +185,11 @@ public sealed class ArchiveProjectTests : IDisposable
         var original = workspace.Open(path, cancellationToken: Token);
         File.WriteAllBytes(path, Container("Renamed", Folder("new-folder", FileNode("new.twin", "new"))));
         var replacement = workspace.Reload(path, cancellationToken: Token);
-        Assert.Equal("Renamed", replacement.Name);
-        Assert.Equal(original.Root.Identity, replacement.Root.Identity);
-        Assert.False(replacement.TryGetEntry(Document(original).Identity, out _));
-        Assert.Equal("new-folder", replacement.Root.Children.Single().Name);
-        Assert.Equal("Project", original.Name);
+        replacement.Name.Should().Be("Renamed");
+        replacement.Root.Identity.Should().Be(original.Root.Identity);
+        replacement.TryGetEntry(Document(original).Identity, out _).Should().BeFalse();
+        replacement.Root.Children.Single().Name.Should().Be("new-folder");
+        original.Name.Should().Be("Project");
     }
 
     [Fact]
@@ -197,10 +197,10 @@ public sealed class ArchiveProjectTests : IDisposable
     {
         var workspace = new ArchiveProjectWorkspace();
         var path = Write("bad.twinproj", [1, 2, 3]);
-        Assert.Throws<TwinBasicFormatException>(() => workspace.Open(path, cancellationToken: Token));
+        FluentActions.Invoking(() => workspace.Open(path, cancellationToken: Token)).Should().ThrowExactly<TwinBasicFormatException>();
         File.WriteAllBytes(path, Container(FileNode("same", "1"), FileNode("same", "2")));
-        Assert.Throws<ArchiveProjectAmbiguityException>(() => workspace.Open(path, cancellationToken: Token));
-        Assert.Empty(workspace.Projects);
+        FluentActions.Invoking(() => workspace.Open(path, cancellationToken: Token)).Should().ThrowExactly<ArchiveProjectAmbiguityException>();
+        workspace.Projects.Should().BeEmpty();
     }
 
     [Fact]
@@ -210,15 +210,15 @@ public sealed class ArchiveProjectTests : IDisposable
         var path = Write("project.twinproj", Container(FileNode("main.twin", "old")));
         var original = workspace.Open(path, cancellationToken: Token);
         File.WriteAllBytes(path, [1, 2, 3]);
-        Assert.Throws<TwinBasicFormatException>(() => workspace.Reload(path, cancellationToken: Token));
-        Assert.Same(original, workspace.Projects.Single());
+        FluentActions.Invoking(() => workspace.Reload(path, cancellationToken: Token)).Should().ThrowExactly<TwinBasicFormatException>();
+        workspace.Projects.Single().Should().BeSameAs(original);
         File.WriteAllBytes(path, Container(Folder("d", FileNode("same", "1"), FileNode("same", "2"))));
-        Assert.Throws<ArchiveProjectAmbiguityException>(() => workspace.Reload(path, cancellationToken: Token));
-        Assert.Same(original, workspace.Projects.Single());
+        FluentActions.Invoking(() => workspace.Reload(path, cancellationToken: Token)).Should().ThrowExactly<ArchiveProjectAmbiguityException>();
+        workspace.Projects.Single().Should().BeSameAs(original);
         File.Delete(path);
-        Assert.Throws<FileNotFoundException>(() => workspace.Reload(path, cancellationToken: Token));
-        Assert.Same(original, workspace.Projects.Single());
-        Assert.Equal("old", Document(original).ReadText().Text);
+        FluentActions.Invoking(() => workspace.Reload(path, cancellationToken: Token)).Should().ThrowExactly<FileNotFoundException>();
+        workspace.Projects.Single().Should().BeSameAs(original);
+        Document(original).ReadText().Text.Should().Be("old");
     }
 
     [Fact]
@@ -228,13 +228,13 @@ public sealed class ArchiveProjectTests : IDisposable
         var path = Write("project.twinproj", Container(FileNode("main.twin", "old")));
         using var cancelled = new CancellationTokenSource();
         cancelled.Cancel();
-        Assert.Throws<OperationCanceledException>(() => workspace.Open(path, cancellationToken: cancelled.Token));
-        Assert.Throws<TwinBasicFormatException>(() => workspace.Open(path, new(MaxEntries: 1), Token));
-        Assert.Empty(workspace.Projects);
+        FluentActions.Invoking(() => workspace.Open(path, cancellationToken: cancelled.Token)).Should().ThrowExactly<OperationCanceledException>();
+        FluentActions.Invoking(() => workspace.Open(path, new(MaxEntries: 1), Token)).Should().ThrowExactly<TwinBasicFormatException>();
+        workspace.Projects.Should().BeEmpty();
         var original = workspace.Open(path, cancellationToken: Token);
-        Assert.Throws<OperationCanceledException>(() => workspace.Reload(path, cancellationToken: cancelled.Token));
-        Assert.Throws<TwinBasicFormatException>(() => workspace.Reload(path, new(MaxEntries: 1), Token));
-        Assert.Same(original, workspace.Projects.Single());
+        FluentActions.Invoking(() => workspace.Reload(path, cancellationToken: cancelled.Token)).Should().ThrowExactly<OperationCanceledException>();
+        FluentActions.Invoking(() => workspace.Reload(path, new(MaxEntries: 1), Token)).Should().ThrowExactly<TwinBasicFormatException>();
+        workspace.Projects.Single().Should().BeSameAs(original);
     }
 
     [Fact]
@@ -245,14 +245,14 @@ public sealed class ArchiveProjectTests : IDisposable
         var before = Directory.GetFileSystemEntries(directory);
         var workspace = new ArchiveProjectWorkspace();
         var original = workspace.Open(path, cancellationToken: Token);
-        Assert.True(workspace.Close(path));
-        Assert.False(workspace.Close(path));
-        Assert.Throws<InvalidOperationException>(() => workspace.Reload(path, cancellationToken: Token));
-        Assert.Equal(original.Root.Identity, workspace.Open(path, cancellationToken: Token).Root.Identity);
+        workspace.Close(path).Should().BeTrue();
+        workspace.Close(path).Should().BeFalse();
+        FluentActions.Invoking(() => workspace.Reload(path, cancellationToken: Token)).Should().ThrowExactly<InvalidOperationException>();
+        workspace.Open(path, cancellationToken: Token).Root.Identity.Should().Be(original.Root.Identity);
         workspace.CloseAll();
-        Assert.Empty(workspace.Projects);
-        Assert.Equal(before, Directory.GetFileSystemEntries(directory));
-        Assert.Equal(bytes, File.ReadAllBytes(path));
+        workspace.Projects.Should().BeEmpty();
+        Directory.GetFileSystemEntries(directory).Should().Equal(before);
+        File.ReadAllBytes(path).Should().Equal(bytes);
     }
 
     private ArchiveProjectSnapshot Read(byte[] bytes, string name = "project.twinproj")
@@ -269,7 +269,7 @@ public sealed class ArchiveProjectTests : IDisposable
     }
 
     private static ArchiveProjectDocument Document(ArchiveProjectSnapshot snapshot) =>
-        Assert.IsType<ArchiveProjectDocument>(snapshot.Root.Children.Single());
+        snapshot.Root.Children.Single().Should().BeOfType<ArchiveProjectDocument>().Which;
 
     private static byte[] Container(params Action<BinaryWriter>[] children) => Container("Project", children);
     private static byte[] Container(string name, params Action<BinaryWriter>[] children)

@@ -49,31 +49,31 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         var before = File.ReadAllBytes(path);
         await archives.Open(path);
         await archives.Open(path);
-        Assert.Single(archives.Projects);
+        archives.Projects.Should().ContainSingle();
         var entry = archives.Projects[0].Root.Children[0];
         archives.OpenDocument(entry);
         archives.OpenDocument(entry);
-        var tab = Assert.IsType<ArchiveDocumentViewModel>(Assert.Single(tabs));
-        Assert.Equal("old", tab.Document.Text);
-        Assert.Equal(before, File.ReadAllBytes(path));
-        Assert.Single(Directory.GetFiles(directory));
+        var tab = tabs.Should().ContainSingle().Which.Should().BeOfType<ArchiveDocumentViewModel>().Which;
+        tab.Document.Text.Should().Be("old");
+        File.ReadAllBytes(path).Should().Equal(before);
+        Directory.GetFiles(directory).Should().ContainSingle();
         recent.Received().Add(path);
 
         Write("one.twinproj", "replacement");
         await archives.Reload(Path.GetRelativePath(Environment.CurrentDirectory, path));
-        Assert.Same(tab, Assert.Single(tabs));
-        Assert.Equal("replacement", tab.Document.Text);
+        tabs.Should().ContainSingle().Which.Should().BeSameAs(tab);
+        tab.Document.Text.Should().Be("replacement");
         File.WriteAllBytes(path, [1, 2, 3]);
         var snapshot = archives.Projects[0];
-        await Assert.ThrowsAnyAsync<IOException>(() => archives.Reload(path));
-        Assert.Same(snapshot, archives.Projects[0]);
-        Assert.Equal("replacement", tab.Document.Text);
+        await FluentActions.Awaiting(() => archives.Reload(path)).Should().ThrowAsync<IOException>();
+        archives.Projects[0].Should().BeSameAs(snapshot);
+        tab.Document.Text.Should().Be("replacement");
 
         await archives.Close(Path.GetRelativePath(Environment.CurrentDirectory, path));
-        Assert.Empty(tabs);
-        Assert.Empty(archives.Projects);
+        tabs.Should().BeEmpty();
+        archives.Projects.Should().BeEmpty();
         archives.OpenDocument(entry);
-        Assert.Empty(tabs);
+        tabs.Should().BeEmpty();
     }
 
     [AvaloniaFact]
@@ -84,12 +84,12 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         await archives.Open(one);
         await archives.Open(two);
         foreach (var p in archives.Projects) archives.OpenDocument(p.Root.Children[0]);
-        Assert.Equal(2, tabs.Count);
+        tabs.Count.Should().Be(2);
         Write("one.twinproj", "renamed", name: "new.twin");
         await archives.Reload(one);
-        Assert.Equal("two", Assert.IsType<ArchiveDocumentViewModel>(Assert.Single(tabs)).Document.Text);
+        tabs.Should().ContainSingle().Which.Should().BeOfType<ArchiveDocumentViewModel>().Which.Document.Text.Should().Be("two");
         await archives.Close();
-        Assert.Empty(tabs);
+        tabs.Should().BeEmpty();
     }
 
     [AvaloniaFact]
@@ -97,7 +97,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
     {
         await archives.Open(Write("one.twinproj", "hello world hello"));
         archives.OpenDocument(archives.Projects[0].Root.Children[0]);
-        var tab = Assert.IsType<ArchiveDocumentViewModel>(Assert.Single(tabs));
+        var tab = tabs.Should().ContainSingle().Which.Should().BeOfType<ArchiveDocumentViewModel>().Which;
         dock.ActiveDocument.Returns(tab);
         var view = new ArchiveDocumentView { DataContext = tab };
         var window = new Window { Content = view, Width = 600, Height = 400 };
@@ -105,17 +105,17 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         try
         {
             var editor = view.FindControl<TextEditor>("Editor")!;
-            Assert.True(editor.IsReadOnly);
+            editor.IsReadOnly.Should().BeTrue();
             var find = new FindReplaceViewModel(Substitute.For<IWindowManager>(), dock, localization)
                 { SearchText = "world", ReplaceText = "changed" };
             find.FindNextCommand.Execute(null);
-            Assert.Equal(6, tab.SelectionStart);
-            Assert.Equal(5, editor.SelectionLength);
+            tab.SelectionStart.Should().Be(6);
+            editor.SelectionLength.Should().Be(5);
             find.ReplaceOneCommand.Execute(null);
             find.ReplaceAllCommand.Execute(null);
-            Assert.Equal("hello world hello", tab.Document.Text);
-            Assert.Throws<InvalidOperationException>(() => tab.Document.Insert(0, "bad"));
-            Assert.Equal("hello world hello", tab.Document.Text);
+            tab.Document.Text.Should().Be("hello world hello");
+            FluentActions.Invoking(() => tab.Document.Insert(0, "bad")).Should().ThrowExactly<InvalidOperationException>();
+            tab.Document.Text.Should().Be("hello world hello");
         }
         finally { window.Close(); }
     }
@@ -125,12 +125,12 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
     {
         await archives.Open(Write("one.twinproj", "not a text preview", name: "form.tbform", flags: 1));
         var root = archives.Projects[0].Root;
-        Assert.Empty(new ArchiveTreeNode(root).Children);
-        Assert.Single(new ArchiveTreeNode(root, showHidden: true).Children);
+        new ArchiveTreeNode(root).Children.Should().BeEmpty();
+        new ArchiveTreeNode(root, showHidden: true).Children.Should().ContainSingle();
         archives.OpenDocument(root.Children[0]);
-        var tab = Assert.IsType<ArchiveDocumentViewModel>(Assert.Single(tabs));
-        Assert.Empty(tab.Document.Text);
-        Assert.Contains("UnsupportedType", tab.Notice);
+        var tab = tabs.Should().ContainSingle().Which.Should().BeOfType<ArchiveDocumentViewModel>().Which;
+        tab.Document.Text.Should().BeEmpty();
+        tab.Notice.Should().Contain("UnsupportedType");
     }
 
     [AvaloniaFact]
@@ -144,16 +144,16 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         var tree = new ProjectToolViewModel(manager, Substitute.For<IEventBus>(),
             Substitute.For<IProjectService>(), Substitute.For<IEditorService>(), localization, archives);
         await archives.Open(Write("one.twinproj", "source"));
-        Assert.Null(focus.FocusedOrStartupProject);
-        tree.SelectedItem = Assert.Single(tree.RootItems.OfType<ArchiveTreeNode>());
-        Assert.False(tree.AddFormCommand.CanExecute(null));
+        focus.FocusedOrStartupProject.Should().BeNull();
+        tree.SelectedItem = tree.RootItems.OfType<ArchiveTreeNode>().Should().ContainSingle().Which;
+        tree.AddFormCommand.CanExecute(null).Should().BeFalse();
         archives.OpenDocument(archives.Projects[0].Root.Children[0]);
         dock.ActiveDocument.Returns(tabs[0]);
         dock.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(dock, new PropertyChangedEventArgs(nameof(dock.ActiveDocument)));
-        Assert.Null(focus.FocusedOrStartupProject);
+        focus.FocusedOrStartupProject.Should().BeNull();
         dock.ActiveDocument.Returns((BaseEditorWindowViewModel?)null);
         dock.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(dock, new PropertyChangedEventArgs(nameof(dock.ActiveDocument)));
-        Assert.Same(project, focus.FocusedOrStartupProject);
+        focus.FocusedOrStartupProject.Should().BeSameAs(project);
     }
 
     [AvaloniaFact]
@@ -163,28 +163,28 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         manager.LoadedProjects.Returns(Array.Empty<ProjectDefinition>());
         var tree = new ProjectToolViewModel(manager, Substitute.For<IEventBus>(),
             Substitute.For<IProjectService>(), Substitute.For<IEditorService>(), localization, archives);
-        Assert.False(tree.SynchronizeArchiveFolderCommand.CanExecute(null));
+        tree.SynchronizeArchiveFolderCommand.CanExecute(null).Should().BeFalse();
         var path = Write("one.twinproj", "preview");
         await archives.Open(path);
         await archives.Open(Write("two.twinproj", "other"));
         archives.OpenDocument(archives.Projects[0].Root.Children[0]);
-        var tab = Assert.IsType<ArchiveDocumentViewModel>(Assert.Single(tabs));
+        var tab = tabs.Should().ContainSingle().Which.Should().BeOfType<ArchiveDocumentViewModel>().Which;
         tree.SelectedItem = tree.RootItems.OfType<ArchiveTreeNode>().First().Children[0];
-        Assert.True(tree.SynchronizeArchiveFolderCommand.CanExecute(null));
-        Assert.False(Directory.Exists(Path.Combine(directory, ".hexide")));
+        tree.SynchronizeArchiveFolderCommand.CanExecute(null).Should().BeTrue();
+        Directory.Exists(Path.Combine(directory, ".hexide")).Should().BeFalse();
         Write("one.twinproj", "saved after opening");
         var before = File.ReadAllBytes(path);
         await tree.SynchronizeArchiveFolder();
         var target = Path.Combine(directory, ".hexide", ".twinproj", "one.twinproj");
-        Assert.Equal("saved after opening", File.ReadAllText(Path.Combine(target, "main.twin")));
-        Assert.False(Directory.Exists(Path.Combine(directory, ".hexide", ".twinproj", "two.twinproj")));
-        Assert.Equal(before, File.ReadAllBytes(path));
-        Assert.Equal("preview", tab.Document.Text);
-        Assert.True(tab.IsReadOnlyDocument);
+        File.ReadAllText(Path.Combine(target, "main.twin")).Should().Be("saved after opening");
+        Directory.Exists(Path.Combine(directory, ".hexide", ".twinproj", "two.twinproj")).Should().BeFalse();
+        File.ReadAllBytes(path).Should().Equal(before);
+        tab.Document.Text.Should().Be("preview");
+        tab.IsReadOnlyDocument.Should().BeTrue();
         await windows.Received(1).MessageBox(Arg.Is<string>(s => s.StartsWith("Ready: ") && s.Contains("one.twinproj")),
             "Str.Archive.SyncFolder", MessageBoxButtons.Ok, MessageBoxIcon.Information);
         await archives.Reload(path);
-        Assert.Equal("saved after opening", tab.Document.Text);
+        tab.Document.Text.Should().Be("saved after opening");
     }
 
     [AvaloniaFact]
@@ -197,13 +197,13 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         File.WriteAllText(member, "user edit");
         windows.ClearReceivedCalls();
         await archives.SynchronizeFolder(path);
-        Assert.Equal("user edit", File.ReadAllText(member));
+        File.ReadAllText(member).Should().Be("user edit");
         await windows.Received(1).MessageBox(Arg.Is<string>(s => s.StartsWith("Stopped: ") && s.Contains("main.twin")),
             "Str.Archive.SyncFolder", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
         await archives.Close(path);
         windows.ClearReceivedCalls();
         await archives.SynchronizeFolder(path);
-        Assert.Empty(windows.ReceivedCalls());
+        windows.ReceivedCalls().Should().BeEmpty();
     }
 
     [AvaloniaFact]
@@ -215,7 +215,7 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
             Substitute.For<IProjectService>(), Substitute.For<IEditorService>(), localization, archives);
         var path = Write("one.twinproj", "saved");
         await archives.Open(path);
-        tree.SelectedItem = Assert.Single(tree.RootItems);
+        tree.SelectedItem = tree.RootItems.Should().ContainSingle().Which;
         var shown = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var dismissed = new TaskCompletionSource<MessageBoxResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         windows.MessageBox(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>())
@@ -223,16 +223,16 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         var operation = tree.SynchronizeArchiveFolder();
         try
         {
-            Assert.False(tree.SynchronizeArchiveFolderCommand.CanExecute(null));
+            tree.SynchronizeArchiveFolderCommand.CanExecute(null).Should().BeFalse();
             await tree.SynchronizeArchiveFolder(); // A repeated invocation must not queue another export/dialog.
             await shown.Task.WaitAsync(TimeSpan.FromSeconds(20));
             await archives.Close(path).WaitAsync(TimeSpan.FromSeconds(20));
-            Assert.Empty(archives.Projects);
+            archives.Projects.Should().BeEmpty();
         }
         finally { dismissed.TrySetResult(default); }
         await operation;
-        Assert.Single(windows.ReceivedCalls());
-        Assert.False(tree.SynchronizeArchiveFolderCommand.CanExecute(null));
+        windows.ReceivedCalls().Should().ContainSingle();
+        tree.SynchronizeArchiveFolderCommand.CanExecute(null).Should().BeFalse();
     }
 
     [AvaloniaFact]
@@ -247,24 +247,24 @@ public sealed class ArchiveProjectBrowsingTests : IDisposable
         try
         {
             await composition.ProjectService.OpenProject(path);
-            Assert.Empty(composition.ProjectManager.LoadedProjects);
-            Assert.Single(root.ProjectExplorer.RootItems.OfType<ArchiveTreeNode>());
+            composition.ProjectManager.LoadedProjects.Should().BeEmpty();
+            root.ProjectExplorer.RootItems.OfType<ArchiveTreeNode>().Should().ContainSingle();
             await composition.ProjectService.SaveAllProjects(false);
             await composition.ProjectService.SaveAllProjects(true);
-            Assert.Equal(bytes, File.ReadAllBytes(path));
-            Assert.Single(Directory.GetFiles(directory));
+            File.ReadAllBytes(path).Should().Equal(bytes);
+            Directory.GetFiles(directory).Should().ContainSingle();
             var vb = new ProjectDefinition(VBProjectType.EXE, "VBProject");
             composition.ProjectManager.AddProject(vb);
-            Assert.False(composition.ProjectRunnerService.CanStartDefaultProject);
+            composition.ProjectRunnerService.CanStartDefaultProject.Should().BeFalse();
             composition.ProjectRunnerService.RunStartupProject();
-            Assert.False(composition.ProjectRunnerService.IsRunning);
-            Assert.False(root.AddFormCommand.CanExecute(null));
+            composition.ProjectRunnerService.IsRunning.Should().BeFalse();
+            root.AddFormCommand.CanExecute(null).Should().BeFalse();
             root.AddFormCommand.Execute(null);
-            Assert.Empty(vb.Forms);
+            vb.Forms.Should().BeEmpty();
             // Avoid a save prompt for the unrelated, newly created VB6 project.
             composition.ProjectManager.UnloadAllProjects();
             await composition.ProjectService.UnloadAllProjects();
-            Assert.Empty(root.ProjectExplorer.RootItems);
+            root.ProjectExplorer.RootItems.Should().BeEmpty();
         }
         finally
         {

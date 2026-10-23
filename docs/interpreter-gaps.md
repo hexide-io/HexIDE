@@ -194,11 +194,9 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   are ordinary VB6. `ClassifyRadixLiteral` (`ExpressionExecutor.cs:389`) already parses `&H`/`&O`,
   oracle-pinned.
 - ~~**Multi-level qualified member access**~~ — **READS FIXED 2026-09-02 (#173)**. A module qualifier is simply the first step of an ordinary chain; measured to four levels (`Module1.p.In1.Z`). Folded through the same `ResolveMemberChain` as unqualified chains — they were only ever different in the KIND of the first step. **Chained assignment (`a.b.c = 5`) is still refused**: the prefix may resolve to a UDT, which is a value type, so whether the write reaches its owner is an aliasing question with its own tests to write.
-- **Parameterized `Property Get`/`Let`/`Set`** — the method branch resolves arguments at
-  `ExpressionExecutor.cs:503`; the property branch detects them and throws eight lines later at `:510-511`,
-  then passes `[]`. Same receiver, same `RunProcedure`. A Collection now exists (#1471), but its `Item` is a member of an
-  in-box object that takes its index as an argument, not a parameterised `Property Get` of the program's own class,
-  so it carves nothing out of this row.
+- **Parameterized `Property Let`/`Set`** remain refused. A class's parameterized `Property Get` now
+  passes its index arguments through the ordinary procedure binder (#741), including the surplus-argument
+  compile error. A Collection's `Item` is separately implemented as an in-box object's member (#1471).
 - **Fixed-length strings** (`Dim s As String * n`) — the width is a CST child of the declaration; the
   behaviour is store-time coercion on a declared type, the mechanism `CoerceOnStore` already runs for
   Integer/Long/Date. The UDT-field leg needs a new coercion site: `VbUdt.TrySet` writes the field bag with
@@ -283,4 +281,9 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
 
 ## Other
 
-_(none)_
+- **Parameterless `Left` sharing the library name (#741, oracle TE_01):** with
+  `Function Left() As String: Left = "noparams"`, VB6 answers `"a"` for `Left("abc", 1)`, passing over
+  the user function to the library. HexIDE raises the compile error "Wrong number of arguments or invalid
+  property assignment" as the statement executes. VB6 does not give parameterless `Right` the same
+  treatment; the difference is **unexplained**. This deliberately refuses a valid program rather than
+  returning a wrong value. Parameterless Variant/object result indexing remains supported (#1476).
