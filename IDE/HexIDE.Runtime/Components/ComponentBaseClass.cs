@@ -46,6 +46,14 @@ public abstract class ComponentBaseClass : IComponentClass
     public virtual bool IsVisual => true;
 
     /// <summary>
+    /// True for a control VB6 draws on its container's own surface rather than in a window of its own: the Label, Shape,
+    /// Line and Image. Such a control is drawn under every windowed control in its container, whatever their order, and
+    /// VB6 writes it after them (measured, #1481), so each container's blocks run windowed first, then windowless, each run
+    /// with its top control first.
+    /// </summary>
+    public virtual bool IsWindowless => false;
+
+    /// <summary>
     /// The size, in twips, VB6's designer gives a control of this class added by double-clicking its tool (measured,
     /// #1473): 1215 x 495 for most classes. A Timer has no size of its own in the file, and VB6 places it as a control of
     /// this size.

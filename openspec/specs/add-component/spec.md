@@ -38,25 +38,30 @@ globally is what keeps the sequence predictable when several kinds are added in 
 - **WHEN** components of different kinds are added
 - **THEN** each is numbered within its own kind's sequence
 
-### Requirement: A new component SHALL be written to disk as it is created
-Creating a component SHALL write its file immediately, alongside the project, and add it to the project.
+### Requirement: A new component SHALL have no file until the project is saved
+Creating a component SHALL add it to the project and SHALL write nothing to disk: neither its file nor the project
+file. The project's next save SHALL write it, asking where with the component's name as the suggested file name,
+and the project file SHALL list it from then.
 
-Holding a new component only in memory leaves it without a location, which everything downstream needs —
-saving the project, referring to it by path, and any tool acting on the file. Writing it at creation means
-there is never a state where the project references something that does not exist yet.
+VB6 writes nothing until the project is saved, measured (#489). Writing at creation left a never-saved
+project's files in a temporary folder, named from its project file by a path into it (#500).
 
 #### Scenario: Adding a component to a saved project
 - **WHEN** a component is added to a project that has been saved
-- **THEN** its file exists alongside the project and the project references it
+- **THEN** no file is written, and the project file is unchanged
 
-### Requirement: A new component SHALL NOT replace a file already where its own would be written
+#### Scenario: Saving a project that has never been saved
+- **GIVEN** a new project to which a module has been added
+- **WHEN** the project is saved, and each file dialog is answered with one chosen folder
+- **THEN** the module's file is written in that folder beside the project file, which lists it by its name alone
+
+### Requirement: A new component's default name SHALL NOT be one whose file is already in the project's folder
 A new component's default name SHALL pass over any number whose file is already in the project's folder, or
 is named by the project file for a member that did not load. For a form, user control or property page, the
-`.frx`, `.ctx` or `.pgx` beside it counts too. A name the caller chose SHALL instead be refused, with nothing
-written.
+`.frx`, `.ctx` or `.pgx` beside it counts too.
 
-Writing at creation makes the name a path, and VB6 projects often share a folder. Writing over another
-project's file destroys it silently (#738).
+The name is the file name its first save suggests, and VB6 projects often share a folder. A suggestion that names
+another project's file is one keystroke from destroying it (#738).
 
 #### Scenario: Another project's module in the folder
 - **GIVEN** a saved project whose folder already holds `Module1.bas`, which the project does not reference
@@ -67,10 +72,6 @@ project's file destroys it silently (#738).
 - **GIVEN** a saved project whose folder holds `Form1.frx` but no `Form1.frm`
 - **WHEN** a form is added
 - **THEN** it is named `Form2`
-
-#### Scenario: A name chosen by the caller
-- **WHEN** automation adds a module named `Module1` to a project whose folder already holds `Module1.bas`
-- **THEN** the add is refused, the reply names the file, and nothing is written or added
 
 ### Requirement: A new component SHALL open for editing in the surface that suits it
 After creation the component SHALL open for editing — code-only kinds in the code editor, and kinds with a
@@ -87,6 +88,24 @@ understood the request rather than merely creating a file.
 #### Scenario: Adding a form or user control
 - **WHEN** a form or user control is added
 - **THEN** it opens on the design surface
+
+### Requirement: A new form SHALL be written as VB6 writes one
+A new form's file SHALL be CRLF throughout and end with a line break. Its code SHALL open with the five
+`Attribute` lines VB6 writes for a form, naming the form, and its designer block SHALL say
+`StartUpPosition = 3`. A new user control or property page SHALL take neither the form's `Attribute` block nor a
+`StartUpPosition` line.
+
+VB6 reads a missing `StartUpPosition` as Manual, which opens the form at the screen's origin (#932). The
+`Attribute` block is what VB6 writes for a form (#516).
+
+#### Scenario: Adding a form
+- **WHEN** a form named `Form2` is added
+- **THEN** its file has no bare line feed, ends with CRLF, says `StartUpPosition = 3 'Windows Default`, and its
+  code opens with `Attribute VB_Name = "Form2"` and the other four lines VB6 writes
+
+#### Scenario: Adding a user control
+- **WHEN** a user control is added
+- **THEN** its file has no `StartUpPosition` line
 
 ### Requirement: The commands SHALL be unavailable without a project
 The add commands SHALL be unavailable when no project is open.

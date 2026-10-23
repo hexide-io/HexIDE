@@ -50,10 +50,15 @@ public partial class FormDefinition : INotifyPropertyChanged
     /// Convenience constructor: creates a default form with initial Form component.
     /// The caller provides the concrete IComponentClass for "Form" (e.g. FormComponentClass.Instance).
     /// </summary>
+    /// <remarks>
+    /// Not what a plain form is created with: that is <see cref="NewForm"/>. This also builds the designer half of
+    /// a new UserControl or PropertyPage, whose root type is set only afterwards, so nothing here may assume a form.
+    /// Its seed is CRLF and terminated all the same, as VB6 writes every line of a designer file (#931).
+    /// </remarks>
     public FormDefinition(ProjectDefinition owner, IComponentClass formComponentClass, string name)
     {
         Owner = owner;
-        Code = "Private Sub Form_Load()\n\nEnd Sub";
+        Code = "Private Sub Form_Load()\r\n\r\nEnd Sub\r\n";
         components = new List<ComponentInstance>
         {
             new ComponentInstance(formComponentClass, name)
@@ -61,6 +66,42 @@ public partial class FormDefinition : INotifyPropertyChanged
                 .SetProperty(VBProperties.HeightProperty, 300d)
                 .SetProperty(VBProperties.CaptionProperty, name)
         };
+    }
+
+    /// <summary>
+    /// A plain form as Add Form, the Project Explorer's Add Form and a new Standard EXE create it, carrying what
+    /// VB6 writes for one and HexIDE did not.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>The five <c>Attribute</c> lines</b>, as nineteen of the twenty forms in VB6's Template tree carry them,
+    /// its new project's <c>Form1.frm</c> among them (#516). That is what VB6 writes, not what it needs: measured, a
+    /// form without them builds and has its default instance alike, and its <c>Begin</c> line names it. A rename keeps
+    /// <c>VB_Name</c> in step. In the code, so the code window shows what the file will say, and greys and folds them
+    /// as it does a form read from disk.
+    /// </para>
+    /// <para>
+    /// <b><c>StartUpPosition = 3</c>, Windows Default</b>, which VB6 writes for a new form. The property's default
+    /// is 0, Manual, because that is what VB6 reads a missing line as (#932, measured), so a form that does not
+    /// say 3 would open at the screen's origin, its caption off the top.
+    /// </para>
+    /// <para>
+    /// Not for the designer half of a UserControl or PropertyPage. No VB6-authored one in the corpus carries a
+    /// <c>StartUpPosition</c> line, and their <c>Attribute</c> block differs (<c>Gauge.ctl</c> has
+    /// <c>VB_PredeclaredId = False</c>), so nothing of a form's is written into one.
+    /// </para>
+    /// </remarks>
+    public static FormDefinition NewForm(ProjectDefinition owner, IComponentClass formComponentClass, string name)
+    {
+        var form = new FormDefinition(owner, formComponentClass, name);
+        form.Code = $"Attribute VB_Name = \"{name}\"\r\n"
+                  + "Attribute VB_GlobalNameSpace = False\r\n"
+                  + "Attribute VB_Creatable = False\r\n"
+                  + "Attribute VB_PredeclaredId = True\r\n"
+                  + "Attribute VB_Exposed = False\r\n"
+                  + form.Code;
+        form.components[0].SetProperty(VBProperties.StartUpPositionProperty, VBStartupPosition.StartUpWindowsDefault);
+        return form;
     }
 
     private string? absolutePath;

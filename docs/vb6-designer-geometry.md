@@ -63,11 +63,15 @@ transform that treats them alike corrupts one of them.
 
 ## Order
 
-**`Begin` order is z-order**, and there is a separate windowless plane: graphical controls (`Label`,
-`Shape`, `Line`, `Image`) draw beneath windowed ones regardless of file order. HexIDE's canvas order is
-currently the inverse of the file's, which is a pre-existing defect
-([#1481](https://github.com/hexide-io/HexIDE/issues/1481)) rather than something this document endorses. For two Lines the direction is measured: the one earlier in the file is drawn over the
-later one (`docs/vb6-fidelity-oracle.md`, "The Line control"), and HexIDE draws Lines that way.
+**`Begin` order is z-order, and the first block in a container is its top control** (measured, `docs/vb6-fidelity-oracle.md`,
+"Where VB6's designer puts a control's block"). There is a separate windowless plane: graphical controls (`Label`,
+`Shape`, `Line`, `Image`) are drawn beneath every windowed control in their container, whatever the order, and VB6
+writes each container's windowed blocks first and its windowless ones after them. A control VB6 adds or pastes goes
+first in its plane's run, and Bring to Front and Send to Back move a block to the start or the end of that run. The
+designer draws a form VB6 wrote the same way (#1481); the running form still draws the last block on top
+([#1497](https://github.com/hexide-io/HexIDE/issues/1497)). For two Lines the direction is measured too: the one
+earlier in the file is drawn over the later one (`docs/vb6-fidelity-oracle.md`, "The Line control"), and HexIDE draws
+Lines that way.
 
 **`TabIndex` is one flat sequence per form**, not one per container, and VB6 renumbers it to `0..N−1` on
 load — verified by authoring `0,0,9,9,4,(absent)` and reading back `0,1,2,3,4,5`. Whether VB6 also

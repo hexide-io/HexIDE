@@ -19,7 +19,7 @@
 | Remove *{project}* | — | Done | |
 | Save Project | — | Partial | Saves every member HexIDE can reproduce; members it cannot are left untouched on disk and reported together in one dialog. See `Save {file}` |
 | Save Project As… | — | Done | |
-| Save *{file}* | Ctrl+S | Partial | **All 22 of VB6's own template forms survive a save byte-for-byte**, companions included, and none is held read-only. The last held, `Web Browser.frm`, was freed by [#60](https://github.com/hexide-io/HexIDE/issues/60): the companion records cited by a control or property HexIDE does not model are carried with it, and a save rewrites each citation to wherever its record lands. Menu trees round-trip as of #83, container nesting as of #84, and the companion-file model closed the rest (#107–#113); VB6's seven `.vbp` files round-trip as of #116. A save now writes a designer file and its companion **together or not at all** ([#148](https://github.com/hexide-io/HexIDE/issues/148)) — the text write used to be unconditional while the companion write could refuse on a measure of its own, leaving a `.frm` citing renumbered offsets into a companion that still held the old partition, which then reopened as faithful. A form separated from its `.frx` is held too, as of [#146](https://github.com/hexide-io/HexIDE/issues/146) — the gate counts what the `.frm` *cites* rather than what the companion yielded, so an absent or truncated companion is visible to it; previously such a form opened freely and an ordinary Ctrl+S stripped every citation from the developer's own file. Still `Partial`, not `Done`: the measured corpus is VB6's own templates rather than real-world projects, and a control HexIDE does not model is invisible in the designer ([#157](https://github.com/hexide-io/HexIDE/issues/157)), so a form such as `Web Browser.frm` now edits with its ImageList and Toolbar unseen. Epic [#21](https://github.com/hexide-io/HexIDE/issues/21); contract in [serialization-round-trip](../openspec/specs/serialization-round-trip/spec.md) |
+| Save *{file}* | Ctrl+S | Partial | **All 22 of VB6's own template forms survive a save byte-for-byte**, companions included, and none is held read-only. The last held, `Web Browser.frm`, was freed by [#60](https://github.com/hexide-io/HexIDE/issues/60): the companion records cited by a control or property HexIDE does not model are carried with it, and a save rewrites each citation to wherever its record lands. Menu trees round-trip as of #83, container nesting as of #84, and the companion-file model closed the rest (#107–#113); VB6's seven `.vbp` files round-trip as of #116. A save now writes a designer file and its companion **together or not at all** ([#148](https://github.com/hexide-io/HexIDE/issues/148)) — the text write used to be unconditional while the companion write could refuse on a measure of its own, leaving a `.frm` citing renumbered offsets into a companion that still held the old partition, which then reopened as faithful. A form separated from its `.frx` is held too, as of [#146](https://github.com/hexide-io/HexIDE/issues/146) — the gate counts what the `.frm` *cites* rather than what the companion yielded, so an absent or truncated companion is visible to it; previously such a form opened freely and an ordinary Ctrl+S stripped every citation from the developer's own file. Still `Partial`, not `Done`: the measured corpus is VB6's own templates rather than real-world projects. A control HexIDE does not model is carried, and since [#157](https://github.com/hexide-io/HexIDE/issues/157) is shown in the designer where VB6 shows it, so `Web Browser.frm` edits with its ImageList and Toolbar in view. Epic [#21](https://github.com/hexide-io/HexIDE/issues/21); contract in [serialization-round-trip](../openspec/specs/serialization-round-trip/spec.md) |
 | Save *{file}* As… | — | Done | Subject to the same faithfulness gate as `Save {file}`, at a new path too, and refused *before* the destination is asked for. It used to be exempt — "the original file is not at risk" — which is true of the original and silent about the copy: `WriteCompanionBinary` can only protect a companion that already exists, so at a new path the blobs are dropped, and the copy then reopens as **faithful** because the citations that flagged it are exactly what went missing ([#143](https://github.com/hexide-io/HexIDE/issues/143)). **Not covered:** the Make EXE package still serializes every form to a temp directory with no gate |
 | Print… | — | Stub | Bound to `NYICommand`; shows "not yet implemented" |
 | Print Setup… | — | Stub | Bound to `NYICommand` |
@@ -89,7 +89,7 @@
 
 | Item | Shortcut | Status | Notes |
 |---|---|---|---|
-| Add Form | — | Done | Creates Form2, Form3… with defaults; opens designer; saves to project dir |
+| Add Form | — | Done | Creates Form2, Form3… with defaults and opens the designer. Like every new component it has no file until the project is saved, as in VB6 (#500) |
 | Add MDI Form | — | Missing | MDI is not COM-dependent; implementable cross-platform as an Avalonia container with floating child sub-windows |
 | Add Module | — | Done | Creates Module1, Module2… with defaults; opens code editor; saves to project dir |
 | Add Class Module | — | Done | Creates Class1, Class2… with defaults; opens code editor; saves to project dir |
@@ -97,7 +97,7 @@
 | Add Property Page | — | Done | Creates PropertyPage1, PropertyPage2… with empty designer surface; opens designer; saves .pag to project dir |
 | Add File… | — | Done | Adopts an existing file: classified by extension, VB6 source joins as a form/module, anything else as a related document. Multi-select; re-picking a carried file re-opens it instead of duplicating |
 | Remove *{file}* | — | Stub | MenuItem present, no Command binding; use project tree context menu |
-| References… | — | Done | Registry enumeration on Windows; Browse button; persisted to .vbp |
+| References… | — | Done | Registry enumeration on Windows; Browse button; persisted to .vbp. Lists VB6's three fixed rows, then the project's references in order, OLE Automation among them; OK with nothing changed leaves them as they were (#1026, measured). The title and the Language line differ from VB6's ([#1468](https://github.com/hexide-io/HexIDE/issues/1468)) |
 | Components… | — | Stub | Dialog opens; Apply command is a no-op; only lists hardcoded built-in controls |
 | *{project}* Properties… | — | Partial | Name/description/startup form/project type editable; project type dropdown limited to EXE |
 
@@ -281,6 +281,7 @@
 | Property search / filter | Missing | No search box in Properties window |
 | Control rendering quality | Partial | Bitmap snapshot via `ControlRenderer`; text/font preview approximate |
 | Read-only designer for unsaveable forms | Done | **HexIDE addition** (not in VB6) — a form HexIDE cannot reproduce opens read-only with a banner (`FormEditViewModel.IsReadOnly`). 1 of VB6's own 22 template forms is in this state today — `Web Browser.frm`, whose pictures sit on an `MSComctlLib.ImageList` OCX (was 12 before #83, then 6 before #107–#113). That is the floor until OCX hosting lands ([#21](https://github.com/hexide-io/HexIDE/issues/21)) |
+| Controls HexIDE does not model | Done | **Diverges from VB6 by design** in one respect: each is drawn as a box where VB6's IDE draws the empty PictureBox it puts in such a control's place, at its `Left` and `Top`, sized by its `Width` and `Height` or VB6's 1200 × 480 twips without them (measured; `_ExtentX`/`_ExtentY` play no part), and HexIDE labels the box with the control's class where VB6 leaves it empty. Inert: it cannot be selected or moved, and the control is written back from the block it was read as ([#157](https://github.com/hexide-io/HexIDE/issues/157)). A box inside a Frame or PictureBox moves, deletes and undoes with it. A box is drawn above the controls the designer models, not at its own place among them |
 
 ---
 
@@ -292,7 +293,7 @@
 | View Code | Done | |
 | View Object | Done | |
 | Set as Startup Project | Done | |
-| Add Form (context menu) | Done | |
+| Add Form (context menu) | Done | The same operation as Project > Add Form: the form's file is written and its designer opens (#468). It used to add a form with no file and open nothing. |
 | Remove Form | Done | |
 | Project Properties (context menu) | Done | |
 | Toggle folders | Removed | VB6's button toggled the virtual type folders; both removed with the filesystem-hierarchy rendering (labelled commit, Classic-fork revertible) — [project-explorer](../openspec/specs/project-explorer/spec.md) Phase 1 |
@@ -409,7 +410,7 @@
 |---|---|---|
 | New Project | Done | New / Existing / Recent tabs |
 | Project Properties | Partial | EXE-only project type; startup form selection works |
-| References | Done | Registry enumeration (Windows); Browse; persisted to .vbp |
+| References | Done | Registry enumeration (Windows); Browse; persisted to .vbp. VB6's three fixed rows head the list, and the project's own OLE Automation reference is an ordinary row that OK keeps (#1026) |
 | Components | Stub | `ApplyCommand` is empty; Designers and Insertable Objects lists always empty |
 | Add Procedure | Done | |
 | Find / Replace | Partial | Searches any document that has a text buffer, not only VB6 code windows — the carried-file editor included. Both offered scopes are honoured (Current Module, All Open Documents); project-wide is deferred to [#372](https://github.com/hexide-io/HexIDE/issues/372). Edit ▸ Find / Replace / F3 grey out on a document with nothing to search (the designer, the Object Browser, the Translation Editor, Language & Debug Servers), and the modeless dialog says so if the active tab changes under it. A match in the header or a member's `Attribute` lines is skipped (#273), without saying so yet ([#705](https://github.com/hexide-io/HexIDE/issues/705)) |
