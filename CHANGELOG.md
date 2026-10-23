@@ -236,6 +236,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP `press_key` reaches access keys and menus** (#1523). Keys now pass through the window input path,
+  so Alt+W activates a button captioned `One &Wide`. The reply names `window-input`, or `routed-key`
+  when focus or platform input is unavailable and the previous routed delivery is used.
+
 - **A carried control's box is drawn in its place among the designer's controls** (#1553). The designer drew the box
   for every control it carries as text over every control it models, so a control brought in front of one was saved in
   front of it (#1498) but still drawn under its box. The boxes now stack with the controls, as VB6 stacks the control:
