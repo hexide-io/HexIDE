@@ -19,8 +19,8 @@ namespace HexIDE.Integration.Tests.Views;
 
 /// <summary>
 /// A ComboBox's Text (#926). Every expectation is vb6.exe's, native and p-code agreeing, and a Dropdown Combo (Combo1)
-/// and a Simple Combo (Combo2) agreed row for row (the oracle's "A ComboBox's Text, at each Style"). A Dropdown List
-/// (Combo3) is #1428's, so its Text is refused. Each run case starts from <c>apple</c>, <c>Banana</c> and <c>cherry</c>.
+/// and a Simple Combo (Combo2) agreed row for row (the oracle's "A ComboBox's Text, at each Style"). A Dropdown List's
+/// (Combo3) is <c>DropdownListTests</c>'. Each run case starts from <c>apple</c>, <c>Banana</c> and <c>cherry</c>.
 /// </summary>
 public class ComboBoxTextTests
 {
@@ -127,18 +127,6 @@ public class ComboBoxTextTests
         printed.Should().Equal(expected);
     }
 
-    [AvaloniaTheory]
-    [InlineData("Debug.Print X.Text\n")]
-    [InlineData("X.Text = \"apple\"\n")]
-    public async Task A_Dropdown_List_s_Text_is_refused_naming_the_issue(string statement)
-    {
-        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(Form);
-        var act = () => ContainerRuntimeHarness.Run(ctx, env, ("Combo3.AddItem \"apple\"\n" + statement.Replace("X.", "Combo3.")).ReplaceLineEndings("\r\n"));
-
-        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should()
-            .Contain("Style is 2").And.Contain("#1428");
-    }
-
     // At a combo's height, a TextBox's own padding cut its text off and showed the top of a vertical scroll bar, on the
     // running form and in the designer, which draws the same control. Its edit box scrolls only sideways, as a single-line
     // TextBox does (#914).
@@ -168,7 +156,7 @@ public class ComboBoxTextTests
     [AvaloniaFact]
     public void A_Dropdown_List_s_item_is_drawn_whole_at_a_combo_s_height()
     {
-        var combo = new HexIDE.Runtime.BuiltinControls.VBComboBox(2) { Width = 145, Height = 21 };
+        var combo = new HexIDE.Runtime.BuiltinControls.VBComboBox(HexIDE.Runtime.BuiltinTypes.VBComboStyle.DropdownList) { Width = 145, Height = 21 };
         combo.Items.Add("Banana");
         combo.SelectedIndex = 0;
         var window = new Avalonia.Controls.Window { Content = combo, Width = 300, Height = 100 };

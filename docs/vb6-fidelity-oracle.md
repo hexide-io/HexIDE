@@ -1709,10 +1709,51 @@ the name now or the name the control was drawn with.
   `Null` as 13, and the two #821 rows in which the selected item's text follows it. Avalonia's editable combo would select
   the item a Text matches, without regard to case, so while code sets the Text every item reads as a text no program can
   set, and none matches.
-- **A Dropdown List's Text** is never written to the .frm, and is ignored at load. At run time, reading or writing it is
-  refused as not implemented, naming #1428, because what it does there needs the Style modelled.
+- **A Dropdown List's Text** is never written to the .frm, and is ignored at load. At run time it was refused as not
+  implemented until #1428 modelled the Style (below).
 - **Click and Change** come as measured since #1429, which records them with real input.
-- **Not done:** the designer resetting a combo's Text to its name when its Style becomes 2 (#1428).
+
+### Style, and a Dropdown List's Text from code (2026-10-23, #1428)
+
+**The probe.** A form with a Dropdown List, `Combo1`, filled with `5`, `apple`, `10`, `2.5` and `True`, and a Dropdown
+Combo, `Combo2`, built with `/make` native and p-code and run. Each row was logged under `On Error Resume Next`, with
+Click and Change logged by their handlers. A second project, its `Sub Main` holding `Form1.Combo1.Style = 1`, was only
+built. Native and p-code gave the same logs and the same build error.
+
+| Statement | VB6 |
+|---|---|
+| `Combo1.Style`, `Combo2.Style` | `2` and `0`, `TypeName` **Integer** |
+| `Text = 5` | Click, ListIndex 0, Text `5` |
+| `Text = 10#` | Click, ListIndex 2, Text `10` |
+| `Text = 2.5` | Click, ListIndex 3, Text `2.5` (the guest's locale is en-US) |
+| `Text = True` | Click, ListIndex 4, Text `True` |
+| `Text = "APPLE"` | Click, ListIndex 1, Text `apple`: the item's own text |
+| `Text = "5 "` | **383** "'Text' property is read-only", nothing changed |
+| `Text = Empty` | **383**, nothing changed |
+| `Combo1.Style = 1`, built | **Compile error: "Can't assign to read-only property"** |
+
+What these show:
+- **A Dropdown List's Text is made a String as `CStr` makes it, then matched.** A number or a Boolean selects the item
+  whose text is its `CStr`. `Empty` is `""`, which no item is, so it is 383 as `""` was in the first probe.
+- **Style is read-only to a program**: assigning it does not compile, as MultiSelect's doesn't (#1413).
+
+**And from #926's saved form,** re-read from the guest for #1428: both combos whose Style was set to 2 and back to 0 in
+the designer were saved with no Style line. So **VB6's designer never writes a Dropdown Combo's Style**, even after a
+change and back.
+
+### In HexIDE (#1428)
+
+- **Style is a modelled property**, offered by the Properties window with VB6's three names. It is written as VB6's
+  designer writes it: `1  'Simple Combo` and `2  'Dropdown List` between Left and TabIndex, and never 0. At run time it
+  reads as an Integer, and assigning it is the compile error, whatever the value.
+- **A Dropdown List's Text** reads as its selected item's text, or `""`. Written, it is made a String and selects the
+  first item it matches without regard to case, raising Click every time. With no match, `""` and `Empty` included, it
+  is 383 with VB6's own description, and the selection stays. `Null` is 13, as at the other two Styles.
+- **The designer resets the Text to the control's name when Style becomes 2**, as one change with the Style, so Undo
+  puts both back. The Properties window and `set_control_property` do it alike, and the tool's reply says so.
+- **Not done:** a Simple Combo is still drawn as a Dropdown Combo, its list not always shown
+  ([#1603](https://github.com/hexide-io/HexIDE/issues/1603)). The designer draws a Dropdown List's box empty, where VB6's
+  shows the name ([#1604](https://github.com/hexide-io/HexIDE/issues/1604)).
 
 ## A ComboBox's Click, Change and DropDown, with real input (2026-10-22, #1429)
 

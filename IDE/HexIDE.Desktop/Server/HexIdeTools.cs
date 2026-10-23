@@ -642,7 +642,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return (null, null, $"'{controlName}' was not {(propClass == VBProperties.NameProperty ? "renamed" : "changed")}: {ex.Message}");
             }
 
-            designerVm?.PushSetPropertyCommand(control, propClass, before, parsed);
+            // With what VB6's designer changes along with it, applied with a designer open or not (#1428).
+            var consequences = designerVm is not null
+                ? designerVm.PushSetPropertyCommand(control, propClass, before, parsed)
+                : Equals(before, parsed) ? [] : control.BaseClass.ApplyDesignerConsequences(control, propClass);
 
             // The third path that bypasses the designer's undo stack (#273 task 3.3). With a designer open
             // the push above commits, flushes and announces; with none there is nothing to push to, so the
@@ -663,6 +666,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // raised it.
             stored = $"{PropertyText.AddressedName(control)}.{propClass.Name.Trim('(', ')')} is now "
                      + PropertyText.Display(control.GetBoxedPropertyOrDefault(propClass)) + ", and the file is saved.";
+            foreach (var change in consequences)
+                stored += $" Its {change.Property.Name} is now {PropertyText.Display(change.After)}, was "
+                          + $"{PropertyText.Display(change.Before)}, as VB6's designer changes it with {propClass.Name.Trim('(', ')')}.";
             if (leaves is { Others: > 0 } left && !string.Equals(before as string, parsed as string, StringComparison.OrdinalIgnoreCase))
                 stored += $" It was {before}({left.Index}), and has left that array, whose other {left.Others} "
                           + $"element{(left.Others == 1 ? "" : "s")} keep the name. It keeps Index {left.Index}, so naming it "

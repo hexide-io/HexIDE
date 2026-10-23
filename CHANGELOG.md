@@ -238,6 +238,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A ComboBox's Style is modelled, and a Dropdown List runs as one** (#1428). Style was kept as a preserved line, so
+  the Properties window could not show or set it, and a program reading or writing a Dropdown List's Text was stopped
+  as not implemented. Now Style is offered with VB6's three names and reads as an Integer, and a Dropdown List's Text
+  selects the item it names, or raises 383 as vb6.exe does. Setting Style to Dropdown List in the designer resets
+  the Text to the control's name, as VB6's designer does.
+
 - **MCP `type_text` refuses hidden targets before finding an editor** (#1317), in both modes, so a hidden dropdown is no longer told to expand itself. Its target description explains ambiguous surfaces and non-editable dropdowns; `select` now also refuses realized rows whose visibility cannot be read.
 
 - **MCP command guards follow the compiled XAML binding** (#1324). `invoke_command` now finds private guards
