@@ -701,6 +701,15 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return new Vb6Value(neg ? -(double)u : u);      // > 32 bits (rare) -> Double
     }
 
+    /// <summary>
+    /// In a form's code, the form's own property of this name, read, or null where the code isn't a form's or its Form has
+    /// no such property to read without arguments.
+    /// </summary>
+    private async Task<Vb6Value?> BareFormMember(string name) =>
+        FormMembers.TryBare(interpreter.ExecutionContext, env, name, out var form, out var member) && member.CanGet && member.RequiredArgs == 0
+            ? (Vb6Value?)await interpreter.Loading((Form: form, Name: name), static s => FormMembers.Read(s.Form, s.Name))
+            : null;
+
     // Directly evaluating an implicitCallStmt_InStmt (e.g. a `With <target>`) must use the SAME full resolution
     // as an expression-position VsICS — not a bare-variable shortcut (which NRE'd on a member target like
     // `With p.Home`).
@@ -715,8 +724,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             var name = context.ambiguousIdentifier().GetText();
             if (!interpreter.TryReadNow(env, name, out var bangFound, out var bangTarget, out var bangNeed))
                 (bangFound, bangTarget) = await interpreter.ReadVariableAfter(env, name, bangNeed!);
+            if (!bangFound && await BareFormMember(name) is { } bangMember)
+                (bangFound, bangTarget) = (true, bangMember);
             if (!bangFound)
-                throw new NotImplementedException($"`{context.GetText()}` is supported only on a Collection");
+                throw new NotImplementedException($"`{context.GetText()}` is supported only on a Collection and a form's Controls");
             return Bang(bangTarget, bang);
         }
         var identifier = await ExtractIdentifier(context);
@@ -726,6 +737,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             (found, var) = await interpreter.ReadVariableAfter(env, identifier, foundNeed!);
         if (found)
             return var;
+        // In a form's code, a member of the form heads the chain, `Controls.Count` (#1060), as it is read bare (#995).
+        if (await BareFormMember(identifier) is { } formMember)
+            return formMember;
         if (identifier.Equals("Clipboard", StringComparison.OrdinalIgnoreCase))
         {
             // A function named Clipboard can supply the member-chain's object too, not just a bare value.
@@ -924,9 +938,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return target.Value switch
         {
             VbCollection items => items.Default([new Vb6Value(key)]),
+            FormControls controls => controls.Item([new Vb6Value(key)]),
             null when target.Type == Vb6Value.ValueType.Object
                 => throw new VBRunTimeException(bang, VBStandardError.ObjectVariableOrWithBlockVariableNotSet),
-            _ => throw new NotImplementedException($"`!{key}` is supported only on a Collection"),
+            _ => throw new NotImplementedException($"`!{key}` is supported only on a Collection and a form's Controls"),
         };
     }
 
@@ -1118,6 +1133,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 throw new NotImplementedException($"{name}$ on a Collection is not implemented (#742)");
             return await AsBound(maybeGroup, "Item", async () => items.Default(await EvaluateMemberArgs(items, "Item", argsCtx)));
         }
+        // A form's Controls held in a variable, `o(1)` (#1060).
+        if (named && maybeGroup.Value is FormControls heldControls)
+        {
+            if (dollar)
+                throw new NotImplementedException($"{name}$ on a form's Controls is not implemented (#742)");
+            return heldControls.Item(await EvaluateCallArgs(argsCtx));
+        }
         // Indexing a variable declared As Collection that holds Nothing is 91 (measured, #1471).
         if (named && maybeGroup.Type == Vb6Value.ValueType.Object && maybeGroup.Value is null
             && maybeGroup.DeclaredAs is { } declaredAs && IsCollectionType(declaredAs))
@@ -1166,6 +1188,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 throw new NotImplementedException($"{name}$ on a member of the form is not implemented (#742)");
             if (formMember.IsMethod)
                 return await interpreter.Loading((Form: form, Name: name, Args: formArgs), static s => FormMembers.Call(s.Form, s.Name, s.Args));
+            if (FormMembers.IsControls(name))
+            {
+                if (dollar)
+                    throw new NotImplementedException($"{name}$ on a member of the form is not implemented (#742)");
+                return await interpreter.Loading((Form: form, Args: formArgs), static s => FormMembers.ControlsItem(s.Form, s.Args));
+            }
             if (FormMembers.CallIsVbas(name, formArgs.Count) && await EvaluateFunction(name, formArgs) is { } vbaResult)
                 return dollar ? DollarResult(vbaResult, procOrArrayCall) : vbaResult;
             throw new NotImplementedException($"{form.ClassName}'s {name} with arguments is not implemented{FormMembers.TrackedBy(name)}");
@@ -1312,6 +1340,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                         return FormMembers.Call(vobj, memberName, await EvaluateCallArgs(MemberArgs(member)));
                     if (MemberArgs(member) == null)
                         return FormMembers.Read(vobj, memberName);
+                    if (FormMembers.IsControls(memberName))
+                        return FormMembers.ControlsItem(vobj, await EvaluateCallArgs(MemberArgs(member)));
                 }
                 return await ResolveOneMember(new Vb6Value(formWindow), member, ctx);
             }
@@ -1873,9 +1903,25 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // A Collection is a Collection, a VBA.Collection and an Object (measured, #1471).
         if (operand.Value is VbCollection)
             return new Vb6Value(IsCollectionType(targetName) || string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase));
+        // A control is its class, with its library or without, a Control and an Object: a TextBox is TextBox, VB.TextBox,
+        // Control and Object, and a CommonDialog MSComDlg.CommonDialog (measured, #1060). A control array and a form's
+        // Controls are an Object, and Controls is not a Collection.
+        if (operand.Value is Avalonia.Controls.Control control)
+        {
+            var className = VB6BuiltIns.ControlTypeName(control);
+            var library = control is VBCommonDialog ? "MSComDlg" : "VB";
+            return new Vb6Value(string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(targetName, "Control", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(targetName, className, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(targetName, $"{library}.{className}", StringComparison.OrdinalIgnoreCase));
+        }
+        if (operand.Value is ControlArrayGroup or FormControls)
+            return new Vb6Value(string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase));
         if (operand.Value is VbObject vo)
             return new Vb6Value(string.Equals(vo.ClassName, targetName, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase)
+                // A form is a Form too, and not a Control (measured, #1060).
+                || vo.ClassDef.Kind == InterpreterModuleKind.Form && string.Equals(targetName, "Form", StringComparison.OrdinalIgnoreCase)
                 // …or an interface the class implements. A class that does NOT implement it is False, not an
                 // error — measured, and the reason this stays a plain widening of the same expression.
                 || VbInterface.Implements(vo.ClassDef, targetName));
