@@ -24,7 +24,7 @@
     "Str.Dialog.UnsavedMembers.NothingWritten": "Nothing was saved. The project file of {0} would leave out these files, because they have never been saved:\n\n{1}\n\nA project file can list a file only once that file has been saved. Save them along with the project, or leave the project unsaved. Your changes are still open in the IDE.",
     "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} could not be read in this computer's code page ({1}), so it was opened byte for byte, as Western (Latin-1) text. Saving it unchanged writes the same bytes back, but characters outside Latin-1 cannot be added to it. Text written in another code page may look garbled.",
     "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "These files could not be read in this computer's code page ({1}), so they were opened byte for byte, as Western (Latin-1) text:\n\n{0}\n\nSaving them unchanged writes the same bytes back, but characters outside Latin-1 cannot be added to them. Text written in another code page may look garbled.",
-    "Str.Dialog.ConflictingNames": "Conflicting names were found in '{0}'. The name '{1}' will be used. The form's Attribute VB_Name now says '{1}' too, and is written when the form is next saved.",
+    "Str.Dialog.ConflictingNames": "Conflicting names were found in '{0}'. The name '{1}' will be used. Its Attribute VB_Name now says '{1}' too, and is written when it is next saved.",
     "Str.Menu.File": "_File",
     "Str.Menu.File.NewProject": "_New Project",
     "Str.Menu.File.OpenProject": "_Open Project...",
