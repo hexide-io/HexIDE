@@ -120,6 +120,10 @@ public interface IDebugController
     /// execution suspends exactly as it would at a breakpoint.</summary>
     ValueTask EnterBreakFromStopStatementAsync(int line, string module, IDebugFrame? frame);
 
+    /// <summary>Enter Break for a <c>Debug.Assert</c> whose condition does not hold (reason = Assertion), as for
+    /// <see cref="EnterBreakFromStopStatementAsync"/>.</summary>
+    ValueTask EnterBreakFromAssertionAsync(int line, string module, IDebugFrame? frame);
+
     /// <summary>
     /// Who answers a run-time error that nothing handles (#1011): the IDE, which shows VB6's dialog. It answers true for
     /// Debug, and false for End once it has ended the run. While it is null the program does not halt: the error unwinds
@@ -161,7 +165,7 @@ public interface IDebugController
 public enum DebugState { Running, Paused, Stopped }
 
 /// <summary>Why the walk entered Break mode.</summary>
-public enum StopReason { Breakpoint, Step, Pause, StopStatement, Watch, RuntimeError }
+public enum StopReason { Breakpoint, Step, Pause, StopStatement, Watch, RuntimeError, Assertion }
 
 /// <summary>A break-type watch pushed to the gate: the <paramref name="Expression"/> to evaluate, and whether it
 /// breaks on CHANGE (Break When Value Has Changed) rather than on TRUE (Break When Value Is True).</summary>
