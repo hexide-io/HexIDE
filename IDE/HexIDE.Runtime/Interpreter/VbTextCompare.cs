@@ -209,24 +209,56 @@ internal static partial class VbTextCompare
     /// without it, as InStr and Filter search, a match may start or end inside an expansion. An empty value is found where
     /// the search starts.
     /// </summary>
-    public static int IndexOf(string source, string value, int startIndex, bool wholeCharacters, out int length)
+    public static int IndexOf(string source, string value, int startIndex, bool wholeCharacters, out int length) =>
+        new Searchable(source).IndexOf(value, startIndex, wholeCharacters, out length);
+
+    /// <summary>A string folded once for searching as text, for a caller that searches it many times, as Replace and Split
+    /// do: folding it again for every match would make each of them quadratic in the string's length.</summary>
+    internal sealed class Searchable
     {
-        length = 0;
-        if (value.Length == 0)
-            return startIndex;
-        var needle = Fold(value, 0, out _);
-        var hay = Fold(source, startIndex, out var from);
-        for (var u = 0; u + needle.Length <= hay.Length; u++)
+        private readonly string hay;
+        private readonly int[] from;
+        private readonly int[] firstLetter;
+        private string? lastValue;
+        private string lastNeedle = "";
+
+        public Searchable(string source)
         {
-            if (!Matches(hay, u, needle))
-                continue;
-            var end = u + needle.Length - 1;
-            if (wholeCharacters && !(StartsCharacter(from, u) && EndsCharacter(from, end)))
-                continue;
-            length = from[end] - from[u] + 1;
-            return from[u];
+            hay = Fold(source, 0, out from);
+            // The first letter each character gives; the string's length maps to the end.
+            firstLetter = new int[source.Length + 1];
+            for (int c = 0, u = 0; c <= source.Length; c++)
+            {
+                while (u < from.Length && from[u] < c)
+                    u++;
+                firstLetter[c] = u;
+            }
         }
-        return -1;
+
+        /// <summary>As <see cref="VbTextCompare.IndexOf"/>.</summary>
+        public int IndexOf(string value, int startIndex, bool wholeCharacters, out int length)
+        {
+            length = 0;
+            if (value.Length == 0)
+                return startIndex;
+            if (!ReferenceEquals(value, lastValue))
+            {
+                lastNeedle = Fold(value, 0, out _);
+                lastValue = value;
+            }
+            var needle = lastNeedle;
+            for (var u = firstLetter[Math.Min(startIndex, firstLetter.Length - 1)]; u + needle.Length <= hay.Length; u++)
+            {
+                if (!Matches(hay, u, needle))
+                    continue;
+                var end = u + needle.Length - 1;
+                if (wholeCharacters && !(StartsCharacter(from, u) && EndsCharacter(from, end)))
+                    continue;
+                length = from[end] - from[u] + 1;
+                return from[u];
+            }
+            return -1;
+        }
     }
 
     /// <summary>

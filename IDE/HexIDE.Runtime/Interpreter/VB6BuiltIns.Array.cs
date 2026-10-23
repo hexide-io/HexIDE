@@ -72,11 +72,12 @@ public partial class VB6BuiltIns
         var result = new List<string>();
         if (s.Length == 0 || limit == 0) return result;      // empty input / limit 0 -> empty array
         if (delim.Length == 0) { result.Add(s); return result; }
+        var searchable = text ? new VbTextCompare.Searchable(s) : null;
         int start = 0;
         while (true)
         {
             if (limit > 0 && result.Count == limit - 1) { result.Add(s.Substring(start)); break; }  // remainder
-            int idx = Find(s, delim, start, text, wholeCharacters: true, out var length);
+            int idx = Find(s, delim, start, searchable, wholeCharacters: true, out var length);
             if (idx < 0) { result.Add(s.Substring(start)); break; }
             result.Add(s.Substring(start, idx - start));
             start = idx + length;

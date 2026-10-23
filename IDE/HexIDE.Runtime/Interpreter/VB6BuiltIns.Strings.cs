@@ -108,10 +108,15 @@ public partial class VB6BuiltIns
     /// as a compare of 0 (binary) or 1 (text) searches, and how many characters of <paramref name="s"/> the match spans: as
     /// text "ss" spans the one character ß. <paramref name="wholeCharacters"/> is how Replace and Split search, which take
     /// only a match that starts and ends on whole characters (see <see cref="VbTextCompare.IndexOf"/>).</summary>
-    internal static int Find(string s, string find, int start, bool text, bool wholeCharacters, out int length)
+    internal static int Find(string s, string find, int start, bool text, bool wholeCharacters, out int length) =>
+        Find(s, find, start, text ? new VbTextCompare.Searchable(s) : null, wholeCharacters, out length);
+
+    // The same, for a caller that searches one string many times, as Replace and Split do, with the string folded for a text
+    // search once (text) or not at all (null, a binary search).
+    internal static int Find(string s, string find, int start, VbTextCompare.Searchable? text, bool wholeCharacters, out int length)
     {
-        if (text)
-            return VbTextCompare.IndexOf(s, find, start, wholeCharacters, out length);
+        if (text != null)
+            return text.IndexOf(find, start, wholeCharacters, out length);
         length = find.Length;
         return s.IndexOf(find, start, StringComparison.Ordinal);
     }
@@ -145,11 +150,12 @@ public partial class VB6BuiltIns
         string sub = start <= s.Length ? s.Substring(start - 1) : "";
         if (find.Length == 0 || count == 0) return sub;
         var sb = new StringBuilder();
+        var text = compare == 1 ? new VbTextCompare.Searchable(sub) : null;
         int i = 0, done = 0;
         while (count < 0 || done < count)
         {
             // As text a match is whole characters, and need not be find's length: "ss" replaces the one character ß.
-            var at = Find(sub, find, i, compare == 1, wholeCharacters: true, out var length);
+            var at = Find(sub, find, i, text, wholeCharacters: true, out var length);
             if (at < 0)
                 break;
             sb.Append(sub, i, at - i).Append(repl);
