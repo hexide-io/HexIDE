@@ -39,6 +39,21 @@ internal enum VbFileMode
     Input,
     Output,
     Append,
+    Binary,
+    Random,
+}
+
+/// <summary>
+/// What a Binary or Random handle may do, from its <c>Access</c> clause, and what it lets another handle on the same file
+/// do, from its <c>Lock</c> clause (#1646).
+/// </summary>
+[Flags]
+internal enum VbAccess
+{
+    None = 0,
+    Read = 1,
+    Write = 2,
+    ReadWrite = Read | Write,
 }
 
 /// <summary>
@@ -56,6 +71,11 @@ internal enum VbFileMode
 /// <item><c>LOF</c>, <c>Loc</c>, <c>Seek</c> and the <c>Input</c> function (#1645): the length in bytes, buffered writes
 /// included; the byte position from 1, which <c>Seek #n</c> moves, 63 below 1; <c>Loc</c> from it, in 128-byte blocks; and
 /// <c>Input</c> reading characters, line breaks and commas included, 62 short of the count with the variable kept.</item>
+/// <item>Binary and Random files (#1646), read and written with <c>Get</c> and <c>Put</c> in the bytes
+/// <see cref="VbRecordFormat"/> describes. A Binary file's positions are bytes and a Random file's records of its
+/// <c>Len</c>, 128 when there is none; the Seek position is the next one, and <c>Loc</c> the one before it. EOF is True
+/// once a read has run past the end, and a Seek or a Put makes it False again. Each Binary or Random handle reads and
+/// writes the file itself, unbuffered, so another handle on the same file sees a Put at once.</item>
 /// </list>
 /// </summary>
 /// <remarks>
@@ -72,7 +92,7 @@ internal sealed partial class VbFiles
 {
     private const byte CtrlZ = 0x1A;
 
-    private sealed class OpenFile(string path, VbFileMode mode, bool locked)
+    internal sealed class OpenFile(string path, VbFileMode mode, bool locked)
     {
         public string Path { get; } = path;
         public VbFileMode Mode { get; } = mode;
@@ -86,6 +106,17 @@ internal sealed partial class VbFiles
         public long AppendOrigin { get; set; }
         // The print column, counted from 0 at the start of a line: where a comma's next zone is measured from.
         public int Column { get; set; }
+        // A Binary or Random file's own handle, read and written in place, its position the file's.
+        public FileStream? Stream { get; init; }
+        // What this handle may do, and what it lets another handle on the file do (#1646).
+        public VbAccess Access { get; init; }
+        public VbAccess Share { get; init; }
+        // A Random file's record length.
+        public int RecordLength { get; init; } = 128;
+        // A Binary or Random file's EOF: a read ran past the end, until a Seek or a Put.
+        public bool ShortRead { get; set; }
+        // A Binary file's bytes, for Line Input, Input # and the Input function, until something writes to the file.
+        public byte[]? Snapshot { get; set; }
     }
 
     private readonly Dictionary<int, OpenFile> open = new();
@@ -109,7 +140,13 @@ internal sealed partial class VbFiles
         throw new VBRunTimeException(VBStandardError.TooManyFiles);
     }
 
-    public void Open(string path, VbFileMode mode, bool locked, int number)
+    /// <summary>
+    /// Opens a file. For Binary and Random, <paramref name="access"/> is the <c>Access</c> clause, null where there is none,
+    /// <paramref name="share"/> what the <c>Lock</c> clause lets another handle do, and <paramref name="recordLength"/> a
+    /// Random file's <c>Len</c>.
+    /// </summary>
+    public void Open(string path, VbFileMode mode, bool locked, int number, VbAccess? access = null,
+        VbAccess share = VbAccess.ReadWrite, int recordLength = 128)
     {
         CheckNumber(number);
         if (open.ContainsKey(number))
@@ -117,9 +154,18 @@ internal sealed partial class VbFiles
         if (path.Length == 0)
             throw new VBRunTimeException(VBStandardError.PathFileAccessError);
         var full = FullPath(path);
+        var record = mode is VbFileMode.Binary or VbFileMode.Random;
+        // 55 for a second handle on one file, unless both are Input and neither has a Lock, or both are Binary or Random,
+        // which the Lock and Access clauses then decide between (measured, every pair of the five modes, #1646).
         foreach (var other in open.Values)
-            if (SamePath(other.Path, full) && (other.Locked || mode != VbFileMode.Input || other.Mode != VbFileMode.Input))
+            if (SamePath(other.Path, full) && !(record && other.Stream is not null)
+                && (other.Locked || mode != VbFileMode.Input || other.Mode != VbFileMode.Input))
                 throw new VBRunTimeException(VBStandardError.FileAlreadyOpen);
+        if (record)
+        {
+            OpenRecords(full, mode, locked, number, access, share, recordLength);
+            return;
+        }
         try
         {
             open[number] = mode switch
@@ -171,30 +217,55 @@ internal sealed partial class VbFiles
     public string LineInput(int number)
     {
         var file = Get(number);
-        if (file.Mode != VbFileMode.Input)
-            throw new VBRunTimeException(VBStandardError.BadFileMode);
-        if (AtEnd(file))
+        var (bytes, start, endByte) = TextSource(file);
+        if (start >= bytes.Length || bytes[start] == endByte)
         {
-            if (file.Position < file.Input.Length)
-                file.CtrlZAt ??= file.Position;
+            if (file.Mode == VbFileMode.Input && start < bytes.Length)
+                file.CtrlZAt ??= start;
+            file.ShortRead = true;
             throw new VBRunTimeException(VBStandardError.InputPastEndOfFile);
         }
-        var bytes = file.Input;
-        var start = file.Position;
         var end = start;
-        while (end < bytes.Length && bytes[end] != (byte)'\r' && bytes[end] != CtrlZ)
+        while (end < bytes.Length && bytes[end] != (byte)'\r' && bytes[end] != endByte)
             end++;
-        if (end < bytes.Length && bytes[end] == CtrlZ)
+        if (file.Mode == VbFileMode.Input && end < bytes.Length && bytes[end] == CtrlZ)
             file.CtrlZAt = end;
         var line = Ansi().GetString(bytes, start, end - start);
+        // A Binary file's line that runs to the end, or whose CR is its last byte, leaves EOF True, where one ending CR LF
+        // at the end does not (measured, #1646): looking for the line's end, or for an LF after its CR, read past the end.
+        var past = end >= bytes.Length;
         if (end < bytes.Length && bytes[end] == (byte)'\r')
         {
             end++;
             if (end < bytes.Length && bytes[end] == (byte)'\n')
                 end++;
+            else
+                past = end >= bytes.Length;
         }
-        file.Position = end;
+        MoveText(file, end, past);
         return line;
+    }
+
+    // The bytes Line Input, Input # and the Input function read, where they are, and the byte that ends the file there: an
+    // Input file's Ctrl+Z, and none in a Binary file, where a Ctrl+Z is an ordinary byte (measured, #1646). A Random file,
+    // and an Output or Append one, is 54 (measured).
+    private (byte[] Bytes, int Position, int EndByte) TextSource(OpenFile file)
+    {
+        if (file.Mode == VbFileMode.Input)
+            return (file.Input, file.Position, CtrlZ);
+        if (file.Mode != VbFileMode.Binary)
+            throw new VBRunTimeException(VBStandardError.BadFileMode);
+        return (SnapshotOf(file), (int)Math.Min(file.Stream!.Position, int.MaxValue), -1);
+    }
+
+    // After a read: where the file now is, and for a Binary file whether the read ran past the end, which EOF answers.
+    private static void MoveText(OpenFile file, int position, bool past)
+    {
+        if (file.Stream is { } stream)
+            stream.Position = position;
+        else
+            file.Position = position;
+        file.ShortRead = past;
     }
 
     /// <summary>
@@ -207,15 +278,12 @@ internal sealed partial class VbFiles
     public InputField? ReadField(int number, InputReading reading)
     {
         var file = Get(number);
-        if (file.Mode != VbFileMode.Input)
-            throw new VBRunTimeException(VBStandardError.BadFileMode);
-        var bytes = file.Input;
-        var p = file.Position;
+        var (bytes, p, endByte) = TextSource(file);
         while (p < bytes.Length && bytes[p] is (byte)' ' or (byte)'\t')
             p++;
-        if (p >= bytes.Length || bytes[p] == CtrlZ)
+        if (p >= bytes.Length || bytes[p] == endByte)
         {
-            file.Position = p;
+            MoveText(file, p, past: true);
             return null;
         }
         var first = bytes[p];
@@ -233,14 +301,14 @@ internal sealed partial class VbFiles
         else if (first == (byte)'"' && reading != InputReading.Number)
         {
             // To the next quote, or to the end of the file, line ends and all (measured): a doubled quote ends the field.
-            var end = Scan(bytes, p + 1, b => b == (byte)'"');
+            var end = Scan(bytes, p + 1, endByte, b => b == (byte)'"');
             field = new InputField(InputFieldKind.Quoted, Ansi().GetString(bytes, p + 1, end - p - 1));
             p = AfterField(bytes, end < bytes.Length && bytes[end] == (byte)'"' ? end + 1 : end);
         }
         else if (first == (byte)'#' && reading == InputReading.ByFirstCharacter)
         {
             // To the closing #, or to the comma or line end when there is none: `#,5` is "#" and 5 (measured).
-            var end = Scan(bytes, p + 1, b => b is (byte)'#' or (byte)',' or (byte)'\r');
+            var end = Scan(bytes, p + 1, endByte, b => b is (byte)'#' or (byte)',' or (byte)'\r');
             if (end < bytes.Length && bytes[end] == (byte)'#')
                 end++;
             field = new InputField(InputFieldKind.Hash, Ansi().GetString(bytes, p, end - p));
@@ -248,27 +316,30 @@ internal sealed partial class VbFiles
         }
         else if (reading == InputReading.Number || (reading == InputReading.ByFirstCharacter && IsNumberStart(first)))
         {
-            var end = Scan(bytes, p, b => b is (byte)' ' or (byte)'\t' or (byte)',' or (byte)'\r');
+            var end = Scan(bytes, p, endByte, b => b is (byte)' ' or (byte)'\t' or (byte)',' or (byte)'\r');
             field = new InputField(InputFieldKind.Number, Ansi().GetString(bytes, p, end - p));
             p = AfterField(bytes, end);
         }
         else
         {
-            var end = Scan(bytes, p, b => b is (byte)',' or (byte)'\r');
+            var end = Scan(bytes, p, endByte, b => b is (byte)',' or (byte)'\r');
             field = new InputField(InputFieldKind.Text, Ansi().GetString(bytes, p, end - p).TrimEnd(' ', '\t'));
             p = AfterField(bytes, end);
         }
-        file.Position = p;
+        // A Binary file's last field, with no line end after it, read to the end: EOF True. Chosen, not measured; a field
+        // ending CR LF at the end leaves it False (measured).
+        MoveText(file, p, past: p >= bytes.Length && !(p > 0 && bytes[p - 1] is (byte)'\r' or (byte)'\n' or (byte)','));
         return field;
     }
 
     private static bool IsNumberStart(byte b) => b is >= (byte)'0' and <= (byte)'9' or (byte)'+' or (byte)'-' or (byte)'.' or (byte)'&';
 
-    // The first position from `start` that `stop` matches, or the end of the file, which a Ctrl+Z also marks.
-    private static int Scan(byte[] bytes, int start, Func<byte, bool> stop)
+    // The first position from `start` that `stop` matches, or the end of the file, which `endByte` also marks: an Input
+    // file's Ctrl+Z, and nothing in a Binary file's.
+    private static int Scan(byte[] bytes, int start, int endByte, Func<byte, bool> stop)
     {
         var p = start;
-        while (p < bytes.Length && bytes[p] != CtrlZ && !stop(bytes[p]))
+        while (p < bytes.Length && bytes[p] != endByte && !stop(bytes[p]))
             p++;
         return p;
     }
@@ -289,6 +360,8 @@ internal sealed partial class VbFiles
     public bool Eof(int number)
     {
         var file = Get(number);
+        if (file.Stream is not null)
+            return file.ShortRead;
         return file.Mode != VbFileMode.Input || AtEnd(file);
     }
 
@@ -301,7 +374,7 @@ internal sealed partial class VbFiles
     public long Length(int number)
     {
         var file = Get(number);
-        return file.Output?.Length ?? file.Input.Length;
+        return file.Stream?.Length ?? file.Output?.Length ?? file.Input.Length;
     }
 
     /// <summary>
@@ -313,6 +386,8 @@ internal sealed partial class VbFiles
     public long SeekPosition(int number)
     {
         var file = Get(number);
+        if (file.Stream is { } stream)
+            return file.Mode == VbFileMode.Random ? stream.Position / file.RecordLength + 1 : stream.Position + 1;
         if (file.Output is { } output)
             return output.Position - file.AppendOrigin + 1;
         return file.CtrlZAt is { } z ? file.Input.Length + z + 2 : file.Position + 1L;
@@ -326,6 +401,9 @@ internal sealed partial class VbFiles
     {
         var file = Get(number);
         var done = SeekPosition(number) - 1;
+        // A Binary file's is the last byte read or written, and a Random file's the last record (measured, #1646).
+        if (file.Stream is not null)
+            return done;
         return file.Mode == VbFileMode.Input ? Math.Max(1, (done + 127) / 128) : done / 128;
     }
 
@@ -339,6 +417,12 @@ internal sealed partial class VbFiles
         var file = Get(number);
         if (position < 1)
             throw new VBRunTimeException(VBStandardError.BadRecordNumber);
+        if (file.Stream is { } stream)
+        {
+            stream.Position = file.Mode == VbFileMode.Random ? (position - 1) * file.RecordLength : position - 1;
+            file.ShortRead = false;
+            return;
+        }
         if (file.Output is { } output)
         {
             output.Position = position - 1;
@@ -361,21 +445,25 @@ internal sealed partial class VbFiles
         var file = Get(number);
         if (count < 0)
             throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
-        if (file.Mode != VbFileMode.Input)
-            throw new VBRunTimeException(VBStandardError.BadFileMode);
-        var bytes = file.Input;
+        var (bytes, p, _) = TextSource(file);
         var decoder = Ansi().GetDecoder();
         var text = new StringBuilder(count);
         var chars = new char[2];
-        var p = file.Position;
         while (text.Length < count)
         {
+            // A Binary file answers what there is, with no error, and EOF True (measured: one character of five, and "" at
+            // the end); a Ctrl+Z is an ordinary character there.
+            if (file.Mode == VbFileMode.Binary && p >= bytes.Length)
+            {
+                MoveText(file, p, past: true);
+                return text.ToString();
+            }
             if (p >= bytes.Length)
             {
                 file.Position = Math.Max(file.Position, bytes.Length);
                 throw new VBRunTimeException(VBStandardError.InputPastEndOfFile);
             }
-            if (bytes[p] == CtrlZ)
+            if (file.Mode == VbFileMode.Input && bytes[p] == CtrlZ)
             {
                 file.Position = p;
                 file.CtrlZAt ??= p;
@@ -383,7 +471,7 @@ internal sealed partial class VbFiles
             }
             text.Append(chars, 0, decoder.GetChars(bytes, p++, 1, chars, 0, flush: false));
         }
-        file.Position = p;
+        MoveText(file, p, past: false);
         return text.ToString();
     }
 
@@ -406,21 +494,28 @@ internal sealed partial class VbFiles
         if (number < 0)
             throw new VBRunTimeException(VBStandardError.BadFileNameOrNumber);
         if (open.Remove(number, out var file))
+        {
             file.Output?.Dispose();
+            file.Stream?.Dispose();
+        }
     }
 
     /// <summary><c>Close</c> with no number, and the end of the program: every file is closed.</summary>
     public void CloseAll()
     {
         foreach (var file in open.Values)
+        {
             file.Output?.Dispose();
+            file.Stream?.Dispose();
+        }
         open.Clear();
     }
 
     private OpenFile Writable(int number)
     {
         var file = Get(number);
-        if (file.Mode == VbFileMode.Input)
+        // Print # and Write # on a Binary or Random file are 54 too (measured, #1646).
+        if (file.Mode is VbFileMode.Input or VbFileMode.Binary or VbFileMode.Random)
             throw new VBRunTimeException(VBStandardError.BadFileMode);
         return file;
     }
@@ -465,7 +560,7 @@ internal sealed partial class VbFiles
     // The ANSI code page, writing a character it has no byte for as Windows does: its best fit, Ā as "A" and Ł as "L", and
     // '?' only where there is none, as for Ж (measured, #1511). The code page's own encoding does that; a plain '?'
     // replacement, which this was, wrote every one of them as '?'.
-    private static Encoding Ansi()
+    internal static Encoding Ansi()
     {
         var codePage = Vb6TextEncoding.Ansi.CodePage;
         if (ansi is null || ansiCodePage != codePage)
