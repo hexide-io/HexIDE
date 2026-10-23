@@ -40,6 +40,9 @@ internal sealed class DocumentStore
     public Dictionary<string, List<LspFoldingRange>> Foldings { get; } = new();
     public Dictionary<string, IReadOnlyDictionary<string, string?>> DeclaredTypes { get; } = new();
 
+    // Each document's project, read from its .vbp, for conditional compilation (#1112).
+    private readonly VbProjectArguments projects = new();
+
     private static readonly IReadOnlyDictionary<string, string?> EmptyTypes =
         new Dictionary<string, string?>();
 
@@ -59,11 +62,13 @@ internal sealed class DocumentStore
     public async Task<DocumentUpdate> UpdateDocumentAsync(string uri, string source, bool collectAnalysis = false)
     {
         Source[uri] = source;
+        // The project that lists the document, for the arguments its #If reads (#1112).
+        var compilation = projects.For(uri);
 
         if (!collectAnalysis)
         {
             var plain = await VbDiagnosticsProvider
-                .TryGetDiagnosticsAndTreeWithin(source, VbDiagnosticsProvider.ParseBudget)
+                .TryGetDiagnosticsAndTreeWithin(source, VbDiagnosticsProvider.ParseBudget, compilation)
                 .ConfigureAwait(false);
             if (plain is null)
                 return new DocumentUpdate(PriorDiagnostics(uri), null); // analysis pending — keep prior state
@@ -77,7 +82,7 @@ internal sealed class DocumentStore
         // report at all, and "how long before we gave up" is the only number worth having.
         var startedAt = Stopwatch.GetTimestamp();
         var traced = await VbDiagnosticsProvider
-            .TryGetDiagnosticsAndTreeReportedWithin(source, VbDiagnosticsProvider.ParseBudget)
+            .TryGetDiagnosticsAndTreeReportedWithin(source, VbDiagnosticsProvider.ParseBudget, compilation)
             .ConfigureAwait(false);
 
         if (traced is null)

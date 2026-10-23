@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Language;
 using HexIDE.Runtime.Interpreter.ConditionalCompilation;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;

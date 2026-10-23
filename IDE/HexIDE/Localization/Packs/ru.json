@@ -755,6 +755,7 @@
     "Str.Document.CodeSuffix": "Код",
     "Str.Document.FormSuffix": "Форма",
     "Str.Document.UserControlSuffix": "UserControl",
+    "Str.Document.PropertyPageSuffix": "PropertyPage",
     "Str.PropCategory.Misc": "Разное",
     "Str.PropCategory.Appearance": "Внешний вид",
     "Str.PropCategory.Behavior": "Поведение",

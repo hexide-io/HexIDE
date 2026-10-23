@@ -22,6 +22,12 @@ there isn't one yet. Anything may change between 0.x releases.
   branch never taken, as vb6.exe refuses to build. The module saves exactly as written: the selection exists only for the
   parser. Every personality uses VB6's constants for now (#1548), and `Like` in an `#If` waits for `Like` itself (#1547).
 
+- **The language server no longer squiggles code vb6.exe never compiles** (#1112). An inactive `#If` branch is no longer
+  parsed, so a VBA7 `Declare PtrSafe` behind `#If VBA7 Then`, or a procedure whose `#If` gives it two headers, has no
+  error marks. The branches are the project's: the server reads `CondComp` from the `.vbp` that lists the document. A
+  directive out of place is reported on its line in vb6.exe's words. Where a condition is beyond the server's reduced
+  evaluator, such as a string comparison or a function, nothing inside that block is marked.
+
 - **A control's `ZOrder` method** (#1503). `ZOrder 0`, or no argument, brings a control to the front of the controls
   like it in its container, and `ZOrder 1` sends it to the back, as measured on vb6.exe. A Label never rises over a
   windowed control, a container takes its contents, and the position is 0 or 1 or it raises VB6's error. A program
@@ -229,6 +235,18 @@ there isn't one yet. Anything may change between 0.x releases.
   shown once more to anyone who saw the old one, which said "code".
 
 ### Fixed
+
+- **The designer draws and names a UserControl or PropertyPage as VB6's does** (#1544). Each was drawn in a form's
+  window frame, with a title bar and caption buttons, a PropertyPage's tab read `(Form)`, and the Properties window's
+  object box gave both the class `Form`. Each is now a borderless surface, as neither has a window of its own at run
+  time, its tab reads `(UserControl)` or `(PropertyPage)`, and the object box names its class.
+
+- **Every focusable control raises GotFocus and LostFocus, and a form or UserControl saved disabled runs disabled**
+  (#1101). Only the TextBox and the CommandButton raised them. The CheckBox, OptionButton, ListBox, ComboBox, scroll
+  bars and PictureBox now do, as vb6.exe does: one GotFocus as a control is entered, however its items or edit box take
+  the focus. The ListBox, scroll bars and PictureBox take the focus, where `SetFocus` on one was refused. An option
+  button given the focus by `SetFocus` is selected, raising Click after GotFocus. A form or a UserControl's `.ctl`
+  saved with `Enabled = 0 'False` dropped that line and ran enabled. A disabled form is shown without taking the focus.
 
 - **MCP reply numbers use a decimal point in every culture** (#1550). Coordinates, sizes, scroll percentages and
   wait durations now use invariant formatting, so a fractional click point can be read and sent back unchanged.

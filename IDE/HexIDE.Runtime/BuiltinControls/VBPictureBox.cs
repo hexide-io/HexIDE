@@ -79,6 +79,9 @@ public class VBPictureBox : TemplatedControl, IVBContainerControl
         // Before Click, so MouseUp comes first, as VB6 raises them (#974).
         AttachedEvents.AttachMouse<VBPictureBox>(AttachedEvents.DblClick.InPlaceOfMouseDown);
         AttachedEvents.AttachClick<VBPictureBox>(AttachedEvents.ClickRelease.OverTheControl);
+        // A PictureBox takes the focus, whether or not it holds controls (measured, #1101).
+        FocusableProperty.OverrideDefaultValue<VBPictureBox>(true);
+        AttachedEvents.AttachFocusEvents<VBPictureBox>();
         PictureDataProperty.Changed.AddClassHandler<VBPictureBox>((box, _) => box.OnPictureDataChanged());
     }
 
