@@ -755,6 +755,7 @@
     "Str.Document.CodeSuffix": "代码",
     "Str.Document.FormSuffix": "窗体",
     "Str.Document.UserControlSuffix": "UserControl",
+    "Str.Document.PropertyPageSuffix": "PropertyPage",
     "Str.PropCategory.Misc": "杂项",
     "Str.PropCategory.Appearance": "外观",
     "Str.PropCategory.Behavior": "行为",

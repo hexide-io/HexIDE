@@ -166,14 +166,26 @@
                 <ClassicBorderDecorator HorizontalAlignment="Left"
                                         VerticalAlignment="Top"
                                         Background="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}"
-                                        Padding="2"
                                         Margin="10"
                                         x:Name="FormContainer"
                                         PointerPressed="OnFormPressed"
                                         Focusable="True"
-                                        BorderStyle="AltRaised" BorderThickness="2">
+                                        Classes.frameless="{CompiledBinding !HasWindowFrame}"
+                                        BorderStyle="AltRaised">
+                    <!-- A UserControl or PropertyPage is a borderless surface, as VB6's designer draws it: it has no window of
+                         its own at run time (#1544). -->
+                    <ClassicBorderDecorator.Styles>
+                        <Style Selector="ClassicBorderDecorator#FormContainer">
+                            <Setter Property="Padding" Value="2" />
+                            <Setter Property="BorderThickness" Value="2" />
+                        </Style>
+                        <Style Selector="ClassicBorderDecorator#FormContainer.frameless">
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="BorderThickness" Value="0" />
+                        </Style>
+                    </ClassicBorderDecorator.Styles>
                     <DockPanel>
-                        <Panel DockPanel.Dock="Top" Margin="0,0,0,1">
+                        <Panel DockPanel.Dock="Top" Margin="0,0,0,1" IsVisible="{CompiledBinding HasWindowFrame}">
                             <Border IsHitTestVisible="False" Name="PART_FormTitleBar" />
 
                             <DockPanel Margin="2,0,0,0">

@@ -755,6 +755,7 @@
     "Str.Document.CodeSuffix": "Kode",
     "Str.Document.FormSuffix": "Skjema",
     "Str.Document.UserControlSuffix": "UserControl",
+    "Str.Document.PropertyPageSuffix": "PropertyPage",
     "Str.PropCategory.Misc": "Diverse",
     "Str.PropCategory.Appearance": "Utseende",
     "Str.PropCategory.Behavior": "Virkemåte",

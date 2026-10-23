@@ -755,6 +755,7 @@
     "Str.Document.CodeSuffix": "Kode",
     "Str.Document.FormSuffix": "Form",
     "Str.Document.UserControlSuffix": "UserControl",
+    "Str.Document.PropertyPageSuffix": "PropertyPage",
     "Str.PropCategory.Misc": "Lain-lain",
     "Str.PropCategory.Appearance": "Tampilan",
     "Str.PropCategory.Behavior": "Perilaku",
