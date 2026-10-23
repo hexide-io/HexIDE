@@ -14978,3 +14978,36 @@ form.
 **A reusable harness.** `vb6.exe /runexit project.vbp`, run in the guest with a timeout, measures what the VB6 IDE does
 rather than the compiler. A project that ends logs to its end. One that waits is in break mode or showing a dialog, and
 running it again under On Error Resume Next tells the two apart.
+
+## Make Project Group (2026-10-23, #746, design-time)
+
+**The question.** With one project loaded, HexIDE's File > Make Project Group threw on the missing group, and nothing
+said so. The issue asked whether VB6 offers the command with one project. Reading the code raised a second question:
+what the command does. HexIDE's saves every project and the group file.
+
+**The probe.** Two projects, each with an empty form, plus `group.vbg` naming both and `single.vbg` naming only the
+first. Each was opened in VB6's IDE, and I read the File menu. Where the command was offered, I chose it, then pressed
+Cancel. The folder's file times were read before and after.
+
+| Opened | Make Project Group... | Choosing it |
+|---|---|---|
+| `probe1.vbp` alone | **greyed** | |
+| `group.vbg` (two projects) | enabled | a dialog: "Build the following projects:", listing `probe1.vbp` and `probe2.vbp`, both selected; "Use Default Build Options", ticked; Build, Cancel, Help |
+| `single.vbg` (one project) | **enabled** | the same dialog, listing `probe1.vbp` alone |
+
+**What it shows:**
+- **The command needs a group open, not two projects.** A group of one project offers it; one project without a group
+  doesn't. The File menu reflects the same state: Save Project Group and Save Project Group As replace Save Project
+  and Save Project As whenever a group is open, one project or two.
+- **It builds.** It's the group's counterpart of Make *project*.exe, not a save. Opening the dialog and cancelling
+  wrote nothing: every file kept its time.
+
+**In HexIDE (#746):**
+- The command is offered only with a group open, or with two projects loaded. HexIDE's implicit Group1 can lag
+  behind a second project, so two projects count as a group. With one project and no group it is greyed out, and the
+  service writes nothing if reached anyway.
+- With a group, HexIDE's command still saves every project and the group, where VB6's builds them (#1515).
+
+**Not measured:**
+- What Build writes, ticked or unticked "Use Default Build Options", and whether it saves anything first (#1515).
+- What VB6 does to a group when a project is removed from it. HexIDE drops its group at one project.

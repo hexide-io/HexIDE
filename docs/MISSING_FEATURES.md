@@ -25,7 +25,7 @@
 | Print Setup… | — | Stub | Bound to `NYICommand` |
 | Make *{project}*… | — | Partial | Invokes HexIDE interpreter export; no real native-code compile. The made program runs every form, standard module and class module of the project, from its startup form or from `Sub Main`, read by the loader the IDE's own open uses ([#1062](https://github.com/hexide-io/HexIDE/issues/1062)). It still stops silently on a run-time error ([#757](https://github.com/hexide-io/HexIDE/issues/757)) |
 | Make *{project}* with VB6… | — | Done | Shells out to VB6.EXE if installed |
-| Make Project Group… | — | Done | Saves every loaded project and the group as one operation: every destination, the `.vbg` path included, is asked for first, then every file is checked against its code page, and only then is anything written, so a dismissed picker or a refusal leaves every file as it was; removes `DisabledCommand` |
+| Make Project Group… | — | Partial | Offered only with a group open, as in VB6 (#746). VB6's builds the group's projects through a "Build the following projects" dialog; HexIDE's still saves every loaded project and the group as one operation (#1515): every destination, the `.vbg` path included, is asked for first, then every file is checked against its code page, and only then is anything written, so a dismissed picker or a refusal leaves every file as it was; removes `DisabledCommand` |
 | MRU file list | — | Done | "Recent Projects ►" submenu in File menu; backed by `IRecentProjectsService`; refreshes on project open/close |
 | Exit | Ctrl+Q | Done | Calls `IClassicDesktopStyleApplicationLifetime.Shutdown()` |
 

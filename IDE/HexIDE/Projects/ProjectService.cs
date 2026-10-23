@@ -1636,10 +1636,11 @@ public class ProjectService : IProjectService
             return;
         }
         EnsureGroupIfMultiple();
-        // CurrentGroup is null with one project loaded and no group open. SaveFiles throws on it before
-        // anything is written; what the command should do then is #746.
-        await SaveAll([.. projectManager.LoadedProjects.SelectMany(project => FilesOf(project, false)),
-            (projectManager.CurrentGroup!, true)]);
+        // One project and no group: VB6 offers the command only with a group open (measured, #746), and the menu
+        // greys it out. A caller that reaches it anyway is given nothing written, rather than a save that throws.
+        if (projectManager.CurrentGroup is not { } group)
+            return;
+        await SaveAll([.. projectManager.LoadedProjects.SelectMany(project => FilesOf(project, false)), (group, true)]);
     }
 
     public Task SaveAllProjects(bool saveAs)
