@@ -122,7 +122,8 @@ public class UnsavedMemberRefusalTests : IDisposable
         var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
         loaded.Add(project);
         var svc = MakeService(untick: file => file.Form?.Name == "Form2");
-        await svc.AddNewForm(project, "Form1", interactive: false); // written as it is added, in the scratch folder
+        var form1 = await svc.AddNewForm(project, "Form1", interactive: false);
+        (await svc.SaveForm(form1, saveAs: false)).Should().BeTrue(); // Form1 now has its file, by the picker
         project.AddForm(new FormDefinition(project, FormComponentClass.Instance, "Form2"));
         project.StartupForm!.Name.Should().Be("Form1");
         project.StartupForm.AbsolutePath.Should().NotBeNull();

@@ -526,8 +526,13 @@ there isn't one yet. Anything may change between 0.x releases.
   files, and the project stays open.
 - **Add Form and Add Module no longer write over a file already in the folder** (#738). A new member's file replaced
   any file of its name there, such as another project's `Module1.bas` in a shared folder. The Add commands now skip
-  to a number whose file is free, and automation's `add_file` refuses a name whose file is taken.
-
+  to a number whose file is free.
+- **A new form or module has no file until the project is saved, as in VB6** (#500). Each Add wrote a file at once,
+  and in a project never saved that went into a temporary folder the developer never chose. Its first Save Project
+  then wrote the `.vbp` where the developer asked and left the members in that folder, named from the project file
+  by a path into it, so the next temp clean-up lost them. Now Save Project asks where to put each new form and module,
+  as VB6 does. A new document's code window still shows the header its first save will write. Additions that have
+  never been saved no longer survive a crash in that folder: there is no crash recovery yet (#499).
 - **A language server that waits to be told sends document symbols as a tree** (#463). HexIDE read the tree
   but never declared that it could, so a server that honours the declaration, clangd among them, sent the flat
   form and every outline from it lost its nesting.
