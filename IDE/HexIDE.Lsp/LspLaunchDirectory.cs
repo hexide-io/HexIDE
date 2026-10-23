@@ -10,14 +10,14 @@ namespace HexIDE.Lsp;
 /// <b>This is not <see cref="ILspWorkspace.Directory"/>, and the difference is the whole point.</b> "Where
 /// the process runs" and "which tree it analyses" are separate questions that happen to coincide most of
 /// the time. The second is answered by <c>rootUri</c>, <c>workspaceFolders</c> and the <c>{workspaceUri}</c>
-/// placeholder, and is deliberately left alone here: a workspace that does not exist yet is still the
-/// directory the project's files are about to be written into, and the server should be told so.
+/// placeholder, and is deliberately left alone here: a workspace that does not exist yet is still the one a
+/// server configured to take it as an argument is launched with (see <c>ProjectLspWorkspace</c> for why).
 ///
 /// <para>
 /// <b>The case that made this necessary (hexide-io/HexIDE#278).</b> An unsaved project's directory is a
 /// scratch path under TEMP that <c>ProjectService.ProjectFilesDirectory</c> mints and memoises without
-/// creating — the four call sites that write a file into it create it at that moment, which is the correct
-/// owner. So between File → New Project and the first save, the path is a real string naming nothing. Handed
+/// creating — only a write into it creates it, and since hexide-io/HexIDE#500 nothing but <c>--newproject</c>
+/// writes there. So between File → New Project and the first save, the path is a real string naming nothing. Handed
 /// to <see cref="System.Diagnostics.ProcessStartInfo.WorkingDirectory"/> it throws (<c>The directory name is
 /// invalid</c>), the transport returns no handler, and the connection goes to <c>Failed</c> — which is
 /// terminal for the session. The user gets an IDE with no language features and no stated reason.

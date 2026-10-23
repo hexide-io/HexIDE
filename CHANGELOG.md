@@ -10,6 +10,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **A control HexIDE does not model is shown in the designer** (#157). An ImageList, a Toolbar or any other control
+  HexIDE carries without modelling used to be invisible, so a developer could move a button onto it unknowing. Now
+  each is a box where VB6's IDE puts one: at its position, sized by its `Width` and `Height`, or 1200 by 480 twips
+  when it records neither, as VB6 measures it. The box names the control's class and says HexIDE does not support
+  it; it cannot be selected or moved, and the control is still saved exactly as it was read.
 - **A ComboBox raises Click, Change and DropDown** (#1429). It raised none, so a program's `Combo1_Click` and
   `Combo1_Change` never ran, whatever the user or code did. Now each comes where vb6.exe raises it, measured with real
   input, native and p-code:
@@ -215,6 +220,168 @@ there isn't one yet. Anything may change between 0.x releases.
   VB's two libraries), then every reference of the project in its order, OLE Automation among them. Nothing moves
   above the fixed rows, and it opens on the last checked row.
 
+- **A form whose `Begin` line and `Attribute VB_Name` disagree opens as VB6 opens it** (#1407). HexIDE already named
+  such a form by its `Begin` line, as VB6 does, but said nothing and saved the contradiction back. HexIDE itself wrote
+  such files before #1059. Opening the project now shows VB6's "Conflicting names were found…" warning. The form's
+  `VB_Name` is made to agree, and the form comes up edited, so its next save writes it, as VB6's does. Case alone
+  counts as a disagreement, as it does in VB6.
+
+- **The form designer draws a form at the size it runs** (#924). The designer drew the whole window, frame and
+  caption bar included, at the form's client size, so the area controls were designed in was 8 pixels narrower and
+  about 25 shorter than the running form. A layout drawn flush to the edges ran with a margin, and resizing the form
+  saved a size nobody saw. The frame is now drawn around the client, and a resize saves the client it leaves.
+
+- **Six VB6 system colours no longer draw hot pink** (#908). A control given Scroll Bars, Active Title Bar, Active
+  Border, Inactive Border, ToolTip Text or ToolTip (`vbInfoBackground`) painted DeepPink, in the designer and at run
+  time, because no colour was defined for them. They now take Windows 10's values, as measured on vb6.exe, and a
+  system colour that still has none is named in the log.
+
+- **A caption's `&&` and `_` are drawn as VB6 draws them** (#920). `Tom && Jerry` drew `Tom _ Jerry`, and
+  `File_Name` drew `FileName` with Alt+N as its key, on buttons, check boxes, option buttons, labels and menus, in the
+  designer and at run time. A Frame drew `Fra && Me` with both ampersands. Now `&&` is one `&`, an underscore is a
+  letter, a trailing `&` is not drawn, and a caption marking two letters takes the one VB6 does, all as measured on
+  vb6.exe. A caption with an underscore before its access key now has no key, because Avalonia would take the
+  underscore as the key instead.
+
+- **A control array's elements name themselves with their index in automation** (#1320). The Properties window's
+  object selector and the designer's canvas named every element of `optSize` as `optSize`, so a caller could not tell
+  which was selected, and `select "optSize(1)"` matched nothing. Each element is now `optSize(0)`, `optSize(1)` and so
+  on, the spelling `set_control_property` and `move_control` take.
+
+- **A control-array element renamed out of its array can be renamed back** (#1276). Renaming `optSize(0)` to
+  `optBoard` worked, but every way back was refused as a duplicate name, so the array stayed split. A name is now
+  taken by name and Index together, as in VB6: an element may take an array's name where its Index is free there.
+
+- **The Project Explorer's Add Form adds a form as Project > Add Form does** (#468). It added a form with no file and
+  opened nothing, a second Add Form of its own, and closing the IDE then left that form out of the project file
+  (#1359). It now writes the form's file and opens its designer.
+
+- **A new form is written as VB6 writes one** (#931, #932, #516). Its code section was bare LF with no final line
+  break, it had none of the five `Attribute` lines VB6 writes for a form, and it had no `StartUpPosition` line, which
+  VB6 reads as Manual: the form opened at the screen's origin with its title bar off the top. A form HexIDE creates now
+  has all three, and says `StartUpPosition = 3 'Windows Default`. A form with no such line, as VB6 writes a Manual
+  one, now runs where its file puts it rather than centred, which is how vb6.exe reads it.
+
+- **The designer draws and saves controls in VB6's stacking order** (#1481). In VB6 the first `Begin` block in a
+  container is the control on top, and windowless controls (Label, Shape, Line, Image) are drawn under the windowed
+  ones and written after them. HexIDE drew the last block on top and wrote a new control last, so a control added here
+  was the bottom one when VB6 opened the file, and Bring to Front and Send to Back each saved the opposite of what they
+  showed. Now a new or pasted control is written first in its plane, Bring to Front and Send to Back move a control
+  within its plane and take a container's contents with it, and a loaded form is drawn as VB6 draws it. A pasted
+  container keeps its source's stacking, where VB6 turns its contents over.
+
+- **`Debug.Assert` runs** (#1467). It stopped the program, even when its condition held. Now, in the IDE, an assertion
+  that fails enters break mode at the statement, as `Stop` does, and one that holds goes on, the condition read as `If`
+  reads it. A compiled program has no `Debug.Assert`, its argument not even evaluated, so the Make EXE runner skips it,
+  as vb6.exe's EXE does. `get_debug_state` reports the break as `Assertion`.
+
+- **ChrW and AscW run, and Chr and Asc go through the ANSI code page** (#1134). `ChrW` and `AscW` stopped the program
+  as undefined. `Chr` and `Asc` ran, but in UTF-16 units, so `Chr(&H80)` was a control character where VB6 on a 1252
+  machine gives "€", and `Asc("€")` was 8364 where VB6 gives 128. All four now follow vb6.exe, measured:
+  - **ChrW:** a negative code is its unsigned unit, so `ChrW(&HF050)` is U+F050.
+  - **AscW:** a signed Integer.
+  - **Asc:** best-fits a character the code page lacks, so Ā is "A".
+  - **Errors:** each raises 5 out of range, 94 for Null and 6 past a Long. `Asc(Null)` is 94 where it returned Null.
+
+  A `$` form's result is now a typed String, as VB6's is, so `Select Case Mid$("9", 1)` compares text. Plain `Str` is a
+  Variant, as `Mid` and `Chr` are.
+
+- **An undeclared variable passed ByRef takes the procedure's write** (#1505). `Bump a12`, with `a12` never declared
+  and `Sub Bump(x)` adding 1 to `x`, left `a12` Empty, so the program ran on with a wrong value and nothing said why. VB6
+  declares the variable where it is passed, and the write lands in it. Now HexIDE does the same for a Sub, a Function, a
+  class's method and a named argument, under DefType too. A name in parentheses, or given to a ByVal parameter, is still
+  a copy, as in VB6.
+
+- **A new control is numbered from 1, as VB6 numbers it** (#540). The first button on a form was Command0, and a
+  pasted control took its number from the count of controls on the form, so its name skipped a gap VB6 would have
+  filled. A new or pasted control now takes the lowest number from 1 that no control on the form has. That is
+  Command2 beside Command1 and Command3, Text1 beside Text5, and a deleted control's number again, as measured.
+- **`DefInt A-Z` and the rest of DefType run** (#169). A DefType statement stopped the program. Now each declaration with
+  no As clause takes its type from the first letter of its name, as vb6.exe does. That covers an undeclared variable, a
+  `Dim` or `Static`, a field, a parameter and a Function's return, and under DefObj each is an object variable. A `Const`
+  keeps its value's type. A DefType that overlaps another, follows a declaration or sits inside a procedure is VB6's own
+  compile error. Two defects found on the way are fixed too:
+  - a `Set` into a name never declared raised 424, where VB6 declares it, as a Let does;
+  - a Function `As Object` or `As Collection` returned Empty before any Set, not Nothing, so `F = 5` in one took the
+    value where VB6 raises 91.
+
+- **A control added by double-clicking its tool takes the size VB6 gives it** (#1473). Every class came out 50 x 50
+  pixels, a square CommandButton among them, and that size went into the saved file. Now a CommandButton is 1215 x 495
+  twips, as are most classes, while a ComboBox, ListBox and either scroll bar each have their own size, all as
+  measured. Each is centred by its own size and put on the grid, where VB6 puts it.
+- **Val, Round, Split and 13 more intrinsics take named arguments** (#1475). `Val(String:="12")`,
+  `Round(Number:=2.567, NumDigitsAfterDecimal:=1)` and `Split(Expression:="a b c")` stopped the program, because
+  signature help had no entry for them, and so neither did the interpreter's table of names. All 16 are now measured
+  against vb6.exe and listed, each with a tooltip: their names, how many are required, and what a wrong or missing name
+  gives. Now, Date, Timer and the other intrinsics with no parameters refuse a name with VB6's own compile error.
+
+- **A Let into an object variable no longer drops the object** (#1493). `k = 5`, with `k As C1` holding an instance,
+  released it, running its Terminate there and then, and stored 5, so the program ran on without it. VB6 hands the
+  value to the object's default member: a class with none raises 438, and `k` keeps the object; Nothing raises 91. That
+  holds for `As Object`, object parameters, an object Function's return name and a class's object fields too. A
+  Variant still takes the value and drops the object, as VB6's does.
+
+- **`Static` runs, and a `Static Sub` keeps its locals** (#1491). A `Static` local stopped the program. Now it keeps its
+  value from one call to the next, as vb6.exe does: shared by recursive calls, kept per instance in a class or a form,
+  and released with the instance. The `Static` keyword on a procedure was read and then ignored, so a `Static Sub`'s
+  locals silently started again at zero on every call. Now they keep their values too, though a Static Function's own
+  return value starts again, as VB6's does.
+
+- **`Dim o As New C1` runs** (#435). The whole module stopped loading at the first `As New`. Now a variable declared
+  `As New` holds Nothing until it is used, and its first use makes the object, as vb6.exe does, for a class and for a
+  Collection, at procedure and module level and as a class field. Every use counts: `If o Is Nothing` makes the object,
+  so it is never True. After `Set o = Nothing`, the next use makes a new one. An array `As New` (#1482) and a Type's
+  field `As New` (#1488) still stop the run, by name.
+
+- **An empty Collection refuses an index as VB6's does** (#1492). Every index into an empty Collection is 5 in VB6: a
+  position, a key, Null or Empty, for Item, Remove, and Add's Before and After. HexIDE gave what a Collection with items
+  gives, 9 for a position and 13 for Null. Assigning an item, which no Collection allows, now looks the index up first,
+  as VB6 does: `c(3) = x` past the end is 9, and `c("zz") = x` with no such key is 5. Only an item that is there gives
+  424, and late-bound it is 451 or 438, by form, as measured.
+
+- **A control added or pasted no longer takes the TabIndex of a control HexIDE does not model** (#925).
+  Such a control, an OCX's Toolbar for one, is carried as text, and its TabIndex went uncounted, so a new control could
+  be given the same number. It now counts, nested ones included.
+
+- **VB6's Collection runs** (#1471). There was none, so a program that made one stopped at `New Collection`. Now
+  `Add`, `Item`, `Remove`, `Count`, For Each and `c!key` give vb6.exe's answers and errors, each measured native and
+  p-code. That includes the two that surprise people:
+  - For Each walks the Collection itself, so removing the current item goes on to the next;
+  - a key that isn't a String counts as a duplicate when it names an existing position, so `c.Add x, 5` is 457 in
+    a Collection of five and 13 in one of four.
+
+  Objects held in a Collection are released when the last reference goes, in VB6's order. Locals and Watch open a
+  Collection to its items. Still to come: arrays of Collection (#1482), and keys
+  compared as VB6's text compare does rather than only ignoring case (#1479).
+
+- **A control added or pasted takes the TabIndex VB6 gives it** (#925). The first control got 1, a Timer or a Shape used
+  a number up, a Label or a Frame was saved without one, and a pasted control kept its source's, so the file held two
+  controls at one TabIndex. A control on a loaded form could also take a Label's or a Frame's number, which HexIDE
+  couldn't see. Now each takes the next after the highest on the form, as VB6's designer does, measured: the first is 0,
+  a Timer takes none, a Label and a Frame have theirs, and a paste numbers its container and then what it holds.
+
+- **Center in Form, Align Centers and Make Equal spacing put a control where VB6 does** (#929). They worked in
+  fractional pixels, so a control centred on an odd difference landed half a pixel off, and a save wrote it as
+  `Left = 4192.5`. Each now works as VB6's does, measured in its IDE: in whole twips, halving each size on its own and
+  truncating. Make Equal truncates the gap and leaves the last control where it was. A control added by
+  double-clicking a tool is centred the same way, then put on the nearest grid line when Align to Grid is on.
+
+- **Named arguments run** (#1465). `MsgBox Prompt:="Done", Title:="App"` and `Foo Count:=3` stopped the program with
+  "Assign is not implemented". A named argument now goes to the parameter of its name in a call to the program's own
+  procedures and methods, and to the 57 intrinsics vb6.exe takes names for, with VB6's compile errors for an unknown or
+  repeated name. The arguments are evaluated in parameter order, not the order written, as vb6.exe evaluates them, so
+  `Foo c:=F(), a:=G()` calls G first. A named argument to a control's, a form's or an object's method is still refused
+  (#1474).
+
+- **IIf and Choose run** (#1461, #1464). Neither existed, so a program that called either stopped there. Both now give
+  vb6.exe's answers, including the two that surprise people: IIf evaluates both parts, so `IIf(n <> 0, 1 / n, 0)` still
+  divides by zero, and Choose truncates its index, so `Choose(1.6, "a", "b")` is "a".
+
+- **ReDim Preserve runs** (#1459). It was refused as not implemented, so a program that grows an array as it goes stopped
+  at the first one. It now keeps the elements in range and changes only the last dimension's upper bound, and refuses
+  everything else as vb6.exe does, each case measured: another bound changing is 9, too big is 7, and a Variant holding
+  no array is 13, each leaving the array as it was.
+
 - **Cutting and pasting a control keeps what HexIDE carries without modelling** (#1453). A Frame or PictureBox cut
   and pasted lost the controls inside it that HexIDE does not model, such as an ImageList, and any control lost its own
   properties HexIDE does not model. The next save left them all out, with nothing said. They now go with the control,
@@ -399,8 +566,13 @@ there isn't one yet. Anything may change between 0.x releases.
   files, and the project stays open.
 - **Add Form and Add Module no longer write over a file already in the folder** (#738). A new member's file replaced
   any file of its name there, such as another project's `Module1.bas` in a shared folder. The Add commands now skip
-  to a number whose file is free, and automation's `add_file` refuses a name whose file is taken.
-
+  to a number whose file is free.
+- **A new form or module has no file until the project is saved, as in VB6** (#500). Each Add wrote a file at once,
+  and in a project never saved that went into a temporary folder the developer never chose. Its first Save Project
+  then wrote the `.vbp` where the developer asked and left the members in that folder, named from the project file
+  by a path into it, so the next temp clean-up lost them. Now Save Project asks where to put each new form and module,
+  as VB6 does. A new document's code window still shows the header its first save will write. Additions that have
+  never been saved no longer survive a crash in that folder: there is no crash recovery yet (#499).
 - **A language server that waits to be told sends document symbols as a tree** (#463). HexIDE read the tree
   but never declared that it could, so a server that honours the declaration, clangd among them, sent the flat
   form and every outline from it lost its nesting.

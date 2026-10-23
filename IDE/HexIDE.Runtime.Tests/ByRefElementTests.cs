@@ -106,7 +106,7 @@ public class ByRefElementTests : BaseVBTestFixture
     public async Task An_array_one_of_whose_elements_is_passed_ByRef_is_locked_until_the_call_returns()
     {
         // ReDim, Erase, ReDim Preserve, a store into the array's variable and a store into a Variant holding it each raise 10
-        // and leave it as it was; after the call, ReDim works. HexIDE refuses any other ReDim Preserve as not implemented.
+        // and leave it as it was; after the call, ReDim works.
         await Run("""
             Private d() As Long
             Private e() As Long

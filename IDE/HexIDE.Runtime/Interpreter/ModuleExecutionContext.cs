@@ -47,6 +47,10 @@ public class ModuleExecutionContext
                 && value.Value is VbObject incoming
                 && !VbInterface.IsAssignableTo(incoming, declaredClass))
                 throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
+            // A Collection, likewise, goes only into a Collection-typed slot of the class-typed ones (measured, #1471).
+            if (state.DeclaredClassOf(loc) is { } classTyped && value.Value is VbCollection
+                && !ExpressionExecutor.IsCollectionType(classTyped))
+                throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
             state[loc] = value;
             return true;
         }
@@ -79,6 +83,13 @@ public class ModuleExecutionContext
                 && state.DefaultFormOf(loc) is { } module
                 && string.Equals(name, module.Name, StringComparison.OrdinalIgnoreCase))
                 throw new FormInstanceNeeded(module);
+            // A variable declared As New holding Nothing makes its object where it's read, any read (#435). Not through a
+            // parameter, the one other name a slot is reached by: a ByRef parameter aliasing the slot reads the Nothing it
+            // holds, even one of the same name (measured: `Set x = Nothing` in the callee, then `x Is Nothing` there, is
+            // True).
+            if (!inspecting && value.Type == Vb6Value.ValueType.Object && value.Value is null
+                && state.AutoNewOf(loc) is { } autoNew && !env.Parameters.Contains(name))
+                throw new AutoInstanceNeeded(loc, autoNew);
             // A slot with a declared type is a ceiling: overflowing it is Err 6, where a Variant would widen.
             // Marked on the VALUE because fixedness propagates through sub-expressions — `(a + 0) * 3` with a
             // declared `a` still raises Err 6, measured. (#122)

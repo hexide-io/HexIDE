@@ -136,16 +136,8 @@ public partial class ProjectToolViewModel : Tool
             ViewObjectCommand.Execute(null);
             ((ICommand)ApplicationCommands.OpenPropertiesCommand).Execute(null);
         }, () => SelectedForm != null);
-        AddFormCommand = new DelegateCommand(() =>
-        {
-            var project = GetSelectedProject()!.Definition;
-            // The lowest unused name across every kind, not one past the form count: deleting Form1 and
-            // adding a form used to produce a second Form2, and a project holding a module called Form1
-            // cannot also hold a form called Form1 -- VB6 gives forms and modules one namespace. Nor a name whose
-            // file is already in the folder, which Save Project would then offer as this form's own (#738).
-            var name = projectService.NextFreeFormName(project);
-            project.AddForm(new FormDefinition(project, FormComponentClass.Instance, name));
-        }, () => GetSelectedProject() != null);
+        AddFormCommand = new DelegateCommand(() => AddFormAsync(GetSelectedProject()!.Definition).ListenErrors(),
+            () => GetSelectedProject() != null);
 
         projectManager.ProjectLoaded += OnProjectLoaded;
         projectManager.ProjectUnloaded += OnProjectUnloaded;
@@ -271,6 +263,19 @@ public partial class ProjectToolViewModel : Tool
     public void CloseArchive()
     {
         if (selectedItem is ArchiveTreeNode node) archives?.Close(node.Entry.Identity.ContainerPath).ListenErrors();
+    }
+
+    /// <summary>
+    /// Add Form, as Project > Add Form does it: the next free name, the file written, the designer opened.
+    /// </summary>
+    /// <remarks>
+    /// This was a second Add Form of its own, which put a form with no file into the model and opened nothing (#468).
+    /// The name is the lowest unused across every kind, and passes over one whose file is already in the folder (#738).
+    /// </remarks>
+    private async Task AddFormAsync(ProjectDefinition project)
+    {
+        var form = await projectService.AddNewForm(project, projectService.NextFreeFormName(project));
+        editorService.EditForm(form);
     }
 
     public async Task SynchronizeArchiveFolder()

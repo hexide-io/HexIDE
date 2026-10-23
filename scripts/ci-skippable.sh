@@ -68,7 +68,10 @@ derive_read_docs() {
   #     middle: DesignRecordTests builds openspec/specs/<capability>/spec.md. Requiring the
   #     directory to exist is what separates a real read from a temp-tree fixture — several tests
   #     build Path.Combine(_dir, "README.md") to exercise path handling and never open the repo's.
-  { grep -rhoE 'Path\.Combine\([^"].*\.md"\)' --include='*.cs' IDE LspServer 2>/dev/null || true; } \
+  #     A fixture whose first folder is a real root folder, such as docs, still matches: use
+  #     another name for the fixture, as #1410 did with notes.
+  #     Allow an argument call such as RepoTree.Root(), without crossing this call's closing ).
+  { grep -rhoE 'Path\.Combine\([^"()]([^()]|\([^()]*\))*\.md"\)' --include='*.cs' IDE LspServer 2>/dev/null || true; } \
   | awk '{ n=0; s=$0; delete t; while (match(s, /"[^"]*"/)) { t[++n]=substr(s,RSTART+1,RLENGTH-2); s=substr(s,RSTART+RLENGTH) }
            if (n>1) print t[1] "/" t[n] }' \
   | while IFS= read -r c; do if [ -d "${c%%/*}" ]; then printf '%s\n' "$c"; fi; done

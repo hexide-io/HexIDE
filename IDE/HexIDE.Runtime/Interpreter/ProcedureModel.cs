@@ -29,7 +29,12 @@ public sealed record ProcedureInfo(
     // Whether the return reads as a Variant's: declared with no As clause, `As Variant`, or `As Object`, which VB6 binds
     // late as it binds a Variant (measured, #1005: `GetObj().P` with `GetObj() As Object` is a Variant, and `GetFoo().P`
     // with `GetFoo() As Foo` is typed). A return the map does not type, such as `As Collection`, is neither.
-    bool ReturnsVariant = false)
+    bool ReturnsVariant = false,
+    // Whether the return is declared `As Object` (under DefObj too) or `As Collection`. Its name is an object variable, Nothing
+    // until Set, so a Let into it is the held object's default member (measured, #1493: `F = 6` in `F() As Object` holding an
+    // instance is 438, where in `F() As Variant` it drops the object and takes 6; and #169: before any Set it is 91). An `As
+    // Object` one is read late all the same, as ReturnsVariant says.
+    bool ReturnsObject = false)
 {
     private IReadOnlyList<VB6Parser.VariableSubStmtContext>? declaredLocals;
 
@@ -87,7 +92,7 @@ public sealed record ProcedureInfo(
         void Walk(Antlr4.Runtime.Tree.IParseTree node)
         {
             if (node is VB6Parser.VariableStmtContext v
-                && (v.DIM() != null || v.visibility() != null)
+                && (v.DIM() != null || v.STATIC() != null || v.visibility() != null)
                 && v.variableListStmt() is { } list)
             {
                 foreach (var sub in list.variableSubStmt())
@@ -132,12 +137,18 @@ public sealed record ParamInfo(
     bool ReadsAsVariant = false,
     // The type name of an `As Name` clause that is not a base type: a class, a UDT or an Enum. An Enum parameter is a
     // Long, which BasicInterpreter.BindParameters resolves at the call, once every module's Enums are known.
-    string? TypeName = null);
+    string? TypeName = null,
+    // Whether it is declared `As Object`: it reads as a Variant does (ReadsAsVariant), but it is an object variable, so a
+    // Let into it is the held object's default member (measured, #1493: `x = 1` with `x As Object`, ByRef or ByVal, is
+    // 438 where `x As Variant` takes 1).
+    bool DeclaredObject = false);
 
 /// <summary>
 /// An evaluated argument at a call site: its value plus, when the argument is a caller lvalue, the caller
 /// memory slot it lives in (so a ByRef parameter can alias it). <c>Location</c> is null for rvalues. A UDT field
 /// (`u.l`, #1451) or an array element (`a(1)`, #1455) has no slot, so it carries the target itself instead, which a ByRef
-/// parameter aliases the same way.
+/// parameter aliases the same way. A named argument (`c:=5`, #1465) carries its <c>Name</c> and is not evaluated yet:
+/// <c>Deferred</c> evaluates it, once binding has placed it, so named arguments are evaluated in parameter order as in VB6.
 /// </summary>
-public readonly record struct CallArg(Vb6Value Value, int? Location, IByRefTarget? Ref = null);
+public readonly record struct CallArg(Vb6Value Value, int? Location, IByRefTarget? Ref = null, string? Name = null,
+    Func<Task<CallArg>>? Deferred = null);
