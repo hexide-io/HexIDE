@@ -520,7 +520,7 @@
 | DriveListBox / DirListBox / FileListBox | Missing | Controls not implemented ([#164](https://github.com/hexide-io/HexIDE/issues/164)) |
 | Line control | Partial | Runs as VB6 draws it and reads its members, measured. Not in the toolbox yet ([#163](https://github.com/hexide-io/HexIDE/issues/163)) |
 | OLE / COM automation | Windows-only | `CreateObject`, late-bound dispatch; Windows only |
-| File I/O (Open/Close/Write/Read) | Missing | No VB6 file I/O statements |
+| File I/O (Open/Close/Write/Read) | Partial | Sequential Open/Close/Print #/Line Input #, FreeFile/EOF (#1145); filesystem statements and CurDir/FileLen/FileDateTime/GetAttr/Dir (#1561), measured with compiled VB6 EXEs. Binary/random channels and remaining channel functions are deferred. Host attributes and long-name wildcards differ as recorded in the fidelity oracle. |
 | Screen / Printer objects | Missing | |
 | App object | Partial | `App.Title`, `EXEName`, `Path`, `ProductName`, `Major`/`Minor`/`Revision`, `PrevInstance` and the version-info strings, seeded from the project (#136). Values follow VB6 at DESIGN TIME, which is where the interpreter permanently sits — `EXEName` is the `.vbp` file name and `ProductName` is empty, both measured under F5. `Title` is writable; `LogEvent`/`StartLogging`/`TaskVisible` are not implemented |
 | Clipboard object | Missing | |

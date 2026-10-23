@@ -15,6 +15,10 @@ public partial class VB6BuiltIns
     /// other intrinsic leaving out a required one is "Argument not optional".</param>
     internal sealed record IntrinsicParameters(string[] Names, int Required, bool OmittedIsSyntaxError = false);
 
+    // #1561 measured positional calls only. Refuse named calls explicitly until an oracle probe supplies them.
+    private static readonly HashSet<string> UnmeasuredNamedArguments = new(StringComparer.OrdinalIgnoreCase)
+    { "CurDir", "Dir", "FileLen", "FileDateTime", "GetAttr" };
+
     private static readonly Dictionary<string, IntrinsicParameters> NamedParameterTable = new(StringComparer.OrdinalIgnoreCase)
     {
         ["Asc"] = new(["String"], 1),
@@ -174,12 +178,12 @@ public partial class VB6BuiltIns
     internal static IEnumerable<string> RegisteredIntrinsics => Builtins.Keys;
 
     /// <summary>
-    /// Whether an intrinsic is in one of the tables here, so a named argument to it is answered as VB6 answers it rather
-    /// than refused as not implemented (#1475).
+    /// Whether named arguments have a declared policy: measured behaviour (#1475), or an explicit refusal pending
+    /// measurement (#1561).
     /// </summary>
     internal static bool SaysHowItTakesNames(string name) =>
         NamedParameterTable.ContainsKey(name) || TakesNoNamedArguments.Contains(name) || NamedIsAParamArray.Contains(name)
-        || NoParameters.ContainsKey(name);
+        || NoParameters.ContainsKey(name) || UnmeasuredNamedArguments.Contains(name);
 
     /// <summary>
     /// An intrinsic's arguments as positions, named ones placed by name and evaluated in parameter order (#1465). With none
@@ -190,6 +194,8 @@ public partial class VB6BuiltIns
     {
         if (NamedArguments.Any(args))
         {
+            if (UnmeasuredNamedArguments.Contains(name))
+                throw new NotImplementedException($"Named arguments to {name} are not implemented yet");
             if (TakesNoNamedArguments.Contains(name))
                 throw new VBCompileErrorException("Syntax error");
             if (NoParameters.TryGetValue(name, out var noParameters))
