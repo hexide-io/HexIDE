@@ -10,7 +10,10 @@ namespace HexIDE.Runtime.Interpreter.ConditionalCompilation;
 /// <item>The operators are the language's, so this applies the interpreter's own: <c>-2 ^ 2</c> is -4, <c>Not</c> is bitwise,
 /// and <c>7 \ 2 * 2</c> is 1. A typed overflow, as in <c>32767 + 1</c>, is "Overflow", and <c>1 / 0</c> "Division by zero".</item>
 /// <item>A constant is a Variant and a literal is typed, as in running code, so <c>#Const M = 32767</c> then <c>M + 1</c> widens.</item>
-/// <item>Strings compare as text, whatever <c>Option Compare</c> says: <c>"a" = "A"</c>, and <c>"Z" &lt; "a"</c> is false.</item>
+/// <item>Strings compare as text, whatever <c>Option Compare</c> says: <c>"a" = "A"</c>, and <c>"Z" &lt; "a"</c> is false.
+/// The order is vb6.exe's (VbTextCompare, #1598), so <c>"_" &lt; "a"</c> and <c>"co-op" &gt; "coop"</c> hold. <c>Like</c>
+/// matches as text too, in either kind of module: <c>"a" Like "A"</c> and <c>"M" Like "[a-z]"</c> hold, and
+/// <c>"_" Like "[A-z]"</c> does not. A pattern it cannot read is "Invalid pattern string".</item>
 /// <item>A String against a number depends on which side is the Variant; see <see cref="Order"/>.</item>
 /// <item>Only <c>Int</c>, <c>Fix</c>, <c>Abs</c>, <c>Sgn</c>, <c>Len</c>, <c>LenB</c>, <c>CBool</c>, <c>CByte</c>, <c>CCur</c>,
 /// <c>CDate</c>, <c>CDbl</c>, <c>CInt</c>, <c>CLng</c>, <c>CSng</c>, <c>CStr</c> and <c>CVar</c> may be called. Any other name
@@ -163,8 +166,10 @@ internal static class ConstantExpression
 
     private static Vb6Value Compare(VB6Parser.VsCompareContext compare, Vb6Value left, Vb6Value right)
     {
+        // Null on either side is Null, as it is in running code, and so "Invalid use of Null" where an #If reads it (measured).
         if (compare.LIKE() != null)
-            throw new NotImplementedException($"Like in an #If or #Const, as in {compare.GetText()}, is not implemented (#1547)");
+            return left.IsNull || right.IsNull ? Vb6Value.Null
+                : new Vb6Value(VbLike.Matches(LikeOperand(left), LikeOperand(right), textCompare: true));
         if (compare.IS() != null)
             throw new VBCompileErrorException("Type mismatch");   // measured, 1 Is 1
         if (left.IsNull || right.IsNull)
@@ -244,8 +249,10 @@ internal static class ConstantExpression
         }
     }
 
-    // Text order, as HexIDE approximates VB6's text compare elsewhere (#1479).
-    private static int Text(string left, string right) => Math.Sign(string.Compare(left, right, StringComparison.OrdinalIgnoreCase));
+    // vb6.exe's text order, measured (#1567), and measured in a directive too (#1598).
+    private static int Text(string left, string right) => Math.Sign(VbTextCompare.Compare(left, right));
+
+    private static string LikeOperand(Vb6Value value) => VbDisplay.ToText(VB6BuiltIns.RefuseNonScalar(value));
 
     private static NotImplementedException Unsupported(ParserRuleContext node) =>
         new($"`{node.GetText()}` in an #If or #Const is not implemented (#1112)");

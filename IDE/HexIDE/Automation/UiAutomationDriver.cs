@@ -2220,13 +2220,22 @@ public static class UiAutomationDriver
                       + "that owns the DataContext lists both");
         }
 
-        // Avalonia's convention: a bool Can{name}(object) on the type or a base, of any visibility, given the
-        // CommandParameter, which is null here.
-        var can = dc.GetType().GetMethod("Can" + name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
-            [typeof(object)]);
+        // Avalonia resolves bool Can{name}(object) from the bound method's declaring type upwards,
+        // at every visibility, not from the DataContext's runtime type. Use the type the compiled binding
+        // matched so a method hidden with new does not move the guard lookup below that binding.
+        // The CommandParameter passed to the guard is null here.
+        XamlCommandBindings.Arity(dc.GetType(), name, out var boundType);
+        MethodInfo? can = null;
+        for (var t = boundType ?? method.DeclaringType; t is not null; t = t.BaseType)
+        {
+            can = t.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
+                .FirstOrDefault(m => m.Name == "Can" + name && m.ReturnType == typeof(bool)
+                    && m.GetParameters() is [{ ParameterType: var parameterType }] && parameterType == typeof(object));
+            if (can is not null) break;
+        }
         try
         {
-            if (can is { ReturnType: var r } && r == typeof(bool) && !(bool)can.Invoke(dc, [null])!)
+            if (can is not null && !(bool)can.Invoke(dc, [null])!)
                 return ReflectErr($"'Can{name}'(null) on {type} returned false");
 
             var result = method.Invoke(dc, null);
@@ -3361,7 +3370,7 @@ public static class UiAutomationDriver
         if (seg.IdShortcut is not null)
         {
             var hits = Descendants(parent)
-                .Where(c => string.Equals(NullIfEmpty(AutomationProperties.GetAutomationId(c)), seg.IdShortcut,
+                .Where(c => string.Equals(NullIfEmpty(AutomationProperties.GetAutomationId(c))?.Trim(), seg.IdShortcut,
                     StringComparison.OrdinalIgnoreCase))
                 .ToList();
             return Pick(hits, raw, parentPath, "automationId");
@@ -3396,7 +3405,7 @@ public static class UiAutomationDriver
     // any match wins (and must be unique to be decisive).
     private static (List<Control> matches, string facet) MatchByDiscriminator(List<MeaningfulChild> typed, string disc)
     {
-        var byId = typed.Where(m => string.Equals(m.Info.AutoId, disc, StringComparison.OrdinalIgnoreCase))
+        var byId = typed.Where(m => string.Equals(m.Info.AutoId?.Trim(), disc, StringComparison.OrdinalIgnoreCase))
             .Select(m => m.Control).ToList();
         if (byId.Count > 0) return (byId, "automationId");
 
@@ -3718,9 +3727,11 @@ public static class UiAutomationDriver
         // Emit the cheapest discriminator that PROVABLY resolves back to this control under the resolver's
         // own precedence — verified by running the shared matcher — so emitted paths always round-trip.
         // (Guards against e.g. a sibling whose AutomationId collides with this control's Name.)
-        foreach (var disc in CandidateDiscriminators(m))
+        foreach (var candidate in CandidateDiscriminators(m))
         {
-            if (!IsPathSafe(disc)) continue;
+            // ParseSegment trims bracket contents; use that same name for uniqueness checks and emission.
+            var disc = candidate.Trim();
+            if (disc.Length == 0 || !IsPathSafe(disc)) continue;
             var (matches, _) = MatchByDiscriminator(sameType, disc);
             if (matches.Count == 1 && ReferenceEquals(matches[0], m.Control))
                 return $"{type}[{disc}]";
@@ -3794,7 +3805,7 @@ public static class UiAutomationDriver
     /// so the path falls back to an index, and <see cref="TypeNameAsNameOf"/> reports what it was.
     /// </remarks>
     private static string? MeaningfulLabelOf(AutomationPeer? peer) =>
-        NullIfEmpty(Safe<string?>(() => peer?.GetName(), null)) is { } name && !IsTypeName(name) ? name : null;
+        Safe<string?>(() => peer?.GetName(), null) is { Length: > 0 } name && !IsTypeName(name) ? name : null;
 
     /// <summary>The peer's automation name when <see cref="MeaningfulLabelOf"/> dropped it for being a type name.</summary>
     private static string? TypeNameAsNameOf(AutomationPeer? peer) =>
@@ -3830,7 +3841,7 @@ public static class UiAutomationDriver
 
     private static bool NameEquals(string? a, string? b) =>
         a is not null && b is not null &&
-        string.Equals(StripUnderscore(a), StripUnderscore(b), StringComparison.OrdinalIgnoreCase);
+        string.Equals(StripUnderscore(a.Trim()), StripUnderscore(b.Trim()), StringComparison.OrdinalIgnoreCase);
 
     private static bool IsPathSafe(string s) => s.IndexOfAny(['/', '[', ']', '#']) < 0;
 }

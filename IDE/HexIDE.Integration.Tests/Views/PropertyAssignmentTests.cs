@@ -141,24 +141,14 @@ public class PropertyAssignmentTests
         """;
 
     /// <summary>
-    /// Runs code in the oracle's locale, en-GB, as the program's locale, and returns what it printed. The thread is
-    /// pinned to the invariant culture, as the IDE pins it: the source's literals are read in the thread's culture
-    /// (#781), and a site still reading the thread's culture would then show as a month-first date.
+    /// Runs code in the oracle's locale, en-GB, as the program's explicit locale, and returns what it printed.
+    /// Literal parsing is invariant (#1610); changing the dispatcher's culture across an await risks a leak (#1612).
     /// </summary>
     private static async Task<System.Collections.Generic.List<Vb6Value>> RunInOracleLocale(
         ModuleExecutionContext ctx, ExecutionEnvironment env, string code)
     {
-        var saved = CultureInfo.CurrentCulture;
-        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
-        try
-        {
-            using (VbLocale.Use(CultureInfo.GetCultureInfo("en-GB")))
-                return await ContainerRuntimeHarness.Run(ctx, env, code);
-        }
-        finally
-        {
-            CultureInfo.CurrentCulture = saved;
-        }
+        using (VbLocale.Use(CultureInfo.GetCultureInfo("en-GB")))
+            return await ContainerRuntimeHarness.Run(ctx, env, code);
     }
 
     /// <summary>Resets, assigns under On Error Resume Next, and returns what reads back and the error number.</summary>

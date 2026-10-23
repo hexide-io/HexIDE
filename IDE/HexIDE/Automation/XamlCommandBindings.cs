@@ -35,12 +35,19 @@ internal static class XamlCommandBindings
     /// The arity XAML binds <paramref name="method"/> of <paramref name="type"/> or one of its bases with, or null
     /// when no Command is bound to it.
     /// </summary>
-    public static int? Arity(Type type, string method)
+    public static int? Arity(Type type, string method) => Arity(type, method, out _);
+
+    /// <summary>Also returns the type named by the matched compiled binding.</summary>
+    public static int? Arity(Type type, string method, out Type? boundType)
     {
         for (var t = type; t is not null; t = t.BaseType)
             foreach (var arity in new[] { 0, 1 })
                 if (IsBound(Key(t, method, arity)))
+                {
+                    boundType = t;
                     return arity;
+                }
+        boundType = null;
         return null;
     }
 
