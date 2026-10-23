@@ -228,6 +228,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The designer draws and names a UserControl or PropertyPage as VB6's does** (#1544). Each was drawn in a form's
+  window frame, with a title bar and caption buttons, a PropertyPage's tab read `(Form)`, and the Properties window's
+  object box gave both the class `Form`. Each is now a borderless surface, as neither has a window of its own at run
+  time, its tab reads `(UserControl)` or `(PropertyPage)`, and the object box names its class.
+
 - **Every focusable control raises GotFocus and LostFocus, and a form or UserControl saved disabled runs disabled**
   (#1101). Only the TextBox and the CommandButton raised them. The CheckBox, OptionButton, ListBox, ComboBox, scroll
   bars and PictureBox now do, as vb6.exe does: one GotFocus as a control is entered, however its items or edit box take

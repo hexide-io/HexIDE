@@ -45,10 +45,25 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         var kind = formDefinition?.RootVBTypeName switch
         {
             "VB.UserControl" => localization.GetString("Str.Document.UserControlSuffix"),
+            "VB.PropertyPage" => localization.GetString("Str.Document.PropertyPageSuffix"),
             _ => localization.GetString("Str.Document.FormSuffix")
         };
         return $"{formDefinition?.Owner.Name} - {formDefinition?.Name} ({kind})";
     }
+
+    /// <summary>
+    /// The class of the designer's root, as the Properties window's object box names it: Form, UserControl or PropertyPage
+    /// (#1544). All three are a form's component, so its own class would call each a Form.
+    /// </summary>
+    public string RootClassName => (formDefinition?.RootVBTypeName ?? "VB.Form") is var type && type.Contains('.')
+        ? type[(type.LastIndexOf('.') + 1)..]
+        : type;
+
+    /// <summary>
+    /// Whether the root is drawn in a window's frame, with a title bar. A UserControl or PropertyPage has no window of its
+    /// own at run time, and VB6's designer draws it as a borderless surface (#1544).
+    /// </summary>
+    public bool HasWindowFrame => formDefinition?.RootVBTypeName is not ("VB.UserControl" or "VB.PropertyPage");
 
     public override object? Icon { get; } = HexIDE.Utils.IconFactory.Themed("Geo.Form");
 

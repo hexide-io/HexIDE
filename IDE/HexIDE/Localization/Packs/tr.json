@@ -755,6 +755,7 @@
     "Str.Document.CodeSuffix": "Kod",
     "Str.Document.FormSuffix": "Form",
     "Str.Document.UserControlSuffix": "UserControl",
+    "Str.Document.PropertyPageSuffix": "PropertyPage",
     "Str.PropCategory.Misc": "Çeşitli",
     "Str.PropCategory.Appearance": "Görünüm",
     "Str.PropCategory.Behavior": "Davranış",

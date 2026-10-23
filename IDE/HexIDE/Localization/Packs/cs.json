@@ -755,6 +755,7 @@
     "Str.Document.CodeSuffix": "Kód",
     "Str.Document.FormSuffix": "Formulář",
     "Str.Document.UserControlSuffix": "UserControl",
+    "Str.Document.PropertyPageSuffix": "PropertyPage",
     "Str.PropCategory.Misc": "Různé",
     "Str.PropCategory.Appearance": "Vzhled",
     "Str.PropCategory.Behavior": "Chování",

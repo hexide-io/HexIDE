@@ -755,6 +755,7 @@
     "Str.Document.CodeSuffix": "Mã",
     "Str.Document.FormSuffix": "Biểu mẫu",
     "Str.Document.UserControlSuffix": "UserControl",
+    "Str.Document.PropertyPageSuffix": "PropertyPage",
     "Str.PropCategory.Misc": "Khác",
     "Str.PropCategory.Appearance": "Giao diện",
     "Str.PropCategory.Behavior": "Hành vi",

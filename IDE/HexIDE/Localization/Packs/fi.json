@@ -755,6 +755,7 @@
     "Str.Document.CodeSuffix": "Koodi",
     "Str.Document.FormSuffix": "Lomake",
     "Str.Document.UserControlSuffix": "UserControl",
+    "Str.Document.PropertyPageSuffix": "PropertyPage",
     "Str.PropCategory.Misc": "Sekalaiset",
     "Str.PropCategory.Appearance": "Ulkoasu",
     "Str.PropCategory.Behavior": "Toiminta",
