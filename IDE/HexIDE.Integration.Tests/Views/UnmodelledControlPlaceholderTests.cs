@@ -197,6 +197,11 @@ public class UnmodelledControlPlaceholderTests
             // toolbox to say so, and a press that reaches the form instead fails on that missing toolbox, loudly.
             view.FindControl<Canvas>("NewControlSpawner")!.IsVisible = false;
             Dispatcher.UIThread.RunJobs();
+            // A hit test is against what has been rendered, and running the jobs renders nothing: a control laid out since
+            // the last frame isn't there to hit. The headless render timer ticks in real time, so without a frame forced here
+            // the boxes were hit or not as the timer fell, and a slow macOS runner found the frame instead (#1065's rule).
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
 
             // The box inside the frame is on top of it: beneath, the frame's own background painted it over.
             var gauge = boxes.Single(b => AutomationProperties.GetName(b) == "Gauge1");
