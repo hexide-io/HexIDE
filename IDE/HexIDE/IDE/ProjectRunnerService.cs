@@ -643,8 +643,6 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
         public VBWindowContext Context => windowContext;
 
-        private bool first;
-
         // The window's time in the host, from its first show until it closes.
         private Task? inHost;
 
@@ -663,16 +661,37 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 e.Handled = true;
                 heldBy.ActivateForm();
             }, RoutingStrategies.Tunnel);
-            this.GetObservable(BoundsProperty)
-                .Subscribe(new ActionObserver<Rect>(_ =>
-                {
-                    if (first)
-                    {
-                        first = false;
-                        return;
-                    }
-                    windowContext.ExecuteSub("Form_Resize");
-                }));
+            // The context raises Resize as the window is shown, and then only for a change of size or state (#994). The
+            // subscriptions report each value from the first, which the context ignores until the form is shown.
+            this.GetObservable(BoundsProperty).Subscribe(new ActionObserver<Rect>(_ => windowContext.WindowResized()));
+            this.GetObservable(MDIHostPanel.WindowStateProperty).Subscribe(new ActionObserver<WindowState>(_ => windowContext.WindowResized()));
+            this.GetObservable(IsVisibleProperty).Subscribe(new ActionObserver<bool>(visible =>
+            {
+                if (visible)
+                    windowContext.Shown();
+            }));
+            // The host's active window is its topmost, which stays so while the IDE itself is inactive, as a form stays the
+            // program's active one while another application is. A held form is never active (#994).
+            this.GetObservable(MDIHostPanel.IsActiveProperty).Subscribe(new ActionObserver<bool>(active =>
+            {
+                if (active && heldBy is null)
+                    windowContext.Program?.Activated(windowContext);
+            }));
+        }
+
+        /// <inheritdoc/>
+        public (Size Size, WindowState State) Extent
+        {
+            get
+            {
+                var state = MDIHostPanel.GetWindowState(this);
+                if (state == WindowState.Minimized)
+                    return (default, state);
+                // Until the host has arranged it, the window is the size it was made.
+                var size = Bounds.Size == default ? new Size(Width, Height) : Bounds.Size;
+                var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
+                return (new Size(Math.Round(size.Width * scaling), Math.Round(size.Height * scaling)), state);
+            }
         }
 
         // Form_Load is not raised here: the program raises Initialize and Load before the window is shown (#822, #994).

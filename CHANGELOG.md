@@ -218,6 +218,13 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A running form raises Activate and Deactivate, and Resize once as it is shown** (#994). Activate and Deactivate
+  were never raised. They now come as VB6 raises them: when another of the program's forms is shown, given the focus
+  or left active by a Hide or an Unload, after the statement that did it, and not when the user switches to another
+  application and back. A form raised Resize two or three times as it was shown, as the window settled. It now
+  raises one, inside the Show, and after that one for each change of size or state. A form shown again after Hide
+  raises none.
+
 - **Cancelling a language-server request now reaches the server** (#944). The cancellation notification
   failed to serialize on every keystroke that abandoned a completion request. It now sends the original
   request’s bare ID, so a server can stop that work; the client still awaits the server’s response.
