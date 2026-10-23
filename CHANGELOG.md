@@ -18,6 +18,11 @@ there isn't one yet. Anything may change between 0.x releases.
   branch never taken, as vb6.exe refuses to build. The module saves exactly as written: the selection exists only for the
   parser. Every personality uses VB6's constants for now (#1548), and `Like` in an `#If` waits for `Like` itself (#1547).
 
+- **A control HexIDE does not model is shown in the designer** (#157). An ImageList, a Toolbar or any other control
+  HexIDE carries without modelling used to be invisible, so a developer could move a button onto it unknowing. Now
+  each is a box where VB6's IDE puts one: at its position, sized by its `Width` and `Height`, or 1200 by 480 twips
+  when it records neither, as VB6 measures it. The box names the control's class and says HexIDE does not support
+  it; it cannot be selected or moved, and the control is still saved exactly as it was read.
 - **A ComboBox raises Click, Change and DropDown** (#1429). It raised none, so a program's `Combo1_Click` and
   `Combo1_Change` never ran, whatever the user or code did. Now each comes where vb6.exe raises it, measured with real
   input, native and p-code:
@@ -215,6 +220,17 @@ there isn't one yet. Anything may change between 0.x releases.
   shown once more to anyone who saw the old one, which said "code".
 
 ### Fixed
+
+- **`CVar` runs** (#1466). It stopped the program as undefined. Now it returns its argument as a Variant with the
+  argument's own type, an object as the object, as vb6.exe's does. The result reads as a Variant's, so `CVar(5) * 7000` is
+  a Long 35000 where `5 * 7000` overflows.
+
+- **OK on the References dialog no longer drops the project's OLE Automation reference** (#1026). Its first row
+  carried OLE Automation's GUID, so the project's own reference was hidden, and OK, even with nothing changed, took it
+  out. The next save wrote the project without it, and VB6 then failed to build one that uses `StdFont` or
+  `OLE_COLOR`. The dialog now lists what VB6's does, as measured: three fixed rows (Visual Basic For Applications and
+  VB's two libraries), then every reference of the project in its order, OLE Automation among them. Nothing moves
+  above the fixed rows, and it opens on the last checked row.
 
 - **A form whose `Begin` line and `Attribute VB_Name` disagree opens as VB6 opens it** (#1407). HexIDE already named
   such a form by its `Begin` line, as VB6 does, but said nothing and saved the contradiction back. HexIDE itself wrote

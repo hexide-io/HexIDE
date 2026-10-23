@@ -2099,6 +2099,32 @@ So: keep the geometry, which is VB6's intended behaviour and is exactly reproduc
 the emptiness, which is a shortcoming rather than a design. Per the Fidelity Principle, a divergence — and
 recorded here so it stays deliberate.
 
+### Its size when the file records none, and what the box is (2026-10-22, #157)
+
+**The question.** The probe above had a `Width` and `Height`. An ImageList records neither: `Web Browser.frm`'s has
+`Left`, `Top`, `_ExtentX` and `_ExtentY` (HIMETRIC) and nothing else. The obvious guess is that the extents size it.
+
+**The probe.** One form holding three controls of an unregistered class (a made-up GUID, `NOSUCH.OCX`), each beside a
+real CommandButton of the size it should come out as. It was opened in VB6's IDE through the console agent. Each
+control was then selected with Tab, and its position and size read from the toolbar's readout.
+
+| Control | What the file records | VB6's readout |
+|---|---|---|
+| `Ext1` | `Left` 240, `Top` 240, `_ExtentX` 3528, `_ExtentY` 1764 (2000 × 1000 twips) | 240, 240, **1200 × 480** |
+| `Sized1` | `Left` 240, `Top` 1680, `Width` 3015, `Height` 495, extents for 1000 × 500 | 240, 1680, **3015 × 495** |
+| `Bare1` | `Left` 240, `Top` 3000, nothing else | 240, 3000, **1200 × 480** |
+
+**What it shows:**
+- **`Width` and `Height` size the box when the file has them, and 1200 × 480 twips when it has neither.** The extents
+  play no part, so the guess was wrong: `Web Browser.frm`'s ImageList comes out 1200 × 480. A file recording only one
+  of the two was not probed.
+- **The box is a PictureBox.** The Properties window names each one "`Ext1` PictureBox". VB6's load log says first
+  "Class NoSuchLib.Extent of control Ext1 was not a loaded control class", then "The property name _ExtentX in Ext1
+  is invalid", and the same for `_ExtentY` and `_Version`. A PictureBox has none of the three. What VB6 writes when
+  such a form is saved was not probed.
+- **So its border is a PictureBox's, the sunken one.** The section above calls it both "etched" and "sunken"; it is the
+  second. HexIDE's box (#157) is drawn sunken to match, and labelled, which is the divergence argued above.
+
 ## Bitwise And / Or / Xor / Not — the result-type ladder (2026-09-02, #166)
 
 Measured with `scripts/vb6-oracle.ps1`. Every row below is `vb6.exe` output, not inference — and two of them
@@ -13466,6 +13492,30 @@ while it is locked. ReDim Preserve (#1459) checks the lock before it resizes any
 element a parameter is writing. Every row above that HexIDE reaches is pinned in `ByRefElementTests`. Not reached: an array of a Type
 (#178), and an array of Collection, whose declaration HexIDE refuses.
 
+## The References dialog's fixed rows (2026-10-22, #1026, design-time)
+
+**The question.** HexIDE's References dialog headed its list with one fixed row, "Visual Basic For Applications",
+carrying OLE Automation's GUID. So the project's own OLE Automation reference never showed, and OK dropped it. The fix
+needed to know what VB6's dialog lists, which had only been described from memory.
+
+**The probe.** A Standard EXE whose `.vbp` has two references, OLE Automation then Microsoft Scripting Runtime, opened in
+VB6's IDE through the console agent. Project > References was opened, each of the first four rows selected with the
+arrow keys, and Space pressed on the first.
+
+**What it shows:**
+- **Three fixed rows head the list, checked:** Visual Basic For Applications (`VB98\VBA6.DLL`), Visual Basic runtime
+  objects and procedures (`SysWOW64\msvbvm60.dll\3`) and Visual Basic objects and procedures (`VB98\VB6.OLB`). The
+  `.vbp` has no line for any of them. Space on the first is refused: "Can't remove control or reference; in use".
+- **The project's references follow, checked, in the file's order:** OLE Automation (`SysWOW64\stdole2.tlb`), then
+  Microsoft Scripting Runtime. OLE Automation is an ordinary row, not one of the fixed ones. The unchecked libraries
+  come after.
+- **Priority arrows:** both are disabled on each fixed row. On OLE Automation, the first row below them, Up is disabled
+  and Down enabled. So nothing moves above the fixed rows.
+- **The dialog opens with the last checked row selected**, Microsoft Scripting Runtime here, not the first.
+- **Two details HexIDE does not copy yet** (#1468): the title names the project's file, "References - probe.vbp", where
+  HexIDE names the project; and the Language reads "English/Standard" on the fixed rows but "Standard" on OLE
+  Automation, where HexIDE shows "English/Standard" for every row.
+
 ## A form's StartUpPosition when its file has no line (2026-10-13, #932)
 
 **The obvious guess, and HexIDE's for as long as it had the property: a missing `StartUpPosition` line means 3,
@@ -15330,3 +15380,40 @@ module, so the directives are processed first.
   - `-2 ^ 2` is 4 here, where it is -4, because the lexer reads the minus as part of the number, here as everywhere (#1073);
   - a `#` line that is not a directive fails in HexIDE's parser, with its own message, where vb6.exe's is "Syntax error" or
     "Expected: =".
+
+## CVar (2026-10-23, #1466)
+
+Measured on vb6.exe, native and p-code identical, under en-GB. Each program `CVarTests` pins was made as written.
+
+**CVar returns its argument as a Variant, with the argument's own type.** It converts nothing.
+
+| probe | result |
+|---|---|
+| `TypeName(CVar(5))`, `CVar("5")`, `CVar(Null)`, `CVar(Empty)` | Integer, String, Null, Empty |
+| `TypeName(CVar(n))`, `n As Integer` | Integer |
+| `TypeName(CVar(2.5))`, `CVar(70000)`, `CVar(True)`, `CVar(#1/2/2000#)` | Double, Long, Boolean, Date |
+| `TypeName(CVar(a))`, `a(1) As Integer` | `Integer()`: the typed array, not a Variant array |
+| `TypeName(CVar(Array(1, 2)))` | `Variant()` |
+| `TypeName(CVar(c))`, `c` a Collection | Collection: the object itself |
+| `TypeName(CVar(k))`, `k` a class with a default `Value` of 7 | K1, and `IsObject(CVar(k))` True: the object, not its default member. `CVar(k) + 1` is 8 and `VarType(CVar(k))` 2, both of which read the default member |
+| `TypeName(CVar(Nothing))` | Nothing |
+| `v = CVar(a)`, then `v(0) = 9` | `a(0)` is still 1: the Variant holds a copy |
+
+**The result reads as a Variant's** (#987's probe):
+- `CVar(5) * 7000` and `CVar(n) * 7000` are a Long 35000, where `5 * 7000` is 6.
+- `CVar(5)` against `Case Is < 5.4` takes the Case.
+- `CVar("9")` against `Case Is > 10` takes Case Else, read as 9.
+- `CVar("5") + 1` is a Double 6, and `CVar("abc") + 1` is 13.
+
+**Two compile-time surprises:**
+- **`CVar$` compiles, and ignores the `$`.** `TypeName(CVar$(5))` is Integer and `CVar$("9")` takes Case Else, as `CVar` does. `CVar$(Null)` is Null, not 94, so it does not behave as the `$` forms that answer a String do.
+- **`CVar()` is "Syntax error", not "Argument not optional"** (HexIDE: #1512). `CVar(Expression:=5)` is "Syntax error" too (#1465).
+
+### In HexIDE (#1466)
+
+`d["CVar"]` returns its argument unchanged. It is listed:
+- in `ExpressionExecutor.VariantIntrinsics`, so the result reads as a Variant's;
+- in `DollarIgnored`, for `CVar$`;
+- in `VB6BuiltIns.TakesTheArgumentItself`, so an object reaches it as the object, as it reaches `TypeName`.
+
+A copy of an array is made where the result is stored, as for any Let of an array (#970).

@@ -53,7 +53,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // on each result against `Case Is < N.4`, or `Case Is > 9` for text, and its product past an Integer's or a Long's
     // ceiling). A name not listed was not run and reads as it always has. CSng was measured with #234: two CSng results
     // whose sum is past a Single's ceiling raise Err 6, where two Variant Singles widen to Double.
-    // AscW and ChrW, and Str (" 19" is read as 19 against `Case Is > 10`), were measured with #1134.
+    // AscW and ChrW, and Str (" 19" is read as 19 against `Case Is > 10`), were measured with #1134, and CVar with #1466.
     private static readonly HashSet<string> TypedIntrinsics = new(StringComparer.OrdinalIgnoreCase)
         { "Sgn", "Asc", "AscW", "CInt", "CLng", "CByte", "CSng", "CStr", "UBound", "LBound", "Replace", "StrReverse" };
 
@@ -61,7 +61,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     {
         "Hour", "Minute", "Second", "Day", "Month", "Year", "Weekday", "IIf", "Choose", "Switch",
         "Mid", "Left", "Right", "Trim", "LTrim", "LCase", "UCase", "Hex", "Oct", "String", "Format", "Chr", "ChrW",
-        "Str",
+        "Str", "CVar",
     };
 
     // Typed when given typed arguments, and a Variant's when given a Variant (measured: `Len(v)`, `InStr(v, "5")` and
@@ -938,7 +938,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// <summary>Library functions on which VB6 ignores a <c>$</c>, the result keeping its usual type (measured).</summary>
     private static readonly HashSet<string> DollarIgnored = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Abs", "CLng", "Fix", "InStr", "InStrB", "Int", "Len", "LenB", "Sgn",
+        "Abs", "CLng", "CVar", "Fix", "InStr", "InStrB", "Int", "Len", "LenB", "Sgn",
     };
 
     /// <summary>Resolve a parenthesised call on an identifier — a control-array element (<c>Command1(i)</c>), a
