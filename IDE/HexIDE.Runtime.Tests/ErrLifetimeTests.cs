@@ -521,6 +521,38 @@ public class ErrLifetimeTests : BaseVBTestFixture
             """));
     }
 
+    // With a debugger attached and nothing above to trap it, an error raised inside a running handler halts there, even
+    // after the handler's own On Error Resume Next: the procedure traps nothing while its handler runs (measured at run
+    // time above), so the halt is at the raise, not at the caller's call.
+    [Fact]
+    public async Task An_error_in_a_running_handler_halts_inside_it_even_after_its_On_Error_Resume_Next()
+    {
+        var (vb, dbg) = NewDebuggable("""
+            Sub Main()
+                P
+            End Sub
+            Sub P()
+                On Error GoTo H
+                Err.Raise 11
+                Exit Sub
+            H:
+                On Error Resume Next
+                Err.Raise 13
+            End Sub
+            """);
+        var halts = new List<ErrorLocation?>();
+        dbg.HaltHost = e =>
+        {
+            halts.Add(ErrorLocation.Of(e));
+            return Task.FromResult(false);
+        };
+        try { await vb.RunStartupSubMain(); }
+        catch (Exception) { /* End unwinds the run */ }
+
+        halts.Should().ContainSingle().Which.Should().Be(new ErrorLocation("Module1", 10));
+    }
+
+
     private static List<Vb6Value> Lines(string text) =>
         text.ReplaceLineEndings("\n").Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => new Vb6Value(l)).ToList();
 }
