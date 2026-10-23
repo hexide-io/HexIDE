@@ -96,6 +96,9 @@ public partial class VB6BuiltIns
         if (a[i].IsNull || a[i + 1].IsNull) return Vb6Value.Null;
         if (start < 1) throw InvalidCall();
         string s1 = AsStr(a[i]), s2 = AsStr(a[i + 1]);
+        // An empty string1 holds nothing, and an empty string2 is found at start, however far past the end (measured, #1567).
+        if (s1.Length == 0) return new Vb6Value(0L);
+        if (s2.Length == 0) return new Vb6Value((long)start);
         if (start > s1.Length) return new Vb6Value(0L);
         var cmp = compare == 1 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         return new Vb6Value((long)s1.IndexOf(s2, start - 1, cmp) + 1);   // 1-based; 0 when not found
@@ -109,8 +112,12 @@ public partial class VB6BuiltIns
         int start = Supplied(a, 2) ? AsInt(a[2]) : -1;
         int compare = Supplied(a, 3) ? AsInt(a[3]) : 0;
         var cmp = compare == 1 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        int from = start < 0 ? s1.Length - 1 : Math.Min(start - 1, s1.Length - 1);
+        // A start past the end is 0, even where the text is there to find (measured, #1567).
+        if (start > s1.Length) return new Vb6Value(0L);
+        int from = start < 0 ? s1.Length - 1 : start - 1;
         if (from < 0 || s1.Length == 0) return new Vb6Value(0L);
+        // An empty string2 is found at start: .NET's LastIndexOf would say one past it.
+        if (s2.Length == 0) return new Vb6Value((long)from + 1);
         return new Vb6Value((long)s1.LastIndexOf(s2, from, cmp) + 1);
     }
 
