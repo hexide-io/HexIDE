@@ -900,3 +900,67 @@ held, release at the second point to whatever holds the pointer.
 **Suggested fix.** Decide whether a node is hidden on what its content can't change: leave `scroll` out of it, or never
 hide a node with an x:Name or AutomationId. And when a segment misses, say which node has appeared above it.
 [#1436](https://github.com/hexide-io/HexIDE/issues/1436).
+
+## `press_key` with Alt and a letter never reaches a control's access key
+
+**Symptom (2026-10-23, #1390, Windows).** On a running form whose `cmdWide` is captioned `One &Wide`,
+`press_key {"target":"Window/Button[cmdTom]","key":"W","modifiers":"Alt","window":"Form1"}` answered
+`{"success":true,"mechanism":"keyboard","detail":"pressed Alt+W"}`, and `press_key {"target":"Window","key":"W",
+"modifiers":"Alt","window":"Form1"}` answered `pressed Alt+W on VBCommandButton, at Window/Button[cmdWide]`. Neither ran
+`cmdWide_Click`. On the IDE, `press_key {"target":"Window","key":"F","modifiers":"Alt","window":"ide"}` highlighted
+File without opening it. `press_key` raises routed `KeyDown` and `KeyUp` on the target, which Avalonia's access-key
+handling doesn't act on.
+
+**Workaround.** None through the surface. A headless test sending the chord as raw input
+(`window.KeyPressQwerty(PhysicalKey.W, RawInputModifiers.Alt)`) with a button focused clicked `cmdWide`, so the product
+works.
+
+**Suggested fix.** Deliver the keys through the window's input path, as real keystrokes, the way `interact click`
+does for the pointer, or offer that as a mode and say in the reply which path was used. Until then, say in the
+description that an access key can't be reached. [#1523](https://github.com/hexide-io/HexIDE/issues/1523).
+
+## `interact click` at a point outside its target says the control pressed there covers the target
+
+**Symptom (2026-10-23, #1503, Windows).** On a running form, `Command2` is 120 × 60
+(`inspect_element`: `boundingRect [64,40,120,60]`).
+`interact {"target":"Window/Button[Command2]","action":"click","value":"150,60","window":"Form1"}` answered
+`clicked the left button at (150, 60) on 'VBCommandButton', which is (214, 100) in the window; the press landed on
+'VBLabel', which covers the target there`. The point is past the button's width and height. The Label lying there was
+pressed, and `Command2_Click` didn't run. The reply reads as a stacking defect in the product.
+
+**Workaround.** `inspect_element` the target first and keep the point inside its `boundingRect`'s width and height.
+
+**Suggested fix.** When the point is outside the target's bounds, say so and give the target's size, and keep "covers
+the target there" for a point inside them. Or refuse such a point, as a point where nothing takes the pointer is
+refused. [#1530](https://github.com/hexide-io/HexIDE/issues/1530).
+
+## `invoke_menu_item` on a disabled item with a routed command blames keyboard focus
+
+**Symptom (2026-10-23, #746, Windows).** On `--newproject`, with one project and no group,
+`dump_visual_tree {"window":"ide","match":"Make Project Group","interactiveOnly":false}` showed
+`MenuItem[Make Project Group...]` with `isEnabled: false`, as VB6 greys it. `invoke_menu_item {"path":"File/Make Project
+Group..."}` answered `cannot execute where keyboard focus is now (a MenuItem named 'PART_ItemsPresenter' showing
+MainViewViewModel)`, went on about giving a document focus, and only in its last sentence said that a disabled item is
+refused the same way. The item belongs to no document, and no focus would enable it.
+
+**Workaround.** Open the menu and read the item's `isEnabled` with `dump_visual_tree` before invoking it.
+
+**Suggested fix.** When the `MenuItem` is materialised and not effectively enabled, say it is disabled in the menu, as
+the non-routed branch and the checkable-item branch already do. Keep the focus explanation for an item the menu shows
+enabled. [#1534](https://github.com/hexide-io/HexIDE/issues/1534).
+
+## A border given a name but no type is folded away, name and all, so `match` cannot find it
+
+**Symptom (2026-10-22, #157, headless).** The designer's box for a control HexIDE does not model was a
+`ClassicBorderDecorator` with `AutomationProperties.Name` set to the control's name. `dump_visual_tree`'s `match`
+path, `UiAutomationDriver.Find(UiAutomationDriver.Dump(window, "Window", 60, interactiveOnly: false), "imlIcons", 10)`,
+the code `{"match":"imlIcons"}` runs, found nothing. A border's control type is `None`, it has no provider and takes no
+focus, so the control view hides it as plumbing, and the name it was given goes with it. This is the rule
+[#1436](https://github.com/hexide-io/HexIDE/issues/1436) is about, reached from the other side: a name set on purpose is
+no more plumbing than an AutomationId.
+
+**Workaround.** Give the element a type: `AutomationProperties.ControlTypeOverride="Pane"` keeps it, as `VBProps` does
+for a running form's Frame, PictureBox, Label and Image.
+
+**Suggested fix.** Count an explicitly set `AutomationProperties.Name` as the AutomationId already counts, so a view's
+author is not left to discover the override. Folded into #1436.
