@@ -411,6 +411,22 @@ public class WriteInputTests : BaseVBTestFixture, IDisposable
         AssertDebugLog(["in c: Currency 2,5|String 1,5|Decimal 2,12345", "in d into Double: 2,5"]);
     }
 
+    // Only the date shapes measured between #s are read as dates. .NET's lenient parser would take #1/2# as this year's
+    // 2 January, which nothing measured says VB6 does, so it is refused rather than guessed.
+    [Fact]
+    public async Task An_unmeasured_date_shape_is_refused_by_name()
+    {
+        File.WriteAllBytes(PathOf("in.txt"), Encoding.Latin1.GetBytes("#1/2#\r\n"));
+        var run = () => Run($$"""
+            Dim f As Integer, r1
+            f = FreeFile
+            Open "{{PathOf("in.txt")}}" For Input As #f
+            Input #f, r1
+            """);
+
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#1/2#*#1521*");
+    }
+
     [Fact]
     public async Task Input_into_an_array_element_is_refused_by_name()
     {

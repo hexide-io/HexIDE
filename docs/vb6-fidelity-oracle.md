@@ -15147,3 +15147,6 @@ Refused, untrappably and by name:
 - `Input #` into anything but a plain variable, as `Line Input #` refuses;
 - `#ERROR n#` into a Variant, since HexIDE has no Error values (`CVErr`);
 - `Write #` of an object, array or user-defined type, which was not measured.
+- a date between `#`s in any shape but the four measured (`#yyyy-mm-dd#`, `#yyyy-mm-dd hh:mm:ss#`, `#hh:mm:ss#`,
+  `#m/d/yyyy#`). .NET's lenient parser would read `#1/2#` as this year's 2 January. A form no date parser takes stays
+  the String as written, as `#abc#` measured.

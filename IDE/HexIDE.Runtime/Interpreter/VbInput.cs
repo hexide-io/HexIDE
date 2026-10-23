@@ -103,10 +103,17 @@ internal static class VbInput
         if (inner.StartsWith("ERROR", StringComparison.OrdinalIgnoreCase)
             || inner.ToUpperInvariant() is "TRUE" or "FALSE" or "NULL")
             throw new NotImplementedException($"Input # of {text} into a Variant is not implemented (#1521)");
-        return DateTime.TryParse(inner, CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault, out var date)
-            ? new Vb6Value(VB6BuiltIns.OnZeroDateIfTimeOnly(date))
-            : new Vb6Value(text);
+        if (DateTime.TryParseExact(inner, MeasuredDateShapes, CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault, out var date))
+            return new Vb6Value(VB6BuiltIns.OnZeroDateIfTimeOnly(date));
+        // Only the shapes above were measured, and `#abc#` reads as written. .NET would take `#1/2#` as this year's 2 January,
+        // and `#5 PM#` and `#Jan 5#` too, which nothing measured says VB6 does.
+        if (DateTime.TryParse(inner, CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault, out _))
+            throw new NotImplementedException($"Input # of {text} into a Variant is not implemented: only #yyyy-mm-dd#, #yyyy-mm-dd hh:mm:ss#, #hh:mm:ss# and #m/d/yyyy# were measured (#1521)");
+        return new Vb6Value(text);
     }
+
+    // The dates measured between #s: what Write # writes, and a date literal's month-first form.
+    private static readonly string[] MeasuredDateShapes = ["yyyy-MM-dd", "yyyy-MM-dd HH:mm:ss", "HH:mm:ss", "M/d/yyyy"];
 
     /// <summary>
     /// The number at the start of <paramref name="text"/>, typed as <c>Input #</c> types it for a Variant, or null when it
