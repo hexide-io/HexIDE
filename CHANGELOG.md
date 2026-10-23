@@ -10,6 +10,14 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Conditional compilation runs: `#If`, `#ElseIf`, `#Else`, `#End If` and `#Const`** (#1112). A module holding any
+  `#If` stopped the program as it loaded, and `#Const` did not parse. Now each branch is chosen as vb6.exe chooses it,
+  measured with `/make`, native and p-code. The names are the module's `#Const`s, the project's Conditional Compilation
+  Arguments (`CondComp`) and VB6's `Win32` and `Win16`. An inactive branch is never parsed, so code written for another
+  compiler, such as VBA7's `Declare PtrSafe`, runs unchanged. A directive's error stops the program as it loads, even in a
+  branch never taken, as vb6.exe refuses to build. The module saves exactly as written: the selection exists only for the
+  parser. Every personality uses VB6's constants for now (#1548), and `Like` in an `#If` waits for `Like` itself (#1547).
+
 - **A control's `ZOrder` method** (#1503). `ZOrder 0`, or no argument, brings a control to the front of the controls
   like it in its container, and `ZOrder 1` sends it to the back, as measured on vb6.exe. A Label never rises over a
   windowed control, a container takes its contents, and the position is 0 or 1 or it raises VB6's error. A program

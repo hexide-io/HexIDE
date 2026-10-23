@@ -557,15 +557,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// literals as Variants would silently promote `i = i + 1` past a declared Integer's ceiling, which is
     /// the common shape rather than a rare one. (#122)
     /// </summary>
-    public override async Task<object?> VisitVsLiteral(VB6Parser.VsLiteralContext literalContext)
-    {
-        var result = await VisitVsLiteralCore(literalContext);
-        return result is Vb6Value v ? v.AsFixedType() : result;
-    }
+    public override Task<object?> VisitVsLiteral(VB6Parser.VsLiteralContext literalContext) =>
+        Task.FromResult<object?>(LiteralValue(literalContext.literal()).AsFixedType());
 
-    private async Task<object?> VisitVsLiteralCore(VB6Parser.VsLiteralContext literalContext)
+    /// <summary>A literal's value, typed as VB6 types it. An <c>#If</c>'s expression reads its literals here too (#1112).</summary>
+    internal static Vb6Value LiteralValue(VB6Parser.LiteralContext literal)
     {
-        if (literalContext.literal().STRINGLITERAL() is { } stringliteral)
+        if (literal.STRINGLITERAL() is { } stringliteral)
         {
             // `""` inside a literal is VB6's escape for ONE quote, and it is the only escape the language
             // has. Stripping the delimiters without unescaping meant `"he said ""hi"""` evaluated to
@@ -580,11 +578,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             var str = text.Substring(1, text.Length - 2).Replace("\"\"", "\"");
             return new Vb6Value(str);
         }
-        if (literalContext.literal().INTEGERLITERAL() is { } integerliteral)
+        if (literal.INTEGERLITERAL() is { } integerliteral)
             return ClassifyIntegerLiteral(integerliteral.GetText());
-        if (literalContext.literal().OCTALLITERAL() is { } octalliteral)
+        if (literal.OCTALLITERAL() is { } octalliteral)
             return ClassifyRadixLiteral(octalliteral.GetText(), 8);
-        if (literalContext.literal().DOUBLELITERAL() is { } doubleliteral)
+        if (literal.DOUBLELITERAL() is { } doubleliteral)
         {
             var text = doubleliteral.GetText();
             char suffix = text[^1];
@@ -603,25 +601,25 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // VB6: an unsuffixed floating-point literal (with a '.' or exponent) defaults to Double.
             return new Vb6Value(double.Parse(text));
         }
-        if (literalContext.literal().TRUE() is { })
+        if (literal.TRUE() is { })
         {
             Vb6Value val = new Vb6Value(true);
             return val;
         }
-        if (literalContext.literal().FALSE() is { })
+        if (literal.FALSE() is { })
         {
             Vb6Value val = new Vb6Value(false);
             return val;
         }
-        if (literalContext.literal().NULL() is { })
+        if (literal.NULL() is { })
         {
             return Vb6Value.Null;
         }
-        if (literalContext.literal().NOTHING() is { })
+        if (literal.NOTHING() is { })
         {
             return Vb6Value.Nothing;   // a null object reference
         }
-        if (literalContext.literal().EMPTY_() is { })
+        if (literal.EMPTY_() is { })
         {
             // The fourth of VB6's value keywords, and the one that was missing — `Empty` had no token at
             // all, so it lexed as an identifier and reported as "Variable not defined (Empty)", naming a
@@ -635,7 +633,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // spelling was unavailable.
             return new Vb6Value(Vb6Value.ValueType.EmptyVariant);
         }
-        if (literalContext.literal().DATELITERAL() is { } dateliteral)
+        if (literal.DATELITERAL() is { } dateliteral)
         {
             // VB6 date literals are culture-independent, US month/day/year — parse invariantly. A time-only literal is
             // that time on the zero date, not today (#771).
@@ -643,12 +641,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return new Vb6Value(VB6BuiltIns.OnZeroDateIfTimeOnly(DateTime.Parse(inner,
                 System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.NoCurrentDateDefault)));
         }
-        if (literalContext.literal().HEXLITERAL() is { } hexliteral)
+        if (literal.HEXLITERAL() is { } hexliteral)
             return ClassifyRadixLiteral(hexliteral.GetText(), 16);   // VB6 &H is numeric, not a colour
-        else
-        {
-            throw new NotImplementedException($"{literalContext.literal().GetChild(0)} literal is not supported");
-        }
+        throw new NotImplementedException($"{literal.GetChild(0)} literal is not supported");
     }
 
     // VB6 whole-number literal typing: a type-char suffix wins (& Long, @ Currency, ! Single, # Double);
@@ -1635,6 +1630,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     public override async Task<object?> VisitVsAmp(VB6Parser.VsAmpContext context)
     {
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
+        return Concatenate(leftValue, rightValue);
+    }
+
+    /// <summary><c>&amp;</c> on two values, as <see cref="VisitVsAmp"/> and an <c>#If</c>'s expression apply it.</summary>
+    internal static Vb6Value Concatenate(Vb6Value leftValue, Vb6Value rightValue)
+    {
         if (leftValue.IsNull && rightValue.IsNull)
             return Vb6Value.Null;
         // Null and Empty both concatenate as "" (Empty.Value is null, so the old code NPE'd on it).
@@ -1660,9 +1661,15 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     public override async Task<object?> VisitVsAdd(VB6Parser.VsAddContext context)
     {
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
+        return AddOrSubtract(leftValue, rightValue, context.MINUS() != null, context);
+    }
+
+    /// <summary><c>+</c> or <c>-</c> on two values, as <see cref="VisitVsAdd"/> and an <c>#If</c>'s expression apply them.</summary>
+    internal static Vb6Value AddOrSubtract(Vb6Value leftValue, Vb6Value rightValue, bool subtract, Antlr4.Runtime.ParserRuleContext context)
+    {
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
-        if (context.MINUS() != null)
+        if (subtract)
             return Typed(leftValue, rightValue, VbNumeric.Sub(leftValue, rightValue, context));
         if (leftValue.Type == Vb6Value.ValueType.String && rightValue.Type == Vb6Value.ValueType.String)
             return new Vb6Value((string)leftValue.Value! + (string)rightValue.Value!);   // VB6: String + String concatenates
@@ -1679,9 +1686,15 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     public override async Task<object?> VisitVsMult(VB6Parser.VsMultContext context)
     {
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
+        return MultiplyOrDivide(leftValue, rightValue, context.DIV() != null, context);
+    }
+
+    /// <summary><c>*</c> or <c>/</c> on two values, as <see cref="VisitVsMult"/> and an <c>#If</c>'s expression apply them.</summary>
+    internal static Vb6Value MultiplyOrDivide(Vb6Value leftValue, Vb6Value rightValue, bool divide, Antlr4.Runtime.ParserRuleContext context)
+    {
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
-        return Typed(leftValue, rightValue, context.DIV() != null
+        return Typed(leftValue, rightValue, divide
             ? VbNumeric.RealDivide(leftValue, rightValue, context)
             : VbNumeric.Mul(leftValue, rightValue, context));
     }
@@ -1689,6 +1702,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     public override async Task<object?> VisitVsMod(VB6Parser.VsModContext context)
     {
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
+        return Modulo(leftValue, rightValue, context);
+    }
+
+    internal static Vb6Value Modulo(Vb6Value leftValue, Vb6Value rightValue, Antlr4.Runtime.ParserRuleContext context)
+    {
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
         return Typed(leftValue, rightValue, VbNumeric.Modulo(leftValue, rightValue, context));
@@ -1697,6 +1715,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     public async override Task<object?> VisitVsDiv(VB6Parser.VsDivContext context)
     {
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
+        return IntegerDivide(leftValue, rightValue, context);
+    }
+
+    internal static Vb6Value IntegerDivide(Vb6Value leftValue, Vb6Value rightValue, Antlr4.Runtime.ParserRuleContext context)
+    {
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
         return Typed(leftValue, rightValue, VbNumeric.IntDivide(leftValue, rightValue, context));
@@ -1705,6 +1728,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     public override async Task<object?> VisitVsPow(VB6Parser.VsPowContext context)
     {
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
+        return Power(leftValue, rightValue, context);
+    }
+
+    internal static Vb6Value Power(Vb6Value leftValue, Vb6Value rightValue, Antlr4.Runtime.ParserRuleContext context)
+    {
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
         return Typed(leftValue, rightValue, VbNumeric.Power(leftValue, rightValue, context));
@@ -1779,6 +1807,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // rejects the ordinary `True And 2` and `"12" And 10` outright. Bitwise operators do not coerce
         // to a common type; they reduce each operand to bits independently. (#166)
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
+        return And(leftValue, rightValue, context);
+    }
+
+    internal static Vb6Value And(Vb6Value leftValue, Vb6Value rightValue, Antlr4.Runtime.ParserRuleContext context)
+    {
         if (TryBitwise(leftValue, rightValue, static (a, b) => a & b, out var and)) return and;
         throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
     }
@@ -1791,6 +1824,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // rejects the ordinary `True And 2` and `"12" And 10` outright. Bitwise operators do not coerce
         // to a common type; they reduce each operand to bits independently. (#166)
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
+        return Or(leftValue, rightValue, context);
+    }
+
+    internal static Vb6Value Or(Vb6Value leftValue, Vb6Value rightValue, Antlr4.Runtime.ParserRuleContext context)
+    {
         if (TryBitwise(leftValue, rightValue, static (a, b) => a | b, out var or)) return or;
         throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
     }
@@ -1803,13 +1841,22 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // rejects the ordinary `True And 2` and `"12" And 10` outright. Bitwise operators do not coerce
         // to a common type; they reduce each operand to bits independently. (#166)
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
+        return Xor(leftValue, rightValue, context);
+    }
+
+    internal static Vb6Value Xor(Vb6Value leftValue, Vb6Value rightValue, Antlr4.Runtime.ParserRuleContext context)
+    {
         if (TryBitwise(leftValue, rightValue, static (a, b) => a ^ b, out var xor)) return xor;
         throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
     }
 
     public override async Task<object?> VisitVsNegation(VB6Parser.VsNegationContext context)
     {
-        var value = await EvaluateScalar(context.valueStmt());
+        return Negation(await EvaluateScalar(context.valueStmt()), context);
+    }
+
+    internal static Vb6Value Negation(Vb6Value value, Antlr4.Runtime.ParserRuleContext context)
+    {
         if (value.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
         var negated = VbNumeric.Negate(value, context);
@@ -1818,7 +1865,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     public override async Task<object?> VisitVsNot(VB6Parser.VsNotContext context)
     {
-        var value = await EvaluateScalar(context.valueStmt());
+        return Not(await EvaluateScalar(context.valueStmt()), context);
+    }
+
+    internal static Vb6Value Not(Vb6Value value, Antlr4.Runtime.ParserRuleContext context)
+    {
         if (value.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
         // Not keeps its operand's OWN width rather than promoting: Not CByte(5) is 250, an eight-bit
@@ -1831,6 +1882,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     public override async Task<object?> VisitVsEqv(VB6Parser.VsEqvContext context)
     {
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());   // raw — see VisitVsAnd
+        return Eqv(leftValue, rightValue, context);
+    }
+
+    internal static Vb6Value Eqv(Vb6Value leftValue, Vb6Value rightValue, Antlr4.Runtime.ParserRuleContext context)
+    {
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
         if (TryBitwise(leftValue, rightValue, static (a, b) => ~(a ^ b), out var eqv)) return eqv;
@@ -1840,12 +1896,17 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     public override async Task<object?> VisitVsImp(VB6Parser.VsImpContext context)
     {
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());   // raw — see VisitVsAnd
+        return Imp(leftValue, rightValue, context);
+    }
+
+    internal static Vb6Value Imp(Vb6Value leftValue, Vb6Value rightValue, Antlr4.Runtime.ParserRuleContext context)
+    {
         if (leftValue.Type == Vb6Value.ValueType.Null &&
             rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
-        if (leftValue.Type == Vb6Value.ValueType.Null && TryUnpack(rightValue, out bool rbool))
+        if (leftValue.Type == Vb6Value.ValueType.Null && rightValue.Value is bool rbool)
             return rbool ? (Vb6Value)true : Vb6Value.Null;
-        if (rightValue.Type == Vb6Value.ValueType.Null && TryUnpack(leftValue, out bool lbool))
+        if (rightValue.Type == Vb6Value.ValueType.Null && leftValue.Value is bool lbool)
             return lbool ? Vb6Value.Null : (Vb6Value)true;
         if (TryBitwise(leftValue, rightValue, static (a, b) => ~a | b, out var imp)) return imp;
         throw new VBRunTimeException(context, VBStandardError.TypeMismatch);

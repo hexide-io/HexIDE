@@ -309,6 +309,30 @@ public static class VbNumeric
 
     private static double SerialOf(Vb6Value v) => v.Value is DateTime dt ? dt.ToOADate() : ToDouble(v);
 
+    /// <summary>
+    /// The order of two numbers, a Date by its serial: exactly where neither is a Single or a Double, and as Doubles otherwise.
+    /// An <c>#If</c>'s comparison reads it (#1112). Anything that is not a number is Type mismatch.
+    /// </summary>
+    internal static int CompareNumbers(Vb6Value l, Vb6Value r, ParserRuleContext? ctx)
+    {
+        static bool Exact(Vb6Value v) => CoreRank(v.Type) >= 0 && v.Type != VT.Single && v.Type != VT.Double;
+        if (Exact(l) && Exact(r))
+            return ToDecimal(l).CompareTo(ToDecimal(r));
+        if (!TryToSerial(l, out var a) || !TryToSerial(r, out var b))
+            throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
+        return a.CompareTo(b);
+    }
+
+    private static bool TryToSerial(Vb6Value v, out double serial)
+    {
+        if (v.Value is DateTime dt)
+        {
+            serial = dt.ToOADate();
+            return true;
+        }
+        return TryToDouble(v, out serial);
+    }
+
     private static Vb6Value FromSerial(double serial, ParserRuleContext? ctx)
     {
         try { return new Vb6Value(DateTime.FromOADate(serial)); }
