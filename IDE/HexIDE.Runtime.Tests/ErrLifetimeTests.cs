@@ -1,6 +1,7 @@
 // Generated from the vb6.exe probes for #877 (scratchpad p877/gentests.py): each program is the probe as it ran,
 // printing where the probe logged, and each expected line is what vb6.exe logged, native and p-code alike.
 
+using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.Tests;
@@ -523,7 +524,7 @@ public class ErrLifetimeTests : BaseVBTestFixture
 
     // With a debugger attached and nothing above to trap it, an error raised inside a running handler halts there, even
     // after the handler's own On Error Resume Next: the procedure traps nothing while its handler runs (measured at run
-    // time above), so the halt is at the raise, not at the caller's call.
+    // time above), so Break is at the raise, not at the caller's call.
     [Fact]
     public async Task An_error_in_a_running_handler_halts_inside_it_even_after_its_On_Error_Resume_Next()
     {
@@ -540,18 +541,24 @@ public class ErrLifetimeTests : BaseVBTestFixture
                 Err.Raise 13
             End Sub
             """);
-        var halts = new List<ErrorLocation?>();
-        dbg.HaltHost = e =>
-        {
-            halts.Add(ErrorLocation.Of(e));
-            return Task.FromResult(false);
-        };
-        try { await vb.RunStartupSubMain(); }
-        catch (Exception) { /* End unwinds the run */ }
+        dbg.HaltHost = _ => Task.FromResult(true);   // Debug, so it enters Break where it halted
+        var stop = NextStop(dbg);
+        var run = vb.RunStartupSubMain();
+        var info = await stop.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        dbg.Stop();
+        try { await run; } catch (Exception) { /* Stop unwinds the run */ }
 
-        halts.Should().ContainSingle().Which.Should().Be(new ErrorLocation("Module1", 10));
+        info.Should().Be(new StoppedInfo(StopReason.RuntimeError, "Module1", 10));
     }
 
+    // A task that completes when the controller next enters Break, as DebuggerTests waits for one.
+    private static Task<StoppedInfo> NextStop(DebugController dbg)
+    {
+        var tcs = new TaskCompletionSource<StoppedInfo>(TaskCreationOptions.RunContinuationsAsynchronously);
+        void Handler(StoppedInfo info) { dbg.Stopped -= Handler; tcs.TrySetResult(info); }
+        dbg.Stopped += Handler;
+        return tcs.Task;
+    }
 
     private static List<Vb6Value> Lines(string text) =>
         text.ReplaceLineEndings("\n").Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => new Vb6Value(l)).ToList();
