@@ -60,8 +60,9 @@ public class PrePass : VB6BaseVisitor<object?>
     // EmptyVariant, so a second directive over them is still refused.
     private readonly Vb6Value.ValueType?[] defaultTypes = new Vb6Value.ValueType?[26];
 
-    // Set at the module's first variable declaration, after which a DefType does not compile (measured).
-    private bool declaredVariable;
+    // Set at the module's first declaration, after which a DefType does not compile: a variable, a Const, a Type, an Enum or a
+    // Declare (all measured). An Option statement or another DefType does not count.
+    private bool declared;
 
     /// <summary>
     /// The type a declaration with no As clause takes from the first letter of its name, under the module's DefType
@@ -86,7 +87,7 @@ public class PrePass : VB6BaseVisitor<object?>
     /// </summary>
     public override object? VisitDeftypeStmt(VB6Parser.DeftypeStmtContext context)
     {
-        if (declaredVariable)
+        if (declared)
             throw new VBCompileErrorException("Deftype statements must precede declarations");
         var type = context.DEFBOOL() != null ? Vb6Value.ValueType.Boolean
             : context.DEFBYTE() != null ? Vb6Value.ValueType.Byte
@@ -210,7 +211,9 @@ public class PrePass : VB6BaseVisitor<object?>
 
         // Module-level `Dim`, `Private`, and `Public` declarations all hoist the same way (visibility is not
         // tracked for variables — an over-permissive simplification). Class fields are usually `Private`/`Public`.
-        declaredVariable = true;
+        // The slot hoisted here has no DefType's type: the Dim statement, run when the module starts, makes the slot the
+        // program uses, and DeclareLocal gives that one its type (#169).
+        declared = true;
         if (context.DIM() != null || context.visibility() != null)
         {
             foreach (var subStmt in context.variableListStmt().variableSubStmt())
@@ -293,14 +296,6 @@ public class PrePass : VB6BaseVisitor<object?>
                                     ? " (#1482)" : ""));
                     }
                 }
-                else if (DefaultTypeOf(subStmt.ambiguousIdentifier().GetText()) is { } defaultType)
-                {
-                    // No As clause, under a DefType (#169): typed as the letter says, an object slot under DefObj.
-                    if (defaultType == Vb6Value.ValueType.Object)
-                        objectSlot = !isArray ? true : throw new NotImplementedException("An array of objects is not implemented (#1482)");
-                    else
-                        type = defaultType;
-                }
                 if (isArray)
                     type = new Vb6Value.ValueType(type, true);
 
@@ -314,8 +309,8 @@ public class PrePass : VB6BaseVisitor<object?>
                     if (dimensions != null)
                         state.MarkFixedArray(location);
                 }
-                else if (!objectSlot && type == Vb6Value.ValueType.EmptyVariant
-                         && (subStmt.asTypeClause() is null || subStmt.asTypeClause().type().complexType() is null))
+                else if (!objectSlot && (subStmt.asTypeClause() is null
+                         || (subStmt.asTypeClause().type().complexType() is null && type == Vb6Value.ValueType.EmptyVariant)))
                     state.MarkVariant(location);
                 rootEnv.DefineVariable(subStmt.ambiguousIdentifier().GetText(), location);
                 // Global is the old spelling of Public in a standard module (measured: `Global n` in a bound is
@@ -344,6 +339,7 @@ public class PrePass : VB6BaseVisitor<object?>
 
     public override object? VisitConstStmt(VB6Parser.ConstStmtContext context)
     {
+        declared = true;
         // Hoist module-level const names into rootEnv (mirrors the Dim hoist) so a Sub declared after the
         // Const can reference it. The value is filled by the runtime VisitConstStmt (PrePass can't evaluate
         // the initializer). Sub/Function bodies aren't visited here, so local consts stay out of rootEnv.
@@ -367,10 +363,14 @@ public class PrePass : VB6BaseVisitor<object?>
         // than fail the whole module load, skip the declaration — the name is simply not registered, so an actual
         // CALL to it raises the clean "Sub or Function not defined" error. This lets a module that merely declares
         // an API (a near-universal pattern in real VB6) load and run its non-API code.
-        => default;
+    {
+        declared = true;
+        return default;
+    }
 
     public override object? VisitEnumerationStmt(VB6Parser.EnumerationStmtContext context)
     {
+        declared = true;
         // Enum members are Long compile-time CONSTANTS whose values are constant EXPRESSIONS, not merely
         // literals: `&H80000005` (measured -2147483643, the high bit making it negative), `&O17`, `-3`,
         // `xFirst + 1`, `2 ^ 3` and bit-ors of earlier members are all ordinary VB6. A member with no value
@@ -668,6 +668,7 @@ public class PrePass : VB6BaseVisitor<object?>
 
     public override object? VisitTypeStmt(VB6Parser.TypeStmtContext context)
     {
+        declared = true;
         // A `Type … End Type` definition: parse each field to a scalar ValueType or a nested-type NAME (resolved
         // — UDT vs Enum — at instantiation, once the program-wide tables exist). Array fields and fixed-length
         // strings inside a Type are deferred (spec walls).
@@ -782,13 +783,15 @@ public class PrePass : VB6BaseVisitor<object?>
     // A Function's or Property Get's return type, an array where the clause says so: `As Long()` returns a Long() (measured,
     // #975: TypeName "Long()", and one that never assigns its name returns an empty one, UBound raising 9). It was read as
     // its element type, so the array the body stored was narrowed into a Long on the way out, and came back 0.
-    // A Function's or Property Get's return: its type, whether it reads as a Variant's, and whether it is As Object. With no
-    // As clause it is the DefType's for its name's letter (measured, #169: `Function IFun()` under DefInt returns an Integer).
+    // A Function's or Property Get's return: its type, whether it reads as a Variant's, and whether it is an object variable,
+    // As Object or As Collection. With no As clause it is the DefType's for its name's letter (measured, #169: `Function
+    // IFun()` under DefInt returns an Integer).
     private (Vb6Value.ValueType Type, bool ReadsAsVariant, bool IsObject) ReturnOf(VB6Parser.AsTypeClauseContext? asType, string name)
     {
         if (asType is null && DefaultTypeOf(name) is { } defaultType)
             return defaultType == Vb6Value.ValueType.Object ? (Vb6Value.ValueType.EmptyVariant, true, true) : (defaultType, false, false);
-        return (ReturnTypeOf(asType), DeclaresVariant(asType), DeclaresObject(asType));
+        return (ReturnTypeOf(asType), DeclaresVariant(asType),
+            DeclaresObject(asType) || asType?.type() is { } type && type.LPAREN() == null && type.baseType()?.COLLECTION() != null);
     }
 
     private static Vb6Value.ValueType ReturnTypeOf(VB6Parser.AsTypeClauseContext? asType)

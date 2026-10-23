@@ -30,9 +30,10 @@ public sealed record ProcedureInfo(
     // late as it binds a Variant (measured, #1005: `GetObj().P` with `GetObj() As Object` is a Variant, and `GetFoo().P`
     // with `GetFoo() As Foo` is typed). A return the map does not type, such as `As Collection`, is neither.
     bool ReturnsVariant = false,
-    // Whether the return is declared `As Object`: read late, as ReturnsVariant says, but its name is an object variable
-    // all the same, so a Let into it is the held object's default member (measured, #1493: `F = 6` in `F() As Object`
-    // holding an instance is 438, where in `F() As Variant` it drops the object and takes 6).
+    // Whether the return is declared `As Object` (under DefObj too) or `As Collection`. Its name is an object variable, Nothing
+    // until Set, so a Let into it is the held object's default member (measured, #1493: `F = 6` in `F() As Object` holding an
+    // instance is 438, where in `F() As Variant` it drops the object and takes 6; and #169: before any Set it is 91). An `As
+    // Object` one is read late all the same, as ReturnsVariant says.
     bool ReturnsObject = false)
 {
     private IReadOnlyList<VB6Parser.VariableSubStmtContext>? declaredLocals;

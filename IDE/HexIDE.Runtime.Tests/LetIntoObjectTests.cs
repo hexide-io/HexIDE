@@ -362,6 +362,37 @@ public class LetIntoObjectTests : BaseVBTestFixture
             """));
     }
 
+    // An object Function's return name holds Nothing until it is Set, so a Let into it is 91 and the call returns Nothing. It
+    // started Empty, which took the Let and returned the value (#169, where DefObj's Functions return As Object). A Let into
+    // an As Collection one does not compile, as for a variable ("Argument not optional").
+    [Fact]
+    public async Task An_object_return_is_Nothing_until_Set()
+    {
+        await Run(Helper + """
+            Private Function FUnset() As Object
+            End Function
+            Private Function FLet() As Object
+                On Error Resume Next
+                FLet = 5
+                R "  FLet = 5, before any Set"
+            End Function
+            Private Function FColl() As Collection
+            End Function
+
+            Debug.Print "TypeName(FUnset()) " & TypeName(FUnset()) & ", Is Nothing " & (FUnset() Is Nothing)
+            Debug.Print "TypeName(FLet()) " & TypeName(FLet())
+            Debug.Print "TypeName(FColl()) " & TypeName(FColl()) & ", Is Nothing " & (FColl() Is Nothing)
+
+            """);
+
+        AssertDebugLog(Lines("""
+            TypeName(FUnset()) Nothing, Is Nothing True
+              FLet = 5, before any Set -> err 91
+            TypeName(FLet()) Nothing
+            TypeName(FColl()) Nothing, Is Nothing True
+            """));
+    }
+
     [Fact]
     public async Task A_class_with_a_default_member_is_refused_by_name()
     {

@@ -182,6 +182,14 @@ public class DefTypeTests : BaseVBTestFixture
             Private Sub OTake(o7)
                 Debug.Print "  OTake " & TypeName(o7)
             End Sub
+            Private Sub OLet(o7)
+                On Error Resume Next
+                o7 = 5: R "  OLet: o7 = 5"
+            End Sub
+            Private Function OBad()
+                On Error Resume Next
+                OBad = 5: R "  OBad: OBad = 5"
+            End Function
             Private Sub Show()
                 On Error Resume Next
                 Dim o5
@@ -197,6 +205,9 @@ public class DefTypeTests : BaseVBTestFixture
                 Debug.Print "OFun " & TypeName(OFun())
                 OTake New Collection
                 OTake Nothing
+                Dim on1
+                OLet on1
+                Debug.Print "OBad " & TypeName(OBad())
             End Sub
 
             Show
@@ -215,6 +226,9 @@ public class DefTypeTests : BaseVBTestFixture
             OFun Collection
               OTake Collection
               OTake Nothing
+              OLet: o7 = 5 -> err 91
+              OBad: OBad = 5 -> err 91
+            OBad Nothing
             """));
     }
 
@@ -322,10 +336,39 @@ public class DefTypeTests : BaseVBTestFixture
             """));
     }
 
+    // A DefType must come before every declaration, but an Option statement or another DefType may come first.
+    [Fact]
+    public async Task Option_statements_and_other_DefTypes_may_come_first()
+    {
+        await Run("""
+            Option Base 1
+            Option Compare Text
+            DefStr S
+            DefInt X
+            Private Sub Show()
+                x = 2.6
+                s = 5
+                Debug.Print "x " & TypeName(x) & " " & x & ", s " & TypeName(s)
+            End Sub
+
+            Show
+
+            """);
+
+        AssertDebugLog(Lines("""
+            x Integer 3, s String
+            """));
+    }
+
     [Theory]
     [InlineData("DefInt A-C\nDefInt B\nSub S()\nEnd Sub\nS", "*Duplicate Deftype statement*")]
     [InlineData("DefInt A-Z\nDefStr A-Z\nSub S()\nEnd Sub\nS", "*Duplicate Deftype statement*")]
     [InlineData("Dim q\nDefInt A-Z\nSub S()\nEnd Sub\nS", "*Deftype statements must precede declarations*")]
+    [InlineData("Public pv As Long\nDefInt X\nSub S()\nEnd Sub\nS", "*Deftype statements must precede declarations*")]
+    [InlineData("Const K = 1\nDefInt X\nSub S()\nEnd Sub\nS", "*Deftype statements must precede declarations*")]
+    [InlineData("Private Type T\n    a As Long\nEnd Type\nDefInt X\nSub S()\nEnd Sub\nS", "*Deftype statements must precede declarations*")]
+    [InlineData("Enum E\n    one\nEnd Enum\nDefInt X\nSub S()\nEnd Sub\nS", "*Deftype statements must precede declarations*")]
+    [InlineData("Private Declare Function GetTickCount Lib \"kernel32\" () As Long\nDefInt X\nSub S()\nEnd Sub\nS", "*Deftype statements must precede declarations*")]
     [InlineData("Sub S()\n    DefInt A-Z\nEnd Sub\nS", "*Invalid inside procedure*")]
     [InlineData("DefInt AB\nSub S()\nEnd Sub\nS", "*Expected: letter*")]
     [InlineData("DefDec E\nSub S()\nEnd Sub\nS", "*Expected: line number or label or statement or end of statement*")]

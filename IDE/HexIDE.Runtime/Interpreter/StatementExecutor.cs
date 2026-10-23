@@ -2675,7 +2675,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     {
         if (currentModule.PrePass.DefaultTypeOf(name) is { } defaultType)
         {
-            interpreter.ExecutionContext.AllocVariable(currentEnv, name, DefaultValue(defaultType),
+            interpreter.ExecutionContext.AllocVariable(currentEnv, name, new Vb6Value(defaultType),
                 VbNumeric.IsDeclarableScalar(defaultType) ? defaultType : null);
             return;
         }
@@ -2683,10 +2683,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (currentEnv.TryGetVariableLocation(name, out var location))
             interpreter.ExecutionContext.State.MarkVariant(location);
     }
-
-    /// <summary>A variable's first value under a DefType's type: its zero, or Nothing under DefObj.</summary>
-    internal static Vb6Value DefaultValue(Vb6Value.ValueType type) =>
-        type == Vb6Value.ValueType.Object ? Vb6Value.Nothing : new Vb6Value(type);
 
     public override async Task<ControlFlow> VisitRedimStmt(VB6Parser.RedimStmtContext context)
     {
@@ -2979,16 +2975,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     if (objectType.COLLECTION() != null)
                         declaredClass = "Collection";
                 }
-                else if (asType is null
-                         && currentModule.PrePass.DefaultTypeOf(subStmt.ambiguousIdentifier().GetText()) == Vb6Value.ValueType.Object)
-                {
-                    // `Dim o` under DefObj: an Object slot, as `As Object` makes (#169).
-                    value = !isArray ? Vb6Value.Nothing : throw new NotImplementedException("An array of objects is not implemented (#1482)");
-                }
                 else
                 {
                     // With no As clause the type is the DefType's for the name's letter, if one covers it (measured, #169).
-                    var type = asType is null && currentModule.PrePass.DefaultTypeOf(subStmt.ambiguousIdentifier().GetText()) is { } defaultType
+                    // DefObj's is an Object slot, Nothing until Set, as `As Object` makes; an array of them is #1482.
+                    var defaultType = asType is null ? currentModule.PrePass.DefaultTypeOf(subStmt.ambiguousIdentifier().GetText()) : null;
+                    if (isArray && defaultType == Vb6Value.ValueType.Object)
+                        throw new NotImplementedException("An array of objects is not implemented (#1482)");
+                    var type = defaultType is not null
                         ? (isArray ? new Vb6Value.ValueType(defaultType, true) : defaultType)
                         : ExtractType(asType, isArray);
                     value = dimensions != null ? new Vb6Value(type, dimensions) : new Vb6Value(type);
