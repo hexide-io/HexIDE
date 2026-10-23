@@ -228,6 +228,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Persian words in MCP replies remain readable** (#1316). A zero-width non-joiner between Arabic-script
+  letters (including their combining marks) is written as itself. Joiners elsewhere remain escaped.
+
 - **MCP reply numbers use a decimal point in every culture** (#1550). Coordinates, sizes, scroll percentages and
   wait durations now use invariant formatting, so a fractional click point can be read and sent back unchanged.
 
