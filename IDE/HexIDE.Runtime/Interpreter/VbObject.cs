@@ -72,6 +72,12 @@ public sealed class VbObject
 
     public string ClassName => ClassDef.Name;
 
+    /// <summary>
+    /// The slots of this instance's procedures' <c>Static</c> locals, made at the first call that declares one, and
+    /// released after its fields when it terminates (#1491). Null until then.
+    /// </summary>
+    internal StaticLocals? Statics { get; set; }
+
     /// <summary>Live reference count — how many named-storage holds (variable/field slots) + transient holders
     /// (<c>Me</c> during a method, <c>ByVal</c> object params, statement temporaries) currently reference this
     /// instance. Maintained incrementally by <see cref="BasicInterpreter.AddRef"/>/<c>ReleaseRef</c> as the

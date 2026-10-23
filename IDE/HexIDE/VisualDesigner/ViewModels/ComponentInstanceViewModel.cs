@@ -248,9 +248,15 @@ public partial class ComponentInstanceViewModel : ObservableObject
 
     /// <summary>
     /// Where the designer stacks this control: a Line under every other control, and one earlier in the form over a later
-    /// one, as a running form draws them (measured, #163). Everything else keeps its order in the form.
+    /// one, as a running form draws them (measured, #163). Everything else keeps its place in the canvas order, which
+    /// draws the last on top and holds the file's blocks the other way round (#1481), so an earlier Line is the one with
+    /// fewer Lines after it there.
     /// </summary>
-    public int ZIndex => IsLine ? -1 - parentViewModel.Components.TakeWhile(c => !ReferenceEquals(c, this)).Count(c => c.IsLine) : 0;
+    public int ZIndex => IsLine
+        ? -1 - parentViewModel.Components.SkipWhile(c => !ReferenceEquals(c, this)).Skip(1).Count(c => c.IsLine)
+        : 0;
+
+    internal void OnZIndexChanged() => OnPropertyChanged(nameof(ZIndex));
 
     /// <summary>How many twips one of a Line's container's units is, or twips where HexIDE cannot run that scale.</summary>
     public (double X, double Y) LineTwipsPerUnit

@@ -33,8 +33,9 @@
     <ItemGroup>
         <ProjectReference Include="..\HexIDE.Dap\HexIDE.Dap.csproj" />
         <ProjectReference Include="..\HexIDE.Dap.TestAdapter\HexIDE.Dap.TestAdapter.csproj" />
-        <!-- Build-check the opt-in real adapter tool on CI without executing or bundling an external backend. -->
+        <!-- Build-check the opt-in real adapter tools on CI without executing or bundling an external backend. -->
         <ProjectReference Include="..\HexIDE.Dap.Smoke\HexIDE.Dap.Smoke.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\HexIDE.Dap.Parity\HexIDE.Dap.Parity.csproj" ReferenceOutputAssembly="false" />
         <ProjectReference Include="..\HexIDE\HexIDE.csproj" />
         <ProjectReference Include="..\HexIDE.Runtime\HexIDE.Runtime.csproj" />
         <ProjectReference Include="..\HexIDE.AIChat\HexIDE.AIChat.csproj" />
@@ -57,6 +58,12 @@
         <Compile Include="..\HexIDE.Desktop\Server\OpenDialogNote.cs" Link="Infrastructure\OpenDialogNote.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\ReplyJson.cs" Link="Infrastructure\ReplyJson.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\InlineSnapshot.cs" Link="Infrastructure\InlineSnapshot.cs" />
+    </ItemGroup>
+
+    <!-- VB6's Template tree is found one way in both test projects: the folder or the one above it, a set variable
+         that finds nothing failing rather than skipping (#1440). -->
+    <ItemGroup>
+        <Compile Include="..\HexIDE.Runtime.Tests\Vb6Template.cs" Link="Infrastructure\Vb6Template.cs" />
     </ItemGroup>
 
 </Project>

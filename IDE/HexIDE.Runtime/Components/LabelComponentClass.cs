@@ -14,12 +14,15 @@ public class LabelComponentClass : ComponentBaseClass
         BackStyleProperty, AlignmentProperty, AppearanceProperty,
         AutoSizeProperty, BorderStyleProperty, ForeColorProperty,
         MousePointerProperty, RightToLeftProperty, ToolTipTextProperty,
-        UseMnemonicProperty, WhatsThisHelpIdProperty,  WordWrapProperty], [ClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
+        UseMnemonicProperty, WhatsThisHelpIdProperty,  WordWrapProperty,
+        // A Label has a place in the tab order, though it takes no focus: VB6 writes TabIndex on every Label (#925).
+        TabIndexProperty], [ClickEvent, DblClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
     {
     }
 
     public override string Name => "Label";
     public override string VBTypeName => "VB.Label";
+    public override bool IsWindowless => true;
 
     protected override Control InstantiateInternal(ComponentInstance instance)
     {

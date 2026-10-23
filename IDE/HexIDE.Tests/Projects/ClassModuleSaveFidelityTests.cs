@@ -7,6 +7,7 @@ using HexIDE.IDE;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Sidecar;
+using HexIDE.TestSupport;
 
 namespace HexIDE.Tests.Projects;
 
@@ -21,10 +22,6 @@ namespace HexIDE.Tests.Projects;
 public class ClassModuleSaveFidelityTests : IDisposable
 {
     private readonly string dir = Path.Join(Path.GetTempPath(), "hexide-cls-" + Guid.NewGuid().ToString("N"));
-
-    private static readonly string Vb6Classes =
-        Path.Join(Environment.GetEnvironmentVariable("VB6_TEMPLATES")
-                  ?? @"C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template", "Classes");
 
     public ClassModuleSaveFidelityTests() => Directory.CreateDirectory(dir);
 
@@ -67,11 +64,10 @@ public class ClassModuleSaveFidelityTests : IDisposable
             Substitute.For<IHeaderRefresher>());
     }
 
-    /// <summary>Stages a VB6-shipped class beside a minimal .vbp. Null when VB6 is absent.</summary>
-    private string? StageClass(string fileName)
+    /// <summary>Stages a VB6-shipped class beside a minimal .vbp.</summary>
+    private string StageClass(string fileName)
     {
-        var src = Path.Join(Vb6Classes, fileName);
-        if (!File.Exists(src)) return null;
+        var src = Vb6Template.File("Classes", fileName);
 
         // The .vbp's Class= name is the module's VB_Name, not its file name — that is what a real project
         // has, and getting it wrong makes the rename path fire and look like a fidelity defect.
@@ -89,13 +85,12 @@ public class ClassModuleSaveFidelityTests : IDisposable
         return vbp;
     }
 
-    [Theory]
+    [Vb6TemplateTheory]
     [InlineData("Complex Data Consumer.cls")]
     [InlineData("Data Source.cls")]
     public async Task Saving_a_project_leaves_an_untouched_class_byte_identical(string fileName)
     {
         var vbp = StageClass(fileName);
-        if (vbp is null) return; // VB6 not installed (CI)
 
         var clsPath = Directory.EnumerateFiles(dir, "*.cls").Single();
         var before = await File.ReadAllTextAsync(clsPath, TestContext.Current.CancellationToken);
@@ -108,11 +103,10 @@ public class ClassModuleSaveFidelityTests : IDisposable
             "a save must not rewrite a class the user never opened");
     }
 
-    [Fact]
+    [Vb6TemplateFact]
     public async Task Editing_the_body_leaves_the_header_untouched()
     {
         var vbp = StageClass("Data Source.cls");
-        if (vbp is null) return;
 
         var clsPath = Directory.EnumerateFiles(dir, "*.cls").Single();
         var before = await File.ReadAllTextAsync(clsPath, TestContext.Current.CancellationToken);
@@ -138,13 +132,12 @@ public class ClassModuleSaveFidelityTests : IDisposable
         HeaderOf(after).Should().Be(HeaderOf(before));
     }
 
-    [Fact]
+    [Vb6TemplateFact]
     public async Task A_reload_from_disk_also_preserves_the_header()
     {
         // ReloadModuleFromDisk is a second, independent load path — it had the same defect class as the
         // main loader for UserControls (#17), so it gets its own assertion here rather than assumed.
         var vbp = StageClass("Data Source.cls");
-        if (vbp is null) return;
 
         var clsPath = Directory.EnumerateFiles(dir, "*.cls").Single();
         var before = await File.ReadAllTextAsync(clsPath, TestContext.Current.CancellationToken);

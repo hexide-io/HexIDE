@@ -7,6 +7,12 @@ namespace HexIDE.Runtime.Tests;
 public abstract class BaseVBTestFixture
 {
     protected List<Vb6Value> debug = new();
+    // What Debug.Print wrote, as the Immediate window would show it (#1380).
+    protected readonly System.Text.StringBuilder written = new();
+
+    /// <summary>Each MsgBox and InputBox the program showed, as <c>MsgBox prompt | title | buttons</c> and
+    /// <c>InputBox prompt | title | default</c>.</summary>
+    protected readonly List<string> dialogs = new();
     protected  ModuleExecutionContext context;
     protected ExecutionEnvironment rootEnv;
 
@@ -78,10 +84,42 @@ public abstract class BaseVBTestFixture
         debug.Should().Equal(expected, (a, b) => new Comparer(0.001).Compare(a, b) == 0);
     }
 
-    protected async Task Run(string code)
+    /// <summary>Where each program run here is written, with its result, when <c>HEXIDE_DUMP_PROGRAMS</c> names a dump
+    /// (#1368). A test may give its own.</summary>
+    internal ProgramDump? Dump { get; set; } = ProgramDump.FromEnvironment;
+    private int dumped;
+
+    protected async Task Run(string code) => await Dumped([("Module1", false, code)], async () =>
     {
-        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, code);
+        var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs), context, rootEnv, code);
         await vb.Execute();
+    });
+
+    private async Task Dumped(IReadOnlyList<(string Name, bool IsClass, string Source)> modules, Func<Task> run)
+    {
+        if (Dump is not { } dump)
+        {
+            await run();
+            return;
+        }
+        int before;
+        lock (debug) before = debug.Count;
+        Exception? thrown = null;
+        try
+        {
+            await run();
+        }
+        catch (Exception e)
+        {
+            thrown = e;
+            throw;
+        }
+        finally
+        {
+            List<Vb6Value> printed;
+            lock (debug) printed = debug.Skip(before).ToList();
+            dump.Record(TestContext.Current.Test?.TestDisplayName ?? GetType().Name, ++dumped, modules, printed, thrown);
+        }
     }
 
     /// <summary>Build a debuggable interpreter: the given code as the startup module <paramref name="moduleName"/>
@@ -91,31 +129,69 @@ public abstract class BaseVBTestFixture
         string code, string moduleName = "Module1", params (string Name, string Code)[] classModules)
     {
         var dbg = new DebugController();
-        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, code, moduleName, null,
+        var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs), context, rootEnv, code, moduleName, null,
             classModules.Length == 0 ? null : classModules) { DebugController = dbg };
         return (vb, dbg);
     }
 
     /// <summary>Run <paramref name="primaryCode"/> as the startup module "Module1", with additional named
     /// standard modules also loaded into the project-wide registry (for cross-module resolution tests).</summary>
-    protected async Task RunModules(string primaryCode, params (string Name, string Code)[] modules)
-    {
-        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, primaryCode, "Module1", modules);
-        await vb.Execute();
-    }
+    protected async Task RunModules(string primaryCode, params (string Name, string Code)[] modules) =>
+        await Dumped([("Module1", false, primaryCode), .. modules.Select(m => (m.Name, false, m.Code))], async () =>
+        {
+            var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs), context, rootEnv, primaryCode, "Module1", modules);
+            await vb.Execute();
+        });
 
     /// <summary>Run <paramref name="primaryCode"/> with the given named CLASS modules registered (each
     /// instantiable via <c>New Name</c>). Class modules are templates — not run at startup.</summary>
-    protected async Task RunClasses(string primaryCode, params (string Name, string Code)[] classModules)
-    {
-        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, primaryCode, "Module1", null, classModules);
-        await vb.Execute();
-    }
+    protected async Task RunClasses(string primaryCode, params (string Name, string Code)[] classModules) =>
+        await Dumped([("Module1", false, primaryCode), .. classModules.Select(m => (m.Name, true, m.Code))], async () =>
+        {
+            var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs), context, rootEnv, primaryCode, "Module1", null, classModules);
+            await vb.Execute();
+        });
 
-    protected class MockStdLib(List<Vb6Value> debug) : IBasicStandardLibrary
+    protected class MockStdLib(List<Vb6Value> debug, System.Text.StringBuilder? written = null, List<string>? dialogs = null)
+        : IBasicStandardLibrary
     {
-        public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon) => default;
-        public async Task<string?> InputBox(string prompt, string? title, string defaultText) => default;
+        public void DebugWrite(string text)
+        {
+            if (written is not null)
+                lock (written) written.Append(text);
+        }
+
+        // The characters after the last line break of the fixture's text, which outlives one Run, as the Immediate window
+        // outlives one run of the program.
+        public int DebugColumn
+        {
+            get
+            {
+                if (written is null)
+                    return 0;
+                lock (written)
+                {
+                    var i = written.Length;
+                    while (i > 0 && written[i - 1] != '\n')
+                        i--;
+                    return written.Length - i;
+                }
+            }
+        }
+
+        public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
+        {
+            if (dialogs is not null)
+                lock (dialogs) dialogs.Add($"MsgBox {text} | {caption} | {buttons}");
+            return default;
+        }
+
+        public async Task<string?> InputBox(string prompt, string? title, string defaultText)
+        {
+            if (dialogs is not null)
+                lock (dialogs) dialogs.Add($"InputBox {prompt} | {title} | {defaultText}");
+            return default;
+        }
         // Locked, because two interpreter walks really can reach here at once.
         //
         // DebugController's freeze model releases the decider and any frozen newcomer from Continue() two

@@ -110,8 +110,8 @@ public class VBLabel : TemplatedControl
         SymbolFontText.SymbolGlyphsProperty.Changed.AddClassHandler<VBLabel>((label, e) => label.UpdateStyle());
 
         // Before Click, so MouseUp comes first, as VB6 raises them (#974).
-        AttachedEvents.AttachMouse<VBLabel>();
-        AttachedEvents.AttachClick<VBLabel>();
+        AttachedEvents.AttachMouse<VBLabel>(AttachedEvents.DblClick.InPlaceOfMouseDown);
+        AttachedEvents.AttachClick<VBLabel>(AttachedEvents.ClickRelease.OverTheControl);
     }
 
     private void UpdateStyle()

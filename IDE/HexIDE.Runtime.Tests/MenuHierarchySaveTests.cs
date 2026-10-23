@@ -5,6 +5,7 @@ using System.Linq;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
+using HexIDE.TestSupport;
 
 namespace HexIDE.Runtime.Tests;
 
@@ -246,7 +247,7 @@ public class MenuHierarchySaveTests
         form.CanSaveFaithfully.Should().BeTrue();
     }
 
-    [Theory]
+    [Vb6TemplateTheory]
     [InlineData("Edit Menu.frm")]
     [InlineData("Explorer File Menu.frm")]
     [InlineData("File Menu.frm")]
@@ -255,9 +256,7 @@ public class MenuHierarchySaveTests
     [InlineData("Window Menu.frm")]
     public void RoundTrip_OfVb6sOwnMenuTemplates_ReproducesTheMenuShape(string fileName)
     {
-        var path = MenuTemplatePath(fileName);
-        if (path is null)
-            return; // VB6 is a Windows dev-machine oracle; CI has no install.
+        var path = Vb6Template.File("Menus", fileName);
 
         var original = File.ReadAllText(path);
         var output = Save(Load(original));
@@ -266,7 +265,7 @@ public class MenuHierarchySaveTests
         MenuShape(output).Should().Equal(MenuShape(original));
     }
 
-    [Theory]
+    [Vb6TemplateTheory]
     [InlineData("Edit Menu.frm")]
     [InlineData("Explorer File Menu.frm")]
     [InlineData("File Menu.frm")]
@@ -275,21 +274,11 @@ public class MenuHierarchySaveTests
     [InlineData("Window Menu.frm")]
     public void Vb6sOwnMenuTemplates_AreNoLongerHeldReadOnly(string fileName)
     {
-        var path = MenuTemplatePath(fileName);
-        if (path is null)
-            return;
+        var path = Vb6Template.File("Menus", fileName);
 
         var form = Load(File.ReadAllText(path));
 
         // These six were half of the twelve corpus forms the refusal gate held read-only.
         form.CanSaveFaithfully.Should().BeTrue();
-    }
-
-    private static string? MenuTemplatePath(string fileName)
-    {
-        var templates = Environment.GetEnvironmentVariable("VB6_TEMPLATES")
-                        ?? @"C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template";
-        var path = Path.Join(templates, "Menus", fileName);
-        return File.Exists(path) ? path : null;
     }
 }

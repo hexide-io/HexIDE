@@ -457,8 +457,8 @@ Routing keys on the extension, so an identifier that discards it cannot be route
 a preference: a document with no file cannot have a `file:` URI, and a document with a file must not be
 given an opaque one, or it becomes unroutable and unopenable by any server that wants to read it from disk.
 
-A file in a folder the IDE chose, such as the scratch folder of a project not yet saved, SHALL be named by
-its `file:` URI like any other: it is where the bytes are, and it is inside the root servers are told about.
+A file in a folder the IDE chose, such as the temporary folder the `--newproject` option saves a project into,
+SHALL be named by its `file:` URI like any other: it is where the bytes are, and it is inside the root servers are told about.
 Naming it `untitled:` would show a server that indexes that root the same module twice, once from disk and
 once from the editor. A saved document whose file has since disappeared SHALL keep its `file:` URI:
 `untitled:` means a document that has no file yet, not one whose file is missing.
@@ -487,9 +487,8 @@ current path: a build repoints every path into a temporary folder and back, and 
 - **THEN** it is identified by the `file:` URI of its file, and a server may read that file
 
 #### Scenario: A module in a project not yet saved
-- **WHEN** a module has been added to a project that has never been saved, and so written to the project's
-  scratch folder
-- **THEN** it is identified by the `file:` URI of that file
+- **WHEN** a module has been added to a project that has never been saved, which writes no file for it (#500)
+- **THEN** it is identified as `untitled:` followed by its project's name, its own name and `.bas`
 
 #### Scenario: Building the project
 - **WHEN** the project is built and every path is temporarily pointed elsewhere
@@ -864,3 +863,15 @@ says so. Servers that send the richer shape regardless hide the omission (hexide
 #### Scenario: Symbols from a server that sends the tree only when told
 - **WHEN** a server that honours the declaration is asked for the symbols of a document that nests them
 - **THEN** it answers with the tree, and the symbols arrive nested as the document declares them
+
+### Requirement: The client SHALL declare whole-line folding while it reads folds by line
+While the client reads a server's fold by its lines alone, it SHALL declare `lineFoldingOnly`. The change that
+makes it read a fold's characters SHALL remove the declaration.
+
+A server told nothing may end a fold part-way along its closing line, and a fold read by whole lines then hides
+that line (hexide-io/HexIDE#1363).
+
+#### Scenario: A block's fold from a server that honours the declaration
+- **WHEN** a server that honours `lineFoldingOnly` is asked for the folds of a block whose closing line stands
+  alone
+- **THEN** the block's fold ends on the line before, so the closing line stays visible when the fold is collapsed

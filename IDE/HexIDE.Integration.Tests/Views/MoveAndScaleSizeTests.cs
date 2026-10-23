@@ -185,7 +185,8 @@ public sealed class MoveAndScaleSizeTests : IDisposable
             // ScaleHeight is the area below the bar, which used to be refused (#1127), and the fit-to-content idiom lands
             // on it, whole pixels included: 2000 asked for is 1995.
             errors.Should().BeEmpty();
-            printed.Should().Equal("2940 3420 Single", "1995", "3420");
+            // A number printed alone has Print's spaces, for its sign and after it (#1380).
+            printed.Should().Equal("2940 3420 Single", " 1995 ", " 3420 ");
 
             // The client area under the bar is the whole 3420 twips, so the Label along its bottom edge is not cut off by
             // the bar's height, as it was.
@@ -245,7 +246,7 @@ public sealed class MoveAndScaleSizeTests : IDisposable
             (var printed, var errors, window) = await RunAsync(PopupOnlyForm, cancel.Token);
 
             errors.Should().BeEmpty();
-            printed.Should().Equal("3420", "1995");
+            printed.Should().Equal(" 3420 ", " 1995 ");
             window.GetLogicalDescendants().OfType<Menu>().Single().IsVisible.Should().BeFalse();
             window.GetLogicalDescendants().OfType<Canvas>().First().Bounds.Top.Should().Be(0);
         }
