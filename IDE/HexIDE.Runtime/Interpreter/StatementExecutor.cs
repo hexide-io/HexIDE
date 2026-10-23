@@ -1992,11 +1992,21 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     /// <summary>
     /// <c>Print #</c> (#1145), formatted as <see cref="VbPrint"/> says, which <c>Debug.Print</c> shares (#1380).
+    /// A bare Print is refused as the form's Print method, which is not implemented yet (#993, #989).
     /// </summary>
     public override async Task<ControlFlow> VisitPrintStmt(VB6Parser.PrintStmtContext context)
     {
+        // Bare Print belongs to this form, as Me.Print does (#993). Outside forms its VB6 behaviour is unmeasured.
+        if (context.valueStmt() is not { } fileNumber || !fileNumber.GetText().StartsWith('#'))
+        {
+            // Refused in Me.Print's words, but not by calling the method with no arguments: an output list is not an
+            // argument list, and when #989 implements Print it must receive this one, or a bare Print would print a
+            // blank line where VB6 prints the text.
+            if (currentModule.Kind == InterpreterModuleKind.Form)
+                throw new NotImplementedException($"The Print method is not implemented for {currentModule.Name}");
+            throw new NotImplementedException("Bare Print in a standard or class module is not implemented; VB6 behaviour is unmeasured (#993)");
+        }
         var files = interpreter.BuiltIns.Files;
-        RequireHash(context.valueStmt(), "Print");
         var number = await FileNumber(context.valueStmt());
         files.Column(number);   // 52 or 54 before anything is evaluated
         await PrintList(context.outputList()?.children, new FileTarget(files, number), printed: null);
@@ -2100,15 +2110,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return true;
     }
 
-    // `Print #` and `Line Input #` need the `#`, where Open and Close take a number without one. The grammar sends
-    // `Print 1, "x"` and `Print "a", "b"` here too, and those are a form's Print method, not a file's, so neither may
-    // reach a file: that would write the program's text where it never asked.
+    // Line Input needs the #, where Open and Close take a number without one.
     private static void RequireHash(VB6Parser.ValueStmtContext number, string statement)
     {
         if (!number.GetText().StartsWith('#'))
-            throw new NotImplementedException(statement == "Print"
-                ? "Print without a # file number is a form's Print method, which is not implemented"
-                : $"{statement} without a # file number is not implemented");
+            throw new NotImplementedException($"{statement} without a # file number is not implemented");
     }
 
     public override async Task<ControlFlow> VisitPutStmt(VB6Parser.PutStmtContext context)

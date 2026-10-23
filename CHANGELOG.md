@@ -208,6 +208,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Bare Print no longer prevents a form from loading** (#993). The interpreter and editor accept its output list.
+  Reaching it still stops the run at the form's unimplemented Print method (#989); standard and class modules refuse
+  it at runtime, naming #993, pending a VB6 measurement.
+
 - **Six VB6 system colours no longer draw hot pink** (#908). A control given Scroll Bars, Active Title Bar, Active
   Border, Inactive Border, ToolTip Text or ToolTip (`vbInfoBackground`) painted DeepPink, in the designer and at run
   time, because no colour was defined for them. They now take Windows 10's values, as measured on vb6.exe, and a
