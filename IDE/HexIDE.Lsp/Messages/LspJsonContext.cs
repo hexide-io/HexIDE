@@ -7,6 +7,8 @@ namespace HexIDE.Lsp;
 [JsonSerializable(typeof(InitializeResult))]
 [JsonSerializable(typeof(ServerCapabilities))]
 [JsonSerializable(typeof(System.Text.Json.JsonElement))]
+[JsonSerializable(typeof(CancelNumericRequestParams))]
+[JsonSerializable(typeof(CancelStringRequestParams))]
 [JsonSerializable(typeof(EmptyParams))]
 [JsonSerializable(typeof(LogMessageParams))]
 [JsonSerializable(typeof(ShowMessageParams))]

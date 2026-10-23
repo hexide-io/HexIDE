@@ -26,7 +26,15 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
         // activating it brings the modal form forward instead.
         foreach (var input in new RoutedEvent[] { KeyDownEvent, KeyUpEvent, TextInputEvent, PointerPressedEvent, PointerReleasedEvent, PointerWheelChangedEvent })
             AddHandler(input, new EventHandler<RoutedEventArgs>((_, e) => e.Handled |= heldBy is not null), RoutingStrategies.Tunnel);
-        Activated += (_, _) => heldBy?.ActivateForm();
+        // Activating a form tells the program, which raises Activate and Deactivate (#994). A held form is never active: Windows
+        // doesn't activate a disabled window, and activating it brings the modal form forward.
+        Activated += (_, _) =>
+        {
+            if (heldBy is not null)
+                heldBy.ActivateForm();
+            else
+                windowContext.Program?.Activated(windowContext);
+        };
     }
 
     private IFormView? heldBy;
@@ -47,37 +55,38 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
 
     // Form_Load is not raised here: the program raises Initialize and Load before the window is shown (#822, #994).
 
-    private bool minimizedResizeRaised;
+    // Whether the window system has sized the window since it was first shown. Until then ClientSize is still the size the
+    // window was made at, the platform's default, and the size it is being shown at is its Width and Height (#994).
+    private bool sized;
+
+    /// <inheritdoc/>
+    public (Size Size, WindowState State) Extent
+    {
+        get
+        {
+            if (WindowState == WindowState.Minimized)
+                return (default, WindowState.Minimized);
+            var size = sized || double.IsNaN(Width) || double.IsNaN(Height) ? ClientSize : new Size(Width, Height);
+            return (new Size(Math.Round(size.Width * RenderScaling), Math.Round(size.Height * RenderScaling)), WindowState);
+        }
+    }
 
     protected override void OnResized(WindowResizedEventArgs e)
     {
         base.OnResized(e);
-        // Minimize is dispatched by the state change, including on backends that also resize it.
-        if (WindowState == WindowState.Minimized)
-        {
-            if (minimizedResizeRaised)
-                return;
-            minimizedResizeRaised = true;
-        }
-        windowContext.ExecuteSub("Form_Resize");
+        sized |= IsVisible;
+        windowContext.WindowResized();
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        // Win32 deliberately does not report a client resize when minimizing. VB6 does raise Resize,
-        // with WindowState already 1. Observe the window so the minimize button and code agree.
-        // Before Show, setting the initial state must not raise a form event.
-        if (change.Property == WindowStateProperty)
-        {
-            if (WindowState != WindowState.Minimized)
-                minimizedResizeRaised = false;
-            else if (IsVisible && !minimizedResizeRaised)
-            {
-                minimizedResizeRaised = true;
-                windowContext.ExecuteSub("Form_Resize");
-            }
-        }
+        // Shown, Resize the first time since the form loaded (#994). Win32 doesn't report a client resize when minimizing,
+        // where VB6 raises Resize with WindowState already 1, so the state is watched too.
+        if (change.Property == IsVisibleProperty && IsVisible)
+            windowContext.Shown();
+        else if (change.Property == WindowStateProperty)
+            windowContext.WindowResized();
     }
 
     public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)

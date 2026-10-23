@@ -342,7 +342,7 @@ public class SequentialFileTests : BaseVBTestFixture, IDisposable
     [Theory]
     [InlineData("Print 1, \"x\"")]
     [InlineData("Print \"a\", \"b\"")]
-    public async Task Print_without_a_hash_is_the_form_method_and_never_reaches_a_file(string statement)
+    public async Task Print_without_a_hash_in_a_standard_module_never_reaches_a_file(string statement)
     {
         var run = () => Run($$"""
             Open "{{PathOf("held.txt")}}" For Output As #1
@@ -350,7 +350,7 @@ public class SequentialFileTests : BaseVBTestFixture, IDisposable
             {{statement}}
             """);
 
-        await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*Print method*");
+        await run.Should().ThrowAsync<NotImplementedException>().WithMessage("*not implemented*#993*");
         // By its length: the run left the file open, and its writer would refuse a reader that shares no writes.
         new FileInfo(PathOf("held.txt")).Length.Should().Be(0);
     }
