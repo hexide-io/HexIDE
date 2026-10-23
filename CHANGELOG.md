@@ -213,6 +213,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A disabled menu item says it is disabled in automation** (#1534). `invoke_menu_item` used to blame keyboard
+  focus when a disabled item had a routed command. It now reads the materialised item's enabled state first;
+  when the menu has not been read, the refusal says its disabled state is unknown and how to check it.
+
 - **A form whose `Begin` line and `Attribute VB_Name` disagree opens as VB6 opens it** (#1407). HexIDE already named
   such a form by its `Begin` line, as VB6 does, but said nothing and saved the contradiction back. HexIDE itself wrote
   such files before #1059. Opening the project now shows VB6's "Conflicting names were found…" warning. The form's
