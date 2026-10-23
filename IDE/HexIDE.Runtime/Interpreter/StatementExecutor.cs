@@ -580,34 +580,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return ControlFlow.Nothing;
     }
 
-    /// <summary>
-    /// A file number. <c>#f</c> is lexed as one token: the number, or the variable, after the <c>#</c>. Without the
-    /// <c>#</c> it is an ordinary expression, as in <c>Close 3</c>, which VB6 takes too (measured).
-    /// </summary>
-    private async Task<int> FileNumber(VB6Parser.ValueStmtContext valueStmt)
-    {
-        var text = valueStmt.GetText();
-        Vb6Value value;
-        if (text.StartsWith('#'))
-        {
-            var name = text[1..];
-            if (int.TryParse(name, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var literal))
-                return literal;
-            if (!interpreter.TryReadNow(currentEnv, name, out var found, out value, out var need))
-                (found, value) = await interpreter.ReadVariableAfter(currentEnv, name, need!);
-            if (!found)
-            {
-                // An undeclared name is an Empty Variant, so number 0, where Option Explicit doesn't refuse it.
-                if (currentModule.PrePass.RequireVariableDefinitions)
-                    throw new VBVariableNotDefinedException(name);
-                value = new Vb6Value(0);
-            }
-        }
-        else
-            value = await expressionExecutor.EvaluateValue(valueStmt);
-        return Convert.ToInt32(VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Long, valueStmt).Value,
-            System.Globalization.CultureInfo.InvariantCulture);
-    }
+    /// <summary>A file number, <c>#f</c> or an expression, as <see cref="ExpressionExecutor.FileNumber"/> reads it.</summary>
+    private Task<int> FileNumber(VB6Parser.ValueStmtContext valueStmt) => expressionExecutor.FileNumber(valueStmt);
 
     /// <summary>A variable a statement stores into, as a Let stores into it: created where Option Explicit allows.</summary>
     private async Task StoreVariable(string name, Vb6Value value)
@@ -2401,9 +2375,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return ControlFlow.Nothing;
     }
 
+    // `Seek #n, position`, or with no #, on a sequential file (#1645): VbFiles.Seek says what it does.
     public override async Task<ControlFlow> VisitSeekStmt(VB6Parser.SeekStmtContext context)
     {
-        throw new NotImplementedException("Seek not implemented");
+        var number = await FileNumber(context.valueStmt(0));
+        var position = await expressionExecutor.EvaluateValue(context.valueStmt(1));
+        interpreter.BuiltIns.Files.Seek(number, Convert.ToInt64(
+            VbNumeric.CoerceOnStore(position, Vb6Value.ValueType.Long, context.valueStmt(1)).Value, System.Globalization.CultureInfo.InvariantCulture));
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitSelectCaseStmt(VB6Parser.SelectCaseStmtContext context)

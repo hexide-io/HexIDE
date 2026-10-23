@@ -53,6 +53,9 @@ internal enum VbFileMode
 /// is a second open of one file, unless both are Input and neither has a Lock.</item>
 /// <item>A statement on a number that isn't open is 52, and so is opening number 0. Closing one that isn't open, or 0, is
 /// no error. <c>EOF</c> of an Output file is True.</item>
+/// <item><c>LOF</c>, <c>Loc</c>, <c>Seek</c> and the <c>Input</c> function (#1645): the length in bytes, buffered writes
+/// included; the byte position from 1, which <c>Seek #n</c> moves, 63 below 1; <c>Loc</c> from it, in 128-byte blocks; and
+/// <c>Input</c> reading characters, line breaks and commas included, 62 short of the count with the variable kept.</item>
 /// </list>
 /// </summary>
 /// <remarks>
@@ -76,7 +79,11 @@ internal sealed partial class VbFiles
         public bool Locked { get; } = locked;
         public byte[] Input { get; init; } = [];
         public int Position { get; set; }
+        // Where a read stopped at a Ctrl+Z, which Seek then answers oddly (see SeekPosition), until a Seek statement.
+        public int? CtrlZAt { get; set; }
         public FileStream? Output { get; init; }
+        // An Append file's length when it was opened. Seek counts from 1 there, not from the end, until a Seek statement.
+        public long AppendOrigin { get; set; }
         // The print column, counted from 0 at the start of a line: where a comma's next zone is measured from.
         public int Column { get; set; }
     }
@@ -118,11 +125,8 @@ internal sealed partial class VbFiles
             open[number] = mode switch
             {
                 VbFileMode.Input => new OpenFile(full, mode, locked) { Input = ReadAll(full) },
-                _ => new OpenFile(full, mode, locked)
-                {
-                    Output = new FileStream(full, mode == VbFileMode.Append ? FileMode.Append : FileMode.Create,
-                        FileAccess.Write, FileShare.Read),
-                },
+                VbFileMode.Append => Appending(full, locked),
+                _ => new OpenFile(full, mode, locked) { Output = new FileStream(full, FileMode.Create, FileAccess.Write, FileShare.Read) },
             };
         }
         catch (FileNotFoundException)
@@ -144,6 +148,15 @@ internal sealed partial class VbFiles
         }
     }
 
+    // Opened at its end, but not in FileMode.Append, which refuses a seek before the end: VB6's `Seek #n, 1` on an Append
+    // file writes over the first byte (measured, #1645).
+    private static OpenFile Appending(string full, bool locked)
+    {
+        var stream = new FileStream(full, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Read);
+        stream.Seek(0, SeekOrigin.End);
+        return new OpenFile(full, VbFileMode.Append, locked) { Output = stream, AppendOrigin = stream.Length };
+    }
+
     private static byte[] ReadAll(string path)
     {
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
@@ -161,12 +174,18 @@ internal sealed partial class VbFiles
         if (file.Mode != VbFileMode.Input)
             throw new VBRunTimeException(VBStandardError.BadFileMode);
         if (AtEnd(file))
+        {
+            if (file.Position < file.Input.Length)
+                file.CtrlZAt ??= file.Position;
             throw new VBRunTimeException(VBStandardError.InputPastEndOfFile);
+        }
         var bytes = file.Input;
         var start = file.Position;
         var end = start;
         while (end < bytes.Length && bytes[end] != (byte)'\r' && bytes[end] != CtrlZ)
             end++;
+        if (end < bytes.Length && bytes[end] == CtrlZ)
+            file.CtrlZAt = end;
         var line = Ansi().GetString(bytes, start, end - start);
         if (end < bytes.Length && bytes[end] == (byte)'\r')
         {
@@ -274,6 +293,99 @@ internal sealed partial class VbFiles
     }
 
     private static bool AtEnd(OpenFile file) => file.Position >= file.Input.Length || file.Input[file.Position] == CtrlZ;
+
+    /// <summary>
+    /// <c>LOF</c>: the file's length in bytes. An Output or Append file's counts what has been printed and not yet written
+    /// out, as VB6's does, where <c>FileLen</c> still reads 0 (measured). An Input file's is its length when it was opened.
+    /// </summary>
+    public long Length(int number)
+    {
+        var file = Get(number);
+        return file.Output?.Length ?? file.Input.Length;
+    }
+
+    /// <summary>
+    /// The <c>Seek</c> function: the byte the next read or write is at, from 1 (measured, #1645). An Append file counts from 1
+    /// at its opening, not from its end: 1 for a 300-byte file, and 201 after 200 bytes more. After a read reaches a Ctrl+Z,
+    /// in Line Input or Input, VB6 answers the length plus the Ctrl+Z's position plus 1, so 9 for <c>ab</c>, Ctrl+Z,
+    /// <c>cd</c>: measured on six files from 1 byte to 203, with no rule beyond that one fitting them all.
+    /// </summary>
+    public long SeekPosition(int number)
+    {
+        var file = Get(number);
+        if (file.Output is { } output)
+            return output.Position - file.AppendOrigin + 1;
+        return file.CtrlZAt is { } z ? file.Input.Length + z + 2 : file.Position + 1L;
+    }
+
+    /// <summary>
+    /// <c>Loc</c>, in 128-byte blocks from the Seek position (measured, #1645): an Input file's at least 1, 1 at the start and
+    /// for an empty file, then 2 once 129 bytes are read; an Output or Append file's the bytes written divided by 128.
+    /// </summary>
+    public long Loc(int number)
+    {
+        var file = Get(number);
+        var done = SeekPosition(number) - 1;
+        return file.Mode == VbFileMode.Input ? Math.Max(1, (done + 127) / 128) : done / 128;
+    }
+
+    /// <summary>
+    /// The <c>Seek</c> statement: the next read or write is at byte <paramref name="position"/>, from 1, and below 1 is 63
+    /// (measured, #1645). Past the end an Input file is at its end, EOF True, and an Output file's next Print writes there,
+    /// the gap NUL bytes. On an Append file the position is from the file's start, as an Output file's is.
+    /// </summary>
+    public void Seek(int number, long position)
+    {
+        var file = Get(number);
+        if (position < 1)
+            throw new VBRunTimeException(VBStandardError.BadRecordNumber);
+        if (file.Output is { } output)
+        {
+            output.Position = position - 1;
+            file.AppendOrigin = 0;
+            return;
+        }
+        file.Position = (int)Math.Min(position - 1, int.MaxValue);
+        file.CtrlZAt = null;
+    }
+
+    /// <summary>
+    /// The <c>Input</c> function: the next <paramref name="count"/> characters, in the ANSI code page, line breaks, commas and
+    /// quotes as they are (measured, #1645). A negative count is 5, and 0 reads nothing, at the end too. Fewer characters than
+    /// the count before the end or a Ctrl+Z is 62, the variable keeping its value and the file left at its end, or at the
+    /// Ctrl+Z. A file open for Output or Append is 54. Which of 5 and 54 a negative count on an Output file gives is not
+    /// measured: 5, as an argument is checked first.
+    /// </summary>
+    public string Read(int number, int count)
+    {
+        var file = Get(number);
+        if (count < 0)
+            throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
+        if (file.Mode != VbFileMode.Input)
+            throw new VBRunTimeException(VBStandardError.BadFileMode);
+        var bytes = file.Input;
+        var decoder = Ansi().GetDecoder();
+        var text = new StringBuilder(count);
+        var chars = new char[2];
+        var p = file.Position;
+        while (text.Length < count)
+        {
+            if (p >= bytes.Length)
+            {
+                file.Position = Math.Max(file.Position, bytes.Length);
+                throw new VBRunTimeException(VBStandardError.InputPastEndOfFile);
+            }
+            if (bytes[p] == CtrlZ)
+            {
+                file.Position = p;
+                file.CtrlZAt ??= p;
+                throw new VBRunTimeException(VBStandardError.InputPastEndOfFile);
+            }
+            text.Append(chars, 0, decoder.GetChars(bytes, p++, 1, chars, 0, flush: false));
+        }
+        file.Position = p;
+        return text.ToString();
+    }
 
     /// <summary>The column the next character of <c>Print #</c> lands in, from 0.</summary>
     public int Column(int number) => Writable(number).Column;
