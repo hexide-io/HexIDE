@@ -72,10 +72,12 @@ public class HoverThroughWindowInputTests
 
     // What a person's pointer would be over is what is drawn at the point, so a control drawn over the target takes the
     // move, its tip is the one that opens, and the reply says where it landed rather than claiming the target (#1265 review).
-    [AvaloniaFact]
-    public async Task A_move_onto_a_control_drawn_over_the_target_lands_on_that_control_and_says_so()
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_move_onto_a_control_drawn_over_the_target_lands_on_that_control_and_says_so(bool enabled)
     {
-        var button = TippedButton("Under", "Under tip");
+        var button = TippedButton("Under", "Under tip", enabled);
         var cover = new Border { Width = 120, Height = 40, Background = Avalonia.Media.Brushes.Red };
         ToolTip.SetTip(cover, "Cover tip");
         ToolTip.SetShowDelay(cover, 0);
@@ -90,6 +92,7 @@ public class HoverThroughWindowInputTests
                              + "there would be over");
             landing!.Value.Receiver.Should().BeSameAs(cover);
             ToolTip.GetIsOpen(cover).Should().BeTrue();
+            UiAutomationDriver.DeclaredToolTipAt(landing.Value.Receiver, landing.Value.Point).Should().Be("Cover tip");
             ToolTip.GetIsOpen(button).Should().BeFalse();
         }
         finally { window.Close(); }
@@ -190,9 +193,9 @@ public class HoverThroughWindowInputTests
     // What a handler throws is the program's: reported as the hover's failure, once, and not taken for an unreachable
     // Avalonia and raised a second time on the control (#1265 review).
     [AvaloniaFact]
-    public void A_handler_that_throws_fails_the_hover_once()
+    public async Task A_handler_that_throws_fails_the_hover_once()
     {
-        var button = new Button { Content = "Add", Width = 120, Height = 40 };
+        var button = TippedButton("Add", "Add Form");
         var window = Show(new StackPanel { Children = { button } });
         try
         {
@@ -208,6 +211,43 @@ public class HoverThroughWindowInputTests
             outcome.Success.Should().BeFalse();
             outcome.Error.Should().Be("hover threw: app bug");
             moves.Should().Be(1);
+            await Settle(100);
+            button.IsPointerOver.Should().BeFalse();
+            window.IsPointerOver.Should().BeFalse();
+            ToolTip.GetIsOpen(button).Should().BeFalse();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void A_hidden_disabled_target_is_refused_as_not_showing()
+    {
+        var hidden = TippedButton("Hidden", "Hidden tip", enabled: false);
+        hidden.IsVisible = false;
+        var window = Show(new StackPanel { Children = { hidden, TippedButton("Shown", "Shown tip") } });
+        try
+        {
+            var outcome = UiAutomationDriver.Hover(hidden, null, null, null, out var landing);
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("is not showing");
+            landing.Should().BeNull();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void A_container_prefers_its_showing_editor_to_its_first_hidden_editor()
+    {
+        var hidden = new TextEditor { Name = "HiddenEditor", IsVisible = false, Text = "Hidden", Height = 80 };
+        var shown = new TextEditor { Name = "ShownEditor", Text = "Shown", Height = 80 };
+        var panel = new StackPanel { Children = { hidden, shown } };
+        var window = Show(panel);
+        try
+        {
+            var outcome = UiAutomationDriver.Hover(panel, null, null, "0", out var landing);
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Detail.Should().Contain("on TextEditor[ShownEditor], at 0");
+            landing!.Value.Receiver.Should().BeSameAs(shown);
         }
         finally { window.Close(); }
     }

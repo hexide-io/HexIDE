@@ -97,7 +97,8 @@ public record AppInfo(
     }
 
     private static int? PreSectionInt(ProjectElements.ProjectDefinition project, string key)
-        => int.TryParse(PreSectionValue(project, key), out var n) ? n : null;
+        => int.TryParse(PreSectionValue(project, key), System.Globalization.NumberStyles.Integer,
+            System.Globalization.CultureInfo.InvariantCulture, out var n) ? n : null;
 }
 
 /// <summary>
