@@ -238,6 +238,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP command guards follow the compiled XAML binding** (#1324). `invoke_command` now finds private guards
+  on base types and ignores guards below the bound method's type, so its refusal agrees with the menu.
+
 - **A Let into an array variable takes only what vb6.exe's does** (#998, #1588). It stored whatever it was given:
   `a = Array(1, 2)` left an `Integer()` a Variant array, Empty left a `String()` Empty, and `b = "ab"` left a `Byte()`
   a String. Now an array of exactly the element type is copied, a String into a `Byte()` becomes its bytes, and anything
