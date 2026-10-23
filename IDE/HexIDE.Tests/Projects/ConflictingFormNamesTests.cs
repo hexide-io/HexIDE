@@ -141,6 +141,37 @@ public class ConflictingFormNamesTests : IDisposable
     }
 
     [Fact]
+    public async Task A_UserControl_whose_names_disagree_takes_its_Begin_name_and_is_repaired_too()
+    {
+        // Measured (#1411): the VB6 IDE warns "Conflicting names were found in '…\Dial.ctl'.  The name 'ucBegin' will be
+        // used." on opening, and its next save writes Attribute VB_Name = "ucBegin". The file keeps its name.
+        var token = TestContext.Current.CancellationToken;
+        await File.WriteAllTextAsync(Path.Join(dir, "Dial.ctl"),
+            "VERSION 5.00\r\nBegin VB.UserControl ucBegin \r\n   ClientHeight    =   735\r\n   ClientLeft      =   0\r\n" +
+            "   ClientTop       =   0\r\n   ClientWidth     =   1215\r\n   ScaleHeight     =   735\r\n   ScaleWidth      =   1215\r\n" +
+            "End\r\nAttribute VB_Name = \"Gauge\"\r\nAttribute VB_GlobalNameSpace = False\r\nAttribute VB_Creatable = True\r\n" +
+            "Attribute VB_PredeclaredId = False\r\nAttribute VB_Exposed = False\r\n", token);
+        var vbp = Path.Join(dir, "P.vbp");
+        await File.WriteAllTextAsync(vbp, "Type=Exe\r\nUserControl=Dial.ctl\r\nStartup=\"(None)\"\r\nName=\"P\"\r\n", token);
+        var svc = MakeService();
+
+        await svc.OpenProject(vbp);
+
+        var control = loaded.Single().Modules.Single();
+        control.Name.Should().Be("ucBegin");
+        control.Code.Should().StartWith("Attribute VB_Name = \"ucBegin\"\r\n");
+        svc.HasUnsavedChanges(control).Should().BeTrue();
+        await windowManager.Received(1).MessageBox(
+            $"Conflicting names were found in '{Path.Join(dir, "Dial.ctl")}'. The name 'ucBegin' will be used.",
+            Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), MessageBoxIcon.Warning, Arg.Any<Avalonia.Controls.Window?>());
+
+        await svc.SaveProject(loaded.Single(), saveAs: false);
+        (await File.ReadAllTextAsync(Path.Join(dir, "Dial.ctl"), token))
+            .Should().Contain("Begin VB.UserControl ucBegin \r\n").And.Contain("Attribute VB_Name = \"ucBegin\"\r\n");
+        (await File.ReadAllTextAsync(vbp, token)).Should().Contain("UserControl=Dial.ctl\r\n");
+    }
+
+    [Fact]
     public async Task A_form_whose_names_agree_opens_unedited_and_unremarked()
     {
         var vbp = await Stage("frmOrders", "frmOrders");

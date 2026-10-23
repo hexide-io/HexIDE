@@ -80,6 +80,7 @@ public sealed class ProjectLoader
                     {
                         formPart.AbsolutePath = moduleAbsolutePath;
                         module.UpdateFormPart(formPart);
+                        TakeDesignerName(module, formPart);
                         // Body only. FormSerializer regenerates the Begin..End header and then appends Code
                         // verbatim, so storing the whole file here emits the header twice on every save.
                         module.UpdateCode(formPart.Code);
@@ -206,6 +207,7 @@ public sealed class ProjectLoader
                         {
                             formPart.AbsolutePath = moduleAbsolutePath;
                             module.UpdateFormPart(formPart);
+                            TakeDesignerName(module, formPart);
                             // StripHeader above is a no-op for .pag, so Code still holds the whole file —
                             // replace it with the body only or the next save writes the header twice.
                             module.UpdateCode(formPart.Code);
@@ -298,6 +300,23 @@ public sealed class ProjectLoader
     };
 
     /// <summary>Each UserControl of the project as a component its forms can place, keyed by its project-qualified type name.</summary>
+    /// <summary>
+    /// Names a UserControl or PropertyPage by its designer block's <c>Begin</c> line, as VB6 does, whatever its file
+    /// or its <c>Attribute VB_Name</c> says (#1411).
+    /// </summary>
+    /// <remarks>
+    /// Measured with <c>vb6.exe /make</c>. With <c>Gauge.ctl</c> holding <c>Begin VB.UserControl ctlDial</c>, a form's
+    /// <c>Begin probe.ctlDial</c> builds, and <c>Begin probe.Gauge</c> fails: "Class probe.Gauge of control uc1 was not
+    /// a loaded control class". With <c>Dial.ctl</c> holding <c>Begin VB.UserControl ucBegin</c> and
+    /// <c>VB_Name = "Gauge"</c>, only <c>probe.ucBegin</c> builds. The project file's bare-path line gives no name, so
+    /// the file's was all HexIDE had, and a form naming the control as VB6 does found no class.
+    /// </remarks>
+    private static void TakeDesignerName(ModuleDefinition module, FormDefinition formPart)
+    {
+        if (formPart.Name is { Length: > 0 } name && !string.Equals(module.Name, name, StringComparison.Ordinal))
+            module.Name = name;
+    }
+
     public static IReadOnlyDictionary<string, ComponentBaseClass> BuildUserControlRegistry(ProjectDefinition project)
     {
         var projectName = project.Name;

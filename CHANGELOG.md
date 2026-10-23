@@ -213,6 +213,24 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A disabled menu item says it is disabled in automation** (#1534). `invoke_menu_item` used to blame keyboard
+  focus when a disabled item had a routed command. It now reads the materialised item's enabled state first;
+  when the menu has not been read, the refusal says its disabled state is unknown and how to check it.
+
+- **An automation click outside its target says so** (#1530). When the point lands on another control,
+  `interact` now gives the target's size and names what took the press, rather than saying it covers the target.
+
+- **Ctrl+S on a new UserControl or PropertyPage saves its .ctl or .pag** (#474). From its designer or its code window,
+  Ctrl+S saved the designer half as a form: it asked for a `.frm`, wrote the edit there, and left the `.ctl` the project
+  names unwritten. A save from either half is now the module's save. It asks for the `.ctl` or `.pag` once, and writes
+  it in place after that.
+
+- **A UserControl or PropertyPage is named by its `Begin` line, as VB6 names it** (#1411). HexIDE named it after its
+  file, so `Gauge.ctl` holding `Begin VB.UserControl ctlDial` was "Gauge". A form using the control as VB6 does, as
+  `Begin probe.ctlDial`, then found no such control, and kept it as text it could neither draw nor run. Where its
+  `Begin` line and `VB_Name` disagree, the project now opens with VB6's warning and makes `VB_Name` agree, as #1407
+  does for a form.
+
 - **Bare Print no longer prevents a form from loading** (#993). The interpreter and editor accept its output list.
   Reaching it still stops the run at the form's unimplemented Print method (#989); standard and class modules refuse
   it at runtime, naming #993, pending a VB6 measurement.
