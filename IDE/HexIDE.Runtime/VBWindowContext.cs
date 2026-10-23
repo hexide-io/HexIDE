@@ -193,6 +193,42 @@ public class VBWindowContext : IModuleExecutionRoot
         await Report(() => interpreter!.RaiseFormEvent(form, "Form_Load"));
     }
 
+    // Whether the window has been shown since the form loaded, and its extent when Resize was last raised (#994).
+    private bool shownSinceLoad;
+    private (Avalonia.Size Size, Avalonia.Controls.WindowState State) resizedAt;
+
+    /// <summary>
+    /// The window has become visible (#994). The first time since the form loaded, that is Resize, raised inside the
+    /// statement that showed it, as VB6 raises it before Show returns. Measured on vb6.exe in the console, native and p-code:
+    /// a startup form raises Initialize, Load, one Resize, then Activate; <c>Load</c> alone raises no Resize; and a form shown
+    /// again after <c>Hide</c> raises none, while one loaded again after <c>Unload</c> does.
+    /// </summary>
+    public void Shown()
+    {
+        if (shownSinceLoad || instance is not { FormLoaded: true } || Window is not IFormView view)
+            return;
+        shownSinceLoad = true;
+        resizedAt = view.Extent;
+        ExecuteSub("Form_Resize");
+    }
+
+    /// <summary>
+    /// The window's size or state may have changed (#994): Resize, once the window has been shown since the form loaded,
+    /// when its client size or state is not what it was when Resize was last raised. The window system reports a size more
+    /// often than it changes one: showing a window reported it two or three times, each a Resize, where VB6 raises one.
+    /// And a Move to the size the form has raises none in VB6 (measured).
+    /// </summary>
+    public void WindowResized()
+    {
+        if (!shownSinceLoad || Window is not IFormView view)
+            return;
+        var now = view.Extent;
+        if (now == resizedAt)
+            return;
+        resizedAt = now;
+        ExecuteSub("Form_Resize");
+    }
+
     /// <summary>Run the form's Terminate, as the program does at its end for a form whose instance it still holds.</summary>
     internal async Task TerminateAsync() => await Report(() => interpreter!.FireTerminate(EnsureInstance()));
 

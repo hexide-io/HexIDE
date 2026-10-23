@@ -919,36 +919,6 @@ works.
 does for the pointer, or offer that as a mode and say in the reply which path was used. Until then, say in the
 description that an access key can't be reached. [#1523](https://github.com/hexide-io/HexIDE/issues/1523).
 
-## `interact click` at a point outside its target says the control pressed there covers the target
-
-**Symptom (2026-10-23, #1503, Windows).** On a running form, `Command2` is 120 × 60
-(`inspect_element`: `boundingRect [64,40,120,60]`).
-`interact {"target":"Window/Button[Command2]","action":"click","value":"150,60","window":"Form1"}` answered
-`clicked the left button at (150, 60) on 'VBCommandButton', which is (214, 100) in the window; the press landed on
-'VBLabel', which covers the target there`. The point is past the button's width and height. The Label lying there was
-pressed, and `Command2_Click` didn't run. The reply reads as a stacking defect in the product.
-
-**Workaround.** `inspect_element` the target first and keep the point inside its `boundingRect`'s width and height.
-
-**Suggested fix.** When the point is outside the target's bounds, say so and give the target's size, and keep "covers
-the target there" for a point inside them. Or refuse such a point, as a point where nothing takes the pointer is
-refused. [#1530](https://github.com/hexide-io/HexIDE/issues/1530).
-
-## `invoke_menu_item` on a disabled item with a routed command blames keyboard focus
-
-**Symptom (2026-10-23, #746, Windows).** On `--newproject`, with one project and no group,
-`dump_visual_tree {"window":"ide","match":"Make Project Group","interactiveOnly":false}` showed
-`MenuItem[Make Project Group...]` with `isEnabled: false`, as VB6 greys it. `invoke_menu_item {"path":"File/Make Project
-Group..."}` answered `cannot execute where keyboard focus is now (a MenuItem named 'PART_ItemsPresenter' showing
-MainViewViewModel)`, went on about giving a document focus, and only in its last sentence said that a disabled item is
-refused the same way. The item belongs to no document, and no focus would enable it.
-
-**Workaround.** Open the menu and read the item's `isEnabled` with `dump_visual_tree` before invoking it.
-
-**Suggested fix.** When the `MenuItem` is materialised and not effectively enabled, say it is disabled in the menu, as
-the non-routed branch and the checkable-item branch already do. Keep the focus explanation for an item the menu shows
-enabled. [#1534](https://github.com/hexide-io/HexIDE/issues/1534).
-
 ## A border given a name but no type is folded away, name and all, so `match` cannot find it
 
 **Symptom (2026-10-22, #157, headless).** The designer's box for a control HexIDE does not model was a

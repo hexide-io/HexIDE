@@ -10,6 +10,16 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **VB6 filesystem operations** (#1561): `CurDir`, `MkDir`, `RmDir`, `FileLen`, `FileDateTime`, `GetAttr`, `SetAttr`, `FileCopy`, `Name`, `Kill` and stateful `Dir`, using compiled VB6 measurements.
+
+- **Conditional compilation runs: `#If`, `#ElseIf`, `#Else`, `#End If` and `#Const`** (#1112). A module holding any
+  `#If` stopped the program as it loaded, and `#Const` did not parse. Now each branch is chosen as vb6.exe chooses it,
+  measured with `/make`, native and p-code. The names are the module's `#Const`s, the project's Conditional Compilation
+  Arguments (`CondComp`) and VB6's `Win32` and `Win16`. An inactive branch is never parsed, so code written for another
+  compiler, such as VBA7's `Declare PtrSafe`, runs unchanged. A directive's error stops the program as it loads, even in a
+  branch never taken, as vb6.exe refuses to build. The module saves exactly as written: the selection exists only for the
+  parser. Every personality uses VB6's constants for now (#1548), and `Like` in an `#If` waits for `Like` itself (#1547).
+
 - **A control's `ZOrder` method** (#1503). `ZOrder 0`, or no argument, brings a control to the front of the controls
   like it in its container, and `ZOrder 1` sends it to the back, as measured on vb6.exe. A Label never rises over a
   windowed control, a container takes its contents, and the position is 0 or 1 or it raises VB6's error. A program
@@ -225,6 +235,25 @@ there isn't one yet. Anything may change between 0.x releases.
   button given the focus by `SetFocus` is selected, raising Click after GotFocus. A form or a UserControl's `.ctl`
   saved with `Enabled = 0 'False` dropped that line and ran enabled. A disabled form is shown without taking the focus.
 
+- **MCP reply numbers use a decimal point in every culture** (#1550). Coordinates, sizes, scroll percentages and
+  wait durations now use invariant formatting, so a fractional click point can be read and sent back unchanged.
+
+- **A form's Width and Height are its outer size at run time** (#1072). They read and set the client area, so a
+  program got a form 90 to 240 twips narrower and 345 to 885 shorter than vb6.exe reports. They now include the frame
+  VB6 draws on the themed Windows desktop for the form's BorderStyle, caption bar and menu bar, read back as assigned,
+  and leave the client area that is left inside the frame. `Width = (Width - ScaleWidth) + needed` lands as before.
+
+- **Surplus call arguments are refused** (#741): procedures and intrinsics with known limits raise VB6's
+  "Wrong number of arguments or invalid property assignment"; a declared scalar called with arguments raises
+  "Expected array". Parameterless Variant and object results still index as before (#1476).
+
+- **A running form raises Activate and Deactivate, and Resize once as it is shown** (#994). Activate and Deactivate
+  were never raised. They now come as VB6 raises them: when another of the program's forms is shown, given the focus
+  or left active by a Hide or an Unload, after the statement that did it, and not when the user switches to another
+  application and back. A form raised Resize two or three times as it was shown, as the window settled. It now
+  raises one, inside the Show, and after that one for each change of size or state. A form shown again after Hide
+  raises none.
+
 - **Cancelling a language-server request now reaches the server** (#944). The cancellation notification
   failed to serialize on every keystroke that abandoned a completion request. It now sends the original
   request’s bare ID, so a server can stop that work; the client still awaits the server’s response.
@@ -264,6 +293,12 @@ there isn't one yet. Anything may change between 0.x releases.
   `Control` and as an `Object`, and a form as a `Form`. `Unload c` unloads a control-array element held in a
   variable. `Controls.Add` and `Remove` are still refused (#1556).
 
+- **A new form, UserControl or PropertyPage is the file VB6 makes, byte for byte** (#1538). A new form was 6000 × 4500
+  inside and had no `ClientLeft`, `ClientTop` or `LinkTopic`. A new UserControl had a `Caption`, which a UserControl
+  doesn't have, and `Attribute VB_Name` alone. Each now carries what VB6's Add Form, Add User
+  Control and Add Property Page write (measured in the IDE): a form 4560 × 3015 at 120, 465 with its `LinkTopic`, and a
+  UserControl or PropertyPage 4800 × 3600 at 0, 0 with its own five `Attribute` lines.
+
 - **A new form has no code, and an event procedure is added as VB6 adds one** (#1532). A form HexIDE created started
   with an empty `Form_Load` procedure, and its first save wrote it to the file. VB6's Add Form saves a form ending at its
   `Attribute` lines (measured in the IDE), and adds `Form_Load` when the form is double-clicked. HexIDE's double-click
@@ -292,6 +327,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **An intrinsic called with too few arguments raises VB6's compile error** (#1512). Calls such as `Chr()`
   now report "Argument not optional" or "Syntax error", as measured in VB6, instead of stopping with a .NET exception.
+
+- **A control added, brought to front or sent to back stacks past the controls HexIDE carries as text, as VB6's does**
+  (#1498). A control HexIDE does not model, such as an OCX's, was written back where it was read, whatever the designer
+  did around it. So a button added to Web Browser.frm went in after its toolbar, and the form's ImageList was written
+  ahead of a PictureBox nobody had moved. VB6 stacks an OCX control like any other (measured): a new control goes in
+  front of the toolbar, and Send to Back puts it behind the ImageList. A form loaded and saved untouched is unchanged.
 
 - **`Print #` writes a character the ANSI code page lacks as its best fit** (#1511). On code page 1252, Ā is written as
   "A", Ł as "L" and α as "a", as vb6.exe writes them, and Ж, which has no fit, as "?". Every one of them was "?".

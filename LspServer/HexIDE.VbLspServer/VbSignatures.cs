@@ -12,6 +12,12 @@ internal static class VbSignatures
     private static readonly Dictionary<string, SignatureEntry[]> _table =
         new(StringComparer.OrdinalIgnoreCase)
         {
+            // Filesystem positional surface (#1561); runtime named arguments await measurement.
+            ["CurDir"] = [new SignatureEntry("CurDir([Drive]) As String", ["Drive"])],
+            ["Dir"] = [new SignatureEntry("Dir([PathName], [Attributes]) As String", ["PathName", "Attributes"])],
+            ["FileLen"] = [new SignatureEntry("FileLen(PathName) As Long", ["PathName"])],
+            ["FileDateTime"] = [new SignatureEntry("FileDateTime(PathName) As Date", ["PathName"])],
+            ["GetAttr"] = [new SignatureEntry("GetAttr(PathName) As Long", ["PathName"])],
             // Dialogs / I/O
             ["MsgBox"] =
             [
