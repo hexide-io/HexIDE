@@ -148,6 +148,17 @@ assuming either answer everywhere causes a file to be carried twice or refused w
 A member whose file was never understood is worse than a refused add: the tree shows a node and the project
 file gains a line for something the IDE cannot open.
 
+### Requirement: The tree's Add Form SHALL be the same operation as Project > Add Form
+Adding a form from the tree's menu SHALL give it the next free name, write its file, add it to the project and open
+its designer, exactly as the Project menu's Add Form does.
+
+It was a second Add Form of its own, which added a form with no file and opened nothing (#468). A form with no file
+was then left out of the project file when the IDE closed (#1359).
+
+#### Scenario: Adding a form from the tree
+- **WHEN** the developer chooses Add > Form on a project in the tree
+- **THEN** the new form's file exists in the project's folder and its designer is open
+
 ### Requirement: Opening a project from the tree SHALL show what it contains
 Activating a project in the tree SHALL open a read-only document describing that project: its name, type,
 startup object, location, the members it holds with the kind of each, and the references it declares. A

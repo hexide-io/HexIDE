@@ -41,9 +41,13 @@ public static class SymbolFontText
 
     /// <summary>
     /// <paramref name="text"/> as GDI draws it in a symbol font: each character's byte in the ANSI code page, at U+F000
-    /// plus that byte. An ampersand is left alone for the access key that follows it, and so are line breaks and tabs,
-    /// which a caption lays out rather than draws. A character the code page has no single byte for is left as it is.
+    /// plus that byte. Line breaks and tabs are left alone, which a caption lays out rather than draws, and so is a
+    /// character the code page has no single byte for. One character for one, so an index into the text holds.
     /// </summary>
+    /// <remarks>
+    /// Given text as shown, not a caption: an ampersand here is one VB6 draws, so it is mapped too. A caption's access key
+    /// is read first (<see cref="VBCaption.Parse"/>).
+    /// </remarks>
     public static string ToSymbolGlyphs(string text)
     {
         var ansi = AnsiEncoding();
@@ -52,7 +56,7 @@ public static class SymbolFontText
         var bytes = new byte[4];
         foreach (var c in text)
         {
-            if (c is '&' or '\r' or '\n' or '\t' || c is >= (char)0xF000 and <= (char)0xF0FF)
+            if (c is '\r' or '\n' or '\t' || c is >= (char)0xF000 and <= (char)0xF0FF)
             {
                 result.Append(c);
                 continue;
@@ -87,8 +91,9 @@ public static class SymbolFontText
 }
 
 /// <summary>
-/// A caption's text with its access key, drawn as a symbol font's glyphs when the control's font is one (#1133). The
-/// caption is <see cref="Source"/>; <see cref="TextBlock.Text"/> is what is drawn.
+/// A caption whose access key AccessText can carry (<see cref="VBCaption.Parsed.FitsAccessText"/>), drawn as a symbol font's
+/// glyphs when the control's font is one (#1133). The caption is <see cref="Source"/>; <see cref="TextBlock.Text"/> is what
+/// is drawn, in AccessText's spelling.
 /// </summary>
 public class VBAccessText : AccessText
 {
@@ -101,6 +106,9 @@ public class VBAccessText : AccessText
         set => SetValue(SourceProperty, value);
     }
 
+    /// <summary>Which marked character is the key where the caption marks more than one. Set before <see cref="Source"/>.</summary>
+    public VBCaption.KeyChoice Choice { get; init; }
+
     protected override System.Type StyleKeyOverride => typeof(AccessText);
 
     static VBAccessText()
@@ -109,11 +117,33 @@ public class VBAccessText : AccessText
         SymbolFontText.SymbolGlyphsProperty.Changed.AddClassHandler<VBAccessText>((text, _) => text.Update());
     }
 
-    private void Update()
+    private void Update() =>
+        Text = VBCaption.Parse(Source ?? "", Choice).ForAccessText(SymbolFontText.GetSymbolGlyphs(this));
+}
+
+/// <summary>
+/// A caption drawn as plain text, with no access key: one that marks none, or whose key AccessText would take from an
+/// underscore before it (<see cref="VBCaption"/>). Shown as VB6 shows it, in a symbol font's glyphs where the control's
+/// font is one.
+/// </summary>
+public class VBCaptionText : TextBlock
+{
+    public static readonly StyledProperty<string?> SourceProperty =
+        AvaloniaProperty.Register<VBCaptionText, string?>(nameof(Source));
+
+    public string? Source
     {
-        var source = Source ?? "";
-        if (SymbolFontText.GetSymbolGlyphs(this))
-            source = SymbolFontText.ToSymbolGlyphs(source);
-        Text = source.Replace("&", "_");
+        get => GetValue(SourceProperty);
+        set => SetValue(SourceProperty, value);
     }
+
+    protected override System.Type StyleKeyOverride => typeof(TextBlock);
+
+    static VBCaptionText()
+    {
+        SourceProperty.Changed.AddClassHandler<VBCaptionText>((text, _) => text.Update());
+        SymbolFontText.SymbolGlyphsProperty.Changed.AddClassHandler<VBCaptionText>((text, _) => text.Update());
+    }
+
+    private void Update() => Text = VBCaption.Parse(Source ?? "").Drawn(SymbolFontText.GetSymbolGlyphs(this));
 }

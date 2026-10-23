@@ -1,6 +1,8 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -90,6 +92,41 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// here too, last; they are never drawn.
     /// </summary>
     public ObservableCollection<ComponentInstanceViewModel> Components { get; } = new();
+
+    /// <summary>
+    /// The controls on this form HexIDE does not model, each drawn where VB6 draws the box it puts in such a control's
+    /// place (#157). Built from the blocks they were preserved as, and in neither <see cref="Components"/> nor
+    /// <see cref="AllComponents"/>: those are what the designer edits and the writer writes, and these are carried.
+    /// </summary>
+    public ObservableCollection<UnmodelledControlViewModel> UnmodelledControls { get; } = new();
+
+    // Rebuilt when a component holding such a control comes or goes, so a box goes with the container it sits in when that
+    // is deleted, and comes back with it on undo. No other change can alter the boxes.
+    private void OnAllComponentsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        static bool HoldsAny(IList? items) =>
+            items?.OfType<ComponentInstanceViewModel>().Any(c => c.Instance.PreservedChildSubtrees.Count > 0) == true;
+
+        if (e.Action == NotifyCollectionChangedAction.Reset || HoldsAny(e.NewItems) || HoldsAny(e.OldItems))
+            RebuildUnmodelledControls();
+    }
+
+    private void RebuildUnmodelledControls()
+    {
+        foreach (var box in UnmodelledControls)
+            box.Dispose();
+        UnmodelledControls.Clear();
+        foreach (var vm in AllComponents)
+        {
+            foreach (var block in vm.Instance.PreservedChildSubtrees)
+            {
+                // One on the root, a form's or a UserControl's, is measured from the canvas origin, as a control with no
+                // container is (ComponentInstanceViewModel.ContainerBounds).
+                if (UnmodelledControl.Read(block.Text) is { } control)
+                    UnmodelledControls.Add(new UnmodelledControlViewModel(control, ReferenceEquals(vm, Form) ? null : vm));
+            }
+        }
+    }
 
     public ComponentInstanceViewModel Form { get; private set; }
 
@@ -450,6 +487,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /* ctr only for the previewer! */
     public FormEditViewModel()
     {
+        AllComponents.CollectionChanged += OnAllComponentsChanged;
         Form = new ComponentInstanceViewModel(this, new ComponentInstance(FormComponentClass.Instance, "Form1")
             .SetProperty(VBProperties.WidthProperty, 400)
             .SetProperty(VBProperties.HeightProperty, 300)

@@ -106,8 +106,10 @@ public partial class VB6BuiltIns
         return ObjectAsValue.Scalar(arg, null);
     }
 
+    // CVar among them: CVar of an object is the object, whether its default member wants an argument, as a Collection's
+    // does, or not (measured, #1466: TypeName(CVar(k)) is "K1" and IsObject(CVar(k)) True for a class with a default Value).
     private static readonly HashSet<string> TakesTheArgumentItself = new(StringComparer.OrdinalIgnoreCase)
-        { "TypeName", "IsObject", "IsMissing", "Array" };
+        { "TypeName", "IsObject", "IsMissing", "Array", "CVar" };
 
     private static readonly HashSet<string> ReadsADefaultMemberIfAny = new(StringComparer.OrdinalIgnoreCase)
         { "VarType", "IsNumeric", "IsEmpty", "IsNull", "IsDate", "IsError", "IsArray" };
