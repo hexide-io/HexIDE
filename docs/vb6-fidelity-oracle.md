@@ -14162,8 +14162,8 @@ procedure was parsed and then ignored, so a `Static Sub`'s locals started again 
 - Two Sub Main programs, the second with four classes and a form, made native and p-code under en-GB.
 - 34 one-statement compile projects.
 - Two two-form projects started from Form1, the second without `New Form2`.
-- The 6 programs `StaticTests` runs and the form project `StaticInFormTests` runs, made the same way. They logged exactly
-  what the tests pin, and gave the compile errors the tests expect.
+- `StaticTests`' 4 transcript programs and 2 parse refusals, and the form project `StaticInFormTests` runs, made the same
+  way. They logged exactly what the tests pin, and gave the compile errors the tests expect.
 
 Native code and p-code agreed on every line.
 
