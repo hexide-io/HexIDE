@@ -68,7 +68,8 @@ transform that treats them alike corrupts one of them.
 `Shape`, `Line`, `Image`) are drawn beneath every windowed control in their container, whatever the order, and VB6
 writes each container's windowed blocks first and its windowless ones after them. A control VB6 adds or pastes goes
 first in its plane's run, and Bring to Front and Send to Back move a block to the start or the end of that run. An
-OCX control stacks with the rest, so a control HexIDE carries as text is passed over like any other (measured, #1498).
+OCX control stacks with the rest, so a control HexIDE carries as text is passed over like any other (measured, #1498),
+and its box is drawn in that place among the others (#1553).
 The designer draws a form VB6 wrote the same way (#1481), and so does the running form
 ([#1497](https://github.com/hexide-io/HexIDE/issues/1497)), where a control-array element loaded at run time goes under
 its plane's controls, as VB6 puts it (measured). For two Lines the direction is measured too: the one

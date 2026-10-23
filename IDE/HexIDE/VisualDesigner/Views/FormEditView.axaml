@@ -94,6 +94,41 @@
         <converters:BoolToBrushConverter ActiveBrush="{DynamicResource ActiveTitleBarBrush}"
                                          InactiveBrush="{DynamicResource InactiveTitleBarBrush}"
                                          x:Key="TitleBarConverter" />
+        <!-- A control HexIDE does not model, a box where VB6 draws the one it puts in such a control's place (#157), greyed
+             and labelled where VB6's is empty. Inert: a press is swallowed, so it selects nothing and starts no marquee,
+             and the cursor says so. The controls' canvas, DesignerCanvas, draws it in its place among them (#1553). -->
+        <DataTemplate x:Key="CarriedControlBox" x:DataType="visualDesigner:UnmodelledControlViewModel">
+            <ClassicBorderDecorator Width="{CompiledBinding Width}"
+                                    Height="{CompiledBinding Height}"
+                                    BorderStyle="Sunken"
+                                    BorderThickness="2"
+                                    Background="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}"
+                                    ClipToBounds="True"
+                                    Cursor="No"
+                                    AutomationProperties.Name="{CompiledBinding Name}"
+                                    AutomationProperties.ControlTypeOverride="Pane"
+                                    PointerPressed="OnUnmodelledControlPressed">
+                <ToolTip.Tip>
+                    <StackPanel>
+                        <TextBlock Text="{CompiledBinding Name}" FontWeight="Bold" />
+                        <TextBlock Text="{CompiledBinding TypeName}" />
+                        <TextBlock Text="{DynamicResource Str.Designer.Unmodelled.NotSupported}" />
+                    </StackPanel>
+                </ToolTip.Tip>
+                <!-- Transparent, so the whole box takes the press whatever the
+                     face colour resolves to; a control is hit only where it paints. -->
+                <Panel Background="Transparent">
+                    <StackPanel Margin="2,1">
+                        <TextBlock Text="{CompiledBinding ClassName}"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource {x:Static commonControls:SystemColors.GrayTextBrushKey}}" />
+                        <TextBlock Text="{DynamicResource Str.Designer.Unmodelled.NotSupported}"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource {x:Static commonControls:SystemColors.GrayTextBrushKey}}" />
+                    </StackPanel>
+                </Panel>
+            </ClassicBorderDecorator>
+        </DataTemplate>
     </UserControl.Resources>
     <UserControl.Styles>
         <Style Selector="Border#PART_FormTitleBar">
@@ -258,68 +293,24 @@
                                                      type name, which every control on every form shared (#526), and a control
                                                      array's element as optSize(1), as the write tools take it (#1320). -->
                                                 <Setter Property="AutomationProperties.Name" Value="{CompiledBinding AddressedName}" />
+                                                <!-- Stacked by its place in the draw order, with the carried controls' boxes between (#1553). -->
+                                                <Setter Property="ZIndex" Value="{CompiledBinding DrawIndex}" />
+                                            </Style>
+                                            <Style Selector="controls|DesignerCanvas > ContentPresenter.carried"
+                                                   x:DataType="visualDesigner:UnmodelledControlViewModel">
+                                                <Setter Property="(Canvas.Left)" Value="{CompiledBinding Left}" />
+                                                <Setter Property="(Canvas.Top)" Value="{CompiledBinding Top}" />
+                                                <Setter Property="ZIndex" Value="{CompiledBinding DrawIndex}" />
                                             </Style>
                                         </controls:ControlsContainer.Styles>
                                         <controls:ControlsContainer.ItemsPanel>
                                             <ItemsPanelTemplate>
-                                                <Canvas />
+                                                <controls:DesignerCanvas x:DataType="visualDesigner:FormEditViewModel"
+                                                                         Overlays="{CompiledBinding UnmodelledControls}"
+                                                                         OverlayTemplate="{StaticResource CarriedControlBox}" />
                                             </ItemsPanelTemplate>
                                         </controls:ControlsContainer.ItemsPanel>
                                     </controls:ControlsContainer>
-                                    <!-- Controls HexIDE does not model, each a box where VB6 draws the one it puts in such a
-                                         control's place (#157), greyed and labelled where VB6's is empty. Above the controls
-                                         the designer models: one inside a Frame or PictureBox is drawn on that container, and
-                                         beneath it would be painted over by the container's own background. Inert: a press is
-                                         swallowed, so it selects nothing and starts no marquee, and the cursor says so. -->
-                                    <ItemsControl x:Name="UnmodelledControlsLayer"
-                                                  ItemsSource="{CompiledBinding UnmodelledControls}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <Canvas />
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        <ItemsControl.Styles>
-                                            <Style Selector="ItemsControl#UnmodelledControlsLayer > ContentPresenter"
-                                                   x:DataType="visualDesigner:UnmodelledControlViewModel">
-                                                <Setter Property="(Canvas.Left)" Value="{CompiledBinding Left}" />
-                                                <Setter Property="(Canvas.Top)" Value="{CompiledBinding Top}" />
-                                            </Style>
-                                        </ItemsControl.Styles>
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="visualDesigner:UnmodelledControlViewModel">
-                                                <ClassicBorderDecorator Width="{CompiledBinding Width}"
-                                                                        Height="{CompiledBinding Height}"
-                                                                        BorderStyle="Sunken"
-                                                                        BorderThickness="2"
-                                                                        Background="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}"
-                                                                        ClipToBounds="True"
-                                                                        Cursor="No"
-                                                                        AutomationProperties.Name="{CompiledBinding Name}"
-                                                                        AutomationProperties.ControlTypeOverride="Pane"
-                                                                        PointerPressed="OnUnmodelledControlPressed">
-                                                    <ToolTip.Tip>
-                                                        <StackPanel>
-                                                            <TextBlock Text="{CompiledBinding Name}" FontWeight="Bold" />
-                                                            <TextBlock Text="{CompiledBinding TypeName}" />
-                                                            <TextBlock Text="{DynamicResource Str.Designer.Unmodelled.NotSupported}" />
-                                                        </StackPanel>
-                                                    </ToolTip.Tip>
-                                                    <!-- Transparent, so the whole box takes the press whatever the
-                                                         face colour resolves to; a control is hit only where it paints. -->
-                                                    <Panel Background="Transparent">
-                                                        <StackPanel Margin="2,1">
-                                                            <TextBlock Text="{CompiledBinding ClassName}"
-                                                                       TextTrimming="CharacterEllipsis"
-                                                                       Foreground="{DynamicResource {x:Static commonControls:SystemColors.GrayTextBrushKey}}" />
-                                                            <TextBlock Text="{DynamicResource Str.Designer.Unmodelled.NotSupported}"
-                                                                       TextWrapping="Wrap"
-                                                                       Foreground="{DynamicResource {x:Static commonControls:SystemColors.GrayTextBrushKey}}" />
-                                                        </StackPanel>
-                                                    </Panel>
-                                                </ClassicBorderDecorator>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
                                     <Canvas Name="NewControlSpawner"
                                             Background="Transparent"
                                             IsVisible="{CompiledBinding !ToolsBoxToolViewModel.IsCursorSelected}">
