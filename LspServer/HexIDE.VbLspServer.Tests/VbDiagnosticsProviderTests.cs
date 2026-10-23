@@ -5,6 +5,19 @@ namespace HexIDE.VbLspServer.Tests;
 
 public class VbDiagnosticsProviderTests
 {
+    // Bare Print must not prevent the module from parsing (#993).
+    [Theory]
+    [InlineData("Print")]
+    [InlineData("Print \"a\"; \"b\"")]
+    [InlineData("Print \"a\",")]
+    [InlineData("Print Spc(2); \"x\"")]
+    [InlineData("Print #1, \"x\"")]
+    [InlineData("Print \"hello\"")]
+    public void PrintStatements_ProduceNoDiagnostics(string statement)
+    {
+        VbDiagnosticsProvider.GetDiagnostics($"Sub Foo()\n    {statement}\nEnd Sub").Should().BeEmpty();
+    }
+
     [Fact]
     public void ValidSubDeclaration_ProducesNoDiagnostics()
     {
