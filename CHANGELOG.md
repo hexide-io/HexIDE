@@ -213,6 +213,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A form's Width and Height are its outer size at run time** (#1072). They read and set the client area, so a
+  program got a form 90 to 240 twips narrower and 345 to 885 shorter than vb6.exe reports. They now include the frame
+  VB6 draws on the themed Windows desktop for the form's BorderStyle, caption bar and menu bar, read back as assigned,
+  and leave the client area that is left inside the frame. `Width = (Width - ScaleWidth) + needed` lands as before.
+
 - **Ctrl+S on a new UserControl or PropertyPage saves its .ctl or .pag** (#474). From its designer or its code window,
   Ctrl+S saved the designer half as a form: it asked for a `.frm`, wrote the edit there, and left the `.ctl` the project
   names unwritten. A save from either half is now the module's save. It asks for the `.ctl` or `.pag` once, and writes
