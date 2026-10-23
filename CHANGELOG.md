@@ -236,6 +236,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP refuses arguments containing an unpaired UTF-16 surrogate** (#1337). The reply now names the tool and
+  parameter, says the argument is not valid text and that nothing was done. It previously returned only the SDK's
+  `-32603 "An error occurred."` before any tool ran.
+
 - **MCP `press_key` reaches access keys and menus** (#1523). Keys now pass through the window input path,
   so Alt+W activates a button captioned `One &Wide`. The reply names `window-input`, or `routed-key`
   when focus or platform input is unavailable and the previous routed delivery is used.
