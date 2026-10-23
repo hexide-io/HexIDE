@@ -408,8 +408,6 @@ public class PrePass : VB6BaseVisitor<object?>
         foreach (var sub in context.constSubStmt())
         {
             DeclareModuleName(sub.ambiguousIdentifier().GetText());
-            if (sub.typeHint() != null)
-                throw new NotImplementedException("Const type hints not supported");
             var location = state.Alloc(Vb6Value.Variant);
             state.MarkConstant(location);
             if (IsVariantConst(sub))
@@ -542,7 +540,7 @@ public class PrePass : VB6BaseVisitor<object?>
                 else if (l.OCTALLITERAL() is { } oct) v = ExpressionExecutor.ClassifyRadixLiteral(oct.GetText(), 8);
                 else if (l.INTEGERLITERAL() is { } i) v = ExpressionExecutor.ClassifyIntegerLiteral(i.GetText());
                 else if (l.DOUBLELITERAL() is { } dbl)
-                    return double.TryParse(dbl.GetText().TrimEnd('#', '!', '&', '@', '%'),
+                    return double.TryParse(ExpressionExecutor.ExponentAsE(dbl.GetText()).TrimEnd('#', '!', '&', '@', '%'),
                         System.Globalization.NumberStyles.Float,
                         System.Globalization.CultureInfo.InvariantCulture, out result);
                 else if (l.TRUE() != null) { result = -1; return true; }     // VB6 True is -1

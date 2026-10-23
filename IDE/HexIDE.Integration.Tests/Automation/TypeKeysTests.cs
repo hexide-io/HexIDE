@@ -349,8 +349,10 @@ public class TypeKeysTests : IDisposable
 
     // Dialogs stacked over the window: the one on top takes the keys, and the one under it cannot be answered first, so the
     // refusal names the top one (#1290 review).
-    [AvaloniaFact]
-    public async Task Under_stacked_dialogs_the_refusal_names_the_one_on_top()
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Under_stacked_dialogs_the_refusal_names_the_one_on_top(bool press)
     {
         var box = new TextBox { Width = 200 };
         var window = ShowBoxes(box);
@@ -363,9 +365,18 @@ public class TypeKeysTests : IDisposable
         Dispatcher.UIThread.RunJobs();
         try
         {
-            var typed = await UiAutomationDriver.TypeKeysAsync(box, "abc");
-
-            typed.Error.Should().StartWith("'Inner', a modal dialog over 'Outer', is open");
+            var watch = OpenDialogs.Watch([window, outer, inner], window);
+            OpenDialogs.During(watch);
+            var error = press
+                ? UiAutomationDriver.PressKey(box, "A", null).Error
+                : (await UiAutomationDriver.TypeKeysAsync(box, "abc")).Error;
+            error.Should().StartWith("'Inner', a modal dialog over 'Outer', is open");
+            var note = OpenDialogs.Note(watch, [window, outer, inner]);
+            note.Should().BeNull("the refusal speaks for every blocking dialog");
+            var reply = error + note;
+            reply.Should().NotContain("reached past");
+            reply.Split("'Inner'").Length.Should().Be(2);
+            reply.Split("'Outer'").Length.Should().Be(2);
         }
         finally
         {

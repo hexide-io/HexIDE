@@ -244,6 +244,30 @@ there isn't one yet. Anything may change between 0.x releases.
   included, as the module loads. A variable beside an Enum or Type of its name, and a Property's Get beside its Let,
   still compile, as they do in vb6.exe.
 
+- **A Const declared with a type character runs, as vb6.exe's does** (#1614). `Const K% = 2.5` stopped the program as
+  the module loaded, with "Const type hints not supported". The character is now the As clause it stands for: `K` is
+  the Integer 2, `Const K$ = 5` the String "5", and `Const K% = 40000` is vb6.exe's compile error "Overflow".
+
+- **MCP reports keyboard focus and presses where it is** (#1627). `inspect_element` reports `isFocused`, and `dump_visual_tree` names the focused path, or explains when no control in that window has focus. `press_key` at a container keeps the focus inside it, so Tab advances from the current control. An explicit target still takes focus first; the reply names where that move came from, since it raises a running program's focus events.
+
+- **A `D` exponent in a numeric literal loads, as vb6.exe compiles it** (#1611). `x = 1D3` failed to load, and the
+  editor marked it. `D` is now an exponent marker wherever `E` is, in both grammars. A literal vb6.exe refuses to
+  build, such as `1E400`, `1E3%` or `1E20@`, is now its compile error "Syntax error", where HexIDE gave infinity, a
+  Long or a Currency beyond Currency's range, or stopped with a .NET error.
+
+- **A refused MCP call names a blocking dialog once** (#1325). Closing a form under a MsgBox, or typing or pressing a key under stacked dialogs, no longer repeats the dialog in the reply’s note. A refusal never claims the call reached past a dialog; calls that acted behind one still say so.
+
+- **A CommandButton, TextBox, ComboBox, ListBox and Frame have ToolTipText** (#1403). Only five controls declared it,
+  so on these the Properties window did not list it, a running form showed no tip, and code could not read or set
+  it. Measured on vb6.exe across every intrinsic control: these five have it, and the scroll bars, Shape, Line, Timer
+  and menus do not. On all ten that have it, ToolTipText now reads and takes values at run time as vb6.exe's does.
+
+- **A ComboBox's Style is modelled, and a Dropdown List runs as one** (#1428). Style was kept as a preserved line, so
+  the Properties window could not show or set it, and a program reading or writing a Dropdown List's Text was stopped
+  as not implemented. Now Style is offered with VB6's three names and reads as an Integer, and a Dropdown List's Text
+  selects the item it names, or raises 383 as vb6.exe does. Setting Style to Dropdown List in the designer resets
+  the Text to the control's name, as VB6's designer does.
+
 - **MCP `type_text` refuses hidden targets before finding an editor** (#1317), in both modes, so a hidden dropdown is no longer told to expand itself. Its target description explains ambiguous surfaces and non-editable dropdowns; `select` now also refuses realized rows whose visibility cannot be read.
 
 - **MCP command guards follow the compiled XAML binding** (#1324). `invoke_command` now finds private guards

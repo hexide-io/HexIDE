@@ -1709,10 +1709,51 @@ the name now or the name the control was drawn with.
   `Null` as 13, and the two #821 rows in which the selected item's text follows it. Avalonia's editable combo would select
   the item a Text matches, without regard to case, so while code sets the Text every item reads as a text no program can
   set, and none matches.
-- **A Dropdown List's Text** is never written to the .frm, and is ignored at load. At run time, reading or writing it is
-  refused as not implemented, naming #1428, because what it does there needs the Style modelled.
+- **A Dropdown List's Text** is never written to the .frm, and is ignored at load. At run time it was refused as not
+  implemented until #1428 modelled the Style (below).
 - **Click and Change** come as measured since #1429, which records them with real input.
-- **Not done:** the designer resetting a combo's Text to its name when its Style becomes 2 (#1428).
+
+### Style, and a Dropdown List's Text from code (2026-10-23, #1428)
+
+**The probe.** A form with a Dropdown List, `Combo1`, filled with `5`, `apple`, `10`, `2.5` and `True`, and a Dropdown
+Combo, `Combo2`, built with `/make` native and p-code and run. Each row was logged under `On Error Resume Next`, with
+Click and Change logged by their handlers. A second project, its `Sub Main` holding `Form1.Combo1.Style = 1`, was only
+built. Native and p-code gave the same logs and the same build error.
+
+| Statement | VB6 |
+|---|---|
+| `Combo1.Style`, `Combo2.Style` | `2` and `0`, `TypeName` **Integer** |
+| `Text = 5` | Click, ListIndex 0, Text `5` |
+| `Text = 10#` | Click, ListIndex 2, Text `10` |
+| `Text = 2.5` | Click, ListIndex 3, Text `2.5` (the guest's locale is en-US) |
+| `Text = True` | Click, ListIndex 4, Text `True` |
+| `Text = "APPLE"` | Click, ListIndex 1, Text `apple`: the item's own text |
+| `Text = "5 "` | **383** "'Text' property is read-only", nothing changed |
+| `Text = Empty` | **383**, nothing changed |
+| `Combo1.Style = 1`, built | **Compile error: "Can't assign to read-only property"** |
+
+What these show:
+- **A Dropdown List's Text is made a String as `CStr` makes it, then matched.** A number or a Boolean selects the item
+  whose text is its `CStr`. `Empty` is `""`, which no item is, so it is 383 as `""` was in the first probe.
+- **Style is read-only to a program**: assigning it does not compile, as MultiSelect's doesn't (#1413).
+
+**And from #926's saved form,** re-read from the guest for #1428: both combos whose Style was set to 2 and back to 0 in
+the designer were saved with no Style line. So **VB6's designer never writes a Dropdown Combo's Style**, even after a
+change and back.
+
+### In HexIDE (#1428)
+
+- **Style is a modelled property**, offered by the Properties window with VB6's three names. It is written as VB6's
+  designer writes it: `1  'Simple Combo` and `2  'Dropdown List` between Left and TabIndex, and never 0. At run time it
+  reads as an Integer, and assigning it is the compile error, whatever the value.
+- **A Dropdown List's Text** reads as its selected item's text, or `""`. Written, it is made a String and selects the
+  first item it matches without regard to case, raising Click every time. With no match, `""` and `Empty` included, it
+  is 383 with VB6's own description, and the selection stays. `Null` is 13, as at the other two Styles.
+- **The designer resets the Text to the control's name when Style becomes 2**, as one change with the Style, so Undo
+  puts both back. The Properties window and `set_control_property` do it alike, and the tool's reply says so.
+- **Not done:** a Simple Combo is still drawn as a Dropdown Combo, its list not always shown
+  ([#1603](https://github.com/hexide-io/HexIDE/issues/1603)). The designer draws a Dropdown List's box empty, where VB6's
+  shows the name ([#1604](https://github.com/hexide-io/HexIDE/issues/1604)).
 
 ## A ComboBox's Click, Change and DropDown, with real input (2026-10-22, #1429)
 
@@ -12708,7 +12749,62 @@ names line 13, one past the Caption's line 12.
 
 HexIDE now halves a doubled quote on read and doubles each quote on write (`VbFrmFormatDeserializer.ParseValue`,
 `VbFrmFormatSerializer.WriteSimpleType`), and `FrmStringQuoteTests` holds the table. A side finding: a CommandButton
-does not model `ToolTipText` in HexIDE, so its line is kept as unknown text, and the property can't be set (#1403).
+did not model `ToolTipText` in HexIDE, so its line was kept as unknown text, and the property couldn't be set. #1403
+measured which controls have it (next section).
+
+## ToolTipText: which controls have it (2026-10-23, #1403)
+
+**The question.** HexIDE declared ToolTipText on five controls: CheckBox, Image, Label, OptionButton and PictureBox.
+Which of VB6's built-in controls have it, and how does it take a value?
+
+**The probe.** One form holding one of each intrinsic control, a menu included, built with `/make` native and p-code
+and run. Form_Load passed each control, and the form itself, to a procedure taking `o As Object`, so the member was
+reached late-bound and a control without it answered rather than failing the build. The procedure logged:
+- what `o.ToolTipText` read, and its `TypeName`;
+- the value after `= "tip"`, `= 5`, `= Null` and `= ""`, with each error.
+
+A second form, Form2, gave a CommandButton, a TextBox and a Frame a ToolTipText in the file, and read them back. Native
+and p-code gave the same logs.
+
+| Control | `o.ToolTipText` |
+|---|---|
+| CommandButton, TextBox, ComboBox, ListBox, CheckBox, OptionButton, Frame, PictureBox, Label, Image | a String, `""` |
+| DriveListBox, DirListBox, FileListBox, Data | a String, `""` |
+| HScrollBar, VScrollBar, Shape, Line, Timer, a Menu, the Form | **438** "Object doesn't support this property or method" |
+
+On every control that has it, alike:
+
+| Statement | VB6 |
+|---|---|
+| `= "tip"` | reads `tip` |
+| `= 5` | reads `5`, a **String** |
+| `= Null` | **13**, Type mismatch; the `5` stays |
+| `= ""` | reads `""` |
+| Form2's, from the file | `button tip`, `text tip`, `frame tip` |
+
+**Two more readings from building it.** The first build named `Form2.HScroll1.ToolTipText` directly, and failed to
+compile: "Method or data member not found". Form2 also gave its HScrollBar a ToolTipText line at first, and vb6.exe
+would not load the form: "The property name ToolTipText in HScroll1 is invalid".
+
+What these show:
+- **The scroll bars have no ToolTipText.** #1403 had guessed they would; vb6.exe says not. The graphical Shape and Line,
+  the Timer, a menu and a form have none either.
+- **It is a String:** a number is stored as its text.
+
+**What resisted explanation.** `ToolTipText = Null` is 13, where `Text1.Text = Null`, `Me.Caption = Null` and
+`Label1.Tag = Null` are 94 (above, "Assigning to a control property", #768). A ComboBox's `Text = Null` is 13 too (#926).
+No rule here says which String properties take Null as 13.
+
+**In HexIDE (#1403):**
+- ToolTipText is declared on the five it was missing from, the CommandButton, TextBox, ComboBox, ListBox and Frame. So
+  the Properties window lists it, and a .frm line is read as the property rather than kept as text. It is written back
+  where VB6 writes it. The DriveListBox, DirListBox, FileListBox and Data control are not implemented (#164).
+- At run time it reads and takes values on those ten as measured, Null as 13 included. The tip shown is the value, and
+  none where it is `""`.
+- A control without it is "Method or data member not found" when named directly, as in vb6.exe's build. Reached
+  late-bound, HexIDE stops with the same compile error where vb6.exe raises 438 at run time
+  ([#1433](https://github.com/hexide-io/HexIDE/issues/1433)).
+- An HScrollBar's ToolTipText line is kept as text, as any line HexIDE does not model, where vb6.exe refuses the form.
 
 ## What Save Project As does to the paths in a project file (2026-10-22, #1406)
 
@@ -18148,6 +18244,122 @@ Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60
 - `VbErr` records whether a Description has been set, and a `Raise` with none keeps it.
 - Source is still not filled with the project's name.
 
+## A Const declared with a type character (2026-10-23, #1614)
+
+**The question.** #1611 found that `Const KS! = 2.5D2` is the Single 250 in vb6.exe, where HexIDE stopped the program as
+the module loaded, with "Const type hints not supported". What does a type character on a Const's name do: is it the
+`As` clause it stands for, with that clause's conversions and errors? And how does it meet a name read with a character,
+another declaration of the name, and an `As` clause beside it?
+
+**The probe.** One program, built native and p-code with vb6.exe 6.00.8176 (the release build) and run on the MSVBVM60
+6.00.9848 (SP6) runtime, en-GB. It declares eleven Consts at module level, one of them `Public`, and ten of the same in
+a procedure, then logs `TypeName` and `CStr` of each through its bare name. Then fifteen one-statement projects, native,
+for what might not compile. Native and p-code agreed on every row of the program.
+
+**Result: the character is the As clause.** Each Const converts as `As` that type converts it (#873's rows), at module
+level and in a procedure alike:
+
+| Const | vb6.exe |
+|---|---|
+| `KI% = 2.5`, `KL& = 3.5` | Integer 2, Long 4 (banker's rounding) |
+| `KS! = 2.5E2`, `KD# = 1`, `KC@ = 1.23456` | Single 250, Double 1, Currency 1.2346 |
+| `KT$ = 5`, `KU$ = "x"`, and in a procedure `K$ = 1.5` | String "5", "x" and "1.5" |
+| `KB% = True`, `KN% = "7"`, `KH% = &HFFFF` | Integer -1, 7 and -1 |
+| `KE& = KI + 0.5` | Long 2 |
+| `Public Const KP% = 7` | Integer 7 |
+| `KS!` and `KT$` read with their own characters | Single 250, String "5" |
+
+**Refused, each a compile error:**
+
+| Declaration | vb6.exe |
+|---|---|
+| `Const K% = 40000`, `Const K@ = 1E20`, `Const K! = 1E39`, and `Const K% = 32768` in a procedure | Overflow |
+| `Const K% = "x"` | Type mismatch |
+| `Const K% = Null` | Invalid use of Null |
+| `Const K% As Integer = 1` | Expected: = |
+| `Const K% = 1`, then `K = 2` | Assignment to constant not permitted |
+| `Const K% = 1`, then reading `K&` | Type-declaration character does not match declared data type |
+| at module level, `Const K = 1` and `Const K% = 2`, `Const K% = 1` and `Const K& = 2`, or `Dim K` and `Const K% = 1` | Ambiguous name detected: K |
+| in a procedure, `Const K = 1` and `Const K% = 2` | Duplicate declaration in current scope |
+
+A character does not make another name. `K` and `K%` are one name, so a second declaration of it is a duplicate with or
+without a character, and the same with a plain `Const K = 1` twice.
+
+### In HexIDE (#1614)
+
+- **`BaseTypeMapper.Map(TypeHintContext)`** gives the type a character declares, and `StatementExecutor.AsDeclared`
+  takes it as the `As` clause, with that clause's conversions and compile errors. The three refusals, in `PrePass` and
+  in the module-level and procedure-level Const paths, are gone.
+- **A character and an `As` clause together** is "Expected: =".
+- **`ConstTypeCharacterTests`** runs the program and must print vb6.exe's lines, and refuses eight of the one-statement
+  projects with vb6.exe's message.
+- **Divergences kept, each filed:**
+  - a name read with a type character, `KS!`, is refused as not implemented (#742), so the program's two such rows are
+    left out of the test, and so is reading `K&` for a `K%`;
+  - a second declaration of a name at module level ran, where vb6.exe refuses it (#1622), and in a procedure (#1499).
+    Both are refused since #1622; `DeclaredTwiceTests` pins these probes' duplicate rows.
+
+## A D exponent in a source literal (2026-10-23, #1611)
+
+**The question.** Does vb6.exe compile a `D` exponent in a numeric literal, as in `2.5D2` or `1D3`? If so, with what type
+and value? Run-time conversion reads one: `CDbl("1D3")` and `Val` were measured earlier. HexIDE's grammars did not. The
+language server's lexed one in a decimal literal only, and the interpreter's in neither, so `x = 1D3` failed to load. A
+first draft of #781 extended the interpreter's grammar from an unmeasured brief, and it was taken out in review (#1610).
+
+**The probe.** One `/make` project per literal, each logging `TypeName` and `CStr` of it, built native and p-code with
+vb6.exe 6.00.8176 (the release build) and run on the MSVBVM60 6.00.9848 (SP6) runtime, en-GB. Every project was a `.bas`
+written outside the IDE. There were two batches:
+1. 21 projects: 17 literals, a `Const`, a `#Const`, an `#If`, and a variable named `D2`.
+2. 15 edge cases, beside their E forms.
+
+Native and p-code agreed on every row.
+
+**Result: D is E.** Every row with D gave what the same row with E gives, a refusal included.
+
+| Literal | vb6.exe |
+|---|---|
+| `2.5D2`, `1D3`, `1d3`, `1D+3`, `1e3` | Double: 250, 1000, 1000, 1000, 1000 |
+| `1.5D-2`, `.5D1`, `5.D1` | Double: 0.015, 5, 50 |
+| `1D300`, `1D-400`, `-1D3` | Double: 1E+300, 0, -1000 |
+| `1D3!`, `1D3#`, `1D3@` | Single 1000, Double 1000, Currency 1000 |
+| `Const K = 1D3` | Double 1000 |
+| `Const KS! = 2.5D2` | Single 250 |
+| `#Const K = 1D3`, then `#If K = 1000` | true |
+| `#If 2.5D2 = 250` | true |
+| a variable `D2` holding 7, then `1 + D2` | 8 |
+
+**Refused, each "Syntax error":**
+- an exponent with an Integer or Long suffix: `1D3%`, `1D3&`, `1E3%` and `1E3&`;
+- a value beyond its type: `1D400` and `1E400` for a Double, `1D39!` and `1E39!` for a Single, `1D20@` and `1E20@` for
+  a Currency;
+- two exponents, as in `1D2D2`;
+- an exponent with no digits: `1D`, `1.5D`, `1D-`, and `1 D3`.
+
+A value below its type's range is not refused: `1D-400` and `1E-400` are each 0.
+
+Not measured: what the IDE's pretty-lister rewrites `1D3` to when it loads a file, since that needs the guest's console.
+`/make` compiles the file as it was written.
+
+### In HexIDE (#1611)
+
+- **Both lexers take `D` or `d` wherever they take `E`.** That is the interpreter's `INTEGERLITERAL` and `DOUBLELITERAL`,
+  and the language server's `INTEGERLITERAL`, whose `DOUBLELITERAL` had it already (grammar fix 5). A `.frx` offset such
+  as `:0D2C` is unaffected: `FRX_OFFSET` takes its colon too, so it is the longer match.
+- **`ExpressionExecutor.ExponentAsE`** reads the marker as E for every reader of a literal, the Enum fold in `PrePass`
+  included.
+- **The refusals were HexIDE's divergence for E too, and are fixed with D.** `1E3%` stopped the program with a .NET
+  `FormatException`, and `1E3&` was the Long 1000. `1E400` and `1E39!` were infinity, and `1E20@` was a Currency beyond
+  Currency's range. Each is now vb6.exe's "Syntax error", raised as a compile error where the literal is read. A literal
+  below its type's range is still not refused. Not measured: whether a long string of digits with no exponent, beyond
+  its type, is refused the same way. HexIDE refuses any literal whose value .NET reads as infinity, and any Currency
+  beyond Currency's range.
+- **`DExponentLiteralTests`** checks each accepted literal's type and value against vb6.exe's line, and that each refused
+  one is refused. `DExponentLiteralGrammarTests` checks the language server's diagnostics.
+- **Divergences kept, each filed:**
+  - `5.D1` is a literal ending in its point, which neither grammar parses (#1615);
+  - `Const KS! = 2.5D2` stops as the module loads, since a `Const` with a type character is not implemented (#1614);
+  - `1D`, `1.5D`, `1D-` and `1 D3` are refused in the parser's words, not as "Syntax error".
+
 ## GetSetting, SaveSetting, DeleteSetting and GetAllSettings (2026-10-23, #1562)
 
 Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60 6.00.9848 (SP6) runtime, under en-GB, in five batches. Native and p-code agree on every row.
@@ -18451,7 +18663,8 @@ So only the active branch declares anything, as an inactive branch is never comp
   runs.
 - **An inactive branch declares nothing,** because the pre-pass reads the module after conditional compilation has
   removed it (#1112). The four rows above pin that: a pre-pass reading the raw text would refuse three valid programs.
-- **`DeclaredTwiceTests`** runs 80 of the probe programs, the conditional-compilation four among them: each one vb6.exe builds must print its lines, and each one it
+- **`DeclaredTwiceTests`** runs 80 of the probe programs, the conditional-compilation four among them, and the five
+  duplicate rows #1614's probes measured (`Const K = 1` beside `Const K% = 2`, and the like): each one vb6.exe builds must print its lines, and each one it
   refuses must be refused with its message.
 - **Left out of the test, each recorded:**
   - an undeclared use before a Dim, `n = 1` or `ReDim n(3)`, still runs. Whether that use declares `n` depends on every

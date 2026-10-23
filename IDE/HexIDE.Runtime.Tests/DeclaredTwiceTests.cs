@@ -108,6 +108,11 @@ public class DeclaredTwiceTests : BaseVBTestFixture
     [InlineData("p-param-static")]
     [InlineData("p-static-const")]
     [InlineData("cc-active-twice")]
+    [InlineData("const-same-name")]
+    [InlineData("const-same-name-dim")]
+    [InlineData("const-same-name-local")]
+    [InlineData("const-same-name-plain")]
+    [InlineData("const-same-name-two-chars")]
     public async Task A_program_vb6_exe_refuses_is_refused_with_its_message(string name)
     {
         var program = Programs[name];
@@ -1429,6 +1434,75 @@ public class DeclaredTwiceTests : BaseVBTestFixture
 
             Sub Main()
                 K
+            End Sub
+
+            Main
+            """""", [], []),
+        ["const-same-name"] = new(null, "Ambiguous name detected: K", """"""
+            Const K = 1
+            Const K% = 2
+
+            Public Sub L(ByVal s As String)
+                Debug.Print s
+            End Sub
+
+            Sub Main()
+                L "ran: " & K
+            End Sub
+
+            Main
+            """""", [], []),
+        ["const-same-name-dim"] = new(null, "Ambiguous name detected: K", """"""
+            Dim K
+            Const K% = 1
+
+            Public Sub L(ByVal s As String)
+                Debug.Print s
+            End Sub
+
+            Sub Main()
+                L "ran: " & K
+            End Sub
+
+            Main
+            """""", [], []),
+        ["const-same-name-local"] = new(null, "Duplicate declaration in current scope", """"""
+            Public Sub L(ByVal s As String)
+                Debug.Print s
+            End Sub
+
+            Sub Main()
+                Const K = 1
+                Const K% = 2
+                L "ran: " & K
+            End Sub
+
+            Main
+            """""", [], []),
+        ["const-same-name-plain"] = new(null, "Ambiguous name detected: K", """"""
+            Const K = 1
+            Const K = 2
+
+            Public Sub L(ByVal s As String)
+                Debug.Print s
+            End Sub
+
+            Sub Main()
+                L "ran: " & K
+            End Sub
+
+            Main
+            """""", [], []),
+        ["const-same-name-two-chars"] = new(null, "Ambiguous name detected: K", """"""
+            Const K% = 1
+            Const K& = 2
+
+            Public Sub L(ByVal s As String)
+                Debug.Print s
+            End Sub
+
+            Sub Main()
+                L "ran: " & K
             End Sub
 
             Main

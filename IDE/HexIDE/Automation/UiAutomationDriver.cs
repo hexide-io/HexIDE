@@ -87,6 +87,14 @@ public static class UiAutomationDriver
         catch { return BareNode(rootNode, basePath, handed); }
     }
 
+    /// <summary>Window-wide focus metadata, independent of dump filters or subtree scope.</summary>
+    public static KeyboardFocusReport FocusIn(Control window)
+    {
+        var focused = TopLevel.GetTopLevel(window)?.FocusManager?.GetFocusedElement() as Control;
+        var path = focused is null ? null : PathWithin(window, "Window", focused);
+        return new KeyboardFocusReport(path, path is null ? "No control in this window has keyboard focus." : null);
+    }
+
     /// <summary>Deep single-node inspection: identity, provider state, and the DataContext's reflectable
     /// command, Command-bound method and property members (the surface the Phase-7 reflection actions target).</summary>
     /// <param name="root">The window <paramref name="path"/> was resolved against. With it, a control whose
@@ -161,6 +169,7 @@ public static class UiAutomationDriver
             providers,
             Safe(() => peer.IsEnabled(), true),
             Safe(() => peer.IsKeyboardFocusable(), false),
+            control.IsFocused,
             Safe(() => peer.IsOffscreen(), false),
             Hidden(control),
             [rect.X, rect.Y, rect.Width, rect.Height],
@@ -976,8 +985,11 @@ public static class UiAutomationDriver
         // A window with a modal dialog over it takes no close-box click or Alt+F4 until the dialog is answered, so a
         // person cannot close it, and a close from here would close the dialog with it (#829 review).
         if (window.OwnedWindows.FirstOrDefault(w => w.IsDialog && w.IsVisible) is { } over)
+        {
+            OpenDialogs.NamedInReply(over);
             return Err($"'{title}' has a dialog open over it, '{TitleOf(over)}', and takes no close until that is "
                        + "answered, as a person finds; nothing was done. Answer or close that dialog first");
+        }
         if (PlatformClosing?.GetValue(window.PlatformImpl) is not Func<WindowCloseReason, bool> closing)
             return Err($"this build of Avalonia does not expose a window's close-box handling, so '{title}' cannot be "
                        + "closed as a person closes it; nothing was done");
@@ -2629,7 +2641,11 @@ public static class UiAutomationDriver
             // that isn't there. Say what is hidden instead, as type_text does.
             if (Shows(control) is not true and var shows)
                 return new InteractOutcome(false, "keyboard", null, NotShowingRefusal(control, "press_key", shows));
-            if (FindKeyTarget(control) is not { } target)
+            var top = TopLevel.GetTopLevel(control);
+            var before = top?.FocusManager?.GetFocusedElement() as Control;
+            // A container means the keyboard as it stands, not its first focusable descendant.
+            var retained = before is not null && (ReferenceEquals(before, control) || IsUnder(control, before));
+            if ((retained ? before : FindKeyTarget(control)) is not { } target)
                 return new InteractOutcome(false, "keyboard", null,
                     control.GetVisualDescendants().OfType<Control>()
                             .FirstOrDefault(c => c is TextArea or TextEditor or TextBox || c.Focusable) is { } hidden
@@ -2649,7 +2665,13 @@ public static class UiAutomationDriver
                 && RefusedInReadOnlyRegion(pressedIn, span, "press_key") is { } refused)
                 return refused;
 
-            var focused = target.Focus();
+            var beforePath = before is null ? "nothing"
+                : PathWithin(TopLevel.GetTopLevel(before) ?? before, "Window", before) ?? Describe(before);
+            var focused = target.IsFocused || target.Focus();
+            var after = top?.FocusManager?.GetFocusedElement() as Control;
+            var focusMove = !ReferenceEquals(before, after)
+                ? $"moved focus from {beforePath} to {(after is null ? "nothing" : PathWithin(top!, "Window", after) ?? Describe(after))}; "
+                : string.Empty;
             mechanism = focused ? "window-input" : "routed-key";
             var throughWindow = focused && RawKeyboard.Press(target, parsedKey, mods);
             // Keep delivery to a target that cannot take focus, or whose platform input is unavailable.
@@ -2666,7 +2688,7 @@ public static class UiAutomationDriver
             var where = ReferenceEquals(target, control)
                 ? string.Empty
                 : $" on {Describe(target)}{AddressOf(control, controlPath, target)}";
-            return new InteractOutcome(true, mechanism, $"pressed {chord}{parsedKey}{where}", null);
+            return new InteractOutcome(true, mechanism, $"{focusMove}pressed {chord}{parsedKey}{where}", null);
         }
         catch (Exception ex) { return new InteractOutcome(false, mechanism, null, $"press_key threw: {ex.Message}"); }
     }
@@ -2675,7 +2697,8 @@ public static class UiAutomationDriver
     /// Why a person's keys would not reach <paramref name="at"/>: a modal dialog open over its window, or over a window that
     /// holds it, disables the window and takes the keys. Null when none is. The window's focus stays where it was, so a
     /// check on focus passes: keys went into the code under the reset prompt, to be reverted with it (#1290). A dialog over
-    /// another window is left to the reply's note, as a person could click past it. The dialog is recorded as named.
+    /// another window is left to the reply's note, as a person could click past it. All blocking dialogs are recorded as
+    /// named: those under the top one cannot be answered before it either.
     /// </summary>
     private static string? KeysTakenBy(Control at, string what, string done)
     {
@@ -2688,7 +2711,8 @@ public static class UiAutomationDriver
         if (open.Where(d => OpenDialogs.Blocks(d, window)).FirstOrDefault(d => !open.Any(o => OpenDialogs.Blocks(o, d)))
             is not { } holding)
             return null;
-        OpenDialogs.NamedInReply(holding);
+        foreach (var dialog in open.Where(d => OpenDialogs.Blocks(d, window)))
+            OpenDialogs.NamedInReply(dialog);
         return $"'{TitleOf(holding)}', a modal dialog over {OpenDialogs.OwnerOf(holding)}, is open and waits for an answer, so "
             + $"a person's keys would go to it, not to {what}; nothing was {done}. Answer it first: dump_visual_tree with "
             + "'window' set to its title shows it, and interact answers it";
@@ -3878,6 +3902,7 @@ public record UiNodeDetail(
     string[] Providers,
     bool IsEnabled,
     bool IsKeyboardFocusable,
+    bool IsFocused,
     bool IsOffscreen,
     bool? IsHidden,
     double[] BoundingRect,
@@ -3925,3 +3950,5 @@ public record InteractOutcome(
     [property: System.Text.Json.Serialization.JsonIgnore] bool Committed = false,
     [property: System.Text.Json.Serialization.JsonIgnore] Func<InteractOutcome>? Release = null,
     [property: System.Text.Json.Serialization.JsonIgnore] Func<string?>? Settled = null);
+
+public record KeyboardFocusReport(string? FocusedPath, string? FocusReason);
