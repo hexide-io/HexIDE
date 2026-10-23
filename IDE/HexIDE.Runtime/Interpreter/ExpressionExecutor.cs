@@ -282,11 +282,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return slots;
     }
 
-    public async Task<List<Vb6Value>> EvaluateCallArgs(VB6Parser.ArgsCallContext? context)
+    public async Task<List<Vb6Value>> EvaluateCallArgs(VB6Parser.ArgsCallContext? context, Func<Task>? beforeLast = null)
     {
         List<Vb6Value> callArgs = new();
-        foreach (var arg in ArgSlots(context))
+        var slots = ArgSlots(context).ToList();
+        foreach (var arg in slots)
         {
+            if (beforeLast is not null && callArgs.Count == slots.Count - 1)
+                await beforeLast();
             if (arg is null)
             {
                 callArgs.Add(Vb6Value.Missing);
@@ -299,18 +302,23 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
             callArgs.Add(await EvaluateValue(arg.valueStmt()));
         }
+        if (beforeLast is not null && slots.Count == 0)
+            await beforeLast();
 
         return callArgs;
     }
 
     // Like EvaluateCallArgs, but also captures each argument's caller slot when it is a bare lvalue, so a
     // ByRef parameter can alias it. Used for user-procedure calls (builtins take values only).
-    public async Task<List<CallArg>> ResolveCallArgs(VB6Parser.ArgsCallContext? context)
+    public async Task<List<CallArg>> ResolveCallArgs(VB6Parser.ArgsCallContext? context, Func<Task>? beforeLast = null)
     {
         var result = new List<CallArg>();
         var named = false;
-        foreach (var arg in ArgSlots(context))
+        var slots = ArgSlots(context).ToList();
+        foreach (var arg in slots)
         {
+            if (beforeLast is not null && result.Count == slots.Count - 1)
+                await beforeLast();
             // A blank slot has no lvalue to alias, so it can never be ByRef.
             if (arg is null)
             {
@@ -336,6 +344,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 throw new VBCompileErrorException("Syntax error");
             result.Add(await ResolveArg(arg.valueStmt(), arg.BYVAL() != null));
         }
+        if (beforeLast is not null && slots.Count == 0)
+            await beforeLast();
         return result;
     }
 
@@ -691,6 +701,15 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return new Vb6Value(neg ? -(double)u : u);      // > 32 bits (rare) -> Double
     }
 
+    /// <summary>
+    /// In a form's code, the form's own property of this name, read, or null where the code isn't a form's or its Form has
+    /// no such property to read without arguments.
+    /// </summary>
+    private async Task<Vb6Value?> BareFormMember(string name) =>
+        FormMembers.TryBare(interpreter.ExecutionContext, env, name, out var form, out var member) && member.CanGet && member.RequiredArgs == 0
+            ? (Vb6Value?)await interpreter.Loading((Form: form, Name: name), static s => FormMembers.Read(s.Form, s.Name))
+            : null;
+
     // Directly evaluating an implicitCallStmt_InStmt (e.g. a `With <target>`) must use the SAME full resolution
     // as an expression-position VsICS — not a bare-variable shortcut (which NRE'd on a member target like
     // `With p.Home`).
@@ -705,8 +724,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             var name = context.ambiguousIdentifier().GetText();
             if (!interpreter.TryReadNow(env, name, out var bangFound, out var bangTarget, out var bangNeed))
                 (bangFound, bangTarget) = await interpreter.ReadVariableAfter(env, name, bangNeed!);
+            if (!bangFound && await BareFormMember(name) is { } bangMember)
+                (bangFound, bangTarget) = (true, bangMember);
             if (!bangFound)
-                throw new NotImplementedException($"`{context.GetText()}` is supported only on a Collection");
+                throw new NotImplementedException($"`{context.GetText()}` is supported only on a Collection and a form's Controls");
             return Bang(bangTarget, bang);
         }
         var identifier = await ExtractIdentifier(context);
@@ -716,6 +737,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             (found, var) = await interpreter.ReadVariableAfter(env, identifier, foundNeed!);
         if (found)
             return var;
+        // In a form's code, a member of the form heads the chain, `Controls.Count` (#1060), as it is read bare (#995).
+        if (await BareFormMember(identifier) is { } formMember)
+            return formMember;
         if (identifier.Equals("Clipboard", StringComparison.OrdinalIgnoreCase))
         {
             // A function named Clipboard can supply the member-chain's object too, not just a bare value.
@@ -914,9 +938,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return target.Value switch
         {
             VbCollection items => items.Default([new Vb6Value(key)]),
+            FormControls controls => controls.Item([new Vb6Value(key)]),
             null when target.Type == Vb6Value.ValueType.Object
                 => throw new VBRunTimeException(bang, VBStandardError.ObjectVariableOrWithBlockVariableNotSet),
-            _ => throw new NotImplementedException($"`!{key}` is supported only on a Collection"),
+            _ => throw new NotImplementedException($"`!{key}` is supported only on a Collection and a form's Controls"),
         };
     }
 
@@ -958,6 +983,125 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// position and the leading part of a member chain (<c>Command1(i).Caption</c>).</summary>
     public async Task<object?> EvaluateProcedureOrArrayCall(VB6Parser.ICS_S_ProcedureOrArrayCallContext procOrArrayCall)
     {
+        var groups = ParenGroups(procOrArrayCall);
+        if (groups.Count <= 1)
+            return await EvaluateCallOrElement(procOrArrayCall, groups.Count == 1 ? groups[0] : null);
+        var later = new LaterGroups(this, groups, procOrArrayCall);
+        var whole = await EvaluateCallOrElement(procOrArrayCall, groups[0], later.Evaluate) as Vb6Value?
+            ?? throw new NotImplementedException($"indexing {procOrArrayCall.GetText()} is not implemented (#1476)");
+        return IndexAll(whole, await later.Values(), procOrArrayCall);
+    }
+
+    /// <summary>
+    /// Each parenthesised group of a call or index, in order, an empty <c>()</c> as null: <c>T3()(1)</c> is two groups, the
+    /// first empty. The grammar gives an argsCall only to a group with something in it, so argsCall() alone cannot tell
+    /// <c>T3()(1)</c>, the result of T3 indexed, from <c>T3(1)</c>.
+    /// </summary>
+    internal static List<VB6Parser.ArgsCallContext?> ParenGroups(VB6Parser.ICS_S_ProcedureOrArrayCallContext call)
+    {
+        var groups = new List<VB6Parser.ArgsCallContext?>();
+        VB6Parser.ArgsCallContext? current = null;
+        var open = false;
+        foreach (var child in call.children ?? [])
+        {
+            if (child is ITerminalNode { Symbol.Type: VB6Parser.LPAREN })
+            {
+                open = true;
+                current = null;
+            }
+            else if (open && child is VB6Parser.ArgsCallContext group)
+                current = group;
+            else if (open && child is ITerminalNode { Symbol.Type: VB6Parser.RPAREN })
+            {
+                groups.Add(current);
+                open = false;
+            }
+        }
+        return groups;
+    }
+
+    /// <summary>
+    /// The index groups after the first, <c>Split(s)(0)</c> and <c>a(1)(0)</c> (#1476), evaluated once: the last group first,
+    /// each group's subscripts left to right. VB6 evaluates them after all but the last of the first group's arguments or
+    /// subscripts, then that last one (measured: <c>F2(a1, a2)(i1)(i2)</c> is a1, i2, i1, a2, and <c>a(i1)(i2)(i3)</c> is i3,
+    /// i2, i1), which the argument loops do by calling <see cref="Evaluate"/> before their last.
+    /// </summary>
+    internal sealed class LaterGroups(ExpressionExecutor executor, IReadOnlyList<VB6Parser.ArgsCallContext?> groups,
+        Antlr4.Runtime.ParserRuleContext ctx)
+    {
+        private List<Vb6Value>[]? values;
+
+        public async Task Evaluate()
+        {
+            if (values is not null)
+                return;
+            var evaluated = new List<Vb6Value>[groups.Count - 1];
+            for (var g = groups.Count - 1; g >= 1; g--)
+                evaluated[g - 1] = groups[g] is { } group
+                    ? await executor.EvaluateCallArgs(group)
+                    : throw new NotImplementedException($"an empty index group, as in {ctx.GetText()}, is not implemented (#1476)");
+            values = evaluated;
+        }
+
+        public async Task<List<Vb6Value>[]> Values()
+        {
+            await Evaluate();
+            return values!;
+        }
+    }
+
+    private static Vb6Value IndexAll(Vb6Value value, IEnumerable<List<Vb6Value>> groups, Antlr4.Runtime.ParserRuleContext ctx)
+    {
+        foreach (var group in groups)
+            value = IndexResult(value, group, ctx);
+        return value;
+    }
+
+    /// <summary>
+    /// A value indexed as VB6 indexes a call's result (measured, #1476):
+    /// <list type="bullet">
+    /// <item>An array gives its element, and 9 out of range or for the wrong number of subscripts.</item>
+    /// <item>A Collection gives its Item.</item>
+    /// <item>A typed scalar, such as a Function's <c>As Integer</c> result, does not compile: "Type mismatch". A Variant
+    /// holding a scalar is 13 at run time.</item>
+    /// </list>
+    /// An object's own default member is #174's, and Nothing is unmeasured: both are refused.
+    /// </summary>
+    internal static Vb6Value IndexResult(Vb6Value value, IReadOnlyList<Vb6Value> indices, Antlr4.Runtime.ParserRuleContext ctx)
+    {
+        if (value.Value is VBArray array)
+        {
+            try
+            {
+                return ElementAsRead(value, array, array.GetValue(Subscripts(indices)));
+            }
+            catch (IndexOutOfRangeException)
+            {
+                throw new VBRunTimeException(ctx, VBStandardError.SubscriptOutOfRange);
+            }
+        }
+        if (value.Value is VbCollection items)
+            return items.Default(indices);
+        if (value.Type == Vb6Value.ValueType.Object || value.Value is VbObject)
+            throw new NotImplementedException(value.Value is null
+                ? $"indexing Nothing, as in {ctx.GetText()}, is not implemented: what VB6 raises is unmeasured (#1476)"
+                : $"indexing an object, as in {ctx.GetText()}, reads its default member, which is not implemented (#174)");
+        if (value.HasFixedType)
+            throw new VBCompileErrorException("Type mismatch");
+        throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
+    }
+
+    // A procedure with no parameters, given arguments, is called with none and its result indexed with them, where it
+    // returns a Variant or an object: `F(1)` is `F()(1)`, and an As Collection one's Item (measured, #1476). A typed return
+    // given arguments does not compile, which is #741's.
+    private static bool IndexesItsResult(ProcedureInfo procedure, VB6Parser.ArgsCallContext? args) =>
+        args is { } given && given.argCall().Length > 0 && procedure.Parameters.Count == 0
+        && (procedure.ReturnsVariant || procedure.ReturnsObject);
+
+    // The call or element of `name(first group)`, with no later index groups: EvaluateProcedureOrArrayCall's single group.
+    internal async Task<object?> EvaluateCallOrElement(VB6Parser.ICS_S_ProcedureOrArrayCallContext procOrArrayCall,
+        VB6Parser.ArgsCallContext? argsCtx, Func<Task>? beforeLast = null)
+    {
         if (procOrArrayCall.dictionaryCallStmt() != null)
             throw new NotImplementedException($"dictionaryCall not supported");
 
@@ -976,22 +1120,25 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             dollar = true;
         }
 
-        if (procOrArrayCall.argsCall().Length > 1)
-            throw new NotImplementedException("only a single argsCall is supported");
-        var argsCtx = procOrArrayCall.argsCall().Length == 1 ? procOrArrayCall.argsCall(0) : null;
-
         var name = procOrArrayCall.ambiguousIdentifier().GetText();
 
         // A control array indexed by element (`Command1(i)`) — the shared name resolves to a ControlArrayGroup
         // value; return the element control. A missing element is Err 340 (oracle-verified against vb6.exe).
         if (!interpreter.TryReadNow(env, name, out var named, out var maybeGroup, out var namedNeed))
             (named, maybeGroup) = await interpreter.ReadVariableAfter(env, name, namedNeed!);
-        // A Collection's default member, Item: `c(1)` and `c("key")` (#1471). `c(1)(2)` is #1476, refused above.
+        // A Collection's default member, Item: `c(1)` and `c("key")` (#1471). `c(1)(2)` indexes the Item (#1476).
         if (named && maybeGroup.Value is VbCollection items)
         {
             if (dollar)
                 throw new NotImplementedException($"{name}$ on a Collection is not implemented (#742)");
             return await AsBound(maybeGroup, "Item", async () => items.Default(await EvaluateMemberArgs(items, "Item", argsCtx)));
+        }
+        // A form's Controls held in a variable, `o(1)` (#1060).
+        if (named && maybeGroup.Value is FormControls heldControls)
+        {
+            if (dollar)
+                throw new NotImplementedException($"{name}$ on a form's Controls is not implemented (#742)");
+            return heldControls.Item(await EvaluateCallArgs(argsCtx));
         }
         // Indexing a variable declared As Collection that holds Nothing is 91 (measured, #1471).
         if (named && maybeGroup.Type == Vb6Value.ValueType.Object && maybeGroup.Value is null
@@ -1019,7 +1166,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 throw new NotImplementedException($"{name}$ on an array is not implemented (#742)");
             if (variable.Value is not VBArray array)
                 throw new VBCompileErrorException("Array expected");
-            var indices = await EvaluateCallArgs(argsCtx);
+            var indices = await EvaluateCallArgs(argsCtx, beforeLast);
             try
             {
                 return ElementAsRead(variable, array, array.GetValue(Subscripts(indices)));
@@ -1041,6 +1188,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 throw new NotImplementedException($"{name}$ on a member of the form is not implemented (#742)");
             if (formMember.IsMethod)
                 return await interpreter.Loading((Form: form, Name: name, Args: formArgs), static s => FormMembers.Call(s.Form, s.Name, s.Args));
+            if (FormMembers.IsControls(name))
+            {
+                if (dollar)
+                    throw new NotImplementedException($"{name}$ on a member of the form is not implemented (#742)");
+                return await interpreter.Loading((Form: form, Args: formArgs), static s => FormMembers.ControlsItem(s.Form, s.Args));
+            }
             if (FormMembers.CallIsVbas(name, formArgs.Count) && await EvaluateFunction(name, formArgs) is { } vbaResult)
                 return dollar ? DollarResult(vbaResult, procOrArrayCall) : vbaResult;
             throw new NotImplementedException($"{form.ClassName}'s {name} with arguments is not implemented{FormMembers.TrackedBy(name)}");
@@ -1051,7 +1204,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // with no As clause, is the mismatch (measured, TU_01 and TV_01).
             if (dollar && (procedure.ReturnType != Vb6Value.ValueType.String || procedure.ReturnsVariant))
                 throw new VBCompileErrorException(TypeCharacterMismatch);
-            var callArgs = await ResolveCallArgs(argsCtx);
+            if (IndexesItsResult(procedure, argsCtx))
+            {
+                var index = await EvaluateCallArgs(argsCtx, beforeLast);
+                var whole = await interpreter.CallProcedure(name, [], currentModule, callerEnv: env, callerFrames: stmtFrames)
+                    ?? throw new VBSubOrFunctionNotDefinedException(name);
+                return IndexResult(whole, index, procOrArrayCall);
+            }
+            var callArgs = await ResolveCallArgs(argsCtx, beforeLast);
             if (await interpreter.CallProcedure(name, callArgs, currentModule, callerEnv: env, callerFrames: stmtFrames) is { } fnResult)
                 return fnResult;
             throw new VBSubOrFunctionNotDefinedException(name); // a Sub used where a value is required
@@ -1060,6 +1220,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBCompileErrorException(TypeCharacterMismatch);
         if (dollar && !DollarForms.Contains(name) && !DollarIgnored.Contains(name))
             throw new NotImplementedException($"{name}$ is not implemented: what VB6 does with a $ on {name} is not measured (#742)");
+        // A library function's later index groups: before its one argument, `Split(t)(i)` being i then t, and after its two,
+        // `Split(s, d)(i)` being s, d, i (measured, #1476). No rule fits both, so each count does as measured.
+        if (beforeLast is not null && ArgSlots(argsCtx).Count() <= 1)
+            await beforeLast();
         var args = await EvaluateIntrinsicArgs(name, argsCtx);
         if (await EvaluateFunction(name, args) is { } builtInResult)
             return dollar && DollarForms.Contains(name) ? DollarResult(builtInResult, procOrArrayCall) : builtInResult;
@@ -1109,7 +1273,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// whole of why `obj.a.b` was refused — not anything the CST could not represent. (#173)
     /// </summary>
     private async Task<Vb6Value> ResolveOneMember(
-        Vb6Value variable, VB6Parser.ICS_S_MemberCallContext member, Antlr4.Runtime.ParserRuleContext ctx)
+        Vb6Value variable, VB6Parser.ICS_S_MemberCallContext member, Antlr4.Runtime.ParserRuleContext ctx,
+        Func<Task>? beforeLast = null)
     {
         if (variable.Value is ICSharpAsyncProxy proxy)
             return await AsBound(variable, MemberName(member), async () =>
@@ -1131,13 +1296,27 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 ?? throw new VBMethodOrDataMemberNotFoundException(MemberName(member), variable.Type);
             if (vobj.ClassDef.PrePass.Procedures.TryGetValue(memberName, out var method))
             {
-                var callArgs = MemberArgs(member) is { } ac ? await ResolveCallArgs(ac) : new List<CallArg>();
+                if (IndexesItsResult(method, MemberArgs(member)))
+                {
+                    var index = await EvaluateCallArgs(MemberArgs(member), beforeLast);
+                    var whole = await interpreter.RunProcedure(vobj.ClassDef, method, [], vobj.InstanceEnv, variable, stmtFrames)
+                        ?? throw new VBSubOrFunctionNotDefinedException(memberName);
+                    return IndexResult(whole, index, ctx);
+                }
+                var callArgs = await ResolveCallArgs(MemberArgs(member), beforeLast);
                 return await interpreter.RunProcedure(vobj.ClassDef, method, callArgs, vobj.InstanceEnv, variable, stmtFrames)
                     ?? throw new VBSubOrFunctionNotDefinedException(memberName);   // a Sub used as a value
             }
             // A read (`= x.P`) dispatches the Property Get accessor (Function-like: returns via its name).
             if (vobj.ClassDef.PrePass.Properties.TryGetValue(memberName, out var prop) && prop.Get is { } getter)
             {
+                if (IndexesItsResult(getter, MemberArgs(member)))
+                {
+                    var index = await EvaluateCallArgs(MemberArgs(member), beforeLast);
+                    var whole = await interpreter.RunProcedure(vobj.ClassDef, getter, [], vobj.InstanceEnv, variable, stmtFrames)
+                        ?? throw new VBSubOrFunctionNotDefinedException(memberName);
+                    return IndexResult(whole, index, ctx);
+                }
                 if (MemberArgs(member) != null)
                     throw new NotImplementedException("Parameterized property access is not supported");
                 return await interpreter.RunProcedure(vobj.ClassDef, getter, [], vobj.InstanceEnv, variable, stmtFrames)
@@ -1161,6 +1340,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                         return FormMembers.Call(vobj, memberName, await EvaluateCallArgs(MemberArgs(member)));
                     if (MemberArgs(member) == null)
                         return FormMembers.Read(vobj, memberName);
+                    if (FormMembers.IsControls(memberName))
+                        return FormMembers.ControlsItem(vobj, await EvaluateCallArgs(MemberArgs(member)));
                 }
                 return await ResolveOneMember(new Vb6Value(formWindow), member, ctx);
             }
@@ -1233,7 +1414,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // declared as (measured, #987: `vo.P * 7000` with `Property Get P() As Integer` returning 5 is 35000 through
             // `Dim vo`, and 6 through `Dim o As Foo`; `With vo: .P` is the same).
             var lateBound = current.HeldAsVariant;
-            current = await ResolveOneMember(current, members[i], ctx);
+            current = await ResolveMemberIndexed(current, members[i], ctx);
             if (lateBound)
                 current = current.AsVariant();
         }
@@ -1427,9 +1608,22 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
            ?? m.iCS_S_ProcedureOrArrayCall()?.ambiguousIdentifier()?.GetText()
            ?? throw new VBCompileErrorException("Malformed or unsupported qualified member call");
 
-    // The single argsCall of a `.Foo(args)` member segment, or null for a bare `.Foo`.
+    // The first argsCall of a `.Foo(args)` member segment, or null for a bare `.Foo`. A later one indexes the result, which
+    // ResolveMemberIndexed applies (#1476): it used to be dropped, with the first, so `k.Echo("m n")(1)` called Echo with none.
     private static VB6Parser.ArgsCallContext? MemberArgs(VB6Parser.ICS_S_MemberCallContext m)
-        => m.iCS_S_ProcedureOrArrayCall() is { } p && p.argsCall().Length == 1 ? p.argsCall(0) : null;
+        => m.iCS_S_ProcedureOrArrayCall() is { } p && ParenGroups(p) is [var first, ..] ? first : null;
+
+    // A member segment with index groups after its first, `k.Items()(1)` (#1476): the later groups first, the last of them
+    // first, then the member with its first group, then its result indexed with each, as for a bare name.
+    private async Task<Vb6Value> ResolveMemberIndexed(Vb6Value current, VB6Parser.ICS_S_MemberCallContext member,
+        Antlr4.Runtime.ParserRuleContext ctx)
+    {
+        if (member.iCS_S_ProcedureOrArrayCall() is not { } call || ParenGroups(call) is not { Count: > 1 } groups)
+            return await ResolveOneMember(current, member, ctx);
+        var later = new LaterGroups(this, groups, ctx);
+        var whole = await ResolveOneMember(current, member, ctx, later.Evaluate);
+        return IndexAll(whole, await later.Values(), ctx);
+    }
 
     public override async Task<object?> VisitVsAmp(VB6Parser.VsAmpContext context)
     {
@@ -1709,9 +1903,25 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // A Collection is a Collection, a VBA.Collection and an Object (measured, #1471).
         if (operand.Value is VbCollection)
             return new Vb6Value(IsCollectionType(targetName) || string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase));
+        // A control is its class, with its library or without, a Control and an Object: a TextBox is TextBox, VB.TextBox,
+        // Control and Object, and a CommonDialog MSComDlg.CommonDialog (measured, #1060). A control array and a form's
+        // Controls are an Object, and Controls is not a Collection.
+        if (operand.Value is Avalonia.Controls.Control control)
+        {
+            var className = VB6BuiltIns.ControlTypeName(control);
+            var library = control is VBCommonDialog ? "MSComDlg" : "VB";
+            return new Vb6Value(string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(targetName, "Control", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(targetName, className, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(targetName, $"{library}.{className}", StringComparison.OrdinalIgnoreCase));
+        }
+        if (operand.Value is ControlArrayGroup or FormControls)
+            return new Vb6Value(string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase));
         if (operand.Value is VbObject vo)
             return new Vb6Value(string.Equals(vo.ClassName, targetName, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase)
+                // A form is a Form too, and not a Control (measured, #1060).
+                || vo.ClassDef.Kind == InterpreterModuleKind.Form && string.Equals(targetName, "Form", StringComparison.OrdinalIgnoreCase)
                 // …or an interface the class implements. A class that does NOT implement it is False, not an
                 // error — measured, and the reason this stays a plain widening of the same expression.
                 || VbInterface.Implements(vo.ClassDef, targetName));

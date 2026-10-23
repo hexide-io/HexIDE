@@ -4,17 +4,16 @@ using System.Text.Json;
 
 namespace HexIDE.TwinBasic.Tests;
 
-public sealed class CompilerWireCodecTests
+public sealed partial class CompilerWireCodecTests
 {
     private readonly CompilerWireCodec codec = new();
 
     [Fact]
     public void Control_request_matches_observed_byte_command_and_little_endian_id_layout()
     {
-        Assert.Equal(new byte[] { 0xFE, 0x78, 0x56, 0x34, 0x12, 0, 0xFF, 0x80 },
-            codec.EncodeControlRequest(0xFE, 0x12345678, new byte[] { 0, 0xFF, 0x80 }));
-        Assert.Equal(new byte[] { 1, 0, 0, 0, 0 }, codec.EncodeControlRequest(1, 0, []));
-        Assert.Throws<ArgumentOutOfRangeException>(() => codec.EncodeControlRequest(1, -1, []));
+        codec.EncodeControlRequest(0xFE, 0x12345678, new byte[] { 0, 0xFF, 0x80 }).Should().Equal(new byte[] { 0xFE, 0x78, 0x56, 0x34, 0x12, 0, 0xFF, 0x80 });
+        codec.EncodeControlRequest(1, 0, []).Should().Equal(new byte[] { 1, 0, 0, 0, 0 });
+        FluentActions.Invoking(() => codec.EncodeControlRequest(1, -1, [])).Should().ThrowExactly<ArgumentOutOfRangeException>();
     }
 
     [Fact]
@@ -22,15 +21,15 @@ public sealed class CompilerWireCodecTests
     {
         byte[] reply = [0x78, 0x56, 0x34, 0x12, 0, 0, 0, 0x80, 0xFF, 0, 0x80];
         var decoded = codec.DecodeControl(reply);
-        Assert.Equal(0x12345678, decoded.RequestId);
-        Assert.Equal(int.MinValue, decoded.Code);
-        Assert.False(decoded.IsNotification);
+        decoded.RequestId.Should().Be(0x12345678);
+        decoded.Code.Should().Be(int.MinValue);
+        decoded.IsNotification.Should().BeFalse();
         reply[8] = 0;
-        Assert.Equal(new byte[] { 0xFF, 0, 0x80 }, decoded.Payload);
+        decoded.Payload.Should().Equal(new byte[] { 0xFF, 0, 0x80 });
         var notification = codec.DecodeControl([0xFF, 0xFF, 0xFF, 0xFF, 1, 0, 0, 0]);
-        Assert.True(notification.IsNotification);
-        Assert.Equal(1, notification.Code);
-        Assert.Empty(notification.Payload);
+        notification.IsNotification.Should().BeTrue();
+        notification.Code.Should().Be(1);
+        notification.Payload.Should().BeEmpty();
     }
 
     [Theory]
@@ -39,11 +38,11 @@ public sealed class CompilerWireCodecTests
     [InlineData(4)]
     [InlineData(7)]
     public void Incomplete_control_headers_are_rejected(int length) =>
-        Assert.Throws<InvalidDataException>(() => codec.DecodeControl(new byte[length]));
+        FluentActions.Invoking(() => codec.DecodeControl(new byte[length])).Should().ThrowExactly<InvalidDataException>();
 
     [Fact]
     public void Other_negative_control_ids_are_not_notifications() =>
-        Assert.Throws<InvalidDataException>(() => codec.DecodeControl([0xFE, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0]));
+        FluentActions.Invoking(() => codec.DecodeControl([0xFE, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0])).Should().ThrowExactly<InvalidDataException>();
 
     [Fact]
     public void Single_json_and_batch_preserve_order_unicode_and_nonstandard_fields()
@@ -51,12 +50,12 @@ public sealed class CompilerWireCodecTests
         var one = Encoding.UTF8.GetBytes("{\"event\":\"compilationStarted\",\"label\":\"空😀\"}");
         var two = "{\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"errorCount\":2},\"unknown\":18446744073709551615}"u8.ToArray();
         var messages = codec.DecodeJson(Batch(one, two));
-        Assert.Equal(2, messages.Length);
-        Assert.Equal("空😀", messages[0].GetProperty("label").GetString());
-        Assert.Equal(ulong.MaxValue, messages[1].GetProperty("unknown").GetUInt64());
-        Assert.Equal(2, messages[1].GetProperty("params").GetProperty("errorCount").GetInt32());
-        Assert.Equal(messages[0].GetRawText(), Assert.Single(codec.DecodeJson(one)).GetRawText());
-        Assert.Equal(one, codec.EncodeJson(messages[0]));
+        messages.Length.Should().Be(2);
+        messages[0].GetProperty("label").GetString().Should().Be("空😀");
+        messages[1].GetProperty("unknown").GetUInt64().Should().Be(ulong.MaxValue);
+        messages[1].GetProperty("params").GetProperty("errorCount").GetInt32().Should().Be(2);
+        (codec.DecodeJson(one)).Should().ContainSingle().Which.GetRawText().Should().Be(messages[0].GetRawText());
+        codec.EncodeJson(messages[0]).Should().Equal(one);
     }
 
     [Theory]
@@ -69,13 +68,13 @@ public sealed class CompilerWireCodecTests
     [InlineData("{/*comment*/}")]
     [InlineData("{\"x\":1,}")]
     public void Json_requires_one_complete_object(string json) =>
-        Assert.Throws<InvalidDataException>(() => codec.DecodeJson(Encoding.UTF8.GetBytes(json)));
+        FluentActions.Invoking(() => codec.DecodeJson(Encoding.UTF8.GetBytes(json))).Should().ThrowExactly<InvalidDataException>();
 
     [Fact]
     public void Whitespace_is_allowed_but_invalid_utf8_inside_a_string_is_rejected()
     {
-        Assert.Single(codec.DecodeJson(" \r\n{} \t"u8));
-        Assert.Throws<InvalidDataException>(() => codec.DecodeJson([123, 34, 120, 34, 58, 34, 255, 34, 125]));
+        codec.DecodeJson(" \r\n{} \t"u8).Should().ContainSingle();
+        FluentActions.Invoking(() => codec.DecodeJson([123, 34, 120, 34, 58, 34, 255, 34, 125])).Should().ThrowExactly<InvalidDataException>();
     }
 
     [Theory]
@@ -88,36 +87,36 @@ public sealed class CompilerWireCodecTests
     {
         var batch = Batch("{}"u8.ToArray());
         BinaryPrimitives.WriteInt32LittleEndian(batch.AsSpan(4), length);
-        Assert.Throws<InvalidDataException>(() => codec.DecodeJson(batch));
+        FluentActions.Invoking(() => codec.DecodeJson(batch)).Should().ThrowExactly<InvalidDataException>();
     }
 
     [Fact]
     public void Empty_batches_truncated_lengths_and_malformed_later_objects_fail_as_a_whole()
     {
-        Assert.Throws<InvalidDataException>(() => codec.DecodeJson([0xEA, 0xEA, 0xEA, 0xFF]));
-        Assert.Throws<InvalidDataException>(() => codec.DecodeJson([0xEA, 0xEA, 0xEA, 0xFF, 2]));
-        Assert.Throws<InvalidDataException>(() => codec.DecodeJson(Batch("{}"u8.ToArray(), "no"u8.ToArray())));
-        Assert.Throws<InvalidDataException>(() => codec.DecodeJson([0, 1, 2, 3, 4, 5, 6, 7]));
+        FluentActions.Invoking(() => codec.DecodeJson([0xEA, 0xEA, 0xEA, 0xFF])).Should().ThrowExactly<InvalidDataException>();
+        FluentActions.Invoking(() => codec.DecodeJson([0xEA, 0xEA, 0xEA, 0xFF, 2])).Should().ThrowExactly<InvalidDataException>();
+        FluentActions.Invoking(() => codec.DecodeJson(Batch("{}"u8.ToArray(), "no"u8.ToArray()))).Should().ThrowExactly<InvalidDataException>();
+        FluentActions.Invoking(() => codec.DecodeJson([0, 1, 2, 3, 4, 5, 6, 7])).Should().ThrowExactly<InvalidDataException>();
     }
 
     [Fact]
     public void Byte_object_and_depth_limits_apply_at_the_boundaries()
     {
         var limited = new CompilerWireCodec(new(MaximumMessageBytes: 10, MaximumJsonObjects: 1, MaximumJsonDepth: 1));
-        Assert.Single(limited.DecodeJson(Batch("{}"u8.ToArray()))); // Exactly ten bytes.
-        Assert.Throws<InvalidDataException>(() => limited.DecodeJson(Batch("{ }"u8.ToArray())));
-        Assert.Throws<InvalidDataException>(() => limited.DecodeControl(new byte[11]));
-        Assert.Equal(10, limited.EncodeControlRequest(1, 0, new byte[5]).Length);
-        Assert.Throws<InvalidDataException>(() => limited.EncodeControlRequest(1, 0, new byte[6]));
+        limited.DecodeJson(Batch("{}"u8.ToArray())).Should().ContainSingle(); // Exactly ten bytes.
+        FluentActions.Invoking(() => limited.DecodeJson(Batch("{ }"u8.ToArray()))).Should().ThrowExactly<InvalidDataException>();
+        FluentActions.Invoking(() => limited.DecodeControl(new byte[11])).Should().ThrowExactly<InvalidDataException>();
+        limited.EncodeControlRequest(1, 0, new byte[5]).Length.Should().Be(10);
+        FluentActions.Invoking(() => limited.EncodeControlRequest(1, 0, new byte[6])).Should().ThrowExactly<InvalidDataException>();
         var countLimited = new CompilerWireCodec(new(MaximumJsonObjects: 1));
-        Assert.Throws<InvalidDataException>(() => countLimited.DecodeJson(Batch("{}"u8.ToArray(), "{}"u8.ToArray())));
-        Assert.Throws<InvalidDataException>(() => limited.DecodeJson("{\"a\":{}}"u8));
+        FluentActions.Invoking(() => countLimited.DecodeJson(Batch("{}"u8.ToArray(), "{}"u8.ToArray()))).Should().ThrowExactly<InvalidDataException>();
+        FluentActions.Invoking(() => limited.DecodeJson("{\"a\":{}}"u8)).Should().ThrowExactly<InvalidDataException>();
         using var deep = JsonDocument.Parse("{\"a\":{}}");
-        Assert.Throws<InvalidDataException>(() => limited.EncodeJson(deep.RootElement));
+        FluentActions.Invoking(() => limited.EncodeJson(deep.RootElement)).Should().ThrowExactly<InvalidDataException>();
         using var big = JsonDocument.Parse("{\"value\":12345}");
-        Assert.Throws<InvalidDataException>(() => limited.EncodeJson(big.RootElement));
+        FluentActions.Invoking(() => limited.EncodeJson(big.RootElement)).Should().ThrowExactly<InvalidDataException>();
         using var scalar = JsonDocument.Parse("1");
-        Assert.Throws<InvalidDataException>(() => codec.EncodeJson(scalar.RootElement));
+        FluentActions.Invoking(() => codec.EncodeJson(scalar.RootElement)).Should().ThrowExactly<InvalidDataException>();
     }
 
     [Theory]
@@ -125,7 +124,7 @@ public sealed class CompilerWireCodecTests
     [InlineData(8, 0, 1)]
     [InlineData(8, 1, 0)]
     public void Invalid_limits_fail_before_processing(int bytes, int count, int depth) =>
-        Assert.Throws<ArgumentOutOfRangeException>(() => new CompilerWireCodec(new(bytes, count, depth)));
+        FluentActions.Invoking(() => new CompilerWireCodec(new(bytes, count, depth))).Should().ThrowExactly<ArgumentOutOfRangeException>();
 
     // Independent test construction mirrors the pinned upstream wire observer's documented envelope,
     // not a production batch encoder. The production client does not send this inbound-only format.

@@ -452,12 +452,11 @@ public class SeveralFormsTests
     }
 
     [AvaloniaTheory]
-    [InlineData("For Each c In Form2.Controls\n        Debug.Print TypeName(c)\n    Next",
-        "Reading Form2's Controls is not implemented: the form's Controls collection is #1060")]
+    [InlineData("c = Form2.ScaleLeft", "Reading Form2's ScaleLeft is not implemented: the form's coordinate system is #990")]
     public void A_use_HexIDE_lacks_loads_the_form_then_is_refused_naming_its_issue(string use, string refusal)
     {
         // The load is the measured part: a built-in member or a control's loads the form. What follows is HexIDE's gap,
-        // and the refusal is the gap itself, the Controls collection, not the chain that reached it.
+        // and the refusal is the gap itself, the form's own scale, not the chain that reached it.
         using var run = Start($"Private c As Variant\nPrivate Sub Form_Load()\n    {use}\n    Debug.Print \"not reached\"\nEnd Sub\n");
 
         run.Printed.Should().Equal("f2 initialize", "f2 load");

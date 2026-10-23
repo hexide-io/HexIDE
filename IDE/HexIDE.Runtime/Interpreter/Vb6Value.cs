@@ -405,6 +405,8 @@ public class VBArray
     /// <summary>The element type the array was declared with, or null for a Variant array (<c>Dim a()</c>, Array()).</summary>
     public Vb6Value.ValueType? ElementType => elementType;
 
+    internal string? DeclaredClass { get; set; }
+
     // Dynamic (`Dim a()`, ReDim, Array()/Split()/Filter()) vs fixed (`Dim a(N)`). Only Erase distinguishes them:
     // a dynamic array is freed (undimensioned), a fixed one keeps its bounds and resets elements. Default dynamic;
     // the fixed-`Dim` declaration sites flip it to false.
@@ -431,6 +433,7 @@ public class VBArray
         IsDynamic = true,
         bounds = new List<(int lbound, int ubound)>(bounds),
         elementType = elementType,
+        DeclaredClass = DeclaredClass,
         array = CopyLevel(array, copyElement),
     };
 
@@ -534,7 +537,7 @@ public class VBArray
     }
 
     /// <summary>Erase of a FIXED array: bounds preserved, every element reset to the element type's default
-    /// (0 / "" / Empty). In-place. Fixed arrays of a UDT/class element type are left unchanged — resetting those
+    /// (0 / "" / Empty / Nothing). In-place. Fixed arrays of a UDT element type are left unchanged — resetting those
     /// needs interpreter context the array doesn't hold (a documented limitation; scalar fixed arrays are correct).</summary>
     public void ResetElements()
     {
@@ -588,7 +591,7 @@ public class VBArray
             arr = ((object[])arr)[i - bounds[index1].lbound];
         }
 
-        return (Vb6Value)arr;
+        return ((Vb6Value)arr).ViewedAs(DeclaredClass);
     }
 
     public void SetValue(IReadOnlyList<int> index, Vb6Value val)
@@ -608,6 +611,8 @@ public class VBArray
         // Variant arrays and take the value unchanged.
         if (elementType is { } et && VbNumeric.IsDeclarableScalar(et))
             val = VbNumeric.CoerceOnStore(val, et, null);
+
+        ModuleExecutionContext.CheckObjectStore(val, DeclaredClass);
 
         ((object[])arr)[index[^1] - bounds[^1].lbound] = val;
     }
