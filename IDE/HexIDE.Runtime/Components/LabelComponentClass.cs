@@ -22,6 +22,7 @@ public class LabelComponentClass : ComponentBaseClass
 
     public override string Name => "Label";
     public override string VBTypeName => "VB.Label";
+    public override bool IsWindowless => true;
 
     protected override Control InstantiateInternal(ComponentInstance instance)
     {
