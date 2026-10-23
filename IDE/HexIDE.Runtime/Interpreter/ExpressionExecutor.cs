@@ -792,7 +792,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 if (VbIntrinsicNames.IsIntrinsic(identifier))
                     throw new NotImplementedException(
                         identifier + " is a VB6 intrinsic that HexIDE does not implement yet");
-                return Vb6Value.Variant;
+                // Under a DefType it reads as that type's zero, typed as a Dim's would be (measured, #169: `i9` under DefInt
+                // is an Integer 0, `z9` under DefStr "").
+                return currentModule.PrePass.DefaultTypeOf(identifier) is { } defaultType
+                    ? (VbNumeric.IsDeclarableScalar(defaultType) ? StatementExecutor.DefaultValue(defaultType).AsFixedType()
+                        : StatementExecutor.DefaultValue(defaultType))
+                    : Vb6Value.Variant;
             }
 
             return variable;

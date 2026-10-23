@@ -665,10 +665,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         throw new NotImplementedException("DeleteSetting not implemented");
     }
 
-    public override async Task<ControlFlow> VisitDeftypeStmt(VB6Parser.DeftypeStmtContext context)
-    {
-        throw new NotImplementedException("Deftype not implemented");
-    }
+    // The pre-pass collected the module's DefType statements (#169); running one does nothing. Inside a procedure it does not
+    // compile (measured).
+    public override Task<ControlFlow> VisitDeftypeStmt(VB6Parser.DeftypeStmtContext context) =>
+        ownedSlots != null ? throw new VBCompileErrorException("Invalid inside procedure") : Task.FromResult(ControlFlow.Nothing);
 
     public override async Task<ControlFlow> VisitDoBlockLoop(VB6Parser.DoBlockLoopContext context)
     {
@@ -2496,7 +2496,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // `Set Me.Picture` isn't either.
                 if (FormMembers.TryBare(interpreter.ExecutionContext, currentEnv, id, out var form, out _))
                     throw new NotImplementedException($"Set on {form.ClassName}'s own {id} is not implemented");
-                throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Variable " + id + " is not declared");
+                // An undeclared name is made on its first use, as a Let makes it (#171), a Variant or the DefType's type
+                // (measured, #169: `Set o1 = New Collection` under DefObj, and with none). It was 424.
+                if (currentModule.PrePass.RequireVariableDefinitions)
+                    throw new VBVariableNotDefinedException(id);
+                AllocImplicitVariant(id);
+                interpreter.ExecutionContext.TryInspectVariable(currentEnv, id, out oldVal);
             }
             // Phase-5 event-sink bind detection: `id` is a `WithEvents` field of the current class AND resolves to
             // the actual instance field slot — NOT a procedure-local of the same name shadowing it (the shadowing
@@ -2664,13 +2669,24 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         throw new NotImplementedException("Unlock not implemented");
     }
 
-    // A variable VB6 creates on first use is a Variant, and is marked one for ReDim (ExecutionState.MarkVariant).
+    // A variable VB6 creates on first use is a Variant, and is marked one for ReDim (ExecutionState.MarkVariant), unless a
+    // DefType covers its first letter, which types it as a Dim would (measured, #169).
     private void AllocImplicitVariant(string name)
     {
+        if (currentModule.PrePass.DefaultTypeOf(name) is { } defaultType)
+        {
+            interpreter.ExecutionContext.AllocVariable(currentEnv, name, DefaultValue(defaultType),
+                VbNumeric.IsDeclarableScalar(defaultType) ? defaultType : null);
+            return;
+        }
         interpreter.ExecutionContext.AllocVariable(currentEnv, name, Vb6Value.Variant);
         if (currentEnv.TryGetVariableLocation(name, out var location))
             interpreter.ExecutionContext.State.MarkVariant(location);
     }
+
+    /// <summary>A variable's first value under a DefType's type: its zero, or Nothing under DefObj.</summary>
+    internal static Vb6Value DefaultValue(Vb6Value.ValueType type) =>
+        type == Vb6Value.ValueType.Object ? Vb6Value.Nothing : new Vb6Value(type);
 
     public override async Task<ControlFlow> VisitRedimStmt(VB6Parser.RedimStmtContext context)
     {
@@ -2963,9 +2979,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     if (objectType.COLLECTION() != null)
                         declaredClass = "Collection";
                 }
+                else if (asType is null
+                         && currentModule.PrePass.DefaultTypeOf(subStmt.ambiguousIdentifier().GetText()) == Vb6Value.ValueType.Object)
+                {
+                    // `Dim o` under DefObj: an Object slot, as `As Object` makes (#169).
+                    value = !isArray ? Vb6Value.Nothing : throw new NotImplementedException("An array of objects is not implemented (#1482)");
+                }
                 else
                 {
-                    var type = ExtractType(asType, isArray);
+                    // With no As clause the type is the DefType's for the name's letter, if one covers it (measured, #169).
+                    var type = asType is null && currentModule.PrePass.DefaultTypeOf(subStmt.ambiguousIdentifier().GetText()) is { } defaultType
+                        ? (isArray ? new Vb6Value.ValueType(defaultType, true) : defaultType)
+                        : ExtractType(asType, isArray);
                     value = dimensions != null ? new Vb6Value(type, dimensions) : new Vb6Value(type);
                     if (dimensions != null && value.Value is VBArray fixedArr) fixedArr.IsDynamic = false;   // `Dim a(N)` = fixed
                 }
