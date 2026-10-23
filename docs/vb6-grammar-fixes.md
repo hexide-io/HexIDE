@@ -75,6 +75,7 @@ something this project can offer outward rather than something it must ask for.
 | 9 | A Print output list of separators alone (`Debug.Print ,`, `Debug.Print ;`) | parser | a second `iCS_B_MemberProcedureCall` alternative, `implicitCallStmt_InStmt? DOT PRINT WS? (COMMA \| SEMICOLON) (WS? (COMMA \| SEMICOLON))*`; `argsCall` is unchanged |
 | 10 | A lone CR as a line end (`x = 1` CR `x = x + 10`, `x = 1 + _` CR `10`) | lexer | `NEWLINE`, its continuation tail and `LINE_CONTINUATION`: `'\r'? '\n'` → `('\r'? '\n' | '\r')` |
 | 11 | `D`-exponent whole numbers (`1D3`, `1D3@`) | lexer | `INTEGERLITERAL` exponent `'E'` → `('E' | 'D')`, as fix 5 has it for `DOUBLELITERAL` |
+| 12 | A literal ending in its point (`5.`, `5.D1`, `5.#`) | lexer | `DOUBLELITERAL` `[0-9]* DOT [0-9]+` → `([0-9]+ DOT [0-9]* | DOT [0-9]+)` |
 
 Provenance: VB6 Language Reference ("Line numbers", "If…Then…Else", "Type Declaration Characters"), each
 verified against `vb6.exe`; deliberately divergent from the Rubberduck grammar.
@@ -118,6 +119,11 @@ output list, which VB6 reads as `Print #` reads its own, so the alternative is k
 dot. It admits `Form1.Print ,` too, whose VB6 behaviour is not measured and which HexIDE cannot run, since a form's
 `Print` method is not implemented. Provenance: measured against
 `vb6.exe` and its IDE's Immediate window (the oracle's "Sequential files", under "Separators with no item").
+
+**Fix 12 is measured, and `5..5` stays refused (2026-10-23).** `vb6.exe` compiles a literal with no digit after its
+point wherever a literal goes, as the literal it would be with one (the oracle's "A numeric literal ending in its
+point", hexide-io/HexIDE#1615). With the fraction optional, `5..5` lexes as two literals side by side, which the
+parser refuses, as `vb6.exe` does. The interpreter's lexer took the same change.
 
 **Fix 11 completes fix 5, and both are now measured (2026-10-23).** Fix 5 took `D` for a decimal literal from the
 language reference alone, and a whole number was left out. `vb6.exe` compiles a `D` exponent wherever it compiles
