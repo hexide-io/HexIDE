@@ -29,6 +29,7 @@ public class ListBoxComponentClass : ComponentBaseClass
 
     public override string Name => "List";
     public override string VBTypeName => "VB.ListBox";
+    public override (int Width, int Height) AddedSize => (1215, 450);
 
     protected override Control InstantiateInternal(ComponentInstance instance)
     {

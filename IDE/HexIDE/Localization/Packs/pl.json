@@ -24,6 +24,7 @@
     "Str.Dialog.UnsavedMembers.NothingWritten": "Niczego nie zapisano. Plik projektu {0} pominąłby te pliki, ponieważ nigdy nie zostały zapisane:\n\n{1}\n\nPlik projektu może wymienić plik dopiero wtedy, gdy ten plik zostanie zapisany. Zapisz je razem z projektem albo nie zapisuj projektu. Twoje zmiany pozostają otwarte w IDE.",
     "Str.Dialog.SourceEncoding.ReadByteForByte": "Pliku źródłowego {0} nie udało się odczytać w stronie kodowej tego komputera ({1}), dlatego otwarto go bajt po bajcie jako tekst w kodowaniu zachodnioeuropejskim (Latin-1). Zapisanie go bez zmian zapisze z powrotem te same bajty, ale znaków spoza Latin-1 nie można dodać do tego pliku. Tekst zapisany w innej stronie kodowej może wyglądać na zniekształcony.",
     "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "Tych plików nie udało się odczytać w stronie kodowej tego komputera ({1}), dlatego otwarto je bajt po bajcie jako tekst w kodowaniu zachodnioeuropejskim (Latin-1):\n\n{0}\n\nZapisanie ich bez zmian zapisze z powrotem te same bajty, ale znaków spoza Latin-1 nie można dodać do tych plików. Tekst zapisany w innej stronie kodowej może wyglądać na zniekształcony.",
+    "Str.Dialog.ConflictingNames": "W '{0}' znaleziono sprzeczne nazwy. Zostanie użyta nazwa '{1}'. Attribute VB_Name formularza również wskazuje teraz '{1}' i zostanie zapisany przy następnym zapisie formularza.",
     "Str.Options.Language.RegionLabel": "_Region:",
     "Str.Options.Language.RegionStandard": "(Standardowy)",
     "Str.Options.Language.Customize": "_Dostosuj tłumaczenia…",

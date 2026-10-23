@@ -82,6 +82,12 @@ public class ResizeAdorner : TemplatedControl
     public Action? OnDragStarted { get; set; }
     public Action? OnDragCompleted { get; set; }
 
+    /// <summary>
+    /// Where a resize goes instead of the adorned element's own Width and Height, given the size dragged to. For an
+    /// element whose size is not its own to set: the form's frame, whose size follows the client inside it (#924).
+    /// </summary>
+    public Action<Size>? ApplySize { get; set; }
+
     private bool isResizing = false;
     private Point initialPosition;
     private Rect originalBounds;
@@ -182,10 +188,7 @@ public class ResizeAdorner : TemplatedControl
                     newWidth = Math.Min(adornedElementChild.MaxWidth, newWidth);
             }
 
-            adornedElement.SetCurrentValue(Canvas.TopProperty, newTop);
-            adornedElement.SetCurrentValue(HeightProperty, Math.Max(1, newHeight));
-            adornedElement.SetCurrentValue(Canvas.LeftProperty, newLeft);
-            adornedElement.SetCurrentValue(WidthProperty, Math.Max(1, newWidth));
+            Apply(adornedElement, newLeft, newTop, newWidth, newHeight);
 
             // Move all group drag participants by the same snapped delta as the primary.
             if (xDirection == ResizeXDirection.None && yDirection == ResizeYDirection.None &&
@@ -200,6 +203,24 @@ public class ResizeAdorner : TemplatedControl
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Puts the dragged bounds on <paramref name="adorned"/>, or hands the size to <see cref="ApplySize"/> where one is set.
+    /// The last step of every drag, separate so it can be driven without a pointer: its handles' template is in a
+    /// dictionary the test harness cannot load.
+    /// </summary>
+    internal void Apply(Visual adorned, double left, double top, double width, double height)
+    {
+        if (ApplySize is { } apply)
+        {
+            apply(new Size(Math.Max(1, width), Math.Max(1, height)));
+            return;
+        }
+        adorned.SetCurrentValue(Canvas.TopProperty, top);
+        adorned.SetCurrentValue(HeightProperty, Math.Max(1, height));
+        adorned.SetCurrentValue(Canvas.LeftProperty, left);
+        adorned.SetCurrentValue(WidthProperty, Math.Max(1, width));
     }
 
     /// <summary>

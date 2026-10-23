@@ -89,7 +89,7 @@
 
 | Item | Shortcut | Status | Notes |
 |---|---|---|---|
-| Add Form | — | Done | Creates Form2, Form3… with defaults; opens designer; saves to project dir |
+| Add Form | — | Done | Creates Form2, Form3… with defaults and opens the designer. Like every new component it has no file until the project is saved, as in VB6 (#500) |
 | Add MDI Form | — | Missing | MDI is not COM-dependent; implementable cross-platform as an Avalonia container with floating child sub-windows |
 | Add Module | — | Done | Creates Module1, Module2… with defaults; opens code editor; saves to project dir |
 | Add Class Module | — | Done | Creates Class1, Class2… with defaults; opens code editor; saves to project dir |
@@ -112,8 +112,8 @@
 | Size to Grid | — | Done | Snaps all selected controls to grid |
 | Horizontal Spacing (submenu) | — | Done | Make Equal / Increase / Decrease / Remove |
 | Vertical Spacing (submenu) | — | Done | Make Equal / Increase / Decrease / Remove |
-| Center in Form > Horizontally | — | Done | Single-control centering |
-| Center in Form > Vertically | — | Done | Single-control centering |
+| Center in Form > Horizontally | — | Done | Single-control centering, in whole twips as VB6 centres: ScaleWidth - Width (#929, measured) |
+| Center in Form > Vertically | — | Done | Single-control centering, in whole twips as VB6 centres (#929, measured) |
 | Order > Bring to Front | — | Done | |
 | Order > Send to Back | — | Done | |
 | Lock Controls | — | Done | Toggles drag/resize; persisted in .frm (LockControls = -1) |
@@ -269,13 +269,13 @@
 | Font picker (via Property grid) | Done | |
 | Form resize | Partial | Bottom, right, and bottom-right handles present; top and left edges not resizable |
 | Multi-select | Done | Rubber-band and Ctrl+click; group drag; primary/secondary handles |
-| Alignment commands (align left/right/top/bottom) | Done | Full set via Format > Align; Form Editor toolbar |
+| Alignment commands (align left/right/top/bottom) | Done | Full set via Format > Align; Form Editor toolbar. Centers and Middles land where VB6's do, in whole twips (#929, measured) |
 | Make Same Size commands | Done | Same Width / Height / Size via Format > Make Same Size |
-| Spacing commands | Done | Horizontal and Vertical spacing submenus fully implemented |
-| Copy / Paste controls | Done | Ctrl+C/V duplicates selected control(s) with offset; multi-paste accumulates offset |
-| Cut control | Done | Ctrl+X removes selected controls; Ctrl+V restores at offset |
+| Spacing commands | Done | Horizontal and Vertical spacing submenus fully implemented. Make Equal truncates the gap to a whole twip and leaves the outermost controls, as VB6 does (#929, measured across) |
+| Copy / Paste controls | Done | Ctrl+C/V duplicates selected control(s) with offset; multi-paste accumulates offset. A control's properties HexIDE does not model are copied with it (#1453). A copied container is pasted without the controls in it HexIDE does not model, whose names would repeat the originals' ([#1458](https://github.com/hexide-io/HexIDE/issues/1458)) |
+| Cut control | Done | Ctrl+X removes selected controls; Ctrl+V restores at offset, with what HexIDE carries without modelling: a control's own unknown properties, and the controls inside a container, with the companion records they cite. Before [#1453](https://github.com/hexide-io/HexIDE/issues/1453) both were left out, and the next save lost them. Cut into another form, the controls inside go only if that form declares the libraries the first one did (#1458) |
 | Undo / Redo | Partial | Phase 1: structural ops (add/delete/cut/paste/z-order/lock) undoable via Ctrl+Z. Phase 2: move/resize via drag undoable. Phase 3 (properties/format) pending. |
-| Tab Order editor | Missing | TabIndex auto-assigned; no visual tab-order tool |
+| Tab Order editor | Missing | No visual tab-order tool. TabIndex is assigned as VB6's designer assigns it (#925, measured): a control added or pasted takes the next after the highest, counting only the classes that have one, a Label and a Frame included, so the first is 0 and a Timer takes none. Deleting a control leaves a gap; what VB6 does then is not measured, though it renumbers a file's gaps when it loads one (`docs/vb6-designer-geometry.md`) |
 | Lock Controls | Done | Toggles drag/resize; persisted in .frm; toolbar toggle reflects state |
 | Smart / alignment guides | Missing | Grid only |
 | Property search / filter | Missing | No search box in Properties window |
@@ -293,7 +293,7 @@
 | View Code | Done | |
 | View Object | Done | |
 | Set as Startup Project | Done | |
-| Add Form (context menu) | Done | |
+| Add Form (context menu) | Done | The same operation as Project > Add Form: the form's file is written and its designer opens (#468). It used to add a form with no file and open nothing. |
 | Remove Form | Done | |
 | Project Properties (context menu) | Done | |
 | Toggle folders | Removed | VB6's button toggled the virtual type folders; both removed with the filesystem-hierarchy rendering (labelled commit, Classic-fork revertible) — [project-explorer](../openspec/specs/project-explorer/spec.md) Phase 1 |
@@ -505,7 +505,7 @@
 | Several forms: default instances, `Load`, `Show`, `Show vbModal`, `Hide`, `Unload`, `Sub Main` | Partial | A run is one program of every form (#822): a form's name makes its default instance where it is first used, its control or built-in member loads it, `Show` and `Hide` show and hide it, and the run lasts until no form is loaded and `Sub Main`, where the project starts there, has returned. `Show vbModal` waits on the program's events until the form has gone, with the other forms held meanwhile, and raises 401, 402, 405 and the style's 5 where VB6 does. A held form is drawn as it was, takes no input, refuses its close box and reads `Enabled` False, as VB6's disabled window does. It is held rather than disabled because disabling greys every control. Unlike VB6's, it can still be dragged by its title bar, and activating it brings the modal form forward. What setting `Enabled` under a modal form does is unmeasured. All measured on vb6.exe, native and p-code agreeing. The desktop, single-view and Standalone hosts run every form, the Standalone one since [#1062](https://github.com/hexide-io/HexIDE/issues/1062). Still to come: `New Form2` and the `Forms` collection (#822) |
 | VB6 built-in functions | Partial | **~80** implemented via a data-driven registry (interpreter-core Phase 3, complete), all pinned against `vb6.exe`: **Strings** (`Left/Right/Mid/Len/InStr/InStrRev/Replace/Trim/LTrim/RTrim/UCase/LCase/StrReverse/Space/String/Chr/Asc/Str/Val`), **Conversion** (`CByte/CInt/CLng/CSng/CDbl/CCur/CDec/CBool/CStr/CDate`, `Hex/Oct`), **Math** (`Abs/Int/Fix/Sgn/Sqr/Sin/Cos/Tan/Atn/Exp/Log/Round`, `Rnd` + `Randomize`), **Inspection** (`TypeName/VarType/IsNumeric/IsDate/IsEmpty/IsNull/IsArray/IsObject`), **Array** (`Array/Split/Join/Filter/LBound/UBound`), **Date/Time** (`Now/Date/Time/Timer/Year/Month/Day/Hour/Minute/Second/Weekday/DateSerial/TimeSerial/DateValue/TimeValue/DateAdd/DateDiff/DatePart/MonthName/WeekdayName`), **`Format`** (the full mask mini-language: numeric/date/string/Boolean) + `MsgBox/InputBox`. **Still missing:** the `$`-typed twins (`Format$/Left$/Mid$/…`) run as calls since #1071, but a bare `Date$` or `Command$` with no parentheses still needs the type-hint dispatch (#742); a few intrinsics (`StrConv/WeekdayName` locale edges) remain — but the everyday surface is covered. |
 | User-defined `Function` declarations | Done | Declared + callable from statements and expressions; recursion works; return via the function-name idiom (interpreter-core Phase 1) |
-| `Sub`/`Function` parameters | Done | ByRef (VB6 default — aliases the caller's slot, so mutations propagate) / ByVal (copy) / `Optional` + evaluated defaults bound (Phase 1); `ParamArray` + named args still pending |
+| `Sub`/`Function` parameters | Done | ByRef (VB6 default — aliases the caller's slot, so mutations propagate) / ByVal (copy) / `Optional` + evaluated defaults bound (Phase 1); named arguments bound by name and evaluated in parameter order, into procedures, methods and the intrinsics VB6 takes names for (#1465); `ParamArray` still pending |
 | Data types & numeric semantics | Done | Real value model — Byte / 16-bit Integer / Long / Currency / Decimal / Date + true Variant. Magnitude literal typing (`%`/`&`/`@`/`!`/`#` suffixes, `&H` hex + `&O` octal as two's-complement bit-patterns, exponent); VB6 arithmetic result-type table + Overflow (Err 6); integer `\`/`Mod` with operand banker's-rounding + divide-by-zero (Err 11); Date arithmetic (`Date+n→Date`, `Date−Date→Double`) + `#..#` literals; Currency 4-dp banker's + range; Empty/Null semantics; `&H`→colour interop at the property boundary — **all verified against real `vb6.exe`**. Coercion on store into a declared variable or array element, on function-return and on ByVal-param. Interpreter-core Phase 2 (2.1–2.6) complete. **Control property assignment** converts to the property's type with VB6's range checks (#768); a Date into a String property is written as `CStr` writes it, in the user's locale (#777); a palette colour and a reversed scroll bar are refused as not implemented (#786, #787), and `Tag`, hex strings and control default members still differ (#211, #788, #790); a control's position is read and written in twips, or its container's ScaleMode, as a Single rounded to whole twips (#933, #791); a colour reads back as its Long, and a Label's colours paint when set (#789, #795) — see `vb6-fidelity-oracle.md`, "HexIDE, after #774". |
 | Object model (`Set` / `New` / classes / UDT / `Property`) | Partial | None of these throw. `Is` and `TypeOf…Is` work; `Set`, `New`, `Type…End Type`, classes, `Property` and `Event` all work with restrictions (arrays of a UDT, parameterized properties, `As New`). `Implements` ships as of #186. Per-construct detail: [MISSING_LANGUAGE.md](MISSING_LANGUAGE.md) |
 | Statements: `Const`, `With`, `While…Wend`, `For Each` | Done | interpreter-core Phase 4, all vs `vb6.exe` where it mattered: `While…Wend`, `For Each` over arrays (**column-major** — first subscript fastest, oracle-corrected), `Const` (plain slot + PrePass hoist), `With` (leading-dot → target-stack for Control/CSharpProxy; `With New`/`<userObject>` deferred to the object model). Joins the already-working `For`/`Do`/`If`/`Select Case`. |

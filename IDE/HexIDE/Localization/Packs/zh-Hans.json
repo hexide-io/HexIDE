@@ -24,6 +24,7 @@
     "Str.Dialog.UnsavedMembers.NothingWritten": "未保存任何内容。{0} 的工程文件会遗漏以下从未保存过的文件：\n\n{1}\n\n工程文件只能列出已经保存过的文件。请将它们与工程一起保存，或者不保存工程。你所做的更改仍在 IDE 中保持打开状态。",
     "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} 无法按此计算机的代码页（{1}）读取，因此已逐字节地作为西欧（Latin-1）文本打开。若未作更改即保存，将写回完全相同的字节，但无法向该文件添加 Latin-1 以外的字符。以其他代码页编写的文本可能显示为乱码。",
     "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "这些文件无法按此计算机的代码页（{1}）读取，因此已逐字节地作为西欧（Latin-1）文本打开：\n\n{0}\n\n若未作更改即保存，将写回完全相同的字节，但无法向这些文件添加 Latin-1 以外的字符。以其他代码页编写的文本可能显示为乱码。",
+    "Str.Dialog.ConflictingNames": "在 '{0}' 中发现了冲突的名称。将使用名称 '{1}'。窗体的 Attribute VB_Name 现在也为 '{1}'，并将在下次保存窗体时写入。",
     "Str.Options.Language.RegionLabel": "区域：",
     "Str.Options.Language.RegionStandard": "（标准）",
     "Str.Options.Language.Customize": "自定义翻译…",

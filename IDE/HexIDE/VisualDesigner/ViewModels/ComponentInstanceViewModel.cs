@@ -72,7 +72,10 @@ public partial class ComponentInstanceViewModel : ObservableObject
             OnPropertyChanged(nameof(Height));
         }
         else if (propertyClass == VBProperties.NameProperty)
+        {
             OnPropertyChanged(nameof(Name));
+            OnPropertyChanged(nameof(AddressedName));
+        }
         else if (propertyClass == VBProperties.CaptionProperty)
             OnPropertyChanged(nameof(Caption));
         else if (propertyClass == VBProperties.BackColorProperty)
@@ -251,9 +254,15 @@ public partial class ComponentInstanceViewModel : ObservableObject
 
     /// <summary>
     /// Where the designer stacks this control: a Line under every other control, and one earlier in the form over a later
-    /// one, as a running form draws them (measured, #163). Everything else keeps its order in the form.
+    /// one, as a running form draws them (measured, #163). Everything else keeps its place in the canvas order, which
+    /// draws the last on top and holds the file's blocks the other way round (#1481), so an earlier Line is the one with
+    /// fewer Lines after it there.
     /// </summary>
-    public int ZIndex => IsLine ? -1 - parentViewModel.Components.TakeWhile(c => !ReferenceEquals(c, this)).Count(c => c.IsLine) : 0;
+    public int ZIndex => IsLine
+        ? -1 - parentViewModel.Components.SkipWhile(c => !ReferenceEquals(c, this)).Skip(1).Count(c => c.IsLine)
+        : 0;
+
+    internal void OnZIndexChanged() => OnPropertyChanged(nameof(ZIndex));
 
     /// <summary>How many twips one of a Line's container's units is, or twips where HexIDE cannot run that scale.</summary>
     public (double X, double Y) LineTwipsPerUnit
@@ -313,9 +322,17 @@ public partial class ComponentInstanceViewModel : ObservableObject
     public string BaseClassName => instance.BaseClass.Name;
 
     /// <summary>
-    /// The control's name: what a dropdown of these, the Properties window's object selector, is named by in automation,
-    /// which reads an item by its ToString. Its type name told a caller nothing of which control was selected (#1288).
+    /// The control's name as the automation tools address it: <c>optSize(1)</c> for a control array's element, its bare
+    /// name otherwise (<see cref="PropertyText.AddressedName"/>). A control array's elements share a name, so the name
+    /// alone read the same for each of them (#1320).
     /// </summary>
-    public override string ToString() => Name;
+    public string AddressedName => PropertyText.AddressedName(instance);
+
+    /// <summary>
+    /// The control's addressed name: what a dropdown of these, the Properties window's object selector, is named by in
+    /// automation, which reads an item by its ToString. Its type name told a caller nothing of which control was selected
+    /// (#1288), and its bare name nothing of which element of an array (#1320).
+    /// </summary>
+    public override string ToString() => AddressedName;
 
 }

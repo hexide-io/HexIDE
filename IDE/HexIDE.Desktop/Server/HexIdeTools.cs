@@ -396,7 +396,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     private static readonly HashSet<string> KnownFileTypes = ["form", "module", "classmodule", "usercontrol", "propertypage"];
 
     [McpServerTool(Name = "add_file")]
-    [Description("Adds a new form or module to the startup project, or to the loaded project `project` names (without regard to case), saves the new file to disk, and returns its path, with 'project' and 'document' naming what was added. type must be 'Form', 'Module', 'ClassModule', 'UserControl', or 'PropertyPage'. name must be a VB6 name (a letter, then letters, digits and underscores) not already used by a form, module or class in the project, and whose file (or the .frx, .ctx or .pgx beside it) is not already in the project's folder or named by its project file, since the new file would replace it; anything else is refused before a file is written, as is a name the new file's code page, or the project file's, cannot hold. The project file itself is NOT saved, as in VB6: the note says so, and says when the file went to the project's temporary folder because it has not been saved anywhere of the user's choosing.")]
+    [Description("Adds a new form or module to the startup project, or to the loaded project `project` names (without regard to case), with 'project' and 'document' naming what was added. Nothing is written to disk, as in VB6: the new document has no file, and 'path' is null, until the project is saved. Save Project then asks where to put each new form and module, and the project file if it has none, in that order (forms, then modules, then the project file); a caller answers each picker with answer_next_file_dialog, armed beforehand. type must be 'Form', 'Module', 'ClassModule', 'UserControl', or 'PropertyPage'. name must be a VB6 name (a letter, then letters, digits and underscores) not already used by a form, module or class in the project; anything else is refused, as is a name the new file's code page, or the project file's, cannot hold.")]
     public async Task<AddFileResult> AddFileAsync(string name, string type, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(async () =>
@@ -426,17 +426,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return new AddFileResult(false, null,
                     $"'{name}' is already the name of a form, module or class in {into.Name}. VB6 gives them one namespace, so two cannot share a name. Nothing was added.");
 
-            // Written after the file is saved, so it describes where the file actually went. A project nobody
-            // has saved somewhere of their choosing keeps its files in a scratch folder under TEMP; --newproject
-            // even saves its .vbp there, so "has a path" is not the test. Being inside that folder is.
-            string Note(string? path)
-            {
-                const string unlisted = " The project file does not list the new file until the project is saved.";
-                return into.WorkingDirectory is { Length: > 0 } scratch && path is not null
-                       && path.StartsWith(scratch, StringComparison.OrdinalIgnoreCase)
-                    ? $"The file is in {into.Name}'s temporary folder, because the project has not been saved anywhere of your choosing; Save Project As gives it a home." + unlisted
-                    : unlisted.TrimStart();
-            }
+            // A null path reads as "something went wrong" unless the reply says it is the expected state: a new
+            // document has no file until the project is saved, as in VB6 (#500), and the save asks where.
+            string Note(DocumentIdentity added) =>
+                $"{added.Name} has no file yet, as in VB6: Save Project writes it, asking where with a file dialog "
+                + "(answer it with answer_next_file_dialog, armed first), and the project file lists it from then.";
 
             try
             {
@@ -449,8 +443,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     "propertypage" => DocumentIdentity.For(await ctx.ProjectService.AddNewPropertyPage(into, name, interactive: false)),
                     _ => throw new System.Diagnostics.UnreachableException(),
                 };
-                var path = added.AbsolutePath;
-                return new AddFileResult(true, path, null, Note(path), added.Project.Name, added.Name);
+                return new AddFileResult(true, added.AbsolutePath, null, Note(added), added.Project.Name, added.Name);
             }
             // Caught here, on the UI thread, for the reason SaveQuietlyAsync gives.
             catch (SourceEncodingRefusal refusal)
@@ -629,7 +622,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     $"{(ownerModule is not null ? "UserControl" : "Form")} '{document.Name}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
 
             var before = control.GetBoxedPropertyOrDefault(propClass);
-            // A renamed element leaves its array, and nothing yet lets it join back (#1276), so the reply says so.
+            // A renamed element leaves its array, keeping its Index, so the reply says so and how it joins back (#1276).
             var leaves = propClass == VBProperties.NameProperty && PropertyText.ArrayIndexOf(control) is { } leaving
                 ? (Index: leaving, Others: PropertyText.Named(components, (string)before!).Count - 1)
                 : ((int Index, int Others)?)null;
@@ -672,7 +665,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
                      + PropertyText.Display(control.GetBoxedPropertyOrDefault(propClass)) + ", and the file is saved.";
             if (leaves is { Others: > 0 } left && !string.Equals(before as string, parsed as string, StringComparison.OrdinalIgnoreCase))
                 stored += $" It was {before}({left.Index}), and has left that array, whose other {left.Others} "
-                          + $"element{(left.Others == 1 ? "" : "s")} keep the name; nothing in the IDE joins it back yet (#1276).";
+                          + $"element{(left.Others == 1 ? "" : "s")} keep the name. It keeps Index {left.Index}, so naming it "
+                          + $"{before} again joins it back.";
+            if (leaves is { } joining && PropertyText.Named(components, (string)parsed!).Count > 1
+                && !string.Equals(before as string, parsed as string, StringComparison.OrdinalIgnoreCase))
+                stored += $" It is now element {joining.Index} of the {parsed} array.";
             return (form, ownerModule, null);
         });
 
@@ -1748,7 +1745,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     [McpServerTool(Name = "get_debug_state")]
     [DescribesEnum(typeof(DebugState))]
     [DescribesEnum(typeof(StopReason))]
-    [Description("Returns the interpreter debug state: whether a project is running, the controller state (Running/Paused/Stopped), and — when paused — the break location (module, 1-based line counted from the top of the file, header included, as the code window and set_breakpoints number it, and 'project', the running project the module is in) and reason. 'stopReason' is Breakpoint (a breakpoint, or the line Run To Cursor was aiming for; a breakpoint wins even mid-step), Watch (a Break When True or Break When Changed watch fired), Step (a step completed), StopStatement (a VB6 Stop statement ran), Pause (a break was requested, as by break_program) or RuntimeError (a run-time error nothing handled raised the run-time error dialog, Debug was chosen there, and the break is on the statement that raised it, which runs again on continue_program); it is null unless Paused.")]
+    [Description("Returns the interpreter debug state: whether a project is running, the controller state (Running/Paused/Stopped), and — when paused — the break location (module, 1-based line counted from the top of the file, header included, as the code window and set_breakpoints number it, and 'project', the running project the module is in) and reason. 'stopReason' is Breakpoint (a breakpoint, or the line Run To Cursor was aiming for; a breakpoint wins even mid-step), Watch (a Break When True or Break When Changed watch fired), Step (a step completed), StopStatement (a VB6 Stop statement ran), Assertion (a Debug.Assert whose condition did not hold), Pause (a break was requested, as by break_program) or RuntimeError (a run-time error nothing handled raised the run-time error dialog, Debug was chosen there, and the break is on the statement that raised it, which runs again on continue_program); it is null unless Paused.")]
     public async Task<DebugStateResult> GetDebugStateAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
