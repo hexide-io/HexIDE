@@ -74,7 +74,7 @@ internal enum VbAccess
 /// <item>Binary and Random files (#1646), read and written with <c>Get</c> and <c>Put</c> in the bytes
 /// <see cref="VbRecordFormat"/> describes. A Binary file's positions are bytes and a Random file's records of its
 /// <c>Len</c>, 128 when there is none; the Seek position is the next one, and <c>Loc</c> the one before it. EOF is True
-/// once a read has run past the end, and a Seek or a Put makes it False again. Each Binary or Random handle reads and
+/// once a read has run past the end, and a Seek makes it False again. Each Binary or Random handle reads and
 /// writes the file itself, unbuffered, so another handle on the same file sees a Put at once.</item>
 /// </list>
 /// </summary>
@@ -113,8 +113,10 @@ internal sealed partial class VbFiles
         public VbAccess Share { get; init; }
         // A Random file's record length.
         public int RecordLength { get; init; } = 128;
-        // A Binary or Random file's EOF: a read ran past the end, until a Seek or a Put.
+        // A Binary or Random file's EOF: a read ran past the end, until a Seek.
         public bool ShortRead { get; set; }
+        // Where Seek and Loc say a Binary or Random file is, which a read past the end puts beyond its own pointer.
+        public long Counted { get; set; }
         // A Binary file's bytes, for Line Input, Input # and the Input function, until something writes to the file.
         public byte[]? Snapshot { get; set; }
     }
@@ -262,7 +264,10 @@ internal sealed partial class VbFiles
     private static void MoveText(OpenFile file, int position, bool past)
     {
         if (file.Stream is { } stream)
+        {
             stream.Position = position;
+            file.Counted = position;
+        }
         else
             file.Position = position;
         file.ShortRead = past;
@@ -386,8 +391,8 @@ internal sealed partial class VbFiles
     public long SeekPosition(int number)
     {
         var file = Get(number);
-        if (file.Stream is { } stream)
-            return file.Mode == VbFileMode.Random ? stream.Position / file.RecordLength + 1 : stream.Position + 1;
+        if (file.Stream is not null)
+            return file.Mode == VbFileMode.Random ? file.Counted / file.RecordLength + 1 : file.Counted + 1;
         if (file.Output is { } output)
             return output.Position - file.AppendOrigin + 1;
         return file.CtrlZAt is { } z ? file.Input.Length + z + 2 : file.Position + 1L;
@@ -420,6 +425,7 @@ internal sealed partial class VbFiles
         if (file.Stream is { } stream)
         {
             stream.Position = file.Mode == VbFileMode.Random ? (position - 1) * file.RecordLength : position - 1;
+            file.Counted = stream.Position;
             file.ShortRead = false;
             return;
         }

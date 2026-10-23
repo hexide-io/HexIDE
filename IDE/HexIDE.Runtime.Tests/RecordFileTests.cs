@@ -3850,6 +3850,389 @@ public class RecordFileTests : BaseVBTestFixture, IDisposable
             "done");
     }
 
+    // EOF through a Put, a Type field and a Variant element past the record, and Input # at the end.
+    [Fact]
+    public async Task EOF_after_a_Put_and_what_a_failed_field_is_left_as_vb6_exe_did()
+    {
+        await Run($$"""
+
+            Private Type TRec
+                i As Integer
+                s As String
+                l As Long
+            End Type
+
+            Private Type TVar
+                v As Variant
+                b As Byte
+            End Type
+
+            Private Type TMix
+                b As Byte
+                l As Long
+            End Type
+
+            Private Type TOuter
+                a As Integer
+                inner As TRec
+                z As Byte
+            End Type
+
+            Private Type TVarS
+                v As Variant
+            End Type
+
+            Private Type TAll
+                bo As Boolean
+                cu As Currency
+                dt As Date
+                si As Single
+                db As Double
+            End Type
+
+            Private Type TIS
+                i As Integer
+                s As String
+            End Type
+
+            Public Sub L(ByVal s As String)
+                Debug.Print s
+            End Sub
+
+            Public Function P(ByVal name As String) As String
+                P = "{{Folder}}" & name
+            End Function
+
+            Public Function E() As String
+                E = " err " & Err.Number
+                Err.Clear
+            End Function
+
+            Public Sub Fresh(ByVal name As String)
+                On Error Resume Next
+                Kill P(name)
+                Err.Clear
+            End Sub
+
+            Public Function Hx(ByVal name As String) As String
+                Dim f As Integer, b() As Byte, i As Long, r As String
+                f = FreeFile
+                Open P(name) For Binary As #f
+                If LOF(f) > 0 Then
+                    ReDim b(0 To LOF(f) - 1)
+                    Get #f, 1, b
+                    For i = 0 To UBound(b)
+                        r = r & Right$("0" & Hex$(b(i)), 2) & " "
+                    Next
+                End If
+                Close #f
+                Hx = "[" & Trim$(r) & "]"
+            End Function
+
+            Public Function Where(ByVal n As Integer) As String
+                Dim r As String, v As Variant
+                On Error Resume Next
+                v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+                r = " LOF " & v
+                v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+                r = r & " Loc " & v
+                v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+                r = r & " Seek " & v
+                v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+                Where = r & " EOF " & v
+            End Function
+
+            Public Sub MakeHex(ByVal name As String, ByVal hx As String)
+                Dim f As Integer, b() As Byte, i As Long, n As Long
+                Fresh name
+                hx = Replace(hx, " ", "")
+                n = Len(hx) \ 2
+                f = FreeFile
+                Open P(name) For Binary As #f
+                If n > 0 Then
+                    ReDim b(0 To n - 1)
+                    For i = 0 To n - 1
+                        b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
+                    Next
+                    Put #f, 1, b
+                End If
+                Close #f
+            End Sub
+
+            Public Function Bounds(a As Variant) As String
+                Dim r As String
+                On Error Resume Next
+                r = LBound(a) & " To " & UBound(a)
+                If Err.Number Then r = "err" & Err.Number: Err.Clear
+                Bounds = r
+            End Function
+
+            Sub Main()
+                Dim t As String
+                On Error Resume Next
+                Dim bb As Byte, ia As Integer, u As TIS, va(1) As Variant, n As Integer, s As String
+                MakeHex "e.bin", "01 02"
+                Open P("e.bin") For Binary As #1
+                Get #1, 2, ia
+                L "Binary Get Integer, 1 byte there:" & E() & Where(1)
+                bb = 9
+                Put #1, 5, bb
+                L "then Put #1, 5, Byte:" & E() & Where(1)
+                Get #1, 6, ia
+                L "then Get past the end:" & E() & Where(1)
+                Put #1, , bb
+                L "then Put #1, , Byte:" & E() & Where(1)
+                Close #1
+                MakeHex "e.dat", "01 00"
+                Open P("e.dat") For Random As #1 Len = 2
+                Get #1, 3, ia
+                L "Random Get past the end:" & E() & Where(1)
+                ia = 4
+                Put #1, 1, ia
+                L "then Put #1, 1, Integer:" & E() & Where(1)
+                Close #1
+                MakeHex "u.dat", "07 00 0A 00 61 62"
+                Open P("u.dat") For Random As #1 Len = 6
+                u.i = 0: u.s = "kept"
+                Get #1, 1, u
+                L "Random Get Type (Integer, String) whose String says 10 in a record of 6: " & u.i & " [" & u.s & "]" & E() & Where(1)
+                Close #1
+                MakeHex "va.dat", "02 00 05 00 08 00"
+                Open P("va.dat") For Random As #1 Len = 6
+                va(0) = "k0": va(1) = "k1"
+                Get #1, 1, va
+                L "Random Get Variant(1), its second a String past the record: " & TypeName(va(0)) & " " & va(0) & ", " & TypeName(va(1)) & E() & Where(1)
+                Close #1
+                MakeHex "f.bin", "31 2C 61 62"
+                Open P("f.bin") For Binary As #1
+                Input #1, n, s
+                L "Binary Input #, a last field with no line end: " & n & " [" & s & "]" & E() & Where(1)
+                Close #1
+                MakeHex "f.bin", "31 2C 61 62 2C"
+                Open P("f.bin") For Binary As #1
+                Input #1, n, s
+                L "Binary Input #, a last field and a comma: " & n & " [" & s & "]" & E() & Where(1)
+                Close #1
+                MakeHex "f.bin", "31 2C 22 61 62 22"
+                Open P("f.bin") For Binary As #1
+                Input #1, n, s
+                L "Binary Input #, a last quoted field: " & n & " [" & s & "]" & E() & Where(1)
+                Close #1
+                L "done"
+            End Sub
+
+            Main
+            """);
+
+        Printed().Should().Equal(
+            "Binary Get Integer, 1 byte there: err 0 LOF 2 Loc 3 Seek 4 EOF True",
+            "then Put #1, 5, Byte: err 0 LOF 5 Loc 5 Seek 6 EOF True",
+            "then Get past the end: err 0 LOF 5 Loc 7 Seek 8 EOF True",
+            "then Put #1, , Byte: err 0 LOF 6 Loc 8 Seek 9 EOF True",
+            "Random Get past the end: err 0 LOF 2 Loc 3 Seek 4 EOF True",
+            "then Put #1, 1, Integer: err 0 LOF 2 Loc 1 Seek 2 EOF True",
+            "Random Get Type (Integer, String) whose String says 10 in a record of 6: 7 [] err 59 LOF 6 Loc 0 Seek 1 EOF False",
+            "Random Get Variant(1), its second a String past the record: Integer 5, Empty err 59 LOF 6 Loc 0 Seek 1 EOF False",
+            "Binary Input #, a last field with no line end: 1 [ab] err 0 LOF 4 Loc 4 Seek 5 EOF True",
+            "Binary Input #, a last field and a comma: 1 [ab] err 0 LOF 5 Loc 5 Seek 6 EOF False",
+            "Binary Input #, a last quoted field: 1 [ab] err 0 LOF 6 Loc 6 Seek 7 EOF True",
+            "done");
+    }
+
+    // the file pointer stopping at the end while Seek counts on.
+    [Fact]
+    public async Task After_a_read_past_the_end_the_next_Get_or_Put_is_at_the_end_as_vb6_exe_did()
+    {
+        await Run($$"""
+
+            Private Type TRec
+                i As Integer
+                s As String
+                l As Long
+            End Type
+
+            Private Type TVar
+                v As Variant
+                b As Byte
+            End Type
+
+            Private Type TMix
+                b As Byte
+                l As Long
+            End Type
+
+            Private Type TOuter
+                a As Integer
+                inner As TRec
+                z As Byte
+            End Type
+
+            Private Type TVarS
+                v As Variant
+            End Type
+
+            Private Type TAll
+                bo As Boolean
+                cu As Currency
+                dt As Date
+                si As Single
+                db As Double
+            End Type
+
+            Private Type TIS
+                i As Integer
+                s As String
+            End Type
+
+            Public Sub L(ByVal s As String)
+                Debug.Print s
+            End Sub
+
+            Public Function P(ByVal name As String) As String
+                P = "{{Folder}}" & name
+            End Function
+
+            Public Function E() As String
+                E = " err " & Err.Number
+                Err.Clear
+            End Function
+
+            Public Sub Fresh(ByVal name As String)
+                On Error Resume Next
+                Kill P(name)
+                Err.Clear
+            End Sub
+
+            Public Function Hx(ByVal name As String) As String
+                Dim f As Integer, b() As Byte, i As Long, r As String
+                f = FreeFile
+                Open P(name) For Binary As #f
+                If LOF(f) > 0 Then
+                    ReDim b(0 To LOF(f) - 1)
+                    Get #f, 1, b
+                    For i = 0 To UBound(b)
+                        r = r & Right$("0" & Hex$(b(i)), 2) & " "
+                    Next
+                End If
+                Close #f
+                Hx = "[" & Trim$(r) & "]"
+            End Function
+
+            Public Function Where(ByVal n As Integer) As String
+                Dim r As String, v As Variant
+                On Error Resume Next
+                v = "?": v = LOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+                r = " LOF " & v
+                v = "?": v = Loc(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+                r = r & " Loc " & v
+                v = "?": v = Seek(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+                r = r & " Seek " & v
+                v = "?": v = EOF(n): If Err.Number Then v = "err" & Err.Number: Err.Clear
+                Where = r & " EOF " & v
+            End Function
+
+            Public Sub MakeHex(ByVal name As String, ByVal hx As String)
+                Dim f As Integer, b() As Byte, i As Long, n As Long
+                Fresh name
+                hx = Replace(hx, " ", "")
+                n = Len(hx) \ 2
+                f = FreeFile
+                Open P(name) For Binary As #f
+                If n > 0 Then
+                    ReDim b(0 To n - 1)
+                    For i = 0 To n - 1
+                        b(i) = CByte("&H" & Mid$(hx, i * 2 + 1, 2))
+                    Next
+                    Put #f, 1, b
+                End If
+                Close #f
+            End Sub
+
+            Public Function Bounds(a As Variant) As String
+                Dim r As String
+                On Error Resume Next
+                r = LBound(a) & " To " & UBound(a)
+                If Err.Number Then r = "err" & Err.Number: Err.Clear
+                Bounds = r
+            End Function
+
+            Sub Main()
+                Dim t As String
+                On Error Resume Next
+                Dim bb As Byte, ia As Integer, la As Long, b4(3) As Byte
+                MakeHex "r.dat", "01 00"
+                Open P("r.dat") For Random As #1 Len = 2
+                Get #1, 3, ia
+                L "Random Len 2 on 2 bytes, Get #1, 3:" & E() & Where(1)
+                ia = 7
+                Put #1, , ia
+                L "then Put #1, , Integer:" & E() & Where(1) & " " & Hx("r.dat")
+                Close #1
+                MakeHex "r.dat", "01 00 02"
+                Open P("r.dat") For Random As #1 Len = 2
+                Get #1, 2, ia
+                L "Random Len 2 on 3 bytes, Get #1, 2: " & ia & E() & Where(1)
+                ia = 7
+                Put #1, , ia
+                L "then Put #1, , Integer:" & E() & Where(1) & " " & Hx("r.dat")
+                ia = 8
+                Put #1, , ia
+                L "then Put #1, , Integer again:" & E() & Where(1) & " " & Hx("r.dat")
+                Close #1
+                MakeHex "b.bin", "01 02"
+                Open P("b.bin") For Binary As #1
+                Open P("b.bin") For Binary As #2
+                Get #1, 2, la
+                L "Binary Get #1, 2, Long, 1 byte there:" & E() & Where(1)
+                b4(0) = &HAA: b4(1) = &HBB: b4(2) = &HCC: b4(3) = &HDD
+                Put #2, 3, b4
+                L "#2 puts 4 bytes at 3:" & E() & " " & Hx("b.bin")
+                ia = 0
+                Get #1, , ia
+                L "then Get #1, , Integer: " & Hex$(ia) & E() & Where(1)
+                Close #1
+                Close #2
+                MakeHex "b.bin", "01 02"
+                Open P("b.bin") For Binary As #1
+                Get #1, 10, la
+                L "Binary Get #1, 10, Long, past the end:" & E() & Where(1)
+                bb = 9
+                Put #1, , bb
+                L "then Put #1, , Byte:" & E() & Where(1) & " " & Hx("b.bin")
+                Close #1
+                MakeHex "b.bin", "01 02 03"
+                Open P("b.bin") For Binary As #1
+                Get #1, 2, la
+                L "Binary Get #1, 2, Long, 2 bytes there:" & E() & Where(1)
+                Seek #1, 3
+                L "then Seek #1, 3:" & E() & Where(1)
+                bb = 9
+                Put #1, , bb
+                L "then Put #1, , Byte:" & E() & Where(1) & " " & Hx("b.bin")
+                Close #1
+                L "done"
+            End Sub
+
+            Main
+            """);
+
+        Printed().Should().Equal(
+            "Random Len 2 on 2 bytes, Get #1, 3: err 0 LOF 2 Loc 3 Seek 4 EOF True",
+            "then Put #1, , Integer: err 0 LOF 6 Loc 4 Seek 5 EOF True [01 00 00 00 07 00]",
+            "Random Len 2 on 3 bytes, Get #1, 2: 2 err 0 LOF 3 Loc 2 Seek 3 EOF True",
+            "then Put #1, , Integer: err 0 LOF 5 Loc 3 Seek 4 EOF True [01 00 02 07 00]",
+            "then Put #1, , Integer again: err 0 LOF 7 Loc 4 Seek 5 EOF True [01 00 02 07 00 08 00]",
+            "Binary Get #1, 2, Long, 1 byte there: err 0 LOF 2 Loc 5 Seek 6 EOF True",
+            "#2 puts 4 bytes at 3: err 0 [01 02 AA BB CC DD]",
+            "then Get #1, , Integer: BBAA err 0 LOF 6 Loc 7 Seek 8 EOF False",
+            "Binary Get #1, 10, Long, past the end: err 0 LOF 2 Loc 13 Seek 14 EOF True",
+            "then Put #1, , Byte: err 0 LOF 10 Loc 14 Seek 15 EOF True [01 02 00 00 00 00 00 00 00 09]",
+            "Binary Get #1, 2, Long, 2 bytes there: err 0 LOF 3 Loc 5 Seek 6 EOF True",
+            "then Seek #1, 3: err 0 LOF 3 Loc 2 Seek 3 EOF False",
+            "then Put #1, , Byte: err 0 LOF 3 Loc 3 Seek 4 EOF False [01 02 09]",
+            "done");
+    }
+
     // The bytes on disk, read by C# rather than by the Get under test, so a Put and a Get that agreed with each other but
     // not with vb6.exe would fail here. Each expected byte string is the hex vb6.exe's probe logged.
     [Fact]

@@ -97,8 +97,11 @@ internal sealed partial class VbFiles
 
     // A Binary or Random file for Get or Put: 54 for any other mode, and 75 for a handle that may not read or write
     // (measured). Then where the statement starts: at <paramref name="at"/>, a byte or a record from 1, 63 below 1 (measured),
-    // or where the file is.
-    private (OpenFile File, long Start) RecordAt(int number, long? at, VbAccess need)
+    // or where the file is. Where it is has two answers after a read that ran past the end, and they are kept apart as VB6
+    // keeps them (measured, #1646): the file's own pointer stopped at the end, where the next Get or Put with no position
+    // reads or writes, while Seek and Loc count on as if the whole value had been there. So `Get #1, 2, l` on two bytes
+    // answers Seek 6, and the next `Put #1, , b` writes byte 3, after which Seek is 7. A Seek statement brings them together.
+    private (OpenFile File, long Start, long Counted) RecordAt(int number, long? at, VbAccess need)
     {
         var file = Get(number);
         if (file.Stream is not { } stream)
@@ -106,10 +109,11 @@ internal sealed partial class VbFiles
         if ((file.Access & need) == 0)
             throw new VBRunTimeException(VBStandardError.PathFileAccessError);
         if (at is not { } position)
-            return (file, stream.Position);
+            return (file, stream.Position, file.Counted);
         if (position < 1)
             throw new VBRunTimeException(VBStandardError.BadRecordNumber);
-        return (file, file.Mode == VbFileMode.Random ? (position - 1) * file.RecordLength : position - 1);
+        var start = file.Mode == VbFileMode.Random ? (position - 1) * file.RecordLength : position - 1;
+        return (file, start, start);
     }
 
     /// <summary>Whether a file is Binary or Random, as Get and Put need it: 52 for a number not open, and 54 for any other mode (measured).</summary>
@@ -121,23 +125,28 @@ internal sealed partial class VbFiles
 
     /// <summary>
     /// <c>Put</c>'s bytes, at <paramref name="at"/> or where the file is. A Random record longer than the file's <c>Len</c>
-    /// is 59, and nothing is written (measured). After it the file is at the next byte, or the next record, and EOF is
-    /// False. Where <paramref name="move"/> is false, as for a Variant holding an object, the file stays where it was
-    /// (measured: 09 00 written, then 13, and the next Put writes over it).
+    /// is 59, and nothing is written (measured). After it the file is at the next byte, or the next record. EOF is left as
+    /// it was: a Put after a read past the end leaves it True (measured). Where <paramref name="move"/> is false, as for a
+    /// Variant holding an object, the file stays where it was (measured: 09 00 written, then 13, and the next Put writes
+    /// over it).
     /// </summary>
     public void Put(int number, long? at, byte[] bytes, bool move = true)
     {
-        var (file, start) = RecordAt(number, at, VbAccess.Write);
+        var (file, start, counted) = RecordAt(number, at, VbAccess.Write);
         if (file.Mode == VbFileMode.Random && bytes.Length > file.RecordLength)
             throw new VBRunTimeException(VBStandardError.BadRecordLength);
         var stream = file.Stream!;
         var before = stream.Position;
         stream.Position = start;
         stream.Write(bytes);
-        stream.Position = !move ? before
-            : file.Mode == VbFileMode.Random ? start + file.RecordLength
-            : start + bytes.Length;
-        file.ShortRead = false;
+        var step = file.Mode == VbFileMode.Random ? file.RecordLength : bytes.Length;
+        if (move)
+        {
+            stream.Position = start + step;
+            file.Counted = counted + step;
+        }
+        else
+            stream.Position = before;
         Wrote(file.Path);
     }
 
@@ -149,8 +158,8 @@ internal sealed partial class VbFiles
     /// </summary>
     public RecordRead BeginGet(int number, long? at)
     {
-        var (file, start) = RecordAt(number, at, VbAccess.Read);
-        return new RecordRead(file, start);
+        var (file, start, counted) = RecordAt(number, at, VbAccess.Read);
+        return new RecordRead(file, start, counted);
     }
 
     /// <summary>Moves the file past what <paramref name="read"/> took, or past its record, and sets EOF.</summary>
@@ -160,14 +169,18 @@ internal sealed partial class VbFiles
     {
         private readonly OpenFile file;
         private readonly long start;
+        private readonly long counted;
         private readonly byte[]? record;
         private int taken;
+        // Bytes that were there, which is where the file's own pointer stops.
+        private int got;
         private bool past;
 
-        internal RecordRead(OpenFile file, long start)
+        internal RecordRead(OpenFile file, long start, long counted)
         {
             this.file = file;
             this.start = start;
+            this.counted = counted;
             if (file.Mode == VbFileMode.Random)
                 record = Bytes(start, file.RecordLength, out past);
         }
@@ -197,22 +210,24 @@ internal sealed partial class VbFiles
         {
             var stream = file.Stream!;
             var bytes = new byte[count];
-            var got = 0;
+            var read = 0;
             if (from < stream.Length)
             {
                 var kept = stream.Position;
                 stream.Position = from;
-                while (got < count && stream.Read(bytes, got, count - got) is var n and > 0)
-                    got += n;
+                while (read < count && stream.Read(bytes, read, count - read) is var n and > 0)
+                    read += n;
                 stream.Position = kept;
             }
-            fewer = got < count;
+            got += read;
+            fewer = read < count;
             return bytes;
         }
 
         internal void Commit()
         {
-            file.Stream!.Position = record is not null ? start + record.Length : start + taken;
+            file.Stream!.Position = start + got;
+            file.Counted = counted + (record?.Length ?? taken);
             file.ShortRead = past;
         }
     }
