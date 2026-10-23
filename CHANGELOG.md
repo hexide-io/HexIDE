@@ -213,6 +213,13 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **OK on the References dialog no longer drops the project's OLE Automation reference** (#1026). Its first row
+  carried OLE Automation's GUID, so the project's own reference was hidden, and OK, even with nothing changed, took it
+  out. The next save wrote the project without it, and VB6 then failed to build one that uses `StdFont` or
+  `OLE_COLOR`. The dialog now lists what VB6's does, as measured: three fixed rows (Visual Basic For Applications and
+  VB's two libraries), then every reference of the project in its order, OLE Automation among them. Nothing moves
+  above the fixed rows, and it opens on the last checked row.
+
 - **A form whose `Begin` line and `Attribute VB_Name` disagree opens as VB6 opens it** (#1407). HexIDE already named
   such a form by its `Begin` line, as VB6 does, but said nothing and saved the contradiction back. HexIDE itself wrote
   such files before #1059. Opening the project now shows VB6's "Conflicting names were found…" warning. The form's
