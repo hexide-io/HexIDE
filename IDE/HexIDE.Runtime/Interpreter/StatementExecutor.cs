@@ -72,6 +72,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// </summary>
     internal StaticLocals? Statics { get; init; }
 
+    /// <summary>
+    /// Whether this activation is a Function or Property Get whose return is a Variant's, untyped or <c>As Variant</c>,
+    /// so its name takes a Let as a Variant does. Its slot carries no Variant mark (#1493).
+    /// </summary>
+    internal bool VariantReturn { get; init; }
+
     private ExpressionExecutor expressionExecutor => new ExpressionExecutor(interpreter, currentEnv, currentModule, withTargets, stmtFrames);
 
     public StatementExecutor(BasicInterpreter interpreter,
@@ -1036,6 +1042,39 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return ControlFlow.Nothing;
     }
 
+    /// <summary>
+    /// Whether a Let into this name is a Let into an object variable: one declared as a class, <c>As Object</c> or
+    /// <c>As Collection</c>, or any other slot that holds an object and is not a Variant's. A Variant, an untyped or
+    /// <c>As Variant</c> parameter, and a Variant Function's own name take the value instead (measured, #1493).
+    /// </summary>
+    private bool IsObjectVariable(ExecutionEnvironment env, string name, int slot) =>
+        env.ObjectParameters.Contains(name)
+        || !interpreter.ExecutionContext.State.IsVariant(slot) && !env.VariantParameters.Contains(name)
+           && !(VariantReturn && string.Equals(name, procName, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// A Let into an object variable assigns the default member of the object it holds, and the object stays (measured,
+    /// #1493): 438 for a class instance with none, as for a Collection, and 91 for Nothing. It released the object and
+    /// stored the value. A class's own default member (#174) and a control's (#790) are not implemented, so those are
+    /// refused. Anything else the variable holds is left to the store.
+    /// </summary>
+    private static void RefuseLetIntoObject(Vb6Value held, string target, ParserRuleContext context)
+    {
+        if (!IsObjectReference(held))
+            return;
+        throw held.Value switch
+        {
+            null => new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet),
+            VbObject { ClassDef.PrePass.DeclaresDefaultMember: true } withDefault => new NotImplementedException(
+                $"`{target} = …` assigns the default member of the {withDefault.ClassName} it holds, which is not implemented "
+                + "for a class yet (#174). Name the member instead."),
+            VbObject or VbCollection => new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
+            _ => new NotImplementedException(
+                $"`{target} = …` assigns the default member of the object it holds, which is not implemented (#790). "
+                + "Name the property instead."),
+        };
+    }
+
     // An object reference, or Nothing: what an object variable can hold.
     private static bool IsObjectReference(Vb6Value v) =>
         v.Type == Vb6Value.ValueType.Object || v.Type == Vb6Value.ValueType.Control || v.Type == Vb6Value.ValueType.CSharpProxyObject;
@@ -1547,14 +1586,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out oldLet);
             }
             // A Let into a variable declared As Collection assigns its default member, which needs an index: VB6's "Argument
-            // not optional". Into an Object holding one it is 438, and a Variant simply takes the value (measured, #1471).
-            if (currentEnv.TryGetVariableLocation(identifier, out var letSlot)
-                && !interpreter.ExecutionContext.State.IsVariant(letSlot) && !currentEnv.VariantParameters.Contains(identifier))
+            // not optional" (measured, #1471). Into any other object variable it is the held object's default member, and a
+            // Variant simply takes the value (#1493).
+            if (currentEnv.TryGetVariableLocation(identifier, out var letSlot) && IsObjectVariable(currentEnv, identifier, letSlot))
             {
                 if (interpreter.ExecutionContext.State.DeclaredClassOf(letSlot) is { } letClass && ExpressionExecutor.IsCollectionType(letClass))
                     throw new VBCompileErrorException("Argument not optional");
-                if (oldLet.Value is VbCollection)
-                    throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+                RefuseLetIntoObject(oldLet, identifier, context);
             }
             if (checkedArrayReturn is { } declaredReturn && string.Equals(identifier, procName, StringComparison.OrdinalIgnoreCase))
                 CheckArrayReturn(declaredReturn, value, context);
@@ -1649,6 +1687,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     (isField, oldFieldLet) = await interpreter.ReadVariableAfter(vobj.InstanceEnv, fieldName, isFieldNeed!);
                 if (isField)
                 {
+                    // An object field takes a Let as an object variable does (measured, #1493: `h.o = 8` is 438).
+                    if (vobj.InstanceEnv.TryGetVariableLocation(fieldName, out var fieldSlot)
+                        && !interpreter.ExecutionContext.State.IsVariant(fieldSlot))
+                        RefuseLetIntoObject(oldFieldLet, context.implicitCallStmt_InStmt().GetText(), context);
                     interpreter.ExecutionContext.TryUpdateVariable(vobj.InstanceEnv, fieldName, interpreter.CopyForStore(value));
                     // A field that held an object, now overwritten by a scalar via Let, drops that reference.
                     await interpreter.ReleaseRef(oldFieldLet);
