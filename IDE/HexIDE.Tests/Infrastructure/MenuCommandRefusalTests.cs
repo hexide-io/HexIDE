@@ -51,7 +51,10 @@ public class MenuCommandRefusalTests
     [Fact]
     public void Invoke_menu_item_uses_the_tested_refusal_when_CanExecute_is_false()
     {
-        ToolSource.Tools.Single(t => t.Name == "invoke_menu_item").Body.Should().Contain(
-            "if (!command.CanExecute(found.CommandParameter))\n                return new MutateResult(false,\n                    MenuCommandRefusal.Describe(found, path, () => FocusedElementName(window)))");
+        // Compared without whitespace: a Windows checkout gives the source CRLF, and layout is not what is pinned.
+        static string Squeeze(string s) => System.Text.RegularExpressions.Regex.Replace(s, @"\s+", "");
+        Squeeze(ToolSource.Tools.Single(t => t.Name == "invoke_menu_item").Body).Should().Contain(Squeeze(
+            "if (!command.CanExecute(found.CommandParameter)) return new MutateResult(false, "
+            + "MenuCommandRefusal.Describe(found, path, () => FocusedElementName(window)))"));
     }
 }
