@@ -974,3 +974,7 @@ public record VbaBuiltinSymbol(
     [property: JsonPropertyName("name")]          string Name,
     [property: JsonPropertyName("signature")]     string Signature,
     [property: JsonPropertyName("documentation")] string? Documentation = null);
+
+// Cancellation IDs are a protocol union, represented by two scalar contracts for source generation.
+public sealed record CancelNumericRequestParams([property: JsonPropertyName("id")] long Id);
+public sealed record CancelStringRequestParams([property: JsonPropertyName("id")] string Id);
