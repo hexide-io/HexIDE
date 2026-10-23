@@ -316,7 +316,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             {
                 if (named)
                     throw new VBCompileErrorException("Syntax error");
-                result.Add(new CallArg(Vb6Value.Missing, null));
+                result.Add(new CallArg(Vb6Value.Missing, null, Omitted: true));
                 continue;
             }
             if (arg.PARAMARRAY() != null)
@@ -357,10 +357,17 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// parameter names and evaluated in parameter order (VB6BuiltIns.ArrangeIntrinsicArguments); otherwise as
     /// <see cref="EvaluateCallArgs"/> evaluates them.
     /// </summary>
-    public async Task<List<Vb6Value>> EvaluateIntrinsicArgs(string name, VB6Parser.ArgsCallContext? context) =>
-        await NamedCallArgs(context) is { } args
-            ? await VB6BuiltIns.ArrangeIntrinsicArguments(name, args)
-            : await EvaluateCallArgs(context);
+    public async Task<List<Vb6Value>> EvaluateIntrinsicArgs(string name, VB6Parser.ArgsCallContext? context)
+    {
+        if (await NamedCallArgs(context) is { } args)
+            return await VB6BuiltIns.ArrangeIntrinsicArguments(name, args);
+        var values = await EvaluateCallArgs(context);
+        var slots = ArgSlots(context);
+        var result = new VB6BuiltIns.IntrinsicArgumentValues(values.Count);
+        for (var i = 0; i < values.Count; i++)
+            result.AddArgument(values[i], slots[i] is null);
+        return result;
+    }
 
     /// <summary>
     /// The arguments to a member of an in-box object, such as a Collection's <c>Add</c>. With any named (`Key:=`), each is
@@ -417,7 +424,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             {
                 if (named)
                     throw new VBCompileErrorException("Syntax error");
-                args.Add(new CallArg(Vb6Value.Missing, null));
+                args.Add(new CallArg(Vb6Value.Missing, null, Omitted: true));
                 continue;
             }
             if (arg.BYREF() != null)

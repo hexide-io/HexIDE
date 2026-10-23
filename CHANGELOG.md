@@ -208,6 +208,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **An intrinsic called with too few arguments raises VB6's compile error** (#1512). Calls such as `Chr()`
+  now report "Argument not optional" or "Syntax error", as measured in VB6, instead of stopping with a .NET exception.
+
 - **A new form is written as VB6 writes one** (#931, #932, #516). Its code section was bare LF with no final line
   break, it had none of the five `Attribute` lines VB6 writes for a form, and it had no `StartUpPosition` line, which
   VB6 reads as Manual: the form opened at the screen's origin with its title bar off the top. A form HexIDE creates now
