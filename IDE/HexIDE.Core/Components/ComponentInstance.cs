@@ -135,6 +135,19 @@ public partial class ComponentInstance
         int ordinal, int documentOrder, string text, IReadOnlyDictionary<int, byte[]>? records = null)
         => preservedChildSubtrees.Add(new PreservedSubtree(ordinal, documentOrder, text, records));
 
+    /// <summary>
+    /// Gives each carried block a new place among this component's children, in the order they are held, when the designer
+    /// has moved a control past one (#1498). The blocks themselves are not touched.
+    /// </summary>
+    public void SetPreservedChildOrdinals(IReadOnlyList<int> ordinals)
+    {
+        if (ordinals.Count != preservedChildSubtrees.Count)
+            throw new ArgumentException(
+                $"{ordinals.Count} ordinals for {preservedChildSubtrees.Count} carried blocks.", nameof(ordinals));
+        for (var i = 0; i < ordinals.Count; i++)
+            preservedChildSubtrees[i] = preservedChildSubtrees[i] with { Ordinal = ordinals[i] };
+    }
+
     public ComponentInstance SetProperty<T>(PropertyClass<T> propertyClass, T? value)
     {
         var oldValue = properties.GetValueOrDefault(propertyClass, UnsetValue.Instance);

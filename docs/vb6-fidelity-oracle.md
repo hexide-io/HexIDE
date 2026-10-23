@@ -14650,13 +14650,55 @@ Picture4, Picture3.
   is an artefact of pasting them one at a time, not a design, so HexIDE does not reproduce it.
 - **Two gaps, filed:**
   - The running form still draws the last block on top (#1497).
-  - A control added in front of one HexIDE carries as text is written after it (#1498).
+  - A control added in front of one HexIDE carries as text is written after it (#1498, since fixed: see the next
+    section).
 
 **Not measured:**
 - A Shape, Line or Image beside a Label in the windowless plane. Only Labels were tried.
 - Bring to Front with several controls selected.
 - A paste while a container is selected.
 - The `ZOrder` method at run time.
+
+## A control VB6 knows and HexIDE carries stacks with the rest (2026-10-23, #1498, design-time, IDE, release build)
+
+**The question.** The rule above was measured on intrinsic controls only. HexIDE carries a control it does not model as
+the text it was read as, written back where it was read, so the designer never sees it. Does VB6 stack an OCX control
+like the others?
+
+**The probe.** VB6's own `Template\Forms\Web Browser.frm` in a one-form Standard EXE project, with `MSCOMCTL.OCX` and
+`ieframe.dll` referenced. Its form-level blocks are `tbToolBar` (`MSComctlLib.Toolbar`), `brwWebBrowser`
+(`SHDocVwCtl.WebBrowser`), `timTimer`, `picAddress` (holding `cboAddress` and `lblAddress`), then `imlIcons`
+(`MSComctlLib.ImageList`). HexIDE models only the Timer, the PictureBox and what it holds. Through the console agent:
+the project opened (VB6 raised "Error accessing the system registry" once, dismissed with Enter), Ctrl+R, the form,
+Shift+F7, a real double-click on the CommandButton tool, a click on the new button, then the step below through the
+Format menu's Order submenu, a click on the designer, and Ctrl+S. Each run started from a fresh copy of the template.
+
+| Step | Form-level blocks VB6 wrote |
+|---|---|
+| CommandButton added | **Command1**, tbToolBar, brwWebBrowser, timTimer, picAddress, imlIcons |
+| Added, then Send to Back | tbToolBar, brwWebBrowser, timTimer, picAddress, imlIcons, **Command1** |
+| Added, Send to Back, then Bring to Front | **Command1**, tbToolBar, brwWebBrowser, timTimer, picAddress, imlIcons |
+
+After Send to Back the button was hidden under the WebBrowser, its selection handles still showing.
+
+**What it shows:**
+- **An OCX control stacks with the intrinsic ones.** A new control goes in front of the toolbar, and Send to Back puts
+  it behind the ImageList, a control with no window at run time. The Timer and the ImageList count as windowed: Send
+  to Back went past both.
+- **Nothing else moves.** Each step changed only Command1's place. `picAddress`'s own blocks were untouched.
+
+**What HexIDE did:** a carried block kept the place it was read at, so the added button went in after the toolbar and
+the WebBrowser, and the ImageList, read fifth, was written ahead of `picAddress`, a control nobody had moved. Send to
+Back and Bring to Front moved a control past the modelled controls only.
+
+**In HexIDE (#1498):** each control in the designer counts the carried controls in its container that are stacked under
+it, read from the file on load. A control added, pasted or brought to front goes over all of them, and one sent to back
+under them. A save turns the counts back into where each carried block goes, through the same placement the writer
+uses, so a form loaded and saved untouched comes back byte for byte.
+
+**Inferred, not measured:** a carried block VB6 wrote after a Label is taken to be windowless, since VB6 writes every
+windowed block first. A windowed control sent to back stays over such a block, and a Label sent to back goes under it.
+No corpus file has a carried block after a windowless one.
 
 ## Static (2026-10-23, #1491)
 

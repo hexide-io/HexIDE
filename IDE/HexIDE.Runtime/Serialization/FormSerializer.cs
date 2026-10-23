@@ -73,35 +73,6 @@ public class FormSerializer
         WriteFormMeasurements(vb, form, element.OuterRect, element.Scale);
         vb.EndSortedProperties();
 
-        // A menu nests through SubItems, a control through ContainedControls. One helper, so the writer has
-        // a single notion of "this component's children" without the two mechanisms being merged: probing
-        // SubItems on every component regardless of class is what would make a Frame writable as a menu
-        // item the moment anything populated that property on it.
-        static IReadOnlyList<ComponentInstance> ChildrenOf(ComponentInstance component)
-        {
-            if (component.BaseClass is not MenuComponentClass)
-                return component.ContainedControls;
-            if (component.GetPropertyOrDefault(MenuComponentClass.SubItemsProperty) is { } subItems)
-                return subItems;
-            return [];
-        }
-
-        // A component some other component claims as a child is written by that parent, not from the flat
-        // list — otherwise every nested component appears twice, once in the tree and once as a sibling.
-        //
-        // The form is excluded from the claim on purpose. Its own children are written by the root walk
-        // below, which draws from the flat list rather than from the form's ContainedControls, so a form
-        // the designer built — where nothing has recorded a containment link yet — still writes its
-        // controls instead of writing none of them.
-        var claimedByAParent = new HashSet<ComponentInstance>();
-        foreach (var component in element.Components)
-        {
-            if (component == form)
-                continue;
-            foreach (var child in ChildrenOf(component))
-                claimedByAParent.Add(child);
-        }
-
         // Its lines as they were read, but for any citation of the companion, which follows its record.
         void WriteVerbatimBlock(ComponentInstance.PreservedSubtree block)
         {
@@ -109,30 +80,22 @@ public class FormSerializer
                 vb.WriteVerbatimLine(citations.Cite(line, block.Records));
         }
 
-        // Modelled children and preserved verbatim blocks, interleaved at the position each block held when
-        // it was read. Position among siblings is z-order, so writing every preserved block at the end
-        // reorders the form even when it reproduces the block itself byte for byte.
+        // Modelled children and preserved verbatim blocks, interleaved at the position each block holds:
+        // where it was read, or where the designer has since moved a control past it (#1498). Position among
+        // siblings is z-order, so writing every preserved block at the end reorders the form even when it
+        // reproduces the block itself byte for byte.
         void WriteChildren(ComponentInstance container, IReadOnlyList<ComponentInstance> children)
         {
             var preserved = container.PreservedChildSubtrees;
-            var childIndex = 0;
+            var before = CarriedOrder.ChildrenBefore(children.Count, preserved);
             var preservedIndex = 0;
-
-            for (var ordinal = 0; ordinal < children.Count + preserved.Count; ordinal++)
+            for (var childIndex = 0; childIndex <= children.Count; childIndex++)
             {
-                // <= rather than ==, so an ordinal that no longer lines up — two blocks recorded at one
-                // position, or a stale one left by an edit — still advances instead of stalling.
-                if (preservedIndex < preserved.Count && preserved[preservedIndex].Ordinal <= ordinal)
+                while (preservedIndex < preserved.Count && before[preservedIndex] <= childIndex)
                     WriteVerbatimBlock(preserved[preservedIndex++]);
-                else if (childIndex < children.Count)
-                    WriteComponentTree(children[childIndex++]);
+                if (childIndex < children.Count)
+                    WriteComponentTree(children[childIndex]);
             }
-
-            // Whatever the ordinals could not place is still written rather than silently dropped.
-            for (; preservedIndex < preserved.Count; preservedIndex++)
-                WriteVerbatimBlock(preserved[preservedIndex]);
-            for (; childIndex < children.Count; childIndex++)
-                WriteComponentTree(children[childIndex]);
         }
 
         // Nothing in the model may be written twice, and nothing may be walked twice. The containment
@@ -161,15 +124,7 @@ public class FormSerializer
             vb.End();
         }
 
-        var rootChildren = new List<ComponentInstance>();
-        foreach (var component in element.Components)
-        {
-            if (component == form || claimedByAParent.Contains(component))
-                continue;
-            rootChildren.Add(component);
-        }
-
-        WriteChildren(form, rootChildren);
+        WriteChildren(form, RootChildren(element.Components, form));
 
         // The other half of the cycle guard, and the half that matters more. A component claimed by a
         // parent that is itself never reached — the shape a cycle makes — is not written twice, it is not
@@ -189,6 +144,44 @@ public class FormSerializer
         // Resolved before the code goes after it, so nothing in the code can be read as a placeholder.
         var (designer, frxContent) = citations.Resolve(vb.GetOutput(), frxName);
         return (designer + code, frxContent);
+    }
+
+    // A menu nests through SubItems, a control through ContainedControls. One helper, so the writer has
+    // a single notion of "this component's children" without the two mechanisms being merged: probing
+    // SubItems on every component regardless of class is what would make a Frame writable as a menu
+    // item the moment anything populated that property on it.
+    private static IReadOnlyList<ComponentInstance> ChildrenOf(ComponentInstance component)
+    {
+        if (component.BaseClass is not MenuComponentClass)
+            return component.ContainedControls;
+        if (component.GetPropertyOrDefault(MenuComponentClass.SubItemsProperty) is { } subItems)
+            return subItems;
+        return [];
+    }
+
+    /// <summary>
+    /// The children the root's block holds, in the order they are written: every component no other component claims
+    /// as a child, in the order the list holds them. The designer places carried blocks among these (#1498), so it asks
+    /// here rather than working them out again.
+    /// </summary>
+    /// <remarks>
+    /// A component some other component claims as a child is written by that parent, not from the flat list,
+    /// otherwise every nested component appears twice, once in the tree and once as a sibling. The root is excluded
+    /// from the claim on purpose: its own children come from the flat list rather than from its ContainedControls,
+    /// so a form the designer built, where nothing has recorded a containment link yet, still writes its controls
+    /// instead of writing none of them.
+    /// </remarks>
+    public static IReadOnlyList<ComponentInstance> RootChildren(IReadOnlyList<ComponentInstance> components, ComponentInstance root)
+    {
+        var claimedByAParent = new HashSet<ComponentInstance>();
+        foreach (var component in components)
+        {
+            if (component == root)
+                continue;
+            foreach (var child in ChildrenOf(component))
+                claimedByAParent.Add(child);
+        }
+        return components.Where(component => component != root && !claimedByAParent.Contains(component)).ToList();
     }
 
     /// <summary>
