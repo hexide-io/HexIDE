@@ -240,8 +240,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **Make Project Group is offered only with a group open, as VB6 offers it** (#746). With one project loaded it
   was offered anyway, then failed on the missing group and said nothing. It is now greyed out until a group is
-  open or a second project is loaded. VB6's command builds the group's projects, where HexIDE's still saves
-  them (#1515).
+  open or a second project is loaded. With a group, it used to save every project and the group under a Make
+  label. VB6's builds them, which HexIDE can't do yet (#1515), so it now says the feature isn't implemented and
+  writes nothing. Save Project Group still saves.
 - **An undeclared variable passed ByRef takes the procedure's write** (#1505). `Bump a12`, with `a12` never declared
   and `Sub Bump(x)` adding 1 to `x`, left `a12` Empty, so the program ran on with a wrong value and nothing said why. VB6
   declares the variable where it is passed, and the write lands in it. Now HexIDE does the same for a Sub, a Function, a

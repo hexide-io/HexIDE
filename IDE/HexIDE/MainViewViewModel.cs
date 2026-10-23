@@ -899,7 +899,7 @@ public partial class MainViewViewModel : ObservableObject
             () => FocusedProjectUtil.FocusedOrStartupProject != null);
         // Offered only with a group open, as VB6 offers it (measured, #746). Two projects loaded are a group, even before
         // HexIDE has made its Group1.
-        MakeProjectGroupCommand = new DelegateCommand(() => projectService.MakeProjectGroup().ListenErrors(),
+        MakeProjectGroupCommand = new DelegateCommand(MakeProjectGroup,
             () => projectManager.CurrentGroup != null || projectManager.LoadedProjects.Count > 1);
         projectManager.ProjectLoaded += _ => MakeProjectGroupCommand.RaiseCanExecutedChanged();
         projectManager.ProjectUnloaded += _ => MakeProjectGroupCommand.RaiseCanExecutedChanged();
@@ -1060,6 +1060,17 @@ public partial class MainViewViewModel : ObservableObject
     public void NYI()
     {
         windowManager.MessageBox("This feature is not yet implemented", "NYI", MessageBoxButtons.Ok, MessageBoxIcon.Information);
+    }
+
+    /// <summary>
+    /// VB6's Make Project Group builds the group's projects, through a "Build the following projects" dialog (measured,
+    /// #746). HexIDE has no build of a group yet (#1515), so it says so and writes nothing. It used to save every project
+    /// and the group, which is Save Project Group's job, under a Make label.
+    /// </summary>
+    private void MakeProjectGroup()
+    {
+        Log.Information("Make Project Group: building a project group is not implemented yet (#1515); nothing is written");
+        NYI();
     }
 
     public void SaveProject() => projectService.SaveAllProjects(false).ListenErrors();

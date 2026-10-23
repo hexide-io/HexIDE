@@ -1628,21 +1628,6 @@ public class ProjectService : IProjectService
                 "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
     }
 
-    public async Task MakeProjectGroup()
-    {
-        if (projectManager.LoadedProjects.Count == 0)
-        {
-            if (archives != null) await archives.Close();
-            return;
-        }
-        EnsureGroupIfMultiple();
-        // One project and no group: VB6 offers the command only with a group open (measured, #746), and the menu
-        // greys it out. A caller that reaches it anyway is given nothing written, rather than a save that throws.
-        if (projectManager.CurrentGroup is not { } group)
-            return;
-        await SaveAll([.. projectManager.LoadedProjects.SelectMany(project => FilesOf(project, false)), (group, true)]);
-    }
-
     public Task SaveAllProjects(bool saveAs)
     {
         var files = projectManager.LoadedProjects.SelectMany(project => FilesOf(project, saveAs)).ToList();

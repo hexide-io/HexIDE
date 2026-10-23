@@ -294,6 +294,21 @@ public class MainViewViewModelTests
         asked.Should().Be(3);
     }
 
+    // VB6's builds the group's projects. HexIDE has no build of a group yet (#1515), so the command says so and saves
+    // nothing, where it used to save every project and the group under a Make label.
+    [AvaloniaFact]
+    public void MakeProjectGroupCommand_says_it_is_not_implemented_and_saves_nothing()
+    {
+        _projectManager.LoadedProjects.Returns([new ProjectDefinition(VBProjectType.EXE, "Project1")]);
+        _projectManager.CurrentGroup.Returns(new ProjectGroupDefinition("Group1"));
+        _projectService.ClearReceivedCalls();
+
+        _sut.MakeProjectGroupCommand.Execute(null);
+
+        _windowManager.Received(1).MessageBox("This feature is not yet implemented", "NYI", MessageBoxButtons.Ok, MessageBoxIcon.Information);
+        _projectService.ReceivedCalls().Should().BeEmpty("nothing is saved, built or asked of the project service");
+    }
+
     // --- ProjectReferencesCommand ---
 
     [AvaloniaFact]
