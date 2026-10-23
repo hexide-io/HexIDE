@@ -10,6 +10,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **GetSetting, SaveSetting, DeleteSetting and GetAllSettings run** (#1562). A program that remembered anything between runs used to stop, often in `Form_Load`, before its first form appeared. All four were measured on vb6.exe first. On Windows they use the registry key VB6 itself uses, so a program run in HexIDE and the same program compiled by VB6 share their settings. On Linux and macOS they are kept in `program-settings.json` in HexIDE's user-data directory, which `--user-data-dir` moves.
+
 - **Conditional compilation runs: `#If`, `#ElseIf`, `#Else`, `#End If` and `#Const`** (#1112). A module holding any
   `#If` stopped the program as it loaded, and `#Const` did not parse. Now each branch is chosen as vb6.exe chooses it,
   measured with `/make`, native and p-code. The names are the module's `#Const`s, the project's Conditional Compilation

@@ -525,7 +525,7 @@
 | App object | Partial | `App.Title`, `EXEName`, `Path`, `ProductName`, `Major`/`Minor`/`Revision`, `PrevInstance` and the version-info strings, seeded from the project (#136). Values follow VB6 at DESIGN TIME, which is where the interpreter permanently sits — `EXEName` is the `.vbp` file name and `ProductName` is empty, both measured under F5. `Title` is writable; `LogEvent`/`StartLogging`/`TaskVisible` are not implemented |
 | Clipboard object | Missing | |
 | Collection object | Missing | |
-| Registry functions (GetSetting etc.) | Missing | |
+| Registry functions (GetSetting etc.) | Done | GetSetting, SaveSetting, DeleteSetting and GetAllSettings, measured (#1562): the registry key VB6 uses on Windows, a file in the user-data directory elsewhere |
 
 ---
 
