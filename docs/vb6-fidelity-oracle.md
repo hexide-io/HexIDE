@@ -15366,6 +15366,31 @@ was `Private` already, but ended at `End Sub` with no line break, its line break
 its `Attribute` block, as VB6's is. Both ways of adding an event procedure now write it as the table shows: `Private`, in
 the file's line breaks, at the end, one blank line below any code, with the caret on the blank line inside.
 
+**Add User Control and Add Property Page** (#1538). The same rig, with the Project menu's Add User Control (`u`) and
+Add Property Page (`p`), Enter on the dialog's default, then Ctrl+S and Enter. Each file ends at
+`Attribute VB_Exposed = False` and its CRLF, with no code:
+
+| | UserControl1.ctl | PropertyPage1.pag |
+|---|---|---|
+| `Caption` | none | `"PropertyPage1"` |
+| `ClientHeight` × `ClientWidth` | 3600 × 4800 | 3600 × 4800 |
+| `ClientLeft`, `ClientTop` | 0, 0 | 0, 0 |
+| other properties | none | `PaletteMode = 0 'Halftone` |
+| `VB_Creatable` | **True** | False |
+| `VB_PredeclaredId` | **False** | False |
+| `VB_GlobalNameSpace`, `VB_Exposed` | False, False | False, False |
+
+- **Neither has a border**, so its client area is VB6's 4800 × 3600 window itself, at 0, 0. These are constants, where a
+  form's are its machine's.
+- **A UserControl has no `Caption`.** HexIDE's had one, from the form constructor it shared.
+- **The `Attribute` block is not a form's.** A UserControl is creatable and neither has a default instance. HexIDE wrote
+  `VB_Name` alone for both.
+- Not measured: an ActiveX Control project, where `VB_Exposed` may be True.
+
+**In HexIDE (#1538):** `FormDefinition.NewForm` takes VB6's 4560 × 3015 client area at 120, 465, and its `LinkTopic`, which
+HexIDE does not model and keeps as a loaded form's raw line. `ModuleDefinition.NewDesigner` makes a new UserControl or
+PropertyPage as the table shows, its `PaletteMode` kept the same way. Each new file is now VB6's byte for byte.
+
 ## Write # and Input # (2026-10-23, #1521)
 
 Measured with `/make` in ten batches, native and p-code identical on every row. All of them are run-time results of
