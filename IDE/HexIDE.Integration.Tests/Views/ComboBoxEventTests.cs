@@ -20,8 +20,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// <summary>
 /// A ComboBox's Click, Change and DropDown (#1429). Each case replays one of the probe's sequences on its form, and every
 /// line is the one vb6.exe logged for the same input, native and p-code agreeing (the oracle's "A ComboBox's Click, Change
-/// and DropDown, with real input"). A Dropdown List's Text is #1428's, so its handlers print its selected item instead,
-/// which is what VB6's Text reads there.
+/// and DropDown, with real input").
 /// </summary>
 public class ComboBoxEventTests
 {
@@ -70,9 +69,6 @@ public class ComboBoxEventTests
         Private Function St(ByVal c As Object) As String
             St = "li=" & c.ListIndex & " text=[" & c.Text & "]"
         End Function
-        Private Function St3() As String
-            St3 = "li=" & Combo3.ListIndex & " text=[" & Combo3.List(Combo3.ListIndex) & "]"
-        End Function
         Private Sub Form_Load()
             Combo1.AddItem "apple": Combo1.AddItem "Banana": Combo1.AddItem "cherry"
             Combo2.AddItem "apple": Combo2.AddItem "Banana": Combo2.AddItem "cherry"
@@ -94,13 +90,13 @@ public class ComboBoxEventTests
             Debug.Print "  Combo2 Change " & St(Combo2)
         End Sub
         Private Sub Combo3_Click()
-            Debug.Print "  Combo3 Click " & St3()
+            Debug.Print "  Combo3 Click " & St(Combo3)
         End Sub
         Private Sub Combo3_Change()
-            Debug.Print "  Combo3 Change " & St3()
+            Debug.Print "  Combo3 Change " & St(Combo3)
         End Sub
         Private Sub Combo3_DropDown()
-            Debug.Print "  Combo3 DropDown " & St3()
+            Debug.Print "  Combo3 DropDown " & St(Combo3)
         End Sub
 
         """;
@@ -299,7 +295,7 @@ public class ComboBoxEventTests
             ("Escape", []),
         ]);
 
-    // A Simple Combo's list is always shown in VB6, which is #1428's; its keys and typing are what is measured here.
+    // A Simple Combo's list is always shown in VB6, which is #1603's; its keys and typing are what is measured here.
     [AvaloniaFact]
     public void A_Simple_Combo_s_typing_and_keys_raise_Change_and_Click_as_vb6_exe_s_do() =>
         Replay("Combo2",

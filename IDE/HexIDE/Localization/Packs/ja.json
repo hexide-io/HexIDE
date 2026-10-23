@@ -591,6 +591,7 @@
     "Str.PropDesc.WindowList": "このメニューに開いている MDI 子ウィンドウを一覧表示するかどうか。",
     "Str.PropDesc.Locked": "コントロールの内容を編集できるかどうか。",
     "Str.PropDesc.MultiSelect": "複数の項目を選択できるかどうか、およびその方法。",
+    "Str.PropDesc.Style": "コントロールの描画方法と動作。",
     "Str.PropDesc.StartUpPosition": "フォームが最初に開くときの画面上の表示位置。",
     "Str.PropDesc.ShowInTaskbar": "フォームをタスクバーに表示するかどうか。",
     "Str.PropDesc.TabIndex": "フォームのタブオーダー内でのコントロールの位置。",
