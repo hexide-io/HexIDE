@@ -43,7 +43,7 @@ internal enum VbFileMode
 
 /// <summary>
 /// A program's open files, by number: <c>Open</c>, <c>Line Input #</c>, <c>Print #</c>, <c>Close</c>, <c>FreeFile</c> and
-/// <c>EOF</c> (#1145). Measured on vb6.exe, native and p-code agreeing (the oracle's "Sequential files"):
+/// <c>EOF</c> (#1145), and the fields of <c>Input #</c> (#1521). Measured on vb6.exe, native and p-code agreeing (the oracle's "Sequential files"):
 /// <list type="bullet">
 /// <item>Text is in the ANSI code page both ways. A character it has no byte for is written as <c>?</c>.</item>
 /// <item>A line ends at CR or CR LF, and not at a lone LF, which stays in the line. A trailing line break makes no empty

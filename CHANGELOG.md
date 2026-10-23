@@ -208,6 +208,13 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`Write #` and `Input #` run** (#1521). Both stopped the program as not implemented. `Write #` now writes
+  as vb6.exe does: quoted strings, `.5` with no leading zero, `#TRUE#`, `#NULL#` and `#2003-01-02#`, with a point under
+  any locale. `Input #` reads each field for the variable it fills, so a Variant comes back typed by what the field holds,
+  as an Integer, Currency, Decimal, Double, Boolean or Date. A typed variable takes vb6.exe's rules: 0 for text in a
+  number, and 6 or 13 leave the variable as it was. A program that saves its settings with one and loads them with the
+  other now runs.
+
 - **A new form is written as VB6 writes one** (#931, #932, #516). Its code section was bare LF with no final line
   break, it had none of the five `Attribute` lines VB6 writes for a form, and it had no `StartUpPosition` line, which
   VB6 reads as Manual: the form opened at the screen's origin with its title bar off the top. A form HexIDE creates now
