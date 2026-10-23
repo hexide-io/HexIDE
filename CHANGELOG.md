@@ -282,6 +282,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **Numeric source literals keep their value on every locale** (#781). A made EXE on German regional settings read `0.6 * 10` as 60 and `1.5!` as 15; French settings could stop the program with a parse error. Literal parsing now uses the invariant culture, including suffixes, exponents and conditional compilation. Runtime string conversions retain their locale rules.
 
+- **The Tab key stops once in each option group** (#1583). It stopped at every option button, where VB6 stops
+  only at the selected one, or, in a group with none selected, at the first in the key's direction. That option is
+  selected there, with Click after GotFocus, as under `SetFocus`. An option is now selected before its GotFocus
+  runs, which reads it selected, as vb6.exe's does.
+
 - **Persian words in MCP replies remain readable** (#1316). A zero-width non-joiner between Arabic-script
   letters (including their combining marks) is written as itself. Joiners elsewhere remain escaped.
 
