@@ -213,6 +213,14 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A form's `Controls` collection runs, and `TypeOf` knows a control's class** (#1060). `For Each c In Controls`,
+  `Controls.Count`, `Controls(i)` and `Controls("Name")` stopped the run as not implemented. They now hold every control
+  in the order the file holds them, menus and each control-array element included, as vb6.exe does, with VB6's
+  errors for an index out of range or a name not there. `TypeOf c Is TextBox` was False for every control, so the
+  usual loop over a form's controls would have done nothing, silently. It now matches a control by its class, as a
+  `Control` and as an `Object`, and a form as a `Form`. `Unload c` unloads a control-array element held in a
+  variable. `Controls.Add` and `Remove` are still refused (#1556).
+
 - **View Code opens with the caret in the code** (#1518). It opened at the top of the file, on the folded header that
   only the IDE may change, so the first keystroke was refused and nothing appeared. Since #1369 that was every new
   form's first View Code too. Now a code window opened with nowhere asked for puts its caret on the first line below

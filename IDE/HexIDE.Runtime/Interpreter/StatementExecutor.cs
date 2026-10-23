@@ -920,7 +920,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
 
         if (collection.Value is VbCollection items)
-            return await ForEachItem(context, varName, items);
+        {
+            var cursor = items.StartEnumeration();
+            return await ForEachItem(context, varName, (out Vb6Value item) => items.TryNext(cursor, out item),
+                () => items.EndEnumeration(cursor));
+        }
+        if (collection.Value is FormControls controls)
+        {
+            var cursor = controls.StartEnumeration();
+            return await ForEachItem(context, varName, (out Vb6Value item) => controls.TryNext(cursor, out item), () => { });
+        }
 
         if (collection.Value is not VBArray { IsDefined: true } array)
         {
@@ -932,7 +941,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 VBArray => new VBRunTimeException(context, VBStandardError.ForLoopNotInitialized),
                 null when collection.Type == Vb6Value.ValueType.Object => new VBRunTimeException(context, VBStandardError.ObjectRequired),
                 VbObject or Avalonia.Controls.Control or ICSharpProxy => throw new NotImplementedException(
-                    "For Each over an object, such as a Collection, a form's Controls or a control array, is not supported yet: only arrays are."),
+                    "For Each over this object, such as a control array, is not supported yet: only arrays, a Collection and a form's Controls are."),
                 _ => new VBRunTimeException(context, VBStandardError.TypeMismatch),
             };
             if (errorMode != ErrorMode.ResumeNext)
@@ -970,15 +979,20 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return ControlFlow.Nothing;
     }
 
+    /// <summary>The next item of a For Each over an object, or false once there are no more.</summary>
+    private delegate bool NextItem(out Vb6Value item);
+
     /// <summary>
-    /// For Each over a Collection (#1471), measured. The loop reaches the items in order, as they are when it reaches them:
-    /// an item removed before it is reached is not, and one added after the item it is on is (VbCollection.Cursor). Each
-    /// is bound as an array's element is. A loop that runs out leaves a Variant Empty and an object variable Nothing;
-    /// Exit For leaves it holding the item it reached. The variable must be a Variant or an object: a Long or a String is
-    /// VB6's compile error, and an item that is no object, given to an object variable, is 424. Under Resume Next, that
-    /// 424 on the first item goes on into the body, and on a later one, raised by Next, ends the loop (measured).
+    /// For Each over a Collection (#1471) or a form's Controls (#1060), measured. The loop reaches the items in order, as
+    /// they are when it reaches them: from a Collection, an item removed before it is reached is not, and one added after
+    /// the item it is on is (VbCollection.Cursor); from Controls, one unloaded before it is reached is not, and one loaded
+    /// while it runs is not either (FormControls.Cursor). Each is bound as an array's element is. A loop that runs out
+    /// leaves a Variant Empty and an object variable Nothing; Exit For leaves it holding the item it reached. The variable
+    /// must be a Variant or an object: a Long or a String is VB6's compile error, and an item that is no object, given to
+    /// an object variable, is 424. Under Resume Next, that 424 on the first item goes on into the body, and on a later one,
+    /// raised by Next, ends the loop (measured).
     /// </summary>
-    private async Task<ControlFlow> ForEachItem(VB6Parser.ForEachStmtContext context, string varName, VbCollection items)
+    private async Task<ControlFlow> ForEachItem(VB6Parser.ForEachStmtContext context, string varName, NextItem next, Action end)
     {
         currentEnv.TryGetVariableLocation(varName, out var location);
         var state = interpreter.ExecutionContext.State;
@@ -991,11 +1005,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             && (state.DeclaredClassOf(location) is not null || IsObjectReference(initial));
 
         var block = context.block();
-        var cursor = items.StartEnumeration();
         try
         {
             var first = true;
-            while (items.TryNext(cursor, out var item))
+            while (next(out var item))
             {
                 try
                 {
@@ -1034,7 +1047,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         finally
         {
-            items.EndEnumeration(cursor);
+            end();
         }
         interpreter.ExecutionContext.TryInspectVariable(currentEnv, varName, out var last);
         interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, objectVariable ? Vb6Value.Nothing : Vb6Value.Variant);
@@ -2701,6 +2714,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (target.Value is VbObject { FormWindow: IModuleExecutionRoot root })
             {
                 await root.UnloadAsync(1);
+                return ControlFlow.Nothing;
+            }
+            // An element held by a variable, as `Unload c` in a loop over a form's Controls does (measured, #1060).
+            if (target.Value is Avalonia.Controls.Control element && ControlArrayGroup.TryGetArrayOf(element, out var array)
+                && BuiltinControls.VBProps.GetIndex(element) is { } elementIndex)
+            {
+                array.Unload(elementIndex);
                 return ControlFlow.Nothing;
             }
         }

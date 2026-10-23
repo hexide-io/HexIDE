@@ -28,10 +28,12 @@ public class VBLoader
     /// The run's library, which shows a CommonDialog's dialogs (#1084). Without one a form holding a CommonDialog is
     /// refused, as a form holding any control HexIDE can't create is.
     /// </param>
+    /// <param name="form">The form instance the controls are put into, which is given their Controls collection (#1060).</param>
     public static Control SpawnComponents(FormDefinition element,
         ModuleExecutionContext executionContext,
         ExecutionEnvironment environment,
-        IBasicStandardLibrary? standardLibrary = null)
+        IBasicStandardLibrary? standardLibrary = null,
+        VbObject? form = null)
     {
         RefuseUncreatableControls(element, standardLibrary is not null);
         var canvas = new Canvas()
@@ -71,8 +73,13 @@ public class VBLoader
             if (list.Count > 1 || list.Any(c => TryParseControlArrayIndex(c, out _)))
                 arrayGroups[nm] = new ControlArrayGroup(nm);
 
+        // What each block of the form became, for its Controls collection (#1060).
+        var placed = new Dictionary<ComponentInstance, Control>();
+        var dialogs = new Dictionary<string, Control>(StringComparer.Ordinal);
+
         void OnPlaced(ComponentInstance component, Control control, Canvas host)
         {
+            placed[component] = control;
             if (component.GetPropertyOrDefault(VBProperties.NameProperty) is not { } name)
                 return;
 
@@ -112,12 +119,14 @@ public class VBLoader
                     VBProps.SetRunTimeId(dialog);
                     canvas.Children.Add(dialog);
                     executionContext.AllocVariable(environment, dialogBlock.Name, new Vb6Value(dialog));
+                    dialogs[block] = dialog;
                 }
 
         // A menu has a name in code as a control has (#1126): a variable of its own, or an element of its menu control
         // array, whose Click then passes the element's Index.
         foreach (var (component, control, parent) in menus)
         {
+            placed[component] = control;
             if (component.GetPropertyOrDefault(VBProperties.NameProperty) is not { } name)
                 continue;
             VBProps.SetName(control, name);
@@ -135,6 +144,12 @@ public class VBLoader
         // Bind each control-array group to its shared Name once every element is in place.
         foreach (var (name, group) in arrayGroups)
             executionContext.AllocVariable(environment, name, new Vb6Value(group));
+
+        var controls = new FormControls(InFileOrder(element, placed, dialogs), arrayGroups);
+        foreach (var group in arrayGroups.Values)
+            group.FormControls = controls;
+        if (form is not null)
+            form.Controls = controls;
 
         var root = new DockPanel()
         {
@@ -423,6 +438,63 @@ public class VBLoader
     /// is never contained by anything, yet it shares the component list with the controls. Filtering on
     /// "has a container" alone would drop the first population entirely and leave a blank form.
     /// </summary>
+    /// <summary>
+    /// The form's controls in the order its file holds their blocks, which is the order of its Controls collection
+    /// (measured, #1060): a container before what it holds, a menu before its submenus, and a block HexIDE keeps as text
+    /// at the place it was read, among its container's children by its ordinal, as the writer puts it back.
+    /// </summary>
+    private static IEnumerable<Control> InFileOrder(FormDefinition element, Dictionary<ComponentInstance, Control> placed,
+        Dictionary<string, Control> dialogs)
+    {
+        var root = element.Components.FirstOrDefault(c => c.BaseClass is FormComponentClass);
+        if (root is null)
+            yield break;
+        var claimed = new HashSet<ComponentInstance>();
+        foreach (var component in element.Components)
+            if (component != root)
+                foreach (var child in ChildrenOf(component))
+                    claimed.Add(child);
+
+        var order = new List<Control>();
+        void Walk(ComponentInstance container, IReadOnlyList<ComponentInstance> children)
+        {
+            var blocks = container.PreservedChildSubtrees;
+            var child = 0;
+            var block = 0;
+            for (var position = 0; position < children.Count + blocks.Count; position++)
+            {
+                if (block < blocks.Count && blocks[block].Ordinal <= position)
+                {
+                    if (dialogs.TryGetValue(blocks[block++].Text, out var dialog))
+                        order.Add(dialog);
+                }
+                else if (child < children.Count)
+                {
+                    var component = children[child++];
+                    if (placed.TryGetValue(component, out var control))
+                        order.Add(control);
+                    Walk(component, ChildrenOf(component));
+                }
+            }
+            for (; block < blocks.Count; block++)
+                if (dialogs.TryGetValue(blocks[block].Text, out var dialog))
+                    order.Add(dialog);
+            for (; child < children.Count; child++)
+            {
+                if (placed.TryGetValue(children[child], out var control))
+                    order.Add(control);
+                Walk(children[child], ChildrenOf(children[child]));
+            }
+        }
+        Walk(root, element.Components.Where(c => c != root && !claimed.Contains(c)).ToList());
+        foreach (var control in order)
+            yield return control;
+    }
+
+    // A menu's children are its submenus, and anything else's the controls it contains.
+    private static IReadOnlyList<ComponentInstance> ChildrenOf(ComponentInstance component) =>
+        component.BaseClass is MenuComponentClass ? SubItemsOf(component) : component.ContainedControls;
+
     private static IEnumerable<ComponentInstance> TopLevelComponents(FormDefinition element)
     {
         var form = element.Components.FirstOrDefault(c => c.BaseClass is FormComponentClass);
@@ -804,7 +876,8 @@ public class VBLoader
         Debugging.IDebugController? debugController, Func<FormDefinition, IFormView>? openForm = null)
     {
         var program = new VBProgram(element, context, debugController, openForm);
-        setContent(SpawnComponents(element, context.ExecutionContext, context.InstanceEnv, context.StandardLibrary));
+        setContent(SpawnComponents(element, context.ExecutionContext, context.InstanceEnv, context.StandardLibrary,
+            context.FormInstance));
         context.HoldControlsUntilLoad();
         return program;
     }

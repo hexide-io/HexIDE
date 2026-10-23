@@ -485,11 +485,10 @@ public class FormInstanceTests
     [InlineData("    Debug.Print Me.ScaleMode", "Reading Form1's ScaleMode")]
     [InlineData("    Cls", "Cls method")]
     [InlineData("    Debug.Print TextWidth(\"abc\")", "TextWidth method")]
-    [InlineData("    Debug.Print Controls(0).Name", "Form1's Controls with arguments")]
     public void A_member_VB6s_Form_has_and_HexIDE_lacks_is_refused_as_not_implemented(string statement, string named)
     {
-        // VB6 has each (measured where it matters: Cls runs, TextWidth is a Single, Controls is an object). Quietly making a
-        // variable of CurrentX, or saying "Sub or Function not defined" for Cls, would hide that HexIDE lacks it.
+        // VB6 has each (measured where it matters: Cls runs, TextWidth is a Single). Quietly making a variable of CurrentX, or
+        // saying "Sub or Function not defined" for Cls, would hide that HexIDE lacks it. Controls was here until #1060.
         var run = RunFormLoad(statement + "\n    Debug.Print \"ran\"");
 
         run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
