@@ -16498,11 +16498,13 @@ assigned, while the window keeps the size that value gave it. An assignment roun
 gives the window the client area left inside the frame. Read and write use the same frame, so `Width - ScaleWidth` is
 the frame and the fit-to-content idiom lands where it did.
 
-**The frame is VB6's, not the window's.** HexIDE draws every form as a sizable window with a full title bar (#1575). A
-frame read from the window would be Sizable's for every form, would be unknown until the form is shown and so change
-across Show, and would differ between hosts. The table is stable from Load onwards and the same everywhere. What that
-costs is screen arithmetic, such as `(Screen.Width - Width) / 2`, which is off by the difference between the two frames
-until #1575 makes them one. A form's Left and Top don't work at run time yet anyway (#852).
+**The frame is VB6's, not the window's.** HexIDE drew every form as a sizable window with a full title bar until #1575,
+which gives the window vb6.exe's own styles ("A form's window styles", below). A frame read from the window would still
+be unknown until the form is shown, and so change across Show, and would differ between hosts: the frame Windows draws
+for those styles depends on its version, theme and dpi. The table is stable from Load onwards and the same everywhere.
+What that costs is screen arithmetic, such as `(Screen.Width - Width) / 2`, which is off wherever the host draws a frame
+other than the themed Windows 10 one the table was measured on. A form's Left and Top don't work at run time yet anyway
+(#852).
 
 **The console's values, not session 0's,** because the themed frame is what a user's desktop draws. A classic-theme
 profile would supply session 0's to `FormFrame` instead.
@@ -16515,6 +16517,104 @@ profile would supply session 0's to `FormFrame` instead.
   the assignment gave it.
 - A Width or Height smaller than the frame: HexIDE gives the window no client area. Unmeasured.
 - Other dpi settings: HexIDE counts 15 twips to a pixel, as at 96 dpi.
+
+## A form's window styles: BorderStyle, ControlBox, MinButton and MaxButton (2026-10-23, #1575)
+
+**The question.** A running form was a sizable window with a title bar and every button, whatever its file said. What
+window does vb6.exe make for each combination of BorderStyle, ControlBox, Caption, MinButton, MaxButton, ShowInTaskbar
+and a menu?
+
+**The probe.** One project of 20 forms built by `/make`, native and p-code, in session 0 on the Windows 10 guest. Sub
+Main loads and shows each form in turn and reads:
+- `GetWindowLong(hWnd, GWL_STYLE)` and `GWL_EXSTYLE`;
+- the form's own MinButton, MaxButton, ControlBox, ShowInTaskbar and BorderStyle;
+- `WM_GETICON` for the small and big icons, and the class's icons.
+
+A window's styles are set as it is made, whatever desktop it is on, so session 0 answers this. **Native and p-code
+agree on every row.**
+
+| Form | The file says | Style | Extended style |
+|---|---|---|---|
+| B0 | BorderStyle 0 | `16000000` | `00040000` |
+| B0m | BorderStyle 0, a menu | `16CB0000` | `00040100` |
+| B1 | BorderStyle 1 | `16CB0000` | `00040100` |
+| B1x0 | 1, MinButton and MaxButton False | `16C80000` | `00040100` |
+| B1x1 | 1, MinButton and MaxButton True | `16CB0000` | `00040100` |
+| B2 | nothing (Sizable) | `16CF0000` | `00040100` |
+| B2n0 | MinButton False | `16CD0000` | `00040100` |
+| B2a0 | MaxButton False | `16CE0000` | `00040100` |
+| B2c0 | ControlBox False | `16C70000` | `00040100` |
+| B2c0e | ControlBox False, Caption empty | `16870000` | `00040100` |
+| B2c0x1 | ControlBox False, MinButton and MaxButton True | `16C70000` | `00040100` |
+| B3 | BorderStyle 3 | `16C80080` | `00040101` |
+| B3x1 | 3, MinButton and MaxButton True | `16C80080` | `00040101` |
+| B4 | BorderStyle 4 | `16CB0000` | `00040180` |
+| B5 | BorderStyle 5 | `16CF0000` | `00040180` |
+| B5x1 | 5, MinButton and MaxButton True | `16CF0000` | `00040180` |
+| B1c0e | 1, ControlBox False, Caption empty | `16830000` | `00040000` |
+| B2t0 | ShowInTaskbar False | `16CF0000` | `00000100` |
+| B3t1 | 3, ShowInTaskbar True | `16C80080` | `00040101` |
+| B4t1 | 4, ShowInTaskbar True | `16CB0000` | `00040180` |
+
+Every form read its properties back as the file gave them, and all four are True where the file leaves them out, for
+every BorderStyle: B3 and B4 read ShowInTaskbar True, and B3 reads MinButton and MaxButton True although its window has
+neither box.
+
+**Decoded.** The style's `16000000` is the visible, clip-siblings and clip-children bits every form has. Above them:
+`00800000` border, `00400000` dialog frame (the two together are the caption), `00080000` system menu, `00040000`
+resizing frame, `00020000` minimize box, `00010000` maximize box, and in the low word `00000080`. The extended style's
+`00040000` is the taskbar's, `00000100` the window edge, `00000080` the tool window's and `00000001` the dialog modal
+frame. So:
+- **None has no frame at all**, and a menu gives it Fixed Single's window (B0m reads as B1).
+- **Every other style has a border, and a caption** unless ControlBox is False and the Caption empty.
+- **The resizing frame goes with the two sizable styles**, 2 and 5.
+- **The system menu goes with ControlBox**, and so the close box does.
+- **The minimize and maximize boxes follow MinButton and MaxButton**, on the tool windows too, and with ControlBox False:
+  B2c0 has both and no system menu.
+- **A Fixed Dialog never has either box**, whatever the file says, and has `00000080` and the dialog modal frame
+  instead.
+- **The two tool windows have the tool-window bit.**
+- **ShowInTaskbar is the taskbar bit and nothing else** (B2t0).
+- **The window edge** is there wherever there is a caption or a resizing frame, and not on B0 or B1c0e.
+
+**Every form has a big icon and no small one**, Fixed Dialog included, and its class has neither.
+
+**What resisted explanation.** `00000080` in the style's low word is `DS_MODALFRAME` on a dialog's class. What it means
+on a form's, which is not a dialog class, is not established; it is replicated as read.
+
+**In HexIDE (#1575):** `FormChrome` works the styles out from the file, once, as the window is made. On Windows they
+reach the window through Avalonia's style callback, which replaces only the frame bits above and the tool-window and
+dialog-modal-frame bits. Avalonia keeps the rest: visibility, clipping, the window's state, the taskbar bit from
+ShowInTaskbar, and the window edge, which Windows sets itself. On other hosts the same rules drive Avalonia's own
+CanResize, WindowDecorations, CanMinimize and CanMaximize.
+
+**Read back from HexIDE's own windows** on 2026-10-23, with `GetWindowLong` on the running forms of a nine-form project
+(B0, B1, B1x0, B2c0, B2c0e, B3x1, B4, B5, B1c0e) and its Sizable Form1: every style was the table's, and every client
+area was the file's 2520 × 1500 twips. The extended styles matched too, apart from Avalonia's no-redirection-bitmap bit,
+`00200000`. A screen capture of the same windows showed:
+- no frame on B0;
+- no icon and no buttons where there is no system menu;
+- a small caption with a close box alone on the tool windows;
+- a close box alone on the Fixed Dialog;
+- a border alone where there is no caption.
+
+`WM_SYSCOMMAND SC_MAXIMIZE`, what the maximize box sends, maximized B1, whose file leaves MaxButton out.
+
+**Not followed:** HexIDE's windows carry both a small and a big icon, Avalonia's own. So the Fixed Dialog showed an icon
+on its caption ([#1594](https://github.com/hexide-io/HexIDE/issues/1594)). Off Windows, a Fixed Single form whose
+MaxButton is True has no maximize box, because Avalonia allows one only on a window it can resize; on Windows the box is
+drawn and maximizes. Nor does Avalonia have a tool window's caption, or a caption bar with no close box.
+
+**Not measured:**
+- What Windows draws for these styles on the console, against vb6.exe's own window. Above, only HexIDE's windows were
+  seen.
+- That a Fixed Dialog's caption shows no icon because there is no small icon. That is the usual account, not measured
+  here (#1594).
+- That the menu keeps the caption bar on a borderless form whose ControlBox is False and whose Caption is empty, as
+  #1072's frame has always taken it to. B0m had both.
+- What VB6's designer sets when BorderStyle changes
+  ([#1596](https://github.com/hexide-io/HexIDE/issues/1596)).
+- A Caption or ControlBox changed at run time. HexIDE keeps the window the file gave it, as it keeps the frame.
 
 ## A form's Resize, Activate and Deactivate (2026-10-23, #994)
 
@@ -17844,3 +17944,70 @@ Not done here, each with its issue:
 - **vbUnicode and vbFromUnicode** make byte strings (#1510).
 - **A compare of 3 and up** (#881).
 - **StrComp given no compare in a Text module** (#1572).
+
+## When Err is cleared, and what a running handler traps (2026-10-23, #877)
+
+Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60 6.00.9848 (SP6) runtime. These are run-time rows, and native and p-code agree on every one. The rows add to #877's first three and to the two its review rounds measured: `/make` and the IDE agreed then. Each program logged `Err.Number`, with `Err.Description` in brackets where it matters, at the points named. `ErrLifetimeTests` runs the same programs and must print the same lines.
+
+**Every `On Error` statement clears Err**, Description and Source included:
+
+| After `Err.Raise 5` under Resume Next | `Err` |
+|---|---|
+| `On Error Resume Next` | 0, Description and Source empty |
+| `On Error GoTo 0` | 0 |
+| `On Error GoTo H` | 0 |
+| `On Error GoTo -1` | 0. **VB6 compiles it**, although only VBA documents it |
+| `On Error Resume Next` inside a loop, again on its second pass | 6 on the first, 0 on the second |
+
+**Every `Resume` clears it, and so does leaving a procedure from its handler.** Each callee raised 11 into `On Error GoTo H`:
+
+| How the callee ended | `Err` seen after |
+|---|---|
+| `Exit Sub` from the handler | 0, though the handler itself read 11 |
+| `Exit Function` from the handler, which set the return value | 0, and the value is returned |
+| the handler reaching `End Function` or `End Sub` | 0, even when the caller had its own 5 set before the call |
+| the handler set `Err.Number = 7`, then `End Sub` | 0 |
+| the handler said `On Error Resume Next` or `On Error GoTo 0`, set `Err.Number = 7`, and ended or `Exit Sub`'d | 0: leaving the handler clears it, whatever mode the handler set |
+| the handler's `Resume Next`, or `Resume Back` to a label | 0 at the statement resumed, and 0 for the caller |
+| the handler raised 13 | 13 reaches the caller |
+| a handler for a callee's error 9, ending normally | the handler read 9, and the caller 0 |
+| `On Error Resume Next`, raise 11, then `Exit Sub` or `End Sub` (no handler) | **11**: leaving under Resume Next keeps it |
+
+**While a handler runs, nothing in its procedure traps**, whatever `On Error` it says:
+
+| Inside a running handler for 11 | Then |
+|---|---|
+| `On Error Resume Next`, then `Err.Raise 13` | not trapped: the statements after it never ran, and **13 reached the caller**. HexIDE trapped it and ran on |
+| `On Error GoTo H` (itself), then `Err.Raise 13` | 13 reached the caller |
+| `On Error Resume Next`, then `Resume Next` | resumed. A later `Err.Raise 13` **is** trapped and continued past: the mode the handler set applies once the handler has ended |
+| `On Error GoTo H2`, then `Resume Next` | the next error went to `H2` |
+| `On Error GoTo -1`, then `On Error Resume Next`, then `Err.Raise 13` | trapped: `-1` ends the handler |
+| `On Error GoTo -1`, then `On Error GoTo H`, then `Err.Raise 13` | the same handler ran again, for 13 |
+| a helper whose first line is `On Error Resume Next`, called from the handler | the handler's `Err` is 0 after the call: Err is global |
+
+`On Error GoTo -1` under `On Error Resume Next`, outside any handler, leaves Resume Next in force: a later `Err.Raise 6` is trapped.
+
+**`Err.Raise` with no Description keeps the one already set**, until `Err.Clear`. The other fields behave as follows:
+
+| Sequence, from `Err.Clear` | `Err.Number`, `Err.Description` |
+|---|---|
+| `Err.Raise 11`, `Err.Raise 13` | 13, **"Division by zero"** |
+| `Err.Raise 1000, "S1", "custom"`, `Err.Raise 5` | 5, "custom", and Source stays "S1" |
+| `Err.Raise 1000, , "custom"`, `Err.Raise 1000` | 1000, "custom" |
+| `Err.Description = "manual"`, `Err.Raise 13` | 13, "manual" |
+| `Err.Raise 11`, `Err.Description = ""`, `Err.Raise 13` | 13, **""**: an empty Description, once set, is kept too |
+| `Err.Number = 5`, `Err.Raise 6` | 6, "Overflow": setting Number sets no Description |
+| `Err.Raise 11`, `Err.Raise 13, , ""` | 13, "" |
+| `Err.Raise 11`, then `x = 1 / 0` | 11, "Division by zero": a run-time error always sets its own |
+| `Err.Raise 5` alone | Source is "Probe", the project's name |
+
+**Measured, and not followed:** `Resume` in a handler for an `Err.Raise` inside a one-line `If`, `If tries = 0 Then Err.Raise 11`, retried the `Err.Raise` itself, not the `If`. So it raised again although the handler had made `tries` 1. It looped until `tries` overflowed, and 6 reached the caller. HexIDE's `Resume` retries the top-level statement, the `If`, which is the nested-granular `Resume` limit in `interpreter-gaps.md`, so there it runs on.
+
+### In HexIDE (#877)
+
+- `VisitOnErrorStmt` clears Err first, for every form. `GoTo -1` sets `inHandler` false and leaves the mode alone.
+- Every `Resume` clears Err.
+- `LeaveHandler` clears it when the procedure is left with its handler running.
+- `Traps` and the Resume Next catches read `!inHandler`, so a running handler traps nothing.
+- `VbErr` records whether a Description has been set, and a `Raise` with none keeps it.
+- Source is still not filled with the project's name.

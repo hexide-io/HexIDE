@@ -94,11 +94,10 @@ public class McpRestartTests
         var builder = WebApplication.CreateSlimBuilder();
         builder.Logging.ClearProviders();
         builder.WebHost.ConfigureKestrel(o => o.ListenLocalhost(port));
-        builder.Services
+        ToolFilters.Register(builder.Services
             .AddMcpServer()
             .WithHttpTransport(transport)
-            .WithTools<Tools>(ReplyJson.Options)
-            .WithRequestFilters(filters => filters.AddCallToolFilter(ToolFailures.Filter));
+            .WithTools<Tools>(ReplyJson.Options), null);
         var app = builder.Build();
         app.MapMcp("/mcp");
         await app.StartAsync(TestContext.Current.CancellationToken);
@@ -207,6 +206,50 @@ public class McpRestartTests
     }
 
     // ── Arguments the SDK could not bind are refusals, not defects (#1270) ──────
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Unpaired_surrogate_arguments_are_refused_as_invalid_text(bool high)
+    {
+        // Keep the invalid string out of theory metadata: discovery serializes that metadata as UTF-8 too.
+        var surrogate = high ? "\uD800" : "\uDC00";
+        var port = FreePort();
+        var app = await StartAsync(port, McpTransport.Configure);
+        try
+        {
+            await using var client = await ConnectAsync(port);
+            var encoded = await CallAsync(client, "echo", surrogate);
+            TextOf(encoded).Should().Be("\uFFFD", "the SDK client replaces a lone surrogate while encoding");
+
+            using var http = new HttpClient();
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"http://localhost:{port}/mcp");
+            request.Headers.Accept.ParseAdd("application/json");
+            request.Headers.Accept.ParseAdd("text/event-stream");
+            var escaped = $"\\u{(int)surrogate[0]:X4}";
+            var body = "{\"jsonrpc\":\"2.0\",\"id\":1337,\"method\":\"tools/call\",\"params\":{\"name\":\"echo\",\"arguments\":{\"text\":\""
+                + escaped + "\"}}}";
+            request.Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
+            using var response = await http.SendAsync(request, TestContext.Current.CancellationToken);
+            var reply = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+            reply.Should().Contain("unpaired UTF-16 surrogate");
+            var data = reply.Split('\n').Single(line => line.StartsWith("data: ", StringComparison.Ordinal))[6..];
+            using var json = System.Text.Json.JsonDocument.Parse(data);
+            var result = json.RootElement.GetProperty("result");
+            result.GetProperty("isError").GetBoolean().Should().BeTrue();
+            result.GetProperty("content")[0].GetProperty("text").GetString().Should().Be(
+                "'echo' refused its arguments, and nothing was done: 'text' is not valid text (an unpaired UTF-16 surrogate). "
+                + "Its input schema names each parameter and its type.");
+            json.RootElement.GetProperty("id").GetInt32().Should().Be(1337);
+            reply.Should().NotContain("An error occurred.");
+            (await EchoAsync(client, "\uD800\uDC00")).Should().Be("\uD800\uDC00", "a whole surrogate pair is valid text");
+            (await EchoAsync(client, @"\uD800")).Should().Be(@"\uD800", "literal escape text is valid too");
+        }
+        finally
+        {
+            await StopAsync(app);
+        }
+    }
 
     private static async Task<CallToolResult> CallWithAsync(string tool, Dictionary<string, object?> arguments)
     {
