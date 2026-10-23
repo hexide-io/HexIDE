@@ -137,22 +137,31 @@ internal sealed class ModuleLevelBounds
         // Another module's Public Const is a constant, read as the qualified one is (measured, #880: Module2's
         // `Public Const M = 3` makes Module1's `Const A = M + 1` 4 and `Dim d(M)` 0 To 3). Two modules naming it is
         // ambiguous, as a bare read anywhere is (ProjectNames).
+        // Another module's Public Enum member is a constant too, a class's included (measured, #889: Module2's `colMax` makes
+        // `Const K = colMax + 1` 3 and `Dim d(colMax)` 0 To 2, and Class1's `clsA = 40` sizes `Dim d(clsA)` 0 To 40).
         ModuleInfo? exporter = null;
         var isConst = false;
+        long? exported = null;
         foreach (var other in interpreter.Modules.All)
         {
-            if (ReferenceEquals(other, module) || other.Kind != InterpreterModuleKind.Standard)
+            if (ReferenceEquals(other, module))
                 continue;
-            if (other.PrePass.Enums.Any(e => !other.PrePass.PrivateEnums.Contains(e.Key) && e.Value.ContainsKey(name)))
-                throw AnotherModulesEnumMember(name);
-            var theirConst = other.PrePass.ModuleConsts.TryGetValue(name, out var theirs) && theirs.Public;
-            if (!theirConst && !other.PrePass.PublicVariables.Contains(name)
-                && !(other.PrePass.Procedures.TryGetValue(name, out var procedure) && !procedure.IsPrivate))
+            long? theirMember = null;
+            if (other.Kind is InterpreterModuleKind.Standard or InterpreterModuleKind.Class)
+                foreach (var (enumName, members) in other.PrePass.Enums)
+                    if (!other.PrePass.PrivateEnums.Contains(enumName) && members.TryGetValue(name, out var value))
+                        theirMember = theirMember is null ? value : throw new VBCompileErrorException("Ambiguous name detected: " + name);
+            var standard = other.Kind == InterpreterModuleKind.Standard;
+            var theirConst = standard && other.PrePass.ModuleConsts.TryGetValue(name, out var theirs) && theirs.Public;
+            if (theirMember is null && !theirConst && !(standard && other.PrePass.PublicVariables.Contains(name))
+                && !(standard && other.PrePass.Procedures.TryGetValue(name, out var procedure) && !procedure.IsPrivate))
                 continue;
-            if (exporter is not null)
+            if (exporter is not null || theirMember is not null && (theirConst || standard && other.PrePass.PublicVariables.Contains(name)))
                 throw new VBCompileErrorException("Ambiguous name detected: " + name);
-            (exporter, isConst) = (other, theirConst);
+            (exporter, isConst, exported) = (other, theirConst, theirMember);
         }
+        if (exported is { } exportedValue)
+            return new Vb6Value(exportedValue);
         if (exporter is not null)
             return isConst ? ModuleConst(exporter, name, name) : throw ConstantExpressionRequired();
         if (interpreter.BuiltIns.TryGetBuiltInConstant(name, out var builtIn))
@@ -342,10 +351,6 @@ internal sealed class ModuleLevelBounds
         $"{subject} {reads} {text}, a Public Const of {other}, whose declarations have not run yet. VB6 works out every " +
         "module's Consts before the program starts; HexIDE initialises modules one at a time, in an order that depends " +
         "on how the run starts, and does not yet initialise one on demand (#893).");
-
-    private NotImplementedException AnotherModulesEnumMember(string name) => new(
-        $"{subject} {reads} {name}, a member of another module's Enum. HexIDE does not read another module's Enum " +
-        "member unqualified yet (#889). Qualify it with its Enum's name.");
 
     private NotImplementedException Unsupported(string text) => new(
         $"{subject} {reads} {text}, which HexIDE does not read in a module-level Const or array bound.");

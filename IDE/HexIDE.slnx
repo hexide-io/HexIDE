@@ -1,6 +1,7 @@
 <Solution>
   <Project Path="HexIDE.Core/HexIDE.Core.csproj" />
   <Project Path="HexIDE.Dap.Smoke/HexIDE.Dap.Smoke.csproj" />
+  <Project Path="HexIDE.Dap.Parity/HexIDE.Dap.Parity.csproj" />
   <Project Path="HexIDE/HexIDE.csproj" />
   <Project Path="HexIDE.AIChat/HexIDE.AIChat.csproj" />
   <Project Path="HexIDE.TestAddin/HexIDE.TestAddin.csproj" />

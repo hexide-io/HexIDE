@@ -39,10 +39,9 @@ public class ModuleScopeTests : BaseVBTestFixture
         // `Dim p As Module2.Point` — measured legal, and it used to fail with "User-defined type not
         // defined: Module2.Point". It PARSED, so the corpus gate reported it clean.
         await RunModules("Dim p As Module2.Point\np.X = 5\nDebug.Print p.X\n", ("Module2", PointX));
-        // NB Integer, not Long. A UDT field declared `As Long` does not coerce the stored value to its
-        // declared width here — a separate gap, unrelated to module scope, asserted as it behaves so this
-        // test measures the one thing it is for.
-        AssertDebugLog([new Vb6Value(5)]);
+        // A Long, as the field is declared: a store into a field converts into its type (#221). This pinned the Integer
+        // HexIDE stored until then.
+        AssertDebugLog([new Vb6Value(5L)]);
     }
 
     [Fact]
@@ -57,7 +56,7 @@ public class ModuleScopeTests : BaseVBTestFixture
         // right and the test was wrong.
         await RunModules("Private Type Point\n    X As Long\nEnd Type\nDim p As Point\np.X = 1\nDebug.Print p.X\n",
             ("Module2", "Private Type Point\n    Latitude As Double\nEnd Type\n"));
-        AssertDebugLog([new Vb6Value(1)]);
+        AssertDebugLog([new Vb6Value(1L)]);
     }
 
     [Fact]
@@ -105,7 +104,7 @@ public class ModuleScopeTests : BaseVBTestFixture
     {
         await RunModules("Private Type Point\n    X As Long\nEnd Type\nDim p As Point\np.X = 7\nDebug.Print p.X\n",
             ("Module2", PointLat));
-        AssertDebugLog([new Vb6Value(7)]);
+        AssertDebugLog([new Vb6Value(7L)]);
     }
 
     [Fact]
@@ -160,6 +159,6 @@ public class ModuleScopeTests : BaseVBTestFixture
         await RunModules("Dim p As Project1.Point\np.X = 3\nDebug.Print p.X\n" +
                          "Debug.Print Project1.Module2.MyEnum.Foo\nDebug.Print Project1.Foo\n",
             ("Module2", PointX + "\nPublic Enum MyEnum\n    Foo = 9\nEnd Enum\n"));
-        AssertDebugLog([new Vb6Value(3), new Vb6Value(9L), new Vb6Value(9L)]);
+        AssertDebugLog([new Vb6Value(3L), new Vb6Value(9L), new Vb6Value(9L)]);
     }
 }

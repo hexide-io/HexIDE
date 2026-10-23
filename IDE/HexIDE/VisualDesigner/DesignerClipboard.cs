@@ -24,16 +24,38 @@ internal static class DesignerClipboard
     /// That container's accumulated canvas origin, captured at copy time rather than looked up at paste time:
     /// the clipboard outlives the form it was filled from, so by then the container may not exist to ask.
     /// </param>
+    /// <param name="UnknownProperties">
+    /// Its properties HexIDE does not model, with the companion records they cite. Not in <paramref name="Properties"/>,
+    /// which is only what the property bag holds, so a paste used to leave them behind (#1453).
+    /// </param>
+    /// <param name="PreservedChildren">
+    /// The controls inside it HexIDE does not model, kept as the text they were read as with the records they cite. They
+    /// are no <see cref="ComponentInstance"/>, so <paramref name="Children"/> cannot hold them (#1453).
+    /// </param>
     internal record ClipboardEntry(
         IComponentClass BaseClass,
         IReadOnlyDictionary<PropertyClass, object?> Properties,
         ComponentInstance? SourceContainer,
         Point SourceContainerOrigin,
-        IReadOnlyList<ClipboardEntry> Children);
+        IReadOnlyList<ClipboardEntry> Children,
+        IReadOnlyList<ComponentInstance.UnknownRawProperty> UnknownProperties,
+        IReadOnlyList<ComponentInstance.PreservedSubtree> PreservedChildren);
 
     private static IReadOnlyList<ClipboardEntry>? _contents;
 
     public static IReadOnlyList<ClipboardEntry>? Contents => _contents;
+
+    /// <summary>
+    /// The <c>Object =</c> lines of the form the contents came from: the libraries its controls are declared from. A
+    /// control HexIDE does not model names its class, not the OCX that holds it, so it can be pasted only into a form
+    /// that declares them too.
+    /// </summary>
+    public static IReadOnlyList<string> SourceDeclarations { get; private set; } = [];
+
+    /// <summary>The <c>Object =</c> lines among a form's header lines.</summary>
+    public static IEnumerable<string> Declarations(IEnumerable<string> headerLines) =>
+        headerLines.Select(line => line.Trim())
+                   .Where(line => line.StartsWith("Object", System.StringComparison.OrdinalIgnoreCase));
 
     public static void Set(IEnumerable<ComponentInstanceViewModel> components)
     {
@@ -51,6 +73,9 @@ internal static class DesignerClipboard
         }
 
         _contents = selection.Where(IsRoot).Select(Capture).ToList();
+        SourceDeclarations = selection.FirstOrDefault()?.Owner.FormDefinition is { } form
+            ? Declarations(form.HeaderLines).ToList()
+            : [];
     }
 
     private static ClipboardEntry Capture(ComponentInstanceViewModel vm)
@@ -68,8 +93,14 @@ internal static class DesignerClipboard
             vm.Instance.GetAllSetProperties(),
             vm.Instance.Container,
             vm.ContainerBounds.Position,
-            children);
+            children,
+            [.. vm.Instance.UnknownRawProperties],
+            [.. vm.Instance.PreservedChildSubtrees]);
     }
 
-    public static void Clear() => _contents = null;
+    public static void Clear()
+    {
+        _contents = null;
+        SourceDeclarations = [];
+    }
 }

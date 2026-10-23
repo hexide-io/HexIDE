@@ -179,7 +179,9 @@ work on. HexIDE neither ships VB6 nor depends on it at run time. The oracle is a
   produces.
 
 **The serialization round-trip corpus** follows the same idea for `.frm`/`.vbp` files. The round-trip tests
-look in VB6's own `VB98\Template` folder by default (`VB6_TEMPLATES` overrides it). Set
+look in VB6's own `VB98\Template` folder by default. `VB6_TEMPLATES` overrides it, naming either the
+`Template` folder or the folder it was extracted into. Once set, it is trusted: a test that cannot find its
+file there fails, saying where it looked, rather than passing on nothing. Set
 `HEXIDE_ROUNDTRIP_CORPUS` to a `;`-separated list of folders to test against other real VB6 projects you
 have. Without either, the tests only see HexIDE's own `demo/` files and pass without proving anything.
 **Do not commit any corpus.** Microsoft's templates cannot be redistributed, and your own projects are

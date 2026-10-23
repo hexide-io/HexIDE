@@ -587,6 +587,7 @@
     "Str.PropDesc.Checked": "Whether a check mark appears beside the menu item.",
     "Str.PropDesc.WindowList": "Whether this menu lists the open MDI child windows.",
     "Str.PropDesc.Locked": "Whether the control's contents can be edited.",
+    "Str.PropDesc.MultiSelect": "Whether more than one item can be selected, and how.",
     "Str.PropDesc.StartUpPosition": "Where the form is placed on screen when it first opens.",
     "Str.PropDesc.ShowInTaskbar": "Whether the form appears in the taskbar.",
     "Str.PropDesc.TabIndex": "The control's position in the form's tab order.",

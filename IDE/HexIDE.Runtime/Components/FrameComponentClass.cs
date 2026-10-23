@@ -11,7 +11,9 @@ public class FrameComponentClass : ComponentBaseClass
     public FrameComponentClass() : base([CaptionProperty, EnabledProperty,
     BackColorProperty,
     ForeColorProperty,
-    FontProperty], [ClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
+    FontProperty,
+    // As a Label's: in the tab order without taking focus, and on every Frame VB6 writes (#925).
+    TabIndexProperty], [ClickEvent, DblClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
     {
     }
 

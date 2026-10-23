@@ -332,6 +332,58 @@ public class LocalsInspectorTests : BaseVBTestFixture
     }
 
     [Fact]
+    public async Task Locals_AsNewNeverUsed_ShowsNothing_AndMakesNoObject()
+    {
+        // Locals only looks (#435): a variable declared As New that the program hasn't used reads as the Nothing it holds,
+        // and looking makes no object, where any use by the program would.
+        var (vb, dbg) = NewDebuggable(
+            "Go\nSub Go()\nDim o As New C\nDim c As New Collection\nDebug.Print \"paused\"\nEnd Sub\n",
+            "Module1", ("C", "Private Sub Class_Initialize()\nDebug.Print \"made\"\nEnd Sub\n"));
+        dbg.SetBreakpoints("Module1", new[] { 5 });   // Debug.Print "paused" — neither variable used yet
+
+        var stop = NextStop(dbg);
+        var run = vb.Execute();
+        await stop.Guarded();
+
+        var o = Child(dbg.GetLocals()!, "o");
+        o.Value.Should().Be("Nothing");
+        o.HasChildren.Should().BeFalse();
+        Child(dbg.GetLocals()!, "c").Value.Should().Be("Nothing");
+
+        dbg.Stop();
+        await run.Guarded();
+        debug.Select(v => v.Value).Should().NotContain("made");
+    }
+
+    [Fact]
+    public async Task Locals_Collection_ExpandsToItemsInOrder()
+    {
+        var (vb, dbg) = NewDebuggable(
+            "Go\nSub Go()\nDim col As Collection, e As Collection, o As C\nSet col = New Collection\nSet e = New Collection\n"
+            + "Set o = New C\no.V = 7\ncol.Add \"a\", \"k\"\ncol.Add o\ncol.Add 5, , 1\nDebug.Print 1\nEnd Sub\n",
+            "Module1", ("C", "Public V As Integer\n"));
+        dbg.SetBreakpoints("Module1", new[] { 11 });   // Debug.Print 1 — col holds 5, "a", o
+
+        var stop = NextStop(dbg);
+        var run = vb.Execute();
+        await stop.Guarded();
+
+        var col = Child(dbg.GetLocals()!, "col");
+        col.TypeName.Should().Be("Collection");
+        col.HasChildren.Should().BeTrue();
+        col.Expand().Select(n => n.Name).Should().Equal("Item 1", "Item 2", "Item 3");
+        Child(col, "Item 1").Value.Should().Be("5");
+        Child(col, "Item 2").Value.Should().Be("\"a\"");
+        Child(Child(col, "Item 3"), "V").Value.Should().Be("7");   // an object item opens to its fields
+        var e = Child(dbg.GetLocals()!, "e");
+        e.HasChildren.Should().BeFalse();                           // an empty Collection is a leaf
+        e.Value.Should().Be("Collection");
+
+        dbg.Stop();
+        await run.Guarded();
+    }
+
+    [Fact]
     public async Task Locals_TwoLocalsSharingOneObject_BothExpand()
     {
         // a and b reference the SAME instance — NOT a cycle. Both must expand (the ancestor guard is per-path, so

@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
+using HexIDE.TestSupport;
 
 namespace HexIDE.Runtime.Tests;
 
@@ -16,17 +17,12 @@ namespace HexIDE.Runtime.Tests;
 /// </summary>
 public class ClassHeaderPreservationTests
 {
-    private static readonly string Vb6Classes =
-        Path.Join(Environment.GetEnvironmentVariable("VB6_TEMPLATES")
-                  ?? @"C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template", "Classes");
-
-    [Theory]
+    [Vb6TemplateTheory]
     [InlineData("Complex Data Consumer.cls")]  // DataBindingBehavior = 2 'vbComplexBound, VB_Exposed = True
     [InlineData("Data Source.cls")]            // DataSourceBehavior  = 1 'vbDataSource,   VB_Exposed = True
     public void A_real_vb6_class_round_trips_byte_for_byte(string fileName)
     {
-        var path = Path.Join(Vb6Classes, fileName);
-        if (!File.Exists(path)) return; // VB6 not installed (CI)
+        var path = Vb6Template.File("Classes", fileName);
 
         var original = File.ReadAllText(path);
         var (header, body) = ModuleFileFormat.SplitHeader(original, ModuleKind.ClassModule);
@@ -36,13 +32,12 @@ public class ClassHeaderPreservationTests
             .Should().Be(original);
     }
 
-    [Theory]
+    [Vb6TemplateTheory]
     [InlineData("Complex Data Consumer.cls")]
     [InlineData("Data Source.cls")]
     public void Instancing_and_data_binding_settings_survive(string fileName)
     {
-        var path = Path.Join(Vb6Classes, fileName);
-        if (!File.Exists(path)) return;
+        var path = Vb6Template.File("Classes", fileName);
 
         var original = File.ReadAllText(path);
         var (header, body) = ModuleFileFormat.SplitHeader(original, ModuleKind.ClassModule);
@@ -56,11 +51,10 @@ public class ClassHeaderPreservationTests
         }
     }
 
-    [Fact]
+    [Vb6TemplateFact]
     public void A_renamed_module_retargets_VB_Name_but_keeps_everything_else()
     {
-        var path = Path.Join(Vb6Classes, "Data Source.cls");
-        if (!File.Exists(path)) return;
+        var path = Vb6Template.File("Classes", "Data Source.cls");
 
         var original = File.ReadAllText(path);
         var (header, body) = ModuleFileFormat.SplitHeader(original, ModuleKind.ClassModule);

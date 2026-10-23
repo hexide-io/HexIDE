@@ -437,7 +437,7 @@ same call push takes — so **nothing downstream can tell the two apart**, which
 than a convenience. There is no separate pacing for this: edits are already coalesced before they reach the
 client, and a second authority over the same question would answer it differently.
 
-Three things about the model are worth stating because each one fails quietly if missed.
+Four things about the model are worth stating because each one fails quietly if missed.
 
 **Declaring it is half a negotiation, and shipping that half alone is worse than shipping neither.** A
 server is entitled to read `textDocument.diagnostic` as "the client will ask, so I need not announce" and
@@ -457,6 +457,13 @@ once this client declares it can ask, what `rumdl` publishes is an empty set whi
 back as the answer. The dropped publications are recorded in the protocol inspector rather than discarded
 silently, because "my `publishDiagnostics` is ignored" otherwise looks like a broken client to the person
 whose server advertised the alternative.
+
+**A server that takes no document sync is still asked, by design.** It is sent no document contents, so it
+answers from what it can read itself, such as the file on disk, and the protocol does not require a document
+to be open before it is asked about. Such a server is asked on open and when it asks for a refresh; it hears
+of no change and no save, so those asks never reach it. Asking only about documents that had been sent would
+leave it no way to give diagnostics at all, which is why
+[#432](https://github.com/hexide-io/HexIDE/issues/432) was closed rather than fixed.
 
 `workspace/diagnostic` — the same model at workspace scope — is **not** implemented; see the limitations
 table. `workspace/diagnostic/refresh` is, because it is the only way a server that speaks when spoken to can
@@ -729,7 +736,7 @@ than inferred.
 | ✅ | `textDocument/documentHighlight` | → |  |
 | ○ | `textDocument/documentLink` | → |  |
 | ✅ | `textDocument/documentSymbol` | → | Both answers are read. The client declares `hierarchicalDocumentSymbolSupport`, because a server that honours it sends the flat form to a client that does not, and the outline loses its nesting ([#463](https://github.com/hexide-io/HexIDE/issues/463)) |
-| ✅ | `textDocument/foldingRange` | → | Asked when an editor attaches, 500 ms after a change, and when a server comes up — the first of those runs before the first server of a session has initialized |
+| ✅ | `textDocument/foldingRange` | → | Asked when an editor attaches, 500 ms after a change, and when a server comes up — the first of those runs before the first server of a session has initialized. The client declares `lineFoldingOnly`, because a fold is read by whole lines: told nothing, clangd ends a fold part-way along its closing line, and collapsing it hid the closing brace ([#1363](https://github.com/hexide-io/HexIDE/issues/1363)) |
 | ✅ | `textDocument/formatting` | → |  |
 | ✅ | `textDocument/hover` | → |  |
 | ○ | `textDocument/implementation` | → |  |

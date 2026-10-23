@@ -588,6 +588,7 @@
     "Str.PropDesc.Checked": "Zda se vedle položky nabídky zobrazí zaškrtnutí.",
     "Str.PropDesc.WindowList": "Zda tato nabídka zobrazuje otevřená podřízená okna MDI.",
     "Str.PropDesc.Locked": "Zda lze obsah prvku upravovat.",
+    "Str.PropDesc.MultiSelect": "Zda lze vybrat více než jednu položku a jakým způsobem.",
     "Str.PropDesc.StartUpPosition": "Kde se formulář na obrazovce umístí při prvním otevření.",
     "Str.PropDesc.ShowInTaskbar": "Zda se formulář zobrazí na hlavním panelu.",
     "Str.PropDesc.TabIndex": "Pozice prvku v pořadí procházení tabulátorem ve formuláři.",
