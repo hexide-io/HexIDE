@@ -1,3 +1,4 @@
+using System.Globalization;
 using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.Tests;
@@ -8,6 +9,62 @@ namespace HexIDE.Runtime.Tests;
 /// </summary>
 public class LiteralTests : BaseVBTestFixture
 {
+    [Theory]
+    [InlineData("de-DE")]
+    [InlineData("fr-FR")]
+    public async Task NumericLiterals_AreIndependentOfHostCulture(string culture)
+    {
+        await WithCulture(culture, async () =>
+        {
+            await Run("""
+                Debug.Print 0.6 * 10
+                Debug.Print 1.5!
+                Debug.Print 2.5@
+                Debug.Print 1.5#
+                Debug.Print 1E3
+                Debug.Print 1.5%
+                Debug.Print 2.5&
+                Const Fraction = 1.25
+                Debug.Print Fraction
+                Debug.Print 10!
+                Debug.Print 10#
+                Debug.Print 10@
+                Debug.Print 10%
+                Debug.Print 10&
+                Debug.Print 40000
+                Debug.Print 3000000000
+                #Const Scale = 0.6
+                #If Scale * 10 = 6 Then
+                Debug.Print True
+                #Else
+                Debug.Print False
+                #End If
+                """);
+            AssertDebugLog([
+                new Vb6Value(6.0), new Vb6Value(1.5f), Vb6Value.NewCurrency(2.5m),
+                new Vb6Value(1.5), new Vb6Value(1000.0),
+                new Vb6Value(2), new Vb6Value(2L), new Vb6Value(1.25),
+                new Vb6Value(10f), new Vb6Value(10.0), Vb6Value.NewCurrency(10m),
+                new Vb6Value(10), new Vb6Value(10L), new Vb6Value(40000),
+                new Vb6Value(3000000000.0), new Vb6Value(true)
+            ]);
+        });
+    }
+
+    private static async Task WithCulture(string name, Func<Task> action)
+    {
+        var original = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(name);
+            await action();
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
+    }
+
     [Fact]
     public async Task BareDecimalLiteral_IsDouble_notSingle()
     {

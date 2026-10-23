@@ -39,6 +39,8 @@ public partial class VB6BuiltIns
         ["Day"] = new(["Date"], 1),
         ["Environ"] = new(["Expression"], 1),
         ["EOF"] = new(["FileNumber"], 1),
+        // Error's one parameter is optional: Error with no number is the text of the error Err holds (measured, #1560).
+        ["Error"] = new(["ErrorNumber"], 0),
         ["Exp"] = new(["Number"], 1),
         ["Filter"] = new(["SourceArray", "Match", "Include", "Compare"], 2),
         ["Format"] = new(["Expression", "Format", "FirstDayOfWeek", "FirstWeekOfYear"], 1),
@@ -84,6 +86,9 @@ public partial class VB6BuiltIns
         ["Sqr"] = new(["Number"], 1),
         ["Str"] = new(["Number"], 1),
         ["String"] = new(["Number", "Character"], 2, OmittedIsSyntaxError: true),
+        // LocaleID, not the LCID its documentation names: `StrConv(String:="a", Conversion:=1, LCID:=0)` is "Named argument
+        // not found" (measured, #1560).
+        ["StrConv"] = new(["String", "Conversion", "LocaleID"], 2),
         ["StrReverse"] = new(["Expression"], 1),
         ["Tan"] = new(["Number"], 1),
         ["TimeSerial"] = new(["Hour", "Minute", "Second"], 3),
@@ -116,9 +121,9 @@ public partial class VB6BuiltIns
         ["Timer"] = "Wrong number of arguments or invalid property assignment",
     };
 
-    // A ParamArray from the first parameter: `Array(ArgList:=1)` and `Choose(Index:=1, Choice:="a")` are "Argument in
-    // ParamArray may not be named" (measured).
-    private static readonly HashSet<string> NamedIsAParamArray = new(StringComparer.OrdinalIgnoreCase) { "Array", "Choose" };
+    // A ParamArray from the first parameter: `Array(ArgList:=1)`, `Choose(Index:=1, Choice:="a")` and `Switch(VarExpr:=True)`
+    // are "Argument in ParamArray may not be named" (measured; Switch with #1560).
+    private static readonly HashSet<string> NamedIsAParamArray = new(StringComparer.OrdinalIgnoreCase) { "Array", "Choose", "Switch" };
 
     // A blank slot is missing syntax; a supplied Optional Variant can hold Missing as a value (#1512).
     internal sealed class IntrinsicArgumentValues(int capacity) : List<Vb6Value>(capacity)
