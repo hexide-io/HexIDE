@@ -188,8 +188,8 @@ public class FocusEventTests
         run.Named<VBOptionButton>("Option2").Value.Should().BeTrue();
     }
 
-    // Measured: VB6's Tab key goes to the selected option of a group and selects nothing. HexIDE's stops at each option
-    // (#1583), so the Tab key must not select one, or tabbing past would change the user's choice.
+    // Measured: VB6's Tab key goes to the selected option of a group, so it changes nothing there (#1583, where
+    // OptionTabStopTests replays the Tab steps).
     [AvaloniaFact]
     public void The_Tab_key_does_not_change_which_option_is_selected()
     {
