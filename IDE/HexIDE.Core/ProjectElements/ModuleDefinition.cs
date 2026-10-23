@@ -2,6 +2,7 @@ using HexIDE.IDE;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using HexIDE.Runtime.Components;
 
 namespace HexIDE.Runtime.ProjectElements;
 
@@ -83,6 +84,29 @@ public partial class ModuleDefinition : INotifyPropertyChanged
     }
 
     public void UpdateCode(string newCode) => Code = newCode;
+
+    /// <summary>
+    /// A new UserControl or PropertyPage, joined to its designer half, as VB6's Add User Control and Add Property Page
+    /// make one (#1538, measured): its code is the five <c>Attribute</c> lines VB6 writes, and nothing else.
+    /// </summary>
+    /// <remarks>
+    /// A UserControl is <c>VB_Creatable = True</c> and a PropertyPage <c>False</c>; both are <c>VB_PredeclaredId =
+    /// False</c>, unlike a form. <c>VB_Exposed = False</c> is what a Standard EXE project gets; an ActiveX Control
+    /// project has not been measured.
+    /// </remarks>
+    public static ModuleDefinition NewDesigner(ProjectDefinition owner, string name, ModuleKind kind,
+        IComponentClass rootClass)
+    {
+        var module = new ModuleDefinition(owner, name, kind);
+        module.UpdateCode($"Attribute VB_Name = \"{name}\"\r\n"
+                        + "Attribute VB_GlobalNameSpace = False\r\n"
+                        + $"Attribute VB_Creatable = {(kind == ModuleKind.UserControl ? "True" : "False")}\r\n"
+                        + "Attribute VB_PredeclaredId = False\r\n"
+                        + "Attribute VB_Exposed = False\r\n");
+        module.UpdateFormPart(FormDefinition.NewDesignerHalf(owner, rootClass, name,
+            kind == ModuleKind.UserControl ? "VB.UserControl" : "VB.PropertyPage"));
+        return module;
+    }
 
     /// <summary>
     /// A <c>.bas</c> or <c>.cls</c> module's VB6 header exactly as it was read from disk, re-emitted verbatim on

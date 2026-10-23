@@ -244,6 +244,12 @@ there isn't one yet. Anything may change between 0.x releases.
   `Control` and as an `Object`, and a form as a `Form`. `Unload c` unloads a control-array element held in a
   variable. `Controls.Add` and `Remove` are still refused (#1556).
 
+- **A new form, UserControl or PropertyPage is the file VB6 makes, byte for byte** (#1538). A new form was 6000 × 4500
+  inside and had no `ClientLeft`, `ClientTop` or `LinkTopic`. A new UserControl had a `Caption`, which a UserControl
+  doesn't have, and `Attribute VB_Name` alone. Each now carries what VB6's Add Form, Add User
+  Control and Add Property Page write (measured in the IDE): a form 4560 × 3015 at 120, 465 with its `LinkTopic`, and a
+  UserControl or PropertyPage 4800 × 3600 at 0, 0 with its own five `Attribute` lines.
+
 - **A new form has no code, and an event procedure is added as VB6 adds one** (#1532). A form HexIDE created started
   with an empty `Form_Load` procedure, and its first save wrote it to the file. VB6's Add Form saves a form ending at its
   `Attribute` lines (measured in the IDE), and adds `Form_Load` when the form is double-clicked. HexIDE's double-click
