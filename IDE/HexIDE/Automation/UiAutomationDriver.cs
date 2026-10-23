@@ -3357,7 +3357,7 @@ public static class UiAutomationDriver
         if (seg.IdShortcut is not null)
         {
             var hits = Descendants(parent)
-                .Where(c => string.Equals(NullIfEmpty(AutomationProperties.GetAutomationId(c)), seg.IdShortcut,
+                .Where(c => string.Equals(NullIfEmpty(AutomationProperties.GetAutomationId(c))?.Trim(), seg.IdShortcut,
                     StringComparison.OrdinalIgnoreCase))
                 .ToList();
             return Pick(hits, raw, parentPath, "automationId");
@@ -3392,7 +3392,7 @@ public static class UiAutomationDriver
     // any match wins (and must be unique to be decisive).
     private static (List<Control> matches, string facet) MatchByDiscriminator(List<MeaningfulChild> typed, string disc)
     {
-        var byId = typed.Where(m => string.Equals(m.Info.AutoId, disc, StringComparison.OrdinalIgnoreCase))
+        var byId = typed.Where(m => string.Equals(m.Info.AutoId?.Trim(), disc, StringComparison.OrdinalIgnoreCase))
             .Select(m => m.Control).ToList();
         if (byId.Count > 0) return (byId, "automationId");
 
@@ -3714,9 +3714,11 @@ public static class UiAutomationDriver
         // Emit the cheapest discriminator that PROVABLY resolves back to this control under the resolver's
         // own precedence — verified by running the shared matcher — so emitted paths always round-trip.
         // (Guards against e.g. a sibling whose AutomationId collides with this control's Name.)
-        foreach (var disc in CandidateDiscriminators(m))
+        foreach (var candidate in CandidateDiscriminators(m))
         {
-            if (!IsPathSafe(disc)) continue;
+            // ParseSegment trims bracket contents; use that same name for uniqueness checks and emission.
+            var disc = candidate.Trim();
+            if (disc.Length == 0 || !IsPathSafe(disc)) continue;
             var (matches, _) = MatchByDiscriminator(sameType, disc);
             if (matches.Count == 1 && ReferenceEquals(matches[0], m.Control))
                 return $"{type}[{disc}]";
@@ -3790,7 +3792,7 @@ public static class UiAutomationDriver
     /// so the path falls back to an index, and <see cref="TypeNameAsNameOf"/> reports what it was.
     /// </remarks>
     private static string? MeaningfulLabelOf(AutomationPeer? peer) =>
-        NullIfEmpty(Safe<string?>(() => peer?.GetName(), null)) is { } name && !IsTypeName(name) ? name : null;
+        Safe<string?>(() => peer?.GetName(), null) is { Length: > 0 } name && !IsTypeName(name) ? name : null;
 
     /// <summary>The peer's automation name when <see cref="MeaningfulLabelOf"/> dropped it for being a type name.</summary>
     private static string? TypeNameAsNameOf(AutomationPeer? peer) =>
@@ -3826,7 +3828,7 @@ public static class UiAutomationDriver
 
     private static bool NameEquals(string? a, string? b) =>
         a is not null && b is not null &&
-        string.Equals(StripUnderscore(a), StripUnderscore(b), StringComparison.OrdinalIgnoreCase);
+        string.Equals(StripUnderscore(a.Trim()), StripUnderscore(b.Trim()), StringComparison.OrdinalIgnoreCase);
 
     private static bool IsPathSafe(string s) => s.IndexOfAny(['/', '[', ']', '#']) < 0;
 }

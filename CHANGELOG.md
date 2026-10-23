@@ -236,6 +236,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP paths for indented list items resolve** (#1357). `dump_visual_tree` trims names in paths while keeping
+  the reported name as drawn. Names that become duplicates after trimming use positional paths, as do blank names.
+
 - **Ending an external debug session discards pending evaluations immediately** (#1599). A late adapter reply could
   reach the Immediate window while End was waiting for disconnect. The stopped context now expires before disconnect
   is sent, so an answer arriving during teardown cannot be shown as a current evaluation.
