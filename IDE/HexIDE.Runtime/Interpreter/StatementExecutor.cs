@@ -2669,18 +2669,21 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         throw new NotImplementedException("Unlock not implemented");
     }
 
+    private void AllocImplicitVariant(string name) => AllocImplicitVariable(interpreter, currentEnv, currentModule, name);
+
     // A variable VB6 creates on first use is a Variant, and is marked one for ReDim (ExecutionState.MarkVariant), unless a
-    // DefType covers its first letter, which types it as a Dim would (measured, #169).
-    private void AllocImplicitVariant(string name)
+    // DefType covers its first letter, which types it as a Dim would (measured, #169). First use is a store, or an argument
+    // (#1505).
+    internal static void AllocImplicitVariable(BasicInterpreter interpreter, ExecutionEnvironment env, ModuleInfo module, string name)
     {
-        if (currentModule.PrePass.DefaultTypeOf(name) is { } defaultType)
+        if (module.PrePass.DefaultTypeOf(name) is { } defaultType)
         {
-            interpreter.ExecutionContext.AllocVariable(currentEnv, name, new Vb6Value(defaultType),
+            interpreter.ExecutionContext.AllocVariable(env, name, new Vb6Value(defaultType),
                 VbNumeric.IsDeclarableScalar(defaultType) ? defaultType : null);
             return;
         }
-        interpreter.ExecutionContext.AllocVariable(currentEnv, name, Vb6Value.Variant);
-        if (currentEnv.TryGetVariableLocation(name, out var location))
+        interpreter.ExecutionContext.AllocVariable(env, name, Vb6Value.Variant);
+        if (env.TryGetVariableLocation(name, out var location))
             interpreter.ExecutionContext.State.MarkVariant(location);
     }
 

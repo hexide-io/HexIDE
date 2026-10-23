@@ -219,6 +219,12 @@ there isn't one yet. Anything may change between 0.x releases.
   A `$` form's result is now a typed String, as VB6's is, so `Select Case Mid$("9", 1)` compares text. Plain `Str` is a
   Variant, as `Mid` and `Chr` are.
 
+- **An undeclared variable passed ByRef takes the procedure's write** (#1505). `Bump a12`, with `a12` never declared
+  and `Sub Bump(x)` adding 1 to `x`, left `a12` Empty, so the program ran on with a wrong value and nothing said why. VB6
+  declares the variable where it is passed, and the write lands in it. Now HexIDE does the same for a Sub, a Function, a
+  class's method and a named argument, under DefType too. A name in parentheses, or given to a ByVal parameter, is still
+  a copy, as in VB6.
+
 - **`DefInt A-Z` and the rest of DefType run** (#169). A DefType statement stopped the program. Now each declaration with
   no As clause takes its type from the first letter of its name, as vb6.exe does. That covers an undeclared variable, a
   `Dim` or `Static`, a field, a parameter and a Function's return, and under DefObj each is an object variable. A `Const`
@@ -228,6 +234,10 @@ there isn't one yet. Anything may change between 0.x releases.
   - a Function `As Object` or `As Collection` returned Empty before any Set, not Nothing, so `F = 5` in one took the
     value where VB6 raises 91.
 
+- **A control added by double-clicking its tool takes the size VB6 gives it** (#1473). Every class came out 50 x 50
+  pixels, a square CommandButton among them, and that size went into the saved file. Now a CommandButton is 1215 x 495
+  twips, as are most classes, while a ComboBox, ListBox and either scroll bar each have their own size, all as
+  measured. Each is centred by its own size and put on the grid, where VB6 puts it.
 - **Val, Round, Split and 13 more intrinsics take named arguments** (#1475). `Val(String:="12")`,
   `Round(Number:=2.567, NumDigitsAfterDecimal:=1)` and `Split(Expression:="a b c")` stopped the program, because
   signature help had no entry for them, and so neither did the interpreter's table of names. All 16 are now measured

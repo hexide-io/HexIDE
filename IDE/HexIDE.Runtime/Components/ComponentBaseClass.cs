@@ -46,6 +46,13 @@ public abstract class ComponentBaseClass : IComponentClass
     public virtual bool IsVisual => true;
 
     /// <summary>
+    /// The size, in twips, VB6's designer gives a control of this class added by double-clicking its tool (measured,
+    /// #1473): 1215 x 495 for most classes. A Timer has no size of its own in the file, and VB6 places it as a control of
+    /// this size.
+    /// </summary>
+    public virtual (int Width, int Height) AddedSize => (1215, 495);
+
+    /// <summary>
     /// The Canvas this control hosts its contained controls on, when it is a container. False for everything
     /// else, which is most classes.
     ///
