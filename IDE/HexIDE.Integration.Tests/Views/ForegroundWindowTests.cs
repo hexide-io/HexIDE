@@ -174,6 +174,15 @@ public class ForegroundWindowTests
         error.Should().Contain("editor").And.Contain("auto").And.Contain("ide");
     }
 
+    [AvaloniaFact]
+    public void An_unknown_scope_does_not_describe_auto_as_frontmost()
+    {
+        var main = Shown("HexIDE");
+        var form = Shown("Form1");
+
+        ForegroundWindow.Pick("Form3", main, [main, form]).Error.Should().NotContain("frontmost");
+    }
+
     // ── A window by its name (#822) ───────────────────────────────────────────────────────────────────────
 
     private static Window Form(string name, string title)

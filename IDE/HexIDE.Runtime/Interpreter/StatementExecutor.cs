@@ -47,8 +47,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// A handler further down the stack never sees an error raised above an entry (measured, #1011).</summary>
     internal bool IsEntry { get; init; }
 
-    // Whether a run-time error raised in this activation now would be trapped by it.
-    private bool Traps => errorMode == ErrorMode.ResumeNext || errorMode == ErrorMode.GoToLabel && !inHandler;
+    // Whether a run-time error raised in this activation now would be trapped by it. Nothing is while its handler runs,
+    // whatever On Error the handler has said since: the error goes to the caller (measured, #877).
+    private bool Traps => errorMode != ErrorMode.None && !inHandler;
+
+    // Whether an error raised now continues with the next statement: On Error Resume Next, and no handler running.
+    private bool ResumesNext => errorMode == ErrorMode.ResumeNext && !inHandler;
 
     // Object-holding slots this activation OWNS (its own `Dim` locals, appended in declaration order), released by
     // RunProcedure at scope-exit for reference counting (Phase 4.2). Non-null only for a PROCEDURE-body executor —
@@ -446,7 +450,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 }
             }
             catch (Exception ex) when (Locate(ex, stmt)) { throw; }
-            catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+            catch (VBRunTimeException ex) when (ResumesNext)
             {
                 // On Error Resume Next: a runtime error unwinds the C# stack to the innermost enclosing block;
                 // record it in the global Err and continue with the next statement. Only VBRunTimeException is
@@ -662,7 +666,30 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitDeleteSettingStmt(VB6Parser.DeleteSettingStmtContext context)
     {
-        throw new NotImplementedException("DeleteSetting not implemented");
+        await RunSettingStatement("DeleteSetting", context.valueStmt());
+        return ControlFlow.Nothing;
+    }
+
+    // SaveSetting and DeleteSetting are statements in the grammar and intrinsics in VB6, which runs `Call SaveSetting(...)` and
+    // `VBA.SaveSetting ...` as well (measured, #1562), so each runs as the intrinsic. A named argument, `AppName:="x"`, is
+    // placed by the intrinsic's parameter names, as a call's is.
+    private async Task RunSettingStatement(string name, IReadOnlyList<VB6Parser.ValueStmtContext> arguments)
+    {
+        var args = new List<CallArg>(arguments.Count);
+        foreach (var argument in arguments)
+        {
+            if (argument is VB6Parser.VsAssignContext assign)
+            {
+                var value = assign.valueStmt();
+                args.Add(new CallArg(Vb6Value.Missing, null, Name: assign.implicitCallStmt_InStmt().GetText(),
+                    Deferred: async () => new CallArg(await expressionExecutor.EvaluateValue(value), null)));
+                continue;
+            }
+            if (args.Count > 0 && args[^1].Name is not null)
+                throw new VBCompileErrorException("Syntax error");
+            args.Add(new CallArg(await expressionExecutor.EvaluateValue(argument), null));
+        }
+        await interpreter.BuiltIns.EvaluateBuiltInFunction(name, await VB6BuiltIns.ArrangeIntrinsicArguments(name, args));
     }
 
     // The pre-pass collected the module's DefType statements (#169); running one does nothing. Inside a procedure it does not
@@ -915,7 +942,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             collection = await expressionExecutor.EvaluateValue(context.valueStmt());
         }
-        catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+        catch (VBRunTimeException ex) when (ResumesNext)
         {
             var empties = DeclaredOtherThanAnArray(context.valueStmt())
                 ?? throw new NotImplementedException(
@@ -951,7 +978,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     "For Each over this object, such as a control array, is not supported yet: only arrays, a Collection and a form's Controls are."),
                 _ => new VBRunTimeException(context, VBStandardError.TypeMismatch),
             };
-            if (errorMode != ErrorMode.ResumeNext)
+            if (!ResumesNext)
                 throw refusal;
             interpreter.Err.Capture(refusal);
             return await RunUninitialisedForEach(context, varName, emptiesElement: collection.Value is not VBArray);
@@ -1035,7 +1062,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     }
                     await interpreter.ReleaseRef(previous);
                 }
-                catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+                catch (VBRunTimeException ex) when (ResumesNext)
                 {
                     interpreter.Err.Capture(ex);
                     if (!first)
@@ -1124,7 +1151,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             stepD = state.Step = context.valueStmt(2) is { } stepStmt ? await ForBound(stepStmt, context, counterType) : 1;
             forState[context] = state;
         }
-        catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+        catch (VBRunTimeException ex) when (ResumesNext)
         {
             interpreter.Err.Capture(ex);
             // In p-code a header that raised still steps by 1 when there is no Step clause, but only for an Integer or
@@ -1387,7 +1414,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 throw;
             }
-            catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+            catch (VBRunTimeException ex) when (ResumesNext)
             {
                 interpreter.Err.Capture(ex);
                 return null;
@@ -1439,7 +1466,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     break;
                 }
                 catch (Exception ex) when (Locate(ex, stmt)) { throw; }
-                catch (VBRunTimeException ex) when (errorMode != ErrorMode.ResumeNext && HaltsHere())
+                catch (VBRunTimeException ex) when (!ResumesNext && HaltsHere())
                 {
                     // The statement alone runs again, not the statements before it on the line (#1011).
                     _suspendedAtTopLevel = false;
@@ -1516,30 +1543,42 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     }
 
     /// <summary>
-    /// A store into the name of a Function or Property Get declared to return an array, `As Integer()` or `As Variant()`,
-    /// takes only an array of exactly that type, whose bounds it keeps (measured, #986, native and p-code). What VB6 can
-    /// see is wrong while compiling is its compile error "Can't assign to array", raised here as the statement runs: an
-    /// array variable declared with another element type, or a scalar whose type the statement itself shows. Anything
-    /// else is 13, and the caller's target is left as it was: a Variant holding the wrong thing, Empty, Null, or a call
-    /// that returns a Variant, such as Array or Split.
+    /// The value a Let of a whole array stores: into a dynamic array variable, a ByRef array parameter, or the name of a
+    /// Function or Property Get declared to return an array, `As Integer()` or `As Variant()`. Each takes only an array of
+    /// exactly its element type, whose bounds it keeps (measured, #986, #998 and #1588, native and p-code, for every element
+    /// type, named and through a Variant). What VB6 can see is wrong while compiling is its compile error, raised here as the
+    /// statement runs: "Can't assign to array" for an array variable declared with another element type or a scalar whose
+    /// type the statement itself shows, and "Invalid use of object" for `Nothing`. Anything else is 13, and the target is
+    /// left as it was: Empty, Null, a number, a String, Nothing or an array of another type held by a Variant, or a call
+    /// that returns one, such as Array or Split.
     /// <para>
-    /// The one conversion VB6 makes is a String into a Byte(), which takes the String's bytes (measured: "ab" is
-    /// 97 0 98 0, from a literal, a String variable or a Variant). A Byte() variable converts the same way, and neither is
-    /// implemented, so that store is refused rather than given an error VB6 does not raise (#998).
+    /// The one conversion VB6 makes is a String into a Byte(), which takes the String's bytes, from a literal, a Const, a
+    /// String variable or a Variant: "ab" is a Byte() 0 To 3 holding 97 0 98 0, and "" a Byte() 0 To -1 (measured).
     /// </para>
     /// </summary>
-    private void CheckArrayReturn(Vb6Value.ValueType declared, Vb6Value value, VB6Parser.LetStmtContext context)
+    private Vb6Value ArrayStore(Vb6Value.ValueType declared, Vb6Value value, VB6Parser.LetStmtContext context)
     {
         if (value.Type == declared)
-            return;
+            return value;
         if (declared == ByteArray && value.Type == Vb6Value.ValueType.String)
-            throw new NotImplementedException(
-                "A String stored into a Function declared As Byte() is converted into its bytes by VB6, which HexIDE does not do yet (#998)");
+            return VB6BuiltIns.StringBytes((string?)value.Value ?? "");
+        if (value.Type == Vb6Value.ValueType.Object && context.valueStmt() is VB6Parser.VsLiteralContext { } literal
+            && literal.literal()?.NOTHING() != null)
+            throw new VBCompileErrorException("Invalid use of object");
         var seenWhileCompiling = value.Type.IsArray ? IsDeclaredArrayVariable(context.valueStmt()) : IsTypedBySyntax(context.valueStmt());
         if (seenWhileCompiling)
             throw new VBCompileErrorException("Can't assign to array");
         throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
     }
+
+    // Whether a Let stores a whole array: into a variable declared as one, or into the name of a Function declared to
+    // return one. Neither reads an object's default member: Nothing, or an object held by a Variant, is refused as the
+    // wrong value rather than given 438 (measured, #1588).
+    private bool IntoArray(VB6Parser.LetStmtContext context) =>
+        context.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } target && target.dictionaryCallStmt() is null
+        && target.GetText() is { } name
+        && ((checkedArrayReturn is not null && string.Equals(name, procName, StringComparison.OrdinalIgnoreCase))
+            || (currentEnv.TryGetVariableLocation(name, out var location) && interpreter.ExecutionContext.State.IsDeclaredArray(location)));
 
     private static readonly Vb6Value.ValueType ByteArray = new(Vb6Value.ValueType.Byte, true);
 
@@ -1591,12 +1630,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     }
 
     // The value a Let stores, with the refusals every Let makes of it.
-    private async Task<Vb6Value> LetValue(VB6Parser.LetStmtContext context)
+    private async Task<Vb6Value> LetValue(VB6Parser.LetStmtContext context, bool intoArray = false)
     {
         var value = await expressionExecutor.EvaluateValue(context.valueStmt());
 
         if (context.PLUS_EQ() != null || context.MINUS_EQ() != null)
             throw new NotImplementedException("+-/-= not implemented in variable assignment");
+        if (intoArray && value.Type == Vb6Value.ValueType.Object)
+            return value;   // ArrayStore refuses it
 
         // A Let of an object stores its default member's value, into a Variant as readily as into a Long (measured): a
         // class instance is refused or 438 (ObjectAsValue). `Nothing` stays 438. VB6 also empties a Variant target of
@@ -1628,7 +1669,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             && chain.ambiguousIdentifier() is not null && chain.typeHint() is null && chain.dictionaryCallStmt() is null)
             return await LetIntoIndexChain(context, chain, chainGroups);
 
-        var value = await LetValue(context);
+        var value = await LetValue(context, IntoArray(context));
 
         if (context.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } varOrProcCall)
         {
@@ -1674,16 +1715,23 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 RefuseLetIntoObject(oldLet, identifier, context);
             }
             if (checkedArrayReturn is { } declaredReturn && string.Equals(identifier, procName, StringComparison.OrdinalIgnoreCase))
-                CheckArrayReturn(declaredReturn, value, context);
-            // A fixed array cannot be assigned an array (measured, #970). Named directly it does not compile: "Can't assign
-            // to array", raised here as the statement runs. Through a ByRef parameter sharing it, it is 13, and the array is
-            // left as it was. Fixedness is the declaring slot's (ExecutionState.MarkFixedArray), as for ReDim.
-            if (value.Type.IsArray && currentEnv.TryGetVariableLocation(identifier, out var letLocation)
-                && interpreter.ExecutionContext.State.IsFixedArray(letLocation))
+                value = ArrayStore(declaredReturn, value, context);
+            else if (currentEnv.TryGetVariableLocation(identifier, out var letLocation)
+                     && interpreter.ExecutionContext.State.IsDeclaredArray(letLocation) && oldLet.Type.IsArray)
             {
-                if (currentEnv.Parameters.Contains(identifier))
-                    throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
-                throw new VBCompileErrorException("Can't assign to array");
+                // A fixed array cannot be assigned at all (measured, #970, #1588). Named directly it does not compile, whatever
+                // the value, a Variant's included: "Can't assign to array", raised here as the statement runs. Through a ByRef
+                // parameter sharing it, it is 13, and the array is left as it was. Fixedness is the declaring slot's
+                // (ExecutionState.MarkFixedArray), as for ReDim.
+                if (interpreter.ExecutionContext.State.IsFixedArray(letLocation))
+                {
+                    if (currentEnv.Parameters.Contains(identifier))
+                        throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
+                    throw new VBCompileErrorException("Can't assign to array");
+                }
+                // A dynamic one takes what a Function declared with its type takes. The slot's array carries the declared
+                // type, since nothing else is ever stored there, and a ByRef parameter's is its caller's.
+                value = ArrayStore(oldLet.Type, value, context);
             }
             interpreter.ExecutionContext.TryUpdateVariable(currentEnv, identifier, interpreter.CopyForStore(value));
             // Refcount (Phase 4.2): a Variant slot that held an object and is now overwritten by a scalar drops
@@ -2071,6 +2119,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitOnErrorStmt(VB6Parser.OnErrorStmtContext context)
     {
+        // Every form clears Err, so a helper's On Error Resume Next starts clean whatever its caller left (measured, #877).
+        interpreter.Err.Clear();
         if (context.RESUME() != null)
         {
             errorMode = ErrorMode.ResumeNext;   // On Error Resume Next
@@ -2080,7 +2130,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             // On Error GoTo <target>. `GoTo 0` disables handling; a real label installs a handler.
             var target = context.valueStmt().GetText();
-            if (target == "0")
+            if (target == "-1")
+            {
+                // VB6 compiles it: it leaves the handler, so the handler traps the next error, and keeps the mode as it
+                // was, so On Error Resume Next still traps after it (measured, #877).
+                inHandler = false;
+            }
+            else if (target == "0")
             {
                 errorMode = ErrorMode.None;
                 handlerLabel = null;
@@ -2343,7 +2399,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitSaveSettingStmt(VB6Parser.SaveSettingStmtContext context)
     {
-        throw new NotImplementedException("SaveSetting not implemented");
+        await RunSettingStatement("SaveSetting", context.valueStmt());
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitSeekStmt(VB6Parser.SeekStmtContext context)
@@ -2375,7 +2432,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 {
                     matched = await CaseTestMatches(subCond, value);
                 }
-                catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+                catch (VBRunTimeException ex) when (ResumesNext)
                 {
                     interpreter.Err.Capture(ex);
                     matched = true;
@@ -3407,7 +3464,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             target = await expressionExecutor.EvaluateValue(context.implicitCallStmt_InStmt());
         }
-        catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+        catch (VBRunTimeException ex) when (ResumesNext)
         {
             // Resume Next goes on into the body with no object, so every leading-dot member raises 91 (measured, #839).
             interpreter.Err.Capture(ex);
@@ -3844,7 +3901,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 try
                 {
                     if (await Visit(stmts[pc]) != ControlFlow.Nothing)
+                    {
+                        LeaveHandler();
                         return;   // Exit Sub/Function/Property — leave the body
+                    }
                     pc++;
                 }
                 finally
@@ -3862,6 +3922,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (faultPc < 0)
                     throw Raised(new VBRunTimeException(r.Context, VBStandardError.ResumeWithoutError));   // Error 20
                 inHandler = false;
+                interpreter.Err.Clear();   // every Resume clears it (measured, #877)
                 pc = r.Kind switch
                 {
                     ResumeKind.Same => faultPc,        // retry the faulting statement
@@ -3877,7 +3938,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 inHandler = true;
                 pc = ResolveLabel(labels, handlerLabel!);
             }
-            catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
+            catch (VBRunTimeException ex) when (ResumesNext)
             {
                 interpreter.Err.Capture(ex);
                 faultPc = pc;
@@ -3892,6 +3953,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 retry = true;
             }
         }
+        LeaveHandler();
+    }
+
+    // A procedure left from its handler, by Exit or by its end, clears Err, as a Resume would, whatever On Error the
+    // handler said; one left under On Error Resume Next keeps it, so its caller still sees the error (measured, #877).
+    private void LeaveHandler()
+    {
+        if (inHandler)
+            interpreter.Err.Clear();
     }
 
     /// <summary>

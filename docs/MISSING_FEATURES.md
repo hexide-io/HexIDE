@@ -493,7 +493,7 @@
 > (Missed / Deferred / Walled / Partial) list of interpreter gaps from the 2026-08-03 multi-agent audit. The rows
 > below are the headline status; the catalogue is the complete map.
 >
-> **Full language coverage:** [`docs/MISSING_LANGUAGE.md`](MISSING_LANGUAGE.md) — all 1182 VB6 built-in
+> **Full language coverage:** [`docs/MISSING_LANGUAGE.md`](MISSING_LANGUAGE.md) — all 1183 VB6 built-in
 > statements, functions, operators, keywords, literals, directives, constants and in-box objects, each with its
 > support level, ordered by what happens when the user presses F5.
 
@@ -526,7 +526,7 @@
 | App object | Partial | `App.Title`, `EXEName`, `Path`, `ProductName`, `Major`/`Minor`/`Revision`, `PrevInstance` and the version-info strings, seeded from the project (#136). Values follow VB6 at DESIGN TIME, which is where the interpreter permanently sits — `EXEName` is the `.vbp` file name and `ProductName` is empty, both measured under F5. `Title` is writable; `LogEvent`/`StartLogging`/`TaskVisible` are not implemented |
 | Clipboard object | Missing | |
 | Collection object | Missing | |
-| Registry functions (GetSetting etc.) | Missing | |
+| Registry functions (GetSetting etc.) | Done | GetSetting, SaveSetting, DeleteSetting and GetAllSettings, measured (#1562): the registry key VB6 uses on Windows, a file in the user-data directory elsewhere |
 
 ---
 
