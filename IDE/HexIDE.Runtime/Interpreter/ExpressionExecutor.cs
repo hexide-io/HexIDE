@@ -877,11 +877,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// </summary>
     private static Vb6Value Bang(Vb6Value target, VB6Parser.DictionaryCallStmtContext bang)
     {
-        if (bang.typeHint() != null)
-            throw new NotImplementedException($"A type character after `!{bang.ambiguousIdentifier().GetText()}` is not implemented (#742)");
-        var key = bang.ambiguousIdentifier().GetText();
-        if (key.Length >= 2 && key[0] == '[' && key[^1] == ']')
-            key = key[1..^1];
+        var key = BangKey(bang);
         return target.Value switch
         {
             VbCollection items => items.Default([new Vb6Value(key)]),
@@ -889,6 +885,15 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 => throw new VBRunTimeException(bang, VBStandardError.ObjectVariableOrWithBlockVariableNotSet),
             _ => throw new NotImplementedException($"`!{key}` is supported only on a Collection"),
         };
+    }
+
+    /// <summary>The name after <c>!</c>, as the String the default member is given: <c>![a key]</c> without its brackets.</summary>
+    internal static string BangKey(VB6Parser.DictionaryCallStmtContext bang)
+    {
+        if (bang.typeHint() != null)
+            throw new NotImplementedException($"A type character after `!{bang.ambiguousIdentifier().GetText()}` is not implemented (#742)");
+        var key = bang.ambiguousIdentifier().GetText();
+        return key.Length >= 2 && key[0] == '[' && key[^1] == ']' ? key[1..^1] : key;
     }
 
     private const string TypeCharacterMismatch = "Type-declaration character does not match declared data type";

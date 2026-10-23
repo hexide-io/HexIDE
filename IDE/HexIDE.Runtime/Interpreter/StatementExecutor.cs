@@ -1508,12 +1508,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         if (context.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } varOrProcCall)
         {
-            // `c!key = x`: a Collection's item is read-only, 424 (measured, #1471). No other default member takes it yet.
-            if (varOrProcCall.dictionaryCallStmt() is not null)
+            // `c!key = x`: a Collection's item is read-only (measured, #1471, #1492). No other default member takes it yet.
+            if (varOrProcCall.dictionaryCallStmt() is { } bang)
             {
                 var (_, bangTarget) = await interpreter.ReadVariable(currentEnv, varOrProcCall.ambiguousIdentifier().GetText());
-                throw bangTarget.Value is VbCollection
-                    ? new VBRunTimeException(context, VBStandardError.ObjectRequired)
+                throw bangTarget.Value is VbCollection bangItems
+                    ? bangItems.ItemAssigned(bangTarget, [new Vb6Value(ExpressionExecutor.BangKey(bang))], VbCollection.ItemAssignment.Member)
                     : new NotImplementedException($"`{varOrProcCall.GetText()} = …` is supported only on a Collection, which refuses it");
             }
             var identifier = varOrProcCall.GetText() ?? throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Null variable name");
@@ -1682,12 +1682,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
             var memberIdentifier = members[0].GetText().TrimStart('.') ?? throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Null member name");
 
-            // A Collection's members can't be assigned (measured, #1471): `c.Item(1) = x` is 424, and `c.Count = 5` is VB6's
-            // compile error. Any other is 438, as reading it is.
-            if (variable.Value is VbCollection)
+            // A Collection's members can't be assigned (measured, #1471): `c.Item(1) = x` is 424 once its index is found
+            // (#1492), and `c.Count = 5` is VB6's compile error. Any other is 438, as reading it is.
+            if (variable.Value is VbCollection memberItems)
                 throw UdtFieldName(members[0]).ToLowerInvariant() switch
                 {
-                    "item" => new VBRunTimeException(context, VBStandardError.ObjectRequired),
+                    "item" => memberItems.ItemAssigned(variable,
+                        members[0].iCS_S_ProcedureOrArrayCall() is { } itemCall && itemCall.argsCall().Length == 1
+                            ? await expressionExecutor.EvaluateCallArgs(itemCall.argsCall(0))
+                            : [], VbCollection.ItemAssignment.Member),
                     "count" => new VBCompileErrorException("Function call on left-hand side of assignment must return Variant or Object"),
                     _ => new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod),
                 };
@@ -1754,11 +1757,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return default;
             }
 
-            // A Collection's item is read-only: `c(1) = x` is 424 (measured, #1471).
-            if (await interpreter.ReadVariable(currentEnv, identifier) is (true, { Value: VbCollection }))
-                throw new VBRunTimeException(context, VBStandardError.ObjectRequired);
-
             var indexes = await expressionExecutor.EvaluateCallArgs(procedureOrArrayCall.argsCall(0));
+            // A Collection's item is read-only: `c(1) = x` is 424 once the index is found (measured, #1471, #1492).
+            if (await interpreter.ReadVariable(currentEnv, identifier) is (true, { Value: VbCollection heldItems } held))
+                throw heldItems.ItemAssigned(held, indexes, VbCollection.ItemAssignment.Index);
             var indexesAsInt = Subscripts(indexes);
 
             if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out var array))
@@ -2548,10 +2550,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             var identifier = arrCall.ambiguousIdentifier().GetText()
                 ?? throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Null array name");
-            // `Set c(1) = x`, a Collection's item, is 424 (measured, #1471).
-            if (await interpreter.ReadVariable(currentEnv, identifier) is (true, { Value: VbCollection }))
-                throw new VBRunTimeException(context, VBStandardError.ObjectRequired);
-            var indexes = Subscripts(await expressionExecutor.EvaluateCallArgs(arrCall.argsCall(0)));
+            var setIndexes = await expressionExecutor.EvaluateCallArgs(arrCall.argsCall(0));
+            // `Set c(1) = x`, a Collection's item, is 424 once the index is found (measured, #1471, #1492).
+            if (await interpreter.ReadVariable(currentEnv, identifier) is (true, { Value: VbCollection heldItems } held))
+                throw heldItems.ItemAssigned(held, setIndexes, VbCollection.ItemAssignment.SetIndex);
+            var indexes = Subscripts(setIndexes);
             if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out var arrayVal))
                 throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Variable " + identifier + " is not declared");
             if (!arrayVal.Type.IsArray || arrayVal.Value is not VBArray arr)

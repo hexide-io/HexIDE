@@ -13765,7 +13765,7 @@ and 13 otherwise.
 
 **What it refuses, measured:**
 - **Assigning an item**, whether `c(1) = "x"`, `Set c(1) = New Collection`, `c!k = "y"` or `c.Item(1) = 5`, is 424, and
-  the item is unchanged.
+  the item is unchanged. That is for an item that is there: the index is looked up first (#1492, below).
 - **Through Nothing**, `e.Count`, `e(1)` and `e.Add 1` are 91.
 - **`c.Foo`** compiles and raises 438.
 - **`v = c` and `v = New Collection`** are 450, and so is `v = o` with `o` an Object holding one.
@@ -13796,6 +13796,43 @@ and 13 otherwise.
 | `o.Foo` | 438 |
 
 A Variant holding one gives the same: `w.Add 1, Kay:="z"` is 448, and `w.Add` 450.
+
+### An empty Collection, and assigning an item (#1492)
+
+**An index into an empty Collection is 5, whatever it is.** A position, a key, Null and Empty are all 5 there, where a
+Collection with items gives 9, 5, 13 and 9. This was found while measuring #435, after the tables above had pinned 9 for
+a position without ever asking about an empty Collection.
+
+`e` is an empty Collection:
+
+| Statement | VB6 |
+|---|---|
+| `v = e(1)`, `e(0)`, `e(2)`, `e(-1)`, `e("k")`, `e(Null)`, `e(Empty)`, `e.Item(Index:=1)` | 5 |
+| `e.Remove 1`, `e.Remove 0`, `e.Remove "k"` | 5 |
+| `e.Add "x", , 1`, `e.Add "x", , 0`, `e.Add "x", , , 1`, `e.Add "x", , "k"` | 5 |
+| `e.Add "x", 1`, a key that isn't a String | 13, as the key rule above gives |
+| `v = o(1)` and `o.Remove 1`, late-bound | 5 |
+| `v = c(1)`, after `c.Remove 1` emptied it | 5 |
+
+**Assigning an item looks the index up first.** So the 424 above holds only for an item that is there, and late-bound
+the forms differ. `c` holds "a" keyed "k", then "b"; `o` is an Object and `w` a Variant, each holding `c`.
+
+| Statement | VB6 |
+|---|---|
+| `c(1) = 5`, `c("k") = 5`, `c!k = 5`, `c.Item(1) = 5`, `Set c(1) = Nothing` | 424 |
+| `c(3) = 5`, `c(0) = 5`, `c.Item(3) = 5`, `Set c(3) = Nothing` | 9 |
+| `c("zz") = 5`, `c!zz = 5` | 5 |
+| `e(1) = 5`, `e("k") = 5`, `e!k = 5`, `Set e(1) = Nothing`, on an empty `e` | 5 |
+| `o(1) = 5`, `o.Item(1) = 5`, `o!k = 5`, `w!k = 5`, `w.Item(1) = 5` | **451** |
+| `o(3) = 5`, `w.Item(3) = 5`; `w!zz = 5` | 9; 5 |
+| `w(1) = 5`, `w(3) = 5`, `Set w(1) = Nothing`, `Set o(1) = Nothing` | **438**, with no look at the index |
+
+The item is unchanged in every row.
+
+**What resisted explanation:** why late-bound `Set o(1) = x` and `w(1) = x` skip the look, when `o(1) = x` makes it.
+
+**In HexIDE (#1492):** `VbCollection.Position` gives 5 first in an empty Collection. `ItemAssigned` makes the look and
+chooses 424, 451 or 438 by the form and by whether the reference is early-bound.
 
 ### For Each
 
@@ -14106,7 +14143,6 @@ When Sub Main returns, the objects still held terminate: the Static's first, the
 - #877: an `On Error` statement doesn't clear Err;
 - #1006: `Set Module2.pm = Nothing` stores nothing;
 - #1490: objects held at the end of the program don't terminate;
-- #1492: an empty Collection's index;
 - #1493: `o = 5` releases the object.
 
 **`AsNewTests`** pins five programs, seven compile errors and five refusals.

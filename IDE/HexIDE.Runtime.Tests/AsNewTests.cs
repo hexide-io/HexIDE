@@ -366,7 +366,8 @@ public class AsNewTests : BaseVBTestFixture
             Public Made As Long
             Dim mo As New C1
             Private Sub Collections()
-                Dim c As New Collection, d As New Collection, e As New Collection, f As New Collection, v As Variant
+                Dim c As New Collection, d As New Collection, e As New Collection, f As New Collection, g As New Collection
+                Dim v As Variant
                 Debug.Print "collections:"
                 c.Add 1: c.Add 2
                 Debug.Print "  c.Count " & c.Count
@@ -378,6 +379,9 @@ public class AsNewTests : BaseVBTestFixture
                 Debug.Print "  after For Each over an untouched one"
                 Debug.Print "  e Is Nothing " & (e Is Nothing)
                 Debug.Print "  TypeName(f) " & TypeName(f) & ", f.Count " & f.Count
+                On Error Resume Next
+                g(1) = 5
+                Debug.Print "  g(1) = 5 on an untouched one -> err " & Err.Number & ", g.Count " & g.Count
             End Sub
             Private Sub Fields()
                 Dim h As H
@@ -426,6 +430,7 @@ public class AsNewTests : BaseVBTestFixture
               after For Each over an untouched one
               e Is Nothing False
               TypeName(f) Collection, f.Count 0
+              g(1) = 5 on an untouched one -> err 5, g.Count 0
             fields:
               made H
               init 3

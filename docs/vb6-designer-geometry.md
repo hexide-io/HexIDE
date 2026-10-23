@@ -65,8 +65,8 @@ transform that treats them alike corrupts one of them.
 
 **`Begin` order is z-order**, and there is a separate windowless plane: graphical controls (`Label`,
 `Shape`, `Line`, `Image`) draw beneath windowed ones regardless of file order. HexIDE's canvas order is
-currently the inverse of the file's, which is a pre-existing defect recorded separately rather than
-something this document endorses. For two Lines the direction is measured: the one earlier in the file is drawn over the
+currently the inverse of the file's, which is a pre-existing defect
+([#1481](https://github.com/hexide-io/HexIDE/issues/1481)) rather than something this document endorses. For two Lines the direction is measured: the one earlier in the file is drawn over the
 later one (`docs/vb6-fidelity-oracle.md`, "The Line control"), and HexIDE draws Lines that way.
 
 **`TabIndex` is one flat sequence per form**, not one per container, and VB6 renumbers it to `0..N−1` on
