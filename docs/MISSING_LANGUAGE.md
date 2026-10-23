@@ -153,8 +153,8 @@ visitor, not changing how the language is understood.
 ### Where the damage actually is
 
 **Operators are nearly complete** — 1 absent of 32 — so expressions and arithmetic generally work. The
-damage is concentrated in **statements** and the **in-box object model**: 29% of VB6's statements (31
-of 106, two of them the `Function` rows, which fail only when a type character is used) and 68% of the
+damage is concentrated in **statements** and the **in-box object model**: 21% of VB6's statements (23
+of 107, two of them the `Function` rows, which fail only when a type character is used) and 68% of the
 in-box surface (`App`, `Screen`, `Printer`, `Clipboard`; 84 of 123) are unavailable. Both
 figures are rounded to the nearest whole percent.
 
