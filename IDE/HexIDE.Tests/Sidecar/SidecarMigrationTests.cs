@@ -653,8 +653,9 @@ public sealed class SidecarMigrationTests : IDisposable
     [Fact]
     public async Task AModuleWhoseHeaderWasNotRecognisedDoesNotMove()
     {
+        // A comment above the attribute run: a blank line there no longer hides the header (#472).
         File.WriteAllText(Path.Join(dir, "Odd.bas"), Crlf(
-            "",
+            "' generated",
             "Attribute VB_Name = \"Odd\"",
             "Option Explicit",
             "",

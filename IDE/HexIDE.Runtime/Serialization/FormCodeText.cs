@@ -12,8 +12,9 @@ namespace HexIDE.Runtime.Serialization;
 /// <para>A form's code section opens with an <c>Attribute VB_*</c> block that VB6's code window hid. HexIDE's
 /// shows the whole file (hexide-io/HexIDE#273): the designer half (<see cref="Prefix(FormDefinition)"/>), then
 /// the code section, with everything from the top of the file through that block greyed, read-only and folded.
-/// <c>VB_Name</c> is load-bearing: it is the form's identity, and only the IDE writes it, following a rename
-/// (<see cref="RetargetVbName"/>).</para>
+/// <c>VB_Name</c> has to agree with the designer block's <c>Begin</c> line, and only the IDE writes it, following a
+/// rename (<see cref="RetargetVbName"/>). It is not the form's identity, though it looks like one: where the two
+/// disagree, vb6.exe takes the <c>Begin</c> line's name and logs "Conflicting names were found" (measured, #516).</para>
 ///
 /// <para><b>Before phase 3 of #273 the block was on screen and unprotected.</b> Measured in the running IDE on
 /// 2026-09-20, it was the opening lines of the code window, syntax-coloured as ordinary code and freely
@@ -34,7 +35,7 @@ public static class FormCodeText
     /// The leading <c>Attribute</c> block of a code section, with its line endings, or <c>""</c> if absent.
     /// </summary>
     /// <remarks>
-    /// Leading blank lines are carried into the block so restoring it cannot introduce or lose one. Only a
+    /// Leading blank lines are carried into the block, so the block and what follows it are the code exactly. Only a
     /// LEADING run counts: an <c>Attribute</c> line further down describes a member — the procedure or variable
     /// declared above it — and is that member's read-only run (<see cref="ReadOnlyRegions"/>), not part of the
     /// file's identity.
@@ -43,46 +44,18 @@ public static class FormCodeText
     {
         var end = 0;
         var pos = 0;
-        foreach (var raw in Lines(code))
+        while (pos < code.Length)
         {
-            // Advance against the original string so CRLF endings are not
-            // under-counted (Lines() normalises to LF; slicing uses `code`).
-            var nl = code.IndexOf('\n', pos);
-            var next = nl < 0 ? code.Length : nl + 1;
-            var line = raw.Trim();
+            // Walked against the original string, so a CRLF ending is not under-counted and the block is sliced from
+            // `code` as it is.
+            var (textEnd, next) = SourceLines.LineAt(code, pos);
+            var line = code.AsSpan(pos, textEnd - pos).Trim();
             if (line.Length == 0) { pos = next; continue; }
             if (!line.StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase)) break;
             pos = next;
             end = pos;
         }
-        return end == 0 ? "" : code[..Math.Min(end, code.Length)];
-    }
-
-    /// <summary>
-    /// <paramref name="incoming"/> with <paramref name="existing"/>'s attribute block restored when the
-    /// incoming text has none of its own. Returns <paramref name="incoming"/> unchanged otherwise.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>No production caller.</b> <c>set_file_content</c> was the last, and stopped calling this when it went
-    /// through <see cref="GuardedContent"/> (hexide-io/HexIDE#273 task 3.9). That keeps the document's whole
-    /// header in front of code sent alone, designer block and this block together, and refuses content that
-    /// would change it, so it is the rule now; only this method's own tests reach it.
-    /// </para>
-    /// <para>
-    /// It preserved rather than refused, because omitting the block is what a caller does when they mean
-    /// exactly what they said — "replace the code" — and, while the code window still opened on the block as
-    /// ordinary code, the block was not treated as code. The alternative, silently accepting a body that
-    /// destroys the form's identity, is the one behaviour that should not exist, and the guarded path keeps
-    /// that half of the reasoning.
-    /// </para>
-    /// </remarks>
-    public static string PreserveAttributes(string incoming, string existing)
-    {
-        if (AttributeBlock(incoming).Length > 0) return incoming;
-
-        var block = AttributeBlock(existing);
-        return block.Length == 0 ? incoming : block + incoming;
+        return end == 0 ? "" : code[..end];
     }
 
     /// <summary>
@@ -108,11 +81,7 @@ public static class FormCodeText
         var pos = 0;
         while (pos < code.Length)
         {
-            var newline = code.IndexOf('\n', pos);
-            var next = newline < 0 ? code.Length : newline + 1;
-            var end = newline < 0 ? code.Length : newline;
-            if (end > pos && code[end - 1] == '\r')
-                end--;
+            var (end, next) = SourceLines.LineAt(code, pos);
 
             var line = code.AsSpan(pos, end - pos).Trim();
             if (line.Length > 0)
@@ -256,22 +225,15 @@ public static class FormCodeText
     /// land on another statement.
     /// </para>
     /// <para>
-    /// Counts <c>'\n'</c> rather than splitting on <c>Environment.NewLine</c>. A <c>.frm</c> is a Windows-native
-    /// format and is CRLF-terminated wherever it came from, but a prefix is also composed from text HexIDE
-    /// itself produced, and <c>build-ide</c> runs on <c>ubuntu-latest</c>: a count that asked the host what a
-    /// line ending is would answer differently there and move every mark on the wrong machine.
+    /// Counts line ends by <see cref="SourceLines"/>' rule rather than splitting on <c>Environment.NewLine</c>. A
+    /// <c>.frm</c> is a Windows-native format and is CRLF-terminated wherever it came from, but a prefix is also composed
+    /// from text HexIDE itself produced, and <c>build-ide</c> runs on <c>ubuntu-latest</c>: a count that asked the host
+    /// what a line ending is would answer differently there and move every mark on the wrong machine. A lone CR counts,
+    /// as it does for the code window and for <see cref="ReadOnlyRegions.HeaderLineCount(string, int)"/>
+    /// (hexide-io/HexIDE#1020).
     /// </para>
     /// </remarks>
-    public static int LineBreaks(string text)
-    {
-        var count = 0;
-        foreach (var c in text)
-        {
-            if (c == '\n')
-                count++;
-        }
-        return count;
-    }
+    public static int LineBreaks(string text) => SourceLines.Count(text);
 
     /// <summary>
     /// The body of a composed buffer: everything after the prefix it was composed with.
@@ -357,17 +319,11 @@ public static class FormCodeText
     /// </para>
     /// <para>
     /// <b>This used to say a <c>.bas</c> or <c>.cls</c> composed through
-    /// <see cref="ModuleFileFormat.ToFileContent"/>.</b> It does not, and the difference is the last case:
-    /// <c>ToFileContent</c> writes the canonical literal in front of a body that is already the whole file,
-    /// which is hexide-io/HexIDE#472. So for exactly those files this is the text the code window shows, and a
-    /// save writes something else.
+    /// <see cref="ModuleFileFormat.ToFileContent"/>.</b> It does not. The two differ only for a file with no
+    /// <c>VB_Name</c> at all, whose next save adds the canonical literal that the code window does not show. For a
+    /// file whose header the reader did not recognise, they agree, since a save adds no second header to a body
+    /// that carries one (hexide-io/HexIDE#472).
     /// </para>
     /// </remarks>
     public static string WholeFile(ModuleDefinition module) => Prefix(module) + module.Code;
-
-    private static IEnumerable<string> Lines(string text)
-    {
-        foreach (var line in text.Replace("\r\n", "\n").Split('\n'))
-            yield return line;
-    }
 }

@@ -74,6 +74,12 @@ internal static class VbSignatures
                     ["Expression", "Delimiter", "Limit", "Compare"],
                     "Returns a zero-based, one-dimensional array of substrings.")
             ],
+            ["Filter"] =
+            [
+                new SignatureEntry("Filter(SourceArray, Match As String, [Include As Boolean = True], [Compare As VbCompareMethod]) As String()",
+                    ["SourceArray", "Match", "Include", "Compare"],
+                    "Returns the elements of a string array that contain, or do not contain, a substring.")
+            ],
             ["Join"] =
             [
                 new SignatureEntry("Join(SourceArray, [Delimiter = \" \"]) As String",
@@ -145,11 +151,18 @@ internal static class VbSignatures
             ["CDate"] = [new SignatureEntry("CDate(Expression) As Date",   ["Expression"], "Converts an expression to Date.")],
             ["CVar"]  = [new SignatureEntry("CVar(Expression) As Variant", ["Expression"], "Converts an expression to Variant.")],
             ["CLDbl"] = [new SignatureEntry("CLDbl(Expression) As Double", ["Expression"], "Converts an expression to Long Double.")],
+            ["CDec"]  = [new SignatureEntry("CDec(Expression) As Variant", ["Expression"], "Converts an expression to a Decimal Variant.")],
+            ["CVDate"] = [new SignatureEntry("CVDate(Expression) As Variant", ["Expression"], "Converts an expression to a Date Variant.")],
+            ["Val"]   = [new SignatureEntry("Val(String As String) As Double", ["String"], "Reads the number at the start of a string.")],
+            ["Str"]   = [new SignatureEntry("Str(Number) As String",   ["Number"], "Converts a number to a string, with a leading space for its sign.")],
+            ["Hex"]   = [new SignatureEntry("Hex(Number) As String",   ["Number"], "Converts a number to hexadecimal digits.")],
+            ["Oct"]   = [new SignatureEntry("Oct(Number) As String",   ["Number"], "Converts a number to octal digits.")],
 
             // Math
             ["Abs"]  = [new SignatureEntry("Abs(Number) As Number",  ["Number"], "Returns the absolute value of a number.")],
             ["Int"]  = [new SignatureEntry("Int(Number) As Integer", ["Number"], "Returns the integer portion of a number.")],
             ["Fix"]  = [new SignatureEntry("Fix(Number) As Integer", ["Number"], "Returns the integer portion of a number (truncates toward zero).")],
+            ["Round"] = [new SignatureEntry("Round(Number, [NumDigitsAfterDecimal As Long]) As Variant", ["Number", "NumDigitsAfterDecimal"], "Rounds a number to a number of decimal places, a half to the even digit.")],
             ["Sqr"]  = [new SignatureEntry("Sqr(Number) As Double",  ["Number"], "Returns the square root of a number.")],
             ["Rnd"]  = [new SignatureEntry("Rnd([Number]) As Single", ["Number"], "Returns a random number between 0 and 1.")],
             ["Sgn"]  = [new SignatureEntry("Sgn(Number) As Integer", ["Number"], "Returns an integer indicating the sign of a number.")],
@@ -187,6 +200,10 @@ internal static class VbSignatures
 
             // Date / Time
             ["Now"]      = [new SignatureEntry("Now() As Date",              [],         "Returns the current date and time.")],
+            ["DateValue"] = [new SignatureEntry("DateValue(Date As String) As Date", ["Date"], "Converts a string to the date it names.")],
+            ["TimeValue"] = [new SignatureEntry("TimeValue(Time As String) As Date", ["Time"], "Converts a string to the time it names.")],
+            ["MonthName"] = [new SignatureEntry("MonthName(Month As Long, [Abbreviate As Boolean = False]) As String", ["Month", "Abbreviate"], "Returns the name of a month, 1 to 12.")],
+            ["WeekdayName"] = [new SignatureEntry("WeekdayName(Weekday As Long, [Abbreviate As Boolean = False], [FirstDayOfWeek As VbDayOfWeek]) As String", ["Weekday", "Abbreviate", "FirstDayOfWeek"], "Returns the name of a day of the week.")],
             ["Date"]     = [new SignatureEntry("Date() As Date",             [],         "Returns the current system date.")],
             ["Time"]     = [new SignatureEntry("Time() As Date",             [],         "Returns the current system time.")],
             ["Timer"]    = [new SignatureEntry("Timer() As Single",          [],         "Returns the number of seconds elapsed since midnight.")],
@@ -223,6 +240,10 @@ internal static class VbSignatures
             ["CreateObject"] = [new SignatureEntry("CreateObject(Class As String, [ServerName As String]) As Object", ["Class", "ServerName"], "Creates and returns a reference to an ActiveX object.")],
             ["GetObject"]    = [new SignatureEntry("GetObject([Pathname], [Class]) As Object", ["Pathname", "Class"], "Returns a reference to an object from a file.")],
             ["Shell"]        = [new SignatureEntry("Shell(Pathname As String, [WindowStyle As VbAppWinStyle]) As Double", ["Pathname", "WindowStyle"], "Runs an executable program.")],
+            ["Command"]      = [new SignatureEntry("Command() As String", [], "Returns the command line the program was started with.")],
+            ["DoEvents"]     = [new SignatureEntry("DoEvents() As Integer", [], "Lets waiting events run before the program goes on.")],
+            ["FreeFile"]     = [new SignatureEntry("FreeFile([RangeNumber As Integer]) As Integer", ["RangeNumber"], "Returns the next file number free for Open.")],
+            ["EOF"]          = [new SignatureEntry("EOF(FileNumber As Integer) As Boolean", ["FileNumber"], "Returns whether a file has been read to its end.")],
             ["Environ"]      = [new SignatureEntry("Environ(Expression) As String", ["Expression"], "Returns the value of an operating system environment variable.")],
             ["RGB"]          = [new SignatureEntry("RGB(Red As Integer, Green As Integer, Blue As Integer) As Long", ["Red", "Green", "Blue"], "Returns a Long representing an RGB colour value.")],
             ["QBColor"]      = [new SignatureEntry("QBColor(Color As Integer) As Long", ["Color"], "Returns the RGB colour code corresponding to a QBasic colour number.")],

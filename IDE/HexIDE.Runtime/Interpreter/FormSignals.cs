@@ -29,6 +29,26 @@ public sealed class FormInstanceNeeded(ModuleInfo form)
     public ModuleInfo Form { get; } = form;
 }
 
+/// <summary>What a variable declared <c>As New</c> makes (a class's name, or "Collection"), and the name it was declared with,
+/// for a refusal to name.</summary>
+public sealed record AutoNew(string ClassName, string Name);
+
+/// <summary>
+/// A variable declared <c>As New</c> was read while it holds Nothing: before its first use, or after it was set to
+/// Nothing. VB6 makes a new object there, running Class_Initialize, and every use counts, <c>o Is Nothing</c> and
+/// <c>TypeName(o)</c> among them (measured, #435). Where the walk can, it does the same and reads again, as for a form's
+/// default instance; anywhere else this is refused.
+/// </summary>
+public sealed class AutoInstanceNeeded(int location, AutoNew autoNew)
+    : NotImplementedException($"{autoNew.Name} is declared As New, and is used where HexIDE can't yet make its object (#435).")
+{
+    /// <summary>The slot to fill.</summary>
+    public int Location { get; } = location;
+
+    /// <summary>What to make, and the name it is made for.</summary>
+    public AutoNew AutoNew { get; } = autoNew;
+}
+
 /// <summary>
 /// The run's forms, as the interpreter reaches them (#822): making a form's default instance, and loading it. The program
 /// implements it. A run with none, as a test's bare interpreter is, has no forms to reach.

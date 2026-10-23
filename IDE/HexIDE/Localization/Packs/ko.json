@@ -588,6 +588,7 @@
     "Str.PropDesc.Checked": "메뉴 항목 옆에 확인 표시가 나타날지 여부.",
     "Str.PropDesc.WindowList": "이 메뉴가 열린 MDI 자식 창을 나열할지 여부.",
     "Str.PropDesc.Locked": "컨트롤 내용을 편집할 수 있는지 여부.",
+    "Str.PropDesc.MultiSelect": "둘 이상의 항목을 선택할 수 있는지 여부와 그 방법.",
     "Str.PropDesc.StartUpPosition": "폼이 처음 열릴 때 화면에 배치되는 위치.",
     "Str.PropDesc.ShowInTaskbar": "폼이 작업 표시줄에 나타날지 여부.",
     "Str.PropDesc.TabIndex": "폼의 탭 순서에서 컨트롤의 위치.",

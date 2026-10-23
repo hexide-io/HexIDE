@@ -588,6 +588,7 @@
     "Str.PropDesc.Checked": "آیا مینو آئٹم کے ساتھ نشان ظاہر ہو۔",
     "Str.PropDesc.WindowList": "آیا یہ مینو کھلی MDI چائلڈ ونڈوز کی فہرست دکھائے۔",
     "Str.PropDesc.Locked": "آیا کنٹرول کے مواد میں ترمیم کی جا سکے۔",
+    "Str.PropDesc.MultiSelect": "آیا ایک سے زیادہ آئٹم منتخب کیے جا سکیں، اور کیسے۔",
     "Str.PropDesc.StartUpPosition": "فارم پہلی بار کھلنے پر اسکرین پر کہاں رکھا جائے۔",
     "Str.PropDesc.ShowInTaskbar": "آیا فارم ٹاسک بار میں ظاہر ہو۔",
     "Str.PropDesc.TabIndex": "فارم کی Tab ترتیب میں کنٹرول کا مقام۔",

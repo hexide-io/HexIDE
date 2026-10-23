@@ -258,6 +258,15 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   original guard sat only in `CallProcedure` and missed the method/Property-Get/qualified/`New` paths + could leak —
   both found by the cross-model adversarial review.)
 
+### D28. A `?` line ending in `;` or `,` leaves no line open (deliberate, #1386)
+- **VB6:** `? 6;` prints ` 6 ` and leaves the caret after it, on the same line. What is typed next joins that line, so
+  `? 7` there becomes ` 6 ? 7`, and Enter answers "Compile error: Invalid in Immediate pane" (measured).
+- **HexIDE:** the items print as VB6 prints them, ` 6 `, and the next line typed starts a line of its own.
+- **Why:** the joined line is a trap rather than a use. Nothing typed after an open line can be evaluated, since VB6 reads
+  the whole line, output included. The Fidelity Principle reproduces what VB6 means to do, not where it trips.
+- **Status:** **by design.** A `?` line otherwise prints exactly as `Debug.Print` does (the oracle's "A `?` line in the
+  Immediate window").
+
 ---
 
 ## Call Stack

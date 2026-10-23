@@ -256,8 +256,9 @@
                                                 <Setter Property="(Canvas.Top)" Value="{CompiledBinding Top, Mode=TwoWay}" />
                                                 <Setter Property="ZIndex" Value="{CompiledBinding ZIndex}" />
                                                 <!-- The control's own name, so automation addresses Command1 rather than the view model's
-                                                     type name, which every control on every form shared. (#526) -->
-                                                <Setter Property="AutomationProperties.Name" Value="{CompiledBinding Name}" />
+                                                     type name, which every control on every form shared (#526), and a control
+                                                     array's element as optSize(1), as the write tools take it (#1320). -->
+                                                <Setter Property="AutomationProperties.Name" Value="{CompiledBinding AddressedName}" />
                                             </Style>
                                         </controls:ControlsContainer.Styles>
                                         <controls:ControlsContainer.ItemsPanel>

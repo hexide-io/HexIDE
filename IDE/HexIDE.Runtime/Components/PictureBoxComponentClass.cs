@@ -20,7 +20,7 @@ public class PictureBoxComponentClass : ComponentBaseClass
     FontProperty, ForeColorProperty,
     MousePointerProperty, TabIndexProperty, TabStopProperty,
     ToolTipTextProperty, PictureProperty,
-    ], [ClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
+    ], [ClickEvent, DblClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
     {
     }
 

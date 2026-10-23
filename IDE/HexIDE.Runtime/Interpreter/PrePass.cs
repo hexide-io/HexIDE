@@ -55,6 +55,73 @@ public class PrePass : VB6BaseVisitor<object?>
     internal static bool IsPrivateVisibility(string? text)
         => text is not null && text.Trim().Equals("Private", StringComparison.OrdinalIgnoreCase);
     public bool RequireVariableDefinitions { get; private set; }
+
+    // The types DefType gives by first letter (#169), A to Z; null where no DefType covers the letter. DefVar's letters hold
+    // EmptyVariant, so a second directive over them is still refused.
+    private readonly Vb6Value.ValueType?[] defaultTypes = new Vb6Value.ValueType?[26];
+
+    // Set at the module's first declaration, after which a DefType does not compile: a variable, a Const, a Type, an Enum or a
+    // Declare (all measured). An Option statement or another DefType does not count.
+    private bool declared;
+
+    /// <summary>
+    /// The type a declaration with no As clause takes from the first letter of its name, under the module's DefType
+    /// statements (#169): an undeclared variable, a <c>Dim</c> or <c>Static</c>, a field, a parameter, and a Function's or
+    /// Property Get's return, but not a <c>Const</c>, which takes its value's type (all measured). Null for a Variant's.
+    /// </summary>
+    public Vb6Value.ValueType? DefaultTypeOf(string name)
+    {
+        var letter = name.Length > 0 ? char.ToUpperInvariant(name[0]) : '\0';
+        return letter is >= 'A' and <= 'Z' && defaultTypes[letter - 'A'] is { } type && type != Vb6Value.ValueType.EmptyVariant
+            ? type
+            : null;
+    }
+
+    /// <summary>
+    /// <c>DefInt A-Z</c> and its family (#169), collected into the letter table: no relationship between symbols, only
+    /// which letters a module's undeclared and untyped names take which type from. VB6's compile errors, measured: a letter
+    /// two directives cover is "Duplicate Deftype statement", even under the same type; a DefType after a variable
+    /// declaration is "Deftype statements must precede declarations"; a name longer than a letter is "Expected: letter";
+    /// and DefDec, which VB6 does not have, is not a statement at all. A range written backwards, <c>DefStr Z-X</c>,
+    /// covers X to Z.
+    /// </summary>
+    public override object? VisitDeftypeStmt(VB6Parser.DeftypeStmtContext context)
+    {
+        if (declared)
+            throw new VBCompileErrorException("Deftype statements must precede declarations");
+        var type = context.DEFBOOL() != null ? Vb6Value.ValueType.Boolean
+            : context.DEFBYTE() != null ? Vb6Value.ValueType.Byte
+            : context.DEFINT() != null ? Vb6Value.ValueType.Integer
+            : context.DEFLNG() != null ? Vb6Value.ValueType.Long
+            : context.DEFCUR() != null ? Vb6Value.ValueType.Currency
+            : context.DEFSNG() != null ? Vb6Value.ValueType.Single
+            : context.DEFDBL() != null ? Vb6Value.ValueType.Double
+            : context.DEFDATE() != null ? Vb6Value.ValueType.Date
+            : context.DEFSTR() != null ? Vb6Value.ValueType.String
+            : context.DEFOBJ() != null ? Vb6Value.ValueType.Object
+            : context.DEFVAR() != null ? Vb6Value.ValueType.EmptyVariant
+            : throw new VBCompileErrorException("Expected: line number or label or statement or end of statement");
+        foreach (var range in context.letterrange())
+        {
+            var letters = range.certainIdentifier();
+            var first = Letter(letters[0]);
+            var last = letters.Length > 1 ? Letter(letters[1]) : first;
+            if (first > last)
+                (first, last) = (last, first);
+            for (var letter = first; letter <= last; letter++)
+            {
+                if (defaultTypes[letter - 'A'] is not null)
+                    throw new VBCompileErrorException("Duplicate Deftype statement");
+                defaultTypes[letter - 'A'] = type;
+            }
+        }
+        return default;
+    }
+
+    private static char Letter(VB6Parser.CertainIdentifierContext letter) =>
+        letter.GetText() is { Length: 1 } text && char.IsAsciiLetter(text[0])
+            ? char.ToUpperInvariant(text[0])
+            : throw new VBCompileErrorException("Expected: letter");
     public int ArrayBase { get; private set; } = 0;
 
     /// <summary>
@@ -144,6 +211,9 @@ public class PrePass : VB6BaseVisitor<object?>
 
         // Module-level `Dim`, `Private`, and `Public` declarations all hoist the same way (visibility is not
         // tracked for variables — an over-permissive simplification). Class fields are usually `Private`/`Public`.
+        // The slot hoisted here has no DefType's type: the Dim statement, run when the module starts, makes the slot the
+        // program uses, and DeclareLocal gives that one its type (#169).
+        declared = true;
         if (context.DIM() != null || context.visibility() != null)
         {
             foreach (var subStmt in context.variableListStmt().variableSubStmt())
@@ -189,11 +259,20 @@ public class PrePass : VB6BaseVisitor<object?>
                 // `Dim o As Object`, `Dim c As Collection`: an object slot, Nothing until Set (#1010 review). An array of
                 // them is still refused below, as it is in a procedure.
                 var objectSlot = false;
+                string? declaredClass = null;
                 if (subStmt.asTypeClause() != null)
                 {
+                    // `Dim o As New C1` holds Nothing until its first use (#435). The module's Dim statement, which runs
+                    // when the module starts, marks the slot; what it refuses (a scalar, a UDT) it refuses there. An
+                    // array, each element made on its own first use (measured), is refused here, for a class as for a
+                    // Collection.
                     if (subStmt.asTypeClause().NEW() != null)
-                        throw new NotImplementedException("New as type not implemented");
-                    if (subStmt.asTypeClause().fieldLength() != null)
+                    {
+                        if (isArray)
+                            throw new NotImplementedException("An array declared As New is not implemented (#1482)");
+                        objectSlot = true;
+                    }
+                    else if (subStmt.asTypeClause().fieldLength() != null)
                         throw new NotImplementedException("fieldLength as type not implemented");
                     if (subStmt.asTypeClause().type().complexType() != null)
                     {
@@ -204,11 +283,17 @@ public class PrePass : VB6BaseVisitor<object?>
                     }
                     else if (!isArray && subStmt.asTypeClause().type().baseType() is { } objectType
                              && (objectType.OBJECT() != null || objectType.COLLECTION() != null))
+                    {
                         objectSlot = true;
+                        if (objectType.COLLECTION() != null)
+                            declaredClass = "Collection";
+                    }
                     else
                     {
                         type = BaseTypeMapper.Map(subStmt.asTypeClause().type().baseType())
-                            ?? throw new NotImplementedException("base type " + subStmt.asTypeClause().type().baseType().GetChild(0) + " not implemented");
+                            ?? throw new NotImplementedException("base type " + subStmt.asTypeClause().type().baseType().GetChild(0) + " not implemented"
+                                + (subStmt.asTypeClause().type().baseType() is { } arrayOf && (arrayOf.OBJECT() != null || arrayOf.COLLECTION() != null)
+                                    ? " (#1482)" : ""));
                     }
                 }
                 if (isArray)
@@ -217,7 +302,7 @@ public class PrePass : VB6BaseVisitor<object?>
                 var value = objectSlot ? Vb6Value.Nothing
                     : dimensions != null ? new Vb6Value(type, dimensions) : new Vb6Value(type);
                 if (dimensions != null && value.Value is VBArray fixedArr) fixedArr.IsDynamic = false;   // `Dim a(N)` = fixed
-                var location = state.Alloc(value);
+                var location = state.Alloc(value, null, declaredClass);
                 if (isArray)
                 {
                     state.MarkDeclaredArray(location);
@@ -235,7 +320,7 @@ public class PrePass : VB6BaseVisitor<object?>
             }
         }
         else
-            throw new NotImplementedException("non dim variables not supported");
+            throw new VBCompileErrorException("Invalid outside procedure");   // `Static` at module level (measured, #1491)
 
         return default;
     }
@@ -254,6 +339,7 @@ public class PrePass : VB6BaseVisitor<object?>
 
     public override object? VisitConstStmt(VB6Parser.ConstStmtContext context)
     {
+        declared = true;
         // Hoist module-level const names into rootEnv (mirrors the Dim hoist) so a Sub declared after the
         // Const can reference it. The value is filled by the runtime VisitConstStmt (PrePass can't evaluate
         // the initializer). Sub/Function bodies aren't visited here, so local consts stay out of rootEnv.
@@ -277,10 +363,14 @@ public class PrePass : VB6BaseVisitor<object?>
         // than fail the whole module load, skip the declaration — the name is simply not registered, so an actual
         // CALL to it raises the clean "Sub or Function not defined" error. This lets a module that merely declares
         // an API (a near-universal pattern in real VB6) load and run its non-API code.
-        => default;
+    {
+        declared = true;
+        return default;
+    }
 
     public override object? VisitEnumerationStmt(VB6Parser.EnumerationStmtContext context)
     {
+        declared = true;
         // Enum members are Long compile-time CONSTANTS whose values are constant EXPRESSIONS, not merely
         // literals: `&H80000005` (measured -2147483643, the high bit making it negative), `&O17`, `-3`,
         // `xFirst + 1`, `2 ^ 3` and bit-ors of earlier members are all ordinary VB6. A member with no value
@@ -532,12 +622,10 @@ public class PrePass : VB6BaseVisitor<object?>
         if (args.Count != 0)
             throw new NotImplementedException($"Parameterized Property Get '{name}' is not supported");
         var returnUdt = context.asTypeClause()?.type()?.complexType()?.GetText();
-        var returnType = returnUdt != null
-            ? Vb6Value.ValueType.UserDefinedType
-            : ReturnTypeOf(context.asTypeClause());
-        GetOrAddProperty(name).Get = new ProcedureInfo(name, true, args, returnType, context.block(),
-            IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
-            DeclaresVariant(context.asTypeClause()));
+        var (returnType, returnsVariant, returnsObject) = ReturnOf(context.asTypeClause(), name);
+        GetOrAddProperty(name).Get = new ProcedureInfo(name, true, args, returnUdt != null ? Vb6Value.ValueType.UserDefinedType : returnType,
+            context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
+            returnsVariant, returnsObject);
         NoteDefaultMember(context.block());
         return default;
     }
@@ -580,6 +668,7 @@ public class PrePass : VB6BaseVisitor<object?>
 
     public override object? VisitTypeStmt(VB6Parser.TypeStmtContext context)
     {
+        declared = true;
         // A `Type … End Type` definition: parse each field to a scalar ValueType or a nested-type NAME (resolved
         // — UDT vs Enum — at instantiation, once the program-wide tables exist). Array fields and fixed-length
         // strings inside a Type are deferred (spec walls).
@@ -599,6 +688,8 @@ public class PrePass : VB6BaseVisitor<object?>
             }
             if (asType.fieldLength() != null)
                 throw new NotImplementedException($"Fixed-length field '{fieldName}' inside Type '{name}' is not yet supported");
+            if (asType.NEW() != null)
+                throw new NotImplementedException($"Field '{fieldName}' declared As New inside Type '{name}' is not implemented (#1488)");
             if (asType.type().complexType() is { } ct)
                 fields.Add(new UdtField(fieldName, null, ct.GetText()));   // nested UDT or Enum, resolved at NewUdt
             else
@@ -620,12 +711,11 @@ public class PrePass : VB6BaseVisitor<object?>
         // A complexType return (`As Employee`) is the generic UDT ValueType here; the concrete name is carried
         // separately so the return slot can be seeded with a real UDT at call time.
         var returnUdt = context.asTypeClause()?.type()?.complexType()?.GetText();
-        var returnType = returnUdt != null
-            ? Vb6Value.ValueType.UserDefinedType
-            : ReturnTypeOf(context.asTypeClause());
-        Procedures[name] = new ProcedureInfo(name, true, ParseParams(context.argList()), returnType,
+        var (returnType, returnsVariant, returnsObject) = ReturnOf(context.asTypeClause(), name);
+        Procedures[name] = new ProcedureInfo(name, true, ParseParams(context.argList()),
+            returnUdt != null ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
-            DeclaresVariant(context.asTypeClause()));
+            returnsVariant, returnsObject);
         NoteDefaultMember(context.block());
         return default;
     }
@@ -643,13 +733,17 @@ public class PrePass : VB6BaseVisitor<object?>
     // clients to hide from). Absent visibility ⇒ Public.
     private static bool IsPrivate(VB6Parser.VisibilityContext? visibility) => visibility?.PRIVATE() != null;
 
-    private static List<ParamInfo> ParseParams(VB6Parser.ArgListContext? argList)
+    private List<ParamInfo> ParseParams(VB6Parser.ArgListContext? argList)
     {
         var result = new List<ParamInfo>();
         if (argList == null)
             return result;
         foreach (var arg in argList.arg())
         {
+            // With no As clause, the DefType's for the name's letter (measured, #169: `Sub ITake(i7)` under DefInt, given 2.6,
+            // holds an Integer 3). DefObj makes it an `As Object`.
+            var defaultType = arg.asTypeClause() is null ? DefaultTypeOf(arg.ambiguousIdentifier().GetText()) : null;
+            var defaultScalar = defaultType == Vb6Value.ValueType.Object ? null : defaultType;
             result.Add(new ParamInfo(
                 arg.ambiguousIdentifier().GetText(),
                 ByRef: arg.BYVAL() == null,        // VB6's default passing convention is ByRef
@@ -657,19 +751,25 @@ public class PrePass : VB6BaseVisitor<object?>
                 ParamArray: arg.PARAMARRAY() != null,
                 // `b() As Long` is a Long array, not a Long: declared as the element type, an array passed ByRef was
                 // copied rather than shared, and then narrowed as if it were a scalar.
-                DeclaredType: arg.LPAREN() != null && ExtractBaseType(arg.asTypeClause()) is { } element
+                DeclaredType: arg.LPAREN() != null && (ExtractBaseType(arg.asTypeClause()) ?? defaultScalar) is { } element
                     ? new Vb6Value.ValueType(element, true)
-                    : ExtractBaseType(arg.asTypeClause()),
+                    : ExtractBaseType(arg.asTypeClause()) ?? defaultScalar,
                 Default: arg.argDefaultValue(),
                 IsArray: arg.LPAREN() != null,
-                ReadsAsVariant: arg.LPAREN() == null && DeclaresVariant(arg.asTypeClause()),
-                TypeName: arg.asTypeClause()?.type()?.complexType()?.GetText()));
+                ReadsAsVariant: arg.LPAREN() == null
+                    && (defaultType is null ? DeclaresVariant(arg.asTypeClause()) : defaultType == Vb6Value.ValueType.Object),
+                TypeName: arg.asTypeClause()?.type()?.complexType()?.GetText(),
+                DeclaredObject: arg.LPAREN() == null
+                    && (DeclaresObject(arg.asTypeClause()) || defaultType == Vb6Value.ValueType.Object)));
         }
         return result;
     }
 
     // A declaration that is a Variant's: no As clause, `As Variant`, or `As Object`, which VB6 binds late as it binds a
     // Variant (measured, #1005). Not an array: `As Variant()` declares an array.
+    private static bool DeclaresObject(VB6Parser.AsTypeClauseContext? asType) =>
+        asType?.type() is { } type && type.LPAREN() == null && type.baseType()?.OBJECT() != null;
+
     private static bool DeclaresVariant(VB6Parser.AsTypeClauseContext? asType) =>
         asType is null
         || asType.type()?.LPAREN() == null && asType.type()?.baseType() is { } baseType
@@ -683,6 +783,17 @@ public class PrePass : VB6BaseVisitor<object?>
     // A Function's or Property Get's return type, an array where the clause says so: `As Long()` returns a Long() (measured,
     // #975: TypeName "Long()", and one that never assigns its name returns an empty one, UBound raising 9). It was read as
     // its element type, so the array the body stored was narrowed into a Long on the way out, and came back 0.
+    // A Function's or Property Get's return: its type, whether it reads as a Variant's, and whether it is an object variable,
+    // As Object or As Collection. With no As clause it is the DefType's for its name's letter (measured, #169: `Function
+    // IFun()` under DefInt returns an Integer).
+    private (Vb6Value.ValueType Type, bool ReadsAsVariant, bool IsObject) ReturnOf(VB6Parser.AsTypeClauseContext? asType, string name)
+    {
+        if (asType is null && DefaultTypeOf(name) is { } defaultType)
+            return defaultType == Vb6Value.ValueType.Object ? (Vb6Value.ValueType.EmptyVariant, true, true) : (defaultType, false, false);
+        return (ReturnTypeOf(asType), DeclaresVariant(asType),
+            DeclaresObject(asType) || asType?.type() is { } type && type.LPAREN() == null && type.baseType()?.COLLECTION() != null);
+    }
+
     private static Vb6Value.ValueType ReturnTypeOf(VB6Parser.AsTypeClauseContext? asType)
     {
         var type = ExtractBaseType(asType) ?? Vb6Value.ValueType.EmptyVariant;
