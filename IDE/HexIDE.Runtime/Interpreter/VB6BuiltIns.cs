@@ -129,6 +129,11 @@ public partial class VB6BuiltIns
     /// <summary>Whether <paramref name="name"/> is a built-in function this interpreter implements.</summary>
     public static bool IsBuiltInFunction(string name) => Builtins.ContainsKey(name);
 
+    /// <summary>A built-in function by name, for a caller with no interpreter: an <c>#If</c>'s conversions (#1112), which
+    /// take no state, so it passes no <c>self</c>.</summary>
+    internal static bool TryGetBuiltIn(string name, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out BuiltinFn? function) =>
+        Builtins.TryGetValue(name, out function);
+
     private static Dictionary<string, BuiltinFn> BuildRegistry()
     {
         var d = new Dictionary<string, BuiltinFn>(StringComparer.OrdinalIgnoreCase);

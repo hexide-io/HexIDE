@@ -1919,10 +1919,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         throw new NotImplementedException("Lset not implemented");
     }
 
-    public override async Task<ControlFlow> VisitMacroIfThenElseStmt(VB6Parser.MacroIfThenElseStmtContext context)
-    {
-        throw new NotImplementedException("MacroIfThenElse not implemented");
-    }
+    // As in PrePass: every directive was applied before the parse (#1112), and a `#` line left is code to vb6.exe.
+    public override Task<ControlFlow> VisitMacroIfThenElseStmt(VB6Parser.MacroIfThenElseStmtContext context) =>
+        throw new VBCompileErrorException("Syntax error");
 
     public override async Task<ControlFlow> VisitMidStmt(VB6Parser.MidStmtContext context)
     {

@@ -605,10 +605,9 @@ public class PrePass : VB6BaseVisitor<object?>
     }
 
     public override object? VisitMacroIfThenElseStmt(VB6Parser.MacroIfThenElseStmtContext context)
-        // Conditional compilation (`#If`/`#ElseIf`/`#Else`/`#End If`, `#Const`) is a documented deferral: selecting a
-        // branch needs a preprocessor pass HexIDE doesn't have. Fail with a CLEAR compile error rather than a raw
-        // NotImplementedException so the reason is legible (both branches can't be compiled blind).
-        => throw new VBCompileErrorException("Conditional compilation (#If / #Const) is not supported");
+        // Conditional compilation is applied before the parse (ConditionalCompiler, #1112), so every directive is gone by
+        // now. A `#` line left is one vb6.exe does not read as a directive, which it compiles as code: a syntax error.
+        => throw new VBCompileErrorException("Syntax error");
 
     public override object? VisitPropertyGetStmt(VB6Parser.PropertyGetStmtContext context)
     {

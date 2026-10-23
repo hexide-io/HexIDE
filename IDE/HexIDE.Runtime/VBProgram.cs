@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using HexIDE.Runtime.Interpreter.ConditionalCompilation;
 using System.Threading.Tasks;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
@@ -133,8 +134,10 @@ public sealed class VBProgram : IFormProgram
                     others.Add((form.Name, FormCodeText.WholeFile(form)));
 
         ExecutionContext = rootContext.ExecutionContext;
+        // The project's Conditional Compilation Arguments, or vb6.exe's refusal of them before anything runs (#1112).
+        var compilation = project is null ? null : CompilationConstants.ForProject(project);
         interpreter = new BasicInterpreter(rootContext.StandardLibrary, ExecutionContext, rootContext.RootEnv,
-            primaryCode, primaryName, additional, classModules, primaryKind, others)
+            primaryCode, primaryName, additional, classModules, primaryKind, others, compilation)
         {
             DebugController = debugController,
             Events = Events,
