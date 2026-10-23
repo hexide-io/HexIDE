@@ -113,7 +113,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Statements | 2 | 2 | 41 | 30 | 0 | 30 | 105 |
+| Statements | 2 | 2 | 29 | 30 | 0 | 42 | 105 |
 | Operators | 0 | 0 | 2 | 19 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 61 | 41 | 1 | 50 | 153 |
 | Keywords and modifiers | 0 | 0 | 10 | 20 | 1 | 20 | 51 |
@@ -121,7 +121,7 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Compiler directives and options | 0 | 1 | 9 | 9 | 20 | 8 | 47 |
 | In-box objects | 0 | 0 | 88 | 13 | 0 | 22 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **8** | **4** | **223** | **407** | **22** | **518** | **1182** |
+| **Total** | **8** | **4** | **211** | **407** | **22** | **530** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -314,7 +314,7 @@ which is the cheaper kind to close. The named-argument operator `:=` was the oth
 | `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 
-## Dies mid-run — 217 names
+## Dies mid-run — 205 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -390,18 +390,6 @@ most of the in-box object model.
 | `Date` | **Dies** | throws `"Date not implemented"` — The grammar has a dedicated rule `dateStmt : DATE WS? EQ WS? valueStmt` (VB6.g4), listed in the block alternatives at VB6.g4 ahead of letStmt so it… | StatementExecutor.cs |
 | `DDB` | **Dies** | Not registered in BuildRegistry (VB6BuiltIns.cs) or any RegisterXxx partial; the call resolves to no local array, no user procedure and no intrinsic, so ExpressionExecutor.cs throws… | VB6BuiltIns.cs |
 | `Debug.Assert` | **Dies** | as an ICS_B_MemberProcedureCall and throws at run time. DebugProxy.Call handles only "Print"; everything else hits `throw new Exception("No method named " + method)`. Measured verbatim:… | DebugProxy.cs |
-| `DefBool` | **Dies** | throws `"Deftype not implemented"` — (grammar rule `deftypeStmt` at VB6.g4, a blockStmt so it reaches the module's top-level block) and then throws at run time: Measured: `DefBool A-Z`… | StatementExecutor.cs |
-| `DefByte` | **Dies** | throws `"Deftype not implemented"` — the single shared VisitDeftypeStmt covers every Def* token (DEFBOOL\|DEFBYTE\|DEFINT\|DEFLNG\|DEFCUR\|DEFSNG\|DEFDBL\|DEFDEC\|DEFDATE\|DEFSTR\|DEFOBJ\… | StatementExecutor.cs |
-| `DefCur` | **Dies** | throws `"Deftype not implemented"` | StatementExecutor.cs |
-| `DefDate` | **Dies** | throws `"Deftype not implemented"` | StatementExecutor.cs |
-| `DefDbl` | **Dies** | throws `"Deftype not implemented"` | StatementExecutor.cs |
-| `DefDec` | **Dies** | throws `"Deftype not implemented"` — (DEFDEC is a lexer token and appears in the deftypeStmt alternation) and then | StatementExecutor.cs, VB6.g4 |
-| `DefInt` | **Dies** | throws `"Deftype not implemented"` — Measured: `DefInt A-Z` -> that exact message. | StatementExecutor.cs |
-| `DefLng` | **Dies** | throws `"Deftype not implemented"` | StatementExecutor.cs |
-| `DefObj` | **Dies** | throws `"Deftype not implemented"` | StatementExecutor.cs |
-| `DefSng` | **Dies** | throws `"Deftype not implemented"` | StatementExecutor.cs |
-| `DefStr` | **Dies** | throws `"Deftype not implemented"` — Measured: `DefStr S` -> that exact message. | StatementExecutor.cs |
-| `DefVar` | **Dies** | throws `"Deftype not implemented"` | StatementExecutor.cs |
 | `DeleteSetting` | **Dies** | throws `"DeleteSetting not implemented"` — Grammar rule `deleteSettingStmt : DELETESETTING WS valueStmt WS? COMMA WS? valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4) with a real DELETESETTING… | StatementExecutor.cs |
 | `Dir` | **Dies** | fails at name resolution: unregistered in every VB6BuiltIns partial. Probed `Debug.Print Dir("*.*")` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined… | ExpressionExecutor.cs |
 | `Environ` | **Dies** | Not in BuildRegistry; the only runtime hit is the highlighter list VbKeywordNormalizer.cs. `Environ("PATH")` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined… | ExpressionExecutor.cs |
@@ -547,7 +535,7 @@ load, Dies, Partial, No-op, Supported — because a reader of a coverage documen
 missing.
 
 
-### Statements — 105 names (2 silently wrong, 43 absent, 30 partial, 30 supported)
+### Statements — 105 names (2 silently wrong, 31 absent, 30 partial, 42 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -558,18 +546,18 @@ missing.
 | `AppActivate` | **Dies** | throws `"AppActivate not implemented"` — Grammar rule `appActivateStmt : APPACTIVATE WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4); the visitor body is a single throw:… | StatementExecutor.cs |
 | `Close` | Faithful | **[#1145](https://github.com/hexide-io/HexIDE/issues/1145):** closes the numbered files, every open file with no number, and one that isn't open with no error, all as vb6.exe measured. A program's files also close at `End` and when it ends. | StatementExecutor.cs, VbFiles.cs |
 | `Date` | **Dies** | throws `"Date not implemented"` — The grammar has a dedicated rule `dateStmt : DATE WS? EQ WS? valueStmt` (VB6.g4), listed in the block alternatives at VB6.g4 ahead of letStmt so it… | StatementExecutor.cs |
-| `DefBool` | **Dies** | throws `"Deftype not implemented"` — (grammar rule `deftypeStmt` at VB6.g4, a blockStmt so it reaches the module's top-level block) and then throws at run time: Measured: `DefBool A-Z`… | StatementExecutor.cs |
-| `DefByte` | **Dies** | throws `"Deftype not implemented"` — the single shared VisitDeftypeStmt covers every Def* token (DEFBOOL\|DEFBYTE\|DEFINT\|DEFLNG\|DEFCUR\|DEFSNG\|DEFDBL\|DEFDEC\|DEFDATE\|DEFSTR\|DEFOBJ\… | StatementExecutor.cs |
-| `DefCur` | **Dies** | throws `"Deftype not implemented"` | StatementExecutor.cs |
-| `DefDate` | **Dies** | throws `"Deftype not implemented"` | StatementExecutor.cs |
-| `DefDbl` | **Dies** | throws `"Deftype not implemented"` | StatementExecutor.cs |
-| `DefDec` | **Dies** | throws `"Deftype not implemented"` — (DEFDEC is a lexer token and appears in the deftypeStmt alternation) and then | StatementExecutor.cs, VB6.g4 |
-| `DefInt` | **Dies** | throws `"Deftype not implemented"` — Measured: `DefInt A-Z` -> that exact message. | StatementExecutor.cs |
-| `DefLng` | **Dies** | throws `"Deftype not implemented"` | StatementExecutor.cs |
-| `DefObj` | **Dies** | throws `"Deftype not implemented"` | StatementExecutor.cs |
-| `DefSng` | **Dies** | throws `"Deftype not implemented"` | StatementExecutor.cs |
-| `DefStr` | **Dies** | throws `"Deftype not implemented"` — Measured: `DefStr S` -> that exact message. | StatementExecutor.cs |
-| `DefVar` | **Dies** | throws `"Deftype not implemented"` | StatementExecutor.cs |
+| `DefBool` | Supported | **#169:** types every declaration with no As clause by the first letter of its name, as vb6.exe does (measured): an undeclared variable, a `Dim` or `Static`, a field, a parameter and a Function's return. A `Const` keeps its value's type. An overlap, a DefType after a declaration or inside a procedure, and a name longer than a letter are VB6's compile errors. Not yet: a type character on such a variable ([#742](https://github.com/hexide-io/HexIDE/issues/742)), a ReDim that declares ([#1495](https://github.com/hexide-io/HexIDE/issues/1495)), and one passed ByRef ([#1505](https://github.com/hexide-io/HexIDE/issues/1505)). | PrePass.cs |
+| `DefByte` | Supported | **#169:** see `DefBool`. | PrePass.cs |
+| `DefCur` | Supported | **#169:** see `DefBool`. | PrePass.cs |
+| `DefDate` | Supported | **#169:** see `DefBool`. | PrePass.cs |
+| `DefDbl` | Supported | **#169:** see `DefBool`. | PrePass.cs |
+| `DefDec` | Supported | **#169:** not VB6. vb6.exe refuses `DefDec E` to compile ("Expected: line number or label or statement or end of statement"), though the grammar lexes it, and HexIDE refuses it the same way. | PrePass.cs |
+| `DefInt` | Supported | **#169:** see `DefBool`. `DefInt A-Z` then `x = 2.6` is an Integer 3. | PrePass.cs |
+| `DefLng` | Supported | **#169:** see `DefBool`. | PrePass.cs |
+| `DefObj` | Supported | **#169:** see `DefBool`. Each is an object variable, Nothing until Set, as `As Object` makes it. | PrePass.cs |
+| `DefSng` | Supported | **#169:** see `DefBool`. | PrePass.cs |
+| `DefStr` | Supported | **#169:** see `DefBool`. | PrePass.cs |
+| `DefVar` | Supported | **#169:** see `DefBool`. A Variant, as with no DefType, but its letters still count as covered. | PrePass.cs |
 | `DeleteSetting` | **Dies** | throws `"DeleteSetting not implemented"` — Grammar rule `deleteSettingStmt : DELETESETTING WS valueStmt WS? COMMA WS? valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4) with a real DELETESETTING… | StatementExecutor.cs |
 | `End` | Supported | Ends the program where it stands, as VB6 does (measured, #775): nothing after it runs, no form raises QueryUnload, Unload or Terminate, and no Class_Terminate runs. In the IDE it ends the run as the End command does and reports nothing; headless, the interpreter stops and starts nothing again. | StatementExecutor.cs, BasicInterpreter.cs |
 | `FileCopy` | **Dies** | `filecopyStmt : FILECOPY WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `FileCopy "a.txt", "b.txt"` -> NotImplementedException: "Filecopy not… | StatementExecutor.cs |

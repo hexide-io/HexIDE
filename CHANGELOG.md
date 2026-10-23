@@ -208,6 +208,15 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`DefInt A-Z` and the rest of DefType run** (#169). A DefType statement stopped the program. Now each declaration with
+  no As clause takes its type from the first letter of its name, as vb6.exe does. That covers an undeclared variable, a
+  `Dim` or `Static`, a field, a parameter and a Function's return, and under DefObj each is an object variable. A `Const`
+  keeps its value's type. A DefType that overlaps another, follows a declaration or sits inside a procedure is VB6's own
+  compile error. Two defects found on the way are fixed too:
+  - a `Set` into a name never declared raised 424, where VB6 declares it, as a Let does;
+  - a Function `As Object` or `As Collection` returned Empty before any Set, not Nothing, so `F = 5` in one took the
+    value where VB6 raises 91.
+
 - **Val, Round, Split and 13 more intrinsics take named arguments** (#1475). `Val(String:="12")`,
   `Round(Number:=2.567, NumDigitsAfterDecimal:=1)` and `Split(Expression:="a b c")` stopped the program, because
   signature help had no entry for them, and so neither did the interpreter's table of names. All 16 are now measured

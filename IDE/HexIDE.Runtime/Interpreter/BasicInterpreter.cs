@@ -1314,6 +1314,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 : Enums.ContainsKey(rn) ? new Vb6Value(0L)
                 : Modules.TryGet(rn, out var rc) && rc.Kind == InterpreterModuleKind.Class ? Vb6Value.Nothing
                 : new Vb6Value(proc.ReturnType))
+            // An `As Object` return, DefObj's included, and an `As Collection` one start at Nothing too, so a Let into the
+            // first before a Set is 91 (measured, #169). They started Empty, which took the value.
+            : proc.ReturnsObject ? Vb6Value.Nothing
             : new Vb6Value(proc.ReturnType);
 
     /// <summary>Resolve a procedure name as seen from <paramref name="currentModule"/>: the current module's own
