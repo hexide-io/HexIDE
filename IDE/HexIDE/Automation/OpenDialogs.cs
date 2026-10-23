@@ -1,7 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Avalonia.Controls;
+using Avalonia.Automation.Peers;
+using Avalonia.VisualTree;
 
 namespace HexIDE.Automation;
 
@@ -56,11 +59,53 @@ public static class OpenDialogs
         if (named.Count == 0)
             return null;
 
-        var parts = named.Select(d => $"'{d.Title}', a modal dialog over {OwnerOf(d)}, "
-            + (!watch.Before.Contains(d) ? "opened during this call and waits for an answer."
-                : Blocks(d, watch.Target) ? "is still open and waits for an answer; this call reached past it, as a person could not."
-                : "is open and waits for an answer."));
-        return string.Join(" ", parts) + " dump_visual_tree with 'window' set to its title shows it, and interact answers it.";
+        var parts = named.Select(d => $"{DescriptionOf(d)}, a modal dialog over {OwnerOf(d)}, "
+            + (!watch.Before.Contains(d) ? "opened during this call and waits for an answer"
+                : Blocks(d, watch.Target) ? "is still open and waits for an answer; this call reached past it, as a person could not"
+                : "is open and waits for an answer"));
+        return string.Join("; ", parts) + "; dump_visual_tree with 'window' set to its title shows it, and interact answers it.";
+    }
+
+    // Read the same live controls and automation names a tree dump exposes, including disabled choices.
+    private static string DescriptionOf(Window dialog)
+    {
+        var controls = dialog.GetVisualDescendants().OfType<Control>().ToList();
+        var content = dialog.Content;
+        var kind = content switch
+        {
+            HexIDE.Runtime.Dialogs.MessageBox => "a message box",
+            HexIDE.Forms.Views.RuntimeErrorView => "the run-time error dialog",
+            Control { DataContext: HexIDE.Forms.ViewModels.RuntimeErrorViewModel } => "the run-time error dialog",
+            HexIDE.Forms.ViewModels.RuntimeErrorViewModel => "the run-time error dialog",
+            _ => null,
+        };
+        var buttons = string.Join("/", controls.OfType<Button>()
+            .Where(b => b.IsEffectivelyVisible)
+            .Select(b => ControlAutomationPeer.CreatePeerForElement(b)?.GetName()?.Replace("_", ""))
+            .Where(name => !string.IsNullOrWhiteSpace(name)));
+        var details = new List<string>();
+        if (kind is not null)
+        {
+            // Restrict text to the content view: template chrome and button labels are not the message.
+            var view = content as Control ?? controls.OfType<HexIDE.Forms.Views.RuntimeErrorView>().FirstOrDefault();
+            var text = view?.GetVisualDescendants().OfType<TextBlock>()
+                .LastOrDefault(t => t.IsEffectivelyVisible && !t.GetVisualAncestors().OfType<Button>().Any()
+                    && !string.IsNullOrWhiteSpace(t.Text))?.Text;
+            details.Add(kind + (text is null ? "" : $": \"{FirstLine(text)}\""));
+        }
+        if (buttons.Length > 0)
+            details.Add(buttons);
+        return $"'{dialog.Title}'" + (details.Count == 0 ? "" : $" ({string.Join(", ", details)})");
+    }
+
+    private static string FirstLine(string text)
+    {
+        const int limit = 100;
+        var lineEnd = text.IndexOfAny(['\r', '\n', '\u0085', '\u2028', '\u2029']);
+        var line = (lineEnd < 0 ? text : text[..lineEnd]).Trim();
+        if (line.Length > limit || (lineEnd >= 0 && line.Length >= limit))
+            return line[..(limit - 1)].TrimEnd() + "…";
+        return line + (lineEnd >= 0 ? "…" : "");
     }
 
     // A dialog disables its owner, which, if a dialog itself, has disabled its own.

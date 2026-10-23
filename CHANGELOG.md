@@ -236,6 +236,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP replies distinguish dialogs sharing a title** (#1365). The modal note names a message box or run-time error dialog, its first line of text and its actual buttons; other dialogs include their buttons. The window parameter explains how to discover open windows through an unknown-name refusal.
+
 - **Persian words in MCP replies remain readable** (#1316). A zero-width non-joiner between Arabic-script
   letters (including their combining marks) is written as itself. Joiners elsewhere remain escaped.
 
