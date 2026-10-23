@@ -138,6 +138,17 @@ internal static class VbSignatures
                     ["String1", "String2", "Compare"],
                     "Returns a value indicating the result of a string comparison.")
             ],
+            ["StrConv"] =
+            [
+                new SignatureEntry("StrConv(String, Conversion As VbStrConv, [LocaleID As Long]) As String",
+                    ["String", "Conversion", "LocaleID"],
+                    "Returns a string converted as specified.")
+            ],
+            ["Error"] =
+            [
+                new SignatureEntry("Error([ErrorNumber]) As String", ["ErrorNumber"],
+                    "Returns the error message that corresponds to a given error number.")
+            ],
             ["Format"] =
             [
                 new SignatureEntry("Format(Expression, [Format], [FirstDayOfWeek], [FirstWeekOfYear]) As String",

@@ -487,6 +487,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         BuiltIns = new VB6BuiltIns(stdLib)
         {
             AppTitle = () => App.TitleOrNull,
+            ErrObject = () => Err,
             WatchRunEnd = () =>
             {
                 var session = DebugController?.Session;
