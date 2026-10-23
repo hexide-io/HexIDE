@@ -213,6 +213,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Object and Collection arrays** (#1482). Elements start as Nothing, accept Set with the same type checks as
+  scalar variables, and release their objects on Erase. Class arrays now report TypeName "Object()", too.
+
 - **View Code opens with the caret in the code** (#1518). It opened at the top of the file, on the folded header that
   only the IDE may change, so the first keystroke was refused and nothing appeared. Since #1369 that was every new
   form's first View Code too. Now a code window opened with nowhere asked for puts its caret on the first line below
