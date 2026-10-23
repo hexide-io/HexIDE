@@ -15296,7 +15296,7 @@ Measured on vb6.exe, native and p-code identical, under en-GB. Each program `CVa
 
 A copy of an array is made where the result is stored, as for any Let of an array (#970).
 
-## What ZOrder does at run time (2026-10-23, #1503, p-code)
+## What ZOrder does at run time (2026-10-23, #1503, p-code, IDE, release build)
 
 **The question.** Where `ZOrder` moves a control, and whether it can move one across the windowless plane that "How a
 running form stacks its controls" measured.
