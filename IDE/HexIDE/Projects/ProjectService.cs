@@ -1363,19 +1363,18 @@ public class ProjectService : IProjectService
             AddNewModuleToProject(project, new ModuleDefinition(project, name, kind) { TextEncoding = HostAnsi })), interactive);
 
     public Task<ModuleDefinition> AddNewUserControl(ProjectDefinition project, string name, bool interactive = true) =>
-        AddNewDesignerModule(project, name, ModuleKind.UserControl, "VB.UserControl", interactive);
+        AddNewDesignerModule(project, name, ModuleKind.UserControl, interactive);
 
     public Task<ModuleDefinition> AddNewPropertyPage(ProjectDefinition project, string name, bool interactive = true) =>
-        AddNewDesignerModule(project, name, ModuleKind.PropertyPage, "VB.PropertyPage", interactive);
+        AddNewDesignerModule(project, name, ModuleKind.PropertyPage, interactive);
 
     private Task<ModuleDefinition> AddNewDesignerModule(
-        ProjectDefinition project, string name, ModuleKind kind, string rootTypeName, bool interactive) =>
+        ProjectDefinition project, string name, ModuleKind kind, bool interactive) =>
         WithSaveRefusals(() =>
         {
-            var module = new ModuleDefinition(project, name, kind) { TextEncoding = HostAnsi };
-            var formPart = new FormDefinition(project, FormComponentClass.Instance, name);
-            formPart.UpdateRootTypeName(rootTypeName);
-            module.UpdateFormPart(formPart);
+            // As VB6 makes one, designer half and Attribute lines alike (#1538).
+            var module = ModuleDefinition.NewDesigner(project, name, kind, FormComponentClass.Instance);
+            module.TextEncoding = HostAnsi;
             return Task.FromResult(AddNewModuleToProject(project, module));
         }, interactive);
 

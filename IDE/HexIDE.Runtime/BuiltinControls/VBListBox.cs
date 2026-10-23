@@ -77,6 +77,9 @@ public class VBListBox : ListBox
         PointerMovedEvent.AddClassHandler<VBListBox>((list, e) => list.Moved(e), handledEventsToo: true);
         PointerReleasedEvent.AddClassHandler<VBListBox>((list, e) => list.Released(e), handledEventsToo: true);
         AttachedEvents.AttachMouse<VBListBox>(AttachedEvents.DblClick.InPlaceOfMouseDown);
+        // A ListBox takes the focus itself, as VB6's does, not only through its items (#1101).
+        FocusableProperty.OverrideDefaultValue<VBListBox>(true);
+        AttachedEvents.AttachFocusEvents<VBListBox>();
     }
 
     public VBListBox()

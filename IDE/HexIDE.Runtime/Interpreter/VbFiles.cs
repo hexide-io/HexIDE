@@ -65,7 +65,7 @@ internal enum VbFileMode
 /// directory, wherever HexIDE happened to be started, is never used, since a file written there is one the developer
 /// never chose.</para>
 /// </remarks>
-internal sealed class VbFiles
+internal sealed partial class VbFiles
 {
     private const byte CtrlZ = 0x1A;
 
@@ -335,6 +335,9 @@ internal sealed class VbFiles
         if (System.IO.Path.IsPathFullyQualified(path))
             return System.IO.Path.GetFullPath(path);
         var baseDirectory = CurrentDirectory ?? ProjectFolder();
+        // Rooted on no drive, as \x or /x is on Windows, a path is the current drive's root and needs no folder to resolve it.
+        if (baseDirectory.Length == 0 && System.IO.Path.IsPathRooted(path))
+            return System.IO.Path.GetFullPath(path);
         if (baseDirectory.Length == 0)
             throw new NotImplementedException(
                 $"Opening \"{path}\", a relative path, needs a saved project: an unsaved one has no folder to resolve it against");

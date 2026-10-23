@@ -541,13 +541,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // VB6 coerces the arg to a String path (a number → its text form), then changes directory; any failure
         // (bad/empty/nonexistent path, incl. a coerced number that isn't a real path) is Path Not Found (76) —
         // oracle-verified: valid→ok, bad→76, `ChDir 5`→76, `ChDir ""`→76. (VB6 changes the current dir without
-        // changing the default DRIVE — .NET CurrentDirectory changes both; a minor, documented divergence.)
+        // changing the default drive; HexIDE keeps one interpreter-local directory, shared with Open.)
         var path = VbDisplay.ToText(await expressionExecutor.EvaluateScalar(context.valueStmt()));
-        try { Environment.CurrentDirectory = path; }
+        try { interpreter.BuiltIns.Files.ChangeDirectory(path); }
         catch (Exception ex) when (ex is System.IO.DirectoryNotFoundException or System.IO.FileNotFoundException or ArgumentException or System.IO.IOException)
         { throw new VBRunTimeException(context, VBStandardError.PathNotFound); }
         // The program's files resolve a relative path here from now on (#1145).
-        interpreter.BuiltIns.Files.CurrentDirectory = Environment.CurrentDirectory;
+
         return ControlFlow.Nothing;
     }
 
@@ -900,7 +900,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitFilecopyStmt(VB6Parser.FilecopyStmtContext context)
     {
-        throw new NotImplementedException("Filecopy not implemented");
+        interpreter.BuiltIns.Files.Copy(VbDisplay.ToText(await expressionExecutor.EvaluateScalar(context.valueStmt(0))), VbDisplay.ToText(await expressionExecutor.EvaluateScalar(context.valueStmt(1))));
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitForEachStmt(VB6Parser.ForEachStmtContext context)
@@ -1514,7 +1515,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitKillStmt(VB6Parser.KillStmtContext context)
     {
-        throw new NotImplementedException("Kill not implemented");
+        interpreter.BuiltIns.Files.Kill(VbDisplay.ToText(await expressionExecutor.EvaluateScalar(context.valueStmt())));
+        return ControlFlow.Nothing;
     }
 
     /// <summary>
@@ -2050,10 +2052,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         throw new NotImplementedException("Lset not implemented");
     }
 
-    public override async Task<ControlFlow> VisitMacroIfThenElseStmt(VB6Parser.MacroIfThenElseStmtContext context)
-    {
-        throw new NotImplementedException("MacroIfThenElse not implemented");
-    }
+    // As in PrePass: every directive was applied before the parse (#1112), and a `#` line left is code to vb6.exe.
+    public override Task<ControlFlow> VisitMacroIfThenElseStmt(VB6Parser.MacroIfThenElseStmtContext context) =>
+        throw new VBCompileErrorException("Syntax error");
 
     public override async Task<ControlFlow> VisitMidStmt(VB6Parser.MidStmtContext context)
     {
@@ -2062,12 +2063,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitMkdirStmt(VB6Parser.MkdirStmtContext context)
     {
-        throw new NotImplementedException("Mkdir not implemented");
+        interpreter.BuiltIns.Files.MakeDirectory(VbDisplay.ToText(await expressionExecutor.EvaluateScalar(context.valueStmt())));
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitNameStmt(VB6Parser.NameStmtContext context)
     {
-        throw new NotImplementedException("Name not implemented");
+        interpreter.BuiltIns.Files.Rename(VbDisplay.ToText(await expressionExecutor.EvaluateScalar(context.valueStmt(0))), VbDisplay.ToText(await expressionExecutor.EvaluateScalar(context.valueStmt(1))));
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitOnErrorStmt(VB6Parser.OnErrorStmtContext context)
@@ -2336,7 +2339,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitRmdirStmt(VB6Parser.RmdirStmtContext context)
     {
-        throw new NotImplementedException("Rmdir not implemented");
+        interpreter.BuiltIns.Files.RemoveDirectory(VbDisplay.ToText(await expressionExecutor.EvaluateScalar(context.valueStmt())));
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitRsetStmt(VB6Parser.RsetStmtContext context)
@@ -2618,7 +2622,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitSetattrStmt(VB6Parser.SetattrStmtContext context)
     {
-        throw new NotImplementedException("Setattr not implemented");
+        interpreter.BuiltIns.Files.SetAttributes(VbDisplay.ToText(await expressionExecutor.EvaluateScalar(context.valueStmt(0))), Convert.ToInt32(VbNumeric.CoerceOnStore(await expressionExecutor.EvaluateScalar(context.valueStmt(1)), Vb6Value.ValueType.Long, context).Value));
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitSetStmt(VB6Parser.SetStmtContext context)

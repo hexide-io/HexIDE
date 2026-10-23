@@ -124,6 +124,9 @@ public class PrePass : VB6BaseVisitor<object?>
             : throw new VBCompileErrorException("Expected: letter");
     public int ArrayBase { get; private set; } = 0;
 
+    /// <summary>Whether the module says <c>Option Compare Text</c>; Binary otherwise, as VB6 defaults.</summary>
+    public bool OptionCompareText { get; private set; }
+
     /// <summary>
     /// Whether a procedure here carries <c>Attribute Name.VB_UserMemId = 0</c>, or a module-level variable
     /// <c>Attribute Name.VB_VarUserMemId = 0</c>, which makes it the class's default member. VB6 writes the attribute
@@ -171,10 +174,12 @@ public class PrePass : VB6BaseVisitor<object?>
     }
 
     public override object? VisitOptionCompareStmt(VB6Parser.OptionCompareStmtContext context)
-        // Accepted but not honoured — HexIDE always compares strings ordinally (Option Compare Binary). `Option
-        // Compare Text` (case-insensitive) is a documented divergence (see docs/interpreter-gaps.md); the directive
-        // must NOT fail the whole module load, so it is a no-op rather than a throw.
-        => default;
+    {
+        // Recorded for the module. Like honours it (#1547); the comparison operators still compare strings ordinally,
+        // as Option Compare Binary does, which is a documented divergence (docs/interpreter-gaps.md).
+        OptionCompareText = context.TEXT() != null;
+        return default;
+    }
 
     public override object? VisitOptionPrivateModuleStmt(VB6Parser.OptionPrivateModuleStmtContext context)
         // Accepted as a no-op — HexIDE doesn't enforce cross-project module-member visibility. Skipped (not thrown)
@@ -607,22 +612,19 @@ public class PrePass : VB6BaseVisitor<object?>
     }
 
     public override object? VisitMacroIfThenElseStmt(VB6Parser.MacroIfThenElseStmtContext context)
-        // Conditional compilation (`#If`/`#ElseIf`/`#Else`/`#End If`, `#Const`) is a documented deferral: selecting a
-        // branch needs a preprocessor pass HexIDE doesn't have. Fail with a CLEAR compile error rather than a raw
-        // NotImplementedException so the reason is legible (both branches can't be compiled blind).
-        => throw new VBCompileErrorException("Conditional compilation (#If / #Const) is not supported");
+        // Conditional compilation is applied before the parse (ConditionalCompiler, #1112), so every directive is gone by
+        // now. A `#` line left is one vb6.exe does not read as a directive, which it compiles as code: a syntax error.
+        => throw new VBCompileErrorException("Syntax error");
 
     public override object? VisitPropertyGetStmt(VB6Parser.PropertyGetStmtContext context)
     {
-        // `Property Get Name() As T` — Function-like: returns via its own name. A parameterized getter
-        // (`Property Get Item(i)`) is a wall, so the index argList must be empty. A complexType return
+        // Property Get is Function-like: returns via its own name and binds its declared parameters at the call.
+        // A complexType return
         // (`As Node`) carries its concrete name so the return slot seeds a real UDT / Nothing (see RunProcedure).
         var name = context.ambiguousIdentifier().GetText();
         if (context.typeHint() != null)
             throw new NotImplementedException("Type-hinted Property Get is not supported");
         var args = ParseParams(context.argList());
-        if (args.Count != 0)
-            throw new NotImplementedException($"Parameterized Property Get '{name}' is not supported");
         var returnUdt = context.asTypeClause()?.type()?.complexType()?.GetText();
         var (returnType, returnsVariant, returnsObject) = ReturnOf(context.asTypeClause(), name);
         GetOrAddProperty(name).Get = new ProcedureInfo(name, true, args, returnUdt != null ? Vb6Value.ValueType.UserDefinedType : returnType,

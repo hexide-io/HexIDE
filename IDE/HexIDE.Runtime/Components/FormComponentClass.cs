@@ -10,6 +10,8 @@ public class FormComponentClass : ComponentBaseClass
 {
     public FormComponentClass() : base([CaptionProperty,
     BackColorProperty,
+    // A form or a UserControl saved with Enabled = False runs disabled (#1101). Undeclared, the saved line was dropped.
+    EnabledProperty,
     ForeColorProperty,
     IconProperty,
     ShowInTaskbarProperty,
@@ -47,9 +49,12 @@ public class FormComponentClass : ComponentBaseClass
             [AttachedProperties.FontProperty] = instance.GetPropertyOrDefault(FontProperty),
             WindowStartupLocation = instance.GetPropertyOrDefault(StartUpPositionProperty).ToAvalonia(),
             ShowInTaskbar = instance.GetPropertyOrDefault(ShowInTaskbarProperty),
+            IsEnabled = instance.GetPropertyOrDefault(EnabledProperty),
             Position = new PixelPoint((int)instance.GetPropertyOrDefault(LeftProperty), (int)instance.GetPropertyOrDefault(TopProperty))
         };
         VBProps.SetName(form, instance.GetPropertyOrDefault(NameProperty));
+        // The frame its Width and Height include at run time (#1072).
+        AvaloniaInterop.FormFrame.Set(form, instance, menuBar);
         // The state the form's file gives it, which it shows in: `WindowState = 2 'Maximized` (#1152, measured). It is kept
         // as the line it was read with, so the designer and the file are unchanged.
         if (VBLoader.RawNumber(instance, "WindowState") is { } state

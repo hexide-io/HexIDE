@@ -755,6 +755,7 @@
     "Str.Document.CodeSuffix": "コード",
     "Str.Document.FormSuffix": "フォーム",
     "Str.Document.UserControlSuffix": "ユーザーコントロール",
+    "Str.Document.PropertyPageSuffix": "プロパティ ページ",
     "Str.PropCategory.Misc": "その他",
     "Str.PropCategory.Appearance": "外観",
     "Str.PropCategory.Behavior": "動作",

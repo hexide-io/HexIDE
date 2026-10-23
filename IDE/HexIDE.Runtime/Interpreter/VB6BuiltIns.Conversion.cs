@@ -83,7 +83,7 @@ public partial class VB6BuiltIns
     /// </remarks>
     /// <returns>The value to convert: <paramref name="v"/> itself, or what an in-box object stands for (Err's Number).
     /// A caller converts this, never the argument it passed, or Err would reach the conversion as an object.</returns>
-    private static Vb6Value RefuseNonScalar(Vb6Value v)
+    internal static Vb6Value RefuseNonScalar(Vb6Value v)
     {
         // An element of an array of a user-defined type that nothing has assigned holds no VbUdt yet, so the type
         // decides, not the value.
@@ -184,7 +184,7 @@ public partial class VB6BuiltIns
         return new Vb6Value(ToNum(v) != 0);
     }
 
-    private static Vb6Value CDate(Vb6Value v)
+    internal static Vb6Value CDate(Vb6Value v)
     {
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is DateTime) return v;

@@ -4303,3 +4303,45 @@ by reflection, as `close` already reaches the window's own close handling. Not t
 > the editor the pointer had left, and the repeat was taken for jitter); one device, and the editor forgetting its
 > hover on exit, fixed that. Guarded by `HoverThroughWindowInputTests`. The placement measurements above describe the
 > old route.
+
+---
+
+## `interact click` at a point outside its target says the control pressed there covers the target — **CLOSED**
+
+> **Fixed (#1530, PR #1549, 2026-10-23).** A click outside the target now says the point is outside, gives the
+> target's size, and names where the press landed. "Covers the target there" is kept for points inside its
+> bounds. Guarded by `InteractClickTests`.
+
+**Symptom (2026-10-23, #1503, Windows).** On a running form, `Command2` is 120 × 60
+(`inspect_element`: `boundingRect [64,40,120,60]`).
+`interact {"target":"Window/Button[Command2]","action":"click","value":"150,60","window":"Form1"}` answered
+`clicked the left button at (150, 60) on 'VBCommandButton', which is (214, 100) in the window; the press landed on
+'VBLabel', which covers the target there`. The point is past the button's width and height. The Label lying there was
+pressed, and `Command2_Click` didn't run. The reply reads as a stacking defect in the product.
+
+**Workaround.** `inspect_element` the target first and keep the point inside its `boundingRect`'s width and height.
+
+**Suggested fix.** When the point is outside the target's bounds, say so and give the target's size, and keep "covers
+the target there" for a point inside them. Or refuse such a point, as a point where nothing takes the pointer is
+refused. [#1530](https://github.com/hexide-io/HexIDE/issues/1530).
+
+---
+
+## `invoke_menu_item` on a disabled item with a routed command blames keyboard focus — **CLOSED**
+
+> **Fixed (#1534, PR #1551, 2026-10-23).** A materialised menu item that is not effectively enabled is now
+> reported as disabled in the menu before routed-command focus is checked. The focus explanation remains for
+> enabled items. Guarded by `MenuCommandRefusalTests`.
+
+**Symptom (2026-10-23, #746, Windows).** On `--newproject`, with one project and no group,
+`dump_visual_tree {"window":"ide","match":"Make Project Group","interactiveOnly":false}` showed
+`MenuItem[Make Project Group...]` with `isEnabled: false`, as VB6 greys it. `invoke_menu_item {"path":"File/Make Project
+Group..."}` answered `cannot execute where keyboard focus is now (a MenuItem named 'PART_ItemsPresenter' showing
+MainViewViewModel)`, went on about giving a document focus, and only in its last sentence said that a disabled item is
+refused the same way. The item belongs to no document, and no focus would enable it.
+
+**Workaround.** Open the menu and read the item's `isEnabled` with `dump_visual_tree` before invoking it.
+
+**Suggested fix.** When the `MenuItem` is materialised and not effectively enabled, say it is disabled in the menu, as
+the non-routed branch and the checkable-item branch already do. Keep the focus explanation for an item the menu shows
+enabled. [#1534](https://github.com/hexide-io/HexIDE/issues/1534).

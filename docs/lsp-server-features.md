@@ -87,7 +87,9 @@ every procedure renamed by retyping lost its run's protection.
 **The rule is the IDE's, ported rather than shared.** The IDE's copy is `ReadOnlyRegions`
 (`IDE/HexIDE.Runtime/Serialization/ReadOnlyRegions.cs`), and the two halves of the repository do not
 reference each other, for the same reasons the two grammar copies are separate; the server only ever has
-text, so it carries that file's text-only branch. `BundledServerRespectsTheIdesRegionsTests` keeps them in
+text, so it carries that file's text-only branch. **One file is the exception, and it is shared, not ported**:
+the directive scanner (`IDE/HexIDE.Core/Language/ConditionalCompilation.cs`), which the server compiles by a
+`<Compile Include>` link, is described under [conditional compilation](#conditional-compilation) below. `BundledServerRespectsTheIdesRegionsTests` keeps them in
 step by driving the built server with the real client over four inline files, `demo/`, `corpus/designer`,
 `corpus/member-attributes` and `HEXIDE_ROUNDTRIP_CORPUS` when it is set. `corpus/member-attributes` is
 required, both its halves: the runs VB6's own IDE wrote, and the misplaced runs VB6 loaded. Without it the
@@ -129,6 +131,47 @@ comment after it (`MultiUse = -1  'True`), and the whitespace before that commen
 straight from the value to the end of the line. Every `.cls` VB6 ever wrote failed at line 3. Fix 7 in
 [`vb6-grammar-fixes.md`](./vb6-grammar-fixes.md) is the repair, and `WholeFileGrammarTests` in each half now
 parses the corpus whole.
+
+### Conditional compilation
+
+**Code that `vb6.exe` never compiles is never parsed** (#1112). Before parsing, the server applies the module's
+`#If`, `#ElseIf`, `#Else`, `#End If` and `#Const`, and empties each directive line and every line of an inactive
+branch, keeping the line breaks, so every position in every answer is still the document's own. A
+`Declare PtrSafe … As LongPtr` behind `#If VBA7 Then` is no longer squiggled, and neither is a procedure whose
+`#If` blocks give it two headers.
+
+- **The scanner is the interpreter's**, so the two cannot read a directive differently. It is one BCL-only file,
+  `IDE/HexIDE.Core/Language/ConditionalCompilation.cs`, which `HexIDE.VbLspServer.csproj` compiles by a
+  `<Compile Include>` link. That is the only product source the two halves share, and the link is checked:
+  `ci-skippable.selftest.sh` reads every linked path from the server's project files and fails if the
+  classifier would skip the build for one. The file must stay BCL-only, so `LspServer/` still builds on its own.
+- **The arguments come from the project that lists the document.** The server looks for a `.vbp` beside the
+  document and in up to three folders above it, and reads its `CondComp` line, as Project Properties' Make tab
+  writes it. That serves every client alike, and a group whose projects each have their own arguments needs
+  nothing more. The `.vbp`'s item paths are backslash-separated on every host, and are resolved a segment at a
+  time, never handed to `System.IO.Path` whole. The project is read again when the file on disk changes.
+- **A directive's error is the one diagnostic.** `vb6.exe` refuses the module at a directive out of place
+  (`#End If` with no `#If`, an `#Else` after `#Else`, an `#If` never closed) or at a second `#Const` for one
+  name, so the server reports that, on that line, in `vb6.exe`'s words, and nothing else in the module.
+
+- ◐ **The evaluator is reduced, and says so rather than guessing.** The interpreter values a directive with its
+  own runtime, which the server does not have. The server's values whole-number literals, `True` and `False`,
+  names, parentheses, unary minus, `Not`, `And`, `Or`, `Xor`, `Eqv`, `Imp` and the six comparisons, with VB6's
+  semantics for that subset (`Not` is bitwise, so `Not 1` is `-2` and true). Anything else leaves the condition
+  **undetermined**: a string, a fraction, arithmetic, a function such as `Len`, `Like`, or a name that is neither
+  a `#Const` nor `Win32` or `Win16` in a document no project lists, where it might be an argument. An
+  undetermined block keeps one branch for the parser, so the outline has something to show, and **reports
+  nothing anywhere inside it**, from its `#If` to its `#End If`, because which of its lines `vb6.exe` compiles
+  is not known. Which branch matters: this grammar's recovery from an error can swallow every error after it, so a
+  kept `Declare PtrSafe` once left a module with a real error further down looking clean, found on the running
+  IDE. So the first branch that might be the one is kept, and where the parse's first error falls inside an
+  undetermined block the module is parsed again keeping each such block's last instead, where code written for
+  several compilers keeps the oldest one's, and the parse whose first error comes later answers. That is at most
+  one extra parse. None of those is a binding question, so each is depth: a fuller evaluator closes them. An
+  evaluation error, such as `"Variable not defined"` for a function `vb6.exe` refuses in a directive, is not
+  reported for the same reason; the interpreter reports it when the module loads.
+- ◐ A document no `.vbp` lists, or that two list with different arguments, or whose project's `CondComp`
+  `vb6.exe` refuses, has no arguments, only the built-ins.
 
 **`Option Explicit` undeclared-variable checking does not run.**
 `VbDiagnosticsProvider.EnableUndeclaredVariableCheck` is a `const bool = false`, so the check is compiled
@@ -400,7 +443,7 @@ reference implementation the client half is proved against.
 
 | Feature | Method | Depth | Principal limit |
 |---|---|---|---|
-| Error diagnostics | `publishDiagnostics` | 🔶 Partial | ■ cross-file scope |
+| Error diagnostics | `publishDiagnostics` | 🔶 Partial | ■ cross-file scope, ◐ `#If` evaluator |
 | Hover | `textDocument/hover` | 🔶 Partial | ■ type inference |
 | Document symbols | `textDocument/documentSymbol` | ✅ Full | ◐ nesting |
 | Code folding | `textDocument/foldingRange` | 🔶 Partial | ◐ regex scanner |

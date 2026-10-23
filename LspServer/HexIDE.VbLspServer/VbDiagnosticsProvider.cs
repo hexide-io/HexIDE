@@ -6,6 +6,7 @@ using System.Diagnostics;   // Stopwatch (the reported parse only)
 using Antlr4.Runtime;
 using Antlr4.Runtime.Atn;   // PredictionMode (two-stage SLL->LL prediction)
 using Antlr4.Runtime.Misc;  // ParseCanceledException (BailErrorStrategy)
+using HexIDE.Language;      // UndeterminedBranch (conditional compilation, #1112)
 
 namespace HexIDE.VbLspServer;
 
@@ -21,11 +22,12 @@ public static class VbDiagnosticsProvider
     // this on once a workspace symbol table can resolve those names.
     public const bool EnableUndeclaredVariableCheck = false;
 
-    public static List<LspDiagnostic> GetDiagnostics(string source)
+    /// <param name="compilation">The document's project, for its conditional compilation (#1112); none by default.</param>
+    public static List<LspDiagnostic> GetDiagnostics(string source, VbCompilationContext? compilation = null)
     {
         var regions = VbProtectedRegions.Of(source);
         var diagnostics = new List<LspDiagnostic>();
-        var tree = ParseSource(source, diagnostics, protectedRegions: regions);
+        var tree = ParseSource(source, diagnostics, protectedRegions: regions, compilation: compilation);
 
         // Only run scope analysis when the syntax is clean — syntax errors can produce
         // an incomplete parse tree which would cause spurious undeclared-variable warnings.
@@ -39,11 +41,12 @@ public static class VbDiagnosticsProvider
     /// Parses source once, returns both the diagnostics list and the parse tree.
     /// Use this when callers also need the tree (e.g. to extract declared types).
     /// </summary>
-    public static (List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree) GetDiagnosticsAndTree(string source)
+    public static (List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree) GetDiagnosticsAndTree(string source,
+        VbCompilationContext? compilation = null)
     {
         var regions = VbProtectedRegions.Of(source);
         var diagnostics = new List<LspDiagnostic>();
-        var tree = ParseSource(source, diagnostics, protectedRegions: regions);
+        var tree = ParseSource(source, diagnostics, protectedRegions: regions, compilation: compilation);
 
         if (EnableUndeclaredVariableCheck && diagnostics.Count == 0 && tree is not null)
             diagnostics.AddRange(OutsideProtectedLines(VbScopeAnalyzer.GetOptionExplicitDiagnostics(tree), regions));
@@ -80,14 +83,14 @@ public static class VbDiagnosticsProvider
     /// stage cannot change it.
     /// </remarks>
     public static (List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree, ParseReport Report)
-        GetDiagnosticsAndTreeReported(string source)
+        GetDiagnosticsAndTreeReported(string source, VbCompilationContext? compilation = null)
     {
         var report = new ParseReport();
         var diagnostics = new List<LspDiagnostic>();
 
         var startedAt = Stopwatch.GetTimestamp();
         var regions = VbProtectedRegions.Of(source);
-        var tree = ParseSource(source, diagnostics, report, regions);
+        var tree = ParseSource(source, diagnostics, report, regions, compilation);
         report.Elapsed = Stopwatch.GetElapsedTime(startedAt);
 
         if (EnableUndeclaredVariableCheck && diagnostics.Count == 0 && tree is not null)
@@ -119,8 +122,8 @@ public static class VbDiagnosticsProvider
     /// SingleThreadScheduler's one worker for the full parse regardless of the budget.
     /// </summary>
     public static Task<(List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree)?>
-        TryGetDiagnosticsAndTreeWithin(string source, TimeSpan budget)
-        => RunWithin(() => GetDiagnosticsAndTree(source), budget);
+        TryGetDiagnosticsAndTreeWithin(string source, TimeSpan budget, VbCompilationContext? compilation = null)
+        => RunWithin(() => GetDiagnosticsAndTree(source, compilation), budget);
 
     /// <summary>
     /// <see cref="TryGetDiagnosticsAndTreeWithin"/> with a <see cref="ParseReport"/> attached. Identical
@@ -128,8 +131,8 @@ public static class VbDiagnosticsProvider
     /// the abandoned parse is discarded along with its result rather than being handed back half-written.
     /// </summary>
     public static Task<(List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree, ParseReport Report)?>
-        TryGetDiagnosticsAndTreeReportedWithin(string source, TimeSpan budget)
-        => RunWithinCore(() => GetDiagnosticsAndTreeReported(source), budget);
+        TryGetDiagnosticsAndTreeReportedWithin(string source, TimeSpan budget, VbCompilationContext? compilation = null)
+        => RunWithinCore(() => GetDiagnosticsAndTreeReported(source, compilation), budget);
 
     /// <summary>
     /// The budget race itself, with the work passed in.
@@ -231,15 +234,62 @@ public static class VbDiagnosticsProvider
     /// </remarks>
     internal static VisualBasic6Parser.StartRuleContext? ParseSource(
         string source, List<LspDiagnostic>? diagnostics = null, ParseReport? report = null,
-        VbProtectedRegions? protectedRegions = null)
+        VbProtectedRegions? protectedRegions = null, VbCompilationContext? compilation = null)
+    {
+        // The module's directives first, so an inactive branch is never parsed, as in vb6.exe (#1112). Its lines stay
+        // where they were, only emptied, so every position the parse reports is the document's own.
+        var context = compilation ?? VbCompilationContext.NoProject;
+        var applied = VbConditionalCompilation.Apply(source, context);
+        var reportedBefore = diagnostics?.Count ?? 0;
+        var tree = ParseApplied(applied.Text, diagnostics, report, protectedRegions);
+        if (diagnostics is not null && applied.Undetermined.Count > 0
+            && FirstErrorLine(diagnostics, reportedBefore) is { } firstError && applied.HoldsBack(firstError))
+        {
+            // The parse stumbled inside a block nobody can choose, and its recovery may have swallowed every real error after
+            // it. Read each such block's last branch instead, where code for several compilers keeps the oldest one's, and let
+            // whichever parse got further answer.
+            var lastBranches = VbConditionalCompilation.Apply(source, context, UndeterminedBranch.Last);
+            var retried = new List<LspDiagnostic>();
+            var retriedTree = ParseApplied(lastBranches.Text, retried, report, protectedRegions);
+            if ((FirstErrorLine(retried, 0) ?? int.MaxValue) > firstError)
+            {
+                diagnostics.RemoveRange(reportedBefore, diagnostics.Count - reportedBefore);
+                diagnostics.AddRange(retried);
+                (applied, tree) = (lastBranches, retriedTree);
+            }
+        }
+        if (diagnostics is not null)
+        {
+            // Nothing is said about a block whose branch could not be chosen, nor, after a directive's own error, about
+            // anything else: vb6.exe refuses the module there.
+            for (var i = diagnostics.Count - 1; i >= reportedBefore; i--)
+                if (applied.HoldsBack(diagnostics[i].Range.Start.Line + 1))
+                    diagnostics.RemoveAt(i);
+            if (applied.Error is { } error)
+                diagnostics.Add(VbConditionalCompilation.Diagnostic(error, source));
+        }
+        return tree;
+    }
+
+    // One parse of the text conditional compilation left, read again without the protected lines when an error landed there.
+    private static VisualBasic6Parser.StartRuleContext? ParseApplied(
+        string text, List<LspDiagnostic>? diagnostics, ParseReport? report, VbProtectedRegions? protectedRegions)
     {
         var reportedBefore = diagnostics?.Count ?? 0;
-        var tree = ParseOnce(source, diagnostics, report, protectedRegions, out var leftOutAnError);
+        var tree = ParseOnce(text, diagnostics, report, protectedRegions, out var leftOutAnError);
         if (!leftOutAnError || protectedRegions is null)
             return tree;
-
         diagnostics?.RemoveRange(reportedBefore, diagnostics.Count - reportedBefore);
-        return ParseOnce(protectedRegions.Blank(source), diagnostics, report, protectedRegions, out _);
+        return ParseOnce(protectedRegions.Blank(text), diagnostics, report, protectedRegions, out _);
+    }
+
+    // The 1-based line of the earliest diagnostic from index `from` on, or null where there is none.
+    private static int? FirstErrorLine(List<LspDiagnostic> diagnostics, int from)
+    {
+        int? first = null;
+        for (var i = from; i < diagnostics.Count; i++)
+            first = Math.Min(first ?? int.MaxValue, diagnostics[i].Range.Start.Line + 1);
+        return first;
     }
 
     private static VisualBasic6Parser.StartRuleContext? ParseOnce(
