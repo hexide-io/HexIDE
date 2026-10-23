@@ -9,6 +9,10 @@ public abstract class BaseVBTestFixture
     protected List<Vb6Value> debug = new();
     // What Debug.Print wrote, as the Immediate window would show it (#1380).
     protected readonly System.Text.StringBuilder written = new();
+
+    /// <summary>Each MsgBox and InputBox the program showed, as <c>MsgBox prompt | title | buttons</c> and
+    /// <c>InputBox prompt | title | default</c>.</summary>
+    protected readonly List<string> dialogs = new();
     protected  ModuleExecutionContext context;
     protected ExecutionEnvironment rootEnv;
 
@@ -87,7 +91,7 @@ public abstract class BaseVBTestFixture
 
     protected async Task Run(string code) => await Dumped([("Module1", false, code)], async () =>
     {
-        var vb = new BasicInterpreter(new MockStdLib(debug, written), context, rootEnv, code);
+        var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs), context, rootEnv, code);
         await vb.Execute();
     });
 
@@ -125,7 +129,7 @@ public abstract class BaseVBTestFixture
         string code, string moduleName = "Module1", params (string Name, string Code)[] classModules)
     {
         var dbg = new DebugController();
-        var vb = new BasicInterpreter(new MockStdLib(debug, written), context, rootEnv, code, moduleName, null,
+        var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs), context, rootEnv, code, moduleName, null,
             classModules.Length == 0 ? null : classModules) { DebugController = dbg };
         return (vb, dbg);
     }
@@ -135,7 +139,7 @@ public abstract class BaseVBTestFixture
     protected async Task RunModules(string primaryCode, params (string Name, string Code)[] modules) =>
         await Dumped([("Module1", false, primaryCode), .. modules.Select(m => (m.Name, false, m.Code))], async () =>
         {
-            var vb = new BasicInterpreter(new MockStdLib(debug, written), context, rootEnv, primaryCode, "Module1", modules);
+            var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs), context, rootEnv, primaryCode, "Module1", modules);
             await vb.Execute();
         });
 
@@ -144,11 +148,12 @@ public abstract class BaseVBTestFixture
     protected async Task RunClasses(string primaryCode, params (string Name, string Code)[] classModules) =>
         await Dumped([("Module1", false, primaryCode), .. classModules.Select(m => (m.Name, true, m.Code))], async () =>
         {
-            var vb = new BasicInterpreter(new MockStdLib(debug, written), context, rootEnv, primaryCode, "Module1", null, classModules);
+            var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs), context, rootEnv, primaryCode, "Module1", null, classModules);
             await vb.Execute();
         });
 
-    protected class MockStdLib(List<Vb6Value> debug, System.Text.StringBuilder? written = null) : IBasicStandardLibrary
+    protected class MockStdLib(List<Vb6Value> debug, System.Text.StringBuilder? written = null, List<string>? dialogs = null)
+        : IBasicStandardLibrary
     {
         public void DebugWrite(string text)
         {
@@ -174,8 +179,19 @@ public abstract class BaseVBTestFixture
             }
         }
 
-        public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon) => default;
-        public async Task<string?> InputBox(string prompt, string? title, string defaultText) => default;
+        public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
+        {
+            if (dialogs is not null)
+                lock (dialogs) dialogs.Add($"MsgBox {text} | {caption} | {buttons}");
+            return default;
+        }
+
+        public async Task<string?> InputBox(string prompt, string? title, string defaultText)
+        {
+            if (dialogs is not null)
+                lock (dialogs) dialogs.Add($"InputBox {prompt} | {title} | {defaultText}");
+            return default;
+        }
         // Locked, because two interpreter walks really can reach here at once.
         //
         // DebugController's freeze model releases the decider and any frozen newcomer from Continue() two

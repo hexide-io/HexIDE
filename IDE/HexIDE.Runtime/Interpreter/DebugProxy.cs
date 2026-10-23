@@ -51,8 +51,11 @@ public class DebugProxy(IBasicStandardLibrary stdLib) : ICSharpProxy, VbPrint.IT
             VbPrint.EndLine(this);
         }
         else
-            // Debug.Assert and anything else VB6's Debug object has. A NotImplementedException so a run that reaches
-            // one says HexIDE does not implement it, rather than reporting an internal error (#754).
-            throw new NotImplementedException($"Debug.{method} is not implemented");
+            // Anything else VB6's Debug object has. A NotImplementedException so a run that reaches one says HexIDE does not
+            // implement it, rather than reporting an internal error (#754). Debug.Assert as a statement is the statement's
+            // (#1467), which is where it can break; `Call Debug.Assert(x)` reaches here and is refused.
+            throw new NotImplementedException(string.Equals(method, "Assert", StringComparison.OrdinalIgnoreCase)
+                ? "Call Debug.Assert(...) is not implemented: write it as a statement, Debug.Assert condition"
+                : $"Debug.{method} is not implemented");
     }
 }

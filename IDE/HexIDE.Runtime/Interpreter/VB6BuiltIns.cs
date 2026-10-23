@@ -78,8 +78,8 @@ public partial class VB6BuiltIns
     /// wanted (ObjectAsValue), which is almost everywhere: measured for the conversions, the string functions, Split,
     /// a UBound dimension, a Join delimiter and a Filter switch. The exceptions, all measured:
     /// <list type="bullet">
-    /// <item><c>TypeName</c>, <c>IsObject</c> and <c>IsMissing</c> ask about the argument itself, and <c>Array</c>
-    /// holds its arguments as elements;</item>
+    /// <item><c>TypeName</c>, <c>IsObject</c> and <c>IsMissing</c> ask about the argument itself, <c>Array</c>
+    /// holds its arguments as elements, and <c>IIf</c> and <c>Choose</c> return one of theirs (#1461, #1464);</item>
     /// <item><c>VarType</c> and the Is functions read the default member when there is one, and otherwise answer about
     /// the object, with no 438;</item>
     /// <item>the array that <c>LBound</c>, <c>UBound</c>, <c>Join</c> and <c>Filter</c> take first. An object there
@@ -95,6 +95,7 @@ public partial class VB6BuiltIns
     private static Vb6Value ArgumentAsUsed(string name, int index, Vb6Value arg)
     {
         if (TakesTheArgumentItself.Contains(name) || (index == 0 && TakesAnArrayFirst.Contains(name))
+            || (index >= 1 && TakesItsChoicesThemselves.Contains(name))
             || (index == 1 && string.Equals(name, "Join", StringComparison.OrdinalIgnoreCase))
             || string.Equals(name, "Filter", StringComparison.OrdinalIgnoreCase))
             return arg;
@@ -111,6 +112,10 @@ public partial class VB6BuiltIns
 
     private static readonly HashSet<string> TakesAnArrayFirst = new(StringComparer.OrdinalIgnoreCase)
         { "LBound", "UBound", "Join", "Filter" };
+
+    // IIf's parts and Choose's choices, which each returns as it was given: an object comes back as the object (measured).
+    private static readonly HashSet<string> TakesItsChoicesThemselves = new(StringComparer.OrdinalIgnoreCase)
+        { "IIf", "Choose" };
 
     // ---- Built-in function registry ----
     // Per-group partial files (VB6BuiltIns.Strings.cs, .Math.cs, …) register into this table. It is consulted
@@ -135,6 +140,7 @@ public partial class VB6BuiltIns
         RegisterDateTime(d);
         RegisterFormat(d);
         RegisterColor(d);
+        RegisterChoice(d);
         // The command line, a String (measured): empty in a made program run with none.
         d["Command"] = (self, a, _) => a.Count == 0
             ? new Vb6Value(self.CommandLine)

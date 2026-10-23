@@ -26,6 +26,7 @@ public class LineComponentClass : ComponentBaseClass
 
     public override string Name => "Line";
     public override string VBTypeName => "VB.Line";
+    public override bool IsWindowless => true;
 
     protected override Control InstantiateInternal(ComponentInstance instance) =>
         new VBLine(instance.GetPropertyOrDefault(X1Property), instance.GetPropertyOrDefault(Y1Property),

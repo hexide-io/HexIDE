@@ -475,6 +475,56 @@ public class VBArray
         }
     }
 
+    /// <summary>
+    /// ReDim Preserve (#1459): the last dimension's upper bound becomes <paramref name="upperBound"/>, in place, so every
+    /// holder of the array sees it. Elements still in range keep their values, a new one takes the element type's default,
+    /// and those past the new bound are returned, for the caller to release. The new storage is built before the old is
+    /// let go, so an array too big to hold is 7 and is left as it was (measured).
+    /// </summary>
+    public List<Vb6Value> Preserve(int upperBound)
+    {
+        var last = bounds.Count - 1;
+        var lower = bounds[last].lbound;
+        long length = (long)upperBound - lower + 1;
+        var elements = length;
+        for (var d = 0; d < last; d++)
+            elements *= (long)bounds[d].ubound - bounds[d].lbound + 1;
+        if (elements > Array.MaxLength)
+            throw new VBRunTimeException(VBStandardError.OutOfMemory);
+        var dropped = new List<Vb6Value>();
+        object[] resized;
+        try
+        {
+            resized = PreserveLevel(array, 0, last, (int)length, dropped);
+        }
+        catch (OutOfMemoryException)
+        {
+            throw new VBRunTimeException(VBStandardError.OutOfMemory);
+        }
+        array = resized;
+        bounds[last] = (lower, upperBound);
+        return dropped;
+    }
+
+    private object[] PreserveLevel(object[] level, int dimension, int last, int length, List<Vb6Value> dropped)
+    {
+        if (dimension < last)
+        {
+            var copy = new object[level.Length];
+            for (var i = 0; i < level.Length; i++)
+                copy[i] = PreserveLevel((object[])level[i], dimension + 1, last, length, dropped);
+            return copy;
+        }
+        var leaf = new object[length];
+        var keep = Math.Min(length, level.Length);
+        Array.Copy(level, leaf, keep);
+        for (var i = keep; i < length; i++)
+            leaf[i] = elementType is { } type ? new Vb6Value(type) : Vb6Value.Variant;
+        for (var i = keep; i < level.Length; i++)
+            dropped.Add((Vb6Value)level[i]);
+        return leaf;
+    }
+
     /// <summary>Erase of a DYNAMIC array: free it → undimensioned. Subsequent LBound/UBound/element access raise
     /// Err 9 (oracle-verified) and it can be ReDim'd again. In-place, so the holding slot sees the change.</summary>
     public void Free()

@@ -126,6 +126,11 @@ tidiness: a command that silently does nothing is indistinguishable from one tha
 - **WHEN** one control or none is selected
 - **THEN** the alignment and sizing commands are unavailable
 
+#### Scenario: Centring where the exact position is half a twip
+- **WHEN** a control is aligned by its centre, or centred in the form, and the exact position is half a twip
+- **THEN** it goes where VB6 puts it, in whole twips, each size halved on its own and truncated: a 1215-twip control
+  centred across a 4680-twip form goes to 2340 - 607 = 1733
+
 ### Requirement: The designer SHALL provide spacing commands across a selection
 The designer SHALL provide commands to equalise, increase, decrease and remove the spacing between selected
 controls, on both the horizontal and vertical axes. Equalising SHALL preserve the overall span occupied by
@@ -138,8 +143,8 @@ the form.
 
 #### Scenario: Equalising spacing
 - **WHEN** three or more controls are selected and spacing is equalised on an axis
-- **THEN** the gaps between them become equal
-- **AND** the outermost controls do not move
+- **THEN** the gaps between them become equal to the whole twip, as VB6 truncates them
+- **AND** the outermost controls do not move, the last gap taking any twip left over
 
 #### Scenario: Removing spacing
 - **WHEN** spacing is removed on an axis
