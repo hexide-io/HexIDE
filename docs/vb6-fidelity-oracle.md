@@ -18431,6 +18431,17 @@ declared by that use.
 "Ambiguous name detected: d", because `D` and `d` are one name, and gives "Variable required" for `Const DT` with
 `Dim d(Len(DT))` (both measured, native and p-code). The test now uses `DT`.
 
+**Under conditional compilation** (a fifth batch, native and p-code identical):
+
+| Declarations | vb6.exe |
+|---|---|
+| `Sub K` in both branches of `#If False Then` / `#Else`, each logging which | `second K` |
+| `Const K` and `Dim V` at module level in both branches of `#If 1 Then` / `#Else`, one `As Long`, one `As String` | `K` 1, `V` a Long |
+| `Dim n As Long` and `Dim n As String` in a procedure, one in each branch of `#If False Then` / `#Else` | `n` a String |
+| `Dim n` in `#If True Then`, and `Dim n` again after `#End If` | Duplicate declaration in current scope |
+
+So only the active branch declares anything, as an inactive branch is never compiled.
+
 ### In HexIDE (#1622, #1499)
 
 - **`PrePass`** collects each module-level name into the namespace it belongs to and refuses the second, "Ambiguous name
@@ -18438,7 +18449,9 @@ declared by that use.
   Statics, with its own name in a Function or Property Get, are collected as it is, and a second is "Duplicate
   declaration in current scope". vb6.exe refuses the whole build; HexIDE refuses as it loads the module, before anything
   runs.
-- **`DeclaredTwiceTests`** runs 76 of the probe programs: each one vb6.exe builds must print its lines, and each one it
+- **An inactive branch declares nothing,** because the pre-pass reads the module after conditional compilation has
+  removed it (#1112). The four rows above pin that: a pre-pass reading the raw text would refuse three valid programs.
+- **`DeclaredTwiceTests`** runs 80 of the probe programs, the conditional-compilation four among them: each one vb6.exe builds must print its lines, and each one it
   refuses must be refused with its message.
 - **Left out of the test, each recorded:**
   - an undeclared use before a Dim, `n = 1` or `ReDim n(3)`, still runs. Whether that use declares `n` depends on every

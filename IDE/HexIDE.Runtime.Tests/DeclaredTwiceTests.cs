@@ -42,6 +42,9 @@ public class DeclaredTwiceTests : BaseVBTestFixture
     [InlineData("m-enum-name-sub")]
     [InlineData("m-type-name-sub")]
     [InlineData("p-sub-dim-own-name")]
+    [InlineData("cc-module-both-branches")]
+    [InlineData("cc-proc-both-branches")]
+    [InlineData("cc-sub-both-branches")]
     public async Task A_program_vb6_exe_builds_prints_its_lines(string name)
     {
         var program = Programs[name];
@@ -104,6 +107,7 @@ public class DeclaredTwiceTests : BaseVBTestFixture
     [InlineData("p-function-param-own-name")]
     [InlineData("p-param-static")]
     [InlineData("p-static-const")]
+    [InlineData("cc-active-twice")]
     public async Task A_program_vb6_exe_refuses_is_refused_with_its_message(string name)
     {
         var program = Programs[name];
@@ -1348,6 +1352,83 @@ public class DeclaredTwiceTests : BaseVBTestFixture
             Sub Main()
                 S
                 L "ran"
+            End Sub
+
+            Main
+            """""", [], []),
+        ["cc-active-twice"] = new(null, "Duplicate declaration in current scope", """"""
+            Public Sub L(ByVal s As String)
+                Debug.Print s
+            End Sub
+
+            Sub Main()
+            #If True Then
+                Dim n As Long
+            #End If
+                Dim n As String
+                L "ran"
+            End Sub
+
+            Main
+            """""", [], []),
+        ["cc-module-both-branches"] = new("""
+            K: 1 V: Long
+            """, null, """"""
+            #If 1 Then
+            Const K = 1
+            Dim V As Long
+            #Else
+            Const K = 2
+            Dim V As String
+            #End If
+
+            Public Sub L(ByVal s As String)
+                Debug.Print s
+            End Sub
+
+            Sub Main()
+                L "K: " & K & " V: " & TypeName(V)
+            End Sub
+
+            Main
+            """""", [], []),
+        ["cc-proc-both-branches"] = new("""
+            n: String
+            """, null, """"""
+            Public Sub L(ByVal s As String)
+                Debug.Print s
+            End Sub
+
+            Sub Main()
+            #If False Then
+                Dim n As Long
+            #Else
+                Dim n As String
+            #End If
+                L "n: " & TypeName(n)
+            End Sub
+
+            Main
+            """""", [], []),
+        ["cc-sub-both-branches"] = new("""
+            second K
+            """, null, """"""
+            Public Sub L(ByVal s As String)
+                Debug.Print s
+            End Sub
+
+            #If False Then
+            Sub K()
+                L "first K"
+            End Sub
+            #Else
+            Sub K()
+                L "second K"
+            End Sub
+            #End If
+
+            Sub Main()
+                K
             End Sub
 
             Main
