@@ -208,6 +208,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Val, Round, Split and 13 more intrinsics take named arguments** (#1475). `Val(String:="12")`,
+  `Round(Number:=2.567, NumDigitsAfterDecimal:=1)` and `Split(Expression:="a b c")` stopped the program, because
+  signature help had no entry for them, and so neither did the interpreter's table of names. All 16 are now measured
+  against vb6.exe and listed, each with a tooltip: their names, how many are required, and what a wrong or missing name
+  gives. Now, Date, Timer and the other intrinsics with no parameters refuse a name with VB6's own compile error.
+
 - **`Static` runs, and a `Static Sub` keeps its locals** (#1491). A `Static` local stopped the program. Now it keeps its
   value from one call to the next, as vb6.exe does: shared by recursive calls, kept per instance in a class or a form,
   and released with the instance. The `Static` keyword on a procedure was read and then ignored, so a `Static Sub`'s
