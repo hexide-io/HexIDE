@@ -1,8 +1,6 @@
-using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
-using System.Text.Json;
 
 namespace HexIDE.TwinBasic.Tests;
 
@@ -21,10 +19,10 @@ public sealed class CompilerChannelSessionTests
             endpoints.Add(uri);
             return Task.FromResult(harness.Pairs[(CompilerChannel)endpoints.Count].Transport);
         });
-        Assert.Equal(new[] { "ws://127.0.0.1:1001/key%2Fopaque/fs", "ws://127.0.0.1:1003/key%2Fopaque/language",
-            "ws://127.0.0.1:1002/key%2Fopaque/debugger" }, endpoints.Select(uri => uri.AbsoluteUri));
-        Assert.Equal(42, session.Connection.ProcessId);
-        Assert.False(session.Completion.IsCompleted);
+        endpoints.Select(uri => uri.AbsoluteUri).Should().Equal(new[] { "ws://127.0.0.1:1001/key%2Fopaque/fs", "ws://127.0.0.1:1003/key%2Fopaque/language",
+            "ws://127.0.0.1:1002/key%2Fopaque/debugger" });
+        session.Connection.ProcessId.Should().Be(42);
+        session.Completion.IsCompleted.Should().BeFalse();
     }
 
     [Fact]
@@ -36,20 +34,21 @@ public sealed class CompilerChannelSessionTests
         {
             await harness.Pairs[channel].Send([1], WebSocketMessageType.Binary);
             await harness.Pairs[channel].Send([2], WebSocketMessageType.Binary);
-            await session.SendAsync(channel, "{}"u8.ToArray(), WebSocketMessageType.Text, Token);
+            await session.SendAsync(channel, new InMemoryCompilerSessionCodec.ChannelData(WebSocketMessageType.Text, "opaque"u8.ToArray()), Token);
             var sent = await harness.Pairs[channel].Read();
-            Assert.Equal(WebSocketMessageType.Text, sent.Type);
-            Assert.Equal("{}"u8.ToArray(), sent.Bytes);
+            sent.Type.Should().Be(WebSocketMessageType.Text);
+            sent.Bytes.Should().Equal("opaque"u8.ToArray());
         }
         var last = new Dictionary<CompilerChannel, byte>();
         for (var i = 0; i < 8; i++)
         {
             var message = await session.ReceiveAsync(Token).WaitAsync(TimeSpan.FromSeconds(5), Token);
-            Assert.Equal(WebSocketMessageType.Binary, message.Type);
-            Assert.Equal(last.GetValueOrDefault(message.Channel) + 1, message.Bytes.Span[0]);
-            last[message.Channel] = message.Bytes.Span[0];
+            var data = message.Data.Should().BeOfType<InMemoryCompilerSessionCodec.ChannelData>().Which;
+            data.Type.Should().Be(WebSocketMessageType.Binary);
+            data.Bytes[0].Should().Be((byte)(last.GetValueOrDefault(message.Channel) + 1));
+            last[message.Channel] = data.Bytes[0];
         }
-        Assert.Equal(4, last.Count);
+        last.Count.Should().Be(4);
     }
 
     [Theory]
@@ -60,13 +59,13 @@ public sealed class CompilerChannelSessionTests
     {
         using var harness = await Harness.Create();
         var calls = 0;
-        await Assert.ThrowsAsync<IOException>(() => harness.Attach(connector: (_, _, _) =>
+        await FluentActions.Awaiting(() => harness.Attach(connector: (_, _, _) =>
         {
             if (calls++ == failAt) throw new IOException("Connection refused.");
             return Task.FromResult(harness.Pairs[(CompilerChannel)calls].Transport);
-        }));
+        })).Should().ThrowExactlyAsync<IOException>();
         for (var i = 0; i <= failAt; i++)
-            await Assert.ThrowsAsync<ObjectDisposedException>(() => harness.Pairs[(CompilerChannel)i].Transport.ReceiveAsync(Token));
+            await FluentActions.Awaiting(() => harness.Pairs[(CompilerChannel)i].Transport.ReceiveAsync(Token)).Should().ThrowExactlyAsync<ObjectDisposedException>();
     }
 
     [Fact]
@@ -74,26 +73,26 @@ public sealed class CompilerChannelSessionTests
     {
         using var harness = await Harness.Create();
         using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Token);
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => harness.Attach(connector: (_, _, _) =>
+        await FluentActions.Awaiting(() => harness.Attach(connector: (_, _, _) =>
         {
             cancel.Cancel();
             return Task.FromResult(harness.Pairs[CompilerChannel.FileSystem].Transport);
-        }, cancellationToken: cancel.Token));
-        await Assert.ThrowsAsync<ObjectDisposedException>(() => harness.Pairs[CompilerChannel.Root].Transport.ReceiveAsync(Token));
-        await Assert.ThrowsAsync<ObjectDisposedException>(() => harness.Pairs[CompilerChannel.FileSystem].Transport.ReceiveAsync(Token));
+        }, cancellationToken: cancel.Token)).Should().ThrowAsync<OperationCanceledException>();
+        await FluentActions.Awaiting(() => harness.Pairs[CompilerChannel.Root].Transport.ReceiveAsync(Token)).Should().ThrowExactlyAsync<ObjectDisposedException>();
+        await FluentActions.Awaiting(() => harness.Pairs[CompilerChannel.FileSystem].Transport.ReceiveAsync(Token)).Should().ThrowExactlyAsync<ObjectDisposedException>();
     }
 
     [Fact]
     public async Task Attachment_deadline_covers_a_stalled_connector_and_closes_root()
     {
         using var harness = await Harness.Create();
-        await Assert.ThrowsAsync<TimeoutException>(() => harness.Attach(new(ConnectionTimeout: TimeSpan.FromMilliseconds(100)),
+        await FluentActions.Awaiting(() => harness.Attach(new(ConnectionTimeout: TimeSpan.FromMilliseconds(100)),
             connector: async (_, _, token) =>
             {
                 await Task.Delay(Timeout.InfiniteTimeSpan, token);
                 return harness.Pairs[CompilerChannel.FileSystem].Transport;
-            }));
-        await Assert.ThrowsAsync<ObjectDisposedException>(() => harness.Pairs[CompilerChannel.Root].Transport.ReceiveAsync(Token));
+            })).Should().ThrowExactlyAsync<TimeoutException>();
+        await FluentActions.Awaiting(() => harness.Pairs[CompilerChannel.Root].Transport.ReceiveAsync(Token)).Should().ThrowExactlyAsync<ObjectDisposedException>();
     }
 
     [Fact]
@@ -102,8 +101,8 @@ public sealed class CompilerChannelSessionTests
         using var harness = await Harness.Create();
         await using var session = await harness.Attach(new(MaximumMessageBytes: 32));
         await harness.Pairs[CompilerChannel.Root].Send(new byte[33], WebSocketMessageType.Binary);
-        Assert.False((await session.Completion.WaitAsync(TimeSpan.FromSeconds(5), Token)).WasDisposed);
-        await Assert.ThrowsAsync<IOException>(() => session.ReceiveAsync(Token));
+        (await session.Completion.WaitAsync(TimeSpan.FromSeconds(5), Token)).WasDisposed.Should().BeFalse();
+        await FluentActions.Awaiting(() => session.ReceiveAsync(Token)).Should().ThrowExactlyAsync<IOException>();
     }
 
     [Theory]
@@ -119,12 +118,12 @@ public sealed class CompilerChannelSessionTests
         var pending = session.ReceiveAsync(Token);
         await harness.Pairs[channel].Peer.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "private peer detail", Token);
         var end = await session.Completion.WaitAsync(TimeSpan.FromSeconds(5), Token);
-        Assert.False(end.WasDisposed);
-        Assert.Contains(channel.ToString(), end.Error);
-        Assert.DoesNotContain("private peer detail", end.Error);
-        await Assert.ThrowsAsync<IOException>(() => pending);
+        end.WasDisposed.Should().BeFalse();
+        end.Error.Should().Contain(channel.ToString());
+        end.Error.Should().NotContain("private peer detail");
+        await FluentActions.Awaiting(() => pending).Should().ThrowExactlyAsync<IOException>();
         foreach (var pair in harness.Pairs.Values)
-            await Assert.ThrowsAsync<ObjectDisposedException>(() => pair.Transport.ReceiveAsync(Token));
+            await FluentActions.Awaiting(() => pair.Transport.ReceiveAsync(Token)).Should().ThrowExactlyAsync<ObjectDisposedException>();
     }
 
     [Fact]
@@ -135,9 +134,9 @@ public sealed class CompilerChannelSessionTests
         var pending = session.ReceiveAsync(Token);
         await session.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5), Token);
         await session.DisposeAsync();
-        Assert.True((await session.Completion).WasDisposed);
-        await Assert.ThrowsAsync<ObjectDisposedException>(() => pending);
-        await Assert.ThrowsAsync<ObjectDisposedException>(() => session.SendAsync(CompilerChannel.Root, new byte[1], WebSocketMessageType.Binary, Token));
+        (await session.Completion).WasDisposed.Should().BeTrue();
+        await FluentActions.Awaiting(() => pending).Should().ThrowExactlyAsync<ObjectDisposedException>();
+        await FluentActions.Awaiting(() => session.SendAsync(CompilerChannel.Root, new InMemoryCompilerSessionCodec.ChannelData(WebSocketMessageType.Binary, new byte[1]), Token)).Should().ThrowExactlyAsync<ObjectDisposedException>();
     }
 
     [Fact]
@@ -148,10 +147,10 @@ public sealed class CompilerChannelSessionTests
         using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Token);
         var pending = session.ReceiveAsync(cancel.Token);
         cancel.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+        await FluentActions.Awaiting(() => pending).Should().ThrowAsync<OperationCanceledException>();
         await harness.Pairs[CompilerChannel.Language].Send([7], WebSocketMessageType.Binary);
-        Assert.Equal(7, (await session.ReceiveAsync(Token)).Bytes.Span[0]);
-        Assert.False(session.Completion.IsCompleted);
+        ((InMemoryCompilerSessionCodec.ChannelData)(await session.ReceiveAsync(Token)).Data).Bytes[0].Should().Be(7);
+        session.Completion.IsCompleted.Should().BeFalse();
     }
 
     [Theory]
@@ -164,9 +163,9 @@ public sealed class CompilerChannelSessionTests
         await harness.Pairs[CompilerChannel.Root].Send(count ? [1] : [1, 2], WebSocketMessageType.Binary);
         if (count) await harness.Pairs[CompilerChannel.Root].Send([2], WebSocketMessageType.Binary);
         var end = await session.Completion.WaitAsync(TimeSpan.FromSeconds(5), Token);
-        Assert.False(end.WasDisposed);
-        Assert.Contains("limit", end.Error);
-        await Assert.ThrowsAsync<IOException>(() => session.ReceiveAsync(Token));
+        end.WasDisposed.Should().BeFalse();
+        end.Error.Should().Contain("limit");
+        await FluentActions.Awaiting(() => session.ReceiveAsync(Token)).Should().ThrowExactlyAsync<IOException>();
     }
 
     [Fact]
@@ -177,9 +176,9 @@ public sealed class CompilerChannelSessionTests
         for (var i = 0; i < 3; i++)
         {
             await harness.Pairs[CompilerChannel.Language].Send([1, 2], WebSocketMessageType.Binary);
-            Assert.Equal(2, (await session.ReceiveAsync(Token)).Bytes.Length);
+            ((InMemoryCompilerSessionCodec.ChannelData)(await session.ReceiveAsync(Token)).Data).Bytes.Length.Should().Be(2);
         }
-        Assert.False(session.Completion.IsCompleted);
+        session.Completion.IsCompleted.Should().BeFalse();
     }
 
     [Theory]
@@ -191,10 +190,10 @@ public sealed class CompilerChannelSessionTests
         using var harness = await Harness.Create();
         await using var session = await harness.Attach(new(MessageTimeout: TimeSpan.FromMilliseconds(100)));
         await Task.Delay(300, Token);
-        Assert.False(session.Completion.IsCompleted);
+        session.Completion.IsCompleted.Should().BeFalse();
         await harness.Pairs[channel].Peer.SendAsync(new byte[1].AsMemory(), WebSocketMessageType.Binary, false, Token);
         var end = await session.Completion.WaitAsync(TimeSpan.FromSeconds(5), Token);
-        Assert.Contains("timed out", end.Error);
+        end.Error.Should().Contain("timed out");
     }
 
     [Fact]
@@ -204,8 +203,8 @@ public sealed class CompilerChannelSessionTests
         await using var session = await harness.Attach();
         using var cancel = CancellationTokenSource.CreateLinkedTokenSource(Token);
         cancel.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.SendAsync(CompilerChannel.Root, new byte[1], WebSocketMessageType.Binary, cancel.Token));
-        Assert.False(session.Completion.IsCompleted);
+        await FluentActions.Awaiting(() => session.SendAsync(CompilerChannel.Root, new InMemoryCompilerSessionCodec.ChannelData(WebSocketMessageType.Binary, new byte[1]), cancel.Token)).Should().ThrowAsync<OperationCanceledException>();
+        session.Completion.IsCompleted.Should().BeFalse();
     }
 
     private sealed class Harness : IDisposable
@@ -216,14 +215,14 @@ public sealed class CompilerChannelSessionTests
         {
             var harness = new Harness();
             foreach (var channel in Enum.GetValues<CompilerChannel>()) harness.Pairs.Add(channel, await Pair.Create());
-            using var language = JsonDocument.Parse("{\"language\":\"test\"}");
+            var codec = new InMemoryCompilerSessionCodec();
             var pair = harness.Pairs[CompilerChannel.Root];
-            var initialize = CompilerRootSession.InitializeAsync(pair.Transport, new([], language.RootElement), cancellationToken: Token);
+            var initialize = CompilerRootSession.InitializeAsync(pair.Transport, InMemoryCompilerSessionCodec.Options,
+                cancellationToken: Token, codec: codec);
             await pair.Read();
-            await pair.Send([.. Integer(0), .. Integer(0), .. Integer(42)], WebSocketMessageType.Binary);
+            await pair.Send(codec.Reply(0, value: new CompilerProcessInfo(42)), WebSocketMessageType.Binary);
             await pair.Read();
-            await pair.Send([.. Integer(1), .. Integer(0), .. Integer(1001), .. Integer(1002), .. Integer(1003),
-                .. Integer(1004), .. Integer(1005), .. "test"u8], WebSocketMessageType.Binary);
+            await pair.Send(codec.Reply(1, value: new CompilerChannelMetadata(1001, 1002, 1003, 1004, 1005, "test")), WebSocketMessageType.Binary);
             harness.root = await initialize;
             return harness;
         }
@@ -240,13 +239,6 @@ public sealed class CompilerChannelSessionTests
             root?.Dispose();
             foreach (var pair in Pairs.Values) pair.Dispose();
         }
-    }
-
-    private static byte[] Integer(int value)
-    {
-        var bytes = new byte[4];
-        BinaryPrimitives.WriteInt32LittleEndian(bytes, value);
-        return bytes;
     }
 
     private sealed class Pair(TcpClient client, TcpClient server) : IDisposable
@@ -268,7 +260,7 @@ public sealed class CompilerChannelSessionTests
             deadline.CancelAfter(TimeSpan.FromSeconds(5));
             var buffer = new byte[4096];
             var message = await Peer.ReceiveAsync(buffer.AsMemory(), deadline.Token);
-            Assert.True(message.EndOfMessage);
+            message.EndOfMessage.Should().BeTrue();
             return (message.MessageType, buffer[..message.Count]);
         }
         public void Dispose()
