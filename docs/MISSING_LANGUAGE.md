@@ -114,14 +114,14 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 2 | 2 | 29 | 30 | 0 | 42 | 105 |
-| Operators | 0 | 0 | 2 | 19 | 0 | 11 | 32 |
+| Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 58 | 41 | 1 | 53 | 153 |
 | Keywords and modifiers | 0 | 0 | 10 | 20 | 1 | 20 | 51 |
 | Literals, types and suffixes | 6 | 1 | 4 | 14 | 0 | 25 | 50 |
-| Compiler directives and options | 0 | 1 | 9 | 9 | 20 | 8 | 47 |
+| Compiler directives and options | 0 | 1 | 9 | 10 | 19 | 8 | 47 |
 | In-box objects | 0 | 0 | 87 | 14 | 0 | 22 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **8** | **4** | **207** | **408** | **22** | **533** | **1182** |
+| **Total** | **8** | **4** | **206** | **410** | **21** | **533** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -150,7 +150,7 @@ visitor, not changing how the language is understood.
 
 ### Where the damage actually is
 
-**Operators are nearly complete** — 2 absent of 32 — so expressions and arithmetic generally work. The
+**Operators are nearly complete** — 1 absent of 32 — so expressions and arithmetic generally work. The
 damage is concentrated in **statements** and the **in-box object model**: 42% of VB6's statements (44
 of 105, two of them the `Function` rows, which fail only when a type character is used) and 76% of the
 in-box surface (`App`, `Screen`, `Printer`, `Clipboard`; 93 of 123) are unavailable. Both
@@ -314,7 +314,7 @@ which is the cheaper kind to close. The named-argument operator `:=` was the oth
 | `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 
-## Dies mid-run — 201 names
+## Dies mid-run — 200 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -429,7 +429,6 @@ most of the in-box object model.
 | `LenB` | **Dies** | Not registered (VB6BuiltIns.cs); no occurrence of "LenB" under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (LenB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `LicenseInfo` | **Dies** | Measured for `Dim l As LicenseInfo`: VBCompileErrorException: "User-defined type not defined: LicenseInfo" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `Licenses` | **Dies** | Measured for `Debug.Print Licenses.Count`: VBVariableNotDefinedException: "Variable not defined (Licenses)" (ExpressionExecutor.cs) — the global object is not seeded; only Debug, Err and… | BasicInterpreter.cs |
-| `Like` | **Dies** | throws `"Like is not implemented"` — (`LIKE` in the comparison alternative, `# vsCompare`, since #1074) then throws in `VisitVsCompare`: `throw new NotImplementedException("Like is not implemented")` | ExpressionExecutor.cs |
 | `Line` | **Dies** | There is no standalone LINE token; `Line Input` is lexed as ONE token, `LINE_INPUT : L I N E ' ' I N P U T` (Grammar/VB6.g4), consumed by `lineInputStmt : LINE_INPUT WS valueStmt WS? COMMA… | StatementExecutor.cs |
 | `LoadPicture` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. `Set Picture1.Picture = LoadPicture("x.bmp")` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined… | ExpressionExecutor.cs |
 | `LoadResData` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResData)". | ExpressionExecutor.cs |
@@ -641,7 +640,7 @@ missing.
 | `Sub...End Sub` | Supported | The whole construct - `(visibility WS)? (STATIC WS)? SUB WS name (argList)? ... END_SUB` - is collected by PrePass.VisitSubStmt and executed by BasicInterpreter.RunProcedure, shared with… | PrePass.cs, BasicInterpreter.cs |
 | `While...Wend` | Supported | **#839:** a condition that raises under On Error Resume Next runs the body, asking again each time round, as VB6 does (measured). **#882:** a bare member call in the body (`Debug.Print`, `Err.Clear`, `k.Bump`, `k.Add 10`, anywhere in the body) is one statement, where it was parsed as a call of the object followed by a With member call and stopped with "Sub or Function not defined" (measured, native and in the IDE). A `Call` statement and a `With` block start with a keyword, and ran before too. **#847:** each condition is read as `CBool` reads it, with Null False (measured), where the loops took only a Boolean, an Integer, a Byte, an integral string or Null and raised 13 for anything else, a Long, a Double and Empty included; the condition was the only restriction — VisitWhileWendStmt is a pre-tested loop; the comment records the design correctly: "VB6 has no `Exit While`/`Continue While`, so any non-Nothing control flow (Exit Sub/Function/Property)… | StatementExecutor.cs |
 
-### Operators — 32 names (2 absent, 19 partial, 11 supported)
+### Operators — 32 names (1 absent, 20 partial, 11 supported)
 
 **Precedence ([#1074](https://github.com/hexide-io/HexIDE/issues/1074)).** Until #1074 each operator had a precedence level of its own, so `10 - 2 + 3` was 5 and `5 * 5 \ 2` was 10, with no error. Operators now group as VB6 groups them (measured): `*` and `/` share a level, then `\`, then `Mod`, then `+` and `-`, then every comparison, `Like` and `Is` included, each level left to right. A Boolean beside a number now compares as that number, True as -1. `-2 ^ 2` is still 4, where VB6 gives -4 ([#1073](https://github.com/hexide-io/HexIDE/issues/1073)). The rows below are about each operator's own semantics.
 
@@ -649,7 +648,7 @@ missing.
 |---|---|---|---|
 | `! (dictionary access)` | Partial | Works on a Collection ([#1471](https://github.com/hexide-io/HexIDE/issues/1471)): `c!key` is `c("key")`, `c![a key]` brackets a key with spaces, and `!key` works inside `With c`. `c!key = 1` is 424, as in VB6. On any other object it still stops the run as not implemented. | ExpressionExecutor.cs |
 | `AddressOf` | **Dies** | throws `"ADDRESSOF is not implemented"` — (`ADDRESSOF WS valueStmt # vsAddressOf`) then throws at run time: `public override Task<object?> VisitVsAddressOf(VB6Parser.VsAddressOfContext… | ExpressionExecutor.cs |
-| `Like` | **Dies** | throws `"Like is not implemented"` — (`LIKE` in the comparison alternative, `# vsCompare`, since #1074) then throws in `VisitVsCompare`: `throw new NotImplementedException("Like is not implemented")` | ExpressionExecutor.cs |
+| `Like` | Partial | Runs (#1547), matching as vb6.exe does over about 190 measured rows, `Option Compare Text` included: `?`, `*`, `#` with the fullwidth digits, lists, negated lists, ranges by code unit, `[]`, and error 93 for a list that is read and cannot be. Under Text, a ligature or a sharp s does not stand for its letters, so `"ß" Like "ss"` is False where vb6.exe says True (#1479) | ExpressionExecutor.cs, VbLike.cs |
 | `& (string concatenation)` | Partial | A class instance or an in-box object as an operand raises 438, or is refused naming #174 for a class with a default member, or stands for Err's Number, where it gave the CLR type name (#436, measured). **A control still gives its .NET type name** (`"v=" & Text1`, #790). `VisitVsAmp`: both Null -> Null; a single Null or Empty concatenates as "" — "Null and Empty both concatenate as \"\" (Empty.Value is null, so the old code NPE'd on it)"; otherwise… | ExpressionExecutor.cs |
 | `* (multiplication)` | Partial | **#1047:** a numeric String operand is read as CDbl reads it, in the program's locale, and counts as a Double (measured). `VisitVsMult` -> `VbNumeric.Mul` -> `Arith(l, r, ctx, '*')`, with the measured VB6 result-type ladder (Byte < Integer < Long < Single < Currency < Decimal < Double), Currency/Decimal… | ExpressionExecutor.cs |
 | `+ (addition)` | Partial | **#1047:** a numeric String operand is read as CDbl reads it, in the program's locale, and counts as a Double (measured). `VisitVsAdd`: Null on either side -> Null; String + String concatenates (`// VB6: String + String concatenates`); otherwise `VbNumeric.Add`, which special-cases Date — "Date + anything ->… | ExpressionExecutor.cs |
@@ -987,7 +986,7 @@ missing.
 | `UserDefinedTypeName` | Supported | `Dim x As <name>` resolves the complexType in order against `interpreter.Types` (a `Type` -> a fresh UDT instance), `interpreter.Enums` (-> Long 0) and class modules (-> Nothing, with the… | StatementExecutor.cs |
 | `Variant` | Supported | `if (baseType.VARIANT() != null) return Vb6Value.ValueType.EmptyVariant;`, and the declaration path deliberately records NO declared type for it — "an array, an object, a UDT and a Variant… | BaseTypeMapper.cs |
 
-### Compiler directives and options — 47 names (10 absent, 9 partial, 8 supported)
+### Compiler directives and options — 47 names (10 absent, 10 partial, 8 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -1005,7 +1004,7 @@ missing.
 | `Compare` | Partial | Exists only as the second word of the composite OPTION_COMPARE token (VB6.g4), consumed by optionCompareStmt (VB6.g4) and then discarded - PrePass.VisitOptionCompareStmt is '=> default;'… | PrePass.cs |
 | `Explicit` | Partial | Exists only as the second word of the composite OPTION_EXPLICIT token (VB6.g4), consumed by optionExplicitStmt (VB6.g4) and honoured - 'RequireVariableDefinitions = true;' (PrePass.cs)… | PrePass.cs |
 | `Option` | Partial | There is no standalone OPTION token. The four directives are single composite lexer tokens - OPTION_BASE, OPTION_EXPLICIT, OPTION_COMPARE, OPTION_PRIVATE_MODULE (VB6.g4) - each spelled with… | VB6.g4 |
-| `Option Compare` | Partial | and is accepted, but never honoured. PrePass.VisitOptionCompareStmt is '=> default;' under the comment: 'Accepted but not honoured - HexIDE always compares strings ordinally (Option Compare… | PrePass.cs |
+| `Option Compare` | Partial | Recorded for each module (`PrePass.OptionCompareText`) and honoured by `Like` (#1547). The comparison operators still compare two strings as Binary does, whatever the module says: a documented divergence (interpreter-gaps.md) | PrePass.cs |
 | `Option Explicit` | Partial | Collected by PrePass ('RequireVariableDefinitions = true;', PrePass.cs) and actually read at two sites: ExpressionExecutor.cs ('if (currentModule.PrePass.RequireVariableDefinitions \|\|… | PrePass.cs |
 | `VB_Name` | Partial | Consumed by the serializer and the IDE, never run: the interpreter, given the whole file since #273, parses it as a module attribute. ModuleFileFormat.Header writes it for a new .bas or .cls, and a save retargets a module's to its current name (ModuleFileFormat.RetargetVbName). A form's sits at the top of its code, below the designer block, and since #273 follows the form's rename as an edit the IDE makes itself (HeaderRefresher.NameChanged), where a renamed form's file used to name two forms (#473). A form HexIDE creates carries none, where VB6 writes five attributes (#516). In the code window it is part of the read-only header. This row called it the only VB_* attribute with any consumer; PrePass also collects VB_UserMemId and VB_VarUserMemId, since #820. | ModuleFileFormat.cs, HeaderRefresher.cs |
 | `VB_UserMemId` | Partial | The line is accepted inside a procedure and runs as nothing (#832); it threw "Attribute not implemented", so calling the member stopped the run. The default member it declares is collected but not read yet. With a Function `Value` marked and returning 42, vb6.exe gives `v=42` for `"v=" & w`, 42 (Long) for `x = w`, 43 (Long) for `w + 1`, and writes ` 42 ` for `Print #f, w` (measured, native and in the IDE). HexIDE refuses the first three, untrappably, naming #174 (since #840), as it refuses a numeric conversion such as `CInt(w)` or `RGB(w, 0, 0)` (#820); `Print #f, w` stops before it gets there, at `Open`, which HexIDE does not implement yet. The member is found whether it is a Function, Sub, Property Get, Let or Set. Honouring it is #174. | StatementExecutor.cs |
@@ -1016,7 +1015,7 @@ missing.
 | `Lib` | No-op | Mandatory clause of declareStmt ('... WS LIB WS STRINGLITERAL ...', VB6.g4; token LIB at VB6.g4). Parsed and then discarded with the whole statement by PrePass.VisitDeclareStmt… | PrePass.cs |
 | `Module` | No-op | Exists only as the third word of the composite OPTION_PRIVATE_MODULE token (VB6.g4), consumed by optionPrivateModuleStmt (VB6.g4) and discarded - 'Accepted as a no-op - HexIDE doesn't… | PrePass.cs |
 | `Option Private Module` | No-op | PrePass.VisitOptionPrivateModuleStmt is '=> default;' under the comment: 'Accepted as a no-op - HexIDE doesn't enforce cross-project module-member visibility. Skipped (not thrown) so a… | PrePass.cs |
-| `Text` | No-op | A real standalone token (TEXT, VB6.g4) accepted as an Option Compare operand (VB6.g4) and then deliberately ignored: 'Accepted but not honoured - HexIDE always compares strings ordinally… | PrePass.cs |
+| `Text` | Partial | `Option Compare Text` is recorded for the module, and `Like` there folds case as vb6.exe does (#1547). The comparison operators ignore it and compare as Binary | PrePass.cs |
 | `VB_Base` | No-op | Header-position attribute: accepted and dropped, which since #273 is the path every header takes, because the interpreter is given the whole file. Measured - 'Attribute VB_Base = "0{FCFB3D2A-A0FA-1068-A738-08002B3371B5}"' at module top parses (moduleAttributes, VB6.g4) and the module… | ModuleFileFormat.cs |
 | `VB_Creatable` | No-op | Emitted verbatim in the canonical class header ("Attribute VB_Creatable = True\r\n", ModuleFileFormat.cs), split off the module's code into its preserved header on load (ModuleFileFormat.SplitHeader) and written back unchanged on save. Since #273 the code window shows that header in front of the code, read-only and folded, and the interpreter is given the whole file, where the line parses as a module attribute and never runs. This row said it was stripped from the editable body: it is still kept out of the module's code and cannot be edited, but the code window no longer hides it. Read by nothing: docs/interpreter-gaps.md, Platform limits, counts it among the attributes meaningful only to an external COM client. | ModuleFileFormat.cs |
 | `VB_Customizable` | No-op | Header-position attribute: accepted and dropped, which since #273 is the path every header takes, because the interpreter is given the whole file. Measured - 'Attribute VB_Customizable = True' at module top parses and the module runs; in a .cls it is inside the contiguous run… | ModuleFileFormat.cs |

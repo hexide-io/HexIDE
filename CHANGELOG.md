@@ -10,6 +10,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **`Like` runs** (#1547). Any program that used it stopped there. It now matches as vb6.exe does: `?`, `*`, `#`, `[list]` and `[!list]`, under the module's `Option Compare`, with error 93 for a pattern it cannot read. That behaviour was measured over about 190 rows, native and p-code. One known difference remains. Under `Option Compare Text`, vb6.exe takes a ligature or a sharp s for the letters it stands for, so `"ß" Like "ss"` is True there and False here (#1479).
+
 - **A control HexIDE does not model is shown in the designer** (#157). An ImageList, a Toolbar or any other control
   HexIDE carries without modelling used to be invisible, so a developer could move a button onto it unknowing. Now
   each is a box where VB6's IDE puts one: at its position, sized by its `Width` and `Height`, or 1200 by 480 twips

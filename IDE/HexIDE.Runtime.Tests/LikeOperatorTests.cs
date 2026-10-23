@@ -234,6 +234,10 @@ public class LikeOperatorTests : BaseVBTestFixture
     [InlineData("single", "CSng(0.1)", "\"0.1\"", "B=Boolean True | T=Boolean True")]
     [InlineData("date-only", "#1/2/2003#", "\"*/*/*\"", "B=Boolean True | T=Boolean True")]
     [InlineData("long-pattern", "\"a\"", "String(5000, \"*\") & \"a\"", "B=Boolean True | T=Boolean True")]
+    [InlineData("hash-0", "\"0\"", "\"#\"", "B=Boolean True | T=Boolean True")]
+    [InlineData("hash-9", "\"9\"", "\"#\"", "B=Boolean True | T=Boolean True")]
+    [InlineData("hash-slash", "\"/\"", "\"#\"", "B=Boolean False | T=Boolean False")]
+    [InlineData("hash-colon", "\":\"", "\"#\"", "B=Boolean False | T=Boolean False")]
     public async Task Like_answers_as_vb6_exe_does(string label, string s, string p, string answer)
     {
         await Row($"R \"{label}\", {s}, {p}");
