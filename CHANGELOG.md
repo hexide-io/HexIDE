@@ -238,6 +238,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A numeric literal ending in its point loads, as vb6.exe compiles it** (#1615). `x = 5.` and `5.D1` failed to
+  load, and the editor marked them. Both grammars now read them, as the literal with a digit after the point. A
+  literal with a point and `%` or `&`, such as `2.5%`, is now vb6.exe's compile error "Syntax error", where HexIDE
+  rounded it to an Integer or a Long.
+
 - **MCP `hover` cleans up after a throwing pointer handler, reports a cover's tip over a disabled target, and refuses
   targets that are not showing** (#1328). Containers prefer a showing editor; the tool explains the real mouse's effect
   on the tip, cursor and pointer-over.
