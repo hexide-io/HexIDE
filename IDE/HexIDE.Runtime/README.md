@@ -80,12 +80,11 @@ For contrast: these are ordinary language surface that simply isn't implemented 
 roadmap, not walled off — expect them to arrive over time:
 
 - **File & directory I/O** — `Open`/`Close`/`Print #`/`Input #`/`Get`/`Put`, `Kill`/`Name`/`MkDir`, `FreeFile`/`EOF`/`Dir`
-- **Some intrinsics** — the `$`-typed string twins (`Left$`, `Mid$`, `Format$`), `Like`, named arguments (`:=`),
-  `IIf`/`Choose`/`Switch`, the financial functions, and some string/format helpers
+- **Some intrinsics** — the `$`-typed string twins (`Left$`, `Mid$`, `Format$`), `Like`, `Switch`, the financial
+  functions, and some string/format helpers
 - **`Collection`** and `For Each` over non-array enumerables
 - **Legacy branching** — `GoSub`/`Return`, computed `On … GoTo`, and numeric line labels (`10  GoTo 10`)
-- **Odds and ends** — `Static` locals, `DefInt`/`DefStr` default-typing, conditional compilation (`#If`), and
-  actually *calling* `Declare … Lib` Win32 APIs
+- **Odds and ends** — conditional compilation (`#If`), and actually *calling* `Declare … Lib` Win32 APIs
 
 The full, continuously-maintained catalogue lives in the project's `docs/` (`interpreter-gaps.md`, and
 `vb6-fidelity-oracle.md` for every behaviour verified against `vb6.exe`).

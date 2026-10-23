@@ -2284,6 +2284,9 @@ is 91. A Let into the second's does not compile ("Argument not optional"), as fo
 **Where it must sit.** A DefType after any declaration is "Deftype statements must precede declarations". That holds
 after a `Dim`, a `Public` or `Private` variable, a `Const` (Public or not), a `Type`, an `Enum` and a `Declare`. After
 `Option Base`, `Option Compare` or another DefType it compiles. Inside a procedure it is "Invalid inside procedure".
+After a procedure it is VB6's general "Only comments may appear after End Sub, End Function, or End Property", as
+for a label there (see "Line labels", below). HexIDE gives that error for nothing at module level, so it runs such a module
+with the DefType applied.
 
 **The other compile errors:**
 - `DefInt AB` is "Expected: letter".
