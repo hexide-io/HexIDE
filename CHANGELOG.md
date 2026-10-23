@@ -236,6 +236,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP `hover` cleans up after a throwing pointer handler, reports a cover's tip over a disabled target, and refuses
+  targets that are not showing** (#1328). Containers prefer a showing editor; the tool explains the real mouse's effect
+  on the tip, cursor and pointer-over.
+
 - **Ending an external debug session discards pending evaluations immediately** (#1599). A late adapter reply could
   reach the Immediate window while End was waiting for disconnect. The stopped context now expires before disconnect
   is sent, so an answer arriving during teardown cannot be shown as a current evaluation.
