@@ -228,6 +228,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP refuses arguments containing an unpaired UTF-16 surrogate** (#1337). The reply now names the tool and
+  parameter, says the argument is not valid text and that nothing was done. It previously returned only the SDK's
+  `-32603 "An error occurred."` before any tool ran.
+
 - **The designer draws and names a UserControl or PropertyPage as VB6's does** (#1544). Each was drawn in a form's
   window frame, with a title bar and caption buttons, a PropertyPage's tab read `(Form)`, and the Properties window's
   object box gave both the class `Form`. Each is now a borderless surface, as neither has a window of its own at run
