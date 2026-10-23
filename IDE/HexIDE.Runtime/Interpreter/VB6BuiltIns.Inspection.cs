@@ -112,6 +112,7 @@ public partial class VB6BuiltIns
         VTP.Missing           => ("Error", 10),
         VTP.Nothing           => ("Nothing", 9),
         VTP.Color             => ("Long", 3),   // VB6 has no colour type — a colour is a Long
+        VTP.Object            => ("Object", 9),   // Object/class/Collection arrays (measured, #1482)
         VTP.Control           => ("Object", 9),
         VTP.CSharpProxyObject => ("Object", 9),
         _                     => ("Variant", 12),
