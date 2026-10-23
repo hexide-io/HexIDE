@@ -15018,7 +15018,7 @@ file:
   element at the bottom.
 - **Lines in the designer** are stacked like any other windowless control. They used to go under every other control,
   Labels included, and so under a Frame holding one.
-- **Not done:** the `ZOrder` method still does nothing (#1503).
+- **Not done:** the `ZOrder` method is still not implemented, and a program calling it stops (#1503).
 
 **Not measured:**
 - An Image beside a Label.
