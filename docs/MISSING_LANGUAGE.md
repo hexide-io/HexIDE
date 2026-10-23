@@ -118,19 +118,19 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Intrinsic functions | 0 | 0 | 59 | 41 | 1 | 52 | 153 |
 | Keywords and modifiers | 0 | 0 | 10 | 20 | 1 | 20 | 51 |
 | Literals, types and suffixes | 6 | 1 | 4 | 14 | 0 | 25 | 50 |
-| Compiler directives and options | 0 | 1 | 9 | 9 | 20 | 8 | 47 |
+| Compiler directives and options | 0 | 0 | 1 | 13 | 20 | 13 | 47 |
 | In-box objects | 0 | 0 | 87 | 14 | 0 | 22 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **8** | **4** | **208** | **408** | **22** | **532** | **1182** |
+| **Total** | **8** | **3** | **200** | **412** | **22** | **537** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
 
 
-### The single most useful number here is 3
+### The single most useful number here is 2
 
-**Only three constructs in this inventory fail to parse**: `#Const`, the `D` exponent marker
-(`1.5D2`), and a `Function` declared with a type
+**Only two constructs in this inventory fail to parse**: the `D` exponent marker
+(`1.5D2`) and a `Function` declared with a type
 character (`Function GetName$()`, [#740](https://github.com/hexide-io/HexIDE/issues/740)). Every other
 gap parses cleanly and goes wrong at run time: mostly by throwing, sometimes by running on with a wrong
 value. The eight Silently wrong rows below are the wrong values counted as such; the `()` row records
@@ -139,7 +139,9 @@ given there. The grammar comprehends essentially the whole of VB6; what is missi
 
 It was four until numeric line labels were ported in from the LSP server's grammar, which already had
 the rule — see below. It went back to four when the suffixed `Function` was measured, and that one has
-the same shape: the LSP server's grammar accepts it and the interpreter's does not.
+the same shape: the LSP server's grammar accepts it and the interpreter's does not. It went to two when
+conditional compilation took `#Const` off it ([#1112](https://github.com/hexide-io/HexIDE/issues/1112)): the directives are applied to the module's text
+before the parse, so the grammar never sees one, as vb6.exe's parser never sees an inactive branch.
 
 That matters for three reasons. It is the empirical form of the claim in `CLAUDE.md` that no VB6
 construct is incomprehensible to the CST, which until now was an architectural assertion rather than a
@@ -273,7 +275,7 @@ well, which [#970](https://github.com/hexide-io/HexIDE/issues/970) fixed: VB6 co
 | `Property Get` | **Silently wrong** | **Re-rated from Partial by measurement ([#977](https://github.com/hexide-io/HexIDE/issues/977)).** A standard module's Property Get is not reached by its name: `x = PG`, with `Property Get PG() As Long()` in a module, reads Empty here with no error, where VB6 reads the array (measured), and `PG()` is "Sub or Function not defined". A class's is unaffected, and one declared `As Long()` returns its array ([#975](https://github.com/hexide-io/HexIDE/issues/975), measured). **[#1444](https://github.com/hexide-io/HexIDE/issues/1444):** a return declared as a scalar converts what is stored into its name there and then, as a variable of that type does, and a failure is raised inside the procedure, where its own handler traps it (measured: `FS = 5` As String is "5", `FD = "0.5"` As Date 00:05, `FB = "abc"` As Boolean 13, and `FI = 40000` As Integer 6, inside each). Function-like: returns via its own name, dispatched on a member READ of a class instance. A `As <Class>` return carries the concrete name so the return slot seeds a real UDT or Nothing… | PrePass.cs, ExpressionExecutor.cs |
 | `Let` | **Silently wrong** | **[#998](https://github.com/hexide-io/HexIDE/issues/998):** a Let into a typed array variable stores whatever it's given: `b = "ab"` into a `Byte()` leaves a String, where VB6 converts it into its bytes, and `Array(1, 2)` into an `Integer()` gives no error, where VB6 raises 13 (measured). **[#1493](https://github.com/hexide-io/HexIDE/issues/1493), fixed:** a Let into an object variable, `k = 5` with `k As C1` holding an instance, assigns the held object's default member, as vb6.exe does: 438 for a class with none, and the variable keeps the object; 91 for Nothing. It released the object and stored 5. A Variant takes the value and drops the object (measured). **[#970](https://github.com/hexide-io/HexIDE/issues/970), fixed:** an array assignment copies the array, as VB6 does, into a variable, an element, a ByVal parameter and a For Each variable, where it was shared, so a write through either name reached the other; and a fixed array given an array is VB6's "Can't assign to array", or 13 through a parameter (measured, native, p-code and in the IDE). | StatementExecutor.cs |
 
-## Won't load — 4 names
+## Won't load — 3 names
 
 The whole list. A parse failure takes the entire module down — nothing in the file runs and the editor
 cannot open it usefully — so despite how obscure these look, each one has a blast radius of a file rather
@@ -301,20 +303,19 @@ gap is a build failure rather than a bug report. It compares inventories, though
 accepts, which is how the suffixed `Function` got past it: both grammars have a `functionStmt`, and only
 the LSP server's lets a type character follow the name.
 
-Worth noting what is *not* here: `#If` parses fine and throws, an execution gap rather than a grammar gap,
-which is the cheaper kind to close. The named-argument operator `:=` was the other, and runs since
-[#1465](https://github.com/hexide-io/HexIDE/issues/1465).
+Worth noting what is *not* here: `#If` parsed fine and threw, an execution gap rather than a grammar gap,
+which is the cheaper kind to close. It runs since [#1112](https://github.com/hexide-io/HexIDE/issues/1112), with `#Const`, and the named-argument
+operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/HexIDE/issues/1465).
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `#Const` | **Won't load** | VB6.g4 has no #Const lexer token and no parser rule; the only HASH-prefixed directive tokens are MACRO_IF/MACRO_ELSEIF/MACRO_ELSE/MACRO_END_IF (VB6.g4). '#Const' instead lexes as FILENUMBER… | VB6.g4 |
 | `DExponentLiteral` | **Won't load** | `DOUBLELITERAL` and `INTEGERLITERAL` accept only an `e`/`E` exponent marker, never `D`. Measured: `Debug.Print 1.5D2` -> "Compile error: mismatched input 'D2' expecting <EOF>". | VB6.g4 |
 | `Function` | **Won't load** | **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)).** `Function GetName$()` -> "extraneous input '$' expecting {':', '(', NEWLINE, WS}", and the whole module with it; `Function Twice%(ByVal x As Integer)` the same with `%`. VB6 compiles a `$`-declared Function (oracle TR_01, TR_02, TB_01); no oracle row covers a `Function` declared with `% & ! # @`. VB6.g4's `functionStmt` has no `typeHint?` after the name, though `propertyGetStmt` in the same file has one and the LSP server's grammar has it on both; `GrammarParityTests` compares rule inventories, not alternatives, so it does not see the gap. **[#1444](https://github.com/hexide-io/HexIDE/issues/1444):** a return declared as a scalar converts what is stored into its name there and then, as a variable of that type does, and a failure is raised inside the procedure, where its own handler traps it (measured: `FS = 5` As String is "5", `FD = "0.5"` As Date 00:05, `FB = "abc"` As Boolean 13, and `FI = 40000` As Integer 6, inside each). Otherwise as before — PrePass.VisitFunctionStmt registers a ProcedureInfo (name, params, return type, body, IsPrivate). The return is by assignment to the procedure's own name; an unassigned return yields the… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
 | `Function...End Function` | **Won't load** | **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)); see `Function`.** **[#975](https://github.com/hexide-io/HexIDE/issues/975):** one declared `As Long()` returns its array (measured), where it returned a Long 0, and **[#986](https://github.com/hexide-io/HexIDE/issues/986):** takes only an array of its own type, a mismatch raising 13 or VB6's compile error "Can't assign to array" as VB6 does (measured), and a String stored into one declared `As Byte()`, which VB6 converts, stops the run as not implemented ([#998](https://github.com/hexide-io/HexIDE/issues/998)). The production quoted below has no `typeHint?` after the name, so `Function GetName$()` does not parse. Otherwise as before — The whole construct - `(visibility WS)? (STATIC WS)? FUNCTION WS name (argList)? (asTypeClause)? ... END_FUNCTION` - is collected by PrePass.VisitFunctionStmt and executed by… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
 | `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 
-## Dies mid-run — 202 names
+## Dies mid-run — 194 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -323,10 +324,6 @@ most of the in-box object model.
 | Name | Status | Detail | Source |
 |---|---|---|---|
 | `#` | **Dies** | and it is the one piece of this batch that fails even outside a file statement. `#1` lexes as its own token, `FILENUMBER : HASH LETTERORDIGIT+` (Grammar/VB6.g4), and FILENUMBER is an… | ExpressionExecutor.cs |
-| `#Else` | **Dies** | throws. macroElseBlockStmt (VB6.g4) is part of macroIfThenElseStmt and shares its fate: measured, '#If Win32 Then ... #Else ... #End If' raises VBCompileErrorException 'Conditional… | PrePass.cs |
-| `#ElseIf` | **Dies** | throws. macroElseIfBlockStmt (VB6.g4) is only reachable as part of macroIfThenElseStmt, so it fails with its parent: VBCompileErrorException 'Conditional compilation (#If / #Const) is not… | PrePass.cs |
-| `#End If` | **Dies** | throws, as the terminator of macroIfThenElseStmt (VB6.g4) - same two exceptions as #If (PrePass.cs at module level, StatementExecutor.cs inside a procedure). | PrePass.cs |
-| `#If` | **Dies** | throws `"Conditional compilation (#If / #Const) is not supported"` — throws - with two different exceptions depending on where it sits. At module level PrePass hits it first: '' (PrePass.cs), under the comment… | PrePass.cs |
 | `#n` | **Dies** | `FILENUMBER : HASH LETTERORDIGIT +` is a lexer token listed in the `literal` rule — then throws at run time, because `VisitVsLiteralCore` has no FILENUMBER branch and falls into `throw new… | ExpressionExecutor.cs |
 | `,` | **Dies** | The 14-column print-zone comma is grammar-level only: `outputList : outputList_Expression (WS? (SEMICOLON \| COMMA) WS? outputList_Expression?)* \| outputList_Expression? (WS? (SEMICOLON \|… | StatementExecutor.cs |
 | `Access` | **Dies** | ACCESS is a real lexer token and the clause is in the grammar - `openStmt : OPEN WS valueStmt WS FOR WS (APPEND\|BINARY\|INPUT\|OUTPUT\|RANDOM) (WS ACCESS WS (READ\|WRITE\|READ_WRITE))?… | StatementExecutor.cs |
@@ -440,7 +437,6 @@ most of the in-box object model.
 | `Lock` | **Dies** | `lockStmt : LOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Lock #1, 1 To 2` -> NotImplementedException: "Lock… | StatementExecutor.cs |
 | `LOF` | **Dies** | fails at name resolution: unregistered. Probed `Debug.Print LOF(1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined (LOF)". docs/interpreter-gaps.md:83. | ExpressionExecutor.cs |
 | `LSet` | **Dies** | throws `"Lset not implemented"` — The grammar has the rule — `lsetStmt : LSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt` (VB6.g4), reachable from blockStmt (VB6.g4) — but the… | StatementExecutor.cs, VB6.g4 |
-| `Mac` | **Dies** | Not defined anywhere in the interpreter. Reachable only from #If, which throws first - measured with '#If Win32 Then ... #ElseIf Mac Then ... #End If': VBCompileErrorException 'Conditional… | PrePass.cs |
 | `Mid$` | **Dies** | **Tracked by [#742](https://github.com/hexide-io/HexIDE/issues/742).** — `Mid$` lexes as MID + DOLLAR, and DOLLAR is a `typeHint` (VB6.g4) which `iCS_S_ProcedureOrArrayCall` accepts (VB6.g4). The letStmt handler rejects it BEFORE reaching the Mid-statement… | StatementExecutor.cs |
 | `MidB` | **Dies** | Not registered (VB6BuiltIns.cs); no occurrence of "MidB" under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (MidB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `MIRR` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (MIRR)". Named in the deferral list at… | VB6BuiltIns.cs |
@@ -510,7 +506,6 @@ most of the in-box object model.
 | `Unlock` | **Dies** | `unlockStmt : UNLOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Unlock #1, 1 To 2` -> NotImplementedException:… | StatementExecutor.cs |
 | `VarPtr` | **Dies** | Zero hits anywhere in IDE/ outside obj/bin — not registered, not in the grammar, not in editor metadata; ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined… | VB6BuiltIns.cs |
 | `VB_PredeclaredId` | **Dies** | but is silently discarded - no throw, and no behaviour. Emitted in the canonical class header (ModuleFileFormat.cs) and preserved verbatim, but a repo-wide grep for a consumer across… | ModuleFileFormat.cs |
-| `Vba6` | **Dies** | Not defined anywhere in the interpreter (repo-wide grep for Vba6/VBA6 across IDE/ and LspServer/ returned nothing). Reachable only from #If, which throws first (PrePass.cs /… | PrePass.cs |
 | `vbBack` | **Faithful** | member of the `VBA.Constants` MODULE, not of any enum, which is why an inventory that walked only `TKIND_ENUM` would have missed the whole family. Value `Chr(8)`, read from the real type library and cross-checked against a compiled program's `Asc`/`Len`. Resolved by `VB6InBoxLibraries` and covered by `InBoxConstantTests`; see docs/vb6-inbox-constants.md | VB6InBoxLibraries.cs |
 | `vbFormFeed` | **Faithful** | member of the `VBA.Constants` MODULE, not of any enum, which is why an inventory that walked only `TKIND_ENUM` would have missed the whole family. Value `Chr(12)`, read from the real type library and cross-checked against a compiled program's `Asc`/`Len`. Resolved by `VB6InBoxLibraries` and covered by `InBoxConstantTests`; see docs/vb6-inbox-constants.md | VB6InBoxLibraries.cs |
 | `vbNewLine` | **Faithful** | member of the `VBA.Constants` MODULE, not of any enum, which is why an inventory that walked only `TKIND_ENUM` would have missed the whole family. Value CRLF, read from the real type library and cross-checked against a compiled program's `Asc`/`Len`. Resolved by `VB6InBoxLibraries` and covered by `InBoxConstantTests`; see docs/vb6-inbox-constants.md | VB6InBoxLibraries.cs |
@@ -520,8 +515,6 @@ most of the in-box object model.
 | `vbUseCompareOption` | **Faithful** | **not a VB6 name at all.** Widely documented as a member of `VbCompareMethod` with value -1, but the type library declares only three members (`vbBinaryCompare` 0, `vbTextCompare` 1, `vbDatabaseCompare` 2). Measured: `VbCompareMethod.vbUseCompareOption` is a compile error in real vb6.exe - "Method or data member not found" - so refusing it is FAITHFUL, not a gap. NB the bare form appears to compile, because without `Option Explicit` it is just an undeclared Variant evaluating to Empty; the qualified form is the decisive probe. The documentation is wrong | n/a |
 | `vbVerticalTab` | **Faithful** | member of the `VBA.Constants` MODULE, not of any enum, which is why an inventory that walked only `TKIND_ENUM` would have missed the whole family. Value `Chr(11)`, read from the real type library and cross-checked against a compiled program's `Asc`/`Len`. Resolved by `VB6InBoxLibraries` and covered by `InBoxConstantTests`; see docs/vb6-inbox-constants.md | VB6InBoxLibraries.cs |
 | `Width #` | **Dies** | `widthStmt : WIDTH WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Width #1, 80` -> NotImplementedException: "Width not implemented". | StatementExecutor.cs |
-| `Win16` | **Dies** | Not defined anywhere in the interpreter (the same repo-wide grep as Win32 returned no Win16 hits at all). Reachable only from #If, which throws first (PrePass.cs / StatementExecutor.cs). | PrePass.cs |
-| `Win32` | **Dies** | Not defined anywhere in the interpreter. A repo-wide grep for a Win32 conditional-compilation constant across IDE/ and LspServer/ (.cs and .g4) returned only unrelated hits - Avalonia… | PrePass.cs |
 | `Write` | **Dies** | WRITE is a lexer token used both in openStmt's `Access Write` / `Access Read Write` clause and as the head of writeStmt (Grammar/VB6.g4, 630-632). As a clause keyword: probed `Open "z.txt"… | StatementExecutor.cs |
 | `Write #` | **Dies** | `writeStmt : WRITE WS valueStmt WS? COMMA (WS? outputList)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Write #1, "x"` -> NotImplementedException: "Write not implemented". | StatementExecutor.cs |
 
@@ -988,20 +981,14 @@ missing.
 | `UserDefinedTypeName` | Supported | `Dim x As <name>` resolves the complexType in order against `interpreter.Types` (a `Type` -> a fresh UDT instance), `interpreter.Enums` (-> Long 0) and class modules (-> Nothing, with the… | StatementExecutor.cs |
 | `Variant` | Supported | `if (baseType.VARIANT() != null) return Vb6Value.ValueType.EmptyVariant;`, and the declaration path deliberately records NO declared type for it — "an array, an object, a UDT and a Variant… | BaseTypeMapper.cs |
 
-### Compiler directives and options — 47 names (10 absent, 9 partial, 8 supported)
+### Compiler directives and options — 47 names (1 absent, 13 partial, 13 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `#Const` | **Won't load** | VB6.g4 has no #Const lexer token and no parser rule; the only HASH-prefixed directive tokens are MACRO_IF/MACRO_ELSEIF/MACRO_ELSE/MACRO_END_IF (VB6.g4). '#Const' instead lexes as FILENUMBER… | VB6.g4 |
-| `#Else` | **Dies** | throws. macroElseBlockStmt (VB6.g4) is part of macroIfThenElseStmt and shares its fate: measured, '#If Win32 Then ... #Else ... #End If' raises VBCompileErrorException 'Conditional… | PrePass.cs |
-| `#ElseIf` | **Dies** | throws. macroElseIfBlockStmt (VB6.g4) is only reachable as part of macroIfThenElseStmt, so it fails with its parent: VBCompileErrorException 'Conditional compilation (#If / #Const) is not… | PrePass.cs |
-| `#End If` | **Dies** | throws, as the terminator of macroIfThenElseStmt (VB6.g4) - same two exceptions as #If (PrePass.cs at module level, StatementExecutor.cs inside a procedure). | PrePass.cs |
-| `#If` | **Dies** | throws `"Conditional compilation (#If / #Const) is not supported"` — throws - with two different exceptions depending on where it sits. At module level PrePass hits it first: '' (PrePass.cs), under the comment… | PrePass.cs |
-| `Mac` | **Dies** | Not defined anywhere in the interpreter. Reachable only from #If, which throws first - measured with '#If Win32 Then ... #ElseIf Mac Then ... #End If': VBCompileErrorException 'Conditional… | PrePass.cs |
 | `VB_PredeclaredId` | **Dies** | but is silently discarded - no throw, and no behaviour. Emitted in the canonical class header (ModuleFileFormat.cs) and preserved verbatim, but a repo-wide grep for a consumer across… | ModuleFileFormat.cs |
-| `Vba6` | **Dies** | Not defined anywhere in the interpreter (repo-wide grep for Vba6/VBA6 across IDE/ and LspServer/ returned nothing). Reachable only from #If, which throws first (PrePass.cs /… | PrePass.cs |
-| `Win16` | **Dies** | Not defined anywhere in the interpreter (the same repo-wide grep as Win32 returned no Win16 hits at all). Reachable only from #If, which throws first (PrePass.cs / StatementExecutor.cs). | PrePass.cs |
-| `Win32` | **Dies** | Not defined anywhere in the interpreter. A repo-wide grep for a Win32 conditional-compilation constant across IDE/ and LspServer/ (.cs and .g4) returned only unrelated hits - Avalonia… | PrePass.cs |
+| `#Const` | Partial | **Runs since [#1112](https://github.com/hexide-io/HexIDE/issues/1112).** Applied to the module's text before the parse, as `#If` is. It holds from its line to the end of its module, across procedures; it defines its constant even inside an inactive branch, and a second one for the name anywhere in the module is "Duplicate definition" (both measured). It may shadow a project argument or a built-in. Partial for `#If`'s reasons. Oracle: "Conditional compilation" | ConditionalCompiler.cs |
+| `#ElseIf` | Partial | As `#If` ([#1112](https://github.com/hexide-io/HexIDE/issues/1112)). It is evaluated after a branch was taken too (measured: `#ElseIf 1 / 0` there is "Division by zero"), and after `#Else` it is vb6.exe's structure error | ConditionalCompiler.cs |
+| `#If` | Partial | **Runs since [#1112](https://github.com/hexide-io/HexIDE/issues/1112).** Each module's directives are applied to its text before the parse: an inactive branch is made empty, keeping the line numbers, so it is never parsed, as in vb6.exe, and may hold anything. Every condition is evaluated, an inactive branch's too, and an error is a compile error as the module loads (measured). A name is the module's `#Const`, the project's `CondComp`, VB6's `Win32` (1) or `Win16` (0), or a Variant holding 0. Partial: `Like` is refused until it exists ([#1547](https://github.com/hexide-io/HexIDE/issues/1547)), and every personality takes VB6's built-ins ([#1548](https://github.com/hexide-io/HexIDE/issues/1548)). Oracle: "Conditional compilation" | ConditionalCompiler.cs, ConstantExpression.cs |
 | `Attribute` | Partial | Parses everywhere VB6 writes it (attributeStmt, VB6.g4: a module header element and a block statement), and since #832 is accepted everywhere. A header's Attribute lines parse as moduleAttributes and are never run; since #273 every run gives the interpreter the whole file (FormCodeText.WholeFile), so that is the path every module's and form's header takes. A line inside a procedure or after a module-level declaration is metadata and runs as nothing, and the debugger treats it as a blank line: a step passes over it at any nesting and Set Next Statement onto it is refused. A breakpoint on a line of the header, or of a run that describes a member, is refused, because #273 makes those lines read-only in the code window; on any other Attribute line it is accepted and never reached, as on a blank line. Four attributes carry meaning HexIDE does not give them: VB_Name is read only by the serializer and the IDE; VB_UserMemId and VB_VarUserMemId declare a default member, which HexIDE collects but does not read yet, so a use of one as a value is refused naming #174; and VB_PredeclaredId, which gives a class its default instance, is discarded. | StatementExecutor.cs, VBLoader.cs |
 | `Compare` | Partial | Exists only as the second word of the composite OPTION_COMPARE token (VB6.g4), consumed by optionCompareStmt (VB6.g4) and then discarded - PrePass.VisitOptionCompareStmt is '=> default;'… | PrePass.cs |
 | `Explicit` | Partial | Exists only as the second word of the composite OPTION_EXPLICIT token (VB6.g4), consumed by optionExplicitStmt (VB6.g4) and honoured - 'RequireVariableDefinitions = true;' (PrePass.cs)… | PrePass.cs |
@@ -1011,6 +998,7 @@ missing.
 | `VB_Name` | Partial | Consumed by the serializer and the IDE, never run: the interpreter, given the whole file since #273, parses it as a module attribute. ModuleFileFormat.Header writes it for a new .bas or .cls, and a save retargets a module's to its current name (ModuleFileFormat.RetargetVbName). A form's sits at the top of its code, below the designer block, and since #273 follows the form's rename as an edit the IDE makes itself (HeaderRefresher.NameChanged), where a renamed form's file used to name two forms (#473). A form HexIDE creates carries none, where VB6 writes five attributes (#516). In the code window it is part of the read-only header. This row called it the only VB_* attribute with any consumer; PrePass also collects VB_UserMemId and VB_VarUserMemId, since #820. | ModuleFileFormat.cs, HeaderRefresher.cs |
 | `VB_UserMemId` | Partial | The line is accepted inside a procedure and runs as nothing (#832); it threw "Attribute not implemented", so calling the member stopped the run. The default member it declares is collected but not read yet. With a Function `Value` marked and returning 42, vb6.exe gives `v=42` for `"v=" & w`, 42 (Long) for `x = w`, 43 (Long) for `w + 1`, and writes ` 42 ` for `Print #f, w` (measured, native and in the IDE). HexIDE refuses the first three, untrappably, naming #174 (since #840), as it refuses a numeric conversion such as `CInt(w)` or `RGB(w, 0, 0)` (#820); `Print #f, w` stops before it gets there, at `Open`, which HexIDE does not implement yet. The member is found whether it is a Function, Sub, Property Get, Let or Set. Honouring it is #174. | StatementExecutor.cs |
 | `VB_VarUserMemId` | Partial | The line is accepted after the variable it marks and runs as nothing (#832). The default member it declares is collected but not read yet, as for VB_UserMemId: a use of the object as a value (`x = k`, `"v=" & k`, `CInt(k)`) is refused, untrappably, naming #174. Measured on vb6.exe: `CInt(k)` is the variable's value. | StatementExecutor.cs |
+| `Vba6` | Partial | Not defined under VB6, so it reads 0 (measured, [#1112](https://github.com/hexide-io/HexIDE/issues/1112)). Partial because the VBA personalities read 0 too, where VBA defines it as 1 ([#1548](https://github.com/hexide-io/HexIDE/issues/1548)) | CompilationConstants.cs |
 | `Alias` | No-op | Optional clause of declareStmt ('(WS ALIAS WS STRINGLITERAL)?', VB6.g4; token ALIAS at VB6.g4). Parsed and discarded with the statement (PrePass.cs). Measured in both forms - the named form… | PrePass.cs |
 | `Any` | No-op | There is no ANY token in VB6.g4 (grep confirms; the type keywords are enumerated as baseType). 'As Any' parses only because 'Any' falls through complexType -> ambiguousIdentifier. Inside a… | PrePass.cs |
 | `Declare` | No-op | in full (declareStmt, VB6.g4 - visibility, Sub/Function, type hints, argList and As-clause) and is then dropped whole. PrePass.VisitDeclareStmt is '=> default;' under the comment: '`Declare… | PrePass.cs |
@@ -1031,14 +1019,19 @@ missing.
 | `VB_VarDescription` | No-op | Accepted after the variable it describes, in the declarations section, and ignored: it is Object Browser text. Measured on vb6.exe: a class's Public variable followed by VB_VarDescription and VB_VarHelpID lines takes and returns its value (#832), and so does a `.bas` module's `Public Counter As Long` followed by a VB_VarDescription line (3, a Long, native and in the IDE). It threw until then. | StatementExecutor.cs |
 | `VB_VarHelpID` | No-op | Same declarations-section position as VB_VarDescription, and accepted and ignored the same way (#832). It threw until then. | StatementExecutor.cs |
 | `VB_VarMemberFlags` | No-op | Accepted after the variable it flags and ignored (#832). It threw "Attribute not implemented" until then: 'Public Foo As Long' followed by 'Attribute Foo.VB_VarMemberFlags = "40"' stopped the module. Measured on vb6.exe, native and in the IDE: a class's `Public Flagged As Long` followed by it takes and returns 5, a Long. | StatementExecutor.cs |
+| `#Else` | Supported | **Runs since [#1112](https://github.com/hexide-io/HexIDE/issues/1112).** A second `#Else` is vb6.exe's "An # Else clause must be preceded by an # If", and `#Else whatever` is not a directive (both measured) | ConditionalCompiler.cs |
+| `#End If` | Supported | **Runs since [#1112](https://github.com/hexide-io/HexIDE/issues/1112)**, as `#End If` or `#EndIf`. A stray one, and an `#If` never closed, are vb6.exe's compile errors | ConditionalCompiler.cs |
 | `Base` | Supported | Exists only as the second word of the composite OPTION_BASE token (VB6.g4), consumed by optionBaseStmt (VB6.g4) and honoured at PrePass.cs. See Option Base for the full behaviour and its… | PrePass.cs |
 | `Begin` | Supported | Two distinct roles, both handled. In a .frm it opens a control node: 'else if (line.StartsWith("Begin")) { var component = ParseBegin(line); ... componentStack.Push(component); }'… | VbFrmFormatDeserializer.cs |
 | `BeginProperty` | Supported | Opens a nested property bag; implemented with a stack so bags nest (VbFrmFormatDeserializer.cs), written back at VbFrmFormatSerializer.cs. The stack is deliberate: 'A stack rather than… | VbFrmFormatDeserializer.cs |
 | `Binary` | Supported | A real standalone token (BINARY, VB6.g4) accepted as an Option Compare operand (VB6.g4). The directive itself is discarded (PrePass.cs), but HexIDE's fixed behaviour IS ordinal/Binary… | PrePass.cs |
 | `Class` | Supported | The CLASS suffix that distinguishes a .cls header from a .frm one. ModuleFileFormat.SplitHeader tests for it to decide the header shape - 'lines[i].IndexOf("CLASS"… | ModuleFileFormat.cs |
 | `EndProperty` | Supported | Closes the innermost property bag and folds its verbatim lines into the parent, or onto the component when it was outermost (VbFrmFormatDeserializer.cs); written back at… | VbFrmFormatDeserializer.cs |
+| `Mac` | Supported | Not defined under VB6, so it reads 0 (measured, [#1112](https://github.com/hexide-io/HexIDE/issues/1112)) | CompilationConstants.cs |
 | `Option Base` | Supported | Collected by PrePass ('ArrayBase = int.Parse(context.INTEGERLITERAL().GetText());', PrePass.cs) and applied on both declaration paths: module-level Dim arrays (PrePass.cs) and… | PrePass.cs |
 | `Version` | Supported | Handled on three independent paths. Form/control files: the deserializer skips the line ('if (line.StartsWith("VERSION")) { continue; }', VbFrmFormatDeserializer.cs) and the serializer… | VbFrmFormatDeserializer.cs |
+| `Win16` | Supported | 0 under VB6 (measured, [#1112](https://github.com/hexide-io/HexIDE/issues/1112)) | CompilationConstants.cs |
+| `Win32` | Supported | 1 under VB6 (measured, [#1112](https://github.com/hexide-io/HexIDE/issues/1112)): `Win32 = 1` is true, `Win32 = True` false, and `Not Win32` true, since `Not` is bitwise | CompilationConstants.cs |
 
 ### In-box objects — 123 names (87 absent, 14 partial, 22 supported)
 
