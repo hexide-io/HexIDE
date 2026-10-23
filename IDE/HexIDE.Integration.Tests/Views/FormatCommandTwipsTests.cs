@@ -156,23 +156,24 @@ public class FormatCommandTwipsTests
     [AvaloniaFact]
     public void A_control_added_by_double_clicking_the_toolbox_is_centred_then_put_on_the_grid()
     {
-        // VB6 put a 1215 x 495 button on a 6000 x 4500 form at 2400, 2040: centred, then on the nearest 120-twip grid line.
-        // HexIDE's new control is 50 x 50 px, 750 twips: 3000 - 375 = 2625 and 2250 - 375 = 1875, on the grid 2640, 1920.
+        // VB6 put a 1215 x 495 button on a 6000 x 4500 form at 2400, 2040: centred at 3000 - 607 = 2393 and
+        // 2250 - 247 = 2003, then on the nearest 120-twip grid line.
         var (vm, form) = Open(Form(6000, 4500));
 
         vm.SpawnControlCenter(CommandButtonComponentClass.Instance);
 
         var name = vm.AllComponents.Single(c => c.Instance.BaseClass is CommandButtonComponentClass).Name;
-        Saved(vm, form, name, "Left").Should().Be("2640");
-        Saved(vm, form, name, "Top").Should().Be("1920");
+        Saved(vm, form, name, "Left").Should().Be("2400");
+        Saved(vm, form, name, "Top").Should().Be("2040");
     }
 
     [AvaloniaFact]
     public void An_added_control_centred_exactly_between_two_grid_lines_goes_to_the_higher()
     {
-        // VB6 put a button whose centre was 12.5 grid units down at 13 (measured). On a 4230-twip square form, HexIDE's
-        // 750-twip control centres at 2115 - 375 = 1740, 14.5 units of 120: the higher line is 1800, and to-even gives 1680.
-        var (vm, form) = Open(Form(4230, 4230));
+        // VB6 put a button whose centre was 12.5 grid units down at 13 (measured). On a 4694 x 3974 form a 1215 x 495
+        // button centres at 2347 - 607 = 1740 and 1987 - 247 = 1740, 14.5 units of 120: the higher line is 1800, and
+        // to-even gives 1680.
+        var (vm, form) = Open(Form(4694, 3974));
 
         vm.SpawnControlCenter(CommandButtonComponentClass.Instance);
 
@@ -189,7 +190,39 @@ public class FormatCommandTwipsTests
         vm.SpawnControlCenter(CommandButtonComponentClass.Instance);
 
         var name = vm.AllComponents.Single(c => c.Instance.BaseClass is CommandButtonComponentClass).Name;
-        Saved(vm, form, name, "Left").Should().Be("2625");
-        Saved(vm, form, name, "Top").Should().Be("1875");
+        Saved(vm, form, name, "Left").Should().Be("2393");
+        Saved(vm, form, name, "Top").Should().Be("2003");
+    }
+
+    // Each control VB6 added by a double-click on its tool, on a 6000 x 4500 form with the 120-twip grid, as it saved it
+    // (docs/vb6-fidelity-oracle.md, "The size of a control added from the toolbox"): its own size, centred by that size,
+    // then on the grid.
+    [AvaloniaTheory]
+    [InlineData("CommandButton", "1215", "495", "2400", "2040")]
+    [InlineData("Label", "1215", "495", "2400", "2040")]
+    [InlineData("TextBox", "1215", "495", "2400", "2040")]
+    [InlineData("Frame", "1215", "495", "2400", "2040")]
+    [InlineData("CheckBox", "1215", "495", "2400", "2040")]
+    [InlineData("OptionButton", "1215", "495", "2400", "2040")]
+    [InlineData("PictureBox", "1215", "495", "2400", "2040")]
+    [InlineData("Shape", "1215", "495", "2400", "2040")]
+    [InlineData("ComboBox", "1215", "315", "2400", "2040")]
+    [InlineData("ListBox", "1215", "450", "2400", "2040")]
+    [InlineData("HScrollBar", "1215", "255", "2400", "2160")]
+    [InlineData("VScrollBar", "255", "1335", "2880", "1560")]
+    [InlineData("Timer", "", "", "2400", "2040")]
+    public void A_control_added_from_the_toolbox_takes_the_size_VB6_gives_its_class(
+        string vbClass, string width, string height, string left, string top)
+    {
+        var type = (ComponentBaseClass)typeof(ComponentBaseClass).Assembly
+            .GetType($"HexIDE.Runtime.Components.{vbClass}ComponentClass")!
+            .GetProperty("Instance")!.GetValue(null)!;
+        var (vm, form) = Open(Form(6000, 4500));
+
+        vm.SpawnControlCenter(type);
+
+        var name = vm.AllComponents.Single(c => c.Instance.BaseClass == type).Name;
+        (Saved(vm, form, name, "Width"), Saved(vm, form, name, "Height"), Saved(vm, form, name, "Left"),
+            Saved(vm, form, name, "Top")).Should().Be((width, height, left, top));
     }
 }

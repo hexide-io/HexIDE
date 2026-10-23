@@ -33,6 +33,7 @@ public class ComboBoxComponentClass : ComponentBaseClass
 
     public override string Name => "Combo";
     public override string VBTypeName => "VB.ComboBox";
+    public override (int Width, int Height) AddedSize => (1215, 315);
 
     protected override Control InstantiateInternal(ComponentInstance instance)
     {
