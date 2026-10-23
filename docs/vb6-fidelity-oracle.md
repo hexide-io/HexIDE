@@ -14850,7 +14850,8 @@ The two `Debug` statements differ here. The compiler removes `Debug.Assert` with
 `Debug.Print`'s arguments and discards only the printing. "Debug statements are removed at compile time", as the issue
 had it, is true of the first and not of the second.
 
-**Compile errors:** `Debug.Assert` with no condition, and `Debug.Assert True, False`, are each "Syntax error".
+**Compile errors:** `Debug.Assert` with no condition, and `Debug.Assert True, False`, are each "Syntax error". A compile
+error is the compiler's answer, so these came from the release build's compiler even in a `/make` (#1524).
 
 ### In HexIDE (#1467)
 
