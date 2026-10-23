@@ -236,6 +236,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP window wording matches how `auto` picks** (#1321). `interact` now says it usually picks a running form, and the unknown-window refusal describes its preference for another visible window, a dialog first.
+
 - **A running form has the window its file describes** (#1575). Every form ran as a sizable window with a title bar,
   minimize and maximize buttons and a close box, whatever its BorderStyle, ControlBox, MinButton and MaxButton said. A
   Fixed Single or Fixed Dialog form can no longer be resized by its border, a borderless form has no frame, a form
