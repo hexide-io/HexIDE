@@ -15141,6 +15141,355 @@ rather than the compiler: in the oracle as it stands, the release build's IDE (#
 logs to its end. One that waits is in break mode or showing a dialog, and
 running it again under On Error Resume Next tells the two apart.
 
+## Indexing a call's result (2026-10-23, #1476)
+
+Measured with `/make` in four batches, native and p-code identical on every row. A row that printed something is a
+run-time result of a built EXE on SP6's MSVBVM60. A compile error came from the oracle's release-build compiler (#1524).
+Each line printed `TypeName` and the value, or the error.
+
+### Reading
+
+| expression | vb6.exe |
+|---|---|
+| `Split("x y z")(0)`, `(2)`, `(3)` | x, z, 9 |
+| `Split(s, " ")(1)` | y |
+| `Array(1, 2)(1)` | Integer 2 |
+| `V3()(2)` and `V3()(-1)`, with `V3() As Variant` returning `Array(10, 20, 30)` | 30, and 9 |
+| `T3()(1)`, with `T3() As Long()` | Long 200: the typed array's element |
+| `Jag()(1)(0)` and `Jag()(1)(1)(1)`, with `Jag` returning `Array(Array(1, 2), Array(3, Array(4, 5)))` | 3 and 5 |
+| `WithArg(4)(2)`, with `WithArg(n)` returning `Array(n, n * 2, n * 3)` | 12 |
+| `NoArgs()(1)`, with `NoArgs() As Variant` returning `Array(5, 6)` | 6 |
+| `Col()(2)` and `Col()("a")`, with `Col() As Collection` | beta, alpha: the Collection's Item |
+| `VScalar()(0)` and `VStr()(0)`, Variant Functions returning 42 and "abc" | 13 |
+| `Split(s)(0, 1)` | 9: the wrong number of subscripts |
+| `Split(s)("1")`, `Split(s)(1.5)` | y, z: an index converts as any subscript does, 1.5 rounding to 2 |
+| `k.Items()(1)`, `k.Typed()(2)`, `k.Bag()(2)`, `k.Echo("m n")(1)`, `k.Prop()(0)` | the method's or Property Get's result, indexed |
+
+### A parameterless procedure given arguments
+
+Each was its own project: a `Private Function F` in the same module, called from `Sub Main` as `r = F(...)` under
+On Error Resume Next.
+
+| F | call | vb6.exe |
+|---|---|---|
+| `Function F()` or `Function F() As Variant`, returning `Array(5, 6)` | `F(1)` | Integer 6 |
+| the same | `F(5, 6)` | 9 |
+| `Function F()` or `As Variant`, returning 1 | `F(1)`, and `F(5, 6)` with no `As` | 13 |
+| `Function F() As Variant`, returning a 2-D array with `m(1, 0) = 7` | `F(1, 0)` | Integer 7 |
+| `Function F() As Collection` | `F(1)` | the Item |
+| `Function F() As Long`, `As String`, `As Long()` | `F(1)` | compile error, "Wrong number of arguments or invalid property assignment" |
+| `Function Opt(Optional n As Integer = 0)` returning `Array(n, n + 1)` | `Opt(1)`, `Opt(1)(1)`, `Opt()(1)` | the array for 1, then 2, then 1: an Optional parameter takes the argument |
+| `NoArgs` as above | `NoArgs(1)(0)`, `NoArgs(5)` | 13, 9 |
+
+So a parameterless procedure that returns a Variant or an object reads its arguments as an index into its result, and
+`F(1)` is `F()(1)`. A class's method and Property Get do the same: `k.Items(2)`, `k.Prop(1)`, `k.Bag(1)`. A typed
+return does not compile, even a typed array. #741's table had `Function F(): F = 1`, then `F(5, 6)`, as "Expected
+array" at compile time; in this shape it compiles and raises 13, which agrees with its TE_04 row. Both rows stand.
+
+### Writing
+
+| statement | vb6.exe |
+|---|---|
+| `a(1)(0) = 9`, with `a = Array(Array(1, 2), Array(3, 4))` | `a(1)(0)` is 9: written through to the inner array |
+| `v = a(1): v(1) = 99` | `a(1)(1)` is still 4: `v` holds a copy |
+| `V3()(1) = 5` and `NoArgs()(1) = 7` | compile, run the Function, and change nothing else |
+
+### What does not compile
+
+| expression | compile error |
+|---|---|
+| `Scalar()(0)`, with `Scalar() As Integer` | Type mismatch |
+| `Left$("abc", 2)(0)` | Type mismatch |
+| `Len("abc")(0)` | **Syntax error** |
+| `a(0)(1) = 5`, with `Dim a(1) As Integer` | Type mismatch |
+
+### The order of evaluation
+
+Each argument and subscript was a call that logged a tag.
+
+| expression | order logged |
+|---|---|
+| `F3(a1, a2, a3)` | a1, a2, a3, then the body |
+| `F3(a1, a2, a3)(i)` | a1, a2, **i**, a3, body |
+| `F2(a1, a2)(i1)(i2)` | a1, **i2, i1**, a2, body |
+| `F1(a1)(i1)(i2)` | **i2, i1**, a1, body |
+| `G2(a1, a2)(i1, i2)` | a1, **i1, i2**, a2, body |
+| `TwoArgs(a1, a2)(i)` | a1, i, a2 |
+| `Jag(...)(i1)(i2)(i3)` | i3, i2, i1, then the body |
+| `Split(t)(i)` | **i, t** |
+| `Split(s, d)(i)` | **s, d, i** |
+| `arr(i1, i2)`, read | i1, i2 |
+| `arr(i1, i2) = rhs` | rhs, i1, i2 |
+| `a(i1)(i2)(i3)`, read | i3, i2, i1 |
+| `a(w1)(w2) = rhs` | w2, rhs, w1 |
+| `a(w1)(w2)(w3) = rhs` | w3, rhs, w2, w1 |
+
+The rule for a Function's call and an array's element: all but the last of the first group's arguments or subscripts,
+left to right; then the later groups, the last group first, each left to right; then the first group's last; then the
+call. The read of `a(i1)(i2)(i3)` follows it, its first group being `(i1)`.
+
+**A library function does not follow it, and no rule I would defend covers both rows.** `Split(t)(i)` evaluates the
+index first, as the rule says. `Split(s, d)(i)` evaluates both arguments first, where the rule says s, i, d. Two rows
+were measured, nothing more.
+
+**A chain's Let** evaluates its last group, then the value, then the other groups from the last, then the first. A plain
+`arr(i1, i2) = rhs` evaluates the value first.
+
+### In HexIDE (#1476)
+
+- **The groups.** `ExpressionExecutor.ParenGroups` gives each parenthesised group, an empty `()` as a group of its own.
+  The grammar gives an argsCall only to a group with something in it, so `T3()(1)` used to read as `T3(1)`.
+- **Reading.** `EvaluateProcedureOrArrayCall` evaluates the later groups through `LaterGroups`. The argument loops call it
+  before their last argument (`ResolveCallArgs`, `EvaluateCallArgs`), which is the rule above. A library function calls
+  it before one argument and after two, as the two Split rows did, and that is no more than those two rows.
+  `IndexResult` then indexes, as the reading table says.
+- **Member chains.** A member segment's later groups go the same way (`ResolveMemberIndexed`). They used to be dropped
+  together with the first, so `k.Echo("m n")(1)` called Echo with no arguments.
+- **Parameterless procedures.** `IndexesItsResult` makes one returning a Variant or an object, given arguments, a call
+  with none and an index. A typed return given arguments is #741's.
+- **Writing.** `StatementExecutor.LetIntoIndexChain` writes in the Let order above. `Len("abc")(0)` is "Type mismatch"
+  here, a different message for a program both refuse.
+
+## What VB6's Add Form saves (2026-10-23, #1532, design-time, IDE, release build)
+
+**The question.** A form HexIDE created started with an empty `Private Sub Form_Load()` / `End Sub`, written to the
+file at its first save. #1369 had already matched the rest of the file to VB6's template `Form1.frm`, which has no
+code, but nobody had looked at what VB6's own Add Form writes.
+
+**The probe.** VB6.EXE 6.00.8176, the IDE, in the guest's console session, driven with SendKeys and a screenshot at
+each step. `probe.vbp` is a Standard EXE holding `Module1.bas` alone (`Sub Main`). Opened in the IDE, then Project >
+Add Form, which showed the Add Form dialog on its New tab with Form selected; Enter. Then Ctrl+S, which showed Save File
+As with `Form1` in the project's folder; Enter. VB6 was then stopped, without saving the project, and the file read
+back.
+
+**What it wrote**, 485 bytes, every line CRLF:
+
+```
+VERSION 5.00
+Begin VB.Form Form1 
+   Caption         =   "Form1"
+   ClientHeight    =   3015
+   ClientLeft      =   120
+   ClientTop       =   465
+   ClientWidth     =   4560
+   LinkTopic       =   "Form1"
+   ScaleHeight     =   3015
+   ScaleWidth      =   4560
+   StartUpPosition =   3  'Windows Default
+End
+Attribute VB_Name = "Form1"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = True
+Attribute VB_Exposed = False
+```
+
+The last bytes are `... 46 61 6C 73 65 0D 0A`: the file ends at `Attribute VB_Exposed = False` and its line break.
+
+**What it shows:**
+- **A new form has no code.** VB6 adds an event procedure when the developer asks for one, by double-clicking the form
+  or picking it in the Procedure box. HexIDE's seed `Form_Load` was its own invention.
+- **The designer block differs from HexIDE's in more than the code.** VB6's toolbar read the form as 4800 × 3600
+  outside. Its client area, 4560 × 3015, and its `ClientLeft` 120 and `ClientTop` 465, are that outer size less the
+  borders and caption of this guest's theme, so those numbers are this machine's, not constants. `LinkTopic = "Form1"`
+  is written too. HexIDE's new form has a client area of 6000 × 4500 and writes neither `ClientLeft`, `ClientTop` nor
+  `LinkTopic`. That is #1538.
+
+**A double-click on the form.** With the new form gone empty, a double-click is how it gets its `Form_Load`, so that
+was measured too. Same rig: the project opened, Ctrl+R, the form, Shift+F7 for its designer, a real double-click of the
+mouse inside it, then Ctrl+S at once, with nothing typed. Two forms, each the file above plus a code section:
+
+| Form's code before | What follows `Attribute VB_Exposed = False` after the save |
+|---|---|
+| none | `Private Sub Form_Load()` CRLF, CRLF, `End Sub` CRLF |
+| `Option Explicit`, a blank line, `Private Sub Zeta()` … `End Sub` | that code, then CRLF, `Private Sub Form_Load()` CRLF, CRLF, `End Sub` CRLF |
+
+- **The procedure is `Private`, CRLF, with one blank line inside**, and the caret on that line (the code window read Ln 8,
+  Col 1 in the second row).
+- **It goes at the end**, one blank line below the code, not sorted among the procedures. Below a header with no code,
+  there is no blank line.
+- **An empty procedure is kept.** Saved at once, with nothing typed, it is written.
+
+HexIDE's double-click wrote `Public Sub Form_Load()` in bare LF, after two bare line feeds, into a CRLF file. That had
+been hidden, because a new form already had its seeded `Form_Load` to navigate to. An event picked in the Procedure box
+was `Private` already, but ended at `End Sub` with no line break, its line breaks the host's, and its caret after `End Sub`.
+
+**In HexIDE (#1532):** the `FormDefinition` constructor's seed is now empty, so a form HexIDE creates is written ending at
+its `Attribute` block, as VB6's is. Both ways of adding an event procedure now write it as the table shows: `Private`, in
+the file's line breaks, at the end, one blank line below any code, with the caret on the blank line inside.
+
+## Write # and Input # (2026-10-23, #1521)
+
+Measured with `/make` in ten batches, native and p-code identical on every row. All of them are run-time results of
+built EXEs on SP6's MSVBVM60 (#1524), and none is a compile error. The guest's locale was en-GB, except for one batch run
+under de-DE: the culture was switched with `Set-Culture`, then restored and checked from a fresh session. A written file
+was read back byte by byte with Binary `Get`. A file `Input #` read was written first with `Print #f, text;`. Each typed
+variable was set to a known value first, so that an error could be told from a store.
+
+### What Write # writes
+
+| statement | bytes written |
+|---|---|
+| `Write #f, 5, -5, 0, 32767, 70000` | `5,-5,0,32767,70000` CR LF |
+| `Write #f, 2.5, -2.5, 0.5, -0.5, 1E+20, 1.5E-07` | `2.5,-2.5,.5,-.5,1E+20,.00000015` |
+| `Write #f, CSng(0.1), CDbl(0.1), CCur(2.5), CCur(-0.25), CDec(1.5), CByte(7)` | `.1,.1,2.5,-.25,1.5,7` |
+| `Write #f, 1E-10, 1.5E-20, -1E-05, 0.0001, 0.00001` | `.0000000001,1.5E-20,-.00001,.0001,.00001` |
+| `Write #f, 1E-15, 1E-16, 1.5E-14, 1.5E-15, 1.25E-14, 0.000123456789012345` | `.000000000000001,1E-16,.000000000000015,1.5E-15,1.25E-14,1.23456789012345E-04` |
+| `Write #f, 1E+15, 1E+16, 1.23456789012345E+15, 123456789012345#, 12345.6789` | `1E+15,1E+16,1.23456789012345E+15,123456789012345,12345.6789` |
+| `Write #f, 999999999999999#, 1E+15 - 1, 1234567890123456#, -1E-15, -1E+15` | `999999999999999,999999999999999,1.23456789012346E+15,-.000000000000001,-1E+15` |
+| `Write #f, CSng(1 / 3), CDbl(1 / 3), 0.1 + 0.2, CSng(1E+20), CSng(1E-10)` | `.3333333,.333333333333333,.3,1E+20,1E-10` |
+| `Write #f, CSng(1.5E-06), CSng(1.5E-07), CSng(1234567), CSng(12345678), CSng(0.0000001), CSng(0.000001)` | `.0000015,1.5E-07,1234567,1.234568E+07,.0000001,.000001` |
+| `Write #f, CCur("922337203685477.5807"), CCur("-0.0001"), CCur(100)` | `922337203685477.5807,-.0001,100` |
+| `Write #f, CDec("79228162514264337593543950335"), CDec("0.0000000000000000000000000001"), CDec("1E+20"), CDec(-0.5)` | `79228162514264337593543950335,.0000000000000000000000000001,100000000000000000000,-.5` |
+| `Write #f, "a", "", "b c", "x,y", " lead"` | `"a","","b c","x,y"," lead"` |
+| `Write #f, "say ""hi"""` and `Write #f, "a""b", "c"` | `"say ""hi"""` and `"a""b","c"`: an inner quote is doubled |
+| `Write #f, True, False` | `#TRUE#,#FALSE#` |
+| `Write #f, #1/2/2003#, #1/2/2003 1:45:00 PM#, #1:45:00 PM#, #12/30/1899#` | `#2003-01-02#,#2003-01-02 13:45:00#,#1899-12-30 13:45:00#,#1899-12-30#` |
+| `Write #f, #1/1/1800#, #1/1/100#, #12/31/9999 11:59:59 PM#, CDate(-1.5), CDate(0.5), #1/2/2003 12:00:00 AM#` | `#1800-01-01#,#0100-01-01#,#9999-12-31 23:59:59#,#1899-12-29 12:00:00#,#1899-12-30 12:00:00#,#2003-01-02#` |
+| `Write #f, v, w, "end"`, with `v` Null and `w` Empty | `#NULL#,,"end"` |
+| `Write #f, CVErr(5)` in a Variant | `#ERROR 5#` |
+| `Write #f, "a"; "b"; 5` | `"a","b",5`: a `;` writes a comma as `,` does |
+| `Write #f, "a",` and `Write #f, "a";` | `"a",` and no line break |
+| `Write #f, "a";`, then `Write #f, "b"` | `"a","b"` CR LF: the next Write goes on with no further comma |
+| `Write #f,` | CR LF |
+| `Write #f, "l1" & vbCrLf & "l2", 1` | `"l1` CR LF `l2",1`: a line break in a string is written as it is |
+| `Write #f, "a", Spc(2), "b"` and `Write #f, "a", Tab(6), "b"` | `"a",  ,"b"` and `"a", ,"b"` |
+| `Write #f, ChrW(&H100) & ChrW(&H416), ChrW(&H141)` | `"A?","L"`: best fit, as `Print #` (#1511) |
+
+**How a number is written.** No leading zero, and a point whatever the locale. A Double is fixed while the fixed form needs
+at most 15 digits, counting the whole part's digits, or a fraction's with its leading zeros. Otherwise it is written as
+`1.5E-20`: its significant digits, `E`, a sign, and at least two exponent digits. A Single is the same at 7 digits.
+Currency and Decimal are always fixed: `CDec("1E+20")` is 21 digits. So `1E-10` is `.0000000001` as a Double but `1E-10` as
+a Single. Write # does not write as `Str` or `CStr` do.
+
+**A date** is `#yyyy-mm-dd#`, with ` hh:mm:ss` after it where the time is not midnight. A time alone is written on the zero
+date, never by itself.
+
+### Under de-DE
+
+| | de-DE |
+|---|---|
+| `CStr(2.5)` and `Str(2.5)` | `2,5` and ` 2.5` |
+| `Write #f, 2.5, -0.25, 1E+20, CCur(2.5), CDec(1.5), CSng(0.1), #1/2/2003#, True` | `2.5,-.25,1E+20,2.5,1.5,.1,#2003-01-02#,#TRUE#` |
+| `Print #f, 2.5; CCur(2.5)` | ` 2,5  2,5 `: Print # follows the locale |
+| `Input #` of `2.5,"1,5",2.12345` into Variants | Currency 2,5, String 1,5, Decimal 2,12345 |
+| `Input #` of `2.5` into a Double | 2,5, so the point read as a point |
+| `Input #` of `"2,5"` into a Double | 0 |
+
+Neither statement follows the locale.
+
+### How Input # reads a field
+
+- **Blanks** (spaces and tabs) before a field are skipped.
+- **Where a field ends.** A field ends at a comma or a CR, which it takes with it, CR LF as one. A lone LF is an ordinary
+  character: `1` LF `2` CR `3` into three Variants is 1, 3, then 62, and `a` LF `b,c` into Strings is `a` LF `b`, then `c`.
+- **After a quoted field, a `#` form or a number**, blanks are skipped and a comma or line end is taken. Anything else
+  begins the next field: `"a" junk,b` is a, junk, b; `"a""b","c"` is a, b, c; `5 x,6` is 5, x, 6; `5 ,6` is 5, 6.
+- **A quoted field** runs to the next quote, or to the end of the file, line breaks included: `"open` CR LF is
+  `open` CR LF, with no error. So a doubled quote ends it. **What Write # writes for a string holding a quote does not
+  read back**: `"say ""hi"""` reads as `say `.
+- **The line end after a line's last field is taken too.** So `Input #f, n` of `3` CR LF `line1` leaves `Line Input #`
+  `line1`. After a comma it is not: `8,` CR LF `line` leaves `Line Input #` an empty line, and `5,6` leaves it `6`.
+
+**What a field is read as depends on the variable:**
+
+- **A numeric variable** (Byte, Integer, Long, Single, Double, Currency) reads every field as a number, which a blank,
+  comma or CR ends. Quotes and `#` count as characters, not as delimiters: `#ERROR 5#,#abc#` into two Integers is 0 and 5,
+  and `a b,5` is 0 and 0.
+- **A String** reads a quoted field, or else the text to the comma or CR, with trailing blanks dropped: `1 2,3` is `1 2`,
+  `12abc,5` is `12abc`, and ` a ` is `a`.
+- **A Variant, a Boolean or a Date** go by the first character. A quote begins a quoted field and `#` a `#` form, which runs
+  to the closing `#`, or else to the comma: `#,5` is `#`, then 5. A digit, sign, point or `&` begins a number, which a blank
+  ends, so `1 2` is two fields. Anything else is text to the comma: `hello world`.
+
+### What a Variant becomes
+
+| field | Variant |
+|---|---|
+| `5`, `-5`, `-0`, `+5`, `5.`, `1.00000`, `5.0` | Integer |
+| `70000`, `32768`, `2147483647` | Long |
+| `2147483648`, `123456789012`, `922337203685477`, `999999999999999` | Double: a whole number beyond Long with at most 15 digits |
+| `1234567890123456`, `9999999999999999`, `100000000000000000000`, `12345678901234567890` | Decimal: 16 to 29 digits |
+| `123456789012345678901234567890` | Double 1.23456789012346E+29: past Decimal |
+| `2.5`, `.5`, `-1.5`, `1.50`, `2.10000`, `0.12340`, `1.2345`, `99999.9999`, `123456789012.5`, `922337203685477.5807` | Currency: at most 4 places once trailing zeros are dropped |
+| `2.12345`, `1.23456`, `-.00001`, `.00000015`, `1234567890123456.5` | Decimal: more places, or past Currency |
+| `1.123456789012345678901234567890` | Decimal 1.1234567890123456789012345679, rounded to 29 digits |
+| `.000000000000000000000000000012` | Double 1.2E-29: still more than 28 places after rounding |
+| `0.0`, `0.0000` | Currency 0 |
+| `0.00000`, `-0.00000` | Decimal 0 |
+| `1e3`, `1d3`, `1E+20`, `1E+300` | Double |
+| `1E-400` | Double 0 |
+| `1E+400` | String `1E+400`: too large for a Double |
+| `&H10`, `&O17`, `&HFFFF`, `&H8000`, `&O177777` | Integer 16, 15, -1, -32768, -1 |
+| `&H10000`, `&H7FFFFFFF` | Long |
+| `&HFFFFFFFF`, `&H1FFFFFFFF` | Integer -1: 32 bits, higher ones dropped, then 16 where it fits |
+| `12abc`, `5%` | Integer 12 and 5: what follows the number is dropped, to the comma |
+| `-abc`, `.`, `-&H10`, `(5)`, `abc`, `TRUE` | String, as written |
+| `#TRUE#`, `#FALSE#`, `#NULL#`, `#ERROR 13#` | Boolean, Boolean, Null, Error 13 |
+| `#2003-01-02#`, `#2003-01-02 13:45:00#`, `#13:45:00#`, `#1/2/2003#` | Date. Inside `#`s the month comes first, as in a date literal: `#1/2/2003#` is 2 January |
+| `#abc#`, `#` | String, as written |
+| `""` | String, empty |
+| nothing before the comma, or only blanks | Empty |
+
+**Measured, but no rule I would defend:** `0.00000` and `-0.00000` are Decimal 0, where `1.00000` is an Integer 1 and
+`0.0000` a Currency 0. The table holds if zero keeps the places it was written with, while trailing zeros after any
+other digit are dropped. That reading fits all these rows, and nothing more was probed.
+
+### What a typed variable becomes
+
+| variable | field | result |
+|---|---|---|
+| Integer | `2.5`, `3.5`, `2.5"` | 2, 4, 2: rounded half to even, as a Let rounds |
+| Integer | `abc`, `"5"`, `""`, `#TRUE#`, `#NULL#`, `-`, nothing | 0, no error |
+| Integer | `1E3`, `&HFFFF` | 1000, -1 |
+| Integer | `70000`, `-32769`, `1E+309` | 6, and the variable keeps what it had |
+| Long | `1E3`; `2147483648`; `"5"` | 1000; 6; 0 |
+| Byte | `255`; `300`, `-1`; `"5"` | 255; 6; 0 |
+| Single | `0.1`, `1.5E-07`; `1E+39`; `"2.5"` | 0.1, 1.5E-07; 6; 0 |
+| Double | `2.5`, `1E3`, `.5`, `5`; `1,5` | 2.5, 1000, 0.5, 5; 1 |
+| Double | `abc`, `"5"`, `"2.5"`, `""`, `#TRUE#`, `#2003-01-02#`, `#2.5#`, `x2.5`, `-` | 0, no error |
+| Double | `1E+309`, `1E+400` | 6, kept |
+| Currency | `2.12345`; `abc`, `"5"`; `1E+309` | 2.1234; 0; 6 |
+| String | `""`, ` a `, `5`, `#2003-01-02#`, `#NULL#`, `#TRUE#`, `#ERROR 5#` | empty, `a`, `5`, and each `#` form as written |
+| Boolean | `#TRUE#`, `#FALSE#` | True, False |
+| Boolean | `True`, `abc`, `"True"`, `""`, nothing | False, no error |
+| Boolean | `1`, `0`, `-1`, `2` | 6, kept: a number in any form |
+| Boolean | `#NULL#`, `#2003-01-02#` | 13, kept |
+| Date | `#2003-01-02#`, `#13:45:00#` | the date, the time |
+| Date | `abc`, `"2003-01-02"`, `"abc"`, `""`, nothing | the zero date, no error |
+| Date | `2003-01-02`, `02/01/2003`, `37000` | 6, kept: each begins with a number |
+| Date | `#NULL#`, `#TRUE#` | 13, kept |
+
+A Boolean or a Date takes the field as a Variant would, and then:
+- a String or Empty is False, or the zero date;
+- a number is 6;
+- a Boolean or a Date of the other kind, or Null, is 13.
+
+A numeric variable reads 0 from anything with no number at its start, a quoted field included, so `Write #` of a String
+holding `"5"` reads back into an Integer as 0.
+
+### At the end of the file
+
+- **A Variant** is emptied, then the statement raises 62. That holds for one that held `"kept"`, whether the file was
+  empty or `1` CR LF had already been read, and for the third of three Variants reading `1,2`.
+- **A typed variable** keeps what it had, and the statement raises 62: Integer, String, Date and Boolean were measured.
+
+### In HexIDE (#1521)
+
+- `VbWrite.ItemText` formats a value. `VisitWriteStmt` writes a comma for each separator, and moves for `Spc` and `Tab` as
+  `Print #` does.
+- `VbFiles.ReadField` reads a field as `InputReading` says, from the variable's type.
+- `VbInput` converts the field. Its number reader is its own, invariant and decimal-exact, and is not `CDbl`'s
+  locale-aware one (#1047).
+
+Refused, untrappably and by name:
+- `Input #` into anything but a plain variable, as `Line Input #` refuses;
+- `#ERROR n#` into a Variant, since HexIDE has no Error values (`CVErr`);
+- `Write #` of an object, array or user-defined type, which was not measured.
+- a date between `#`s in any shape but the four measured (`#yyyy-mm-dd#`, `#yyyy-mm-dd hh:mm:ss#`, `#hh:mm:ss#`,
+  `#m/d/yyyy#`). .NET's lenient parser would read `#1/2#` as this year's 2 January. A form no date parser takes stays
+  the String as written, as `#abc#` measured.
+
 ## Make Project Group (2026-10-23, #746, design-time, IDE, release build)
 
 **The question.** With one project loaded, HexIDE's File > Make Project Group threw on the missing group, and nothing
@@ -15210,7 +15559,8 @@ file:
   element at the bottom.
 - **Lines in the designer** are stacked like any other windowless control. They used to go under every other control,
   Labels included, and so under a Frame holding one.
-- **Not done:** the `ZOrder` method is still not implemented, and a program calling it stops (#1503).
+- **Not done:** the `ZOrder` method is still not implemented, and a program calling it stops (#1503, since done: "What
+  ZOrder does at run time").
 
 **Not measured:**
 - An Image beside a Label.
@@ -15500,3 +15850,162 @@ A file "open" below means open in the same program.
 | Root attributes | `GetAttr` reports host attributes, so roots need not have the oracle guest's Hidden/System bits. |
 
 Named arguments to the five new intrinsics were not measured by this probe and remain explicitly refused pending a probe. An unsaved project still has no initial folder; relative paths and `CurDir` are refused until `ChDir` selects an absolute directory, as with `Open`.
+
+## What ZOrder does at run time (2026-10-23, #1503, p-code, IDE, release build)
+
+**The question.** Where `ZOrder` moves a control, and whether it can move one across the windowless plane that "How a
+running form stacks its controls" measured.
+
+**The probe.** F5 in VB6's IDE, so this is p-code, on a form whose pairs overlap, each written first-named first.
+`Form_Load` made the calls below, and a screenshot of the running form gave the result. A lone PictureBox then took
+the out-of-range positions under `On Error Resume Next`, and `Err.Number` after each went to a file.
+
+| Pair, in file order | Call | Result |
+|---|---|---|
+| LabelA (red), CmdA | `LabelA.ZOrder 0` | CmdA still over LabelA |
+| PicR (red), PicB (blue) | `PicB.ZOrder` | blue over red |
+| PicG (green), PicY (yellow) | `PicG.ZOrder 1` | yellow over green |
+| PicC (cyan), Frame1 holding PicIn (magenta) | `Frame1.ZOrder 0` | Frame1 and PicIn over cyan |
+| LabelE (yellow), ShapeE (green) | `ShapeE.ZOrder 0` | green over yellow |
+| LineF (blue), LabelF (yellow) | `LineF.ZOrder 1` | the Label over the Line |
+| PicK (orange), LabelK (yellow) | `PicK.ZOrder 1` | orange still over the Label |
+| CmdArr(0) "Zero", CmdArr(1) "One" | `CmdArr(1).ZOrder 0` | One over Zero |
+
+| Position | Err.Number |
+|---|---|
+| 2, -1 | 5 |
+| 0.6, "1", -0.5, Empty | 0 |
+| 1.5 | 5 |
+| "x" | 13 |
+| 32768 | 6 |
+| Null | 13 |
+
+**What it shows:**
+- **`ZOrder` stays within its plane.** `ZOrder 0` (or no argument) puts a control over every control of its plane in
+  its container, and `ZOrder 1` under them. A Label brought to the front stays under a windowed control, and a
+  windowed control sent to the back stays over a Label.
+- **A container takes its contents with it, and an array element moves alone.**
+- **The position is an Integer, 0 or 1.** A half goes to the even number: 1.5 is 2, so 5, and -0.5 is 0.
+  32768 overflows (6), and a string that is no number is 13. **Null is 13**, where `CInt(Null)` is 94.
+
+**In HexIDE (#1503):** all of the above. A z-index change alone did not redraw the container: the control brought
+forward stayed under the other in the next frame. So a restack now invalidates the container.
+
+**Not measured:**
+- `ZOrder` on a form.
+- `ZOrder` on a Timer.
+- `ZOrder` with two arguments.
+- `ZOrder` on a control of a form that is loaded but not shown. `Form_Load` runs before the form is shown, and the
+  calls there took effect.
+- Native code.
+
+## A form's Controls collection, and TypeOf on a control (2026-10-23, #1060)
+
+**The question.** What a form's `Controls` holds and in what order, how `Controls(i)` takes its index, how it behaves
+while controls are loaded and unloaded, and what `TypeOf` answers for a control. Real programs walk `Controls` to clear,
+enable or resize every control of a kind, and pick the kind with `TypeOf`.
+
+**The probe.** `/make` and a run of the EXE, native and p-code, with every probe line under `On Error Resume Next` and
+written to a file. Form1's blocks, in file order: `Timer1`, `Command1`, `Text1` index 0, `Frame1` holding `Check1`,
+`Text1` index 1, `Label1`, `Line1`, then `mnuFile` holding `mnuOpen`. A second form put `CommonDialog1` between
+`Command1` and `Text1(0)`, with a menu array `mnuItem(0)` and `mnuFile` holding a separator `mnuSep` and `mnuLast`.
+Four rounds.
+
+**What it holds.** Native and p-code identical:
+
+| Probe | Result |
+|---|---|
+| `Controls.Count`, `Me.Controls.Count` | 10, 10 |
+| For Each, `Name` and `TypeName` | `Timer1 Timer`, `Command1 CommandButton`, `Text1 TextBox`, `Frame1 Frame`, `Check1 CheckBox`, `Text1 TextBox`, `Label1 Label`, `Line1 Line`, `mnuFile Menu`, `mnuOpen Menu` |
+| `Controls(i).Name` for i from 0 | the same order |
+| the second form's order | `Command1 CommonDialog1 Text1(0) Command2 mnuItem(0) mnuFile mnuSep mnuLast` |
+| `TypeName(Controls)`, `TypeName(Me.Controls)` | Object, Object |
+| `TypeName` of the CommonDialog, `mnuFile` and the separator | CommonDialog, Menu, Menu |
+| `c.Index` on a control in no array | 343 |
+| `Command1.ZOrder 1: Command2.ZOrder 0`, then For Each | the order unchanged |
+| `Form1.Controls.Count` from Form1's own code | 10 |
+
+So `Controls` is every control in the order its file holds the blocks. A container comes before what it holds, and each
+element of a control array sits at its own block. The menus and their submenus are included, as is a control HexIDE
+keeps as text. `ZOrder` doesn't reorder it.
+
+**`Controls(i)` and `Controls("Name")`:**
+
+| Index | Result |
+|---|---|
+| 0, `Controls.Item(0)` | Timer1 |
+| `Controls.Count`, -1, 32767 | 9 |
+| 1.6, 2.5, `CByte(2)`, `"1.5"`, `"2.5"` | Text1, element 0: position 2 |
+| -0.4 | Timer1 |
+| 100000 | 6 |
+| `True` | 9 |
+| `Null` | 13 |
+| `"1"`, `"01"`, `"1 "`, `"1e0"` | Command1: position 1 |
+| `"1,5"` | 9: 15 under en-US, where the comma groups thousands |
+| `"-1"`, `"+1"`, `" 1"`, `"&H1"`, `"x1"`, `"Nope"` | 730, "Control 'x1' not found" with the name as given |
+| `""` | 728, "'' is not a legal control name" |
+| `"command1"`, `"Check1"`, `"mnuOpen"`, `"Label1"` by `Item` | each found: in any case, nested, a submenu |
+| `"Command2 "` | 730: no trimming |
+| `Controls!Command2` | Command2 |
+| `"Text1"`, the array's name | the array: `TypeName` Object, `.Count` 2, and `(0)` a TextBox |
+| `Controls("Command1") Is Command1`, `Controls(1) Is Command1` | True, True |
+| `Set c = Controls: c.Count` | Object, 10 |
+| `v = Controls`, `v` a Variant | 450, and `v` stays Empty |
+| `Controls(0)` in a string | True: Timer1's default member, `Enabled` |
+
+A number is converted as CInt converts it: halves to even, 6 past an Integer. A String is a position only when it
+**starts with a digit**, and then converts as CInt converts that string. `"-1"`, `"+1"` and `" 1"` are names, though
+CInt reads each as a number. That is the rule the rows fit, not one VB6 documents. Controls' names can't start with a
+digit, so it never hides a control.
+
+**Loading and unloading.** Native and p-code identical, except as noted:
+- `Load Text1(2)` adds the element at the end, and `Load mnuItem(1)` adds the menu element at the end too. Count goes up
+  by one.
+- `Unload` takes the element out, and a later `Load` of the same index goes at the end again. Loads in the order 3 then 1
+  list 3 before 1.
+- **A For Each goes on from where it is.** A loop that unloads the element it is on reaches the next. A loop on
+  `Command1` that unloads a later element doesn't reach it. One that loads an element doesn't reach the new one either:
+  a Collection's loop does (#1471).
+- **One row resisted explanation.** In p-code only, a loop that unloaded an element it had already passed, followed by an
+  `Unload` of the rest and a `Load` of indexes 1, 2 and 3, then listed 2, 3, 1. Native code listed 1, 2, 3, as both did
+  in every other sequence. Measured, but no rule I would defend.
+
+**`TypeOf`.** Native and p-code identical:
+
+| Expression | Result |
+|---|---|
+| `TypeOf Text1(0) Is TextBox`, `Is VB.TextBox`, `Is Control`, `Is Object` | True each |
+| `TypeOf Text1(0) Is CommandButton` | False |
+| `TypeOf CommonDialog1 Is CommonDialog`, `Is MSComDlg.CommonDialog`, `Is Control` | True each |
+| `TypeOf mnuLast Is Menu`, `Is Control`; the separator `Is Menu` | True each |
+| A variable `As Object` holding `Text1(0)`, `Is TextBox`, `Is Control` | True, True |
+| `TypeOf` a variable holding `Controls`, `Is Object`, `Is Collection` | True, False |
+| `TypeOf Text1 Is Object`, the array | True |
+| `TypeOf Me Is Form`, `Is Form1`, `Is Object`, `Is Control` | True, True, True, False |
+| `For Each c In Controls: If TypeOf c Is TextBox Then …` | reaches each TextBox |
+| `For Each t In Controls`, `t As TextBox`, under Resume Next | 13 at the first control, the body runs once, and `t` is Nothing |
+
+**`Controls.Add` and `Remove`.** `Set c = Controls.Add("VB.CommandButton", "cmdNew")` gives a CommandButton, enumerated
+last, and `Controls.Remove "cmdNew"` takes it out. `Controls.Remove "Command1"`, placed at design time, raises 729.
+HexIDE refuses both, naming #1556.
+
+### In HexIDE (#1060)
+
+`FormControls` is the collection. The loader builds it in file order and gives it to the form instance. A preserved
+block, the CommonDialog, takes its place among its container's children by its ordinal, as the writer puts it back.
+A control-array element loaded or unloaded at run time joins or leaves it. Its For Each starts from the controls it
+held and passes over any since unloaded. `Controls`, `Me.Controls` and `Form2.Controls` reach it, and so do
+`Controls(i)`, `Controls!Name` and a variable holding it.
+
+**`TypeOf` was False for every control**, whatever the type named, so the usual loop did nothing, silently. It now answers
+as the table shows, from the class `TypeName` gives a control. A form is a `Form` too.
+
+**`Unload c`**, with `c` holding an array element, unloads it, as the cleanup loop needs. Only `Unload Text1(i)` used
+to.
+
+**Not followed:**
+- The p-code order after the row that resisted explanation: HexIDE lists 1, 2, 3, as native code does.
+- `For Each t In Controls` with `t As TextBox`: HexIDE binds every control and raises nothing, where VB6 raises 13 at the
+  Timer. A missing error, filed as #1563.
+
+**Not measured:** `Controls` on a UserControl, and on a form while its Initialize runs.

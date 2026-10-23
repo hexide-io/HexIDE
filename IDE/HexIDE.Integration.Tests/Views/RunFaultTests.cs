@@ -182,6 +182,39 @@ public class RunFaultTests
         return printed;
     }
 
+    // A never-called handler must not stop Form_Load; reaching Print uses Me.Print's refusal (#993).
+    [AvaloniaTheory]
+    [InlineData("Print \"hello\"")]
+    [InlineData("Print")]
+    [InlineData("Print \"a\"; \"b\"")]
+    [InlineData("Print \"a\",")]
+    [InlineData("Print Spc(2); \"x\"")]
+    [InlineData("Me.Print \"hello\"")]
+    public void BarePrint_LoadsUntilReached(string statement)
+    {
+        var run = FormProject("Private Sub Form_Load()\r\nDebug.Print \"loaded\"\r\nEnd Sub\r\n"
+            + $"Private Sub Command1_Click()\r\n{statement}\r\nDebug.Print \"after\"\r\nEnd Sub\r\n");
+        var printed = Printed(out var sink);
+        VBDebugConsole.Output += sink;
+        try
+        {
+            var window = Start(run, printed);
+            run.StartFailed.Should().BeEmpty();
+            run.Runner.IsRunning.Should().BeTrue();
+            printed.Should().Equal("loaded");
+            Click(window);
+            run.RunFailed.Should().ContainSingle().Which.Should()
+                .Be("Not implemented yet: The Print method is not implemented for Form1");
+            printed.Should().Equal("loaded");
+            AssertNothingIsRunning(run);
+        }
+        finally
+        {
+            VBDebugConsole.Output -= sink;
+            run.Runner.EndProject();
+        }
+    }
+
     // ── a form's event procedures ────────────────────────────────────────────────────────────────
 
     [AvaloniaFact]

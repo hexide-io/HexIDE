@@ -64,9 +64,18 @@ A header of a single line SHALL NOT be folded. A fold shows its first line in pl
 one line it would hide nothing. A standard module's header, which is its `Attribute VB_Name` line alone, is that
 case: it is still shown greyed out, and is still read-only.
 
+A code window opened with no place asked for SHALL put its caret on the first line below the header, where typing is
+allowed. VB6's code window had no header, so its View Code put the caret in the code, and a caret left at the top of
+the file would refuse the first keystroke and show nothing (#1518). A place asked for, by navigation, a breakpoint or
+the procedure list, SHALL still win.
+
 #### Scenario: Opening a form
 - **WHEN** a form's code window opens
 - **THEN** its designer block and attribute lines are folded into one line, shown greyed out
+
+#### Scenario: Opening a form's code with nowhere asked for
+- **WHEN** View Code opens a form's code window
+- **THEN** the caret is on the first line below the header, and the first character typed appears there
 
 #### Scenario: Opening a standard module
 - **WHEN** the code window of a standard module whose header is its `Attribute VB_Name` line alone opens
