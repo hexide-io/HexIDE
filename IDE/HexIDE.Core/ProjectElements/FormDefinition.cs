@@ -88,9 +88,13 @@ public partial class FormDefinition : INotifyPropertyChanged
     /// say 3 would open at the screen's origin, its caption off the top.
     /// </para>
     /// <para>
-    /// Not for the designer half of a UserControl or PropertyPage. No VB6-authored one in the corpus carries a
-    /// <c>StartUpPosition</c> line, and their <c>Attribute</c> block differs (<c>Gauge.ctl</c> has
-    /// <c>VB_PredeclaredId = False</c>), so nothing of a form's is written into one.
+    /// <b>VB6's size and place</b> (#1538, measured): <c>ClientWidth</c> 4560, <c>ClientHeight</c> 3015,
+    /// <c>ClientLeft</c> 120 and <c>ClientTop</c> 465, which is VB6's 4800 × 3600 window less the borders and
+    /// caption of the oracle's Windows 10 theme, so they are that machine's figures rather than constants of VB6.
+    /// And <c>LinkTopic = "Form1"</c>, which HexIDE does not model, kept as a loaded form's would be.
+    /// </para>
+    /// <para>
+    /// Not for the designer half of a UserControl or PropertyPage, which is <see cref="NewDesignerHalf"/>.
     /// </para>
     /// </remarks>
     public static FormDefinition NewForm(ProjectDefinition owner, IComponentClass formComponentClass, string name)
@@ -102,9 +106,42 @@ public partial class FormDefinition : INotifyPropertyChanged
                   + "Attribute VB_PredeclaredId = True\r\n"
                   + "Attribute VB_Exposed = False\r\n"
                   + form.Code;
-        form.components[0].SetProperty(VBProperties.StartUpPositionProperty, VBStartupPosition.StartUpWindowsDefault);
+        form.components[0]
+            .SetProperty(VBProperties.StartUpPositionProperty, VBStartupPosition.StartUpWindowsDefault)
+            .SetProperty(VBProperties.WidthProperty, 4560 / TwipsPerPixel)
+            .SetProperty(VBProperties.HeightProperty, 3015 / TwipsPerPixel)
+            .SetProperty(VBProperties.LeftProperty, 120 / TwipsPerPixel)
+            .SetProperty(VBProperties.TopProperty, 465 / TwipsPerPixel)
+            .UnknownRawProperties.Add(new("LinkTopic", [$"   LinkTopic       =   \"{name}\""]));
         return form;
     }
+
+    /// <summary>
+    /// The designer half of a new UserControl or PropertyPage, as VB6's Add User Control and Add Property Page make it
+    /// (#1538, measured): a client area of 4800 × 3600 at 0, 0, since neither has a border. A PropertyPage has a
+    /// <c>Caption</c> and <c>PaletteMode = 0</c>, Halftone, which HexIDE does not model and keeps as a loaded one's would
+    /// be; a UserControl has neither. No code: that is the module's (<see cref="ModuleDefinition.NewDesigner"/>).
+    /// </summary>
+    public static FormDefinition NewDesignerHalf(ProjectDefinition owner, IComponentClass rootClass, string name,
+        string rootTypeName)
+    {
+        var root = new ComponentInstance(rootClass, name)
+            .SetProperty(VBProperties.WidthProperty, 4800 / TwipsPerPixel)
+            .SetProperty(VBProperties.HeightProperty, 3600 / TwipsPerPixel)
+            .SetProperty(VBProperties.LeftProperty, 0d)
+            .SetProperty(VBProperties.TopProperty, 0d);
+        if (rootTypeName == "VB.PropertyPage")
+        {
+            root.SetProperty(VBProperties.CaptionProperty, name);
+            root.UnknownRawProperties.Add(new("PaletteMode", ["   PaletteMode     =   0  'Halftone"]));
+        }
+        var half = new FormDefinition(owner, [root], "");
+        half.UpdateRootTypeName(rootTypeName);
+        return half;
+    }
+
+    /// <summary>Twips to the pixels the model holds a form's measurements in, as the serializer converts them back.</summary>
+    private const double TwipsPerPixel = 15;
 
     private string? absolutePath;
     private List<ComponentInstance> components;

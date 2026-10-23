@@ -45,10 +45,25 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         var kind = formDefinition?.RootVBTypeName switch
         {
             "VB.UserControl" => localization.GetString("Str.Document.UserControlSuffix"),
+            "VB.PropertyPage" => localization.GetString("Str.Document.PropertyPageSuffix"),
             _ => localization.GetString("Str.Document.FormSuffix")
         };
         return $"{formDefinition?.Owner.Name} - {formDefinition?.Name} ({kind})";
     }
+
+    /// <summary>
+    /// The class of the designer's root, as the Properties window's object box names it: Form, UserControl or PropertyPage
+    /// (#1544). All three are a form's component, so its own class would call each a Form.
+    /// </summary>
+    public string RootClassName => (formDefinition?.RootVBTypeName ?? "VB.Form") is var type && type.Contains('.')
+        ? type[(type.LastIndexOf('.') + 1)..]
+        : type;
+
+    /// <summary>
+    /// Whether the root is drawn in a window's frame, with a title bar. A UserControl or PropertyPage has no window of its
+    /// own at run time, and VB6's designer draws it as a borderless surface (#1544).
+    /// </summary>
+    public bool HasWindowFrame => formDefinition?.RootVBTypeName is not ("VB.UserControl" or "VB.PropertyPage");
 
     public override object? Icon { get; } = HexIDE.Utils.IconFactory.Themed("Geo.Form");
 
@@ -119,13 +134,47 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         UnmodelledControls.Clear();
         foreach (var vm in AllComponents)
         {
-            foreach (var block in vm.Instance.PreservedChildSubtrees)
+            var blocks = vm.Instance.PreservedChildSubtrees;
+            for (var i = 0; i < blocks.Count; i++)
             {
                 // One on the root, a form's or a UserControl's, is measured from the canvas origin, as a control with no
                 // container is (ComponentInstanceViewModel.ContainerBounds).
-                if (UnmodelledControl.Read(block.Text) is { } control)
-                    UnmodelledControls.Add(new UnmodelledControlViewModel(control, ReferenceEquals(vm, Form) ? null : vm));
+                if (UnmodelledControl.Read(blocks[i].Text) is { } control)
+                    UnmodelledControls.Add(new UnmodelledControlViewModel(control, ReferenceEquals(vm, Form) ? null : vm,
+                        depth: blocks.Count - 1 - i));
             }
+        }
+        RestackCarried();
+    }
+
+    // The canvas stacks by ZIndex, the highest on top. Each control's is its place in Components, spaced so that the boxes
+    // of carried controls fit between, each one where the controls under it put it (#1553).
+    private const int StackSpacing = 4096;
+
+    private void OnComponentsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        for (var i = 0; i < Components.Count; i++)
+            Components[i].DrawIndex = (i + 1) * StackSpacing;
+        RestackCarried();
+    }
+
+    /// <summary>
+    /// Puts each carried control's box in its place among the controls the designer draws (#1553): over the last of its
+    /// container's controls that is under it, with what that one holds, or over the container itself where none is. A
+    /// control is under the box when fewer of the container's carried controls are under the control than under the box.
+    /// The boxes in one place go in the order their blocks are written, the first on top.
+    /// </summary>
+    internal void RestackCarried()
+    {
+        foreach (var box in UnmodelledControls)
+        {
+            var container = box.Container?.Instance ?? Form.Instance;
+            var count = container.PreservedChildSubtrees.Count;
+            var slot = box.Container is null ? -1 : Components.IndexOf(box.Container);
+            for (var i = 0; i < Components.Count; i++)
+                if (IsContentOf(Components[i], container) && Math.Clamp(Components[i].CarriedBelow, 0, count) <= box.Depth)
+                    slot = RegionOf(Components, Components[i].Instance).End - 1;
+            box.DrawIndex = (slot + 1) * StackSpacing + 1 + box.Depth;
         }
     }
 
@@ -357,6 +406,55 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         windowless ? RegionOf(list, container).Start : PlaneBoundary(list, container);
 
     /// <summary>
+    /// How many of a container's carried controls a control on top of its plane there, or at the bottom of it, has under
+    /// it. A carried control stacks as any other (measured, #1498): one added or brought to front goes over all of them,
+    /// and one sent to back under all of them in its plane.
+    /// </summary>
+    /// <remarks>
+    /// HexIDE cannot tell a carried control's plane from its class, so it reads it from the file. VB6 writes every windowed
+    /// block before every windowless one, so a carried block written after a Label is windowless, and the rest are windowed.
+    /// The windowless ones are those under the topmost windowless control, not counting <paramref name="except"/>, the one
+    /// being placed.
+    /// </remarks>
+    private int CarriedBelowInPlane(ComponentInstance container, bool windowless, bool top, ComponentInstanceViewModel? except)
+    {
+        var carried = container.PreservedChildSubtrees.Count;
+        var windowlessCarried = AllComponents
+            .Where(c => c != except && c != Form && IsContentOf(c, container) && IsWindowless(c.Instance.BaseClass))
+            .Select(c => Math.Clamp(c.CarriedBelow, 0, carried))
+            .DefaultIfEmpty(0)
+            .Max();
+        return (windowless, top) switch
+        {
+            (false, true) => carried,
+            (false, false) or (true, true) => windowlessCarried,
+            (true, false) => 0,
+        };
+    }
+
+    /// <summary>The children a container's block holds, in the order a save writes them, as the writer reads them.</summary>
+    private IReadOnlyList<ComponentInstance> WrittenChildren(ComponentInstance container, IReadOnlyList<ComponentInstance> fileOrder) =>
+        ReferenceEquals(container, Form.Instance) ? FormSerializer.RootChildren(fileOrder, container) : container.ContainedControls;
+
+    /// <summary>
+    /// Where a save puts each container's carried blocks among the children it writes, from how many of them each child
+    /// has under it (#1498). Only containers holding any.
+    /// </summary>
+    private IEnumerable<(ComponentInstance Container, int[] Ordinals)> CarriedPlacement(IReadOnlyList<ComponentInstance> fileOrder)
+    {
+        foreach (var container in fileOrder)
+        {
+            var blocks = container.PreservedChildSubtrees;
+            if (blocks.Count == 0)
+                continue;
+            var below = WrittenChildren(container, fileOrder)
+                .Select(child => TryGetViewModel(child, out var vm) ? vm.CarriedBelow : 0)
+                .ToList();
+            yield return (container, CarriedOrder.Ordinals(below, blocks.Count));
+        }
+    }
+
+    /// <summary>
     /// Puts <see cref="Components"/> in the given order, by moves, so each control keeps its realized view and the
     /// selection with it. What the order does not name keeps its place after those it does.
     /// </summary>
@@ -383,8 +481,17 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     /// the same <see cref="ComponentInstance"/> the model holds, so an edit to one is already in the model;
     /// what waits for a save is the list itself. (#481)
     /// </remarks>
-    public bool HasComponentsNotInModel =>
-        formDefinition is { } form && !ComponentsAsSaved().Ordered.SequenceEqual(form.Components);
+    public bool HasComponentsNotInModel
+    {
+        get
+        {
+            if (formDefinition is not { } form)
+                return false;
+            var ordered = ComponentsAsSaved().Ordered;
+            return !ordered.SequenceEqual(form.Components)
+                || CarriedPlacement(ordered).Any(p => !p.Ordinals.SequenceEqual(p.Container.PreservedChildSubtrees.Select(b => b.Ordinal)));
+        }
+    }
 
     /// <summary>
     /// Writes the designer's working collections through to <see cref="FormDefinition.Components"/>, in
@@ -401,6 +508,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     {
         var (orderedComponents, positionInList) = ComponentsAsSaved();
         RebuildContainmentOrder(positionInList);
+        foreach (var (container, ordinals) in CarriedPlacement(orderedComponents).ToList())
+            container.SetPreservedChildOrdinals(ordinals);
         formDefinition?.UpdateComponents(orderedComponents);
     }
 
@@ -483,12 +592,23 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
         foreach (var comp in DrawOrder(fileOrder))
             Components.Add(viewModels[comp]);
+
+        // Where each control stands against the carried ones beside it, as the file has them (#1498).
+        foreach (var container in fileOrder.Where(c => c.PreservedChildSubtrees.Count > 0))
+        {
+            var children = WrittenChildren(container, fileOrder);
+            var below = CarriedOrder.CarriedBelow(children.Count, container.PreservedChildSubtrees);
+            for (var i = 0; i < children.Count; i++)
+                if (viewModels.TryGetValue(children[i], out var child))
+                    child.CarriedBelow = below[i];
+        }
     }
 
     /* ctr only for the previewer! */
     public FormEditViewModel()
     {
         AllComponents.CollectionChanged += OnAllComponentsChanged;
+        Components.CollectionChanged += OnComponentsChanged;
         Form = new ComponentInstanceViewModel(this, new ComponentInstance(FormComponentClass.Instance, "Form1")
             .SetProperty(VBProperties.WidthProperty, 400)
             .SetProperty(VBProperties.HeightProperty, 300)
@@ -581,8 +701,9 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             Top = rect.Top
         };
         // On top of its plane, so VB6 finds it first among the form's windowed blocks, or first among its windowless ones
-        // after them (measured, #1481).
+        // after them (measured, #1481), carried ones included (measured, #1498).
         Components.Insert(TopOfPlane(Components, Form.Instance, IsWindowless(baseClass)), newComponent);
+        newComponent.CarriedBelow = CarriedBelowInPlane(Form.Instance, IsWindowless(baseClass), top: true, except: null);
         AllComponents.Add(newComponent);
         UndoStack.Push(new AddControlsCommand(
             [(newComponent, Components.IndexOf(newComponent), AllComponents.IndexOf(newComponent))],
@@ -661,6 +782,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         var container = ParentOf(instance.Instance);
         var windowless = IsWindowless(instance.Instance.BaseClass);
         var at = toFront ? TopOfPlane(rest, container, windowless) : BottomOfPlane(rest, container, windowless);
+        var carriedBefore = instance.CarriedBelow;
+        instance.CarriedBelow = CarriedBelowInPlane(container, windowless, toFront, except: instance);
 
         if (at > from)
             for (var k = 0; k < count; k++)
@@ -672,8 +795,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         SelectedComponent = null; // required, otherwise GUI lose selected item
         SelectedComponent = instance;
         var after = Components.ToList();
-        if (!before.SequenceEqual(after))
-            UndoStack.Push(new ZOrderCommand(instance, before, after, $"{verb}: {instance.Name}"));
+        if (!before.SequenceEqual(after) || carriedBefore != instance.CarriedBelow)
+            UndoStack.Push(new ZOrderCommand(instance, before, after, carriedBefore, instance.CarriedBelow, $"{verb}: {instance.Name}"));
     }
 
     public void CenterHorizontally()
@@ -1112,6 +1235,11 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             // Contents keep their own container-relative coordinates and are re-linked into the copy, so a
             // pasted container arrives with its own children rather than sharing the original's.
             contentsOf[newVm] = entry.Children.Select(child => Build(child, newInstance, 0, 0)).ToList();
+
+            // Its contents stand against the carried controls it took as its source's did.
+            var below = CarriedOrder.CarriedBelow(contentsOf[newVm].Count, newInstance.PreservedChildSubtrees);
+            for (var i = 0; i < below.Length; i++)
+                contentsOf[newVm][i].CarriedBelow = below[i];
             return newVm;
         }
 
@@ -1135,6 +1263,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             var at = TopOfPlane(Components, container, IsWindowless(top.Instance.BaseClass));
             for (var i = 0; i < stack.Count; i++)
                 Components.Insert(at + i, stack[i]);
+            top.CarriedBelow = CarriedBelowInPlane(container, IsWindowless(top.Instance.BaseClass), top: true, except: top);
         }
 
         foreach (var entry in entries)

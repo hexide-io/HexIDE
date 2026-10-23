@@ -755,6 +755,7 @@
     "Str.Document.CodeSuffix": "कोड",
     "Str.Document.FormSuffix": "फ़ॉर्म",
     "Str.Document.UserControlSuffix": "UserControl",
+    "Str.Document.PropertyPageSuffix": "PropertyPage",
     "Str.PropCategory.Misc": "विविध",
     "Str.PropCategory.Appearance": "रूप",
     "Str.PropCategory.Behavior": "व्यवहार",

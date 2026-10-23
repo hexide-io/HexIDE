@@ -290,6 +290,28 @@ public class SerializationRoundTripTests
             .GetPropertyOrDefault(VBProperties.MultiSelectProperty).Should().Be(VBMultiSelect.Extended);
     }
 
+    [Theory]
+    [InlineData("Form", "Form1", "   Caption         =   \"Form1\"\r\n   ClientHeight    =   1200\r\n   ClientLeft      =   120\r\n"
+                + "   ClientTop       =   465\r\n   ClientWidth     =   2400\r\n   Enabled         =   0   'False\r\n"
+                + "   LinkTopic       =   \"Form1\"\r\n   ScaleHeight     =   1200\r\n   ScaleWidth      =   2400\r\n", "Form1.frm")]
+    [InlineData("UserControl", "Gauge", "   ClientHeight    =   600\r\n   ClientLeft      =   0\r\n   ClientTop       =   0\r\n"
+                + "   ClientWidth     =   1200\r\n   Enabled         =   0   'False\r\n   ScaleHeight     =   600\r\n"
+                + "   ScaleWidth      =   1200\r\n", "Gauge.ctl")]
+    public void A_form_or_UserControl_saved_disabled_is_written_back_as_it_was(string kind, string name, string properties, string file)
+    {
+        // Enabled is declared on the form's designer half now, which a UserControl's shares, so it runs (#1101). The line
+        // it was read from must still come back in its sorted place.
+        var block = $"Begin VB.{kind} {name} \r\n{properties}End\r\n";
+        var p = MakeProject();
+        var form = new FormDeserializer().Deserialize(p, $"VERSION 5.00\r\n{block}Attribute VB_Name = \"{name}\"\r\n", NullSink.Instance)!;
+
+        var (written, _) = new FormSerializer().Serialize(form, file);
+
+        written.Should().Contain(block);
+        form.Components.Single(c => c.BaseClass is FormComponentClass)
+            .GetPropertyOrDefault(VBProperties.EnabledProperty).Should().BeFalse();
+    }
+
     // ── Unknown preservation: .vbp ────────────────────────────────────────────
 
     private static ProjectDefinition ProjectFromSerialized(SerializedProject sp)

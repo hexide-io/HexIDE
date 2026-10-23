@@ -12,6 +12,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **GetSetting, SaveSetting, DeleteSetting and GetAllSettings run** (#1562). A program that remembered anything between runs used to stop, often in `Form_Load`, before its first form appeared. All four were measured on vb6.exe first. On Windows they use the registry key VB6 itself uses, so a program run in HexIDE and the same program compiled by VB6 share their settings. On Linux and macOS they are kept in `program-settings.json` in HexIDE's user-data directory, which `--user-data-dir` moves.
 
+- **`Like` runs** (#1547). Any program that used it stopped there. It now matches as vb6.exe does: `?`, `*`, `#`, `[list]` and `[!list]`, under the module's `Option Compare`, with error 93 for a pattern it cannot read. That behaviour was measured over about 190 rows, native and p-code. One known difference remains. Under `Option Compare Text`, vb6.exe takes a ligature or a sharp s for the letters it stands for, so `"ß" Like "ss"` is True there and False here (#1479).
+
+- **VB6 filesystem operations** (#1561): `CurDir`, `MkDir`, `RmDir`, `FileLen`, `FileDateTime`, `GetAttr`, `SetAttr`, `FileCopy`, `Name`, `Kill` and stateful `Dir`, using compiled VB6 measurements.
+
 - **Conditional compilation runs: `#If`, `#ElseIf`, `#Else`, `#End If` and `#Const`** (#1112). A module holding any
   `#If` stopped the program as it loaded, and `#Const` did not parse. Now each branch is chosen as vb6.exe chooses it,
   measured with `/make`, native and p-code. The names are the module's `#Const`s, the project's Conditional Compilation
@@ -19,6 +23,12 @@ there isn't one yet. Anything may change between 0.x releases.
   compiler, such as VBA7's `Declare PtrSafe`, runs unchanged. A directive's error stops the program as it loads, even in a
   branch never taken, as vb6.exe refuses to build. The module saves exactly as written: the selection exists only for the
   parser. Every personality uses VB6's constants for now (#1548), and `Like` in an `#If` waits for `Like` itself (#1547).
+
+- **The language server no longer squiggles code vb6.exe never compiles** (#1112). An inactive `#If` branch is no longer
+  parsed, so a VBA7 `Declare PtrSafe` behind `#If VBA7 Then`, or a procedure whose `#If` gives it two headers, has no
+  error marks. The branches are the project's: the server reads `CondComp` from the `.vbp` that lists the document. A
+  directive out of place is reported on its line in vb6.exe's words. Where a condition is beyond the server's reduced
+  evaluator, such as a string comparison or a function, nothing inside that block is marked.
 
 - **A control's `ZOrder` method** (#1503). `ZOrder 0`, or no argument, brings a control to the front of the controls
   like it in its container, and `ZOrder 1` sends it to the back, as measured on vb6.exe. A Label never rises over a
@@ -228,6 +238,62 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A Let into an array variable takes only what vb6.exe's does** (#998, #1588). It stored whatever it was given:
+  `a = Array(1, 2)` left an `Integer()` a Variant array, Empty left a `String()` Empty, and `b = "ab"` left a `Byte()`
+  a String. Now an array of exactly the element type is copied, a String into a `Byte()` becomes its bytes, and anything
+  else is error 13 and leaves the array as it was, or VB6's compile error "Can't assign to array" where the statement
+  shows the type. A Function declared to return a `Byte()` converts a String too, where it stopped the program.
+
+- **MCP paths for indented list items resolve** (#1357). `dump_visual_tree` trims names in paths while keeping
+  the reported name as drawn. Names that become duplicates after trimming use positional paths, as do blank names.
+
+- **Ending an external debug session discards pending evaluations immediately** (#1599). A late adapter reply could
+  reach the Immediate window while End was waiting for disconnect. The stopped context now expires before disconnect
+  is sent, so an answer arriving during teardown cannot be shown as a current evaluation.
+
+- **Numeric source literals keep their value on every locale** (#781). A made EXE on German regional settings read `0.6 * 10` as 60 and `1.5!` as 15; French settings could stop the program with a parse error. Literal parsing now uses the invariant culture, including suffixes, exponents and conditional compilation. Runtime string conversions retain their locale rules.
+
+- **Persian words in MCP replies remain readable** (#1316). A zero-width non-joiner between Arabic-script
+  letters (including their combining marks) is written as itself. Joiners elsewhere remain escaped.
+
+- **A helper's `On Error Resume Next` no longer sees its caller's stale error** (#877). `On Error`, `Resume` and leaving a procedure from its handler now clear `Err`, as vb6.exe does, so `If Err.Number <> 0 Then` after them reads only what has happened since. While a handler runs, an error in it now goes to the caller even after `On Error Resume Next`, where HexIDE used to trap it and run on. `On Error GoTo -1` runs, and `Err.Raise` with no Description keeps the one already set, as vb6.exe's does.
+
+- **MCP window wording matches how `auto` picks** (#1321). `interact` now says it usually picks a running form, and the unknown-window refusal describes its preference for another visible window, a dialog first.
+
+- **A running form has the window its file describes** (#1575). Every form ran as a sizable window with a title bar,
+  minimize and maximize buttons and a close box, whatever its BorderStyle, ControlBox, MinButton and MaxButton said. A
+  Fixed Single or Fixed Dialog form can no longer be resized by its border, a borderless form has no frame, a form
+  with ControlBox False has no close box, and the tool windows have a tool window's caption. On Windows the window is
+  given the styles vb6.exe gives it, measured for 20 combinations.
+
+- **MCP refuses arguments containing an unpaired UTF-16 surrogate** (#1337). The reply now names the tool and
+  parameter, says the argument is not valid text and that nothing was done. It previously returned only the SDK's
+  `-32603 "An error occurred."` before any tool ran.
+
+- **MCP `press_key` reaches access keys and menus** (#1523). Keys now pass through the window input path,
+  so Alt+W activates a button captioned `One &Wide`. The reply names `window-input`, or `routed-key`
+  when focus or platform input is unavailable and the previous routed delivery is used.
+
+- **A carried control's box is drawn in its place among the designer's controls** (#1553). The designer drew the box
+  for every control it carries as text over every control it models, so a control brought in front of one was saved in
+  front of it (#1498) but still drawn under its box. The boxes now stack with the controls, as VB6 stacks the control:
+  over its Frame or PictureBox, and over or under each control as the file and Bring to Front or Send to Back put it.
+
+- **The designer draws and names a UserControl or PropertyPage as VB6's does** (#1544). Each was drawn in a form's
+  window frame, with a title bar and caption buttons, a PropertyPage's tab read `(Form)`, and the Properties window's
+  object box gave both the class `Form`. Each is now a borderless surface, as neither has a window of its own at run
+  time, its tab reads `(UserControl)` or `(PropertyPage)`, and the object box names its class.
+
+- **Every focusable control raises GotFocus and LostFocus, and a form or UserControl saved disabled runs disabled**
+  (#1101). Only the TextBox and the CommandButton raised them. The CheckBox, OptionButton, ListBox, ComboBox, scroll
+  bars and PictureBox now do, as vb6.exe does: one GotFocus as a control is entered, however its items or edit box take
+  the focus. The ListBox, scroll bars and PictureBox take the focus, where `SetFocus` on one was refused. An option
+  button given the focus by `SetFocus` is selected, raising Click after GotFocus. A form or a UserControl's `.ctl`
+  saved with `Enabled = 0 'False` dropped that line and ran enabled. A disabled form is shown without taking the focus.
+
+- **MCP reply numbers use a decimal point in every culture** (#1550). Coordinates, sizes, scroll percentages and
+  wait durations now use invariant formatting, so a fractional click point can be read and sent back unchanged.
+
 - **A form's Width and Height are its outer size at run time** (#1072). They read and set the client area, so a
   program got a form 90 to 240 twips narrower and 345 to 885 shorter than vb6.exe reports. They now include the frame
   VB6 draws on the themed Windows desktop for the form's BorderStyle, caption bar and menu bar, read back as assigned,
@@ -283,6 +349,12 @@ there isn't one yet. Anything may change between 0.x releases.
   `Control` and as an `Object`, and a form as a `Form`. `Unload c` unloads a control-array element held in a
   variable. `Controls.Add` and `Remove` are still refused (#1556).
 
+- **A new form, UserControl or PropertyPage is the file VB6 makes, byte for byte** (#1538). A new form was 6000 × 4500
+  inside and had no `ClientLeft`, `ClientTop` or `LinkTopic`. A new UserControl had a `Caption`, which a UserControl
+  doesn't have, and `Attribute VB_Name` alone. Each now carries what VB6's Add Form, Add User
+  Control and Add Property Page write (measured in the IDE): a form 4560 × 3015 at 120, 465 with its `LinkTopic`, and a
+  UserControl or PropertyPage 4800 × 3600 at 0, 0 with its own five `Attribute` lines.
+
 - **A new form has no code, and an event procedure is added as VB6 adds one** (#1532). A form HexIDE created started
   with an empty `Form_Load` procedure, and its first save wrote it to the file. VB6's Add Form saves a form ending at its
   `Attribute` lines (measured in the IDE), and adds `Form_Load` when the form is double-clicked. HexIDE's double-click
@@ -309,8 +381,22 @@ there isn't one yet. Anything may change between 0.x releases.
   program's locale without rounding through a Double, including the Currency and Decimal maxima. Out-of-range
   Strings raise run-time error 6. Hex, octal and exponent forms keep their existing conversion.
 
+- **StrComp, StrConv, Environ, Switch and Error() run** (#1560). Each stopped the program that called it. All five were measured on vb6.exe first: StrConv's case goes through the ANSI code page as VB6's does, Switch reads its conditions only until one holds, and Error(n) answers from vb6.exe's text for every number from 0 to 65535. Err.Raise with no Description now takes that same text, so `Err.Raise 340` is "Application-defined or object-defined error", as in VB6, and 21 messages that had other words have vb6.exe's. UCase and LCase now keep the case of µ, ı and four others, as vb6.exe does, where they took .NET's.
+
+- **`Option Compare Text` compares as vb6.exe does** (#1567). A module saying it still compared strings as Binary in `=`, `<`, `>` and `Select Case`, so `"abc" = "ABC"` was False. Now those compare by vb6.exe's own text order, measured character by character: case and accents, the hyphen and apostrophe that a Windows sort sets aside, and ß, æ, œ and þ as their two letters. The same compare now serves a Collection's keys, and a compare of 1 in InStr, InStrRev, Replace, Split and Filter, which had read it as "ignore case" and kept "straße" and "strasse" apart (#1479).
+
+- **A duplicate Collection key's error 457 has vb6.exe's words** (#1567): "This key is already associated with an element of this collection". The oracle had recorded them since the Collection was measured, and `Err.Description` still gave other words.
+
+- **`InStr` and `InStrRev` agree with vb6.exe at the ends** (#1567). `InStr` with an empty string to find returned 0 once the start was past the end, where VB6 returns the start, and `InStrRev` found text before a start past the end, where VB6 returns 0. `InStrRev("abc", "")` was 4, not 3.
+
 - **An intrinsic called with too few arguments raises VB6's compile error** (#1512). Calls such as `Chr()`
   now report "Argument not optional" or "Syntax error", as measured in VB6, instead of stopping with a .NET exception.
+
+- **A control added, brought to front or sent to back stacks past the controls HexIDE carries as text, as VB6's does**
+  (#1498). A control HexIDE does not model, such as an OCX's, was written back where it was read, whatever the designer
+  did around it. So a button added to Web Browser.frm went in after its toolbar, and the form's ImageList was written
+  ahead of a PictureBox nobody had moved. VB6 stacks an OCX control like any other (measured): a new control goes in
+  front of the toolbar, and Send to Back puts it behind the ImageList. A form loaded and saved untouched is unchanged.
 
 - **`Print #` writes a character the ANSI code page lacks as its best fit** (#1511). On code page 1252, Ā is written as
   "A", Ł as "L" and α as "a", as vb6.exe writes them, and Ж, which has no fit, as "?". Every one of them was "?".

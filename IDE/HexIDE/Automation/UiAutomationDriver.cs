@@ -1378,8 +1378,8 @@ public static class UiAutomationDriver
             return Fail("the control is not attached to a window, so it has no coordinates to click at");
         var local = at ?? new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
         if (control.TranslatePoint(local, topLevel) is not { } inWindow)
-            return Fail($"could not translate ({local.X:0.#}, {local.Y:0.#}) on '{Describe(control)}' into window coordinates");
-        var where = $"({local.X:0.#}, {local.Y:0.#}) on '{Describe(control)}', which is ({inWindow.X:0.#}, {inWindow.Y:0.#}) in the window";
+            return Fail($"could not translate ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) on '{Describe(control)}' into window coordinates");
+        var where = $"({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) on '{Describe(control)}', which is ({inWindow.X.ToString("0.#", CultureInfo.InvariantCulture)}, {inWindow.Y.ToString("0.#", CultureInfo.InvariantCulture)}) in the window";
         // What a real press there reaches: the topmost element at that point that takes the pointer.
         if (topLevel.InputHitTest(inWindow) is not Avalonia.Interactivity.Interactive hit)
             return Fail($"{NothingTakesThePointer}{where}, so nothing was pressed: the point is outside the target, "
@@ -1405,8 +1405,8 @@ public static class UiAutomationDriver
         var landing = landed is null || ReferenceEquals(landed, control) ? ""
             : control.IsVisualAncestorOf(landed) ? $", landing on its part '{Describe(landed)}'"
             : !new Rect(control.Bounds.Size).Contains(local)
-                ? $"; ({local.X:0.#}, {local.Y:0.#}) is outside '{Describe(control)}', which is "
-                  + $"{control.Bounds.Width:0.#} × {control.Bounds.Height:0.#}, and the press landed on '{Describe(landed)}'"
+                ? $"; ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) is outside '{Describe(control)}', which is "
+                  + $"{control.Bounds.Width.ToString("0.#", CultureInfo.InvariantCulture)} × {control.Bounds.Height.ToString("0.#", CultureInfo.InvariantCulture)}, and the press landed on '{Describe(landed)}'"
                 : $"; the press landed on '{Describe(landed)}', which covers the target there";
         var holding = keys == KeyModifiers.None ? "" : " holding " + string.Join(" and ",
             new[] { (KeyModifiers.Shift, "shift"), (KeyModifiers.Control, "ctrl"), (KeyModifiers.Alt, "alt") }
@@ -1454,7 +1454,7 @@ public static class UiAutomationDriver
         if (!drawn && outcome is { Success: false, Error: { } error } && error.StartsWith(NothingTakesThePointer, StringComparison.Ordinal))
             outcome = outcome with
             {
-                Error = error + $"; or its window, which drew no frame in the {wait.TotalMilliseconds:0} ms the click waited, "
+                Error = error + $"; or its window, which drew no frame in the {wait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms the click waited, "
                         + "has nothing drawn there yet, since a press is hit-tested against what was drawn: try again once it shows",
             };
         return outcome;
@@ -1625,7 +1625,7 @@ public static class UiAutomationDriver
             if (Environment.TickCount64 >= deadline)
                 return outcome with
                 {
-                    Detail = outcome.Detail + $" (the program was still running {state.Started} {wait.TotalSeconds:0.#}s "
+                    Detail = outcome.Detail + $" (the program was still running {state.Started} {wait.TotalSeconds.ToString("0.#", CultureInfo.InvariantCulture)}s "
                              + $"later, so the form may still change{opened})",
                 };
             await Task.Delay(20, ct).ConfigureAwait(false);
@@ -1787,7 +1787,7 @@ public static class UiAutomationDriver
             : owner.TemplatedParent == control
                 ? $"'{Describe(owner)}' (the target's own {(owner is ScrollBar ? "scroll bar" : "scroller")})"
                 : $"'{Describe(owner)}' (the nearest container of the target that scrolls {axis})";
-        var position = $"now {after:0.#}% of the way along, showing {ViewSizeAlong(scroller, move.Vertical):0.#}% of the content at a time";
+        var position = $"now {after.ToString("0.#", CultureInfo.InvariantCulture)}% of the way along, showing {ViewSizeAlong(scroller, move.Vertical).ToString("0.#", CultureInfo.InvariantCulture)}% of the content at a time";
         return Math.Abs(after - before) < 0.01
             ? Err($"did not scroll {where} {value}: it is already at that end ({position})")
             : Ok($"scrolled {where} {value}: {position}");
@@ -2504,7 +2504,7 @@ public static class UiAutomationDriver
             var moved = ReferenceEquals(at, start) ? "" : $"; focus moved on to {Describe(at)}, where the keys after it went";
             var slow = unanswered == 0 ? ""
                 : $"; the language server had not answered {unanswered} key(s)' completion or parameter-info request "
-                  + $"within {PopupWait.TotalMilliseconds:0} ms, so a list may still open";
+                  + $"within {PopupWait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms, so a list may still open";
             return new InteractOutcome(true, KeyboardMechanism,
                 $"typed {keys.Count} key(s) into {surface.GetType().Name}{address} as a person types them{caret}{moved}{slow}", null);
         }
@@ -2597,11 +2597,12 @@ public static class UiAutomationDriver
         };
     }
 
-    /// <summary>Presses a key (optionally with modifiers) on the resolved control by raising real
-    /// KeyDown/KeyUp events — for navigation/commands (Enter, Tab, Backspace, Escape, Ctrl+S, …) that
+    /// <summary>Presses a key (optionally with modifiers) through the window input path, with a routed
+    /// KeyDown/KeyUp fallback — for navigation/commands (Enter, Tab, Backspace, Escape, Ctrl+S, …) that
     /// `type_text` doesn't cover.</summary>
     public static InteractOutcome PressKey(Control control, string key, string? modifiers, string? controlPath = null)
     {
+        var mechanism = "keyboard"; // No input path has been used yet.
         try
         {
             if (!Enum.TryParse<Key>((key ?? string.Empty).Trim(), ignoreCase: true, out var parsedKey))
@@ -2623,8 +2624,8 @@ public static class UiAutomationDriver
                         : $"'{Describe(control)}' has nothing under it that can take keyboard focus, so a key "
                         + "press there would go nowhere. Address a focusable control, or a text surface.");
 
-            // The key is raised on the target whether or not it took focus, and Enter on a Button clicks it, so a
-            // hidden one was pressed through this tool exactly as interact used to press it (#1069).
+            // The routed fallback can reach the target even if it cannot take focus, and Enter clicks a Button:
+            // refuse a hidden target before either input path can press it (#1069).
             if (Shows(target) is not true and var targetShows)
                 return new InteractOutcome(false, "keyboard", null, NotShowingRefusal(target, "press_key", targetShows));
 
@@ -2635,9 +2636,15 @@ public static class UiAutomationDriver
                 && RefusedInReadOnlyRegion(pressedIn, span, "press_key") is { } refused)
                 return refused;
 
-            target.Focus();
-            // As the keyboard device delivers it, key bindings first, so an Enter bound to a search searches (#943 review).
-            DeliverKey(target, parsedKey, mods, typed: null);
+            var focused = target.Focus();
+            mechanism = focused ? "window-input" : "routed-key";
+            var throughWindow = focused && RawKeyboard.Press(target, parsedKey, mods);
+            // Keep delivery to a target that cannot take focus, or whose platform input is unavailable.
+            if (!throughWindow)
+            {
+                mechanism = "routed-key";
+                DeliverKey(target, parsedKey, mods, typed: null);
+            }
 
             // Naming the receiver is half the point. Both gaps this closes presented as "reports success and
             // nothing happens", and in each the answer was that the event went to a control other than the
@@ -2646,9 +2653,9 @@ public static class UiAutomationDriver
             var where = ReferenceEquals(target, control)
                 ? string.Empty
                 : $" on {Describe(target)}{AddressOf(control, controlPath, target)}";
-            return new InteractOutcome(true, "keyboard", $"pressed {chord}{parsedKey}{where}", null);
+            return new InteractOutcome(true, mechanism, $"pressed {chord}{parsedKey}{where}", null);
         }
-        catch (Exception ex) { return new InteractOutcome(false, "keyboard", null, $"press_key threw: {ex.Message}"); }
+        catch (Exception ex) { return new InteractOutcome(false, mechanism, null, $"press_key threw: {ex.Message}"); }
     }
 
     /// <summary>
@@ -2866,7 +2873,7 @@ public static class UiAutomationDriver
             var local = HoverPoint(target, x, y);
             if (target.TranslatePoint(local, topLevel) is not { } atTopLevel)
                 return new InteractOutcome(false, "pointer", null,
-                    $"could not translate ({local.X:0.#}, {local.Y:0.#}) on '{Describe(target)}' into window coordinates");
+                    $"could not translate ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}) on '{Describe(target)}' into window coordinates");
 
             // Through the window's input, as the platform delivers a real move: hit-tested against what was drawn, routed,
             // and seen by the input manager, which a declared ToolTip.Tip opens from (#1265). Events raised on the control
@@ -2904,7 +2911,7 @@ public static class UiAutomationDriver
                     : $"; it landed on {Describe(hit)}, not the target, as that is what is drawn at the point, so it is what a "
                       + "person's pointer there would be over";
                 return new InteractOutcome(true, "pointer",
-                    $"hovered ({local.X:0.#}, {local.Y:0.#}){Where()} through the window's input{landed}", null);
+                    $"hovered ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}){Where()} through the window's input{landed}", null);
             }
 
             var pointer = new Avalonia.Input.Pointer(
@@ -2920,7 +2927,7 @@ public static class UiAutomationDriver
 
             landing = new HoverLanding(target, local);
             return new InteractOutcome(true, "pointer",
-                $"hovered ({local.X:0.#}, {local.Y:0.#}){Where()} (raised on the control, as the move through the window's input "
+                $"hovered ({local.X.ToString("0.#", CultureInfo.InvariantCulture)}, {local.Y.ToString("0.#", CultureInfo.InvariantCulture)}){Where()} (raised on the control, as the move through the window's input "
                 + $"{missed}, so a declared tooltip will not open)", null);
 
             string Where() => ReferenceEquals(target, control)
@@ -2939,6 +2946,62 @@ public static class UiAutomationDriver
     {
         if (TopLevel.GetTopLevel(control) is { } topLevel)
             RawPointer.Leave(topLevel);
+    }
+
+    /// <summary>Uses the same platform callback as hover. Reflection is needed for Avalonia's private input API.</summary>
+    private static class RawKeyboard
+    {
+        private static class Members
+        {
+            private const System.Reflection.BindingFlags Instance =
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public;
+            public static readonly System.Reflection.PropertyInfo? InputRoot = typeof(TopLevel).GetProperty("InputRoot", Instance);
+            public static readonly System.Reflection.PropertyInfo? PlatformInput = typeof(Avalonia.Platform.ITopLevelImpl).GetProperty("Input");
+            public static readonly System.Reflection.PropertyInfo? Keyboard = typeof(InputElement).Assembly
+                .GetType("Avalonia.Input.KeyboardDevice")?.GetProperty("Instance",
+                    System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+            public static readonly System.Reflection.ConstructorInfo? NewEvent = typeof(Avalonia.Input.Raw.RawKeyEventArgs)
+                .GetConstructors().FirstOrDefault(c => c.GetParameters().Length == 9);
+            static Members() { }
+        }
+
+        public static bool Press(Control target, Key key, KeyModifiers mods)
+        {
+            Action<Avalonia.Input.Raw.RawInputEventArgs> input;
+            Avalonia.Input.Raw.RawInputEventArgs down;
+            Avalonia.Input.Raw.RawInputEventArgs up;
+            try
+            {
+                if (TopLevel.GetTopLevel(target) is not { PlatformImpl: { } impl } topLevel
+                    || Members.PlatformInput?.GetValue(impl) is not Action<Avalonia.Input.Raw.RawInputEventArgs> found
+                    || Members.InputRoot?.GetValue(topLevel) is not IInputRoot root
+                    || Members.Keyboard?.GetValue(null) is not IInputDevice keyboard
+                    || Members.NewEvent is not { } constructor)
+                    return false;
+                // press_key names logical keys, not a keyboard layout. Supply their QWERTY physical key and symbol:
+                // AccessKeyHandler needs KeySymbol, Alt without Control, and focus inside its owner on every OS.
+                var physical = Enum.GetValues<PhysicalKey>().FirstOrDefault(p => p.ToQwertyKey() == key);
+                var symbol = physical.ToQwertyKeySymbol(mods.HasFlag(KeyModifiers.Shift));
+                var rawMods = (mods.HasFlag(KeyModifiers.Control) ? RawInputModifiers.Control : RawInputModifiers.None)
+                    | (mods.HasFlag(KeyModifiers.Shift) ? RawInputModifiers.Shift : RawInputModifiers.None)
+                    | (mods.HasFlag(KeyModifiers.Alt) ? RawInputModifiers.Alt : RawInputModifiers.None)
+                    | (mods.HasFlag(KeyModifiers.Meta) ? RawInputModifiers.Meta : RawInputModifiers.None);
+                object[] Args(Avalonia.Input.Raw.RawKeyEventType type) =>
+                    [keyboard, (ulong)Environment.TickCount64, root, type, key, rawMods, physical, symbol!, KeyDeviceType.Keyboard];
+                down = (Avalonia.Input.Raw.RawInputEventArgs)constructor.Invoke(Args(Avalonia.Input.Raw.RawKeyEventType.KeyDown));
+                up = (Avalonia.Input.Raw.RawInputEventArgs)constructor.Invoke(Args(Avalonia.Input.Raw.RawKeyEventType.KeyUp));
+                input = found;
+            }
+            catch (Exception ex) when (ex is System.Reflection.TargetInvocationException or TypeInitializationException
+                                           or MemberAccessException or InvalidCastException or ArgumentException)
+            {
+                return false;
+            }
+            // A program exception must not cause a second delivery through the fallback.
+            input(down);
+            input(up);
+            return true;
+        }
     }
 
     /// <summary>
@@ -3294,7 +3357,7 @@ public static class UiAutomationDriver
         if (seg.IdShortcut is not null)
         {
             var hits = Descendants(parent)
-                .Where(c => string.Equals(NullIfEmpty(AutomationProperties.GetAutomationId(c)), seg.IdShortcut,
+                .Where(c => string.Equals(NullIfEmpty(AutomationProperties.GetAutomationId(c))?.Trim(), seg.IdShortcut,
                     StringComparison.OrdinalIgnoreCase))
                 .ToList();
             return Pick(hits, raw, parentPath, "automationId");
@@ -3329,7 +3392,7 @@ public static class UiAutomationDriver
     // any match wins (and must be unique to be decisive).
     private static (List<Control> matches, string facet) MatchByDiscriminator(List<MeaningfulChild> typed, string disc)
     {
-        var byId = typed.Where(m => string.Equals(m.Info.AutoId, disc, StringComparison.OrdinalIgnoreCase))
+        var byId = typed.Where(m => string.Equals(m.Info.AutoId?.Trim(), disc, StringComparison.OrdinalIgnoreCase))
             .Select(m => m.Control).ToList();
         if (byId.Count > 0) return (byId, "automationId");
 
@@ -3651,9 +3714,11 @@ public static class UiAutomationDriver
         // Emit the cheapest discriminator that PROVABLY resolves back to this control under the resolver's
         // own precedence — verified by running the shared matcher — so emitted paths always round-trip.
         // (Guards against e.g. a sibling whose AutomationId collides with this control's Name.)
-        foreach (var disc in CandidateDiscriminators(m))
+        foreach (var candidate in CandidateDiscriminators(m))
         {
-            if (!IsPathSafe(disc)) continue;
+            // ParseSegment trims bracket contents; use that same name for uniqueness checks and emission.
+            var disc = candidate.Trim();
+            if (disc.Length == 0 || !IsPathSafe(disc)) continue;
             var (matches, _) = MatchByDiscriminator(sameType, disc);
             if (matches.Count == 1 && ReferenceEquals(matches[0], m.Control))
                 return $"{type}[{disc}]";
@@ -3727,7 +3792,7 @@ public static class UiAutomationDriver
     /// so the path falls back to an index, and <see cref="TypeNameAsNameOf"/> reports what it was.
     /// </remarks>
     private static string? MeaningfulLabelOf(AutomationPeer? peer) =>
-        NullIfEmpty(Safe<string?>(() => peer?.GetName(), null)) is { } name && !IsTypeName(name) ? name : null;
+        Safe<string?>(() => peer?.GetName(), null) is { Length: > 0 } name && !IsTypeName(name) ? name : null;
 
     /// <summary>The peer's automation name when <see cref="MeaningfulLabelOf"/> dropped it for being a type name.</summary>
     private static string? TypeNameAsNameOf(AutomationPeer? peer) =>
@@ -3763,7 +3828,7 @@ public static class UiAutomationDriver
 
     private static bool NameEquals(string? a, string? b) =>
         a is not null && b is not null &&
-        string.Equals(StripUnderscore(a), StripUnderscore(b), StringComparison.OrdinalIgnoreCase);
+        string.Equals(StripUnderscore(a.Trim()), StripUnderscore(b.Trim()), StringComparison.OrdinalIgnoreCase);
 
     private static bool IsPathSafe(string s) => s.IndexOfAny(['/', '[', ']', '#']) < 0;
 }

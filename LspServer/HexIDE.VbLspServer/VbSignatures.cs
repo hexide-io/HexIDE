@@ -12,6 +12,12 @@ internal static class VbSignatures
     private static readonly Dictionary<string, SignatureEntry[]> _table =
         new(StringComparer.OrdinalIgnoreCase)
         {
+            // Filesystem positional surface (#1561); runtime named arguments await measurement.
+            ["CurDir"] = [new SignatureEntry("CurDir([Drive]) As String", ["Drive"])],
+            ["Dir"] = [new SignatureEntry("Dir([PathName], [Attributes]) As String", ["PathName", "Attributes"])],
+            ["FileLen"] = [new SignatureEntry("FileLen(PathName) As Long", ["PathName"])],
+            ["FileDateTime"] = [new SignatureEntry("FileDateTime(PathName) As Date", ["PathName"])],
+            ["GetAttr"] = [new SignatureEntry("GetAttr(PathName) As Long", ["PathName"])],
             // Dialogs / I/O
             ["MsgBox"] =
             [
@@ -155,6 +161,17 @@ internal static class VbSignatures
                 new SignatureEntry("StrComp(String1, String2, [Compare As VbCompareMethod]) As Integer",
                     ["String1", "String2", "Compare"],
                     "Returns a value indicating the result of a string comparison.")
+            ],
+            ["StrConv"] =
+            [
+                new SignatureEntry("StrConv(String, Conversion As VbStrConv, [LocaleID As Long]) As String",
+                    ["String", "Conversion", "LocaleID"],
+                    "Returns a string converted as specified.")
+            ],
+            ["Error"] =
+            [
+                new SignatureEntry("Error([ErrorNumber]) As String", ["ErrorNumber"],
+                    "Returns the error message that corresponds to a given error number.")
             ],
             ["Format"] =
             [

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading.Tasks;
 using Antlr4.Runtime.Tree;
 using Avalonia.Controls;
@@ -584,6 +585,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return ClassifyRadixLiteral(octalliteral.GetText(), 8);
         if (literal.DOUBLELITERAL() is { } doubleliteral)
         {
+            // Source numbers always use a point, whatever the host's culture (#781).
             var text = doubleliteral.GetText();
             char suffix = text[^1];
             if (suffix is '#' or '!' or '&' or '@' or '%')
@@ -591,15 +593,15 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 var body = text[..^1];
                 return suffix switch
                 {
-                    '!' => new Vb6Value(float.Parse(body)),
-                    '&' => new Vb6Value((long)Math.Round(double.Parse(body), MidpointRounding.ToEven)),   // & forces Long
-                    '@' => Vb6Value.NewCurrency(decimal.Parse(body)),                                     // @ forces Currency
-                    '%' => new Vb6Value((int)Math.Round(double.Parse(body), MidpointRounding.ToEven)),    // % forces Integer
-                    _ => new Vb6Value(double.Parse(body)),                                                // #
+                    '!' => new Vb6Value(float.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)),
+                    '&' => new Vb6Value((long)Math.Round(double.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture), MidpointRounding.ToEven)), // & forces Long
+                    '@' => Vb6Value.NewCurrency(decimal.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)), // @ forces Currency
+                    '%' => new Vb6Value((int)Math.Round(double.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture), MidpointRounding.ToEven)), // % forces Integer
+                    _ => new Vb6Value(double.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)), // #
                 };
             }
             // VB6: an unsuffixed floating-point literal (with a '.' or exponent) defaults to Double.
-            return new Vb6Value(double.Parse(text));
+            return new Vb6Value(double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture));
         }
         if (literal.TRUE() is { })
         {
@@ -656,18 +658,18 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             var body = text[..^1];
             return suffix switch
             {
-                '&' => new Vb6Value(long.TryParse(body, out var lp) ? lp : (long)double.Parse(body)),
-                '@' => Vb6Value.NewCurrency(decimal.Parse(body)),
-                '!' => new Vb6Value(float.Parse(body)),
-                '%' => new Vb6Value(int.Parse(body)),   // Integer (magnitude ctor keeps it Integer in Int16 range)
-                _ => new Vb6Value(double.Parse(body)),   // '#'
+                '&' => new Vb6Value(long.TryParse(body, NumberStyles.Integer, CultureInfo.InvariantCulture, out var lp) ? lp : (long)double.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)),
+                '@' => Vb6Value.NewCurrency(decimal.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)),
+                '!' => new Vb6Value(float.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)),
+                '%' => new Vb6Value(int.Parse(body, NumberStyles.Integer, CultureInfo.InvariantCulture)),   // Integer (magnitude ctor keeps it Integer in Int16 range)
+                _ => new Vb6Value(double.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)),   // '#'
             };
         }
         if (text.IndexOf('e') >= 0 || text.IndexOf('E') >= 0)
-            return new Vb6Value(double.Parse(text));   // exponent without a dot -> Double (e.g. 1e5)
-        if (long.TryParse(text, out var lv))
+            return new Vb6Value(double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture));   // exponent without a dot -> Double (e.g. 1e5)
+        if (long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var lv))
             return lv >= int.MinValue && lv <= int.MaxValue ? new Vb6Value((int)lv) : new Vb6Value((double)lv);
-        return new Vb6Value(double.Parse(text));
+        return new Vb6Value(double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture));
     }
 
     // VB6 &H hex / &O octal literals are unsigned bit-patterns (verified against vb6.exe): with no suffix,
@@ -954,12 +956,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// <summary>The library's functions that have a <c>$</c> form, every one measured to compile and answer a String.</summary>
     private static readonly HashSet<string> DollarForms = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Chr", "ChrB", "ChrW", "Command", "CurDir", "Environ", "Error", "Format", "Hex", "LCase", "Left", "LeftB", "LTrim", "Mid",
+        "Chr", "ChrB", "ChrW", "Command", "CurDir", "Dir", "Environ", "Error", "Format", "Hex", "LCase", "Left", "LeftB", "LTrim", "Mid",
         "MidB", "Oct", "Right", "RightB", "RTrim", "Space", "Str", "String", "Trim", "UCase",
     };
 
     /// <summary>The <c>$</c> forms read with no parentheses, as a variable is: measured for each.</summary>
-    private static readonly HashSet<string> BareDollarForms = new(StringComparer.OrdinalIgnoreCase) { "Command" };
+    private static readonly HashSet<string> BareDollarForms = new(StringComparer.OrdinalIgnoreCase) { "Command", "CurDir", "Dir" };
 
     /// <summary>Library functions on which VB6 refuses a <c>$</c> at compile time (measured).</summary>
     private static readonly HashSet<string> DollarRefused = new(StringComparer.OrdinalIgnoreCase)
@@ -1651,6 +1653,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     private static string AmpString(Vb6Value v) => VbDisplay.ToText(v);
 
+    // An operand of Like as text: an array is 13 and Nothing 91, as a conversion's are (measured).
+    private static string LikeOperand(Vb6Value v) => VbDisplay.ToText(VB6BuiltIns.RefuseNonScalar(v));
+
     /// <summary>An operator's result, a Variant's when either operand is (measured, #987: `v + 1` with `v` holding 4, and
     /// `i + v` with `i` an Integer, are Variant selectors), and otherwise as the operator produced it, which is typed when
     /// both operands are (#122).</summary>
@@ -1743,7 +1748,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     public override async Task<object?> VisitVsCompare(VB6Parser.VsCompareContext context)
     {
         if (context.LIKE() != null)
-            throw new NotImplementedException("Like is not implemented");
+        {
+            // Null on either side is Null; anything else is taken as the text & would make of it (#1547).
+            var (text, pattern) = await GetTwoValues(context.valueStmt());
+            if (text.IsNull || pattern.IsNull)
+                return Vb6Value.Null;
+            return new Vb6Value(VbLike.Matches(LikeOperand(text), LikeOperand(pattern),
+                currentModule?.PrePass.OptionCompareText == true));
+        }
         if (context.IS() != null)
         {
             // Reference identity on the underlying object (Nothing = null). One line covers a Is b, x Is Nothing,
@@ -1752,22 +1764,26 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             var rightObject = await EvaluateValue(context.valueStmt(1));
             return new Vb6Value(ReferenceEquals(leftObject.Value, rightObject.Value));
         }
+        // Option Compare is the module's where the comparison is written: a Binary module's function called from a Text
+        // module compares as Binary (measured, #1567).
+        var compareText = currentModule?.PrePass.OptionCompareText == true;
         if (context.EQ() != null || context.NEQ() != null)
         {
             var (left, right) = await GetTwoValuesSameTypesOrNull(context.valueStmt());
             if (left.Type == Vb6Value.ValueType.Null || right.Type == Vb6Value.ValueType.Null)
                 return Vb6Value.Null;
-            return new Vb6Value(left.Equals(right) == (context.EQ() != null));
+            var equal = StringCompare(left, right, compareText) is int same ? same == 0 : left.Equals(right);
+            return new Vb6Value(equal == (context.EQ() != null));
         }
         var order = context.LT() != null ? Order.Less
             : context.GT() != null ? Order.Greater
             : context.LEQ() != null ? Order.LessOrEqual
             : Order.GreaterOrEqual;
         var (leftValue, rightValue) = await GetTwoValuesSameTypes(context.valueStmt());
-        // Two strings compare ordinally (VB6 default Option Compare Binary — oracle-verified: "B" < "a", "10" < "9").
-        // A string-vs-number pair is left to the numeric path below (numeric string coerces; a non-numeric string
-        // vs a number is Type Mismatch — both already faithful).
-        if (StringCompare(leftValue, rightValue) is int sc)
+        // Two strings compare ordinally under Option Compare Binary (oracle-verified: "B" < "a", "10" < "9"), and as text
+        // under Option Compare Text. A string-vs-number pair is left to the numeric path below (numeric string coerces; a
+        // non-numeric string vs a number is Type Mismatch, both already faithful, and the same in either mode).
+        if (StringCompare(leftValue, rightValue, compareText) is int sc)
             return (Vb6Value)Holds(order, sc, 0);
         if (TryUnpack(leftValue, rightValue, out int leftInt, out int rightInt))
             return (Vb6Value)Holds(order, leftInt, rightInt);
@@ -1790,13 +1806,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             _ => left >= right,
         };
 
-    // Ordinal string comparison for the relational operators when BOTH operands are String (VB6 default Option
-    // Compare Binary — verified against vb6.exe). Returns null when the pair is not two strings, so the caller
-    // falls through to the numeric path (a numeric string vs a number coerces; a non-numeric string vs a number is
-    // a Type Mismatch — both already faithful). `Option Compare Text` (case-insensitive) is a separate wall.
-    private static int? StringCompare(Vb6Value left, Vb6Value right)
+    // The comparison operators' order when BOTH operands are String: ordinal under Option Compare Binary (verified against
+    // vb6.exe), and vb6.exe's text compare under Option Compare Text (VbTextCompare). Returns null when the pair is not two
+    // strings, so the caller falls through to the numeric path (a numeric string vs a number coerces; a non-numeric string
+    // vs a number is a Type Mismatch, both already faithful).
+    private static int? StringCompare(Vb6Value left, Vb6Value right, bool text)
         => left.Type == Vb6Value.ValueType.String && right.Type == Vb6Value.ValueType.String
-            ? left.TryCompareTo(right)
+            ? left.TryCompareTo(right, text)
             : null;
 
     public override async Task<object?> VisitVsAnd(VB6Parser.VsAndContext context)

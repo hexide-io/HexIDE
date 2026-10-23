@@ -892,7 +892,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
         return new MutateResult(true, null, (outcome.Stop is { } at
             ? PausedAt(at)
-            : outcome.Running ? $"Running; no pause within {RunReplyWait.TotalSeconds:0} s." : "The program ran and ended.") + RaisedNote(outcome));
+            : outcome.Running ? $"Running; no pause within {RunReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s." : "The program ran and ended.") + RaisedNote(outcome));
     }
 
 
@@ -1571,7 +1571,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
         return new MutateResult(true, null, (outcome.Stop is { } at
             ? PausedAt(at)
-            : outcome.Running ? $"Running; no pause within {RunReplyWait.TotalSeconds:0} s." : "The program ended.") + RaisedNote(outcome));
+            : outcome.Running ? $"Running; no pause within {RunReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s." : "The program ended.") + RaisedNote(outcome));
     }
 
     /// <summary>How long a step's reply waits for the pause it causes before saying the program is still going.</summary>
@@ -1660,7 +1660,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         return new MutateResult(true, null, (outcome.Stop is { } at
             ? PausedAt(at)
             : outcome.Running
-                ? $"Still running {StepReplyWait.TotalSeconds:0} s after the step began: the statement has not "
+                ? $"Still running {StepReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s after the step began: the statement has not "
                   + "finished, or the program is waiting for its next event. get_debug_state says where it breaks."
                 : "The program ended before it reached another statement.") + RaisedNote(outcome));
     }
@@ -1711,7 +1711,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         return Naming(new MutateResult(true, null, (outcome.Stop is { } at
             ? PausedAt(at)
             : outcome.Running
-                ? $"Running to {target}; not reached within {StepReplyWait.TotalSeconds:0} s. get_debug_state says when it is."
+                ? $"Running to {target}; not reached within {StepReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s. get_debug_state says when it is."
                 : $"The program ended without reaching {target}.") + RaisedNote(outcome)), named);
     }
 
@@ -2258,7 +2258,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "interact")]
-    [Description("Drives a live control addressed by 'target' (a path from dump_visual_tree) through its UI Automation provider — one verb, 'action', instead of a tool per interaction. The 'action' parameter lists every verb and what it does, and 'value' what each one takes. A provider action needs the provider dump_visual_tree reports for the target and fails with \"element does not support '<action>'\" without it — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, releasing 50 ms later as input of its own, as a person does, so what the press set off runs first; it waits up to a second for the window to draw its next frame first, since a press is hit-tested against what was drawn and a window opened a moment ago has drawn nothing; its reply names the button, the keys held, the point in the target's and the window's coordinates, and the control the press landed on when that is not the target; a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation (the server is DEBUG-only), but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two act on its view model. toggle, expand, collapse and set_value reply with the state read back. Use dump_visual_tree/inspect_element first to find the target and confirm what it supports. While a VB6 program runs or is paused the frontmost window is its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
+    [Description("Drives a live control addressed by 'target' (a path from dump_visual_tree) through its UI Automation provider — one verb, 'action', instead of a tool per interaction. The 'action' parameter lists every verb and what it does, and 'value' what each one takes. A provider action needs the provider dump_visual_tree reports for the target and fails with \"element does not support '<action>'\" without it — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, releasing 50 ms later as input of its own, as a person does, so what the press set off runs first; it waits up to a second for the window to draw its next frame first, since a press is hit-tested against what was drawn and a window opened a moment ago has drawn nothing; its reply names the button, the keys held, the point in the target's and the window's coordinates, and the control the press landed on when that is not the target; a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation (the server is DEBUG-only), but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two act on its view model. toggle, expand, collapse and set_value reply with the state read back. Use dump_visual_tree/inspect_element first to find the target and confirm what it supports. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
     public async Task<InteractOutcome> InteractAsync(
         [Description("A path from dump_visual_tree.")]
         string target,
@@ -2490,9 +2490,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
             ? text.Trim()
             : null;
     [McpServerTool(Name = "press_key")]
-    [Description("Presses a key on the control at 'target' (a path from dump_visual_tree) by raising real KeyDown/KeyUp events — for navigation and commands that type_text doesn't cover: Enter, Tab, Back(space), Delete, Escape, arrow keys, etc., optionally with modifiers. 'key' is an Avalonia Key name (Enter, Tab, Back, Escape, Down, S, ...). 'modifiers' is an optional combo like 'Ctrl', 'Ctrl+Shift', 'Alt'. Resolves to the DEEPEST input surface under 'target' — for the code editor that is AvaloniaEdit's TextArea, where its key handling lives — because a routed event reaches only the element it is raised on and its ancestors, never anything below. Falls back to the first focusable descendant, and FAILS rather than reporting success when nothing under 'target' can take keyboard focus. When the key went to a control other than the one addressed, the reply names it and gives its path, as dump_visual_tree would print it, so it can be used as a target. In a code window, a key that would change text (Enter, Tab, Back, Delete, Ctrl+V/X/D) is refused when what it changes is in the file's header or a member's Attribute lines, which only the IDE changes; the reply says where the editable code starts, as an offset into the whole file, which is the text get_file_content returns. A key deleting the whole of a declaration's line deletes its Attribute lines with it, as the code window's own keys do, and is not refused for it. Navigation keys are never refused. Refused while a modal dialog is open over the window, as a person's keys would go to it. 'window' picks the top-level window the path is resolved against; its own description lists the values. " + ProgramWaitNote)]
+    [Description("Presses a key on the control at 'target' through the window's platform input, so access keys (Alt+letter), menus and key bindings see it — for navigation and commands that type_text doesn't cover, with optional 'modifiers', against the top-level 'window' its own description lists. Resolves to the DEEPEST input surface under 'target' — for the code editor that is AvaloniaEdit's TextArea, where its key handling lives — and focuses it first; falls back to the first focusable descendant, and FAILS rather than reporting success when nothing under 'target' can take keyboard focus. No text is inserted. The reply's mechanism is 'window-input', or 'routed-key' when focus or platform input was unavailable and KeyDown/KeyUp were raised on the surface instead, which reaches key bindings but not access keys; a refusal before delivery reads 'keyboard'. When the key went to a control other than the one addressed, the reply names it and gives its path, as dump_visual_tree would print it, so it can be used as a target. In a code window, a key that would change text (Enter, Tab, Back, Delete, Ctrl+V/X/D) is refused when what it changes is in the file's header or a member's Attribute lines, which only the IDE changes; the reply says where the editable code starts, as an offset into the whole file, which is the text get_file_content returns. A key deleting the whole of a declaration's line deletes its Attribute lines with it, as the code window's own keys do, and is not refused for it. Navigation keys are never refused. Refused while a modal dialog is open over the window, as a person's keys would go to it. " + ProgramWaitNote)]
     public async Task<InteractOutcome> PressKeyAsync(
-        string target, string key, string? modifiers = null, [Description(WindowParameter)] string? window = null,
+        [Description("A control's path, as dump_visual_tree prints it.")] string target,
+        [Description("An Avalonia Key name: Enter, Tab, Back, Delete, Escape, Down, S, ...")] string key,
+        [Description("Optional: 'Ctrl', 'Shift', 'Alt', or a combination such as 'Ctrl+Shift'.")] string? modifiers = null,
+        [Description(WindowParameter)] string? window = null,
         CancellationToken ct = default)
     {
         UiAutomationDriver.ProgramWatch? watch = null;

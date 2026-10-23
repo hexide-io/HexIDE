@@ -755,6 +755,7 @@
     "Str.Document.CodeSuffix": "کد",
     "Str.Document.FormSuffix": "فرم",
     "Str.Document.UserControlSuffix": "UserControl",
+    "Str.Document.PropertyPageSuffix": "PropertyPage",
     "Str.PropCategory.Misc": "متفرقه",
     "Str.PropCategory.Appearance": "ظاهر",
     "Str.PropCategory.Behavior": "رفتار",

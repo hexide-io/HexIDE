@@ -755,6 +755,7 @@
     "Str.Document.CodeSuffix": "程式碼",
     "Str.Document.FormSuffix": "表單",
     "Str.Document.UserControlSuffix": "UserControl",
+    "Str.Document.PropertyPageSuffix": "PropertyPage",
     "Str.PropCategory.Misc": "其他",
     "Str.PropCategory.Appearance": "外觀",
     "Str.PropCategory.Behavior": "行為",

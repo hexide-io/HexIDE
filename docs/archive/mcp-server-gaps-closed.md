@@ -9,6 +9,53 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## A lone surrogate in a call's arguments gets a bare `-32603` before any tool runs — **CLOSED** (#1337, 2026-10-23)
+
+**Original symptom.** Recorded in #1274's review through a raw request whose body was not kept. A string argument
+holding an unpaired surrogate got the SDK's JSON-RPC error `-32603 "An error occurred."` before any tool ran, naming
+neither tool nor parameter and not saying that nothing was done.
+
+**Reproduced.** `McpRestartTests` starts the real SDK server in-process with the IDE's transport and filters. The
+SDK 1.3.0 client accepts a C# string containing `\uD800`, but its encoder replaces it with U+FFFD; `echo` returns
+that replacement character. It cannot send the escaped lone surrogate this way. An `HttpClient` POST inside the
+test, to the same `/mcp` endpoint, with `Content-Type: application/json` and
+`Accept: application/json, text/event-stream`, sent this exact body:
+
+```json
+{"jsonrpc":"2.0","id":1337,"method":"tools/call","params":{"name":"echo","arguments":{"text":"\uD800"}}}
+```
+
+The original HTTP 200 response was an SSE frame (followed by a blank line):
+
+```text
+event: message
+data: {"error":{"code":-32603,"message":"An error occurred."},"id":1337,"jsonrpc":"2.0"}
+
+```
+
+**Where it failed.** Request-parameter deserialization, before argument binding or any tool-call filter. The SDK's
+`RequestHandlers.Set` calls `JsonSerializer.ReadFromNode`; rewriting the parameter node calls
+`JsonDocument.WriteComplexElement`, which throws `InvalidOperationException: Cannot read incomplete UTF-16 JSON
+text as string with missing low surrogate.` The JSON-RPC envelope itself had already been read. The #1270
+argument-binding refusal therefore never got a chance to explain it.
+
+**Fix.** An SDK incoming-message filter checks argument text before that conversion, including strings nested in
+arrays or objects. It returns #1270's tool-error shape (`isError: true`), with the same request id. This call's
+content now says:
+
+```text
+'echo' refused its arguments, and nothing was done: 'text' is not valid text (an unpaired UTF-16 surrogate). Its input schema names each parameter and its type.
+```
+
+If an invalid argument property name cannot be quoted, the refusal instead names the request's arguments as
+invalid text. The workaround before the fix was to send the surrogate pair whole, or the character itself.
+
+**Guard.** `Unpaired_surrogate_arguments_are_refused_as_invalid_text` sends both lone high and lone low surrogates
+over HTTP, asserts the tool-error flag, tool, parameter, reason, no action and request id, and checks that valid
+pairs and literal backslash escapes still work through the SDK client. Restoring both production files to HEAD
+makes the wire assertions fail with the original bare error; restoring the fix passes.
+[#1337](https://github.com/hexide-io/HexIDE/issues/1337).
+
 ## 1. Blind to runtime modal dialogs layered over a running form — **CLOSED** (#61, 2026-09-01)
 
 > **Fixed.** The root cause below was close but not quite right: the dialogs *were* enumerated. Both
@@ -4303,3 +4350,73 @@ by reflection, as `close` already reaches the window's own close handling. Not t
 > the editor the pointer had left, and the repeat was taken for jitter); one device, and the editor forgetting its
 > hover on exit, fixed that. Guarded by `HoverThroughWindowInputTests`. The placement measurements above describe the
 > old route.
+
+---
+
+## `interact click` at a point outside its target says the control pressed there covers the target — **CLOSED**
+
+> **Fixed (#1530, PR #1549, 2026-10-23).** A click outside the target now says the point is outside, gives the
+> target's size, and names where the press landed. "Covers the target there" is kept for points inside its
+> bounds. Guarded by `InteractClickTests`.
+
+**Symptom (2026-10-23, #1503, Windows).** On a running form, `Command2` is 120 × 60
+(`inspect_element`: `boundingRect [64,40,120,60]`).
+`interact {"target":"Window/Button[Command2]","action":"click","value":"150,60","window":"Form1"}` answered
+`clicked the left button at (150, 60) on 'VBCommandButton', which is (214, 100) in the window; the press landed on
+'VBLabel', which covers the target there`. The point is past the button's width and height. The Label lying there was
+pressed, and `Command2_Click` didn't run. The reply reads as a stacking defect in the product.
+
+**Workaround.** `inspect_element` the target first and keep the point inside its `boundingRect`'s width and height.
+
+**Suggested fix.** When the point is outside the target's bounds, say so and give the target's size, and keep "covers
+the target there" for a point inside them. Or refuse such a point, as a point where nothing takes the pointer is
+refused. [#1530](https://github.com/hexide-io/HexIDE/issues/1530).
+
+---
+
+## `invoke_menu_item` on a disabled item with a routed command blames keyboard focus — **CLOSED**
+
+> **Fixed (#1534, PR #1551, 2026-10-23).** A materialised menu item that is not effectively enabled is now
+> reported as disabled in the menu before routed-command focus is checked. The focus explanation remains for
+> enabled items. Guarded by `MenuCommandRefusalTests`.
+
+**Symptom (2026-10-23, #746, Windows).** On `--newproject`, with one project and no group,
+`dump_visual_tree {"window":"ide","match":"Make Project Group","interactiveOnly":false}` showed
+`MenuItem[Make Project Group...]` with `isEnabled: false`, as VB6 greys it. `invoke_menu_item {"path":"File/Make Project
+Group..."}` answered `cannot execute where keyboard focus is now (a MenuItem named 'PART_ItemsPresenter' showing
+MainViewViewModel)`, went on about giving a document focus, and only in its last sentence said that a disabled item is
+refused the same way. The item belongs to no document, and no focus would enable it.
+
+**Workaround.** Open the menu and read the item's `isEnabled` with `dump_visual_tree` before invoking it.
+
+**Suggested fix.** When the `MenuItem` is materialised and not effectively enabled, say it is disabled in the menu, as
+the non-routed branch and the checkable-item branch already do. Keep the focus explanation for an item the menu shows
+enabled. [#1534](https://github.com/hexide-io/HexIDE/issues/1534).
+
+
+---
+
+## `press_key` reports Alt+letter success without activating an access key — **CLOSED**
+
+> **Fixed (#1523, 2026-10-23).** Keys now go through the window's platform input callback, with the key symbol
+> Avalonia's access-key handler requires. The reply names `window-input`, or `routed-key` when focus could not
+> be taken or the platform callback could not be reached. Guarded by `PressKeyWindowInputTests`, including a
+> running form's Click handler and a menu bar opening.
+
+**Symptom (2026-10-23, #1390 live check, #1523).** With `cmdWide` captioned `One &Wide` and its Click setting
+`lblResult`, both calls reported success with mechanism `keyboard` while the Label stayed `waiting`:
+
+```text
+press_key {"target":"Window/Button[cmdTom]","key":"W","modifiers":"Alt","window":"Form1"}
+press_key {"target":"Window","key":"W","modifiers":"Alt","window":"Form1"}
+```
+
+On the IDE menu bar, `press_key {"target":"Window","key":"F","modifiers":"Alt","window":"ide"}` highlighted
+File without opening it. The form also failed on the build before #1390. A headless raw Alt+W activated the
+button, proving the product path worked.
+
+**Workaround.** `interact click` on the button runs its handler; it cannot verify its access key.
+
+**Fix.** Keep target resolution and focus, then deliver raw KeyDown/KeyUp through the window input callback,
+with physical key and symbol metadata. Retain routed delivery when focus or platform input is unavailable,
+and name the path in the reply. No TextInput is sent; `type_text` remains the way to enter text.

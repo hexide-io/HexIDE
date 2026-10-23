@@ -51,6 +51,21 @@ public partial class VB6BuiltIns
         return v;
     }
 
+    /// <summary>
+    /// A String's bytes, as VB6 makes them when a String is stored into a Byte() (measured, #998): two to a character, low
+    /// byte first, from 0, so "ab" is 97 0 98 0, ChrW(256) is 0 1, and "" is a Byte() 0 To -1.
+    /// </summary>
+    internal static Vb6Value StringBytes(string text)
+    {
+        var bytes = new List<Vb6Value>(text.Length * 2);
+        foreach (var c in text)
+        {
+            bytes.Add(new Vb6Value((byte)(c & 0xFF)));
+            bytes.Add(new Vb6Value((byte)(c >> 8)));
+        }
+        return MakeArray(Vb6Value.ValueType.Byte, bytes);
+    }
+
     // Split(expr, [delimiter=" "], [limit=-1], [compare]) -> a 0-based String array.
     private static Vb6Value Split(IReadOnlyList<Vb6Value> a)
     {
@@ -58,27 +73,29 @@ public partial class VB6BuiltIns
         string s = AsStr(a[0]);
         string delim = Supplied(a, 1) ? AsStr(a[1]) : " ";
         int limit = Supplied(a, 2) ? AsInt(a[2]) : -1;
-        var cmp = Supplied(a, 3) && AsInt(a[3]) == 1 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        var text = Supplied(a, 3) && AsInt(a[3]) == 1;
 
-        var parts = SplitVb(s, delim, limit, cmp);
+        var parts = SplitVb(s, delim, limit, text);
         var items = new List<Vb6Value>(parts.Count);
         foreach (var p in parts) items.Add(new Vb6Value(p));
         return MakeArray(Vb6Value.ValueType.String, items);
     }
 
-    private static List<string> SplitVb(string s, string delim, int limit, StringComparison cmp)
+    // As text a delimiter matches whole characters only, as Replace's find does: "s" does not split "aßb" (measured, #1567).
+    private static List<string> SplitVb(string s, string delim, int limit, bool text)
     {
         var result = new List<string>();
         if (s.Length == 0 || limit == 0) return result;      // empty input / limit 0 -> empty array
         if (delim.Length == 0) { result.Add(s); return result; }
+        var searchable = text ? new VbTextCompare.Searchable(s) : null;
         int start = 0;
         while (true)
         {
             if (limit > 0 && result.Count == limit - 1) { result.Add(s.Substring(start)); break; }  // remainder
-            int idx = s.IndexOf(delim, start, cmp);
+            int idx = Find(s, delim, start, searchable, wholeCharacters: true, out var length);
             if (idx < 0) { result.Add(s.Substring(start)); break; }
             result.Add(s.Substring(start, idx - start));
-            start = idx + delim.Length;
+            start = idx + length;
         }
         return result;
     }
@@ -121,7 +138,7 @@ public partial class VB6BuiltIns
     // - Every element converts before any is compared: `Filter(Array("x", Null), "a", True, 2)` is the element's 94, not
     //   the compare's 5.
     // - The compare is checked only when a comparison is made, which an empty match or an empty element never needs
-    //   (see CompareMode): `Filter(list, "", True, 2)` is the whole list.
+    //   (see IsTextCompare): `Filter(list, "", True, 2)` is the whole list.
     private static Vb6Value Filter(IReadOnlyList<Vb6Value> a)
     {
         if (a.Count < 2) throw InvalidCall();
@@ -139,13 +156,15 @@ public partial class VB6BuiltIns
         for (int i = lo; i <= hi; i++)
             elements.Add(ElementText(arr.GetValue(new[] { i })));
 
-        StringComparison? cmp = null;
+        bool? text = null;
         var items = new List<Vb6Value>();
         foreach (var element in elements)
         {
-            // An empty match is in every element, and an empty element holds no other match, without a comparison.
+            // An empty match is in every element, and an empty element holds no other match, without a comparison. As text
+            // a match may start or end inside an expansion, as InStr's does: "s" is in "ß" (measured, #1567).
             bool contains = match.Length == 0
-                || (element.Length > 0 && element.IndexOf(match, cmp ??= CompareMode(compare)) >= 0);
+                || (element.Length > 0
+                    && Find(element, match, 0, text ??= IsTextCompare(compare), wholeCharacters: false, out _) >= 0);
             if (contains == include) items.Add(new Vb6Value(element));
         }
         return MakeArray(Vb6Value.ValueType.String, items);
@@ -162,10 +181,10 @@ public partial class VB6BuiltIns
     // 1033, 2057, 4096) compare as text, and invalid ones (3000, 4095, 32767, 65536) are 5. Whether a valid one compares
     // in that locale, or simply as text, is not measured. HexIDE cannot tell which identifiers Windows accepts, so it
     // refuses those loudly rather than guess (#881).
-    private static StringComparison CompareMode(long compare) => compare switch
+    private static bool IsTextCompare(long compare) => compare switch
     {
-        0 => StringComparison.Ordinal,
-        1 => StringComparison.OrdinalIgnoreCase,
+        0 => false,
+        1 => true,
         2 or < 0 => throw InvalidCall(),
         _ => throw new NotImplementedException(
             $"A compare of {compare} is not supported. VB6 compares as text for some values from 3 up and raises 5 for " +

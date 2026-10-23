@@ -21,7 +21,7 @@ public class ComboBoxComponentClass : ComponentBaseClass
         RightToLeftProperty,
         AppearanceProperty,
         TabStopProperty,
-        TabIndexProperty], [ChangeEvent, ClickEvent, DropDownEvent])
+        TabIndexProperty], [ChangeEvent, ClickEvent, DropDownEvent, GotFocusEvent, LostFocusEvent])
     {
     }
 
