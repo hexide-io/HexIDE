@@ -552,7 +552,7 @@ public class PrePass : VB6BaseVisitor<object?>
             : ReturnTypeOf(context.asTypeClause());
         GetOrAddProperty(name).Get = new ProcedureInfo(name, true, args, returnType, context.block(),
             IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
-            DeclaresVariant(context.asTypeClause()));
+            DeclaresVariant(context.asTypeClause()), DeclaresObject(context.asTypeClause()));
         NoteDefaultMember(context.block());
         return default;
     }
@@ -642,7 +642,7 @@ public class PrePass : VB6BaseVisitor<object?>
             : ReturnTypeOf(context.asTypeClause());
         Procedures[name] = new ProcedureInfo(name, true, ParseParams(context.argList()), returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
-            DeclaresVariant(context.asTypeClause()));
+            DeclaresVariant(context.asTypeClause()), DeclaresObject(context.asTypeClause()));
         NoteDefaultMember(context.block());
         return default;
     }
@@ -680,13 +680,17 @@ public class PrePass : VB6BaseVisitor<object?>
                 Default: arg.argDefaultValue(),
                 IsArray: arg.LPAREN() != null,
                 ReadsAsVariant: arg.LPAREN() == null && DeclaresVariant(arg.asTypeClause()),
-                TypeName: arg.asTypeClause()?.type()?.complexType()?.GetText()));
+                TypeName: arg.asTypeClause()?.type()?.complexType()?.GetText(),
+                DeclaredObject: arg.LPAREN() == null && DeclaresObject(arg.asTypeClause())));
         }
         return result;
     }
 
     // A declaration that is a Variant's: no As clause, `As Variant`, or `As Object`, which VB6 binds late as it binds a
     // Variant (measured, #1005). Not an array: `As Variant()` declares an array.
+    private static bool DeclaresObject(VB6Parser.AsTypeClauseContext? asType) =>
+        asType?.type() is { } type && type.LPAREN() == null && type.baseType()?.OBJECT() != null;
+
     private static bool DeclaresVariant(VB6Parser.AsTypeClauseContext? asType) =>
         asType is null
         || asType.type()?.LPAREN() == null && asType.type()?.baseType() is { } baseType

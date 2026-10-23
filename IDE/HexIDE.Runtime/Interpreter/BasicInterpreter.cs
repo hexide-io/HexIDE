@@ -1216,7 +1216,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             {
                 // The callee runs with its OWN per-activation statement-frame stack (re-entrancy isolation).
                 var executor = new StatementExecutor(this, callee, owner, ownedSlots, new Stack<List<Vb6Value>>(), proc.Name,
-                    proc.CheckedArrayReturn) { IsEntry = isEntry };
+                    proc.CheckedArrayReturn)
+                {
+                    IsEntry = isEntry,
+                    VariantReturn = proc.IsFunction && proc.ReturnsVariant && !proc.ReturnsObject,
+                };
                 // Debugger call stack + depth: push before running, remove THIS executor after (Remove, not
                 // RemoveAt(Count-1), so overlapping async re-entrancy pops the right frame). Reflects the physical
                 // call stack — matching VB6's Call Stack, which shows a re-entrant handler's frames above the
@@ -1480,6 +1484,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             callee.Parameters.Add(p.Name);
             if (p.ReadsAsVariant)
                 callee.VariantParameters.Add(p.Name);
+            if (p.DeclaredObject)
+                callee.ObjectParameters.Add(p.Name);
 
             // A blank slot at this position (`Foo 1, , 3`) occupies it only so the arguments after it bind
             // correctly. It is NOT a value: fall through to the Optional branch so the parameter takes its
