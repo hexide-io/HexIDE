@@ -208,6 +208,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **An automation click outside its target says so** (#1530). When the point lands on another control,
+  `interact` now gives the target's size and names what took the press, rather than saying it covers the target.
+
 - **A form whose `Begin` line and `Attribute VB_Name` disagree opens as VB6 opens it** (#1407). HexIDE already named
   such a form by its `Begin` line, as VB6 does, but said nothing and saved the contradiction back. HexIDE itself wrote
   such files before #1059. Opening the project now shows VB6's "Conflicting names were found…" warning. The form's
