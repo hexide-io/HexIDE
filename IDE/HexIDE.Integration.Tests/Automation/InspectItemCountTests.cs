@@ -237,4 +237,51 @@ public class InspectItemCountTests
         }
         finally { window.Close(); }
     }
+
+    private const string AnOptionArray = """
+        VERSION 5.00
+        Begin VB.Form Form1
+           Begin VB.OptionButton optSize
+              Index           =   0
+           End
+           Begin VB.OptionButton optSize
+              Index           =   1
+           End
+        End
+        Attribute VB_Name = "Form1"
+        """;
+
+    // A control array's elements share a name, so the selector read "optSize" for each, and a select by the name(index) the
+    // write tools take matched nothing (#1320). Each element names itself as those tools address it.
+    [AvaloniaFact]
+    public void The_object_selector_names_a_control_array_element_with_its_index()
+    {
+        var project = new HexIDE.Runtime.ProjectElements.ProjectDefinition(HexIDE.Runtime.ProjectElements.VBProjectType.EXE, "P");
+        var form = new HexIDE.Runtime.Serialization.FormDeserializer().Deserialize(project, AnOptionArray, new NullSink())!;
+        project.AddForm(form);
+        var vm = new HexIDE.VisualDesigner.FormEditViewModel(null!, NSubstitute.Substitute.For<HexIDE.IDE.IEventBus>(),
+            NSubstitute.Substitute.For<HexIDE.Projects.IProjectService>(), null!, null!, null!,
+            NSubstitute.Substitute.For<HexIDE.Localization.ILocalizationService>()).Initialize(form);
+        var view = new HexIDE.VisualDesigner.Views.PropertiesToolView();
+        var window = new Window { Width = 400, Height = 600, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var combo = view.FindControl<ComboBox>("ObjectSelector")!;
+            combo.ItemsSource = vm.AllComponents;
+            combo.SelectedIndex = 2;
+            Dispatcher.UIThread.RunJobs();
+
+            UiAutomationDriver.Inspect(combo, "Window/ObjectSelector", window).SelectionItems.Should().Equal("optSize(1)");
+            combo.IsDropDownOpen = true;
+            Dispatcher.UIThread.RunJobs();
+            UiAutomationDriver.Dump(combo.ContainerFromIndex(1)!, "Row", 0, false).Name.Should().Be("optSize(0)");
+
+            var selected = UiAutomationDriver.Interact(combo, "select", "optSize(0)");
+            selected.Success.Should().BeTrue(selected.Error);
+            UiAutomationDriver.Inspect(combo, "Window/ObjectSelector", window).SelectionItems.Should().Equal("optSize(0)");
+        }
+        finally { window.Close(); }
+    }
 }

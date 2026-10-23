@@ -72,7 +72,10 @@ public partial class ComponentInstanceViewModel : ObservableObject
             OnPropertyChanged(nameof(Height));
         }
         else if (propertyClass == VBProperties.NameProperty)
+        {
             OnPropertyChanged(nameof(Name));
+            OnPropertyChanged(nameof(AddressedName));
+        }
         else if (propertyClass == VBProperties.CaptionProperty)
             OnPropertyChanged(nameof(Caption));
         else if (propertyClass == VBProperties.BackColorProperty)
@@ -169,6 +172,12 @@ public partial class ComponentInstanceViewModel : ObservableObject
     /// legal in VB6 and invisible at run time, and is what passing twips where pixels are meant produces. (#675)
     /// </summary>
     public bool LiesWithinContainer => ContainerBounds.Contains(new Rect(Left, Top, Width, Height));
+
+    /// <summary>
+    /// Where this component measures its contents from, in canvas space. For what is drawn inside it without being one
+    /// of the designer's components: the placeholder of a control HexIDE does not model (#157).
+    /// </summary>
+    internal Point ClientOrigin => new(Left + ClientInset.Left, Top + ClientInset.Top);
 
     /// <summary>How far inside its own bounds this component measures its contents from.</summary>
     private Thickness ClientInset =>
@@ -302,9 +311,17 @@ public partial class ComponentInstanceViewModel : ObservableObject
     public string BaseClassName => instance.BaseClass.Name;
 
     /// <summary>
-    /// The control's name: what a dropdown of these, the Properties window's object selector, is named by in automation,
-    /// which reads an item by its ToString. Its type name told a caller nothing of which control was selected (#1288).
+    /// The control's name as the automation tools address it: <c>optSize(1)</c> for a control array's element, its bare
+    /// name otherwise (<see cref="PropertyText.AddressedName"/>). A control array's elements share a name, so the name
+    /// alone read the same for each of them (#1320).
     /// </summary>
-    public override string ToString() => Name;
+    public string AddressedName => PropertyText.AddressedName(instance);
+
+    /// <summary>
+    /// The control's addressed name: what a dropdown of these, the Properties window's object selector, is named by in
+    /// automation, which reads an item by its ToString. Its type name told a caller nothing of which control was selected
+    /// (#1288), and its bare name nothing of which element of an array (#1320).
+    /// </summary>
+    public override string ToString() => AddressedName;
 
 }

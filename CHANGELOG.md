@@ -10,6 +10,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **A control HexIDE does not model is shown in the designer** (#157). An ImageList, a Toolbar or any other control
+  HexIDE carries without modelling used to be invisible, so a developer could move a button onto it unknowing. Now
+  each is a box where VB6's IDE puts one: at its position, sized by its `Width` and `Height`, or 1200 by 480 twips
+  when it records neither, as VB6 measures it. The box names the control's class and says HexIDE does not support
+  it; it cannot be selected or moved, and the control is still saved exactly as it was read.
 - **A ComboBox raises Click, Change and DropDown** (#1429). It raised none, so a program's `Combo1_Click` and
   `Combo1_Change` never ran, whatever the user or code did. Now each comes where vb6.exe raises it, measured with real
   input, native and p-code:
@@ -207,6 +212,59 @@ there isn't one yet. Anything may change between 0.x releases.
   shown once more to anyone who saw the old one, which said "code".
 
 ### Fixed
+
+- **An intrinsic called with too few arguments raises VB6's compile error** (#1512). Calls such as `Chr()`
+  now report "Argument not optional" or "Syntax error", as measured in VB6, instead of stopping with a .NET exception.
+
+- **`Print #` writes a character the ANSI code page lacks as its best fit** (#1511). On code page 1252, Ā is written as
+  "A", Ł as "L" and α as "a", as vb6.exe writes them, and Ж, which has no fit, as "?". Every one of them was "?".
+
+- **`CVar` runs** (#1466). It stopped the program as undefined. Now it returns its argument as a Variant with the
+  argument's own type, an object as the object, as vb6.exe's does. The result reads as a Variant's, so `CVar(5) * 7000` is
+  a Long 35000 where `5 * 7000` overflows.
+
+- **OK on the References dialog no longer drops the project's OLE Automation reference** (#1026). Its first row
+  carried OLE Automation's GUID, so the project's own reference was hidden, and OK, even with nothing changed, took it
+  out. The next save wrote the project without it, and VB6 then failed to build one that uses `StdFont` or
+  `OLE_COLOR`. The dialog now lists what VB6's does, as measured: three fixed rows (Visual Basic For Applications and
+  VB's two libraries), then every reference of the project in its order, OLE Automation among them. Nothing moves
+  above the fixed rows, and it opens on the last checked row.
+
+- **A form whose `Begin` line and `Attribute VB_Name` disagree opens as VB6 opens it** (#1407). HexIDE already named
+  such a form by its `Begin` line, as VB6 does, but said nothing and saved the contradiction back. HexIDE itself wrote
+  such files before #1059. Opening the project now shows VB6's "Conflicting names were found…" warning. The form's
+  `VB_Name` is made to agree, and the form comes up edited, so its next save writes it, as VB6's does. Case alone
+  counts as a disagreement, as it does in VB6.
+
+- **The form designer draws a form at the size it runs** (#924). The designer drew the whole window, frame and
+  caption bar included, at the form's client size, so the area controls were designed in was 8 pixels narrower and
+  about 25 shorter than the running form. A layout drawn flush to the edges ran with a margin, and resizing the form
+  saved a size nobody saw. The frame is now drawn around the client, and a resize saves the client it leaves.
+
+- **Six VB6 system colours no longer draw hot pink** (#908). A control given Scroll Bars, Active Title Bar, Active
+  Border, Inactive Border, ToolTip Text or ToolTip (`vbInfoBackground`) painted DeepPink, in the designer and at run
+  time, because no colour was defined for them. They now take Windows 10's values, as measured on vb6.exe, and a
+  system colour that still has none is named in the log.
+
+- **A caption's `&&` and `_` are drawn as VB6 draws them** (#920). `Tom && Jerry` drew `Tom _ Jerry`, and
+  `File_Name` drew `FileName` with Alt+N as its key, on buttons, check boxes, option buttons, labels and menus, in the
+  designer and at run time. A Frame drew `Fra && Me` with both ampersands. Now `&&` is one `&`, an underscore is a
+  letter, a trailing `&` is not drawn, and a caption marking two letters takes the one VB6 does, all as measured on
+  vb6.exe. A caption with an underscore before its access key now has no key, because Avalonia would take the
+  underscore as the key instead.
+
+- **A control array's elements name themselves with their index in automation** (#1320). The Properties window's
+  object selector and the designer's canvas named every element of `optSize` as `optSize`, so a caller could not tell
+  which was selected, and `select "optSize(1)"` matched nothing. Each element is now `optSize(0)`, `optSize(1)` and so
+  on, the spelling `set_control_property` and `move_control` take.
+
+- **A control-array element renamed out of its array can be renamed back** (#1276). Renaming `optSize(0)` to
+  `optBoard` worked, but every way back was refused as a duplicate name, so the array stayed split. A name is now
+  taken by name and Index together, as in VB6: an element may take an array's name where its Index is free there.
+
+- **The Project Explorer's Add Form adds a form as Project > Add Form does** (#468). It added a form with no file and
+  opened nothing, a second Add Form of its own, and closing the IDE then left that form out of the project file
+  (#1359). It now writes the form's file and opens its designer.
 
 - **A new form is written as VB6 writes one** (#931, #932, #516). Its code section was bare LF with no final line
   break, it had none of the five `Attribute` lines VB6 writes for a form, and it had no `StartUpPosition` line, which
@@ -523,8 +581,13 @@ there isn't one yet. Anything may change between 0.x releases.
   files, and the project stays open.
 - **Add Form and Add Module no longer write over a file already in the folder** (#738). A new member's file replaced
   any file of its name there, such as another project's `Module1.bas` in a shared folder. The Add commands now skip
-  to a number whose file is free, and automation's `add_file` refuses a name whose file is taken.
-
+  to a number whose file is free.
+- **A new form or module has no file until the project is saved, as in VB6** (#500). Each Add wrote a file at once,
+  and in a project never saved that went into a temporary folder the developer never chose. Its first Save Project
+  then wrote the `.vbp` where the developer asked and left the members in that folder, named from the project file
+  by a path into it, so the next temp clean-up lost them. Now Save Project asks where to put each new form and module,
+  as VB6 does. A new document's code window still shows the header its first save will write. Additions that have
+  never been saved no longer survive a crash in that folder: there is no crash recovery yet (#499).
 - **A language server that waits to be told sends document symbols as a tree** (#463). HexIDE read the tree
   but never declared that it could, so a server that honours the declaration, clangd among them, sent the flat
   form and every outline from it lost its nesting.

@@ -100,6 +100,10 @@ public partial class FormEditView : UserControl
         }
     }
 
+    // A control HexIDE does not model is carried, not edited (#157): a press on its box selects nothing and starts no
+    // marquee, which handling it here is enough to ensure, since OnFormPressed ignores a handled press.
+    private void OnUnmodelledControlPressed(object? sender, PointerPressedEventArgs e) => e.Handled = true;
+
     // PointerPressed on the form canvas background (fires only when not handled by a child control).
     private void OnFormPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -324,7 +328,21 @@ public partial class FormEditView : UserControl
                     if (selectedComponent == vm.Form)
                     {
                         var adorner = new ResizeAdorner { AllowedDirection = ResizeAdornerDirections.All & ~(ResizeAdornerDirections.Left | ResizeAdornerDirections.Top) };
-                        adorner.OnDragStarted = () => vm.BeginDrag([vm.Form]);
+                        // The handles sit on the frame, as VB6's do, and drag the frame's size. The form's Width and
+                        // Height are its client's, so the frame's border, padding and caption row come off what is
+                        // dragged (#924). Measured at the start of each drag, since the caption row follows its font.
+                        var chrome = new Size();
+                        adorner.OnDragStarted = () =>
+                        {
+                            chrome = new Size(FormContainer.Bounds.Width - FormClient.Bounds.Width,
+                                FormContainer.Bounds.Height - FormClient.Bounds.Height);
+                            vm.BeginDrag([vm.Form]);
+                        };
+                        adorner.ApplySize = frame =>
+                        {
+                            vm.Form.Width = Math.Max(1, frame.Width - chrome.Width);
+                            vm.Form.Height = Math.Max(1, frame.Height - chrome.Height);
+                        };
                         adorner.OnDragCompleted = () => vm.EndDrag();
                         AdornerLayer.SetAdorner(FormContainer, adorner);
                     }
