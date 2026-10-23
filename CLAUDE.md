@@ -737,7 +737,7 @@ nice-to-have.
 - **Anything compiled against Avalonia 11 fails only at render time.** That whole class of bug builds cleanly, passes view-model tests, and then kills the process the first time the control is painted. `HexIDE.Integration.Tests/Controls/ClassicRenderTests.cs` is the guard — it renders the affected controls for real under Skia (`UseHeadlessDrawing = false`) and asserts a frame came back. Add a case there before trusting any new `Classic.*` surface.
 - **`Classic.CommonControls.Dialogs` is fully removed** — `MessageBoxResult`, `MessageBoxButtons`, `MessageBoxIcon` are now in `HexIDE.Core/IDE/MessageBoxEnums.cs` (namespace `HexIDE.IDE`). `FontDialogResult`/`AboutDialogOptions` are in `HexIDE/IDE/`. Managed dialog controls (`MessageBox`, `InputBox`) are in `HexIDE.Runtime/Dialogs/`. `AboutDialog`/`FontDialog` views and their ViewModels are in `HexIDE/Forms/Views/` and `HexIDE/Forms/ViewModels/`. `WindowManager` routes all paths (SingleView + desktop) through these managed controls.
 - **All projects, tests included**: `<Nullable>enable</Nullable>` + `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>`. Do not introduce nullable warnings.
-  This line claimed "all projects" from the first commit while no **test** project actually set it, and the gap had a cost: 22 `xUnit1051` warnings sat unread in `HexIDE.VbLspServer.Tests` because nothing failed on them. The four test projects were brought to zero warnings and the setting turned on, so the statement is now true rather than aspirational. To keep a warning deliberately, suppress it **at the site with a written reason** (see the two `Task.Delay` timeout arms in `SilentServerTests` and `DynamicRegistrationProbe`) rather than adding a project-wide `NoWarn`.
+  This line claimed "all projects" from the first commit while no **test** project actually set it, and the gap had a cost: 22 `xUnit1051` warnings sat unread in `HexIDE.VbLspServer.Tests` because nothing failed on them. The five test projects were brought to zero warnings and the setting turned on, so the statement is now true rather than aspirational. To keep a warning deliberately, suppress it **at the site with a written reason** (see the two `Task.Delay` timeout arms in `SilentServerTests` and `DynamicRegistrationProbe`) rather than adding a project-wide `NoWarn`.
 - `ThemeVariantScope` on the form canvas (`FormEditView.axaml`) **must never be removed** — it locks the form designer canvas to `Light` theme so form preview colours are stable regardless of OS dark/light mode.
 
 ## Global Usings
@@ -892,7 +892,7 @@ widening visibility to `public` just for a test. When a new test project needs r
 - **`DrawingContext.DrawImage(image, destRect)` samples the source's *device-independent* extent, not its pixels.** Composing a `RenderTargetBitmap` rendered at `96 * scaling` dpi into another therefore reads only the top-left `1/scaling` of it and stretches that to fill — on a 150% display, correctly placed and sized output with magnified, clipped contents inside. Use the three-argument overload with an explicit **pixel** source rect. Related: render a visual with `RenderTargetBitmap.Render`, which handles scaling correctly, rather than routing it through a drawing context. Both traps are invisible at 100% scaling and invisible headlessly. See `SnapshotComposer`.
 - **Avalonia 12 breaking changes** (already migrated, for reference): `GotFocusEventArgs` → `FocusChangedEventArgs`; `CaptionButtons` (chrome control) removed — replaced with custom `MDICaptionButtons : TemplatedControl`; `GetVisualRoot()` → `TopLevel.GetTopLevel(this)`; `RenderOptions.SetTextRenderingMode` → `TextOptions.SetTextRenderingMode`; `RenderOptions.TextRenderingMode="Alias"` in AXAML → `TextOptions.TextRenderingMode="Alias"`; `<CompiledBinding Path="X" />` inside `MultiBinding` → `<Binding Path="X" />`.
 - **Test frameworks are mid-migration** ([#297](https://github.com/hexide-io/HexIDE/issues/297)).
-  All four test projects are on **xunit v3** and the **MTP** runner — the VSTest/MTP split is closed.
+  All five test projects are on **xunit v3** and the **MTP** runner — the VSTest/MTP split is closed.
   `Microsoft.NET.Test.Sdk`, `xunit.runner.visualstudio` and `coverlet.collector` are gone from all of
   them; a v3 project under MTP needs `<OutputType>Exe</OutputType>` and
   `<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>` and nothing else. (While
@@ -910,7 +910,7 @@ widening visibility to `public` just for a test. When a new test project needs r
   `MissingMethodException` at test **discovery**: no build error, no restore warning. The package's own
   dependency is an open `>= 3.2.2`, so a routine bump resolves it happily. See the comment in
   `Directory.Packages.props`.
-- **`--filter` is silently ignored. All four projects are on MTP.** Passing VSTest's
+- **`--filter` is silently ignored. All five projects are on MTP.** Passing VSTest's
   `--filter "FullyQualifiedName~Foo"` does not error — it runs **every** test in the project, so a run you
   believe was scoped to one class was actually the whole suite. Measured: 153 tests instead of 27.
   — Use `-- --filter-class "*Name"`, `-- --filter-method "*Name"`, or `-- --filter-query "/*/*/Class/*"`.
