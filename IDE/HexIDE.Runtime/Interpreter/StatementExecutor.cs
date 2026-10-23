@@ -1524,7 +1524,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             || currentModule.ModuleEnv.TryGetVariableLocation(name, out var moduleLocation) && moduleLocation == location;
     }
 
-    public override async Task<ControlFlow> VisitLetStmt(VB6Parser.LetStmtContext context)
+    // The value a Let stores, with the refusals every Let makes of it.
+    private async Task<Vb6Value> LetValue(VB6Parser.LetStmtContext context)
     {
         var value = await expressionExecutor.EvaluateValue(context.valueStmt());
 
@@ -1550,6 +1551,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw new NotImplementedException(
                 $"`{context.implicitCallStmt_InStmt().GetText()} = {context.valueStmt().GetText()}` reads a default "
                 + "member, which is not implemented (#790). Name the property, or use Set to keep the reference.");
+        return value;
+    }
+
+    public override async Task<ControlFlow> VisitLetStmt(VB6Parser.LetStmtContext context)
+    {
+        // `a(1)(0) = 9` and `F()(1) = 7`, whose last index group VB6 evaluates before the value (#1476).
+        if (context.implicitCallStmt_InStmt().iCS_S_ProcedureOrArrayCall() is { } chain
+            && ExpressionExecutor.ParenGroups(chain) is { Count: > 1 } chainGroups
+            && chain.ambiguousIdentifier() is not null && chain.typeHint() is null && chain.dictionaryCallStmt() is null)
+            return await LetIntoIndexChain(context, chain, chainGroups);
+
+        var value = await LetValue(context);
 
         if (context.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } varOrProcCall)
         {
@@ -1781,8 +1794,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 procedureOrArrayCall.dictionaryCallStmt() != null)
                 throw new NotImplementedException();
 
-            if (procedureOrArrayCall.argsCall().Length != 1)
+            if (procedureOrArrayCall.argsCall().Length == 0)
                 throw new NotImplementedException();
+            if (procedureOrArrayCall.argsCall().Length > 1)
+                throw new NotImplementedException($"storing into {procedureOrArrayCall.GetText()} is not implemented (#1476)");
 
             var identifier = procedureOrArrayCall.ambiguousIdentifier().GetText() ?? throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Null variable name");
 
@@ -1838,6 +1853,54 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             throw new NotImplementedException($"{context.implicitCallStmt_InStmt()} is not supported");
         }
+    }
+
+    /// <summary>
+    /// <c>a(1)(0) = 9</c>: the element of an array that another array's element holds, written through to it, so <c>a</c>
+    /// changes, where <c>v = a(1): v(1) = 99</c> changes only <c>v</c>'s copy. <c>F()(1) = 7</c> stores into the result of
+    /// the call, which nothing keeps: it compiles, F runs, and nothing else changes. VB6 evaluates the last index group, then
+    /// the value, then the other groups, the last of them first, then the first: <c>a(w1)(w2)(w3) = rhs</c> is w3, rhs, w2,
+    /// w1. All measured (#1476).
+    /// </summary>
+    private async Task<ControlFlow> LetIntoIndexChain(VB6Parser.LetStmtContext context,
+        VB6Parser.ICS_S_ProcedureOrArrayCallContext call, IReadOnlyList<VB6Parser.ArgsCallContext?> groups)
+    {
+        async Task<List<Vb6Value>> Subscripted(VB6Parser.ArgsCallContext? group) => group is not null
+            ? await expressionExecutor.EvaluateCallArgs(group)
+            : throw new NotImplementedException($"an empty index group, as in {call.GetText()}, is not implemented (#1476)");
+
+        var last = await Subscripted(groups[^1]);
+        var value = await LetValue(context);
+        var middle = new List<Vb6Value>[groups.Count - 2];
+        for (var g = groups.Count - 2; g >= 1; g--)
+            middle[g - 1] = await Subscripted(groups[g]);
+        var holder = await expressionExecutor.EvaluateCallOrElement(call, groups[0]) as Vb6Value?
+            ?? throw new NotImplementedException($"storing into {call.GetText()} is not implemented (#1476)");
+        foreach (var subscripts in middle)
+            holder = ExpressionExecutor.IndexResult(holder, subscripts, call);
+        if (holder.Value is not VBArray inner)
+        {
+            // `a(0)(1) = 5` with `a` an Integer array does not compile: "Type mismatch" (measured). A Variant holding no array
+            // is unmeasured, and raises 13 as a read of it does.
+            if (holder.Value is VbCollection or VbObject || holder.Type == Vb6Value.ValueType.Object)
+                throw new NotImplementedException($"storing into {call.GetText()} is not implemented (#1476)");
+            if (holder.HasFixedType)
+                throw new VBCompileErrorException("Type mismatch");
+            throw new VBRunTimeException(call, VBStandardError.TypeMismatch);
+        }
+        var at = Subscripts(last);
+        Vb6Value oldElement;
+        try
+        {
+            oldElement = inner.GetValue(at);
+            inner.SetValue(at, interpreter.CopyForStore(value));
+        }
+        catch (IndexOutOfRangeException)
+        {
+            throw new VBRunTimeException(call, VBStandardError.SubscriptOutOfRange);
+        }
+        await interpreter.ReleaseRef(oldElement);
+        return ControlFlow.Nothing;
     }
 
     // The next line of an Input file, without its ending (#1145). At the end of the file it is 62, and the variable keeps
