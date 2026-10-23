@@ -257,7 +257,7 @@ public class PrePass : VB6BaseVisitor<object?>
 
                 Vb6Value.ValueType type = Vb6Value.ValueType.EmptyVariant;
                 // `Dim o As Object`, `Dim c As Collection`: an object slot, Nothing until Set (#1010 review). An array of
-                // them is still refused below, as it is in a procedure.
+                // them has the same Nothing elements (measured, #1482).
                 var objectSlot = false;
                 string? declaredClass = null;
                 if (subStmt.asTypeClause() != null)
@@ -281,7 +281,7 @@ public class PrePass : VB6BaseVisitor<object?>
                         // PrePass can't — it runs while the type table is still being assembled.
                         type = Vb6Value.ValueType.EmptyVariant;
                     }
-                    else if (!isArray && subStmt.asTypeClause().type().baseType() is { } objectType
+                    else if (subStmt.asTypeClause().type().baseType() is { } objectType
                              && (objectType.OBJECT() != null || objectType.COLLECTION() != null))
                     {
                         objectSlot = true;
@@ -291,18 +291,20 @@ public class PrePass : VB6BaseVisitor<object?>
                     else
                     {
                         type = BaseTypeMapper.Map(subStmt.asTypeClause().type().baseType())
-                            ?? throw new NotImplementedException("base type " + subStmt.asTypeClause().type().baseType().GetChild(0) + " not implemented"
-                                + (subStmt.asTypeClause().type().baseType() is { } arrayOf && (arrayOf.OBJECT() != null || arrayOf.COLLECTION() != null)
-                                    ? " (#1482)" : ""));
+                            ?? throw new NotImplementedException("base type " + subStmt.asTypeClause().type().baseType().GetChild(0) + " not implemented");
                     }
                 }
+                if (isArray && objectSlot)
+                    type = Vb6Value.ValueType.Object;
                 if (isArray)
                     type = new Vb6Value.ValueType(type, true);
 
-                var value = objectSlot ? Vb6Value.Nothing
+                var value = objectSlot && !isArray ? Vb6Value.Nothing
                     : dimensions != null ? new Vb6Value(type, dimensions) : new Vb6Value(type);
                 if (dimensions != null && value.Value is VBArray fixedArr) fixedArr.IsDynamic = false;   // `Dim a(N)` = fixed
-                var location = state.Alloc(value, null, declaredClass);
+                if (isArray && value.Value is VBArray objects)
+                    objects.DeclaredClass = declaredClass;
+                var location = state.Alloc(value, null, isArray ? null : declaredClass);
                 if (isArray)
                 {
                     state.MarkDeclaredArray(location);

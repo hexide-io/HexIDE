@@ -208,6 +208,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Object and Collection arrays** (#1482). Elements start as Nothing, accept Set with the same type checks as
+  scalar variables, and release their objects on Erase. Class arrays now report TypeName "Object()", too.
+
 - **A control array's elements name themselves with their index in automation** (#1320). The Properties window's
   object selector and the designer's canvas named every element of `optSize` as `optSize`, so a caller could not tell
   which was selected, and `select "optSize(1)"` matched nothing. Each element is now `optSize(0)`, `optSize(1)` and so
