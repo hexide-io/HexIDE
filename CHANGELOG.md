@@ -236,6 +236,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP window wording matches how `auto` picks** (#1321). `interact` now says it usually picks a running form, and the unknown-window refusal describes its preference for another visible window, a dialog first.
+
 - **The designer draws and names a UserControl or PropertyPage as VB6's does** (#1544). Each was drawn in a form's
   window frame, with a title bar and caption buttons, a PropertyPage's tab read `(Form)`, and the Properties window's
   object box gave both the class `Form`. Each is now a borderless surface, as neither has a window of its own at run
