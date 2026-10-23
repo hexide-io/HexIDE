@@ -117,20 +117,19 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Operators | 0 | 0 | 1 | 20 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 46 | 47 | 0 | 60 | 153 |
 | Keywords and modifiers | 0 | 0 | 10 | 20 | 1 | 20 | 51 |
-| Literals, types and suffixes | 6 | 1 | 4 | 14 | 0 | 25 | 50 |
+| Literals, types and suffixes | 6 | 0 | 4 | 14 | 0 | 26 | 50 |
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
 | In-box objects | 0 | 0 | 84 | 14 | 0 | 25 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 258 | 0 | 355 | 621 |
-| **Total** | **7** | **3** | **173** | **427** | **20** | **554** | **1184** |
+| **Total** | **7** | **2** | **173** | **427** | **20** | **555** | **1184** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
 
 
-### The single most useful number here is 2
+### The single most useful number here is 1
 
-**Only two constructs in this inventory fail to parse**: a numeric literal ending in its point
-(`5.D1`, [#1615](https://github.com/hexide-io/HexIDE/issues/1615)) and a `Function` declared with a type
+**Only one construct in this inventory fails to parse**: a `Function` declared with a type
 character (`Function GetName$()`, [#740](https://github.com/hexide-io/HexIDE/issues/740)). Every other
 gap parses cleanly and goes wrong at run time: mostly by throwing, sometimes by running on with a wrong
 value. The seven Silently wrong rows below are the wrong values counted as such; the `()` row records
@@ -143,7 +142,8 @@ the same shape: the LSP server's grammar accepts it and the interpreter's does n
 conditional compilation took `#Const` off it ([#1112](https://github.com/hexide-io/HexIDE/issues/1112)): the directives are applied to the module's text
 before the parse, so the grammar never sees one, as vb6.exe's parser never sees an inactive branch. The `D` exponent
 marker left it when vb6.exe was found to compile one ([#1611](https://github.com/hexide-io/HexIDE/issues/1611)), and the same measurement found a
-literal ending in its point, which took its place.
+literal ending in its point, which took its place. That went to one when both grammars learned to read it
+([#1615](https://github.com/hexide-io/HexIDE/issues/1615)).
 
 That matters for three reasons. It is the empirical form of the claim in `CLAUDE.md` that no VB6
 construct is incomprehensible to the CST, which until now was an architectural assertion rather than a
@@ -271,7 +271,7 @@ is taken for an undeclared variable. Found while fixing #975. A class's Property
 | `@` | **Silently wrong** | **Re-rated from Partial by measurement ([#739](https://github.com/hexide-io/HexIDE/issues/739)).** On a name it writes a different variable: without `Option Explicit`, `Dim c As Currency : c@ = 1.25 : Debug.Print c` prints 0, with no error, where VB6, also without it, gives 1.25, a Currency (oracle: the 2026-10-11 entry "A type character on a name the program also declares", its section "An assignment through a type character reaches the declared variable, for every character", without `Option Explicit`; see Silently wrong). Under `Option Explicit` the assignment raises "Variable not defined (c@)" here instead, which VB6 does not. A read through it throws "Type hint is not supported" ([#742](https://github.com/hexide-io/HexIDE/issues/742)). The literal form is unaffected: `1.25@` is Currency. — Honoured on a numeric LITERAL, never on an identifier. Literal: `'@' => Vb6Value.NewCurrency(decimal.Parse(body)) // @ forces Currency` — measured `5@` -> Currency 5… | StatementExecutor.cs, ExpressionExecutor.cs |
 | `Property Get` | **Silently wrong** | **Re-rated from Partial by measurement ([#977](https://github.com/hexide-io/HexIDE/issues/977)).** A standard module's Property Get is not reached by its name: `x = PG`, with `Property Get PG() As Long()` in a module, reads Empty here with no error, where VB6 reads the array (measured), and `PG()` is "Sub or Function not defined". A class's is unaffected, and one declared `As Long()` returns its array ([#975](https://github.com/hexide-io/HexIDE/issues/975), measured). **[#1444](https://github.com/hexide-io/HexIDE/issues/1444):** a return declared as a scalar converts what is stored into its name there and then, as a variable of that type does, and a failure is raised inside the procedure, where its own handler traps it (measured: `FS = 5` As String is "5", `FD = "0.5"` As Date 00:05, `FB = "abc"` As Boolean 13, and `FI = 40000` As Integer 6, inside each). Function-like: returns via its own name, dispatched on a member READ of a class instance. A `As <Class>` return carries the concrete name so the return slot seeds a real UDT or Nothing… | PrePass.cs, ExpressionExecutor.cs |
 
-## Won't load — 3 names
+## Won't load — 2 names
 
 The whole list. A parse failure takes the entire module down — nothing in the file runs and the editor
 cannot open it usefully — so despite how obscure these look, each one has a blast radius of a file rather
@@ -286,10 +286,9 @@ obscure: the character stands in for an `As` clause. Only `$` has a VB6 row: VB6
 declared with it (oracle TR_01, TR_02, TB_01, each a `Function Left$`). No oracle row has a `Function`
 declared with `% & ! # @`, although HexIDE refuses `Function Twice%` in the same way.
 
-**A literal ending in its point joined the list by measurement** ([#1615](https://github.com/hexide-io/HexIDE/issues/1615)). vb6.exe reads `5.D1`
-as the Double 50, and both of HexIDE's grammars need a digit after the point. It was found while measuring the `D`
-exponent, which used to be here: vb6.exe compiles one wherever it compiles an `E`, and both grammars now lex it
-([#1611](https://github.com/hexide-io/HexIDE/issues/1611)).
+**A literal ending in its point, and the `D` exponent, used to be here.** vb6.exe compiles `5.` and `5.D1`, and both
+grammars needed a digit after the point and lexed no `D` in a whole number. Both were measured and are read now
+([#1611](https://github.com/hexide-io/HexIDE/issues/1611), [#1615](https://github.com/hexide-io/HexIDE/issues/1615)).
 
 **Multiple file numbers on one line used to fail here** ([#1146](https://github.com/hexide-io/HexIDE/issues/1146)).
 The date-literal token swallowed the text between two `#`s, so `Line Input #1, s: Print #2, s` and
@@ -312,7 +311,6 @@ operator `:=`, the other such gap, since [#1465](https://github.com/hexide-io/He
 |---|---|---|---|
 | `Function` | **Won't load** | **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)).** `Function GetName$()` -> "extraneous input '$' expecting {':', '(', NEWLINE, WS}", and the whole module with it; `Function Twice%(ByVal x As Integer)` the same with `%`. VB6 compiles a `$`-declared Function (oracle TR_01, TR_02, TB_01); no oracle row covers a `Function` declared with `% & ! # @`. VB6.g4's `functionStmt` has no `typeHint?` after the name, though `propertyGetStmt` in the same file has one and the LSP server's grammar has it on both; `GrammarParityTests` compares rule inventories, not alternatives, so it does not see the gap. **[#1444](https://github.com/hexide-io/HexIDE/issues/1444):** a return declared as a scalar converts what is stored into its name there and then, as a variable of that type does, and a failure is raised inside the procedure, where its own handler traps it (measured: `FS = 5` As String is "5", `FD = "0.5"` As Date 00:05, `FB = "abc"` As Boolean 13, and `FI = 40000` As Integer 6, inside each). Otherwise as before — PrePass.VisitFunctionStmt registers a ProcedureInfo (name, params, return type, body, IsPrivate). The return is by assignment to the procedure's own name; an unassigned return yields the… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
 | `Function...End Function` | **Won't load** | **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)); see `Function`.** **[#975](https://github.com/hexide-io/HexIDE/issues/975):** one declared `As Long()` returns its array (measured), where it returned a Long 0, and **[#986](https://github.com/hexide-io/HexIDE/issues/986):** takes only an array of its own type, a mismatch raising 13 or VB6's compile error "Can't assign to array" as VB6 does (measured), and a String stored into one declared `As Byte()`, which VB6 converts, stops the run as not implemented ([#998](https://github.com/hexide-io/HexIDE/issues/998)). The production quoted below has no `typeHint?` after the name, so `Function GetName$()` does not parse. Otherwise as before — The whole construct - `(visibility WS)? (STATIC WS)? FUNCTION WS name (argList)? (asTypeClause)? ... END_FUNCTION` - is collected by PrePass.VisitFunctionStmt and executed by… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
-| `FloatingPointLiteral` | **Won't load** | **[#1615](https://github.com/hexide-io/HexIDE/issues/1615):** a literal ending in its point, `5.D1`, fails to parse in both grammars, so the module does not load, where vb6.exe reads the Double 50 (measured; `5.` alone is not). **#781:** parsed with invariant culture and explicit `NumberStyles.Float`, including type suffixes and exponents, independently of the host locale (also in `Const` and `#Const`). "VB6: an unsuffixed floating-point literal (with a '.' or exponent) defaults to Double"; the type-char suffixes `!`/`#`/`&`/`@`/`%` force Single/Double/Long/Currency/Integer at… | ExpressionExecutor.cs |
 
 ## Dies mid-run — 173 names
 
@@ -906,7 +904,7 @@ missing.
 | `Wend` | Supported | Closes whileWendStmt (VB6.g4); structural only. WhileWendTests covers accumulate, zero-iteration and Exit-Sub-from-inside cases. | VB6.g4 |
 | `WithEvents` | Supported | **[#822](https://github.com/hexide-io/HexIDE/issues/822):** a form's WithEvents variable binds, as a class's does, now that a form is an instance with a real `Me` (measured rows pinned; [#972](https://github.com/hexide-io/HexIDE/issues/972)). PrePass records each WithEvents name as an event sink and hoists the slot to Nothing; the runtime VisitVariableStmt re-seeds it per instance at New; the Set path detects a WithEvents field… | PrePass.cs, StatementExecutor.cs |
 
-### Literals, types and suffixes — 50 names (6 silently wrong, 5 absent, 14 partial, 25 supported)
+### Literals, types and suffixes — 50 names (6 silently wrong, 4 absent, 14 partial, 26 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -950,7 +948,7 @@ missing.
 | `Empty` | Supported | `EMPTY_` is a real lexer token and the visitor returns `new Vb6Value(Vb6Value.ValueType.EmptyVariant)`. The comment records why it is a keyword: "It is a keyword, not a constant: `Dim Empty… | ExpressionExecutor.cs |
 | `ExponentLiteral` | Supported | **#781:** an exponent is read invariantly. An exponent yields Double with or without a decimal point — "exponent without a dot -> Double (e.g. 1e5)". Measured `1.5E2` = 150#, `1.5E+2` = 150#, `1.5E-2` = 0.015#, `15e1` =… | ExpressionExecutor.cs |
 | `False` | Supported | `if (literalContext.literal().FALSE() is { }) { Vb6Value val = new Vb6Value(false); return val; }`. Measured -> Boolean False. | ExpressionExecutor.cs |
-| `FloatingPointLiteral` | **Won't load** | **[#1615](https://github.com/hexide-io/HexIDE/issues/1615):** a literal ending in its point, `5.D1`, fails to parse in both grammars, so the module does not load, where vb6.exe reads the Double 50 (measured; `5.` alone is not). **#781:** parsed with invariant culture and explicit `NumberStyles.Float`, including type suffixes and exponents, independently of the host locale (also in `Const` and `#Const`). "VB6: an unsuffixed floating-point literal (with a '.' or exponent) defaults to Double"; the type-char suffixes `!`/`#`/`&`/`@`/`%` force Single/Double/Long/Currency/Integer at… | ExpressionExecutor.cs |
+| `FloatingPointLiteral` | Supported | **[#1615](https://github.com/hexide-io/HexIDE/issues/1615), fixed:** a literal may end in its point, `5.`, `5.#` or `5.E1`, as vb6.exe compiles it: the Double 5, the Double 5 and the Double 50. A literal with a point takes no `%` or `&`: `2.5%`, `5.&` and `2.5E1&` are "Syntax error", where HexIDE rounded them to an Integer or a Long (measured). **#781:** parsed with invariant culture and explicit `NumberStyles.Float`, including type suffixes and exponents, independently of the host locale (also in `Const` and `#Const`). An unsuffixed floating-point literal is a Double, and `!`, `#` and `@` make it a Single, a Double or a Currency. | ExpressionExecutor.cs |
 | `Integer` | Supported | `if (baseType.INTEGER() != null) return Vb6Value.ValueType.Integer;`; the declared type is recorded so an assignment coerces to it and overflows raise Err 6 rather than widening — the… | BaseTypeMapper.cs |
 | `Long` | Supported | `if (baseType.LONG() != null) return Vb6Value.ValueType.Long;`. Measured `Dim l As Long : l = 5` -> Long 5. | BaseTypeMapper.cs |
 | `Nothing` | Supported | `return Vb6Value.Nothing; // a null object reference`. Measured: `Set o = Nothing` then `o Is Nothing` -> True; a class-typed `Dim` seeds Nothing so `c Is Nothing` is True until Set. Tests:… | ExpressionExecutor.cs |

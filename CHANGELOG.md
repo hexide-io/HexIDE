@@ -238,6 +238,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A numeric literal ending in its point loads, as vb6.exe compiles it** (#1615). `x = 5.` and `5.D1` failed to
+  load, and the editor marked them. Both grammars now read them, as the literal with a digit after the point. A
+  literal with a point and `%` or `&`, such as `2.5%`, is now vb6.exe's compile error "Syntax error", where HexIDE
+  rounded it to an Integer or a Long.
+
 - **A `D` exponent in a numeric literal loads, as vb6.exe compiles it** (#1611). `x = 1D3` failed to load, and the
   editor marked it. `D` is now an exponent marker wherever `E` is, in both grammars. A literal vb6.exe refuses to
   build, such as `1E400`, `1E3%` or `1E20@`, is now its compile error "Syntax error", where HexIDE gave infinity, a
