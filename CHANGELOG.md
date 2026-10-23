@@ -213,6 +213,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A UserControl or PropertyPage is named by its `Begin` line, as VB6 names it** (#1411). HexIDE named it after its
+  file, so `Gauge.ctl` holding `Begin VB.UserControl ctlDial` was "Gauge". A form using the control as VB6 does, as
+  `Begin probe.ctlDial`, then found no such control, and kept it as text it could neither draw nor run. Where its
+  `Begin` line and `VB_Name` disagree, the project now opens with VB6's warning and makes `VB_Name` agree, as #1407
+  does for a form.
+
 - **Bare Print no longer prevents a form from loading** (#993). The interpreter and editor accept its output list.
   Reaching it still stops the run at the form's unimplemented Print method (#989); standard and class modules refuse
   it at runtime, naming #993, pending a VB6 measurement.
