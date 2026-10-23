@@ -21,13 +21,19 @@ public abstract class ComponentBaseClass : IComponentClass
     /// False for a control with no Left, Top, Width or Height, which is the Line: its geometry is two endpoints (#163). A
     /// program reading one of them is 438 in VB6 (measured), and the .frm never holds them.
     /// </param>
+    /// <param name="hasVisible">
+    /// False for a class whose Properties window has no Visible: a UserControl's or PropertyPage's designer root (measured,
+    /// #1585).
+    /// </param>
     protected ComponentBaseClass(IReadOnlyList<PropertyClass> extendedProperties, IReadOnlyList<EventClass>? events,
-        bool hasBounds)
+        bool hasBounds, bool hasVisible = true)
     {
         var properties = new List<PropertyClass>(extendedProperties) { NameProperty };
         if (hasBounds)
             properties.AddRange([LeftProperty, TopProperty, WidthProperty, HeightProperty]);
-        properties.AddRange([VisibleProperty, TagProperty]);
+        if (hasVisible)
+            properties.Add(VisibleProperty);
+        properties.Add(TagProperty);
         Properties = properties;
         PropertiesByName = Properties.ToDictionary(p => p.Name, p => p, StringComparer.OrdinalIgnoreCase);   // #811
         Events = events ?? [];
