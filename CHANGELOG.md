@@ -238,6 +238,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A name declared twice is vb6.exe's compile error** (#1622, #1499). A module that declared one name twice ran,
+  keeping one declaration, and so did a procedure, so `Dim n As Long` then `Static n` gave an ordinary Long. At module
+  level it is now "Ambiguous name detected", and in a procedure "Duplicate declaration in current scope", parameters
+  included, as the module loads. A variable beside an Enum or Type of its name, and a Property's Get beside its Let,
+  still compile, as they do in vb6.exe.
+
 - **MCP `type_text` refuses hidden targets before finding an editor** (#1317), in both modes, so a hidden dropdown is no longer told to expand itself. Its target description explains ambiguous surfaces and non-editable dropdowns; `select` now also refuses realized rows whose visibility cannot be read.
 
 - **MCP command guards follow the compiled XAML binding** (#1324). `invoke_command` now finds private guards
