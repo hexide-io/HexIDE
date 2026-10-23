@@ -10,6 +10,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **A control's `ZOrder` method** (#1503). `ZOrder 0`, or no argument, brings a control to the front of the controls
+  like it in its container, and `ZOrder 1` sends it to the back, as measured on vb6.exe. A Label never rises over a
+  windowed control, a container takes its contents, and the position is 0 or 1 or it raises VB6's error. A program
+  that called it used to stop as not implemented.
+
 - **A control HexIDE does not model is shown in the designer** (#157). An ImageList, a Toolbar or any other control
   HexIDE carries without modelling used to be invisible, so a developer could move a button onto it unknowing. Now
   each is a box where VB6's IDE puts one: at its position, sized by its `Width` and `Height`, or 1200 by 480 twips
@@ -217,6 +222,28 @@ there isn't one yet. Anything may change between 0.x releases.
   program got a form 90 to 240 twips narrower and 345 to 885 shorter than vb6.exe reports. They now include the frame
   VB6 draws on the themed Windows desktop for the form's BorderStyle, caption bar and menu bar, read back as assigned,
   and leave the client area that is left inside the frame. `Width = (Width - ScaleWidth) + needed` lands as before.
+
+- **Surplus call arguments are refused** (#741): procedures and intrinsics with known limits raise VB6's
+  "Wrong number of arguments or invalid property assignment"; a declared scalar called with arguments raises
+  "Expected array". Parameterless Variant and object results still index as before (#1476).
+
+- **A running form raises Activate and Deactivate, and Resize once as it is shown** (#994). Activate and Deactivate
+  were never raised. They now come as VB6 raises them: when another of the program's forms is shown, given the focus
+  or left active by a Hide or an Unload, after the statement that did it, and not when the user switches to another
+  application and back. A form raised Resize two or three times as it was shown, as the window settled. It now
+  raises one, inside the Show, and after that one for each change of size or state. A form shown again after Hide
+  raises none.
+
+- **Cancelling a language-server request now reaches the server** (#944). The cancellation notification
+  failed to serialize on every keystroke that abandoned a completion request. It now sends the original
+  request’s bare ID, so a server can stop that work; the client still awaits the server’s response.
+
+- **A disabled menu item says it is disabled in automation** (#1534). `invoke_menu_item` used to blame keyboard
+  focus when a disabled item had a routed command. It now reads the materialised item's enabled state first;
+  when the menu has not been read, the refusal says its disabled state is unknown and how to check it.
+
+- **An automation click outside its target says so** (#1530). When the point lands on another control,
+  `interact` now gives the target's size and names what took the press, rather than saying it covers the target.
 
 - **Ctrl+S on a new UserControl or PropertyPage saves its .ctl or .pag** (#474). From its designer or its code window,
   Ctrl+S saved the designer half as a form: it asked for a `.frm`, wrote the edit there, and left the `.ctl` the project

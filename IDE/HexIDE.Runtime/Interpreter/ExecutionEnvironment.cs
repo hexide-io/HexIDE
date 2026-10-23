@@ -68,6 +68,9 @@ public class ExecutionEnvironment
     /// </summary>
     public HashSet<string> ObjectParameters { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    // Per activation, never cloned: a Function's own name still resolves to a recursive call (#741).
+    internal string? ReturnName { get; set; }
+
     public ExecutionEnvironment Clone()
     {
         return new ExecutionEnvironment(this);
