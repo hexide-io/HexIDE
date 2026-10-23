@@ -243,6 +243,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **String functions honour the calling module’s `Option Compare`** (#1572). With no compare argument,
+  `InStr`, `InStrRev`, `Replace`, `Split`, `Filter` and `StrComp` now use that module’s setting, including
+  calls written in classes and forms. An explicit compare still wins. `InStr("ABC", "b")` in a Text module
+  now answers 2, as measured on vb6.exe, instead of silently answering 0.
+
 - **MCP replies distinguish dialogs sharing a title** (#1365). The modal note names a message box or run-time error dialog, its first line of text and its actual buttons; other dialogs include their buttons. The window parameter explains how to discover open windows through an unknown-name refusal.
 
 - **MCP replies name ignored arguments** (#1315). A misspelled optional parameter still lets the call run, but
