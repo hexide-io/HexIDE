@@ -213,6 +213,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`CCur` and `CDec` preserve decimal precision in Strings** (#1531). Plain decimal numbers are read in the
+  program's locale without rounding through a Double, including the Currency and Decimal maxima. Out-of-range
+  Strings raise run-time error 6. Hex, octal and exponent forms keep their existing conversion.
+
 - **An intrinsic called with too few arguments raises VB6's compile error** (#1512). Calls such as `Chr()`
   now report "Argument not optional" or "Syntax error", as measured in VB6, instead of stopping with a .NET exception.
 
