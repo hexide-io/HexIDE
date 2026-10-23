@@ -205,6 +205,10 @@ public struct VBStandardError
     public static readonly VBStandardError CantPrintFormImageToThisTypeOfPrinter = new(486, "Can't print form image to this type of printer");
     public static readonly VBStandardError CantEmptyClipboard = new(520, "Can't empty Clipboard");
     public static readonly VBStandardError CantOpenClipboard = new(521, "Can't open Clipboard");
+    /// <summary>A form's <c>Controls("")</c> (measured, #1060).</summary>
+    public static VBStandardError NotALegalControlName(string name) => new(728, $"'{name}' is not a legal control name");
+    /// <summary>A form's <c>Controls("Name")</c> where it has no control of that name, the name as it was given (measured, #1060).</summary>
+    public static VBStandardError ControlNotFound(string name) => new(730, $"Control '{name}' not found");
     public static readonly VBStandardError CantSaveFileToTEMPDirectory = new(735, "Can't save file to TEMP directory");
     public static readonly VBStandardError SearchTextNotFound = new(744, "Search text not found");
     public static readonly VBStandardError ReplacementsTooLong = new(746, "Replacements too long");

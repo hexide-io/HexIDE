@@ -121,7 +121,6 @@ public interface IProjectService
 
     Task MakeProject();
     Task MakeProject(ProjectDefinition project);
-    Task MakeProjectGroup();
     Task EditProjectProperties(ProjectDefinition project);
     Task EditProjectReferences(ProjectDefinition project);
     Task EditProjectComponents(ProjectDefinition project);

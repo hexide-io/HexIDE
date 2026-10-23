@@ -122,6 +122,12 @@ public static class FormCodeText
         return string.Concat(code.AsSpan(0, start), VbNameAttribute(name), code.AsSpan(start + length));
     }
 
+    /// <summary>
+    /// The name <paramref name="code"/>'s leading <c>Attribute VB_Name</c> gives, or null when its attribute run has none.
+    /// </summary>
+    public static string? VbNameOf(string code) =>
+        VbNameLine(code) is var (start, length) ? VbNameValue(code.AsSpan(start, length).Trim()) : null;
+
     /// <summary>The line VB6 writes for a document called <paramref name="name"/>.</summary>
     public static string VbNameAttribute(string name) => $"Attribute VB_Name = \"{name}\"";
 

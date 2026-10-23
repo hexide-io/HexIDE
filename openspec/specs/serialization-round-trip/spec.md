@@ -460,6 +460,37 @@ project SHALL NOT remove a member the IDE failed to load.
 - **WHEN** the project is opened and saved
 - **THEN** the saved project file still names that module
 
+### Requirement: A designer whose two names disagree SHALL open under its Begin line's name, with a warning
+
+Where the designer block of a form, UserControl or PropertyPage names it differently from its `Attribute VB_Name`,
+even in case alone, the IDE SHALL name it by the designer block, SHALL say so as the project opens, and SHALL make
+`VB_Name` agree, leaving it edited so that its next save writes the agreement. This is what VB6 does.
+
+#### Scenario: VB_Name names another form
+
+- **GIVEN** a form whose designer block says `frmRenamed` and whose `VB_Name` says `Form1`
+- **WHEN** its project is opened
+- **THEN** the form is called `frmRenamed`, a warning names its file and that name, and its `VB_Name` says `frmRenamed`
+- **AND** the form has unsaved changes until it is saved
+
+#### Scenario: The names agree
+
+- **WHEN** a form whose two names agree is opened
+- **THEN** nothing is said and the form has no unsaved changes
+
+### Requirement: A UserControl or PropertyPage SHALL be named by its designer block
+
+The IDE SHALL name a UserControl or PropertyPage by its designer block's `Begin` line, whatever its file or its
+`Attribute VB_Name` says, as VB6 does. A form that names the control as VB6 does SHALL find it, and one that names it
+by its file SHALL NOT, as in VB6.
+
+#### Scenario: A control whose file is named otherwise
+
+- **GIVEN** `Gauge.ctl`, whose designer block names it `ctlDial`, in a project called `probe`
+- **WHEN** the project is opened
+- **THEN** the control is called `ctlDial`, and a form's `Begin probe.ctlDial` is that control
+- **AND** a form's `Begin probe.Gauge` names no control, and is kept as the file had it
+
 ### Requirement: A kept member's line SHALL name the same file from wherever the project file is written
 
 When a project file is written in a folder other than the one it was read from, each line the IDE keeps for a

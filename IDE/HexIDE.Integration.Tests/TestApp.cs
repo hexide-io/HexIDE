@@ -35,6 +35,13 @@ public class TestApp : Application
         {
             Source = new Uri("avares://HexIDE/Automation/AccessKeyNames.axaml"),
         });
+        // As App.axaml does: the IDE's colours, the 25 VB6 system colours among them. A system colour is looked up on the
+        // application, not on a window, so without this every one fell back to DeepPink here, and a test comparing a
+        // painted pixel with vbButtonFace compared pink with pink (#908).
+        Resources.MergedDictionaries.Add(new ResourceInclude(new Uri("avares://HexIDE.Integration.Tests/"))
+        {
+            Source = new Uri("avares://HexIDE/Themes/Classic.axaml"),
+        });
         // As App.axaml does: the running controls' own templates. Without them a Frame has no template, so the controls
         // it contains are not in the visual tree at all, and real pointer input passes through them (#974).
         foreach (var dictionary in new[] { "VBTimer.axaml", "VBLabel.axaml", "Resources.axaml" })

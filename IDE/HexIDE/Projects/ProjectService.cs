@@ -363,6 +363,8 @@ public class ProjectService : IProjectService
 
         // Establish the "nothing edited yet" point for the save-changes prompt.
         SnapshotRenderBaselines(project);
+        // After the baselines, so that a form whose VB_Name is made to agree comes up edited: its file still disagrees.
+        var conflictingNames = ReconcileDesignerNames(project);
 
         if (serializedProject.SkippedUserDocumentPaths.Count > 0)
         {
@@ -386,6 +388,39 @@ public class ProjectService : IProjectService
         }
 
         await ReportReadByteForByte(readByteForByte);
+        if (conflictingNames.Count > 0)
+            await windowManager.MessageBox(string.Join("\n\n", conflictingNames), icon: MessageBoxIcon.Warning);
+    }
+
+    /// <summary>
+    /// Makes the <c>Attribute VB_Name</c> of each form, UserControl and PropertyPage agree with its <c>Begin</c> line
+    /// where the two differ, even in case alone, and returns a notice for each, in VB6's words (#1407, #1411).
+    /// </summary>
+    /// <remarks>
+    /// VB6 names each of these by its <c>Begin</c> line, as the loader now does too. It says so as the project opens, and
+    /// its next save writes <c>VB_Name</c> to match (measured for a form and a UserControl: the oracle's "A form whose two
+    /// names disagree"). The rewrite is to the model, which no code window shows yet, so the document comes up edited,
+    /// and the next save writes it. A UserControl's or PropertyPage's attribute run is in its module's code, which is
+    /// what its save writes.
+    /// </remarks>
+    private List<string> ReconcileDesignerNames(ProjectDefinition project)
+    {
+        var notices = new List<string>();
+        foreach (var form in project.Forms)
+            Reconcile(form.Name, form.Code, form.UpdateCode, form.AbsolutePath);
+        foreach (var module in project.Modules)
+            if (module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage && module.FormPart is not null)
+                Reconcile(module.Name, module.Code, module.UpdateCode, module.AbsolutePath);
+        return notices;
+
+        void Reconcile(string name, string code, Action<string> update, string? path)
+        {
+            if (name.Length == 0 || FormCodeText.VbNameOf(code) is not { } vbName
+                || string.Equals(vbName, name, StringComparison.Ordinal))
+                return;
+            update(FormCodeText.RetargetVbName(code, name));
+            notices.Add(string.Format(localization.GetString("Str.Dialog.ConflictingNames"), path ?? name, name));
+        }
     }
 
     private static IReadOnlyDictionary<string, ComponentBaseClass> BuildUserControlRegistry(
@@ -1614,20 +1649,6 @@ public class ProjectService : IProjectService
             await windowManager.MessageBox(
                 string.Format(body, names),
                 "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
-    }
-
-    public async Task MakeProjectGroup()
-    {
-        if (projectManager.LoadedProjects.Count == 0)
-        {
-            if (archives != null) await archives.Close();
-            return;
-        }
-        EnsureGroupIfMultiple();
-        // CurrentGroup is null with one project loaded and no group open. SaveFiles throws on it before
-        // anything is written; what the command should do then is #746.
-        await SaveAll([.. projectManager.LoadedProjects.SelectMany(project => FilesOf(project, false)),
-            (projectManager.CurrentGroup!, true)]);
     }
 
     public Task SaveAllProjects(bool saveAs)
