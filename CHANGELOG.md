@@ -236,6 +236,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP paths for indented list items resolve** (#1357). `dump_visual_tree` trims names in paths while keeping
+  the reported name as drawn. Names that become duplicates after trimming use positional paths, as do blank names.
+
 - **MCP `press_key` reaches access keys and menus** (#1523). Keys now pass through the window input path,
   so Alt+W activates a button captioned `One &Wide`. The reply names `window-input`, or `routed-key`
   when focus or platform input is unavailable and the previous routed delivery is used.
