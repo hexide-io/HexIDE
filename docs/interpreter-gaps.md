@@ -58,7 +58,7 @@ Platform: 4 · Partial: 12 · Other: 0.
 > - **→ Deferred:** Load/Unload · Deftype · `#If`/`#Const` (now a **clean compile error**, not a raw crash) · chained
 >   index groups (`Split(s)(0)`) · AddressOf · string-vs-number comparison (`5 < "10"`) · **Declare … Lib** (no longer
 >   fails the module load — the declaration is skipped, so the module runs; an actual call raises the clean "Sub or
->   Function not defined") · Static locals · selection/system/financial intrinsics (IIf/Choose/Switch are
+>   Function not defined") · selection/system/financial intrinsics (IIf/Choose/Switch are
 >   cheap future adds; the financials/system set is a larger deferral).
 > - **→ Walled:** AppActivate / SendKeys (OS automation) · array-element/call-result lead in a member chain (rides the
 >   multi-dot / member-chain wall).
@@ -82,7 +82,7 @@ _Original per-item findings (retained for detail; dispositions above supersede t
   numeric string and compares numerically — `GetTwoValuesSameTypes` rejects any type mismatch. Still **Missed**.
 - **Declare Sub/Function … Lib** — PrePass.cs:161-162 throws so any module with a `Declare` fails to load; VB6 foundational for Win32 API. Undocumented (absent from the boundary map — violates the spec's every-wall-documented rule).
 - **Option Compare [Binary|Text] / Option Private Module** — PrePass.cs:46-50 throws for both (module fails to load); VB6 sets default string-comparison method / hides module members. `Option Compare Text` is runtime semantics so not CST-walled. Undocumented.
-- **Static local variables / Static procedure modifier** — Static locals throw (StatementExecutor.cs:1109); the Static proc-header keyword is parsed but never read. VB6 persists locals across calls. Runtime machinery, not CST-walled. Undocumented.
+- **Static local variables / Static procedure modifier** — **done (#1491).** A Static's slot is kept per declaration, for the run in a standard module and per instance in a class or form, and a `Static` procedure makes its Dim locals Static (oracle, "Static"). Collected at procedure entry like any local; nothing relates one declaration to another.
 - **Selection/system/financial intrinsics** (IIf, Choose, Switch, Partition, Environ, Command, Shell, CallByName, Error(), and the 13 financials Pmt/FV/PV/NPV/IRR/Rate/NPer/IPmt/PPmt/MIRR/DDB/SLN/SYD) — all unregistered in every `VB6BuiltIns` partial (throw Sub-or-Function-not-defined, even via `VBA.`/`VB.` qualifiers); genuine VBA Interaction/Information/Financial members. RGB and QBColor have since been added, measured (#826).
 
 ## Deferred
