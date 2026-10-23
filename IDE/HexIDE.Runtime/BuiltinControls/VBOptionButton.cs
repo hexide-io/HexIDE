@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -34,17 +36,35 @@ public class VBOptionButton : RadioButton
     {
         // MouseUp follows Click, as a CheckBox's does (#974).
         AttachedEvents.AttachMouse<VBOptionButton>(AttachedEvents.DblClick.AfterMouseDown);
-        AttachedEvents.AttachFocusEvents<VBOptionButton>();
-        // An option button that takes the focus is selected, after its GotFocus, so its Click comes then (measured, #1101):
-        // Windows checks an automatic radio button as it is focused. Not by a press, which selects it on its own path, with
-        // Click after MouseDown (measured, #974). Nor by the Tab key: VB6's Tab goes only to the selected option of a group,
-        // so it never selects one, where HexIDE's stops at each (#1583), and selecting there would change the user's choice
-        // as they tab past.
+        // An option button that takes the focus is selected: Windows checks an automatic radio button as it is focused. By
+        // SetFocus, and by the Tab key, which reaches only the selected option of a group, or the first it meets in a group
+        // with none (measured, #1583). Not by a press, which selects it on its own path, with Click after MouseDown
+        // (measured, #974). It is selected before its GotFocus runs, which reads it selected, and its Click comes after
+        // (measured, #1101 and #1583). So the Click is held here and raised by the handler after GotFocus's, whether the
+        // two run at once or wait their turn behind a running handler.
         GotFocusEvent.AddClassHandler<VBOptionButton>((option, e) =>
         {
-            if (ReferenceEquals(e.Source, option)
-                && e is FocusChangedEventArgs { NavigationMethod: not (NavigationMethod.Tab or NavigationMethod.Pointer) })
-                option.IsChecked = true;
+            if (!ReferenceEquals(e.Source, option) || e is not FocusChangedEventArgs { NavigationMethod: not NavigationMethod.Pointer }
+                || option.IsChecked == true)
+                return;
+            option.clickAfterFocus = true;
+            option.IsChecked = true;
+        }, handledEventsToo: true);
+        AttachedEvents.AttachFocusEvents<VBOptionButton>();
+        GotFocusEvent.AddClassHandler<VBOptionButton>((option, _) =>
+        {
+            if (!option.clickAfterFocus)
+                return;
+            option.clickAfterFocus = false;
+            option.ExecuteSub(ComponentBaseClass.ClickEvent);
+        }, handledEventsToo: true);
+        // The TabStop the form or code gave it, kept apart from the stop the group allows.
+        KeyboardNavigation.IsTabStopProperty.Changed.AddClassHandler<VBOptionButton>((option, e) =>
+        {
+            if (option.settingTabStop)
+                return;
+            option.tabStop = e.GetNewValue<bool>();
+            option.UpdateGroupTabStops();
         });
         AppearanceProperty.Changed.AddClassHandler<VBOptionButton>((option, e) =>
         {
@@ -77,12 +97,60 @@ public class VBOptionButton : RadioButton
             var isChecked = option.IsChecked == true;
             if (option.Value != isChecked)
                 option.Value = isChecked;
-            if (isChecked && e.OldValue as bool? != true)
+            if (isChecked && e.OldValue as bool? != true && !option.clickAfterFocus)
                 option.ExecuteSub(ComponentBaseClass.ClickEvent);
+            option.UpdateGroupTabStops();
         });
 
         ContentTemplateProperty.OverrideDefaultValue<VBOptionButton>(AccessTextDataTemplate.Access);
         // Named as the caption reads, not with the _ the drawn text marks its access key with (#954).
         VBCaption.NameByCaption<VBOptionButton>(ContentProperty);
+    }
+
+    // An option group, the option buttons in one container, is one Tab stop: its selected option, or, with none selected,
+    // each of them, so the Tab key reaches the first in its direction and selects it (measured, #1583). Each keeps its own
+    // TabStop besides.
+    private bool tabStop = true;
+    private bool settingTabStop;
+
+    // Set while the focus selects it, until its GotFocus has been raised.
+    private bool clickAfterFocus;
+
+    private IEnumerable<VBOptionButton> Group => (Parent as Panel)?.Children.OfType<VBOptionButton>() ?? [this];
+
+    private void UpdateGroupTabStops()
+    {
+        var group = Group.ToList();
+        var anySelected = group.Any(o => o.IsChecked == true);
+        foreach (var option in group)
+            option.ApplyTabStop(option.IsChecked == true || !anySelected);
+    }
+
+    private void ApplyTabStop(bool groupStop)
+    {
+        settingTabStop = true;
+        try
+        {
+            KeyboardNavigation.SetIsTabStop(this, tabStop && groupStop);
+        }
+        finally
+        {
+            settingTabStop = false;
+        }
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        UpdateGroupTabStops();
+    }
+
+    // The group it leaves may have lost its selected option, which makes the rest Tab stops again.
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        var group = Group.Where(o => !ReferenceEquals(o, this)).ToList();
+        base.OnDetachedFromVisualTree(e);
+        if (group.Count > 0)
+            group[0].UpdateGroupTabStops();
     }
 }
