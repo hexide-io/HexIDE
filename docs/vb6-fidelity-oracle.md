@@ -16601,7 +16601,9 @@ area was the file's 2520 × 1500 twips. The extended styles matched too, apart f
 `WM_SYSCOMMAND SC_MAXIMIZE`, what the maximize box sends, maximized B1, whose file leaves MaxButton out.
 
 **Not followed:** HexIDE's windows carry both a small and a big icon, Avalonia's own. So the Fixed Dialog showed an icon
-on its caption ([#1594](https://github.com/hexide-io/HexIDE/issues/1594)).
+on its caption ([#1594](https://github.com/hexide-io/HexIDE/issues/1594)). Off Windows, a Fixed Single form whose
+MaxButton is True has no maximize box, because Avalonia allows one only on a window it can resize; on Windows the box is
+drawn and maximizes. Nor does Avalonia have a tool window's caption, or a caption bar with no close box.
 
 **Not measured:**
 - What Windows draws for these styles on the console, against vb6.exe's own window. Above, only HexIDE's windows were

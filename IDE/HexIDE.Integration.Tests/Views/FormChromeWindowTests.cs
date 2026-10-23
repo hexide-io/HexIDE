@@ -21,7 +21,10 @@ public class FormChromeWindowTests
         public void LogError(string _) { }
     }
 
-    private static (bool Resize, WindowDecorations Decorations, bool Min, bool Max) Run(string lines, string caption = "Form1")
+    private static (bool Resize, WindowDecorations Decorations, bool Min, bool Max) Run(string lines, string caption = "Form1") =>
+        Shown(lines, caption, window => (window.CanResize, window.WindowDecorations, window.CanMinimize, window.CanMaximize));
+
+    private static T Shown<T>(string lines, string caption, System.Func<Window, T> read)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var frm = "VERSION 5.00\r\nBegin VB.Form Form1 \r\n" + lines + $"   Caption         =   \"{caption}\"\r\n"
@@ -32,7 +35,7 @@ public class FormChromeWindowTests
         Dispatcher.UIThread.RunJobs();
         try
         {
-            return (window.CanResize, window.WindowDecorations, window.CanMinimize, window.CanMaximize);
+            return read(window);
         }
         finally
         {
@@ -44,9 +47,17 @@ public class FormChromeWindowTests
     public void A_Sizable_form_has_every_button() =>
         Run("").Should().Be((true, WindowDecorations.Full, true, true));
 
+    // Its maximize box is VB6's (FormChromeTests), and on Windows it is drawn and maximizes. Avalonia's own CanMaximize is
+    // coerced to False on a window it cannot resize, so elsewhere the box is missing.
     [AvaloniaFact]
     public void A_Fixed_Single_form_cannot_be_resized_and_keeps_its_minimize_button() =>
         Run("   BorderStyle     =   1  'Fixed Single\r\n").Should().Be((false, WindowDecorations.Full, true, false));
+
+    // A fixed style does not stop the file's WindowState maximizing the form (#1152).
+    [AvaloniaFact]
+    public void A_Fixed_Single_form_saved_maximized_runs_maximized() =>
+        Shown("   BorderStyle     =   1  'Fixed Single\r\n   WindowState     =   2  'Maximized\r\n", "Form1", w => w.WindowState)
+            .Should().Be(WindowState.Maximized);
 
     [AvaloniaFact]
     public void A_Fixed_Dialog_has_neither_button_whatever_the_file_says() =>
