@@ -14628,6 +14628,122 @@ The read now records the bare name it found unclaimed (`unclaimedRead`). When th
 still applies. A watch or Immediate-window evaluation still declares nothing: it suppresses implicit declaration, so the
 read refuses before it records anything, and it refuses user procedure calls anyway.
 
+## Chr, Asc, ChrW and AscW (2026-10-23, #1134)
+
+Measured on vb6.exe, native and p-code identical, on a machine whose ANSI code page is 1252, under en-GB. Each program
+`CharacterCodeTests` pins was made as written.
+
+**Chr and Asc go through the ANSI code page; ChrW and AscW do not.** HexIDE had Chr and Asc working in UTF-16 units,
+which agrees with VB6 only below &H80 and, by coincidence, from &HA0 to &HFF.
+
+| probe | result |
+|---|---|
+| `AscW(Chr(&H80))` | 8364: "€" |
+| `AscW(Chr(&H81))`, `&H8D`, `&H8F`, `&H90`, `&H9D` | 129, 141, 143, 144, 157: a byte 1252 leaves undefined is its own code point |
+| `AscW(Chr(&H9F))` | 376: "Ÿ" |
+| `AscW(Chr(&HA0))`, `AscW(Chr(255))` | 160, 255 |
+| `Chr(256)`, `Chr(-1)`, `Chr(32767)`, `Chr(True)` | 5 each |
+| `Chr(3000000000#)` | 6 |
+| `Chr(Null)` | 94 |
+| `Chr("x")` | 13; `Chr("66")` is "B" |
+| `AscW(Chr(65.5))`, `AscW(Chr(66.5))` | 66, 66: half to even |
+| `Len(Chr(0))`, `Len(Chr(Empty))` | 1, 1 |
+| `Asc(ChrW(8364))` | 128 |
+| `Asc(ChrW(&H81))`, `Asc(ChrW(&H178))`, `Asc(ChrW(&H2019))` | 129, 159, 146 |
+| `Asc(ChrW(&H100))` | **65**: Ā best-fits to "A" |
+| `Asc(ChrW(&H416))` | 63: Ж has no fit, so "?" |
+| `Asc("AB")`, `Asc(65)`, `Asc(True)` | 65, 54, 84: the argument is made text first |
+| `Asc("")`, `Asc(Empty)` | 5, 5 |
+| `Asc(Null)` | 94 |
+| `AscW(ChrW(&H20AC))` | 8364 |
+| `AscW(ChrW(&HF050))`, `AscW(ChrW(61520))` | -4016, -4016: `&HF050` is an Integer, -4016, taken as its unsigned unit |
+| `ChrW(-4016) = ChrW(61520)` | True |
+| `AscW(ChrW(65535))`, `AscW(ChrW(-32768))`, `AscW(ChrW(True))` | -1, -32768, -1 |
+| `ChrW(65536)`, `ChrW(-32769)` | 5, 5 |
+| `ChrW(3000000000#)` | 6 |
+| `ChrW(Null)`, `AscW(Null)` | 94, 94 |
+| `AscW(ChrW(65.5))` | 66 |
+| `Len(ChrW(Empty))`, `Len(ChrW(&HD800))`, `Len(ChrW(0))` | 1, 1, 1: a lone surrogate is one unit |
+| `AscW("AB")`, `AscW(66)`, `AscW(1.5)` | 65, 54, 49 |
+| `AscW("")`, `AscW(Empty)` | 5, 5 |
+| `ChrW(CharCode:=65)`, `AscW(String:="A")` | "A", 65 |
+| `ChrW(Code:=65)`, `AscW(Str:="A")` | do not compile: "Named argument not found" |
+| `ChrW()`, `AscW()` | do not compile: "Argument not optional" (HexIDE: #1512) |
+| `AscW$("A")` | does not compile: "Type-declaration character does not match declared data type" |
+| `TypeName(AscW("A"))`, `TypeName(Asc("A"))`, `TypeName(ChrW(65))` | Integer, Integer, String |
+
+**Typed or Variant**, by #987's probe:
+- `AscW("A")` against `Case Is < 65.4` takes Case Else, and `AscW("A") * 7000` is 6: typed, as `Asc` is.
+- `AscW(v)`, with `v` a Variant holding "A", behaves the same way.
+- `ChrW(57)` against `Case Is > 10` takes Case Else: a Variant, as `Chr` is.
+
+**Every `$` form that answers text answers a typed String.** "9" from each of them, against `Case Is > 10`, takes the
+Case: `Chr$(57)`, `ChrW$(57)`, `Format$(9)`, `Hex$(9)`, `LCase$("9")`, `Left$("9", 1)`, `LTrim$("9")`, `Mid$("9", 1)`,
+`Oct$(9)`, `Right$("9", 1)`, `RTrim$("9")`, `String$(1, "9")`, `Trim$("9")` and `UCase$("9")`. `Str$(19)`, which is
+" 19", takes Case Else, which is the typed reading the other way round. Their plain forms are Variants: `Mid("9", 1)`,
+`Left("9", 1)`, `Format(9)` and `Hex(9)` take Case Else, and **`Str(19)` takes the Case**, read as 19.
+
+**Print # best-fits too.** `Print #` of Ā, Ж and ’ to a file opened For Output writes the bytes 65, 63 and 146, read back
+with `Get`. So the earlier row "`ChrW$(&H416)` is written as '?'" is true, but Ж has no fit, so it could not tell a
+best fit from a plain replacement. HexIDE writes Ā as "?" (#1511).
+
+**Not measured here:**
+- **A double-byte ANSI code page** (932). VB6 is documented to give `Chr` a range of -32768 to 65535 there, a code above
+  255 being a lead and a trail byte, and `Asc` a possibly negative pair. Unmeasured, so HexIDE refuses a code beyond
+  ASCII under one (#1509).
+- **ChrB and the rest of the byte-string family.** A first `ChrB` probe did not compile. HexIDE's strings cannot hold a
+  one-byte string at all (#1510).
+
+### In HexIDE (#1134)
+
+`VB6BuiltIns.ChrInCodePage` decodes a byte with the ANSI code page's table, and `AscInCodePage` encodes with that
+table's own fallbacks, best fit among them. Both take the code page from `Vb6TextEncoding.Ansi`, so a Debug build's
+`--ansi-code-page` reaches them, and both refuse beyond ASCII when the table is double-byte. `CharCode` and
+`FirstCharacterOf` hold the argument rules the four share.
+
+`ExpressionExecutor`'s typed list gains `AscW`, its Variant list `ChrW` and `Str`, and its list of `$` forms that do not
+compile gains `AscW`. `DollarResult` now marks its String typed.
+
+## The name VB6's designer gives a new control (2026-10-23, #540, design-time)
+
+**The question.** HexIDE named the first CommandButton on a form Command0, and a pasted control took its number from
+the count of controls on the canvas. The common recollection is that VB6 starts at 1, and #929's probe saw Command1.
+Still open: whether VB6 fills a gap or counts on from the highest number, whether a number freed by a delete comes
+back, and whether a paste follows the same rule.
+
+**The probe.** A form saved holding Command1, Command3 and Text5, opened in VB6's IDE. Each step below was saved, and
+the names are VB6's file. To add a control, I clicked an empty part of the form, then double-clicked the tool. To
+paste, I selected the control, used Edit > Copy and Edit > Paste, and answered **No** to "You already have a control
+named 'Command3'. Do you want to create a control array?".
+
+| Form before | Step | New name |
+|---|---|---|
+| Command1, Command3, Text5 | add a CommandButton | **Command2** |
+| Command1, Command2, Command3, Text5 | add a TextBox | **Text1** |
+| Command1, Command3, Text5 | paste Command3 | **Command2**, caption still "Command3" |
+| Command1, Command2, Command3, Text5 | paste Text5 | **Text1**, Text still "Text5" |
+| Command1, Command2, Command3, Text1, Text5, after Command4 was pasted and deleted | add a CommandButton | **Command4** |
+| Command1, Command3, Text5, after Command2 was added and deleted | add a CommandButton | **Command2** |
+
+**What it shows:**
+- **A new or pasted control takes its class's prefix and the lowest number from 1 that no control on the form has.**
+  It fills a gap a file left (Command2 beside Command1 and Command3), and it does not count on from the highest
+  number (Text1 beside Text5).
+- **A number freed by a delete comes back**, in the middle (Command2) and at the top (Command4). So VB6 doesn't keep a
+  per-session counter, which would have given Command5. The name depends only on what is on the form.
+- **A paste answered No follows the same rule, and keeps the copied caption or text.** Only the name is new.
+
+**In HexIDE (#540):**
+- Both routes now name a control the same way, from 1. A new control used to start at 0, and a paste at the number of
+  controls on the canvas.
+- A name a preserved control holds still counts as taken (#854).
+- HexIDE's paste never asks the array question. It does what VB6's No does.
+
+**Not measured:**
+- A paste answered **Yes**, which makes a control array.
+- Several controls pasted at once, where each presumably takes the lowest free number in turn.
+- A gap in a control array's indexes.
+
 ## Debug.Assert (2026-10-23, #1467)
 
 Measured with vb6.exe in two places. The IDE was driven with `vb6.exe /runexit`, in session 0 as the `/make` probes are,

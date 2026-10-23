@@ -213,12 +213,27 @@ there isn't one yet. Anything may change between 0.x releases.
   reads it. A compiled program has no `Debug.Assert`, its argument not even evaluated, so the Make EXE runner skips it,
   as vb6.exe's EXE does. `get_debug_state` reports the break as `Assertion`.
 
+- **ChrW and AscW run, and Chr and Asc go through the ANSI code page** (#1134). `ChrW` and `AscW` stopped the program
+  as undefined. `Chr` and `Asc` ran, but in UTF-16 units, so `Chr(&H80)` was a control character where VB6 on a 1252
+  machine gives "€", and `Asc("€")` was 8364 where VB6 gives 128. All four now follow vb6.exe, measured:
+  - **ChrW:** a negative code is its unsigned unit, so `ChrW(&HF050)` is U+F050.
+  - **AscW:** a signed Integer.
+  - **Asc:** best-fits a character the code page lacks, so Ā is "A".
+  - **Errors:** each raises 5 out of range, 94 for Null and 6 past a Long. `Asc(Null)` is 94 where it returned Null.
+
+  A `$` form's result is now a typed String, as VB6's is, so `Select Case Mid$("9", 1)` compares text. Plain `Str` is a
+  Variant, as `Mid` and `Chr` are.
+
 - **An undeclared variable passed ByRef takes the procedure's write** (#1505). `Bump a12`, with `a12` never declared
   and `Sub Bump(x)` adding 1 to `x`, left `a12` Empty, so the program ran on with a wrong value and nothing said why. VB6
   declares the variable where it is passed, and the write lands in it. Now HexIDE does the same for a Sub, a Function, a
   class's method and a named argument, under DefType too. A name in parentheses, or given to a ByVal parameter, is still
   a copy, as in VB6.
 
+- **A new control is numbered from 1, as VB6 numbers it** (#540). The first button on a form was Command0, and a
+  pasted control took its number from the count of controls on the form, so its name skipped a gap VB6 would have
+  filled. A new or pasted control now takes the lowest number from 1 that no control on the form has. That is
+  Command2 beside Command1 and Command3, Text1 beside Text5, and a deleted control's number again, as measured.
 - **`DefInt A-Z` and the rest of DefType run** (#169). A DefType statement stopped the program. Now each declaration with
   no As clause takes its type from the first letter of its name, as vb6.exe does. That covers an undeclared variable, a
   `Dim` or `Static`, a field, a parameter and a Function's return, and under DefObj each is an object variable. A `Const`

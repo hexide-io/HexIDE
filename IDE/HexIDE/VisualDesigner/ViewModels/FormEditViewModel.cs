@@ -357,14 +357,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void SpawnControlAt(ComponentBaseClass baseClass, Rect rect)
     {
-        // Name = base + the LOWEST unused index, so a name freed by a delete is reused and we never collide with an
-        // existing control. The old `baseClass.Name + Components.Count` collided after a delete: e.g. add Command0 +
-        // Command1, delete Command0 → Count is 1 again → a second control also named "Command1".
-        // Every name on the form, a preserved control's too (#854).
-        var used = ComponentNaming.NamesInUse(AllComponents.Select(c => c.Instance));
-        int index = 0;
-        while (used.Contains(baseClass.Name + index)) index++;
-        var newName = baseClass.Name + index;
+        var newName = FreeName(baseClass);
         Log.Debug("FormEditViewModel: Spawning {ControlType} as {ControlName} at ({Left},{Top} {Width}x{Height})",
             baseClass.Name, newName, rect.Left, rect.Top, rect.Width, rect.Height);
         var instance = new ComponentInstance(baseClass, newName);
@@ -887,7 +880,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
         void Build(DesignerClipboard.ClipboardEntry entry, ComponentInstance? container, double shiftX, double shiftY)
         {
-            var newName = GenerateName(entry.BaseClass);
+            var newName = FreeName(entry.BaseClass);
             var newInstance = new ComponentInstance(entry.BaseClass, newName);
             foreach (var kvp in entry.Properties)
             {
@@ -966,15 +959,18 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             UndoStack.Push(new Commands.SetPropertyCommand(target, property, before, after));
     }
 
-    private string GenerateName(IComponentClass baseClass)
+    /// <summary>
+    /// The name a control added or pasted takes: its class's prefix and the lowest number from 1 that no name on the form
+    /// has, a preserved control's included, in any case (#854). VB6's designer names a new control and a pasted one so,
+    /// filling a gap a file left or a delete made (measured, #540): beside Command1 and Command3 the next is Command2, and
+    /// beside Text5 it is Text1.
+    /// </summary>
+    private string FreeName(IComponentClass baseClass)
     {
-        // Every name on the form, a preserved control's too, in any case (#854).
-        var existingNames = ComponentNaming.NamesInUse(AllComponents.Select(c => c.Instance));
-        int n = Components.Count;
-        string candidate;
-        do { candidate = baseClass.Name + n++; }
-        while (existingNames.Contains(candidate));
-        return candidate;
+        var used = ComponentNaming.NamesInUse(AllComponents.Select(c => c.Instance));
+        var index = 1;
+        while (used.Contains(baseClass.Name + index)) index++;
+        return baseClass.Name + index;
     }
 
     public void BeginDrag(IReadOnlyList<ComponentInstanceViewModel> targets)

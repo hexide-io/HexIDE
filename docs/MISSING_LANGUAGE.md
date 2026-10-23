@@ -115,13 +115,13 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 2 | 2 | 29 | 30 | 0 | 42 | 105 |
 | Operators | 0 | 0 | 2 | 19 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 61 | 41 | 1 | 50 | 153 |
+| Intrinsic functions | 0 | 0 | 59 | 41 | 1 | 52 | 153 |
 | Keywords and modifiers | 0 | 0 | 10 | 20 | 1 | 20 | 51 |
 | Literals, types and suffixes | 6 | 1 | 4 | 14 | 0 | 25 | 50 |
 | Compiler directives and options | 0 | 1 | 9 | 9 | 20 | 8 | 47 |
 | In-box objects | 0 | 0 | 87 | 14 | 0 | 22 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **8** | **4** | **210** | **408** | **22** | **530** | **1182** |
+| **Total** | **8** | **4** | **208** | **408** | **22** | **532** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -314,7 +314,7 @@ which is the cheaper kind to close. The named-argument operator `:=` was the oth
 | `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 
-## Dies mid-run — 204 names
+## Dies mid-run — 202 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the file-I/O family beyond text files is absent as a block, and so is
@@ -358,12 +358,10 @@ most of the in-box object model.
 | `AppActivate` | **Dies** | throws `"AppActivate not implemented"` — Grammar rule `appActivateStmt : APPACTIVATE WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4); the visitor body is a single throw:… | StatementExecutor.cs |
 | `Append` | **Dies** | APPEND is a lexer token and an openStmt mode alternative (Grammar/VB6.g4). Probed `Open "z.txt" For Append As #1` -> NotImplementedException "Open not implemented". | StatementExecutor.cs |
 | `AscB` | **Dies** | No registry entry: BuildRegistry (VB6BuiltIns.cs) calls RegisterStrings/Conversion/Math/Array/Inspection/DateTime/Format and adds only DoEvents; grep for "AscB" across IDE/HexIDE.Runtime… | ExpressionExecutor.cs, VB6BuiltIns.cs |
-| `AscW` | **Dies** | No registry entry (VB6BuiltIns.cs; no occurrence of "AscW" anywhere under IDE/HexIDE.Runtime). Reaches `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined… | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `AsyncProperty` | **Dies** | Measured for `Dim a As AsyncProperty`: VBCompileErrorException: "User-defined type not defined: AsyncProperty" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `AsyncProperty_VB5` | **Dies** | Measured for `Dim a As AsyncProperty_VB5`: VBCompileErrorException: "User-defined type not defined: AsyncProperty_VB5" (StatementExecutor.cs). | StatementExecutor.cs |
 | `CallByName` | **Dies** | Zero occurrences anywhere in HexIDE.Runtime; not registered by any Register* partial, so BuildRegistry has no entry. The call reaches ExpressionExecutor's final fallthrough and throws… | ExpressionExecutor.cs |
-| `ChrB` | **Dies** | No registry entry (VB6BuiltIns.cs; no occurrence of "ChrB" under IDE/HexIDE.Runtime). `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (ChrB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
-| `ChrW` | **Dies** | No registry entry (VB6BuiltIns.cs). `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (ChrW)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
+| `ChrB` | **Dies** | No registry entry (VB6BuiltIns.cs; no occurrence of "ChrB" under IDE/HexIDE.Runtime). `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (ChrB)". Left out of [#1134](https://github.com/hexide-io/HexIDE/issues/1134): a one-byte string needs a representation HexIDE's strings lack, so it is tracked with the rest of the byte-string family in [#1510](https://github.com/hexide-io/HexIDE/issues/1510). | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `Circle` | **Dies** | throws `"Only single element supported"` — fails at run time - but NOT with a name-resolution error. VB6.g4 has no CIRCLE token and no circleStmt rule, so `Circle (100, 100), 50` parses as a… | ExpressionExecutor.cs |
 | `Clipboard.GetData` | **Dies** | Explicitly refused as not implemented (#1156). | VbClipboard.cs |
 | `Clipboard.SetData` | **Dies** | Explicitly refused as not implemented (#1156). | VbClipboard.cs |
@@ -683,7 +681,7 @@ missing.
 | `TypeOf ... Is` | Supported | `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the comparison `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (61 absent, 41 partial, 50 supported)
+### Intrinsic functions — 153 names (59 absent, 41 partial, 52 supported)
 
 
 **array** (3)
@@ -713,7 +711,7 @@ missing.
 | `CLng` | Supported | Registered: NarrowNum(a[0], VT.Long) — half-to-even rounding then a 32-bit range check raising Err 6 (VbNumeric.NarrowLong). Pinned: CLng(5) yields Vb6Value(5L), and… | VB6BuiltIns.Conversion.cs |
 | `CSng` | Supported | Registered: NarrowNum(a[0], VT.Single) -> NarrowDouble(..., VT.Single), which range-checks into Single and maps NaN -> Err 5 / Infinity -> Err 6. Pinned: CSng(2.5) yields Vb6Value(2.5f)… | VB6BuiltIns.Conversion.cs |
 | `CStr` | Supported | **#777**: written in the program's locale, the user's regional settings, also in the IDE, whose threads are invariant (`VbLocale`). **Text fixed by #772/#771** — a Single, Double, Currency, Decimal or Date used to come out in .NET's form (`CSng(1) / 3` as `0.33333334`, `0.1 + 0.2` as `0.30000000000000004`, `-0#` as `-0`, `CCur(1.5) * 2` as `3.0`, a date with `00:00:00`); now VB6's, through `VbDisplay.ToText`, as are `&` and storing into a String (oracle: *Turning a number or a date into text*). Registered: "a[0].IsNull ? throw InvalidUseOfNull() : new Vb6Value(AsStr(a[0]))" with the trailing comment "// no leading space" — Null raises Err 94, everything else stringifies with no… | VB6BuiltIns.Conversion.cs |
-| `Str` | Supported | **Fixed by #772** — now CStr's digits without the `0` before the point (`Str(0.5)` is ` .5`, measured). Registered; Null -> Null, otherwise StrFn: "Str returns the number as text with a leading space for non-negatives (CStr has none)" (VB6BuiltIns.Strings.cs). Tested: Str(5)=" 5"… | VB6BuiltIns.Strings.cs |
+| `Str` | Supported | **[#1134](https://github.com/hexide-io/HexIDE/issues/1134):** a Variant, as vb6.exe's is (`Select Case Str(19)` reads " 19" as 19 against `Case Is > 10`), where `Str$` is a typed String. **Fixed by #772** — now CStr's digits without the `0` before the point (`Str(0.5)` is ` .5`, measured). Registered; Null -> Null, otherwise StrFn: "Str returns the number as text with a leading space for non-negatives (CStr has none)" (VB6BuiltIns.Strings.cs). Tested: Str(5)=" 5"… | VB6BuiltIns.Strings.cs |
 | `Val` | Supported | Registered; leading-numeric parse returning a Double. Comment: "Leading-numeric parse: ignores embedded whitespace, honours &H/&O, stops at the first non-numeric char." Tested:… | VB6BuiltIns.Strings.cs |
 
 **date/time** (19)
@@ -843,9 +841,9 @@ missing.
 | Name | Status | Detail | Source |
 |---|---|---|---|
 | `AscB` | **Dies** | No registry entry: BuildRegistry (VB6BuiltIns.cs) calls RegisterStrings/Conversion/Math/Array/Inspection/DateTime/Format and adds only DoEvents; grep for "AscB" across IDE/HexIDE.Runtime… | ExpressionExecutor.cs, VB6BuiltIns.cs |
-| `AscW` | **Dies** | No registry entry (VB6BuiltIns.cs; no occurrence of "AscW" anywhere under IDE/HexIDE.Runtime). Reaches `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined… | ExpressionExecutor.cs, VB6BuiltIns.cs |
-| `ChrB` | **Dies** | No registry entry (VB6BuiltIns.cs; no occurrence of "ChrB" under IDE/HexIDE.Runtime). `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (ChrB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
-| `ChrW` | **Dies** | No registry entry (VB6BuiltIns.cs). `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (ChrW)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
+| `AscW` | Supported | **[#1134](https://github.com/hexide-io/HexIDE/issues/1134):** the first UTF-16 unit as a typed Integer, so a unit past &H7FFF is negative (`AscW(ChrW(&H8000))` is -32768), as vb6.exe measured. 5 for an empty string or Empty, 94 for Null; `AscW$` does not compile. | VB6BuiltIns.Strings.cs |
+| `ChrB` | **Dies** | No registry entry (VB6BuiltIns.cs; no occurrence of "ChrB" under IDE/HexIDE.Runtime). `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (ChrB)". Left out of [#1134](https://github.com/hexide-io/HexIDE/issues/1134): a one-byte string needs a representation HexIDE's strings lack, so it is tracked with the rest of the byte-string family in [#1510](https://github.com/hexide-io/HexIDE/issues/1510). | ExpressionExecutor.cs, VB6BuiltIns.cs |
+| `ChrW` | Supported | **[#1134](https://github.com/hexide-io/HexIDE/issues/1134):** a UTF-16 unit, -32768 to 65535, a negative code being its unsigned unit (`ChrW(&HF050)`, an Integer -4016, is U+F050), and 5 outside that, as vb6.exe measured. Rounds half to even, takes a numeric string, and is 94 for Null and 6 past a Long. A Variant, as `Chr` is; `ChrW$` a typed String. | VB6BuiltIns.Strings.cs |
 | `FormatCurrency` | **Dies** | RegisterFormat registers exactly one name — `d["Format"]` (VB6BuiltIns.Format.cs); no occurrence of "FormatCurrency" under IDE/HexIDE.Runtime. `throw new… | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
 | `FormatDateTime` | **Dies** | Not registered (VB6BuiltIns.Format.cs registers only "Format"); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined… | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
 | `FormatNumber` | **Dies** | Not registered (VB6BuiltIns.Format.cs); no occurrence under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — message "Sub or Function not defined (FormatNumber)". | ExpressionExecutor.cs, VB6BuiltIns.Format.cs |
@@ -857,8 +855,8 @@ missing.
 | `RightB` | **Dies** | Not registered (VB6BuiltIns.cs); no occurrence of "RightB" under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (RightB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `StrComp` | **Dies** | Not registered (VB6BuiltIns.cs; no occurrence of "StrComp" under IDE/HexIDE.Runtime). `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (StrComp)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `StrConv` | **Dies** | Not registered (VB6BuiltIns.cs; no occurrence of "StrConv" under IDE/HexIDE.Runtime, nor in VbSignatures.cs). `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not… | ExpressionExecutor.cs, VB6BuiltIns.cs |
-| `Asc` | Partial | Registered as `d["Asc"] = (_, a, _) => Asc(a[0]);`. The helper returns `new Vb6Value((int)s[0])` — the first UTF-16 code unit, i.e. AscW semantics, not an ANSI-codepage byte. Null… | VB6BuiltIns.Strings.cs |
-| `Chr` | Partial | Registered as `d["Chr"] = (_, a, _) => new Vb6Value(((char)AsInt(a[0])).ToString());`. Restriction: the argument is cast straight to a UTF-16 char with no range validation and no ANSI code… | VB6BuiltIns.Strings.cs |
+| `Asc` | Partial | **[#1134](https://github.com/hexide-io/HexIDE/issues/1134):** the character's byte in the ANSI code page, best fit first (Ā is 65, "A"), and "?" (63) for a character with no fit (Ж), as vb6.exe measured. A typed Integer; 5 for an empty string or Empty, and 94 for Null, where it returned Null. **Partial:** under a double-byte ANSI code page, a character beyond ASCII is refused until measured ([#1509](https://github.com/hexide-io/HexIDE/issues/1509)). | VB6BuiltIns.Strings.cs |
+| `Chr` | Partial | **[#1134](https://github.com/hexide-io/HexIDE/issues/1134):** a byte of the ANSI code page, read with that code page's table (`Chr(&H80)` is "€" on 1252, and the bytes 1252 leaves undefined are their own code points), and 5 outside 0 to 255, as vb6.exe measured. Rounds half to even, takes a numeric string, and is 94 for Null and 6 past a Long. **Partial:** under a double-byte ANSI code page, a code beyond ASCII is refused until measured ([#1509](https://github.com/hexide-io/HexIDE/issues/1509)). | VB6BuiltIns.Strings.cs |
 | `Filter` | Partial | **#840, measured:** the result is always a String array; the arguments convert right to left, each object read only as its turn comes, so a Null match, switch or compare is 94 even for an array never allocated, and ahead of the array check, and `Filter(d, k, "x")` is the switch's 13, not k's 438; the switch reads as `CBool` does, and Err as its Number; the compare reads as `CLng` does (Nothing 91, 3E+10 6), 0 is binary and 1 text, 2 and negatives are 5, and 3 and above, consistent with a Windows locale identifier to VB6, are refused ([#881](https://github.com/hexide-io/HexIDE/issues/881)); every element converts before any is compared (Null 94, Nothing 91, an array 13), and the compare is checked only when an element is compared with the match, so an array with no element gives an unallocated String array, and an empty match keeps every element, even with a compare of 2 or 3000; a Nothing match is 91; anything else that is not an array is 13. **An allocated Long array still gives a value where VB6 raises 13, and a 2-D one a trappable 9 ([#875](https://github.com/hexide-io/HexIDE/issues/875)).** — Registered as `d["Filter"] = (_, a, _) => Filter(a);`. Handles Filter(array, match, [include=True], [compare]) and returns a 0-based String array; no matches yields bounds (0,-1). The file… | VB6BuiltIns.Array.cs |
 | `InStr` | Partial | Registered as `d["InStr"] = (_, a, _) => InStr(a);`. Supports InStr([start,] string1, string2[, compare]) with 1-based results, Null propagation, start<1 raising Err 5, and start past the… | VB6BuiltIns.Strings.cs |
 | `InStrRev` | Partial | Registered as `d["InStrRev"] = (_, a, _) => InStrRev(a);`. Supports InStrRev(string1, string2[, start[, compare]]) with Null propagation and a default start of -1. Restrictions: (i)… | VB6BuiltIns.Strings.cs |
