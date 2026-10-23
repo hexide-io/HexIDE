@@ -15297,7 +15297,7 @@ A copy of an array is made where the result is stored, as for any Let of an arra
 
 ## Like (2026-10-23, #1547)
 
-Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60 6.00.9848 (SP6) runtime, under en-GB. These are run-time rows, and native and p-code agree on every one of them. There were four batches, about 190 rows in all.
+Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60 6.00.9848 (SP6) runtime, under en-GB. These are run-time rows, and native and p-code agree on every one of them. There were five batches, about 195 rows in all.
 
 Each row ran `r = (s Like p)` on Variant operands in two modules, one `Option Compare Binary` and one `Option Compare Text`, under `On Error Resume Next`, and logged `TypeName` and the value, or the error. A further 17 rows put typed operands inline, one procedure each. Characters outside ASCII were built with `Chr` and `ChrW`, because the probe files are written as ASCII. `LikeOperatorTests` is generated from these probes and their answers, so every row here is pinned.
 
@@ -15317,6 +15317,8 @@ Each row ran `r = (s Like p)` on Variant operands in two modules, one `Option Co
 | `""` | `"?"`, `"*?"` | False | False |
 | `"a"` | `""`, `"?*?"` | False | False |
 | `"5"`, `"55"` | `"#"`, `"##"` | True | True |
+| `"0"`, `"9"` | `"#"` | True | True |
+| `"/"`, `":"` | `"#"` | False | False |
 | `"a"`, `Chr(178)` ², `Chr(185)` ¹ | `"#"` | False | False |
 | `ChrW(&HFF10)`, `&HFF15`, `&HFF19`: fullwidth ０, ５ and ９ | `"#"` | **True** | True |
 | `ChrW(&HFF1A)`, `&HFF0F`, `&H660`, `&H6F5`, `&H966`: other "digits" | `"#"` | False | False |
