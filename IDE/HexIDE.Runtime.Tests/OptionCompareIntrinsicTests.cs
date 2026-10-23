@@ -21,8 +21,9 @@ public class OptionCompareIntrinsicTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(binary), new Vb6Value(text)]);
     }
 
-    // The issue specifies that the module whose code makes the intrinsic call supplies the mode.
-    // Reuse only its measured InStr call and values across opposite-mode callers, including a class.
+    // A call with no compare takes the Option Compare of the module or class its own text is written in, never
+    // its caller's (measured on SP6 with /make, native and p-code, #1572's cross-module comment).
+    // `calleeMode` is the module the InStr is written in.
     [Theory]
     [InlineData("Binary", "Text", "2")]
     [InlineData("Text", "Binary", "0")]
