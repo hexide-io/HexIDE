@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Reflection;
 
 namespace HexIDE.Runtime.Interpreter;
 
@@ -94,19 +93,7 @@ public class VbErr : ICSharpProxy, ICSharpPropertyBag
 
     private static long ToLong(Vb6Value v) => Vb6Value.TryNumericToDouble(v, out var d) ? (long)d : 0;
 
-    // Known VB6 error number -> its standard description (so `Err.Raise 6` / `Error 6` set "Overflow"); an
-    // unknown number falls back to VB6's generic text.
-    private static readonly Dictionary<int, string> StandardDescriptions = BuildStandardDescriptions();
-
-    private static string StandardDescription(long number) =>
-        StandardDescriptions.TryGetValue((int)number, out var d) ? d : "Application-defined or object-defined error";
-
-    private static Dictionary<int, string> BuildStandardDescriptions()
-    {
-        var map = new Dictionary<int, string>();
-        foreach (var f in typeof(VBStandardError).GetFields(BindingFlags.Public | BindingFlags.Static))
-            if (f.GetValue(null) is VBStandardError e)
-                map[e.ErrNo] = e.Description;
-        return map;
-    }
+    // The text Err.Raise takes when given no Description: the same table Error(n) answers from, measured (#1560). A
+    // number HexIDE raises with words of its own, such as 340, is application-defined here, as it is in vb6.exe.
+    private static string StandardDescription(long number) => VbErrorMessages.For(number);
 }
