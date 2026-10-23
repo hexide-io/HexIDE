@@ -46,7 +46,8 @@ public class NewDesignerFileTests
     [Fact]
     public void A_new_UserControl_is_the_file_VB6s_Add_User_Control_saves()
     {
-        var module = ModuleDefinition.NewDesigner(Project, "UserControl1", ModuleKind.UserControl, FormComponentClass.Instance);
+        var module = ModuleDefinition.NewDesigner(Project, "UserControl1", ModuleKind.UserControl,
+            FormComponentClass.ForRoot("VB.UserControl"));
 
         new FormSerializer().Serialize(module.FormPart!, module.Code, "UserControl1.ctl").Item1.Should().Be(
             "VERSION 5.00\r\n" +
@@ -68,7 +69,8 @@ public class NewDesignerFileTests
     [Fact]
     public void A_new_PropertyPage_is_the_file_VB6s_Add_Property_Page_saves()
     {
-        var module = ModuleDefinition.NewDesigner(Project, "PropertyPage1", ModuleKind.PropertyPage, FormComponentClass.Instance);
+        var module = ModuleDefinition.NewDesigner(Project, "PropertyPage1", ModuleKind.PropertyPage,
+            FormComponentClass.ForRoot("VB.PropertyPage"));
 
         new FormSerializer().Serialize(module.FormPart!, module.Code, "PropertyPage1.pag").Item1.Should().Be(
             "VERSION 5.00\r\n" +

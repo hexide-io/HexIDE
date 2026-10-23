@@ -243,6 +243,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP replies name ignored arguments** (#1315). A misspelled optional parameter still lets the call run, but
+  now appears in `ignoredArguments` in a JSON-object reply, or in a separate text block, with a suggested spelling
+  for case, snake_case or kebab-case mismatches. Binding refusals check each parameter's actual type, so an
+  overflowing `int`, numeric string or array item is named without blaming a valid `long`; serializer paths stay.
+
 - **MCP `interact set_property` reads back the value it set** (#1326), naming both sent and actual values when
   they differ. For an editor's `CaretOffset`, it reads the editor itself, so an offset the caret never took is no
   longer reported as set.
@@ -284,6 +289,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **MCP command guards follow the compiled XAML binding** (#1324). `invoke_command` now finds private guards
   on base types and ignores guards below the bound method's type, so its refusal agrees with the menu.
+
+- **A UserControl's and a PropertyPage's Properties windows list their own kind's properties** (#1585). Both listed
+  a form's, Caption, Icon, Left, Top, Visible and the window's buttons among them. Each now lists only properties
+  VB6's Properties window gives it: a UserControl has no Caption, and a PropertyPage has no Enabled. A line a
+  loaded file holds that its root doesn't list is kept as the file's own text.
 
 - **A Let into an array variable takes only what vb6.exe's does** (#998, #1588). It stored whatever it was given:
   `a = Array(1, 2)` left an `Integer()` a Variant array, Empty left a `String()` Empty, and `b = "ab"` left a `Byte()`
