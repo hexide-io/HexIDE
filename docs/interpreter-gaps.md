@@ -55,8 +55,9 @@ Platform: 4 · Partial: 12 · Other: 0.
 >   the no-op was measured and found wrong) · **Option Compare / Option Private
 >   Module** (now tolerated — the module loads; `Option Compare Text` accepted-but-always-Binary is the residual
 >   divergence) · **Deftype** (#169: a letter table the pre-pass collects, consulted wherever a declaration has no As
->   clause; oracle-pinned).
-> - **→ Deferred:** Load/Unload · `#If`/`#Const` (now a **clean compile error**, not a raw crash) · chained
+>   clause; oracle-pinned) · **Conditional compilation** (#1112: `#If` and `#Const` applied to the module's text before the
+>   parse, so an inactive branch is never parsed; oracle-pinned).
+> - **→ Deferred:** Load/Unload · chained
 >   index groups (`Split(s)(0)`) · AddressOf · string-vs-number comparison (`5 < "10"`) · **Declare … Lib** (no longer
 >   fails the module load — the declaration is skipped, so the module runs; an actual call raises the clean "Sub or
 >   Function not defined") · selection/system/financial intrinsics (IIf/Choose/Switch are
@@ -74,7 +75,7 @@ _Original per-item findings (retained for detail; dispositions above supersede t
 - ~~**Deftype** (DefInt/DefLng/DefStr A-Z…) — grammar parses it but StatementExecutor.cs:164-167 throws and PrePass has no handler; VB6 declaration-section default-typing by first letter (runtime, so not CST-walled). Undocumented.~~
   — **FIXED 2026-10-23 (#169)**: the pre-pass collects a letter table, which is collection, not binding, and every
   declaration with no As clause reads it. Oracle-pinned; see the oracle's "DefType".
-- **Conditional compilation** (`#If/#ElseIf/#Else/#End If`, `#Const`) — PrePass.cs:202 throws so any module with `#If` fails to load wholesale; VB6 compiles only the selected branch. Undocumented (ROADMAP `#Const` row is serialization-only; LSP `#If` is folding-only).
+- ~~**Conditional compilation** (`#If/#ElseIf/#Else/#End If`, `#Const`)~~ — **FIXED 2026-10-23** ([#1112](https://github.com/hexide-io/HexIDE/issues/1112)): each module's directives are applied to its text before the parse, so an inactive branch is never parsed, and every directive is evaluated as vb6.exe measured; see the oracle's "Conditional compilation". This is collection, not binding: it reads constants and never relates one symbol to another.
 - **Array-element / call-result lead in a member chain** (`arr(i).Name`, `GetObj(x).Foo`) — ExpressionExecutor.cs:406-411 accepts only a bare-variable lead, so a call/array lead silently misroutes into the leading-dot `With` branch (wrong object / Error 91); write path throws (StatementExecutor.cs:527-529). Valid core VB6. Undocumented (only the UDT-array sub-case is walled).
 - ~~**Chained index groups** (`Split(s)(0)`, `Array(1,2)(1)`, `f(1)(2)`)~~ — **FIXED 2026-10-23** ([#1476](https://github.com/hexide-io/HexIDE/issues/1476)): a call's result, an array's element and a member's result index and write as vb6.exe measured, in its order of evaluation; see the oracle's "Indexing a call's result".
 - **AddressOf** — parses but throws (ExpressionExecutor.cs:816); VB6 passes a procedure address as a Declare-API callback. Undocumented (natural home is a Declare/Win32 wall).
@@ -91,8 +92,8 @@ _Original per-item findings (retained for detail; dispositions above supersede t
 ## Deferred
 
 - **Sequential/Random file I/O** (Open, Close, Print#, Write#, Input#, Line Input#, Get, Put, Seek, Lock, Unlock, Reset, Width#) — every visitor throws, no handle machinery; VB6 full channel-based file family. Documented post-launch: MISSING_FEATURES.md:504, ROADMAP.md:77,154.
-- **File/directory management** (Kill, Name…As, FileCopy, MkDir, RmDir, SetAttr) — all six throw; VB6 delete/rename/copy/dir/attr with trappable errors (53, 75/76). Covered family-level by the File I/O deferral, though these six are never named individually.
-- **File-related functions** (FreeFile, EOF, LOF, Loc, Seek fn, FileLen, Dir/Dir$, CurDir, GetAttr, FileDateTime, FileAttr, Input$, Spc, Tab) — absent from the builtin registry; companions to the deferred channel statements. Documented family-level (interpreter-core "fidelity roadmap", MISSING_FEATURES.md:504).
+- **File/directory management** (Kill, Name…As, FileCopy, MkDir, RmDir, SetAttr) — implemented from compiled EXE measurements (#1561). Host attributes and long-name matching diverge as recorded in the fidelity oracle.
+- **Remaining file-related functions** — LOF, Loc, Seek fn, FileAttr and Input$ remain deferred. FreeFile/EOF and the sequential statements run (#1145); FileLen, Dir/Dir$, CurDir, GetAttr and FileDateTime now run (#1561). Named arguments to the five new functions remain explicitly refused pending measurement; the supplied filesystem probe measures positional calls only.
 - **Registry settings** (SaveSetting/DeleteSetting statements + GetSetting/GetAllSettings functions) — statements throw (StatementExecutor.cs:161/817), read fns absent; VB6 persists under HKCU\Software\VB and VBA Program Settings. Documented "Missing" at MISSING_FEATURES.md:509.
 - **End** — FIXED (#775): it ends the program where it stands. This row used to say VB6's `End` fires `Class_Terminate`; measured on vb6.exe, it fires none, and no form raises QueryUnload, Unload or Terminate either (`vb6-fidelity-oracle.md`, *End*). **`Stop` is implemented** (breaks into the debugger in the IDE; raises `StopExecutionSignal` headless) — this row said otherwise until 2026-09-02.
 - **GoSub/Return, On expr GoTo/GoSub** — all four throw; VB6 legacy in-procedure computed branching. Deferred pending linearized CFG/bytecode: interpreter-core "fidelity roadmap" line 524.

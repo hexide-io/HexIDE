@@ -133,6 +133,11 @@ public partial class VB6BuiltIns
     /// <summary>Whether <paramref name="name"/> is a built-in function this interpreter implements.</summary>
     public static bool IsBuiltInFunction(string name) => Builtins.ContainsKey(name);
 
+    /// <summary>A built-in function by name, for a caller with no interpreter: an <c>#If</c>'s conversions (#1112), which
+    /// take no state, so it passes no <c>self</c>.</summary>
+    internal static bool TryGetBuiltIn(string name, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out BuiltinFn? function) =>
+        Builtins.TryGetValue(name, out function);
+
     private static Dictionary<string, BuiltinFn> BuildRegistry()
     {
         var d = new Dictionary<string, BuiltinFn>(StringComparer.OrdinalIgnoreCase);
@@ -151,6 +156,11 @@ public partial class VB6BuiltIns
             : throw new VBRunTimeException(VBStandardError.WrongNumberOfArgumentsOrInvalidPropertyAssignment);
         // FreeFile is an Integer, 1 with nothing open, and FreeFile(1) the first from 256 (measured, #1145).
         d["FreeFile"] = (self, a, _) => new Vb6Value(self.Files.FreeFile(Supplied(a, 0) ? AsInt(a[0]) : 0));
+        d["CurDir"] = (self, a, _) => new Vb6Value(self.Files.CurDir(Supplied(a, 0) ? (a[0].IsNull ? throw new VBRunTimeException(VBStandardError.TypeMismatch) : AsStr(a[0])) : ""));
+        d["FileLen"] = (self, a, _) => new Vb6Value((long)self.Files.FileLength(AsStr(a[0])));
+        d["FileDateTime"] = (self, a, _) => new Vb6Value(self.Files.FileDateTime(AsStr(a[0])));
+        d["GetAttr"] = (self, a, _) => new Vb6Value((long)self.Files.GetAttributes(AsStr(a[0])));
+        d["Dir"] = (self, a, _) => new Vb6Value(self.Files.Dir(Supplied(a, 0) ? (a[0].IsNull ? throw new VBRunTimeException(VBStandardError.TypeMismatch) : AsStr(a[0])) : null, Supplied(a, 1) ? AsInt(a[1]) : 0));
         d["EOF"] = (self, a, _) => new Vb6Value(self.Files.Eof(AsInt(a[0])));
         // DoEvents, for code run with no window, as a module test's is: nothing can be waiting, so it does nothing. A program
         // running in a window reaches BasicInterpreter.CallBuiltIn first, which runs what is waiting, as VB6 does (#766).

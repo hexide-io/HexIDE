@@ -89,9 +89,14 @@ public abstract class BaseVBTestFixture
     internal ProgramDump? Dump { get; set; } = ProgramDump.FromEnvironment;
     private int dumped;
 
+    /// <summary>The project's Conditional Compilation Arguments and built-ins each program here runs under (#1112): VB6's
+    /// built-ins and no arguments unless a test gives its own.</summary>
+    protected HexIDE.Runtime.Interpreter.ConditionalCompilation.CompilationConstants? Compilation { get; set; }
+
     protected async Task Run(string code) => await Dumped([("Module1", false, code)], async () =>
     {
-        var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs), context, rootEnv, code);
+        var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs), context, rootEnv, code,
+            compilationConstants: Compilation);
         await vb.Execute();
     });
 
@@ -139,7 +144,8 @@ public abstract class BaseVBTestFixture
     protected async Task RunModules(string primaryCode, params (string Name, string Code)[] modules) =>
         await Dumped([("Module1", false, primaryCode), .. modules.Select(m => (m.Name, false, m.Code))], async () =>
         {
-            var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs), context, rootEnv, primaryCode, "Module1", modules);
+            var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs), context, rootEnv, primaryCode, "Module1", modules,
+                compilationConstants: Compilation);
             await vb.Execute();
         });
 
@@ -148,7 +154,8 @@ public abstract class BaseVBTestFixture
     protected async Task RunClasses(string primaryCode, params (string Name, string Code)[] classModules) =>
         await Dumped([("Module1", false, primaryCode), .. classModules.Select(m => (m.Name, true, m.Code))], async () =>
         {
-            var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs), context, rootEnv, primaryCode, "Module1", null, classModules);
+            var vb = new BasicInterpreter(new MockStdLib(debug, written, dialogs), context, rootEnv, primaryCode, "Module1", null, classModules,
+                compilationConstants: Compilation);
             await vb.Execute();
         });
 

@@ -78,10 +78,6 @@ public class CorpusBehaviourTests
 
         // ---- REFUSES CODE VB6 RAN, newly visible now that module-scope cases are gated. --------------
 
-        // CONDITIONAL-COMPILATION-CONTINUATION. `#If` and `#Const` with a continued expression or value.
-        ["separator-with-declarations/hashif-expression-continued"] = "COMPILER-DIRECTIVE-CONTINUATION: NotImplementedException",
-        ["separator-with-declarations/hashconst-value-continued"] = "COMPILER-DIRECTIVE-CONTINUATION: VBCompileErrorException",
-
         // PROJECT-QUALIFIED-VALUE. `Project1.Module1.MyEnum.Foo` and `Project1.Foo` resolve at parse
         // level but not at run time when entered through Sub Main.
         ["qualifier-depth/value-position-project-module-enum-member"] = "PROJECT-QUALIFIER: VBVariableNotDefinedException",

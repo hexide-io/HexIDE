@@ -11634,7 +11634,7 @@ assignment, is wrong. So is the common description that SetFocus triggers Valida
 - **SetFocus does all of the above.** Its LostFocus and GotFocus are posted to the program's event pump, which runs
   them after the handler.
 - **A TextBox raises GotFocus and LostFocus,** which it didn't before. Only the CommandButton did. The other focusable
-  controls are #1101.
+  controls are #1101: "GotFocus and LostFocus on each control, and Enabled saved False".
 - **A TextBox saved with `Enabled = 0` is disabled when it runs.** Its component didn't declare Enabled, so the saved
   value was dropped and the control ran enabled. The Frame and the scroll bars had the same gap, and it is fixed for
   them too.
@@ -14659,13 +14659,55 @@ Picture4, Picture3.
 - **Two gaps, filed:**
   - The running form still draws the last block on top (#1497, since fixed: "How a running form stacks its
     controls").
-  - A control added in front of one HexIDE carries as text is written after it (#1498).
+  - A control added in front of one HexIDE carries as text is written after it (#1498, since fixed: "A control VB6
+    knows and HexIDE carries stacks with the rest").
 
 **Not measured:**
 - A Shape, Line or Image beside a Label in the windowless plane. Only Labels were tried.
 - Bring to Front with several controls selected.
 - A paste while a container is selected.
 - The `ZOrder` method at run time.
+
+## A control VB6 knows and HexIDE carries stacks with the rest (2026-10-23, #1498, design-time, IDE, release build)
+
+**The question.** The rule above was measured on intrinsic controls only. HexIDE carries a control it does not model as
+the text it was read as, written back where it was read, so the designer never sees it. Does VB6 stack an OCX control
+like the others?
+
+**The probe.** VB6's own `Template\Forms\Web Browser.frm` in a one-form Standard EXE project, with `MSCOMCTL.OCX` and
+`ieframe.dll` referenced. Its form-level blocks are `tbToolBar` (`MSComctlLib.Toolbar`), `brwWebBrowser`
+(`SHDocVwCtl.WebBrowser`), `timTimer`, `picAddress` (holding `cboAddress` and `lblAddress`), then `imlIcons`
+(`MSComctlLib.ImageList`). HexIDE models only the Timer, the PictureBox and what it holds. Through the console agent:
+the project opened (VB6 raised "Error accessing the system registry" once, dismissed with Enter), Ctrl+R, the form,
+Shift+F7, a real double-click on the CommandButton tool, a click on the new button, then the step below through the
+Format menu's Order submenu, a click on the designer, and Ctrl+S. Each run started from a fresh copy of the template.
+
+| Step | Form-level blocks VB6 wrote |
+|---|---|
+| CommandButton added | **Command1**, tbToolBar, brwWebBrowser, timTimer, picAddress, imlIcons |
+| Added, then Send to Back | tbToolBar, brwWebBrowser, timTimer, picAddress, imlIcons, **Command1** |
+| Added, Send to Back, then Bring to Front | **Command1**, tbToolBar, brwWebBrowser, timTimer, picAddress, imlIcons |
+
+After Send to Back the button was hidden under the WebBrowser, its selection handles still showing.
+
+**What it shows:**
+- **An OCX control stacks with the intrinsic ones.** A new control goes in front of the toolbar, and Send to Back puts
+  it behind the ImageList, a control with no window at run time. The Timer and the ImageList count as windowed: Send
+  to Back went past both.
+- **Nothing else moves.** Each step changed only Command1's place. `picAddress`'s own blocks were untouched.
+
+**What HexIDE did:** a carried block kept the place it was read at, so the added button went in after the toolbar and
+the WebBrowser, and the ImageList, read fifth, was written ahead of `picAddress`, a control nobody had moved. Send to
+Back and Bring to Front moved a control past the modelled controls only.
+
+**In HexIDE (#1498):** each control in the designer counts the carried controls in its container that are stacked under
+it, read from the file on load. A control added, pasted or brought to front goes over all of them, and one sent to back
+under them. A save turns the counts back into where each carried block goes, through the same placement the writer
+uses, so a form loaded and saved untouched comes back byte for byte.
+
+**Inferred, not measured:** a carried block VB6 wrote after a Label is taken to be windowless, since VB6 writes every
+windowed block first. A windowed control sent to back stays over such a block, and a Label sent to back goes under it.
+No corpus file has a carried block after a windowless one.
 
 ## Static (2026-10-23, #1491)
 
@@ -15324,6 +15366,31 @@ was `Private` already, but ended at `End Sub` with no line break, its line break
 its `Attribute` block, as VB6's is. Both ways of adding an event procedure now write it as the table shows: `Private`, in
 the file's line breaks, at the end, one blank line below any code, with the caret on the blank line inside.
 
+**Add User Control and Add Property Page** (#1538). The same rig, with the Project menu's Add User Control (`u`) and
+Add Property Page (`p`), Enter on the dialog's default, then Ctrl+S and Enter. Each file ends at
+`Attribute VB_Exposed = False` and its CRLF, with no code:
+
+| | UserControl1.ctl | PropertyPage1.pag |
+|---|---|---|
+| `Caption` | none | `"PropertyPage1"` |
+| `ClientHeight` × `ClientWidth` | 3600 × 4800 | 3600 × 4800 |
+| `ClientLeft`, `ClientTop` | 0, 0 | 0, 0 |
+| other properties | none | `PaletteMode = 0 'Halftone` |
+| `VB_Creatable` | **True** | False |
+| `VB_PredeclaredId` | **False** | False |
+| `VB_GlobalNameSpace`, `VB_Exposed` | False, False | False, False |
+
+- **Neither has a border**, so its client area is VB6's 4800 × 3600 window itself, at 0, 0. These are constants, where a
+  form's are its machine's.
+- **A UserControl has no `Caption`.** HexIDE's had one, from the form constructor it shared.
+- **The `Attribute` block is not a form's.** A UserControl is creatable and neither has a default instance. HexIDE wrote
+  `VB_Name` alone for both.
+- Not measured: an ActiveX Control project, where `VB_Exposed` may be True.
+
+**In HexIDE (#1538):** `FormDefinition.NewForm` takes VB6's 4560 × 3015 client area at 120, 465, and its `LinkTopic`, which
+HexIDE does not model and keeps as a loaded form's raw line. `ModuleDefinition.NewDesigner` makes a new UserControl or
+PropertyPage as the table shows, its `PaletteMode` kept the same way. Each new file is now VB6's byte for byte.
+
 ## Write # and Input # (2026-10-23, #1521)
 
 Measured with `/make` in ten batches, native and p-code identical on every row. All of them are run-time results of
@@ -15684,6 +15751,179 @@ Measured on vb6.exe, native and p-code identical, under en-GB. Each program `CVa
 
 A copy of an array is made where the result is stored, as for any Let of an array (#970).
 
+## Filesystem (#1561) — vb6.exe 6.00.8176 (original release), MSVBVM60 6.00.9848 (SP6-level)
+
+All rows are run-time results of `/make` EXEs (#1524).
+
+**Native and p-code agree on every row**, so each one below holds for both. Every row is a run-time result from a compiled EXE run in session 0 in the oracle guest, on NTFS. Each operation ran under `On Error Resume Next`, and its `Err.Number` and `Err.Description` were logged.
+
+### The fixture
+
+The probe made `App.Path\fx` itself with `MkDir`. Inside it:
+- `a.txt` holds 3 bytes and `b.txt` 2. The other files hold a byte or two each: `c.htm`, `d.html`, `x.tmp`, `y.tmp`.
+- `h.txt` is set `vbHidden`, `r.txt` `vbReadOnly` and `s.txt` `vbSystem`.
+- The directories are `sub`, which holds `in.txt`, and `empty`.
+
+A file "open" below means open in the same program.
+
+### CurDir
+
+| Call | Result |
+|---|---|
+| `CurDir` | String, equal to `App.Path` (the process's working directory). `CurDir$` is String too |
+| `CurDir("C")`, `CurDir("c")`, `CurDir("C:\Windows")` | `C:\…`: only the first character counts, in either case |
+| `CurDir("")` | the same as `CurDir` |
+| `CurDir("Q")`, a drive that doesn't exist | **68** Device unavailable |
+| `CurDir("1")` | **5** Invalid procedure call or argument |
+
+### MkDir and RmDir
+
+| Call | Result |
+|---|---|
+| `MkDir` a new directory | made |
+| `MkDir base & "\slash\"`, with a trailing backslash | made |
+| `MkDir` an existing directory | **75** Path/File access error |
+| `MkDir` onto an existing file | **75** |
+| `MkDir` with a missing parent | **76** Path not found. No intermediate directories are made |
+| `MkDir ""` | **76** |
+| `RmDir` an empty directory | removed |
+| `RmDir` a directory that isn't empty | **75** |
+| `RmDir` a missing directory | **76** |
+| `RmDir` a file | **76** |
+| `RmDir base & "\w*"`, with a wildcard | **76**, and the directory survives |
+| `RmDir ""` | **76** |
+
+### FileLen, FileDateTime and GetAttr
+
+| Call | Result |
+|---|---|
+| `FileLen("a.txt")` | Long 3 |
+| `FileLen` of a hidden file | Long 1: hidden files are not skipped |
+| `FileLen` of a directory | Long 0 |
+| `FileLen` of a missing file, or of `""` | **53** File not found |
+| `FileLen` with a wildcard | **52** Bad file name or number |
+| `FileLen` of a file open for Output with 5 bytes `Print`ed, before `Close` | Long **0**: what is on disk, not what is buffered |
+| … after `Close` | Long 5 |
+| `FileDateTime(file)` | **Date**, whole seconds, today's date |
+| `FileDateTime` of a directory | Date |
+| `FileDateTime` of a missing file | **53** |
+| `FileDateTime` with a wildcard | **52** |
+| `GetAttr` of a normal file just written | Long **32** (`vbArchive`) |
+| `GetAttr` of a directory | Long 16 |
+| `GetAttr` of `sub\`, with a trailing backslash | Long 16 |
+| `GetAttr` of hidden, read-only and system files | Long 2, 1 and 4. `SetAttr` replaces the whole set, so Archive is gone |
+| `GetAttr("C:\")` | Long 22 (Directory, System and Hidden) |
+| `GetAttr` of a missing file, or of `""` | **53** |
+| `GetAttr` with a wildcard | **52** |
+
+### SetAttr
+
+| Call | Result |
+|---|---|
+| `SetAttr f, vbNormal`, then `GetAttr` | 0 |
+| `vbArchive` | 32 |
+| `vbReadOnly Or vbHidden Or vbSystem Or vbArchive` | 39 |
+| `SetAttr` back to `vbNormal` | 0 |
+| `SetAttr f, vbDirectory` or `vbVolume` | **5** |
+| `SetAttr` a directory to `vbHidden` | `GetAttr` gives 18: the Directory bit is kept |
+| … then to `vbNormal` | 16 |
+| `SetAttr` a missing file | **53** |
+| `SetAttr` with a wildcard | **52** |
+| `SetAttr` a file open for **Append** | **55** File already open |
+| `SetAttr` a file open for **Input** | allowed |
+
+### FileCopy
+
+| Call | Result |
+|---|---|
+| `FileCopy a.txt, e.txt` | copied, length 3 |
+| onto an existing file | overwritten |
+| onto a read-only target | **75** |
+| onto a **hidden** target | **75** |
+| from a read-only source | the copy is **32**: the attributes are not copied, and the copy gets Archive |
+| from a missing source | **53** |
+| into a missing directory | **76** |
+| onto a directory, or from a directory | **75** |
+| onto itself | **70** Permission denied |
+| with a wildcard in the source | **52** |
+| from a file open for **Output** | **55** |
+| onto a file open for Output | **55** |
+| from a file open for **Input** | allowed |
+
+### Name … As …
+
+| Call | Result |
+|---|---|
+| `Name e.txt As f.txt` | renamed |
+| onto an existing file | **58** File already exists |
+| from a missing file | **53** |
+| onto itself | no error |
+| `f.txt As F.TXT` | renamed: `Dir` then lists `F.TXT` |
+| a directory | renamed |
+| into another directory | moved |
+| into a **missing** directory | **53**, not 76 |
+| with a wildcard | **52** |
+| a file open for Input | **55** |
+| a read-only file | renamed |
+
+### Kill
+
+| Call | Result |
+|---|---|
+| a file | deleted |
+| a missing file, or `""` | **53** |
+| `*.tmp`, matching 2 files | both deleted |
+| `*.zzz`, matching nothing | **53** |
+| `q?.dat` | both deleted |
+| a **read-only** file | **75** |
+| a **hidden** file, or a **system** file | **53**: `Kill` does not see them |
+| `*.log` matching a hidden and a normal file | the normal one deleted, the hidden one kept, no error |
+| a directory | **53** |
+| a file open for Input | **55** |
+
+### Dir
+
+| Call | Result |
+|---|---|
+| `Dir()` before any `Dir(pattern)` | **5** Invalid procedure call or argument |
+| `Dir()` after a listing has returned `""` | **5** |
+| `Dir("*.txt")` | read-only files included, hidden and system left out. Order: `a,b,i,ko,n,n2,r,w,w2` |
+| `Dir(p, 0)` | the same as `vbNormal` |
+| `Dir(p, vbHidden)` | adds hidden files |
+| `Dir(p, vbSystem)` | adds system files |
+| `Dir(p, vbReadOnly)` | the same as `vbNormal` |
+| `Dir(base & "\*", vbDirectory)` | `.`, `..`, then files and directories together, in name order |
+| `Dir("*.htm")` | **`c.htm` and `d.html`**: the extension matches through the 8.3 short name |
+| `Dir("?.txt")` | one-character names only |
+| `Dir("A.TXT")` | `a.txt`: no case, and the name comes back as stored |
+| `Dir` and `Dir$` | both String |
+| `Dir(base, vbDirectory)` | `fx`, the directory's own name |
+| `Dir(base)`, with no `vbDirectory` | `""` |
+| `Dir(base & "\")` | the first file, `a.txt` |
+| `Dir(base & "\", vbDirectory)` | `.` |
+| no match, or a missing directory | `""`, not an error |
+| `Dir("")` | the first file in `CurDir`. Here that is `err.log`, the `/make` log |
+| `Dir("fx\a.txt")` | resolves against `CurDir` |
+| `Dir("C:\", vbVolume)` | `""` here, but the guest's volume has no label, so this decides nothing |
+| `Dir(base & "\*", vbVolume Or vbDirectory)` | `.`: with another bit, `vbVolume` acts as `vbDirectory` |
+| attribute 1024, or -1 | **5** |
+| `Dir(Null)` | **13** Type mismatch |
+| `Dir("*.txt")`, then `Dir("*.htm")`, then `Dir()` | `d.html`: a new pattern restarts the listing |
+| the listing's file `Kill`ed mid-listing, then `Dir()` | carries on to the next file |
+
+### Deliberate host divergences
+
+| Case | HexIDE behaviour |
+|---|---|
+| `*.htm` | Matches long names only: `c.htm`, not `d.html`; NTFS 8.3 aliases are not consulted. |
+| Unix hidden/system | Uses .NET `File.GetAttributes`: leading-dot names are Hidden, System is never reported. `GetAttr` reports those host bits; `Kill` skips dot-files, and `Dir` excludes them unless vbHidden is supplied. |
+| Unix `SetAttr` | Sets attributes the host can hold and drops unsupported bits. Hidden cannot be set or removed by this call (it follows the name); System and Archive are dropped. ReadOnly follows host permissions. |
+| Name order | `StringComparer.OrdinalIgnoreCase` on every host. |
+| Current directory | Shared with `Open`: project folder initially, then the interpreter-local directory selected by `ChDir`; backslashes become host separators on Unix. Drive-specific `CurDir` is unavailable on Unix (68). |
+| Root attributes | `GetAttr` reports host attributes, so roots need not have the oracle guest's Hidden/System bits. |
+
+Named arguments to the five new intrinsics were not measured by this probe and remain explicitly refused pending a probe. An unsaved project still has no initial folder; relative paths and `CurDir` are refused until `ChDir` selects an absolute directory, as with `Open`.
+
 ## What ZOrder does at run time (2026-10-23, #1503, p-code, IDE, release build)
 
 **The question.** Where `ZOrder` moves a control, and whether it can move one across the windowless plane that "How a
@@ -15842,6 +16082,341 @@ to.
   Timer. A missing error, filed as #1563.
 
 **Not measured:** `Controls` on a UserControl, and on a form while its Initialize runs.
+
+## GotFocus and LostFocus on each control, and Enabled saved False (2026-10-23, #1101)
+
+**The question.** "SetFocus" measured the TextBox. Do the other focusable controls raise GotFocus and LostFocus the same
+way? Does a ListBox or ComboBox, whose items or edit box take the focus themselves, raise one GotFocus or several? And
+what does a Form or a UserControl saved with `Enabled = 0 'False` do when it runs?
+
+**The probe.** A compiled form, native and p-code, run on the oracle guest's console session through the agent, as
+"SetFocus" was. Form1 holds a TextBox, two CheckBoxes, two OptionButtons, two ListBoxes, a ComboBox of each Style (0
+Dropdown Combo, 2 Dropdown List, 1 Simple Combo), an HScrollBar, a VScrollBar, an empty PictureBox, a PictureBox holding a
+TextBox `Text2`, and a Timer. Every control's GotFocus and LostFocus log its name and `Screen.ActiveControl`, and so do
+the option buttons', ListBoxes' and ComboBoxes' Click and the ComboBoxes' DropDown. The Timer takes one step each 300 ms:
+- `SetFocus` to each control in turn, logging `Err.Number` and the active control straight after the call;
+- `List1.ListIndex = 1`, then the Down key, with List1 focused;
+- Alt+Down and then Esc on Combo1;
+- the Tab key, 18 times, from Text1;
+- `Load` Form2, saved disabled, then `Show` it and `DoEvents`, logging its `Enabled`, `IsWindowEnabled` of its `hWnd` and
+  `Screen.ActiveForm`;
+- `Load` and `Show` Form3, which holds `Gauge1`, a UserControl whose `.ctl` saves `Enabled = 0 'False`.
+
+Native and p-code logged the same 135 lines, line for line.
+
+**Each control:**
+- **Every one raises GotFocus and LostFocus, in the order and at the time the TextBox does.** That holds for the CheckBox,
+  OptionButton, ListBox, each ComboBox Style, both scroll bars and both PictureBoxes. The old control's LostFocus comes
+  first, then the new one's GotFocus, both after the handler that called SetFocus, and `Screen.ActiveControl` names the
+  new control at once.
+- **An OptionButton that takes the focus is selected,** and raises Click after its GotFocus:
+  `Option1_GotFocus`, `Option1_Click`, and then `Option1.Value` is True. That is Windows' automatic radio button, which
+  checks itself as it is focused. Tab skips the option that isn't selected: from Check2 it went to Option2, the
+  selected one, and raised no Click.
+- **A ListBox's selection moved by code or by a key** raises Click and no focus event. `List1.ListIndex = 1` raised
+  `List1_Click` inside the statement. The Down key raised it again, and `ListIndex` was 2.
+- **A ComboBox dropped down with Alt+Down** raised DropDown and no focus event. Esc raised nothing.
+- **A PictureBox takes the focus whether or not it holds a control.** Tab went from the empty Picture1 to Picture2,
+  then into Picture2's Text2: `Picture2_LostFocus`, `Text2_GotFocus`. A control inside a container is its own.
+- **The Tab order** was Text1, Check1, Check2, Option2, List1, List2, Combo1, Combo2, Combo3, HScroll1, VScroll1,
+  Picture1, Picture2, Text2, and round to Text1.
+
+**Enabled saved False:**
+- **A form:** `Form2.Enabled` read False when loaded and when shown, and `IsWindowEnabled` was 0 both times. Shown, it
+  did not become the active form. `Screen.ActiveForm` stayed Form1, and Form1's List1 kept the focus, raising no
+  LostFocus. Showing Form3 straight after did take it: `List1_LostFocus` with no active control.
+- **A UserControl:** `UserControl.Enabled` read False in `UserControl_Show`, and its window was disabled.
+- **`Form3.Gauge1.Enabled` doesn't compile:** "Method or data member not found". A placed UserControl has no Enabled
+  unless its author declares one. The probe reads `UserControl.Enabled` through a `Public Property Get` instead.
+
+**Measured and not explained:** the probe's last line was `disabled err 91`. The `Err.Number` was read in the procedure
+that loaded and showed Form3. That procedure's own statements raised nothing that was logged. The likeliest source is
+`List1_LostFocus`, which `DoEvents` ran inside it, and whose `Screen.ActiveControl` read had nothing to name. That an
+error handled in an event procedure leaves `Err` set in the procedure whose `DoEvents` ran it is a guess. It wasn't
+measured.
+
+**Not measured:**
+- a click on a ListBox item or into a ComboBox's edit box, rather than SetFocus and Tab;
+- `Enabled` set False at run time on a form or a UserControl;
+- a disabled form shown modally, or shown as the startup form.
+
+### In HexIDE (#1101)
+
+- **The CheckBox, OptionButton, ListBox, ComboBox, both scroll bars and the PictureBox raise GotFocus and LostFocus.**
+  They didn't. Only the TextBox and the CommandButton did.
+- **Focus moving within one control raises nothing.** Before, the check was on the routed event's source. It is now
+  on where the focus went from and to, by the walk that gives a pointer event its control. So a ListBox's item or a
+  ComboBox's edit box taking the focus is still the ListBox's or ComboBox's. A control inside a PictureBox is its own.
+- **The ListBox, the scroll bars and the PictureBox take the focus.** They weren't focusable, so SetFocus on one was
+  refused as not implemented.
+- **An OptionButton that takes the focus is selected**, raising its Click after its GotFocus. A press selects it as
+  it did, with Click after MouseDown (#974), and the Tab key doesn't select it; see below.
+- **A form or a UserControl saved disabled runs disabled.** The form's designer half, which a UserControl's shares,
+  now declares Enabled, so the saved line is no longer dropped. A disabled form is shown without being activated.
+- **Not followed: the Tab key's stop at an option button that isn't selected** (#1583). A headless check of the same
+  form tabbed through Option1 as well as Option2. Otherwise it took the order above. So the Tab key doesn't select an
+  option that takes the focus, as `SetFocus` does. Where VB6's Tab never lands, selecting would change the user's
+  choice as they tabbed past.
+
+## Conditional compilation (2026-10-23, #1112)
+
+Five `/make` batches, about 160 projects, every one built native and p-code. **The two agreed on every row.** A row that
+printed is a built EXE's own log, on SP6's MSVBVM60. A compile error came from the oracle's release-build compiler (#1524),
+and is quoted as `/make` wrote it. Every `#If` row was the shape below, so a printed `true` or `false` is which branch was
+compiled:
+
+```vb
+#If <condition> Then
+    L "<condition>: true"
+#Else
+    L "<condition>: false"
+#End If
+```
+
+A shape that might not compile was a project of its own, since one compile error stops the build.
+
+### What is a directive
+
+| line | vb6.exe |
+|---|---|
+| `#If 1 Then`, `#ElseIf 1 Then`, `#Else`, `#End If` | directives |
+| `#EndIf`, one word | a directive |
+| indented, as `    #If 1 Then` | a directive |
+| `#If 1 Then ' a comment` | a directive |
+| `#If 1 _` then `And 1 Then` on the next line | one directive, continued |
+| `#Const LC = _` then `1` on the next line | one directive, continued |
+| `#Const W = 1 ' a comment` | a directive |
+| `#If 1` with no `Then`, then `#End If` | not a directive: "An # ElseIf, # Else, or # EndIf must be preceded by an # If clause", at the `#End If` |
+| `#If 1 Then L "x"`, and `#If 1 Then: L "x"` | not a directive: the same error, at the `#End If` |
+| `10 #If 1 Then`, behind a line label | not a directive: the same error |
+| `#ElseIf 1` with no `Then`, inside `#If 0` | not a directive: skipped as inactive text, so its branch never runs |
+| `#Else whatever`, and `#Else If 1 Then`, inside an inactive branch | not a directive: skipped |
+| `#Else If 0 Then` after an active branch | not a directive, so it is code: "Syntax error" |
+| `#If (( Then` | not a directive: the stray-`#End If` error |
+| `#If (( Then` nested inside `#If 0` | not a directive: its `#End If` closes the outer `#If`, and the outer's is then stray |
+| `#ElseIf (( Then` after an active branch | not a directive, so it is code: "Syntax error" |
+| `#Const NV`, no `=` | "Expected: =", as code |
+| `#Const Z = ((` inside `#If 0` | builds: not a directive, and inactive |
+| `' a comment _`, then `#If 0 Then` | the comment goes on to the next line, so the `#If` is part of it, and the code after runs |
+
+So a line is a directive only when it is well formed: `#If e Then`, `#ElseIf e Then`, `#Else`, `#End If` or `#EndIf`, or
+`#Const name = e`, indented or not, with nothing after but a comment. Any other `#` line is code, a syntax error where it is
+active, and skipped where it is not.
+
+### Inactive code is never parsed
+
+| program | vb6.exe |
+|---|---|
+| `this is not valid vb ((` inside `#If 0`, at module level or in a procedure | builds |
+| `#If VBA7 Then` / `Private Declare PtrSafe Function ...` / `#Else` / the same without `PtrSafe` | builds |
+| an inactive `Declare`, `Dim` or garbage after the last `End Sub` | builds: no "Only comments may appear after End Sub" |
+| `#If 1` / `Private Sub F(ByVal x As Integer)` / `#Else` / `Private Sub F()` / `#End If`, then one body | builds and runs the first |
+| a whole procedure, `Both`, defined in each branch | the active one runs |
+| `Private Const KX = 1` and `= 2` in the two branches | `KX` is 1 |
+
+### Every directive is evaluated, active or not
+
+The guess was that a nested `#If` inside an inactive branch is skipped with the rest. **It is not.**
+
+| program | vb6.exe |
+|---|---|
+| `#If 0` / `#If Chr(65) = "A" Then` / `#End If` / `#End If` | "Variable not defined", at the nested `#If` |
+| `#If 0` / `#If 1` / `#ElseIf 1 / 0 Then` / ... | "Division by zero" |
+| `#If 1` / ... / `#ElseIf 1 / 0 Then`, after the taken branch | "Division by zero" |
+| `#If 1` / ... / `#ElseIf Chr(65) = "A" Then`, after the taken branch | "Variable not defined" |
+| `#If 0` / `#If 1 Then` / `#End If`, with the outer never closed | "You must terminate the # If block with an # EndIf" |
+
+### `#Const` takes no notice of `#If`
+
+The guess was that a `#Const` in an inactive branch defines nothing. **It defines its constant all the same.**
+
+| program | vb6.exe |
+|---|---|
+| `#If 0` / `#Const Z = 1` / `#End If`, then `#If Z` | true |
+| `#Const Y = 1`, then `#If 0` / `#Const Y = 2` / `#End If` | "Duplicate definition" |
+| `#If 0` / `#Const Z = Chr(65)` / `#End If` | "Variable not defined" |
+| `#Const A = 1` then `#Const A = 2` | "Duplicate definition" |
+| `#Const Q = 1` inside `Sub Main`, then `#Const Q = 2` at module level | "Duplicate definition" |
+| `#If LATE` before `#Const LATE = 1`, and after | false, then true: a `#Const` holds from its line on |
+| `#Const P = 1` inside `Sub Main`, read in `Sub Other` below it | true: across procedures |
+| Module1's `#Const A = 1`, read in Module2 | false: the module's alone |
+| `#Const R = R + 1` | `R` is 1: the right side reads `R` before it is defined |
+| `#Const ARG = ARG + 1`, with `CondComp="ARG = 5"` | `ARG` is 6 |
+| `#Const Win32 = 0` | `Win32` false: a built-in may be shadowed |
+| `#Const ARG = 7`, with `CondComp="ARG = 5"` | `ARG = 7` true, `ARG = 5` false |
+| Module2's `#Const Q = 9`, with `CondComp="Q = 4"` | 4 in Module1, 9 in Module2 |
+| `#Const SC = "a" & 1` | `SC = "a1"` true |
+| `#Const K = v`, with `Dim v As Integer` | `K = 0` true: a variable is an undefined name to a directive |
+| `#Const BIG = 32767 * 2` | "Overflow" |
+
+### What a name is
+
+| condition | vb6.exe |
+|---|---|
+| `Foo`, `Not Foo`, `Foo = 0` | false, true, true |
+| `CStr(Foo) = "0"`, `CStr(Foo) = ""` | true, false: an undefined name is 0, not Empty |
+| `Abs(Foo) = 0`, `Foo + 1 = 1`, `Foo & "x" = "0x"` | true, true, true |
+| `Len(Foo) = 0` | false |
+| `Empty`, `Empty = 0`, `Empty = ""`, `CStr(Empty) = ""` | false, true, true, true: `Empty` is Empty |
+| `a = 1`, with `#Const A = 1` | true: names in any case |
+| `Const KK = 3`, then `#If KK = 3` | false: an ordinary `Const` is undefined to a directive |
+| `Win16`, `Win32`, `Not Win32`, `Not Win16` | false, true, **true**, true: `Not` is bitwise, so `Not 1` is -2 |
+| `Win32 = 1`, `Win32 = -1`, `Win32 = True` | true, false, false |
+| `VBA6`, `VBA7`, `Win64`, `Mac`, `Not Win64` | false, false, false, false, true: not defined under VB6 |
+| `CBool(Win32)`, `Not CBool(Win16)` | true, true: a constant through `CBool` first gives `Not` a Boolean to work on |
+
+### The project's arguments
+
+`CondComp` is the `.vbp` line Project Properties' Make tab writes.
+
+| `CondComp` | vb6.exe |
+|---|---|
+| `ARG = 5 : FLAG = 1` | `ARG = 5`, `FLAG`, and `ARG = "5"` true; Module2 reads `ARG` too |
+| `A=1:B=2` | builds: the spaces are optional |
+| `X = +1` | `X = 1` |
+| `x = 3` | `X` is 3: names in any case |
+| `NEG = -1`, `M = 32767`, `N = -32768`, `ZERO = 0` | as written |
+| `Win32 = 0` | `Win32` false: an argument may shadow a built-in |
+| `VBA7 = 1` | `VBA7` true |
+| `""`, empty | no arguments |
+| `BIG = 70000`, `X = 32768`, `X = -32769` | refused |
+| `HEX = &H10`, `T = True`, `DD = 1.5`, `SARG = ""x""` | refused |
+| `X = 1 : X = 2`, `X =`, `X = 1; Y = 2`, `X = 1 :` | refused |
+
+A refusal is "Invalid syntax for constant declarations", then "One or more of the properties in 'probe.vbp' was bad. Some or
+all of the properties might not be set correctly.", and `/make` built nothing.
+
+**IDE, release build** (#1524). The same project, `CondComp="ARG = 70000"`, opened in the oracle's IDE in the guest's console
+session, beside a control with `CondComp="ARG = 5"`. The module logged `ARG` and then `ran`:
+
+| run | VB6's IDE |
+|---|---|
+| the control, `VB6.EXE /runexit probe.vbp` | ran: `ARG: true`, `ran`, and VB6 closed |
+| `VB6.EXE /runexit probe.vbp` | opened the project, titled "Probe - Microsoft Visual Basic [design]", behind a message box: "Invalid syntax for constant declarations", with OK and Help |
+| ... OK | a second: "One or more of the properties in 'C:\...\probe.vbp' was bad. Some or all of the properties might not be set correctly." |
+| ... OK | VB6 closed, and the program never ran: no log at all |
+| `VB6.EXE probe.vbp`, both boxes dismissed, then F5 sent | no log either, and the IDE stayed in design. That F5 reached the IDE is not established, so this row decides nothing |
+
+So the IDE opens the project and says so twice, and `/runexit` then runs nothing: what HexIDE does, refusing to run with the
+first message, is the measured `/runexit` answer. Whether F5 afterwards runs with the arguments dropped is still open.
+
+### Values and operators
+
+Constants, an argument or a built-in or a `#Const`, are Variants. Literals are typed, as in running code.
+
+| condition | vb6.exe |
+|---|---|
+| `1 + 1 = 2`, `5 \ 2 = 2`, `7 Mod 3 = 1`, `2 ^ 3 = 8`, `7 / 2 = 3.5` | true |
+| `-1`, `0`, `0.4` | true, false, true: any number but 0 holds |
+| `1 And 2`, `1 Or 2`, `3 Xor 3`, `1 Eqv 1`, `0 Imp 0` | false, true, false, true, true: bitwise |
+| `Not 0`, `Not 1`, `Not -1` | true, true, false |
+| `True`, `False`, `True = -1`, `True + True = -2` | true, false, true, true |
+| `-2 ^ 2 = 4` | **false**: `^` binds tighter than the minus, so it is -4 |
+| `7 \ 2 * 2 = 1`, `2 + 3 * 4 = 14`, `10 - 2 - 3 = 5` | true |
+| `2.5 \ 1 = 2`, `3.5 \ 1 = 4`, `-7 Mod 3 = -1` | true: banker's rounding |
+| `Not 1 = 2`, `(Not 1) = -2`, `1 < 2 = True`, `1 = 1 = True` | true: `Not` binds below the comparisons |
+| `&H10 = 16`, `1.5 = 1.5`, `#1/2/2000# > #1/1/2000#`, `#1/1/2000# < 40000` | true |
+| `"1" + 1 = 2`, `"1" & 1 = "11"` | true |
+| `32767 + 1 > 0`, `2147483647 + 1 > 0` | "Overflow": typed |
+| `M + 1 = 32768`, `M * 2 = 65534`, with `#Const M = 32767` | true: a Variant widens |
+| `ML + 1 = 2147483648#`, with `#Const ML = 2147483647` | true |
+| `1 / 0` | "Division by zero" |
+| `1 Is 1` | "Type mismatch" |
+
+### Comparison
+
+Strings compare as text, whatever `Option Compare` says, `Like` included:
+
+| condition | vb6.exe |
+|---|---|
+| `"a" = "A"`, `"B" > "a"`, `"a" < "B"`, `"10" < "9"` | true |
+| `"Z" < "a"`, under Binary and under `Option Compare Text` | false |
+| `"ABC" Like "a*"`, `"abc" Like "a*"` | true |
+| `SA = "A"`, `SA < "B"`, with `#Const SA = "a"` | true |
+
+A String against a number depends on which side is the Variant. With `#Const N5 = 5`, `#Const S5 = "5"`, `#Const SA = "a"`
+and `#Const S10 = "10"`:
+
+| condition | vb6.exe | so |
+|---|---|---|
+| `5 < "10"`, `"5" = 5`, `1 = "1.0"`, `1 = " 1"` | true | typed against typed: the String read as a number |
+| `0 = ""`, `0 = "a"`, `0 < "a"`, `"abc" > 5` | "Type mismatch" | ... and Type mismatch where it is not one |
+| `#1/1/2000# = "1/1/2000"` | true | ... or as a date beside a Date |
+| `N5 < "10"`, `N5 = "5.0"` | false | a Variant number against a typed String: as text |
+| `Foo = ""`, `Foo < ""`, `Foo > ""` | false, false, true | ... "0" against "" |
+| `Win32 = "1"`, `ARG = "5"` | true | ... |
+| `S5 = 5`, `S5 < 10`, `S10 > 9`, `S5 = 5.0` | true | a Variant String against a typed number: as numbers where it reads as one |
+| `SA = 5`, `5 < SA`, `SA > 5` | false, true, true | ... and the number first where it does not, with no error |
+| `N5 = S5`, `N5 < S5`, `N5 > SA` | false, true, false | Variant against Variant: the number first, whatever the String |
+| `N5 + S5 = 10`, `N5 & S5 = "55"`, `S5 + 1 = 6`, `Not S5 = -6` | true | arithmetic reads the String as a number |
+| `SA + 1` | "Type mismatch" | |
+
+That is the language reference's rule except in one place: it has a typed number against a Variant String that does not
+read as a number be Type mismatch, and here it is the number first, with no error.
+
+### Functions
+
+| called | vb6.exe |
+|---|---|
+| `Int(2.5) = 2`, `Fix(-2.5) = -2`, `Abs(-1) = 1`, `Sgn(-5) = -1`, `Int(Win32) = 1` | true |
+| `Len("abc") = 3`, `LenB("ab") = 4` | true |
+| `CBool`, `CByte(200)`, `CCur(1.5)`, `CDate(1) = #12/31/1899#`, `CDbl`, `CInt("5")`, `CLng(70000)`, `CSng(1.5)`, `CStr(5) = "5"`, `CVar(5)` | each true |
+| `CInt(2.5) = 2` | true: banker's rounding |
+| `Len(5)` | "Variable required - can't assign to this expression", as in code |
+| `CVErr(5) = 5` | "Type mismatch": CVErr is accepted, and an Error is no number |
+| `CDec`, `Asc`, `Chr`, `Left`, `UCase`, `Val`, `IIf`, `Hex`, `Str`, `Sqr`, `Round`, `VarType`, `TypeName`, `Year(Now)` | "Variable not defined" |
+| a user's `Function MyF()` | "Variable not defined" |
+
+So a directive may call `Int`, `Fix`, `Abs`, `Sgn`, `Len`, `LenB`, `CBool`, `CByte`, `CCur`, `CDate`, `CDbl`, `CInt`, `CLng`,
+`CSng`, `CStr`, `CVar` and `CVErr`, and nothing else. `CDec` is the one conversion missing.
+
+### The condition
+
+| condition | vb6.exe |
+|---|---|
+| `"1"`, `"True"`, `#1/1/2000#` | true |
+| `"False"` | false |
+| `""`, `"abc"` | "Type mismatch" |
+| `Null` | "Invalid use of Null" |
+| `Nothing` | "Invalid use of object" |
+
+### Structure
+
+| program | vb6.exe |
+|---|---|
+| `#End If` with no `#If` | "An # ElseIf, # Else, or # EndIf must be preceded by an # If clause" |
+| `#Else` then `#ElseIf 1 Then` | "An # ElseIf must be preceded by an # If or # ElseIf and followed by an # Else or # EndIf" |
+| `#Else` twice | "An # Else clause must be preceded by an # If" |
+| an `#If` never closed | "You must terminate the # If block with an # EndIf", reported at the module's last line |
+| nesting, and `#ElseIf` after a false `#If` | the first branch that holds, and only that one |
+
+`/make` numbered each compile error from 0, counting from the line after `Attribute VB_Name`, so its number is two less
+than the file's own line number; every error row fits that. A directive error came before any syntax error elsewhere in the
+module, so the directives are processed first.
+
+### In HexIDE (#1112)
+
+- **`ConditionalCompiler.Preprocess`** applies a module's conditional compilation to its text before the parse. Every
+  directive line, and every line of an inactive branch, is made empty, so the lines keep their numbers and an inactive branch
+  is never parsed. The text is the parser's alone: the code window shows the module as written, and a save writes it
+  byte for byte (`ConditionalCompilerTests`). It also gives the inactive lines, for the code window to grey (#1113).
+- **A directive's error is a compile error as the module loads**, before anything runs, naming the module and the line. The
+  unterminated `#If` is reported at its own line rather than the module's last.
+- **The expression** is read by the interpreter's own parser and evaluated by `ConstantExpression`, with the interpreter's
+  own operators, made static to share them: the overflow, the widening and the rounding are the runtime's. Comparison and
+  the function list are its own, as above. The text comparison is HexIDE's approximation, `OrdinalIgnoreCase`, as for a
+  Collection's keys (#1479).
+- **`CompilationArguments`** reads the `.vbp`'s `CondComp`, which round-trips verbatim, and refuses what vb6.exe refuses,
+  with its message, before the program runs.
+- **Divergences:**
+  - every personality takes VB6's built-ins. VBA documents `VBA6`, `VBA7` and `Win32` as 1, and `Win64` as 1 in a 64-bit
+    host, unmeasured here, but `VBA7 = 1` would select declarations HexIDE cannot parse (#1548). That waits for #1113's
+    "view as" work;
+  - `Like` is refused, not implemented, until HexIDE has `Like` (#1547);
+  - `CVErr` is refused, not implemented: HexIDE has no `CVErr`;
+  - `-2 ^ 2` is 4 here, where it is -4, because the lexer reads the minus as part of the number, here as everywhere (#1073);
+  - a `#` line that is not a directive fails in HexIDE's parser, with its own message, where vb6.exe's is "Syntax error" or
+    "Expected: =".
 
 ## A form's Width and Height: the frame round its client area (2026-10-23, #1072)
 

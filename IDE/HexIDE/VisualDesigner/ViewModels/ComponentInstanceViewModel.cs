@@ -253,6 +253,12 @@ public partial class ComponentInstanceViewModel : ObservableObject
     public bool IsLine => instance.BaseClass is LineComponentClass;
 
 
+    /// <summary>
+    /// How many of its container's carried controls, the ones HexIDE keeps as text, are stacked under this one (#1498).
+    /// They are not on the canvas list, so its place there cannot say; a save turns this back into where their blocks go.
+    /// </summary>
+    internal int CarriedBelow { get; set; }
+
     /// <summary>How many twips one of a Line's container's units is, or twips where HexIDE cannot run that scale.</summary>
     public (double X, double Y) LineTwipsPerUnit
     {

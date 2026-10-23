@@ -892,7 +892,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
         return new MutateResult(true, null, (outcome.Stop is { } at
             ? PausedAt(at)
-            : outcome.Running ? $"Running; no pause within {RunReplyWait.TotalSeconds:0} s." : "The program ran and ended.") + RaisedNote(outcome));
+            : outcome.Running ? $"Running; no pause within {RunReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s." : "The program ran and ended.") + RaisedNote(outcome));
     }
 
 
@@ -1571,7 +1571,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
         return new MutateResult(true, null, (outcome.Stop is { } at
             ? PausedAt(at)
-            : outcome.Running ? $"Running; no pause within {RunReplyWait.TotalSeconds:0} s." : "The program ended.") + RaisedNote(outcome));
+            : outcome.Running ? $"Running; no pause within {RunReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s." : "The program ended.") + RaisedNote(outcome));
     }
 
     /// <summary>How long a step's reply waits for the pause it causes before saying the program is still going.</summary>
@@ -1660,7 +1660,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         return new MutateResult(true, null, (outcome.Stop is { } at
             ? PausedAt(at)
             : outcome.Running
-                ? $"Still running {StepReplyWait.TotalSeconds:0} s after the step began: the statement has not "
+                ? $"Still running {StepReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s after the step began: the statement has not "
                   + "finished, or the program is waiting for its next event. get_debug_state says where it breaks."
                 : "The program ended before it reached another statement.") + RaisedNote(outcome));
     }
@@ -1711,7 +1711,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         return Naming(new MutateResult(true, null, (outcome.Stop is { } at
             ? PausedAt(at)
             : outcome.Running
-                ? $"Running to {target}; not reached within {StepReplyWait.TotalSeconds:0} s. get_debug_state says when it is."
+                ? $"Running to {target}; not reached within {StepReplyWait.TotalSeconds.ToString("0", System.Globalization.CultureInfo.InvariantCulture)} s. get_debug_state says when it is."
                 : $"The program ended without reaching {target}.") + RaisedNote(outcome)), named);
     }
 

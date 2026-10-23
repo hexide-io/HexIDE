@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -102,6 +103,32 @@ public class InteractClickTests
                 .And.Contain("which is (20, 65.5) in the window");
         }
         finally { scene.Window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task A_click_reply_uses_invariant_coordinates_under_a_comma_culture()
+    {
+        var scene = Build();
+        var originalCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+            scene.Pad.Width = 180;
+            scene.Window.UpdateLayout();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+
+            var outcome = await UiAutomationDriver.FinishAsync(UiAutomationDriver.Interact(scene.Pad, "click", "150.5,20"));
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Detail.Should().Contain("(150.5, 20)").And.Contain("(160.5, 80)")
+                .And.NotContain("150,5");
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+            scene.Window.Close();
+        }
     }
 
     [AvaloniaFact]

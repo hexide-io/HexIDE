@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Antlr4.Runtime;
 using HexIDE.IDE;
+using HexIDE.Runtime.Interpreter.ConditionalCompilation;
 
 namespace HexIDE.Runtime.Interpreter;
 
@@ -478,9 +479,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         IReadOnlyList<(string Name, string Code)>? additionalModules = null,
         IReadOnlyList<(string Name, string Code)>? classModules = null,
         InterpreterModuleKind primaryKind = InterpreterModuleKind.Standard,
-        IReadOnlyList<(string Name, string Code)>? formModules = null)
+        IReadOnlyList<(string Name, string Code)>? formModules = null,
+        CompilationConstants? compilationConstants = null)
     {
         ExecutionContext = executionContext;
+        this.compilationConstants = compilationConstants ?? CompilationConstants.Vb6;
         BuiltIns = new VB6BuiltIns(stdLib)
         {
             AppTitle = () => App.TitleOrNull,
@@ -580,10 +583,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// <see cref="SeedProgramGlobal"/>), so runtime error traps and user <c>Err.Number</c> reads see one state.</summary>
     public readonly VbErr Err = new();
 
+    // What a module's #If can name besides its own #Consts: the project's arguments and the built-ins (#1112).
+    private readonly CompilationConstants compilationConstants;
+
+    // Each module's conditional compilation is applied before it is parsed, so an inactive branch is never parsed, as in
+    // vb6.exe, and a directive's error stops the program as it loads (#1112). The text is the parser's alone: the code
+    // window and every save keep the module as written.
     private ModuleInfo BuildModule(string name, InterpreterModuleKind kind, string moduleCode, ExecutionEnvironment env)
     {
         var pp = new PrePass(env, ExecutionContext.State);
-        pp.Visit(Parse(moduleCode, name));
+        pp.Visit(Parse(ConditionalCompiler.Preprocess(moduleCode, compilationConstants, name).Text, name));
         return new ModuleInfo(name, kind, pp, env);
     }
 
