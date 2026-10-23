@@ -2269,9 +2269,28 @@ public static class UiAutomationDriver
             try { coerced = Coerce(raw, prop.PropertyType); }
             catch (Exception ex) { return ReflectErr($"cannot convert '{raw}' to {prop.PropertyType.Name} for '{name}': {ex.Message}"); }
             prop.SetValue(dc, coerced);
-            return new InteractOutcome(true, "reflection", $"set {dc.GetType().Name}.{name} = {raw}", null);
+            // The view can reject a caret offset without correcting its view model (#1326).
+            var now = name == "CaretOffset"
+                && dc is HexIDE.Forms.ViewModels.ISearchableDocument
+                ? FindTextSurface(control) switch
+                {
+                    TextEditor editor => editor.CaretOffset.ToString(CultureInfo.InvariantCulture),
+                    TextArea area => area.Caret.Offset.ToString(CultureInfo.InvariantCulture),
+                    _ => null,
+                }
+                : ReadValue(dc, prop);
+            var member = $"{dc.GetType().Name}.{name}";
+            if (now is null)
+                return new InteractOutcome(true, "reflection", $"set {member}; its value could not be read back", null);
+            return new InteractOutcome(true, "reflection", now == raw
+                ? $"set {member} = {now}"
+                : $"set {member}: sent {raw}, now {now}", null);
         }
-        catch (Exception ex) { return ReflectErr($"set_property '{value}' threw: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            var reason = ex is TargetInvocationException { InnerException: { } inner } ? inner : ex;
+            return ReflectErr($"set_property '{value}' was refused: {reason.Message}");
+        }
     }
 
     private static object? Coerce(string raw, Type target)

@@ -236,6 +236,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP `interact set_property` reads back the value it set** (#1326), naming both sent and actual values when
+  they differ. For an editor's `CaretOffset`, it reads the editor itself, so an offset the caret never took is no
+  longer reported as set.
+
 - **MCP refuses arguments containing an unpaired UTF-16 surrogate** (#1337). The reply now names the tool and
   parameter, says the argument is not valid text and that nothing was done. It previously returned only the SDK's
   `-32603 "An error occurred."` before any tool ran.
