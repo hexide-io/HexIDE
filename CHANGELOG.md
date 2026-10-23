@@ -216,6 +216,11 @@ there isn't one yet. Anything may change between 0.x releases.
   within its plane and take a container's contents with it, and a loaded form is drawn as VB6 draws it. A pasted
   container keeps its source's stacking, where VB6 turns its contents over.
 
+- **`Debug.Assert` runs** (#1467). It stopped the program, even when its condition held. Now, in the IDE, an assertion
+  that fails enters break mode at the statement, as `Stop` does, and one that holds goes on, the condition read as `If`
+  reads it. A compiled program has no `Debug.Assert`, its argument not even evaluated, so the Make EXE runner skips it,
+  as vb6.exe's EXE does. `get_debug_state` reports the break as `Assertion`.
+
 - **ChrW and AscW run, and Chr and Asc go through the ANSI code page** (#1134). `ChrW` and `AscW` stopped the program
   as undefined. `Chr` and `Asc` ran, but in UTF-16 units, so `Chr(&H80)` was a control character where VB6 on a 1252
   machine gives "€", and `Asc("€")` was 8364 where VB6 gives 128. All four now follow vb6.exe, measured:

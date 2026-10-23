@@ -3317,6 +3317,26 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return default;
         }
 
+        // Debug.Assert (#1467). In the IDE a condition that does not hold enters break mode at the statement, as Stop does,
+        // and one that holds goes on. The condition is read as If reads it, so Null, Empty, 0 and "False" break, and "abc" is
+        // 13, which On Error traps. On Error Resume Next does not skip the break. A compiled program has no Debug.Assert at
+        // all, so headless, with no debugger, the statement is skipped and its argument is not evaluated: in an EXE,
+        // `Debug.Assert G()` never calls G, and `Debug.Assert 1 / 0` raises nothing (all measured, the IDE with /runexit).
+        if (value.Value is DebugProxy && identifier.Equals("Assert", StringComparison.OrdinalIgnoreCase))
+        {
+            // No condition, or two, does not compile (measured).
+            if (context.argsCall()?.argCall() is not [{ } condition] || context.argsCall().ChildCount != 1)
+                throw new VBCompileErrorException("Syntax error");
+            if (interpreter.DebugController is not { } dbg)
+                return default;
+            if (!await ConditionHolds(condition.valueStmt(), context))
+            {
+                currentLine = context.Start.Line;
+                await dbg.EnterBreakFromAssertionAsync(currentLine, currentModule.Name, this);
+            }
+            return default;
+        }
+
         if (value.Value is VbCollection)
         {
             await ExpressionExecutor.AsBound(value, identifier, async () =>
