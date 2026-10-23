@@ -933,3 +933,18 @@ pressed, and `Command2_Click` didn't run. The reply reads as a stacking defect i
 **Suggested fix.** When the point is outside the target's bounds, say so and give the target's size, and keep "covers
 the target there" for a point inside them. Or refuse such a point, as a point where nothing takes the pointer is
 refused. [#1530](https://github.com/hexide-io/HexIDE/issues/1530).
+
+## `invoke_menu_item` on a disabled item with a routed command blames keyboard focus
+
+**Symptom (2026-10-23, #746, Windows).** On `--newproject`, with one project and no group,
+`dump_visual_tree {"window":"ide","match":"Make Project Group","interactiveOnly":false}` showed
+`MenuItem[Make Project Group...]` with `isEnabled: false`, as VB6 greys it. `invoke_menu_item {"path":"File/Make Project
+Group..."}` answered `cannot execute where keyboard focus is now (a MenuItem named 'PART_ItemsPresenter' showing
+MainViewViewModel)`, went on about giving a document focus, and only in its last sentence said that a disabled item is
+refused the same way. The item belongs to no document, and no focus would enable it.
+
+**Workaround.** Open the menu and read the item's `isEnabled` with `dump_visual_tree` before invoking it.
+
+**Suggested fix.** When the `MenuItem` is materialised and not effectively enabled, say it is disabled in the menu, as
+the non-routed branch and the checkable-item branch already do. Keep the focus explanation for an item the menu shows
+enabled. [#1534](https://github.com/hexide-io/HexIDE/issues/1534).
