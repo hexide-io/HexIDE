@@ -272,6 +272,11 @@ there isn't one yet. Anything may change between 0.x releases.
   has all three, and says `StartUpPosition = 3 'Windows Default`. A form with no such line, as VB6 writes a Manual
   one, now runs where its file puts it rather than centred, which is how vb6.exe reads it.
 
+- **A running form stacks overlapping controls as VB6 does** (#1497). The first block in a container is drawn on top,
+  and a Label, Shape, Line or Image under every other kind of control, whatever the order. Among those, the first is on
+  top, so a Line no longer goes under every Label. A control-array element loaded at run time goes under the controls
+  already there. HexIDE drew the last block on top, so a form's overlapping controls came out upside down. The
+  designer stacks Lines the same way, so a Line in a Frame is drawn over the Frame rather than under it.
 - **The designer draws and saves controls in VB6's stacking order** (#1481). In VB6 the first `Begin` block in a
   container is the control on top, and windowless controls (Label, Shape, Line, Image) are drawn under the windowed
   ones and written after them. HexIDE drew the last block on top and wrote a new control last, so a control added here
