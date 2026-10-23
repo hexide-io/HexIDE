@@ -213,6 +213,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **An automation click outside its target says so** (#1530). When the point lands on another control,
+  `interact` now gives the target's size and names what took the press, rather than saying it covers the target.
+
 - **Ctrl+S on a new UserControl or PropertyPage saves its .ctl or .pag** (#474). From its designer or its code window,
   Ctrl+S saved the designer half as a form: it asked for a `.frm`, wrote the edit there, and left the `.ctl` the project
   names unwritten. A save from either half is now the module's save. It asks for the `.ctl` or `.pag` once, and writes
