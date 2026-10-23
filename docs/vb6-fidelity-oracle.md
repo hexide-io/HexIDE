@@ -14982,7 +14982,7 @@ form.
 rather than the compiler. A project that ends logs to its end. One that waits is in break mode or showing a dialog, and
 running it again under On Error Resume Next tells the two apart.
 
-## How a running form stacks its controls (2026-10-23, #1497)
+## How a running form stacks its controls (2026-10-23, #1497, IDE, release build)
 
 **The question.** "Where VB6's designer puts a control's block" measured windowed controls at run time, and the
 windowless plane only in the designer. It left three things open:
