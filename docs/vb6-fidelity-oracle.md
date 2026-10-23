@@ -14703,6 +14703,7 @@ table's own fallbacks, best fit among them. Both take the code page from `Vb6Tex
 
 `ExpressionExecutor`'s typed list gains `AscW`, its Variant list `ChrW` and `Str`, and its list of `$` forms that do not
 compile gains `AscW`. `DollarResult` now marks its String typed.
+
 ## The name VB6's designer gives a new control (2026-10-23, #540, design-time)
 
 **The question.** HexIDE named the first CommandButton on a form Command0, and a pasted control took its number from
