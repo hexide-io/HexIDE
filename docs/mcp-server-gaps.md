@@ -934,3 +934,21 @@ for a running form's Frame, PictureBox, Label and Image.
 
 **Suggested fix.** Count an explicitly set `AutomationProperties.Name` as the AutomationId already counts, so a view's
 author is not left to discover the override. Folded into #1436.
+
+## No tool can see a running form's frame
+
+**Symptom (2026-10-23, #1575, Windows, Debug).** A change to a running form's window, its border, caption bar and
+buttons, could not be checked through the tools. `take_snapshot(window: "B3x1")` on a running Fixed Dialog returned
+a 252 × 150 image at scale 1.5: the form's 168 × 100 client area, with no caption bar, border or buttons.
+`inspect_element(target: "Window", window: "B3x1")` returned `boundingRect [0,0,168,100]`, `providers []` and
+`dataContextMembers []`, and nothing about whether the window can be resized, its decorations, its buttons or whether
+it is a tool window.
+
+**Workaround.** From outside the IDE: `GetWindowLong` with `GWL_STYLE` and `GWL_EXSTYLE` through a PowerShell
+P/Invoke on the windows HexIDE's process owns, and a screen capture of their rectangles. Both bypass the surface a
+real caller uses.
+
+**Suggested fix.** Have `inspect_element` on a `Window` report `canResize`, `windowDecorations`, `canMinimize`,
+`canMaximize` and `showInTaskbar`, and on Windows the native style and extended style, which is what a VB6 program's
+own `GetWindowLong` reads. Give `take_snapshot` a way to capture a window with its frame, and say in the reply where
+the host cannot. [#1595](https://github.com/hexide-io/HexIDE/issues/1595).

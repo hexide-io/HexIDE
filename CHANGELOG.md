@@ -236,6 +236,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A running form has the window its file describes** (#1575). Every form ran as a sizable window with a title bar,
+  minimize and maximize buttons and a close box, whatever its BorderStyle, ControlBox, MinButton and MaxButton said. A
+  Fixed Single or Fixed Dialog form can no longer be resized by its border, a borderless form has no frame, a form
+  with ControlBox False has no close box, and the tool windows have a tool window's caption. On Windows the window is
+  given the styles vb6.exe gives it, measured for 20 combinations.
+
 - **A carried control's box is drawn in its place among the designer's controls** (#1553). The designer drew the box
   for every control it carries as text over every control it models, so a control brought in front of one was saved in
   front of it (#1498) but still drawn under its box. The boxes now stack with the controls, as VB6 stacks the control:
