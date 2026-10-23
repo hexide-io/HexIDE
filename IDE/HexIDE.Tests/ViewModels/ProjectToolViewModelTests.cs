@@ -3,6 +3,7 @@ using HexIDE.Events;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Projects;
+using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Tools;
 
@@ -287,23 +288,24 @@ public class ProjectToolViewModelTests
     }
 
     [Fact]
-    public void AddFormCommand_AddsAFormCarryingWhatVb6WritesForOne()
+    public async Task AddFormCommand_AddsTheFormAsProjectAddFormDoes()
     {
-        // The explorer's own Add Form, which adds a form with no file yet. Its first save writes what it holds, so
-        // it has to hold VB6's Attribute block and StartUpPosition = 3 as Project > Add Form's does (#516, #932).
+        // The explorer's Add Form was a second Add Form of its own: it put a form with no file into the model and
+        // opened nothing, where Project > Add Form writes the file and opens the designer. A form with no file was
+        // then left out of the project file at close (#1359). Now both are the one operation (#468).
         var proj = TestHelpers.CreateProject();
         var vm = CreateVmWithLoadedProject(proj, out var projVm);
         vm.SelectedItem = projVm;
         projectService.NextFreeFormName(proj).Returns("Form9");
+        var form = new FormDefinition(proj, FormComponentClass.Instance, "Form9");
+        projectService.AddNewForm(proj, "Form9", Arg.Any<bool>()).Returns(form);
         var before = proj.Forms.Count;
 
         vm.AddFormCommand.Execute(null);
 
-        var added = proj.Forms.Should().HaveCount(before + 1).And.Subject.Last();
-        added.Name.Should().Be("Form9");
-        added.Code.Should().StartWith("Attribute VB_Name = \"Form9\"\r\n");
-        added.Components[0].GetPropertyOrDefault(HexIDE.Runtime.Components.VBProperties.StartUpPositionProperty)
-            .Should().Be(HexIDE.Runtime.BuiltinTypes.VBStartupPosition.StartUpWindowsDefault);
+        await projectService.Received(1).AddNewForm(proj, "Form9", true);
+        editorService.Received(1).EditForm(form);
+        proj.Forms.Should().HaveCount(before, "the service adds the form once its file is written, and the command none");
     }
 
     [Fact]

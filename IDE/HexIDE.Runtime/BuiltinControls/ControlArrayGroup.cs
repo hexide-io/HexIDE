@@ -93,13 +93,11 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
         Canvas.SetTop(control, tmpl.GetPropertyOrDefault(VBProperties.TopProperty));
         control.Width = tmpl.GetPropertyOrDefault(VBProperties.WidthProperty);
         control.Height = tmpl.GetPropertyOrDefault(VBProperties.HeightProperty);
-        // A Line lays itself out from the template's endpoints, in the template's container's scale (#163). It goes
-        // under the lines already there, which is not measured.
+        // A Line lays itself out from the template's endpoints, in the template's container's scale (#163).
         if (control is VBLine line && elements.TryGetValue(templateIndex, out var first) && first is VBLine { TwipsPerUnit: { } scale })
-        {
             line.Resolve(scale);
-            line.ZIndex = -1 - parent.Children.OfType<VBLine>().Count();
-        }
+        // Under every control of its plane already there, where VB6 puts a loaded CommandButton (measured, #1497).
+        ControlStacking.PlaceUnder(control, ((ComponentBaseClass)tmpl.BaseClass).IsWindowless, parent);
         control.IsVisible = false;                                                        // oracle: loaded → hidden
         VBProps.SetName(control, Name);
         VBProps.SetIndex(control, index);

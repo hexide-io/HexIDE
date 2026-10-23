@@ -61,4 +61,19 @@ public class HarnessMatchesTheAppTests
         sources.Should().Contain("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml");
         sources.Should().Contain("avares://HexIDE/Automation/AccessKeyNames.axaml");
     }
+
+    [AvaloniaFact]
+    public void The_harness_holds_the_resources_a_running_form_reads()
+    {
+        // A system colour is looked up on the application, so a harness without Classic.axaml drew every one DeepPink and
+        // its tests compared pink with pink (#908). App.axaml also merges the IDE chrome's own dictionaries (icons, the
+        // MDI windows, the resize adorner, the property box), which the harness does not; a test of those views needs them.
+        var sources = Application.Current!.Resources.MergedDictionaries.OfType<ResourceInclude>()
+            .Select(r => r.Source?.ToString()).ToList();
+
+        sources.Should().Contain("avares://HexIDE/Themes/Classic.axaml");
+        sources.Should().Contain("avares://HexIDE.Runtime/BuiltinControls/VBTimer.axaml");
+        sources.Should().Contain("avares://HexIDE.Runtime/BuiltinControls/VBLabel.axaml");
+        sources.Should().Contain("avares://HexIDE.Runtime/BuiltinControls/Resources.axaml");
+    }
 }
