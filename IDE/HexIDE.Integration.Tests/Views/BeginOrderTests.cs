@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Headless.XUnit;
 using HexIDE.IDE;
@@ -118,15 +119,15 @@ public class BeginOrderTests
         return text.Append("End\r\nAttribute VB_Name = \"Form1\"\r\n").ToString();
     }
 
-    private static (FormEditViewModel Vm, FormDefinition Form) Open(string spec)
+    private static (FormEditViewModel Vm, FormDefinition Form) Open(string spec, IWindowManager? windows = null)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form = new FormDeserializer().Deserialize(project, Frm(spec), new NullSink())!;
         project.AddForm(form);
         var toolbox = new ToolBoxToolViewModel(Substitute.For<IDocumentDockService>(),
             Substitute.For<IComponentRegistry>(), Substitute.For<ILocalizationService>());
-        var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!, null!,
-            Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
+        var vm = new FormEditViewModel(toolbox, Substitute.For<IEventBus>(), Substitute.For<IProjectService>(), null!,
+            windows!, Substitute.For<ISettingsService>(), Substitute.For<ILocalizationService>()).Initialize(form);
         return (vm, form);
     }
 
@@ -340,6 +341,26 @@ public class BeginOrderTests
 
         Drawn(vm).Should().Be(drawn);
         Saved(vm, form).Should().Be(saved);
+    }
+
+    // ── menus ────────────────────────────────────────────────────────────────────────────────────────────
+
+    // VB6's files put every menu after every control: no corpus file has a control after a menu. A menu made in the menu
+    // editor used to sort with the first control drawn, so it could be written among them.
+    [AvaloniaFact]
+    public async Task A_menu_made_in_the_menu_editor_is_written_after_every_control()
+    {
+        var windows = Substitute.For<IWindowManager>();
+        windows.ShowDialog(Arg.Any<IDialog>()).Returns(call =>
+        {
+            ((MenuEditorViewModel)call[0]).FlatMenu.Add(new MenuViewModel { Name = "mnuFile", Caption = "File" });
+            return Task.FromResult(true);
+        });
+        var (vm, form) = Open("Command1,Picture1,Label1", windows);
+
+        await vm.EditMenu();
+
+        Saved(vm, form).Should().Be("Command1,Picture1,Label1,mnuFile");
     }
 
     // ── Lines ────────────────────────────────────────────────────────────────────────────────────────────
