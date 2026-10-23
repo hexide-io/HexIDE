@@ -861,7 +861,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             need = null;
             return true;
         }
-        catch (Exception request) when (Forms is not null && request is FormInstanceNeeded or FormLoadNeeded)
+        catch (Exception request) when (IsReadRequest(request))
         {
             found = false;
             value = default;
@@ -892,17 +892,43 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         {
             return new ValueTask<T>(read(state));
         }
-        catch (Exception need) when (Forms is not null && need is FormInstanceNeeded or FormLoadNeeded)
+        catch (Exception need) when (IsReadRequest(need))
         {
             return LoadingSlowly(state, read, need);
         }
+    }
+
+    /// <summary>
+    /// Whether a read asked for something the walk makes and then reads again: the object of a variable declared As New
+    /// (#435), or a form's default instance or its load (#822), which only a run with forms can answer.
+    /// </summary>
+    private bool IsReadRequest(Exception request) =>
+        request is AutoInstanceNeeded || (Forms is not null && request is FormInstanceNeeded or FormLoadNeeded);
+
+    /// <summary>
+    /// Make the object a variable declared As New is read without, as <c>Set v = New X</c> would, and store it there
+    /// (#435). An Initialize that raises leaves the variable Nothing, so the next use tries again, as VB6's does
+    /// (measured: three uses, three Initializes, three errors).
+    /// </summary>
+    private async Task MakeAutoInstance(AutoInstanceNeeded need)
+    {
+        var made = ExpressionExecutor.IsCollectionType(need.AutoNew.ClassName)
+            ? new Vb6Value(NewCollection())
+            : Vb6Value.NewObject(await NewObject(need.AutoNew.ClassName));
+        AddRef(made);
+        if (ExecutionContext.State[need.Location] is { Value: null })
+            ExecutionContext.State[need.Location] = made;
+        else
+            await ReleaseRef(made);   // Initialize filled the variable itself
     }
 
     private async ValueTask<T> LoadingSlowly<TState, T>(TState state, Func<TState, T> read, Exception need)
     {
         for (var attempt = 0; ; attempt++)
         {
-            if (need is FormInstanceNeeded instance)
+            if (need is AutoInstanceNeeded autoInstance)
+                await MakeAutoInstance(autoInstance);
+            else if (need is FormInstanceNeeded instance)
                 await Forms!.MakeDefaultInstance(instance.Form);
             else if (need is FormLoadNeeded load)
                 await Forms!.Load(load.Form);
@@ -910,7 +936,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             {
                 return read(state);
             }
-            catch (Exception again) when (attempt < 16 && again is FormInstanceNeeded or FormLoadNeeded)
+            catch (Exception again) when (attempt < 16 && IsReadRequest(again))
             {
                 need = again;
             }

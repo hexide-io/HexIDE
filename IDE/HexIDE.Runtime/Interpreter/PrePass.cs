@@ -192,9 +192,17 @@ public class PrePass : VB6BaseVisitor<object?>
                 string? declaredClass = null;
                 if (subStmt.asTypeClause() != null)
                 {
+                    // `Dim o As New C1` holds Nothing until its first use (#435). The module's Dim statement, which runs
+                    // when the module starts, marks the slot; what it refuses (a scalar, a UDT) it refuses there. An
+                    // array, each element made on its own first use (measured), is refused here, for a class as for a
+                    // Collection.
                     if (subStmt.asTypeClause().NEW() != null)
-                        throw new NotImplementedException("New as type not implemented");
-                    if (subStmt.asTypeClause().fieldLength() != null)
+                    {
+                        if (isArray)
+                            throw new NotImplementedException("An array declared As New is not implemented (#1482)");
+                        objectSlot = true;
+                    }
+                    else if (subStmt.asTypeClause().fieldLength() != null)
                         throw new NotImplementedException("fieldLength as type not implemented");
                     if (subStmt.asTypeClause().type().complexType() != null)
                     {
@@ -213,7 +221,9 @@ public class PrePass : VB6BaseVisitor<object?>
                     else
                     {
                         type = BaseTypeMapper.Map(subStmt.asTypeClause().type().baseType())
-                            ?? throw new NotImplementedException("base type " + subStmt.asTypeClause().type().baseType().GetChild(0) + " not implemented");
+                            ?? throw new NotImplementedException("base type " + subStmt.asTypeClause().type().baseType().GetChild(0) + " not implemented"
+                                + (subStmt.asTypeClause().type().baseType() is { } arrayOf && (arrayOf.OBJECT() != null || arrayOf.COLLECTION() != null)
+                                    ? " (#1482)" : ""));
                     }
                 }
                 if (isArray)
@@ -604,6 +614,8 @@ public class PrePass : VB6BaseVisitor<object?>
             }
             if (asType.fieldLength() != null)
                 throw new NotImplementedException($"Fixed-length field '{fieldName}' inside Type '{name}' is not yet supported");
+            if (asType.NEW() != null)
+                throw new NotImplementedException($"Field '{fieldName}' declared As New inside Type '{name}' is not implemented (#1488)");
             if (asType.type().complexType() is { } ct)
                 fields.Add(new UdtField(fieldName, null, ct.GetText()));   // nested UDT or Enum, resolved at NewUdt
             else

@@ -208,6 +208,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`Dim o As New C1` runs** (#435). The whole module stopped loading at the first `As New`. Now a variable declared
+  `As New` holds Nothing until it is used, and its first use makes the object, as vb6.exe does, for a class and for a
+  Collection, at procedure and module level and as a class field. Every use counts: `If o Is Nothing` makes the object,
+  so it is never True. After `Set o = Nothing`, the next use makes a new one. An array `As New` (#1482) and a Type's
+  field `As New` (#1488) still stop the run, by name.
+
 - **An empty Collection refuses an index as VB6's does** (#1492). Every index into an empty Collection is 5 in VB6: a
   position, a key, Null or Empty, for Item, Remove, and Add's Before and After. HexIDE gave what a Collection with items
   gives, 9 for a position and 13 for Null. Assigning an item, which no Collection allows, now looks the index up first,
@@ -226,7 +232,7 @@ there isn't one yet. Anything may change between 0.x releases.
     a Collection of five and 13 in one of four.
 
   Objects held in a Collection are released when the last reference goes, in VB6's order. Locals and Watch open a
-  Collection to its items. Still to come: `Dim c As New Collection` (#435), arrays of Collection (#1482), and keys
+  Collection to its items. Still to come: arrays of Collection (#1482), and keys
   compared as VB6's text compare does rather than only ignoring case (#1479).
 
 - **A control added or pasted takes the TabIndex VB6 gives it** (#925). The first control got 1, a Timer or a Shape used
