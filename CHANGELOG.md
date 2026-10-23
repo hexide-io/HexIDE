@@ -208,6 +208,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`CCur` and `CDec` preserve decimal precision in Strings** (#1531). Plain decimal numbers are read in the
+  program's locale without rounding through a Double, including the Currency and Decimal maxima. Out-of-range
+  Strings raise run-time error 6. Hex, octal and exponent forms keep their existing conversion.
+
 - **A control-array element renamed out of its array can be renamed back** (#1276). Renaming `optSize(0)` to
   `optBoard` worked, but every way back was refused as a duplicate name, so the array stayed split. A name is now
   taken by name and Index together, as in VB6: an element may take an array's name where its Index is free there.
