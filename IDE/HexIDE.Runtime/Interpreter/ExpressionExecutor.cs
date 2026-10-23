@@ -586,22 +586,24 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (literal.DOUBLELITERAL() is { } doubleliteral)
         {
             // Source numbers always use a point, whatever the host's culture (#781).
-            var text = doubleliteral.GetText();
+            var text = ExponentAsE(doubleliteral.GetText());
             char suffix = text[^1];
-            if (suffix is '#' or '!' or '&' or '@' or '%')
+            // A literal with a point and an Integer or Long suffix does not compile: 2.5%, 5.& and 2.5E1& are each "Syntax
+            // error" (measured, #1615). It was rounded to an Integer or a Long.
+            if (suffix is '&' or '%')
+                throw new VBCompileErrorException("Syntax error");
+            if (suffix is '#' or '!' or '@')
             {
                 var body = text[..^1];
-                return suffix switch
+                return InTypeRange(suffix switch
                 {
                     '!' => new Vb6Value(float.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)),
-                    '&' => new Vb6Value((long)Math.Round(double.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture), MidpointRounding.ToEven)), // & forces Long
                     '@' => Vb6Value.NewCurrency(decimal.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)), // @ forces Currency
-                    '%' => new Vb6Value((int)Math.Round(double.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture), MidpointRounding.ToEven)), // % forces Integer
                     _ => new Vb6Value(double.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)), // #
-                };
+                });
             }
             // VB6: an unsuffixed floating-point literal (with a '.' or exponent) defaults to Double.
-            return new Vb6Value(double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture));
+            return InTypeRange(new Vb6Value(double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture)));
         }
         if (literal.TRUE() is { })
         {
@@ -652,25 +654,52 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // an exponent makes it Double; otherwise Integer if it fits Int16, else Long if it fits Int32, else Double.
     internal static Vb6Value ClassifyIntegerLiteral(string text)
     {
+        text = ExponentAsE(text);
         char suffix = text[^1];
         if (suffix is '&' or '@' or '!' or '#' or '%')
         {
             var body = text[..^1];
-            return suffix switch
+            // An exponent with an Integer or Long suffix does not compile: 1E3% and 1D3& are "Syntax error" (measured, #1611).
+            if (suffix is '&' or '%' && body.Contains('E'))
+                throw new VBCompileErrorException("Syntax error");
+            return InTypeRange(suffix switch
             {
                 '&' => new Vb6Value(long.TryParse(body, NumberStyles.Integer, CultureInfo.InvariantCulture, out var lp) ? lp : (long)double.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)),
                 '@' => Vb6Value.NewCurrency(decimal.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)),
                 '!' => new Vb6Value(float.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)),
                 '%' => new Vb6Value(int.Parse(body, NumberStyles.Integer, CultureInfo.InvariantCulture)),   // Integer (magnitude ctor keeps it Integer in Int16 range)
                 _ => new Vb6Value(double.Parse(body, NumberStyles.Float, CultureInfo.InvariantCulture)),   // '#'
-            };
+            });
         }
-        if (text.IndexOf('e') >= 0 || text.IndexOf('E') >= 0)
-            return new Vb6Value(double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture));   // exponent without a dot -> Double (e.g. 1e5)
+        if (text.IndexOf('E') >= 0)
+            return InTypeRange(new Vb6Value(double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture)));   // exponent without a dot -> Double (e.g. 1e5)
         if (long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var lv))
             return lv >= int.MinValue && lv <= int.MaxValue ? new Vb6Value((int)lv) : new Vb6Value((double)lv);
         return new Vb6Value(double.Parse(text, NumberStyles.Float, CultureInfo.InvariantCulture));
     }
+
+    /// <summary>
+    /// A literal's text with its exponent marker as E. VB6 reads D as E, in either case: 2.5D2 is 250, 1d3 is 1000 and
+    /// 1D3@ is a Currency, each as the E form is (measured, #1611). A literal token holds no other letter. The lexer takes
+    /// a second exponent too, which does not compile: 1D2D2 is "Syntax error" (measured).
+    /// </summary>
+    internal static string ExponentAsE(string text)
+    {
+        var normalised = text.Replace('e', 'E').Replace('d', 'E').Replace('D', 'E');
+        return normalised.IndexOf('E') == normalised.LastIndexOf('E') ? normalised : throw new VBCompileErrorException("Syntax error");
+    }
+
+    // A literal beyond its type's range does not compile: 1E400 and 1D400 (a Double), 1E39! (a Single) and 1E20@ (a
+    // Currency) are each "Syntax error" (measured, #1611). .NET reads them as infinity, or as a Currency VB6 cannot hold.
+    // Below the range is not refused: 1E-400 is 0.
+    private static Vb6Value InTypeRange(Vb6Value literal) => literal.Value switch
+    {
+        double d when double.IsInfinity(d) => throw new VBCompileErrorException("Syntax error"),
+        float f when float.IsInfinity(f) => throw new VBCompileErrorException("Syntax error"),
+        decimal c when literal.Type == Vb6Value.ValueType.Currency && Math.Abs(c) > 922337203685477.5807m
+            => throw new VBCompileErrorException("Syntax error"),
+        _ => literal,
+    };
 
     // VB6 &H hex / &O octal literals are unsigned bit-patterns (verified against vb6.exe): with no suffix,
     // a value that fits 16 bits is an Integer via 16-bit two's-complement (&HFFFF -> -1, &H8000 -> -32768),

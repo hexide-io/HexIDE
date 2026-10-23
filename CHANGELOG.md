@@ -238,6 +238,37 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP `interact set_property` reads back the value it set** (#1326), naming both sent and actual values when
+  they differ. For an editor's `CaretOffset`, it reads the editor itself, so an offset the caret never took is no
+  longer reported as set.
+
+- **A numeric literal ending in its point loads, as vb6.exe compiles it** (#1615). `x = 5.` and `5.D1` failed to
+  load, and the editor marked them. Both grammars now read them, as the literal with a digit after the point. A
+  literal with a point and `%` or `&`, such as `2.5%`, is now vb6.exe's compile error "Syntax error", where HexIDE
+  rounded it to an Integer or a Long.
+
+- **MCP `hover` cleans up after a throwing pointer handler, reports a cover's tip over a disabled target, and refuses
+  targets that are not showing** (#1328). Containers prefer a showing editor; the tool explains the real mouse's effect
+  on the tip, cursor and pointer-over.
+
+- **A Const declared with a type character runs, as vb6.exe's does** (#1614). `Const K% = 2.5` stopped the program as
+  the module loaded, with "Const type hints not supported". The character is now the As clause it stands for: `K` is
+  the Integer 2, `Const K$ = 5` the String "5", and `Const K% = 40000` is vb6.exe's compile error "Overflow".
+
+- **MCP reports keyboard focus and presses where it is** (#1627). `inspect_element` reports `isFocused`, and `dump_visual_tree` names the focused path, or explains when no control in that window has focus. `press_key` at a container keeps the focus inside it, so Tab advances from the current control. An explicit target still takes focus first; the reply names where that move came from, since it raises a running program's focus events.
+
+- **A `D` exponent in a numeric literal loads, as vb6.exe compiles it** (#1611). `x = 1D3` failed to load, and the
+  editor marked it. `D` is now an exponent marker wherever `E` is, in both grammars. A literal vb6.exe refuses to
+  build, such as `1E400`, `1E3%` or `1E20@`, is now its compile error "Syntax error", where HexIDE gave infinity, a
+  Long or a Currency beyond Currency's range, or stopped with a .NET error.
+
+- **A refused MCP call names a blocking dialog once** (#1325). Closing a form under a MsgBox, or typing or pressing a key under stacked dialogs, no longer repeats the dialog in the reply’s note. A refusal never claims the call reached past a dialog; calls that acted behind one still say so.
+
+- **A CommandButton, TextBox, ComboBox, ListBox and Frame have ToolTipText** (#1403). Only five controls declared it,
+  so on these the Properties window did not list it, a running form showed no tip, and code could not read or set
+  it. Measured on vb6.exe across every intrinsic control: these five have it, and the scroll bars, Shape, Line, Timer
+  and menus do not. On all ten that have it, ToolTipText now reads and takes values at run time as vb6.exe's does.
+
 - **A ComboBox's Style is modelled, and a Dropdown List runs as one** (#1428). Style was kept as a preserved line, so
   the Properties window could not show or set it, and a program reading or writing a Dropdown List's Text was stopped
   as not implemented. Now Style is offered with VB6's three names and reads as an Integer, and a Dropdown List's Text
@@ -268,6 +299,11 @@ there isn't one yet. Anything may change between 0.x releases.
   is sent, so an answer arriving during teardown cannot be shown as a current evaluation.
 
 - **Numeric source literals keep their value on every locale** (#781). A made EXE on German regional settings read `0.6 * 10` as 60 and `1.5!` as 15; French settings could stop the program with a parse error. Literal parsing now uses the invariant culture, including suffixes, exponents and conditional compilation. Runtime string conversions retain their locale rules.
+
+- **The Tab key stops once in each option group** (#1583). It stopped at every option button, where VB6 stops
+  only at the selected one, or, in a group with none selected, at the first in the key's direction. That option is
+  selected there, with Click after GotFocus, as under `SetFocus`. An option is now selected before its GotFocus
+  runs, which reads it selected, as vb6.exe's does.
 
 - **Persian words in MCP replies remain readable** (#1316). A zero-width non-joiner between Arabic-script
   letters (including their combining marks) is written as itself. Joiners elsewhere remain escaped.

@@ -148,6 +148,24 @@ public class OpenDialogNoteTests
         ModalDialog(await CallAsync("type_text", window: "Add Procedure")).Should().BeNull("it was sent to the dialog");
     }
 
+    [AvaloniaTheory]
+    [InlineData(true, "refused")]
+    [InlineData(false, "{\"success\":false}")]
+    public async Task A_failed_call_names_an_unreported_dialog_without_claiming_to_have_acted(bool isError, string text)
+    {
+        using var ide = new Ide();
+        ide.Open("Add Procedure");
+        var result = Reply(text);
+        result.IsError = isError;
+
+        var noted = await OpenDialogNote.NoteAsync(new CallToolRequestParams { Name = "set_file_content" },
+            () => ValueTask.FromResult(result), CancellationToken.None);
+
+        var note = isError ? Text(noted, 1) : ModalDialog(Text(noted));
+        note.Should().Contain("'Add Procedure'").And.Contain("is still open and waits for an answer")
+            .And.NotContain("reached past");
+    }
+
     // A look that fails, as one does once shutdown_ide has closed the IDE, leaves the tool's reply as it was.
     [AvaloniaFact]
     public async Task A_look_at_the_windows_that_fails_leaves_the_reply_as_the_tool_gave_it()

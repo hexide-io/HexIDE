@@ -51,7 +51,7 @@ public class MissingLanguageDocTests
         var rated = tables.Where(t => t.Columns.Length > 1 && t.Columns[1] == "Status").ToArray();
         rated.Should().NotBeEmpty("the inventory tables must be parsed");
         var inventory = rated.Where(t => summary.Rows.Any(r => t.Heading.StartsWith(r[0] + " —", StringComparison.Ordinal))
-                                     || t.Heading.StartsWith("Constants that do not resolve", StringComparison.Ordinal)).ToArray();
+                                     || t.Heading.StartsWith("Constants by name", StringComparison.Ordinal)).ToArray();
         inventory.Select(t => t.Heading).Distinct().Should().HaveCount(8, "all inventory categories must be read");
         var errors = new List<string>();
         foreach (var table in rated)
@@ -108,7 +108,7 @@ public class MissingLanguageDocTests
         Check("Intrinsic constants families", int.Parse(familyHeading.Groups[2].Value), families.Rows.Count);
         foreach (var family in families.Rows)
             Check($"Constant family {family[0]}", int.Parse(family[4]), family.Skip(1).Take(3).Sum(int.Parse));
-        Check("Absent constants", families.Rows.Sum(r => int.Parse(r[3])), inventory.Where(t => t.Heading.StartsWith("Constants that", StringComparison.Ordinal)).SelectMany(t => t.Rows).Count(r => r[1] == "Dies"));
+        Check("Absent constants", families.Rows.Sum(r => int.Parse(r[3])), inventory.Where(t => t.Heading.StartsWith("Constants by name", StringComparison.Ordinal)).SelectMany(t => t.Rows).Count(r => r[1] == "Dies"));
 
         foreach (var status in legend.Take(3))
         {

@@ -10,7 +10,8 @@ public class TextBoxComponentClass : ComponentBaseClass
     public TextBoxComponentClass() : base([TextProperty, EnabledProperty,
         BackColorProperty, ForeColorProperty, FontProperty,
         TabStopProperty,
-        TabIndexProperty], [ChangeEvent, ClickEvent, DblClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
+        TabIndexProperty,
+        ToolTipTextProperty], [ChangeEvent, ClickEvent, DblClickEvent, GotFocusEvent, LostFocusEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
     {
     }
 
