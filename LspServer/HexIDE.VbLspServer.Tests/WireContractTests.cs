@@ -792,6 +792,12 @@ public class WireContractTests
     private static Task<JsonElement> RequestAsync(Harness h, string method, object @params) =>
         h.Rpc.InvokeWithParameterObjectAsync<JsonElement>(method, @params).WaitAsync(Timeout);
 
+    [Fact]
+    public async Task Harness_can_be_disposed_immediately_after_construction()
+    {
+        await using var harness = new Harness();
+    }
+
     private sealed class Harness : IAsyncDisposable
     {
         public JsonRpc Rpc { get; }
@@ -816,12 +822,7 @@ public class WireContractTests
         public Task<JsonElement> NextDiagnosticsAsync() =>
             _diag.Channel.Reader.ReadAsync().AsTask().WaitAsync(Timeout);
 
-        public async ValueTask DisposeAsync()
-        {
-            Rpc.Dispose();
-            _server.Exit();
-            try { await _loop.WaitAsync(Timeout); } catch { /* best effort */ }
-        }
+        public ValueTask DisposeAsync() => ServerHarnessTeardown.StopAsync(_server, _loop, Rpc, Timeout);
 
         private sealed class DiagTarget
         {

@@ -79,16 +79,18 @@ public class DExponentLiteralTests : BaseVBTestFixture
         (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Syntax error*");
     }
 
-    // The probe also had `Const KS! = 2.5D2`, a Single 250 in vb6.exe, which waits for a Const with a type character (#1614).
+    // The probe also had `Const KS! = 2.5D2`, a Single 250 in vb6.exe, which ran once a Const took its type character (#1614).
     [Fact]
     public async Task A_Const_holds_one()
     {
         await Run("""
             Const K = 1D3
+            Const KS! = 2.5D2
             Debug.Print "Const K = 1D3: " & TypeName(K) & " " & CStr(K)
+            Debug.Print "Const KS! = 2.5D2: " & TypeName(KS) & " " & CStr(KS)
             """);
 
-        AssertDebugLog([new Vb6Value("Const K = 1D3: Double 1000")]);
+        AssertDebugLog([new Vb6Value("Const K = 1D3: Double 1000"), new Vb6Value("Const KS! = 2.5D2: Single 250")]);
     }
 
     [Fact]

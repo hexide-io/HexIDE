@@ -16257,7 +16257,95 @@ measured.
 - **Not followed: the Tab key's stop at an option button that isn't selected** (#1583). A headless check of the same
   form tabbed through Option1 as well as Option2. Otherwise it took the order above. So the Tab key doesn't select an
   option that takes the focus, as `SetFocus` does. Where VB6's Tab never lands, selecting would change the user's
-  choice as they tabbed past.
+  choice as they tabbed past. Followed since #1583, under "Tab and the arrow keys among option buttons".
+
+## Tab and the arrow keys among option buttons (2026-10-23, #1583)
+
+**The question.** "GotFocus and LostFocus on each control" found that VB6's Tab key skips an option button that isn't
+selected. What does it do in a group with no option selected, and does focus by Tab select there, as `SetFocus` does?
+What do Shift+Tab and the arrow keys do? And is an option already selected when its GotFocus runs, or only after?
+
+**The probe.** Two compiled forms, native and p-code, run on the oracle guest's console session through the agent, as
+"SetFocus" was. Each form held, in TabIndex order:
+- Text1;
+- Option1, Option2 and Option3 on the form, Option2 saved `Value = -1 'True`;
+- Text2;
+- Frame1, holding Option4 and Option5, neither selected;
+- Text3.
+
+Every option's GotFocus and Click logged its name and every option's Value, as a digit for each one selected: `-2- 4-`
+is Option2 and Option4 selected. Every TextBox's GotFocus logged its name. The Timer took one step each 300 ms, by
+`SetFocus` or by `SendKeys`, and logged `Screen.ActiveControl` and the Values after each.
+- **The first form:** SetFocus Text1, Tab seven times, Shift+Tab seven times, then SetFocus Text1, Tab, and Down, Down,
+  Down, Up, Right, Left on what had the focus, then Tab and Shift+Tab.
+- **The second form:** SetFocus Text3, Shift+Tab three times, Up twice, SetFocus Option5, Up twice, SetFocus Option3,
+  Right, SetFocus Option1, Left, SetFocus Option2, then Space.
+
+Native and p-code logged the same lines, line for line: 74 for the first form and 54 for the second.
+
+**The Tab key:**
+
+| From | Key | Focus went to | Logged |
+|---|---|---|---|
+| Text1 | Tab | Option2, the selected one | `Option2_GotFocus -2- --` |
+| Option2 | Tab | Text2 | `Text2_GotFocus` |
+| Text2 | Tab | Option4, the first in a group with none selected | `Option4_GotFocus -2- 4-`, `Option4_Click -2- 4-` |
+| Option4 | Tab | Text3 | `Text3_GotFocus` |
+| Text3 | Shift+Tab | Option4, now its group's selected one | `Option4_GotFocus -2- 4-` |
+| Text3, with none selected in Frame1 | Shift+Tab | Option5, the last in the group | `Option5_GotFocus -2- -5`, `Option5_Click -2- -5` |
+
+- **An option group is one Tab stop.** With an option selected, Tab and Shift+Tab both go to it and to nothing else in
+  the group. The Tab key then selects nothing and raises no Click.
+- **A group with none selected takes the first option in the key's direction:** the lowest TabIndex for Tab, the highest
+  for Shift+Tab. It is selected there, and its Click follows its GotFocus, as under `SetFocus`. From then on the group is
+  one stop at that option.
+- **A group is the options in one container.** Option1 to Option3 on the form and Option4 and Option5 in the Frame were
+  two groups throughout, each with its own selected option.
+
+**Selected before its GotFocus runs.** Inside `Option4_GotFocus`, Option4 already read True and Option5 False. The same
+held under `SetFocus`: `Option3.SetFocus` logged `Option3_GotFocus --3 -5`, then `Option3_Click --3 -5`. "GotFocus and
+LostFocus on each control" logged Click after GotFocus and read Value only after both. HexIDE's code took that order to
+mean the option was selected after its GotFocus. It is selected first, and only the Click waits.
+
+**SetFocus on the selected option** raised its GotFocus and no Click: `Option5_GotFocus 1-- -5`. **Space on the
+selected option** raised nothing.
+
+**The arrow keys:**
+
+| From | Key | Focus went to | Logged |
+|---|---|---|---|
+| Option2, selected | Down | Option3 | `Option3_GotFocus --3 4-`, `Option3_Click --3 4-` |
+| Option3, selected | Down | Text2 | `Text2_GotFocus`; Option3 stays selected |
+| Option2, selected | Up | Option1 | `Option1_GotFocus 1-- -5`, `Option1_Click 1-- -5` |
+| Option1, selected | Up | Text1 | `Text1_GotFocus` |
+| Option5, in Frame1 | Up | Option4 | `Option4_GotFocus 1-- 4-`, `Option4_Click 1-- 4-` |
+| Option4, in Frame1 | Up | Option5: it wraps inside the Frame | `Option5_GotFocus 1-- -5`, `Option5_Click 1-- -5` |
+| Option3, selected | Right | Text2, as Down | `Text2_GotFocus` |
+| Option1, selected | Left | Text1, as Up | `Text1_GotFocus` |
+| Text2 | Down, Up, Right, Left | nowhere: the TextBox keeps them | nothing |
+
+**An arrow moves to the previous or next control in the option's own container, by TabIndex, wrapping within it.** That
+control need not be an option button. On the form the TextBoxes either side were the next and previous controls. In
+the Frame, whose only controls are the two options, it went round between them. An option button it lands on is
+selected, with GotFocus and then Click.
+
+**Not measured:**
+- a group whose selected option is disabled, hidden or has `TabStop = False`;
+- `TabStop = False` on an option that isn't selected, in a group with none selected;
+- the arrow keys on a CheckBox or a CommandButton, which Windows' dialog manager also moves between;
+- an arrow onto a control that is disabled or has `TabStop = False`.
+
+### In HexIDE (#1583)
+
+- **An option group is one Tab stop.** It is its selected option, or each of its options while none is selected, so
+  Tab and Shift+Tab reach the first in their direction. A group is the options in one container, which is how HexIDE
+  already made them exclusive. An option's own `TabStop = False` still keeps the Tab key off it.
+- **Focus by the Tab key selects an option, as `SetFocus` does,** with Click after GotFocus. Until now the Tab key was
+  kept from selecting, because it stopped at every option and selecting would have changed the user's choice.
+- **An option is selected before its GotFocus runs.** Before, a GotFocus raised at once read its own option unselected.
+  The Click is raised after the GotFocus, whether the two run at once or wait behind a running handler.
+- **Not followed: the arrow keys**, which do nothing on an option button
+  ([#1625](https://github.com/hexide-io/HexIDE/issues/1625)).
 
 ## Conditional compilation (2026-10-23, #1112)
 
@@ -18242,6 +18330,60 @@ Measured with `/make` on vb6.exe 6.00.8176 (the release build) with the MSVBVM60
 - `Traps` and the Resume Next catches read `!inHandler`, so a running handler traps nothing.
 - `VbErr` records whether a Description has been set, and a `Raise` with none keeps it.
 - Source is still not filled with the project's name.
+
+## A Const declared with a type character (2026-10-23, #1614)
+
+**The question.** #1611 found that `Const KS! = 2.5D2` is the Single 250 in vb6.exe, where HexIDE stopped the program as
+the module loaded, with "Const type hints not supported". What does a type character on a Const's name do: is it the
+`As` clause it stands for, with that clause's conversions and errors? And how does it meet a name read with a character,
+another declaration of the name, and an `As` clause beside it?
+
+**The probe.** One program, built native and p-code with vb6.exe 6.00.8176 (the release build) and run on the MSVBVM60
+6.00.9848 (SP6) runtime, en-GB. It declares eleven Consts at module level, one of them `Public`, and ten of the same in
+a procedure, then logs `TypeName` and `CStr` of each through its bare name. Then fifteen one-statement projects, native,
+for what might not compile. Native and p-code agreed on every row of the program.
+
+**Result: the character is the As clause.** Each Const converts as `As` that type converts it (#873's rows), at module
+level and in a procedure alike:
+
+| Const | vb6.exe |
+|---|---|
+| `KI% = 2.5`, `KL& = 3.5` | Integer 2, Long 4 (banker's rounding) |
+| `KS! = 2.5E2`, `KD# = 1`, `KC@ = 1.23456` | Single 250, Double 1, Currency 1.2346 |
+| `KT$ = 5`, `KU$ = "x"`, and in a procedure `K$ = 1.5` | String "5", "x" and "1.5" |
+| `KB% = True`, `KN% = "7"`, `KH% = &HFFFF` | Integer -1, 7 and -1 |
+| `KE& = KI + 0.5` | Long 2 |
+| `Public Const KP% = 7` | Integer 7 |
+| `KS!` and `KT$` read with their own characters | Single 250, String "5" |
+
+**Refused, each a compile error:**
+
+| Declaration | vb6.exe |
+|---|---|
+| `Const K% = 40000`, `Const K@ = 1E20`, `Const K! = 1E39`, and `Const K% = 32768` in a procedure | Overflow |
+| `Const K% = "x"` | Type mismatch |
+| `Const K% = Null` | Invalid use of Null |
+| `Const K% As Integer = 1` | Expected: = |
+| `Const K% = 1`, then `K = 2` | Assignment to constant not permitted |
+| `Const K% = 1`, then reading `K&` | Type-declaration character does not match declared data type |
+| at module level, `Const K = 1` and `Const K% = 2`, `Const K% = 1` and `Const K& = 2`, or `Dim K` and `Const K% = 1` | Ambiguous name detected: K |
+| in a procedure, `Const K = 1` and `Const K% = 2` | Duplicate declaration in current scope |
+
+A character does not make another name. `K` and `K%` are one name, so a second declaration of it is a duplicate with or
+without a character, and the same with a plain `Const K = 1` twice.
+
+### In HexIDE (#1614)
+
+- **`BaseTypeMapper.Map(TypeHintContext)`** gives the type a character declares, and `StatementExecutor.AsDeclared`
+  takes it as the `As` clause, with that clause's conversions and compile errors. The three refusals, in `PrePass` and
+  in the module-level and procedure-level Const paths, are gone.
+- **A character and an `As` clause together** is "Expected: =".
+- **`ConstTypeCharacterTests`** runs the program and must print vb6.exe's lines, and refuses eight of the one-statement
+  projects with vb6.exe's message.
+- **Divergences kept, each filed:**
+  - a name read with a type character, `KS!`, is refused as not implemented (#742), so the program's two such rows are
+    left out of the test, and so is reading `K&` for a `K%`;
+  - a second declaration of a name at module level runs, where vb6.exe refuses it (#1622). In a procedure it is #1499.
 
 ## A D exponent in a source literal (2026-10-23, #1611)
 
