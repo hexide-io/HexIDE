@@ -55,9 +55,15 @@ public class SaveRecordsTheHeaderTests : IDisposable
         var dock = Substitute.For<IDocumentDockService>();
         dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel>());
 
+        // A member with no file asks where its first save goes: here, under the name it suggests.
+        var windowManager = Substitute.For<IWindowManager>();
+        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+            .Returns(ci => Task.FromResult<string?>(
+                Path.Join(dir, ci.Arg<Avalonia.Platform.Storage.FilePickerSaveOptions>().SuggestedFileName)));
+
         return new ProjectService(
             () => throw new InvalidOperationException("new-project dialog must not be reached"),
-            Substitute.For<IWindowManager>(),
+            windowManager,
             Substitute.For<IEventBus>(),
             projectManager,
             Substitute.For<IRecentProjectsService>(),
@@ -107,18 +113,22 @@ public class SaveRecordsTheHeaderTests : IDisposable
     }
 
     [Fact]
-    public async Task ANewUserControlsBufferMatchesTheFileItWasCreatedWith()
+    public async Task ANewUserControlsBufferMatchesTheFileItsFirstSaveWrites()
     {
-        // Creation writes the file immediately, and after #489 that is the ordinary case rather than a rare
-        // one. Without recording the header there, a brand-new .ctl opens with no header in the window while
-        // its file has one -- and every line number in it is then off by the height of that header.
+        // A new member has no file until it is first saved (#500), so its header is held from creation. Without
+        // that, a brand-new .ctl opens with no header in the window while the file it is saved as has one -- and
+        // every line number in it is then off by the height of that header.
         var project = new ProjectDefinition(VBProjectType.EXE, "Test") { AbsolutePath = Path.Join(dir, "Test.vbp") };
         loaded.Add(project);
+        var service = MakeService();
 
-        var module = await MakeService().AddNewUserControl(project, "MyControl");
+        var module = await service.AddNewUserControl(project, "MyControl");
+        module.FormPart!.DesignerText.Should().NotBeNull();
+        var asCreated = FormCodeText.WholeFile(module);
+        (await service.SaveModule(module, saveAs: false)).Should().BeTrue();
 
         var onDisk = await File.ReadAllTextAsync(module.AbsolutePath!, TestContext.Current.CancellationToken);
-        module.FormPart!.DesignerText.Should().NotBeNull();
+        asCreated.Should().Be(onDisk);
         FormCodeText.WholeFile(module).Should().Be(onDisk);
     }
 

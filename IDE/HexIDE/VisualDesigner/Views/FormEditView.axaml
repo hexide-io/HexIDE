@@ -124,9 +124,11 @@
                  not of the IDE chrome, so an RTL IDE language must not mirror the design canvas. -->
             <ThemeVariantScope RequestedThemeVariant="Light" FlowDirection="LeftToRight">
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                <ClassicBorderDecorator Width="{CompiledBinding Form.Width, Mode=TwoWay}"
-                                        Height="{CompiledBinding Form.Height, Mode=TwoWay}"
-                                        HorizontalAlignment="Left"
+                <!-- The frame sizes itself around the client below, which is the form's Width and Height: those hold
+                     VB6's ClientWidth and ClientHeight, so the frame, the padding and the caption row are drawn outside
+                     them, as the running window draws its own (#924). The resize handle on this frame converts a dragged
+                     frame size back into a client size (FormEditView.axaml.cs). -->
+                <ClassicBorderDecorator HorizontalAlignment="Left"
                                         VerticalAlignment="Top"
                                         Background="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}"
                                         Padding="2"
@@ -157,7 +159,10 @@
                             </DockPanel>
 
                         </Panel>
-                        <DockPanel Background="{CompiledBinding Form.BackColor}">
+                        <DockPanel x:Name="FormClient"
+                                   Width="{CompiledBinding Form.Width}"
+                                   Height="{CompiledBinding Form.Height}"
+                                   Background="{CompiledBinding Form.BackColor}">
 
                             <Menu DockPanel.Dock="Top" ItemsSource="{CompiledBinding TopLevelMenu}">
                                 <Menu.Styles>
@@ -251,8 +256,9 @@
                                                 <Setter Property="(Canvas.Top)" Value="{CompiledBinding Top, Mode=TwoWay}" />
                                                 <Setter Property="ZIndex" Value="{CompiledBinding ZIndex}" />
                                                 <!-- The control's own name, so automation addresses Command1 rather than the view model's
-                                                     type name, which every control on every form shared. (#526) -->
-                                                <Setter Property="AutomationProperties.Name" Value="{CompiledBinding Name}" />
+                                                     type name, which every control on every form shared (#526), and a control
+                                                     array's element as optSize(1), as the write tools take it (#1320). -->
+                                                <Setter Property="AutomationProperties.Name" Value="{CompiledBinding AddressedName}" />
                                             </Style>
                                         </controls:ControlsContainer.Styles>
                                         <controls:ControlsContainer.ItemsPanel>
@@ -261,6 +267,60 @@
                                             </ItemsPanelTemplate>
                                         </controls:ControlsContainer.ItemsPanel>
                                     </controls:ControlsContainer>
+                                    <!-- Controls HexIDE does not model, each a box where VB6 draws the one it puts in such a
+                                         control's place (#157), greyed and labelled where VB6's is empty. Above the controls
+                                         the designer models: one inside a Frame or PictureBox is drawn on that container, and
+                                         beneath it would be painted over by the container's own background. Inert: a press is
+                                         swallowed, so it selects nothing and starts no marquee, and the cursor says so. -->
+                                    <ItemsControl x:Name="UnmodelledControlsLayer"
+                                                  ItemsSource="{CompiledBinding UnmodelledControls}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <Canvas />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.Styles>
+                                            <Style Selector="ItemsControl#UnmodelledControlsLayer > ContentPresenter"
+                                                   x:DataType="visualDesigner:UnmodelledControlViewModel">
+                                                <Setter Property="(Canvas.Left)" Value="{CompiledBinding Left}" />
+                                                <Setter Property="(Canvas.Top)" Value="{CompiledBinding Top}" />
+                                            </Style>
+                                        </ItemsControl.Styles>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="visualDesigner:UnmodelledControlViewModel">
+                                                <ClassicBorderDecorator Width="{CompiledBinding Width}"
+                                                                        Height="{CompiledBinding Height}"
+                                                                        BorderStyle="Sunken"
+                                                                        BorderThickness="2"
+                                                                        Background="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}"
+                                                                        ClipToBounds="True"
+                                                                        Cursor="No"
+                                                                        AutomationProperties.Name="{CompiledBinding Name}"
+                                                                        AutomationProperties.ControlTypeOverride="Pane"
+                                                                        PointerPressed="OnUnmodelledControlPressed">
+                                                    <ToolTip.Tip>
+                                                        <StackPanel>
+                                                            <TextBlock Text="{CompiledBinding Name}" FontWeight="Bold" />
+                                                            <TextBlock Text="{CompiledBinding TypeName}" />
+                                                            <TextBlock Text="{DynamicResource Str.Designer.Unmodelled.NotSupported}" />
+                                                        </StackPanel>
+                                                    </ToolTip.Tip>
+                                                    <!-- Transparent, so the whole box takes the press whatever the
+                                                         face colour resolves to; a control is hit only where it paints. -->
+                                                    <Panel Background="Transparent">
+                                                        <StackPanel Margin="2,1">
+                                                            <TextBlock Text="{CompiledBinding ClassName}"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       Foreground="{DynamicResource {x:Static commonControls:SystemColors.GrayTextBrushKey}}" />
+                                                            <TextBlock Text="{DynamicResource Str.Designer.Unmodelled.NotSupported}"
+                                                                       TextWrapping="Wrap"
+                                                                       Foreground="{DynamicResource {x:Static commonControls:SystemColors.GrayTextBrushKey}}" />
+                                                        </StackPanel>
+                                                    </Panel>
+                                                </ClassicBorderDecorator>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                     <Canvas Name="NewControlSpawner"
                                             Background="Transparent"
                                             IsVisible="{CompiledBinding !ToolsBoxToolViewModel.IsCursorSelected}">
