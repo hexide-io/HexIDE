@@ -7,6 +7,7 @@ using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
 
@@ -15,7 +16,8 @@ namespace HexIDE.Runtime.BuiltinControls;
 /// <summary>
 /// A ComboBox. Its Text, at Style 0 (Dropdown Combo) and Style 1 (Simple Combo), is its edit box's, as measured on vb6.exe
 /// (the oracle's "A ComboBox's Text, at each Style", #926): code's Text selects no item, and choosing an item puts its text
-/// in the box. Style 2 (Dropdown List) is #1428's, so its Text is refused at run time.
+/// in the box. At Style 2 (Dropdown List) its Text is its selected item: code's Text selects the first item it matches,
+/// without regard to case, or is 383 (#1428).
 /// </summary>
 /// <remarks>
 /// Its events, measured with real input (the oracle's "A ComboBox's Click, Change and DropDown", #1429):
@@ -50,12 +52,12 @@ public class VBComboBox : ComboBox
         AttachedEvents.AttachFocusEvents<VBComboBox>();
     }
 
-    public VBComboBox() : this(0)
+    public VBComboBox() : this(VBComboStyle.DropdownCombo)
     {
     }
 
-    /// <param name="comboStyle">The Style the form gave it, which is read from the file, not modelled (#1428).</param>
-    public VBComboBox(int comboStyle)
+    /// <param name="comboStyle">The Style the form gave it, which VB6 sets at design time only.</param>
+    public VBComboBox(VBComboStyle comboStyle)
     {
         ComboStyle = comboStyle;
         IsEditable = !IsDropdownList;
@@ -69,10 +71,13 @@ public class VBComboBox : ComboBox
         AddHandler(KeyDownEvent, TakeKey, RoutingStrategies.Tunnel);
     }
 
-    /// <summary>0 Dropdown Combo, 1 Simple Combo, 2 Dropdown List. Design-time only, as in VB6.</summary>
-    public int ComboStyle { get; }
+    /// <summary>Dropdown Combo, Simple Combo or Dropdown List. Design-time only, as in VB6.</summary>
+    public VBComboStyle ComboStyle { get; }
 
-    public bool IsDropdownList => ComboStyle is not (0 or 1);
+    public bool IsDropdownList => ComboStyle == VBComboStyle.DropdownList;
+
+    /// <summary>A Dropdown List's Text: its selected item's text, or "" with none selected (measured).</summary>
+    internal string ListText => SelectedIndex >= 0 && SelectedIndex < ItemCount ? Items[SelectedIndex] as string ?? "" : "";
 
     // The edit box is one line, at a combo's height, which is too short for a TextBox's own padding: its text was cut off
     // and it showed the top of a vertical scroll bar. It scrolls only sideways, as a single-line TextBox does (#914).
@@ -206,5 +211,25 @@ public class VBComboBox : ComboBox
             textFromCode = false;
         }
         this.ExecuteSub(TextBoxComponentClass.ChangeEvent);
+    }
+
+    // VB6's own description for this 383, not the standard "Property Set can't be used with a read-only property".
+    private static readonly VBStandardError TextIsReadOnly = new(383, "'Text' property is read-only");
+
+    /// <summary>
+    /// <c>Text = s</c> on a Dropdown List: it selects the first item whose whole text is <paramref name="text"/>, without
+    /// regard to case, and raises Click every time, even when that item is selected already. With no such item it is 383,
+    /// and nothing changes (measured).
+    /// </summary>
+    internal void SetListTextFromCode(string text)
+    {
+        var index = -1;
+        for (var i = 0; i < ItemCount && index < 0; i++)
+            if (string.Equals(Items[i] as string, text, StringComparison.OrdinalIgnoreCase))
+                index = i;
+        if (index < 0)
+            throw new VBRunTimeException(TextIsReadOnly);
+        SelectedIndex = index;
+        this.ExecuteSub(ComponentBaseClass.ClickEvent);
     }
 }

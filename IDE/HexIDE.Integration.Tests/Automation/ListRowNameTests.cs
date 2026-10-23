@@ -35,6 +35,42 @@ public class ListRowNameTests
         return (window, list);
     }
 
+    [AvaloniaFact]
+    public void Dump_WhitespaceNames_EveryPathResolvesToItsReportedControl()
+    {
+        string[] names = ["    Form1", "Module1   ", "\tTabbed\t", "  Duplicate", "Duplicate",
+            "    ", "Left[Bracket", "Right]Bracket", "A/B", "#1", "Inner  Spaces"];
+        var rows = names.Select(name => new ListBoxItem { Content = name }).ToArray();
+        var list = new ListBox { ItemsSource = rows };
+        var window = new Window { Width = 400, Height = 700, Content = list };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var nodes = Flatten(UiAutomationDriver.Dump(window, "Window", 20, false)).ToList();
+            var itemNodes = nodes.Where(n => n.ControlType == "ListItem").ToList();
+            itemNodes.Should().HaveCount(rows.Length);
+            // Check identity for every reported node, including the list's template children.
+            foreach (var node in nodes)
+            {
+                var (control, error) = UiAutomationDriver.Resolve(window, node.Path);
+                error.Should().BeNull(node.Path);
+                control.Should().NotBeNull();
+                UiAutomationDriver.PathWithin(window, "Window", control!).Should().Be(node.Path);
+                if (node.ControlType == "ListItem")
+                    control.Should().BeSameAs(rows[itemNodes.IndexOf(node)]);
+            }
+            itemNodes.Select(n => n.Name).Should().Equal(names);
+            itemNodes[0].Path.Should().EndWith("ListItem[Form1]");
+            itemNodes[1].Path.Should().EndWith("ListItem[Module1]");
+            itemNodes[2].Path.Should().EndWith("ListItem[Tabbed]");
+            foreach (var index in new[] { 3, 4, 5, 6, 7, 8, 9 })
+                itemNodes[index].Path.Should().EndWith($"ListItem[#{index}]");
+            itemNodes[10].Path.Should().EndWith("ListItem[Inner  Spaces]");
+        }
+        finally { window.Close(); }
+    }
+
     // The Object Browser's own rows name themselves, so a caller selects a class or a member by its name.
     [AvaloniaFact]
     public void The_Object_Browser_s_rows_are_named_by_their_names()
