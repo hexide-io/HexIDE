@@ -352,8 +352,6 @@ public class PrePass : VB6BaseVisitor<object?>
         // the initializer). Sub/Function bodies aren't visited here, so local consts stay out of rootEnv.
         foreach (var sub in context.constSubStmt())
         {
-            if (sub.typeHint() != null)
-                throw new NotImplementedException("Const type hints not supported");
             var location = state.Alloc(Vb6Value.Variant);
             state.MarkConstant(location);
             if (IsVariantConst(sub))
