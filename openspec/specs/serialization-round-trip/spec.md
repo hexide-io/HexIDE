@@ -20,14 +20,15 @@ refuses an edit that encoding cannot hold rather than converting the file. A fil
 cannot read is still loaded, byte for byte, rather than dropped from the project. A file the project only
 carries is not held to this yet ([#745](https://github.com/hexide-io/HexIDE/issues/745)).
 
-> **Known divergence — this capability is not met today.** The requirements below state the intended
-> contract. Against VB6's own shipped sample projects, no file currently survives a save byte-identically,
-> and **6 of 22 are held read-only** by the refusal requirement rather than saved. Tracked as an epic in
-> [#21](https://github.com/hexide-io/HexIDE/issues/21), with narrower cases in
-> [#15](https://github.com/hexide-io/HexIDE/issues/15) and
-> [#22](https://github.com/hexide-io/HexIDE/issues/22). The requirements are stated as intent rather than
-> rewritten to describe the code, because the code is incomplete here, not the contract. The refusal and
-> read-only requirements *are* met, and are what makes the gap safe to ship with.
+> **Known divergence — narrower than this note once said.** The requirements below state the intended
+> contract. It once read that no file of VB6's own shipped samples survived a save byte-identically, and that
+> 6 of 22 were held read-only. Against the corpus gate today, every designer file VB6 wrote (28, from its
+> Template tree and from `corpus/`) survives a save byte-identically, its companion included, and none is held
+> read-only. The last one held, `Web Browser.frm`, was freed when the companion records cited by a control
+> the IDE does not model began to be carried with it ([#60](https://github.com/hexide-io/HexIDE/issues/60)).
+> The epic, [#21](https://github.com/hexide-io/HexIDE/issues/21), stays open, and the requirements are still
+> stated as intent rather than rewritten to describe the code. The refusal and read-only requirements are met,
+> and are what makes any remaining gap safe to ship with.
 >
 > That read-only count was 12 until menu hierarchies began surviving a round-trip
 > ([#83](https://github.com/hexide-io/HexIDE/issues/83)), and container nesting has since been fixed as
@@ -43,7 +44,9 @@ carries is not held to this yet ([#745](https://github.com/hexide-io/HexIDE/issu
 > tracked as a SET rather than a count: a count would have reported no progress on a change that removed two
 > whole classes of corruption.
 >
-> The set is gated by a corpus test, so membership cannot change quietly in either direction.
+> The set is gated by a corpus test, so membership cannot change quietly in either direction. It has since
+> fallen to none, each form leaving only by round-tripping, the last of them when content cited by a control
+> the IDE does not model began to be carried ([#60](https://github.com/hexide-io/HexIDE/issues/60)).
 
 ## Requirements
 
@@ -67,6 +70,11 @@ subset — and the developer discovers which parts by finding out what stopped w
 #### Scenario: A section left by another tool
 - **WHEN** a project file ends in a section belonging to some other tool
 - **THEN** that section is written back
+
+#### Scenario: Companion content cited by content the IDE does not model
+- **WHEN** a property, or a component type, the IDE has no model for cites a record in the binary companion
+- **THEN** the record is written back with it, and the citation is rewritten, companion name included, to
+  wherever the record lands
 
 ### Requirement: Preserved content SHALL be written back near where it was found
 Content preserved verbatim SHALL be written back in a position corresponding to where it was read, as far as
@@ -282,9 +290,10 @@ opposite directions, which is why no layer may hold the assumption privately.
 - **THEN** what is written back is its position relative to that container
 
 ### Requirement: Unreproducible binary content SHALL hold a file read-only
-Where a file cites binary content the IDE cannot reproduce — because the property carrying the citation is
-one it does not model, or because the cited content did not reach the model at all — the IDE SHALL treat
-that file as one it cannot reproduce.
+Where a file cites binary content the IDE cannot reproduce, because the cited content did not reach the model,
+the IDE SHALL treat that file as one it cannot reproduce. Content cited by a property or component the IDE
+does not model is carried with it, so that alone is no longer such a case
+([#60](https://github.com/hexide-io/HexIDE/issues/60)).
 
 The reference is what is lost, not the bytes: the companion file is left alone by a separate guard, so the
 image survives on disk while the property pointing at it does not. That is a save which looks successful and
@@ -299,8 +308,8 @@ once and they agree at a number lower than the file actually cites. The citation
 opened, so they can be counted whatever became of the file beside it.
 
 #### Scenario: A property the IDE does not model referencing a companion blob
-- **WHEN** such a file is loaded
-- **THEN** it is presented read-only rather than saved with the reference dropped
+- **WHEN** such a file is loaded and the cited content is in the companion
+- **THEN** the property is carried with that content, and the file is not held read-only on that account
 
 #### Scenario: A modelled property referencing a companion blob
 - **WHEN** the referencing property is one the IDE does model and the cited content reached the model
@@ -345,7 +354,8 @@ Both halves are required and they answer different risks. Reclassifying prevents
 source and rewritten with a module header on the next save. Preserving the line prevents the opposite fault:
 reclassification is an inference about intent, and silently editing a developer's project file on the
 strength of an inference is a larger liberty than declining to. The line SHALL change only when the project's
-membership actually changes.
+membership actually changes, or when the project file is written in another folder, where only its path changes
+(see "A kept member's line SHALL name the same file from wherever the project file is written").
 
 A file with no extension SHALL NOT be reclassified on read. The project already claims it is source, and
 reclassifying something that cannot be classified is a guess stacked on a guess.
@@ -450,6 +460,83 @@ project SHALL NOT remove a member the IDE failed to load.
 - **WHEN** the project is opened and saved
 - **THEN** the saved project file still names that module
 
+### Requirement: A kept member's line SHALL name the same file from wherever the project file is written
+
+When a project file is written in a folder other than the one it was read from, each line the IDE keeps for a
+member it did not load, each carried file's preserved original line, and the paths of a designer, the resource
+file, the build folder and a reference's library SHALL name the same file from the new folder, in the line's own
+shape. The help file's path SHALL be written as it was read, as SHALL every path in the folder it was read from,
+and one that names a drive or starts at a root.
+
+#### Scenario: Save Project As to another folder
+
+- **GIVEN** a project, read from one folder, whose form's file is missing
+- **WHEN** the project file is saved to another folder
+- **THEN** the form's line names its file by a path from the new folder
+- **AND** a later save from the new folder names it the same way
+
+#### Scenario: A resource file and a help file
+
+- **GIVEN** a project file holding `ResFile32="res\probe.res"` and `HelpFile="help\probe.hlp"`
+- **WHEN** it is saved one folder deeper
+- **THEN** it holds `ResFile32="..\res\probe.res"` and `HelpFile="help\probe.hlp"`
+
+#### Scenario: Saved where it was read
+
+- **GIVEN** a project holding kept member lines
+- **WHEN** the project file is saved in the folder it was read from
+- **THEN** each kept line is written exactly as it was read
+
+### Requirement: A project's description SHALL be read from and written to its project file as VB6 writes it
+
+The IDE SHALL read a project file's `Description` line into the project's description. It SHALL write a description
+that is not empty as `Description="..."`, with a quote inside doubled, after `HelpContextID`, or after `Name` when
+there is none, and SHALL write no line for an empty one. That is what VB6's own Save Project As writes (#42). A
+file's own `Description` line SHALL stay where it was read.
+
+#### Scenario: A description typed into a project read without one
+
+- **GIVEN** a project file holding `Name="probe"`, `HelpContextID="0"` and `CompatibleMode="0"`, and no description
+- **WHEN** a description `Orders` is set and the project is saved
+- **THEN** the file holds `Description="Orders"` between `HelpContextID="0"` and `CompatibleMode="0"`
+
+#### Scenario: A description with a quote in it
+
+- **GIVEN** a project file holding `Description="He said ""hi"""`
+- **WHEN** it is read and saved
+- **THEN** the project's description is `He said "hi"`, and the line is written as it was read
+
+#### Scenario: A description cleared
+
+- **GIVEN** a project file holding a `Description` line
+- **WHEN** the description is cleared and the project is saved
+- **THEN** the file holds no `Description` line
+
+### Requirement: A line of VB6 source SHALL end where VB6 ends it
+
+Every reader of a module's or a form's lines SHALL end a line at `\r\n`, at a lone `\r` and at a lone `\n`, as VB6's
+compiler and the code window do (#1020). That includes the header split, the `VB_Name` retarget, the read-only regions
+and the guard. A save SHALL write every line of code it read.
+
+#### Scenario: A module whose lines end with a lone CR
+
+- **GIVEN** a `.bas` whose every line, its `Attribute VB_Name` line included, ends with a lone CR
+- **WHEN** its project is opened and saved
+- **THEN** the file holds every line it held, each ending CRLF
+
+#### Scenario: A stray CR between two lines
+
+- **GIVEN** a CRLF `.bas` whose `Attribute VB_Name` line ends with a lone CR, followed by `Option Explicit`
+- **WHEN** it is saved
+- **THEN** `Option Explicit` is still in the file, on a line of its own
+
+#### Scenario: An attribute under a blank line made by a lone CR
+
+- **GIVEN** `Public Sub Foo()` ending with a lone CR and then a CRLF, followed by `Attribute Foo.VB_Description`
+- **WHEN** the code window reads the attribute line
+- **THEN** it describes no member, as VB6 binds it to none
+
+
 ### Requirement: A project file SHALL NOT be written without a member that has no file
 
 When an operation would write a project file while one of the project's forms or modules has never been saved
@@ -516,7 +603,10 @@ that cannot be held, and SHALL NOT be left waiting on a dialog.
 - **Interpreting preserved binary content.** Binary resources the IDE has no model for stay opaque; they are
   carried, never read.
 - **Reproducing the original product's omissions.** The original product omits properties left at their
-  default; the IDE writes what it holds. The result is semantically equal and slightly larger.
+  default; the IDE writes what it holds. The result is semantically equal and slightly larger, but only where
+  the IDE's default for a property is the original product's. Where it is not, a line the IDE leaves out
+  reads back as something else: `StartUpPosition` was the measured case, a missing line meaning 0 to the
+  original product and 3 to the IDE (#932), which is why the IDE's default is now 0.
 - **Preserving the original layout of content the IDE does model.** Recognised properties are written in the
   IDE's own order and spacing. Preserving the original arrangement would mean holding every file as raw text
   and giving up the model that makes the IDE an editor rather than a text editor.

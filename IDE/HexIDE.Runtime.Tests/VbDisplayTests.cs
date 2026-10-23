@@ -288,8 +288,8 @@ public class VbDisplayTests : BaseVBTestFixture
         dbg.Continue();
         await run.Guarded();
 
-        single.Should().Be("0.3333333");
-        date.Should().Be("02/01/2003");
+        single.Should().Be(" 0.3333333 ");   // a ? line is Print (#1386)
+        date.Should().Be("02/01/2003 ");
     }
 
     [Fact]

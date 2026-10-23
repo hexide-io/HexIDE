@@ -114,8 +114,8 @@ public class OperatorPrecedenceTests : BaseVBTestFixture
         await stopped.Task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
         dbg.Stopped -= OnStopped;
 
-        (await dbg.EvaluateAsync("?n - 2 + 3")).Should().Be("11");
-        (await dbg.EvaluateAsync("?n * n \\ 8")).Should().Be("12");
+        (await dbg.EvaluateAsync("?n - 2 + 3")).Should().Be(" 11 ");
+        (await dbg.EvaluateAsync("?n * n \\ 8")).Should().Be(" 12 ");
 
         dbg.Stop();
         await run.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);

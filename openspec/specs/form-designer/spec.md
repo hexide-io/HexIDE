@@ -12,6 +12,12 @@ and everything else is expressed in terms of it.
 
 Undoing these operations is a separate capability (`form-designer-undo-redo`); this one covers what the
 operations do.
+
+> **Known divergence.** "Copying a container SHALL copy what it holds" is not met for a control HexIDE does not
+> model: a copy is pasted without it, since its name would repeat the original's, and a container cut into another
+> form is pasted without it unless that form declares the libraries the first one did. Tracked in
+> [#1458](https://github.com/hexide-io/HexIDE/issues/1458). Cut and paste within a form keeps it (#1453).
+
 ## Requirements
 ### Requirement: The designer SHALL support selecting several controls with one as the reference
 The designer SHALL allow more than one control to be selected at once, and SHALL designate exactly one of
@@ -120,6 +126,11 @@ tidiness: a command that silently does nothing is indistinguishable from one tha
 - **WHEN** one control or none is selected
 - **THEN** the alignment and sizing commands are unavailable
 
+#### Scenario: Centring where the exact position is half a twip
+- **WHEN** a control is aligned by its centre, or centred in the form, and the exact position is half a twip
+- **THEN** it goes where VB6 puts it, in whole twips, each size halved on its own and truncated: a 1215-twip control
+  centred across a 4680-twip form goes to 2340 - 607 = 1733
+
 ### Requirement: The designer SHALL provide spacing commands across a selection
 The designer SHALL provide commands to equalise, increase, decrease and remove the spacing between selected
 controls, on both the horizontal and vertical axes. Equalising SHALL preserve the overall span occupied by
@@ -132,8 +143,8 @@ the form.
 
 #### Scenario: Equalising spacing
 - **WHEN** three or more controls are selected and spacing is equalised on an axis
-- **THEN** the gaps between them become equal
-- **AND** the outermost controls do not move
+- **THEN** the gaps between them become equal to the whole twip, as VB6 truncates them
+- **AND** the outermost controls do not move, the last gap taking any twip left over
 
 #### Scenario: Removing spacing
 - **WHEN** spacing is removed on an axis
@@ -198,6 +209,15 @@ control came from: pasted back into it, the number still holds; pasted anywhere 
 #### Scenario: Copying a container
 - **WHEN** a container is copied and pasted
 - **THEN** the copy holds copies of the contents, and changing one copy's contents does not change the other's
+
+#### Scenario: Cutting a container that holds a control HexIDE does not model
+- **WHEN** a container holding a control HexIDE does not model is cut and pasted on the same form
+- **THEN** the pasted container holds that control, which is written back as it was read, with the companion records
+  it cites
+
+#### Scenario: A control's own properties HexIDE does not model
+- **WHEN** a control with properties HexIDE does not model is copied or cut, and pasted
+- **THEN** the pasted control has them, with the companion records they cite
 
 #### Scenario: Pasting a control back into the container it was copied from
 - **WHEN** a control copied out of a container is pasted while that container is still on the form

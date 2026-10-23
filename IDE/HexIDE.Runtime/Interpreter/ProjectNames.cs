@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Interpreter;
 
 /// <summary>
 /// The names other modules make visible to one module unqualified: each standard module's Public (or Global) variables
-/// and Consts (#880). An environment consults this only for a name it does not hold itself, so the procedure's locals and
+/// and Consts (#880), and the members of each standard or class module's Public Enums (#889). An environment consults this only for a name it does not hold itself, so the procedure's locals and
 /// parameters, and the module's own variables, Consts, fields and controls, are found first.
 /// </summary>
 /// <remarks>
@@ -22,6 +22,9 @@ namespace HexIDE.Runtime.Interpreter;
 /// reads are unaffected.</item>
 /// <item>It is found before a built-in constant of the same name: Module2's <c>Public Const vbCancel = 42</c> is 42 from
 /// Module1. That falls out of the order: a name an environment resolves is read before any built-in is tried.</item>
+/// <item>A member of another module's Public Enum reads as its Long, a class's Enum included, and from a class's and a
+/// form's code. A Private Enum's is not visible. Two modules' members of one name are ambiguous bare, and so is a member
+/// beside another module's Public variable. Assigning one is "Assignment to constant not permitted" (#889).</item>
 /// </list>
 /// <para>This is collection, not binding: the table is built from the pre-pass's lists of each module's Public names, and
 /// a name is related to its declaration only when the walk reads it, through the owner's own environment.</para>
@@ -48,6 +51,17 @@ internal sealed class ProjectNames
             foreach (var (name, constant) in owner.PrePass.ModuleConsts)
                 if (constant.Public)
                     names.Add(reader, owner, name);
+        }
+        // A Public Enum's members, a class's as well as a standard module's (measured, #889). Each is the read-only slot its
+        // module's pre-pass hoisted it into.
+        foreach (var owner in modules)
+        {
+            if (ReferenceEquals(owner, reader) || owner.Kind is not (InterpreterModuleKind.Standard or InterpreterModuleKind.Class))
+                continue;
+            foreach (var (enumName, members) in owner.PrePass.Enums)
+                if (!owner.PrePass.PrivateEnums.Contains(enumName))
+                    foreach (var member in members.Keys)
+                        names.Add(reader, owner, member);
         }
         // A Public variable or Const beside another module's Public procedure of the name is ambiguous as well (measured
         // for a Sub and for a Function).

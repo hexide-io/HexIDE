@@ -588,6 +588,7 @@
     "Str.PropDesc.Checked": "Ob neben dem Menüeintrag ein Häkchen angezeigt wird.",
     "Str.PropDesc.WindowList": "Ob dieses Menü die geöffneten MDI-Unterfenster auflistet.",
     "Str.PropDesc.Locked": "Ob der Inhalt des Steuerelements bearbeitet werden kann.",
+    "Str.PropDesc.MultiSelect": "Ob mehr als ein Element ausgewählt werden kann, und wie.",
     "Str.PropDesc.StartUpPosition": "Wo das Formular beim ersten Öffnen auf dem Bildschirm platziert wird.",
     "Str.PropDesc.ShowInTaskbar": "Ob das Formular in der Taskleiste angezeigt wird.",
     "Str.PropDesc.TabIndex": "Die Position des Steuerelements in der Aktivierreihenfolge des Formulars.",

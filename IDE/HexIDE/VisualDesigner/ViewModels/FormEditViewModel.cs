@@ -15,6 +15,7 @@ using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Projects;
+using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
@@ -81,6 +82,13 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         return false;
     }
 
+    /// <summary>
+    /// The controls the canvas draws, in the order it draws them, the last on top. That is the reverse of each
+    /// container's run of blocks in the file, where VB6 puts the control on top first (measured, #1481), so the list is
+    /// built from the file on load (<see cref="DrawOrder"/>) and turned back into it on save
+    /// (<see cref="ComponentsAsSaved"/>). A container comes before what it holds, which is drawn over it. Loaded menus are
+    /// here too, last; they are never drawn.
+    /// </summary>
     public ObservableCollection<ComponentInstanceViewModel> Components { get; } = new();
 
     public ComponentInstanceViewModel Form { get; private set; }
@@ -161,12 +169,171 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         AutoDispose(this.eventBus.Subscribe<ProjectUnloadedEvent>(_ => { DesignerClipboard.Clear(); UndoStack.Clear(); }));
     }
 
-    /// <summary>The component list a save would hand the model, in the order it would hand it.</summary>
+    /// <summary>
+    /// The component list a save would hand the model, in the order it would hand it: the form, then each container's
+    /// contents with the one drawn on top first, as VB6 writes them, each followed by what it holds; then the menus,
+    /// which are not drawn, in the order they have always had. The inverse of <see cref="DrawOrder"/>.
+    /// </summary>
     private (List<ComponentInstance> Ordered, Dictionary<ComponentInstanceViewModel, int> PositionInList) ComponentsAsSaved()
     {
         var positionInList = Components.Select((comp, index) => (comp, index)).ToDictionary(x => x.comp, x => x.index);
-        var ordered = AllComponents.OrderBy(x => positionInList.GetValueOrDefault(x, 0)).Select(x => x.Instance).ToList();
+        var contents = new Dictionary<ComponentInstance, List<ComponentInstanceViewModel>>(ReferenceEqualityComparer.Instance);
+        foreach (var vm in AllComponents)
+        {
+            if (vm == Form || IsMenu(vm))
+                continue;
+            var parent = ParentOf(vm.Instance);
+            if (!contents.TryGetValue(parent, out var list))
+                contents[parent] = list = [];
+            list.Add(vm);
+        }
+
+        var ordered = new List<ComponentInstance> { Form.Instance };
+        var placed = new HashSet<ComponentInstance>(ReferenceEqualityComparer.Instance) { Form.Instance };
+        void Place(ComponentInstance container)
+        {
+            if (!contents.TryGetValue(container, out var list))
+                return;
+            foreach (var vm in list.OrderByDescending(c => positionInList.GetValueOrDefault(c, int.MaxValue)))
+            {
+                if (!placed.Add(vm.Instance))
+                    continue;
+                ordered.Add(vm.Instance);
+                Place(vm.Instance);
+            }
+        }
+        Place(Form.Instance);
+
+        // A control whose container is not on this form is still handed over rather than lost; the writer refuses a tree
+        // it cannot place.
+        ordered.AddRange(AllComponents.Where(c => c != Form && !IsMenu(c) && !placed.Contains(c.Instance)).Select(c => c.Instance));
+        ordered.AddRange(AllComponents.Where(IsMenu).OrderBy(c => positionInList.GetValueOrDefault(c, 0)).Select(c => c.Instance));
         return (ordered, positionInList);
+    }
+
+    /// <summary>
+    /// The order the canvas draws a form's components in, the last on top, from the order the file holds them in, where
+    /// the first block in each container is the control on top (measured, #1481). Each container's contents go last in
+    /// the file first, each followed by what it holds. A VB6 file lists a container's windowed controls before its
+    /// windowless ones, so the windowless come out under them, as VB6 draws them. Menus are not drawn and go last, in
+    /// the file's order. <see cref="ComponentsAsSaved"/> is the inverse.
+    /// </summary>
+    private List<ComponentInstance> DrawOrder(IReadOnlyList<ComponentInstance> fileOrder)
+    {
+        var contents = new Dictionary<ComponentInstance, List<ComponentInstance>>(ReferenceEqualityComparer.Instance);
+        foreach (var component in fileOrder)
+        {
+            if (ReferenceEquals(component, Form.Instance) || component.BaseClass is MenuComponentClass)
+                continue;
+            var parent = ParentOf(component);
+            if (!contents.TryGetValue(parent, out var list))
+                contents[parent] = list = [];
+            list.Add(component);
+        }
+
+        var order = new List<ComponentInstance>();
+        var drawn = new HashSet<ComponentInstance>(ReferenceEqualityComparer.Instance);
+        void Draw(ComponentInstance container)
+        {
+            if (!contents.TryGetValue(container, out var list))
+                return;
+            for (var i = list.Count - 1; i >= 0; i--)
+            {
+                if (!drawn.Add(list[i]))
+                    continue;
+                order.Add(list[i]);
+                Draw(list[i]);
+            }
+        }
+        Draw(Form.Instance);
+
+        order.AddRange(fileOrder.Where(c =>
+            !ReferenceEquals(c, Form.Instance) && c.BaseClass is not MenuComponentClass && !drawn.Contains(c)));
+        order.AddRange(fileOrder.Where(c => c.BaseClass is MenuComponentClass));
+        return order;
+    }
+
+    /// <summary>What a control is drawn in: its container, or the form for one at form level.</summary>
+    private ComponentInstance ParentOf(ComponentInstance control) =>
+        control.Container is { } container && !ReferenceEquals(container, Form.Instance) ? container : Form.Instance;
+
+    private static bool IsMenu(ComponentInstanceViewModel component) => component.Instance.BaseClass is MenuComponentClass;
+
+    private static bool IsWindowless(IComponentClass type) => type is ComponentBaseClass { IsWindowless: true };
+
+    private bool IsContentOf(ComponentInstanceViewModel component, ComponentInstance container) =>
+        !IsMenu(component) && ReferenceEquals(ParentOf(component.Instance), container);
+
+    /// <summary>
+    /// Where a container's contents are in a draw-order list: the run after it of what it holds, at any depth, or the
+    /// whole list for the form.
+    /// </summary>
+    private (int Start, int End) RegionOf(IReadOnlyList<ComponentInstanceViewModel> list, ComponentInstance container)
+    {
+        if (ReferenceEquals(container, Form.Instance))
+            return (0, list.Count);
+        var at = -1;
+        for (var i = 0; i < list.Count && at == -1; i++)
+            if (ReferenceEquals(list[i].Instance, container))
+                at = i;
+        if (at == -1)
+            return (list.Count, list.Count);
+        var end = at + 1;
+        while (end < list.Count && Holds(container, list[end].Instance))
+            end++;
+        return (at + 1, end);
+    }
+
+    private static bool Holds(ComponentInstance container, ComponentInstance control)
+    {
+        for (var c = control.Container; c is not null; c = c.Container)
+            if (ReferenceEquals(c, container))
+                return true;
+        return false;
+    }
+
+    /// <summary>
+    /// Where a container's windowless contents end and its windowed ones begin in a draw-order list: at its first windowed
+    /// control, or the end of its contents when it has none.
+    /// </summary>
+    private int PlaneBoundary(IReadOnlyList<ComponentInstanceViewModel> list, ComponentInstance container)
+    {
+        var (start, end) = RegionOf(list, container);
+        for (var i = start; i < end; i++)
+            if (IsContentOf(list[i], container) && !IsWindowless(list[i].Instance.BaseClass))
+                return i;
+        return end;
+    }
+
+    /// <summary>
+    /// Where a control goes in a draw-order list to be on top of its plane in a container, which is where VB6 puts a
+    /// control added there, and where Bring to Front moves one: first in that plane's run of the container's blocks
+    /// (measured, #1481). Over everything the container holds for a windowed control; under every windowed control in it
+    /// for a windowless one.
+    /// </summary>
+    private int TopOfPlane(IReadOnlyList<ComponentInstanceViewModel> list, ComponentInstance container, bool windowless) =>
+        windowless ? PlaneBoundary(list, container) : RegionOf(list, container).End;
+
+    /// <summary>Where Send to Back moves a control: last in its plane's run of its container's blocks (measured, #1481).</summary>
+    private int BottomOfPlane(IReadOnlyList<ComponentInstanceViewModel> list, ComponentInstance container, bool windowless) =>
+        windowless ? RegionOf(list, container).Start : PlaneBoundary(list, container);
+
+    /// <summary>
+    /// Puts <see cref="Components"/> in the given order, by moves, so each control keeps its realized view and the
+    /// selection with it. What the order does not name keeps its place after those it does.
+    /// </summary>
+    internal void Arrange(IReadOnlyList<ComponentInstanceViewModel> order)
+    {
+        var next = 0;
+        foreach (var component in order)
+        {
+            var at = Components.IndexOf(component);
+            if (at == -1)
+                continue;
+            if (at != next)
+                Components.Move(at, next);
+            next++;
+        }
     }
 
     /// <summary>
@@ -231,17 +398,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             .Subscribe(_ => Title = ComputeTitle()));
         AutoDispose(formElement.Owner.ObservePropertyChanged(x => x.Name)
             .Subscribe(_ => Title = ComputeTitle()));
-        AllComponents.Clear();
-        Components.Clear();
-        foreach (var comp in formElement.Components)
-        {
-            var vm = new ComponentInstanceViewModel(this, comp);
-            if (comp.BaseClass != FormComponentClass.Instance)
-                Components.Add(vm);
-            else
-                Form = vm;
-            AllComponents.Add(vm);
-        }
+        Populate(formElement.Components);
 
         SelectedComponent = Form;
         Title = ComputeTitle();
@@ -258,17 +415,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     {
         if (formDefinition is null)
             return;
-        AllComponents.Clear();
-        Components.Clear();
-        foreach (var comp in formDefinition.Components)
-        {
-            var vm = new ComponentInstanceViewModel(this, comp);
-            if (comp.BaseClass != FormComponentClass.Instance)
-                Components.Add(vm);
-            else
-                Form = vm;
-            AllComponents.Add(vm);
-        }
+        Populate(formDefinition.Components);
 
         SelectedComponent = Form;
         UndoStack.Clear();
@@ -279,6 +426,25 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         // watches, so the banner and the disabled surface would keep the old answer until the tab was reopened.
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsReadOnly)));
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(ReadOnlyReason)));
+    }
+
+    // AllComponents keeps the file's order; Components takes the order the canvas draws in.
+    private void Populate(IReadOnlyList<ComponentInstance> fileOrder)
+    {
+        AllComponents.Clear();
+        Components.Clear();
+        var viewModels = new Dictionary<ComponentInstance, ComponentInstanceViewModel>(ReferenceEqualityComparer.Instance);
+        foreach (var comp in fileOrder)
+        {
+            var vm = new ComponentInstanceViewModel(this, comp);
+            viewModels[comp] = vm;
+            if (comp.BaseClass == FormComponentClass.Instance)
+                Form = vm;
+            AllComponents.Add(vm);
+        }
+
+        foreach (var comp in DrawOrder(fileOrder))
+            Components.Add(viewModels[comp]);
     }
 
     /* ctr only for the previewer! */
@@ -296,12 +462,48 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         settingsService = null!;
         localization = null!;
         ToolsBoxToolViewModel = null!;
+        // A Line's place among the Lines is read from this list, so a reorder changes it.
+        Components.CollectionChanged += (_, _) =>
+        {
+            foreach (var component in Components)
+                if (component.IsLine)
+                    component.OnZIndexChanged();
+        };
     }
 
+    /// <summary>
+    /// A control added by double-clicking its tool: centred on the form as Center in Form centres one, then put on the
+    /// nearest grid line when Align to Grid is on, as VB6 puts it (measured, #929: a 1215 x 495 button on a 6000 x 4500
+    /// form went to 2400, 2040, where its centre is 2392.5, 2002.5). A position exactly between two lines goes to the
+    /// higher: 12.5 grid units became 13 (measured), where the default to-even rounding gives 12. Its size is its class's
+    /// <see cref="ComponentBaseClass.AddedSize"/>, the one VB6 gives it (measured, #1473).
+    /// </summary>
     public void SpawnControlCenter(ComponentBaseClass componentClass)
     {
-        SpawnControlAt(componentClass, new Rect(0, 0, Form.Width, Form.Height).CenterRect(new Rect(0, 0, 50, 50)));
+        var (width, height) = componentClass.AddedSize;
+        var left = Twips(Form.Width) / 2 - width / 2;
+        var top = Twips(Form.Height) / 2 - height / 2;
+        if (settingsService.AlignToGrid)
+        {
+            left = OnGrid(left, settingsService.GridWidth);
+            top = OnGrid(top, settingsService.GridHeight);
+        }
+        SpawnControlAt(componentClass, new Rect(Pixels(left), Pixels(top), Pixels(width), Pixels(height)));
+
+        static long OnGrid(long twips, int gridPixels)
+        {
+            var grid = Twips(gridPixels);
+            return grid <= 0 ? twips : (long)Math.Round(twips / (double)grid, MidpointRounding.AwayFromZero) * grid;
+        }
     }
+
+    // The Format commands that halve or divide a distance work as VB6's do, in whole twips, halving each size on its own
+    // and truncating (measured, #929). In fractional pixels a control centred on an odd difference landed at x.5 px, which
+    // a save wrote as a fractional twip VB6 never holds. A designer pixel is 15 twips, so a whole twip is a whole number
+    // of fifteenths of a pixel, and the save writes it back exactly.
+    private static long Twips(double pixels) => (long)Math.Round(pixels * VBScaleModeExtensions.PixelToTwips);
+
+    private static double Pixels(long twips) => twips / (double)VBScaleModeExtensions.PixelToTwips;
 
     public void SpawnControl(Rect rect)
     {
@@ -311,29 +513,44 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         SpawnControlAt(baseClass, rect);
     }
 
+    /// <summary>
+    /// The TabIndex a control added or pasted takes: the next after the highest on the form, counting only the classes
+    /// that have one, as VB6's designer gives it (measured, #925). So the first is 0, a Timer neither takes one nor uses
+    /// one up, and a Label's or a Frame's counts. A paste takes a new one for each control, its container's first. A
+    /// control HexIDE does not model counts too, read from the text it is carried as.
+    /// </summary>
+    private int NextTabIndex() =>
+        AllComponents.Where(c => HasTabIndex(c.Instance.BaseClass))
+            .Select(c => c.Instance.GetPropertyOrDefault(VBProperties.TabIndexProperty))
+            .Concat(AllComponents.SelectMany(c => c.Instance.PreservedChildSubtrees).SelectMany(b => PreservedControlText.TabIndexes(b.Text)))
+            .DefaultIfEmpty(-1).Max() + 1;
+
+    private static bool HasTabIndex(IComponentClass type) => type.Properties.Contains(VBProperties.TabIndexProperty);
+
     public void SpawnControlAt(ComponentBaseClass baseClass, Rect rect)
     {
-        // Name = base + the LOWEST unused index, so a name freed by a delete is reused and we never collide with an
-        // existing control. The old `baseClass.Name + Components.Count` collided after a delete: e.g. add Command0 +
-        // Command1, delete Command0 → Count is 1 again → a second control also named "Command1".
-        // Every name on the form, a preserved control's too (#854).
-        var used = ComponentNaming.NamesInUse(AllComponents.Select(c => c.Instance));
-        int index = 0;
-        while (used.Contains(baseClass.Name + index)) index++;
-        var newName = baseClass.Name + index;
+        var newName = FreeName(baseClass);
         Log.Debug("FormEditViewModel: Spawning {ControlType} as {ControlName} at ({Left},{Top} {Width}x{Height})",
             baseClass.Name, newName, rect.Left, rect.Top, rect.Width, rect.Height);
-        var newComponent = new ComponentInstanceViewModel(this, new ComponentInstance(baseClass, newName)
-            .SetProperty(VBProperties.CaptionProperty, newName)
-            .SetProperty(VBProperties.TabIndexProperty, AllComponents.Select(x => x.Instance.GetPropertyOrDefault(VBProperties.TabIndexProperty)).DefaultIfEmpty().Max() + 1)
-        )
+        var instance = new ComponentInstance(baseClass, newName);
+        if (HasTabIndex(baseClass))
+            instance.SetProperty(VBProperties.TabIndexProperty, NextTabIndex());
+        // A drawn control starts with its name as its Caption, or as its Text: VB6's designer writes Text = "Text1" for a
+        // TextBox and Text = "Combo1" for a ComboBox (measured, #926). Only where the class has the property.
+        if (baseClass.Properties.Contains(VBProperties.CaptionProperty))
+            instance.SetProperty(VBProperties.CaptionProperty, newName);
+        if (baseClass.Properties.Contains(VBProperties.TextProperty))
+            instance.SetProperty(VBProperties.TextProperty, newName);
+        var newComponent = new ComponentInstanceViewModel(this, instance)
         {
             Width = rect.Width,
             Height = rect.Height,
             Left = rect.Left,
             Top = rect.Top
         };
-        Components.Add(newComponent);
+        // On top of its plane, so VB6 finds it first among the form's windowed blocks, or first among its windowless ones
+        // after them (measured, #1481).
+        Components.Insert(TopOfPlane(Components, Form.Instance, IsWindowless(baseClass)), newComponent);
         AllComponents.Add(newComponent);
         UndoStack.Push(new AddControlsCommand(
             [(newComponent, Components.IndexOf(newComponent), AllComponents.IndexOf(newComponent))],
@@ -350,7 +567,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     }
 
     /// <summary>
-    /// Re-orders each container's contents to match the canvas order before the model is written.
+    /// Re-orders each container's contents to match the canvas order before the model is written: the one drawn on top
+    /// first, as VB6 writes them (#1481).
     ///
     /// This handler is the only place the designer authors the model's component list, so whatever the canvas
     /// holds has to become the tree here or a save flattens the form again. Menus are skipped: they share the
@@ -368,7 +586,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
                 continue;
 
             var ordered = owner.ContainedControls
-                .OrderBy(c => canvasOrder.TryGetValue(c, out var i) ? i : int.MaxValue)
+                .OrderByDescending(c => canvasOrder.TryGetValue(c, out var i) ? i : int.MinValue)
                 .ToList();
 
             // Re-inserting in ascending order rebuilds the list: each SetContainer detaches the child and
@@ -378,54 +596,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         }
     }
 
-    /// <summary>
-    /// Where in <see cref="Components"/> this control's canvas siblings sit — the entries sharing its
-    /// container, menus excluded.
-    ///
-    /// Z-order is sibling-scoped: VB6 raises a control above the others INSIDE its container and never lifts
-    /// it out of one, so "front" is the last sibling's slot rather than the end of the whole list. Menus have
-    /// to be excluded because they share this collection with the controls (a loaded menu item is a
-    /// zero-sized item parked at the origin), so a Send to Back would otherwise reorder against a menu and
-    /// the write-back would reorder the menu tree with it.
-    /// </summary>
-    private List<int> CanvasSiblingIndices(ComponentInstanceViewModel instance)
-    {
-        // A menu has no canvas siblings and no z-order. It is only in this collection because a loaded menu
-        // item becomes a zero-sized item parked at the origin, which is a separate defect.
-        if (instance.Instance.BaseClass is MenuComponentClass)
-            return [];
-
-        var container = instance.Instance.Container;
-        var indices = new List<int>();
-        for (var i = 0; i < Components.Count; i++)
-        {
-            var candidate = Components[i].Instance;
-            if (candidate.BaseClass is MenuComponentClass)
-                continue;
-            if (!ReferenceEquals(candidate.Container, container))
-                continue;
-            indices.Add(i);
-        }
-        return indices;
-    }
-
-    public void BringToFront(ComponentInstanceViewModel instance)
-    {
-        var indexOf = Components.IndexOf(instance);
-        if (indexOf != -1)
-        {
-            var siblings = CanvasSiblingIndices(instance);
-            // Empty means a menu, which has no z-order to change. Any real control is its own sibling, so a
-            // control with nothing else in its container still gets a one-entry list.
-            if (siblings.Count == 0) return;
-            var newIndex = siblings[^1];
-            Components.Move(indexOf, newIndex);
-            SelectedComponent = null; // required, otherwise GUI lose selected item
-            SelectedComponent = instance;
-            if (indexOf != newIndex)
-                UndoStack.Push(new ZOrderCommand(instance, indexOf, newIndex, $"Bring to Front: {instance.Name}"));
-        }
-    }
+    public void BringToFront(ComponentInstanceViewModel instance) => MoveInPlane(instance, toFront: true, "Bring to Front");
 
     public void SendToBack()
     {
@@ -433,36 +604,62 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             SendToBack(selectedComponent);
     }
 
-    public void SendToBack(ComponentInstanceViewModel instance)
+    public void SendToBack(ComponentInstanceViewModel instance) => MoveInPlane(instance, toFront: false, "Send to Back");
+
+    /// <summary>
+    /// Moves a control to the top or the bottom of its plane in its container, with what it holds, as VB6's Bring to Front
+    /// and Send to Back do (measured, #1481). Its block goes first or last in its plane's run of the container's blocks: a
+    /// windowed control never goes under a Label, a Label never over a windowed control, and nothing leaves its
+    /// container. Its TabIndex does not change.
+    /// </summary>
+    private void MoveInPlane(ComponentInstanceViewModel instance, bool toFront, string verb)
     {
-        var indexOf = Components.IndexOf(instance);
-        if (indexOf != -1)
-        {
-            var siblings = CanvasSiblingIndices(instance);
-            if (siblings.Count == 0) return;
-            var newIndex = siblings[0];
-            Components.Move(indexOf, newIndex);
-            SelectedComponent = null; // required, otherwise GUI lose selected item
-            SelectedComponent = instance;
-            if (indexOf != newIndex)
-                UndoStack.Push(new ZOrderCommand(instance, indexOf, newIndex, $"Send to Back: {instance.Name}"));
-        }
+        // A menu has no z-order. It is only in this collection because a loaded menu item becomes a zero-sized item
+        // parked at the origin, which is a separate defect.
+        if (IsMenu(instance))
+            return;
+        var from = Components.IndexOf(instance);
+        if (from == -1)
+            return;
+
+        // What it holds moves with it, or the container would be drawn over its own contents.
+        var count = RegionOf(Components, instance.Instance).End - from;
+        var before = Components.ToList();
+        var rest = before.Take(from).Concat(before.Skip(from + count)).ToList();
+        var container = ParentOf(instance.Instance);
+        var windowless = IsWindowless(instance.Instance.BaseClass);
+        var at = toFront ? TopOfPlane(rest, container, windowless) : BottomOfPlane(rest, container, windowless);
+
+        if (at > from)
+            for (var k = 0; k < count; k++)
+                Components.Move(from, at + count - 1);
+        else if (at < from)
+            for (var k = 0; k < count; k++)
+                Components.Move(from + k, at + k);
+
+        SelectedComponent = null; // required, otherwise GUI lose selected item
+        SelectedComponent = instance;
+        var after = Components.ToList();
+        if (!before.SequenceEqual(after))
+            UndoStack.Push(new ZOrderCommand(instance, before, after, $"{verb}: {instance.Name}"));
     }
 
     public void CenterHorizontally()
     {
         if (selectedComponent == null) return;
         var target = selectedComponent;
+        // ScaleWidth\2 - Width\2: 4680 and 1215 give 2340 - 607 = 1733, where the exact answer is 1732.5 (measured).
         PushBatch($"Center H: {target.Name}", [target], [VBProperties.LeftProperty],
-            () => target.Left = Form.Width / 2 - target.Width / 2);
+            () => target.Left = Pixels(Twips(Form.Width) / 2 - Twips(target.Width) / 2));
     }
 
     public void CenterVertically()
     {
         if (selectedComponent == null) return;
         var target = selectedComponent;
+        // 3195 and 510 give 1597 - 255 = 1342: the exact 1342.5 goes down, where 1732.5 went up across (measured).
         PushBatch($"Center V: {target.Name}", [target], [VBProperties.TopProperty],
-            () => target.Top = Form.Height / 2 - target.Height / 2);
+            () => target.Top = Pixels(Twips(Form.Height) / 2 - Twips(target.Height) / 2));
     }
 
     public void AlignLefts()
@@ -507,7 +704,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Align Centers H: {targets.Count} controls", targets, [VBProperties.LeftProperty],
-            () => { foreach (var c in targets) c.Left = primary.Left + (primary.Width - c.Width) / 2; });
+            () => { foreach (var c in targets) c.Left = primary.Left + Pixels(Twips(primary.Width) / 2 - Twips(c.Width) / 2); });
     }
 
     public void AlignCentersV()
@@ -516,7 +713,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         var primary = selectedComponent;
         var targets = SelectedComponents.ToList();
         PushBatch($"Align Centers V: {targets.Count} controls", targets, [VBProperties.TopProperty],
-            () => { foreach (var c in targets) c.Top = primary.Top + (primary.Height - c.Height) / 2; });
+            () => { foreach (var c in targets) c.Top = primary.Top + Pixels(Twips(primary.Height) / 2 - Twips(c.Height) / 2); });
     }
 
     public void MakeSameWidth()
@@ -554,13 +751,15 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     {
         var sorted = SelectedComponents.OrderBy(c => c.Left).ToList();
         if (sorted.Count < 2) return;
+        // The gap is truncated, and the last control stays where it was, its gap taking what is left over: Lefts 300, 2000
+        // and 4005, 1200 wide, become 300, 2152 and 4005 (measured).
         PushBatch($"Equal H-Spacing: {sorted.Count} controls", sorted, [VBProperties.LeftProperty], () =>
         {
-            double totalSpan = sorted[^1].Left + sorted[^1].Width - sorted[0].Left;
-            double totalWidth = sorted.Sum(c => c.Width);
-            double gap = (totalSpan - totalWidth) / (sorted.Count - 1);
-            double cursor = sorted[0].Left;
-            foreach (var c in sorted) { c.Left = cursor; cursor += c.Width + gap; }
+            long start = Twips(sorted[0].Left);
+            long span = Twips(sorted[^1].Left) + Twips(sorted[^1].Width) - start;
+            long gap = (span - sorted.Sum(c => Twips(c.Width))) / (sorted.Count - 1);
+            long cursor = start;
+            foreach (var c in sorted.Take(sorted.Count - 1)) { c.Left = Pixels(cursor); cursor += Twips(c.Width) + gap; }
         });
     }
 
@@ -611,13 +810,14 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     {
         var sorted = SelectedComponents.OrderBy(c => c.Top).ToList();
         if (sorted.Count < 2) return;
+        // As across: the gap truncated, the last control left where it was.
         PushBatch($"Equal V-Spacing: {sorted.Count} controls", sorted, [VBProperties.TopProperty], () =>
         {
-            double totalSpan = sorted[^1].Top + sorted[^1].Height - sorted[0].Top;
-            double totalHeight = sorted.Sum(c => c.Height);
-            double gap = (totalSpan - totalHeight) / (sorted.Count - 1);
-            double cursor = sorted[0].Top;
-            foreach (var c in sorted) { c.Top = cursor; cursor += c.Height + gap; }
+            long start = Twips(sorted[0].Top);
+            long span = Twips(sorted[^1].Top) + Twips(sorted[^1].Height) - start;
+            long gap = (span - sorted.Sum(c => Twips(c.Height))) / (sorted.Count - 1);
+            long cursor = start;
+            foreach (var c in sorted.Take(sorted.Count - 1)) { c.Top = Pixels(cursor); cursor += Twips(c.Height) + gap; }
         });
     }
 
@@ -818,12 +1018,23 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         double offsetX = _pasteOffset * settingsService.GridWidth;
         double offsetY = _pasteOffset * settingsService.GridHeight;
 
-        var pastedEntries = new List<(ComponentInstanceViewModel Vm, int ComponentsIdx, int AllComponentsIdx)>();
+        var pasted = new List<ComponentInstanceViewModel>();
+        var contentsOf = new Dictionary<ComponentInstanceViewModel, List<ComponentInstanceViewModel>>();
         ComponentInstanceViewModel? lastAdded = null;
 
-        void Build(DesignerClipboard.ClipboardEntry entry, ComponentInstance? container, double shiftX, double shiftY)
+        // A control HexIDE does not model is carried by its class name alone, so it goes only into a form declaring
+        // every library the form it came from did; anywhere else VB6 could not load it. A pasted one is numbered after
+        // every block already on the form.
+        var declared = new HashSet<string>(
+            DesignerClipboard.Declarations(formDefinition?.HeaderLines ?? []), StringComparer.OrdinalIgnoreCase);
+        var carriesControls = DesignerClipboard.SourceDeclarations.All(declared.Contains);
+        var documentOrder = AllComponents.SelectMany(c => c.Instance.PreservedChildSubtrees)
+            .Select(block => block.DocumentOrder).DefaultIfEmpty(-1).Max() + 1;
+
+        ComponentInstanceViewModel Build(DesignerClipboard.ClipboardEntry entry, ComponentInstance? container, double shiftX,
+            double shiftY)
         {
-            var newName = GenerateName(entry.BaseClass);
+            var newName = FreeName(entry.BaseClass);
             var newInstance = new ComponentInstance(entry.BaseClass, newName);
             foreach (var kvp in entry.Properties)
             {
@@ -835,19 +1046,63 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
                 else
                     newInstance.SetUntypedProperty(kvp.Key, kvp.Value);
             }
+            // Its own place in the tab order, not its source's, which would put two controls at one TabIndex (#925).
+            if (HasTabIndex(entry.BaseClass))
+                newInstance.SetProperty(VBProperties.TabIndexProperty, NextTabIndex());
             if (container is not null)
                 newInstance.SetContainer(container);
+
+            // What HexIDE carries without modelling goes with the control, or a cut and paste loses it (#1453). Its
+            // properties have no name to repeat, so a copy takes them too, as VB6 copies every property. A control
+            // inside it goes only where its names are free, which a cut leaves them: a copy's would be the original's
+            // again, and vb6.exe builds a form holding a name twice without either control (#854).
+            newInstance.UnknownRawProperties.AddRange(entry.UnknownProperties);
+            if (carriesControls)
+            {
+                var inUse = ComponentNaming.NamesInUse(AllComponents.Select(c => c.Instance));
+                inUse.Add(newName);
+                foreach (var block in entry.PreservedChildren)
+                {
+                    var names = ComponentNaming.NamesDeclaredBy(block.Text).ToList();
+                    if (names.Any(inUse.Contains))
+                        continue;
+                    newInstance.AddPreservedChildSubtree(block.Ordinal, documentOrder++, block.Text, block.Records);
+                    inUse.UnionWith(names);
+                }
+            }
 
             var newVm = new ComponentInstanceViewModel(this, newInstance);
             Components.Add(newVm);
             AllComponents.Add(newVm);
-            pastedEntries.Add((newVm, Components.IndexOf(newVm), AllComponents.IndexOf(newVm)));
+            pasted.Add(newVm);
             lastAdded = newVm;
 
             // Contents keep their own container-relative coordinates and are re-linked into the copy, so a
             // pasted container arrives with its own children rather than sharing the original's.
-            foreach (var child in entry.Children)
-                Build(child, newInstance, 0, 0);
+            contentsOf[newVm] = entry.Children.Select(child => Build(child, newInstance, 0, 0)).ToList();
+            return newVm;
+        }
+
+        // The copy is drawn as its source was, its contents stacked as theirs were, where VB6 pastes them one at a time,
+        // each on top, and so stacks a Frame's copy the other way up (measured, #1481). Names and TabIndexes still follow
+        // the source's order, as VB6's do. The copy goes on top of its plane in the container it lands in, as a control
+        // added there.
+        void Restack(ComponentInstanceViewModel top, ComponentInstance container)
+        {
+            var stack = new List<ComponentInstanceViewModel>();
+            void Add(ComponentInstanceViewModel vm)
+            {
+                stack.Add(vm);
+                var contents = contentsOf[vm];
+                for (var i = contents.Count - 1; i >= 0; i--)
+                    Add(contents[i]);
+            }
+            Add(top);
+            foreach (var vm in stack)
+                Components.Remove(vm);
+            var at = TopOfPlane(Components, container, IsWindowless(top.Instance.BaseClass));
+            for (var i = 0; i < stack.Count; i++)
+                Components.Insert(at + i, stack[i]);
         }
 
         foreach (var entry in entries)
@@ -861,12 +1116,13 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
                 ? source
                 : null;
             var rebase = target is null ? entry.SourceContainerOrigin : default;
-            Build(entry, target, offsetX + rebase.X, offsetY + rebase.Y);
+            Restack(Build(entry, target, offsetX + rebase.X, offsetY + rebase.Y), target ?? Form.Instance);
         }
 
         if (lastAdded != null)
             SelectedComponent = lastAdded;
 
+        var pastedEntries = pasted.Select(vm => (Vm: vm, ComponentsIdx: Components.IndexOf(vm), AllComponentsIdx: AllComponents.IndexOf(vm))).ToList();
         if (pastedEntries.Count > 0)
         {
             string desc = pastedEntries.Count == 1 ? $"Paste: {pastedEntries[0].Vm.Name}" : $"Paste: {pastedEntries.Count} controls";
@@ -880,15 +1136,18 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             UndoStack.Push(new Commands.SetPropertyCommand(target, property, before, after));
     }
 
-    private string GenerateName(IComponentClass baseClass)
+    /// <summary>
+    /// The name a control added or pasted takes: its class's prefix and the lowest number from 1 that no name on the form
+    /// has, a preserved control's included, in any case (#854). VB6's designer names a new control and a pasted one so,
+    /// filling a gap a file left or a delete made (measured, #540): beside Command1 and Command3 the next is Command2, and
+    /// beside Text5 it is Text1.
+    /// </summary>
+    private string FreeName(IComponentClass baseClass)
     {
-        // Every name on the form, a preserved control's too, in any case (#854).
-        var existingNames = ComponentNaming.NamesInUse(AllComponents.Select(c => c.Instance));
-        int n = Components.Count;
-        string candidate;
-        do { candidate = baseClass.Name + n++; }
-        while (existingNames.Contains(candidate));
-        return candidate;
+        var used = ComponentNaming.NamesInUse(AllComponents.Select(c => c.Instance));
+        var index = 1;
+        while (used.Contains(baseClass.Name + index)) index++;
+        return baseClass.Name + index;
     }
 
     public void BeginDrag(IReadOnlyList<ComponentInstanceViewModel> targets)

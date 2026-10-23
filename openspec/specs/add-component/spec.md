@@ -88,6 +88,24 @@ understood the request rather than merely creating a file.
 - **WHEN** a form or user control is added
 - **THEN** it opens on the design surface
 
+### Requirement: A new form SHALL be written as VB6 writes one
+A new form's file SHALL be CRLF throughout and end with a line break. Its code SHALL open with the five
+`Attribute` lines VB6 writes for a form, naming the form, and its designer block SHALL say
+`StartUpPosition = 3`. A new user control or property page SHALL take neither the form's `Attribute` block nor a
+`StartUpPosition` line.
+
+VB6 reads a missing `StartUpPosition` as Manual, which opens the form at the screen's origin (#932). The
+`Attribute` block is what VB6 writes for a form (#516).
+
+#### Scenario: Adding a form
+- **WHEN** a form named `Form2` is added
+- **THEN** its file has no bare line feed, ends with CRLF, says `StartUpPosition = 3 'Windows Default`, and its
+  code opens with `Attribute VB_Name = "Form2"` and the other four lines VB6 writes
+
+#### Scenario: Adding a user control
+- **WHEN** a user control is added
+- **THEN** its file has no `StartUpPosition` line
+
 ### Requirement: The commands SHALL be unavailable without a project
 The add commands SHALL be unavailable when no project is open.
 

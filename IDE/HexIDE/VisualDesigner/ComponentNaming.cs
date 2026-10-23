@@ -105,16 +105,19 @@ public static class ComponentNaming
             if (!ReferenceEquals(component, except)
                 && component.GetPropertyOrDefault(VBProperties.NameProperty) is { Length: > 0 } name)
                 names.Add(name);
+            foreach (var preserved in component.PreservedChildSubtrees)
+                names.UnionWith(NamesDeclaredBy(preserved.Text));
         }
-        names.UnionWith(PreservedNames(formComponents));
         return names;
     }
 
     /// <summary>The names on the <c>Begin</c> lines of every block preserved on <paramref name="formComponents"/>.</summary>
     private static IEnumerable<string> PreservedNames(IEnumerable<ComponentInstance> formComponents) =>
-        formComponents.SelectMany(c => c.PreservedChildSubtrees)
-            .SelectMany(preserved => BeginLine.Matches(preserved.Text))
-            .Select(begin => begin.Groups["name"].Value);
+        formComponents.SelectMany(c => c.PreservedChildSubtrees).SelectMany(preserved => NamesDeclaredBy(preserved.Text));
+
+    /// <summary>The names of the controls a preserved block declares: its own, and those nested in it.</summary>
+    public static IEnumerable<string> NamesDeclaredBy(string preservedText) =>
+        BeginLine.Matches(preservedText).Select(begin => begin.Groups["name"].Value);
 
     private static readonly Regex BeginLine = new(@"^\s*Begin\s+\S+\s+(?<name>\S+)", RegexOptions.Multiline);
 }

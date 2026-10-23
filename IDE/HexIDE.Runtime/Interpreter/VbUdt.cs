@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Antlr4.Runtime;
 
 namespace HexIDE.Runtime.Interpreter;
 
@@ -47,16 +48,18 @@ public sealed class VbUdt
 
     // How a read of each field reads (#987, measured): a field declared with a scalar type is typed (`u.n * 7000` with
     // `n As Integer` holding 5 is 6), and a Variant field a Variant's (`u.x * 7000` is 35000), whatever was stored in it.
-    // A nested Type, an Enum or anything else is in neither set and reads as it was stored.
-    private readonly IReadOnlySet<string> typedFields;
+    // A nested Type or anything else is in neither and reads as it was stored. A typed field's declared type is also what a
+    // store into it converts into (#221).
+    private readonly IReadOnlyDictionary<string, Vb6Value.ValueType> typedFields;
     private readonly IReadOnlySet<string> variantFields;
 
     public VbUdt(string typeName, Dictionary<string, Vb6Value> fields)
-        : this(typeName, fields, new HashSet<string>(), new HashSet<string>())
+        : this(typeName, fields, new Dictionary<string, Vb6Value.ValueType>(), new HashSet<string>())
     {
     }
 
-    public VbUdt(string typeName, Dictionary<string, Vb6Value> fields, IReadOnlySet<string> typedFields, IReadOnlySet<string> variantFields)
+    public VbUdt(string typeName, Dictionary<string, Vb6Value> fields, IReadOnlyDictionary<string, Vb6Value.ValueType> typedFields,
+        IReadOnlySet<string> variantFields)
     {
         this.typedFields = typedFields;
         this.variantFields = variantFields;
@@ -68,7 +71,7 @@ public sealed class VbUdt
     {
         if (!fields.TryGetValue(field, out value))
             return false;
-        value = typedFields.Contains(field) ? value.AsFixedType()
+        value = typedFields.ContainsKey(field) ? value.AsFixedType()
             : variantFields.Contains(field) ? value.AsVariant()
             : value;
         return true;
@@ -78,12 +81,29 @@ public sealed class VbUdt
     /// typedef's insertion order (fields are never removed). Read-only; used by the debugger's Locals inspector.</summary>
     public IEnumerable<KeyValuePair<string, Vb6Value>> EnumerateFields() => fields;
 
-    public bool TrySet(string field, Vb6Value value)
+    /// <summary>
+    /// Store into a field, converted into its declared type as a store into a variable of that type is (measured, #221:
+    /// `u.l = 5` with `l As Long` is a Long, `u.dt = "1/2/2003"` a Date, `u.s = 5` the String "5", and `u.i = 40000` with
+    /// `i As Integer` is 6). A value that will not convert raises before the store, so the field keeps what it held.
+    /// </summary>
+    public bool TrySet(string field, Vb6Value value, ParserRuleContext? ctx = null)
     {
         if (!fields.ContainsKey(field)) return false;
+        if (typedFields.TryGetValue(field, out var declared))
+            value = VbNumeric.CoerceOnStore(value, declared, ctx);
         fields[field] = value;
         return true;
     }
+
+    /// <summary>Whether the Type has a field of this name.</summary>
+    public bool Has(string field) => fields.ContainsKey(field);
+
+    /// <summary>The scalar type a field is declared as, or null for a Variant, a nested Type or an object field.</summary>
+    public Vb6Value.ValueType? DeclaredTypeOf(string field) =>
+        typedFields.TryGetValue(field, out var declared) ? declared : null;
+
+    /// <summary>Whether a field is declared As Variant, or with no As clause.</summary>
+    public bool IsVariantField(string field) => variantFields.Contains(field);
 
     /// <summary>A deep, independent copy — nested UDT fields clone recursively; scalar fields (immutable
     /// <see cref="Vb6Value"/> structs) copy by value. This is the whole of UDT value semantics.</summary>
@@ -94,4 +114,25 @@ public sealed class VbUdt
             copy[name] = value.Value is VbUdt nested ? Vb6Value.NewUdt(nested.DeepClone()) : value;
         return new VbUdt(TypeName, copy, typedFields, variantFields);
     }
+}
+
+/// <summary>
+/// One field of one Type instance, as a ByRef argument passes it (#1451): VB6 passes the field itself, so a store through the
+/// parameter lands in the field at once and converts into the field's type, and the field reads back the new value while the
+/// procedure is still running (measured: `PL u.l`, with `PL(x As Long)` storing `x = "9"`, leaves 9; a module's `g.l`
+/// passed so reads 3 inside the procedure straight after `x = 3`; and a Variant parameter given a Long field stores 2 for
+/// `x = 2.5`, and raises 13 for `x = "hello"`). The parameter reads as the field does: given `u.i As Integer` holding 5,
+/// `x * 7000` is 6 in `PI(x As Integer)` and 35000 in a Variant or untyped parameter.
+/// </summary>
+public sealed record UdtFieldRef(VbUdt Bag, string Name) : IByRefTarget
+{
+    /// <summary>The scalar type the field is declared as, or null for a Variant, a nested Type or an object field.</summary>
+    public Vb6Value.ValueType? DeclaredType => Bag.DeclaredTypeOf(Name);
+
+    /// <summary>Whether the field is a Variant.</summary>
+    public bool IsVariant => Bag.IsVariantField(Name);
+
+    public Vb6Value Read() => Bag.TryGet(Name, out var value) ? value : Vb6Value.Variant;
+
+    public void Write(Vb6Value value) => Bag.TrySet(Name, value);
 }

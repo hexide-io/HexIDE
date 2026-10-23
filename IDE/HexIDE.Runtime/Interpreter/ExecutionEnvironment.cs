@@ -62,6 +62,12 @@ public class ExecutionEnvironment
     /// </summary>
     public HashSet<string> VariantParameters { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// The parameters declared <c>As Object</c>, which are VariantParameters for reading but object variables for a Let,
+    /// which assigns the held object's default member (measured, #1493). Not copied by <see cref="Clone"/>.
+    /// </summary>
+    public HashSet<string> ObjectParameters { get; } = new(StringComparer.OrdinalIgnoreCase);
+
     public ExecutionEnvironment Clone()
     {
         return new ExecutionEnvironment(this);

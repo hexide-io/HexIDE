@@ -451,7 +451,8 @@ public class FormInstanceTests
         var run = RunFormLoad("    Score = 5\n    Debug.Print Score");
 
         run.Errors.Should().BeEmpty();
-        run.Printed.Should().Equal("5");
+        // A number printed alone has Print's spaces, for its sign and after it (#1380).
+        run.Printed.Should().Equal(" 5 ");
     }
 
     [AvaloniaFact]
@@ -656,6 +657,18 @@ public class FormInstanceTests
             window.Close();
         }
         run.IsCompleted.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public void A_forms_code_reads_another_modules_Public_Enum_member_and_a_classs_bare()
+    {
+        // Measured (#889): `from a form 2`, and a class's Public Enum member is visible too. HexIDE read both as Empty.
+        var run = RunFormLoad("    Debug.Print \"from a form \" & colMax & \" \" & clsA",
+            ("Module2", ModuleKind.StandardModule, "Public Enum Cols\n    colA\n    colB\n    colMax\nEnd Enum\n"),
+            ("Class1", ModuleKind.ClassModule, "Public Enum ClsE\n    clsA = 40\nEnd Enum\n"));
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("from a form 2 40");
     }
 
     // ── WithEvents on a form (#972) ─────────────────────────────────────────────────────────────────────
