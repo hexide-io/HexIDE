@@ -120,8 +120,8 @@ on the *read* path — seven rows describe the single-dot restriction it removed
 | Literals, types and suffixes | 6 | 1 | 4 | 14 | 0 | 25 | 50 |
 | Compiler directives and options | 0 | 0 | 1 | 14 | 19 | 13 | 47 |
 | In-box objects | 0 | 0 | 84 | 14 | 0 | 25 | 123 |
-| Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **8** | **3** | **182** | **429** | **20** | **541** | **1183** |
+| Intrinsic constants | 0 | 0 | 8 | 258 | 0 | 355 | 621 |
+| **Total** | **8** | **3** | **182** | **426** | **20** | **544** | **1183** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -1231,7 +1231,7 @@ pass happened to attack, not a real distinction.
 | App log event type (LogEventTypeConstants) | 3 | 0 | 0 | 3 |
 | AsyncRead target types (AsyncTypeConstants) | 0 | 3 | 0 | 3 |
 | CheckBox Value | 3 | 0 | 0 | 3 |
-| ComboBox Style | 0 | 3 | 0 | 3 |
+| ComboBox Style | 3 | 0 | 0 | 3 |
 | Constants: mouse buttons (MouseButtonConstants) | 3 | 0 | 0 | 3 |
 | Constants: shift mask (ShiftConstants) | 3 | 0 | 0 | 3 |
 | Data control DefaultCursorType | 0 | 3 | 0 | 3 |

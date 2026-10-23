@@ -86,6 +86,9 @@ public abstract class ComponentBaseClass : IComponentClass
     /// </summary>
     public virtual Thickness ClientInset(ComponentInstance instance) => default;
 
+    /// <inheritdoc/>
+    public virtual IReadOnlyList<PropertyChange> ApplyDesignerConsequences(ComponentInstance instance, PropertyClass property) => [];
+
     /// <summary>
     /// The Canvas a container class hands to its control at instantiation.
     ///

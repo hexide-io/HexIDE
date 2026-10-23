@@ -236,6 +236,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A ComboBox's Style is modelled, and a Dropdown List runs as one** (#1428). Style was kept as a preserved line, so
+  the Properties window could not show or set it, and a program reading or writing a Dropdown List's Text was stopped
+  as not implemented. Now Style is offered with VB6's three names and reads as an Integer, and a Dropdown List's Text
+  selects the item it names, or raises 383 as vb6.exe does. Setting Style to Dropdown List in the designer resets
+  the Text to the control's name, as VB6's designer does.
+
 - **A running form has the window its file describes** (#1575). Every form ran as a sizable window with a title bar,
   minimize and maximize buttons and a close box, whatever its BorderStyle, ControlBox, MinButton and MaxButton said. A
   Fixed Single or Fixed Dialog form can no longer be resized by its border, a borderless form has no frame, a form

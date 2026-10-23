@@ -591,6 +591,7 @@
     "Str.PropDesc.WindowList": "האם תפריט זה מציג את חלונות הבן הפתוחים של MDI.",
     "Str.PropDesc.Locked": "האם ניתן לערוך את תוכן הפקד.",
     "Str.PropDesc.MultiSelect": "האם ניתן לבחור יותר מפריט אחד, וכיצד.",
+    "Str.PropDesc.Style": "האופן שבו הפקד מצויר והאופן שבו הוא מתנהג.",
     "Str.PropDesc.StartUpPosition": "היכן ממוקם הטופס על המסך כשהוא נפתח לראשונה.",
     "Str.PropDesc.ShowInTaskbar": "האם הטופס מופיע בשורת המשימות.",
     "Str.PropDesc.TabIndex": "מיקום הפקד בסדר ה-Tab של הטופס.",
