@@ -213,6 +213,14 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A form's `Controls` collection runs, and `TypeOf` knows a control's class** (#1060). `For Each c In Controls`,
+  `Controls.Count`, `Controls(i)` and `Controls("Name")` stopped the run as not implemented. They now hold every control
+  in the order the file holds them, menus and each control-array element included, as vb6.exe does, with VB6's
+  errors for an index out of range or a name not there. `TypeOf c Is TextBox` was False for every control, so the
+  usual loop over a form's controls would have done nothing, silently. It now matches a control by its class, as a
+  `Control` and as an `Object`, and a form as a `Form`. `Unload c` unloads a control-array element held in a
+  variable. `Controls.Add` and `Remove` are still refused (#1556).
+
 - **A new form has no code, and an event procedure is added as VB6 adds one** (#1532). A form HexIDE created started
   with an empty `Form_Load` procedure, and its first save wrote it to the file. VB6's Add Form saves a form ending at its
   `Attribute` lines (measured in the IDE), and adds `Form_Load` when the form is double-clicked. HexIDE's double-click

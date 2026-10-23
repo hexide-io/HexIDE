@@ -49,15 +49,18 @@ public partial class VB6BuiltIns
     {
         if (!v.Type.IsArray)
         {
-            // A menu's separator is a Menu to a program, as every menu is (#1126).
-            if (v.Value is HexIDE.Runtime.BuiltinControls.VBMenuSeparator) return "Menu";
-            if (v.Value is Control ctrl) return StripVb(ctrl.GetType().Name);
+            if (v.Value is Control ctrl) return ControlTypeName(ctrl);
             if (v.Value is ICSharpProxy px) return InBoxTypeName(px);
         }
         return TypeInfo(v).name;
     }
 
     private static string StripVb(string n) => n.StartsWith("VB", StringComparison.Ordinal) ? n.Substring(2) : n;
+
+    /// <summary>A control's class, as TypeName gives it and TypeOf matches it: <c>TextBox</c>, <c>CommonDialog</c>.</summary>
+    internal static string ControlTypeName(Control control) =>
+        // A menu's separator is a Menu to a program, as every menu is (#1126).
+        control is HexIDE.Runtime.BuiltinControls.VBMenuSeparator ? "Menu" : StripVb(control.GetType().Name);
 
     // Measured (#840): TypeName(Err) is "ErrObject" and TypeName(App) is "App", which neither class's own name gives.
     private static string InBoxTypeName(ICSharpProxy px) => px switch
@@ -68,6 +71,8 @@ public partial class VB6BuiltIns
         VbCollection => "Collection",
         // A control array is an Object to TypeName: measured on a menu array, `TypeName(mnuLevel)` (#1126).
         HexIDE.Runtime.BuiltinControls.ControlArrayGroup => "Object",
+        // So is a form's Controls: measured, `TypeName(Controls)` and `TypeName(Me.Controls)` (#1060).
+        FormControls => "Object",
         _ => StripVb(px.GetType().Name),
     };
 
