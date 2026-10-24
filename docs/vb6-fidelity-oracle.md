@@ -22,6 +22,150 @@ date functions; graphics) should extend it the same way.
 - **Method:** compile a tiny `Sub Main` console-less program with `VB6.EXE /make`, run the produced `.exe`, and
   read back a file it wrote with `TypeName(expr)` + the value for each case.
 
+### Which VB6 the oracle is (#1524)
+
+**Until 2026-10-23 the oracle was VB6's original release, with an SP6-level runtime. From 2026-10-24 it is SP6
+throughout.** Sections dated before 2026-10-24 that call the oracle "6.00.8176 (the original release)" were wrong about the compiler.
+6.00.8176 is the original release build, and every other file in the guest's VB98 folder agreed. They now say "the
+original release". SP6 went in on 2026-10-24, from the Microsoft-signed `Vs6sp6B.exe` the maintainer supplied, and the
+`VisualStudio\6.0\ServicePacks` key now reads `latest = 6`.
+
+| File | Until 2026-10-23: the original release | From 2026-10-24: SP6 |
+|---|---|---|
+| `VB6.EXE`, the IDE and `/make` | 6.00.8176 | **6.00.9782** |
+| `VBA6.DLL`, the engine the IDE runs code with | 6.0.8169 | **6.0.9782** |
+| `C2.EXE`, the native code generator | 12.00.8041.0 | **12.00.8783.0** |
+| `LINK.EXE` | 6.00.8168.0 | **6.00.8447.0** |
+| `MSVBVM60.DLL` (SysWOW64), the runtime a built EXE runs on | 6.00.9848, SP6-level, supplied by Windows | 6.00.9848, unchanged |
+
+**So which build a row measured depends on what it read**, not on its date alone:
+
+- **What a built EXE printed at run time**, native or p-code, came from MSVBVM60 6.00.9848, which SP6 did not change.
+  Those rows stand as written, whenever they were measured.
+- **A compile error** comes from VB6.EXE and VBA6.DLL, not the runtime, even when the program was built with `/make`.
+  Before 2026-10-24, that was the release build.
+- **Anything run in the IDE** (`/runexit`, the Immediate window, `Debug.Assert`, break mode, the reset prompt), and
+  everything the designer drew or saved, ran on the release VB6.EXE and VBA6.DLL before 2026-10-24.
+- **Native code** came from the release C2.EXE and LINK.EXE before 2026-10-24. Where a native result could depend on
+  code generation rather than the runtime, the row measured the release build.
+
+Measuring the release-build rows again on SP6 is #1663, and what it has measured so far is below. A row SP6 changes
+keeps both answers, since a release-versus-SP6 difference is a finding in its own right. The release state is kept as
+the Hyper-V checkpoint *VB6 6.00.8176 release, before SP6 (#1524)*, so a comparison can still be made. A section
+measured from 2026-10-24 on names the SP6 builds.
+
+#### Measured again on SP6 (2026-10-24, #1663)
+
+**One property changed, and nothing else.** A new Data control's `Connect` is `"Access 2000;"` on SP6, where the
+release build wrote `"Access"` (*The size of a control added from the toolbox*, #1473). Every other row below gave the
+release build's answer, compile errors, the IDE and the designer included. There were five kinds of run.
+
+**Every probe project kept from the sections below, rebuilt with `/make` on SP6: 2,572 projects**, native and p-code.
+- Each printed what it printed on the release build, line for line, and each compile error was the same message at the
+  same line.
+- 2,550 were compared with their release-build logs by script. The other 22 had no saved log and were read against their
+  section's tables instead: #1386's and #1431's compiled probes, two of #435's, and #1471's text-compare probe.
+- Two draft folders of #1562's, superseded a minute after they were made, and three of #1471's bisection projects were
+  left out.
+- **So the compile-error tables stand**: *Named arguments* (#1465), *CVar* (#1466) and *Too few arguments to an
+  intrinsic* (#1512) among them. So do the native-code rows of every section here.
+- A rerun has to give a probe its rig back:
+  - #1562's settings probes read registry keys its harness seeds first;
+  - #1521's locale probe runs under de-DE.
+  Without those, each differed, and with them each was identical.
+
+| Section | Projects |
+|---|---|
+| Named arguments (#1465) | 686 |
+| Conditional compilation (#1112) | 360 |
+| Collection (#1471), with *An empty Collection, and assigning an item* (#1492) | 220 |
+| A name declared twice (#1622, #1499) | 178 |
+| The intrinsics signature help had no entry for (#1475) | 144 |
+| DefType: default typing by first letter (#169) | 102 |
+| Too few arguments to an intrinsic (#1512) | 100 |
+| Static (#1491) | 88 |
+| As New (#435) | 72 |
+| A D exponent in a source literal (#1611) | 72 |
+| Random and Binary files, Get, Put and Len (#1646) | 58 |
+| A numeric literal ending in its point (#1615) | 52 |
+| Indexing a call's result (#1476) | 42 |
+| GetSetting, SaveSetting, DeleteSetting and GetAllSettings (#1562) | 39 |
+| Chr, Asc, ChrW and AscW (#1134) | 38 |
+| LOF, Loc, Seek and the Input function (#1645) | 38 |
+| A Let into an array variable (#998, #1588) | 26 |
+| Write # and Input # (#1521) | 22 |
+| StrComp, StrConv, Environ, Switch and Error() (#1560) | 21 |
+| A Const declared with a type character (#1614) | 21 |
+| ReDim Preserve (#1459) | 20 |
+| InStr and InStrRev at the ends, and Option Compare Text (#1567) | 18 |
+| CVar (#1466) | 16 |
+| IIf and Choose (#1461) | 16 |
+| A String read as a Date (#967) | 16 |
+| Like (#1547) | 14 |
+| An array element passed ByRef (#1455) | 14 |
+| A control's Name and Index, at run time (#1431) | 14 |
+| A UDT field passed ByRef (#1451) | 12 |
+| When Err is cleared, and what a running handler traps (#877) | 12 |
+| A Let into an object variable (#1493) | 10 |
+| `Like` in `#If` and `#Const` (#1598) | 7 |
+| A Function's return, converted where it is assigned (#1444) | 6 |
+| A member indexed through its object (#1386) | 4 |
+| An undeclared variable passed ByRef (#1505) | 4 |
+| A store into a UDT field (#221) | 2 |
+| Print # and the ANSI best fit (#1511) | 2 |
+| Filesystem (#1561) | 2 |
+| `Time`, and eight Dies rows that already ran (#1633) | 2 |
+| CCur and CDec of a String (#1531), recorded on the issue | 2 |
+
+**The IDE, with `/runexit` in session 0.** *Debug.Assert* (#1467): all 25 IDE runs. Each logged what it logged on the
+release build, waited where it waited (break mode) and exited with the same code. Its compile errors and its compiled EXE
+were rebuilt too.
+
+**A spot check of IDE rows whose probes were not kept.**
+- **The programs.** 17, rebuilt from the tables of *An object used as a value* (#174), *Resume Next into a block*
+  (#839), *What a condition is* (#847), *Overflow edges* (#234), *A String in arithmetic* (#1047) and *An unhandled
+  run-time error* (#1011). Each was run native, as p-code and in the IDE.
+- **The result.** Every one gave its table's answer in each mode. That includes every row where native code and the IDE
+  differ:
+  - For's order of evaluation, and a raised start, limit or step;
+  - Select Case on a selector that raises, or on an object with no default member;
+  - unary minus at a type's minimum;
+  - `Debug.Print k`, which raises 438 only in the IDE;
+  - a class's unhandled error under *Break in Class Module*: the run stops in the class in the IDE, and the caller's
+    handler catches it when compiled.
+- **Measured for the first time:** a p-code build drops `Debug.Print k` as native code does, so it raises nothing there.
+
+**The console: the Immediate window, the reset prompt and Save Project As.**
+- *A `?` line in the VB6 IDE's Immediate window* (#1386): every row the same. Three rows were measured for the first
+  time, and that section now carries them.
+- *The reset prompt* (#1329): the three scripts behind its tables, run again. Each step logged the same windows, owners,
+  texts, buttons and enabled states, and the same mode and Timer behaviour, as on the release build.
+- *What Save Project As does to the paths in a project file* (#1406) and *Where and how VB6 writes a project's
+  description* (#42): every project file VB6 saved is byte-identical to the release build's.
+
+**The designer and the IDE's saves,** run again on the console with each section's own rig. Where a section had been
+driven by hand, its steps were replayed from the console agent's log.
+
+| Section | SP6 |
+|---|---|
+| *What VB6's Properties window lists for a UserControl and a PropertyPage* (#1585) | the same: 51 and 33 rows, every capture byte-identical |
+| *What VB6's Add Form saves* (#1532) | the same: every saved file byte-identical |
+| *A control VB6 knows and HexIDE carries stacks with the rest* (#1498) | the same saves, byte-identical; that section records what SP6's IDE does on opening VB6's Web Browser template |
+| *The size of a control added from the toolbox* (#1473) | every size and position the same; a new Data control's `Connect` is `"Access 2000;"`, not `"Access"` |
+| *The name VB6's designer gives a new control* (#540) | the same, every row |
+| *Make Project Group* (#746) | the same |
+| *The TabIndex a new or pasted control takes* (#925) | the same: the save is byte-identical |
+| *Where VB6's designer puts a control's block* (#1481) | the same: every control block |
+| *Drawn in the VB6 IDE's designer* (#926) | the same, every row |
+
+**Not measured again:**
+- *The reset prompt*'s rows with *Notify Before State Loss* changed, since setting that option changes the IDE for
+  everyone using the guest;
+- the IDE rows of sections whose probes were not kept, beyond the spot check above, *Several forms* (#822) and
+  *Unload Me* (#973) among them, and what the IDE writes for member attributes (#273).
+
+Both are #1675.
+
 ### Reaching the VB6 *IDE*, not just the compiler (2026-09-20)
 
 Everything above answers "what does VB6 **accept**", which `VB6.EXE /make` can do with no desktop at all.
@@ -785,7 +929,7 @@ Verified: a module-level object held live, then `End` — the class's `Class_Ter
 The section above measured one object at module level, and stated the form events without measuring them. Three
 probes now cover both. Each is a Standard EXE with a `Class1` whose `Class_Terminate` logs, and forms whose
 `QueryUnload`, `Unload` and `Terminate` log. Every log line is written by opening, appending and closing the file,
-so nothing waits in a buffer that `End` could discard. Real `vb6.exe` 6.00.8176 (SP6), run in session 0.
+so nothing waits in a buffer that `End` could discard. Real `vb6.exe` 6.00.8176 (the original release), run in session 0.
 
 | Probe | Log |
 |---|---|
@@ -948,7 +1092,7 @@ literal that *selects* an option button is *refused* by a check box.
 ## Two controls of one name (2026-10-12, #854)
 
 Measured when #854 was filed, and recorded here by its fix. The probe was a Standard EXE built with `vb6.exe /make`
-(6.00.8176 SP6) from a form holding two `Begin` lines of one name and no `Index`, the shape HexIDE's save could write.
+(6.00.8176, the original release) from a form holding two `Begin` lines of one name and no `Index`, the shape HexIDE's save could write.
 Its `Form_Load` wrote `Me.Controls.Count` and each control's Name and TypeName to a file.
 
 **The build does not fail.**
@@ -981,7 +1125,7 @@ check against every name on the form, without regard to case (`ComponentNaming.N
 
 ## A form-based game's runtime surface (2026-10-12)
 
-Measured to decide what a form front end for `demo/battleship` may rely on. Real `vb6.exe` 6.00.8176 (SP6).
+Measured to decide what a form front end for `demo/battleship` may rely on. Real `vb6.exe` 6.00.8176 (the original release).
 One Standard EXE, `Startup="Form1"`, with a `.bas` (`Public Const K = 5`, `Public G As Long`, a logging
 `Sub L` that opens `App.Path & "\log.txt"` For Append per line so nothing is lost to buffering) and a `Source`
 class raising `Event ResultV(ByVal r As Integer)` and `Event ResultR(r As Integer)`. Form1 holds `Label1`
@@ -1270,7 +1414,7 @@ procedure: refused as not implemented, because the error VB6 gives depends on wh
 ## Assigning to a control property (2026-10-12, #768)
 
 Measured to decide what `Label1.Caption = 5` stores, and what every other property does with a value of another
-type. Real `vb6.exe` 6.00.8176 (SP6), guest locale **en-GB** (decimal point `.`, thousands separator `,`).
+type. Real `vb6.exe` 6.00.8176 (the original release), guest locale **en-GB** (decimal point `.`, thousands separator `,`).
 
 **Harness.** One Standard EXE, `Startup="Form1"`, with `Label1`, `Text1`, `Command1`, `Check1` and a disabled
 `Timer1` (Interval 500). Four `/make` runs over PowerShell Direct, each `Form_Load` writing a log and ending
@@ -1702,6 +1846,8 @@ What these show:
 Not measured: what Style 2 does in the designer to a combo whose Name has been changed, which would show whether it is
 the name now or the name the control was drawn with.
 
+A Dropdown List's box shows the name it has now: "What VB6's designer draws in a Dropdown List's box" (#1604).
+
 ### In HexIDE (#926)
 
 - **A drawn TextBox or ComboBox** starts with its name as its Text, and a control with no Caption is no longer given one.
@@ -1712,6 +1858,58 @@ the name now or the name the control was drawn with.
 - **A Dropdown List's Text** is never written to the .frm, and is ignored at load. At run time it was refused as not
   implemented until #1428 modelled the Style (below).
 - **Click and Change** come as measured since #1429, which records them with real input.
+
+### What VB6's designer draws in a Dropdown List's box (2026-10-23, #1604)
+
+**The question.** "Drawn in the VB6 IDE's designer" saw a drawn combo set to Style 2 still showing its name, `Combo3`, in
+its box. It left two cases open:
+- a Dropdown List read from a file, which has no Text line to show;
+- a Dropdown List renamed in the Properties window: does the box show the new name, or the name it was drawn with?
+
+**The probe.** In the guest's console session, the VB6 IDE opened a project holding one form, through the agent. The form
+held, from its file:
+- `Combo1` and `cboList`, two Dropdown Lists with no Text line;
+- `Combo3`, a Dropdown List whose file saved `Text = "x"`;
+- `Combo4`, a Dropdown Combo with `Text = "Combo4"`.
+
+The designer was opened from the Project window, as in "What VB6's Properties window shows a position in". Combo1 was
+selected in the Properties window's object box. Then F4, Home and the keys `cboNew`, and Enter. Home put the caret at
+the start of the (Name) row's value, so the name became `cboNewCombo1`. The form was saved with Ctrl+S, and every step
+was captured by a screenshot.
+
+| Combo | Its box in the designer |
+|---|---|
+| Combo1, from the file | `Combo1` |
+| cboList, from the file | `cboList` |
+| Combo3, whose file saved `Text = "x"` | `Combo3`, not `x` |
+| Combo4, a Dropdown Combo | `Combo4`, its Text |
+| Combo1 renamed `cboNewCombo1` | `cboNewCombo1`, at once |
+
+The save wrote `Begin VB.ComboBox cboNewCombo1` with no Text line. It also wrote **no Text line for Combo3**: the `x` the
+file had held was dropped.
+
+**What it shows:**
+- **The designer draws a Dropdown List's box with the control's name**, whether it was drawn or read from a file.
+- **It is the name the control has now.** A rename shows at once.
+- **A Text saved in the file is not drawn,** and the next save drops it, as "Drawn in the VB6 IDE's designer" found
+  that a Dropdown List's Text is never written.
+
+**What Text a renamed Dropdown List takes when its Style goes back to 0** was not measured on the release build. A second
+run meant to set the Style lost its keys to the (Name) row: it renamed the control `S` and then refused `0` as a name,
+with "Not a legal object name: '0'". Its box showed `S` at once, which agrees with the rename row above.
+
+**SP6 answered it** (2026-10-24, VB6.EXE 6.00.9782, the same rig with the Project window clicked before its keys). The
+rename save was byte-identical to the release build's. Then Ctrl+Shift+S twice reached Style, and `0` and Enter set it.
+The save wrote `Begin VB.ComboBox cboNewCombo1` with `Text = "cboNewCombo1"`, and the box showed `cboNewCombo1`. So the
+Text a Dropdown List goes back with is the name it has then, not the one it was drawn with.
+
+### In HexIDE (#1604)
+
+- **The designer draws a Dropdown List's box with the control's current name,** in its ForeColor, as an item would be
+  drawn. A Text saved in the file isn't drawn. The running control still shows nothing there until an item is selected.
+- **A Dropdown List renamed takes its new name as its Text,** so Style 0 afterwards writes that name, as SP6 did.
+- **This is the designer's first control that draws differently from the running one.** `ComponentBaseClass` has
+  `InstantiateForDesigner` for it, which the designer's renderer calls. Every other class returns its running control.
 
 ### Style, and a Dropdown List's Text from code (2026-10-23, #1428)
 
@@ -1829,6 +2027,105 @@ What resisted explanation:
   item as a text no one can type, and an item chosen whose text another shares, `Banana` and `banana`, stays chosen.
 - **Not measured:** a Simple Combo's list, always shown in VB6, which HexIDE draws as a dropdown (#1428), and whether
   arrow keys, like the mouse, leave the chosen item's text selected in the edit box.
+
+## A Simple Combo's list, drawn and clicked (2026-10-23, #1603)
+
+**The question.** HexIDE drew a Simple Combo (`Style = 1`) as a Dropdown Combo, with a button that drops its list. VB6
+shows the list all the time, under the edit box. #1429 measured a Simple Combo's typing and keys, but the pointer on its
+list couldn't be measured against HexIDE, which had no such list. How is the list drawn, what does a click on it raise,
+and what does a Height too small for an item do?
+
+**The probes.** VB6 as first installed on the oracle guest, the release build, before SP6. One form, compiled native and
+p-code. Three Simple Combos, 2000 twips wide, each saved with its own name as its Text and filled in `Form_Load`:
+- `cboS`, saved `Height = 1500`, with eight items, apple to honey;
+- `cboT`, saved `Height = 400`, with three;
+- `cboU`, saved `Height = 900`, with two.
+
+Each combo's Click, DblClick, Change, GotFocus, Scroll and DropDown logged its name, ListIndex and Text, and Activate logged
+the three Heights. On the guest's console a script read each combo's own windows: its `Edit`, and its `ComboLBox` with
+`LB_GETITEMHEIGHT` and its style. It then pressed and released the real pointer, by `mouse_event`, 900 ms apart, a double
+click 80 ms apart, and turned the wheel once over cboS. A second run clicked in a different order. The same form was
+opened in the VB6 IDE's designer, captured, and saved.
+
+Native and p-code logged the same lines, line for line, in both runs.
+
+**How it is drawn.** At run time each combo is its edit box, sunken, 21 pixels high, with its list directly under it,
+sunken too, its rows 13 pixels high. There is no button. cboS's eight items didn't fit its five rows, so its list had a
+vertical scroll bar. cboU's two fitted, and had none. cboT showed its edit box and no list. The designer drew each the
+same way, the edit box holding the combo's Text and the list empty.
+
+**The Height snaps to whole rows**, at run time and in the designer, and the designer's next save writes it:
+
+| Saved | Read at run time | Written by the designer's save | Rows shown |
+|---|---|---|---|
+| 1500 | 1350 | 1350 | 5 |
+| 400 | 315 | 315 | 0, the edit box alone |
+| 900 | 765 | 765 | 2 |
+
+All three fit **21 + 4 + 13n pixels, n = floor((Height − 25) / 13)**: the edit box, the list's border and whole rows. With
+n = 0 there is no list, and the Height is the edit box's. The 21 and the 13 are MS Sans Serif 8's, VB6's default font. Only
+that font was measured, so this is a rule for it, not a constant.
+
+**The pointer.** The first run, with the focus in cboS as the form opened:
+
+| Input | Logged |
+|---|---|
+| Click cboS's second item | `cboS_Click ListIndex 1 Text banana` |
+| Double-click its third | `cboS_Click ListIndex 2 Text cherry`, `cboS_DblClick ListIndex 2 Text cherry` |
+| Click cboU below its items | `cboU_GotFocus ListIndex 1 Text cboU`, `cboU_Click ListIndex 1 Text banana` |
+| Click cboU's first item | `cboU_Click ListIndex 0 Text apple` |
+| The wheel down once over cboS | nothing; its top row went from 0 to 3 |
+
+The second run, from the same start:
+
+| Input | Logged |
+|---|---|
+| Click cboU's second item | `cboU_GotFocus ListIndex 1 Text cboU`, `cboU_Click ListIndex 1 Text banana` |
+| Click cboU below its items, the second selected | `cboU_Click ListIndex 1 Text banana` |
+| Click cboU's first item | `cboU_Click ListIndex 0 Text apple` |
+| Click cboU below its items again | `cboU_Click ListIndex 1 Text banana` |
+| Click cboS's fourth item | `cboS_GotFocus ListIndex 3 Text cboS`, `cboS_Click ListIndex 3 Text date` |
+| Click it again | `cboS_Click ListIndex 3 Text date` |
+| Double-click cboU's second item | `cboU_GotFocus ListIndex 1 Text banana`, `cboU_Click ListIndex 1 Text banana`, `cboU_DblClick ListIndex 1 Text banana` |
+
+A third run, with the focus in cboS, pressed F4 and then Alt+Down, which drop a Dropdown Combo's list. Neither raised
+anything.
+
+**What it shows:**
+- **A click on an item picks it,** with Click, and the edit box takes its text, selected. **The item already selected is
+  picked again,** with another Click.
+- **A click below the items picks the last of them.**
+- **A double click is one Click and then DblClick**, with no second Click.
+- **None of it raises Change**, though the edit box's text changes. Nor DropDown: the list never drops, by the
+  pointer, F4 or Alt+Down.
+- **A click on a combo without the focus moves the list's selection before GotFocus runs**, so GotFocus reads the new
+  ListIndex. The edit box hasn't taken the item's text yet, so it reads the Text from before. Click follows with the new
+  Text.
+- **The wheel scrolled three rows and raised no Scroll.**
+- After the pointer, the focus was in the combo's edit box, its text selected, and the item highlighted in the list.
+
+**Not measured:**
+- a font other than MS Sans Serif 8;
+- `Height = n` from code;
+- the Scroll event by the scroll bar's own arrows and thumb;
+- the keys in the list. #1429 measured Up and Down in a Simple Combo from its edit box.
+
+### In HexIDE (#1603)
+
+- **A Simple Combo is drawn as its edit box over its list,** always shown, with no button, in the designer and at run
+  time. The edit box is 21 pixels high, as measured at the default font, and the list takes the rest of the Height and
+  scrolls when its items don't fit. Its rows are a line of text high.
+- **The pointer on the list is vb6.exe's:**
+  - a press picks the item under it, or the last below them, the one already selected too, with Click;
+  - a double click's second press is DblClick;
+  - none of it raises Change or DropDown.
+
+  The list's selection moves before GotFocus runs, and code reading the Text inside that GotFocus gets the Text from
+  before the pick.
+- **Not followed: the Height's snap to whole rows** ([#1655](https://github.com/hexide-io/HexIDE/issues/1655)). HexIDE
+  keeps the file's Height and draws a partial row at the foot. Snapping with Avalonia's text metrics would rewrite the
+  Height of every Simple Combo VB6 saved.
+- **The wheel scrolls by Avalonia's step**, not by three rows.
 
 ## Out of stack space — Error 28 (2026-08-22, #80)
 
@@ -4425,6 +4722,40 @@ and Decimal sit **above** Double. Comparison simply follows the coercion.
 It is recorded next to the Single case only to keep the two apart: with Currency, arithmetic and comparison
 agree with each other. With Single, they do not.
 
+### A Currency beside a Double: `+` and `-` convert the Double first, `*` gives a Double (#966)
+
+Measured 2026-10-24 on vb6.exe SP6 (VB6.EXE 6.00.9782, MSVBVM60 6.00.9848) with `/make`, en-GB guest, one project
+built native and p-code with every line identical; measured by the interpreter session for #966. Each expression was
+logged with `TypeName` and `CStr`, then stored into a `c As Currency` and logged again. `d` is a typed Double.
+
+| `d` | Nearest Double | `CCur(1) * d` | `c = CCur(1) * d` | `CCur(0) + d` | `CCur(1) - d` |
+|---|---|---|---|---|---|
+| 1.00005 | above | Double 1.00005 | 1.0001 | Currency 1.0001 | Currency -0.0001 |
+| 2.00005 | below | Double 2.00005 | 2 | Currency 2 | Currency -1 |
+| 0.00015 | below | Double 0.00015 | 0.0001 | Currency 0.0001 | Currency 0.9999 |
+| 0.00025 | above | Double 0.00025 | 0.0003 | Currency 0.0003 | Currency 0.9997 |
+| 1.00015 | above | Double 1.00015 | 1.0002 | Currency 1.0002 | Currency -0.0002 |
+| 3.00005 | below | Double 3.00005 | 3 | Currency 3 | Currency -2 |
+
+The operands in the other order give the same answers, and so does a Variant holding the Double.
+`CCur(10) / (1 / d)` is a Double, and its store rounds as the `*` column's does.
+
+| Expression | Result | Stored into a Currency |
+|---|---|---|
+| `1@ * 1.00005`, `1.00005 * 1@` | Double 1.00005 | 1.0001 |
+| `0@ + 0.00015` | Currency 0.0001 | 0.0001 |
+| `1@ + 0.00005` | Currency 1.0001 | 1.0001 |
+| `2@ + 0.00005` | Currency 2.0001 | 2.0001 |
+| `1@ * 1.00005!`, `CCur(1) * CSng(1.00005)` | Double 1.00004994869232 | 1 |
+| `CCur(1) * CDec(1.00005)` | Decimal 1.00005 | 1 |
+
+- **In `+` and `-` the Double is converted to Currency on its own, by its binary value, and the sum is taken in
+  Currency.** `2@ + 0.00005` decides it: summed as Doubles, 2.00005 sits just below its tie and would round to 2,
+  but 0.00005 on its own sits just above its tie and becomes 0.0001, so the answer is 2.0001.
+- **`*` and `/` give a Double and do not round.** Only the store into a Currency rounds, and it rounds by the binary
+  value, as `c = 1.00005` does. This is the ladder's exception for `*` that the operator tables record (#230).
+- HexIDE implements the `+` and `-` rows since #966. `*` still gives a Currency, which is #230's cell.
+
 ### Consequences for the interpreter
 
 `ExpressionExecutor.GetTwoValuesSameTypesOrNull` uses **one** widening ladder for both arithmetic and
@@ -4775,7 +5106,7 @@ $udt     = 'Option Explicit', 'Public Type verify', '    x As Long', 'End Type'
 #   End Function
 ```
 
-VB6 6.00.8176 (SP6), in the oracle guest. The harness sanity pair (`CByte(100) + CByte(100)` and
+VB6 6.00.8176 (the original release), in the oracle guest. The harness sanity pair (`CByte(100) + CByte(100)` and
 `CByte(200) + CByte(100)`) reproduced `200 | Byte` and `ERR6` in the same session.
 
 | Run | Code | `Type verify` in scope | Result |
@@ -4812,7 +5143,7 @@ decides.
 
 Measured because HexIDE parses that log to put compiler errors in the editor, and because
 hexide-io/HexIDE#273 turns on whether a line number means the file or the code view. Both answers were
-guessed in the code and both guesses were wrong. Real `vb6.exe` 6.00.8176 (SP6), `VB6.EXE /make <abs .vbp>
+guessed in the code and both guesses were wrong. Real `vb6.exe` 6.00.8176 (the original release), `VB6.EXE /make <abs .vbp>
 /out <abs log>`, every case reproduced in two separate runs (a4 in three).
 
 **The format**, exact bytes, ANSI, CRLF, and the log always opens with a bare empty line:
@@ -5088,7 +5419,7 @@ Two readings were in play, and the probes were written so that they predict diff
 
 The second is not a straw man: it has been implemented elsewhere.
 
-**The probe.** VB6.EXE 6.00.8176 (SP6) with runtime MSVBVM60 6.00.9848, in the oracle guest. Three Standard
+**The probe.** VB6.EXE 6.00.8176 (the original release) with runtime MSVBVM60 6.00.9848, in the oracle guest. Three Standard
 EXE projects, built from standard modules, every one of them `Option Explicit`, so that a name binding
 nothing is a compile error rather than an implicit Variant. Each probe is a `Public Sub` placed in the module
 whose declarations set up its scenario:
@@ -5474,7 +5805,7 @@ a rule.
 ## A running program's locale is the user's regional settings (2026-10-12, #777)
 
 Measured to decide which culture the interpreter should format and read text in, and whether a two-digit year is
-a fixed rule or a regional one. Real `vb6.exe` 6.00.8176 (SP6), guest locale **en-GB**, one expression batch
+a fixed rule or a regional one. Real `vb6.exe` 6.00.8176 (the original release), guest locale **en-GB**, one expression batch
 through `scripts/vb6-oracle.ps1`.
 
 | Expression | Value | Type | Err |
@@ -5588,7 +5919,7 @@ rule but has not been run.
 ## Turning a number or a date into text (2026-10-12, #772, #771)
 
 `CStr`, `&`, storing into a String, `Format` with no mask and `Str` all turn a value into text. Two runs of
-`scripts/vb6-oracle.ps1` measured them, about 110 rows, on vb6.exe 6.00.8176 (SP6) in an **en-GB** guest
+`scripts/vb6-oracle.ps1` measured them, about 110 rows, on vb6.exe 6.00.8176 (the original release) in an **en-GB** guest
 (decimal point `.`, short date `dd/MM/yyyy`, long time `HH:mm:ss`). Each row is `CStr(...)` unless it says
 otherwise, and every one came back a String. `CSng(x)` rounds a Double literal to a Single, as written.
 
@@ -5787,7 +6118,7 @@ short date. Since #777 the interpreter has a locale of its own, taken from the u
 ## A control where a value is wanted is its default member (2026-10-12, #790)
 
 Measured to decide what HexIDE should do with `s = Text1` until it has default members. Real `vb6.exe` 6.00.8176
-(SP6), guest locale en-GB. Two `/make` runs of a form holding `Text1`, `Label1`, `Command1` and `Check1`, each
+(the original release), guest locale en-GB. Two `/make` runs of a form holding `Text1`, `Label1`, `Command1` and `Check1`, each
 statement under `On Error Resume Next`, with the value, its `TypeName` and `Err.Number` logged.
 
 | Statement | Result | Err |
@@ -5822,7 +6153,7 @@ refusal now covers controls only.
 
 ## A Label's colours, read back and painted (2026-10-12, #795)
 
-Measured to decide what a Label and a TextBox should read back and paint. Real `vb6.exe` 6.00.8176 (SP6), guest
+Measured to decide what a Label and a TextBox should read back and paint. Real `vb6.exe` 6.00.8176 (the original release), guest
 locale en-GB. Two `/make` runs of a form whose own BackColor is light yellow, `&H00C0FFFF&`, so a transparent
 label shows. Each run was made twice:
 - once in session 0, which logs the read-backs, and where `GetPixel` returns `&HFFFFFFFF` for every point,
@@ -6570,7 +6901,7 @@ third's Q1 to Q3, the three questions it asked of VB6's saves. A module inside a
 
 ### Method
 
-**The compiler half.** VB6.EXE 6.00.8176 (SP6) in the Hyper-V guest `Win10` (locale en-GB), driven over PowerShell
+**The compiler half.** VB6.EXE 6.00.8176 (the original release) in the Hyper-V guest `Win10` (locale en-GB), driven over PowerShell
 Direct as `VB6.EXE /make <abs .vbp> /out <abs log>` with `CreateNoWindow` and a 90-second timeout, every project
 under `C:\hexoracle-p4\make\<probe>-<variant>\`. Sixty probes, each one class (`Class1.cls` with the canonical
 13-line header of the 2026-09-19 entry's b1) or, for p06e and p13d, a second standard module. p10a to p10f also
@@ -11223,7 +11554,7 @@ and HexIDE takes a side on each. A dialog closed without an answer takes Debug. 
 **How it was found.** The Battleship demo (#1071) gives a 5 x 5 board `gSize * gSize \ 2` shots, which VB6 makes 12.
 HexIDE made it 10, from `5 * (5 \ 2)`.
 
-**The probe.** [The scripted harness](#the-scripted-harness--scriptsvb6-oracleps1), VB6.EXE 6.00.8176 (SP6) in the
+**The probe.** [The scripted harness](#the-scripted-harness--scriptsvb6-oracleps1), VB6.EXE 6.00.8176 (the original release) in the
 oracle guest. Each expression was assigned to a Variant and logged with its `TypeName`. There were three `/make` runs:
 - 22 expressions;
 - 21 more, one per pair of adjacent levels the first run left out;
@@ -11328,7 +11659,7 @@ which library names refuse or ignore a `$`. Two questions remained: which librar
 what the `$` changes on them. A `Variant` that receives the result reads `String` either way, so the type can't tell
 the two forms apart. A Null can.
 
-**The probe.** [The scripted harness](#the-scripted-harness--scriptsvb6-oracleps1), VB6.EXE 6.00.8176 (SP6) in the
+**The probe.** [The scripted harness](#the-scripted-harness--scriptsvb6-oracleps1), VB6.EXE 6.00.8176 (the original release) in the
 oracle guest, one `/make` of 69 expressions under `Option Explicit`. Each function was called three times:
 - **the `$` form** with an ordinary argument;
 - **the plain form** with a Null;
@@ -11378,7 +11709,7 @@ Not probed: `Command$`, `Date$`, `Time$`, `Dir$`, `Input$` and `InputB$`. HexIDE
 **The question.** The Battleship demo's board lays out its grid with `Label.Move`, and fits the form to it with
 `Width = (Width - ScaleWidth) + needed`. HexIDE had neither. What do they do?
 
-**The probe.** VB6.EXE 6.00.8176 (SP6) in the oracle guest, native code, one compiled program. `Sub Main` loads a
+**The probe.** VB6.EXE 6.00.8176 (the original release) in the oracle guest, native code, one compiled program. `Sub Main` loads a
 form without showing it. The form has `BorderStyle = 1` (Fixed Single), `ClientWidth` and `ClientHeight` of 2520, and
 one Label at Left 120, Top 120, 360 x 360. The program logs each step under `On Error Resume Next`:
 
@@ -11947,7 +12278,8 @@ probe used a fresh file, and `As 3` was taken.
 - **Not implemented:**
   - Random and Binary mode, `Get`, `Put`, `Input #`, `Write #`, `Input$`, `LOF`, `Loc` and `Seek`. `Input #` and
     `Write #` run since #1521, and `Input$`, `LOF`, `Loc` and `Seek` since #1645 (see "LOF, Loc, Seek and the Input
-    function"); Random and Binary are #1646;
+    function"), and Random and Binary mode, `Get` and `Put` since #1646 (see "Random and Binary files, Get, Put and
+    Len");
   - `Tab` and `Spc` in `Print #`;
   - `Line Input #` into anything but a plain variable.
 - **The divergences:**
@@ -12647,7 +12979,7 @@ writes the two equal. HexIDE renamed only the first until #1059 fixed #473, so f
 Which name does VB6 honour? #473 recorded that for a module VB6 binds on `VB_Name` (see the `Folder1\Module1.bas`
 probes), and nobody had asked for a form.
 
-**The probe.** A Standard EXE starting from `Sub Main`, built with `vb6.exe /make` as p-code (6.00.8176 SP6). Its form
+**The probe.** A Standard EXE starting from `Sub Main`, built with `vb6.exe /make` as p-code (6.00.8176, the original release). Its form
 was `Begin VB.Form frmRenamed` with `Attribute VB_Name = "Form1"`, in `Form1.frm`, listed as `Form=Form1.frm`. The
 module had no `Option Explicit`, so whichever name was not the form compiled as an implicit Variant. `Sub Main`
 printed `TypeName` of each name, each `.Name`, `Forms(0).Name`, and the `Me.Name` that `Form_Load` saw.
@@ -12706,7 +13038,7 @@ a doubled pair on read, and wrote a lone quote unescaped. Its reader and writer 
 files round-tripped. They disagreed with VB6 in both directions. The `.vbp` reader already halved doubled quotes, but
 a `.vbp` and a `.frm` come from different writers inside VB6, so this was measured, not assumed.
 
-**The probe.** A Standard EXE, built with `vb6.exe /make` as p-code (`CompilationType=-1`), on 6.00.8176 SP6. Its form
+**The probe.** A Standard EXE, built with `vb6.exe /make` as p-code (`CompilationType=-1`), on 6.00.8176, the original release. Its form
 gave these string properties a doubled quote:
 - the form's `Caption` and `LinkTopic`;
 - five Labels' `Caption`s, one with a `Tag`;
@@ -12824,7 +13156,7 @@ copied to `proj` with these additions:
 - `HelpFile="help\probe.hlp"`, naming a file that does not exist;
 - `Path32="out"`.
 
-The VB6 IDE (6.00.8176 SP6) opened it. File > Save Project As then saved it to `proj\deeper\Saved.vbp`, and again to a
+The VB6 IDE (6.00.8176, the original release) opened it. File > Save Project As then saved it to `proj\deeper\Saved.vbp`, and again to a
 sibling folder, `other\Saved2.vbp`. Each saved file was read back.
 
 | Line read in `proj` | Written in `proj\deeper` | Written in `other` |
@@ -12863,7 +13195,7 @@ much as the name: `ProjectSerializer` places the lines it does not model by coun
 
 **The probe.** Two copies of one project: a form, a reference to `stdole2.tlb`, and the keys `Startup`, `Command32`,
 `Name="probe"`, `HelpContextID="0"`, `CompatibleMode="0"` and the three version numbers. `none.vbp` has no description.
-`quoted.vbp` adds `Description="He said ""hi"""` after `HelpContextID`. The VB6 IDE (6.00.8176 SP6) opened each, and
+`quoted.vbp` adds `Description="He said ""hi"""` after `HelpContextID`. The VB6 IDE (6.00.8176, the original release) opened each, and
 File > Save Project As saved it to a new name. The saved files were read back.
 
 | Read | Written by Save Project As |
@@ -12984,7 +13316,7 @@ lone CR, and the one line-ending fact recorded, that an LF-terminated module fai
 test. `Sub Main` in `Module1.bas`, or `Form_Load` in a startup form, writes what it ran to a file. A class case also holds
 `C.cls`, whose `Property Get Value` carries `Attribute Value.VB_UserMemId = 0`, and `Main` reads `n = c` from a `New C`,
 under `On Error Resume Next`. So `n` is 42 when the attribute made `Value` the default member, and the error is 438 when
-it did not. Each was built with `vb6.exe /make` (6.00.8176 SP6) and the result run.
+it did not. Each was built with `vb6.exe /make` (6.00.8176, the original release) and the result run.
 
 | Probe | The file | `/make` | Ran |
 |---|---|---|---|
@@ -13117,6 +13449,7 @@ spaces show.
 | `? Form1.Text1(1).Text; Len(Form1.Text1(1).Text)` | `[second 6 ]` |
 | `? Form1.Text1.Count` | `[ 2 ]` |
 | `? 6;`, then `? 7` typed | `[ 6 ]` with the caret left after it; `? 7` joined that line as ` 6 ? 7`, and Enter gave "Compile error: Invalid in Immediate pane" |
+| `Print 4` / `?5` / `Debug.Print 9`, on SP6 | `[ 4 ]` / `[ 5 ]` / `[ 9 ]` |
 
 **What it shows:**
 - **A `?` line is Print, exactly as `Debug.Print` prints.** A number has a space where its sign would go and one after,
@@ -13124,9 +13457,15 @@ spaces show.
 - **It reads a control array through its form from another form's code.**
 - **A trailing `;` leaves the line open**, and the Immediate window doesn't start a new line for what is typed next.
 
-**Not measured:** `Print 4` and `?5` typed there. In three runs of four, Ctrl+G left no caret in the Immediate window,
-so the typing went nowhere. In one, after a click in the Immediate pane, it went into the code window. Neither row's
-answer could be told from those runs. A click inside the pane fixed one run of the three.
+**On SP6 (2026-10-24, #1663),** the same lines typed again gave the same output, row for row, except the `? 6;` row, which
+wasn't typed again. Three more were measured there for the first time, the last row of the table:
+- **`Print`, with no `Debug.`,** is a `?` line.
+- **So is `?5`,** with no space after the `?`.
+- **So is `Debug.Print`.**
+
+The release run couldn't measure the first two: in three runs of four, Ctrl+G left no caret in the Immediate window. On
+SP6 a click inside the pane put it there. The first F5 went to the floating Data View window, until a click in the empty
+MDI area gave the IDE the keyboard.
 
 ### In HexIDE (#1386)
 
@@ -13638,7 +13977,7 @@ gets, and the meaning of a line that is not there.
 (CenterScreen) and two write 3 (Windows Default). The new project's `Template/Projects/Form1.frm` writes
 `ClientLeft = 60`, `ClientTop = 348`, `LinkTopic = "Form1"` and `StartUpPosition = 3 'Windows Default` explicitly.
 
-**The probe.** VB6.EXE 6.00.8176 SP6, `/make` (native code), the exe run headless in session 0, where the screen is
+**The probe.** VB6.EXE 6.00.8176, the original release, `/make` (native code), the exe run headless in session 0, where the screen is
 15360 x 11520 twips at 15 twips a pixel. A `Sub Main` project with six forms. Each designer block is HexIDE's, byte
 for byte, plus the lines below, and each form carries the usual five `Attribute` lines:
 
@@ -13702,7 +14041,7 @@ block at all, and its code section in bare LF with no final line break (#516, #9
 `VB_PredeclaredId = True` is what gives a form its default instance, so a form without the block might load but fail
 at `Form1.Show`. **Both are wrong for `vb6.exe /make`.** The block is what VB6 writes, not what it needs.
 
-**The probe.** VB6.EXE 6.00.8176 SP6. One `Sub Main` project per row, each with a `Form1.frm` and a `Module1.bas`,
+**The probe.** VB6.EXE 6.00.8176, the original release. One `Sub Main` project per row, each with a `Form1.frm` and a `Module1.bas`,
 built with `/make` both as native code and as p-code (`CompilationType=-1`), and the exe run in session 0. The form's
 designer block is HexIDE's (Caption, ClientHeight 7200, ClientWidth 9600, ScaleHeight, ScaleWidth). `Sub Main`, under
 `On Error Resume Next`, reads `X.Caption` and `X.Name`, calls `X.Show` and `DoEvents`, reads `X.Visible`,
@@ -14815,6 +15154,15 @@ box has, or over the container itself where there is none.
 windowed block first. A windowed control sent to back stays over such a block, and a Label sent to back goes under it.
 No corpus file has a carried block after a windowless one.
 
+**On SP6** (2026-10-24, VB6.EXE 6.00.9782, #1663). All three saves were byte-identical to the release build's, from the
+unchanged template. At first, though, the template would not load:
+- **The first load after the control caches changed** raised the same "Error accessing the system registry". On SP6,
+  "Continue Loading Project?" followed it, and with Enter alone nothing loaded. On the release build the project loaded
+  after that one Enter.
+- **That load left a virtualised `MSCOMCTL.oca`** in the console user's VirtualStore, under `VB98`. Every load after it
+  was clean, with no dialog. The release run left a virtualised `ieframe.oca` in the same way.
+- **Not settled:** whether the second dialog belongs to SP6, or only to the cache it hit.
+
 ## Static (2026-10-23, #1491)
 
 **The question.** `Static n As Long` stopped the program: "non dim variables not supported". The `Static` keyword on a
@@ -14937,7 +15285,8 @@ a class, and two names on one line.
 
 **Known divergences:**
 - #1490: a standard module's Static, like a module variable, keeps its object past the end of the program.
-- A duplicate `Dim` or `Static` in one procedure is not refused (#1499). The first declaration wins.
+- A duplicate `Dim` or `Static` in one procedure was not refused (#1499), and the first declaration won. It is refused
+  as the module loads since #1499: see "A name declared twice".
 - `New Form2` is #822, so the form test leaves out the second instance.
 
 **What pins it:**
@@ -15081,6 +15430,11 @@ Every control went onto the form, none into another. The values are VB6's file.
 - A grid other than 120 twips.
 - A double-click while a container is selected, measured only as "after a click inside a Frame" ("Where VB6's designer
   puts a control's block").
+
+**On SP6** (2026-10-24, VB6.EXE 6.00.9782, #1663). The same 19 double-clicks wrote the same file except for one line: the
+Data control's `Connect` is `"Access 2000;"`, where the release build wrote `"Access"`. The Properties window shows
+`Access 2000;` too. Every size and position agrees. HexIDE has no Data control yet. When it gains one, it takes SP6's
+value, since SP6 is the build nearly every VB6 developer used.
 
 ## An undeclared variable passed ByRef (2026-10-23, #1505)
 
@@ -15238,8 +15592,8 @@ Measured with vb6.exe in two places. The IDE was driven with `vb6.exe /runexit`,
 and the compiled EXE was built both native and p-code, the two agreeing. Each program the tests pin was run as written.
 
 **In the IDE, release build**, `Debug.Assert X` with `L` logging each side of it. These rows ran on the oracle's IDE,
-VB6.EXE 6.00.8176 with VBA6.DLL 6.0.8169, which is VB6's original release and not SP6 (#1524). Re-measure them once SP6
-is installed. The compiled-EXE rows below ran on MSVBVM60 6.00.9848, SP6's runtime, and stand.
+VB6.EXE 6.00.8176 with VBA6.DLL 6.0.8169, which is VB6's original release and not SP6 (#1524). On SP6 (2026-10-24, #1663)
+every one of them ran the same. The compiled-EXE rows below ran on MSVBVM60 6.00.9848, SP6's runtime, and stand.
 
 | X | result |
 |---|---|
@@ -15291,7 +15645,7 @@ The break carries a new `StopReason.Assertion`, which `get_debug_state` and `run
 form.
 
 **A reusable harness.** `vb6.exe /runexit project.vbp`, run in the guest with a timeout, measures what the VB6 IDE does
-rather than the compiler: in the oracle as it stands, the release build's IDE (#1524). A project that ends
+rather than the compiler: the release build's IDE until 2026-10-23, SP6's from 2026-10-24 (#1524). A project that ends
 logs to its end. One that waits is in break mode or showing a dialog, and
 running it again under On Error Resume Next tells the two apart.
 
@@ -15574,6 +15928,184 @@ The root's `ClientLeft` and `ClientTop` still bind to its geometry, though neith
 holds that its root doesn't list is kept as the file's own text. That includes the Caption a UserControl HexIDE made
 before #1538 carried. The rest of each list is #1631.
 
+## What VB6's Properties window shows a position in (2026-10-23, #1636, design-time, IDE)
+
+**The question.** HexIDE's Properties window showed every Left, Top, Width and Height as the model's pixels: a new
+PropertyPage read Height 240 and Width 320 where VB6's read 3600 and 4800. What unit does VB6's window use? The run time
+reads a position in its container's ScaleMode (#933). Does the window do the same, and what does it show for a form's own
+size, which at run time includes its frame (#1072)?
+
+**The probes.** VB6.EXE 6.00.8176, the IDE, in the guest's console session through the agent, the same rig as #1585's.
+Each project was opened in the IDE; each form's designer was opened from the Project window (Ctrl+R, Home, Down, then
+Right twice, which reaches the first form whether or not the Forms folder is expanded, and Down for the next); then F4.
+For each object in the Properties window's object box, the object was selected as a user's choice there selects it:
+`CB_SETCURSEL` to its index, then `WM_COMMAND` with `CBN_SELCHANGE` to the box's parent. The list was then captured as
+#1585's was, scrolled with `LB_SETTOPINDEX`, eight rows at a time, on its Alphabetic tab. Every form had the same client
+rectangle in its file: `ClientLeft = 60`, `ClientTop = 450`, `ClientWidth = 4680` and `ClientHeight = 3090`.
+
+**A control's position, in its container's ScaleMode.** Two forms. Form1's ScaleMode is twips, and it holds Text1 and a
+PictureBox whose ScaleMode is 3, pixels, holding Text3. Form2's ScaleMode is pixels, and it holds Text5, and a Frame
+holding Text6. The file's values are twips in every case:
+
+| Object | In | File's Left, Top, Width, Height | Properties window |
+|---|---|---|---|
+| Text1 | a twips form | 120, 120, 1215, 495 | 120, 120, 1215, 495 |
+| Picture1 | a twips form | 120, 840, 2400, 1500 | 120, 840, 2400, 1500 |
+| Text3 | a pixel PictureBox | 150, 75, 1215, 285 | **10, 5, 81, 19** |
+| Text5 | a pixel form | 120, 120, 1215, 495 | **8, 8, 81, 33** |
+| Frame2 | a pixel form | 2640, 840, 1800, 1500 | **176, 56, 120, 100** |
+| Text6 | a Frame on a pixel form | 240, 360, 1215, 285 | 240, 360, 1215, 285 |
+
+**The other scales.** Each form below holds Text1 at 1200, 600, 1215, 495 in twips. The User form's ScaleLeft is 100,
+ScaleTop 50, ScaleWidth 1000 and ScaleHeight 500. The PictureBox is 2400 by 1500 twips, has a User scale of ScaleLeft 10,
+ScaleTop 5, ScaleWidth 1000 and ScaleHeight 500, and holds Text1 at 300, 150, 1215, 285. The About Dialog row is VB6's own
+`About Dialog.frm` from its Template tree: a User scale of 5380.766 by 2453.724 over a 5730 by 3555 client, with
+`cmdOK` at 4245, 2625, 1260, 345.
+
+| Container | Properties window |
+|---|---|
+| a User-scale form | 356.41, 147.087, 259.615, 80.097 |
+| a centimetre form | 2.117, 1.058, 2.143, 0.873 |
+| a millimetre form | 21.167, 10.583, 21.431, 8.731 |
+| VB6's About Dialog, `cmdOK` | 3986.274, 1811.822, 1183.205, 238.125 |
+| a User-scale PictureBox, the default 3D Fixed Single border | 138.205, 57.083, 519.231, 98.958 |
+| the same with `BorderStyle = 0` | 135, 55, 506.25, 95 |
+
+**A form's own position.** One form for each BorderStyle, one Fixed Single with no control box and no caption, and one
+with a menu:
+
+| Form | Left, Top | Width, Height |
+|---|---|---|
+| 2 Sizable (both forms above, whatever their ScaleMode) | -60, -15 | 4920, 3675 |
+| 0 None | 60, 450 | 4680, 3090 |
+| 1 Fixed Single | 15, 60 | 4770, 3525 |
+| 3 Fixed Dialog | 15, 60 | 4770, 3525 |
+| 4 Fixed ToolWindow | 15, 60 | 4770, 3525 |
+| 5 Sizable ToolWindow | -60, -15 | 4920, 3675 |
+| 1 Fixed Single, `ControlBox = 0`, `Caption = ""` | 45, 435 | 4710, 3120 |
+| 2 Sizable, with a menu | **105, 105** | 4920, 3975 |
+
+**What it shows:**
+- **A control's position is in its container's ScaleMode**, the rule a running program reads it by (#933). It is the
+  form's for a control on the form, a PictureBox's inside it, and twips inside a Frame, which has no ScaleMode, even on a
+  pixel form. A Frame's own position is in its form's ScaleMode.
+- **A User scale maps the container's client area onto ScaleLeft, ScaleTop, ScaleWidth and ScaleHeight.** Text1's 1200
+  twips is 100 + 1200 × 1000 / 4680 = 356.41, and its width 1215 × 1000 / 4680 = 259.615. A PictureBox's client area is
+  inside its border. The default border takes 60 twips off each way: 300 twips is 10 + 300 × 1000 / 2340 = 138.205.
+  BorderStyle 0 takes nothing: 10 + 300 × 1000 / 2400 = 135.
+- **Centimetres and millimetres are 1440 / 2.54 and 1440 / 25.4 twips to the unit** at the window's precision. The run
+  time's centimetre reading, 0.2116669 for 120 twips where that factor gives 0.2116667 (#933), differs below it.
+- **A value that isn't whole shows three decimals at most**: 356.41, 147.087, 3986.274. Not seven significant digits, as
+  a Single prints.
+- **A form's own Width and Height are twips whatever its ScaleMode, and are its client size plus its frame.** That frame
+  is the one a running form has on the themed desktop (`FormFrame`, #1072): 240 across and 585 down for a Sizable form or
+  a Sizable ToolWindow; 90 and 435 for the fixed styles; 30 and 30 for a Fixed Single with no caption bar; none for
+  None; and 300 more down for a menu. "Me.Width and Me.Height" earlier in this file read 4800 and 3495 for this client
+  area, 120 and 405 more. That is not a contradiction: that row is a session-0 EXE, which is unthemed, as `FormFrame`
+  records.
+- **A form's Left and Top are its client's less the frame's left and top edges**: ClientLeft less half the border across,
+  and ClientTop less the rest of the frame down. For a Sizable form that is 60 − 120 = −60 and 450 − 465 = −15. Nine of the
+  ten forms fit.
+- **Measured and not explained: the form with a menu read Left 105 and Top 105**, where that rule gives −60 and −315. Its
+  Width and Height fit the frame. One guess is that VB6 places the designer window itself when the form's own Top would
+  put its menu above the designer's area. It was not measured.
+- A UserControl's Width and Height, in #1585's capture, are its client area, 4800 and 3600, since it has no frame.
+
+**Not measured:** whether a value typed into the window is rounded to whole twips, as an assignment at run time is.
+
+### In HexIDE (#1636)
+
+- **The Properties window shows each position as VB6's does**, through `DesignPositions`:
+  - a control's in its container's ScaleMode, User, centimetres and millimetres included;
+  - a form's own size with the frame `FormFrame` gives a running form;
+  - a UserControl's and PropertyPage's with none;
+  - three decimals at most.
+
+  A value typed in is in the same units, and is rounded to whole twips, half to even, as the run time rounds an
+  assignment.
+- **`get_form_controls`' rows and `set_control_property` follow the window**, as #923 has them, and each row's note
+  names its unit. The summary's `left`, `top`, `width` and `height`, `add_control` and `move_control` stay in pixels, and
+  say so.
+- **Not followed: the menu form's Left and Top.** HexIDE shows the rule's −60 and −315.
+- **Not followed: the toolbar's position and size readout**, which still shows pixels. VB6's wasn't measured (#1641).
+
+## A UserControl's and a PropertyPage's own events (2026-10-24, #1632, design-time, IDE, release build and SP6)
+
+**The question.** HexIDE's designer wrote `Form_Load` for a double-click on any designer's background, a UserControl's
+and a PropertyPage's included. The code window offered a root a form's five events, Click, DblClick and the mouse
+three. Which procedure does VB6's double-click write for each root, and which events does each offer?
+
+**The probe.** The IDE, in the guest's console session through the agent, on both builds:
+- the release build, VB6.EXE 6.00.8176;
+- SP6, VB6.EXE 6.00.9782 with VBA6.DLL 6.0.9782.
+
+`probe.vbp` is an ActiveX Control project (`Type=Control`) holding one root, read from its file:
+`UserControl1.ctl`, or `PropertyPage1.pag` with `Attribute VB_Exposed = False`. The steps:
+1. The designer was opened from the Project window, as in "What VB6's Properties window shows a position in".
+2. The real pointer double-clicked the middle of the root's surface. That is the window of class
+   `ThunderUserControl` or `ThunderPropertyPage`.
+3. The code window's Object and Procedure boxes were read with `CB_GETLBTEXT`. The Procedure box is filled only when
+   its button is clicked, so it was clicked with the real pointer before it was read.
+4. Ctrl+S saved, and the saved file was read.
+
+A second run on SP6 chose every event in the Procedure box in turn and saved, so that every stub VB6 writes is in the
+file.
+
+**The double-click.**
+
+| Root | Object box | Procedure box | The saved file gained |
+|---|---|---|---|
+| UserControl | `UserControl` | `Initialize` | `Private Sub UserControl_Initialize()`, a blank line, `End Sub` |
+| PropertyPage | `PropertyPage` | `SelectionChanged` | `Private Sub PropertyPage_SelectionChanged()`, a blank line, `End Sub` |
+
+**The events, in the Procedure box's order, with the arguments VB6's stubs declare.** A UserControl offers 35:
+
+| Event | Arguments | Event | Arguments |
+|---|---|---|---|
+| AccessKeyPress | `KeyAscii As Integer` | KeyUp | `KeyCode As Integer, Shift As Integer` |
+| AmbientChanged | `PropertyName As String` | LostFocus | |
+| AsyncReadComplete | `AsyncProp As AsyncProperty` | MouseDown | `Button As Integer, Shift As Integer, X As Single, Y As Single` |
+| AsyncReadProgress | `AsyncProp As AsyncProperty` | MouseMove | the same |
+| Click | | MouseUp | the same |
+| DblClick | | OLECompleteDrag | `Effect As Long` |
+| DragDrop | `Source As Control, X As Single, Y As Single` | OLEDragDrop | `Data As DataObject, Effect As Long, Button As Integer, Shift As Integer, X As Single, Y As Single` |
+| DragOver | `Source As Control, X As Single, Y As Single, State As Integer` | OLEDragOver | as OLEDragDrop, then `State As Integer` |
+| EnterFocus | | OLEGiveFeedback | `Effect As Long, DefaultCursors As Boolean` |
+| ExitFocus | | OLESetData | `Data As DataObject, DataFormat As Integer` |
+| GetDataMember | `DataMember As String, Data As Object` | OLEStartDrag | `Data As DataObject, AllowedEffects As Long` |
+| GotFocus | | Paint | |
+| Hide | | ReadProperties | `PropBag As PropertyBag` |
+| HitTest | `X As Single, Y As Single, HitResult As Integer` | Resize | |
+| Initialize | | Show | |
+| InitProperties | | Terminate | |
+| KeyDown | `KeyCode As Integer, Shift As Integer` | WriteProperties | `PropBag As PropertyBag` |
+| KeyPress | `KeyAscii As Integer` | | |
+
+A PropertyPage offers 24. The 21 it shares with a UserControl have the same arguments: Click, DblClick, DragDrop,
+DragOver, GotFocus, Initialize, KeyDown, KeyPress, KeyUp, LostFocus, MouseDown, MouseMove, MouseUp, the six OLE events,
+Paint and Terminate. Its three of its own are `ApplyChanges()`, `EditProperty(PropertyName As String)` and
+`SelectionChanged()`.
+
+**What it shows:**
+- **A double-click on a designer's background writes the root's own event:** Initialize for a UserControl and
+  SelectionChanged for a PropertyPage, as a form's writes Load (#1532). Neither root has a Load.
+- **Each root has events of its own,** 35 and 24, and neither has a form's Activate, Deactivate, Load, QueryUnload or
+  Unload.
+- **Release and SP6 agree** on all of it: the double-click, both lists, and the save below.
+
+**And something the save did besides.** The PropertyPage's save rewrote `Attribute VB_Exposed = False` as `True`, on
+both builds. The UserControl's kept `False`. That is #1661.
+
+**In HexIDE (#1632):**
+- `UserControlRootClass` and `PropertyPageRootClass` carry the events above, in that order and with those arguments.
+  The code window offers them for the root and writes their stubs as VB6 does.
+- A double-click on the background writes the root's own procedure: `Form_Load`, `UserControl_Initialize` or
+  `PropertyPage_SelectionChanged`.
+- The code window lists a root under its own name (#937), so a stub chosen there is `UserControl1_Initialize` where
+  VB6 writes `UserControl_Initialize`. The double-click writes VB6's name.
+- None of these events is raised yet. HexIDE has no UserControl run time: `docs/MISSING_LANGUAGE.md` records
+  `UserControl` and `Ambient` as undefined names.
+
 ## Write # and Input # (2026-10-23, #1521)
 
 Measured with `/make` in ten batches, native and p-code identical on every row. All of them are run-time results of
@@ -15830,8 +16362,8 @@ row. Each call was `x = <call>` with `x` a Variant. Eleven rows were measured se
 and agree wherever the two overlap.
 
 A compile error is the compiler's answer, not the runtime's. So these rows come from the oracle's VB6.EXE 6.00.8176 and
-VBA6.DLL 6.0.8169, the release build, even though built EXEs run on SP6's MSVBVM60 (#1524). Re-measure them once SP6 is
-installed.
+VBA6.DLL 6.0.8169, the release build, even though built EXEs run on SP6's MSVBVM60 (#1524). On SP6 (2026-10-24, #1663)
+all 100 projects gave the same answers.
 
 **"Syntax error":**
 
@@ -16417,6 +16949,8 @@ selected, with GotFocus and then Click.
 - the arrow keys on a CheckBox or a CommandButton, which Windows' dialog manager also moves between;
 - an arrow onto a control that is disabled or has `TabStop = False`.
 
+The last two, and the order an arrow follows, are measured in "Where the arrow keys go from a button" (#1625).
+
 ### In HexIDE (#1583)
 
 - **An option group is one Tab stop.** It is its selected option, or each of its options while none is selected, so
@@ -16426,8 +16960,92 @@ selected, with GotFocus and then Click.
   kept from selecting, because it stopped at every option and selecting would have changed the user's choice.
 - **An option is selected before its GotFocus runs.** Before, a GotFocus raised at once read its own option unselected.
   The Click is raised after the GotFocus, whether the two run at once or wait behind a running handler.
-- **Not followed: the arrow keys**, which do nothing on an option button
-  ([#1625](https://github.com/hexide-io/HexIDE/issues/1625)).
+- **The arrow keys** did nothing on an option button. They follow VB6 since #1625: "Where the arrow keys go from a
+  button" has the rule.
+
+## Where the arrow keys go from a button (2026-10-23, #1625)
+
+**The question.** "Tab and the arrow keys among option buttons" found that an arrow on an option button moves the focus to
+the previous or next control in its container, by TabIndex, wrapping. It left open:
+- an arrow onto a control whose TabStop is False, or one that's disabled;
+- what an arrow passes over when the next control is a Label or another container;
+- the arrow keys on a CheckBox and a CommandButton;
+- whether "by TabIndex" was TabIndex at all, since in that probe the TabIndex order and the order of the controls in the
+  file were the same.
+
+**The probes.** Two compiled forms, native and p-code, run on the oracle guest's console session through the agent, as
+#1583's were. A Timer took one step each 300 ms, by `SetFocus` or by `SendKeys`, and logged `Screen.ActiveControl`, the
+options selected and the check boxes' Values after each.
+
+The first form had a Frame for each case, with its controls in TabIndex order:
+
+| Frame | Controls |
+|---|---|
+| A | optA1, optA2 (selected), txtA1 with `TabStop = False`, txtA2 |
+| B | optB1, optB2 (selected), txtB1 with `Enabled = False`, txtB2 |
+| C | optC1, optC2 (selected), lblC, a Label, txtC2 |
+| D | txtD1, optD1, optD2 (selected) |
+| E | optE1, optE2 (selected), picE, a PictureBox, txtE2 |
+| F | chkF1, chkF2, two CheckBoxes, txtF |
+| G | optG1, optG2 (selected), FrameG2 holding txtG, txtG2 |
+| H | cmdH1, cmdH2, two CommandButtons, txtH |
+
+The second form's one Frame held, in the file's order, optI1 at TabIndex 0, txtI at TabIndex 2, and optI2 at TabIndex 1.
+By TabIndex, Down from optI1 reaches optI2; by the file's order, txtI. Two steps then moved txtI, and later optI2, to the
+front with `ZOrder 0`, which changes the order the controls are drawn in and not their TabIndex.
+
+Native and p-code logged the same lines, line for line: 64 for the first form and 22 for the second.
+
+| From | Key | Focus went to | Selected after |
+|---|---|---|---|
+| optA2 | Down | **txtA1**, whose TabStop is False | optA2 |
+| optA2 | Up | optA1 | **optA1** |
+| optA1 | Up | **txtA2**: it wraps to the last | optA1 |
+| optB2 | Down | **txtB2**, past the disabled txtB1 | optB2 |
+| optC2 | Down | **txtC2**, past the Label | optC2 |
+| optD2 | Down | **txtD1**: it wraps to the first | optD2 |
+| optD1, by `SetFocus` | Up | txtD1 | optD1 |
+| optE2 | Down | **picE** | optE2 |
+| picE | Down | picE: the PictureBox keeps the key | optE2 |
+| chkF1 | Down | **chkF2** | both Values 0 |
+| chkF2 | Down | txtF | both Values 0 |
+| chkF2 | Up | chkF1 | both Values 0 |
+| optG2 | Down | **txtG2**, past FrameG2 and not into it | optG2 |
+| optG1, by `SetFocus` | Up | txtG2: it wraps to the last | optG1 |
+| cmdH1 | Down | **cmdH2** | |
+| cmdH2 | Right | txtH | |
+| optA2, by `SetFocus` | Right | txtA1, as Down | optA2 |
+| optI1 | Down | **optI2**, TabIndex 1, not txtI, which is next in the file | **optI2** |
+| optI1 | Up | **txtI**, TabIndex 2: it wraps to the last | optI1 |
+| optI1, after `txtI.ZOrder 0` | Down | optI2 | optI2 |
+| optI1, after `optI2.ZOrder 0` | Down | optI2 | optI2 |
+
+**What it shows:**
+- **An arrow moves by TabIndex**, not by the order of the controls in the file or on screen. `ZOrder` changed nothing.
+- **TabStop doesn't matter to an arrow.** Down reached a TextBox whose TabStop is False, which the Tab key passes over.
+- **A control that can't take the focus is passed over:** a disabled TextBox, a Label, and a Frame, whose controls are not
+  reached either. A PictureBox can take the focus, and does. Then it keeps the arrow keys, as a TextBox does.
+- **A CheckBox and a CommandButton move the same way.** An arrow changes no check box's Value.
+- **It wraps both ways** within the container, to a control that isn't a button too: Down from optD2 reached txtD1.
+- **`SetFocus` on an option selects it**, as "Tab and the arrow keys among option buttons" found. optD1 and optG1 were
+  selected by the step that focused them.
+
+**Not measured:**
+- an arrow with Shift, Ctrl or Alt held;
+- an invisible control as the next one;
+- an arrow onto a ListBox, a ComboBox or a scroll bar, though from one of them the arrow keys are its own;
+- an arrow on a control in a UserControl, or on the UserControl itself.
+
+### In HexIDE (#1625)
+
+- **The arrow keys on an option button, a check box and a command button follow this:**
+  - Up and Left go to the previous control in the container, and Down and Right to the next, by TabIndex, wrapping;
+  - whatever its TabStop;
+  - past controls that can't take the focus: disabled ones, Labels, Frames, and anything hidden;
+  - not into a nested container.
+- **An option it lands on is selected** through the focus, with Click after GotFocus, as #1583 has it. A check box isn't
+  changed.
+- **Not followed: an arrow with a modifier held**, which isn't measured. It does nothing.
 
 ## Conditional compilation (2026-10-23, #1112)
 
@@ -18494,7 +19112,8 @@ without a character, and the same with a plain `Const K = 1` twice.
 - **Divergences kept, each filed:**
   - a name read with a type character, `KS!`, is refused as not implemented (#742), so the program's two such rows are
     left out of the test, and so is reading `K&` for a `K%`;
-  - a second declaration of a name at module level runs, where vb6.exe refuses it (#1622). In a procedure it is #1499.
+  - a second declaration of a name at module level ran, where vb6.exe refuses it (#1622), and in a procedure (#1499).
+    Both are refused since #1622; `DeclaredTwiceTests` pins these probes' duplicate rows.
 
 ## A D exponent in a source literal (2026-10-23, #1611)
 
@@ -18766,6 +19385,113 @@ The four run as registered intrinsics. The two statements, and `Call` and `VBA.`
   - A program whose second section cannot be deleted loses none of its sections here.
 - **Refused in other words:** `SaveSetting` with three arguments, and `SaveSetting(...)` in parentheses, are refused as the program loads, by the grammar, in the parser's words. vb6.exe says "Argument not optional" and "Syntax error".
 
+## A name declared twice (2026-10-23, #1622, #1499)
+
+**The question.** HexIDE ran a module that declared one name twice, keeping one declaration, and a procedure that did,
+the first declaration winning: `Dim n As Long` then `Static n` gave an ordinary Long. #1614 found the module-level case
+("Ambiguous name detected") and #1491 the procedure one ("Duplicate declaration in current scope"). Which declarations
+clash with which, and does a type character, a visibility or a namespace keep two apart?
+
+**The probe.** 83 one-module projects, a class or a second and third module where the case needs one, each built native
+and p-code with vb6.exe 6.00.8176 (the release build) and run on the MSVBVM60 6.00.9848 (SP6) runtime, en-GB. A project
+that builds logs "ran", or what it reads; one that does not gives its compile error. Native and p-code agreed on every
+case. The cases are in four batches, generated by a script, so the table names each by what it declares.
+
+**At module level, "Ambiguous name detected", naming the second declaration:**
+
+| Declarations | vb6.exe |
+|---|---|
+| `Dim K` twice; `Dim K, K`; `Dim K As Long` and `Dim K As String`; `Dim K` and `Dim k`; `Dim K%` and `Dim K` | Ambiguous name detected (`k` for the pair that differs in case) |
+| `Private K` and `Public K`; `Public Const K` and `Private K`; `Const K = 1` twice | Ambiguous name detected: K |
+| `Dim K` with `Sub K` or `Function K`; `Sub K` twice; `Sub K` and `Function K`; `Dim L` where `L` is a Sub; `Dim Main` | Ambiguous name detected |
+| `Declare Function K` with `Dim K`, with another `Declare Function K`, or with `Sub K` | Ambiguous name detected: K |
+| `Const K` and an Enum member `K`; `Dim A` and a member `A`; a member `A` and `Sub A`; a member `A` twice in one Enum | Ambiguous name detected |
+| `Enum E` twice; `Type T` twice; `Enum E` and `Type E` | Ambiguous name detected |
+| in a class: `Dim K` twice; `Dim K` and `Sub K`; `Dim K` and `Property Get K`; `Property Get K` twice, or `Property Let K` twice; `Property Get K` and `Sub K` | Ambiguous name detected: K |
+
+**At module level, these compile:**
+
+| Declarations | vb6.exe |
+|---|---|
+| `Dim E` and `Enum E`; `Dim T` and `Type T`; `Const E` and `Enum E`; `Enum E` and `Sub E`; `Type T` and `Sub T` | ran |
+| a Type's member `X` and `Dim X` | ran |
+| `Enum E` with a member `E`, read as `E.E` | 0 |
+| two Enums each with a member `A`, `A` unread | ran; read bare, `A` is "Ambiguous name detected: A" there |
+| in a class: `Property Get K` and `Property Let K`; `Property Let K` and `Property Set K` | ran |
+| in a class: `Event K` and `Dim K`; `Event K` and `Sub K` | ran |
+
+So a module has three namespaces. Variables, Consts, Declares, Subs, Functions, Properties and Enum members share one, in
+any case and whatever their visibility or type character; Enum and Type names share a second; Events have a third. Within
+the first, a Property's Get, Let and Set share their name, each once, and two Enums' members may share one, which is
+ambiguous only where it is read.
+
+**Across modules:**
+
+| Declarations | vb6.exe |
+|---|---|
+| `Public K` in Module2 and in Module3, unread; two modules' `Public Const K`, unread; `Public K` and another module's `Public Sub K` | ran |
+| `Public K` in Module1 and Module2, Module1 writing `K = 4` | `K` 4, `Module2.K` 0: the module's own wins |
+| Module1 reads `K` that Module2 and Module3 each declare `Public` | Ambiguous name detected: K, where it is read |
+| Module1 calls `K` that Module2 and Module3 each declare as `Public Sub` | Ambiguous name detected: K, at the call |
+| Module1's `Private Sub K` and Module2's `Public Sub K`, called from Module1 | Module1's runs |
+
+**In one procedure, "Duplicate declaration in current scope":**
+
+| Declarations | vb6.exe |
+|---|---|
+| `Dim n` twice, with one type or two, `n` and `N`, `n%` and `n`; `Dim n, n` | Duplicate declaration in current scope |
+| `Dim` and `Static`; `Static` twice; `Static` and `Const`; `Dim` and `Const` either way round | Duplicate declaration in current scope |
+| a parameter and a `Dim`, `Static` or `Const` of its name; `Sub S(n, n)` | Duplicate declaration in current scope |
+| `Dim F` or `Const F` in `Function F`; `Function F(F)`; `Dim K` in a class's `Property Get K`; `Dim v` in `Property Let K(v)` | Duplicate declaration in current scope |
+| `Dim n As Long` in an If branch and `Dim n As String` in its Else | Duplicate declaration in current scope |
+| `n = 1`, no Dim, then `Dim n`; `ReDim n(3)`, no Dim, then `Dim n() As Long` | Duplicate declaration in current scope |
+
+**In one procedure, these compile:** `Dim S` in `Sub S`; `Dim Main` in `Sub Main`; `Dim S` where `S` is another Sub; `Dim n`
+and a label `n:`; `ReDim n(3)` twice (UBound 5); `Dim n()` then `ReDim n(3)` (UBound 3); and a local `Dim n As Long` beside
+a module's `Dim n As String`, the local reading Long 5. `Dim n As Long` then `ReDim n(3)` is "Expected array".
+
+So a procedure's parameters, Dims, Statics and Consts share one scope, a Dim inside a block included, with the
+procedure's own name in it when that name holds a return value. A name the procedure has used without declaring is
+declared by that use.
+
+**A test that asked for the wrong error.** `ModuleLevelArrayBoundTests` refused `Const D = #1/2/2003#` beside
+`Dim d(Len(D)) As Long` with "Variable required - can't assign to this expression". vb6.exe refuses that pair as
+"Ambiguous name detected: d", because `D` and `d` are one name, and gives "Variable required" for `Const DT` with
+`Dim d(Len(DT))` (both measured, native and p-code). The test now uses `DT`.
+
+**Under conditional compilation** (a fifth batch, native and p-code identical):
+
+| Declarations | vb6.exe |
+|---|---|
+| `Sub K` in both branches of `#If False Then` / `#Else`, each logging which | `second K` |
+| `Const K` and `Dim V` at module level in both branches of `#If 1 Then` / `#Else`, one `As Long`, one `As String` | `K` 1, `V` a Long |
+| `Dim n As Long` and `Dim n As String` in a procedure, one in each branch of `#If False Then` / `#Else` | `n` a String |
+| `Dim n` in `#If True Then`, and `Dim n` again after `#End If` | Duplicate declaration in current scope |
+
+So only the active branch declares anything, as an inactive branch is never compiled.
+
+### In HexIDE (#1622, #1499)
+
+- **`PrePass`** collects each module-level name into the namespace it belongs to and refuses the second, "Ambiguous name
+  detected" with the second declaration's spelling, as the module loads. Each procedure's parameters, Consts, Dims and
+  Statics, with its own name in a Function or Property Get, are collected as it is, and a second is "Duplicate
+  declaration in current scope". vb6.exe refuses the whole build; HexIDE refuses as it loads the module, before anything
+  runs.
+- **An inactive branch declares nothing,** because the pre-pass reads the module after conditional compilation has
+  removed it (#1112). The four rows above pin that: a pre-pass reading the raw text would refuse three valid programs.
+- **`DeclaredTwiceTests`** runs 80 of the probe programs, the conditional-compilation four among them, and the five
+  duplicate rows #1614's probes measured (`Const K = 1` beside `Const K% = 2`, and the like): each one vb6.exe builds must print its lines, and each one it
+  refuses must be refused with its message.
+- **Left out of the test, each recorded:**
+  - an undeclared use before a Dim, `n = 1` or `ReDim n(3)`, still runs. Whether that use declares `n` depends on every
+    name outside the procedure, which is relating a use to declarations, not collecting them;
+  - `Dim K%` and `Dim K` at module level: a module-level Dim with a type character is refused as not implemented first
+    (#742);
+  - `ReDim n(3)` twice with no Dim is "Unknown variable" (#1495), and `E.E` for a member named like its Enum is "Method
+    or data member not found" (#1637). Both predate this, and both fail on main.
+- **Across modules nothing changed.** A name two modules export is refused where it is read unqualified, as before; that
+  is resolution at the use, not a duplicate declaration.
+
 ## LOF, Loc, Seek and the Input function (2026-10-23, #1645)
 
 **The question.** #1145 made sequential files run and #1521 added `Input #` and `Write #`, but `LOF`, `Loc`, `Seek` and the
@@ -18928,3 +19654,201 @@ they round it, as `CInt` and `CLng` would: `1.5%` the Integer 2. vb6.exe refuses
   reads `5.D1`.
 - **Divergence kept:** the language server's `DOUBLELITERAL` takes `&` but not `%`, so the editor marks `2.5%` and not
   `2.5&`. The interpreter refuses both as the module runs.
+
+## Random and Binary files, Get, Put and Len (2026-10-24, #1646)
+
+**The question.** `Open ... For Random` and `For Binary` were refused, and with them `Get`, `Put` and `Len =`, so no
+program that keeps records or structs in a file got past its `Open`. What bytes does `Put` write for each kind of
+operand, what does `Get` read back, how do positions, records, EOF and a second handle behave, and what do the `Access`
+and `Lock` clauses do on these modes?
+
+**The probe.** Eight batches, each built native and p-code with vb6.exe 6.00.8176 (the release build) and run on the
+MSVBVM60 6.00.9848 (SP6) runtime, en-GB, code page 1252. Native and p-code agreed on every row. Each batch is one program
+under `On Error Resume Next`, which makes its files byte for byte with `Put` of a Byte array, and logs each step's error,
+`LOF`, `Loc`, `Seek` and `EOF`, and the file's bytes in hex, read back with `Get` of a Byte array. One-line projects tried
+the forms that might not compile. The first run of two batches logged a leftover 53 from the `Kill` that cleared each
+file; they were run again with `Err.Clear` after it, and only the second run is recorded here.
+
+**What `Put` writes, alone in a Binary file:**
+
+| Operand | Bytes |
+|---|---|
+| Integer 1, -2 | `01 00`, `FE FF` |
+| Long &H01020304 | `04 03 02 01` |
+| Single 1.5; Double 1.5 | `00 00 C0 3F`; `00 00 00 00 00 00 F8 3F` |
+| Currency 1.5 | `98 3A 00 00 00 00 00 00`: 15000, scaled by 10,000 |
+| Date `#1/2/2003#` | `00 00 00 00 E0 5E E2 40`: its serial, a Double |
+| Boolean True; False | `FF FF`; `00 00` |
+| Byte 200 | `C8` |
+| String "abc"; "" | `61 62 63`; nothing |
+| String "a" & Chr$(233); "a" & ChrW$(&H416) | `61 E9`; `61 3F`: the ANSI code page, `?` where it has no byte |
+| Variant Integer 1; Long 1 | `02 00 01 00`; `03 00 01 00 00 00` |
+| Variant Double 1.5; Single 1.5; Currency 1.5; Date | `05 00` then 8 bytes; `04 00` then 4; `06 00` then 8; `07 00` then 8 |
+| Variant String "abc" | `08 00 03 00 61 62 63` |
+| Variant Empty; Null | `00 00`; `01 00` |
+| Variant Boolean True; Byte 200 | `0B 00 FF FF`; `11 00 C8` |
+| Variant CVErr(5) | `0A 00 05 00 0A 80`: the SCODE 800A0005 |
+| Variant CDec(1.5) | `0E 00` then 16 bytes, `0E 00 01 00 00 00 00 00 0F 00 00 00 00 00 00 00`: a DECIMAL whose reserved first two bytes hold the type again, then the scale, the sign, the high 32 bits and the low 64 |
+| Variant Nothing, or holding a Collection | `09 00` written, then 13, the file not moving on: the next `Put` writes over the `09 00` |
+| Variant `Array(1, 2)` | `0C 20 01 00 02 00 00 00 00 00 00 00 02 00 01 00 02 00 02 00` |
+| a fixed Byte array; a dynamic one | `01 02 03`; `04 05 06`: no descriptor in a Binary file |
+| a 2-D Integer array (0 To 1, 0 To 2) | `01 00 02 00 03 00 00 00 00 00 09 00`: the first index fastest |
+| a fixed String array ("ab", "c") | `02 00 61 62 01 00 63`: each with its length |
+| Type (Integer 1, String "xy", Long 2) | `01 00 02 00 78 79 02 00 00 00`: the String with its length |
+| Type (Byte 1, Long 2) | `01 02 00 00 00`: packed, no alignment |
+| a Type with a nested Type, and one holding a Variant "ab" | the nested one's bytes in place; `08 00 02 00 61 62` |
+| `String * 5` "ab"; `String * 2` "abcd" | `61 62 20 20 20`; `61 62`: padded or cut, no length |
+| Type (Integer 1, `String * 3` "a") | `01 00 61 20 20` |
+
+**A String's length**, where it has one, is 2 bytes below 65,535 and `FF FF` then 4 bytes from 65,535 on: a Variant
+String of 40,000 is `08 00 40 9C`, of 65,535 `08 00 FF FF FF FF 00 00`, and of 70,000 `08 00 FF FF 70 11 01 00`, and a
+Type's String field of 70,000 is the same. A String has a length in a Random record, in a Type, in an array and in a
+Variant, and none alone in a Binary file. A `String * n` never has one, in either mode.
+
+**An array's descriptor** is written for an array in a Variant, in either mode, and for a dynamic array in a Random file;
+never for a fixed array, and never for a dynamic array alone in a Binary file. It is the number of dimensions, 2 bytes,
+then for each dimension, **from the last to the first**, its element count and its lower bound, 4 bytes each:
+`Integer(1 To 2, 3 To 5)` is `02 00`, `03 00 00 00`, `03 00 00 00`, `02 00 00 00`, `01 00 00 00`, then the six elements.
+The obvious guess was first to last; the 3 and 2 show otherwise. A dynamic array with no bounds is `00 00` in a Random
+file and nothing in a Binary one, and a Variant holding an `Integer()` with no bounds is `02 20 00 00`. An array in a
+Variant is type 8192 plus its element type: `02 20` for Integer, `08 20` for String, `0C 20` for a Variant's.
+
+**An expression is written by its static type**, which is how VB6's compiler types it, so a Variant's goes with its type
+first and a typed value bare:
+
+| Written as a Variant | Written bare |
+|---|---|
+| `Mid`, `Left`, `Trim`, `Chr`, `Str`, `Format`, `Space`, `String`, `UCase`, `Hex`, `CVar`, `IIf`, `Choose`, `Weekday`, `Year`, `DateSerial`, `Now`, `Date`, `Time` | `Mid$`, `Chr$`, `LCase$`, `CStr`, `Val` and `Int(2.5)` (Doubles), `CDate`, `Len` (a Long), `Asc`, `Abs(-2)`, `Sgn`, `Timer` (a Single), `Timer > 0` (a Boolean) |
+| `v + 1`, `-v` and `v & ""` for a Variant `v`; a Function returning a Variant; `Array(1)(0)`; a Variant array's element | a Function `As Integer`; a String array's element; `5`, `5&`, `40000` (a Long), `1.5` (a Double), `1.5!`, `1.5@`, `"ab"`, `True`, `#1/2/2003#`, `CByte(7)`, `ia + 1` and `(ia)` for an Integer `ia` |
+
+`Null` and `Empty` are only ever a Variant's: `01 00` and `00 00`. In a Random file `"ab"` is `02 00 61 62`.
+
+**Random files.** A record is `Len` bytes, 128 with no `Len`. Records count from 1, at byte `(r - 1) * Len`:
+
+| Step, `Len = 8` | Bytes, LOF, Loc, Seek |
+|---|---|
+| `Put #1, 1, Integer 1` | `01 00`; 2, 1, 2: the record is not padded |
+| `Put #1, 3, Long 2` | the gap zeros, `02 00 00 00` at 16; 20, 3, 4 |
+| `Put #1, , Integer 5` | at 24, the next record; 26, 4, 5 |
+| `Put #1, 6, "abc"` | `03 00 61 62 63` at 40 |
+| `Put #1, 7`, an 8-character String; a 6-character one | 59, nothing written, Seek 7; written, 2 + 6 = 8 bytes |
+| `Put #1, 9`, a Variant "abcd"; "abcde" | `08 00 04 00 61 62 63 64`; 59 |
+| `Get #1, 2, Integer`, a gap record; `Get #1, 50`, past the end | 0, EOF False; 0, Loc 50, Seek 51, EOF True |
+| `Get #1, 0`; `Put #1, 0` | 63 each |
+| `Input`, `Line Input #`, `Print #`, `Write #`, `Input #` | 54 each |
+| `Seek #1, 2` | Loc 1, Seek 2, EOF False |
+
+`Len = -1` is the 128 of no `Len` at all (LOF 130 after a `Put` at record 2), while 0, -2 and -32768 are 5 and 32768,
+65535 and 65536 are 6, as for an Integer. 1.5 and 2.5 are both 2 and `"8"` is 8. A Binary file checks `Len` the same
+way, 0 and -2 being 5 and 40000 6, and with 3 does nothing with it. `Loc` is the last record and `Seek` the next. A Type
+whose bytes are more than `Len` is 59: (Byte, Long), 5 bytes, is 59 in `Len = 4` and fits `Len = 5`.
+
+`Get` reads the whole record: zeros past the end of the file, and EOF True when the record runs past it, though the
+value itself was all there (a String of 3 in a 5-byte file with `Len = 8` reads `abc` and sets EOF). A value longer
+than the record is 59, the file staying where it was: a Long in `Len = 2` keeps its value, and a String whose length says
+10 in a record of 8 is left `""`; a Variant String likewise is left Empty. In a Type of (Byte, Long) the Byte is read and
+kept and the Long, which runs past the record, is not (`3 9`). A Type's String field that runs past is left `""` with the
+fields before it read, and so is a Variant array's element left Empty with the elements before it read.
+
+**Binary files.** Positions are bytes from 1, and `Loc` is the last byte read or written, `Seek - 1`. A Binary file
+opened new is LOF 0, Loc 0, Seek 1, EOF False. `Put #1, 5, Integer 513` on it gives `00 00 00 00 01 02`. `Get` past the
+end reads zeros and moves on the whole value: `Get #1, 9, Long` with 2 bytes left is 2569 and Seek 13, `Get #1, 20,
+Integer` is 0 and Seek 22. A String reads as many bytes as it holds: `Space$(3)` reads 3 and `""` none, and `Space$(5)`
+with 3 bytes left is `abc` and two NULs. Record numbers are Longs, banker's-rounded: `Put #1, 2.5` writes at 2, `3.5` at
+4, and `"6"` at 6.
+
+**EOF on both modes** is True once a read has run past the end, and only then: a `Get` that ends exactly at the end
+leaves it False, as does a new file. A `Seek` makes it False, past the end too (`Seek #1, 100` on 10 bytes: False). A
+`Put` leaves it as it was, True after a read past the end.
+
+**After a read past the end, VB6 keeps two positions.** The file's own pointer stops at the end, and that is where the
+next `Get` or `Put` with no position reads or writes; `Seek` and `Loc` count on as if the whole value had been read:
+
+| Step | Bytes, LOF, Loc, Seek |
+|---|---|
+| `Get #1, 2, Long` on `01 02` | 1 byte read; LOF 2, Loc 5, Seek 6, EOF True |
+| a second handle puts `AA BB CC DD` at 3; then `Get #1, , Integer` | `BBAA`: read at byte 3, where the pointer stopped; Seek 8 |
+| `Get #1, 10, Long` on `01 02`; then `Put #1, , Byte 9` | the byte at 10, where the pointer is: `01 02 00 ... 09`; Seek 15 |
+| `Get #1, 2, Long` on 3 bytes; `Seek #1, 3`; `Put #1, , Byte 9` | `01 02 09`: the Seek brings the two together |
+| Random `Len = 2` on 2 bytes, `Get #1, 3`; then `Put #1, , Integer 7` | written at byte 5, record 3, while Seek said 4: `01 00 00 00 07 00`, then Seek 5 |
+| Random `Len = 2` on 3 bytes, `Get #1, 2`; then `Put #1, , 7`, `Put #1, , 8` | `01 00 02 07 00 08 00`: the first at byte 4, where the read stopped |
+
+So the usual loop that reads to EOF and then appends with `Put #1, , x` appends at the end, with no gap. A Random
+`Put` moves the pointer a whole record on, so `Put #1, 3, Long` then `Put #1, , Integer` lands at record 4.
+
+**Get.** `Get` stores into a variable, an array element or a Type's field, `Get #1, 1, bf(2)` and `Get #1, 1, r.i`
+alike. A Type is read field by field, a nested Type in place. A fixed array, and a dynamic one in a Binary file, is read
+as it stands, and one with no bounds reads nothing. A dynamic array in a Random file takes the bounds its descriptor
+gives, whatever it had (`0 To 5` becomes `0 To 1`), and with no bounds it is given them; a record holding a fixed array's
+`01 00 02 00` read so is `0 To 1`, the descriptor's missing bytes zeros. A dynamic array whose element is passed ByRef
+is 10, after the record is read: the file has moved on. A Variant reads its type, then its value:
+
+| Type read | Result |
+|---|---|
+| 0, 1, 2, 3, 8, 10, 14, 17 | Empty, Null, Integer, Long, String, Error, Decimal, Byte |
+| `&H2002` with bounds 5 To 6 | an `Integer()` 5 To 6 |
+| 9 | 13, the Variant keeping what it had |
+| 13 | 13, the Variant left Empty |
+| 99, `&H4002`, `&H0201` | 458, "Variable uses an Automation type not supported in Visual Basic", left Empty |
+| 8 with a length of 3 and 2 bytes | `ab` and a NUL |
+
+The file stays where it was after each of those errors. A Boolean read from `01 00` is True, but `CInt` of it is 1 and
+`= True` is False: VB6 keeps the bits, and so it does for a Variant of type 11. `FF 00` is True with `CInt` 255. A Date
+read from the bytes of a Double past the year 9999 is taken, `CDbl` of it 9000372404224, and a Decimal with scale 29
+reads as a Decimal.
+
+**Text reads on a Binary file.** `Input #`, `Line Input #` and the `Input` function work there, and `Print #` and
+`Write #` are 54. A Ctrl+Z is an ordinary byte: `Line Input` reads `ab`, Ctrl+Z, `cd`, and so does `Input(5, #1)`. A line
+ends at CR or CR LF, not a lone LF. A line that runs to the end, or whose CR is the last byte, leaves EOF True, and one
+ending CR LF at the end leaves it False. At the end `Line Input #` and `Input #` are 62 with the variable kept. The
+`Input` function, unlike on an Input file, is no error short of its count: one byte of five reads that byte, and at the
+end it reads `""`, EOF True. `Input #` after a last field with no line end, `1,ab` or `1,"ab"`, leaves EOF True, and
+after `1,ab,` False.
+
+**Opening.** A missing file is made, even with `Access Read`, in both modes. A second handle on a file open in a
+sequential mode is 55, and so is a sequential handle on one open for Binary or Random, every pair of the five modes
+measured: only Input with Input, and Binary or Random with Binary or Random, go through. Between those, the `Lock` and
+`Access` clauses decide, as Windows decides between two handles: each must allow what the other does, and a `Lock`
+clause allows what it doesn't name. With no `Access` clause VB6 takes reading and writing, or failing that writing
+alone, or failing that reading alone:
+
+| First | Second: plain | Access Read | Access Write | Lock Read |
+|---|---|---|---|---|
+| Shared, or no Lock | 0 | 0 | 0 | 70 |
+| Lock Read | 0, write only: a `Get` on it is 75 | 70 | 0 | 70 |
+| Lock Write | 0, read only: a `Put` on it is 75 | 0 | 70 | 70 |
+| Lock Read Write | 70 | 70 | 70 | 70 |
+| Access Read | | | | 70; Lock Write 0 |
+| Access Write | | | | 0; Lock Write 70 |
+
+`Put` on an `Access Read` handle and `Get` on an `Access Write` one are 75. Two plain Binary handles on one file see each
+other's writes at once. `Get` and `Put` on a number not open are 52, and on an Input, Output or Append file 54.
+
+**Refused while compiling:** `Get #1, , 5` and `Get #1, , K` for a Const are "Variable required - can't assign to this
+expression", and `Get` of an object variable is "Can't Get or Put an object reference variable or a variable of
+user-defined type containing an object reference". `Get 1, , v` and `Put 1, , v`, without the `#`, compile and run.
+
+**Measured, but no rule I would defend:** why a Variant of type 9 keeps its value where one of type 13 is emptied, both
+raising 13.
+
+### In HexIDE (#1646)
+
+- **`VbRecordFormat`** writes and reads the bytes above, and **`VbFiles`** opens Binary and Random files, with the
+  sharing, the access fallback, the records, EOF and the two positions as measured. Each handle reads and writes the
+  file itself, unbuffered.
+- **What an operand is** comes from its declaration for a variable, an element or a field. For any other expression it
+  comes from the type HexIDE knows the value has: a literal, a typed variable's value, a call declared to return a
+  type, and the intrinsics measured for it, the Put probe adding `Space`, `DateSerial`, `Now`, `Date` and `Time` to the
+  Variant intrinsics and `Val`, `CDate` and `Timer` to the typed ones. A dynamic array with no bounds now knows its
+  element type, as the Variant measurement needs.
+- **`RecordFileTests`** runs each probe program, its log written with `Debug.Print`, and must print what vb6.exe logged,
+  line for line; a step HexIDE refuses on purpose is cut out, with its lines, and tested as a refusal. One test reads the
+  bytes back in C#, so a Put and a Get that agreed with each other but not with vb6.exe would fail.
+- **Refused, as HexIDE cannot hold the value:** a Boolean whose bits are neither 0 nor -1, a Date past the year 9999, a
+  Decimal of scale past 28, and an Error Variant, which waits on CVErr.
+- **Refused, not yet built:** a `Put` of an expression whose static type HexIDE does not know, such as `Timer > 0`,
+  since a Variant and its value written bare are different files; fixed-length strings, here as everywhere; and arrays
+  of a Type, whose elements are not made (#178).
+- **Divergences kept:** the locks hold only within the program, not against another process; `Len` on a sequential
+  file is not checked; a `Get` of a String in a Binary file reads as many bytes as the String has characters, which is
+  the same in code page 1252 and not measured in a double-byte one.

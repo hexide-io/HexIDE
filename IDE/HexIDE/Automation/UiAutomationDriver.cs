@@ -24,9 +24,10 @@ namespace HexIDE.Automation;
 /// addressing and discovery logic is unit-testable headlessly.
 ///
 /// The tree is the UIA-style **control view**: structural layout wrappers (controls whose automation type
-/// is <c>None</c> with no interaction provider and no keyboard focus — Panels, Borders, ContentPresenters,
+/// is <c>None</c> with no non-scroll capability, no keyboard focus and no AutomationId — Panels, Borders, ContentPresenters,
 /// dock plumbing, …) are transparent. They never appear as nodes or in paths; the walk descends through
-/// them and re-parents their meaningful descendants. This keeps the tree shallow and paths short/stable.
+/// them and re-parents their meaningful descendants. x:Name alone does not keep a wrapper. Scrollability
+/// and usable range bounds do not change transparency, so growing content does not insert path segments.
 ///
 /// Addressing: a slash path whose first segment is the literal <c>Window</c>; each subsequent segment is
 /// <c>ControlType</c>, <c>ControlType[discriminator]</c>, <c>ControlType[#index]</c>, or <c>#AutomationId</c>
@@ -158,6 +159,13 @@ public static class UiAutomationDriver
         else if (omitted > 0)
             note = $"{omitted} member(s) declared by the Dock framework's base types (layout plumbing such as "
                  + "Proportion and CanFloat) are not listed; set_property still reaches them by name.";
+
+        if (ResolvedCommand(control) is { } bound)
+        {
+            members = [new VmMember("Command", "command", bound.Command.GetType().Name, false),
+                .. members.Where(m => m.Name != "Command")];
+            note = string.Join(" ", new[] { note, BoundCommandNote(bound) }.Where(n => n is not null));
+        }
 
         return new UiNodeDetail(
             path,
@@ -514,8 +522,17 @@ public static class UiAutomationDriver
                     var invoked = LabelOf(control, peer);
                     if (peer.GetProvider<IInvokeProvider>() is { } inv)
                     {
+#if DEBUG
+                        // Read only after visibility/peer guards, inside the same exception boundary as the invoke.
+                        var saveWatch = control is Button saveButton ? UiSaveFeedback.Watch(saveButton.Command) : null;
+#endif
                         inv.Invoke();
-                        return Ok($"invoked {ControlTypeOf(peer)} '{invoked}'");
+                        var outcome = Ok($"invoked {ControlTypeOf(peer)} '{invoked}'");
+#if DEBUG
+                        return UiSaveFeedback.After(saveWatch, outcome);
+#else
+                        return outcome;
+#endif
                     }
                     // MenuItemAutomationPeer exposes NO providers at all — not invoke, not
                     // expandCollapse — so every verb failed on a menu and none of it was reachable.
@@ -578,7 +595,8 @@ public static class UiAutomationDriver
                         if (openMenu.IsSubMenuOpen)
                             return Ok($"menu '{LabelOf(control, peer)}' was already open");
                         openMenu.Open();
-                        return Ok($"opened menu '{LabelOf(control, peer)}'");
+                        var opened = PopupVerified(() => openMenu.IsSubMenuOpen, true, "menu", LabelOf(control, peer));
+                        return opened.Success ? Ok($"opened menu '{LabelOf(control, peer)}'") : opened;
                     }
                     // A deterministic route to a context menu. press_key Apps also opens one -- watched
                     // on screen -- but it goes through ContextRequested and lands on whichever control the
@@ -592,11 +610,13 @@ public static class UiAutomationDriver
                     // trap as the transient tooltip, one layer up.
                     if (control.ContextMenu is { } contextMenu)
                     {
-                        if (contextMenu.IsOpen)
+                        if (IsOpenOn(contextMenu, control))
                             return Ok($"the context menu on '{LabelOf(control, peer)}' was already open");
                         Safe(() => control.Focus(), false);
+                        // Avalonia ignores Open on an already-open shared menu, even for a different owner.
+                        if (contextMenu.IsOpen) contextMenu.Close();
                         contextMenu.Open(control);
-                        return PopupVerified(() => contextMenu.IsOpen, true, "context menu", LabelOf(control, peer));
+                        return PopupVerified(() => IsOpenOn(contextMenu, control), true, "context menu", LabelOf(control, peer));
                     }
                     if (FlyoutsOf(control).FirstOrDefault() is { } flyout)
                     {
@@ -625,24 +645,28 @@ public static class UiAutomationDriver
                         // Each reply says what was open, so an already-closed menu is not reported as closed (#949).
                         var closing = LabelOf(control, peer);
                         var wasOpen = closeMenu.IsSubMenuOpen;
-                        if (closeMenu.Parent is Menu)
+                        if (closeMenu.Parent is Menu bar)
                         {
-                            if (!CloseMenuHolding(closeMenu))
+                            if (!MenuIsOpen(bar))
                                 return Ok($"menu '{closing}' was already closed, and the menu bar was not open; there "
                                           + "is nothing to close");
+                            CloseMenuHolding(closeMenu);
+                            var closed = PopupVerified(() => MenuIsOpen(bar), false, "menu", closing);
+                            if (!closed.Success) return closed;
                             return Ok(wasOpen
                                 ? $"closed menu '{closing}' and left the menu bar"
                                 : $"menu '{closing}' was not open, but the menu bar was; left the menu bar");
                         }
+                        if (!wasOpen)
+                            return Ok($"menu '{closing}' was already closed; there is nothing to close");
                         closeMenu.Close();
-                        return Ok(wasOpen
-                            ? $"closed menu '{closing}'"
-                            : $"menu '{closing}' was already closed; there is nothing to close");
+                        var submenuClosed = PopupVerified(() => closeMenu.IsSubMenuOpen, false, "menu", closing);
+                        return submenuClosed.Success ? Ok($"closed menu '{closing}'") : submenuClosed;
                     }
-                    if (control.ContextMenu is { IsOpen: true } openContextMenu)
+                    if (control.ContextMenu is { } openContextMenu && IsOpenOn(openContextMenu, control))
                     {
                         openContextMenu.Close();
-                        return PopupVerified(() => openContextMenu.IsOpen, false, "context menu", LabelOf(control, peer));
+                        return PopupVerified(() => IsOpenOn(openContextMenu, control), false, "context menu", LabelOf(control, peer));
                     }
                     if (FlyoutsOf(control).FirstOrDefault(f => IsOpenOn(f, control)) is { } openFlyout)
                     {
@@ -1266,7 +1290,8 @@ public static class UiAutomationDriver
             : treeRefusal.Contains(SelectionUnread, StringComparison.Ordinal) ? $" (whether it was selected first is not known: {treeRefusal})"
             : treeRefusal.Length > 0 ? $" (but it was not selected first: {treeRefusal})"
             : "";
-        return Ok($"double-clicked '{LabelOf(control, peer)}'{note}");
+        return Ok($"raised DoubleTapped on '{LabelOf(control, peer)}'{note}; no pointer press was sent; "
+                  + "use 'click' with 'double' in 'value' for a running form's DblClick");
     }
 
     /// <summary>
@@ -1335,7 +1360,7 @@ public static class UiAutomationDriver
 
     /// <summary>
     /// Closes the menu a header or an item is in, whole, as Avalonia's menu does after a click; false when it was not
-    /// open.
+    /// open, or when it stayed open.
     /// </summary>
     /// <remarks>
     /// Closing only the header's own submenu, as <c>collapse</c> once did, left the bar open: the header stayed lit and
@@ -1346,7 +1371,7 @@ public static class UiAutomationDriver
     {
         if (menu is null) return false;
         var items = menu.GetRealizedContainers().OfType<MenuItem>().ToList();
-        if (!menu.IsOpen && !items.Any(i => i.IsSubMenuOpen) && menu.FindLogicalAncestorOfType<Popup>() is not { IsOpen: true })
+        if (!MenuIsOpen(menu))
             return false;
         menu.Close();
         foreach (var header in items)
@@ -1354,8 +1379,12 @@ public static class UiAutomationDriver
             if (header.IsSubMenuOpen) header.Close();
             header.SetCurrentValue(SelectingItemsControl.IsSelectedProperty, false);
         }
-        return true;
+        return !MenuIsOpen(menu);
     }
+
+    private static bool MenuIsOpen(MenuBase menu) =>
+        menu.IsOpen || menu.GetRealizedContainers().OfType<MenuItem>().Any(i => i.IsSubMenuOpen)
+                    || menu.FindLogicalAncestorOfType<Popup>() is { IsOpen: true };
 
     /// <summary>Closes the menu a header belongs to, whole: <see cref="CloseMenu"/> on its <see cref="MenuHolding"/>.</summary>
     private static bool CloseMenuHolding(MenuItem header) => CloseMenu(MenuHolding(header));
@@ -1363,8 +1392,8 @@ public static class UiAutomationDriver
     /// <summary>What <c>click</c>'s value may hold, quoted in its refusals and in the tool's description.</summary>
     public const string ClickValue =
         "a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, "
-        + "right or middle (left when omitted), and any of shift, ctrl and alt to hold, in any order and separated by "
-        + "spaces, as in '10,5 right shift'";
+        + "right or middle (left when omitted), any of shift, ctrl and alt to hold, and double for two clicks, in any order and separated by "
+        + "spaces, as in '10,5 right double' or 'double'";
 
     /// <summary>
     /// Press and release a pointer at a point on the target (#1033). PointerPressed then PointerReleased are raised on
@@ -1387,7 +1416,7 @@ public static class UiAutomationDriver
     {
         static InteractOutcome Fail(string error) => new(false, "pointer", null, error);
 
-        if (!TryParseClick(value, out var at, out var button, out var keys, out var problem))
+        if (!TryParseClick(value, out var at, out var button, out var keys, out var twice, out var problem))
             return Fail(problem);
         if (TopLevel.GetTopLevel(control) is not { } topLevel)
             return Fail("the control is not attached to a window, so it has no coordinates to click at");
@@ -1400,6 +1429,7 @@ public static class UiAutomationDriver
             return Fail($"{NothingTakesThePointer}{where}, so nothing was pressed: the point is outside the target, "
                         + "or on a part of it that is not hit-tested");
 
+        var watch = WatchProgram(topLevel as Window);
         var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
         var (held, pressKind, releaseKind, name) = button switch
         {
@@ -1413,6 +1443,11 @@ public static class UiAutomationDriver
         var rawKeys = (keys.HasFlag(KeyModifiers.Shift) ? RawInputModifiers.Shift : RawInputModifiers.None)
                       | (keys.HasFlag(KeyModifiers.Control) ? RawInputModifiers.Control : RawInputModifiers.None)
                       | (keys.HasFlag(KeyModifiers.Alt) ? RawInputModifiers.Alt : RawInputModifiers.None);
+#if DEBUG
+        var saveButton = (hit as Control)?.GetSelfAndVisualAncestors().OfType<Button>().FirstOrDefault();
+        var saveWatch = button == MouseButton.Left && saveButton is { IsEffectivelyEnabled: true }
+            ? UiSaveFeedback.Watch(saveButton.Command) : null;
+#endif
         hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
             new PointerPointProperties(held | rawKeys, pressKind), keys));
 
@@ -1427,7 +1462,7 @@ public static class UiAutomationDriver
             new[] { (KeyModifiers.Shift, "shift"), (KeyModifiers.Control, "ctrl"), (KeyModifiers.Alt, "alt") }
                 .Where(k => keys.HasFlag(k.Item1)).Select(k => k.Item2));
         var pressed = $"the {name} button{holding} at {where}{landing}";
-        return new InteractOutcome(true, "pointer", $"pressed {pressed}; the release is still to come", null, Release: () =>
+        InteractOutcome Release(bool second)
         {
             try
             {
@@ -1436,13 +1471,33 @@ public static class UiAutomationDriver
                 releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, inWindow,
                     (ulong)Environment.TickCount64, new PointerPointProperties(rawKeys, releaseKind), keys, button));
                 pointer.Capture(null);
-                return new InteractOutcome(true, "pointer", $"clicked {pressed}", null);
+                var outcome = new InteractOutcome(true, "pointer", $"{(second ? "double-clicked" : "clicked")} {pressed}", null,
+                    NextClick: twice && !second ? SecondPress : null, ClickWatch: watch);
+#if DEBUG
+                return UiSaveFeedback.After(saveWatch, outcome);
+#else
+                return outcome;
+#endif
             }
             catch (Exception ex)
             {
                 return new InteractOutcome(false, "pointer", null, $"pressed {pressed}, and the release threw: {ex.Message}");
             }
-        });
+        }
+
+        InteractOutcome SecondPress()
+        {
+            if (!control.IsEffectivelyVisible || !topLevel.IsVisible || TopLevel.GetTopLevel(control) != topLevel
+                || TopLevel.GetTopLevel(hit) != topLevel)
+                return Fail($"clicked {pressed}; the second click was not sent because the target is hidden or closed, or detached");
+            hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
+                new PointerPointProperties(held | rawKeys, pressKind), keys, clickCount: 2));
+            return new InteractOutcome(true, "pointer", $"pressed the second click of {pressed}; the release is still to come",
+                null, Release: () => Release(second: true));
+        }
+
+        return new InteractOutcome(true, "pointer", $"pressed {pressed}; the release is still to come", null,
+            Release: () => Release(second: false));
     }
 
     /// <summary>How long <c>click</c> waits for its window to draw its next frame before it hit-tests (#1065).</summary>
@@ -1505,7 +1560,15 @@ public static class UiAutomationDriver
         if (outcome.Release is not { } release)
             return outcome;
         await Task.Delay(ClickHoldMs);
-        return await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(release, Avalonia.Threading.DispatcherPriority.Input);
+        var released = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(release, Avalonia.Threading.DispatcherPriority.Input);
+        if (!released.Success || released.NextClick is not { } next)
+            return released;
+        // The first release can run Click, which may yield, unload or hide its form. Wait just as the tool does
+        // after a single click, before checking the target and sending the second press (#1389).
+        released = await WaitForProgramAsync(released.ClickWatch, released);
+        await Task.Delay(ClickHoldMs);
+        var second = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(next, Avalonia.Threading.DispatcherPriority.Input);
+        return await FinishAsync(second);
     }
 
     /// <summary>How long a reply waits, by default, for a running program to finish what an action set off.</summary>
@@ -1707,16 +1770,22 @@ public static class UiAutomationDriver
         [.. OpenWindows().Where(w => w is HexIDE.Runtime.IModuleExecutionRoot && !watch.Before.Contains(w)).Select(w => w.Title ?? "")];
 
     // `click`'s value: an optional point, a button and the keys held, in any order (ClickValue).
-    private static bool TryParseClick(string? value, out Point? at, out MouseButton button, out KeyModifiers keys, out string problem)
+    private static bool TryParseClick(string? value, out Point? at, out MouseButton button, out KeyModifiers keys, out bool twice, out string problem)
     {
         at = null;
         button = MouseButton.Left;
         keys = KeyModifiers.None;
         problem = string.Empty;
+        twice = false;
         var buttonGiven = false;
         foreach (var token in (value ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             var word = token.ToLowerInvariant();
+            if (word == "double")
+            {
+                twice = true;
+                continue;
+            }
             if (word.Contains(','))
             {
                 var parts = word.Split(',');
@@ -1744,7 +1813,7 @@ public static class UiAutomationDriver
             KeyModifiers? key = word switch { "shift" => KeyModifiers.Shift, "ctrl" or "control" => KeyModifiers.Control, "alt" => KeyModifiers.Alt, _ => null };
             if (key is not { } held)
             {
-                problem = $"'{token}' is not a point, a button or a key; click takes {ClickValue}";
+                problem = $"'{token}' is not a point, a button, a key or double; click takes {ClickValue}";
                 return false;
             }
             keys |= held;
@@ -2176,18 +2245,66 @@ public static class UiAutomationDriver
         && (ItemsControl.ItemsControlFromItemContainer(c) ?? c.FindAncestorOfType<ItemsControl>()) is { } owner
         && owner.IndexFromContainer(c) < 0;
 
-    // value = the command name: a public ICommand property on the target's DataContext, or a public parameterless
+    private static bool InReleasedRow(Control c) =>
+        c.GetSelfAndVisualAncestors().OfType<Control>().Any(Released);
+
+    private sealed record ControlCommand(System.Windows.Input.ICommand Command, object? Parameter, string Binding);
+
+    // Read the effective value, including compiled bindings and bindings through a different DataContext.
+    // The binding description is diagnostic text, not a stable grammar from which to guess a member name.
+    private static ControlCommand? ResolvedCommand(Control control)
+    {
+        (System.Windows.Input.ICommand? Command, object? Parameter, AvaloniaProperty? Property) resolved = control switch
+        {
+            MenuItem item => (item.Command, item.CommandParameter, MenuItem.CommandProperty),
+            Button button => (button.Command, button.CommandParameter, Button.CommandProperty),
+            _ => (null, null, (AvaloniaProperty?)null),
+        };
+        var (command, parameter, property) = resolved;
+        if (command is null || property is null) return null;
+        var binding = Avalonia.Data.BindingOperations.GetBindingExpressionBase(control, property);
+        // Description is available at runtime but absent from Avalonia's reference assembly. Treat it as optional:
+        // diagnostic metadata must never stop the already resolved command from running.
+        var description = Safe(() => binding?.GetType().GetProperty("Description", BindingFlags.Public | BindingFlags.Instance)
+            ?.GetValue(binding) as string, null);
+        return new ControlCommand(command, parameter, description
+            ?? (binding is null ? "a directly assigned command" : "a binding whose source description is unavailable"));
+    }
+
+    private static string BoundCommandNote(ControlCommand bound) =>
+        $"The target's Command is bound to {bound.Binding}. "
+        + (bound.Binding.StartsWith("#", StringComparison.Ordinal) && bound.Binding.Contains("DataContext", StringComparison.Ordinal)
+            ? "It is bound through another element's DataContext. "
+            : "This is the resolved control command; its source need not be the target's own DataContext. ")
+        + "Use invoke_command with value 'Command' (with the target's CommandParameter), or invoke on this control to run it.";
+
+    // value = Command for the control’s resolved command, a public ICommand property on its DataContext, or a public parameterless
     // method, which is what a Command bound to a method calls (#836).
     private static InteractOutcome ReflectInvokeCommand(Control control, string? value)
     {
         try
         {
             if (NullIfEmpty(value) is not { } name) return ReflectErr("invoke_command requires 'value' = the command name");
-            if (control.DataContext is not { } dc) return ReflectErr("target has no DataContext");
+            var bound = ResolvedCommand(control);
+            if (name == "Command" && bound is not null)
+            {
+                if (!bound.Command.CanExecute(bound.Parameter))
+                    return ReflectErr("'Command'.CanExecute(CommandParameter) returned false");
+                bound.Command.Execute(bound.Parameter);
+                return new InteractOutcome(true, "reflection", "executed target's Command with its CommandParameter", null);
+            }
+            if (control.DataContext is not { } dc)
+                return ReflectErr("target has no DataContext" + (bound is null ? "" : ". " + BoundCommandNote(bound)));
             if (dc.GetType().GetProperty(name, BindingFlags.Public | BindingFlags.Instance) is not { } prop)
-                return ReflectInvokeMethod(dc, name);
+            {
+                var result = ReflectInvokeMethod(dc, name);
+                return !result.Success && bound is not null
+                    ? result with { Error = result.Error + ". " + BoundCommandNote(bound) }
+                    : result;
+            }
             if (prop.GetValue(dc) is not System.Windows.Input.ICommand cmd)
-                return ReflectErr($"'{name}' on {dc.GetType().Name} is not an ICommand");
+                return ReflectErr($"'{name}' on {dc.GetType().Name} is not an ICommand"
+                    + (bound is null ? "" : ". " + BoundCommandNote(bound)));
             if (!cmd.CanExecute(null))
                 return ReflectErr($"'{name}'.CanExecute(null) returned false");
             cmd.Execute(null);
@@ -2867,21 +2984,33 @@ public static class UiAutomationDriver
         if (!changes)
             return null;
 
-        var past = editor.PastReadOnlyRegion(span.Offset);
-        // A selection that begins where code can be edited and reaches into a region: where it begins is no help, how far
-        // it reaches is the trouble (#1040 review).
-        if (span.Length > 0 && past == span.Offset)
+        var affected = editor.ReadOnlyRegionsNow.Where(r => r.Changes(span.Offset, span.Length)).ToList();
+        var names = affected.Select(r => editor.MemberNamedBy(r)).ToList();
+        var header = names.Any(n => n is null);
+        var region = header ? "the file's header" : "the Attribute lines describing " + string.Join(", ", names);
+        var unchanged = written ?? "Nothing was written.";
+        var prefix = $"{tool} refused: ";
+        var ownership = ", which only the IDE changes (the designer, a save, a rename). ";
+        const string offsets = " Offsets count from the start of the file, in the text get_file_content returns.";
+        if (span.Deletes && span.Length > 0 && span.Offset + span.Length == area.Caret.Offset)
             return new InteractOutcome(false, mechanism, null,
-                $"{tool} refused: the selection from offset {span.Offset} to {span.Offset + span.Length} reaches into the "
-              + "file's header or a member's Attribute lines, which only the IDE changes (the designer, a save, a "
-              + "rename), and it writes over the whole selection. " + (written ?? "Nothing was written.") + " Select less, or collapse the "
-              + "selection (press_key Left or Right) and write at the caret. Offsets count from the start of the file, "
-              + "in the text get_file_content returns.");
+                prefix + "the text before the caret belongs to " + region + ownership + unchanged
+              + (header
+                  ? " Edit the code after the header instead; the header is changed through the designer, a save or a rename."
+                  : " Deleting the member's whole declaration (all physical lines if continued) removes its Attribute lines too; "
+                    + "select the declaration's whole text and press_key Delete to remove both."));
+
+        var past = editor.PastReadOnlyRegion(span.Offset);
+        // A selection starting outside a region, or an offset already at the caret, offers no useful move.
+        if (past == span.Offset || past == area.Caret.Offset)
+            return new InteractOutcome(false, mechanism, null,
+                prefix + $"the selection from offset {span.Offset} to {span.Offset + span.Length} reaches into "
+              + region + ownership + unchanged + " Select less, or collapse the selection (press_key Left or Right) "
+              + "and write at the caret." + offsets);
         return new InteractOutcome(false, mechanism, null,
-            $"{tool} refused: offset {span.Offset} is in the file's header or a member's Attribute lines, which "
-          + "only the IDE changes (the designer, a save, a rename). " + (written ?? "Nothing was written.") + " The nearest place "
+            prefix + $"offset {span.Offset} is in " + region + ownership + unchanged + " The nearest place "
           + $"that can be edited starts at offset {past}; put the caret there with interact set_property "
-          + $"CaretOffset={past}. Offsets count from the start of the file, in the text get_file_content returns.");
+          + $"CaretOffset={past}." + offsets);
     }
 
     /// <summary>
@@ -3179,7 +3308,7 @@ public static class UiAutomationDriver
     private static Control FindHoverTarget(Control control)
     {
         if (control is TextEditor or TextArea) return control;
-        var editors = control.GetVisualDescendants().OfType<TextEditor>().ToList();
+        var editors = control.GetVisualDescendants().OfType<TextEditor>().Where(c => !InReleasedRow(c)).ToList();
         return editors.FirstOrDefault(c => Shows(c) is true) ?? editors.FirstOrDefault() ?? control;
     }
 
@@ -3235,7 +3364,7 @@ public static class UiAutomationDriver
         // Only what shows. A ComboBox that is not editable keeps a TextBox in its template, hidden, and choosing that
         // over the ComboBox had every key refused as aimed at a hidden control, once #1069 refused those; a person's
         // key goes to the ComboBox.
-        var descendants = control.GetVisualDescendants().OfType<Control>().Where(c => Hidden(c) is not true).ToList();
+        var descendants = control.GetVisualDescendants().OfType<Control>().Where(c => Hidden(c) is not true && !InReleasedRow(c)).ToList();
 
         // An AvaloniaEdit surface, innermost first: its TextArea is where key handling lives.
         if (descendants.FirstOrDefault(c => c is TextArea) is { } area) return area;
@@ -3278,7 +3407,7 @@ public static class UiAutomationDriver
     // control, where press_key passed it over (#1256).
     private static List<Control> TextSurfacesUnder(Control control) =>
         [.. control.GetVisualDescendants().OfType<Control>()
-            .Where(c => c is TextEditor or TextArea or TextBox && !HiddenByItsTemplate(c))];
+            .Where(c => c is TextEditor or TextArea or TextBox && !HiddenByItsTemplate(c) && !InReleasedRow(c))];
 
     // Hidden within its own control's template, whatever that control's own state: read on the chain from the part up to
     // the control, so a hidden pane holding a dropdown still has its dropdown's part left out (#1256 review).
@@ -3419,7 +3548,32 @@ public static class UiAutomationDriver
         for (var i = 1; i < segs.Length; i++)
         {
             var (next, err) = ResolveSegment(current, segs[i], traversed);
-            if (next is null) return (null, err);
+            if (next is null)
+            {
+                // Diagnose a saved path that omitted a wrapper. Do not silently retarget an action;
+                // only suggest complete paths whose remaining segments resolve unambiguously.
+                if (err?.StartsWith("ambiguous segment", StringComparison.Ordinal) == true) return (null, err);
+                var children = new List<MeaningfulChild>();
+                CollectMeaningfulChildren(current, children);
+                var corrections = new List<(string Wrapper, string Path)>();
+                foreach (var child in children)
+                {
+                    var wrapper = BestSegment(child, children);
+                    var corrected = traversed + "/" + wrapper;
+                    Control? candidate = child.Control;
+                    for (var j = i; j < segs.Length && candidate is not null; j++)
+                    {
+                        var resolved = ResolveSegment(candidate, segs[j], corrected);
+                        if (resolved.control is null) { candidate = null; break; }
+                        candidate = resolved.control;
+                        corrected += "/" + segs[j];
+                    }
+                    if (candidate is not null) corrections.Add((wrapper, corrected));
+                }
+                if (corrections.Count == 1)
+                    return (null, $"'{traversed}' now holds '{corrections[0].Wrapper}'; the path continues under it: '{corrections[0].Path}'");
+                return (null, err);
+            }
             current = next;
             traversed += "/" + segs[i];
         }
@@ -3704,7 +3858,7 @@ public static class UiAutomationDriver
     // parameter info of the call being typed into, and reporting only the list left the signature unseen (#942 review).
     private static IReadOnlyList<Popup> AttachedPopupsOf(Control c)
     {
-        if (c.ContextMenu is { IsOpen: true } menu)
+        if (c.ContextMenu is { } menu && IsOpenOn(menu, c))
             return menu.GetLogicalParent() is Popup menuPopup ? [menuPopup] : [];
 
         // The code window's completion list and parameter info are the editor's own popups, held by its view.
@@ -3716,6 +3870,10 @@ public static class UiAutomationDriver
                 return [open.Popup];
         return [];
     }
+
+    // Dock shares one tab ContextMenu across tab bodies. The popup records the current owner.
+    private static bool IsOpenOn(ContextMenu menu, Control control) =>
+        menu.IsOpen && menu.GetLogicalParent() is Popup popup && ReferenceEquals(popup.Parent, control);
 
     // One flyout can serve many controls: the theme's TextBox ContextFlyout is a single shared resource, open on
     // whichever box opened it, so open is asked of this control (#949 review).
@@ -3831,11 +3989,14 @@ public static class UiAutomationDriver
         var autoId = NullIfEmpty(AutomationProperties.GetAutomationId(control));
         var focusable = peer is not null && Safe(() => peer.IsKeyboardFocusable(), false);
 
-        // A control is a transparent structural wrapper iff it has no semantic automation type, exposes no
-        // interaction provider, cannot take focus, and was not explicitly tagged with an AutomationId
-        // (Panel/Border/ContentPresenter/StackPanel/dock plumbing). An AutomationId-tagged control is
-        // intentional — keep it visible so it isn't addressable-via-#id yet invisible in the dump.
-        var structural = type == "None" && providers.Length == 0 && !focusable && autoId is null;
+        // Keep the common surfaces' existing collapsed paths, including named TextEditors. Scrolling is
+        // content-dependent (OwnScrollerFor starts succeeding on overflow), so it cannot establish a node.
+        // rangeValue is also advertised only for a usable range: use the peer's capability, not today's
+        // bounds/read-only state. An AutomationId remains an explicit request to expose a wrapper;
+        // x:Name alone remains transparent, consistently before and after overflow (#1436).
+        var hasCapability = providers.Any(p => p is not ("scroll" or "rangeValue" or "multiSelectItem"))
+                            || peer?.GetProvider<IRangeValueProvider>() is not null;
+        var structural = type == "None" && !hasCapability && !focusable && autoId is null;
 
         // A Separator matches every one of those conditions and is still not plumbing: it is a visible
         // element of a menu whose POSITION is the thing under test. Collapsing it away left a dump that
@@ -3984,6 +4145,8 @@ public record VmMember(string Name, string Kind, string? TypeName, bool CanWrite
 /// The second part of an action that comes in two, still to be done: a <c>click</c>'s release, which
 /// <see cref="UiAutomationDriver.FinishAsync"/> raises and whose outcome is the reply. Not part of the reply.
 /// </param>
+/// <param name="NextClick">The second press of a double click, after the first release has settled. Not serialized.</param>
+/// <param name="ClickWatch">The program before the first press, waited for between clicks. Not serialized.</param>
 /// <param name="Settled">
 /// What the action left on a running form, read once the program has run what it set off: a clause for the detail, or
 /// null for none. <see cref="UiAutomationDriver.WaitForProgramAsync"/> reads it when it finds the program idle (#1280).
@@ -3995,6 +4158,8 @@ public record InteractOutcome(
     string? Error,
     [property: System.Text.Json.Serialization.JsonIgnore] bool Committed = false,
     [property: System.Text.Json.Serialization.JsonIgnore] Func<InteractOutcome>? Release = null,
-    [property: System.Text.Json.Serialization.JsonIgnore] Func<string?>? Settled = null);
+    [property: System.Text.Json.Serialization.JsonIgnore] Func<string?>? Settled = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] Func<InteractOutcome>? NextClick = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] UiAutomationDriver.ProgramWatch? ClickWatch = null);
 
 public record KeyboardFocusReport(string? FocusedPath, string? FocusReason);
