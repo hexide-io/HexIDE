@@ -102,6 +102,11 @@ checks first. This does not extend to reproducing VB6's *defects*, which is a se
 - **WHEN** a hexadecimal literal fills the width of an integer
 - **THEN** it is interpreted as a two's-complement bit pattern rather than a large positive number
 
+#### Scenario: A For body changes its integral numeric counter
+- **WHEN** a Long or Variant counter in `For i = 1 To 10` is incremented by the body
+- **THEN** Next reads the variable back and adds the step, giving passes 1, 3, 5, 7, 9 and leaving 11
+- **AND** resetting the counter to 0 at 3 in `For i = 1 To 3` repeats 1, 2, 3 until execution exits
+
 ### Requirement: The value model SHALL implement VB6's scalar types with their real ranges
 The runtime SHALL provide VB6's distinct numeric types with their documented ranges and a working date type,
 SHALL type literals as VB6 types them, and SHALL raise a trappable overflow when a result or a store falls
@@ -141,6 +146,10 @@ by value will run such a program to completion while producing the wrong answer.
 - **WHEN** a parameter is declared by value and the procedure assigns to it
 - **THEN** the caller's variable is unchanged
 
+#### Scenario: An unspaced parenthesised member-call argument
+- **WHEN** a member call statement puts its parenthesised argument directly after the member name
+- **THEN** it runs as the spaced form does, with the parenthesised expression passed by value
+
 ### Requirement: Name resolution SHALL let user code shadow built-in functions
 A name SHALL be resolved as a local variable or array first, then as a procedure defined in the project, and
 only then as a built-in function.
@@ -152,6 +161,10 @@ program that compiles and runs.
 #### Scenario: A user function named like an intrinsic
 - **WHEN** a project defines a procedure whose name matches a built-in function
 - **THEN** calls resolve to the project's procedure
+
+#### Scenario: A private sibling Sub named Reset
+- **WHEN** `Class_Initialize` makes a bare `Reset` call and its class defines a private Sub named `Reset`
+- **THEN** the interpreter SHALL call that Sub on the current instance
 
 ### Requirement: Runtime errors SHALL be trappable and SHALL carry VB6's error numbers
 Runtime failures SHALL be raised as trappable VB6 errors carrying the standard error number and description,
@@ -174,11 +187,17 @@ program that never fails.
 - **WHEN** an arithmetic operation overflows or divides by zero
 - **THEN** it raises a trappable error with VB6's number for that condition
 
+#### Scenario: Diagnostic type names
+- **WHEN** an interpreter diagnostic formats a value's type
+- **THEN** it SHALL print the inner type name and array suffixes without an internal `Left` or `Right` wrapper
+- **AND** missing-member diagnostics SHALL omit the receiver type, retaining the member and, for assignment, variable name
+
 ### Requirement: Unimplemented language surface SHALL fail clearly
 Where the engine does not implement part of the language, it SHALL fail in a way that identifies what is
 missing, and SHALL NOT silently substitute different behaviour. The failure SHALL reach the developer, and an
 error handler in the program SHALL NOT be able to trap it. A form holding a control the engine cannot create
 SHALL be refused the same way, before any of its controls is placed, naming each control it cannot create.
+A control carrying DataSource SHALL likewise refuse the form before placement, naming the control and data source and stating that data binding is not implemented (#859).
 
 The engine is deliberately incomplete, so meeting its edge is a normal outcome rather than an exceptional
 one. A clear stop tells the developer they have found the boundary and lets them decide what to do; a silent
@@ -200,11 +219,17 @@ because nothing inside an uncreatable control is read.
 #### Scenario: Using a feature the engine does not implement
 - **WHEN** a program uses a language feature the engine does not implement
 - **THEN** it stops with an error identifying the unimplemented feature
+- **AND** when reached through a statement, the error text SHALL append `at <statement>`, naming the
+  innermost failing statement from its own source rather than its caller (#758)
 
 #### Scenario: Under an error handler
 - **WHEN** a program that has asked to continue at the next statement on error, or that has a handler active,
   uses a language feature the engine does not implement
 - **THEN** it stops just the same, neither skipping the statement nor entering the handler
+
+#### Scenario: Reference cleanup during an unimplemented fault
+- **WHEN** an unimplemented feature fails while statement temporaries or procedure-owned references exist
+- **THEN** cleanup skips Class_Terminate, preserving the original failure even if that hook would raise a trappable error
 
 #### Scenario: In a running IDE
 - **WHEN** a program running in the IDE reaches an unimplemented feature, in an event procedure or in Sub Main
@@ -219,3 +244,9 @@ because nothing inside an uncreatable control is read.
   program loads it, under an error handler or not
 - **THEN** it is refused before any of its controls is placed, naming every control it cannot create, nested ones
   included
+
+#### Scenario: A form holding a data-bound control
+- **WHEN** a form containing a control carrying DataSource is built to run, including a control nested in a Frame
+- **THEN** it is refused before any control is placed, naming the control and source and explaining that data
+  binding is not implemented
+- **THEN** F5 reports the refusal to the developer, and a made program shows it in its error box

@@ -118,7 +118,7 @@ Everything landed is covered by ~640 runtime tests (all `vb6.exe`-verified) plus
 cd IDE && dotnet test HexIDE.Runtime.Tests/
 
 # A single test
-cd IDE && dotnet test HexIDE.Runtime.Tests/ --filter "FullyQualifiedName~UdtTests.CopyOnAssign_IsIndependent"
+cd IDE && dotnet test HexIDE.Runtime.Tests/ -- --filter-method "*CopyOnAssign_IsIndependent"
 ```
 
 Runtime tests inherit `BaseVBTestFixture`: call `await Run("<VB6 code>")` (or `RunModules(...)` for multi-module),

@@ -13,8 +13,8 @@
 **Corrections applied after the audit (things the audit got slightly wrong):**
 - **Clipboard text is now partial (#1156):** Clear, SetText, GetText and GetFormat(vbCFText) use the host clipboard.
   Image/data methods, non-text format queries and RTF/Link text are deferred and explicitly refused. VB6 preserves
-  other formats on SetText; the Avalonia host refuses SetText when non-text formats exist until it can preserve
-  them, rather than silently discarding them. Clear followed by SetText is supported.
+  other formats on SetText; the Avalonia host snapshots readable non-text formats and writes them back with the
+  replacement text (#1246). Unreadable formats are refused before writing; Clear removes all formats.
 - **Numeric line labels** (classic `10  Print "x"` / `GoTo 10`) do **NOT** work — the audit missed this. The
   grammar's `lineLabel` is `ambiguousIdentifier COLON`, so a bare line number never parses as a label and
   `GoTo <number>` raises "Label not defined". Alphanumeric `Name:` labels + `On Error GoTo`/`Resume` *do* work.
@@ -59,8 +59,8 @@ Platform: 4 · Partial: 12 · Other: 0.
 >   parse, so an inactive branch is never parsed; oracle-pinned).
 > - **→ Deferred:** Load/Unload · chained
 >   index groups (`Split(s)(0)`) · AddressOf · string-vs-number comparison (`5 < "10"`) · **Declare … Lib** (no longer
->   fails the module load — the declaration is skipped, so the module runs; an actual call raises the clean "Sub or
->   Function not defined") · selection/system/financial intrinsics (IIf/Choose/Switch are
+>   fails the module load — the declaration (including VBA7 `PtrSafe`, #1548) is skipped, so the module runs; an actual
+>   call raises the clean "Sub or Function not defined") · selection/system/financial intrinsics (IIf/Choose/Switch are
 >   cheap future adds; the financials/system set is a larger deferral).
 > - **→ Walled:** AppActivate / SendKeys (OS automation) · array-element/call-result lead in a member chain (rides the
 >   multi-dot / member-chain wall).
@@ -113,6 +113,14 @@ _Original per-item findings (retained for detail; dispositions above supersede t
 - **Missing string/format intrinsics** (StrConv, StrComp, LenB/AscB/ChrB/MidB/LeftB/RightB/InStrB byte family (#1510), FormatNumber, FormatCurrency, FormatPercent, FormatDateTime) — unregistered; ordinary VBA intrinsics, no principled wall. Deferred as remaining "everyday surface" work: MISSING_FEATURES.md:488, interpreter-core Phase 3. AscW and ChrW landed with #1134.
 - **Collection object, For Each over non-array enumerables, CreateObject/GetObject** — **Collection and For Each over a Collection are done ([#1471](https://github.com/hexide-io/HexIDE/issues/1471)),** measured on vb6.exe as native and p-code (oracle, "Collection"). `Dim c As New Collection` works since [#435](https://github.com/hexide-io/HexIDE/issues/435). **Still to come for it:** an array `As Collection` ([#1482](https://github.com/hexide-io/HexIDE/issues/1482)), and keys compared as `vbTextCompare` compares rather than ordinally ignoring case ([#1479](https://github.com/hexide-io/HexIDE/issues/1479)). None of the three is a wall. CreateObject/GetObject is a documented COM wall. interpreter-advanced Phase 6 (357-377,435); COM wall at spec:398, README:22,133.
 - **Resume granularity (fault nested in a construct)** — nested-granular Resume is a stated 5b limitation (needs CFG/bytecode). interpreter-core Subset 5b. **Narrowed by #839:** under `On Error Resume Next` a fault in a block statement's condition or header now resumes into the block, as VB6 does, because the trap sits where the condition is evaluated and never needs to jump. What remains is a handler's `Resume` or `Resume Next` for a fault nested in a construct, which must get back inside the block. For `Resume Next`, VB6 measurably gives the same answers as Resume Next there (the If's branch, the raising Case's body, the loop's body), and HexIDE resumes after the whole top-level statement, since getting back inside the block from the handler is exactly the jump a tree-walk cannot make. **Measured by #877:** a `Resume` for an `Err.Raise` inside a one-line `If` retries the `Err.Raise` itself, not the `If`, so it raises again whatever the handler changed. HexIDE retries the `If`, re-reading its condition.
+  - **Raised For Each collection declarations (#969):** the fallback now reads parenthesised expressions, direct
+    project/class Functions and Property Gets, module-qualified Functions and array elements from runtime declarations.
+    Still refused under Resume Next: multi-hop member chains; leading-dot With members; call/index receivers;
+    receivers holding Nothing or external objects; library/project-qualified calls; indexed member results and bang
+    members; and arithmetic, intrinsic or other expression shapes without a declaration in this lookup.
+    These are declaration lookups still missing from this fallback, not a binding limit. It does not re-run receivers
+    or getters to recover a declaration. Array-field indexing through an object still has its separate #1435 refusal;
+    this fallback can read the field's declaration when evaluating its index argument raises first.
 - **Call depth before Error 28** — unbounded recursion now raises VB6's trappable Error 28 instead of killing the process (#80, E6 closed); what remains is *how deep* it gets first. HexIDE's frames are far fatter than compiled VB6's — an async state machine plus an ANTLR visitor walk per call — so on a 1 MB Windows thread stack it reaches ~**198** frames for a bare `Call A(n + 1)` sub and only **74** for a bare recursive Function, against vb6.exe's measured **258,825**. Re-measured 2026-09-02: a *real* recursive Function — `Fact(500)`, an `If`/`Else` body doing `n * Fact(n - 1)` — reaches **100**. **The Function figure is the one that matters**, because it is the shape ported code uses, and it is roughly a third of the Sub figure: a Function frame also carries the return slot, `SeedReturnValue`, and the hold-transfer machinery. 198 reads as comfortable; 74 does not, and a naive recursive sum over a 200-element list is fine in VB6 and dies here. Linux main threads get 8 MB and go several times deeper. **Divergence:** real VB6 code recursing more than a hundred deep gets Error 28 where vb6.exe would complete. Not a regression (the process was already dying at that depth) and not the same axis as `ParseDepthGuard`, which bounds *nesting* at parse time. **The lever, if depth ever becomes a priority, is frame WEIGHT** — the async state machine and the per-call visitor walk — not variable allocation: measured, ten `Dim` locals per call cost **zero** depth, because slots are heap and the limit is the C# stack. Oracle rows under *Out of stack space* in `vb6-fidelity-oracle.md`.
 - ~~**Variant arithmetic does not promote on overflow**~~ — **FIXED 2026-09-02 (#122)**, oracle-pinned. A Variant has no ceiling and widens Integer -> Long -> Double; a declared type is a ceiling and overflows to Err 6. Driven by operand PROVENANCE, not by the result: a literal counts as fixed, and a Variant on either side lifts the ceiling. `Vb6Value.HasFixedType` carries it, because fixedness propagates through sub-expressions (`(a + 0) * 3` still overflows for a declared `a`) and an operand may be a call result with no slot to interrogate — the shape of `Fact = n * Fact(n - 1)`, which this was filed from. The issue's original table had `30000 * 3` widening; it raises Err 6, and building to that row would have promoted `Dim i As Integer : i = i + 1` past 32767 in silence.
 - **Variant vs declared, for division by zero** — real division by zero is `Err 11` for declared operands and `Err 6` on the Variant path (the OLE `VarDiv` quirk, which maps a zero divisor to `DISP_E_OVERFLOW`); HexIDE raises 11 for both. `\` and `Mod` are `Err 11` either way and correct. Needs the same Variant-vs-declared distinction as the promotion row above — the declared half now exists (#124), so this is a small change waiting on the Variant half.
@@ -220,8 +228,8 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   silence, where the procedure path raises "Ambiguous name detected".
 - **Object-model class features** — `With New`, `Friend`, and same-project qualified `New` are runtime lookups, not
   analysis. **`As New` is done (#435):** the object is made where the variable is first read, through the same request
-  and retry that make a form's default instance (#822), with an array `As New` (#1482) and a Type's field (#1488) still
-  to come. (`Friend` treated as Public is arguably not
+  and retry that make a form's default instance (#822), with an array `As New` (#1482) still to come. A Type's field makes its object on first use too (#1488);
+  copying the Type shares the object. (`Friend` treated as Public is arguably not
   a gap at all in a single-project interpreter — there are no external clients to hide from.)
 
 ### Found while auditing — bugs, not classification

@@ -121,6 +121,28 @@ public class AIChatWholeFileTests : IDisposable
         _ = editor.DidNotReceive().SetContent(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>());
     }
 
+    [Theory]
+    [InlineData("\n", "Option Explicit\n")]
+    [InlineData("\r\n", "Option Explicit\r\n")]
+    [InlineData("\n", "Option Explicit\n\n")]
+    [InlineData("\r\n", "Option Explicit\r\n\r\n")]
+    [InlineData("\n", "Option Explicit \t")]
+    [InlineData("\r\n", "Option Explicit \t")]
+    [InlineData("\n", "Option Explicit\n \t")]
+    [InlineData("\r\n", "Option Explicit\r\n \t")]
+    public async Task ApplyingAFencedBlockPreservesEverythingBeforeTheFenceLineBreak(string lineBreak, string code)
+    {
+        editor.TrySetContent("Form1", Arg.Any<string>(), "Orders").Returns(new AddinEditResult(true));
+        var chat = new ChatViewModel(host, settingsDir);
+        var part = MessagePart.Parse("```vb6" + lineBreak + code + lineBreak + "```")
+            .Should().ContainSingle().Subject;
+
+        part.Content.Should().Be(code);
+        await chat.ApplyToActiveFileAsync(part.Content);
+
+        _ = editor.Received(1).TrySetContent("Form1", code, "Orders");
+    }
+
     [Fact]
     public async Task ApplyingABlockTheIdeRefuses()
     {
