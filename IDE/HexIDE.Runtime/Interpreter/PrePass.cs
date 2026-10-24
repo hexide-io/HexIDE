@@ -344,8 +344,7 @@ public class PrePass : VB6BaseVisitor<object?>
                              && (objectType.OBJECT() != null || objectType.COLLECTION() != null))
                     {
                         objectSlot = true;
-                        if (objectType.COLLECTION() != null)
-                            declaredClass = "Collection";
+                        declaredClass = objectType.COLLECTION() != null ? "Collection" : isArray ? null : "Object";
                     }
                     else
                     {
