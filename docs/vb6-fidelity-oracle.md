@@ -12835,8 +12835,10 @@ End Function
 **HexIDE's supported slice:** the Clipboard object, Clear, default/vbCFText GetText and SetText, and GetFormat(vbCFText).
 Its methods await the host under the event pump's suspension boundary. The desktop and IDE hosts use Avalonia's
 window clipboard. RTF, Link, image/data methods and other format queries are explicitly refused, not reported absent.
-Since Avalonia's SetText clears other formats, the host refuses SetText while non-text formats exist until those can
-be preserved. Clear followed by SetText works; that is what the Notepad demo does.
+The host snapshots readable non-text formats before replacing text and writes them back with the new text (#1246).
+If a format cannot be read, it refuses before writing. Clear removes all formats, as the Notepad demo requires.
+The measurement above covers program-supplied RTF; preservation of external HTML and Windows-synthesized text
+formats has not been measured against VB6.
 
 **Live Windows follow-up, 2026-10-18:** built the PR's desktop application at `905e3506` and launched it with an
 isolated user-data directory and copies of the unmodified Notepad demo forms. HexIDE MCP was now available.
@@ -12855,8 +12857,8 @@ the TextBox's native editing commands. The following checks passed with no runti
   and Exit ended the run. Breakpoints and pending picker answers were cleared afterwards.
 
 The Windows native clipboard is verified; Linux host tests remain headless, and no native Linux/macOS clipboard
-verification is claimed. Headless tests also cover preservation refusal when non-text formats exist. The existing
-grammar refuses empty parentheses after `Call` (for example `Call Clipboard.Clear()`); `Call Clipboard.Clear` and
+verification is claimed. Headless tests now cover replacing text while preserving non-text string and byte payloads
+(#1246). The existing grammar refuses empty parentheses after `Call` (for example `Call Clipboard.Clear()`); `Call Clipboard.Clear` and
 `Call Clipboard.SetText("hello")` are covered. That pre-existing grammar restriction is outside this clipboard slice.
 
 A function also shadows Clipboard when it supplies the object of a member chain. With class `Box` containing

@@ -255,6 +255,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Clipboard.SetText preserves other clipboard formats** (#1246). Replacing text no longer stops a run merely
+  because other formats are present. A format that cannot be read is still refused before the clipboard is changed.
+
 - **Numeric Strings accept a thousands separator after the decimal point** (#1446). `CDbl("1.5,2003")`
   now gives 1.52003 under en-GB, as measured on vb6.exe SP6, native and p-code. Long, Currency,
   IsNumeric and arithmetic read these Strings too; a leading separator is refused and Val still stops at it.
