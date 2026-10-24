@@ -10012,8 +10012,9 @@ emptied all four of these.
 | `s = Array(1)`, `s` a String | 13, `s` unchanged |
 | `c = "v=" & a`, with `Dim a(1) As Long` | does not compile: "Type mismatch" |
 
-HexIDE's text conversion has no arm for an array, so the code gives its CLR type name for these, except where #840
-raises 13 for an element of Join or Filter. That HexIDE side is read from the code, not run (#879).
+HexIDE now raises 13 in its shared text conversion (#879), where these routes gave the CLR type name
+(except Join and Filter elements, already refused by #840). The typed Long array is refused when executed
+rather than at compile time. The debugger's own array display remains separate.
 
 **The in-box objects:**
 
