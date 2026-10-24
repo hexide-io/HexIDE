@@ -26,7 +26,11 @@ public class VBTextBox : TextBox
         AttachedEvents.AttachFocusEvents<VBTextBox>();
     }
 
-    public VBTextBox() => ApplyLayout(false, 0);
+    public VBTextBox()
+    {
+        Padding = new Thickness(1);
+        ApplyLayout(false, 0);
+    }
 
     /// <summary>Whether the box holds several lines: read-only at run time, as in VB6 (#1340).</summary>
     public bool MultiLine { get; private set; }

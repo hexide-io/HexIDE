@@ -38,6 +38,35 @@ namespace HexIDE.Integration.Tests.Controls;
 /// </summary>
 public class ClassicRenderTests
 {
+    [AvaloniaFact]
+    public void SingleLineTextBox_ShortHeight_HoldsItsTextWithoutAVerticalBar()
+    {
+        foreach (var height in new[] { 19, 21, 24, 25 })
+        {
+            var box = new VBTextBox { Text = "hello", Width = 120, Height = height };
+            var window = BuildHost(box);
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                using var frame = window.CaptureRenderedFrame();
+                frame.Should().NotBeNull();
+
+                var viewer = box.GetVisualDescendants().OfType<ScrollViewer>().Single();
+                viewer.Extent.Height.Should().BeLessThanOrEqualTo(viewer.Viewport.Height);
+                var presenter = box.GetVisualDescendants().OfType<Avalonia.Controls.Presenters.TextPresenter>().Single();
+                presenter.TextLayout.Height.Should().BeLessThanOrEqualTo(viewer.Viewport.Height);
+                box.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ScrollBar>()
+                    .Where(bar => bar.Orientation == Avalonia.Layout.Orientation.Vertical)
+                    .Should().OnlyContain(bar => !bar.IsVisible);
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+    }
+
     /// <summary>
     /// A window carrying the VB6 control themes plus the SystemColors brushes they resolve. The bare
     /// SimpleTheme test app has neither, exactly as noted in TranslationEditorViewIntegrationTests.
