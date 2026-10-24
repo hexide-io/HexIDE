@@ -180,7 +180,8 @@ public static class UiAutomationDriver
             range,
             ownerPath,
             note,
-            control is SelectingItemsControl items and not (MenuItem or MenuBase) ? Safe<int?>(() => items.ItemCount, null) : null);
+            control is SelectingItemsControl items and not (MenuItem or MenuBase) ? Safe<int?>(() => items.ItemCount, null) : null,
+            peer.GetProvider<IValueProvider>() is { } valueProvider ? Safe<bool?>(() => valueProvider.IsReadOnly, null) : null);
     }
 
     /// <summary>
@@ -668,6 +669,21 @@ public static class UiAutomationDriver
                 case "setvalue":
                     if (peer.GetProvider<IValueProvider>() is not { } val) return Unsupported("set_value");
                     if (value is null) return Err("set_value requires 'value'");
+                    if (control is ComboBox { IsEditable: false } combo)
+                    {
+                        // Open the same rows select matches, whose peers read the text the dump shows, including
+                        // item templates. Always close what we opened, including a refused or ambiguous selection.
+                        combo.SetCurrentValue(ComboBox.IsDropDownOpenProperty, true);
+                        try
+                        {
+                            combo.UpdateLayout();
+                            return DoSelect(control, peer, value, matchEmptyValue: true);
+                        }
+                        finally { combo.SetCurrentValue(ComboBox.IsDropDownOpenProperty, false); }
+                    }
+                    if (val.IsReadOnly)
+                        return Err($"value is read-only on '{LabelOf(control, peer)}'; set_value cannot change it. "
+                                   + "inspect_element shows its providers and view-model members for other supported actions");
                     val.SetValue(value);
                     // A bound box's source may convert what it is given, and pushes the result back at once: " 90" reads
                     // back "90", taken. Whether the source kept it is RefusedCommit's to say, once it has reacted.
@@ -1028,10 +1044,10 @@ public static class UiAutomationDriver
 
     private static string TitleOf(Window window) => string.IsNullOrEmpty(window.Title) ? window.GetType().Name : window.Title;
 
-    private static InteractOutcome DoSelect(Control control, AutomationPeer peer, string? value)
+    private static InteractOutcome DoSelect(Control control, AutomationPeer peer, string? value, bool matchEmptyValue = false)
     {
         // value absent (treating "" as absent, like "omit if the target is the item") → select the target.
-        value = NullIfEmpty(value);
+        if (!matchEmptyValue) value = NullIfEmpty(value);
         if (value is null)
         {
             if (peer.GetProvider<ISelectionItemProvider>() is { } selfSip)
@@ -1056,6 +1072,9 @@ public static class UiAutomationDriver
 
             return Unsupported("select");
         }
+
+        if (control is ComboBox combo)
+            return SelectComboItem(combo, value);
 
         // value present → match against the realized selectable items (the target itself if it is one, plus
         // its selectable descendants) using the SAME precedence + uniqueness as path resolution, so the two
@@ -1145,6 +1164,47 @@ public static class UiAutomationDriver
                 : Err(refusal);
 
         return Unsupported("select");
+    }
+
+    // Snapshot names, not containers: scrolling a dropdown recycles its rows. Read every row before matching,
+    // so an offscreen namesake is ambiguous too, and a miss can name all available items (#1672).
+    private sealed record ComboRow(int Index, string? AutoId, string? Name, string? Label, string Shown);
+
+    private static InteractOutcome SelectComboItem(ComboBox combo, string value)
+    {
+        if (!combo.IsDropDownOpen)
+            return Err($"'{LabelOf(combo)}' has no selectable items realized — 'expand' it first, then select");
+        var scroller = combo.GetRealizedContainers().FirstOrDefault()?.GetVisualAncestors().OfType<ScrollViewer>().FirstOrDefault();
+        var original = scroller?.Offset;
+        List<ComboRow> rows = [];
+        try
+        {
+            for (var i = 0; i < combo.ItemCount; i++)
+            {
+                combo.ScrollIntoView(i);
+                combo.UpdateLayout();
+                if (combo.ContainerFromIndex(i) is not Control row || Shows(row) is not true) continue;
+                var info = Classify(row);
+                rows.Add(new ComboRow(i, info.AutoId, row.Name, MeaningfulLabelOf(info.Peer), LabelOf(row)));
+            }
+            var (matches, facet) = MatchByDiscriminator(rows, value, r => r.AutoId, r => r.Name, r => r.Label);
+            if (matches.Count == 0)
+                return Err($"no selectable item matching '{value}' among {rows.Count} item(s); available items: "
+                           + (rows.Count == 0 ? "none" : string.Join(", ", rows.Take(20).Select(r => $"'{r.Shown}'")))
+                           + (rows.Count > 20 ? $"; {rows.Count - 20} more item(s) omitted" : ""));
+            if (matches.Count > 1)
+                return Err($"ambiguous select '{value}' ({matches.Count} {facet} matches); target the item directly by path instead");
+            combo.ScrollIntoView(matches[0].Index);
+            combo.UpdateLayout();
+            if (combo.ContainerFromIndex(matches[0].Index) is not Control target)
+                return Err($"the item matching '{value}' could not be brought into view; nothing was selected");
+            return DoSelect(target, ControlAutomationPeer.CreatePeerForElement(target), null);
+        }
+        finally
+        {
+            if (scroller is not null && original is { } offset)
+                scroller.Offset = offset;
+        }
     }
 
     /// <summary>
@@ -3477,18 +3537,20 @@ public static class UiAutomationDriver
     // any match wins (and must be unique to be decisive).
     private static (List<Control> matches, string facet) MatchByDiscriminator(List<MeaningfulChild> typed, string disc)
     {
-        var byId = typed.Where(m => string.Equals(m.Info.AutoId?.Trim(), disc, StringComparison.OrdinalIgnoreCase))
-            .Select(m => m.Control).ToList();
+        var (matches, facet) = MatchByDiscriminator(typed, disc,
+            m => m.Info.AutoId, m => m.Control.Name, m => MeaningfulLabelOf(m.Info.Peer));
+        return ([.. matches.Select(m => m.Control)], facet);
+    }
+
+    private static (List<T> Matches, string Facet) MatchByDiscriminator<T>(List<T> items, string disc,
+        Func<T, string?> id, Func<T, string?> name, Func<T, string?> label)
+    {
+        var byId = items.Where(m => string.Equals(id(m)?.Trim(), disc, StringComparison.OrdinalIgnoreCase)).ToList();
         if (byId.Count > 0) return (byId, "automationId");
-
-        var byName = typed.Where(m => NameEquals(m.Control.Name, disc)).Select(m => m.Control).ToList();
+        var byName = items.Where(m => NameEquals(name(m), disc)).ToList();
         if (byName.Count > 0) return (byName, "name");
-
-        var byLabel = typed.Where(m => NameEquals(MeaningfulLabelOf(m.Info.Peer), disc))
-            .Select(m => m.Control).ToList();
-        if (byLabel.Count > 0) return (byLabel, "label");
-
-        return ([], "match");
+        var byLabel = items.Where(m => NameEquals(label(m), disc)).ToList();
+        return (byLabel, "label");
     }
 
     private static (Control? control, string? error) Pick(List<Control> matches, string raw, string parentPath, string by)
@@ -3968,7 +4030,9 @@ public record UiNodeDetail(
     // How many items a list, dropdown or tab control holds, whether or not their containers exist, hidden ones too:
     // SelectionItems is only what is selected, so a list lacking an item read the same as one not choosing it (#1263).
     // Absent for anything else: a menu or the dock's lists count separators and splitters a dump does not show.
-    int? ItemCount = null);
+    int? ItemCount = null,
+    // The value pattern's writability, independent of the range pattern's flag. Null without that pattern.
+    bool? IsReadOnly = null);
 
 /// <summary>A range control's state: a scroll bar's or slider's position, its bounds, and whether it can be set.</summary>
 public record RangeState(double Value, double Minimum, double Maximum, bool IsReadOnly);
