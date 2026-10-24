@@ -265,6 +265,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The pull-diagnostics race test always exercises the race** (#812). The stub holds the fresh answer until
+  the stale publication starts, so a run cannot pass merely because the fresh answer arrived first.
+
 - **Unavailable tests report a skip** (#693). Windows-only path and file-lock checks, empty serialization
   corpus selections, and the opt-in VB6 build oracle no longer report an unearned pass. The documented
   oracle commands now use the MTP method filter.
