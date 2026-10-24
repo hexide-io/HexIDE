@@ -1,4 +1,5 @@
 using System.IO.Pipes;
+using System.Net.Sockets;
 using HexIDE.Lsp;
 using Microsoft.Extensions.Logging;
 using StreamJsonRpc;
@@ -93,6 +94,41 @@ public class NamedPipeLspTransportTests
         var reply = await clientRpc.InvokeAsync<string>("echo", "ping");
 
         reply.Should().Be("ping");
+    }
+
+    public static bool IsWindows => OperatingSystem.IsWindows();
+
+    [Fact(SkipType = typeof(NamedPipeLspTransportTests), SkipWhen = nameof(IsWindows),
+        Skip = "Absolute pipe paths reach Unix domain sockets only on non-Windows hosts.")]
+    public async Task AnAbsolutePipeNameRoundTripsAgainstARawUnixDomainSocketPeer()
+    {
+        var socketPath = Path.Combine(Path.GetTempPath(), UniquePipeName());
+        try
+        {
+            using var listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+            listener.Bind(new UnixDomainSocketEndPoint(socketPath));
+            listener.Listen(1);
+            var accepting = listener.AcceptAsync(Timeout());
+
+            await using var sut = CreateSut(socketPath, NamedPipeRole.Connect);
+            var handler = await sut.ConnectAsync(Formatter(), TestContext.Current.CancellationToken);
+            using var peer = await accepting;
+            await using var stream = new NetworkStream(peer, ownsSocket: false);
+            using var serverRpc = new JsonRpc(new HeaderDelimitedMessageHandler(stream, stream, Formatter()), new EchoServer());
+            serverRpc.StartListening();
+
+            handler.Should().NotBeNull();
+            using var clientRpc = new JsonRpc(handler!);
+            clientRpc.StartListening();
+
+            var reply = await clientRpc.InvokeAsync<string>("echo", "absolute socket path").WaitAsync(Timeout());
+
+            reply.Should().Be("absolute socket path");
+        }
+        finally
+        {
+            File.Delete(socketPath);
+        }
     }
 
     [Fact]
