@@ -271,7 +271,8 @@ a language server knows the document by, it SHALL say so. Every line number a to
 counted from the top of the file, header included. Reading a document's content SHALL return its whole file
 whether or not it is open. Writing content SHALL NOT be refused for being in the shape reading returned — the
 whole file with its header unchanged, or the code alone — which leaves the existing refusal of a document the
-IDE will not save in force for its own reason.
+IDE will not save in force for its own reason. A refused whole replacement SHALL report a changed header first,
+then each member whose Attribute lines are changed, added or removed, in the same reply.
 
 A caller that has never seen the IDE cannot know which of a document's several names a bare `uri` field holds,
 and a name that is only unique within a project is ambiguous the moment a group is open. A read whose result
@@ -285,6 +286,19 @@ the matching write refuses breaks the most basic loop an automation client runs.
 - **WHEN** a client reads the content of a form the IDE will save, and writes the same text back
 - **THEN** the write succeeds and the form is unchanged, but for a member's attribute line naming another name than
   its member's, which the save writes with its member's name, as the form's own Save does
+
+#### Scenario: A replacement changes both the header and a member's Attribute lines
+- **WHEN** a client submits a whole file with both its header and a member's Attribute lines changed
+- **THEN** the write is refused without changing the document, and the one reply names the header first and the member next
+
+### Requirement: Automation saves explain rewritten member qualifiers
+The successful replies from `set_file_content`, `set_control_property` and `add_control` SHALL report in their
+`note` any member Attribute qualifiers their save rewrote, naming the old and new names and explaining that
+VB6's own Save writes the member's name.
+
+#### Scenario: A save rewrites a stale qualifier
+- **WHEN** any of those tools saves a document with `Attribute Gone.VB_Description` under `Public Function Total()`
+- **THEN** its successful reply explains that the save wrote Total's Attribute lines with its name, where they said Gone
 
 ### Requirement: An IDE started for an agent session SHALL run tool calls from that session only
 When the IDE is started with the name of an agent session, the server SHALL run a tool call only when the client names
@@ -329,3 +343,15 @@ SHALL report none for an IDE started without one.
 #### Scenario: Readiness names the session
 - **WHEN** tooling polls the health check of an IDE started for a session
 - **THEN** the reply names that session beside the process ID
+
+### Requirement: Named controls SHALL expose their visible labels
+The control tree and single-control inspection SHALL retain x:Name as `name` when present and report the
+peer's meaningful label as `label` when it differs. Paths SHALL retain their existing stable discriminators
+and accept a label as an alternative discriminator. Discovery searches SHALL include the label, and interaction
+replies SHALL use the meaningful label when available.
+
+#### Scenario: Discovering a named menu
+- **WHEN** a menu item has x:Name `ToolsMenuItem` and visible header `_Tools`
+- **THEN** its node and inspection report `name: "ToolsMenuItem"` and `label: "Tools"`
+- **AND** its emitted path ends in `MenuItem[ToolsMenuItem]`, while `MenuItem[Tools]` also resolves
+- **AND** expanding it names `Tools` in the reply

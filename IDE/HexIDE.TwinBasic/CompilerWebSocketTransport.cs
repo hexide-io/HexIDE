@@ -23,6 +23,14 @@ public sealed class CompilerWebSocketTransport : IDisposable
     private readonly SemaphoreSlim receiveGate = new(1);
     private HttpMessageInvoker? http;
     private int disposed;
+    private CompilerRecording? recording;
+    private string recordingChannel = "root";
+
+    public void RecordTo(CompilerRecording recorder, string channel)
+    {
+        recording = recorder;
+        recordingChannel = channel;
+    }
 
     internal CompilerWebSocketTransport(WebSocket socket, CompilerTransportLimits? limits = null)
     {
@@ -93,7 +101,11 @@ public sealed class CompilerWebSocketTransport : IDisposable
             ThrowIfDisposed();
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             deadline.CancelAfter(messageTimeout);
-            try { await socket.SendAsync(bytes, type, true, deadline.Token).ConfigureAwait(false); }
+            try
+            {
+                recording?.Record(recordingChannel, "send", new(type, bytes));
+                await socket.SendAsync(bytes, type, true, deadline.Token).ConfigureAwait(false);
+            }
             catch (Exception error) { throw Fail(error, cancellationToken, deadline.IsCancellationRequested); }
         }
         finally { sendGate.Release(); }
@@ -135,7 +147,12 @@ public sealed class CompilerWebSocketTransport : IDisposable
                     if (message.Length + result.Count > limits.MaximumMessageBytes)
                         throw new InvalidDataException("Compiler message exceeds the byte limit.");
                     message.Write(buffer, 0, result.Count);
-                    if (result.EndOfMessage) return new(result.MessageType, message.ToArray());
+                    if (result.EndOfMessage)
+                    {
+                        var bytes = message.ToArray();
+                        recording?.Record(recordingChannel, "receive", new(result.MessageType, bytes));
+                        return new(result.MessageType, bytes);
+                    }
                 }
                 throw new InvalidDataException("Compiler message exceeds the receive-operation limit.");
             }

@@ -8,6 +8,45 @@ namespace HexIDE.Runtime.Tests;
 /// </summary>
 public class ForEachTests : BaseVBTestFixture
 {
+    // #1486: all six measured rows, through both declarations. Expected results are p-code's.
+    [Theory]
+    [InlineData("Collection", 0)]
+    [InlineData("Collection", 1)]
+    [InlineData("Collection", 2)]
+    [InlineData("Collection", 3)]
+    [InlineData("Collection", 4)]
+    [InlineData("Collection", 5)]
+    [InlineData("Object", 0)]
+    [InlineData("Object", 1)]
+    [InlineData("Object", 2)]
+    [InlineData("Object", 3)]
+    [InlineData("Object", 4)]
+    [InlineData("Object", 5)]
+    public async Task Nothing_ResumeNext_MeasuredTable(string collectionType, int row)
+    {
+        string[] loops =
+        [
+            "For Each v In w: Next",
+            "For Each v In w: Next: Debug.Print \"after\"",
+            "For Each v In w: Debug.Print \"body\": Next",
+            "For Each v In w\nNext",
+            "For Each v In w\nDebug.Print \"body\"\nNext",
+            "For Each o In w: Debug.Print \"body\": Next"
+        ];
+        await Run($"Dim w As {collectionType}\nDim v\nDim o As Object\n" +
+            "v = \"unchanged\"\nOn Error Resume Next\n" + loops[row] +
+            "\nDebug.Print Err.Number\nDebug.Print TypeName(v)\n");
+        List<Vb6Value> expected = row switch
+        {
+            0 => [new Vb6Value(424L), "String"],
+            1 => ["after", new Vb6Value(424L), "String"],
+            2 or 4 => ["body", new Vb6Value(92L), "Empty"],
+            3 => [new Vb6Value(92L), "Empty"],
+            _ => ["body", new Vb6Value(92L), "String"]
+        };
+        AssertDebugLog(expected);
+    }
+
     [Fact]
     public async Task OneDimensional()
     {
