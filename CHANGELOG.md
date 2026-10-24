@@ -138,6 +138,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Changed
 
+- **The automation server’s loopback gate is exercised through real HTTP requests** (#773). The IDE and
+  the Kestrel test server share its middleware wiring; foreign Host and Origin headers are refused on
+  `/mcp`, and a foreign Host is refused on `/health`, while loopback clients are answered.
+
 - **The code window shows the whole file, header included, and one line number now means the same thing
   everywhere** - to the editor, to a language server, to the interpreter and to the debugger. A form's
   designer block and a module's `Attribute` header are no longer hidden from the code window.

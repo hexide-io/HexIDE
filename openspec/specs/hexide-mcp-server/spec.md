@@ -127,6 +127,9 @@ web page and sends none. Refusing it would turn a security control into an outag
 This addresses the browser vector only. Anything that can already open a socket to the port may put whatever
 it likes in a header, and the control against that is authentication, which this requirement does not claim.
 
+The IDE and the real-HTTP test server SHALL install the same loopback middleware. Tests SHALL exercise
+foreign `Host` and `Origin` headers on `/mcp`, a foreign `Host` on `/health`, and a permitted loopback request.
+
 #### Scenario: A request naming this machine
 - **WHEN** a request arrives whose `Host` is a loopback address on the bound port
 - **THEN** it is served
