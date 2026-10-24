@@ -276,6 +276,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Unimplemented constructs name the failing statement** (#758). The runtime-error dialog now appends
+  `at <statement>`, including failures inside nested blocks or called procedures, without making them trappable.
+
 - **A form resized from code raises Resize inside the assignment** (#1570), before the next statement,
   including while hidden in Load. The first Show still raises its own Resize; layout does not repeat the assignment's event.
 
