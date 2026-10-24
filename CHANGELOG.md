@@ -10,6 +10,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **MCP tool table drift guard** (#1339). Tests check CLAUDE.md's curated signatures against the tools,
+  including parameter order, optionality and every `interact` action. Corrected missing `project?`
+  parameters on `open_file` and `view_designer`, and the optional `armed?` parameter on `arm_lsp_capture`.
+
 - **Keyboard parameter-info regression tests** (#1262). Headless tests cover typing `MsgBox(`, the signature-help
   request position, and parameter info being open before the typing reply when the server answers after a delay.
 
