@@ -249,6 +249,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **String functions honour the calling module’s `Option Compare`** (#1572). With no compare argument,
+  `InStr`, `InStrRev`, `Replace`, `Split`, `Filter` and `StrComp` now use that module’s setting, including
+  calls written in classes and forms. An explicit compare still wins. `InStr("ABC", "b")` in a Text module
+  now answers 2, as measured on vb6.exe, instead of silently answering 0.
+
 - **MCP paths survive growing editor text** (#1436). A collapsed layout wrapper no longer appears when its
   content begins to scroll, so the Immediate window's text-area path stays usable. Range capability keeps a
   node regardless of its current bounds. A refused path that skips a visible wrapper names it and gives the

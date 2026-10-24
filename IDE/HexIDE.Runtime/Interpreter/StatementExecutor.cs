@@ -661,7 +661,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new VBCompileErrorException("Syntax error");
             args.Add(new CallArg(await expressionExecutor.EvaluateValue(argument), null));
         }
-        await interpreter.BuiltIns.EvaluateBuiltInFunction(name, await VB6BuiltIns.ArrangeIntrinsicArguments(name, args));
+        await interpreter.BuiltIns.EvaluateBuiltInFunction(name, await VB6BuiltIns.ArrangeIntrinsicArguments(name, args), currentModule.PrePass.OptionCompareText);
     }
 
     // The pre-pass collected the module's DefType statements (#169); running one does nothing. Inside a procedure it does not
