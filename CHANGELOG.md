@@ -249,6 +249,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A For loop with a fractional start, limit or step runs** (#983). `For x = 0 To 1 Step 0.25` and its kind stopped
+  the run whenever the counter could hold a fraction: a Variant, Single, Double, Currency or Date. Measured on vb6.exe
+  first, in 80 cases: the step is added each time round in the counter's type, a Single sums in Double before it
+  is rounded, as p-code does, and a Variant counter counts in the type its start, limit and step make together.
+
 - **MCP `get_form_controls` reports absent properties as null** (#1635). A Line or Shape no longer claims to be enabled when its class has no Enabled property. The summary's `visible` and `enabled` now follow `caption` and `text`: null where the control's class has no such property.
 
 - **MCP replies distinguish dialogs sharing a title** (#1365). The modal note names a message box or run-time error dialog, its first line of text and its actual buttons; other dialogs include their buttons. The window parameter explains how to discover open windows through an unknown-name refusal.

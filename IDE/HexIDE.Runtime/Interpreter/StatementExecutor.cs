@@ -1114,13 +1114,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             ? interpreter.ExecutionContext.State.DeclaredTypeOf(counterLoc)
             : null;
         var state = forState.GetValueOrDefault(context);
-        double fromD, toD, stepD;
+        Vb6Value from, to, step;
         try
         {
-            fromD = await ForBound(context.valueStmt(0), context, counterType);
-            toD = state.Limit = await ForBound(context.valueStmt(1), context, counterType);
+            from = await ForBound(context.valueStmt(0), context, counterType);
+            to = await ForBound(context.valueStmt(1), context, counterType);
+            state.Limit = ForNumber(to);
             forState[context] = state;
-            stepD = state.Step = context.valueStmt(2) is { } stepStmt ? await ForBound(stepStmt, context, counterType) : 1;
+            step = context.valueStmt(2) is { } stepStmt ? await ForBound(stepStmt, context, counterType) : new Vb6Value(1);
+            state.Step = ForNumber(step);
             forState[context] = state;
         }
         catch (VBRunTimeException ex) when (ResumesNext)
@@ -1133,19 +1135,26 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return await RunUninitialisedFor(context, variable, counterType, state.Limit, impliedStep ? 1 : state.Step);
         }
 
-        // Integral counters only for now: a fractional start, limit or step is a gap, so it is refused rather than raised
-        // as a trappable 13, which On Error Resume Next stepped over and so skipped the loop without a word.
+        if (!interpreter.ExecutionContext.TryInspectVariable(currentEnv, variable, out _))
+            AllocImplicitVariant(variable);
+
+        if (counterType is null || SteppedInItsType(counterType))
+        {
+            var type = counterType ?? ForVariantType(from, to, context.valueStmt(2) is null ? null : (Vb6Value?)step, context);
+            return await RunForInType(context, variable, type, from, to, step, variant: counterType is null);
+        }
+
+        // A Byte, Integer or Long counter: its bounds were rounded into it as they were converted, so they are whole. A
+        // Boolean or String counter keeps what its bounds were, and only whole numbers are taken for one (none was measured).
+        double fromD = ForNumber(from), toD = ForNumber(to), stepD = ForNumber(step);
         if (fromD != Math.Truncate(fromD) || toD != Math.Truncate(toD) || stepD != Math.Truncate(stepD))
             throw FractionalForRefused();
         long fromL = (long)fromD, toL = (long)toD, stepL = (long)stepD;
 
-        if (!interpreter.ExecutionContext.TryInspectVariable(currentEnv, variable, out _))
-            AllocImplicitVariant(variable);
-
         // VB6 runs the body while (step >= 0 ? counter <= limit : counter >= limit) — a `<=`/`>=` test, NOT `i == to`
         // (equality never terminates when the step doesn't land exactly on `to`, e.g. `0 To 10 Step 3` → 0,3,6,9,…
         // forever). The counter is left one step PAST the limit — the value that failed the test — matching the
-        // oracle (0 To 10 Step 3 → 12; empty 1 To 3 → 4; 1 To 50000 → 50001|Long). An empty body still counts.
+        // oracle (0 To 10 Step 3 → 12; empty 1 To 3 → 4). An empty body still counts.
         var block = context.block();
         long i = fromL;
         for (; stepL >= 0 ? i <= toL : i >= toL; i += stepL)
@@ -1163,22 +1172,156 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return default;
     }
 
-    /// <summary>A For loop's start, limit or step, converted into a numeric counter's declared type as a store into it
-    /// would convert (banker's rounding, 6 on overflow, 13 for text that is not a number), then read as a number through
-    /// the catch-all numeric rung (double), so a Long limit like <c>To 50000</c> is accepted. A Variant or other counter's
-    /// bounds are read as they are.</summary>
-    private async Task<double> ForBound(VB6Parser.ValueStmtContext bound, VB6Parser.ForNextStmtContext context, Vb6Value.ValueType? counterType)
+    // A Single, Double, Currency or Date counter steps in its own type, and so may take a fraction (#983).
+    private static bool SteppedInItsType(Vb6Value.ValueType t) =>
+        t == Vb6Value.ValueType.Single || t == Vb6Value.ValueType.Double || t == Vb6Value.ValueType.Currency || t == Vb6Value.ValueType.Date;
+
+    /// <summary>
+    /// A For whose counter is a Variant, or a Single, Double, Currency or Date, measured on vb6.exe for #983, native and p-code.
+    /// <para>
+    /// The counter starts at the start and the step is added to it each time round, in the loop's type, so a Double's
+    /// tenths accumulate: <c>For x = 1 To 2 Step 0.1</c> runs 10 passes, its eleventh value being just over 2. The body runs
+    /// while the counter is at or below the limit (at or above it for a negative step), and the counter is left at the
+    /// value that failed. A Step of 0 runs for ever while the counter is within the limit.
+    /// </para>
+    /// <para>
+    /// A Single adds in Double: the step and the limit are Singles, but the sum is tested against the limit before it is
+    /// rounded into the counter. That is p-code's answer, and HexIDE's. Native code rounds the sum into a Single first, so
+    /// <c>For x = 0.1 To 0.5 Step 0.1</c> runs 5 passes built native and 4 as p-code (and in the IDE).
+    /// </para>
+    /// </summary>
+    private async Task<ControlFlow> RunForInType(VB6Parser.ForNextStmtContext context, string variable,
+        Vb6Value.ValueType type, Vb6Value from, Vb6Value to, Vb6Value step, bool variant)
+    {
+        // A Variant's counter widens when a step overflows its type, as Variant arithmetic does: a Byte counter goes on past
+        // 255 as an Integer, and an Integer one past 32767 as a Long (measured, #983, p-code).
+        Vb6Value InLoop(Vb6Value v) => variant ? VbNumeric.Narrow(v, type, context).AsVariantSubtype() : VbNumeric.Narrow(v, type, context);
+        var counter = InLoop(from);
+        var limit = InLoop(to);
+        var by = InLoop(step);
+        var up = VbNumeric.CompareNumbers(by, new Vb6Value(0), context) >= 0;
+        var tested = counter;
+        var block = context.block();
+        while (up ? VbNumeric.CompareNumbers(tested, limit, context) <= 0 : VbNumeric.CompareNumbers(tested, limit, context) >= 0)
+        {
+            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variable, counter);
+            if (block == null)
+            {
+                // An empty body has no statement of its own at which an abort can reach a Step 0 loop.
+                if (interpreter.Ending || interpreter.DebugController is { IsAborting: true })
+                    throw new Debugging.StopExecutionSignal();
+            }
+            else
+            {
+                var ret = await Visit(block);
+                if (ret == ControlFlow.ExitFor)
+                    return ControlFlow.Nothing;
+                if (ret != ControlFlow.Nothing)
+                    return ret;
+            }
+            (counter, tested) = ForNextValue(counter, by, context);
+        }
+        interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variable, counter);
+        return default;
+    }
+
+    /// <summary>The counter plus the step, in the counter's type, and the value the limit is tested against: the same,
+    /// except for a Single, whose sum is tested in Double before it is rounded into the counter (p-code, measured, #983).</summary>
+    private static (Vb6Value Counter, Vb6Value Tested) ForNextValue(Vb6Value counter, Vb6Value step, ParserRuleContext context)
+    {
+        if (counter.Type == Vb6Value.ValueType.Single && step.Type == Vb6Value.ValueType.Single)
+        {
+            var sum = (double)(float)counter.Value! + (float)step.Value!;
+            return (new Vb6Value((float)sum), new Vb6Value(sum));
+        }
+        var next = VbNumeric.Add(counter, step, context);
+        return (next, next);
+    }
+
+    /// <summary>
+    /// The type a Variant counter takes, from the start, the limit and the step together, in the result table of <c>+</c>
+    /// (measured, #983, native and p-code): <c>0 To 1 Step 0.1</c> is a Double from the first pass, <c>1 To 50000 Step 24999</c>
+    /// a Long, <c>0@ To 1 Step 0.25</c> a Currency, <c>0& To 1 Step 0.25!</c> a Double, and a Date beside any number a Date.
+    /// A String is read as a Double, and a Boolean or Empty as an Integer. With no Step clause, p-code takes the type from the
+    /// start and the limit alone, so <c>CByte(1) To CByte(3)</c> counts in Bytes, where native code counts in Integers.
+    /// <para>
+    /// One p-code answer is not followed: a Decimal start with no Step clause gives p-code a counter that reads as a Date
+    /// (<c>For x = CDec(0) To 2</c> counts 00:00:00, 31/12/1899, 01/01/1900). Native code counts Decimals, as it does with any
+    /// Step clause, and so does HexIDE, as VB6 plainly meant (the Fidelity Principle).
+    /// </para>
+    /// </summary>
+    private static Vb6Value.ValueType ForVariantType(Vb6Value from, Vb6Value to, Vb6Value? step, ParserRuleContext context)
+    {
+        var type = ForSumType(ForOperandType(from.Type), ForOperandType(to.Type), context);
+        return step is { } s ? ForSumType(type, ForOperandType(s.Type), context) : type;
+    }
+
+    // A String bound reaches here already read as a Double (ForBound).
+    private static Vb6Value.ValueType ForOperandType(Vb6Value.ValueType t) =>
+        t == Vb6Value.ValueType.Boolean || t == Vb6Value.ValueType.EmptyVariant ? Vb6Value.ValueType.Integer : t;
+
+    // The result table of + for two numeric types (docs/vb6-fidelity-oracle.md, "+ and -"): the wider of the two, except that
+    // a Long beside a Single is a Double. A Date beside any number is a Date. A Date beside a Decimal was not measured.
+    private static Vb6Value.ValueType ForSumType(Vb6Value.ValueType a, Vb6Value.ValueType b, ParserRuleContext context)
+    {
+        if (a == b)
+            return a;
+        if (a == Vb6Value.ValueType.Date || b == Vb6Value.ValueType.Date)
+            return a == Vb6Value.ValueType.Decimal || b == Vb6Value.ValueType.Decimal
+                ? throw new NotImplementedException("A For loop that mixes a Date and a Decimal is not supported: what VB6 does "
+                    + "with that pair was not measured.")
+                : Vb6Value.ValueType.Date;
+        if (a == Vb6Value.ValueType.Long && b == Vb6Value.ValueType.Single || a == Vb6Value.ValueType.Single && b == Vb6Value.ValueType.Long)
+            return Vb6Value.ValueType.Double;
+        return ForRank(a) >= ForRank(b) ? a : b;
+    }
+
+    private static int ForRank(Vb6Value.ValueType t) =>
+        t == Vb6Value.ValueType.Byte ? 0
+        : t == Vb6Value.ValueType.Integer ? 1
+        : t == Vb6Value.ValueType.Long ? 2
+        : t == Vb6Value.ValueType.Single ? 3
+        : t == Vb6Value.ValueType.Double ? 4
+        : t == Vb6Value.ValueType.Currency ? 5
+        : 6;
+
+    /// <summary>A For loop's start, limit or step. A numeric or Date counter's is converted into the counter's declared type
+    /// as a store into it would convert (banker's rounding, 6 on overflow, 13 for text that is not a number). A Variant
+    /// counter's keeps its own type, a String being read as the Double it spells (measured: <c>"1" To "2" Step "0.5"</c>
+    /// counts 1, 1.5 and 2 as Doubles). Anything that is not a number is 13.</summary>
+    private async Task<Vb6Value> ForBound(VB6Parser.ValueStmtContext bound, VB6Parser.ForNextStmtContext context, Vb6Value.ValueType? counterType)
     {
         var value = await expressionExecutor.EvaluateScalar(bound);
-        if (counterType is { } type && VbNumeric.IsCoreNumeric(type))
-            value = VbNumeric.CoerceOnStore(value, type, context);
-        return expressionExecutor.TryUnpack(value, out double d)
-            ? d
+        if (counterType is { } type && (VbNumeric.IsCoreNumeric(type) || type == Vb6Value.ValueType.Date))
+            return VbNumeric.CoerceOnStore(value, type, context);
+        if (value.Type == Vb6Value.ValueType.String)
+        {
+            try
+            {
+                return new Vb6Value(VB6BuiltIns.ToNum(value));
+            }
+            catch (VBRunTimeException e)
+            {
+                throw new VBRunTimeException(context, e.Error);
+            }
+        }
+        if (value.Type == Vb6Value.ValueType.Boolean || value.Type == Vb6Value.ValueType.EmptyVariant)
+            return value;
+        return Vb6Value.TryNumericToDouble(value, out _)
+            ? value
             : throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
     }
 
+    // A bound as a number, for the loop state a header that raised steps by: a Boolean as -1 or 0, Empty as 0, a Date as
+    // its serial.
+    private static double ForNumber(Vb6Value v) =>
+        v.Type == Vb6Value.ValueType.EmptyVariant ? 0
+        : v.Value is bool b ? (b ? -1 : 0)
+        : Vb6Value.TryNumericToDouble(v, out var d) ? d : 0;
+
     private static NotImplementedException FractionalForRefused() =>
-        new("A For loop with a fractional start, limit or step is not supported yet: only whole numbers are.");
+        new("A For loop with a fractional start, limit or step is not supported for a Boolean or String counter: only "
+            + "whole numbers are.");
 
     /// <summary>
     /// A For whose start, limit or step raised under Resume Next (measured, #839). VB6 goes on at the body's first
@@ -1221,8 +1364,27 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 $"A For whose header raised under On Error Resume Next, with a {typeName} counter, is not supported: " +
                 "what VB6 does then was measured for numeric and Date counters only.");
         }
-        if (limit != Math.Truncate(limit) || step != Math.Truncate(step))
-            throw FractionalForRefused();
+        if (SteppedInItsType(counterType))
+        {
+            // A Single, Double, Currency or Date counter steps in its own type, as an evaluated header's does (#983).
+            var type = counterType;
+            var limitValue = VbNumeric.Narrow(new Vb6Value(limit), type, context);
+            var stepValue = VbNumeric.Narrow(new Vb6Value(step), type, context);
+            var up = step >= 0;
+            while (true)
+            {
+                if (interpreter.Ending || interpreter.DebugController is { IsAborting: true })
+                    throw new Debugging.StopExecutionSignal();
+                if (await RunLoopBodyOnce(block) is { } left)
+                    return left;
+                interpreter.ExecutionContext.TryGetVariable(currentEnv, counter, out var held);
+                var (stored, tested) = ForNextValue(VbNumeric.Narrow(held, type, context), stepValue, context);
+                interpreter.ExecutionContext.TryUpdateVariable(currentEnv, counter, stored, context);
+                var order = VbNumeric.CompareNumbers(tested, limitValue, context);
+                if (up ? order > 0 : order < 0)
+                    return ControlFlow.Nothing;
+            }
+        }
 
         while (true)
         {
@@ -1232,7 +1394,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (await RunLoopBodyOnce(block) is { } left)
                 return left;
 
-            // Next: the counter as the body left it, plus the step.
+            // Next: the counter as the body left it, plus the step. A Byte, Integer or Long counter holds a whole number.
             interpreter.ExecutionContext.TryGetVariable(currentEnv, counter, out var current);
             if (!expressionExecutor.TryUnpack(current, out double c) || c != Math.Truncate(c))
                 throw FractionalForRefused();
