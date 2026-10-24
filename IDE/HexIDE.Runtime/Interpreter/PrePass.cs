@@ -228,8 +228,7 @@ public class PrePass : VB6BaseVisitor<object?>
 
     public override object? VisitOptionCompareStmt(VB6Parser.OptionCompareStmtContext context)
     {
-        // Recorded for the module. Like honours it (#1547); the comparison operators still compare strings ordinally,
-        // as Option Compare Binary does, which is a documented divergence (docs/interpreter-gaps.md).
+        // Recorded per module for comparisons, Like and intrinsic calls written in that module.
         OptionCompareText = context.TEXT() != null;
         return default;
     }

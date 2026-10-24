@@ -1,4 +1,5 @@
 using System;
+using System.Numerics;
 using Antlr4.Runtime;
 using VT = HexIDE.Runtime.Interpreter.Vb6Value.ValueType;
 
@@ -105,7 +106,11 @@ public static class VbNumeric
         var rt = CoreType(Math.Max(lr, rr));
         if (rt == VT.Currency || rt == VT.Decimal)
         {
-            decimal a = ToDecimal(l), b = ToDecimal(r);
+            // In + and -, a Double beside a Currency becomes a Currency first, by its exact binary value, and the sum is
+            // taken in Currency: 2@ + 0.00005 is 2.0001, where the sum taken in Double would round to 2 (measured, #966).
+            // A Currency times a Double is a Double in VB6, which this path does not yet give (#230).
+            decimal a = rt == VT.Currency && op != '*' && l.Type == VT.Double ? CurrencyDecimal(l, ctx) : ToDecimal(l),
+                b = rt == VT.Currency && op != '*' && r.Type == VT.Double ? CurrencyDecimal(r, ctx) : ToDecimal(r);
             decimal res;
             try { res = op == '+' ? a + b : op == '-' ? a - b : a * b; }
             catch (OverflowException) { throw new VBRunTimeException(ctx, VBStandardError.Overflow); }
@@ -231,7 +236,9 @@ public static class VbNumeric
         if (target == VT.Double)
             return new Vb6Value(ToDouble(v));
         if (target == VT.Currency)
-            return MakeCurrency(ToDecimal(v), ctx);
+            return v.Type == VT.Double
+                ? CurrencyFromDouble((double)v.Value!, ctx)
+                : MakeCurrency(ToDecimal(v), ctx);
         if (target == VT.Decimal)
             return Vb6Value.NewDecimal(ToDecimal(v));
         if (target == VT.Date)
@@ -305,6 +312,48 @@ public static class VbNumeric
         if (r < -922_337_203_685_477.5808m || r > 922_337_203_685_477.5807m)
             throw new VBRunTimeException(ctx, VBStandardError.Overflow);
         return Vb6Value.NewCurrency(r);
+    }
+
+    private static Vb6Value CurrencyFromDouble(double value, ParserRuleContext? ctx)
+    {
+        var (numerator, denominator) = DoubleFraction(value, ctx);
+        return RoundCurrency(numerator, denominator, ctx);
+    }
+
+    private static decimal CurrencyDecimal(Vb6Value doubleValue, ParserRuleContext? ctx) =>
+        (decimal)CurrencyFromDouble((double)doubleValue.Value!, ctx).Value!;
+
+    private static (BigInteger Numerator, BigInteger Denominator) DoubleFraction(double value, ParserRuleContext? ctx)
+    {
+        if (!double.IsFinite(value))
+            throw new VBRunTimeException(ctx, VBStandardError.Overflow);
+        // (decimal)d keeps only about 15 significant digits: it turns 1.00005 and 0.00015 into
+        // decimal ties, losing which side their binary values occupy (#966). Decode d = mantissa * 2^exponent
+        // instead. BigInteger shifts and products preserve every bit, including subnormal values.
+        ulong bits = BitConverter.DoubleToUInt64Bits(value);
+        int exponentBits = (int)((bits >> 52) & 0x7ff);
+        BigInteger mantissa = bits & 0x000f_ffff_ffff_ffffUL;
+        if (exponentBits != 0)
+            mantissa += BigInteger.One << 52;
+        int exponent = exponentBits == 0 ? -1074 : exponentBits - 1023 - 52;
+        if ((bits >> 63) != 0)
+            mantissa = -mantissa;
+        return exponent >= 0 ? (mantissa << exponent, BigInteger.One) : (mantissa, BigInteger.One << -exponent);
+    }
+
+    private static Vb6Value RoundCurrency(BigInteger numerator, BigInteger denominator, ParserRuleContext? ctx)
+    {
+        // Scale the exact fraction to Currency units, then round once. Comparing twice the remainder
+        // with the denominator detects a true tie; the quotient's parity implements ties to even.
+        BigInteger units = BigInteger.DivRem(BigInteger.Abs(numerator) * 10000, denominator, out var remainder);
+        int comparison = (remainder * 2).CompareTo(denominator);
+        if (comparison > 0 || (comparison == 0 && !units.IsEven))
+            units++;
+        if (numerator.Sign < 0)
+            units = -units;
+        if (units < long.MinValue || units > long.MaxValue)
+            throw new VBRunTimeException(ctx, VBStandardError.Overflow);
+        return Vb6Value.NewCurrency((decimal)units / 10000m);
     }
 
     private static double SerialOf(Vb6Value v) => v.Value is DateTime dt ? dt.ToOADate() : ToDouble(v);
