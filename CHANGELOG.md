@@ -10,6 +10,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **MCP tool table drift guard** (#1339). Tests check CLAUDE.md's curated signatures against the tools,
+  including parameter order, optionality and every `interact` action. Corrected missing `project?`
+  parameters on `open_file` and `view_designer`, and the optional `armed?` parameter on `arm_lsp_capture`.
+
 - **CI keeps test-host crash logs** (#1309). Failed test jobs upload their `TestResults` directories
   as artifacts named for the job and operating system, retained for seven days.
 
@@ -272,6 +276,14 @@ there isn't one yet. Anything may change between 0.x releases.
   fire in a form's run; the spec now says so, with a regression test. The `VB_PredeclaredId` rows distinguish
   an inert header from a missing default class instance, remaining VSTest filters use MTP syntax, and the
   closed MCP gap no longer calls a form's attribute header invisible in HexIDE.
+
+- **Snapshots leave room for menus above or left of the window** (#648). The window and its popups now share
+  the same image origin. `take_snapshot` reports the window offset and explains how to map inspected bounds
+  into the full-size or inline image.
+
+- **A broken assignment no longer hides later syntax errors and procedures** (#938). The bundled language
+  server recovers at the next statement separator and reports each offending token once. Recovery from
+  extraneous tokens and errors between procedures remains partial.
 
 - **Bundled-server completion labels are unique and carry declaration kinds** (#940). `Date` appears once as a function; declared names take precedence over keywords and built-ins, and procedures, properties, constants, enums, enum members and types no longer appear as variables.
 

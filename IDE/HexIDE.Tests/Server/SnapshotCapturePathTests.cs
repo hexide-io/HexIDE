@@ -10,6 +10,14 @@ namespace HexIDE.Tests.Server;
 public class SnapshotCapturePathTests
 {
     [Fact]
+    public void The_tool_explains_and_returns_the_window_offset()
+    {
+        var tool = HexIDE.Tests.Infrastructure.ToolSource.Tools.Single(t => t.Name == "take_snapshot");
+        tool.Description.Should().Contain("windowOffsetX").And.Contain("windowOffsetY");
+        tool.Body.Should().Contain("WindowOffsetX:").And.Contain("WindowOffsetY:");
+    }
+
+    [Fact]
     public void Two_captures_in_the_same_millisecond_get_two_files()
     {
         var folder = Path.Combine(Path.GetTempPath(), "hexide-snapshot-path-test");

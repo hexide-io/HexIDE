@@ -2102,7 +2102,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "take_snapshot")]
-    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. inspect_element's 'boundingRect' is in the window's device-independent units measured from its top-left, which is the image's top-left, so multiply it by 'scale' to find the control in the image. If any other window is open (a dialog, the Find window, or a running program's form) it is captured in preference to the IDE's own, whether or not it is on top, and its title is reported in 'activeDialog'; otherwise the main window is captured. 'window' selects which top-level window to address, as its description says: under \"auto\" (default) a running program's form, INCLUDING while it is paused at a breakpoint, is usually picked over the IDE; pass \"ide\" for the IDE itself, or a window's title or a running form's name for that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them. The path is on the IDE's machine: a client attached from another machine, through a tunnel, passes 'inline' true to get the image itself as well, in a copy fitted to 1568 pixels whose 'inlineScale' takes the place of 'scale'.")]
+    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. Open popups can extend the image left or above the window: 'windowOffsetX' and 'windowOffsetY' give the window origin in full-image pixels (otherwise zero). For inspect_element's window-relative 'boundingRect', image x = x * scale + windowOffsetX, likewise y. For the inline copy, x = (x + windowOffsetX / scale) * inlineScale, likewise y. If any other window is open (a dialog, the Find window, or a running program's form) it is captured in preference to the IDE's own, whether or not it is on top, and its title is reported in 'activeDialog'; otherwise the main window is captured. 'window' selects which top-level window to address, as its description says: under \"auto\" (default) a running program's form, INCLUDING while it is paused at a breakpoint, is usually picked over the IDE; pass \"ide\" for the IDE itself, or a window's title or a running form's name for that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them. The path is on the IDE's machine: a client attached from another machine, through a tunnel, passes 'inline' true to get the image itself as well, in a copy fitted to 1568 pixels described by 'inlineWidth', 'inlineHeight' and 'inlineScale'.")]
     public async Task<SnapshotResult> TakeSnapshotAsync(
         [Description(WindowParameter)] string? window = null,
         // The tool holds an inline copy, which InlineSnapshot attaches after the reply (#957).
@@ -2127,7 +2127,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // A dropped-down menu, a combo's list, a flyout: each is realised in its own top-level root,
             // so rendering the window alone gives a menu bar with no menu. The composer draws them in
             // their real positions — gap 12 in docs/mcp-server-gaps.md.
-            using var bitmap = HexIDE.Automation.SnapshotComposer.Capture(active);
+            using var bitmap = HexIDE.Automation.SnapshotComposer.Capture(active, out var windowOffset);
             if (bitmap is null)
                 return new SnapshotResult(null, "Window has no size", activeDialog);
 
@@ -2135,9 +2135,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
             var path = HexIDE.Automation.SnapshotComposer.NewCapturePath(System.IO.Path.GetTempPath(), DateTime.UtcNow);
             bitmap.Save(path);
 
-            // The composer renders at the window's desktop scaling, with the window at the image's origin. (#646)
+            // The window origin includes any space left for a popup above or to its left (#648).
             var result = new SnapshotResult(path, null, activeDialog,
-                bitmap.PixelSize.Width, bitmap.PixelSize.Height, active.DesktopScaling);
+                bitmap.PixelSize.Width, bitmap.PixelSize.Height, active.DesktopScaling,
+                WindowOffsetX: windowOffset.X, WindowOffsetY: windowOffset.Y);
             if (!inline)
                 return result;
 
@@ -2273,7 +2274,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     [McpServerTool(Name = "inspect_element")]
     [DescribesEnum(typeof(WindowDecorations))]
     [DescribesEnum(typeof(WindowState))]
-    [Description("Deep-inspects one control addressed by 'target' (a path from dump_visual_tree): identity, providers, 'isFocused' (has keyboard focus), 'isKeyboardFocusable', and 'boundingRect' (x, y, width, height in window device-independent units from its top-left; multiply by take_snapshot's 'scale' for image coordinates). Reports value with 'isReadOnly' (true/false when a value provider exists), toggle state, 'selectionItems', what is selected, not the list's items (expand and dump a dropdown to read those), 'itemCount', how many items a list, dropdown or tab holds, hidden ones too, and a scroll bar/slider's 'range' (value, minimum, maximum, isReadOnly). A Window also reports 'frame': canResize, windowDecorations (None, BorderOnly, Full), canMinimize, canMaximize, showInTaskbar, windowState (Normal, Minimized, Maximized, FullScreen). These are Avalonia properties; native styles are not reported, as nativeStyleNote explains. Other controls have no frame section. Lists the DataContext ViewModel's public commands, Command-bound methods and properties for interact's reflection actions, with property values where readable as text. A control that inherits its DataContext lists only its own resolved Command, if any, with binding details in 'dataContextNote'; 'dataContextOwner' gives the owner's path, and 'dataContextNote' counts omitted Dock base-type members. An editor's Document reads as a line count: get_file_content returns the whole text that CaretOffset, SelectionStart and SelectionLength count into; the Immediate window's reads as its text. Values over 4000 characters are cut and give their full length. Use before interact to check providers or discover VM members. Pass the same 'window' as the dump the path came from; its parameter description lists the values. 'isHidden' is true for a control in the tree but effectively invisible (e.g. collapsed by a binding), and absent when showing.")]
+    [Description("Deep-inspects one control addressed by 'target' (a path from dump_visual_tree): identity, providers, 'isFocused' (has keyboard focus), 'isKeyboardFocusable', and 'boundingRect' (x, y, width, height in window device-independent units from its top-left; map into a snapshot with take_snapshot's scale and window offsets). Reports value with 'isReadOnly' (true/false when a value provider exists), toggle state, 'selectionItems', what is selected, not the list's items (expand and dump a dropdown to read those), 'itemCount', how many items a list, dropdown or tab holds, hidden ones too, and a scroll bar/slider's 'range' (value, minimum, maximum, isReadOnly). A Window also reports 'frame': canResize, windowDecorations (None, BorderOnly, Full), canMinimize, canMaximize, showInTaskbar, windowState (Normal, Minimized, Maximized, FullScreen). These are Avalonia properties; native styles are not reported, as nativeStyleNote explains. Other controls have no frame section. Lists the DataContext ViewModel's public commands, Command-bound methods and properties for interact's reflection actions, with property values where readable as text. A control that inherits its DataContext lists only its own resolved Command, if any, with binding details in 'dataContextNote'; 'dataContextOwner' gives the owner's path, and 'dataContextNote' counts omitted Dock base-type members. An editor's Document reads as a line count: get_file_content returns the whole text that CaretOffset, SelectionStart and SelectionLength count into; the Immediate window's reads as its text. Values over 4000 characters are cut and give their full length. Use before interact to check providers or discover VM members. Pass the same 'window' as the dump the path came from; its parameter description lists the values. 'isHidden' is true for a control in the tree but effectively invisible (e.g. collapsed by a binding), and absent when showing.")]
     public async Task<InspectResult> InspectElementAsync(
         string target, [Description(WindowParameter)] string? window = null, CancellationToken ct = default)
     {
@@ -3142,7 +3143,8 @@ internal record ControlInfo(
 internal record SnapshotResult(
     string? Path, string? Error, string? ActiveDialog, int? Width = null, int? Height = null, double? Scale = null,
     // The inline copy's own size and pixels per device-independent unit, when one was asked for (#957).
-    int? InlineWidth = null, int? InlineHeight = null, double? InlineScale = null);
+    int? InlineWidth = null, int? InlineHeight = null, double? InlineScale = null,
+    int? WindowOffsetX = null, int? WindowOffsetY = null);
 
 internal record ProjectInfoResult(
     string? ProjectName,
