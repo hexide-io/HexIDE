@@ -276,6 +276,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Member call statements accept a parenthesised argument without a space** (#1064). `Form2.Show(0)` and
+  `Text1.Move(100)` now run as their spaced forms do, and the language server accepts them too.
+
 - **Unimplemented faults survive reference cleanup** (#767). A raising `Class_Terminate` no longer replaces an
   engine-limit failure with a VB6 error that `On Error` can trap; termination hooks are skipped during its unwind.
 

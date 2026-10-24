@@ -11582,7 +11582,7 @@ Load goes on once Form2 has unloaded, and Form1 is then shown as any startup for
 **13. A method call statement with no space before its parenthesised argument.** A form's Timer ran `Form2.Show(0)`
 and `Text1.Move(100)`, written into the `.frm` that way. Both builds compile, and both statements run: Form2 loads and
 shows, and `Text1.Left` reads 100 after the Move. VB6's editor would have rewritten each with a space, so this is what
-a file written elsewhere gets. HexIDE's grammar refused both (#1064).
+a file written elsewhere gets. HexIDE's grammar refused both; #1064 now accepts them in the interpreter and language server.
 
 ## An unhandled run-time error (2026-10-14, #1011)
 
