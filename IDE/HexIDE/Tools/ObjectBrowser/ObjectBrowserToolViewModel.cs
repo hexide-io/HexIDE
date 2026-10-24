@@ -185,7 +185,7 @@ public partial class ObjectBrowserToolViewModel : Document
 
     private void AddVbaLibraryStub()
     {
-        vbaLibrary = new OBLibraryViewModel("VBA");
+        vbaLibrary = new OBLibraryViewModel("VBA") { IsLoaded = false };
         Libraries.Add(vbaLibrary);
         ReorderLibraries();
     }
@@ -193,19 +193,34 @@ public partial class ObjectBrowserToolViewModel : Document
     private async Task LoadVbaLibraryAsync(OBLibraryViewModel lib)
     {
         if (lib.IsLoaded) return;
+        var running = (connections.Connections ?? [])
+            .Where(c => c.State == LanguageConnectionState.Running).ToArray();
+        if (!running.Any(c => c.Capabilities is { ValueKind: JsonValueKind.Object } caps
+                && caps.TryGetProperty("experimental", out var experimental)
+                && experimental.ValueKind == JsonValueKind.Object
+                && experimental.TryGetProperty("vbBuiltinSymbols", out var flag)
+                && flag.ValueKind == JsonValueKind.True))
+        {
+            lib.Classes.Clear();
+            lib.Classes.Add(new OBClassViewModel(localization.GetString(running.Length == 0
+                ? "Str.Tool.ObjectBrowser.Vba.NoServer"
+                : "Str.Tool.ObjectBrowser.Vba.NoProvider"), OBClassKind.Module, "VBA"));
+            return;
+        }
         IsLoadingMembers = true;
         try
         {
             var symbols = await lspClient.RequestBuiltinSymbolsAsync();
+            lib.Classes.Clear();
             lib.IsLoaded = true;
 
             if (symbols.Length == 0)
             {
-                lib.Classes.Add(new OBClassViewModel("(Built-in symbols unavailable)", OBClassKind.Module, "VBA"));
+                lib.Classes.Add(new OBClassViewModel(localization.GetString("Str.Tool.ObjectBrowser.Vba.Empty"), OBClassKind.Module, "VBA"));
             }
             else
             {
-                var globalsClass = new OBClassViewModel("(Globals)", OBClassKind.Module, "VBA");
+                var globalsClass = new OBClassViewModel(localization.GetString("Str.Tool.ObjectBrowser.Vba.Globals"), OBClassKind.Module, "VBA");
                 foreach (var sym in symbols)
                     globalsClass.Members.Add(new OBMemberViewModel(sym.Name, OBMemberKind.Method, sym.Signature, sym.Documentation));
                 lib.Classes.Add(globalsClass);
@@ -217,7 +232,6 @@ public partial class ObjectBrowserToolViewModel : Document
         catch (Exception ex)
         {
             Log.Warning(ex, "ObjectBrowser: failed to load VBA built-in symbols");
-            lib.IsLoaded = true;
         }
         finally { IsLoadingMembers = false; }
     }

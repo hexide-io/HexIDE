@@ -14,6 +14,9 @@ which is why VB6 gave it a dedicated key.
 > the member's definition, and Escape does not close the window. Tracked in
 > [#24](https://github.com/hexide-io/HexIDE/issues/24). They are stated as requirements rather than written
 > down to match the code, because the code is wrong here, not the intent.
+> VBA built-ins load from a capable running server, with distinct no-server, no-provider and empty-answer
+> entries. If the browser was opened before a server started, selecting VBA or All Libraries again retries;
+> automatic refresh on server startup remains outstanding ([#903](https://github.com/hexide-io/HexIDE/issues/903)).
 
 ## Requirements
 
