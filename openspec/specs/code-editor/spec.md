@@ -244,3 +244,12 @@ see.
 #### Scenario: Searching for a control's name
 - **WHEN** the developer searches a form's code for the name of one of its controls
 - **THEN** only matches in the code are found
+
+### Requirement: Find SHALL wrap after searching other open documents
+Under All Open Documents, Find SHALL search the active document in the chosen direction without wrapping,
+then the other open documents, and only then wrap within the active document.
+
+#### Scenario: Find Up from the start of the active document
+- **WHEN** the caret is at offset 0 and both the active document and another open document contain the search text
+- **AND** the developer uses plain-text Find Up under All Open Documents
+- **THEN** the last match in the other document is selected before any match in the active document

@@ -265,6 +265,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Find Up visits other open documents before wrapping** (#703). From offset 0 under All Open Documents,
+  plain-text Find now searches the other documents before returning to the bottom of the active document.
+
 - **Corpus and grammar reports stay with their test run** (#1018). All four reports are written beside
   the test assembly, so separate checkouts and build output directories no longer overwrite each other's
   reports or contend for a shared temp file.
