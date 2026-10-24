@@ -46,3 +46,26 @@ The transport SHALL NOT launch a compiler, initialize a session, interpret contr
 #### Scenario: Live socket smoke test
 - **WHEN** a live compiler endpoint accepts a transport connection without session initialization
 - **THEN** evidence records connection success and leaves initialization compatibility unverified
+
+### Requirement: Offline exchange recordings
+
+The adapter SHALL support opt-in recording at the complete-message transport boundary, without an IDE
+shell dependency. A shared recorder SHALL write a format-version-1 JSON-lines header naming the beta,
+edition and scenario, then sequenced channel, direction, frame type and payload records. Text SHALL be
+stored as text and binary as base64. Explicit run values SHALL be replaced with named placeholders at
+record time and restored with the replay run's values. Recording SHALL reject user-home paths and
+licence-shaped values before writing a frame.
+
+#### Scenario: Synthetic preparation round trip
+- **WHEN** the scripted root handshake and load/settings/package/readiness exchange is recorded
+- **THEN** its checked-in synthetic fixture replays through loopback transports without a compiler
+- **AND** the adapter's requests match and it accepts the fixture's replies
+
+#### Scenario: A request changes
+- **WHEN** a replayed adapter frame differs from its fixture after substitution
+- **THEN** replay fails at that sequence and reports expected and actual texts
+- **AND** text frames compare as structural JSON and binary frames compare byte for byte
+
+#### Scenario: A run value was not supplied
+- **WHEN** a replay frame still contains a named run placeholder after substitution
+- **THEN** replay refuses it before sending or waiting for that frame

@@ -10,6 +10,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Compiler exchange recording and replay tooling** (#1218): versioned JSON-lines captures, explicit run-value
+  placeholders, redaction checks and an offline synthetic preparation exchange. Real beta recordings follow in #1689.
+
 - **Keyboard parameter-info regression tests** (#1262). Headless tests cover typing `MsgBox(`, the signature-help
   request position, and parameter info being open before the typing reply when the server answers after a delay.
 
