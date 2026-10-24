@@ -48,7 +48,13 @@ public sealed class MessagePart(MessagePartKind kind, string content, string? la
                 code = codeBlock.ToString();
             }
 
-            parts.Add(new MessagePart(MessagePartKind.Code, code.TrimEnd(), lang));
+            // Only the line break introducing the closing fence belongs to the fence.
+            if (code.EndsWith("\r\n", StringComparison.Ordinal))
+                code = code[..^2];
+            else if (code.EndsWith('\n'))
+                code = code[..^1];
+
+            parts.Add(new MessagePart(MessagePartKind.Code, code, lang));
             remaining = remaining[(closeFence + 3)..];
         }
 

@@ -43,12 +43,16 @@ VB6 discarded breakpoints when the project closed. HexIDE keeps them, stored per
 ### Requirement: Breakpoints SHALL only take effect in code loaded for the run
 A breakpoint SHALL cause a break only when it sits in code loaded into the interpreter for the current run.
 
-A run loads the startup form's code into the interpreter. Breakpoints in other modules are stored, shown and persisted, but the code they sit in is not executing, so they cannot be reached.
+A form's run loads its code and the project's standard (`.bas`) and class (`.cls`) modules into the interpreter. UserControl (`.ctl`) and PropertyPage (`.pag`) modules are not loaded as free-standing modules by this path.
 
 #### Scenario: A breakpoint in a standard or class module
-- **WHEN** the developer sets a breakpoint in a `.bas` or `.cls` module and runs the project
+- **WHEN** the developer sets a breakpoint on an executable line in a `.bas` or `.cls` module and the running form calls that code
+- **THEN** execution breaks at that line under the module's name
+
+#### Scenario: A breakpoint in a UserControl or PropertyPage module
+- **WHEN** the developer sets a breakpoint in a `.ctl` or `.pag` module and runs the startup form
 - **THEN** the breakpoint is retained and displayed
-- **AND** execution does not break there, because that module's code is not loaded for the run
+- **AND** the form's module-loading path does not load that module as a free-standing module
 
 ### Requirement: The developer SHALL be able to suspend and resume a running program
 The IDE SHALL let the developer break into a running program, continue from break mode, and end the run from either state.

@@ -122,6 +122,8 @@ public abstract class ComponentBaseClass : IComponentClass
     public Control Instantiate(ComponentInstance instance)
     {
         var control = InstantiateInternal(instance);
+        if (instance.TryGetProperty(MousePointerProperty, out var mousePointer))
+            AttachedProperties.SetMousePointer(control, mousePointer);
         // Disabled by its own Enabled, or by what it is: a UserControl whose .ctl saved Enabled = False is disabled wherever
         // it is placed, and the extender has no Enabled of its own (measured, #1101).
         control.IsEnabled = control.IsEnabled && instance.GetPropertyOrDefault(EnabledProperty);
