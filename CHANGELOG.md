@@ -10,6 +10,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **CI keeps test-host crash logs** (#1309). Failed test jobs upload their `TestResults` directories
+  as artifacts named for the job and operating system, retained for seven days.
+
 - **Start automation with an unsaved project** (#502). `--newproject-unsaved` skips the startup dialog without
   writing project or component files, so `untitled:` language-server URIs can be exercised from launch.
   `--newproject` still saves to a temporary directory; `add_file` already leaves new documents pathless (#500).
