@@ -356,6 +356,21 @@ SHALL report none for an IDE started without one.
 - **WHEN** tooling polls the health check of an IDE started for a session
 - **THEN** the reply names that session beside the process ID
 
+### Requirement: Snapshot coordinates include popup overhang
+
+A snapshot SHALL include the window and its open native popups at their relative screen positions,
+including popups extending left of or above the window. The reply SHALL report the window origin in
+full-image pixels as `windowOffsetX` and `windowOffsetY`, zero when no left or top overhang exists.
+Tool descriptions SHALL explain how to map inspected window-relative bounds into both returned images.
+
+#### Scenario: A menu extends left of the window
+
+- **WHEN** an open native popup extends left of the captured window
+- **THEN** the window is shifted right in the image to leave room for the overhang
+- **AND** the reply reports that shift as `windowOffsetX`
+- **AND** a window-relative x coordinate maps to `x * scale + windowOffsetX` in the full image
+- **AND** in the inline copy it maps to `(x + windowOffsetX / scale) * inlineScale`
+
 ### Requirement: Automation SHALL be able to start with a pathless project
 The `--newproject-unsaved` launch flag SHALL create a Standard EXE and skip the startup dialog without saving
 its project or component files. It SHALL take precedence over `--newproject` and a positional project path.
