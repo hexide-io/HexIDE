@@ -255,6 +255,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Options names its Tab width, grid Width and grid Height fields for accessibility** (#950). Each name follows
+  its localized label without the access-key marker, so automation can address the field by that label.
+
 - **An empty one-line For Each over Nothing follows p-code** (#1486). Under On Error Resume Next it raises 424, keeps the loop variable and skips Next; a statement after Next on the line still runs. Other loop forms keep their measured behaviour.
 
 - **Compiler test sockets are disposed when peer creation fails** (#1333). Loopback test helpers now own
