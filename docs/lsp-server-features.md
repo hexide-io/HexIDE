@@ -132,6 +132,9 @@ straight from the value to the end of the line. Every `.cls` VB6 ever wrote fail
 [`vb6-grammar-fixes.md`](./vb6-grammar-fixes.md) is the repair, and `WholeFileGrammarTests` in each half now
 parses the corpus whole.
 
+`Declare PtrSafe` is accepted in active code too (#1548), with existing types. `LongPtr`, `LongLong` and
+their conversion functions remain follow-up work; this adds no external API execution.
+
 ### Conditional compilation
 
 **Code that `vb6.exe` never compiles is never parsed** (#1112). Before parsing, the server applies the module's

@@ -10,6 +10,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **`Declare PtrSafe` parses** (#1548) in the interpreter and language server. VBA7 declarations using existing
+  types now let a module load; external API calls remain deferred. `LongPtr`, `LongLong` and their conversions
+  are follow-up work.
+
 - **Compiler exchange recording and replay tooling** (#1218): versioned JSON-lines captures, explicit run-value
   placeholders, redaction checks and an offline synthetic preparation exchange. Real beta recordings follow in #1689.
 
