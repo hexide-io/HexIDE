@@ -255,6 +255,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Restart stops the previous run at its time-slice yield** (#761). End followed immediately by a new run can
+  no longer let the old walk continue. Faults and `End` events from an old or unrelated interpreter cannot end
+  the current run, for either startup forms or Sub Main.
+
 - **An empty one-line For Each over Nothing follows p-code** (#1486). Under On Error Resume Next it raises 424, keeps the loop variable and skips Next; a statement after Next on the line still runs. Other loop forms keep their measured behaviour.
 
 - **Compiler test sockets are disposed when peer creation fails** (#1333). Loopback test helpers now own
