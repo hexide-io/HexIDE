@@ -234,6 +234,11 @@ nowhere else.
 - **WHEN** a build reports an error against one of the project's files
 - **THEN** it is shown on the line of that file the developer sees, not on the line the compiler counted
 
+#### Scenario: A compile error around a continued attribute
+- **WHEN** VB6 reports a compile error in code containing continued lines
+- **THEN** mapping SHALL exclude every physical line of a logical line starting with `Attribute`
+- **AND** it SHALL count a physical line starting with `Attribute` when it continues code or a comment
+
 ### Requirement: Find SHALL NOT match inside a read-only region
 Find, Find Next and Replace SHALL search only text outside read-only regions.
 
