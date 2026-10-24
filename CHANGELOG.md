@@ -249,6 +249,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Numeric Strings accept a thousands separator after the decimal point** (#1446). `CDbl("1.5,2003")`
+  now gives 1.52003 under en-GB, as measured on vb6.exe SP6, native and p-code. Long, Currency,
+  IsNumeric and arithmetic read these Strings too; a leading separator is refused and Val still stops at it.
+
 - **MCP `get_form_controls` reports absent properties as null** (#1635). A Line or Shape no longer claims to be enabled when its class has no Enabled property. The summary's `visible` and `enabled` now follow `caption` and `text`: null where the control's class has no such property.
 
 - **MCP replies distinguish dialogs sharing a title** (#1365). The modal note names a message box or run-time error dialog, its first line of text and its actual buttons; other dialogs include their buttons. The window parameter explains how to discover open windows through an unknown-name refusal.
