@@ -255,6 +255,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A raised For Each collection under Resume Next uses more declarations** (#969). Parenthesised calls, array
+  elements, direct class methods and Property Gets, and module-qualified Functions now run the body once and raise
+  92 at Next, preserving the element only for a declared array. Unavailable declarations still stop with an explanation.
+
 - **`Val("1E+400")` raises Overflow (6)** instead of returning infinity, as measured on vb6.exe (#782).
 
 - **An omitted `Optional o As Variant` is Missing** (#866). `IsMissing`, `TypeName` and `VarType` now
