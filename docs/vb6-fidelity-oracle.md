@@ -1846,6 +1846,8 @@ What these show:
 Not measured: what Style 2 does in the designer to a combo whose Name has been changed, which would show whether it is
 the name now or the name the control was drawn with.
 
+A Dropdown List's box shows the name it has now: "What VB6's designer draws in a Dropdown List's box" (#1604).
+
 ### In HexIDE (#926)
 
 - **A drawn TextBox or ComboBox** starts with its name as its Text, and a control with no Caption is no longer given one.
@@ -1856,6 +1858,58 @@ the name now or the name the control was drawn with.
 - **A Dropdown List's Text** is never written to the .frm, and is ignored at load. At run time it was refused as not
   implemented until #1428 modelled the Style (below).
 - **Click and Change** come as measured since #1429, which records them with real input.
+
+### What VB6's designer draws in a Dropdown List's box (2026-10-23, #1604)
+
+**The question.** "Drawn in the VB6 IDE's designer" saw a drawn combo set to Style 2 still showing its name, `Combo3`, in
+its box. It left two cases open:
+- a Dropdown List read from a file, which has no Text line to show;
+- a Dropdown List renamed in the Properties window: does the box show the new name, or the name it was drawn with?
+
+**The probe.** In the guest's console session, the VB6 IDE opened a project holding one form, through the agent. The form
+held, from its file:
+- `Combo1` and `cboList`, two Dropdown Lists with no Text line;
+- `Combo3`, a Dropdown List whose file saved `Text = "x"`;
+- `Combo4`, a Dropdown Combo with `Text = "Combo4"`.
+
+The designer was opened from the Project window, as in "What VB6's Properties window shows a position in". Combo1 was
+selected in the Properties window's object box. Then F4, Home and the keys `cboNew`, and Enter. Home put the caret at
+the start of the (Name) row's value, so the name became `cboNewCombo1`. The form was saved with Ctrl+S, and every step
+was captured by a screenshot.
+
+| Combo | Its box in the designer |
+|---|---|
+| Combo1, from the file | `Combo1` |
+| cboList, from the file | `cboList` |
+| Combo3, whose file saved `Text = "x"` | `Combo3`, not `x` |
+| Combo4, a Dropdown Combo | `Combo4`, its Text |
+| Combo1 renamed `cboNewCombo1` | `cboNewCombo1`, at once |
+
+The save wrote `Begin VB.ComboBox cboNewCombo1` with no Text line. It also wrote **no Text line for Combo3**: the `x` the
+file had held was dropped.
+
+**What it shows:**
+- **The designer draws a Dropdown List's box with the control's name**, whether it was drawn or read from a file.
+- **It is the name the control has now.** A rename shows at once.
+- **A Text saved in the file is not drawn,** and the next save drops it, as "Drawn in the VB6 IDE's designer" found
+  that a Dropdown List's Text is never written.
+
+**What Text a renamed Dropdown List takes when its Style goes back to 0** was not measured on the release build. A second
+run meant to set the Style lost its keys to the (Name) row: it renamed the control `S` and then refused `0` as a name,
+with "Not a legal object name: '0'". Its box showed `S` at once, which agrees with the rename row above.
+
+**SP6 answered it** (2026-10-24, VB6.EXE 6.00.9782, the same rig with the Project window clicked before its keys). The
+rename save was byte-identical to the release build's. Then Ctrl+Shift+S twice reached Style, and `0` and Enter set it.
+The save wrote `Begin VB.ComboBox cboNewCombo1` with `Text = "cboNewCombo1"`, and the box showed `cboNewCombo1`. So the
+Text a Dropdown List goes back with is the name it has then, not the one it was drawn with.
+
+### In HexIDE (#1604)
+
+- **The designer draws a Dropdown List's box with the control's current name,** in its ForeColor, as an item would be
+  drawn. A Text saved in the file isn't drawn. The running control still shows nothing there until an item is selected.
+- **A Dropdown List renamed takes its new name as its Text,** so Style 0 afterwards writes that name, as SP6 did.
+- **This is the designer's first control that draws differently from the running one.** `ComponentBaseClass` has
+  `InstantiateForDesigner` for it, which the designer's renderer calls. Every other class returns its running control.
 
 ### Style, and a Dropdown List's Text from code (2026-10-23, #1428)
 
@@ -15727,6 +15781,107 @@ The root's `ClientLeft` and `ClientTop` still bind to its geometry, though neith
 holds that its root doesn't list is kept as the file's own text. That includes the Caption a UserControl HexIDE made
 before #1538 carried. The rest of each list is #1631.
 
+## What VB6's Properties window shows a position in (2026-10-23, #1636, design-time, IDE)
+
+**The question.** HexIDE's Properties window showed every Left, Top, Width and Height as the model's pixels: a new
+PropertyPage read Height 240 and Width 320 where VB6's read 3600 and 4800. What unit does VB6's window use? The run time
+reads a position in its container's ScaleMode (#933). Does the window do the same, and what does it show for a form's own
+size, which at run time includes its frame (#1072)?
+
+**The probes.** VB6.EXE 6.00.8176, the IDE, in the guest's console session through the agent, the same rig as #1585's.
+Each project was opened in the IDE; each form's designer was opened from the Project window (Ctrl+R, Home, Down, then
+Right twice, which reaches the first form whether or not the Forms folder is expanded, and Down for the next); then F4.
+For each object in the Properties window's object box, the object was selected as a user's choice there selects it:
+`CB_SETCURSEL` to its index, then `WM_COMMAND` with `CBN_SELCHANGE` to the box's parent. The list was then captured as
+#1585's was, scrolled with `LB_SETTOPINDEX`, eight rows at a time, on its Alphabetic tab. Every form had the same client
+rectangle in its file: `ClientLeft = 60`, `ClientTop = 450`, `ClientWidth = 4680` and `ClientHeight = 3090`.
+
+**A control's position, in its container's ScaleMode.** Two forms. Form1's ScaleMode is twips, and it holds Text1 and a
+PictureBox whose ScaleMode is 3, pixels, holding Text3. Form2's ScaleMode is pixels, and it holds Text5, and a Frame
+holding Text6. The file's values are twips in every case:
+
+| Object | In | File's Left, Top, Width, Height | Properties window |
+|---|---|---|---|
+| Text1 | a twips form | 120, 120, 1215, 495 | 120, 120, 1215, 495 |
+| Picture1 | a twips form | 120, 840, 2400, 1500 | 120, 840, 2400, 1500 |
+| Text3 | a pixel PictureBox | 150, 75, 1215, 285 | **10, 5, 81, 19** |
+| Text5 | a pixel form | 120, 120, 1215, 495 | **8, 8, 81, 33** |
+| Frame2 | a pixel form | 2640, 840, 1800, 1500 | **176, 56, 120, 100** |
+| Text6 | a Frame on a pixel form | 240, 360, 1215, 285 | 240, 360, 1215, 285 |
+
+**The other scales.** Each form below holds Text1 at 1200, 600, 1215, 495 in twips. The User form's ScaleLeft is 100,
+ScaleTop 50, ScaleWidth 1000 and ScaleHeight 500. The PictureBox is 2400 by 1500 twips, has a User scale of ScaleLeft 10,
+ScaleTop 5, ScaleWidth 1000 and ScaleHeight 500, and holds Text1 at 300, 150, 1215, 285. The About Dialog row is VB6's own
+`About Dialog.frm` from its Template tree: a User scale of 5380.766 by 2453.724 over a 5730 by 3555 client, with
+`cmdOK` at 4245, 2625, 1260, 345.
+
+| Container | Properties window |
+|---|---|
+| a User-scale form | 356.41, 147.087, 259.615, 80.097 |
+| a centimetre form | 2.117, 1.058, 2.143, 0.873 |
+| a millimetre form | 21.167, 10.583, 21.431, 8.731 |
+| VB6's About Dialog, `cmdOK` | 3986.274, 1811.822, 1183.205, 238.125 |
+| a User-scale PictureBox, the default 3D Fixed Single border | 138.205, 57.083, 519.231, 98.958 |
+| the same with `BorderStyle = 0` | 135, 55, 506.25, 95 |
+
+**A form's own position.** One form for each BorderStyle, one Fixed Single with no control box and no caption, and one
+with a menu:
+
+| Form | Left, Top | Width, Height |
+|---|---|---|
+| 2 Sizable (both forms above, whatever their ScaleMode) | -60, -15 | 4920, 3675 |
+| 0 None | 60, 450 | 4680, 3090 |
+| 1 Fixed Single | 15, 60 | 4770, 3525 |
+| 3 Fixed Dialog | 15, 60 | 4770, 3525 |
+| 4 Fixed ToolWindow | 15, 60 | 4770, 3525 |
+| 5 Sizable ToolWindow | -60, -15 | 4920, 3675 |
+| 1 Fixed Single, `ControlBox = 0`, `Caption = ""` | 45, 435 | 4710, 3120 |
+| 2 Sizable, with a menu | **105, 105** | 4920, 3975 |
+
+**What it shows:**
+- **A control's position is in its container's ScaleMode**, the rule a running program reads it by (#933). It is the
+  form's for a control on the form, a PictureBox's inside it, and twips inside a Frame, which has no ScaleMode, even on a
+  pixel form. A Frame's own position is in its form's ScaleMode.
+- **A User scale maps the container's client area onto ScaleLeft, ScaleTop, ScaleWidth and ScaleHeight.** Text1's 1200
+  twips is 100 + 1200 × 1000 / 4680 = 356.41, and its width 1215 × 1000 / 4680 = 259.615. A PictureBox's client area is
+  inside its border. The default border takes 60 twips off each way: 300 twips is 10 + 300 × 1000 / 2340 = 138.205.
+  BorderStyle 0 takes nothing: 10 + 300 × 1000 / 2400 = 135.
+- **Centimetres and millimetres are 1440 / 2.54 and 1440 / 25.4 twips to the unit** at the window's precision. The run
+  time's centimetre reading, 0.2116669 for 120 twips where that factor gives 0.2116667 (#933), differs below it.
+- **A value that isn't whole shows three decimals at most**: 356.41, 147.087, 3986.274. Not seven significant digits, as
+  a Single prints.
+- **A form's own Width and Height are twips whatever its ScaleMode, and are its client size plus its frame.** That frame
+  is the one a running form has on the themed desktop (`FormFrame`, #1072): 240 across and 585 down for a Sizable form or
+  a Sizable ToolWindow; 90 and 435 for the fixed styles; 30 and 30 for a Fixed Single with no caption bar; none for
+  None; and 300 more down for a menu. "Me.Width and Me.Height" earlier in this file read 4800 and 3495 for this client
+  area, 120 and 405 more. That is not a contradiction: that row is a session-0 EXE, which is unthemed, as `FormFrame`
+  records.
+- **A form's Left and Top are its client's less the frame's left and top edges**: ClientLeft less half the border across,
+  and ClientTop less the rest of the frame down. For a Sizable form that is 60 − 120 = −60 and 450 − 465 = −15. Nine of the
+  ten forms fit.
+- **Measured and not explained: the form with a menu read Left 105 and Top 105**, where that rule gives −60 and −315. Its
+  Width and Height fit the frame. One guess is that VB6 places the designer window itself when the form's own Top would
+  put its menu above the designer's area. It was not measured.
+- A UserControl's Width and Height, in #1585's capture, are its client area, 4800 and 3600, since it has no frame.
+
+**Not measured:** whether a value typed into the window is rounded to whole twips, as an assignment at run time is.
+
+### In HexIDE (#1636)
+
+- **The Properties window shows each position as VB6's does**, through `DesignPositions`:
+  - a control's in its container's ScaleMode, User, centimetres and millimetres included;
+  - a form's own size with the frame `FormFrame` gives a running form;
+  - a UserControl's and PropertyPage's with none;
+  - three decimals at most.
+
+  A value typed in is in the same units, and is rounded to whole twips, half to even, as the run time rounds an
+  assignment.
+- **`get_form_controls`' rows and `set_control_property` follow the window**, as #923 has them, and each row's note
+  names its unit. The summary's `left`, `top`, `width` and `height`, `add_control` and `move_control` stay in pixels, and
+  say so.
+- **Not followed: the menu form's Left and Top.** HexIDE shows the rule's −60 and −315.
+- **Not followed: the toolbar's position and size readout**, which still shows pixels. VB6's wasn't measured (#1641).
+
 ## Write # and Input # (2026-10-23, #1521)
 
 Measured with `/make` in ten batches, native and p-code identical on every row. All of them are run-time results of
@@ -16570,6 +16725,8 @@ selected, with GotFocus and then Click.
 - the arrow keys on a CheckBox or a CommandButton, which Windows' dialog manager also moves between;
 - an arrow onto a control that is disabled or has `TabStop = False`.
 
+The last two, and the order an arrow follows, are measured in "Where the arrow keys go from a button" (#1625).
+
 ### In HexIDE (#1583)
 
 - **An option group is one Tab stop.** It is its selected option, or each of its options while none is selected, so
@@ -16579,8 +16736,92 @@ selected, with GotFocus and then Click.
   kept from selecting, because it stopped at every option and selecting would have changed the user's choice.
 - **An option is selected before its GotFocus runs.** Before, a GotFocus raised at once read its own option unselected.
   The Click is raised after the GotFocus, whether the two run at once or wait behind a running handler.
-- **Not followed: the arrow keys**, which do nothing on an option button
-  ([#1625](https://github.com/hexide-io/HexIDE/issues/1625)).
+- **The arrow keys** did nothing on an option button. They follow VB6 since #1625: "Where the arrow keys go from a
+  button" has the rule.
+
+## Where the arrow keys go from a button (2026-10-23, #1625)
+
+**The question.** "Tab and the arrow keys among option buttons" found that an arrow on an option button moves the focus to
+the previous or next control in its container, by TabIndex, wrapping. It left open:
+- an arrow onto a control whose TabStop is False, or one that's disabled;
+- what an arrow passes over when the next control is a Label or another container;
+- the arrow keys on a CheckBox and a CommandButton;
+- whether "by TabIndex" was TabIndex at all, since in that probe the TabIndex order and the order of the controls in the
+  file were the same.
+
+**The probes.** Two compiled forms, native and p-code, run on the oracle guest's console session through the agent, as
+#1583's were. A Timer took one step each 300 ms, by `SetFocus` or by `SendKeys`, and logged `Screen.ActiveControl`, the
+options selected and the check boxes' Values after each.
+
+The first form had a Frame for each case, with its controls in TabIndex order:
+
+| Frame | Controls |
+|---|---|
+| A | optA1, optA2 (selected), txtA1 with `TabStop = False`, txtA2 |
+| B | optB1, optB2 (selected), txtB1 with `Enabled = False`, txtB2 |
+| C | optC1, optC2 (selected), lblC, a Label, txtC2 |
+| D | txtD1, optD1, optD2 (selected) |
+| E | optE1, optE2 (selected), picE, a PictureBox, txtE2 |
+| F | chkF1, chkF2, two CheckBoxes, txtF |
+| G | optG1, optG2 (selected), FrameG2 holding txtG, txtG2 |
+| H | cmdH1, cmdH2, two CommandButtons, txtH |
+
+The second form's one Frame held, in the file's order, optI1 at TabIndex 0, txtI at TabIndex 2, and optI2 at TabIndex 1.
+By TabIndex, Down from optI1 reaches optI2; by the file's order, txtI. Two steps then moved txtI, and later optI2, to the
+front with `ZOrder 0`, which changes the order the controls are drawn in and not their TabIndex.
+
+Native and p-code logged the same lines, line for line: 64 for the first form and 22 for the second.
+
+| From | Key | Focus went to | Selected after |
+|---|---|---|---|
+| optA2 | Down | **txtA1**, whose TabStop is False | optA2 |
+| optA2 | Up | optA1 | **optA1** |
+| optA1 | Up | **txtA2**: it wraps to the last | optA1 |
+| optB2 | Down | **txtB2**, past the disabled txtB1 | optB2 |
+| optC2 | Down | **txtC2**, past the Label | optC2 |
+| optD2 | Down | **txtD1**: it wraps to the first | optD2 |
+| optD1, by `SetFocus` | Up | txtD1 | optD1 |
+| optE2 | Down | **picE** | optE2 |
+| picE | Down | picE: the PictureBox keeps the key | optE2 |
+| chkF1 | Down | **chkF2** | both Values 0 |
+| chkF2 | Down | txtF | both Values 0 |
+| chkF2 | Up | chkF1 | both Values 0 |
+| optG2 | Down | **txtG2**, past FrameG2 and not into it | optG2 |
+| optG1, by `SetFocus` | Up | txtG2: it wraps to the last | optG1 |
+| cmdH1 | Down | **cmdH2** | |
+| cmdH2 | Right | txtH | |
+| optA2, by `SetFocus` | Right | txtA1, as Down | optA2 |
+| optI1 | Down | **optI2**, TabIndex 1, not txtI, which is next in the file | **optI2** |
+| optI1 | Up | **txtI**, TabIndex 2: it wraps to the last | optI1 |
+| optI1, after `txtI.ZOrder 0` | Down | optI2 | optI2 |
+| optI1, after `optI2.ZOrder 0` | Down | optI2 | optI2 |
+
+**What it shows:**
+- **An arrow moves by TabIndex**, not by the order of the controls in the file or on screen. `ZOrder` changed nothing.
+- **TabStop doesn't matter to an arrow.** Down reached a TextBox whose TabStop is False, which the Tab key passes over.
+- **A control that can't take the focus is passed over:** a disabled TextBox, a Label, and a Frame, whose controls are not
+  reached either. A PictureBox can take the focus, and does. Then it keeps the arrow keys, as a TextBox does.
+- **A CheckBox and a CommandButton move the same way.** An arrow changes no check box's Value.
+- **It wraps both ways** within the container, to a control that isn't a button too: Down from optD2 reached txtD1.
+- **`SetFocus` on an option selects it**, as "Tab and the arrow keys among option buttons" found. optD1 and optG1 were
+  selected by the step that focused them.
+
+**Not measured:**
+- an arrow with Shift, Ctrl or Alt held;
+- an invisible control as the next one;
+- an arrow onto a ListBox, a ComboBox or a scroll bar, though from one of them the arrow keys are its own;
+- an arrow on a control in a UserControl, or on the UserControl itself.
+
+### In HexIDE (#1625)
+
+- **The arrow keys on an option button, a check box and a command button follow this:**
+  - Up and Left go to the previous control in the container, and Down and Right to the next, by TabIndex, wrapping;
+  - whatever its TabStop;
+  - past controls that can't take the focus: disabled ones, Labels, Frames, and anything hidden;
+  - not into a nested container.
+- **An option it lands on is selected** through the focus, with Click after GotFocus, as #1583 has it. A check box isn't
+  changed.
+- **Not followed: an arrow with a modifier held**, which isn't measured. It does nothing.
 
 ## Conditional compilation (2026-10-23, #1112)
 

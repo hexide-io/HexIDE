@@ -233,19 +233,23 @@ public partial class CodeEditorView : UserControl
             sub = vm.ObservePropertyChanged(x => x.CaretOffset)
                 .Subscribe(offset =>
                 {
-                    if (TextEditor.CaretOffset != offset)
+                    var caret = Math.Clamp(offset, 0, TextEditor.Document.TextLength);
+                    if (TextEditor.CaretOffset != caret)
                     {
                         // A caret navigated into a fold is opened onto, or it would sit unseen, or be moved off a
                         // folded member run's end, where it was put (#700 review).
                         if (_foldingManager is { } folds)
-                            foreach (var fold in folds.GetFoldingsContaining(offset))
-                                if (fold.IsFolded && fold.StartOffset < offset && offset <= fold.EndOffset)
+                            foreach (var fold in folds.GetFoldingsContaining(caret))
+                                if (fold.IsFolded && fold.StartOffset < caret && caret <= fold.EndOffset)
                                     fold.IsFolded = false;
-                        TextEditor.CaretOffset = offset;
+                        TextEditor.CaretOffset = caret;
                         // Navigation can arrive while this editor is already active. Moving the
                         // caret alone does not reveal an offscreen caller or next statement.
                         TextEditor.ScrollToLine(TextEditor.TextArea.Caret.Line);
                     }
+                    // A clamp may leave the caret where it already was, so no PositionChanged event writes it back.
+                    if (vm.CaretOffset != TextEditor.CaretOffset)
+                        vm.CaretOffset = TextEditor.CaretOffset;
                 });
             // A view made for a caret already placed, as navigating to a document not yet open places it, scrolls to
             // it once it has been laid out: before then there is nothing to scroll, and ScrollToLine does nothing.
