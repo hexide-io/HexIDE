@@ -306,6 +306,7 @@
     "Str.Dialog.AddWatch.AllContext": "(Todos los procedimientos)",
     "Str.Tool.CallStack.Column.Frame": "Procedimiento",
     "Str.Tool.CallStack.Column.Line": "Línea",
+    "Str.Tool.CallStack.RowName": "{0}, línea {1}",
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Cerrar Examinador de objetos",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Examinador de objetos",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Ir a la definición",

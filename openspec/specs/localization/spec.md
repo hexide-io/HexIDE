@@ -26,6 +26,12 @@ set of translatable strings is enumerable, which is what every other guarantee h
 - **WHEN** interface text is added
 - **THEN** it is added as a key with a canonical English value, not as a literal
 
+#### Scenario: Call Stack row automation names
+- **WHEN** Call Stack rows are rebuilt at a stop in either debugger
+- **THEN** their automation names use the active language's row-name format with the frame name and line
+- **AND** the row's string representation uses the same text for selection summaries without a container
+- **AND** a language change while stopped is reflected when the rows are next rebuilt
+
 ### Requirement: English SHALL be canonical and SHALL be the fallback for every key
 The English pack SHALL define every key, other packs SHALL only override keys they translate, and any key a
 pack does not carry SHALL resolve to its English value.
