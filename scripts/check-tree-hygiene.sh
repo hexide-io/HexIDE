@@ -12,8 +12,8 @@
 # editor backups in the tree, dangling relative links in Markdown, machine-specific absolute
 # paths, C# code that writes to a fixed absolute path, personal-identity references, a
 # third-party project named outside the places we agreed it may be, and unresolved
-# merge-conflict markers, and xUnit assertions in test sources. Warns (exit 0) on TWO things, both
-# expected and neither blocking: key material .gitignore already covers, and the
+# merge-conflict markers, xUnit assertions in test sources, and C1 control characters.
+# Warns (exit 0) on TWO things, both expected and neither blocking: key material .gitignore already covers, and the
 # upstream-attribution mention. Exits 2, having scanned nothing, when git cannot read the tree.
 #
 # EVERY SCAN SEES UNTRACKED FILES, and that is load-bearing rather than tidy. Git's own
@@ -244,7 +244,7 @@ rm -f /tmp/hexide-linkcheck.$$
 ALLOWED='^(IDE/HexIDE\.Runtime\.Tests/BattleshipChallenge\.cs|IDE/HexIDE\.Runtime/Interpreter/README\.md|LspServer/HexIDE\.VbLspServer\.Tests/README\.md|demo/battleship/README\.md|demo/spring-tide/README\.md|docs/vb6-grammar-fixes\.md|docs/lsp-parity-matrix\.md|docs/dap-adapter-smoke\.md)$'
 # The maintainer requested this integration with its author's blessing (#1178). These exact files
 # implement or validate its reader; this exception permits that name only, not other project names.
-TWIN_ALLOWED='^(IDE/HexIDE/HexIDE\.csproj|IDE/HexIDE/(Projects/ArchiveProjectService|Forms/ViewModels/ArchiveDocumentViewModel|Tools/Projects/(ArchiveTreeNode|ProjectToolViewModel))\.cs|IDE/HexIDE\.Integration\.Tests/Views/ArchiveProjectBrowsingTests\.cs|HexIDE\.slnx|\.github/workflows/build\.yml|IDE/HexIDE\.TwinBasic/HexIDE\.TwinBasic\.csproj|IDE/HexIDE\.TwinBasic/(TwinBasicContainer|TwinBasicContainerReader|ArchiveEntryIdentity|ArchiveProjectSnapshot|ArchiveProjectWorkspace|ArchiveSourceFolder|CompilerWireCodec|CompilerWebSocketTransport|CompilerRootSession|CompilerChannelSession|CompilerPackageProvider|CompilerProjectPreparation|CompilerSessionMessages|CompilerWireCodec\.Session)\.cs|IDE/HexIDE\.TwinBasic\.Tests/(ContainerReaderTests\.cs|ArchiveProjectTests\.cs|ArchiveSourceFolderTests\.cs|CompilerWireCodecTests\.cs|CompilerWebSocketTransportTests\.cs|CompilerRootSessionTests\.cs|CompilerChannelSessionTests\.cs|CompilerProjectPreparationTests\.cs|CompilerWireCodecTests\.(CompilerProjectPreparationTests|CompilerRootSessionTests|SessionMessages)\.cs|InMemoryCompilerSessionCodec\.cs|HexIDE\.TwinBasic\.Tests\.csproj|Fixtures/(README\.md|LICENSE|impexp\.twinproj\.json|sample\.twinpack\.json))|openspec/changes/(archive/2026-10-18-read-external-project-containers|archive/2026-10-19-model-archive-project-documents|archive/2026-10-19-browse-archive-projects|archive/2026-10-19-synchronize-archive-source-folder|archive/2026-10-19-decode-compiler-wire|archive/2026-10-19-connect-compiler-websocket|archive/2026-10-19-initialize-compiler-root|archive/2026-10-19-own-compiler-channels|prepare-compiler-project)/design\.md)$'
+TWIN_ALLOWED='^(IDE/HexIDE/HexIDE\.csproj|IDE/HexIDE/(Projects/ArchiveProjectService|Forms/ViewModels/ArchiveDocumentViewModel|Tools/Projects/(ArchiveTreeNode|ProjectToolViewModel))\.cs|IDE/HexIDE\.Integration\.Tests/Views/ArchiveProjectBrowsingTests\.cs|HexIDE\.slnx|\.github/workflows/build\.yml|IDE/HexIDE\.TwinBasic/HexIDE\.TwinBasic\.csproj|IDE/HexIDE\.TwinBasic/(TwinBasicContainer|TwinBasicContainerReader|ArchiveEntryIdentity|ArchiveProjectSnapshot|ArchiveProjectWorkspace|ArchiveSourceFolder|CompilerWireCodec|CompilerRecording|CompilerWebSocketTransport|CompilerRootSession|CompilerChannelSession|CompilerPackageProvider|CompilerProjectPreparation|CompilerSessionMessages|CompilerWireCodec\.Session)\.cs|IDE/HexIDE\.TwinBasic\.Tests/(CompilerRecordingTests\.cs|Recordings/synthetic/(preparation\.jsonl|README\.md)|ContainerReaderTests\.cs|ArchiveProjectTests\.cs|ArchiveSourceFolderTests\.cs|CompilerWireCodecTests\.cs|CompilerWebSocketTransportTests\.cs|CompilerRootSessionTests\.cs|CompilerChannelSessionTests\.cs|CompilerProjectPreparationTests\.cs|CompilerWireCodecTests\.(CompilerProjectPreparationTests|CompilerRootSessionTests|SessionMessages)\.cs|InMemoryCompilerSessionCodec\.cs|SocketTrackingTest\.cs|SocketTrackingTests\.cs|HexIDE\.TwinBasic\.Tests\.csproj|Fixtures/(README\.md|LICENSE|impexp\.twinproj\.json|sample\.twinpack\.json))|openspec/changes/(archive/2026-10-18-read-external-project-containers|archive/2026-10-19-model-archive-project-documents|archive/2026-10-19-browse-archive-projects|archive/2026-10-19-synchronize-archive-source-folder|archive/2026-10-19-decode-compiler-wire|archive/2026-10-19-connect-compiler-websocket|archive/2026-10-19-initialize-compiler-root|archive/2026-10-19-own-compiler-channels|prepare-compiler-project)/design\.md)$'
 while IFS= read -r f; do
   if [[ "$f" =~ $TWIN_ALLOWED ]] && ! git grep --untracked -qiE 'rdcore|rubberduck' -- "$f"; then
     continue
@@ -274,6 +274,13 @@ done < <(git grep --untracked -nIE '^(<<<<<<<|>>>>>>>) ' -- . "${EXCLUDE[@]}")
 while IFS= read -r hit; do
   [ -n "$hit" ] && note "xUnit Assert API in test source (use AwesomeAssertions): $hit"
 done < <(git grep --untracked -nIE '(^|[^.[:alnum:]_])Assert\.[[:upper:]][[:alnum:]_]*' -- ':(glob)**/*.Tests/**/*.cs')
+
+# 10. C1 controls (U+0080–U+009F) in UTF-8 text indicate an encoding accident (#1312).
+# Scan even the scripts excluded above; tests needing a control must spell it as an escape.
+# Match UTF-8 bytes under C locale so the result does not depend on the host's locale.
+while IFS= read -r hit; do
+  [ -n "$hit" ] && note "C1 control character: $hit"
+done < <(LC_ALL=C git grep --untracked -nIP '\xC2[\x80-\x9F]' -- .)
 
 echo
 if [ "$fails" -eq 0 ]; then
