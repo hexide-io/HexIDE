@@ -10,6 +10,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Start automation with an unsaved project** (#502). `--newproject-unsaved` skips the startup dialog without
+  writing project or component files, so `untitled:` language-server URIs can be exercised from launch.
+  `--newproject` still saves to a temporary directory; `add_file` already leaves new documents pathless (#500).
+
 - **A Type field declared `As New C1` makes its object on first use** (#1488), as measured in VB6. Declaring the Type and writing another field make nothing; copying it shares the object, which terminates when the procedure exits.
 
 - **Compiler exchange recording and replay tooling** (#1218): versioned JSON-lines captures, explicit run-value
