@@ -243,6 +243,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP inspection reports a window's frame state** (#1595, part 1). `inspect_element` on a Window now reports
+  resizing, decorations, minimize/maximize buttons, taskbar visibility and window state from Avalonia, so a running
+  form's BorderStyle mapping can be checked. Native styles are explicitly unreported. Snapshot frame capture remains open.
+
 - **MCP replies distinguish dialogs sharing a title** (#1365). The modal note names a message box or run-time error dialog, its first line of text and its actual buttons; other dialogs include their buttons. The window parameter explains how to discover open windows through an unknown-name refusal.
 
 - **MCP replies name ignored arguments** (#1315). A misspelled optional parameter still lets the call run, but

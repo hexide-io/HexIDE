@@ -936,9 +936,13 @@ it is a tool window.
 P/Invoke on the windows HexIDE's process owns, and a screen capture of their rectangles. Both bypass the surface a
 real caller uses.
 
-**Suggested fix.** Have `inspect_element` on a `Window` report `canResize`, `windowDecorations`, `canMinimize`,
-`canMaximize` and `showInTaskbar`, and on Windows the native style and extended style, which is what a VB6 program's
-own `GetWindowLong` reads. Give `take_snapshot` a way to capture a window with its frame, and say in the reply where
+**Part 1 completed (#1595).** `inspect_element` on a Window now includes `frame`: `canResize`,
+`windowDecorations`, `canMinimize`, `canMaximize`, `showInTaskbar` and `windowState`, read from Avalonia.
+There is no separate tool-window marker on the Avalonia Window. Native styles remain unreported, explicitly
+explained by `nativeStyleNote`; Windows interop was left out of this headless-verified change.
+This entry stays open for **part 2**, capturing a snapshot with its frame; `take_snapshot` is unchanged.
+
+**Remaining suggested fix (part 2).** Give `take_snapshot` a way to capture a window with its frame, and say in the reply where
 the host cannot. [#1595](https://github.com/hexide-io/HexIDE/issues/1595).
 
 ## No tool says which control has the focus, and `press_key` moves it there
