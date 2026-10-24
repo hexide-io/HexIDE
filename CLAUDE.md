@@ -166,8 +166,9 @@ incrementally. It needs no `--artifacts-path`: its build output can't stomp the 
 still holds `IDE/` and `LspServer/` for `GrammarParityTests.RepoRoot()` to find. Delete the folder to start
 clean.
 
-Expect the result to match Windows, except for `VbLocaleTests`' ar-SA row, which fails under WSL's newer ICU
-([#1045](https://github.com/hexide-io/HexIDE/issues/1045)). Measured 2026-10-24: `HexIDE.Runtime.Tests`
+Expect the result to match Windows. Before #1045's test correction, `VbLocaleTests`' ar-SA row failed under
+WSL's newer ICU because its default calendar is already Gregorian. Measured 2026-10-24 before the correction:
+`HexIDE.Runtime.Tests`
 4887 passed, 12 skipped, that one failed, in 6 minutes the first time and 4½ the second. To confirm the setup
 still has teeth, run the script from a `git worktree` at a commit predating a known cross-platform fix and
 check it fails there.
@@ -215,9 +216,9 @@ podman run --rm \
 
 **Measured on first setup (2026-09-06): no divergence.** `HexIDE.Tests` 961/965 and
 `HexIDE.Runtime.Tests` 1432/1432 in the container, matching CI exactly, against 965 and 1432 under WSL. So
-the ICU gap is real but **not currently live** — which is a statement about the tests that exist, not a
-guarantee. Nothing here probes collation or culture-sensitive formatting directly, so absence of a
-divergence is weak evidence of absence. Reach for the container when a CI failure will not reproduce under
+the ICU gap was real but **not live in that run** — a statement about the tests that existed, not a
+guarantee. #1045 later exposed an ar-SA calendar assumption that fails on ICU 78; the test now follows
+the platform's data. Reach for the container when a CI failure will not reproduce under
 WSL; that is the case it was set up for.
 
 **The 282-failure run is a thread-affinity race in the test harness, not a build problem.** Every so often
@@ -375,7 +376,8 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 - `--help` — print usage and exit without starting the IDE; also `-h`, `/?`, `-?`
 - `--server-port <port>` — enable the MCP server on the given port (the launch profiles hard-code 5123, `.mcp.json` defaults to it, and `scripts/dev-ide.ps1` passes `HEXIDE_MCP_PORT`)
 - `--session <name>` — serve tool calls only to the agent session of that name, as named in the client's `X-HexIDE-Session` header; DEBUG-only. `scripts/dev-ide.ps1` passes `HEXIDE_SESSION` (see *Parallel sessions*)
-- `--newproject` — skip the startup dialog and create a default Standard EXE project
+- `--newproject` — skip the startup dialog, create a default Standard EXE project and save it in a unique temporary directory
+- `--newproject-unsaved` — skip the startup dialog and create the same project without writing files; takes precedence over `--newproject`. Use it to verify pathless documents and `untitled:` language-server URIs
 - `--capture-lsp` — arm the protocol capture for every language-server connection **before any is made**, so a conversation is recorded in full from its first handshake. Arming is otherwise session-scoped and the documented rebuild cycle restarts the IDE every iteration, which is what this exists for. **Unlike `--server-port`, this is not DEBUG-only**: the capture ships and the automation server does not
 - `--user-data-dir <path>` — keep this session's settings, layout, recents and `lsp-servers.json` in that directory instead of the user's own. **Use it for any demo or automation run that needs its own configuration**, rather than editing the real one and relying on someone to change it back. Works in Release. A relative path is relative to where HexIDE was started
 - `--developer-mode` — session developer mode; DEBUG-only and inert in a distributed build
