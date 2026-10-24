@@ -14006,6 +14006,29 @@ while it is locked. ReDim Preserve (#1459) checks the lock before it resizes any
 element a parameter is writing. Every row above that HexIDE reaches is pinned in `ByRefElementTests`. Not reached: an array of a Type
 (#178), and an array of Collection, whose declaration HexIDE refuses.
 
+## For Each locks its array (#1460)
+
+**Measurement supplied by #1460:** `vb6.exe /make`, en-GB, native and p-code identical. Each row uses
+`On Error Resume Next` and `Exit For` immediately after the attempted mutation. The Long array starts with
+`ReDim a(2)`; the Variant array starts with `ReDim w(1)`.
+
+| Inside the loop | Err.Number | Bounds afterwards |
+|---|---|---|
+| `ReDim Preserve a(5)` inside `For Each x In a` | 10 | 0 To 2 |
+| `ReDim a(6)` inside `For Each x In a` | 10 | 0 To 2 |
+| `Erase w` inside `For Each x In w` | 10 | 0 To 1 |
+
+Error 10 is "This array is fixed or temporarily locked". What happens to remaining elements after a refused
+mutation was not measured: each probe leaves immediately.
+
+**In HexIDE:** For Each increments the same `VBArray.LockCount` as an element passed ByRef (#1455), and a
+`finally` decrements it on every way out. `ForEachArrayLockTests` pins all three rows, including Preserve
+(now implemented by #1459), and checks that a later ReDim succeeds after completion, Exit For, GoTo out,
+Exit Sub/Function and an error leaving the procedure. Those release checks express the lock's lifetime
+requirement, without claiming further VB6 measurements. Stores into the array variable (`a = b`, or `v = 5`
+for a Variant holding an array) and nested For Each over the same array remain unmeasured and unchanged,
+beyond the counter naturally nesting.
+
 ## The References dialog's fixed rows (2026-10-22, #1026, design-time)
 
 **The question.** HexIDE's References dialog headed its list with one fixed row, "Visual Basic For Applications",
@@ -14209,9 +14232,9 @@ storage before it lets go of the old (so a 7 leaves the array as it was) and res
 caller's slot sees it. The elements dropped by a shrink are released after the resize. An undimensioned dynamic array goes
 on to a plain ReDim.
 
-Run through HexIDE, the probes gave VB6's answer on every row above except two: the array of a Type, whose elements HexIDE
-does not reach yet (#178), and the `For Each` row, which is #1460. `RedimPreserveTests` pins the rows its three programs
-cover, and the compile errors. One row is worth noting: `GVV(x As Variant)` gives VB6's answer although a plain ReDim through
+Run through HexIDE, the probes gave VB6's answer on every row above except the array of a Type, whose elements HexIDE
+does not reach yet (#178). The `For Each` row is now pinned by #1460 (see its entry beside #1455). `RedimPreserveTests`
+pins the rows its three programs cover, and the compile errors. One row is worth noting: `GVV(x As Variant)` gives VB6's answer although a plain ReDim through
 a `v As Variant` parameter resizes only the parameter (#970), because Preserve resizes the shared array in place.
 
 ## IIf and Choose (2026-10-22, #1461, #1464)
