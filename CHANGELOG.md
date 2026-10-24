@@ -255,6 +255,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Save Form and Save Form As follow the active tab even while a tool window has focus** (#899).
+  The shell delegates to the active designer or form code window, preserving format-on-save. Switching
+  tabs refreshes the commands without requiring a focus change.
+
 - **Len returns a typed scalar variable’s byte size** (#780), including Integer, Long, Single, Double, Currency, Date
   and Boolean. Strings and Variants keep their text lengths. Numeric literals and arithmetic expressions are refused
   with VB6’s measured “Variable required” compile error when executed.

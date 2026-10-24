@@ -641,3 +641,24 @@ that cannot be held, and SHALL NOT be left waiting on a dialog.
 - **Preserving the original layout of content the IDE does model.** Recognised properties are written in the
   IDE's own order and spacing. Preserving the original arrangement would mean holding every file as raw text
   and giving up the model that makes the IDE an editor rather than a text editor.
+
+### Requirement: Form save commands follow the active document
+The shell SHALL enable Save Form and Save Form As when the active document supplies a focused form,
+independent of keyboard focus. It SHALL delegate to that active designer's or form code editor's own save
+method, including format-on-save for code. A focused-form change SHALL requery the routed commands without
+requiring a keyboard-focus change. Documents without a focused form SHALL retain their own command routing.
+
+#### Scenario: Saving while a tool window has focus
+- **GIVEN** a form designer is the active document and a tool window has keyboard focus
+- **WHEN** Save Form or Save Form As is invoked
+- **THEN** the active designer saves through its own save method
+
+#### Scenario: Saving from form code
+- **GIVEN** a form code editor is active and format-on-save is enabled
+- **WHEN** the Save keyboard gesture is pressed in the editor
+- **THEN** the editor's formatting path runs before saving the form
+
+#### Scenario: Saving a carried file
+- **GIVEN** a carried-file editor is active and has keyboard focus
+- **WHEN** the Save keyboard gesture is pressed
+- **THEN** its own save binding handles the key
