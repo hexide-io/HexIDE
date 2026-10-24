@@ -249,6 +249,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Named automation controls expose their visible labels** (#948). Dumps and inspection keep stable x:Name paths and add a distinct `label`; discovery searches and interaction replies use that text too.
+
 - **MCP paths survive growing editor text** (#1436). A collapsed layout wrapper no longer appears when its
   content begins to scroll, so the Immediate window's text-area path stays usable. Range capability keeps a
   node regardless of its current bounds. A refused path that skips a visible wrapper names it and gives the

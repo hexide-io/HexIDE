@@ -326,3 +326,15 @@ SHALL report none for an IDE started without one.
 #### Scenario: Readiness names the session
 - **WHEN** tooling polls the health check of an IDE started for a session
 - **THEN** the reply names that session beside the process ID
+
+### Requirement: Named controls SHALL expose their visible labels
+The control tree and single-control inspection SHALL retain x:Name as `name` when present and report the
+peer's meaningful label as `label` when it differs. Paths SHALL retain their existing stable discriminators
+and accept a label as an alternative discriminator. Discovery searches SHALL include the label, and interaction
+replies SHALL use the meaningful label when available.
+
+#### Scenario: Discovering a named menu
+- **WHEN** a menu item has x:Name `ToolsMenuItem` and visible header `_Tools`
+- **THEN** its node and inspection report `name: "ToolsMenuItem"` and `label: "Tools"`
+- **AND** its emitted path ends in `MenuItem[ToolsMenuItem]`, while `MenuItem[Tools]` also resolves
+- **AND** expanding it names `Tools` in the reply
