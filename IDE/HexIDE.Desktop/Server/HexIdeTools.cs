@@ -315,14 +315,15 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // EventBus logs that and carries on, so the flush silently does nothing and the PREVIOUS text
             // is serialized -- a file with a fresh timestamp, stale contents, and a success returned to a
             // caller who cannot see the log. Awaiting the save here left this method on a pool thread.
+            var rewrites = new HexIDE.Projects.SaveRewriteReport();
             var (written, refused) = await SaveQuietlyAsync(() => form is not null
-                ? ctx.ProjectService.SaveForm(form, false, interactive: false)
-                : module is not null ? ctx.ProjectService.SaveModule(module, false, interactive: false) : Task.FromResult(false));
+                ? ctx.ProjectService.SaveForm(form, false, interactive: false, rewrites: rewrites)
+                : module is not null ? ctx.ProjectService.SaveModule(module, false, interactive: false, rewrites: rewrites) : Task.FromResult(false));
             if (refused is not null)
                 // Not "the new code was refused": the character can be anywhere in the file. The message quotes its line.
                 return Naming(new MutateResult(false, cancel.After($"The new code is in the IDE, but the file was not written. {refused.Message}")), target);
             return Naming(written
-                ? new MutateResult(true, null, cancel.After(await Dispatcher.UIThread.InvokeAsync(() => WrittenNote(target!))
+                ? new MutateResult(true, null, cancel.After(await Dispatcher.UIThread.InvokeAsync(() => WrittenNote(target!)) + rewrites.Note
                     + (restoredHeader
                         ? " Kept the form's Attribute header, which the content omitted. VB_Name is the form's "
                           + "identity; without this the write would have destroyed it. Call get_file_content "
@@ -711,14 +712,15 @@ internal sealed class HexIdeTools(IdeContext ctx)
         try
         {
             // Same UI-thread requirement as the other write tool, and for the same reason. (#334)
+            var rewrites = new HexIDE.Projects.SaveRewriteReport();
             var (written, refused) = await SaveQuietlyAsync(() => ownerModule is not null
-                ? ctx.ProjectService.SaveModule(ownerModule, false, interactive: false)
-                : ctx.ProjectService.SaveForm(form!, false, interactive: false));
+                ? ctx.ProjectService.SaveModule(ownerModule, false, interactive: false, rewrites: rewrites)
+                : ctx.ProjectService.SaveForm(form!, false, interactive: false, rewrites: rewrites));
             if (refused is not null)
                 return Naming(new MutateResult(false, cancel.After($"'{property}' is set in the IDE, but the file was not written. {refused.Message}")), target);
             // See the note on the other write tool: a refusal must not come back as success. (#147)
             return Naming(written
-                ? new MutateResult(true, null, cancel.After(stored))
+                ? new MutateResult(true, null, cancel.After(stored + rewrites.Note))
                 : new MutateResult(false, cancel.After("HexIDE cannot reproduce this file faithfully, so it was not "
                                         + "written and the copy on disk is unchanged.")), target);
         }
@@ -1347,10 +1349,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
         try
         {
             // Through the owning module for a UserControl or PropertyPage, as set_control_property does. (#539)
+            var rewrites = new HexIDE.Projects.SaveRewriteReport();
             var (written, refused) = await SaveQuietlyAsync(() =>
                 OwnerModuleOf(spawned.Form) is { } owner
-                    ? ctx.ProjectService.SaveModule(owner, false, interactive: false)
-                    : ctx.ProjectService.SaveForm(spawned.Form, false, interactive: false));
+                    ? ctx.ProjectService.SaveModule(owner, false, interactive: false, rewrites: rewrites)
+                    : ctx.ProjectService.SaveForm(spawned.Form, false, interactive: false, rewrites: rewrites));
             // The character is in text written earlier and never saved, since a new control brings none of its
             // own: the message quotes the line that holds it, which no read tool might otherwise show.
             if (refused is not null)
@@ -1366,7 +1369,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // saying otherwise would be its own wrong answer -- but the file on disk does not have it, and
             // a caller who is told "saved" will not find out until something else reads that file.
             return written
-                ? spawned with { Form = null, Note = cancel.After(spawned.Note) }
+                ? spawned with { Form = null, Note = cancel.After(spawned.Note + rewrites.Note) }
                 : spawned with
                 {
                     Success = false, Form = null, Note = null,
@@ -2103,7 +2106,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "take_snapshot")]
-    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. inspect_element's 'boundingRect' is in the window's device-independent units measured from its top-left, which is the image's top-left, so multiply it by 'scale' to find the control in the image. If any other window is open (a dialog, the Find window, or a running program's form) it is captured in preference to the IDE's own, whether or not it is on top, and its title is reported in 'activeDialog'; otherwise the main window is captured. 'window' selects which top-level window to address, as its description says: under \"auto\" (default) a running program's form, INCLUDING while it is paused at a breakpoint, is usually picked over the IDE; pass \"ide\" for the IDE itself, or a window's title or a running form's name for that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them. The path is on the IDE's machine: a client attached from another machine, through a tunnel, passes 'inline' true to get the image itself as well, in a copy fitted to 1568 pixels whose 'inlineScale' takes the place of 'scale'.")]
+    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. Open popups can extend the image left or above the window: 'windowOffsetX' and 'windowOffsetY' give the window origin in full-image pixels (otherwise zero). For inspect_element's window-relative 'boundingRect', image x = x * scale + windowOffsetX, likewise y. For the inline copy, x = (x + windowOffsetX / scale) * inlineScale, likewise y. If any other window is open (a dialog, the Find window, or a running program's form) it is captured in preference to the IDE's own, whether or not it is on top, and its title is reported in 'activeDialog'; otherwise the main window is captured. 'window' selects which top-level window to address, as its description says: under \"auto\" (default) a running program's form, INCLUDING while it is paused at a breakpoint, is usually picked over the IDE; pass \"ide\" for the IDE itself, or a window's title or a running form's name for that window. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them. The path is on the IDE's machine: a client attached from another machine, through a tunnel, passes 'inline' true to get the image itself as well, in a copy fitted to 1568 pixels described by 'inlineWidth', 'inlineHeight' and 'inlineScale'.")]
     public async Task<SnapshotResult> TakeSnapshotAsync(
         [Description(WindowParameter)] string? window = null,
         // The tool holds an inline copy, which InlineSnapshot attaches after the reply (#957).
@@ -2128,7 +2131,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // A dropped-down menu, a combo's list, a flyout: each is realised in its own top-level root,
             // so rendering the window alone gives a menu bar with no menu. The composer draws them in
             // their real positions — gap 12 in docs/mcp-server-gaps.md.
-            using var bitmap = HexIDE.Automation.SnapshotComposer.Capture(active);
+            using var bitmap = HexIDE.Automation.SnapshotComposer.Capture(active, out var windowOffset);
             if (bitmap is null)
                 return new SnapshotResult(null, "Window has no size", activeDialog);
 
@@ -2136,9 +2139,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
             var path = HexIDE.Automation.SnapshotComposer.NewCapturePath(System.IO.Path.GetTempPath(), DateTime.UtcNow);
             bitmap.Save(path);
 
-            // The composer renders at the window's desktop scaling, with the window at the image's origin. (#646)
+            // The window origin includes any space left for a popup above or to its left (#648).
             var result = new SnapshotResult(path, null, activeDialog,
-                bitmap.PixelSize.Width, bitmap.PixelSize.Height, active.DesktopScaling);
+                bitmap.PixelSize.Width, bitmap.PixelSize.Height, active.DesktopScaling,
+                WindowOffsetX: windowOffset.X, WindowOffsetY: windowOffset.Y);
             if (!inline)
                 return result;
 
@@ -2186,7 +2190,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     [Description("Walks the live control tree of the active window (any window over the IDE's own; see 'window') and returns a structured node tree for discovering and addressing controls. Uses the UIA 'control view': None-type wrappers without focus, AutomationId or non-scroll capability are collapsed; x:Name alone keeps no wrapper. Overflow never inserts a path segment. Each node carries its addressing 'path' (feed it back as a target), automation ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers, and enabled/offscreen flags. Providers and their interact actions: invoke → invoke, selection and selectionItem → select, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. Only usable actions are reported: a list that fits has no scroll; a progress bar has no rangeValue. Range capability keeps a node even with unusable bounds. A .NET type used as a name is reported as 'typeNameAsName' instead; it cannot name a path. 'isHidden': true marks an effectively-invisible control, e.g. a collapsed banner; absent when showing. Check isHidden before asserting visibility; isOffscreen instead reports clipping and scroll position. Top-level 'focusedPath' names the keyboard focus in the whole window, even with root/match filters; null with 'focusReason' when none is in this window. Scope a large dump with 'root', or find nodes with 'match'; see 'maxDepth' and 'interactiveOnly' for what it keeps and when a node is 'truncated'. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to walk the IDE.")]
     public async Task<VisualTreeResult> DumpVisualTreeAsync(
         [Description("A path to dump only that subtree; omit for the whole window. For deeply nested or large areas, "
-                     + "scope the dump this way.")]
+                     + "scope the dump this way. name is x:Name when set; label is the peer text when different. A segment accepts either.")]
         string? root = null,
         [Description("How many levels to walk, counted in control-view levels rather than raw visuals; at least 1. "
                      + "Default 20. A node whose children lie below the cut-off carries \"truncated\": true and an "
@@ -2204,7 +2208,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         bool interactiveOnly = true,
         [Description(WindowParameter)]
         string? window = null,
-        [Description("Text to find instead of the tree: returns, as 'matches', the nodes whose Name, AutomationId, ClassName, "
+        [Description("Text to find instead of the tree: returns, as 'matches', the nodes whose Name, label, AutomationId, ClassName, "
                      + "ControlType or typeNameAsName contains it, ignoring case, or whose DataContext type does where "
                      + "that context starts (not on every node below that inherits it); each with its path and without "
                      + "its subtree, up to 50. Use it to find a path to start from: 'TextEditor' finds the text editors "
@@ -2274,7 +2278,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     [McpServerTool(Name = "inspect_element")]
     [DescribesEnum(typeof(WindowDecorations))]
     [DescribesEnum(typeof(WindowState))]
-    [Description("Deep-inspects one control addressed by 'target' (a path from dump_visual_tree): identity, providers, 'isFocused' (has keyboard focus), 'isKeyboardFocusable', and 'boundingRect' (x, y, width, height in window device-independent units from its top-left; multiply by take_snapshot's 'scale' for image coordinates). Reports value, toggle state, 'selectionItems', what is selected, not the list's items (expand and dump a dropdown to read those), 'itemCount', how many items a list, dropdown or tab holds, hidden ones too, and a scroll bar/slider's 'range' (value, minimum, maximum, isReadOnly). A Window also reports 'frame': canResize, windowDecorations (None, BorderOnly, Full), canMinimize, canMaximize, showInTaskbar, windowState (Normal, Minimized, Maximized, FullScreen). These are Avalonia properties; native styles are not reported, as nativeStyleNote explains. Other controls have no frame section. Lists the DataContext ViewModel's public commands, Command-bound methods and properties for interact's reflection actions, with property values where readable as text. A control that inherits its DataContext lists only its own resolved Command, if any, with binding details in 'dataContextNote'; 'dataContextOwner' gives the owner's path, and 'dataContextNote' counts omitted Dock base-type members. An editor's Document reads as a line count: get_file_content returns the whole text that CaretOffset, SelectionStart and SelectionLength count into; the Immediate window's reads as its text. Values over 4000 characters are cut and give their full length. Use before interact to check providers or discover VM members. Pass the same 'window' as the dump the path came from; its parameter description lists the values. 'isHidden' is true for a control in the tree but effectively invisible (e.g. collapsed by a binding), and absent when showing.")]
+    [Description("Deep-inspects one control addressed by 'target' (a path from dump_visual_tree): identity, providers, 'isFocused' (has keyboard focus), 'isKeyboardFocusable', and 'boundingRect' (x, y, width, height in window device-independent units from its top-left; map into a snapshot with take_snapshot's scale and window offsets). Reports value with 'isReadOnly' (true/false when a value provider exists), toggle state, 'selectionItems', what is selected, not the list's items (expand and dump a dropdown to read those), 'itemCount', how many items a list, dropdown or tab holds, hidden ones too, and a scroll bar/slider's 'range' (value, minimum, maximum, isReadOnly). A Window also reports 'frame': canResize, windowDecorations (None, BorderOnly, Full), canMinimize, canMaximize, showInTaskbar, windowState (Normal, Minimized, Maximized, FullScreen). These are Avalonia properties; native styles are not reported, as nativeStyleNote explains. Other controls have no frame section. Lists the DataContext ViewModel's public commands, Command-bound methods and properties for interact's reflection actions, with property values where readable as text. A control that inherits its DataContext lists only its own resolved Command, if any, with binding details in 'dataContextNote'; 'dataContextOwner' gives the owner's path, and 'dataContextNote' counts omitted Dock base-type members. An editor's Document reads as a line count: get_file_content returns the whole text that CaretOffset, SelectionStart and SelectionLength count into; the Immediate window's reads as its text. Values over 4000 characters are cut and give their full length. Use before interact to check providers or discover VM members. Pass the same 'window' as the dump the path came from; its parameter description lists the values. 'isHidden' is true for a control in the tree but effectively invisible (e.g. collapsed by a binding), and absent when showing.")]
     public async Task<InspectResult> InspectElementAsync(
         string target, [Description(WindowParameter)] string? window = null, CancellationToken ct = default)
     {
@@ -2293,11 +2297,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "interact")]
-    [Description("Drives a live control addressed by 'target' (a path from dump_visual_tree) through its UI Automation provider — one verb, 'action', instead of a tool per interaction. The 'action' parameter lists every verb and what it does, and 'value' what each one takes. A provider action needs the provider dump_visual_tree reports for the target and fails with \"element does not support '<action>'\" without it — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, releasing 50 ms later as input of its own, as a person does, so what the press set off runs first; it waits up to a second for the window to draw its next frame first, since a press is hit-tested against what was drawn and a window opened a moment ago has drawn nothing; its reply names the button, the keys held, the point in the target's and the window's coordinates, and the control the press landed on when that is not the target; a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation (the server is DEBUG-only), but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. Use dump_visual_tree/inspect_element first to find the target and confirm what it supports. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
+    [Description("Drives a live control at 'target' (a dump_visual_tree path) through UI Automation. 'action' lists the verbs; 'value' describes their arguments. A provider action needs the provider dump_visual_tree reports for the target and fails with \"element does not support '<action>'\" without it — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, releasing 50 ms later as input of its own, as a person does, so what the press set off runs first; it waits up to a second for the window to draw its next frame first, since a press is hit-tested against what was drawn and a window opened a moment ago has drawn nothing; its reply names the button, the keys held, the point in the target's and the window's coordinates, and the control the press landed on when that is not the target; a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation (the server is DEBUG-only), but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. set_value on a non-editable ComboBox selects item text ignoring case; a miss names items. Other read-only values are refused. Use dump_visual_tree/inspect_element first to find the target and confirm what it supports. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
     public async Task<InteractOutcome> InteractAsync(
         [Description("A path from dump_visual_tree.")]
         string target,
-        [Description("One of: invoke (click a Button or menu item); select (pick a ComboBox or ListBox item, a DataGrid row or a tree node, via its TreeView's SelectedItem; with 'value', a list row scrolled out of view is scrolled to first, while a dropdown's items do not exist until it opens, so expand it, dump_visual_tree(root=combo), then select, which closes it as a click does); add_to_selection / remove_from_selection (add/remove a list item without replacing the selection; multi-select lists, including designer controls, only; reply lists the selection and names the primary when several remain. To choose the primary, select it first); double_click (raise DoubleTapped, selecting the target first as a real double-click does; how the Project Explorer opens an item); click (press and release a pointer on the target as a real click does, so a running form raises MouseDown, Click and MouseUp; the only verb that presses; any control, a Label or a form's area included); set_value (set a TextBox's text; a box bound to a property is committed as Enter would, and the reply says whether the value held or was refused); toggle (flip a CheckBox); expand / collapse (a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns); set_range_value (set a Slider or ScrollBar, as dragging its thumb would; a read-only bar or a value outside its range is refused, not clamped); scroll (moves the target, the scroller or scroll bars inside its own template, so aiming at an editor or a DataGrid works, or else the nearest container that scrolls that way; the reply gives where it now is, or says it could not move); invoke_command and set_property (reflection: use the DataContext members inspect_element lists, or value Command for the target's resolved command; invoke_command checks CanExecute, and set_property coerces to the property's type); close (the target's window, as its close box does; a Yes/No or Abort/Retry/Ignore MsgBox refuses, a form's QueryUnload may; reply says if still open; not the IDE's main window).")]
+        [Description("One of: invoke (click a Button or menu item); select (pick a ComboBox or ListBox item, a DataGrid row or a tree node, via its TreeView's SelectedItem; with 'value', a row out of view is scrolled to first; a dropdown's items exist only while it is open, so expand it, dump_visual_tree(root=combo), then select, which closes it as a click does); add_to_selection / remove_from_selection (add/remove a list item without replacing the selection; multi-select lists, including designer controls, only; reply lists the selection and names the primary when several remain. To choose the primary, select it first); double_click (raise DoubleTapped, selecting the target first as a real double-click does, or commit a completion item; how the Project Explorer opens an item); click (press and release a pointer on the target as a real click does, so a running form raises MouseDown, Click and MouseUp; the only verb that presses; any control, a Label or a form's area included); set_value (set a TextBox's text, or a fixed ComboBox's item; a box bound to a property is committed as Enter would, and the reply says whether it held or was refused); toggle (flip a CheckBox); expand / collapse (a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns); set_range_value (set a Slider or ScrollBar, as dragging its thumb would; a read-only bar or a value outside its range is refused, not clamped); scroll (moves the target's own scroller or bars, so an editor or a DataGrid works, else the nearest container that scrolls that way; the reply gives where it now is, or says it could not move); invoke_command and set_property (reflection: use the DataContext members inspect_element lists, or value Command for the target's resolved command; invoke_command checks CanExecute, and set_property coerces to the property's type); close (the target's window, as its close box does; a Yes/No or Abort/Retry/Ignore MsgBox refuses, a form's QueryUnload may; reply says if still open; not the IDE's main window).")]
         string action,
         [Description("Required for set_value (the text), set_range_value (a number, '.' for decimals), scroll (up, down, left or right for a page; line_up, line_down, line_left or line_right for a line; home or end for the top or bottom) and the reflection actions (invoke_command: Command runs the target’s resolved Command with its CommandParameter, checking CanExecute; otherwise the name of an ICommand property, or of a method XAML binds as a Command with no CommandParameter, refused when its Can<name>(object) returns false; set_property: \"PropertyName=NewValue\"). For select, the item text to match; omit it when 'target' already points at the item. Optional for click: a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, right or middle (left when omitted), any of shift, ctrl and alt to hold, and double for two clicks, in any order and separated by spaces, as in '10,5 right double' or 'double'.")]
         string? value = null,
@@ -3185,7 +3189,8 @@ internal record ControlInfo(
 internal record SnapshotResult(
     string? Path, string? Error, string? ActiveDialog, int? Width = null, int? Height = null, double? Scale = null,
     // The inline copy's own size and pixels per device-independent unit, when one was asked for (#957).
-    int? InlineWidth = null, int? InlineHeight = null, double? InlineScale = null);
+    int? InlineWidth = null, int? InlineHeight = null, double? InlineScale = null,
+    int? WindowOffsetX = null, int? WindowOffsetY = null);
 
 internal record ProjectInfoResult(
     string? ProjectName,
