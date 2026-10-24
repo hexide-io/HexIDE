@@ -265,6 +265,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Editing bundled-server tests no longer makes the server look stale** (#1017). The IDE test harness
+  checks C# and grammar files in the server project only, so test edits keep the parity checks running
+  and grammar edits require a rebuild.
+
 - **The pull-diagnostics race test always exercises the race** (#812). The stub holds the fresh answer until
   the stale publication starts, so a run cannot pass merely because the fresh answer arrived first.
 
