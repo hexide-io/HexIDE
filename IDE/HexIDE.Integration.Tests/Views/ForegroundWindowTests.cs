@@ -19,11 +19,27 @@ namespace HexIDE.Integration.Tests.Views;
 /// deliberately do not rely on <c>IsActive</c> — headless never sets it, which is exactly the
 /// robustness the rule needs.
 /// </summary>
-public class ForegroundWindowTests
+public class ForegroundWindowTests : IDisposable
 {
-    private static Window Shown(string title)
+    private readonly List<Window> windows = new();
+
+    public void Dispose()
     {
-        var w = new Window { Title = title };
+        // Owners are opened first, so close their dialogs first.
+        foreach (var window in windows.AsEnumerable().Reverse())
+            window.Close();
+        windows.Clear();
+    }
+
+    private Window Track(Window window)
+    {
+        windows.Add(window);
+        return window;
+    }
+
+    private Window Shown(string title)
+    {
+        var w = Track(new Window { Title = title });
         w.Show();
         return w;
     }
@@ -51,7 +67,7 @@ public class ForegroundWindowTests
         // The regression itself. Three visible windows, and the one that matters was created last.
         var main = Shown("HexIDE");
         var form = Shown("Form1");
-        var msgBox = new Window { Title = "MsgBox" };
+        var msgBox = Track(new Window { Title = "MsgBox" });
         _ = msgBox.ShowDialog(form);
 
         ForegroundWindow.Pick(main, new[] { main, form, msgBox })
@@ -62,7 +78,7 @@ public class ForegroundWindowTests
     public void A_dialog_over_the_main_window_is_still_found()
     {
         var main = Shown("HexIDE");
-        var options = new Window { Title = "Options" };
+        var options = Track(new Window { Title = "Options" });
         _ = options.ShowDialog(main);
 
         ForegroundWindow.Pick(main, new[] { main, options }).Should().BeSameAs(options);
@@ -73,7 +89,7 @@ public class ForegroundWindowTests
     {
         var main = Shown("HexIDE");
         var form = Shown("Form1");
-        var msgBox = new Window { Title = "MsgBox" };
+        var msgBox = Track(new Window { Title = "MsgBox" });
         _ = msgBox.ShowDialog(form);
         msgBox.Close();
 
@@ -110,7 +126,7 @@ public class ForegroundWindowTests
         // window appeared afterwards.
         var main = Shown("HexIDE");
         var form = Shown("Form1");
-        var msgBox = new Window { Title = "MsgBox" };
+        var msgBox = Track(new Window { Title = "MsgBox" });
         _ = msgBox.ShowDialog(form);
         var later = Shown("Form2");
 
@@ -137,7 +153,7 @@ public class ForegroundWindowTests
         // A dialog outranks a form under "auto" — it must not outrank an explicit request.
         var main = Shown("HexIDE");
         var form = Shown("Form1");
-        var dialog = new Window { Title = "Run-time error" };
+        var dialog = Track(new Window { Title = "Run-time error" });
         _ = dialog.ShowDialog(form);
 
         ForegroundWindow.Pick("auto", main, new[] { main, form, dialog }).Window.Should().BeSameAs(dialog);
@@ -185,7 +201,7 @@ public class ForegroundWindowTests
 
     // ── A window by its name (#822) ───────────────────────────────────────────────────────────────────────
 
-    private static Window Form(string name, string title)
+    private Window Form(string name, string title)
     {
         var w = Shown(title);
         HexIDE.Runtime.BuiltinControls.VBProps.SetName(w, name);
@@ -253,11 +269,11 @@ public class ForegroundWindowTests
             .First(n => n.Path.EndsWith("[" + name + "]", StringComparison.Ordinal)).Path;
 
     // The IDE's window holds a button, Find a text box: a path into one is no path into the other.
-    private static (Window Main, Window Find) IdeWithFind()
+    private (Window Main, Window Find) IdeWithFind()
     {
-        var main = new Window { Title = "HexIDE", Content = new Button { Name = "Go" } };
+        var main = Track(new Window { Title = "HexIDE", Content = new Button { Name = "Go" } });
         main.Show();
-        var find = new Window { Title = "Find", Content = new TextBox { Name = "FindWhat" } };
+        var find = Track(new Window { Title = "Find", Content = new TextBox { Name = "FindWhat" } });
         find.Show();
         Avalonia.Threading.Dispatcher.UIThread.RunJobs();
         return (main, find);
