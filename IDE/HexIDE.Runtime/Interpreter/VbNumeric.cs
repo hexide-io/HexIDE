@@ -1,10 +1,15 @@
 using System;
+using System.Numerics;
 using Antlr4.Runtime;
 using VT = HexIDE.Runtime.Interpreter.Vb6Value.ValueType;
 
 namespace HexIDE.Runtime.Interpreter;
 
-/// <summary>VB6 arithmetic tables, checked narrowing, and integer operators (operands rounded half-to-even).</summary>
+/// <summary>
+/// The single home for VB6 numeric semantics: the per-operator arithmetic result-type tables, checked narrowing
+/// (out-of-range -> Overflow, Err 6), and the integer <c>\</c>/<c>Mod</c> operators (operands banker's-rounded to an
+/// integer first; divide-by-zero -> Err 11). The rules here were verified against real <c>vb6.exe</c>.
+/// </summary>
 public static class VbNumeric
 {
     // Oracle: "Numeric type pairs — five arithmetic tables" (2026-09-03).
@@ -55,7 +60,9 @@ public static class VbNumeric
     private static VT ResultType(string[] table, int left, int right) =>
         CoreType("BILSFCD".IndexOf(table[left][right]));
 
-    // Index only, not an arithmetic promotion ladder. Also used by unchanged unary/comparison helpers.
+    // The tables' row and column index; not a promotion ladder. Boolean and Empty index as Integer. Date has no
+    // index: Add/Sub special-case it (Date+n -> Date, Date-Date -> Double), and * / \ Mod ^ coerce a Date operand
+    // to its Double serial through the fallback path. Also used by the unary and comparison helpers.
     private static int CoreRank(VT t)
     {
         if (t == VT.Byte) return 0;
@@ -138,6 +145,10 @@ public static class VbNumeric
         var rt = ResultType(op == '*' ? MultiplyTypes : AddTypes, lr, rr);
         if (rt == VT.Currency || rt == VT.Decimal)
         {
+            // In + and -, a Single or Double beside a Currency becomes a Currency first, by its exact binary value, and
+            // the sum is taken in Currency: 2@ + 0.00005 is 2.0001, where a sum taken in Double would round to 2, and
+            // 1@ + 0.00005! is 1 where 1@ + 0.00005 is 1.0001 (measured, #966, #230). The * table makes a Currency times
+            // a Single or Double a Double, so * never reaches here with one.
             decimal res;
             try
             {
@@ -273,7 +284,9 @@ public static class VbNumeric
         if (target == VT.Double)
             return new Vb6Value(ToDouble(v));
         if (target == VT.Currency)
-            return MakeCurrency(ToDecimal(v), ctx);
+            return v.Type == VT.Double
+                ? CurrencyFromDouble((double)v.Value!, ctx)
+                : MakeCurrency(ToDecimal(v), ctx);
         if (target == VT.Decimal)
             return Vb6Value.NewDecimal(ToDecimal(v));
         if (target == VT.Date)
@@ -349,31 +362,49 @@ public static class VbNumeric
         return Vb6Value.NewCurrency(r);
     }
 
-    // Currency + and - convert each operand first. Preserve the exact binary value when rounding
-    // a floating operand: a decimal cast discards the tail that separates 0.00005# from 0.00005!.
-    private static decimal CurrencyOperand(Vb6Value value, ParserRuleContext? ctx)
+    private static Vb6Value CurrencyFromDouble(double value, ParserRuleContext? ctx)
     {
-        if (value.Type != VT.Single && value.Type != VT.Double)
-            return ToDecimal(value);
-        double d = ToDouble(value);
-        if (!double.IsFinite(d) || d < -922_337_203_685_478d || d > 922_337_203_685_478d)
+        var (numerator, denominator) = DoubleFraction(value, ctx);
+        return RoundCurrency(numerator, denominator, ctx);
+    }
+
+    // A Currency operand of + or -: a Single or Double by its exact binary value, anything else as it stands.
+    private static decimal CurrencyOperand(Vb6Value value, ParserRuleContext? ctx) =>
+        value.Type is VT.Single or VT.Double
+            ? (decimal)CurrencyFromDouble(ToDouble(value), ctx).Value!
+            : ToDecimal(value);
+
+    private static (BigInteger Numerator, BigInteger Denominator) DoubleFraction(double value, ParserRuleContext? ctx)
+    {
+        if (!double.IsFinite(value))
             throw new VBRunTimeException(ctx, VBStandardError.Overflow);
-        long bits = BitConverter.DoubleToInt64Bits(d);
-        int exponent = (int)((bits >> 52) & 0x7ff);
-        var significand = new System.Numerics.BigInteger(bits & 0x000f_ffff_ffff_ffffL);
-        if (exponent != 0) significand += System.Numerics.BigInteger.One << 52;
-        int shift = (exponent == 0 ? -1022 : exponent - 1023) - 52;
-        var scaled = significand * 10000;
-        if (shift >= 0) scaled <<= shift;
-        else
-        {
-            var denominator = System.Numerics.BigInteger.One << -shift;
-            scaled = System.Numerics.BigInteger.DivRem(scaled, denominator, out var remainder);
-            int midpoint = (remainder * 2).CompareTo(denominator);
-            if (midpoint > 0 || midpoint == 0 && !scaled.IsEven) scaled++;
-        }
-        if (bits < 0) scaled = -scaled;
-        return (decimal)MakeCurrency((decimal)scaled / 10000m, ctx).Value!;
+        // (decimal)d keeps only about 15 significant digits: it turns 1.00005 and 0.00015 into
+        // decimal ties, losing which side their binary values occupy (#966). Decode d = mantissa * 2^exponent
+        // instead. BigInteger shifts and products preserve every bit, including subnormal values.
+        ulong bits = BitConverter.DoubleToUInt64Bits(value);
+        int exponentBits = (int)((bits >> 52) & 0x7ff);
+        BigInteger mantissa = bits & 0x000f_ffff_ffff_ffffUL;
+        if (exponentBits != 0)
+            mantissa += BigInteger.One << 52;
+        int exponent = exponentBits == 0 ? -1074 : exponentBits - 1023 - 52;
+        if ((bits >> 63) != 0)
+            mantissa = -mantissa;
+        return exponent >= 0 ? (mantissa << exponent, BigInteger.One) : (mantissa, BigInteger.One << -exponent);
+    }
+
+    private static Vb6Value RoundCurrency(BigInteger numerator, BigInteger denominator, ParserRuleContext? ctx)
+    {
+        // Scale the exact fraction to Currency units, then round once. Comparing twice the remainder
+        // with the denominator detects a true tie; the quotient's parity implements ties to even.
+        BigInteger units = BigInteger.DivRem(BigInteger.Abs(numerator) * 10000, denominator, out var remainder);
+        int comparison = (remainder * 2).CompareTo(denominator);
+        if (comparison > 0 || (comparison == 0 && !units.IsEven))
+            units++;
+        if (numerator.Sign < 0)
+            units = -units;
+        if (units < long.MinValue || units > long.MaxValue)
+            throw new VBRunTimeException(ctx, VBStandardError.Overflow);
+        return Vb6Value.NewCurrency((decimal)units / 10000m);
     }
 
     private static double SerialOf(Vb6Value v) => v.Value is DateTime dt ? dt.ToOADate() : ToDouble(v);

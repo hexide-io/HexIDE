@@ -253,6 +253,11 @@ there isn't one yet. Anything may change between 0.x releases.
   Currency multiplied by Single or Double gives Double, while addition and subtraction convert to Currency
   first. Decimal division stays Decimal, and Byte integer division and Mod stay Byte.
 
+- **A Double rounds to Currency from its exact binary value** (#966). Storing `1.00005`, calling
+  `CCur(1.00005)` or declaring it as a Currency Const now gives 1.0001, and `CCur(0.00015)`
+  gives 0.0001, as measured on vb6.exe. In `+` and `-` beside a Currency, a Double becomes a Currency the same way before the sum, so `2@ + 0.00005` is 2.0001.
+
+- **MCP shared context menus belong to the control that opened them** (#1323). A tab menu appears only under its current tab in the dump; expanding it on another tab moves it there, and collapsing it from another tab leaves it alone. Menu headers also read back opens and closes, refusing an action a handler cancelled.
 
 - **A name declared twice is vb6.exe's compile error** (#1622, #1499). A module that declared one name twice ran,
   keeping one declaration, and so did a procedure, so `Dim n As Long` then `Static n` gave an ordinary Long. At module
