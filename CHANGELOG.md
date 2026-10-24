@@ -255,6 +255,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **An empty one-line For Each over Nothing follows p-code** (#1486). Under On Error Resume Next it raises 424, keeps the loop variable and skips Next; a statement after Next on the line still runs. Other loop forms keep their measured behaviour.
+
 - **Compiler test sockets are disposed when peer creation fails** (#1333). Loopback test helpers now own
   resources until creation succeeds, and each socket-using test checks for open handles at teardown so a leak
   fails where it occurs. Production transport is unchanged.

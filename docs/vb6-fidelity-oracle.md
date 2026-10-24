@@ -14854,6 +14854,21 @@ body. **The one exception is p-code's alone: `For Each v In w: Next`, a one-line
 raises 424, skips the `Next`, runs anything after it on the line, and leaves `v` unchanged. Native code gives 92 and
 Empty, as for every other form (#1486).
 
+The complete #1486 table, measured with `w As Collection` and again with `w As Object`, with identical
+results. `w` is Nothing, `v` starts as `"unchanged"`, and `o` is declared `As Object`. Each loop runs under
+`On Error Resume Next`, followed on a new line by logging `Err.Number` and `TypeName(v)`; `L` logs its argument.
+
+| Loop | Native | P-code / IDE (HexIDE target) |
+|---|---|---|
+| `For Each v In w: Next` | 92, v Empty | 424, v String |
+| `For Each v In w: Next: L "after"` | after runs; 92, v Empty | after runs; 424, v String |
+| `For Each v In w: L "body": Next` | body once; 92, v Empty | body once; 92, v Empty |
+| `For Each v In w` / `Next` | 92, v Empty | 92, v Empty |
+| `For Each v In w` / `L "body"` / `Next` | body once; 92, v Empty | body once; 92, v Empty |
+| `For Each o In w: L "body": Next` | body once; 92, v String | body once; 92, v String |
+
+`ForEachTests.Nothing_ResumeNext_MeasuredTable` pins every row for both declarations (#1486).
+
 ### An object held by a Collection
 
 `Class1` prints "terminate" and its Name when it ends.
