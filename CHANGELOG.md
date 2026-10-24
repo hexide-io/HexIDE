@@ -249,6 +249,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Procedure Consts and array bounds reject later local Consts** (#894), with VB6's measured error for
+  Option Explicit on or off. Under Option Explicit, a later local Const shadowing a module Const already read by an earlier Const is
+  "Duplicate declaration in current scope"; shadowing without that earlier read still works.
+
 - **MCP project saves report unused file-dialog answers** (#1335). `invoke_menu_item` for Save Project / Save Project As and `interact` on their buttons now say when an answer armed before the call remains pending. A document save through a menu, key or click can still wait on formatting after the reply; `answer_next_file_dialog` explains that limit.
 
 - **MCP commands bound through another view model are reachable** (#1336). `inspect_element` lists a menu item’s or button’s resolved `Command` and its binding; `invoke_command` accepts `Command`, checks `CanExecute` with the control’s `CommandParameter`, and runs it. A wrong name explains the binding and how to invoke it, including on the designer’s Delete item.
