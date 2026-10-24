@@ -255,6 +255,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Quiet startup bindings** (#864): Lock Controls accepts no focused form as unchecked, and the dock theme
+  accepts a layout that has not arrived without logging five null-path errors.
+
 - **Whole-file replacement refusals report every protected region changed** (#1054). When the header and a
   member's Attribute lines differ, `set_file_content` and an add-in's `TrySetContent` now name both in one reply.
 
