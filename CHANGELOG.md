@@ -255,6 +255,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Completion descriptions are readable through MCP, and double-click commits an item** (#1334).
+  The dump reaches the description popup under the completion list; `double_click` uses the list's own
+  insertion path. Snapshot composition now traverses the same description popup; its desktop rendering
+  still needs a live check.
+
 - **Automation saves explain rewritten member Attribute qualifiers** (#1043). `set_file_content`,
   `set_control_property` and `add_control` now name the old and new qualifiers in their successful reply,
   explaining why a save can write text different from what the caller supplied.

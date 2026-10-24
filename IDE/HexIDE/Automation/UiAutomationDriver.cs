@@ -11,6 +11,7 @@ using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 using AvaloniaEdit;
+using AvaloniaEdit.CodeCompletion;
 using AvaloniaEdit.Editing;
 using AvaloniaEdit.Rendering;
 
@@ -1273,6 +1274,23 @@ public static class UiAutomationDriver
                 treeRefusal = unselected;
             else
                 selected = true;
+        }
+
+        // AvaloniaEdit commits on a pointer press, before DoubleTapped would arrive. Use the same
+        // insertion request as its pointer handler, after verifying selection, rather than sending keys.
+        if (control is ListBoxItem
+            && control.FindAncestorOfType<CompletionList>() is { } completion
+            && completion.GetLogicalParent() is CompletionWindow completionWindow)
+        {
+            if (!selected)
+                return Err($"the completion item was not selected, so it was not committed: {treeRefusal}");
+            var label = LabelOf(control, peer);
+            var document = completionWindow.TextArea.Document;
+            var before = document.Text;
+            completion.RequestInsertion(EventArgs.Empty);
+            return Ok($"requested insertion of completion '{label}'; "
+                      + (document.Text != before ? "the document text changed" : "the document text did not change")
+                      + (completionWindow.IsOpen ? "; the completion list is still open" : "; the completion list closed"));
         }
 
         var centre = new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
@@ -3941,6 +3959,13 @@ public static class UiAutomationDriver
         // The code window's completion list and parameter info are the editor's own popups, held by its view.
         if (c is TextEditor editor && HexIDE.Forms.Views.CodeEditorView.OpenPopupsOf(editor) is { Count: > 0 } editorPopups)
             return editorPopups;
+
+        // AvaloniaEdit parents its description popup logically to CompletionWindow, alongside the
+        // CompletionList. Graft it under the list box that owns the selected item (#1334). This same
+        // route is used by SnapshotComposer when it walks the completion popup's realised content.
+        if (c is CompletionListBox
+            && c.FindAncestorOfType<CompletionList>()?.GetLogicalParent() is CompletionWindow completionWindow)
+            return completionWindow.GetLogicalChildren().OfType<Popup>().Where(p => p.IsOpen).ToList();
 
         foreach (var f in FlyoutsOf(c))
             if (f is PopupFlyoutBase open && IsOpenOn(open, c))
