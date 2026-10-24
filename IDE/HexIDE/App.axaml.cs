@@ -31,8 +31,10 @@ public partial class App : Application
         VbLocale.Default = CultureInfo.CurrentCulture;
         CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
         CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
-        AvaloniaXamlLoader.Load(this);
+        LoadMarkup();
     }
+
+    internal void LoadMarkup() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()
     {
