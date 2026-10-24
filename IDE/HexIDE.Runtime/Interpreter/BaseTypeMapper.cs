@@ -26,4 +26,18 @@ public static class BaseTypeMapper
         if (baseType.VARIANT() != null) return Vb6Value.ValueType.EmptyVariant;
         return null;   // COLLECTION / OBJECT / CURRENCY (no token yet) / anything else -> caller decides
     }
+
+    /// <summary>
+    /// The type a type-declaration character declares, as the <c>As</c> clause it stands for would: <c>%</c> Integer,
+    /// <c>&amp;</c> Long, <c>!</c> Single, <c>#</c> Double, <c>@</c> Currency and <c>$</c> String (measured for a Const, #1614).
+    /// </summary>
+    public static Vb6Value.ValueType Map(VB6Parser.TypeHintContext typeHint) => typeHint switch
+    {
+        _ when typeHint.PERCENT() != null => Vb6Value.ValueType.Integer,
+        _ when typeHint.AMPERSAND() != null => Vb6Value.ValueType.Long,
+        _ when typeHint.EXCLAMATIONMARK() != null => Vb6Value.ValueType.Single,
+        _ when typeHint.HASH() != null => Vb6Value.ValueType.Double,
+        _ when typeHint.AT() != null => Vb6Value.ValueType.Currency,
+        _ => Vb6Value.ValueType.String,
+    };
 }
