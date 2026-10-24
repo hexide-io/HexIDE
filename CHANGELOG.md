@@ -249,6 +249,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Snapshots leave room for menus above or left of the window** (#648). The window and its popups now share
+  the same image origin. `take_snapshot` reports the window offset and explains how to map inspected bounds
+  into the full-size or inline image.
+
 - **MCP guarded-edit refusals name the region** (#1042): the file's header or the Attribute lines describing a named member. Backward deletion explains how to remove a declaration with its Attribute lines instead of sending the caller back to the same caret offset; insertions still give a new editable offset.
 
 - **A Double rounds to Currency from its exact binary value** (#966). Storing `1.00005`, calling

@@ -79,6 +79,54 @@ public class SnapshotComposerTests
         return false;
     }
 
+    [AvaloniaTheory]
+    [InlineData(80, 100, 20, 0, 1.0)]
+    [InlineData(100, 80, 0, 20, 1.0)]
+    [InlineData(80, 80, 20, 20, 1.5)]
+    public void Overhanging_popup_shifts_the_window(int popupX, int popupY, int offsetX, int offsetY,
+        double scaling)
+    {
+        var window = new Window { Width = 100, Height = 100, Background = Brushes.Blue };
+        var popup = new Window { Width = 10, Height = 10, Background = Brushes.Magenta };
+        window.Show();
+        popup.Show();
+        try
+        {
+            using var bitmap = SnapshotComposer.Compose(window,
+                new PixelRect(100, 100, (int)(100 * scaling), (int)(100 * scaling)),
+                new() { (popup, new PixelRect(popupX, popupY, (int)(10 * scaling), (int)(10 * scaling))) },
+                scaling, out var offset);
+
+            offset.Should().Be(new PixelPoint(offsetX, offsetY));
+            // A strip before the shifted window must stay transparent, beyond the popup's own edge.
+            var x = offsetX > 0 ? 0 : 50;
+            var y = offsetY > 0 && offsetX == 0 ? 0 : 50;
+            var pixel = new byte[4];
+            var handle = System.Runtime.InteropServices.GCHandle.Alloc(pixel,
+                System.Runtime.InteropServices.GCHandleType.Pinned);
+            try
+            {
+                bitmap.CopyPixels(new PixelRect(x, y, 1, 1), handle.AddrOfPinnedObject(), 4, 4);
+                pixel[3].Should().Be(0, "the window must leave room for the popup overhang");
+                bitmap.CopyPixels(new PixelRect(offsetX + 50, offsetY + 50, 1, 1),
+                    handle.AddrOfPinnedObject(), 4, 4);
+                pixel.Should().Equal(new byte[] { 255, 0, 0, 255 }, "the shifted window must still be rendered");
+                bitmap.CopyPixels(new PixelRect(popupX - 100 + offsetX + 5, popupY - 100 + offsetY + 5, 1, 1),
+                    handle.AddrOfPinnedObject(), 4, 4);
+                pixel.Should().Equal(new byte[] { 255, 0, 255, 255 }, "the popup must retain its relative position");
+            }
+            finally
+            {
+                handle.Free();
+            }
+        }
+        finally
+        {
+            popup.Close();
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public void A_window_with_nothing_open_still_captures()
     {
