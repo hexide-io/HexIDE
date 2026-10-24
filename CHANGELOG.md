@@ -268,6 +268,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Menu shortcut labels follow keymap changes immediately** (#732), including clearing unbound shortcuts.
+  Bookmark menus also derive their labels from commands, preserving platform-specific modifiers.
+
 - **A broken assignment no longer hides later syntax errors and procedures** (#938). The bundled language
   server recovers at the next statement separator and reports each offending token once. Recovery from
   extraneous tokens and errors between procedures remains partial.

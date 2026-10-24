@@ -40,7 +40,8 @@ specifics, they converge on a small set of ideas, in dependency order:
    times on a surface with independent state, and it is the join that keeps menus pure data instead of
    pure code.
 4. **A placement never authors an accelerator.** The shortcut shown is derived from the live keymap, so a
-   rebind cannot leave a stale label anywhere.
+   rebind cannot leave a stale label anywhere. `MenuUtils` refreshes command-backed menu items after
+   `KeymapService.Apply`, including clearing labels for unbound commands (#732).
 5. **Separate the predicate from the policy.** Declare *where* a command goes; leave *when it is
    available* to a code seam. The surface's owner — not the contributor — decides whether unavailable
    means greyed or hidden, which is why a third party can place a command onto a surface it knows nothing

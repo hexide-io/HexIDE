@@ -205,11 +205,11 @@
                             <MenuItem Command="{x:Static vb:ApplicationCommands.CompleteWordCommand}" Header="{DynamicResource Str.Menu.Edit.CompleteWord}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Completeword}" />
                             <Separator />
                             <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks}">
-                                <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks.Toggle}"    Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}"   InputGesture="Ctrl+F2" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks.Toggle}"    Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}"   />
                                 <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks.Next}"      Command="{x:Static vb:ApplicationCommands.NextBookmarkCommand}" />
-                                <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks.Previous}"  Command="{x:Static vb:ApplicationCommands.PreviousBookmarkCommand}"  InputGesture="Shift+F2" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks.Previous}"  Command="{x:Static vb:ApplicationCommands.PreviousBookmarkCommand}"  />
                                 <Separator />
-                                <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks.ClearAll}" Command="{x:Static vb:ApplicationCommands.ClearAllBookmarksCommand}" InputGesture="Ctrl+Shift+F2" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks.ClearAll}" Command="{x:Static vb:ApplicationCommands.ClearAllBookmarksCommand}" />
                             </MenuItem>
                         </MenuItem>
                         <MenuItem Header="{DynamicResource Str.Menu.View}">
