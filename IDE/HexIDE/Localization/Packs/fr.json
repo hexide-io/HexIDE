@@ -712,7 +712,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "La compilation VB6 a échoué :\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "La génération a réussi mais l'exécutable est introuvable à :\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Échec de l'exécution",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "Cette action réinitialisera votre projet. Voulez-vous continuer ?",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "Cette action réinitialisera votre projet. Continuer quand même ?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Impossible de charger la feuille '{0}' ; le projet n'a donc pas démarré.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE ne prend pas encore en charge ceci :\n\n{0}",
     "Str.NewProject.Msg.Title": "Nouveau projet",

@@ -712,7 +712,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "Kompilasi VB6 gagal:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Build berhasil tetapi berkas yang dapat dieksekusi tidak ditemukan di:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Gagal Menjalankan",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "Tindakan ini akan mengatur ulang proyek Anda. Apakah Anda ingin melanjutkan?",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "Tindakan ini akan mengatur ulang proyek Anda, tetap lanjutkan?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Formulir '{0}' tidak dapat dimuat, sehingga proyek tidak dijalankan.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE belum mengimplementasikan hal ini:\n\n{0}",
     "Str.NewProject.Msg.Title": "Proyek Baru",

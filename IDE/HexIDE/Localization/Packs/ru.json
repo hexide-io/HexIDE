@@ -712,7 +712,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "Компиляция VB6 не удалась:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Сборка прошла успешно, но исполняемый файл не найден по пути:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Запуск не удался",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "Это действие сбросит проект. Продолжить?",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "Это действие сбросит ваш проект. Всё равно продолжить?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Не удалось загрузить форму '{0}', поэтому проект не был запущен.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE пока не реализует это:\n\n{0}",
     "Str.NewProject.Msg.Title": "Новый проект",

@@ -712,7 +712,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "VB6 संकलन विफल रहा:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "बिल्ड सफल रहा परंतु निष्पादन योग्य फ़ाइल यहाँ नहीं मिली:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "चलाना विफल",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "यह क्रिया आपके प्रोजेक्ट को रीसेट कर देगी। क्या आप जारी रखना चाहते हैं?",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "यह क्रिया आपके प्रोजेक्ट को रीसेट कर देगी, फिर भी आगे बढ़ें?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "फ़ॉर्म '{0}' लोड नहीं हो सका, इसलिए प्रोजेक्ट शुरू नहीं हुआ।\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE अभी तक इसे लागू नहीं करता:\n\n{0}",
     "Str.NewProject.Msg.Title": "नया प्रोजेक्ट",

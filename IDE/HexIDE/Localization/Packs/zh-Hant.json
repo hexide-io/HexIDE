@@ -712,7 +712,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "VB6 編譯失敗：\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "建置成功，但在下列位置找不到執行檔：\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "執行失敗",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "此動作將重設專案。是否要繼續？",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "此動作將重設您的專案，仍要繼續嗎？",
     "Str.ProjectRunner.StartupFormFailedToLoad": "無法載入表單「{0}」，因此專案未啟動。\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE 尚未實作此項目：\n\n{0}",
     "Str.NewProject.Msg.Title": "新增專案",

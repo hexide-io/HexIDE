@@ -21,6 +21,16 @@ public class LocalizationServiceTests
     }
 
     [AvaloniaFact]
+    public void ResetPrompt_UsesMeasuredVB6Wording()
+    {
+        var sut = CreateSut();
+        sut.Apply("en");
+
+        sut.GetString("Str.ProjectRunner.EditWhileRunningConfirm").Should()
+            .Be("This action will reset your project, proceed anyway?");
+    }
+
+    [AvaloniaFact]
     public void GetString_UnknownKey_ReturnsKeyItself()
     {
         var sut = CreateSut();

@@ -712,7 +712,7 @@
     "Str.Vb6Toolchain.CompilationFailed": "VB6 derlemesi başarısız oldu:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Derleme başarılı oldu ancak yürütülebilir dosya şurada bulunamadı:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Çalıştırma Başarısız",
-    "Str.ProjectRunner.EditWhileRunningConfirm": "Bu işlem projenizi sıfırlayacak. Devam etmek istiyor musunuz?",
+    "Str.ProjectRunner.EditWhileRunningConfirm": "Bu işlem projenizi sıfırlayacak. Yine de devam edilsin mi?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "'{0}' formu yüklenemediği için proje başlatılmadı.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE şunu henüz desteklemiyor:\n\n{0}",
     "Str.NewProject.Msg.Title": "Yeni Proje",

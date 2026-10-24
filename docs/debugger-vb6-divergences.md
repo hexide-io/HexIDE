@@ -37,7 +37,8 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   - **"This edit requires a Reset"** (OK, Help), which can't be declined, for a duplicate declaration.
   - In run mode the code window takes no typing at all, so neither prompt arises there.
   - This bullet used to quote the prompt as "…Do you want to continue?" with Yes and No. That was never measured, and
-    it is HexIDE's wording, not VB6's. The wording and buttons are #1360.
+    it was HexIDE's wording, not VB6's. Since #1360 HexIDE uses the measured wording and OK/Cancel, without Help
+    because it has no help topic.
 - **Which windows the prompt holds (measured, #1329):**
   - **VB6:** the running form owns it, and every top-level window of the process is disabled while it waits: the IDE
     and the program together. The program is paused in break mode anyway, and run mode offers no prompt.
@@ -50,7 +51,7 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
     one window is all Avalonia offers, and the program isn't paused. Floating a code window, which would split the
     IDE's windows further, currently hides it instead (#1361).
 - **HexIDE:** the interpreter can apply *no* edit live, so **every** edit while running/paused pops that same
-  prompt (Yes = reset + keep the edit; No = revert). So HexIDE over-prompts relative to VB6 (it resets even for a
+  prompt (OK = reset + keep the edit; Cancel = revert). So HexIDE over-prompts relative to VB6 (it resets even for a
   comment).
 - **Why:** honest + muscle-memory-recognisable — VB6's own dialog, surfaced for the whole edit set the interpreter
   can't hot-patch. Reframes the wall as a familiar behaviour.
@@ -63,7 +64,7 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   has a cost of its own during a run: D26), nor a reload, which the file watcher holds back until the run ends
   (`FileWatcherService`). Paste, cut and Delete with a selection now ask: their keys are
   bound to code-window commands that took them before the old handler saw them, so until then a paste while
-  paused landed with no prompt at all, by the key, the menus and the toolbar alike. Answering No restores the
+  paused landed with no prompt at all, by the key, the menus and the toolbar alike. Answering Cancel restores the
   code only, under whatever header the window shows by then.
 - **"Every edit" is unmeasured for the routes that are not keystrokes.** Replace All, formatting, Insert File,
   rename, an add-in's `ApplyEdits`/`SetContent` and automation's `set_file_content` while paused have not been
