@@ -272,6 +272,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Identify each stdio language server in its logs** (#364). Start, start failure, stderr and exit
+  messages carry the configured server ID, so interleaved output can be traced to its source.
+
 - **WithEvents applies to each variable in a comma list** (#1021). Both parsers accept it after a comma, and
   only variables marked WithEvents bind event handlers, as measured on vb6.exe.
 

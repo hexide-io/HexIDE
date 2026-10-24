@@ -577,6 +577,10 @@ anything, and failed entries remain failed.
 `stdio`, `pipe` (named pipe, connecting or listening) and `websocket` are all supported. Only `stdio` is
 exercised against a real foreign server; the other two are covered against fakes.
 
+Stdio process logs include the configured server ID as a structured `Server` property and in the
+rendered message for startup, start failure, stderr (Debug level) and exit. Direct transport callers
+that supply no ID use the executable name.
+
 The three do not carry the same framing, and the difference is load-bearing rather than incidental: the two
 byte-stream transports delimit messages with a `Content-Length` header, while a WebSocket carries message
 boundaries itself and must therefore send **one JSON-RPC message per Text frame with no header at all**.
