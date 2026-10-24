@@ -65,6 +65,33 @@ public class ComboStyleDesignerTests
         Saved(vm, form).Should().Contain("      Text            =   \"Combo1\"\r\n").And.NotContain("Style           =");
     }
 
+    // A Dropdown List renamed and set back to Style 0 writes the name it has then, not the one it was drawn with: VB6's
+    // designer, on SP6, wrote Text = "cboNewCombo1" for Combo1 renamed so (the oracle's "What VB6's designer draws in a
+    // Dropdown List's box").
+    [AvaloniaFact]
+    public void A_Dropdown_List_renamed_then_set_to_Style_0_writes_its_new_name()
+    {
+        var (vm, form, combo) = Drawn();
+        Set(vm, combo, VBProperties.ComboStyleProperty, VBComboStyle.DropdownList);
+
+        Set(vm, combo, VBProperties.NameProperty, "cboNewCombo1");
+        Set(vm, combo, VBProperties.ComboStyleProperty, VBComboStyle.DropdownCombo);
+
+        Saved(vm, form).Should().Contain("Begin VB.ComboBox cboNewCombo1 \r\n")
+            .And.Contain("      Text            =   \"cboNewCombo1\"\r\n");
+    }
+
+    // A rename of a combo that isn't a Dropdown List leaves its Text alone, as VB6's designer does a Dropdown Combo's.
+    [AvaloniaFact]
+    public void A_Dropdown_Combo_renamed_keeps_its_Text()
+    {
+        var (vm, _, combo) = Drawn();
+
+        Set(vm, combo, VBProperties.NameProperty, "cboNew");
+
+        combo.GetPropertyOrDefault(VBProperties.TextProperty).Should().Be("Combo1");
+    }
+
     // One change: Undo puts the Style and the Text back together, and Redo makes both again.
     [AvaloniaFact]
     public void Undo_takes_back_the_Style_and_the_Text_together()

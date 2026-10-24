@@ -705,7 +705,8 @@ public class UiAutomationDriverTests
         {
             tree.SelectedItem.Should().BeNull("nothing is selected before the gesture");
 
-            UiAutomationDriver.Interact(root, "double_click", null);
+            var outcome = UiAutomationDriver.Interact(root, "double_click", null);
+            outcome.Detail.Should().Contain("DoubleTapped").And.Contain("selected it first").And.Contain("no pointer press");
 
             // Without this a handler would act on whatever was selected before — the wrong document,
             // and silently, which is the failure mode the verb exists to avoid.
