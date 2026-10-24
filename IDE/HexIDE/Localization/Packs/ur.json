@@ -767,6 +767,8 @@
     "Str.Options.Node.Environment": "ماحول",
     "Str.Options.Node.Editor": "ایڈیٹر",
     "Str.Options.Node.FormDesigner": "فارم ڈیزائنر",
+    "Str.Menu.AddIns.Manager": "ایڈ اِن مینیجر…",
+    "Str.Options.Node.NoAddins": "(کوئی ایڈ اِن نصب نہیں ہے)",
     "Str.Options.Node.AddIns": "ایڈ اِنز",
     "Str.Options.Node.General": "عمومی",
     "Str.Options.Node.Theme": "تھیم",

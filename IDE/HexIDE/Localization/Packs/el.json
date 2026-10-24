@@ -767,6 +767,8 @@
     "Str.Options.Node.Environment": "Περιβάλλον",
     "Str.Options.Node.Editor": "Επεξεργαστής",
     "Str.Options.Node.FormDesigner": "Σχεδίαση φόρμας",
+    "Str.Menu.AddIns.Manager": "Διαχείριση προσθέτων…",
+    "Str.Options.Node.NoAddins": "(δεν έχουν εγκατασταθεί πρόσθετα)",
     "Str.Options.Node.AddIns": "Πρόσθετα",
     "Str.Options.Node.General": "Γενικά",
     "Str.Options.Node.Theme": "Θέμα",

@@ -767,6 +767,8 @@
     "Str.Options.Node.Environment": "סביבה",
     "Str.Options.Node.Editor": "עורך",
     "Str.Options.Node.FormDesigner": "מעצב טפסים",
+    "Str.Menu.AddIns.Manager": "מנהל התוספים…",
+    "Str.Options.Node.NoAddins": "(אין תוספים מותקנים)",
     "Str.Options.Node.AddIns": "תוספים",
     "Str.Options.Node.General": "כללי",
     "Str.Options.Node.Theme": "ערכת נושא",

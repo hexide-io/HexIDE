@@ -767,6 +767,8 @@
     "Str.Options.Node.Environment": "Entorno",
     "Str.Options.Node.Editor": "Editor",
     "Str.Options.Node.FormDesigner": "Diseñador de formularios",
+    "Str.Menu.AddIns.Manager": "_Administrador de complementos…",
+    "Str.Options.Node.NoAddins": "(no hay complementos instalados)",
     "Str.Options.Node.AddIns": "Complementos",
     "Str.Options.Node.General": "General",
     "Str.Options.Node.Theme": "Tema",

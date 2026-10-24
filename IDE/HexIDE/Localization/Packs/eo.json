@@ -767,6 +767,8 @@
     "Str.Options.Node.Environment": "Medio",
     "Str.Options.Node.Editor": "Redaktilo",
     "Str.Options.Node.FormDesigner": "Formulara Desegnilo",
+    "Str.Menu.AddIns.Manager": "_Administrilo de aldonaĵoj…",
+    "Str.Options.Node.NoAddins": "(neniu aldonaĵo instalita)",
     "Str.Options.Node.AddIns": "Aldonaĵoj",
     "Str.Options.Node.General": "Ĝenerala",
     "Str.Options.Node.Theme": "Etoso",

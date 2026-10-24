@@ -767,6 +767,8 @@
     "Str.Options.Node.Environment": "البيئة",
     "Str.Options.Node.Editor": "المحرّر",
     "Str.Options.Node.FormDesigner": "مصمّم النماذج",
+    "Str.Menu.AddIns.Manager": "مدير الإضافات…",
+    "Str.Options.Node.NoAddins": "(لا توجد إضافات مثبتة)",
     "Str.Options.Node.AddIns": "الإضافات",
     "Str.Options.Node.General": "عام",
     "Str.Options.Node.Theme": "السمة",

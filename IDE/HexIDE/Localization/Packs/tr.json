@@ -767,6 +767,8 @@
     "Str.Options.Node.Environment": "Ortam",
     "Str.Options.Node.Editor": "Düzenleyici",
     "Str.Options.Node.FormDesigner": "Form Tasarımcısı",
+    "Str.Menu.AddIns.Manager": "_Eklenti Yöneticisi…",
+    "Str.Options.Node.NoAddins": "(yüklü eklenti yok)",
     "Str.Options.Node.AddIns": "Eklentiler",
     "Str.Options.Node.General": "Genel",
     "Str.Options.Node.Theme": "Tema",

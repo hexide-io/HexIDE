@@ -767,6 +767,8 @@
     "Str.Options.Node.Environment": "Prostředí",
     "Str.Options.Node.Editor": "Editor",
     "Str.Options.Node.FormDesigner": "Návrhář formulářů",
+    "Str.Menu.AddIns.Manager": "_Správce doplňků…",
+    "Str.Options.Node.NoAddins": "(nejsou nainstalovány žádné doplňky)",
     "Str.Options.Node.AddIns": "Doplňky",
     "Str.Options.Node.General": "Obecné",
     "Str.Options.Node.Theme": "Motiv",

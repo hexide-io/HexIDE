@@ -767,6 +767,8 @@
     "Str.Options.Node.Environment": "環境",
     "Str.Options.Node.Editor": "エディター",
     "Str.Options.Node.FormDesigner": "フォームデザイナー",
+    "Str.Menu.AddIns.Manager": "アドイン マネージャー…",
+    "Str.Options.Node.NoAddins": "(アドインがインストールされていません)",
     "Str.Options.Node.AddIns": "アドイン",
     "Str.Options.Node.General": "全般",
     "Str.Options.Node.Theme": "テーマ",

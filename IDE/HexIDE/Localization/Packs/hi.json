@@ -767,6 +767,8 @@
     "Str.Options.Node.Environment": "परिवेश",
     "Str.Options.Node.Editor": "संपादक",
     "Str.Options.Node.FormDesigner": "फ़ॉर्म डिज़ाइनर",
+    "Str.Menu.AddIns.Manager": "ऐड-इन प्रबंधक…",
+    "Str.Options.Node.NoAddins": "(कोई ऐड-इन स्थापित नहीं है)",
     "Str.Options.Node.AddIns": "ऐड-इन",
     "Str.Options.Node.General": "सामान्य",
     "Str.Options.Node.Theme": "थीम",

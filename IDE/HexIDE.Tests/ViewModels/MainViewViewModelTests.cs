@@ -37,8 +37,18 @@ public class MainViewViewModelTests
     {
         _projectManager.LoadedProjects.Returns(new List<ProjectDefinition>());
         _settingsService.IsStandardToolbarVisible.Returns(true);
+        _settingsService.ActiveLanguage.Returns("en");
 
         _sut = Build(_runnerService);
+    }
+
+    [AvaloniaFact]
+    public void OpenAddInManager_OpensOptionsAtAddIns()
+    {
+        _sut.OpenAddInManager();
+
+        _windowManager.Received(1).ShowDialog(Arg.Is<HexIDE.Forms.ViewModels.OptionsViewModel>(
+            vm => vm.SelectedNode != null && vm.SelectedNode.Key == "Str.Options.Node.AddIns"));
     }
 
     /// <summary>
@@ -88,6 +98,11 @@ public class MainViewViewModelTests
             protocolInspector,
             windowStateService);
 
+        var languageSwitch = Substitute.For<ILanguageSwitchService>();
+        languageSwitch.ActiveLanguage.Returns("en");
+        languageSwitch.AvailableLanguages.Returns([new LanguageInfo("en", "English", "ltr")]);
+        languageSwitch.RegionsFor(Arg.Any<string>()).Returns([]);
+
         return new MainViewViewModel(
             _windowManager,
             toolBox,
@@ -117,7 +132,7 @@ public class MainViewViewModelTests
             _settingsService,
             Substitute.For<IThemeService>(),
             Substitute.For<IKeymapService>(),
-            Substitute.For<ILanguageSwitchService>(),
+            languageSwitch,
             loc,
             Substitute.For<IAddinRegistry>(),
             new AddinOptionsService(),

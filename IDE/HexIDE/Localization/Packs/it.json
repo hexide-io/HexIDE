@@ -767,6 +767,8 @@
     "Str.Options.Node.Environment": "Ambiente",
     "Str.Options.Node.Editor": "Editor",
     "Str.Options.Node.FormDesigner": "Progettazione maschere",
+    "Str.Menu.AddIns.Manager": "_Gestione componenti aggiuntivi…",
+    "Str.Options.Node.NoAddins": "(nessun componente aggiuntivo installato)",
     "Str.Options.Node.AddIns": "Componenti aggiuntivi",
     "Str.Options.Node.General": "Generale",
     "Str.Options.Node.Theme": "Tema",

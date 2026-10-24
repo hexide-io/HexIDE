@@ -70,6 +70,12 @@ the controls. Settings is where people look for it, and it is reachable regardle
 - **WHEN** the developer opens the add-ins category
 - **THEN** each installed add-in is listed with its status
 
+#### Scenario: Opening management without installed add-ins
+- **WHEN** the developer chooses Add-Ins → Add-In Manager… with no add-ins installed
+- **THEN** Options opens with the Add-Ins category selected and expanded
+- **AND** the category contains a localized “(no add-ins installed)” leaf with no page
+- **AND** Restore Defaults is disabled
+
 #### Scenario: Disabling an add-in
 - **WHEN** the developer disables an add-in
 - **THEN** the choice is recorded and takes effect on the next start

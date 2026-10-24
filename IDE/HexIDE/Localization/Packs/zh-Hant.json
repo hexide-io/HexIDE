@@ -767,6 +767,8 @@
     "Str.Options.Node.Environment": "環境",
     "Str.Options.Node.Editor": "編輯器",
     "Str.Options.Node.FormDesigner": "表單設計工具",
+    "Str.Menu.AddIns.Manager": "增益集管理員…",
+    "Str.Options.Node.NoAddins": "(未安裝增益集)",
     "Str.Options.Node.AddIns": "增益集",
     "Str.Options.Node.General": "一般",
     "Str.Options.Node.Theme": "佈景主題",

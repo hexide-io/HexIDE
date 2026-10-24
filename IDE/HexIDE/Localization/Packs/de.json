@@ -767,6 +767,8 @@
     "Str.Options.Node.Environment": "Umgebung",
     "Str.Options.Node.Editor": "Editor",
     "Str.Options.Node.FormDesigner": "Formular-Designer",
+    "Str.Menu.AddIns.Manager": "Add-In-_Manager…",
+    "Str.Options.Node.NoAddins": "(keine Add-Ins installiert)",
     "Str.Options.Node.AddIns": "Add-Ins",
     "Str.Options.Node.General": "Allgemein",
     "Str.Options.Node.Theme": "Design",
