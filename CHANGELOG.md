@@ -249,6 +249,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP paths survive growing editor text** (#1436). A collapsed layout wrapper no longer appears when its
+  content begins to scroll, so the Immediate window's text-area path stays usable. Range capability keeps a
+  node regardless of its current bounds. A refused path that skips a visible wrapper names it and gives the
+  complete corrected path when there is one unambiguous continuation.
+
 - **MCP project saves report unused file-dialog answers** (#1335). `invoke_menu_item` for Save Project / Save Project As and `interact` on their buttons now say when an answer armed before the call remains pending. A document save through a menu, key or click can still wait on formatting after the reply; `answer_next_file_dialog` explains that limit.
 
 - **MCP commands bound through another view model are reachable** (#1336). `inspect_element` lists a menu item’s or button’s resolved `Command` and its binding; `invoke_command` accepts `Command`, checks `CanExecute` with the control’s `CommandParameter`, and runs it. A wrong name explains the binding and how to invoke it, including on the designer’s Delete item.

@@ -875,21 +875,6 @@ and `MouseUp`.
 held, release at the second point to whatever holds the pointer.
 [#1402](https://github.com/hexide-io/HexIDE/issues/1402).
 
-## A control's path changes when it gains a provider, so a saved path stops resolving as text grows
-
-**Symptom (2026-10-22, #1386, Windows).** While paused, `dump_visual_tree {"window":"ide","root":"<Imm>","maxDepth":4,
-"interactiveOnly":false}`, with `<Imm>` the Immediate window's `.../TitleBar[Immediate]/Pane[Immediate]/Custom`, gave
-`<Imm>/Pane[PART_ScrollViewer]/None` for its text area, and `type_text` on that path worked for three lines. The fourth
-`type_text` on the same path answered `no child matching 'Pane[PART_ScrollViewer]' under '<Imm>'`. A fresh dump showed
-`<Imm>/None[Editor]`, the TextEditor, now with `providers: ["scroll"]`, holding the scroll viewer. The control view hides a
-`None` node with no provider and no focus, and the editor stopped qualifying once its text overflowed.
-
-**Workaround.** Dump again and use the new path; `<Imm>/None[Editor]` takes `type_text` and `press_key` from then on.
-
-**Suggested fix.** Decide whether a node is hidden on what its content can't change: leave `scroll` out of it, or never
-hide a node with an x:Name or AutomationId. And when a segment misses, say which node has appeared above it.
-[#1436](https://github.com/hexide-io/HexIDE/issues/1436).
-
 ## `press_key` with Alt and a letter never reaches a control's access key
 
 **Symptom (2026-10-23, #1390, Windows).** On a running form whose `cmdWide` is captioned `One &Wide`,
@@ -922,7 +907,8 @@ no more plumbing than an AutomationId.
 for a running form's Frame, PictureBox, Label and Image.
 
 **Suggested fix.** Count an explicitly set `AutomationProperties.Name` as the AutomationId already counts, so a view's
-author is not left to discover the override. Folded into #1436.
+author is not left to discover the override. The path-stability part of #1436 is fixed; this explicit-name
+discovery gap remains open.
 
 ## No tool can see a running form's frame
 
