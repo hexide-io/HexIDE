@@ -24,9 +24,10 @@ namespace HexIDE.Automation;
 /// addressing and discovery logic is unit-testable headlessly.
 ///
 /// The tree is the UIA-style **control view**: structural layout wrappers (controls whose automation type
-/// is <c>None</c> with no interaction provider and no keyboard focus — Panels, Borders, ContentPresenters,
+/// is <c>None</c> with no non-scroll capability, no keyboard focus and no AutomationId — Panels, Borders, ContentPresenters,
 /// dock plumbing, …) are transparent. They never appear as nodes or in paths; the walk descends through
-/// them and re-parents their meaningful descendants. This keeps the tree shallow and paths short/stable.
+/// them and re-parents their meaningful descendants. x:Name alone does not keep a wrapper. Scrollability
+/// and usable range bounds do not change transparency, so growing content does not insert path segments.
 ///
 /// Addressing: a slash path whose first segment is the literal <c>Window</c>; each subsequent segment is
 /// <c>ControlType</c>, <c>ControlType[discriminator]</c>, <c>ControlType[#index]</c>, or <c>#AutomationId</c>
@@ -3501,7 +3502,32 @@ public static class UiAutomationDriver
         for (var i = 1; i < segs.Length; i++)
         {
             var (next, err) = ResolveSegment(current, segs[i], traversed);
-            if (next is null) return (null, err);
+            if (next is null)
+            {
+                // Diagnose a saved path that omitted a wrapper. Do not silently retarget an action;
+                // only suggest complete paths whose remaining segments resolve unambiguously.
+                if (err?.StartsWith("ambiguous segment", StringComparison.Ordinal) == true) return (null, err);
+                var children = new List<MeaningfulChild>();
+                CollectMeaningfulChildren(current, children);
+                var corrections = new List<(string Wrapper, string Path)>();
+                foreach (var child in children)
+                {
+                    var wrapper = BestSegment(child, children);
+                    var corrected = traversed + "/" + wrapper;
+                    Control? candidate = child.Control;
+                    for (var j = i; j < segs.Length && candidate is not null; j++)
+                    {
+                        var resolved = ResolveSegment(candidate, segs[j], corrected);
+                        if (resolved.control is null) { candidate = null; break; }
+                        candidate = resolved.control;
+                        corrected += "/" + segs[j];
+                    }
+                    if (candidate is not null) corrections.Add((wrapper, corrected));
+                }
+                if (corrections.Count == 1)
+                    return (null, $"'{traversed}' now holds '{corrections[0].Wrapper}'; the path continues under it: '{corrections[0].Path}'");
+                return (null, err);
+            }
             current = next;
             traversed += "/" + segs[i];
         }
@@ -3917,11 +3943,14 @@ public static class UiAutomationDriver
         var autoId = NullIfEmpty(AutomationProperties.GetAutomationId(control));
         var focusable = peer is not null && Safe(() => peer.IsKeyboardFocusable(), false);
 
-        // A control is a transparent structural wrapper iff it has no semantic automation type, exposes no
-        // interaction provider, cannot take focus, and was not explicitly tagged with an AutomationId
-        // (Panel/Border/ContentPresenter/StackPanel/dock plumbing). An AutomationId-tagged control is
-        // intentional — keep it visible so it isn't addressable-via-#id yet invisible in the dump.
-        var structural = type == "None" && providers.Length == 0 && !focusable && autoId is null;
+        // Keep the common surfaces' existing collapsed paths, including named TextEditors. Scrolling is
+        // content-dependent (OwnScrollerFor starts succeeding on overflow), so it cannot establish a node.
+        // rangeValue is also advertised only for a usable range: use the peer's capability, not today's
+        // bounds/read-only state. An AutomationId remains an explicit request to expose a wrapper;
+        // x:Name alone remains transparent, consistently before and after overflow (#1436).
+        var hasCapability = providers.Any(p => p is not ("scroll" or "rangeValue" or "multiSelectItem"))
+                            || peer?.GetProvider<IRangeValueProvider>() is not null;
+        var structural = type == "None" && !hasCapability && !focusable && autoId is null;
 
         // A Separator matches every one of those conditions and is still not plumbing: it is a visible
         // element of a menu whose POSITION is the thing under test. Collapsing it away left a dump that
