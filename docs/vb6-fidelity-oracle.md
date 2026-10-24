@@ -22,6 +22,37 @@ date functions; graphics) should extend it the same way.
 - **Method:** compile a tiny `Sub Main` console-less program with `VB6.EXE /make`, run the produced `.exe`, and
   read back a file it wrote with `TypeName(expr)` + the value for each case.
 
+### Which VB6 the oracle is (#1524)
+
+**Until 2026-10-23 the oracle was VB6's original release, with an SP6-level runtime. From 2026-10-24 it is SP6
+throughout.** Sections dated before 2026-10-24 that call the oracle "6.00.8176 (the original release)" were wrong about the compiler.
+6.00.8176 is the original release build, and every other file in the guest's VB98 folder agreed. They now say "the
+original release". SP6 went in on 2026-10-24, from the Microsoft-signed `Vs6sp6B.exe` the maintainer supplied, and the
+`VisualStudio\6.0\ServicePacks` key now reads `latest = 6`.
+
+| File | Until 2026-10-23: the original release | From 2026-10-24: SP6 |
+|---|---|---|
+| `VB6.EXE`, the IDE and `/make` | 6.00.8176 | **6.00.9782** |
+| `VBA6.DLL`, the engine the IDE runs code with | 6.0.8169 | **6.0.9782** |
+| `C2.EXE`, the native code generator | 12.00.8041.0 | **12.00.8783.0** |
+| `LINK.EXE` | 6.00.8168.0 | **6.00.8447.0** |
+| `MSVBVM60.DLL` (SysWOW64), the runtime a built EXE runs on | 6.00.9848, SP6-level, supplied by Windows | 6.00.9848, unchanged |
+
+**So which build a row measured depends on what it read**, not on its date alone:
+
+- **What a built EXE printed at run time**, native or p-code, came from MSVBVM60 6.00.9848, which SP6 did not change.
+  Those rows stand as written, whenever they were measured.
+- **A compile error** comes from VB6.EXE and VBA6.DLL, not the runtime, even when the program was built with `/make`.
+  Before 2026-10-24, that was the release build.
+- **Anything run in the IDE** (`/runexit`, the Immediate window, `Debug.Assert`, break mode, the reset prompt), and
+  everything the designer drew or saved, ran on the release VB6.EXE and VBA6.DLL before 2026-10-24.
+- **Native code** came from the release C2.EXE and LINK.EXE before 2026-10-24. Where a native result could depend on
+  code generation rather than the runtime, the row measured the release build.
+
+Re-measuring the release-build rows on SP6 is #1663. A row SP6 changes keeps both answers, since a release-versus-SP6
+difference is a finding in its own right. The release state is kept as the Hyper-V checkpoint *VB6 6.00.8176 release,
+before SP6 (#1524)*, so a comparison can still be made. A section measured from 2026-10-24 on names the SP6 builds.
+
 ### Reaching the VB6 *IDE*, not just the compiler (2026-09-20)
 
 Everything above answers "what does VB6 **accept**", which `VB6.EXE /make` can do with no desktop at all.
@@ -785,7 +816,7 @@ Verified: a module-level object held live, then `End` — the class's `Class_Ter
 The section above measured one object at module level, and stated the form events without measuring them. Three
 probes now cover both. Each is a Standard EXE with a `Class1` whose `Class_Terminate` logs, and forms whose
 `QueryUnload`, `Unload` and `Terminate` log. Every log line is written by opening, appending and closing the file,
-so nothing waits in a buffer that `End` could discard. Real `vb6.exe` 6.00.8176 (SP6), run in session 0.
+so nothing waits in a buffer that `End` could discard. Real `vb6.exe` 6.00.8176 (the original release), run in session 0.
 
 | Probe | Log |
 |---|---|
@@ -948,7 +979,7 @@ literal that *selects* an option button is *refused* by a check box.
 ## Two controls of one name (2026-10-12, #854)
 
 Measured when #854 was filed, and recorded here by its fix. The probe was a Standard EXE built with `vb6.exe /make`
-(6.00.8176 SP6) from a form holding two `Begin` lines of one name and no `Index`, the shape HexIDE's save could write.
+(6.00.8176, the original release) from a form holding two `Begin` lines of one name and no `Index`, the shape HexIDE's save could write.
 Its `Form_Load` wrote `Me.Controls.Count` and each control's Name and TypeName to a file.
 
 **The build does not fail.**
@@ -981,7 +1012,7 @@ check against every name on the form, without regard to case (`ComponentNaming.N
 
 ## A form-based game's runtime surface (2026-10-12)
 
-Measured to decide what a form front end for `demo/battleship` may rely on. Real `vb6.exe` 6.00.8176 (SP6).
+Measured to decide what a form front end for `demo/battleship` may rely on. Real `vb6.exe` 6.00.8176 (the original release).
 One Standard EXE, `Startup="Form1"`, with a `.bas` (`Public Const K = 5`, `Public G As Long`, a logging
 `Sub L` that opens `App.Path & "\log.txt"` For Append per line so nothing is lost to buffering) and a `Source`
 class raising `Event ResultV(ByVal r As Integer)` and `Event ResultR(r As Integer)`. Form1 holds `Label1`
@@ -1270,7 +1301,7 @@ procedure: refused as not implemented, because the error VB6 gives depends on wh
 ## Assigning to a control property (2026-10-12, #768)
 
 Measured to decide what `Label1.Caption = 5` stores, and what every other property does with a value of another
-type. Real `vb6.exe` 6.00.8176 (SP6), guest locale **en-GB** (decimal point `.`, thousands separator `,`).
+type. Real `vb6.exe` 6.00.8176 (the original release), guest locale **en-GB** (decimal point `.`, thousands separator `,`).
 
 **Harness.** One Standard EXE, `Startup="Form1"`, with `Label1`, `Text1`, `Command1`, `Check1` and a disabled
 `Timer1` (Interval 500). Four `/make` runs over PowerShell Direct, each `Form_Load` writing a log and ending
@@ -4809,7 +4840,7 @@ $udt     = 'Option Explicit', 'Public Type verify', '    x As Long', 'End Type'
 #   End Function
 ```
 
-VB6 6.00.8176 (SP6), in the oracle guest. The harness sanity pair (`CByte(100) + CByte(100)` and
+VB6 6.00.8176 (the original release), in the oracle guest. The harness sanity pair (`CByte(100) + CByte(100)` and
 `CByte(200) + CByte(100)`) reproduced `200 | Byte` and `ERR6` in the same session.
 
 | Run | Code | `Type verify` in scope | Result |
@@ -4846,7 +4877,7 @@ decides.
 
 Measured because HexIDE parses that log to put compiler errors in the editor, and because
 hexide-io/HexIDE#273 turns on whether a line number means the file or the code view. Both answers were
-guessed in the code and both guesses were wrong. Real `vb6.exe` 6.00.8176 (SP6), `VB6.EXE /make <abs .vbp>
+guessed in the code and both guesses were wrong. Real `vb6.exe` 6.00.8176 (the original release), `VB6.EXE /make <abs .vbp>
 /out <abs log>`, every case reproduced in two separate runs (a4 in three).
 
 **The format**, exact bytes, ANSI, CRLF, and the log always opens with a bare empty line:
@@ -5122,7 +5153,7 @@ Two readings were in play, and the probes were written so that they predict diff
 
 The second is not a straw man: it has been implemented elsewhere.
 
-**The probe.** VB6.EXE 6.00.8176 (SP6) with runtime MSVBVM60 6.00.9848, in the oracle guest. Three Standard
+**The probe.** VB6.EXE 6.00.8176 (the original release) with runtime MSVBVM60 6.00.9848, in the oracle guest. Three Standard
 EXE projects, built from standard modules, every one of them `Option Explicit`, so that a name binding
 nothing is a compile error rather than an implicit Variant. Each probe is a `Public Sub` placed in the module
 whose declarations set up its scenario:
@@ -5508,7 +5539,7 @@ a rule.
 ## A running program's locale is the user's regional settings (2026-10-12, #777)
 
 Measured to decide which culture the interpreter should format and read text in, and whether a two-digit year is
-a fixed rule or a regional one. Real `vb6.exe` 6.00.8176 (SP6), guest locale **en-GB**, one expression batch
+a fixed rule or a regional one. Real `vb6.exe` 6.00.8176 (the original release), guest locale **en-GB**, one expression batch
 through `scripts/vb6-oracle.ps1`.
 
 | Expression | Value | Type | Err |
@@ -5622,7 +5653,7 @@ rule but has not been run.
 ## Turning a number or a date into text (2026-10-12, #772, #771)
 
 `CStr`, `&`, storing into a String, `Format` with no mask and `Str` all turn a value into text. Two runs of
-`scripts/vb6-oracle.ps1` measured them, about 110 rows, on vb6.exe 6.00.8176 (SP6) in an **en-GB** guest
+`scripts/vb6-oracle.ps1` measured them, about 110 rows, on vb6.exe 6.00.8176 (the original release) in an **en-GB** guest
 (decimal point `.`, short date `dd/MM/yyyy`, long time `HH:mm:ss`). Each row is `CStr(...)` unless it says
 otherwise, and every one came back a String. `CSng(x)` rounds a Double literal to a Single, as written.
 
@@ -5821,7 +5852,7 @@ short date. Since #777 the interpreter has a locale of its own, taken from the u
 ## A control where a value is wanted is its default member (2026-10-12, #790)
 
 Measured to decide what HexIDE should do with `s = Text1` until it has default members. Real `vb6.exe` 6.00.8176
-(SP6), guest locale en-GB. Two `/make` runs of a form holding `Text1`, `Label1`, `Command1` and `Check1`, each
+(the original release), guest locale en-GB. Two `/make` runs of a form holding `Text1`, `Label1`, `Command1` and `Check1`, each
 statement under `On Error Resume Next`, with the value, its `TypeName` and `Err.Number` logged.
 
 | Statement | Result | Err |
@@ -5856,7 +5887,7 @@ refusal now covers controls only.
 
 ## A Label's colours, read back and painted (2026-10-12, #795)
 
-Measured to decide what a Label and a TextBox should read back and paint. Real `vb6.exe` 6.00.8176 (SP6), guest
+Measured to decide what a Label and a TextBox should read back and paint. Real `vb6.exe` 6.00.8176 (the original release), guest
 locale en-GB. Two `/make` runs of a form whose own BackColor is light yellow, `&H00C0FFFF&`, so a transparent
 label shows. Each run was made twice:
 - once in session 0, which logs the read-backs, and where `GetPixel` returns `&HFFFFFFFF` for every point,
@@ -6604,7 +6635,7 @@ third's Q1 to Q3, the three questions it asked of VB6's saves. A module inside a
 
 ### Method
 
-**The compiler half.** VB6.EXE 6.00.8176 (SP6) in the Hyper-V guest `Win10` (locale en-GB), driven over PowerShell
+**The compiler half.** VB6.EXE 6.00.8176 (the original release) in the Hyper-V guest `Win10` (locale en-GB), driven over PowerShell
 Direct as `VB6.EXE /make <abs .vbp> /out <abs log>` with `CreateNoWindow` and a 90-second timeout, every project
 under `C:\hexoracle-p4\make\<probe>-<variant>\`. Sixty probes, each one class (`Class1.cls` with the canonical
 13-line header of the 2026-09-19 entry's b1) or, for p06e and p13d, a second standard module. p10a to p10f also
@@ -11257,7 +11288,7 @@ and HexIDE takes a side on each. A dialog closed without an answer takes Debug. 
 **How it was found.** The Battleship demo (#1071) gives a 5 x 5 board `gSize * gSize \ 2` shots, which VB6 makes 12.
 HexIDE made it 10, from `5 * (5 \ 2)`.
 
-**The probe.** [The scripted harness](#the-scripted-harness--scriptsvb6-oracleps1), VB6.EXE 6.00.8176 (SP6) in the
+**The probe.** [The scripted harness](#the-scripted-harness--scriptsvb6-oracleps1), VB6.EXE 6.00.8176 (the original release) in the
 oracle guest. Each expression was assigned to a Variant and logged with its `TypeName`. There were three `/make` runs:
 - 22 expressions;
 - 21 more, one per pair of adjacent levels the first run left out;
@@ -11362,7 +11393,7 @@ which library names refuse or ignore a `$`. Two questions remained: which librar
 what the `$` changes on them. A `Variant` that receives the result reads `String` either way, so the type can't tell
 the two forms apart. A Null can.
 
-**The probe.** [The scripted harness](#the-scripted-harness--scriptsvb6-oracleps1), VB6.EXE 6.00.8176 (SP6) in the
+**The probe.** [The scripted harness](#the-scripted-harness--scriptsvb6-oracleps1), VB6.EXE 6.00.8176 (the original release) in the
 oracle guest, one `/make` of 69 expressions under `Option Explicit`. Each function was called three times:
 - **the `$` form** with an ordinary argument;
 - **the plain form** with a Null;
@@ -11412,7 +11443,7 @@ Not probed: `Command$`, `Date$`, `Time$`, `Dir$`, `Input$` and `InputB$`. HexIDE
 **The question.** The Battleship demo's board lays out its grid with `Label.Move`, and fits the form to it with
 `Width = (Width - ScaleWidth) + needed`. HexIDE had neither. What do they do?
 
-**The probe.** VB6.EXE 6.00.8176 (SP6) in the oracle guest, native code, one compiled program. `Sub Main` loads a
+**The probe.** VB6.EXE 6.00.8176 (the original release) in the oracle guest, native code, one compiled program. `Sub Main` loads a
 form without showing it. The form has `BorderStyle = 1` (Fixed Single), `ClientWidth` and `ClientHeight` of 2520, and
 one Label at Left 120, Top 120, 360 x 360. The program logs each step under `On Error Resume Next`:
 
@@ -11981,7 +12012,8 @@ probe used a fresh file, and `As 3` was taken.
 - **Not implemented:**
   - Random and Binary mode, `Get`, `Put`, `Input #`, `Write #`, `Input$`, `LOF`, `Loc` and `Seek`. `Input #` and
     `Write #` run since #1521, and `Input$`, `LOF`, `Loc` and `Seek` since #1645 (see "LOF, Loc, Seek and the Input
-    function"); Random and Binary are #1646;
+    function"), and Random and Binary mode, `Get` and `Put` since #1646 (see "Random and Binary files, Get, Put and
+    Len");
   - `Tab` and `Spc` in `Print #`;
   - `Line Input #` into anything but a plain variable.
 - **The divergences:**
@@ -12681,7 +12713,7 @@ writes the two equal. HexIDE renamed only the first until #1059 fixed #473, so f
 Which name does VB6 honour? #473 recorded that for a module VB6 binds on `VB_Name` (see the `Folder1\Module1.bas`
 probes), and nobody had asked for a form.
 
-**The probe.** A Standard EXE starting from `Sub Main`, built with `vb6.exe /make` as p-code (6.00.8176 SP6). Its form
+**The probe.** A Standard EXE starting from `Sub Main`, built with `vb6.exe /make` as p-code (6.00.8176, the original release). Its form
 was `Begin VB.Form frmRenamed` with `Attribute VB_Name = "Form1"`, in `Form1.frm`, listed as `Form=Form1.frm`. The
 module had no `Option Explicit`, so whichever name was not the form compiled as an implicit Variant. `Sub Main`
 printed `TypeName` of each name, each `.Name`, `Forms(0).Name`, and the `Me.Name` that `Form_Load` saw.
@@ -12740,7 +12772,7 @@ a doubled pair on read, and wrote a lone quote unescaped. Its reader and writer 
 files round-tripped. They disagreed with VB6 in both directions. The `.vbp` reader already halved doubled quotes, but
 a `.vbp` and a `.frm` come from different writers inside VB6, so this was measured, not assumed.
 
-**The probe.** A Standard EXE, built with `vb6.exe /make` as p-code (`CompilationType=-1`), on 6.00.8176 SP6. Its form
+**The probe.** A Standard EXE, built with `vb6.exe /make` as p-code (`CompilationType=-1`), on 6.00.8176, the original release. Its form
 gave these string properties a doubled quote:
 - the form's `Caption` and `LinkTopic`;
 - five Labels' `Caption`s, one with a `Tag`;
@@ -12858,7 +12890,7 @@ copied to `proj` with these additions:
 - `HelpFile="help\probe.hlp"`, naming a file that does not exist;
 - `Path32="out"`.
 
-The VB6 IDE (6.00.8176 SP6) opened it. File > Save Project As then saved it to `proj\deeper\Saved.vbp`, and again to a
+The VB6 IDE (6.00.8176, the original release) opened it. File > Save Project As then saved it to `proj\deeper\Saved.vbp`, and again to a
 sibling folder, `other\Saved2.vbp`. Each saved file was read back.
 
 | Line read in `proj` | Written in `proj\deeper` | Written in `other` |
@@ -12897,7 +12929,7 @@ much as the name: `ProjectSerializer` places the lines it does not model by coun
 
 **The probe.** Two copies of one project: a form, a reference to `stdole2.tlb`, and the keys `Startup`, `Command32`,
 `Name="probe"`, `HelpContextID="0"`, `CompatibleMode="0"` and the three version numbers. `none.vbp` has no description.
-`quoted.vbp` adds `Description="He said ""hi"""` after `HelpContextID`. The VB6 IDE (6.00.8176 SP6) opened each, and
+`quoted.vbp` adds `Description="He said ""hi"""` after `HelpContextID`. The VB6 IDE (6.00.8176, the original release) opened each, and
 File > Save Project As saved it to a new name. The saved files were read back.
 
 | Read | Written by Save Project As |
@@ -13018,7 +13050,7 @@ lone CR, and the one line-ending fact recorded, that an LF-terminated module fai
 test. `Sub Main` in `Module1.bas`, or `Form_Load` in a startup form, writes what it ran to a file. A class case also holds
 `C.cls`, whose `Property Get Value` carries `Attribute Value.VB_UserMemId = 0`, and `Main` reads `n = c` from a `New C`,
 under `On Error Resume Next`. So `n` is 42 when the attribute made `Value` the default member, and the error is 438 when
-it did not. Each was built with `vb6.exe /make` (6.00.8176 SP6) and the result run.
+it did not. Each was built with `vb6.exe /make` (6.00.8176, the original release) and the result run.
 
 | Probe | The file | `/make` | Ran |
 |---|---|---|---|
@@ -13672,7 +13704,7 @@ gets, and the meaning of a line that is not there.
 (CenterScreen) and two write 3 (Windows Default). The new project's `Template/Projects/Form1.frm` writes
 `ClientLeft = 60`, `ClientTop = 348`, `LinkTopic = "Form1"` and `StartUpPosition = 3 'Windows Default` explicitly.
 
-**The probe.** VB6.EXE 6.00.8176 SP6, `/make` (native code), the exe run headless in session 0, where the screen is
+**The probe.** VB6.EXE 6.00.8176, the original release, `/make` (native code), the exe run headless in session 0, where the screen is
 15360 x 11520 twips at 15 twips a pixel. A `Sub Main` project with six forms. Each designer block is HexIDE's, byte
 for byte, plus the lines below, and each form carries the usual five `Attribute` lines:
 
@@ -13736,7 +13768,7 @@ block at all, and its code section in bare LF with no final line break (#516, #9
 `VB_PredeclaredId = True` is what gives a form its default instance, so a form without the block might load but fail
 at `Form1.Show`. **Both are wrong for `vb6.exe /make`.** The block is what VB6 writes, not what it needs.
 
-**The probe.** VB6.EXE 6.00.8176 SP6. One `Sub Main` project per row, each with a `Form1.frm` and a `Module1.bas`,
+**The probe.** VB6.EXE 6.00.8176, the original release. One `Sub Main` project per row, each with a `Form1.frm` and a `Module1.bas`,
 built with `/make` both as native code and as p-code (`CompilationType=-1`), and the exe run in session 0. The form's
 designer block is HexIDE's (Caption, ClientHeight 7200, ClientWidth 9600, ScaleHeight, ScaleWidth). `Sub Main`, under
 `On Error Resume Next`, reads `X.Caption` and `X.Name`, calls `X.Show` and `DoEvents`, reads `X.Visible`,
@@ -14971,7 +15003,8 @@ a class, and two names on one line.
 
 **Known divergences:**
 - #1490: a standard module's Static, like a module variable, keeps its object past the end of the program.
-- A duplicate `Dim` or `Static` in one procedure is not refused (#1499). The first declaration wins.
+- A duplicate `Dim` or `Static` in one procedure was not refused (#1499), and the first declaration won. It is refused
+  as the module loads since #1499: see "A name declared twice".
 - `New Form2` is #822, so the form test leaves out the second instance.
 
 **What pins it:**
@@ -15272,8 +15305,8 @@ Measured with vb6.exe in two places. The IDE was driven with `vb6.exe /runexit`,
 and the compiled EXE was built both native and p-code, the two agreeing. Each program the tests pin was run as written.
 
 **In the IDE, release build**, `Debug.Assert X` with `L` logging each side of it. These rows ran on the oracle's IDE,
-VB6.EXE 6.00.8176 with VBA6.DLL 6.0.8169, which is VB6's original release and not SP6 (#1524). Re-measure them once SP6
-is installed. The compiled-EXE rows below ran on MSVBVM60 6.00.9848, SP6's runtime, and stand.
+VB6.EXE 6.00.8176 with VBA6.DLL 6.0.8169, which is VB6's original release and not SP6 (#1524). SP6 is installed from
+2026-10-24, and re-measuring them is #1663. The compiled-EXE rows below ran on MSVBVM60 6.00.9848, SP6's runtime, and stand.
 
 | X | result |
 |---|---|
@@ -15864,8 +15897,8 @@ row. Each call was `x = <call>` with `x` a Variant. Eleven rows were measured se
 and agree wherever the two overlap.
 
 A compile error is the compiler's answer, not the runtime's. So these rows come from the oracle's VB6.EXE 6.00.8176 and
-VBA6.DLL 6.0.8169, the release build, even though built EXEs run on SP6's MSVBVM60 (#1524). Re-measure them once SP6 is
-installed.
+VBA6.DLL 6.0.8169, the release build, even though built EXEs run on SP6's MSVBVM60 (#1524). SP6 is installed from
+2026-10-24, and re-measuring them is #1663.
 
 **"Syntax error":**
 
@@ -18528,7 +18561,8 @@ without a character, and the same with a plain `Const K = 1` twice.
 - **Divergences kept, each filed:**
   - a name read with a type character, `KS!`, is refused as not implemented (#742), so the program's two such rows are
     left out of the test, and so is reading `K&` for a `K%`;
-  - a second declaration of a name at module level runs, where vb6.exe refuses it (#1622). In a procedure it is #1499.
+  - a second declaration of a name at module level ran, where vb6.exe refuses it (#1622), and in a procedure (#1499).
+    Both are refused since #1622; `DeclaredTwiceTests` pins these probes' duplicate rows.
 
 ## A D exponent in a source literal (2026-10-23, #1611)
 
@@ -18800,6 +18834,113 @@ The four run as registered intrinsics. The two statements, and `Call` and `VBA.`
   - A program whose second section cannot be deleted loses none of its sections here.
 - **Refused in other words:** `SaveSetting` with three arguments, and `SaveSetting(...)` in parentheses, are refused as the program loads, by the grammar, in the parser's words. vb6.exe says "Argument not optional" and "Syntax error".
 
+## A name declared twice (2026-10-23, #1622, #1499)
+
+**The question.** HexIDE ran a module that declared one name twice, keeping one declaration, and a procedure that did,
+the first declaration winning: `Dim n As Long` then `Static n` gave an ordinary Long. #1614 found the module-level case
+("Ambiguous name detected") and #1491 the procedure one ("Duplicate declaration in current scope"). Which declarations
+clash with which, and does a type character, a visibility or a namespace keep two apart?
+
+**The probe.** 83 one-module projects, a class or a second and third module where the case needs one, each built native
+and p-code with vb6.exe 6.00.8176 (the release build) and run on the MSVBVM60 6.00.9848 (SP6) runtime, en-GB. A project
+that builds logs "ran", or what it reads; one that does not gives its compile error. Native and p-code agreed on every
+case. The cases are in four batches, generated by a script, so the table names each by what it declares.
+
+**At module level, "Ambiguous name detected", naming the second declaration:**
+
+| Declarations | vb6.exe |
+|---|---|
+| `Dim K` twice; `Dim K, K`; `Dim K As Long` and `Dim K As String`; `Dim K` and `Dim k`; `Dim K%` and `Dim K` | Ambiguous name detected (`k` for the pair that differs in case) |
+| `Private K` and `Public K`; `Public Const K` and `Private K`; `Const K = 1` twice | Ambiguous name detected: K |
+| `Dim K` with `Sub K` or `Function K`; `Sub K` twice; `Sub K` and `Function K`; `Dim L` where `L` is a Sub; `Dim Main` | Ambiguous name detected |
+| `Declare Function K` with `Dim K`, with another `Declare Function K`, or with `Sub K` | Ambiguous name detected: K |
+| `Const K` and an Enum member `K`; `Dim A` and a member `A`; a member `A` and `Sub A`; a member `A` twice in one Enum | Ambiguous name detected |
+| `Enum E` twice; `Type T` twice; `Enum E` and `Type E` | Ambiguous name detected |
+| in a class: `Dim K` twice; `Dim K` and `Sub K`; `Dim K` and `Property Get K`; `Property Get K` twice, or `Property Let K` twice; `Property Get K` and `Sub K` | Ambiguous name detected: K |
+
+**At module level, these compile:**
+
+| Declarations | vb6.exe |
+|---|---|
+| `Dim E` and `Enum E`; `Dim T` and `Type T`; `Const E` and `Enum E`; `Enum E` and `Sub E`; `Type T` and `Sub T` | ran |
+| a Type's member `X` and `Dim X` | ran |
+| `Enum E` with a member `E`, read as `E.E` | 0 |
+| two Enums each with a member `A`, `A` unread | ran; read bare, `A` is "Ambiguous name detected: A" there |
+| in a class: `Property Get K` and `Property Let K`; `Property Let K` and `Property Set K` | ran |
+| in a class: `Event K` and `Dim K`; `Event K` and `Sub K` | ran |
+
+So a module has three namespaces. Variables, Consts, Declares, Subs, Functions, Properties and Enum members share one, in
+any case and whatever their visibility or type character; Enum and Type names share a second; Events have a third. Within
+the first, a Property's Get, Let and Set share their name, each once, and two Enums' members may share one, which is
+ambiguous only where it is read.
+
+**Across modules:**
+
+| Declarations | vb6.exe |
+|---|---|
+| `Public K` in Module2 and in Module3, unread; two modules' `Public Const K`, unread; `Public K` and another module's `Public Sub K` | ran |
+| `Public K` in Module1 and Module2, Module1 writing `K = 4` | `K` 4, `Module2.K` 0: the module's own wins |
+| Module1 reads `K` that Module2 and Module3 each declare `Public` | Ambiguous name detected: K, where it is read |
+| Module1 calls `K` that Module2 and Module3 each declare as `Public Sub` | Ambiguous name detected: K, at the call |
+| Module1's `Private Sub K` and Module2's `Public Sub K`, called from Module1 | Module1's runs |
+
+**In one procedure, "Duplicate declaration in current scope":**
+
+| Declarations | vb6.exe |
+|---|---|
+| `Dim n` twice, with one type or two, `n` and `N`, `n%` and `n`; `Dim n, n` | Duplicate declaration in current scope |
+| `Dim` and `Static`; `Static` twice; `Static` and `Const`; `Dim` and `Const` either way round | Duplicate declaration in current scope |
+| a parameter and a `Dim`, `Static` or `Const` of its name; `Sub S(n, n)` | Duplicate declaration in current scope |
+| `Dim F` or `Const F` in `Function F`; `Function F(F)`; `Dim K` in a class's `Property Get K`; `Dim v` in `Property Let K(v)` | Duplicate declaration in current scope |
+| `Dim n As Long` in an If branch and `Dim n As String` in its Else | Duplicate declaration in current scope |
+| `n = 1`, no Dim, then `Dim n`; `ReDim n(3)`, no Dim, then `Dim n() As Long` | Duplicate declaration in current scope |
+
+**In one procedure, these compile:** `Dim S` in `Sub S`; `Dim Main` in `Sub Main`; `Dim S` where `S` is another Sub; `Dim n`
+and a label `n:`; `ReDim n(3)` twice (UBound 5); `Dim n()` then `ReDim n(3)` (UBound 3); and a local `Dim n As Long` beside
+a module's `Dim n As String`, the local reading Long 5. `Dim n As Long` then `ReDim n(3)` is "Expected array".
+
+So a procedure's parameters, Dims, Statics and Consts share one scope, a Dim inside a block included, with the
+procedure's own name in it when that name holds a return value. A name the procedure has used without declaring is
+declared by that use.
+
+**A test that asked for the wrong error.** `ModuleLevelArrayBoundTests` refused `Const D = #1/2/2003#` beside
+`Dim d(Len(D)) As Long` with "Variable required - can't assign to this expression". vb6.exe refuses that pair as
+"Ambiguous name detected: d", because `D` and `d` are one name, and gives "Variable required" for `Const DT` with
+`Dim d(Len(DT))` (both measured, native and p-code). The test now uses `DT`.
+
+**Under conditional compilation** (a fifth batch, native and p-code identical):
+
+| Declarations | vb6.exe |
+|---|---|
+| `Sub K` in both branches of `#If False Then` / `#Else`, each logging which | `second K` |
+| `Const K` and `Dim V` at module level in both branches of `#If 1 Then` / `#Else`, one `As Long`, one `As String` | `K` 1, `V` a Long |
+| `Dim n As Long` and `Dim n As String` in a procedure, one in each branch of `#If False Then` / `#Else` | `n` a String |
+| `Dim n` in `#If True Then`, and `Dim n` again after `#End If` | Duplicate declaration in current scope |
+
+So only the active branch declares anything, as an inactive branch is never compiled.
+
+### In HexIDE (#1622, #1499)
+
+- **`PrePass`** collects each module-level name into the namespace it belongs to and refuses the second, "Ambiguous name
+  detected" with the second declaration's spelling, as the module loads. Each procedure's parameters, Consts, Dims and
+  Statics, with its own name in a Function or Property Get, are collected as it is, and a second is "Duplicate
+  declaration in current scope". vb6.exe refuses the whole build; HexIDE refuses as it loads the module, before anything
+  runs.
+- **An inactive branch declares nothing,** because the pre-pass reads the module after conditional compilation has
+  removed it (#1112). The four rows above pin that: a pre-pass reading the raw text would refuse three valid programs.
+- **`DeclaredTwiceTests`** runs 80 of the probe programs, the conditional-compilation four among them, and the five
+  duplicate rows #1614's probes measured (`Const K = 1` beside `Const K% = 2`, and the like): each one vb6.exe builds must print its lines, and each one it
+  refuses must be refused with its message.
+- **Left out of the test, each recorded:**
+  - an undeclared use before a Dim, `n = 1` or `ReDim n(3)`, still runs. Whether that use declares `n` depends on every
+    name outside the procedure, which is relating a use to declarations, not collecting them;
+  - `Dim K%` and `Dim K` at module level: a module-level Dim with a type character is refused as not implemented first
+    (#742);
+  - `ReDim n(3)` twice with no Dim is "Unknown variable" (#1495), and `E.E` for a member named like its Enum is "Method
+    or data member not found" (#1637). Both predate this, and both fail on main.
+- **Across modules nothing changed.** A name two modules export is refused where it is read unqualified, as before; that
+  is resolution at the use, not a duplicate declaration.
+
 ## LOF, Loc, Seek and the Input function (2026-10-23, #1645)
 
 **The question.** #1145 made sequential files run and #1521 added `Input #` and `Write #`, but `LOF`, `Loc`, `Seek` and the
@@ -18962,3 +19103,201 @@ they round it, as `CInt` and `CLng` would: `1.5%` the Integer 2. vb6.exe refuses
   reads `5.D1`.
 - **Divergence kept:** the language server's `DOUBLELITERAL` takes `&` but not `%`, so the editor marks `2.5%` and not
   `2.5&`. The interpreter refuses both as the module runs.
+
+## Random and Binary files, Get, Put and Len (2026-10-24, #1646)
+
+**The question.** `Open ... For Random` and `For Binary` were refused, and with them `Get`, `Put` and `Len =`, so no
+program that keeps records or structs in a file got past its `Open`. What bytes does `Put` write for each kind of
+operand, what does `Get` read back, how do positions, records, EOF and a second handle behave, and what do the `Access`
+and `Lock` clauses do on these modes?
+
+**The probe.** Eight batches, each built native and p-code with vb6.exe 6.00.8176 (the release build) and run on the
+MSVBVM60 6.00.9848 (SP6) runtime, en-GB, code page 1252. Native and p-code agreed on every row. Each batch is one program
+under `On Error Resume Next`, which makes its files byte for byte with `Put` of a Byte array, and logs each step's error,
+`LOF`, `Loc`, `Seek` and `EOF`, and the file's bytes in hex, read back with `Get` of a Byte array. One-line projects tried
+the forms that might not compile. The first run of two batches logged a leftover 53 from the `Kill` that cleared each
+file; they were run again with `Err.Clear` after it, and only the second run is recorded here.
+
+**What `Put` writes, alone in a Binary file:**
+
+| Operand | Bytes |
+|---|---|
+| Integer 1, -2 | `01 00`, `FE FF` |
+| Long &H01020304 | `04 03 02 01` |
+| Single 1.5; Double 1.5 | `00 00 C0 3F`; `00 00 00 00 00 00 F8 3F` |
+| Currency 1.5 | `98 3A 00 00 00 00 00 00`: 15000, scaled by 10,000 |
+| Date `#1/2/2003#` | `00 00 00 00 E0 5E E2 40`: its serial, a Double |
+| Boolean True; False | `FF FF`; `00 00` |
+| Byte 200 | `C8` |
+| String "abc"; "" | `61 62 63`; nothing |
+| String "a" & Chr$(233); "a" & ChrW$(&H416) | `61 E9`; `61 3F`: the ANSI code page, `?` where it has no byte |
+| Variant Integer 1; Long 1 | `02 00 01 00`; `03 00 01 00 00 00` |
+| Variant Double 1.5; Single 1.5; Currency 1.5; Date | `05 00` then 8 bytes; `04 00` then 4; `06 00` then 8; `07 00` then 8 |
+| Variant String "abc" | `08 00 03 00 61 62 63` |
+| Variant Empty; Null | `00 00`; `01 00` |
+| Variant Boolean True; Byte 200 | `0B 00 FF FF`; `11 00 C8` |
+| Variant CVErr(5) | `0A 00 05 00 0A 80`: the SCODE 800A0005 |
+| Variant CDec(1.5) | `0E 00` then 16 bytes, `0E 00 01 00 00 00 00 00 0F 00 00 00 00 00 00 00`: a DECIMAL whose reserved first two bytes hold the type again, then the scale, the sign, the high 32 bits and the low 64 |
+| Variant Nothing, or holding a Collection | `09 00` written, then 13, the file not moving on: the next `Put` writes over the `09 00` |
+| Variant `Array(1, 2)` | `0C 20 01 00 02 00 00 00 00 00 00 00 02 00 01 00 02 00 02 00` |
+| a fixed Byte array; a dynamic one | `01 02 03`; `04 05 06`: no descriptor in a Binary file |
+| a 2-D Integer array (0 To 1, 0 To 2) | `01 00 02 00 03 00 00 00 00 00 09 00`: the first index fastest |
+| a fixed String array ("ab", "c") | `02 00 61 62 01 00 63`: each with its length |
+| Type (Integer 1, String "xy", Long 2) | `01 00 02 00 78 79 02 00 00 00`: the String with its length |
+| Type (Byte 1, Long 2) | `01 02 00 00 00`: packed, no alignment |
+| a Type with a nested Type, and one holding a Variant "ab" | the nested one's bytes in place; `08 00 02 00 61 62` |
+| `String * 5` "ab"; `String * 2` "abcd" | `61 62 20 20 20`; `61 62`: padded or cut, no length |
+| Type (Integer 1, `String * 3` "a") | `01 00 61 20 20` |
+
+**A String's length**, where it has one, is 2 bytes below 65,535 and `FF FF` then 4 bytes from 65,535 on: a Variant
+String of 40,000 is `08 00 40 9C`, of 65,535 `08 00 FF FF FF FF 00 00`, and of 70,000 `08 00 FF FF 70 11 01 00`, and a
+Type's String field of 70,000 is the same. A String has a length in a Random record, in a Type, in an array and in a
+Variant, and none alone in a Binary file. A `String * n` never has one, in either mode.
+
+**An array's descriptor** is written for an array in a Variant, in either mode, and for a dynamic array in a Random file;
+never for a fixed array, and never for a dynamic array alone in a Binary file. It is the number of dimensions, 2 bytes,
+then for each dimension, **from the last to the first**, its element count and its lower bound, 4 bytes each:
+`Integer(1 To 2, 3 To 5)` is `02 00`, `03 00 00 00`, `03 00 00 00`, `02 00 00 00`, `01 00 00 00`, then the six elements.
+The obvious guess was first to last; the 3 and 2 show otherwise. A dynamic array with no bounds is `00 00` in a Random
+file and nothing in a Binary one, and a Variant holding an `Integer()` with no bounds is `02 20 00 00`. An array in a
+Variant is type 8192 plus its element type: `02 20` for Integer, `08 20` for String, `0C 20` for a Variant's.
+
+**An expression is written by its static type**, which is how VB6's compiler types it, so a Variant's goes with its type
+first and a typed value bare:
+
+| Written as a Variant | Written bare |
+|---|---|
+| `Mid`, `Left`, `Trim`, `Chr`, `Str`, `Format`, `Space`, `String`, `UCase`, `Hex`, `CVar`, `IIf`, `Choose`, `Weekday`, `Year`, `DateSerial`, `Now`, `Date`, `Time` | `Mid$`, `Chr$`, `LCase$`, `CStr`, `Val` and `Int(2.5)` (Doubles), `CDate`, `Len` (a Long), `Asc`, `Abs(-2)`, `Sgn`, `Timer` (a Single), `Timer > 0` (a Boolean) |
+| `v + 1`, `-v` and `v & ""` for a Variant `v`; a Function returning a Variant; `Array(1)(0)`; a Variant array's element | a Function `As Integer`; a String array's element; `5`, `5&`, `40000` (a Long), `1.5` (a Double), `1.5!`, `1.5@`, `"ab"`, `True`, `#1/2/2003#`, `CByte(7)`, `ia + 1` and `(ia)` for an Integer `ia` |
+
+`Null` and `Empty` are only ever a Variant's: `01 00` and `00 00`. In a Random file `"ab"` is `02 00 61 62`.
+
+**Random files.** A record is `Len` bytes, 128 with no `Len`. Records count from 1, at byte `(r - 1) * Len`:
+
+| Step, `Len = 8` | Bytes, LOF, Loc, Seek |
+|---|---|
+| `Put #1, 1, Integer 1` | `01 00`; 2, 1, 2: the record is not padded |
+| `Put #1, 3, Long 2` | the gap zeros, `02 00 00 00` at 16; 20, 3, 4 |
+| `Put #1, , Integer 5` | at 24, the next record; 26, 4, 5 |
+| `Put #1, 6, "abc"` | `03 00 61 62 63` at 40 |
+| `Put #1, 7`, an 8-character String; a 6-character one | 59, nothing written, Seek 7; written, 2 + 6 = 8 bytes |
+| `Put #1, 9`, a Variant "abcd"; "abcde" | `08 00 04 00 61 62 63 64`; 59 |
+| `Get #1, 2, Integer`, a gap record; `Get #1, 50`, past the end | 0, EOF False; 0, Loc 50, Seek 51, EOF True |
+| `Get #1, 0`; `Put #1, 0` | 63 each |
+| `Input`, `Line Input #`, `Print #`, `Write #`, `Input #` | 54 each |
+| `Seek #1, 2` | Loc 1, Seek 2, EOF False |
+
+`Len = -1` is the 128 of no `Len` at all (LOF 130 after a `Put` at record 2), while 0, -2 and -32768 are 5 and 32768,
+65535 and 65536 are 6, as for an Integer. 1.5 and 2.5 are both 2 and `"8"` is 8. A Binary file checks `Len` the same
+way, 0 and -2 being 5 and 40000 6, and with 3 does nothing with it. `Loc` is the last record and `Seek` the next. A Type
+whose bytes are more than `Len` is 59: (Byte, Long), 5 bytes, is 59 in `Len = 4` and fits `Len = 5`.
+
+`Get` reads the whole record: zeros past the end of the file, and EOF True when the record runs past it, though the
+value itself was all there (a String of 3 in a 5-byte file with `Len = 8` reads `abc` and sets EOF). A value longer
+than the record is 59, the file staying where it was: a Long in `Len = 2` keeps its value, and a String whose length says
+10 in a record of 8 is left `""`; a Variant String likewise is left Empty. In a Type of (Byte, Long) the Byte is read and
+kept and the Long, which runs past the record, is not (`3 9`). A Type's String field that runs past is left `""` with the
+fields before it read, and so is a Variant array's element left Empty with the elements before it read.
+
+**Binary files.** Positions are bytes from 1, and `Loc` is the last byte read or written, `Seek - 1`. A Binary file
+opened new is LOF 0, Loc 0, Seek 1, EOF False. `Put #1, 5, Integer 513` on it gives `00 00 00 00 01 02`. `Get` past the
+end reads zeros and moves on the whole value: `Get #1, 9, Long` with 2 bytes left is 2569 and Seek 13, `Get #1, 20,
+Integer` is 0 and Seek 22. A String reads as many bytes as it holds: `Space$(3)` reads 3 and `""` none, and `Space$(5)`
+with 3 bytes left is `abc` and two NULs. Record numbers are Longs, banker's-rounded: `Put #1, 2.5` writes at 2, `3.5` at
+4, and `"6"` at 6.
+
+**EOF on both modes** is True once a read has run past the end, and only then: a `Get` that ends exactly at the end
+leaves it False, as does a new file. A `Seek` makes it False, past the end too (`Seek #1, 100` on 10 bytes: False). A
+`Put` leaves it as it was, True after a read past the end.
+
+**After a read past the end, VB6 keeps two positions.** The file's own pointer stops at the end, and that is where the
+next `Get` or `Put` with no position reads or writes; `Seek` and `Loc` count on as if the whole value had been read:
+
+| Step | Bytes, LOF, Loc, Seek |
+|---|---|
+| `Get #1, 2, Long` on `01 02` | 1 byte read; LOF 2, Loc 5, Seek 6, EOF True |
+| a second handle puts `AA BB CC DD` at 3; then `Get #1, , Integer` | `BBAA`: read at byte 3, where the pointer stopped; Seek 8 |
+| `Get #1, 10, Long` on `01 02`; then `Put #1, , Byte 9` | the byte at 10, where the pointer is: `01 02 00 ... 09`; Seek 15 |
+| `Get #1, 2, Long` on 3 bytes; `Seek #1, 3`; `Put #1, , Byte 9` | `01 02 09`: the Seek brings the two together |
+| Random `Len = 2` on 2 bytes, `Get #1, 3`; then `Put #1, , Integer 7` | written at byte 5, record 3, while Seek said 4: `01 00 00 00 07 00`, then Seek 5 |
+| Random `Len = 2` on 3 bytes, `Get #1, 2`; then `Put #1, , 7`, `Put #1, , 8` | `01 00 02 07 00 08 00`: the first at byte 4, where the read stopped |
+
+So the usual loop that reads to EOF and then appends with `Put #1, , x` appends at the end, with no gap. A Random
+`Put` moves the pointer a whole record on, so `Put #1, 3, Long` then `Put #1, , Integer` lands at record 4.
+
+**Get.** `Get` stores into a variable, an array element or a Type's field, `Get #1, 1, bf(2)` and `Get #1, 1, r.i`
+alike. A Type is read field by field, a nested Type in place. A fixed array, and a dynamic one in a Binary file, is read
+as it stands, and one with no bounds reads nothing. A dynamic array in a Random file takes the bounds its descriptor
+gives, whatever it had (`0 To 5` becomes `0 To 1`), and with no bounds it is given them; a record holding a fixed array's
+`01 00 02 00` read so is `0 To 1`, the descriptor's missing bytes zeros. A dynamic array whose element is passed ByRef
+is 10, after the record is read: the file has moved on. A Variant reads its type, then its value:
+
+| Type read | Result |
+|---|---|
+| 0, 1, 2, 3, 8, 10, 14, 17 | Empty, Null, Integer, Long, String, Error, Decimal, Byte |
+| `&H2002` with bounds 5 To 6 | an `Integer()` 5 To 6 |
+| 9 | 13, the Variant keeping what it had |
+| 13 | 13, the Variant left Empty |
+| 99, `&H4002`, `&H0201` | 458, "Variable uses an Automation type not supported in Visual Basic", left Empty |
+| 8 with a length of 3 and 2 bytes | `ab` and a NUL |
+
+The file stays where it was after each of those errors. A Boolean read from `01 00` is True, but `CInt` of it is 1 and
+`= True` is False: VB6 keeps the bits, and so it does for a Variant of type 11. `FF 00` is True with `CInt` 255. A Date
+read from the bytes of a Double past the year 9999 is taken, `CDbl` of it 9000372404224, and a Decimal with scale 29
+reads as a Decimal.
+
+**Text reads on a Binary file.** `Input #`, `Line Input #` and the `Input` function work there, and `Print #` and
+`Write #` are 54. A Ctrl+Z is an ordinary byte: `Line Input` reads `ab`, Ctrl+Z, `cd`, and so does `Input(5, #1)`. A line
+ends at CR or CR LF, not a lone LF. A line that runs to the end, or whose CR is the last byte, leaves EOF True, and one
+ending CR LF at the end leaves it False. At the end `Line Input #` and `Input #` are 62 with the variable kept. The
+`Input` function, unlike on an Input file, is no error short of its count: one byte of five reads that byte, and at the
+end it reads `""`, EOF True. `Input #` after a last field with no line end, `1,ab` or `1,"ab"`, leaves EOF True, and
+after `1,ab,` False.
+
+**Opening.** A missing file is made, even with `Access Read`, in both modes. A second handle on a file open in a
+sequential mode is 55, and so is a sequential handle on one open for Binary or Random, every pair of the five modes
+measured: only Input with Input, and Binary or Random with Binary or Random, go through. Between those, the `Lock` and
+`Access` clauses decide, as Windows decides between two handles: each must allow what the other does, and a `Lock`
+clause allows what it doesn't name. With no `Access` clause VB6 takes reading and writing, or failing that writing
+alone, or failing that reading alone:
+
+| First | Second: plain | Access Read | Access Write | Lock Read |
+|---|---|---|---|---|
+| Shared, or no Lock | 0 | 0 | 0 | 70 |
+| Lock Read | 0, write only: a `Get` on it is 75 | 70 | 0 | 70 |
+| Lock Write | 0, read only: a `Put` on it is 75 | 0 | 70 | 70 |
+| Lock Read Write | 70 | 70 | 70 | 70 |
+| Access Read | | | | 70; Lock Write 0 |
+| Access Write | | | | 0; Lock Write 70 |
+
+`Put` on an `Access Read` handle and `Get` on an `Access Write` one are 75. Two plain Binary handles on one file see each
+other's writes at once. `Get` and `Put` on a number not open are 52, and on an Input, Output or Append file 54.
+
+**Refused while compiling:** `Get #1, , 5` and `Get #1, , K` for a Const are "Variable required - can't assign to this
+expression", and `Get` of an object variable is "Can't Get or Put an object reference variable or a variable of
+user-defined type containing an object reference". `Get 1, , v` and `Put 1, , v`, without the `#`, compile and run.
+
+**Measured, but no rule I would defend:** why a Variant of type 9 keeps its value where one of type 13 is emptied, both
+raising 13.
+
+### In HexIDE (#1646)
+
+- **`VbRecordFormat`** writes and reads the bytes above, and **`VbFiles`** opens Binary and Random files, with the
+  sharing, the access fallback, the records, EOF and the two positions as measured. Each handle reads and writes the
+  file itself, unbuffered.
+- **What an operand is** comes from its declaration for a variable, an element or a field. For any other expression it
+  comes from the type HexIDE knows the value has: a literal, a typed variable's value, a call declared to return a
+  type, and the intrinsics measured for it, the Put probe adding `Space`, `DateSerial`, `Now`, `Date` and `Time` to the
+  Variant intrinsics and `Val`, `CDate` and `Timer` to the typed ones. A dynamic array with no bounds now knows its
+  element type, as the Variant measurement needs.
+- **`RecordFileTests`** runs each probe program, its log written with `Debug.Print`, and must print what vb6.exe logged,
+  line for line; a step HexIDE refuses on purpose is cut out, with its lines, and tested as a refusal. One test reads the
+  bytes back in C#, so a Put and a Get that agreed with each other but not with vb6.exe would fail.
+- **Refused, as HexIDE cannot hold the value:** a Boolean whose bits are neither 0 nor -1, a Date past the year 9999, a
+  Decimal of scale past 28, and an Error Variant, which waits on CVErr.
+- **Refused, not yet built:** a `Put` of an expression whose static type HexIDE does not know, such as `Timer > 0`,
+  since a Variant and its value written bare are different files; fixed-length strings, here as everywhere; and arrays
+  of a Type, whose elements are not made (#178).
+- **Divergences kept:** the locks hold only within the program, not against another process; `Len` on a sequential
+  file is not checked; a `Get` of a String in a Binary file reads as many bytes as the String has characters, which is
+  the same in code page 1252 and not measured in a double-byte one.
