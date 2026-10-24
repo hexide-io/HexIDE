@@ -670,6 +670,51 @@ public class CodeEditorViewModelTests : IDisposable
             "untitled:TestProject/Form1.frm", pos, "newName", Arg.Any<CancellationToken>());
     }
 
+    [AvaloniaTheory]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task RenameAcrossDocuments_RefusesWholeAnswer(bool includesOwnDocument, bool loaded)
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "Form1"));
+        var before = vm.Document.Text;
+        var other = "file:///unloaded/Module1.bas";
+        _editorService.DocumentNameForUri(other).Returns(loaded ? "Module1" : null);
+        var changes = new Dictionary<string, TextEdit[]>
+        {
+            [other] = [new(new(new(0, 0), new(0, 0)), "NewName")],
+        };
+        if (includesOwnDocument)
+            changes[vm.GetDocumentUriPublic()] = [new(new(new(0, 0), new(0, 0)), "NewName")];
+        _localization.GetString("Str.CodeEditor.Msg.RenameReachesOtherDocuments").Returns("Rename refused: {0}");
+        _lspClient.RequestRenameAsync(vm.GetDocumentUriPublic(), Arg.Any<Position>(), "NewName", Arg.Any<CancellationToken>())
+            .Returns(new WorkspaceEdit(changes));
+
+        var answer = await vm.RequestRenameAsync(new(0, 0), "NewName");
+        var refusal = vm.ApplyRename(answer!, "OldName");
+
+        refusal.Should().Be("Rename refused: " + (loaded ? "Module1" : other));
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public void RenameWithEmptyOtherEdits_AppliesOwnEditsAsOneUndoStep()
+    {
+        var vm = CreateSut().Initialize(TestHelpers.CreateForm(name: "Form1"));
+        var before = vm.Document.Text;
+        var line = vm.Document.LineCount - 1;
+        var edit = new WorkspaceEdit(new()
+        {
+            [vm.GetDocumentUriPublic()] = [new(new(new(line, 0), new(line, 0)), "Renamed")],
+            ["file:///unloaded/Module1.bas"] = [],
+        });
+
+        vm.ApplyRename(edit, "OldName").Should().BeNull();
+        vm.Document.Text.Should().Contain("Renamed");
+        vm.Document.UndoStack.Undo();
+        vm.Document.Text.Should().Be(before);
+    }
+
     [AvaloniaFact]
     public async Task RequestFormattingAsync_DelegatesToLspClient()
     {

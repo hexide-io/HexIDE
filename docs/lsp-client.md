@@ -369,11 +369,10 @@ server is expected to keep off them — the bundled one does, by the rule in
   has a name's shape.
 - **Diagnostics** inside the header or an attribute run are shown like any other, because they are a
   server's claim about the file. The bundled server raises none there.
-- **A rename's edits to other documents are dropped.** The code window applies the edits for its own
-  document and discards the rest without saying so
-  ([#1024](https://github.com/hexide-io/HexIDE/issues/1024)). No server attached to a code window sends
-  more than one document's edits today; one that binds names would, and naming a saved member by its file
-  is what lets such a server name it.
+- **A rename reaching other documents is refused as a whole** (#1024). Non-empty edits under
+  any other URI leave the buffer unchanged, including an answer editing only other documents.
+  The refusal names loaded members using the navigation URI rule, and otherwise shows the URI.
+  Empty edit lists under other URIs do not prevent a single-document rename.
 
 ---
 
@@ -753,7 +752,7 @@ than inferred.
 | ○ | `textDocument/rangeFormatting` | → |  |
 | ○ | `textDocument/rangesFormatting` | → |  |
 | ○ | `textDocument/references` | → | Needs a bound AST — a backend's job, see below |
-| ✅ | `textDocument/rename` | → |  |
+| ✅ | `textDocument/rename` | → | Answers editing other documents are refused whole (#1024) |
 | ○ | `textDocument/selectionRange` | → |  |
 | ○ | `textDocument/semanticTokens/full` | → | Needs a bound AST — a backend's job, see below |
 | ○ | `textDocument/semanticTokens/full/delta` | → |  |
@@ -929,7 +928,6 @@ Three clusters account for nearly all of the gap:
 | Full-text sync only; a declared incremental kind is ignored | Wasteful on large files; the incremental path is untested | [#282](https://github.com/hexide-io/HexIDE/issues/282) |
 | No workspace-wide pull diagnostics (`workspace/diagnostic`) | Diagnostics are per open document; a server's findings about files nobody has open are never requested | [#284](https://github.com/hexide-io/HexIDE/issues/284) |
 | No request but `initialize` has a timeout | A request about a document the server silently discarded is never answered, and nothing gives up on it | [#486](https://github.com/hexide-io/HexIDE/issues/486) |
-| A rename's `WorkspaceEdit` is applied to the code window's own document only | Edits to every other document are dropped without a word, so a binding server's rename is applied in part | [#1024](https://github.com/hexide-io/HexIDE/issues/1024) |
 | An error answered to `textDocument/rename` is turned into `null` | A server that refuses a rename with a reason is shown as one that found nothing to change | [#1015](https://github.com/hexide-io/HexIDE/issues/1015) |
 | A server's fold is read from the start of its first line, and its character offsets are ignored | Collapsed, a server's fold hides the line LSP leaves showing. Read as LSP means it, under today's merge, a procedure with an attribute run under a one-line declaration would lose its fold | [#1022](https://github.com/hexide-io/HexIDE/issues/1022) |
 

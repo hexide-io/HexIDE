@@ -249,6 +249,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Rename refuses edits reaching other documents** (#1024). The code window leaves the buffer unchanged
+  and names the affected members (or their URIs), instead of silently applying only its own part.
+
 - **Module-qualified stores and array-element reads reach the module's variable** (#1006, #965).
   `Module1.G = 8` and `Module2.g(2) = 7` raised Object required, and `Module2.g(1)` read the whole array.
   Both stores now work and the read returns its element. `Set Module2.pq = New C1` holds the object,

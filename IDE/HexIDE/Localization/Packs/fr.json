@@ -337,6 +337,7 @@
     "Str.Designer.Context.Properties": "Propriétés",
     "Str.CodeEditor.FileNotSaved.Banner": "Ce fichier ne sera pas enregistré — HexIDE ne sait pas encore le reproduire fidèlement ; l'enregistrer le modifierait. Son code fait partie du fichier : la saisie dans cette fenêtre est donc refusée.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Le renommage n'a pas été effectué, car il modifierait l'en-tête de ce fichier ou les lignes Attribute d'un membre, que gère l'IDE.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Le renommage n’a pas été effectué car il modifie aussi d’autres documents : {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "La ligne {0} fait partie de l'en-tête de ce fichier ou des lignes Attribute d'un membre, qui ne s'exécutent jamais : on ne peut donc y placer ni point d'arrêt ni signet.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Insérer un fichier",
     "Str.CodeEditor.Context.Cut": "Co_uper",

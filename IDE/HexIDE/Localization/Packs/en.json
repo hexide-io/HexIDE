@@ -298,6 +298,7 @@
     "Str.Designer.Context.Properties": "Properties",
     "Str.CodeEditor.FileNotSaved.Banner": "This file will not be saved — HexIDE cannot yet reproduce it faithfully, so saving it would change it. Its code is part of the file, so typing in this window is refused.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "The rename was not made because it would change this file's header or a member's Attribute lines, which the IDE maintains.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "The rename was not made because it also edits other documents: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Line {0} is part of this file's header or a member's Attribute lines, which never run, so no breakpoint or bookmark can be set there.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Insert File",
     "Str.CodeEditor.Context.Cut": "Cu_t",

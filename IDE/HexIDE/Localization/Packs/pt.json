@@ -337,6 +337,7 @@
     "Str.Designer.Context.Properties": "Propriedades",
     "Str.CodeEditor.FileNotSaved.Banner": "Este ficheiro não será guardado — o HexIDE ainda não consegue reproduzi-lo fielmente, pelo que guardá-lo iria alterá-lo. O seu código faz parte do ficheiro, por isso a escrita nesta janela é recusada.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "O nome não foi mudado, porque isso alteraria o cabeçalho deste ficheiro ou as linhas Attribute de um membro, que são geridos pelo IDE.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "A alteração do nome não foi efetuada porque também modifica outros documentos: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "A linha {0} faz parte do cabeçalho deste ficheiro ou das linhas Attribute de um membro, que nunca são executadas, pelo que não pode receber um ponto de interrupção nem um marcador.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Inserir Ficheiro",
     "Str.CodeEditor.Context.Cut": "Cor_tar",

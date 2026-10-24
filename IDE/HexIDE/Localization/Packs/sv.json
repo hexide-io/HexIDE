@@ -337,6 +337,7 @@
     "Str.Designer.Context.Properties": "Egenskaper",
     "Str.CodeEditor.FileNotSaved.Banner": "Den här filen sparas inte — HexIDE kan ännu inte återge den exakt, så den skulle ändras om den sparades. Koden är en del av filen, därför avvisas inmatning i det här fönstret.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Namnbytet genomfördes inte eftersom det skulle ändra filens huvud eller en medlems Attribute-rader, som IDE:n underhåller.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Namnbytet genomfördes inte eftersom det också ändrar andra dokument: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Rad {0} hör till filens huvud eller till en medlems Attribute-rader, som aldrig körs, så det går inte att sätta en brytpunkt eller ett bokmärke där.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Infoga fil",
     "Str.CodeEditor.Context.Cut": "Klipp _ut",

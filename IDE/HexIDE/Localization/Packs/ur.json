@@ -337,6 +337,7 @@
     "Str.Designer.Context.Properties": "خصوصیات",
     "Str.CodeEditor.FileNotSaved.Banner": "یہ فائل محفوظ نہیں کی جائے گی — HexIDE ابھی اسے ہو بہو دوبارہ تیار نہیں کر سکتا، اس لیے اسے محفوظ کرنے سے یہ بدل جائے گی۔ اس کا کوڈ بھی فائل کا حصہ ہے، چنانچہ اس ونڈو میں ٹائپ کرنا مسترد کیا جاتا ہے۔",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "نام تبدیل نہیں کیا گیا، کیونکہ اس سے اس فائل کا ہیڈر یا کسی رکن کی Attribute لائنیں بدل جاتیں، جنہیں IDE سنبھالتا ہے۔",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "نام تبدیل نہیں کیا گیا کیونکہ اس سے دوسری دستاویزات میں بھی ترمیم ہوتی ہے: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "لائن {0} اس فائل کے ہیڈر یا کسی رکن کی Attribute لائنوں کا حصہ ہے، جو کبھی نہیں چلتیں، اس لیے اس پر بریک پوائنٹ یا بُک مارک نہیں لگایا جا سکتا۔",
     "Str.CodeEditor.Dialog.InsertFileTitle": "فائل داخل کریں",
     "Str.CodeEditor.Context.Cut": "کاٹیں",

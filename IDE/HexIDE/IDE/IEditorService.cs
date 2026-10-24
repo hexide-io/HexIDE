@@ -12,6 +12,9 @@ public interface IEditorService
     void EditRelatedDocument(RelatedDocumentDefinition? relatedDocument);
     void EditProject(ProjectDefinition? project);
 
+    /// <summary>The loaded member name for a URI, or null when nothing loaded answers.</summary>
+    string? DocumentNameForUri(string uri);
+
     /// <summary>
     /// Opens whatever document a URI names and puts the caret at a position in it. False when nothing
     /// loaded answers to that URI.

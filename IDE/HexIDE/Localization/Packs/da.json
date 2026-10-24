@@ -337,6 +337,7 @@
     "Str.Designer.Context.Properties": "Egenskaber",
     "Str.CodeEditor.FileNotSaved.Banner": "Denne fil bliver ikke gemt — HexIDE kan endnu ikke gengive den nøjagtigt, så den ville blive ændret, hvis den blev gemt. Dens kode er en del af filen, så indtastning i dette vindue afvises.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Omdøbningen blev ikke udført, fordi den ville ændre filens header eller et medlems Attribute-linjer, som IDE'et vedligeholder.",
+    "Str.CodeEditor.Msg.RenameReachesOtherDocuments": "Omdøbningen blev ikke udført, fordi den også ændrer andre dokumenter: {0}",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Linje {0} hører til filens header eller et medlems Attribute-linjer, som aldrig udføres, så der kan ikke sættes et pausepunkt eller et bogmærke på den.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Indsæt fil",
     "Str.CodeEditor.Context.Cut": "K_lip",
