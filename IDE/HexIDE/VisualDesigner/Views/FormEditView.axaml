@@ -4,7 +4,6 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
              xmlns:controls="clr-namespace:HexIDE.Controls"
-             xmlns:converters="clr-namespace:HexIDE.Converters"
              xmlns:utils="clr-namespace:HexIDE.Utils"
              xmlns:visualDesigner="clr-namespace:HexIDE.VisualDesigner"
              xmlns:views="clr-namespace:HexIDE.VisualDesigner.Views"
@@ -91,9 +90,6 @@
         <visualDesigner:FormEditViewModel />
     </Design.DataContext>
     <UserControl.Resources>
-        <converters:BoolToBrushConverter ActiveBrush="{DynamicResource ActiveTitleBarBrush}"
-                                         InactiveBrush="{DynamicResource InactiveTitleBarBrush}"
-                                         x:Key="TitleBarConverter" />
         <!-- A control HexIDE does not model, a box where VB6 draws the one it puts in such a control's place (#157), greyed
              and labelled where VB6's is empty. Inert: a press is swallowed, so it selects nothing and starts no marquee,
              and the cursor says so. The controls' canvas, DesignerCanvas, draws it in its place among them (#1553). -->
@@ -130,12 +126,6 @@
             </ClassicBorderDecorator>
         </DataTemplate>
     </UserControl.Resources>
-    <UserControl.Styles>
-        <Style Selector="Border#PART_FormTitleBar">
-            <Setter Property="Background"
-                    Value="{Binding $parent[controls:MDIWindow].(controls:MDIHostPanel.IsActive), Converter={StaticResource TitleBarConverter}, TargetNullValue={x:True}}" />
-        </Style>
-    </UserControl.Styles>
     <VisualLayerManager>
       <DockPanel>
         <!-- Read-only banner. The design surface below is disabled rather than each mutation guarded:
@@ -186,7 +176,8 @@
                     </ClassicBorderDecorator.Styles>
                     <DockPanel>
                         <Panel DockPanel.Dock="Top" Margin="0,0,0,1" IsVisible="{CompiledBinding HasWindowFrame}">
-                            <Border IsHitTestVisible="False" Name="PART_FormTitleBar" />
+                            <Border IsHitTestVisible="False" Name="PART_FormTitleBar"
+                                    Background="{DynamicResource ActiveTitleBarBrush}" />
 
                             <DockPanel Margin="2,0,0,0">
                                 <controls:MDICaptionButtons DockPanel.Dock="Right" IsHitTestVisible="False" />

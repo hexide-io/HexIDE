@@ -79,3 +79,7 @@ one panel that did not change rather than as an error.
 #### Scenario: A colour that has no key
 - **WHEN** chrome needs a colour the theme does not define
 - **THEN** a key is added to the definition layer and every theme inherits a default for it
+
+#### Scenario: A form designer without an MDI ancestor
+- **WHEN** a form designer is opened as a Dock document
+- **THEN** its caption bar uses the `ActiveTitleBarBrush` resource resolved at the bar, without an MDI ancestor binding

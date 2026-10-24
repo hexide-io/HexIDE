@@ -254,6 +254,7 @@
 
 | Feature | Status | Notes |
 |---|---|---|
+| Form caption bar | Done | Uses the active title-bar brush without an MDI ancestor, including in Dock documents (#896); active/inactive styling is deferred |
 | Draw control from toolbox | Done | Click-drag on canvas spawns control |
 | Grid display | Done | Visual dot grid; configurable size |
 | Snap to grid | Done | Controlled by Options |

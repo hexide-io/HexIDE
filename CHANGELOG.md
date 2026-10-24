@@ -265,6 +265,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The form designer paints its title bar** (#896). It now uses the active title-bar brush directly,
+  restoring a readable white caption on Classic's navy bar and removing a failed MDI ancestor binding.
+
 - **The design-record guard recognises renamed requirements** (#1050). It reads the CLI’s `FROM` and `TO`
   list items, so an archived rename retires the old name and requires the new name in the live spec.
 
