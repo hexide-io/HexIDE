@@ -9,6 +9,34 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## `add_to_selection` names the new selection but not its reference, so a caller learns what Align measured against only afterwards — **CLOSED** (#951, 2026-10-24)
+
+**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
+
+```
+interact {"target":"Window/.../List[ControlsContainer]/ListItem[Command1]","action":"add_to_selection"}
+→ {"detail":"added 'Command1' to the selection; 2 items are selected now: Command0, Command1"}
+```
+
+Only the next `invoke_format_command` reply, "…, aligned to Command0", named the reference, the control every
+Align and Make Same command measures against. A snapshot between the two showed Command0 with the solid handles.
+The reply lists the selection in index order, as does `inspect_element`'s `selectionItems`, so no read names the
+reference before a command runs, which the form-designer spec requires of the designer. The same goes for
+`remove_from_selection`. Cross-platform by code reading.
+
+**Workaround.** Select the intended reference first and `add_to_selection` the rest: by code reading, the
+reference stays on the first item selected, and removing it moves it to the lowest-indexed item still selected.
+A snapshot shows the reference with the solid handles.
+
+**Suggested fix.** With two or more selected, the reply names the primary item, and when `remove_from_selection`
+removes it, names the new one. [#951](https://github.com/hexide-io/HexIDE/issues/951). Which control should be
+the reference is #928.
+
+**Fixed.** Multi-item selection replies list the primary first and name it as the designer reference for Align
+and Make Same. Removing it reports the replacement. The action description says how to choose it: select it
+first. Headless regression tests cover both selection orders and removal; live designer verification remains
+for the supervising session. Selection semantics (#928) are unchanged.
+
 ## No call double-clicks a running form — **CLOSED** (#1389, 2026-10-24)
 
 **Symptom (2026-10-22, #1031, Windows).** A running form's `DblClick` comes from a double click's second press, told by
@@ -4527,3 +4555,31 @@ an insertion or a forward deletion, where it moves the caller somewhere new.
 [#1042](https://github.com/hexide-io/HexIDE/issues/1042).
 
 **Fixed (#1042).** Refusals now name the header or the member through the same name reader as add-in refusals. A deletion ending at the caret explains that the preceding text belongs to that region; for a member, deleting its whole logical declaration removes its Attribute lines too. Insertions and forward deletions retain a new editable offset. Headless editor regressions cover all three cases and fail against the previous wording.
+
+## `press_key` refuses a Delete over a selection reaching protected lines, where the key deletes the editable part
+
+**Symptom.** Read from the code (#273 task 4.5a records it as already so). With a selection running from code into
+the header or a member's `Attribute` lines, a person's Delete deletes the parts the code window's read-only sections
+allow. The tool deletes nothing:
+
+```
+press_key {"target":".../Custom[Root]/None[TextEditor]","key":"Delete"}
+→ {"success":false,"error":"press_key refused: offset N is in the file's header or a member's Attribute lines, ...
+   Nothing was written. ..."}
+```
+
+`UiAutomationDriver` asks `DeletionChangesARegion` about the whole span, where the key's provider deletes the
+deletable segments.
+
+**Workaround.** Narrow the selection to the editable part with `interact set_property` (`SelectionStart`,
+`SelectionLength`) before pressing the key.
+
+**Suggested fix.** Delete what the deletable segments allow, as the key does, and say what was left and why.
+[#1055](https://github.com/hexide-io/HexIDE/issues/1055).
+
+**Closed (#1055).** Delete and Backspace now reach the real key handler whenever the selection has
+editable segments. AvaloniaEdit's selection replacement asks the installed read-only section provider;
+no automation code computes the deletion. Replies name the protected remainder and report the caret
+and remaining selection. `type_text` uses that replacement API too, placing text in the last deletable
+segment as a person's typing does. Wholly protected spans still refuse with #1042's region wording.
+Verified by headless code-window integration tests, including unchanged protected text and post-edit selection.

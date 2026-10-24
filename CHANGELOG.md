@@ -10,6 +10,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Keyboard parameter-info regression tests** (#1262). Headless tests cover typing `MsgBox(`, the signature-help
+  request position, and parameter info being open before the typing reply when the server answers after a delay.
+
 - **Random and Binary files open, and Get and Put run** (#1646). They were refused at the `Open`, so no program that
   keeps records or structs in a file got past it. Measured on vb6.exe first, in eight batches: the bytes of every
   type, String, Variant, array and Type; records and `Len =`; EOF; a second handle and the `Lock` and `Access` clauses;
@@ -253,6 +256,15 @@ there isn't one yet. Anything may change between 0.x releases.
   Option Explicit on or off. Under Option Explicit, a later local Const shadowing a module Const already read by an earlier Const is
   "Duplicate declaration in current scope"; shadowing without that earlier read still works.
 
+- **Selection replies name the designer reference** (#951). `interact` lists the primary first when several
+  items are selected and explains that Align and Make Same measure against it, including the replacement
+  after removing it. Its action description explains how to choose it: select it first.
+
+- **MCP Delete and Backspace delete the editable part of a selection reaching protected lines** (#1055).
+  The key runs through the editor's own deletion path; the reply counts what was deleted and left, names
+  the header or member's Attribute lines, and reports the caret and remaining selection. `type_text` also
+  uses the editor's selection replacement for these spans. A wholly protected selection still refuses.
+
 - **MCP inspection reports a window's frame state** (#1595, part 1). `inspect_element` on a Window now reports
   resizing, decorations, minimize/maximize buttons, taskbar visibility and window state from Avalonia, so a running
   form's BorderStyle mapping can be checked. Native styles are explicitly unreported. Snapshot frame capture remains open.
@@ -298,6 +310,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **MCP keys, text and hover skip rows their list has released** (#1327). Addressing a list no longer sends input
   into a recycled row omitted from the control tree or reports the list’s path as confirmation.
+
+- **A running form's window carries the form's own Icon, or none for (None)** (#1594). Every window carried HexIDE's
+  icon, big and small, whatever the form's file said. So VB98's dialog templates, which save Icon = (None) to keep a
+  dialog's caption bare, showed HexIDE's mark, and a form's own icon never appeared. A form with no Icon line keeps
+  HexIDE's mark, as VB6 gives its default there. Measured on vb6.exe: the default is VB6's big icon only, (None) is no
+  icon at all, and a form's own is both its big and small icon.
 
 - **MCP shared context menus belong to the control that opened them** (#1323). A tab menu appears only under its current tab in the dump; expanding it on another tab moves it there, and collapsing it from another tab leaves it alone. Menu headers also read back opens and closes, refusing an action a handler cancelled.
 
