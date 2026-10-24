@@ -191,6 +191,36 @@ public class StringToDateTests : BaseVBTestFixture
         printed.Should().Be(vb6);
     }
 
+    // #1445: the issue and its SP6 follow-up, en-GB, native and p-code identical.
+    [Theory]
+    [InlineData("1,5 10:30", "01/05/{year} 10:30:00")]
+    [InlineData("1/5 10:30", "01/05/{year} 10:30:00")]
+    [InlineData("1-5 10:30", "01/05/{year} 10:30:00")]
+    [InlineData("1,5 10:30:15", "01/05/{year} 10:30:15")]
+    [InlineData("1/5 10:30 PM", "01/05/{year} 22:30:00")]
+    [InlineData("31/12 23:59", "31/12/{year} 23:59:00")]
+    [InlineData("1,5", "01/05/{year}")]
+    [InlineData("1/5", "01/05/{year}")]
+    [InlineData("1,5,2003 10:30", "01/05/2003 10:30:00")]
+    [InlineData("1.5 10:30", null)]
+    public async Task Day_and_month_with_a_time_use_this_year(string text, string? date)
+    {
+        var year = DateTime.Now.Year;
+        var printed = await RowOf(text);
+        // If the three conversions straddled New Year, repeat them in the new year.
+        if (DateTime.Now.Year != year)
+        {
+            debug.Clear();
+            year = DateTime.Now.Year;
+            printed = await RowOf(text);
+        }
+        date = date?.Replace("{year}", year.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal);
+        var expected = date == null
+            ? $"[{text}] CDate:13 | store:13 | IsDate:False"
+            : $"[{text}] CDate:Date {date} | store:Date {date} | IsDate:True";
+        Serial.Replace(printed, "").Should().Be(expected);
+    }
+
     // Each a statement from the same probe, and the line vb6.exe printed for it.
     public static TheoryData<string, string> MeasuredThroughFunctions => new()
     {
