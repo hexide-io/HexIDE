@@ -352,6 +352,8 @@
     "Str.CodeEditor.Context.InsertFile": "插入檔案",
     "Str.CodeEditor.Context.ToggleBreakpoint": "切換中斷點",
     "Str.CodeEditor.Context.Bookmarks": "書籤",
+    "Str.Menu.Edit.ToggleFold": "切換摺疊",
+    "Str.CodeEditor.Context.ToggleFold": "切換摺疊",
     "Str.CodeEditor.Context.ToggleBookmark": "切換書籤",
     "Str.CodeEditor.Context.NextBookmark": "下一個書籤",
     "Str.CodeEditor.Context.PreviousBookmark": "上一個書籤",

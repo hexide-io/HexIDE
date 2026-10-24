@@ -352,6 +352,8 @@
     "Str.CodeEditor.Context.InsertFile": "إدراج ملف",
     "Str.CodeEditor.Context.ToggleBreakpoint": "تبديل نقطة التوقف",
     "Str.CodeEditor.Context.Bookmarks": "الإشارات المرجعية",
+    "Str.Menu.Edit.ToggleFold": "تبديل الطي",
+    "Str.CodeEditor.Context.ToggleFold": "تبديل الطي",
     "Str.CodeEditor.Context.ToggleBookmark": "تبديل الإشارة المرجعية",
     "Str.CodeEditor.Context.NextBookmark": "الإشارة المرجعية التالية",
     "Str.CodeEditor.Context.PreviousBookmark": "الإشارة المرجعية السابقة",

@@ -466,7 +466,10 @@ dedicated tool if the authoring policy justifies one. Filed as
 shows no expand state, and the provider is advertised because the editor owns a context menu, which is what
 `expand` opens. **Workaround:** placing the caret inside a folded section with `interact set_property
 CaretOffset=N` on the code view expands it, because the editor unfolds any fold the caret moves into. Nothing
-folds one again. A `click` action on `interact` would cover this margin as well as the gutters.
+folds one again in that build. Since #1014, Edit → Toggle Fold can toggle the innermost section at the caret
+or starting on its row, including a member run beside its procedure fold. This supplies a command workaround;
+it does not address clicking the margin itself. A `click` action on `interact` would cover this margin as well
+as the gutters.
 
 **A member's Attribute lines fold too since #273 task 4.3**, into a box at the end of the line they describe, and
 the workaround reaches them with one difference, read in code and not run. An offset strictly inside the run opens

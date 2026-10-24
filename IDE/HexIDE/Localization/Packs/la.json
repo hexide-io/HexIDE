@@ -313,6 +313,8 @@
     "Str.CodeEditor.Context.InsertFile": "Insere _Plicam",
     "Str.CodeEditor.Context.ToggleBreakpoint": "Commuta _Punctum Interruptionis",
     "Str.CodeEditor.Context.Bookmarks": "_Signacula",
+    "Str.Menu.Edit.ToggleFold": "_Complicationem commuta",
+    "Str.CodeEditor.Context.ToggleFold": "_Complicationem commuta",
     "Str.CodeEditor.Context.ToggleBookmark": "_Commuta Signaculum",
     "Str.CodeEditor.Context.NextBookmark": "_Proximum Signaculum",
     "Str.CodeEditor.Context.PreviousBookmark": "_Prius Signaculum",

@@ -352,6 +352,8 @@
     "Str.CodeEditor.Context.InsertFile": "Lisää _tiedosto",
     "Str.CodeEditor.Context.ToggleBreakpoint": "Aseta/poista _keskeytyskohta",
     "Str.CodeEditor.Context.Bookmarks": "_Kirjanmerkit",
+    "Str.Menu.Edit.ToggleFold": "_Vaihda taitto",
+    "Str.CodeEditor.Context.ToggleFold": "_Vaihda taitto",
     "Str.CodeEditor.Context.ToggleBookmark": "_Aseta/poista kirjanmerkki",
     "Str.CodeEditor.Context.NextBookmark": "_Seuraava kirjanmerkki",
     "Str.CodeEditor.Context.PreviousBookmark": "_Edellinen kirjanmerkki",
