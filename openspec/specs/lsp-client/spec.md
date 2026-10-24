@@ -680,6 +680,16 @@ worth showing, and the shape a user interface consumes should not need rebuildin
 - **WHEN** a server is configured for a language and no document of that language has been opened
 - **THEN** the connection is observable, and is distinguishable from a server that failed to start
 
+### Requirement: Absolute pipe names SHALL reach Unix domain sockets on Unix hosts
+On Linux and macOS, the pipe transport SHALL use an absolute `pipeName` verbatim as a Unix domain socket
+path. A bare name SHALL use .NET's `/tmp/CoreFxPipe_<name>` endpoint instead. On Windows the transport
+SHALL continue to use Windows named pipes.
+
+#### Scenario: Connecting to a raw Unix domain socket peer
+- **GIVEN** a server listening on a raw Unix domain socket at an absolute path on Linux or macOS
+- **WHEN** the pipe transport connects with that path as `pipeName`
+- **THEN** JSON-RPC messages round trip over that socket with Content-Length framing
+
 ### Requirement: Servers SHALL start on first use and own their transport
 A server SHALL be started when a document of a language it claims is first opened, and not before. Each
 registered server SHALL carry its own transport configuration.

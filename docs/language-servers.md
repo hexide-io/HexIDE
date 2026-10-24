@@ -60,7 +60,7 @@ Comments and trailing commas are allowed — this is a file you edit by hand, no
 | `command` | for `stdio` | The executable to launch. Optional on `pipe` — see *Starting the server yourself* below. |
 | `arguments` | no | Command line. Part of the command's identity — see *A command you have not run before*. |
 | `workingDirectory` | no | Empty means the server runs in whichever project is open, which is usually what you want. |
-| `pipeName` / `pipeRole` | for `pipe` | `pipeRole` is `connect` (default) or `listen`. |
+| `pipeName` / `pipeRole` | for `pipe` | `pipeRole` is `connect` (default) or `listen`. On Linux and macOS, an absolute `pipeName` is used verbatim as a Unix domain socket path; a bare name becomes `/tmp/CoreFxPipe_<name>`. |
 | `endpoint` | for `websocket` | e.g. `ws://localhost:1234/`. |
 | `displayName` | no | Shown wherever servers are listed. Defaults to the id. |
 | `trace` | no | How much this server should say about its own work: `off` (default), `messages` or `verbose`. It travels in the handshake, so it sets what the server *starts* at; changing it on a running server is a separate thing the IDE does for you. Misspell it and the server still starts, with tracing off and a warning. |
@@ -165,6 +165,20 @@ only works if you remembered to launch the server first.
   "command": "C:/tools/example-server.exe",
   "arguments": "--pipe {pipe} --workspace {workspaceUri}",
   "workingDirectory": "C:/tools/example"
+}
+```
+
+For a server listening on a Unix domain socket on Linux or macOS, use an absolute path:
+
+```jsonc
+{
+  "id": "example-unix",
+  "extensions": [".bas"],
+  "languageId": "vba",
+  "transport": "pipe",
+  "pipeName": "/tmp/hexide-example.sock",
+  "command": "/usr/local/bin/example-server",
+  "arguments": "--pipe {pipe}"
 }
 ```
 

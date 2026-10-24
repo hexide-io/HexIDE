@@ -10,6 +10,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Unix socket pipe configuration documented** (#381). Absolute `pipeName` paths reach Unix domain
+  sockets on Linux and macOS; bare names use .NET’s pipe endpoint. A raw-socket round-trip test pins
+  the existing behaviour.
+
 - **`Declare PtrSafe` parses** (#1548) in the interpreter and language server. VBA7 declarations using existing
   types now let a module load; external API calls remain deferred. `LongPtr`, `LongLong` and their conversions
   are follow-up work.

@@ -577,6 +577,10 @@ anything, and failed entries remain failed.
 `stdio`, `pipe` (named pipe, connecting or listening) and `websocket` are all supported. Only `stdio` is
 exercised against a real foreign server; the other two are covered against fakes.
 
+On Linux and macOS, an absolute `pipeName` connects verbatim to a Unix domain socket path, including a
+raw socket peer; a bare name becomes `/tmp/CoreFxPipe_<name>`. Windows uses Windows named pipes.
+`NamedPipeLspTransportTests` pins the absolute-path round trip against a raw Unix socket on non-Windows hosts.
+
 The three do not carry the same framing, and the difference is load-bearing rather than incidental: the two
 byte-stream transports delimit messages with a `Content-Length` header, while a WebSocket carries message
 boundaries itself and must therefore send **one JSON-RPC message per Text frame with no header at all**.
