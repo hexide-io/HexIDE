@@ -265,6 +265,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Corpus and grammar reports stay with their test run** (#1018). All four reports are written beside
+  the test assembly, so separate checkouts and build output directories no longer overwrite each other's
+  reports or contend for a shared temp file.
+
 - **Corpus lanes fail when repository roots are missing** (#1016). The round-trip, grammar, header and
   region-parity checks now require `demo/` and `corpus/designer`, so losing either cannot silently reduce coverage.
   An explicit round-trip corpus still replaces the default demo root.

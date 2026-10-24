@@ -35,11 +35,19 @@ the `Template` folder or the one above it. A set variable under which a test's f
 test, naming what it tried; only an unset one on a machine without VB6 skips. CI has no VB6 install, but
 still reads the repository corpora, including VB6-authored designer and member-attribute files.
 
-The run writes a per-file report to `hexide-roundtrip-report.txt` in the system temp directory, listing
+The run writes a per-file report to `hexide-roundtrip-report.txt` beside the test assembly
+(`AppContext.BaseDirectory`, normally `IDE/HexIDE.Runtime.Tests/bin/Debug/net10.0/`), listing
 every `DIFF`, `BLOB-LOSS` and `BLOB-DIFF` with the first few differing lines. That is the full report — the
 JSON report and the `--roundtrip` / `--corpus` / `--report` flags described here previously do not exist;
 `HexIDE.Standalone` implements exactly one non-GUI mode, `--check <project.vbp>`, which loads a project and
 prints per-module results.
+
+The `.vbp` lane writes `hexide-vbp-report.txt` in that same assembly directory. The whole-file grammar
+lanes likewise write `hexide-whole-file-grammar-interpreter.txt` beside the runtime test assembly and
+`hexide-whole-file-grammar-lsp.txt` beside the LSP test assembly (normally
+`LspServer/HexIDE.VbLspServer.Tests/bin/Debug/net10.0/`). Each checkout and each separate
+`--artifacts-path` output keeps its own reports; look beside the assembly in the selected output directory
+when overriding the build output.
 
 ---
 

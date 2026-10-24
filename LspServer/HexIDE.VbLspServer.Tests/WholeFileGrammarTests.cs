@@ -23,7 +23,13 @@ namespace HexIDE.VbLspServer.Tests;
 public class WholeFileGrammarTests
 {
     private static readonly string ReportPath =
-        Path.Join(Path.GetTempPath(), "hexide-whole-file-grammar-lsp.txt");
+        Path.Join(AppContext.BaseDirectory, "hexide-whole-file-grammar-lsp.txt");
+
+    [Fact]
+    public void ReportIsBesideTestAssembly()
+    {
+        ReportPath.Should().Be(Path.Join(AppContext.BaseDirectory, "hexide-whole-file-grammar-lsp.txt"));
+    }
 
     private static readonly string[] Extensions = [".frm", ".cls", ".bas", ".ctl", ".pag"];
 
