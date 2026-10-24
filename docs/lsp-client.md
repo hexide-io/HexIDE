@@ -25,6 +25,12 @@ exactly that gap until a server nobody here had written was pointed at the clien
 drives five foreign servers across four different LSP frameworks, including `vscode-languageserver-node`, the
 library the specification is written around.
 
+The bundled-server tests in `HexIDE.Tests` skip when the executable is missing or more than a minute
+older than a C# or `.g4` grammar file under `LspServer/HexIDE.VbLspServer`, excluding `bin/` and `obj/`.
+Editing the server test project does not make that executable stale. Rebuild with
+`cd LspServer && dotnet build HexIDE.VbLspServer/`; `HEXIDE_REQUIRE_FOREIGN_LSP=1` makes a missing or
+stale bundled server fail rather than skip.
+
 ---
 
 ## The wire contract
