@@ -308,3 +308,22 @@ whole file, the code's real errors included, and give no reason why.
 - **WHEN** a rename is asked for with a new name that does not start with a letter, holds a character other than
   a letter, a digit or an underscore, or is `Rem`, `Empty`, `New`, `Nothing`, `Me` or `Attribute` in any case
 - **THEN** there is no answer
+
+### Requirement: Completion SHALL preserve declaration kinds and unique labels
+The server SHALL return completion labels unique under ordinal case-insensitive comparison, preferring a
+name declared in the document over a static keyword or built-in. The static `Date` entry SHALL be a
+Function. Declared names SHALL carry their syntactic completion kind: Sub as Method, Function as Function,
+Property as Property, Const as Constant, Enum as Enum, enum member as EnumMember, Type as Struct, and
+variables and parameters as Variable.
+
+#### Scenario: Completing a procedure and a variable
+- **WHEN** completion is requested for a document declaring a Sub and a variable
+- **THEN** the Sub has completion kind Method (2) and the variable has kind Variable (6)
+
+#### Scenario: A declaration shadows a static entry
+- **WHEN** a declared name matches a static entry ignoring case
+- **THEN** one item is returned with the declaration's spelling and kind
+
+#### Scenario: Completing Date without a declaration
+- **WHEN** completion is requested for a document without a Date declaration
+- **THEN** Date appears once, with completion kind Function (3)

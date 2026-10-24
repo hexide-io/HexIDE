@@ -16,6 +16,7 @@
     <PackageReference Include="xunit.analyzers" PrivateAssets="all" />
     <Using Include="Xunit" />
     <ProjectReference Include="../HexIDE.TwinBasic/HexIDE.TwinBasic.csproj" />
+    <Content Include="Recordings/**/*.jsonl" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Fixtures/*.twinproj;Fixtures/*.twinpack;Fixtures/*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
