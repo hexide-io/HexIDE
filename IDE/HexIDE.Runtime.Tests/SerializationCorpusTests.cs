@@ -187,7 +187,8 @@ public class SerializationCorpusTests
     public void Forms_and_controls_round_trip_byte_for_byte()
     {
         var files = CorpusFiles(".frm", ".ctl");
-        if (files.Count == 0) return; // no VB6 install and no demo/ — nothing to check (CI)
+        if (files.Count == 0)
+            throw Xunit.Sdk.SkipException.ForSkip("No matching files in the serialization corpus.");
 
         var report = new StringBuilder();
         report.AppendLine($"Round-trip corpus report — {files.Count} form/control files");
@@ -359,7 +360,8 @@ public class SerializationCorpusTests
         var expected = new Dictionary<string, UnfaithfulSaveCause>();
 
         var files = CorpusFiles(".frm", ".ctl");
-        if (files.Count == 0) return;
+        if (files.Count == 0)
+            throw Xunit.Sdk.SkipException.ForSkip("No matching files in the serialization corpus.");
 
         // Every name above is a VB6-authored file from the Template tree, which CI does not have — there
         // the corpus falls back to demo/, whose files are HexIDE's own and gated by nothing. Comparing the
@@ -457,7 +459,8 @@ public class SerializationCorpusTests
         // general rule is (Width - ScaleWidth) / 2. Where a file states both in twips, the two must agree —
         // and that is what makes the border table a measurement rather than a guess.
         var files = CorpusFiles(".frm", ".ctl");
-        if (files.Count == 0) return;
+        if (files.Count == 0)
+            throw Xunit.Sdk.SkipException.ForSkip("No matching files in the serialization corpus.");
 
         var compared = 0;
         foreach (var path in files)
@@ -525,7 +528,8 @@ public class SerializationCorpusTests
         // project it cannot demo. This is a separate, stricter property than byte-identity, and unlike
         // that one it is fully achieved, so it gates at zero.
         var files = CorpusFiles(".frm", ".ctl");
-        if (files.Count == 0) return;
+        if (files.Count == 0)
+            throw Xunit.Sdk.SkipException.ForSkip("No matching files in the serialization corpus.");
 
         var unopenable = new List<string>();
         var detail = new StringBuilder();
@@ -567,7 +571,8 @@ public class SerializationCorpusTests
         // through HexIDE produces one large diff; if HexIDE is then idempotent, that is the end of it
         // until VB6 touches the file again. If it is not, the file churns forever on its own.
         var files = CorpusFiles(".frm", ".ctl");
-        if (files.Count == 0) return;
+        if (files.Count == 0)
+            throw Xunit.Sdk.SkipException.ForSkip("No matching files in the serialization corpus.");
 
         var report = new StringBuilder();
         var drifting = new List<string>();
@@ -651,7 +656,8 @@ public class SerializationCorpusTests
         // entirely ComboBox/ListBox List and ItemData, which use a different record layout (a 2-byte
         // count, not a 4-byte length). Fixing that needs one oracle experiment, not a rewrite.
         var files = CorpusFiles(".frm", ".ctl");
-        if (files.Count == 0) return;
+        if (files.Count == 0)
+            throw Xunit.Sdk.SkipException.ForSkip("No matching files in the serialization corpus.");
 
         var cite = new Regex(@"^\s*(\w+)\s*=\s*""[^""]+\.(?:frx|ctx|pgx)"":([0-9A-Fa-f]+)",
                              RegexOptions.IgnoreCase | RegexOptions.Multiline);
@@ -702,7 +708,8 @@ public class SerializationCorpusTests
         // `Startup=` survived: no corpus file was ever compared against what came back out. Every project
         // has one of these, so it is the file most likely to show a spurious diff.
         var files = CorpusFiles(".vbp");
-        if (files.Count == 0) return;
+        if (files.Count == 0)
+            throw Xunit.Sdk.SkipException.ForSkip("No matching files in the serialization corpus.");
 
         var report = new StringBuilder();
         report.AppendLine($"Project round-trip report — {files.Count} .vbp files");
@@ -790,7 +797,8 @@ public class SerializationCorpusTests
     public void Standard_and_class_modules_round_trip_byte_for_byte()
     {
         var files = CorpusFiles(".bas", ".cls");
-        if (files.Count == 0) return;
+        if (files.Count == 0)
+            throw Xunit.Sdk.SkipException.ForSkip("No matching files in the serialization corpus.");
 
         var failures = new List<string>();
         var report = new StringBuilder();
