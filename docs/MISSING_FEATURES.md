@@ -42,7 +42,7 @@
 | Paste | Ctrl+V | Done | |
 | Paste Link | — | Windows-only | OLE linked object; depends on OLE Container infrastructure |
 | Remove | — | Stub | MenuItem present, no handler; context-dependent in VB6 |
-| Delete | Del | Done | |
+| Delete | Del | Done | Deletes the selection, or the next character when nothing is selected (#708). |
 | Select All | Ctrl+A | Done | |
 | Find… | Ctrl+F | Done | |
 | Find Next | F3 | Done | |

@@ -244,3 +244,12 @@ see.
 #### Scenario: Searching for a control's name
 - **WHEN** the developer searches a form's code for the name of one of its controls
 - **THEN** only matches in the code are found
+
+### Requirement: Delete SHALL work without a selection
+The code window's Delete command SHALL delete the selection when one exists, and otherwise use the text area's
+forward deletion. Both the Delete key and the menu command SHALL arm the existing reset prompt when a run is active.
+
+#### Scenario: Deleting inside code with nothing selected
+- **WHEN** the developer presses Delete with the caret inside editable code and no selection
+- **THEN** the next character is removed
+- **AND** if a run is active, the reset prompt is shown and answering No restores the edit
