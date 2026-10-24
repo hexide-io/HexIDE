@@ -1628,6 +1628,83 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return value;
     }
 
+    // Resolve only the measured standard-module targets (#1006, #965), at the statement's point of use.
+    // Keep the existing variable-first precedence; other qualifiers and unmeasured targets use the old path.
+    private async Task<bool> TryStoreModuleMember(VB6Parser.ICS_S_MembersCallContext target, Vb6Value value,
+        bool reference, Antlr4.Runtime.ParserRuleContext context)
+    {
+        // An enclosing With changes nothing here: only a leading-dot member reads the With object (measured, #1006).
+        if (target.iCS_S_VariableOrProcedureCall() is not { } lead
+            || interpreter.ExecutionContext.TryInspectVariable(currentEnv, lead.GetText(), out _)
+            || !interpreter.TryResolveQualifier(lead.GetText(), out var qualifier)
+            || qualifier.Kind != BasicInterpreter.QualifierKind.Module
+            || target.dictionaryCallStmt() != null
+            || target.iCS_S_MemberCall() is not { Length: 1 } members)
+            return false;
+        var module = qualifier.Module!;
+        var member = members[0];
+        var name = UdtFieldName(member);
+        if (!module.PrePass.PublicVariables.Contains(name)
+            && !(module.PrePass.ModuleConsts.TryGetValue(name, out var constant)
+                 && (constant.Public || ReferenceEquals(module, currentModule))))
+            return false;
+        if (!module.ModuleEnv.TryGetOwnVariableLocation(name, out _))
+            return false;
+        Vb6Value old;
+        if (reference)
+        {
+            if (!interpreter.ExecutionContext.TryInspectVariable(module.ModuleEnv, name, out old))
+                return false;
+        }
+        else
+        {
+            var (found, previous) = await interpreter.ReadVariable(module.ModuleEnv, name);
+            if (!found) return false;
+            old = previous;
+        }
+        if (MemberHasArgs(member))
+        {
+            // Only the single index group of a Public array is measured here; leave other targets alone.
+            if (reference || old.Value is not VBArray array
+                || member.iCS_S_ProcedureOrArrayCall() is not { } call || call.argsCall().Length != 1)
+                return false;
+            var indices = Subscripts(await expressionExecutor.EvaluateCallArgs(call.argsCall(0)));
+            try
+            {
+                var previous = array.GetValue(indices);
+                array.SetValue(indices, interpreter.CopyForStore(value));
+                await interpreter.ReleaseRef(previous);
+            }
+            catch (IndexOutOfRangeException)
+            {
+                throw new VBRunTimeException(context, VBStandardError.SubscriptOutOfRange);
+            }
+            return true;
+        }
+        if (old.Value is VBArray)
+            return false; // Whole-array qualified stores are outside these measurements.
+        if (!reference && IsObjectReference(old))
+            return false; // Let into a qualified object variable is not measured by these issues.
+        if (reference)
+        {
+            // Publish before releasing: Class_Terminate observes the new slot, as for a bare Set.
+            interpreter.AddRef(value);
+            try
+            {
+                interpreter.ExecutionContext.TryUpdateVariable(module.ModuleEnv, name, value);
+            }
+            catch
+            {
+                await interpreter.ReleaseRef(value);
+                throw;
+            }
+        }
+        else
+            interpreter.ExecutionContext.TryUpdateVariable(module.ModuleEnv, name, interpreter.CopyForStore(value));
+        await interpreter.ReleaseRef(old);
+        return true;
+    }
+
     public override async Task<ControlFlow> VisitLetStmt(VB6Parser.LetStmtContext context)
     {
         // `a(1)(0) = 9` and `F()(1) = 7`, whose last index group VB6 evaluates before the value (#1476).
@@ -1711,6 +1788,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             if (membersCall.dictionaryCallStmt() != null)
                 throw new NotImplementedException("dict not supported yet");
+
+            if (await TryStoreModuleMember(membersCall, value, false, context))
+                return default;
 
             // A leading dot (`.Member = value`) has no leading part — resolve against the innermost With target.
             Vb6Value variable;
@@ -2754,6 +2834,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } membersCall
             && membersCall.iCS_S_VariableOrProcedureCall() is { } leadPart)
         {
+            if (await TryStoreModuleMember(membersCall, value, true, context))
+                return default;
             if (!interpreter.TryReadNow(currentEnv, leadPart.GetText(), out var setLead, out var target, out var setLeadNeed))
                 (setLead, target) = await interpreter.ReadVariableAfter(currentEnv, leadPart.GetText(), setLeadNeed!);
             if (!setLead || target.Value is not VbObject targetObj)
