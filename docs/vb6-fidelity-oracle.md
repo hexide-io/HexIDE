@@ -49,9 +49,100 @@ original release". SP6 went in on 2026-10-24, from the Microsoft-signed `Vs6sp6B
 - **Native code** came from the release C2.EXE and LINK.EXE before 2026-10-24. Where a native result could depend on
   code generation rather than the runtime, the row measured the release build.
 
-Re-measuring the release-build rows on SP6 is #1663. A row SP6 changes keeps both answers, since a release-versus-SP6
-difference is a finding in its own right. The release state is kept as the Hyper-V checkpoint *VB6 6.00.8176 release,
-before SP6 (#1524)*, so a comparison can still be made. A section measured from 2026-10-24 on names the SP6 builds.
+Measuring the release-build rows again on SP6 is #1663, and what it has measured so far is below. A row SP6 changes
+keeps both answers, since a release-versus-SP6 difference is a finding in its own right. The release state is kept as
+the Hyper-V checkpoint *VB6 6.00.8176 release, before SP6 (#1524)*, so a comparison can still be made. A section
+measured from 2026-10-24 on names the SP6 builds.
+
+#### Measured again on SP6 (2026-10-24, #1663)
+
+**Nothing measured again on SP6 has changed.** Every row below gave the release build's answer, compile errors and the
+IDE included. There were four kinds of run.
+
+**Every probe project kept from the sections below, rebuilt with `/make` on SP6: 2,572 projects**, native and p-code.
+- Each printed what it printed on the release build, line for line, and each compile error was the same message at the
+  same line.
+- 2,550 were compared with their release-build logs by script. The other 22 had no saved log and were read against their
+  section's tables instead: #1386's and #1431's compiled probes, two of #435's, and #1471's text-compare probe.
+- Two draft folders of #1562's, superseded a minute after they were made, and three of #1471's bisection projects were
+  left out.
+- **So the compile-error tables stand**: *Named arguments* (#1465), *CVar* (#1466) and *Too few arguments to an
+  intrinsic* (#1512) among them. So do the native-code rows of every section here.
+- A rerun has to give a probe its rig back:
+  - #1562's settings probes read registry keys its harness seeds first;
+  - #1521's locale probe runs under de-DE.
+  Without those, each differed, and with them each was identical.
+
+| Section | Projects |
+|---|---|
+| Named arguments (#1465) | 686 |
+| Conditional compilation (#1112) | 360 |
+| Collection (#1471), with *An empty Collection, and assigning an item* (#1492) | 220 |
+| A name declared twice (#1622), in review as #1639 | 178 |
+| The intrinsics signature help had no entry for (#1475) | 144 |
+| DefType: default typing by first letter (#169) | 102 |
+| Too few arguments to an intrinsic (#1512) | 100 |
+| Static (#1491) | 88 |
+| As New (#435) | 72 |
+| A D exponent in a source literal (#1611) | 72 |
+| Random and Binary files, Get, Put and Len (#1646) | 58 |
+| A numeric literal ending in its point (#1615) | 52 |
+| Indexing a call's result (#1476) | 42 |
+| GetSetting, SaveSetting, DeleteSetting and GetAllSettings (#1562) | 39 |
+| Chr, Asc, ChrW and AscW (#1134) | 38 |
+| LOF, Loc, Seek and the Input function (#1645) | 38 |
+| A Let into an array variable (#998, #1588) | 26 |
+| Write # and Input # (#1521) | 22 |
+| StrComp, StrConv, Environ, Switch and Error() (#1560) | 21 |
+| A Const declared with a type character (#1614) | 21 |
+| ReDim Preserve (#1459) | 20 |
+| InStr and InStrRev at the ends, and Option Compare Text (#1567) | 18 |
+| CVar (#1466) | 16 |
+| IIf and Choose (#1461) | 16 |
+| A String read as a Date (#967) | 16 |
+| Like (#1547) | 14 |
+| An array element passed ByRef (#1455) | 14 |
+| A control's Name and Index, at run time (#1431) | 14 |
+| A UDT field passed ByRef (#1451) | 12 |
+| When Err is cleared, and what a running handler traps (#877) | 12 |
+| A Let into an object variable (#1493) | 10 |
+| `Like` in `#If` and `#Const` (#1598) | 7 |
+| A Function's return, converted where it is assigned (#1444) | 6 |
+| A member indexed through its object (#1386) | 4 |
+| An undeclared variable passed ByRef (#1505) | 4 |
+| A store into a UDT field (#221) | 2 |
+| Print # and the ANSI best fit (#1511) | 2 |
+| Filesystem (#1561) | 2 |
+| `Time`, and eight Dies rows that already ran (#1633) | 2 |
+| CCur and CDec of a String (#1531), recorded on the issue | 2 |
+
+**The IDE, with `/runexit` in session 0.** *Debug.Assert* (#1467): all 25 IDE runs. Each logged what it logged on the
+release build, waited where it waited (break mode) and exited with the same code. Its compile errors and its compiled EXE
+were rebuilt too.
+
+**A spot check of IDE rows whose probes were not kept.**
+- **The programs.** 17, rebuilt from the tables of *An object used as a value* (#174), *Resume Next into a block*
+  (#839), *What a condition is* (#847), *Overflow edges* (#234), *A String in arithmetic* (#1047) and *An unhandled
+  run-time error* (#1011). Each was run native, as p-code and in the IDE.
+- **The result.** Every one gave its table's answer in each mode. That includes every row where native code and the IDE
+  differ:
+  - For's order of evaluation, and a raised start, limit or step;
+  - Select Case on a selector that raises, or on an object with no default member;
+  - unary minus at a type's minimum;
+  - `Debug.Print k`, which raises 438 only in the IDE;
+  - a class's unhandled error under *Break in Class Module*: the run stops in the class in the IDE, and the caller's
+    handler catches it when compiled.
+- **Measured for the first time:** a p-code build drops `Debug.Print k` as native code does, so it raises nothing there.
+
+**The Immediate window** (#1386), on the console:
+- every row the same;
+- three rows measured for the first time, which that section now carries.
+
+**Not measured again:**
+- the designer and the IDE's saves, which #1663 tracks separately;
+- *The reset prompt* (#1329);
+- the IDE rows of sections whose probes were not kept, beyond the spot check above, *Several forms* (#822) and
+  *Unload Me* (#973) among them.
 
 ### Reaching the VB6 *IDE*, not just the compiler (2026-09-20)
 
@@ -13149,6 +13240,7 @@ spaces show.
 | `? Form1.Text1(1).Text; Len(Form1.Text1(1).Text)` | `[second 6 ]` |
 | `? Form1.Text1.Count` | `[ 2 ]` |
 | `? 6;`, then `? 7` typed | `[ 6 ]` with the caret left after it; `? 7` joined that line as ` 6 ? 7`, and Enter gave "Compile error: Invalid in Immediate pane" |
+| `Print 4` / `?5` / `Debug.Print 9`, on SP6 | `[ 4 ]` / `[ 5 ]` / `[ 9 ]` |
 
 **What it shows:**
 - **A `?` line is Print, exactly as `Debug.Print` prints.** A number has a space where its sign would go and one after,
@@ -13156,9 +13248,15 @@ spaces show.
 - **It reads a control array through its form from another form's code.**
 - **A trailing `;` leaves the line open**, and the Immediate window doesn't start a new line for what is typed next.
 
-**Not measured:** `Print 4` and `?5` typed there. In three runs of four, Ctrl+G left no caret in the Immediate window,
-so the typing went nowhere. In one, after a click in the Immediate pane, it went into the code window. Neither row's
-answer could be told from those runs. A click inside the pane fixed one run of the three.
+**On SP6 (2026-10-24, #1663),** the same lines typed again gave the same output, row for row, except the `? 6;` row, which
+wasn't typed again. Three more were measured there for the first time, the last row of the table:
+- **`Print`, with no `Debug.`,** is a `?` line.
+- **So is `?5`,** with no space after the `?`.
+- **So is `Debug.Print`.**
+
+The release run couldn't measure the first two: in three runs of four, Ctrl+G left no caret in the Immediate window. On
+SP6 a click inside the pane put it there. The first F5 went to the floating Data View window, until a click in the empty
+MDI area gave the IDE the keyboard.
 
 ### In HexIDE (#1386)
 
@@ -15270,8 +15368,8 @@ Measured with vb6.exe in two places. The IDE was driven with `vb6.exe /runexit`,
 and the compiled EXE was built both native and p-code, the two agreeing. Each program the tests pin was run as written.
 
 **In the IDE, release build**, `Debug.Assert X` with `L` logging each side of it. These rows ran on the oracle's IDE,
-VB6.EXE 6.00.8176 with VBA6.DLL 6.0.8169, which is VB6's original release and not SP6 (#1524). SP6 is installed from
-2026-10-24, and re-measuring them is #1663. The compiled-EXE rows below ran on MSVBVM60 6.00.9848, SP6's runtime, and stand.
+VB6.EXE 6.00.8176 with VBA6.DLL 6.0.8169, which is VB6's original release and not SP6 (#1524). On SP6 (2026-10-24, #1663)
+every one of them ran the same. The compiled-EXE rows below ran on MSVBVM60 6.00.9848, SP6's runtime, and stand.
 
 | X | result |
 |---|---|
@@ -15323,7 +15421,7 @@ The break carries a new `StopReason.Assertion`, which `get_debug_state` and `run
 form.
 
 **A reusable harness.** `vb6.exe /runexit project.vbp`, run in the guest with a timeout, measures what the VB6 IDE does
-rather than the compiler: in the oracle as it stands, the release build's IDE (#1524). A project that ends
+rather than the compiler: the release build's IDE until 2026-10-23, SP6's from 2026-10-24 (#1524). A project that ends
 logs to its end. One that waits is in break mode or showing a dialog, and
 running it again under On Error Resume Next tells the two apart.
 
@@ -15862,8 +15960,8 @@ row. Each call was `x = <call>` with `x` a Variant. Eleven rows were measured se
 and agree wherever the two overlap.
 
 A compile error is the compiler's answer, not the runtime's. So these rows come from the oracle's VB6.EXE 6.00.8176 and
-VBA6.DLL 6.0.8169, the release build, even though built EXEs run on SP6's MSVBVM60 (#1524). SP6 is installed from
-2026-10-24, and re-measuring them is #1663.
+VBA6.DLL 6.0.8169, the release build, even though built EXEs run on SP6's MSVBVM60 (#1524). On SP6 (2026-10-24, #1663)
+all 100 projects gave the same answers.
 
 **"Syntax error":**
 
