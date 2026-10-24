@@ -14,6 +14,9 @@ namespace HexIDE.VbLspServer;
 /// </summary>
 public sealed record VbCompilationContext(IReadOnlyDictionary<string, short>? Arguments)
 {
+    /// <summary>Class and module names listed by the document's project; no cross-file binding.</summary>
+    public IReadOnlyCollection<string> BaselineNames { get; init; } = [];
+
     /// <summary>A document no project lists: only VB6's built-ins are known.</summary>
     public static readonly VbCompilationContext NoProject = new((IReadOnlyDictionary<string, short>?)null);
 }

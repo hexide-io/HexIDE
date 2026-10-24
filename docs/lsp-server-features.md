@@ -195,9 +195,18 @@ out, not merely disabled at runtime. The analyzer and its tests exist and work; 
 (The document these replaced listed this under *what works*, describing the severity and the node kinds it
 covers. It has never shipped switched on.)
 
-That is the boundary doing its job rather than an oversight: the check needs a symbol table, and a symbol
-table is the thing being declined. Turning it on would mean either accepting false positives on every
-identifier declared elsewhere, or building the binding pass that is out of scope.
+The retained analyzer has a fixed baseline (#54): designer names collected from the form header,
+class/module names explicitly listed before the semicolon in the document's `.vbp`, and the existing
+built-in list with `vbPixels` added. `RGB`, `Sin` and `Cos` calls already bypass its simple-variable
+visitor. Project names use the same disk lookup and cache as conditional-compilation arguments; they
+are supplied only when exactly one project lists the document and its arguments are valid. Unsaved
+documents still get their own designer names, but no disk-project names. A header the grammar blanks
+for recovery still supplies its names from the original text in the provider path.
+
+This is collection, not binding: it does not inspect other modules' code, check accessibility, or
+resolve a reference to a declaration. The remaining runtime-library names have not been added without
+measurements. Cross-module variables remain invisible, so enabling the check would still produce false
+positives. The baseline does not justify switching it on.
 
 - ◐ Scope analysis is skipped when syntax errors are present, avoiding cascading false positives from an
   incomplete parse tree. Its diagnostics are filtered off the protected lines too, although the check cannot

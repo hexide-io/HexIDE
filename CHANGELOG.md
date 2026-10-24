@@ -276,6 +276,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The retained Option Explicit analyzer knows designer controls and project class/module names** (#54),
+  plus `vbPixels`. It uses the form header and `.vbp` declarations without cross-file binding. Live
+  undeclared-variable warnings remain default-off because the baseline does not cover all external names.
+
 - **Options names its Tab width, grid Width and grid Height fields for accessibility** (#950). Each name follows
   its localized label without the access-key marker, so automation can address the field by that label.
 
