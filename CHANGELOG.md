@@ -255,6 +255,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MousePointer reads back the value set** (#769), including the value loaded from a form. Reading it always returned 0 even when the displayed cursor had changed.
+
 - **An Enum member named like its Enum reads qualified** (#1637): `E.E` now works in modules and classes, including across modules. Bare `E` as a value raises VB6's "Expected variable or procedure, not enum type" at use; assigning `E.E` raises "Assignment to constant not permitted".
 
 - **Numeric Strings accept a thousands separator after the decimal point** (#1446). `CDbl("1.5,2003")`
