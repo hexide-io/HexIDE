@@ -233,3 +233,23 @@ because nothing inside an uncreatable control is read.
   program loads it, under an error handler or not
 - **THEN** it is refused before any of its controls is placed, naming every control it cannot create, nested ones
   included
+
+### Requirement: Measured empty statements and labelled End If SHALL run
+
+The interpreter SHALL execute the measured leading-colon and spaced-empty-statement forms from issue #223.
+It SHALL treat `If True Then:` with no statement on that line as an empty single-line If, allowing the next
+line to execute independently. Falling through a label immediately before `End If` SHALL close the block
+without calling the label as a procedure. Jumps to labels sharing a construct terminator remain deferred
+by the tree-walking execution limit.
+
+#### Scenario: Leading empty statements
+- **WHEN** `:  :  : Debug.Print "A"` executes
+- **THEN** it prints `A`
+
+#### Scenario: Empty single-line If
+- **WHEN** `If True Then:` is followed by `Debug.Print "A"` on the next line without an `End If`
+- **THEN** it prints `A`
+
+#### Scenario: Fall through a labelled End If
+- **WHEN** a true If prints `T` and closes with `Fin: End If`, followed by a print of `AFTER`
+- **THEN** it prints both `T` and `AFTER` without attempting to call `Fin`

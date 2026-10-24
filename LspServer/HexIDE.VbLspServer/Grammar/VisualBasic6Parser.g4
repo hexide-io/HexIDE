@@ -156,7 +156,7 @@ attributeStmt
     ;
 
 block
-    : emptyLineNumber* lineHead? blockStmt
+    : colonSep? emptyLineNumber* lineHead? blockStmt
       ( colonSep blockStmt
       | lineSep emptyLineNumber* lineHead? blockStmt
       )*
@@ -426,11 +426,19 @@ ifThenElseStmt
     // whitespace had nothing to match - inlineIfBody's own leading `(WS? COLON WS?)*` already admits the
     // colon. Safe by adjacency: `ThenX` lexes as one IDENTIFIER. Mirrored from the interpreter's grammar.
     : IF WS ifConditionStmt WS THEN WS? ((inlineIfBody | lineNumber) (WS? ELSE (WS (inlineIfBody | lineNumber))?)? | ELSE (WS (inlineIfBody | lineNumber))?) # inlineIfThenElse
+    | IF WS ifConditionStmt WS THEN WS? COLON WS? # inlineIfThenElse
     | ifBlockStmt ifElseIfBlockStmt* ifElseBlockStmt? END_IF             # blockIfThenElse
     ;
 
 ifBlockStmt
-    : IF WS ifConditionStmt WS THEN blockSep (block blockSep)?
+    : IF WS ifConditionStmt WS THEN blockSep ifBlockBody?
+    ;
+
+// The LSP already accepts labelled End If via block/blockSep. Keep that recovery shape: unlike the
+// interpreter it does not execute a bare call node, and preferring a trailing label here harms recovery
+// after an incomplete member access (#223).
+ifBlockBody
+    : block blockSep
     ;
 
 ifConditionStmt
@@ -438,11 +446,11 @@ ifConditionStmt
     ;
 
 ifElseIfBlockStmt
-    : ELSEIF WS ifConditionStmt WS THEN (WS | NEWLINE)+ (block blockSep)?
+    : ELSEIF WS ifConditionStmt WS THEN (WS | NEWLINE)+ ifBlockBody?
     ;
 
 ifElseBlockStmt
-    : ELSE blockSep (block blockSep)?
+    : ELSE blockSep ifBlockBody?
     ;
 
 implementsStmt

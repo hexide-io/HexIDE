@@ -148,6 +148,10 @@ a false error in VB6's Tip of the Day template.
 `Declare PtrSafe` is accepted in active code too (#1548), with existing types. `LongPtr`, `LongLong` and
 their conversion functions remain follow-up work; this adds no external API execution.
 
+An empty `If True Then:` line is accepted without requiring `End If` (#223); the following line is
+an independent statement. Both grammars also accept leading empty colon statements and labels before
+`End If`, using the measured label-name list.
+
 ### Conditional compilation
 
 **Code that `vb6.exe` never compiles is never parsed** (#1112). Before parsing, the server applies the module's

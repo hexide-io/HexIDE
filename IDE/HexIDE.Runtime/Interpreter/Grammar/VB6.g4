@@ -154,7 +154,7 @@ attributeStmt
    ;
 
 block
-   : emptyLineNumber* lineHead? blockStmt
+   : colonSep? emptyLineNumber* lineHead? blockStmt
      ( colonSep blockStmt
      | lineSep emptyLineNumber* lineHead? blockStmt
      )*
@@ -417,7 +417,7 @@ inlineIfBody
    : (WS? COLON WS?)* blockStmt (WS? COLON (WS? blockStmt)?)*
    ;
 
-// The else body is OPTIONAL, and the Then body is not. That asymmetry is measured, not an oversight:
+// The else body is OPTIONAL; an empty Then body requires a colon (#223). That asymmetry is measured, not an oversight:
 // `If c Then x = 1 Else Rem nothing` is legal and `If c Then Rem nothing` is a syntax error. A comment is
 // invisible to the parser either way, so the only way to accept the first is to allow an empty else — and
 // a bare trailing `Else` with nothing at all after it turns out to be legal too, which is what makes this
@@ -429,11 +429,18 @@ inlineIfBody
 // be adjacent to the next token if something separated them.
 ifThenElseStmt
    : IF WS ifConditionStmt WS THEN WS? inlineIfBody (WS? ELSE (WS inlineIfBody)?)? # inlineIfThenElse
+   | IF WS ifConditionStmt WS THEN WS? COLON WS? # inlineIfThenElse
    | ifBlockStmt ifElseIfBlockStmt* ifElseBlockStmt? END_IF # blockIfThenElse
    ;
 
 ifBlockStmt
-   : IF WS ifConditionStmt WS THEN blockSep (block blockSep)?
+   : IF WS ifConditionStmt WS THEN blockSep ifBlockBody?
+   ;
+
+// Prefer a trailing label to a bare call whose colon would otherwise end the body (#223).
+ifBlockBody
+   : block lineLabel WS?
+   | block blockSep
    ;
 
 ifConditionStmt
@@ -441,11 +448,11 @@ ifConditionStmt
    ;
 
 ifElseIfBlockStmt
-   : ELSEIF WS ifConditionStmt WS THEN blockSep (block blockSep)?
+   : ELSEIF WS ifConditionStmt WS THEN blockSep ifBlockBody?
    ;
 
 ifElseBlockStmt
-   : ELSE blockSep (block blockSep)?
+   : ELSE blockSep ifBlockBody?
    ;
 
 implementsStmt

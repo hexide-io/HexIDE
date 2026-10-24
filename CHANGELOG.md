@@ -276,6 +276,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Leading colons and labels before `End If` run** (#223). Empty `If True Then:` lines also run in the
+  interpreter and parse in the language server. Jumps to labels sharing a loop terminator remain deferred.
+
 - **AI Chat Apply preserves trailing whitespace and final line breaks** (#1068). Only the single line break
   before the closing code fence is removed; applying a whole file no longer strips its final blank lines.
 
