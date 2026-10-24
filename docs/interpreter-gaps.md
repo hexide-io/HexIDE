@@ -220,8 +220,8 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   silence, where the procedure path raises "Ambiguous name detected".
 - **Object-model class features** — `With New`, `Friend`, and same-project qualified `New` are runtime lookups, not
   analysis. **`As New` is done (#435):** the object is made where the variable is first read, through the same request
-  and retry that make a form's default instance (#822), with an array `As New` (#1482) and a Type's field (#1488) still
-  to come. (`Friend` treated as Public is arguably not
+  and retry that make a form's default instance (#822), with an array `As New` (#1482) still to come. A Type's field makes its object on first use too (#1488);
+  copying the Type shares the object. (`Friend` treated as Public is arguably not
   a gap at all in a single-project interpreter — there are no external clients to hide from.)
 
 ### Found while auditing — bugs, not classification

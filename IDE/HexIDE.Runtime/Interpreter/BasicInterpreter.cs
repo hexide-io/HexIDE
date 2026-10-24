@@ -239,8 +239,17 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         var fields = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
         var typedFields = new Dictionary<string, Vb6Value.ValueType>(StringComparer.OrdinalIgnoreCase);
         var variantFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var autoNewFields = new Dictionary<string, AutoNew>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in def.Fields)
         {
+            if (f.AutoNewClass is { } made)
+            {
+                if (!Modules.TryGet(made, out var classModule) || classModule.Kind != InterpreterModuleKind.Class)
+                    throw new NotImplementedException($"Field '{f.Name}' declared As New inside Type '{typeName}' is not implemented (#1488)");
+                fields[f.Name] = Vb6Value.Nothing;
+                autoNewFields[f.Name] = new AutoNew(made, f.Name);
+                continue;
+            }
             // An Enum field is a typed Long, as an Enum variable is (measured, #1005).
             if (f.ScalarType is { } declared && VbNumeric.IsDeclarableScalar(declared))
                 typedFields[f.Name] = declared;
@@ -257,7 +266,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             else
                 fields[f.Name] = Vb6Value.Variant;
         }
-        return new VbUdt(typeName, fields, typedFields, variantFields);
+        return new VbUdt(typeName, fields, typedFields, variantFields, autoNewFields);
     }
 
     /// <summary>
@@ -273,10 +282,24 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     private Vb6Value CopyForStore(Vb6Value v, int depth) => v.Value switch
     {
-        VbUdt udt => Vb6Value.NewUdt(udt.DeepClone()),
+        VbUdt udt => CopyUdt(udt),
         VBArray array => v.WithArray(array.CopyForLet(element => CopyElement(element, depth + 1))),
         _ => v,
     };
+
+    private Vb6Value CopyUdt(VbUdt udt)
+    {
+        var copy = udt.DeepClone();
+        HoldFields(copy);
+        return Vb6Value.NewUdt(copy);
+
+        void HoldFields(VbUdt bag)
+        {
+            foreach (var field in bag.EnumerateFields())
+                if (field.Value.Value is VbUdt nested) HoldFields(nested);
+                else AddRef(field.Value);
+        }
+    }
 
     // Arrays nested in arrays are copied recursively. A store into an element copies too, so no array can come to hold
     // itself; the bound refuses where the alternative would be a stack overflow taking the host down.
@@ -375,6 +398,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             o.RefCount--;
             if (o.RefCount <= 0)
                 await FireTerminate(o);
+        }
+        else if (v.Value is VbUdt bag)
+        {
+            foreach (var field in bag.EnumerateFields())
+                await ReleaseRef(field.Value);
         }
         else if (v.Value is VBArray array)
         {
@@ -929,7 +957,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             ? new Vb6Value(NewCollection())
             : Vb6Value.NewObject(await NewObject(need.AutoNew.ClassName));
         AddRef(made);
-        if (ExecutionContext.State[need.Location] is { Value: null })
+        if (need.Field is { } field)
+            field.Write(made);
+        else if (ExecutionContext.State[need.Location] is { Value: null })
             ExecutionContext.State[need.Location] = made;
         else
             await ReleaseRef(made);   // Initialize filled the variable itself

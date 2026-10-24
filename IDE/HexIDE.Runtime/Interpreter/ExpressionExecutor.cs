@@ -1490,7 +1490,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         for (var i = from; i < members.Length; i++)
         {
             if (current.Value is VbUdt)
-                return (Vb6Value)GetUdtField(current, members[i..], ctx)!;
+                return await interpreter.Loading((Root: current, Members: members[i..], Context: ctx),
+                    static s => (Vb6Value)GetUdtField(s.Root, s.Members, s.Context)!);
             // A member reached through a Variant is late-bound, and its result is a Variant's whatever the member is
             // declared as (measured, #987: `vo.P * 7000` with `Property Get P() As Integer` returning 5 is 35000 through
             // `Dim vo`, and 6 through `Dim o As Foo`; `With vo: .P` is the same).
