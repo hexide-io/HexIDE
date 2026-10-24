@@ -249,6 +249,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A For loop with a fractional start, limit or step runs** (#983). `For x = 0 To 1 Step 0.25` and its kind stopped
+  the run whenever the counter could hold a fraction: a Variant, Single, Double, Currency or Date. Measured on vb6.exe
+  first, in 80 cases: the step is added each time round in the counter's type, a Single sums in Double before it
+  is rounded, as p-code does, and a Variant counter counts in the type its start, limit and step make together.
+
 - **MCP guarded-edit refusals name the region** (#1042): the file's header or the Attribute lines describing a named member. Backward deletion explains how to remove a declaration with its Attribute lines instead of sending the caller back to the same caret offset; insertions still give a new editable offset.
 
 - **A Double rounds to Currency from its exact binary value** (#966). Storing `1.00005`, calling
