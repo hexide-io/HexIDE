@@ -276,6 +276,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **AI Chat Apply preserves trailing whitespace and final line breaks** (#1068). Only the single line break
+  before the closing code fence is removed; applying a whole file no longer strips its final blank lines.
+
 - **Automation replies identify documents by project** (#886). Paused locations, locals and watches identify
   the running project; designer undo, redo and format replies name their document. Tab and editor listings
   include project and document, and tabs can be activated or closed by document name and project, with a
