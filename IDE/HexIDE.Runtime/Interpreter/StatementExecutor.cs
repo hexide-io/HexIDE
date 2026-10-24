@@ -919,8 +919,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             var empties = DeclaredOtherThanAnArray(context.valueStmt())
                 ?? throw new NotImplementedException(
                     "This For Each's collection raised under On Error Resume Next. VB6 then runs the body once and empties "
-                    + "the loop variable unless the collection is declared as an array, and HexIDE can tell which only for a "
-                    + "call of one of the project's own Functions (#969).");
+                    + "the loop variable unless the collection is declared as an array, and this expression's "
+                    + "declaration is unavailable (#969): " + context.valueStmt().GetText() + ".");
             interpreter.Err.Capture(ex);
             return await RunUninitialisedForEach(context, varName, empties);
         }
@@ -1270,24 +1270,72 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     }
 
     /// <summary>
-    /// Whether a For Each collection that raised is declared as something other than an array, which decides whether its
-    /// Next empties the element. Only a call of one of the project's own Functions can be answered, from that Function's
-    /// declaration: it is the procedure the call reached, found as the call found it. Null for anything else, whose
-    /// declared type HexIDE cannot know without the value, and for a name a variable in scope shadows, which the call
-    /// reached instead of the Function.
+    /// Whether a raised collection's declaration is not an array (#969). Read only existing slots and member
+    /// tables: evaluating the expression again could repeat the error or its side effects. Null means unavailable.
     /// </summary>
     private bool? DeclaredOtherThanAnArray(VB6Parser.ValueStmtContext collection)
     {
+        while (collection is VB6Parser.VsStructContext parentheses && parentheses.valueStmt().Length == 1)
+            collection = parentheses.valueStmt(0);
         var call = (collection as VB6Parser.VsICSContext)?.implicitCallStmt_InStmt();
         var name = call?.iCS_S_VariableOrProcedureCall()?.ambiguousIdentifier()?.GetText()
                    ?? call?.iCS_S_ProcedureOrArrayCall()?.ambiguousIdentifier()?.GetText();
-        if (name is null
-            || interpreter.ExecutionContext.TryInspectVariable(currentEnv, name, out _)
-            || !interpreter.TryResolveProcedure(name, currentModule, out _, out var proc)
-            || proc.Body?.Parent is not VB6Parser.FunctionStmtContext function)
+        if (name is not null)
+        {
+            if (interpreter.ExecutionContext.TryInspectVariable(currentEnv, name, out var slot))
+                return call?.iCS_S_ProcedureOrArrayCall() is not null && slot.Value is VBArray
+                    ? true : null; // An element is not declared as an array, even when a Variant element holds one.
+            return interpreter.TryResolveProcedure(name, currentModule, out _, out var proc)
+                ? ProcedureIsNotArray(proc) : null;
+        }
+        if (call?.iCS_S_MembersCall() is not { } members
+            || members.dictionaryCallStmt() is not null
+            || members.iCS_S_VariableOrProcedureCall() is not { } lead
+            || lead.typeHint() is not null || lead.dictionaryCallStmt() is not null)
             return null;
-        return function.asTypeClause()?.type().LPAREN() == null;
+        var chain = members.iCS_S_MemberCall();
+        if (chain.Length != 1)
+            return null;
+        var member = chain[0];
+        if (member.iCS_S_ProcedureOrArrayCall() is { } indexed
+            && (indexed.argsCall().Length > 1 || indexed.dictionaryCallStmt() is not null)
+            || member.iCS_S_VariableOrProcedureCall()?.dictionaryCallStmt() is not null)
+            return null;
+        var memberName = member.iCS_S_VariableOrProcedureCall()?.ambiguousIdentifier()?.GetText()
+                         ?? member.iCS_S_ProcedureOrArrayCall()?.ambiguousIdentifier()?.GetText();
+        if (memberName is null)
+            return null;
+        var leadName = lead.ambiguousIdentifier().GetText();
+        if (interpreter.ExecutionContext.TryInspectVariable(currentEnv, leadName, out var target))
+        {
+            if (target.Value is not VbObject instance)
+                return null;
+            memberName = VbInterface.ResolveMember(target, instance, memberName);
+            if (memberName is null)
+                return null;
+            var table = instance.ClassDef.PrePass;
+            if (table.Procedures.TryGetValue(memberName, out var method))
+                return ProcedureIsNotArray(method);
+            if (table.Properties.TryGetValue(memberName, out var property) && property.Get is { } getter)
+                return ProcedureIsNotArray(getter);
+            if (instance.InstanceEnv.TryGetVariableLocation(memberName, out var location))
+                return member.iCS_S_ProcedureOrArrayCall() is not null
+                    || !interpreter.ExecutionContext.State.IsDeclaredArray(location);
+            return null;
+        }
+        if (interpreter.TryResolveQualifier(leadName, out var qualifier) && qualifier.Module is { } module
+            && module.PrePass.Procedures.TryGetValue(memberName, out var qualified)
+            && (!qualified.IsPrivate || ReferenceEquals(module, currentModule)))
+            return ProcedureIsNotArray(qualified);
+        return null;
     }
+
+    private static bool? ProcedureIsNotArray(ProcedureInfo procedure) => procedure.Body?.Parent switch
+    {
+        VB6Parser.FunctionStmtContext function => function.asTypeClause()?.type().LPAREN() == null,
+        VB6Parser.PropertyGetStmtContext getter => getter.asTypeClause()?.type().LPAREN() == null,
+        _ => null
+    };
 
     // A For counter value with VB6-faithful typing: an integer magnitude picks Integer vs Long via Vb6Value's
     // magnitude rule (oracle: 12 → Integer, 50001 → Long); a value beyond Long range is a Double, matching VB6's

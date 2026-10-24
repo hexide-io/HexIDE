@@ -7933,9 +7933,12 @@ P-code does not do it, and HexIDE follows p-code.
 - An unallocated array raises 92, Nothing 424, and any other non-object value 13, each at the statement. The first used
   to run no passes and say nothing. The others used to raise 13 with a note that Collections were not implemented.
 - Under Resume Next, the body runs once and `Next` raises 92, emptying the element unless the collection is an array.
-- Where the collection itself raised, HexIDE cannot see its declared type without its value. It answers that only for a
-  call of one of the project's own Functions, from that Function's declaration, and not where a variable in scope
-  shadows the Function's name (review round one). Anything else is refused, naming #969.
+- Where the collection itself raised, #969 reads its declaration from existing runtime slots and member tables:
+  parentheses unwrap, an array element is not declared as an array, and direct class methods/Property Gets and
+  module-qualified Functions use their return declarations. A variable shadows a same-named Function.
+  This applies the measured declared-array rule above; it adds no new VB6 measurement.
+  Unavailable declarations still refuse, naming the expression and #969; the remaining shapes are recorded in
+  interpreter-gaps.md under Resume granularity.
 - For Each over an object is refused as not implemented, where it used to raise a trappable 13.
 
 **With.** A target that raises leaves the body with no object, so each leading-dot member raises 91.

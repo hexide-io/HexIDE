@@ -249,6 +249,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A raised For Each collection under Resume Next uses more declarations** (#969). Parenthesised calls, array
+  elements, direct class methods and Property Gets, and module-qualified Functions now run the body once and raise
+  92 at Next, preserving the element only for a declared array. Unavailable declarations still stop with an explanation.
+
+
 - **String functions honour the calling module’s `Option Compare`** (#1572). With no compare argument,
   `InStr`, `InStrRev`, `Replace`, `Split`, `Filter` and `StrComp` now use that module’s setting, including
   calls written in classes and forms. An explicit compare still wins. `InStr("ABC", "b")` in a Text module
