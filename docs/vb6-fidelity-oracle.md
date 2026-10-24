@@ -3463,6 +3463,39 @@ and neither announces itself. HexIDE shipped exactly that for two hours; it was 
 token covers `/` and `\` and the runtime tells them apart by the token's text, which the constant folder
 did not.
 
+### An Enum and its member may share a name (2026-10-24, #1637)
+
+Provenance: #1637's comment "Measured: the rows this issue owed", vb6.exe SP6
+(VB6.EXE 6.00.9782), `/make`, en-GB guest; native and p-code agreed. Each compile
+error used a separate project. Unless stated otherwise, `Enum E` contains `E` and `F = 5`.
+
+| Probe | Measured result |
+|---|---|
+| `E.E`, `E.F` | Long 0, Long 5 |
+| bare `E` in an expression | Compile error: "Expected variable or procedure, not enum type" |
+| `Dim x As E`, read before storing | Long 0 |
+| `x As E`: store `E.E`, then `E.F + 1` | Long 0, then Long 6 |
+| `x As E`: `x = E` | "Expected variable or procedure, not enum type" |
+| `Twice(E.F)`, with `Function Twice(ByVal v As E) As Long` doubling v | 10 |
+| Class with `Private Enum E`: read `E.E`, `E.F`, then x As E given `E.F` | 0, 5, 5 |
+| Same class, bare `E` | "Expected variable or procedure, not enum type" |
+| Module2's Public Enum, read from Module1: `E.E`, `Module2.E.E`, x As E given `E.F` | Long 0, Long 0, Long 5 |
+| Same project: bare `E` or `Module2.E` as a value | "Expected variable or procedure, not enum type" |
+| Control: Enum G contains `E = 7`; bare `E`, `G.E` | Long 7, Long 7 |
+| `E.E = 1` in an uncalled Sub | "Assignment to constant not permitted" |
+| Module2 exports Enum E with E = 3; Module3 exports Enum G with E = 4; Module1 reads bare E | "Ambiguous name detected: E" |
+
+The issue body's earlier probe also measured `E.E` as 0 with VB6.EXE 6.00.8176
+and MSVBVM60 6.00.9848, native and p-code. **The SP6 comment overturned the issue's
+own guess that bare E would select the member:** the Enum wins that shared name;
+qualification reaches its member. A differently named Enum's member remains readable bare.
+
+`EnumOwnNameTests` pins these rows. HexIDE looks up names as the walk reaches them
+and raises `VBCompileErrorException` with the compile diagnostic's text. This existing
+exception has no error number; these are compile diagnostics, not numbered runtime errors.
+VB6 rejects the constant assignment even if its Sub is never called; HexIDE only sees
+executed statements, so the test calls that Sub (the CST boundary's second-order consequence).
+
 ### Addressing: `[[Lib.][Enum.]]Value`, both qualifiers independently optional
 
 | probe | verdict |
@@ -13997,6 +14030,29 @@ while it is locked. ReDim Preserve (#1459) checks the lock before it resizes any
 element a parameter is writing. Every row above that HexIDE reaches is pinned in `ByRefElementTests`. Not reached: an array of a Type
 (#178), and an array of Collection, whose declaration HexIDE refuses.
 
+## For Each locks its array (#1460)
+
+**Measurement supplied by #1460:** `vb6.exe /make`, en-GB, native and p-code identical. Each row uses
+`On Error Resume Next` and `Exit For` immediately after the attempted mutation. The Long array starts with
+`ReDim a(2)`; the Variant array starts with `ReDim w(1)`.
+
+| Inside the loop | Err.Number | Bounds afterwards |
+|---|---|---|
+| `ReDim Preserve a(5)` inside `For Each x In a` | 10 | 0 To 2 |
+| `ReDim a(6)` inside `For Each x In a` | 10 | 0 To 2 |
+| `Erase w` inside `For Each x In w` | 10 | 0 To 1 |
+
+Error 10 is "This array is fixed or temporarily locked". What happens to remaining elements after a refused
+mutation was not measured: each probe leaves immediately.
+
+**In HexIDE:** For Each increments the same `VBArray.LockCount` as an element passed ByRef (#1455), and a
+`finally` decrements it on every way out. `ForEachArrayLockTests` pins all three rows, including Preserve
+(now implemented by #1459), and checks that a later ReDim succeeds after completion, Exit For, GoTo out,
+Exit Sub/Function and an error leaving the procedure. Those release checks express the lock's lifetime
+requirement, without claiming further VB6 measurements. Stores into the array variable (`a = b`, or `v = 5`
+for a Variant holding an array) and nested For Each over the same array remain unmeasured and unchanged,
+beyond the counter naturally nesting.
+
 ## The References dialog's fixed rows (2026-10-22, #1026, design-time)
 
 **The question.** HexIDE's References dialog headed its list with one fixed row, "Visual Basic For Applications",
@@ -14200,9 +14256,9 @@ storage before it lets go of the old (so a 7 leaves the array as it was) and res
 caller's slot sees it. The elements dropped by a shrink are released after the resize. An undimensioned dynamic array goes
 on to a plain ReDim.
 
-Run through HexIDE, the probes gave VB6's answer on every row above except two: the array of a Type, whose elements HexIDE
-does not reach yet (#178), and the `For Each` row, which is #1460. `RedimPreserveTests` pins the rows its three programs
-cover, and the compile errors. One row is worth noting: `GVV(x As Variant)` gives VB6's answer although a plain ReDim through
+Run through HexIDE, the probes gave VB6's answer on every row above except the array of a Type, whose elements HexIDE
+does not reach yet (#178). The `For Each` row is now pinned by #1460 (see its entry beside #1455). `RedimPreserveTests`
+pins the rows its three programs cover, and the compile errors. One row is worth noting: `GVV(x As Variant)` gives VB6's answer although a plain ReDim through
 a `v As Variant` parameter resizes only the parameter (#970), because Preserve resizes the shared array in place.
 
 ## IIf and Choose (2026-10-22, #1461, #1464)
@@ -14821,6 +14877,21 @@ That is the same through `w As Collection` and `w As Object`, written on one lin
 body. **The one exception is p-code's alone: `For Each v In w: Next`, a one-line loop with an empty body.** There p-code
 raises 424, skips the `Next`, runs anything after it on the line, and leaves `v` unchanged. Native code gives 92 and
 Empty, as for every other form (#1486).
+
+The complete #1486 table, measured with `w As Collection` and again with `w As Object`, with identical
+results. `w` is Nothing, `v` starts as `"unchanged"`, and `o` is declared `As Object`. Each loop runs under
+`On Error Resume Next`, followed on a new line by logging `Err.Number` and `TypeName(v)`; `L` logs its argument.
+
+| Loop | Native | P-code / IDE (HexIDE target) |
+|---|---|---|
+| `For Each v In w: Next` | 92, v Empty | 424, v String |
+| `For Each v In w: Next: L "after"` | after runs; 92, v Empty | after runs; 424, v String |
+| `For Each v In w: L "body": Next` | body once; 92, v Empty | body once; 92, v Empty |
+| `For Each v In w` / `Next` | 92, v Empty | 92, v Empty |
+| `For Each v In w` / `L "body"` / `Next` | body once; 92, v Empty | body once; 92, v Empty |
+| `For Each o In w: L "body": Next` | body once; 92, v String | body once; 92, v String |
+
+`ForEachTests.Nothing_ResumeNext_MeasuredTable` pins every row for both declarations (#1486).
 
 ### An object held by a Collection
 
@@ -19593,8 +19664,8 @@ So only the active branch declares anything, as an inactive branch is never comp
     name outside the procedure, which is relating a use to declarations, not collecting them;
   - `Dim K%` and `Dim K` at module level: a module-level Dim with a type character is refused as not implemented first
     (#742);
-  - `ReDim n(3)` twice with no Dim is "Unknown variable" (#1495), and `E.E` for a member named like its Enum is "Method
-    or data member not found" (#1637). Both predate this, and both fail on main.
+  - `ReDim n(3)` twice with no Dim is "Unknown variable" (#1495). The `E.E` failure recorded here was fixed by
+    #1637; the measured shared-name rows are beside the Enum entries above.
 - **Across modules nothing changed.** A name two modules export is refused where it is read unqualified, as before; that
   is resolution at the use, not a duplicate declaration.
 

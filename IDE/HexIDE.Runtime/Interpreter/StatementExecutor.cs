@@ -953,36 +953,52 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (!ResumesNext)
                 throw refusal;
             interpreter.Err.Capture(refusal);
+            // P-code and the IDE skip Next with a failed For Each over Nothing when it directly follows
+            // on the same line (#1486). The grammar gives this form no block; token lines distinguish
+            // it from an empty multi-line loop. Returning consumes the loop, leaving any following
+            // statement in the enclosing block to run, without touching the variable.
+            if (collection.Type == Vb6Value.ValueType.Object && collection.Value is null
+                && context.block() is null && context.FOR().Symbol.Line == context.NEXT().Symbol.Line)
+                return ControlFlow.Nothing;
             return await RunUninitialisedForEach(context, varName, emptiesElement: collection.Value is not VBArray);
         }
 
-        var block = context.block();
-        foreach (var element in array.EnumerateElements())
+        // Share the ByRef element lock (#1455): every exit, including a propagated jump or error, must release it.
+        array.LockCount++;
+        try
         {
-            // VB6 binds each element as a copy: an element that is an array is copied, so a write through the loop
-            // variable does not reach the array walked (measured, #970). An object element is held by the variable while
-            // it holds it, and what the variable held before is released.
-            interpreter.ExecutionContext.TryInspectVariable(currentEnv, varName, out var previous);
-            var bound = interpreter.CopyForStore(element);
-            interpreter.AddRef(bound);
-            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, bound);
-            await interpreter.ReleaseRef(previous);
+            var block = context.block();
+            foreach (var element in array.EnumerateElements())
+            {
+                // VB6 binds each element as a copy: an element that is an array is copied, so a write through the loop
+                // variable does not reach the array walked (measured, #970). An object element is held by the variable while
+                // it holds it, and what the variable held before is released.
+                interpreter.ExecutionContext.TryInspectVariable(currentEnv, varName, out var previous);
+                var bound = interpreter.CopyForStore(element);
+                interpreter.AddRef(bound);
+                interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, bound);
+                await interpreter.ReleaseRef(previous);
 
-            if (block == null)
-                continue;
-            var result = await Visit(block);
-            if (result == ControlFlow.ExitFor)
-                return ControlFlow.Nothing;
-            if (result != ControlFlow.Nothing)
-                return result;
+                if (block == null)
+                    continue;
+                var result = await Visit(block);
+                if (result == ControlFlow.ExitFor)
+                    return ControlFlow.Nothing;
+                if (result != ControlFlow.Nothing)
+                    return result;
+            }
+            // A loop that runs out leaves its variable Empty, releasing the last element it held, over an object array and a
+            // Long() alike, and even when there was nothing to walk (measured, #970: a variable holding 9 before a For Each
+            // over an empty Split is Empty after it). Exit For leaves it holding the element it reached.
+            interpreter.ExecutionContext.TryInspectVariable(currentEnv, varName, out var last);
+            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, Vb6Value.Variant);
+            await interpreter.ReleaseRef(last);
+            return ControlFlow.Nothing;
         }
-        // A loop that runs out leaves its variable Empty, releasing the last element it held, over an object array and a
-        // Long() alike, and even when there was nothing to walk (measured, #970: a variable holding 9 before a For Each
-        // over an empty Split is Empty after it). Exit For leaves it holding the element it reached.
-        interpreter.ExecutionContext.TryInspectVariable(currentEnv, varName, out var last);
-        interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, Vb6Value.Variant);
-        await interpreter.ReleaseRef(last);
-        return ControlFlow.Nothing;
+        finally
+        {
+            array.LockCount--;
+        }
     }
 
     /// <summary>The next item of a For Each over an object, or false once there are no more.</summary>
@@ -2019,6 +2035,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             if (membersCall.dictionaryCallStmt() != null)
                 throw new NotImplementedException("dict not supported yet");
+
+            // Enum members are constants, including the shared-name E.E (#1637).
+            if (membersCall.iCS_S_VariableOrProcedureCall() is { } enumLead
+                && interpreter.EnumIsQualifier(enumLead.GetText(), currentEnv, currentModule)
+                && interpreter.TryResolveEnum(enumLead.GetText(), currentModule, out var enumMembers)
+                && membersCall.iCS_S_MemberCall() is { Length: 1 } enumTail
+                && enumMembers.ContainsKey(ExpressionExecutor.MemberName(enumTail[0])))
+                throw new VBCompileErrorException("Assignment to constant not permitted");
 
             if (await TryStoreModuleMember(membersCall, value, false, context))
                 return default;
