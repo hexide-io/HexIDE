@@ -255,6 +255,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Delete Line and word deletion ask to reset a running project** (#1025). AvaloniaEdit's editing keys now
+  arm the code window's reset prompt, including Delete Line, Delete Previous Word and Delete Next Word.
+  A refused edit in the file header still asks nothing, and No restores the deleted code.
+
 - **`TypeName(Debug)` raises “Syntax error”** (#872), as measured with VB6, instead of returning the runtime proxy's class name. The error stops the executing statement even under `On Error Resume Next`.
 
 - **Join and Filter reject allocated arrays other than one-dimensional String or Variant arrays** (#875): Join raises
