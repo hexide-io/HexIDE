@@ -263,9 +263,12 @@ the procedure's fold ([#1022](https://github.com/hexide-io/HexIDE/issues/1022)).
 
 **`textDocument/completion`**
 
-Returns a static list of 88 keywords and 42 common built-ins, plus every procedure, variable, constant,
-parameter, enum member and UDT name declared in the current file. Case-insensitive; filtered client-side as
-you type.
+Returns a static list of 87 keywords and 42 common built-ins, plus every procedure, variable, constant,
+parameter, enum and UDT name, and enum member declared in the current file. Labels are unique
+case-insensitively, with declared names taking precedence over static entries; `Date` is a Function.
+Declared names carry their syntactic completion kind: Sub → Method, Function → Function, Property →
+Property, Const → Constant, Enum → Enum, enum member → EnumMember, Type → Struct, and variables and
+parameters → Variable. Filtered client-side as you type.
 
 - ◐ No position awareness — the full list comes back regardless of cursor context.
 - ■ No member-access completion (`obj.`), no type-aware filtering, no symbols from other project files. Each

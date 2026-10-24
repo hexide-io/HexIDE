@@ -127,8 +127,7 @@ public class ProgramWaitTests
             Dispatcher.UIThread.RunJobs();
     }
 
-    // The headless host keeps no list of its windows, so the tests keep their own. It holds what other classes left open
-    // too, which a dialog note names, so a test looks for its own dialog in the note rather than at its start.
+    // The headless host keeps no list of its windows, so the tests track windows as they open and close.
     private static readonly System.Collections.Generic.HashSet<Window> Shown;
 
     // Explicit, so the list starts before the first test opens anything rather than when it is first read.

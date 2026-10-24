@@ -462,11 +462,15 @@ public record LspDiagnostic(LspRange Range, string Message, int Severity);
 public enum LspCompletionItemKind
 {
     Text     = 1,
+    Method   = 2,
     Function = 3,
     Variable = 6,
     Property = 10,
+    Enum     = 13,
     Keyword  = 14,
+    EnumMember = 20,
     Constant = 21,
+    Struct   = 22,
 }
 
 public record LspCompletionItem(
