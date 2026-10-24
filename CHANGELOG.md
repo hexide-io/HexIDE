@@ -272,6 +272,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Option lines no longer empty the language server’s procedure tree on a syntax error** (#939). A broken
+  first procedure now retains its symbol and the same diagnostics as it does without the Option lines.
+
 - **Debugger and language documentation corrected** (#478). Standard and class module breakpoints already
   fire in a form's run; the spec now says so, with a regression test. The `VB_PredeclaredId` rows distinguish
   an inert header from a missing default class instance, remaining VSTest filters use MTP syntax, and the
