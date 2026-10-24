@@ -28,7 +28,18 @@ namespace HexIDE.Runtime.Tests;
 public class SerializationCorpusTests
 {
     private static readonly string ReportPath =
-        Path.Join(Path.GetTempPath(), "hexide-roundtrip-report.txt");
+        Path.Join(AppContext.BaseDirectory, "hexide-roundtrip-report.txt");
+
+    private static readonly string VbpReportPath =
+        Path.Join(AppContext.BaseDirectory, "hexide-vbp-report.txt");
+
+    [Theory]
+    [InlineData(false, "hexide-roundtrip-report.txt")]
+    [InlineData(true, "hexide-vbp-report.txt")]
+    public void ReportIsBesideTestAssembly(bool vbp, string fileName)
+    {
+        (vbp ? VbpReportPath : ReportPath).Should().Be(Path.Join(AppContext.BaseDirectory, fileName));
+    }
 
     /// <summary>
     /// Where the corpus comes from, in priority order.
@@ -284,7 +295,7 @@ public class SerializationCorpusTests
         report.AppendLine($"VB6-authored:    {vb6Authored.Count - vb6Failures}/{vb6Authored.Count} round-tripped");
         report.AppendLine($"HexIDE-authored: {files.Count - vb6Authored.Count - (failures.Count - vb6Failures)}"
                         + $"/{files.Count - vb6Authored.Count} round-tripped (proves nothing — same code both ends)");
-        // Diagnostics only, and the path is shared — a concurrent run must never fail a test over it.
+        // Diagnostics only — writing the report is best effort.
 
         try { File.WriteAllText(ReportPath, report.ToString()); } catch { /* best effort */ }
 
@@ -735,7 +746,7 @@ public class SerializationCorpusTests
         var vb6Failures = failures.Count(f => !IsHexIdeAuthored(f));
         report.AppendLine(new string('=', 78));
         report.AppendLine($"VB6-authored:    {vb6Authored.Count - vb6Failures}/{vb6Authored.Count} round-tripped");
-        try { File.WriteAllText(Path.Join(Path.GetTempPath(), "hexide-vbp-report.txt"), report.ToString()); } catch { }
+        try { File.WriteAllText(VbpReportPath, report.ToString()); } catch { }
 
         // Zero, and it must stay zero. A .vbp carries no binary companion and no control model — there is
         // nothing here HexIDE cannot reproduce, so anything but zero is a defect rather than a burndown.

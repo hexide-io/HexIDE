@@ -33,7 +33,13 @@ namespace HexIDE.Runtime.Tests;
 public class WholeFileGrammarTests
 {
     private static readonly string ReportPath =
-        Path.Join(Path.GetTempPath(), "hexide-whole-file-grammar-interpreter.txt");
+        Path.Join(AppContext.BaseDirectory, "hexide-whole-file-grammar-interpreter.txt");
+
+    [Fact]
+    public void ReportIsBesideTestAssembly()
+    {
+        ReportPath.Should().Be(Path.Join(AppContext.BaseDirectory, "hexide-whole-file-grammar-interpreter.txt"));
+    }
 
     /// <summary>
     /// The same roots as <c>SerializationCorpusTests</c>, PLUS the repository's own demo folder always.

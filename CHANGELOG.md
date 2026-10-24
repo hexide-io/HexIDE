@@ -249,6 +249,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Corpus and grammar reports stay with their test run** (#1018). All four reports are written beside
+  the test assembly, so separate checkouts and build output directories no longer overwrite each other's
+  reports or contend for a shared temp file.
+
 - **Selection replies name the designer reference** (#951). `interact` lists the primary first when several
   items are selected and explains that Align and Make Same measure against it, including the replacement
   after removing it. Its action description explains how to choose it: select it first.
