@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Kompilacja nie powiodła się",
     "Str.Vb6Toolchain.ProjectNotSaved": "Projekt musi zostać zapisany na dysku, zanim będzie można skompilować go za pomocą VB6.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "Kompilacja VB6 nie powiodła się i nie wygenerowała danych wyjściowych. Sprawdź, czy plik projektu jest prawidłowy.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE zatrzymał kompilację VB6 po 180 sekundach. vb6.exe mógł oczekiwać na okno dialogowe.",
     "Str.Vb6Toolchain.CompilationFailed": "Kompilacja VB6 nie powiodła się:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Kompilacja powiodła się, ale nie znaleziono pliku wykonywalnego w lokalizacji:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Uruchomienie nie powiodło się",

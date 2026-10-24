@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "建置失敗",
     "Str.Vb6Toolchain.ProjectNotSaved": "專案必須先儲存到磁碟，才能使用 VB6 編譯。",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "VB6 編譯失敗且沒有輸出。請確認專案檔是否有效。",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE 在 180 秒後停止了 VB6 建置。vb6.exe 可能一直在等待對話方塊。",
     "Str.Vb6Toolchain.CompilationFailed": "VB6 編譯失敗：\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "建置成功，但在下列位置找不到執行檔：\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "執行失敗",

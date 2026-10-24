@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Сборка не удалась",
     "Str.Vb6Toolchain.ProjectNotSaved": "Перед компиляцией с помощью VB6 проект необходимо сохранить на диск.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "Компиляция VB6 завершилась без вывода. Убедитесь, что файл проекта корректен.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE остановил сборку VB6 через 180 секунд. Возможно, vb6.exe ожидал ответа в диалоговом окне.",
     "Str.Vb6Toolchain.CompilationFailed": "Компиляция VB6 не удалась:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Сборка прошла успешно, но исполняемый файл не найден по пути:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Запуск не удался",

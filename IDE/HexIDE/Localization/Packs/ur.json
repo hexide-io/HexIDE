@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "بلڈ ناکام",
     "Str.Vb6Toolchain.ProjectNotSaved": "VB6 کے ساتھ کمپائل کرنے سے پہلے پروجیکٹ کو ڈسک پر محفوظ کرنا ضروری ہے۔",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "VB6 کمپائلیشن بغیر کسی آؤٹ پٹ کے ناکام ہوگئی۔ یقینی بنائیں کہ پروجیکٹ فائل درست ہے۔",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE نے 180 سیکنڈ کے بعد VB6 بلڈ روک دیا۔ ممکن ہے vb6.exe کسی ڈائیلاگ باکس کا انتظار کر رہا ہو۔",
     "Str.Vb6Toolchain.CompilationFailed": "VB6 کمپائلیشن ناکام ہوگئی:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "بلڈ کامیاب رہی مگر قابلِ عمل فائل یہاں نہیں ملی:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "چلانا ناکام",

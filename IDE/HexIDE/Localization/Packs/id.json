@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Build Gagal",
     "Str.Vb6Toolchain.ProjectNotSaved": "Proyek harus disimpan ke disk sebelum dapat dikompilasi dengan VB6.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "Kompilasi VB6 gagal tanpa keluaran. Periksa apakah berkas proyek valid.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE menghentikan build VB6 setelah 180 detik. vb6.exe mungkin sedang menunggu kotak dialog.",
     "Str.Vb6Toolchain.CompilationFailed": "Kompilasi VB6 gagal:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Build berhasil tetapi berkas yang dapat dieksekusi tidak ditemukan di:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Gagal Menjalankan",

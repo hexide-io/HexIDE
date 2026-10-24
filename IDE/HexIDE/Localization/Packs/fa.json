@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "ساخت ناموفق بود",
     "Str.Vb6Toolchain.ProjectNotSaved": "پروژه باید پیش از کامپایل با VB6 روی دیسک ذخیره شود.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "کامپایل VB6 بدون هیچ خروجی شکست خورد. بررسی کنید که فایل پروژه معتبر باشد.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE ساخت VB6 را پس از 180 ثانیه متوقف کرد. ممکن است vb6.exe منتظر یک کادر گفتگو بوده باشد.",
     "Str.Vb6Toolchain.CompilationFailed": "کامپایل VB6 شکست خورد:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "ساخت با موفقیت انجام شد اما فایل اجرایی در این مسیر یافت نشد:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "اجرا ناموفق بود",

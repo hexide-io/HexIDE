@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Constructio Defecit",
     "Str.Vb6Toolchain.ProjectNotSaved": "Inceptum in discum servandum est antequam cum VB6 compilari possit.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "Compilatio VB6 sine exitu defecit. Verifica plicam incepti validam esse.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE compilationem VB6 post 180 secundas intermisit. vb6.exe fortasse fenestram dialogi exspectabat.",
     "Str.Vb6Toolchain.CompilationFailed": "Compilatio VB6 defecit:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Constructio successit sed exsecutabile non inventum est apud:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Exsecutio Defecit",

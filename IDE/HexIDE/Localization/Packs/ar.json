@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "فشل الإنشاء",
     "Str.Vb6Toolchain.ProjectNotSaved": "يجب حفظ المشروع على القرص قبل أن يمكن ترجمته باستخدام VB6.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "فشلت ترجمة VB6 دون أي مُخرَجات. تأكّد من أنّ ملف المشروع صالح.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "أوقف HexIDE بناء VB6 بعد 180 ثانية. ربما كان vb6.exe ينتظر مربع حوار.",
     "Str.Vb6Toolchain.CompilationFailed": "فشلت ترجمة VB6:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "نجح الإنشاء لكن لم يتم العثور على الملف التنفيذي في:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "فشل التشغيل",

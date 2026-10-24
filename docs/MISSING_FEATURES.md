@@ -24,7 +24,7 @@
 | Print… | — | Stub | Bound to `NYICommand`; shows "not yet implemented" |
 | Print Setup… | — | Stub | Bound to `NYICommand` |
 | Make *{project}*… | — | Partial | Invokes HexIDE interpreter export; no real native-code compile. The made program runs every form, standard module and class module of the project, from its startup form or from `Sub Main`, read by the loader the IDE's own open uses ([#1062](https://github.com/hexide-io/HexIDE/issues/1062)). It still stops silently on a run-time error ([#757](https://github.com/hexide-io/HexIDE/issues/757)) |
-| Make *{project}* with VB6… | — | Done | Shells out to VB6.EXE if installed |
+| Make *{project}* with VB6… | — | Done | Shells out to VB6.EXE if installed; a build stopped after 180 seconds reports the timeout and a possible waiting dialog (#979) |
 | Make Project Group… | — | Stub | Offered only with a group open, as in VB6 (#746); removes `DisabledCommand`. VB6's builds the group's projects through a "Build the following projects" dialog. HexIDE's says the feature isn't implemented yet and writes nothing ([#1515](https://github.com/hexide-io/HexIDE/issues/1515)). It used to save every project and the group, which is Save Project Group's job |
 | MRU file list | — | Done | "Recent Projects ►" submenu in File menu; backed by `IRecentProjectsService`; refreshes on project open/close |
 | Exit | Ctrl+Q | Done | Calls `IClassicDesktopStyleApplicationLifetime.Shutdown()` |
@@ -147,7 +147,7 @@
 | Break | Ctrl+Break | Done | Requests a pause at the next statement gate while the interpreter is running |
 | End | — | Done | |
 | Restart | Shift+F5 | Done | |
-| Start with VB6 | Alt+F5 | Done | Shells out to VB6.EXE if installed |
+| Start with VB6 | Alt+F5 | Done | Shells out to VB6.EXE if installed; a build stopped after 180 seconds reports the timeout and a possible waiting dialog (#979) |
 
 ---
 

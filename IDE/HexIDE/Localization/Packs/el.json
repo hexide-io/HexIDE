@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Αποτυχία δημιουργίας",
     "Str.Vb6Toolchain.ProjectNotSaved": "Το έργο πρέπει να αποθηκευτεί στον δίσκο πριν μεταγλωττιστεί με το VB6.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "Η μεταγλώττιση με VB6 απέτυχε χωρίς έξοδο. Βεβαιωθείτε ότι το αρχείο έργου είναι έγκυρο.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "Το HexIDE σταμάτησε τη μεταγλώττιση VB6 μετά από 180 δευτερόλεπτα. Το vb6.exe μπορεί να περίμενε ένα παράθυρο διαλόγου.",
     "Str.Vb6Toolchain.CompilationFailed": "Η μεταγλώττιση με VB6 απέτυχε:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Η δόμηση ολοκληρώθηκε, αλλά το εκτελέσιμο δεν βρέθηκε στη θέση:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Η εκτέλεση απέτυχε",

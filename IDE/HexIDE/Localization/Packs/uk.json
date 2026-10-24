@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Збірку не виконано",
     "Str.Vb6Toolchain.ProjectNotSaved": "Проєкт потрібно зберегти на диск, перш ніж його можна буде скомпілювати за допомогою VB6.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "Компіляцію VB6 не виконано без виведення. Перевірте, що файл проєкту дійсний.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE зупинив збірку VB6 через 180 секунд. Можливо, vb6.exe очікував відповіді в діалоговому вікні.",
     "Str.Vb6Toolchain.CompilationFailed": "Компіляцію VB6 не виконано:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Збірку виконано успішно, але виконуваний файл не знайдено за шляхом:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Запуск не виконано",

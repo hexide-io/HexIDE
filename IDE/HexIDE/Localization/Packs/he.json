@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "הבנייה נכשלה",
     "Str.Vb6Toolchain.ProjectNotSaved": "יש לשמור את הפרויקט בדיסק לפני שניתן יהיה לקמפל אותו עם VB6.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "הקומפילציה של VB6 נכשלה ללא פלט. ודא שקובץ הפרויקט תקין.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE עצר את בניית VB6 לאחר 180 שניות. ייתכן ש־vb6.exe המתין לתיבת דו־שיח.",
     "Str.Vb6Toolchain.CompilationFailed": "הקומפילציה של VB6 נכשלה:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "הבנייה הצליחה אך קובץ ההפעלה לא נמצא ב:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "ההרצה נכשלה",

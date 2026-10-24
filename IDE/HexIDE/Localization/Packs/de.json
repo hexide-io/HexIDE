@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Erstellung fehlgeschlagen",
     "Str.Vb6Toolchain.ProjectNotSaved": "Das Projekt muss auf der Festplatte gespeichert werden, bevor es mit VB6 kompiliert werden kann.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "VB6-Kompilierung fehlgeschlagen ohne Ausgabe. Prüfen Sie, ob die Projektdatei gültig ist.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE hat den VB6-Build nach 180 Sekunden gestoppt. vb6.exe hat möglicherweise auf einen Dialog gewartet.",
     "Str.Vb6Toolchain.CompilationFailed": "VB6-Kompilierung fehlgeschlagen:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Erstellung erfolgreich, aber die ausführbare Datei wurde nicht gefunden unter:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Ausführung fehlgeschlagen",

@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Sestavení selhalo",
     "Str.Vb6Toolchain.ProjectNotSaved": "Projekt musí být uložen na disk, než jej lze zkompilovat pomocí VB6.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "Kompilace VB6 selhala bez výstupu. Zkontrolujte, zda je soubor projektu platný.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE zastavilo sestavení VB6 po 180 sekundách. vb6.exe možná čekal na dialogové okno.",
     "Str.Vb6Toolchain.CompilationFailed": "Kompilace VB6 selhala:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Sestavení proběhlo úspěšně, ale spustitelný soubor nebyl nalezen na:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Spuštění selhalo",

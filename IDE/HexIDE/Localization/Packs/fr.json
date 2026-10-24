@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Échec de la génération",
     "Str.Vb6Toolchain.ProjectNotSaved": "Le projet doit être enregistré sur le disque avant de pouvoir être compilé avec VB6.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "La compilation VB6 a échoué sans produire de sortie. Vérifiez que le fichier projet est valide.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE a arrêté la compilation VB6 après 180 secondes. vb6.exe attendait peut-être une boîte de dialogue.",
     "Str.Vb6Toolchain.CompilationFailed": "La compilation VB6 a échoué :\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "La génération a réussi mais l'exécutable est introuvable à :\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Échec de l'exécution",

@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "生成失败",
     "Str.Vb6Toolchain.ProjectNotSaved": "必须先将工程保存到磁盘，才能使用 VB6 进行编译。",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "VB6 编译失败且没有输出。请检查工程文件是否有效。",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE 在 180 秒后停止了 VB6 生成。vb6.exe 可能一直在等待对话框。",
     "Str.Vb6Toolchain.CompilationFailed": "VB6 编译失败：\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "生成成功，但未在以下位置找到可执行文件：\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "运行失败",

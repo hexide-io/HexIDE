@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "ビルドに失敗しました",
     "Str.Vb6Toolchain.ProjectNotSaved": "VB6 でコンパイルする前に、プロジェクトをディスクに保存する必要があります。",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "VB6 のコンパイルが出力なしで失敗しました。プロジェクトファイルが有効であることを確認してください。",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE は 180 秒後に VB6 のビルドを停止しました。vb6.exe がダイアログを待っていた可能性があります。",
     "Str.Vb6Toolchain.CompilationFailed": "VB6 のコンパイルに失敗しました:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "ビルドは成功しましたが、実行ファイルが次の場所に見つかりませんでした:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "実行に失敗しました",

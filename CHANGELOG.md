@@ -255,6 +255,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **VB6 build timeout message** (#979): a build stopped after 180 seconds now says so and explains that
+  vb6.exe may have been waiting on a dialog, instead of blaming the project file for an empty log.
+
 - **Completion descriptions are readable through MCP, and double-click commits an item** (#1334).
   The dump reaches the description popup under the completion list; `double_click` uses the list's own
   insertion path. Snapshot composition now traverses the same description popup; its desktop rendering

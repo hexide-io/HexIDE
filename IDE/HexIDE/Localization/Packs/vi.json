@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Biên dịch thất bại",
     "Str.Vb6Toolchain.ProjectNotSaved": "Dự án phải được lưu vào đĩa trước khi có thể biên dịch bằng VB6.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "Biên dịch VB6 thất bại và không có kết quả xuất ra. Hãy kiểm tra xem tệp dự án có hợp lệ không.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE đã dừng bản dựng VB6 sau 180 giây. Có thể vb6.exe đang chờ một hộp thoại.",
     "Str.Vb6Toolchain.CompilationFailed": "Biên dịch VB6 thất bại:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Biên dịch thành công nhưng không tìm thấy tệp thực thi tại:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Chạy thất bại",

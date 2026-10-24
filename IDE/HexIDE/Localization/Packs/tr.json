@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Derleme Başarısız",
     "Str.Vb6Toolchain.ProjectNotSaved": "Proje, VB6 ile derlenmeden önce diske kaydedilmelidir.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "VB6 derlemesi çıktı üretmeden başarısız oldu. Proje dosyasının geçerli olduğundan emin olun.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE, VB6 derlemesini 180 saniye sonra durdurdu. vb6.exe bir iletişim kutusunu bekliyor olabilir.",
     "Str.Vb6Toolchain.CompilationFailed": "VB6 derlemesi başarısız oldu:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Derleme başarılı oldu ancak yürütülebilir dosya şurada bulunamadı:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Çalıştırma Başarısız",

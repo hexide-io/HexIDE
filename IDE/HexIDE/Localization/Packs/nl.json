@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Bouwen mislukt",
     "Str.Vb6Toolchain.ProjectNotSaved": "Het project moet op schijf worden opgeslagen voordat het met VB6 kan worden gecompileerd.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "VB6-compilatie mislukt zonder uitvoer. Controleer of het projectbestand geldig is.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE heeft de VB6-build na 180 seconden gestopt. vb6.exe wachtte mogelijk op een dialoogvenster.",
     "Str.Vb6Toolchain.CompilationFailed": "VB6-compilatie mislukt:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Build geslaagd, maar het uitvoerbare bestand is niet gevonden op:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Uitvoeren mislukt",

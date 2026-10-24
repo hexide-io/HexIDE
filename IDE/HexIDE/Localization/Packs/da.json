@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Bygning mislykkedes",
     "Str.Vb6Toolchain.ProjectNotSaved": "Projektet skal gemmes på disken, før det kan kompileres med VB6.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "VB6-kompileringen mislykkedes uden output. Kontrollér, at projektfilen er gyldig.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE stoppede VB6-bygningen efter 180 sekunder. vb6.exe kan have ventet på en dialogboks.",
     "Str.Vb6Toolchain.CompilationFailed": "VB6-kompileringen mislykkedes:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Bygningen lykkedes, men den eksekverbare fil blev ikke fundet på:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Kørsel mislykkedes",

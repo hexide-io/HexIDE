@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Koonti epäonnistui",
     "Str.Vb6Toolchain.ProjectNotSaved": "Projekti on tallennettava levylle ennen kuin sen voi kääntää VB6:lla.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "VB6-käännös epäonnistui ilman tulostetta. Tarkista, että projektitiedosto on kelvollinen.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE pysäytti VB6-käännöksen 180 sekunnin jälkeen. vb6.exe on saattanut odottaa valintaikkunaa.",
     "Str.Vb6Toolchain.CompilationFailed": "VB6-käännös epäonnistui:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Käännös onnistui, mutta suoritettavaa tiedostoa ei löytynyt sijainnista:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Suoritus epäonnistui",

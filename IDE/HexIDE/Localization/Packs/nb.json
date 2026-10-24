@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Bygging mislyktes",
     "Str.Vb6Toolchain.ProjectNotSaved": "Prosjektet må lagres til disk før det kan kompileres med VB6.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "VB6-kompileringen mislyktes uten utdata. Kontroller at prosjektfilen er gyldig.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE stoppet VB6-byggingen etter 180 sekunder. vb6.exe kan ha ventet på en dialogboks.",
     "Str.Vb6Toolchain.CompilationFailed": "VB6-kompileringen mislyktes:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Bygget lyktes, men kjørbar fil ble ikke funnet på:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Kjøring mislyktes",

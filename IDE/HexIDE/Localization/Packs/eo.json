@@ -709,6 +709,7 @@
     "Str.Vb6Toolchain.BuildFailedTitle": "Konstruado malsukcesis",
     "Str.Vb6Toolchain.ProjectNotSaved": "La projekto devas esti konservita sur disko antaŭ ol ĝi povas esti kompilita per VB6.",
     "Str.Vb6Toolchain.CompilationFailedNoOutput": "VB6-kompilado malsukcesis sen eligo. Kontrolu ke la projektdosiero estas valida.",
+    "Str.Vb6Toolchain.CompilationTimedOut": "HexIDE haltigis la VB6-kompiladon post 180 sekundoj. vb6.exe eble atendis dialogujon.",
     "Str.Vb6Toolchain.CompilationFailed": "VB6-kompilado malsukcesis:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Konstruado sukcesis sed la plenumebla dosiero ne estis trovita ĉe:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Rulado malsukcesis",
