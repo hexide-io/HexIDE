@@ -29,6 +29,7 @@ public partial class App : Application
         // the line before the pin below, because from that line on the main thread's culture reads as invariant.
         // The pin stays: it keeps the IDE's language out of what a program computes, and source literals rely on it.
         VbLocale.Default = CultureInfo.CurrentCulture;
+        Localization.LocalizationService.OsUICulture = CultureInfo.CurrentUICulture;
         CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
         CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
         AvaloniaXamlLoader.Load(this);
