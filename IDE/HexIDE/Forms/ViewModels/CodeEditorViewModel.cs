@@ -1783,7 +1783,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         {
             if (!region.Changes(edit.Offset, edit.Length))
                 continue;
-            if (GuardedContent.MemberNamedBy(Document.Text, bufferPrefix.Length, region) is not { } member)
+            if (MemberNamedBy(region) is not { } member)
                 return "the document's header (its designer block, class header or leading Attribute lines)";
             members.Add(member);
         }
@@ -1791,6 +1791,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             ? members[0]
             : string.Join(", ", members.GetRange(0, members.Count - 1)) + " and " + members[^1]);
     }
+
+    /// <summary>The shared member name used by guarded edits and automation refusals.</summary>
+    internal string? MemberNamedBy(TextRegion region) =>
+        GuardedContent.MemberNamedBy(Document.Text, bufferPrefix.Length, region);
 
     /// <summary>Shows a refusal from one of the guarded writers to the developer.</summary>
     internal Task ShowRefusalAsync(string message) =>

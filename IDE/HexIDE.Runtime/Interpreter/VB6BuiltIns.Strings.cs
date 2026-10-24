@@ -17,9 +17,9 @@ public partial class VB6BuiltIns
         d["Right"]      = (_, a, _) => NullOrStr(a[0], s => Right(s, AsInt(a[1])));
         d["Mid"]        = (_, a, _) => NullOrStr(a[0], s => Mid(s, AsInt(a[1]), Supplied(a, 2) ? AsInt(a[2]) : (int?)null));
         d["Len"]        = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value((long)AsStr(a[0]).Length);   // Long — see InStr
-        d["InStr"]      = (_, a, _) => InStr(a);
-        d["InStrRev"]   = (_, a, _) => InStrRev(a);
-        d["Replace"]    = (_, a, _) => new Vb6Value(Replace(a));
+        d["InStr"]      = (_, a, text) => InStr(a, text);
+        d["InStrRev"]   = (_, a, text) => InStrRev(a, text);
+        d["Replace"]    = (_, a, text) => new Vb6Value(Replace(a, text));
         d["Trim"]       = (_, a, _) => NullOrStr(a[0], s => s.Trim(' '));
         d["LTrim"]      = (_, a, _) => NullOrStr(a[0], s => s.TrimStart(' '));
         d["RTrim"]      = (_, a, _) => NullOrStr(a[0], s => s.TrimEnd(' '));
@@ -34,7 +34,7 @@ public partial class VB6BuiltIns
         d["AscW"]       = (_, a, _) => new Vb6Value((int)(short)FirstCharacterOf(a[0]));
         d["Str"]        = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(StrFn(a[0]));
         d["Val"]        = (_, a, _) => new Vb6Value(Val(AsStr(a[0])));
-        d["StrComp"]    = (_, a, _) => StrComp(a);
+        d["StrComp"]    = (_, a, text) => StrComp(a, text);
         d["StrConv"]    = (_, a, _) => StrConv(a);
     }
 
@@ -42,10 +42,10 @@ public partial class VB6BuiltIns
     // the compare is read first, as CLng reads it (0.5 is 0 and 1.5 is 2), so a Null one is 94 whatever the strings are; 0
     // is binary and 1 text (VbTextCompare), 2 and a negative are 5. Then the strings, an array being 13 even beside a Null,
     // and anything else read as & reads it, so StrComp(5, "5") is 0. Given no compare, vb6.exe takes the calling module's
-    // Option Compare (measured); this compares binary there until #1572.
-    private static Vb6Value StrComp(IReadOnlyList<Vb6Value> a)
+    // Option Compare (measured, #1572).
+    private static Vb6Value StrComp(IReadOnlyList<Vb6Value> a, bool compareText)
     {
-        var text = Supplied(a, 2) && IsTextCompare(CompareArgument(a[2]));
+        var text = Supplied(a, 2) ? IsTextCompare(CompareArgument(a[2])) : compareText;
         var first = StrCompOperand(a[0]);
         var second = StrCompOperand(a[1]);
         if (first is null || second is null)
@@ -172,10 +172,10 @@ public partial class VB6BuiltIns
     // is, while Asc, Sgn, DatePart and the date parts really are Integer. Building the result from an
     // `int` runs it through Vb6Value(int)'s magnitude rule, which reports anything fitting Int16 as an
     // Integer — right for an arithmetic literal, wrong for a function with a declared return type. (#193)
-    private static Vb6Value InStr(IReadOnlyList<Vb6Value> a)
+    private static Vb6Value InStr(IReadOnlyList<Vb6Value> a, bool compareText)
     {
         // InStr([start,] string1, string2[, compare]). A leading numeric start is present only with 3+ args.
-        int start = 1, i = 0, compare = 0;
+        int start = 1, i = 0, compare = compareText ? 1 : 0;
         if (a.Count >= 3) { start = AsInt(a[0]); i = 1; }
         if (Supplied(a, 3)) compare = AsInt(a[3]);
         if (a[i].IsNull || a[i + 1].IsNull) return Vb6Value.Null;
@@ -206,13 +206,13 @@ public partial class VB6BuiltIns
         return s.IndexOf(find, start, StringComparison.Ordinal);
     }
 
-    private static Vb6Value InStrRev(IReadOnlyList<Vb6Value> a)
+    private static Vb6Value InStrRev(IReadOnlyList<Vb6Value> a, bool compareText)
     {
         // InStrRev(string1, string2[, start[, compare]]) — start defaults to -1 (from the end).
         if (a[0].IsNull || a[1].IsNull) return Vb6Value.Null;
         string s1 = AsStr(a[0]), s2 = AsStr(a[1]);
         int start = Supplied(a, 2) ? AsInt(a[2]) : -1;
-        int compare = Supplied(a, 3) ? AsInt(a[3]) : 0;
+        int compare = Supplied(a, 3) ? AsInt(a[3]) : (compareText ? 1 : 0);
         // A start past the end is 0, even where the text is there to find (measured, #1567).
         if (start > s1.Length) return new Vb6Value(0L);
         int from = start < 0 ? s1.Length - 1 : start - 1;
@@ -224,13 +224,13 @@ public partial class VB6BuiltIns
             : s1.LastIndexOf(s2, from, StringComparison.Ordinal)) + 1);
     }
 
-    private static string Replace(IReadOnlyList<Vb6Value> a)
+    private static string Replace(IReadOnlyList<Vb6Value> a, bool compareText)
     {
         // Replace(expression, find, replace[, start[, count[, compare]]]) — returns from `start` onward.
         string s = AsStr(a[0]), find = AsStr(a[1]), repl = AsStr(a[2]);
         int start = Supplied(a, 3) ? AsInt(a[3]) : 1;
         int count = Supplied(a, 4) ? AsInt(a[4]) : -1;
-        int compare = Supplied(a, 5) ? AsInt(a[5]) : 0;
+        int compare = Supplied(a, 5) ? AsInt(a[5]) : (compareText ? 1 : 0);
         if (start < 1) throw InvalidCall();
         string sub = start <= s.Length ? s.Substring(start - 1) : "";
         if (find.Length == 0 || count == 0) return sub;

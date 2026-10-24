@@ -28,10 +28,16 @@ public class FormComponentClass : ComponentBaseClass
     /// with (Name) and Tag. VB6's Properties window gives neither Left, Top nor Visible (measured, #1585), so they aren't
     /// in it; the root's geometry is the file's ClientLeft, ClientTop, ClientWidth and ClientHeight, as a form's is.
     /// </summary>
-    protected FormComponentClass(IReadOnlyList<PropertyClass> properties)
-        : base(properties, RootEvents, hasBounds: false, hasVisible: false)
+    protected FormComponentClass(IReadOnlyList<PropertyClass> properties, IReadOnlyList<EventClass> events)
+        : base(properties, events, hasBounds: false, hasVisible: false)
     {
     }
+
+    /// <summary>
+    /// The event whose procedure the designer writes when its background is double-clicked: a form's Load (#1532), a
+    /// UserControl's Initialize and a PropertyPage's SelectionChanged (measured, #1632).
+    /// </summary>
+    public virtual string DesignerDoubleClickEvent => "Load";
 
     private static readonly EventClass[] RootEvents = [ClickEvent, DblClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent];
 
