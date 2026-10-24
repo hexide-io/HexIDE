@@ -45,6 +45,8 @@ public class VBCheckBox : CheckBox
         // MouseUp follows Click, which the toggle raises as it is released (measured, #974).
         AttachedEvents.AttachMouse<VBCheckBox>();
         AttachedEvents.AttachFocusEvents<VBCheckBox>();
+        // An arrow moves the focus to the previous or next control in its container, and changes no Value (measured, #1625).
+        ArrowNavigation.Attach<VBCheckBox>();
         AppearanceProperty.Changed.AddClassHandler<VBCheckBox>((checkBox, e) =>
         {
             if (checkBox.Appearance == VBAppearance._3D)
