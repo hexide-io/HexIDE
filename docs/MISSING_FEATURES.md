@@ -266,7 +266,7 @@
 | Double-click → open event handler | Done | Generates handler stub; opens code editor. Since the code window holds the whole file (#273), the search for an existing handler starts in the header, so text naming it in a designer property or a member's `Attribute` line can take the caret there, and a handler not yet written is then never stubbed ([#702](https://github.com/hexide-io/HexIDE/issues/702), [#711](https://github.com/hexide-io/HexIDE/issues/711)) |
 | Properties grid integration | Done | Bidirectional; all property types |
 | Color picker (via Color Palette) | Done | |
-| Font picker (via Property grid) | Done | |
+| Font picker (via Property grid) | Done | An uninstalled current family is listed and selected without substituting a rendering fallback (#912) |
 | Form resize | Partial | Bottom, right, and bottom-right handles present; top and left edges not resizable |
 | Multi-select | Done | Rubber-band and Ctrl+click; group drag; primary/secondary handles |
 | Alignment commands (align left/right/top/bottom) | Done | Full set via Format > Align; Form Editor toolbar. Centers and Middles land where VB6's do, in whole twips (#929, measured) |

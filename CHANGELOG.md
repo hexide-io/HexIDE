@@ -265,6 +265,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The Font dialog selects an uninstalled current family** (#912). The family is offered in sorted order,
+  including MS Sans Serif, and OK keeps its name. The property picker passes the stored name without rendering fallbacks.
+
 - **Forced-exit cleanup order is regression-tested** (#563). A server startup failure disposes the add-in loader
   before closing consent dialogs, exits even if cleanup throws, and closes the log after the windows close.
 
