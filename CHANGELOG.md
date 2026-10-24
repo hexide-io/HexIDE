@@ -255,6 +255,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Feature catalogue corrections** (#862): distinguish unbuilt COM features from platform gates, describe refused ActiveX templates and unmodelled controls at open, save and F5, and explain the DAO Data control exclusion.
+
 - **`TypeName(Debug)` raises “Syntax error”** (#872), as measured with VB6, instead of returning the runtime proxy's class name. The error stops the executing statement even under `On Error Resume Next`.
 
 - **Join and Filter reject allocated arrays other than one-dimensional String or Variant arrays** (#875): Join raises

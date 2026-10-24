@@ -1,9 +1,9 @@
 # HexIDE — VB6 IDE Fidelity Catalog
 
 **Purpose:** Systematic assessment of every user-facing surface against VB6 IDE behaviour. Used to drive implementation work.  
-**Status legend:** `Done` · `Partial` · `Stub` · `Missing` · `Windows-only`  
+**Status legend:** `Done` · `Partial` · `Stub` · `Missing`
 **This file contains only in-scope features.** Menu items and toolbar buttons that belong to out-of-scope features are not listed here — they are catalogued by UI surface in [OUT_OF_SCOPE.md](OUT_OF_SCOPE.md).  
-**`Windows-only` means the feature is in scope but gated on `OperatingSystem.IsWindows()`.** See the Windows-only section at the bottom of this file.
+**Windows-only is a platform restriction, not an implementation status.** The unbuilt COM/OLE features below will be gated on `OperatingSystem.IsWindows()` once implemented; see the [Windows-only section](#windows-only-planned).
 **`Partial` does not always mean *yet*.** A few rows are partial **by design** and will not advance here — the language-intelligence ones, where going further needs a bound AST that HexIDE's own tooling does not build (see the CST-not-AST limit in CLAUDE.md). Those say so in their Notes, and the missing depth belongs to a language engine attached over the LSP seam rather than to a backlog. Read the Notes before treating a `Partial` as available work.
 **Modern-shell disposition:** whether a fidelity row is kept, changed, or removed in the modernised (Evolution-tier) IDE is catalogued in the maintainers' Evolution catalog — check it before implementing a row verbatim.
 
@@ -40,7 +40,7 @@
 | Cut | Ctrl+X | Done | |
 | Copy | Ctrl+C | Done | |
 | Paste | Ctrl+V | Done | |
-| Paste Link | — | Windows-only | OLE linked object; depends on OLE Container infrastructure |
+| Paste Link | — | Missing | Windows-only; see below. OLE linked object; depends on OLE Container infrastructure |
 | Remove | — | Stub | MenuItem present, no handler; context-dependent in VB6 |
 | Delete | Del | Done | |
 | Select All | Ctrl+A | Done | |
@@ -75,7 +75,7 @@
 | Project Explorer | Ctrl+R | Done | Menu item enabled; opens/focuses Project Explorer tool window |
 | Properties Window | F4 | Done | |
 | Form Layout Window | — | Done | Monitor illustration with correct aspect ratio and live form thumbnail (StartUpPosition, Left, Top, Width, Height) |
-| Property Pages | — | Windows-only | `IPropertyPage`/`IPropertyPageSite` COM runtime display; Windows-only |
+| Property Pages | — | Missing | Windows-only; see below. `IPropertyPage`/`IPropertyPageSite` COM runtime display |
 | Toolbox | — | Done | |
 | Color Palette | — | Done | |
 | Toolbars > Standard | — | Done | Toggle persisted; right-click context menu on toolbar band |
@@ -193,7 +193,7 @@
 
 | Button | Status | Notes |
 |---|---|---|
-| Add Project (with flyout: Standard EXE / ActiveX EXE / DLL / Control) | Done | All template types create a project; implicit group created when >1 project loaded |
+| Add Project (with flyout: Standard EXE / ActiveX EXE / DLL / Control) | Done | Only Standard EXE creates a project; the ActiveX EXE, DLL and Control entries are refused. An implicit group is created when >1 project is loaded |
 | Add Form (with flyout) | Done | Flyout wired: Form, MDI Form (missing — not yet implemented), Module, Class Module, User Control, Property Page, Add File… |
 | Menu Editor | Done | |
 | Open Project | Done | |
@@ -280,7 +280,7 @@
 | Smart / alignment guides | Missing | Grid only |
 | Property search / filter | Missing | No search box in Properties window |
 | Control rendering quality | Partial | Bitmap snapshot via `ControlRenderer`; text/font preview approximate |
-| Read-only designer for unsaveable forms | Done | **HexIDE addition** (not in VB6) — a form HexIDE cannot reproduce opens read-only with a banner (`FormEditViewModel.IsReadOnly`). 1 of VB6's own 22 template forms is in this state today — `Web Browser.frm`, whose pictures sit on an `MSComctlLib.ImageList` OCX (was 12 before #83, then 6 before #107–#113). That is the floor until OCX hosting lands ([#21](https://github.com/hexide-io/HexIDE/issues/21)) |
+| Read-only designer for unsaveable forms | Done | **HexIDE addition** (not in VB6) — a form HexIDE cannot reproduce opens read-only with a banner (`FormEditViewModel.IsReadOnly`). None of VB6's own 22 template forms is held now: #60 carries the companion records cited by unmodelled controls, including `Web Browser.frm`'s ImageList. The remaining gates are described in the Save {file} row above ([#21](https://github.com/hexide-io/HexIDE/issues/21)) |
 | Controls HexIDE does not model | Done | **Diverges from VB6 by design** in one respect: each is drawn as a box where VB6's IDE draws the empty PictureBox it puts in such a control's place, at its `Left` and `Top`, sized by its `Width` and `Height` or VB6's 1200 × 480 twips without them (measured; `_ExtentX`/`_ExtentY` play no part), and HexIDE labels the box with the control's class where VB6 leaves it empty. Inert: it cannot be selected or moved, and the control is written back from the block it was read as ([#157](https://github.com/hexide-io/HexIDE/issues/157)). A box inside a Frame or PictureBox moves, deletes and undoes with it. A box is drawn in its own place among the controls the designer models, as VB6 stacks the control: over its container, and over or under each control as the file and Bring to Front or Send to Back put it (#1553) |
 
 ---
@@ -349,13 +349,24 @@
 | Shape | Done | |
 | Line | Partial | A form holding one loads, runs and saves byte for byte, VB6's About Dialog included. It draws pixel for pixel as VB6 does, and its members read and write from code (oracle, "The Line control"). The designer draws it and moves it by the rectangle it covers. Not yet in the toolbox, and its endpoints can't be dragged on their own ([#163](https://github.com/hexide-io/HexIDE/issues/163)) |
 | Image | Done | `ImageComponentClass` + `VBImage`; decodes an .frx picture record by peeling both the record framing and the StdPicture preamble. Raises Click and the mouse events, hit-tested across its whole rectangle with or without a picture (#974); and DblClick, in place of a double click's second MouseDown (#1031) |
-| OLE | Windows-only | OLE Container control; in-process COM hosting; Windows only |
+| OLE | Missing | Windows-only; see below. OLE Container control; in-process COM hosting |
 | PictureBox | Done | Takes the focus, whether or not it holds controls, raising GotFocus and LostFocus (#1101). |
 | CommonDialog | Partial | ShowOpen, ShowSave and ShowFont run, through the IDE's own pickers and font dialog, which an automation client answers with `answer_next_file_dialog`. Cancel, CancelError, FileName, FileTitle, Filter, DefaultExt, the Font properties and the control's 102 constants are as vb6.exe measured (oracle, "The CommonDialog control"). It lives only at run time: the designer shows the block the form was read with and saves it byte for byte. ShowColor, ShowPrinter and ShowHelp are not implemented ([#1084](https://github.com/hexide-io/HexIDE/issues/1084)) |
 | Common controls (MSCOMCTL et al.) | Missing | ListView, TreeView, ImageList, ProgressBar and the rest of the ActiveX controls VB6 shipped in the box, re-implemented cross-platform under VB6's own type names, members and `.frm`/`.frx` shape, with nothing hosted through COM. The epic is [#1081](https://github.com/hexide-io/HexIDE/issues/1081), its foundation [#1082](https://github.com/hexide-io/HexIDE/issues/1082), and the controls #1083 to #1100 |
 | Custom tab / component groups | Missing | Single flat list; no tab support |
 | Add/remove controls via Components dialog | Stub | Components dialog Apply is a no-op |
 | Tooltips on hover | Missing | No ToolTip shown for toolbox items |
+
+### Unmodelled controls
+
+Opening a form with a control HexIDE does not model reports a warning naming its class and name. The designer
+shows an inert box labelled with its class where VB6 shows the control; it cannot be selected or moved and has
+no property-grid or object-list entry. Its block is kept in place for save, including any companion records it
+cites ([round-trip contract](../openspec/specs/serialization-round-trip/spec.md#requirement-content-the-ide-does-not-understand-shall-survive-a-round-trip)).
+See the **Save {file}** row above and **Read-only designer for unsaveable forms** above for the remaining save gates
+and the [read-only contract](../openspec/specs/serialization-round-trip/spec.md#requirement-a-file-the-ide-will-not-save-shall-be-presented-as-read-only).
+At F5, a form holding a control the engine cannot create is refused, naming the control (#857); the designer box
+is not a run-time control. CommonDialog is a preserved block too, but runs as described in its row above.
 
 ---
 
@@ -501,7 +512,7 @@
 | Feature | Status | Notes |
 |---|---|---|
 | Run VB6 project in-process | Partial | Runs via one `BasicInterpreter` (F5 = MCP `run_project` = the ~383 tests all use the same engine — no separate stub), but that engine is only ~25% language-complete (~10% for a real program) — see the rows below |
-| Standard control set (Label, TextBox, Button, etc.) | Partial | ~13 intrinsic controls instantiate + run; other types render as inert placeholders |
+| Standard control set (Label, TextBox, Button, etc.) | Partial | The controls modelled by `FormDeserializer.AllSupportedComponents` are created and run. A project UserControl placed on a form is drawn from its form part, or as a labelled placeholder if it has none. Other types are preserved for save and shown as inert designer boxes; a form holding a control the engine cannot create is refused at F5. See [unmodelled controls](#unmodelled-controls) |
 | Form events (Load, Click, Change, Timer) | Partial | `Form_Load`/`Resize`, `Click`, `Change` and `Timer` fire, Click on the controls that wire it and on the Form, where it follows MouseUp for every button and needs the release over the form (#1364). `MouseDown`, `MouseUp` and `MouseMove` fire on every control VB6 gives them and the Form, in VB6's order against Click (#974). `Initialize`, `QueryUnload` and `Unload`, with Cancel, and `Terminate` fire for every form of the program, from `Unload` and the close box (#973, #822). DblClick fires on the Form and every control VB6 gives one, in vb6.exe's order with real input (#1031). `Activate` and `Deactivate` fire as the program's active form changes, and `Resize` once as a form is first shown after Load and then for each change of size or state (#994); a size set from code raises it late, or not at all while hidden (#1570). `Key*` and `ComboBox` events are not wired |
 | Several forms: default instances, `Load`, `Show`, `Show vbModal`, `Hide`, `Unload`, `Sub Main` | Partial | A run is one program of every form (#822): a form's name makes its default instance where it is first used, its control or built-in member loads it, `Show` and `Hide` show and hide it, and the run lasts until no form is loaded and `Sub Main`, where the project starts there, has returned. `Show vbModal` waits on the program's events until the form has gone, with the other forms held meanwhile, and raises 401, 402, 405 and the style's 5 where VB6 does. A held form is drawn as it was, takes no input, refuses its close box and reads `Enabled` False, as VB6's disabled window does. It is held rather than disabled because disabling greys every control. Unlike VB6's, it can still be dragged by its title bar, and activating it brings the modal form forward. What setting `Enabled` under a modal form does is unmeasured. All measured on vb6.exe, native and p-code agreeing. The desktop, single-view and Standalone hosts run every form, the Standalone one since [#1062](https://github.com/hexide-io/HexIDE/issues/1062). Still to come: `New Form2` and the `Forms` collection (#822) |
 | A running form's window: BorderStyle, ControlBox, MinButton, MaxButton | Done | The window vb6.exe makes, measured: no frame for None (Fixed Single's with a menu), a resizing frame only for the sizable styles, the close box with ControlBox, no caption bar with ControlBox False and an empty Caption, the buttons as MinButton and MaxButton say but never on a Fixed Dialog, and a tool window's caption for the tool windows. On Windows the window is given vb6.exe's own styles bit for bit ([#1575](https://github.com/hexide-io/HexIDE/issues/1575)); elsewhere Avalonia has no tool window, no caption without a close box, and no maximize box on a Fixed Single form. The icon is the form's own, none for Icon = (None), which keeps a Fixed Dialog's caption bare, and HexIDE's mark where the file has no Icon line, as VB6 gives its default there ([#1594](https://github.com/hexide-io/HexIDE/issues/1594)). Kept as the file gave it if the Caption or ControlBox changes at run time |
@@ -521,7 +532,7 @@
 | Call stack | Done | Call Stack window (Ctrl+L) — native debugger P5; MCP `get_call_stack` |
 | DriveListBox / DirListBox / FileListBox | Missing | Controls not implemented ([#164](https://github.com/hexide-io/HexIDE/issues/164)) |
 | Line control | Partial | Runs as VB6 draws it and reads its members, measured. Not in the toolbox yet ([#163](https://github.com/hexide-io/HexIDE/issues/163)) |
-| OLE / COM automation | Windows-only | `CreateObject`, late-bound dispatch; Windows only |
+| OLE / COM automation | Missing | Windows-only; see below. `CreateObject`, late-bound dispatch |
 | File I/O (Open/Close/Write/Read) | Partial | Sequential Open/Close/Print #/Line Input #, FreeFile/EOF (#1145); filesystem statements and CurDir/FileLen/FileDateTime/GetAttr/Dir (#1561), measured with compiled VB6 EXEs. Binary/random channels and remaining channel functions are deferred. Host attributes and long-name wildcards differ as recorded in the fidelity oracle. |
 | Screen / Printer objects | Missing | |
 | App object | Partial | `App.Title`, `EXEName`, `Path`, `ProductName`, `Major`/`Minor`/`Revision`, `PrevInstance` and the version-info strings, seeded from the project (#136). Values follow VB6 at DESIGN TIME, which is where the interpreter permanently sits — `EXEName` is the `.vbp` file name and `ProductName` is empty, both measured under F5. `Title` is writable; `LogEvent`/`StartLogging`/`TaskVisible` are not implemented |
@@ -546,14 +557,14 @@
 
 ---
 
-## Windows-only (IsWindows-gated)
+## Windows-only (planned)
 
-Features that depend on the Windows COM/OLE infrastructure. In scope on Windows only (`OperatingSystem.IsWindows()`); not available on macOS/Linux. The `.vbp` source round-trip is preserved so projects can still be opened in VB6 and run natively on any platform.
+Features that depend on the Windows COM/OLE infrastructure. None of the features in this table is built yet. Once implemented, they will be gated on `OperatingSystem.IsWindows()` and unavailable on macOS/Linux. Preserving project sources lets them be reopened in VB6; it does not make COM run on another platform.
 
 | Feature | Status | Notes |
 |---|---|---|
 | **COM automation** (`CreateObject`, late-bound dispatch) | Missing | Core plumbing for automating Excel, Access, and other COM servers from VB6 code |
-| **OLE Container control** | Missing | In-process COM hosting for embedded OLE objects; Toolbox entry visible on Windows only |
+| **OLE Container control** | Missing | In-process COM hosting for embedded OLE objects; the planned Toolbox entry will be visible on Windows only. Today an OLE block follows [unmodelled controls](#unmodelled-controls) |
 | **Paste Link** (Edit menu) | Missing | Creates an OLE linked object; depends on OLE Container infrastructure |
-| **ActiveX EXE / ActiveX DLL** (project types) | Missing | COM server project types; New Project dialog offers these on Windows only |
+| **ActiveX EXE / ActiveX DLL** (project types) | Missing | COM server project types; the New Project dialog lists these on every platform, looking like the other entries, but refuses them when chosen |
 | **Property Pages** (COM runtime display) | Missing | `IPropertyPage`/`IPropertyPageSite` display when an OCX is right-clicked at design time; `.pag` file authoring is cross-platform and tracked above |
