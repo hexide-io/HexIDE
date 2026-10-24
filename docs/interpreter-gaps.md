@@ -213,9 +213,9 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   behaviour is store-time coercion on a declared type, the mechanism `CoerceOnStore` already runs for
   Integer/Long/Date. The UDT-field leg needs a new coercion site: `VbUdt.TrySet` writes the field bag with
   no coercion at all.
-- **Arrays OF a UDT, and array fields inside a UDT** — two independent slices. `PrePass.cs:282-283` says
-  "is *not yet* supported"; the arrays-of-UDT leg has no throw at all, just a `!isArray` guard that routes
-  past the lookup the scalar case performs.
+- **Arrays OF a UDT, and array fields inside a UDT** — two independent slices. Arrays of a UDT are refused
+  at declaration with a message naming the type (#181), rather than accepted as an unusable array (#178).
+  Array fields inside a UDT remain unsupported.
 - **`LSet` / `RSet`** (string-justify form) — read, measure, pad, write back; the shape already running for
   `Mid`. The UDT form waits on a shared byte-layout model, tracked with `Get`/`Put`.
 - **Bang access** (`obj!key`) — **done for a Collection (#1471):** `c!key` is `c("key")`, `c![a key]` brackets a key
@@ -241,6 +241,9 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
 - **Several boundary throws carry no message at all** — against `interpreter-advanced:70-72`, which requires a
   boundary construct to *"fail clearly"*. The dialog then shows .NET's default "The method or operation is not
   implemented." in place of the construct's name.
+  - **#181:** bang access in an array-result assignment target now names the unsupported construct. Collection
+    bang reads and direct item assignments already have measured support (#1471, #1492); other generic
+    refusals, such as unsupported ReDim targets, remain.
   - ~~**Nothing in `IDE/` catches `NotImplementedException`**~~ — **FIXED (#754).** A form's event procedures
     and `Sub Main` used to log it and nothing else, so the program stopped part way without a word. The run
     now ends and the runtime-error dialog says what HexIDE does not implement. It stays untrappable on purpose:

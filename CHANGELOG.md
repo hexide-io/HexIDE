@@ -276,6 +276,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Unsupported constructs fail clearly** (#181). Declaring an array of a user-defined type now stops with a
+  message naming the type, instead of accepting an unusable array. Bang access in an array-result assignment
+  target now names the unsupported construct instead of showing .NET's generic message.
+
 - **AI Chat Apply preserves trailing whitespace and final line breaks** (#1068). Only the single line break
   before the closing code fence is removed; applying a whole file no longer strips its final blank lines.
 
