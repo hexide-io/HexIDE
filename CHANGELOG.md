@@ -249,6 +249,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The pull-diagnostics race test always exercises the race** (#812). The stub holds the fresh answer until
+  the stale publication starts, so a run cannot pass merely because the fresh answer arrived first.
+
 - **A For loop with a fractional start, limit or step runs** (#983). `For x = 0 To 1 Step 0.25` and its kind stopped
   the run whenever the counter could hold a fraction: a Variant, Single, Double, Currency or Date. Measured on vb6.exe
   first, in 80 cases: the step is added each time round in the counter's type, a Single sums in Double before it
