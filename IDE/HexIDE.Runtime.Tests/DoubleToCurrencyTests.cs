@@ -40,4 +40,32 @@ public class DoubleToCurrencyTests : BaseVBTestFixture
         await Run("Debug.Print CCur(0.00015)\n");
         AssertDebugLog([Vb6Value.NewCurrency(0.0001m)]);
     }
+
+    // A Currency beside a Double in + and -: the Double becomes a Currency first, by its binary value, then the sum
+    // is a Currency (measured on SP6 with /make, native and p-code, #966's arithmetic comment). `d` is a typed Double.
+    [Theory]
+    [InlineData("1.00005", "1.0001", "-0.0001")]
+    [InlineData("2.00005", "2", "-1")]
+    [InlineData("0.00015", "0.0001", "0.9999")]
+    [InlineData("0.00025", "0.0003", "0.9997")]
+    [InlineData("1.00015", "1.0002", "-0.0002")]
+    [InlineData("3.00005", "3", "-2")]
+    public async Task Plus_and_minus_convert_the_Double_first(string d, string plus, string minus)
+    {
+        await Run($"Dim d As Double\nd = {d}\nDebug.Print CCur(0) + d\nDebug.Print d + CCur(0)\nDebug.Print CCur(1) - d\n"
+            + "Dim v As Variant\nv = d\nDebug.Print CCur(0) + v\n");
+        var p = Vb6Value.NewCurrency(decimal.Parse(plus, System.Globalization.CultureInfo.InvariantCulture));
+        var m = Vb6Value.NewCurrency(decimal.Parse(minus, System.Globalization.CultureInfo.InvariantCulture));
+        AssertDebugLog([p, p, m, p]);
+    }
+
+    [Theory]
+    [InlineData("0@ + 0.00015", "0.0001")]
+    [InlineData("1@ + 0.00005", "1.0001")]
+    [InlineData("2@ + 0.00005", "2.0001")]
+    public async Task Plus_with_literals(string expression, string expected)
+    {
+        await Run($"Debug.Print {expression}\n");
+        AssertDebugLog([Vb6Value.NewCurrency(decimal.Parse(expected, System.Globalization.CultureInfo.InvariantCulture))]);
+    }
 }
