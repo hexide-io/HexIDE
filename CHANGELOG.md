@@ -255,6 +255,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A failed Let from a temporary object or App empties a Variant** (#1485, #878), as measured on vb6.exe.
+  `New Collection`, an object returned by a Function, and a class with no default member used to leave the old value
+  after the error. A program variable still leaves it alone, and a String destination keeps its value.
+
 - **Procedure Consts and array bounds reject later local Consts** (#894), with VB6's measured error for
   Option Explicit on or off. Under Option Explicit, a later local Const shadowing a module Const already read by an earlier Const is
   "Duplicate declaration in current scope"; shadowing without that earlier read still works.
