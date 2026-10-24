@@ -255,6 +255,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`TypeName(Debug)` raises “Syntax error”** (#872), as measured with VB6, instead of returning the runtime proxy's class name. The error stops the executing statement even under `On Error Resume Next`.
+
 - **Join and Filter reject allocated arrays other than one-dimensional String or Variant arrays** (#875): Join raises
   5 and Filter 13, as measured in VB6. Long arrays gave values, and 2-D String arrays raised 9. Unallocated arrays
   still give an empty string or an unallocated String array.

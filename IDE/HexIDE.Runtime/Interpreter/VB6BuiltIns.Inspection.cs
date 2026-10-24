@@ -47,6 +47,7 @@ public partial class VB6BuiltIns
     // (best-effort — VB6 returns the declared VB class). Everything else routes through the primitive map.
     private static string TypeNameOf(Vb6Value v)
     {
+        if (v.Value is DebugProxy) throw new VBCompileErrorException("Syntax error");
         if (!v.Type.IsArray)
         {
             if (v.Value is Control ctrl) return ControlTypeName(ctrl);
