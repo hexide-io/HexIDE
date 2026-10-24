@@ -243,6 +243,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A Double rounds to Currency from its exact binary value** (#966). Storing `1.00005`, calling
+  `CCur(1.00005)` or declaring it as a Currency Const now gives 1.0001, and `CCur(0.00015)`
+  gives 0.0001, as measured on vb6.exe. Arithmetic mixing a Currency and a Double is unchanged and unmeasured.
+
 - **MCP replies distinguish dialogs sharing a title** (#1365). The modal note names a message box or run-time error dialog, its first line of text and its actual buttons; other dialogs include their buttons. The window parameter explains how to discover open windows through an unknown-name refusal.
 
 - **MCP replies name ignored arguments** (#1315). A misspelled optional parameter still lets the call run, but

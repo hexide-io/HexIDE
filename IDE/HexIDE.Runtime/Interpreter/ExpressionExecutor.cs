@@ -178,7 +178,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (target == Vb6Value.ValueType.Single)
             return new Vb6Value((float)AsDouble(v));
         if (target == Vb6Value.ValueType.Currency)
-            return Vb6Value.NewCurrency(AsDecimal(v));
+            return VbNumeric.Narrow(v, Vb6Value.ValueType.Currency, null);
         if (target == Vb6Value.ValueType.Decimal)
             return Vb6Value.NewDecimal(AsDecimal(v));
         if (target == Vb6Value.ValueType.Double)
