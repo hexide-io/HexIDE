@@ -443,6 +443,37 @@ public class DocumentContentTests : IDisposable
         module.Code.Should().Be(code.Replace("Total", "Amount"));
     }
 
+    [Theory]
+    [InlineData("changed")]
+    [InlineData("added")]
+    [InlineData("removed")]
+    public void AWholeReplacementReportsTheHeaderAndMemberFindingsTogether(string change)
+    {
+        var module = NewModule(ModuleKind.ClassModule);
+        const string attribute = "Attribute Total.VB_Description = \"The order total\"\r\n";
+        if (change != "added")
+            module.UpdateCode(ClassCode.Replace("Currency\r\n", "Currency\r\n" + attribute));
+        var document = DocumentIdentity.For(module);
+        var before = DocumentContent.Read(document, editor: null);
+        var incoming = before.Replace("Attribute VB_Name", "Attribute VB_Description");
+        incoming = change switch
+        {
+            "changed" => incoming.Replace("The order total", "The total"),
+            "added" => incoming.Replace("Currency\r\n", "Currency\r\n" + attribute),
+            _ => incoming.Replace(attribute, ""),
+        };
+
+        var result = DocumentContent.Write(document, editor: null, incoming);
+
+        result.Refusal.Should().Contain("header").And.Contain("Attribute lines describing Total")
+            .And.Contain($"are {change}");
+        result.Refusal!.IndexOf("header", StringComparison.Ordinal).Should().BeLessThan(
+            result.Refusal.IndexOf("Attribute lines describing Total", StringComparison.Ordinal));
+        result.NewText.Should().BeNull();
+        result.HeaderKept.Should().BeFalse();
+        DocumentContent.Read(document, editor: null).Should().Be(before);
+    }
+
     [AvaloniaFact]
     public void AWholeFormWithADifferentHeaderIsRefusedInAnOpenWindowToo()
     {

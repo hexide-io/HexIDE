@@ -9,6 +9,51 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## Every automation route to a new document saves it — **CLOSED** (#502, 2026-10-24)
+
+**Symptom.** `add_file` says, in its own description, "Adds a new form or module to the startup project, or to
+the loaded project `project` names …, **saves the new file to disk**, and returns its path." (Reworded by #596 and
+by #273, which added `project`; this entry first quoted "saves it to disk", and the point is the same.)
+`--newproject` — the flag the documented dev loop uses on every launch — goes further and saves the whole project
+into `%TEMP%` before the first tool call
+(`DesktopStartup.cs`, the `--newproject` hook's `SaveProjectToDirectory` call). So a caller driving HexIDE through automation never sees a document that has no
+file.
+
+**Why that matters more than it sounds.** #489 measured that in real VB6 a document with no file is the
+*ordinary* state: nothing is written until the project is saved. #273 names such a document
+`untitled:<Project>/<Name>.<ext>` on the wire, and that branch was measured against five foreign language
+servers precisely because a branch nothing exercises is a branch that rots. A model asked to verify it
+through this surface will call `add_file`, see a `file:` URI, and reasonably conclude the `untitled:`
+spelling is dead code.
+
+**Workaround, and it is not obvious.** Drive the real menu: `dump_visual_tree` to find
+`MenuItem[Project]`, `interact` with `expand`, `dump_visual_tree` again scoped to it, then `interact` with
+`invoke` on `MenuItem[Add Module]`. That reaches `ProjectService.AddNewModule` — which, as of today, also
+writes (hexide-io/HexIDE#500). The only genuinely pathless document reachable at all is the initial `Form1`
+of a project created through `File > New Project` **in the UI**, which `--newproject` skips.
+
+**Such a form also reads without its header, since #273 task 3.18.** Read in code, not run. `get_file_content`
+returns a form's whole file, except a form created in this session and not yet saved or changed in the designer,
+which has no header yet, so its text is its code alone; the tool's description says so. Its first committed designer
+change or save gives it one (`HeaderRefresher.ApplyHeader`), its marks move down by the header's height, and from then
+its lines count from the top of that header. So a line number read before then is out by the header's height after
+it. **Workaround:** read the content again after any designer change or save before using a line number from it.
+Where a created form's first header should come from, so that it holds one from the start, is
+[#885](https://github.com/hexide-io/HexIDE/issues/885).
+
+**Suggested fix.** Two parts, and the first is cheap. (1) `add_file` should say which of the two states it
+leaves the document in, and gain a way to ask for the other — a caller cannot currently express "add it the
+way the user's own menu does". (2) A launch flag that creates a project without saving it, so the dev loop
+can reach the state the product will normally be in once #500 lands. Until then, any verification of
+`untitled:` naming through this surface is verifying something the surface itself prevents.
+
+**Fixed.** #500 made `add_file` pathless: its description and reply explain the null path and the Save Project
+pickers. #502 adds `--newproject-unsaved` (also `/newproject-unsaved`), which creates the initial project and
+form without saving. It wins over `--newproject` and a positional path; `--newproject` keeps its existing save.
+For an `untitled:` check launch with `--capture-lsp --newproject-unsaved`, then open Form1's code and inspect
+its `didOpen`. No new VB6 behaviour is inferred: this uses #489's measured no-file state. The initial-header
+limitation above remains open as #885 in the live gaps document.
+
 ## `add_to_selection` names the new selection but not its reference, so a caller learns what Align measured against only afterwards — **CLOSED** (#951, 2026-10-24)
 
 **Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
@@ -921,8 +966,9 @@ damage reached a commit before it was spotted in `git diff`.
 
 **Not a defect in the tool.** `get_file_content` returns the attribute block too, so the pair is
 self-consistent and a **get → modify → set** round-trip preserves everything. The trap is that "the VB6
-source code of a form" *includes* the `Attribute` header, which is easy not to know: it is invisible in the
-IDE's editor, VB6 hides it, and nothing in the tool description mentions it. `VB_Name` is load-bearing.
+source code of a form" *includes* the `Attribute` header, which is easy to omit when replacing only the
+procedures. VB6 hides it, but HexIDE showed it even before #273 made it part of the folded, read-only
+header. The original entry incorrectly called it invisible in HexIDE's editor. `VB_Name` is load-bearing.
 
 **Workarounds.** (a) Always `get_file_content` first and edit the returned text. (b) For a throwaway probe,
 use a scratch project (`--newproject`) rather than a demo or a real one. (c) `git status` before committing
@@ -1362,8 +1408,11 @@ and replies with the watch list as if the call had done what was asked.
 >
 > **The entry's premise was partly wrong.** Avalonia's forced `Shutdown` still closes every window, so the
 > main window's `Closing` handler runs and saves window state and layout; it only loses its veto. A failed
-> launch therefore still writes the profile it shares, which is part of #557. No test pins the order in
-> `DesktopStartup` itself; that is #563.
+> launch therefore still writes the profile it shares, which is part of #557.
+>
+> **Regression coverage (#563).** `DesktopStartup` now delegates its posted cleanup to the internal
+> `ForcedExitCleanup` helper. `ForcedExitCleanupTests` pins loader disposal before exit, exit code 3
+> despite cleanup failures, and log closure after exit; deleting or reordering those steps fails the tests.
 
 **Symptom.** From reading `DesktopStartup.cs`: exit code 3 (#525) goes through Avalonia's forced
 `desktop.Shutdown(exitCode)`, which does not raise `ShutdownRequested`. The add-in loader is never disposed,
@@ -4523,6 +4572,31 @@ button, proving the product path worked.
 with physical key and symbol metadata. Retain routed delivery when focus or platform input is unavailable,
 and name the path in the reply. No TextInput is sent; `type_text` remains the way to enter text.
 
+
+## A whole replacement that changes the header and a member's `Attribute` lines is told only about the header
+
+**Symptom.** Read from the code, and recorded when #273 task 4.5b was built. `set_file_content` (and an add-in's
+`TrySetContent`) compares the header first and returns on the first difference:
+
+```
+set_file_content {"name":"Ledger","content":"<a class header with one line changed, and Total's run changed>"}
+→ refused: "The content would change the document's header (its designer block, class header or leading
+   Attribute lines), which only the IDE changes. ..."
+```
+
+A caller that restores the header and sends again is refused a second time, now for `Total`'s run, a reason the
+first reply did not give.
+
+**Workaround.** After a header refusal, compare the members' `Attribute` lines with `get_file_content`'s before
+sending again.
+
+**Suggested fix.** Compare the runs whatever the header does, and refuse once with every finding.
+[#1054](https://github.com/hexide-io/HexIDE/issues/1054).
+
+
+**Fixed (#1054).** The shared replacement guard compares member runs even when the header differs. One refusal
+names the header first, then every changed, added or removed member run, with the existing repair guidance.
+`DocumentContentTests` covers all three findings alongside a header change and verifies the document stays unchanged.
 
 ## `set_file_content`'s reply does not say when its save rewrote a member's attribute qualifier
 

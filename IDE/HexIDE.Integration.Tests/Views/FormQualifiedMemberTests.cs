@@ -146,7 +146,7 @@ public class FormQualifiedMemberTests
             k.V = Array(10, 20, 30)
             On Error Resume Next
             v = k.V(1)
-            Debug.Print "after " & Err.Number
+            Debug.Print "value " & v & " err " & Err.Number
         End Sub
         """;
 
@@ -239,15 +239,14 @@ public class FormQualifiedMemberTests
         run.IsCompleted.Should().BeTrue();
     }
 
-    // VB6 gives 20 early-bound and 451 late-bound (measured), which HexIDE can't tell apart, so it's refused (#1435). The
-    // index used to be dropped, which read the whole array: no error, and a value VB6 never gives.
+    // The form runner preserves the class declaration used for the field index (#1435).
     [AvaloniaFact]
-    public void An_index_on_a_class_s_Variant_field_is_refused_rather_than_dropped()
+    public void An_index_on_a_class_s_Variant_field_reads_the_element()
     {
         var (printed, errors) = Run(IndexingForm2);
 
-        printed.Should().BeEmpty();
-        errors.Should().ContainSingle().Which.Message.Should().Contain("#1435");
+        printed.Should().Equal("value 20 err 0");
+        errors.Should().BeEmpty();
     }
 
 
