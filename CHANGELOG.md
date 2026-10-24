@@ -249,6 +249,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Arithmetic uses VB6's per-operator result tables** (#230). Long with Single computes as Double;
+  Currency multiplied by Single or Double gives Double, while addition and subtraction convert to Currency
+  first. Decimal division stays Decimal, and Byte integer division and Mod stay Byte.
+
+
 - **A name declared twice is vb6.exe's compile error** (#1622, #1499). A module that declared one name twice ran,
   keeping one declaration, and so did a procedure, so `Dim n As Long` then `Static n` gave an ordinary Long. At module
   level it is now "Ambiguous name detected", and in a procedure "Duplicate declaration in current scope", parameters

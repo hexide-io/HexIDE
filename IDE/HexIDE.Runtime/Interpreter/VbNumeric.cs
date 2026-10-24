@@ -4,25 +4,58 @@ using VT = HexIDE.Runtime.Interpreter.Vb6Value.ValueType;
 
 namespace HexIDE.Runtime.Interpreter;
 
-/// <summary>
-/// The single home for VB6 numeric semantics: the arithmetic result-type table, checked narrowing
-/// (out-of-range -> Overflow, Err 6), and the integer <c>\</c>/<c>Mod</c> operators (operands banker's-rounded
-/// to an integer first; divide-by-zero -> Err 11). The rules here were verified against real <c>vb6.exe</c>.
-///
-/// Phase-2.3 scope is the numeric core — Byte/Integer/Long/Single/Double (plus Boolean and Empty, which behave
-/// as Integer/0). Currency/Decimal/Date are not reachable from source until 2.5; if they reach here they fall
-/// back to a Double computation, which 2.5 will replace with their precise (4-dp / serial) semantics.
-///
-/// Verified VB6 facts encoded here: Byte+Byte -> Byte (overflows at 255); Boolean/Byte -> Integer;
-/// Int+Int -> Int, Int+Long -> Long; <c>/</c> is Double except when the widest operand is Single;
-/// <c>5.5 Mod 2</c> = 0 as Long; <c>7.6 \ 2</c> = 4 as Long; CInt rounds half-to-even.
-/// </summary>
+/// <summary>VB6 arithmetic tables, checked narrowing, and integer operators (operands rounded half-to-even).</summary>
 public static class VbNumeric
 {
-    // Arithmetic ladder rank. Boolean and Empty behave as Integer; Byte stays Byte (Byte+Byte -> Byte).
-    // Verified against vb6.exe: Currency DOMINATES Double for + - * (10@ + 1.5 -> Currency), and Decimal is
-    // the widest exact type. Date is NOT on this ladder — Add/Sub special-case it (Date+n -> Date,
-    // Date-Date -> Double), and * / \ Mod ^ coerce a Date operand to its Double serial via the fallback path.
+    // Oracle: "Numeric type pairs — five arithmetic tables" (2026-09-03).
+    // Rows/columns: Byte, Integer, Long, Single, Double, Currency, Decimal.
+    // B/I/L/S/F/C/D are those result types. + and - share AddTypes; backslash and Mod share IntegerTypes.
+    private static readonly string[] AddTypes =
+    [
+        "BILSFCD", // Byte
+        "IILSFCD", // Integer
+        "LLLFFCD", // Long
+        "SSFSFCD", // Single
+        "FFFFFCD", // Double
+        "CCCCCCD", // Currency
+        "DDDDDDD", // Decimal
+    ];
+    private static readonly string[] MultiplyTypes =
+    [
+        "BILSFCD", // Byte
+        "IILSFCD", // Integer
+        "LLLFFCD", // Long
+        "SSFSFFD", // Single
+        "FFFFFFD", // Double
+        "CCCFFCD", // Currency
+        "DDDDDDD", // Decimal
+    ];
+    private static readonly string[] DivideTypes =
+    [
+        "FFFSFFD", // Byte
+        "FFFSFFD", // Integer
+        "FFFFFFD", // Long
+        "SSFSFFD", // Single
+        "FFFFFFD", // Double
+        "FFFFFFD", // Currency
+        "DDDDDDD", // Decimal
+    ];
+    private static readonly string[] IntegerTypes =
+    [
+        "BILLLLL", // Byte
+        "IILLLLL", // Integer
+        "LLLLLLL", // Long
+        "LLLLLLL", // Single
+        "LLLLLLL", // Double
+        "LLLLLLL", // Currency
+        "LLLLLLL", // Decimal
+    ];
+    // The fifth table, ^, is uniformly Double and is encoded directly in Power.
+
+    private static VT ResultType(string[] table, int left, int right) =>
+        CoreType("BILSFCD".IndexOf(table[left][right]));
+
+    // Index only, not an arithmetic promotion ladder. Also used by unchanged unary/comparison helpers.
     private static int CoreRank(VT t)
     {
         if (t == VT.Byte) return 0;
@@ -102,12 +135,16 @@ public static class VbNumeric
             return new Vb6Value(op == '+' ? da + db : op == '-' ? da - db : da * db);
         }
 
-        var rt = CoreType(Math.Max(lr, rr));
+        var rt = ResultType(op == '*' ? MultiplyTypes : AddTypes, lr, rr);
         if (rt == VT.Currency || rt == VT.Decimal)
         {
-            decimal a = ToDecimal(l), b = ToDecimal(r);
             decimal res;
-            try { res = op == '+' ? a + b : op == '-' ? a - b : a * b; }
+            try
+            {
+                decimal a = rt == VT.Currency ? CurrencyOperand(l, ctx) : ToDecimal(l);
+                decimal b = rt == VT.Currency ? CurrencyOperand(r, ctx) : ToDecimal(r);
+                res = op == '+' ? a + b : op == '-' ? a - b : a * b;
+            }
             catch (OverflowException) { throw new VBRunTimeException(ctx, VBStandardError.Overflow); }
             return rt == VT.Currency ? MakeCurrency(res, ctx) : Vb6Value.NewDecimal(res);
         }
@@ -136,13 +173,18 @@ public static class VbNumeric
             throw new VBRunTimeException(ctx, a == 0.0 && l.Type != VT.Decimal && r.Type != VT.Decimal
                 ? VBStandardError.Overflow
                 : VBStandardError.DivisionByZero);
-        // Result is Single iff the widest core operand is Single (no Long/Double). int/int -> Double.
         int lr = CoreRank(l.Type), rr = CoreRank(r.Type);
-        bool single = lr >= 0 && rr >= 0 && Math.Max(lr, rr) == 3;
+        var rt = lr >= 0 && rr >= 0 ? ResultType(DivideTypes, lr, rr) : VT.Double;
+        if (rt == VT.Decimal)
+        {
+            try { return Vb6Value.NewDecimal(ToDecimal(l) / ToDecimal(r)); }
+            catch (DivideByZeroException) { throw new VBRunTimeException(ctx, VBStandardError.DivisionByZero); }
+            catch (OverflowException) { throw new VBRunTimeException(ctx, VBStandardError.Overflow); }
+        }
         // Through NarrowDouble on BOTH paths. The Single path always went through it; the Double path did
         // not, so `1E+308 / 0.0001` handed back an infinity instead of the Overflow vb6.exe raises.
         double res = a / b;
-        return NarrowDouble(res, single ? VT.Single : VT.Double, ctx, l.HasFixedType && r.HasFixedType);
+        return NarrowDouble(res, rt, ctx, l.HasFixedType && r.HasFixedType);
     }
 
     // ===== \ (integer division) and Mod =====
@@ -307,6 +349,33 @@ public static class VbNumeric
         return Vb6Value.NewCurrency(r);
     }
 
+    // Currency + and - convert each operand first. Preserve the exact binary value when rounding
+    // a floating operand: a decimal cast discards the tail that separates 0.00005# from 0.00005!.
+    private static decimal CurrencyOperand(Vb6Value value, ParserRuleContext? ctx)
+    {
+        if (value.Type != VT.Single && value.Type != VT.Double)
+            return ToDecimal(value);
+        double d = ToDouble(value);
+        if (!double.IsFinite(d) || d < -922_337_203_685_478d || d > 922_337_203_685_478d)
+            throw new VBRunTimeException(ctx, VBStandardError.Overflow);
+        long bits = BitConverter.DoubleToInt64Bits(d);
+        int exponent = (int)((bits >> 52) & 0x7ff);
+        var significand = new System.Numerics.BigInteger(bits & 0x000f_ffff_ffff_ffffL);
+        if (exponent != 0) significand += System.Numerics.BigInteger.One << 52;
+        int shift = (exponent == 0 ? -1022 : exponent - 1023) - 52;
+        var scaled = significand * 10000;
+        if (shift >= 0) scaled <<= shift;
+        else
+        {
+            var denominator = System.Numerics.BigInteger.One << -shift;
+            scaled = System.Numerics.BigInteger.DivRem(scaled, denominator, out var remainder);
+            int midpoint = (remainder * 2).CompareTo(denominator);
+            if (midpoint > 0 || midpoint == 0 && !scaled.IsEven) scaled++;
+        }
+        if (bits < 0) scaled = -scaled;
+        return (decimal)MakeCurrency((decimal)scaled / 10000m, ctx).Value!;
+    }
+
     private static double SerialOf(Vb6Value v) => v.Value is DateTime dt ? dt.ToOADate() : ToDouble(v);
 
     /// <summary>
@@ -353,11 +422,11 @@ public static class VbNumeric
 
     // ===== helpers =====
 
-    private static VT IntResultType(VT l, VT r) =>
-        IsByteIntBool(l) && IsByteIntBool(r) ? VT.Integer : VT.Long;
-
-    private static bool IsByteIntBool(VT t) =>
-        t == VT.Byte || t == VT.Integer || t == VT.Boolean || t == VT.EmptyVariant;
+    private static VT IntResultType(VT l, VT r)
+    {
+        int li = CoreRank(l), ri = CoreRank(r);
+        return li >= 0 && ri >= 0 ? ResultType(IntegerTypes, li, ri) : VT.Long;
+    }
 
     /// <summary>
     /// Land an integral result on its target type.
