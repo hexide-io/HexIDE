@@ -249,6 +249,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The code editor keeps its caret and view model in agreement** (#1608). An offset past the text now goes to its end,
+  and a negative offset goes to its start; the view model reads back the position the editor took.
+
 - **MCP keys, text and hover skip rows their list has released** (#1327). Addressing a list no longer sends input
   into a recycled row omitted from the control tree or reports the list’s path as confirmation.
 
