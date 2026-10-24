@@ -13289,7 +13289,7 @@ native and p-code; every log and every refusal was identical.
 | `"12.5.30"` | `12:05:30 (0.503819444444444)`, a Date | True |
 | `"1,2003"` | `01/01/2003 (37622)`, a Date | True |
 | `"1,5,2003"` | `01/05/2003 (37742)`, a Date | True |
-| `"1,5 10:30"` | `01/05/2026 10:30:00 (46143.4375)`, a Date (HexIDE: Err 13, #1445) | True |
+| `"1,5 10:30"` | `01/05/2026 10:30:00 (46143.4375)`, a Date (HexIDE raised 13 until #1445) | True |
 | `"13,1"` | `13/01/2026 (46035)`, a Date | True |
 | `"1,13"` | `13/01/2026 (46035)`, a Date | True |
 | `"1,5,3"` | `01/05/2003 (37742)`, a Date | True |
@@ -13397,6 +13397,30 @@ So every door that converts a String into a Date reads it as `CDate` does. The e
 
 **A second locale can't be probed from inside the program.** `SetThreadLocale 1031`, for de-DE, moved `GetThreadLocale` from 2057 to 1031. Afterwards, `"13.1.2003"` was still 13, `"1,5"` still 1 May and `"1.5"` still 01:05. VB6's conversion follows the user locale, not the thread's. So measuring de-DE means changing the guest's regional settings, which affects everyone sharing it, and that was not done.
 
+### Yearless day and month followed by a time (#1445, 2026-10-24)
+
+The issue's follow-up measured VB6 SP6 (VB6.EXE 6.00.9782, MSVBVM60 6.00.9848), built with `/make`
+on an en-GB guest. Native and p-code agreed. Under `On Error Resume Next`, the probe logged
+`Format$(CDate(s), "yyyy-mm-dd hh:nn:ss")` and `IsDate(s)`. The year was 2026; yearless inputs
+mean the year of execution, rather than a fixed 2026. The issue also measured a store into a Date
+with the same answer as `CDate`.
+
+| String | Formatted `CDate` | `IsDate` |
+|---|---|---|
+| `"1,5 10:30"` | `2026-05-01 10:30:00` | True |
+| `"1/5 10:30"` | `2026-05-01 10:30:00` | True |
+| `"1-5 10:30"` | `2026-05-01 10:30:00` | True |
+| `"1,5 10:30:15"` | `2026-05-01 10:30:15` | True |
+| `"1/5 10:30 PM"` | `2026-05-01 22:30:00` | True |
+| `"31/12 23:59"` | `2026-12-31 23:59:00` | True |
+| `"1,5"` | `2026-05-01 00:00:00` | True |
+| `"1/5"` | `2026-05-01 00:00:00` | True |
+| `"1.5 10:30"` | Err 13 | False |
+
+Thus comma, slash and hyphen accept the time after a yearless date, including seconds and PM;
+a full stop does not. The issue's full-year control, `"1,5,2003 10:30"`, is 1 May 2003 at 10:30.
+Month-first locales, including en-US, remain unmeasured.
+
 ### In HexIDE (#967, #800)
 
 - **One reading for every door,** `VB6BuiltIns.StringToDate`.
@@ -13407,8 +13431,8 @@ So every door that converts a String into a Date reads it as `CDate` does. The e
   - A dot between digits becomes the time separator, unless the locale's date separator is a dot.
   - A comma between digits becomes the date separator, unless the locale's decimal separator is a comma.
   - Two numbers that .NET can't read as a day and a month are read as a month and a year, then as a year and a month.
+- **#1445:** a yearless numeric date followed by a time reads the date prefix through the same locale reader as the untimed form, then adds the time. `StringToDateTests` pins the follow-up rows through all three routes.
 - **Every row above matches,** pinned in `StringToDateTests` and `ConstAsTypeTests`, except these:
-  - `"1,5 10:30"` is 13 (#1445).
   - `"1.5,2003"` is 13 (#1446).
   - A `ByVal` Date parameter, a UDT's Date field and a Date Function's return read it so too, since #874, #221 and #1444.
 - **Not measured:**

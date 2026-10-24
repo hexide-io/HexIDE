@@ -249,6 +249,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Yearless dates followed by a time** (#1445) now use the current year through `CDate`, a store into a Date and `IsDate`. Measured under en-GB with comma, slash and hyphen separators, seconds and PM; a full stop remains refused.
+
 - **MCP shared context menus belong to the control that opened them** (#1323). A tab menu appears only under its current tab in the dump; expanding it on another tab moves it there, and collapsing it from another tab leaves it alone. Menu headers also read back opens and closes, refusing an action a handler cancelled.
 
 - **A name declared twice is vb6.exe's compile error** (#1622, #1499). A module that declared one name twice ran,
