@@ -9,8 +9,24 @@ namespace HexIDE.TwinBasic.Tests;
 
 public sealed partial class CompilerWireCodecTests
 {
-    public sealed class CompilerRootSessionWireTests
+    public sealed class CompilerRootSessionWireTests : SocketTrackingTest
     {
+        [Theory]
+        [InlineData(1)]
+        [InlineData(2)]
+        [InlineData(3)]
+        public async Task Failed_peer_creation_disposes_sockets(int acquisition)
+        {
+            var remaining = acquisition;
+            AfterAcquire = () =>
+            {
+                if (--remaining == 0) throw new IOException("Injected peer creation failure");
+            };
+            await FluentActions.Awaiting(async () => { using var peer = await Pair.Create(); })
+                .Should().ThrowExactlyAsync<IOException>().WithMessage("Injected peer creation failure");
+            AssertNoOpenSockets();
+        }
+
         private static CancellationToken Token => TestContext.Current.CancellationToken;
         private static CompilerRootInitialization Options(string json = "{\"hello\":\"空\"}") =>
             new(["packages", "!user包"], CompilerWireCodec.ReadLanguageData(JsonDocument.Parse(json).RootElement));
@@ -212,11 +228,15 @@ public sealed partial class CompilerWireCodecTests
             }
             public static async Task<Pair> Create()
             {
-                using var listener = new TcpListener(IPAddress.Loopback, 0);
+                using var resources = new TestSocketResources();
+                using var listener = SocketTrackingTest.Track(new TcpListener(IPAddress.Loopback, 0));
                 listener.Start();
-                var client = new TcpClient();
+                var client = resources.Own(new TcpClient());
                 await client.ConnectAsync((IPEndPoint)listener.LocalEndpoint, Token);
-                return new(client, await listener.AcceptTcpClientAsync(Token));
+                var server = resources.Own(await listener.AcceptTcpClientAsync(Token));
+                var pair = resources.Own(new Pair(client, server));
+                resources.Complete();
+                return pair;
             }
             public async Task<byte[]> Request()
             {

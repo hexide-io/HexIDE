@@ -9,6 +9,34 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## `add_to_selection` names the new selection but not its reference, so a caller learns what Align measured against only afterwards — **CLOSED** (#951, 2026-10-24)
+
+**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
+
+```
+interact {"target":"Window/.../List[ControlsContainer]/ListItem[Command1]","action":"add_to_selection"}
+→ {"detail":"added 'Command1' to the selection; 2 items are selected now: Command0, Command1"}
+```
+
+Only the next `invoke_format_command` reply, "…, aligned to Command0", named the reference, the control every
+Align and Make Same command measures against. A snapshot between the two showed Command0 with the solid handles.
+The reply lists the selection in index order, as does `inspect_element`'s `selectionItems`, so no read names the
+reference before a command runs, which the form-designer spec requires of the designer. The same goes for
+`remove_from_selection`. Cross-platform by code reading.
+
+**Workaround.** Select the intended reference first and `add_to_selection` the rest: by code reading, the
+reference stays on the first item selected, and removing it moves it to the lowest-indexed item still selected.
+A snapshot shows the reference with the solid handles.
+
+**Suggested fix.** With two or more selected, the reply names the primary item, and when `remove_from_selection`
+removes it, names the new one. [#951](https://github.com/hexide-io/HexIDE/issues/951). Which control should be
+the reference is #928.
+
+**Fixed.** Multi-item selection replies list the primary first and name it as the designer reference for Align
+and Make Same. Removing it reports the replacement. The action description says how to choose it: select it
+first. Headless regression tests cover both selection orders and removal; live designer verification remains
+for the supervising session. Selection semantics (#928) are unchanged.
+
 ## No call double-clicks a running form — **CLOSED** (#1389, 2026-10-24)
 
 **Symptom (2026-10-22, #1031, Windows).** A running form's `DblClick` comes from a double click's second press, told by
@@ -4495,6 +4523,89 @@ button, proving the product path worked.
 with physical key and symbol metadata. Retain routed delivery when focus or platform input is unavailable,
 and name the path in the reply. No TextInput is sent; `type_text` remains the way to enter text.
 
+
+## A whole replacement that changes the header and a member's `Attribute` lines is told only about the header
+
+**Symptom.** Read from the code, and recorded when #273 task 4.5b was built. `set_file_content` (and an add-in's
+`TrySetContent`) compares the header first and returns on the first difference:
+
+```
+set_file_content {"name":"Ledger","content":"<a class header with one line changed, and Total's run changed>"}
+→ refused: "The content would change the document's header (its designer block, class header or leading
+   Attribute lines), which only the IDE changes. ..."
+```
+
+A caller that restores the header and sends again is refused a second time, now for `Total`'s run, a reason the
+first reply did not give.
+
+**Workaround.** After a header refusal, compare the members' `Attribute` lines with `get_file_content`'s before
+sending again.
+
+**Suggested fix.** Compare the runs whatever the header does, and refuse once with every finding.
+[#1054](https://github.com/hexide-io/HexIDE/issues/1054).
+
+
+**Fixed (#1054).** The shared replacement guard compares member runs even when the header differs. One refusal
+names the header first, then every changed, added or removed member run, with the existing repair guidance.
+`DocumentContentTests` covers all three findings alongside a header change and verifies the document stays unchanged.
+
+## `set_file_content`'s reply does not say when its save rewrote a member's attribute qualifier
+
+**Symptom.** `set_file_content` saves as the document's own Save does, and since #273 task 4.4 that save writes each
+member's attribute run with its member's name, as VB6's own Save does whatever the module's state. Content holding
+`Attribute Gone.VB_Description` under `Public Function Total()` is therefore written as `Attribute
+Total.VB_Description`, and a no-op write-back of what `get_file_content` returned can change the file in that one
+place. The reply says the file was written and nothing more, so a caller comparing the file with what it sent finds
+a change it did not make, with no reason given.
+
+**`set_control_property` and `add_control` save the same way, and say no more.** Read in code, not run: both save
+through `ProjectService.SaveForm` or `SaveModule`, as `set_file_content` does, and both reach `SaveFiles` with
+`ownCommand: true`, `SaveModule` through `SaveModuleCore`. So a property set on a form or UserControl, or a control
+added to it, also writes a stale qualifier in its code with its member's name, and neither reply says so. #1043
+names `set_file_content` alone.
+
+**Workaround.** Read the file back with `get_file_content` after the write, and expect a stale qualifier to have been
+re-qualified.
+
+**Suggested fix.** Have the save report what it rewrote and say it in the reply's `note`, not the description, which
+is within about 60 characters of its cap. [#1043](https://github.com/hexide-io/HexIDE/issues/1043).
+
+
+**Fixed (#1043).** The form and module save paths collect the old and new qualifiers they rewrite. All three
+tools append that report to a successful reply’s `note`, explaining that VB6’s own Save writes the member’s
+name. Headless save tests cover both paths; source guards check all three tool replies. Live verification
+remains with the supervising session: on a fresh stale run for each tool, check the note names `Gone` and
+`Total`, and read back `Attribute Total.VB_Description`.
+
+## A control with an x:Name is reported by that name alone, so the Tools menu reads `ToolsMenuItem`
+
+**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
+
+```
+dump_visual_tree {"root":"Window/Custom[MainView]/None[#0]","maxDepth":4}
+→ … MenuItem[File], MenuItem[Edit], MenuItem[View], … MenuItem[ToolsMenuItem], MenuItem[AddInsMenuItem] …
+interact {"target":"Window/Custom[MainView]/None[#0]/Menu[MenuBar]/MenuItem[ToolsMenuItem]","action":"expand"}
+→ opened menu 'ToolsMenuItem'
+```
+
+An x:Name wins over the label a person sees, in the node's `name`, in its path and in reply text, and no field
+carries "Tools". A caller searching the dump for the text in a snapshot finds nothing. Four menu items have an
+x:Name: `ToolsMenuItem`, `LanguageServersMenuItem`, `ProtocolInspectorMenuItem` and `AddInsMenuItem`. x:Name first
+is deliberate, because it does not change with the IDE language, so the fix adds rather than swaps.
+Cross-platform by code reading.
+
+**Workaround.** Address the item by the x:Name the dump shows. `MenuItem[Tools]` should also resolve, through the
+label fallback, but that is read in code and was not tried.
+
+**Suggested fix.** A `label` field on a node whenever the peer's label differs from `name`, reply text that uses
+it (`opened menu 'Tools' (ToolsMenuItem)`), and a description that says a segment may be addressed by either.
+[#948](https://github.com/hexide-io/HexIDE/issues/948).
+
+
+**Fixed (#948).** Dumps and inspection now report the peer text as `label` when it differs from `name`.
+Paths keep x:Name and accept the label too; discovery searches include it, and interaction replies use it.
+Four headless regression cases cover these surfaces and failed before the fix. Live verification of the
+IDE menu remains for the supervising session.
 
 ## A refused edit's reply sends a Backspace back to the caret it was refused at, and does not say whose lines are in the way
 

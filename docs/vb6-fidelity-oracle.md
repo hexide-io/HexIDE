@@ -3463,6 +3463,39 @@ and neither announces itself. HexIDE shipped exactly that for two hours; it was 
 token covers `/` and `\` and the runtime tells them apart by the token's text, which the constant folder
 did not.
 
+### An Enum and its member may share a name (2026-10-24, #1637)
+
+Provenance: #1637's comment "Measured: the rows this issue owed", vb6.exe SP6
+(VB6.EXE 6.00.9782), `/make`, en-GB guest; native and p-code agreed. Each compile
+error used a separate project. Unless stated otherwise, `Enum E` contains `E` and `F = 5`.
+
+| Probe | Measured result |
+|---|---|
+| `E.E`, `E.F` | Long 0, Long 5 |
+| bare `E` in an expression | Compile error: "Expected variable or procedure, not enum type" |
+| `Dim x As E`, read before storing | Long 0 |
+| `x As E`: store `E.E`, then `E.F + 1` | Long 0, then Long 6 |
+| `x As E`: `x = E` | "Expected variable or procedure, not enum type" |
+| `Twice(E.F)`, with `Function Twice(ByVal v As E) As Long` doubling v | 10 |
+| Class with `Private Enum E`: read `E.E`, `E.F`, then x As E given `E.F` | 0, 5, 5 |
+| Same class, bare `E` | "Expected variable or procedure, not enum type" |
+| Module2's Public Enum, read from Module1: `E.E`, `Module2.E.E`, x As E given `E.F` | Long 0, Long 0, Long 5 |
+| Same project: bare `E` or `Module2.E` as a value | "Expected variable or procedure, not enum type" |
+| Control: Enum G contains `E = 7`; bare `E`, `G.E` | Long 7, Long 7 |
+| `E.E = 1` in an uncalled Sub | "Assignment to constant not permitted" |
+| Module2 exports Enum E with E = 3; Module3 exports Enum G with E = 4; Module1 reads bare E | "Ambiguous name detected: E" |
+
+The issue body's earlier probe also measured `E.E` as 0 with VB6.EXE 6.00.8176
+and MSVBVM60 6.00.9848, native and p-code. **The SP6 comment overturned the issue's
+own guess that bare E would select the member:** the Enum wins that shared name;
+qualification reaches its member. A differently named Enum's member remains readable bare.
+
+`EnumOwnNameTests` pins these rows. HexIDE looks up names as the walk reaches them
+and raises `VBCompileErrorException` with the compile diagnostic's text. This existing
+exception has no error number; these are compile diagnostics, not numbered runtime errors.
+VB6 rejects the constant assignment even if its Sub is never called; HexIDE only sees
+executed statements, so the test calls that Sub (the CST boundary's second-order consequence).
+
 ### Addressing: `[[Lib.][Enum.]]Value`, both qualifiers independently optional
 
 | probe | verdict |
@@ -9008,9 +9041,9 @@ The review asked what VB6 allows in a module-level bound beyond literals and sam
 | `Dim d(vbKeyA)` | 0 To 65 |
 
 In a procedure, `Dim a(N)` before `Const N = 3` is a compile error too, "Variable not defined" (`p21f`, under
-`Option Explicit`). **HexIDE runs it,** because a procedure's Consts are declared at its entry, ahead of its Dims
-(#760, below): a missing compile error, recorded. A procedure's Consts are #894, where a forward reference without
-`Option Explicit` also gives a wrong value (`A` is 1).
+`Option Explicit`). HexIDE used to run it because a procedure's Consts are declared at entry ahead of its Dims
+(#760, below). #894 now checks these forward reads before hoisting; a Const forward reference without
+`Option Explicit` used to give a wrong value (`A` was 1).
 
 **VB6 refuses a forward reference between module Consts.** `Const A = B + 1` above `Const B = 2` does not compile.
 That is narrower than CLAUDE.md's pre-pass paragraph implies: it reasons from order-independent Const evaluation, as
@@ -9105,7 +9138,7 @@ Empty and sized 0 To 0, and `Dim d(Int(Rnd() * 10))` sized at random.
 variable. Each module-level Const is checked as it runs, before it is evaluated, and the bound at the Dim, both by
 the rules above. The Consts above ran first, so a Const a bound or another Const names has been checked already, and
 the check is one level deep. So `Const A = B + 1` above `Const B` is refused with no array in sight, as VB6 refuses it.
-A procedure's Consts are not checked yet. What is refused:
+Procedure forward-local-Const reads are now checked by #894; other procedure rules remain unchanged. At module level, what is refused:
 - a Const below, the Const itself, a variable, a user function, a function call inside a Const, a built-in VB6
   refuses, and another module's Public variable are VB6's compile error;
 - a name the module cannot see is "Variable not defined" under `Option Explicit`, and "Constant expression
@@ -10014,8 +10047,9 @@ emptied all four of these.
 | `s = Array(1)`, `s` a String | 13, `s` unchanged |
 | `c = "v=" & a`, with `Dim a(1) As Long` | does not compile: "Type mismatch" |
 
-HexIDE's text conversion has no arm for an array, so the code gives its CLR type name for these, except where #840
-raises 13 for an element of Join or Filter. That HexIDE side is read from the code, not run (#879).
+HexIDE now raises 13 in its shared text conversion (#879), where these routes gave the CLR type name
+(except Join and Filter elements, already refused by #840). The typed Long array is refused when executed
+rather than at compile time. The debugger's own array display remains separate.
 
 **The in-box objects:**
 
@@ -11213,6 +11247,38 @@ form.
 
 What it still does not do: a Decimal division gives back a Double, where VB6 gives a Decimal (#230 has the result-type
 table). A numeric String operand was refused too, until #1047 (*A String in arithmetic*, below).
+
+## Thousands separators in numeric Strings (2026-10-24, #1446)
+
+Measured with vb6.exe **SP6** (VB6.EXE 6.00.9782, MSVBVM60 6.00.9848), `/make`, on an **en-GB**
+guest: decimal point `.`, thousands separator `,`. Native and p-code produced identical results.
+The probe called `CDbl(s)`, `CLng(s)`, `Val(s)`, `CCur(s)`, `IsNumeric(s)` and `s + 0` for each
+String below under `On Error Resume Next`, logging `TypeName` and value. A failing call skipped its
+log line; the following log supplied the still-set `Err`. For `CDbl(",1.5")` the next call overwrote
+that number, so only the fact that it raised is known. Types are stated only where the table recorded them.
+
+| String | `CDbl` | `CLng` | `Val` | `CCur` | `IsNumeric` | `s + 0` |
+|---|---|---|---|---|---|---|
+| `"1.5,2003"` | 1.52003 | 2 | 1.5 | 1.52 | True | Double 1.52003 |
+| `"1.5,"` | 1.5 | 2 | 1.5 | 1.5 | True | 1.5 |
+| `"1,.5"` | 1.5 | 2 | 1 | 1.5 | True | 1.5 |
+| `"1.5,2,3"` | 1.523 | 2 | 1.5 | 1.523 | True | 1.523 |
+| `"1.,5"` | 1.5 | 2 | 1 | 1.5 | True | 1.5 |
+| `"1,5.5"` | 15.5 | 16 | 1 | 15.5 | True | 15.5 |
+| `"12,34.5,6"` | 1234.56 | 1235 | 12 | 1234.56 | True | 1234.56 |
+| `",1.5"` | raises; its number was overwritten by the next call's | 13 | 0 | 13 | False | 13 |
+
+The measured findings:
+
+- Once a digit has appeared, commas disappear before parsing, including after the decimal point,
+  at the end, and in repeated groups. The original failure, `"1.5,2003"`, therefore reads as 1.52003.
+- A comma at the start is refused. The measured error is 13 except for CDbl, whose number was lost.
+- `Val` follows a separate prefix rule: its first comma ends the number, giving zero for a leading comma.
+- Currency rounds to four decimal places (1.52003 becomes 1.5200, printed as 1.52), while Long
+  rounds halves to even (1.5 becomes 2 and 15.5 becomes 16).
+
+HexIDE pins each of the 48 cells in `ThousandsSeparatorConversionTests`. Its locale number readers
+remove the program locale's thousands separator after the first digit; `Val` keeps its invariant scanner.
 
 ## A String in arithmetic (2026-10-14, #1047, #770)
 
@@ -13598,7 +13664,7 @@ native and p-code; every log and every refusal was identical.
 | `"12.5.30"` | `12:05:30 (0.503819444444444)`, a Date | True |
 | `"1,2003"` | `01/01/2003 (37622)`, a Date | True |
 | `"1,5,2003"` | `01/05/2003 (37742)`, a Date | True |
-| `"1,5 10:30"` | `01/05/2026 10:30:00 (46143.4375)`, a Date (HexIDE: Err 13, #1445) | True |
+| `"1,5 10:30"` | `01/05/2026 10:30:00 (46143.4375)`, a Date (HexIDE raised 13 until #1445) | True |
 | `"13,1"` | `13/01/2026 (46035)`, a Date | True |
 | `"1,13"` | `13/01/2026 (46035)`, a Date | True |
 | `"1,5,3"` | `01/05/2003 (37742)`, a Date | True |
@@ -13706,6 +13772,30 @@ So every door that converts a String into a Date reads it as `CDate` does. The e
 
 **A second locale can't be probed from inside the program.** `SetThreadLocale 1031`, for de-DE, moved `GetThreadLocale` from 2057 to 1031. Afterwards, `"13.1.2003"` was still 13, `"1,5"` still 1 May and `"1.5"` still 01:05. VB6's conversion follows the user locale, not the thread's. So measuring de-DE means changing the guest's regional settings, which affects everyone sharing it, and that was not done.
 
+### Yearless day and month followed by a time (#1445, 2026-10-24)
+
+The issue's follow-up measured VB6 SP6 (VB6.EXE 6.00.9782, MSVBVM60 6.00.9848), built with `/make`
+on an en-GB guest. Native and p-code agreed. Under `On Error Resume Next`, the probe logged
+`Format$(CDate(s), "yyyy-mm-dd hh:nn:ss")` and `IsDate(s)`. The year was 2026; yearless inputs
+mean the year of execution, rather than a fixed 2026. The issue also measured a store into a Date
+with the same answer as `CDate`.
+
+| String | Formatted `CDate` | `IsDate` |
+|---|---|---|
+| `"1,5 10:30"` | `2026-05-01 10:30:00` | True |
+| `"1/5 10:30"` | `2026-05-01 10:30:00` | True |
+| `"1-5 10:30"` | `2026-05-01 10:30:00` | True |
+| `"1,5 10:30:15"` | `2026-05-01 10:30:15` | True |
+| `"1/5 10:30 PM"` | `2026-05-01 22:30:00` | True |
+| `"31/12 23:59"` | `2026-12-31 23:59:00` | True |
+| `"1,5"` | `2026-05-01 00:00:00` | True |
+| `"1/5"` | `2026-05-01 00:00:00` | True |
+| `"1.5 10:30"` | Err 13 | False |
+
+Thus comma, slash and hyphen accept the time after a yearless date, including seconds and PM;
+a full stop does not. The issue's full-year control, `"1,5,2003 10:30"`, is 1 May 2003 at 10:30.
+Month-first locales, including en-US, remain unmeasured.
+
 ### In HexIDE (#967, #800)
 
 - **One reading for every door,** `VB6BuiltIns.StringToDate`.
@@ -13716,8 +13806,8 @@ So every door that converts a String into a Date reads it as `CDate` does. The e
   - A dot between digits becomes the time separator, unless the locale's date separator is a dot.
   - A comma between digits becomes the date separator, unless the locale's decimal separator is a comma.
   - Two numbers that .NET can't read as a day and a month are read as a month and a year, then as a year and a month.
+- **#1445:** a yearless numeric date followed by a time reads the date prefix through the same locale reader as the untimed form, then adds the time. `StringToDateTests` pins the follow-up rows through all three routes.
 - **Every row above matches,** pinned in `StringToDateTests` and `ConstAsTypeTests`, except these:
-  - `"1,5 10:30"` is 13 (#1445).
   - `"1.5,2003"` is 13 (#1446).
   - A `ByVal` Date parameter, a UDT's Date field and a Date Function's return read it so too, since #874, #221 and #1444.
 - **Not measured:**
@@ -13942,6 +14032,29 @@ while it is locked. ReDim Preserve (#1459) checks the lock before it resizes any
 element a parameter is writing. Every row above that HexIDE reaches is pinned in `ByRefElementTests`. Not reached: an array of a Type
 (#178), and an array of Collection, whose declaration HexIDE refuses.
 
+## For Each locks its array (#1460)
+
+**Measurement supplied by #1460:** `vb6.exe /make`, en-GB, native and p-code identical. Each row uses
+`On Error Resume Next` and `Exit For` immediately after the attempted mutation. The Long array starts with
+`ReDim a(2)`; the Variant array starts with `ReDim w(1)`.
+
+| Inside the loop | Err.Number | Bounds afterwards |
+|---|---|---|
+| `ReDim Preserve a(5)` inside `For Each x In a` | 10 | 0 To 2 |
+| `ReDim a(6)` inside `For Each x In a` | 10 | 0 To 2 |
+| `Erase w` inside `For Each x In w` | 10 | 0 To 1 |
+
+Error 10 is "This array is fixed or temporarily locked". What happens to remaining elements after a refused
+mutation was not measured: each probe leaves immediately.
+
+**In HexIDE:** For Each increments the same `VBArray.LockCount` as an element passed ByRef (#1455), and a
+`finally` decrements it on every way out. `ForEachArrayLockTests` pins all three rows, including Preserve
+(now implemented by #1459), and checks that a later ReDim succeeds after completion, Exit For, GoTo out,
+Exit Sub/Function and an error leaving the procedure. Those release checks express the lock's lifetime
+requirement, without claiming further VB6 measurements. Stores into the array variable (`a = b`, or `v = 5`
+for a Variant holding an array) and nested For Each over the same array remain unmeasured and unchanged,
+beyond the counter naturally nesting.
+
 ## The References dialog's fixed rows (2026-10-22, #1026, design-time)
 
 **The question.** HexIDE's References dialog headed its list with one fixed row, "Visual Basic For Applications",
@@ -14145,9 +14258,9 @@ storage before it lets go of the old (so a 7 leaves the array as it was) and res
 caller's slot sees it. The elements dropped by a shrink are released after the resize. An undimensioned dynamic array goes
 on to a plain ReDim.
 
-Run through HexIDE, the probes gave VB6's answer on every row above except two: the array of a Type, whose elements HexIDE
-does not reach yet (#178), and the `For Each` row, which is #1460. `RedimPreserveTests` pins the rows its three programs
-cover, and the compile errors. One row is worth noting: `GVV(x As Variant)` gives VB6's answer although a plain ReDim through
+Run through HexIDE, the probes gave VB6's answer on every row above except the array of a Type, whose elements HexIDE
+does not reach yet (#178). The `For Each` row is now pinned by #1460 (see its entry beside #1455). `RedimPreserveTests`
+pins the rows its three programs cover, and the compile errors. One row is worth noting: `GVV(x As Variant)` gives VB6's answer although a plain ReDim through
 a `v As Variant` parameter resizes only the parameter (#970), because Preserve resizes the shared array in place.
 
 ## IIf and Choose (2026-10-22, #1461, #1464)
@@ -14766,6 +14879,21 @@ That is the same through `w As Collection` and `w As Object`, written on one lin
 body. **The one exception is p-code's alone: `For Each v In w: Next`, a one-line loop with an empty body.** There p-code
 raises 424, skips the `Next`, runs anything after it on the line, and leaves `v` unchanged. Native code gives 92 and
 Empty, as for every other form (#1486).
+
+The complete #1486 table, measured with `w As Collection` and again with `w As Object`, with identical
+results. `w` is Nothing, `v` starts as `"unchanged"`, and `o` is declared `As Object`. Each loop runs under
+`On Error Resume Next`, followed on a new line by logging `Err.Number` and `TypeName(v)`; `L` logs its argument.
+
+| Loop | Native | P-code / IDE (HexIDE target) |
+|---|---|---|
+| `For Each v In w: Next` | 92, v Empty | 424, v String |
+| `For Each v In w: Next: L "after"` | after runs; 92, v Empty | after runs; 424, v String |
+| `For Each v In w: L "body": Next` | body once; 92, v Empty | body once; 92, v Empty |
+| `For Each v In w` / `Next` | 92, v Empty | 92, v Empty |
+| `For Each v In w` / `L "body"` / `Next` | body once; 92, v Empty | body once; 92, v Empty |
+| `For Each o In w: L "body": Next` | body once; 92, v String | body once; 92, v String |
+
+`ForEachTests.Nothing_ResumeNext_MeasuredTable` pins every row for both declarations (#1486).
 
 ### An object held by a Collection
 
@@ -19538,8 +19666,8 @@ So only the active branch declares anything, as an inactive branch is never comp
     name outside the procedure, which is relating a use to declarations, not collecting them;
   - `Dim K%` and `Dim K` at module level: a module-level Dim with a type character is refused as not implemented first
     (#742);
-  - `ReDim n(3)` twice with no Dim is "Unknown variable" (#1495), and `E.E` for a member named like its Enum is "Method
-    or data member not found" (#1637). Both predate this, and both fail on main.
+  - `ReDim n(3)` twice with no Dim is "Unknown variable" (#1495). The `E.E` failure recorded here was fixed by
+    #1637; the measured shared-name rows are beside the Enum entries above.
 - **Across modules nothing changed.** A name two modules export is refused where it is read unqualified, as before; that
   is resolution at the use, not a duplicate declaration.
 
@@ -19903,6 +20031,22 @@ raising 13.
 - **Divergences kept:** the locks hold only within the program, not against another process; `Len` on a sequential
   file is not checked; a `Get` of a String in a Binary file reads as many bytes as the String has characters, which is
   the same in code page 1252 and not measured in a double-byte one.
+
+### Procedure declarations reading a later Const (#894)
+
+Provenance: hexide-io/HexIDE#894 records two independent vb6.exe SP6 `/make` measurements with identical
+results. In `Sub Main`, `Const A = B + 1` before `Const B = 2` fails at A: "Variable not defined" with
+Option Explicit, "Constant expression required" without it. `Dim a(N) As Long` before `Const N = 3`
+fails at the Dim with the same respective messages.
+
+With module `Const B = 10`, Option Explicit and procedure `Const A = B + 1` before `Const B = 2`,
+VB6 instead reports "Duplicate declaration in current scope" at the local B. A local `Const B = 2`
+with no earlier use builds and reads 2. These are compile refusals; HexIDE checks the expressions at
+procedure entry. Other procedure expression rules are unchanged by #894.
+
+Unmeasured combinations left unchanged: a later local shadowing a module Const without Option Explicit,
+and a Dim bound reading a module Const before the local shadow. Qualified reads and other procedure
+constant-expression restrictions are outside these measurements.
 
 ## A For loop with a fraction (2026-10-24, #983)
 
