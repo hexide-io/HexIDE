@@ -4787,6 +4787,8 @@ The operands in the other order give the same answers, and so does a Variant hol
   but 0.00005 on its own sits just above its tie and becomes 0.0001, so the answer is 2.0001.
 - **`*` and `/` give a Double and do not round.** Only the store into a Currency rounds, and it rounds by the binary
   value, as `c = 1.00005` does. This is the ladder's exception for `*` that the operator tables record (#230).
+- HexIDE implements the `+` and `-` rows since #966, and the `*` rows since #230.
+
 - HexIDE implements the `+` and `-` rows since #966. `*` still gives a Currency, which is #230's cell.
 
 ### Consequences for the interpreter
