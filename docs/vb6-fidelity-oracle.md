@@ -4722,6 +4722,40 @@ and Decimal sit **above** Double. Comparison simply follows the coercion.
 It is recorded next to the Single case only to keep the two apart: with Currency, arithmetic and comparison
 agree with each other. With Single, they do not.
 
+### A Currency beside a Double: `+` and `-` convert the Double first, `*` gives a Double (#966)
+
+Measured 2026-10-24 on vb6.exe SP6 (VB6.EXE 6.00.9782, MSVBVM60 6.00.9848) with `/make`, en-GB guest, one project
+built native and p-code with every line identical; measured by the interpreter session for #966. Each expression was
+logged with `TypeName` and `CStr`, then stored into a `c As Currency` and logged again. `d` is a typed Double.
+
+| `d` | Nearest Double | `CCur(1) * d` | `c = CCur(1) * d` | `CCur(0) + d` | `CCur(1) - d` |
+|---|---|---|---|---|---|
+| 1.00005 | above | Double 1.00005 | 1.0001 | Currency 1.0001 | Currency -0.0001 |
+| 2.00005 | below | Double 2.00005 | 2 | Currency 2 | Currency -1 |
+| 0.00015 | below | Double 0.00015 | 0.0001 | Currency 0.0001 | Currency 0.9999 |
+| 0.00025 | above | Double 0.00025 | 0.0003 | Currency 0.0003 | Currency 0.9997 |
+| 1.00015 | above | Double 1.00015 | 1.0002 | Currency 1.0002 | Currency -0.0002 |
+| 3.00005 | below | Double 3.00005 | 3 | Currency 3 | Currency -2 |
+
+The operands in the other order give the same answers, and so does a Variant holding the Double.
+`CCur(10) / (1 / d)` is a Double, and its store rounds as the `*` column's does.
+
+| Expression | Result | Stored into a Currency |
+|---|---|---|
+| `1@ * 1.00005`, `1.00005 * 1@` | Double 1.00005 | 1.0001 |
+| `0@ + 0.00015` | Currency 0.0001 | 0.0001 |
+| `1@ + 0.00005` | Currency 1.0001 | 1.0001 |
+| `2@ + 0.00005` | Currency 2.0001 | 2.0001 |
+| `1@ * 1.00005!`, `CCur(1) * CSng(1.00005)` | Double 1.00004994869232 | 1 |
+| `CCur(1) * CDec(1.00005)` | Decimal 1.00005 | 1 |
+
+- **In `+` and `-` the Double is converted to Currency on its own, by its binary value, and the sum is taken in
+  Currency.** `2@ + 0.00005` decides it: summed as Doubles, 2.00005 sits just below its tie and would round to 2,
+  but 0.00005 on its own sits just above its tie and becomes 0.0001, so the answer is 2.0001.
+- **`*` and `/` give a Double and do not round.** Only the store into a Currency rounds, and it rounds by the binary
+  value, as `c = 1.00005` does. This is the ladder's exception for `*` that the operator tables record (#230).
+- HexIDE implements the `+` and `-` rows since #966. `*` still gives a Currency, which is #230's cell.
+
 ### Consequences for the interpreter
 
 `ExpressionExecutor.GetTwoValuesSameTypesOrNull` uses **one** widening ladder for both arithmetic and
