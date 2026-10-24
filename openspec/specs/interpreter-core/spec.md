@@ -174,6 +174,11 @@ program that never fails.
 - **WHEN** an arithmetic operation overflows or divides by zero
 - **THEN** it raises a trappable error with VB6's number for that condition
 
+#### Scenario: Diagnostic type names
+- **WHEN** an interpreter diagnostic formats a value's type
+- **THEN** it SHALL print the inner type name and array suffixes without an internal `Left` or `Right` wrapper
+- **AND** missing-member diagnostics SHALL omit the receiver type, retaining the member and, for assignment, variable name
+
 ### Requirement: Unimplemented language surface SHALL fail clearly
 Where the engine does not implement part of the language, it SHALL fail in a way that identifies what is
 missing, and SHALL NOT silently substitute different behaviour. The failure SHALL reach the developer, and an

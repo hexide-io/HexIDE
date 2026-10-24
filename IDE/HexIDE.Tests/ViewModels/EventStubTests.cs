@@ -122,4 +122,22 @@ public class EventStubTests : IDisposable
             "End Sub\r\n\r\nPrivate Sub Command1_Click()\r\n\r\nEnd Sub\r\n");
         vm.CaretOffset.Should().Be(BlankLineIn(vm, "Private Sub Command1_Click()\r\n"));
     }
+
+    // A UserControl's root offers its own events, with the arguments VB6's stubs declare (measured on VB6 SP6, #1632). It
+    // offered a form's five. The name before the event is #937's: the code window lists the root under its own name.
+    [AvaloniaFact]
+    public void A_UserControl_s_Procedure_box_offers_its_own_events_with_VB6_s_arguments()
+    {
+        var control = new FormDeserializer().Deserialize(Project,
+            "VERSION 5.00\r\nBegin VB.UserControl UserControl1 \r\n   ClientHeight    =   3600\r\n   ClientLeft      =   0\r\n"
+          + "   ClientTop       =   0\r\n   ClientWidth     =   4800\r\nEnd\r\nAttribute VB_Name = \"UserControl1\"\r\n", NullSink.Instance)!;
+        var vm = Open(control);
+
+        vm.SelectedObject = "UserControl1";
+
+        vm.ProcedureNames.Should().HaveCount(35).And.Contain(["Initialize", "InitProperties", "ReadProperties", "WriteProperties"]);
+        vm.ProcedureNames.Should().NotContain("Load", "a UserControl has no Load");
+        vm.SelectedProcedure = "ReadProperties";
+        vm.Document.Text.Should().Contain("_ReadProperties(PropBag As PropertyBag)\r\n\r\nEnd Sub\r\n");
+    }
 }
