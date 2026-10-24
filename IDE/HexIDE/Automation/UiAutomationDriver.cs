@@ -797,8 +797,9 @@ public static class UiAutomationDriver
     /// where its row does not exist. Read from the list itself: a ListBox's or TabControl's peer offers no selection
     /// provider, so inspect_element reported nothing selected on every one of them (#1263).
     /// </summary>
-    private static List<string> SelectedNames(SelectingItemsControl owner) =>
+    private static List<string> SelectedNames(SelectingItemsControl owner, bool primaryFirst = false) =>
         [.. (owner is ListBox list ? list.Selection.SelectedIndexes : owner.SelectedIndex >= 0 ? [owner.SelectedIndex] : [])
+            .OrderBy(i => primaryFirst && i == owner.SelectedIndex ? 0 : 1)
             .Select(i => owner.ContainerFromIndex(i) is Control c
                 ? LabelOf(c, ControlAutomationPeer.CreatePeerForElement(c))
                 : owner.Items[i]?.ToString() ?? $"#{i}")];
@@ -825,12 +826,12 @@ public static class UiAutomationDriver
     /// <summary>What a multi-select list now holds, by the names its rows carry in dump_visual_tree.</summary>
     private static string SelectionSummary(ListBox owner)
     {
-        var names = SelectedNames(owner);
+        var names = SelectedNames(owner, primaryFirst: true);
         return names.Count switch
         {
             0 => "nothing is selected now",
             1 => $"1 item is selected now: {names[0]}",
-            _ => $"{names.Count} items are selected now: {string.Join(", ", names)}",
+            _ => $"{names.Count} items are selected now: {string.Join(", ", names)}; {names[0]} is the primary item (on a form designer, the reference Align and Make Same measure against)",
         };
     }
 
