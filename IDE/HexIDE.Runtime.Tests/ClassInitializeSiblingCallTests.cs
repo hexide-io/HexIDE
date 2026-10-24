@@ -32,6 +32,22 @@ public class ClassInitializeSiblingCallTests : BaseVBTestFixture
         """;
 
     [Fact]
+    public async Task Reset_calls_the_private_sibling_Sub_from_Class_Initialize()
+    {
+        await RunClasses("""
+            Dim k As Counter
+            Set k = New Counter
+            Debug.Print "after New " & k.Count
+            Set k = Nothing
+            Debug.Print "after Set Nothing"
+
+            """, ("Counter", Counter.Replace("ZeroIt", "Reset")));
+        AssertDebugLog([
+            "init start", "zero", "bump 1", "init end 1", "after New 1", "terminate 1", "after Set Nothing",
+        ]);
+    }
+
+    [Fact]
     public async Task Siblings_called_from_Class_Initialize_leave_the_object_alive_until_its_last_reference_goes()
     {
         // The object stood at a count of 0 while Initialize ran, so the first sibling call took it to 1 and back to

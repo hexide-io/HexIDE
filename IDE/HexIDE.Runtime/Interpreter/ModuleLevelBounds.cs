@@ -35,7 +35,7 @@ namespace HexIDE.Runtime.Interpreter;
 /// Once that module has run, another module's Const is read, bare (#880) or qualified: its value is final. A built-in
 /// function nobody has measured in a bound, and a qualified name of a shape nobody has measured, are refused loudly
 /// too, rather than guessed.</para>
-/// <para>A procedure's Consts are not checked here (#894).</para>
+/// <para>Procedure declarations reuse only the measured forward-local-Const check below (#894).</para>
 /// </remarks>
 internal sealed class ModuleLevelBounds
 {
@@ -81,6 +81,37 @@ internal sealed class ModuleLevelBounds
         VB6Parser.ConstSubStmtContext constant)
         => new ModuleLevelBounds(interpreter, module, env, "Const " + constant.ambiguousIdentifier().GetText() + "'s value", plural: false)
             .Walk(constant.valueStmt(), inConst: true, position: constant.Start.TokenIndex);
+
+    // Procedure expressions have different measured rules from module expressions. Leave other names and calls
+    // to today's evaluator; only a bare read of a later local Const is classified here (#894).
+    public static void CheckProcedure(ModuleInfo module, ProcedureInfo procedure, IParseTree expression, int position, bool inConst, int depth = 0)
+    {
+        if (depth > 500)
+            throw new NotImplementedException("Procedure constant expression is too deeply nested");
+        if (expression is VB6Parser.ICS_S_MembersCallContext)
+            return;
+        if (expression is VB6Parser.ICS_S_VariableOrProcedureCallContext read)
+        {
+            var name = read.ambiguousIdentifier().GetText();
+            foreach (var constant in procedure.DeclaredConsts)
+                if (constant.Start.TokenIndex > position
+                    && constant.ambiguousIdentifier().GetText().Equals(name, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (module.PrePass.ModuleConsts.ContainsKey(name))
+                    {
+                        // Only the Const read under Option Explicit was measured with a module name to shadow.
+                        if (inConst && module.PrePass.RequireVariableDefinitions)
+                            throw new VBCompileErrorException("Duplicate declaration in current scope");
+                        return;
+                    }
+                    throw new VBCompileErrorException(module.PrePass.RequireVariableDefinitions
+                        ? "Variable not defined" : "Constant expression required");
+                }
+            return;
+        }
+        for (var i = 0; i < expression.ChildCount; i++)
+            CheckProcedure(module, procedure, expression.GetChild(i), position, inConst, depth + 1);
+    }
 
     // `position` is where the expression sits: a name it reads must be declared before it.
     private void Walk(IParseTree node, bool inConst, int position)
