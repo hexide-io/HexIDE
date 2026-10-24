@@ -179,6 +179,7 @@ Where the engine does not implement part of the language, it SHALL fail in a way
 missing, and SHALL NOT silently substitute different behaviour. The failure SHALL reach the developer, and an
 error handler in the program SHALL NOT be able to trap it. A form holding a control the engine cannot create
 SHALL be refused the same way, before any of its controls is placed, naming each control it cannot create.
+A control carrying DataSource SHALL likewise refuse the form before placement, naming the control and data source and stating that data binding is not implemented (#859).
 
 The engine is deliberately incomplete, so meeting its edge is a normal outcome rather than an exceptional
 one. A clear stop tells the developer they have found the boundary and lets them decide what to do; a silent
@@ -219,3 +220,9 @@ because nothing inside an uncreatable control is read.
   program loads it, under an error handler or not
 - **THEN** it is refused before any of its controls is placed, naming every control it cannot create, nested ones
   included
+
+#### Scenario: A form holding a data-bound control
+- **WHEN** a form containing a control carrying DataSource is built to run, including a control nested in a Frame
+- **THEN** it is refused before any control is placed, naming the control and source and explaining that data
+  binding is not implemented
+- **THEN** F5 reports the refusal to the developer, and a made program shows it in its error box
