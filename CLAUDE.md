@@ -149,21 +149,28 @@ Gotchas). Run the suites under WSL rather than discovering it a push later:
 # ten of them, naming every dotnet10 package, which reads as a broken archive rather than a stale
 # cache. Measured 2026-09-16 on a working WSL: lists three weeks old, index wanting 10.0.111, pool
 # holding 10.0.112. One `apt-get update` and the same command installed cleanly.
-wsl -e bash -lc 'sudo apt-get update && sudo apt-get install -y dotnet-sdk-10.0'
+wsl -e bash -lc 'sudo apt-get update && sudo apt-get install -y dotnet-sdk-10.0 rsync'
 
-# Run against the SAME working tree — no second clone. .NET on Linux uses '/' regardless of the mount.
-wsl -e bash -lc 'cd /mnt/c/Repos/GitHub/HexIDE/HexIDE/IDE && \
-  dotnet test HexIDE.Runtime.Tests/ --artifacts-path /mnt/c/Repos/GitHub/HexIDE/HexIDE/artifacts/linux'
+# From the root of any checkout or worktree: copy it to WSL's own filesystem and run one suite there.
+wsl -e bash scripts/test-linux.sh IDE/HexIDE.Runtime.Tests/
+wsl -e bash scripts/test-linux.sh IDE/HexIDE.Tests/ -- --filter-class "*CodeEditorViewModelTests"
 ```
 
-**`--artifacts-path` is required, and it must point INSIDE the repo.** Without it the Linux build stomps
-the Windows `obj/`/`bin/`; pointed outside the repo (e.g. `/tmp`), `GrammarParityTests.RepoRoot()` fails —
-it walks up from `AppContext.BaseDirectory` looking for the directory holding both `IDE/` and `LspServer/`,
-and finds no such ancestor. `artifacts/` is already gitignored.
+**Use the script, not a build on `/mnt/c`.** It copies the tree as it stands on disk, uncommitted edits
+included and without `.git`, `bin`, `obj` or `artifacts`, to `~/hexide-linux/<folder>-<hash of its path>`,
+and runs `dotnet test` there. Building on the `/mnt/c` mount itself does work, but the mount is 9p, and under
+load a build writing its DLLs through it fails now and then with CS2012 "Read-only file system". A rerun
+passes, so it reads as a flaky test rather than a flaky filesystem. Two sessions hit it twice on one night,
+2026-10-23. The copy keeps its own `bin`, `obj` and `artifacts` between runs, so a second run builds
+incrementally. It needs no `--artifacts-path`: its build output can't stomp the Windows tree, and the copy
+still holds `IDE/` and `LspServer/` for `GrammarParityTests.RepoRoot()` to find. Delete the folder to start
+clean.
 
-Expect the run to be slower than Windows (the `/mnt/c` 9p mount), and identical in result — 1423/1423 as of
-this writing. To confirm the setup still has teeth, run a `git worktree` at a commit predating a known
-cross-platform fix and check it fails there.
+Expect the result to match Windows, except for `VbLocaleTests`' ar-SA row, which fails under WSL's newer ICU
+([#1045](https://github.com/hexide-io/HexIDE/issues/1045)). Measured 2026-10-24: `HexIDE.Runtime.Tests`
+4887 passed, 12 skipped, that one failed, in 6 minutes the first time and 4½ the second. To confirm the setup
+still has teeth, run the script from a `git worktree` at a commit predating a known cross-platform fix and
+check it fails there.
 
 ### And for the version gap WSL leaves — Podman, matching CI's distro
 
@@ -197,9 +204,9 @@ podman run --rm \
 - **Run it from PowerShell.** In Git Bash the same command fails with `workdir "C:/Program Files/Git/repo/IDE"
   does not exist` — MSYS rewrites the container-side `/repo/IDE` into a Windows path before podman sees it.
   `MSYS_NO_PATHCONV=1` fixes it if you want Git Bash; nothing is wrong with the command itself.
-- **`--artifacts-path` is required and must point inside the repo**, for the same reason as under WSL: the
-  mount is shared, so without it the container's build stomps the Windows `obj/`/`bin/`. Use a *different*
-  path from the WSL one so the two Linux runs do not stomp each other either.
+- **`--artifacts-path` is required and must point inside the repo.** The mount is shared, so without it the
+  container's build stomps the Windows `obj/`/`bin/`, and pointed outside the repo,
+  `GrammarParityTests.RepoRoot()` finds no directory holding both `IDE/` and `LspServer/`.
 - **Mount the NuGet volume.** `--rm` discards the container's filesystem, so without it every run
   re-restores from scratch.
 - **Expect 4 skips in `HexIDE.Tests`, not 1.** The SDK image has no Node, so the three

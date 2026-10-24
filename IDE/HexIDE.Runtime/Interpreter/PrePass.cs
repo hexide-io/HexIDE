@@ -51,6 +51,58 @@ public class PrePass : VB6BaseVisitor<object?>
     /// name is recorded here and the complaint is made when something reads it.</summary>
     public HashSet<string> AmbiguousEnumMembers = new(StringComparer.OrdinalIgnoreCase);
 
+    // Every name this module declares at module level, so that a second declaration of one is refused as vb6.exe refuses
+    // it, "Ambiguous name detected", naming the second (measured, #1622). Variables, Consts, Declares, Subs, Functions,
+    // Properties and Enum members share one namespace, in any case and whatever their visibility; Enum and Type names share
+    // another, and Events a third, so `Dim E` beside `Enum E` and `Event K` beside `Sub K` compile. Two exceptions within the
+    // first: a Property's Get, Let and Set share its name, each once, and two Enums' members may share one, which is
+    // ambiguous only where it is read (AmbiguousEnumMembers). Collected, not related: each name meets only the names before
+    // it in the same module.
+    private readonly Dictionary<string, (HashSet<string>? Enums, HashSet<string>? Accessors)> moduleNames =
+        new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> moduleTypeNames = new(StringComparer.OrdinalIgnoreCase);
+
+    private void DeclareModuleName(string name, string? inEnum = null, string? accessor = null)
+    {
+        if (!moduleNames.TryGetValue(name, out var earlier))
+            moduleNames[name] = (inEnum is null ? null : new(StringComparer.OrdinalIgnoreCase) { inEnum },
+                                 accessor is null ? null : new(StringComparer.Ordinal) { accessor });
+        else if (!(inEnum is not null && earlier.Enums?.Add(inEnum) == true)
+                 && !(accessor is not null && earlier.Accessors?.Add(accessor) == true))
+            throw new VBCompileErrorException("Ambiguous name detected: " + name);
+    }
+
+    private void DeclareModuleTypeName(string name)
+    {
+        if (!moduleTypeNames.Add(name))
+            throw new VBCompileErrorException("Ambiguous name detected: " + name);
+    }
+
+    // A name declared twice in one procedure, a parameter among them, is "Duplicate declaration in current scope", and a Dim
+    // inside an If is the procedure's as much as one at the top (measured, #1499). A Function's or a Property Get's own name
+    // is one of them, since it holds the return; a Sub's is not (measured: `Dim S` in `Sub S` compiles). Refused as the
+    // module loads, as vb6.exe refuses the build; the second declaration was skipped, so the first one's type won, and a Dim
+    // beside a Static made an ordinary local.
+    private static ProcedureInfo CheckedLocals(ProcedureInfo procedure)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (procedure.IsFunction)
+            names.Add(procedure.Name);
+        foreach (var parameter in procedure.Parameters)
+            Declare(parameter.Name);
+        foreach (var constant in procedure.DeclaredConsts)
+            Declare(constant.ambiguousIdentifier().GetText());
+        foreach (var local in procedure.DeclaredLocals)
+            Declare(local.ambiguousIdentifier().GetText());
+        return procedure;
+
+        void Declare(string name)
+        {
+            if (!names.Add(name))
+                throw new VBCompileErrorException("Duplicate declaration in current scope");
+        }
+    }
+
     /// <summary>Is this declaration <c>Private</c>? Absent visibility means Public for a Type and an Enum.</summary>
     internal static bool IsPrivateVisibility(string? text)
         => text is not null && text.Trim().Equals("Private", StringComparison.OrdinalIgnoreCase);
@@ -176,8 +228,7 @@ public class PrePass : VB6BaseVisitor<object?>
 
     public override object? VisitOptionCompareStmt(VB6Parser.OptionCompareStmtContext context)
     {
-        // Recorded for the module. Like honours it (#1547); the comparison operators still compare strings ordinally,
-        // as Option Compare Binary does, which is a documented divergence (docs/interpreter-gaps.md).
+        // Recorded per module for comparisons, Like and intrinsic calls written in that module.
         OptionCompareText = context.TEXT() != null;
         return default;
     }
@@ -209,6 +260,7 @@ public class PrePass : VB6BaseVisitor<object?>
             foreach (var sub in context.variableListStmt().variableSubStmt())
             {
                 var name = sub.ambiguousIdentifier().GetText();
+                DeclareModuleName(name);
                 WithEventsNames.Add(name);
                 rootEnv.DefineVariable(name, state.Alloc(Vb6Value.Nothing));
             }
@@ -224,6 +276,7 @@ public class PrePass : VB6BaseVisitor<object?>
         {
             foreach (var subStmt in context.variableListStmt().variableSubStmt())
             {
+                DeclareModuleName(subStmt.ambiguousIdentifier().GetText());
                 if (subStmt.typeHint() != null)
                     throw new NotImplementedException("DIM type hints not implemented");
                 bool isArray = false;
@@ -353,6 +406,7 @@ public class PrePass : VB6BaseVisitor<object?>
         // the initializer). Sub/Function bodies aren't visited here, so local consts stay out of rootEnv.
         foreach (var sub in context.constSubStmt())
         {
+            DeclareModuleName(sub.ambiguousIdentifier().GetText());
             var location = state.Alloc(Vb6Value.Variant);
             state.MarkConstant(location);
             if (IsVariantConst(sub))
@@ -371,6 +425,7 @@ public class PrePass : VB6BaseVisitor<object?>
         // an API (a near-universal pattern in real VB6) load and run its non-API code.
     {
         declared = true;
+        DeclareModuleName(context.ambiguousIdentifier().GetText());
         return default;
     }
 
@@ -388,11 +443,13 @@ public class PrePass : VB6BaseVisitor<object?>
         // CLAUDE.md prescribes for Const — which exists precisely because Const is order-independent — is
         // not wanted here. Collecting values as the walk reaches them stays pure collection.
         var enumName = context.ambiguousIdentifier().GetText();
+        DeclareModuleTypeName(enumName);
         var members = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
         long next = 0;
         foreach (var c in context.enumerationStmt_Constant())
         {
             var constName = c.ambiguousIdentifier().GetText();
+            DeclareModuleName(constName, inEnum: enumName);
             long value;
             if (c.valueStmt() is { } vs)
             {
@@ -621,14 +678,16 @@ public class PrePass : VB6BaseVisitor<object?>
         // A complexType return
         // (`As Node`) carries its concrete name so the return slot seeds a real UDT / Nothing (see RunProcedure).
         var name = context.ambiguousIdentifier().GetText();
+        DeclareModuleName(name, accessor: "Get");
         if (context.typeHint() != null)
             throw new NotImplementedException("Type-hinted Property Get is not supported");
         var args = ParseParams(context.argList());
         var returnUdt = context.asTypeClause()?.type()?.complexType()?.GetText();
         var (returnType, returnsVariant, returnsObject) = ReturnOf(context.asTypeClause(), name);
-        GetOrAddProperty(name).Get = new ProcedureInfo(name, true, args, returnUdt != null ? Vb6Value.ValueType.UserDefinedType : returnType,
+        GetOrAddProperty(name).Get = CheckedLocals(new ProcedureInfo(name, true, args,
+            returnUdt != null ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
-            returnsVariant, returnsObject);
+            returnsVariant, returnsObject));
         NoteDefaultMember(context.block());
         return default;
     }
@@ -636,6 +695,7 @@ public class PrePass : VB6BaseVisitor<object?>
     public override object? VisitPropertyLetStmt(VB6Parser.PropertyLetStmtContext context)
     {
         var name = context.ambiguousIdentifier().GetText();
+        DeclareModuleName(name, accessor: "Let");
         GetOrAddProperty(name).Let = ParsePropertyMutator("Let", name, context.argList(), context.block(), context.visibility());
         NoteDefaultMember(context.block());
         return default;
@@ -644,6 +704,7 @@ public class PrePass : VB6BaseVisitor<object?>
     public override object? VisitPropertySetStmt(VB6Parser.PropertySetStmtContext context)
     {
         var name = context.ambiguousIdentifier().GetText();
+        DeclareModuleName(name, accessor: "Set");
         GetOrAddProperty(name).Set = ParsePropertyMutator("Set", name, context.argList(), context.block(), context.visibility());
         NoteDefaultMember(context.block());
         return default;
@@ -666,7 +727,7 @@ public class PrePass : VB6BaseVisitor<object?>
         if (args.Count != 1)
             throw new NotImplementedException(
                 $"Property {kind} '{name}' must take exactly one (value) parameter — parameterized properties are not supported");
-        return new ProcedureInfo(name, false, args, Vb6Value.ValueType.EmptyVariant, block, IsPrivate(visibility));
+        return CheckedLocals(new ProcedureInfo(name, false, args, Vb6Value.ValueType.EmptyVariant, block, IsPrivate(visibility)));
     }
 
     public override object? VisitTypeStmt(VB6Parser.TypeStmtContext context)
@@ -676,6 +737,7 @@ public class PrePass : VB6BaseVisitor<object?>
         // — UDT vs Enum — at instantiation, once the program-wide tables exist). Array fields and fixed-length
         // strings inside a Type are deferred (spec walls).
         var name = context.ambiguousIdentifier().GetText();
+        DeclareModuleTypeName(name);
         var fields = new List<UdtField>();
         foreach (var el in context.typeStmt_Element())
         {
@@ -715,10 +777,11 @@ public class PrePass : VB6BaseVisitor<object?>
         // separately so the return slot can be seeded with a real UDT at call time.
         var returnUdt = context.asTypeClause()?.type()?.complexType()?.GetText();
         var (returnType, returnsVariant, returnsObject) = ReturnOf(context.asTypeClause(), name);
-        Procedures[name] = new ProcedureInfo(name, true, ParseParams(context.argList()),
+        DeclareModuleName(name);
+        Procedures[name] = CheckedLocals(new ProcedureInfo(name, true, ParseParams(context.argList()),
             returnUdt != null ? Vb6Value.ValueType.UserDefinedType : returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt, CheckedArrayReturnOf(context.asTypeClause()),
-            returnsVariant, returnsObject);
+            returnsVariant, returnsObject));
         NoteDefaultMember(context.block());
         return default;
     }
@@ -726,8 +789,9 @@ public class PrePass : VB6BaseVisitor<object?>
     public override object? VisitSubStmt(VB6Parser.SubStmtContext context)
     {
         var name = context.ambiguousIdentifier().GetText();
-        Procedures[name] = new ProcedureInfo(name, false, ParseParams(context.argList()),
-            Vb6Value.ValueType.EmptyVariant, context.block(), IsPrivate(context.visibility()));
+        DeclareModuleName(name);
+        Procedures[name] = CheckedLocals(new ProcedureInfo(name, false, ParseParams(context.argList()),
+            Vb6Value.ValueType.EmptyVariant, context.block(), IsPrivate(context.visibility())));
         NoteDefaultMember(context.block());
         return default;
     }
