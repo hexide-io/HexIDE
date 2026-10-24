@@ -252,6 +252,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **An array used as text raises Type mismatch (13)** (#879): concatenation, CStr, a store into a String, Len,
+  UCase and Print # no longer use its CLR type name. A String store leaves its target unchanged. The debugger's
+  own array display is preserved; a typed Long array in concatenation is refused at runtime.
+
 - **Selection replies name the designer reference** (#951). `interact` lists the primary first when several
   items are selected and explains that Align and Make Same measure against it, including the replacement
   after removing it. Its action description explains how to choose it: select it first.
