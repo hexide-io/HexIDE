@@ -227,8 +227,8 @@ public interface ILspClient : IAsyncDisposable
     Task<Location[]?> RequestDeclarationAsync(string uri, Position position, CancellationToken cancellationToken = default);
     Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
-    /// <summary>Sends textDocument/rename and returns the workspace edits, or null.</summary>
-    Task<WorkspaceEdit?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default);
+    /// <summary>Sends textDocument/rename and returns edits, a refusal, or null for no change.</summary>
+    Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default);
 
     /// <summary>Sends textDocument/formatting and returns text edits, or empty.</summary>
     Task<TextEdit[]> RequestFormattingAsync(string uri, CancellationToken cancellationToken = default);

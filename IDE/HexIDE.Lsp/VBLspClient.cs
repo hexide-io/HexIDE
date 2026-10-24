@@ -1469,14 +1469,29 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
-    public async Task<WorkspaceEdit?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default)
+    public async Task<RenameResult?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("renameProvider")) return null;
         var p = new RenameParams(new TextDocumentIdentifier(uri), position, newName);
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<WorkspaceEdit?>(
+            var edit = await _rpc.InvokeWithParameterObjectAsync<WorkspaceEdit?>(
                 "textDocument/rename", p, cancellationToken);
+            return edit is null ? null : new RenameResult(edit, null);
+        }
+        catch (RemoteInvocationException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            if (ex.ErrorCode is -32800 or -32801)
+            {
+                _logger.LogDebug(ex, "textDocument/rename was cancelled by the server");
+                return null;
+            }
+
+            if (ex.ErrorCode == -32803)
+                _logger.LogDebug(ex, "textDocument/rename refused: {Reason}", ex.Message);
+            else
+                WarnRequestFailedOnce("textDocument/rename", ex, cancellationToken);
+            return new RenameResult(null, ex.Message);
         }
         catch (Exception ex)
         {

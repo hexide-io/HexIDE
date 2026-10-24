@@ -367,6 +367,10 @@ server is expected to keep off them — the bundled one does, by the rule in
   a new name that is not a VB6 name: a letter, then letters, digits and underscores, and not one of `Rem`,
   `Empty`, `New`, `Nothing`, `Me` and `Attribute`, the six words `vb6.exe` was measured to refuse though each
   has a name's shape.
+- **Rename refusals** from any server are shown through the code window's refusal dialog. A
+  `-32803 RequestFailed` reply is logged at debug without consuming the method's failure warning; other
+  remote errors also show their message and retain the once-per-connection warning. Cancellation replies
+  (`-32800`, `-32801`) stay silent. A successful `null` result still means no change required (#1015).
 - **Diagnostics** inside the header or an attribute run are shown like any other, because they are a
   server's claim about the file. The bundled server raises none there.
 - **A rename's edits to other documents are dropped.** The code window applies the edits for its own

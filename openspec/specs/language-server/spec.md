@@ -85,7 +85,8 @@ was before the edit, producing a result that is wrong in a way that looks interm
 - **THEN** the request is answered against the changed text
 
 ### Requirement: The server SHALL answer "nothing found" with an empty result
-Where a request has no answer, the server SHALL return an empty result rather than a protocol-level error.
+Where a request finds nothing, the server SHALL return an empty result rather than a protocol-level error.
+A refused rename SHALL instead return `-32803 RequestFailed` with a message explaining the refusal.
 
 The two are not interchangeable to the caller: an empty result is an ordinary outcome that the editor
 absorbs silently, whereas an error is surfaced. Reporting "no definition at this position" as an error
@@ -233,9 +234,10 @@ block, a form's `VERSION` line, object references and designer block, the run of
 the code, and `Attribute` lines describing a member further down. It SHALL report no diagnostic inside any of
 those, and no formatting, rename or highlight answer it gives SHALL change or point inside them, with one
 exception: renaming a member SHALL change that member's own name where it qualifies one of its attribute lines
-(`Attribute Total.VB_Description`), and nothing else on that line. A rename or highlight asked for from a
-position inside any of those lines SHALL have no answer, and so SHALL a rename of a name the designer block
-declares: the form's own, a control's or a menu's, wherever it is asked for. So SHALL a rename to a new name that
+(`Attribute Total.VB_Description`), and nothing else on that line. A highlight asked for from a
+position inside any of those lines SHALL have no answer. A rename there, of a reserved keyword, or of a name
+the designer block declares (the form's own, a control's or a menu's) SHALL be refused with
+`-32803 RequestFailed` and an explanation. So SHALL a rename to a new name that
 is not a VB6 name. A header the server cannot parse SHALL NOT stop it analysing the code after the header.
 
 The client now sends the file rather than the code, because that is the only way a position means the same
@@ -297,7 +299,7 @@ whole file, the code's real errors included, and give no reason why.
 #### Scenario: Renaming a control from its code
 - **GIVEN** a form with a control, and code that refers to it by name
 - **WHEN** a rename is asked for on that name in the code
-- **THEN** there is no answer
+- **THEN** the rename returns `-32803 RequestFailed` with a reason
 
 #### Scenario: Renaming a member that has a description
 - **GIVEN** a property followed by an `Attribute <Name>.VB_Description` line
@@ -307,4 +309,4 @@ whole file, the code's real errors included, and give no reason why.
 #### Scenario: Renaming to a name VB6 does not accept
 - **WHEN** a rename is asked for with a new name that does not start with a letter, holds a character other than
   a letter, a digit or an underscore, or is `Rem`, `Empty`, `New`, `Nothing`, `Me` or `Attribute` in any case
-- **THEN** there is no answer
+- **THEN** the rename returns `-32803 RequestFailed` with a reason

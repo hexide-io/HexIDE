@@ -2305,7 +2305,7 @@ public partial class CodeEditorView : UserControl
         static bool IsVbIdentifierChar(char c) => char.IsLetterOrDigit(c) || c == '_';
     }
 
-    private async Task RenameSymbolAsync(CodeEditorViewModel vm, Position position, string oldName)
+    internal async Task RenameSymbolAsync(CodeEditorViewModel vm, Position position, string oldName)
     {
         try
         {
@@ -2320,7 +2320,13 @@ public partial class CodeEditorView : UserControl
             }
 
             await vm.FlushDocumentAsync();
-            var edit = await vm.RequestRenameAsync(position, newName);
+            var result = await vm.RequestRenameAsync(position, newName);
+            if (result?.Refusal is { } serverRefusal)
+            {
+                await vm.ShowRefusalAsync(serverRefusal);
+                return;
+            }
+            var edit = result?.Edit;
 
             if (edit?.Changes is null) return;
 

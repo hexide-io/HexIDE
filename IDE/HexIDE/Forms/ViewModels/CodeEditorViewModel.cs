@@ -1821,8 +1821,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(Position position, CancellationToken ct = default)
         => LiveDocumentUri is { } uri ? lspClient.RequestDocumentHighlightAsync(uri, position, ct) : Task.FromResult<DocumentHighlight[]?>(null);
 
-    public Task<WorkspaceEdit?> RequestRenameAsync(Position position, string newName, CancellationToken ct = default)
-        => LiveDocumentUri is { } uri ? lspClient.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<WorkspaceEdit?>(null);
+    public Task<RenameResult?> RequestRenameAsync(Position position, string newName, CancellationToken ct = default)
+        => LiveDocumentUri is { } uri ? lspClient.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<RenameResult?>(null);
 
     public Task<string?> ShowInputBoxAsync(string prompt, string title, string defaultText)
         => windowManager.InputBox(prompt, title, defaultText);
