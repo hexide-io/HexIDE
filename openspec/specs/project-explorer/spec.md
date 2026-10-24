@@ -201,3 +201,16 @@ open into yet.
 #### Scenario: Expansion survives activation
 - **WHEN** the developer activates an expanded project in the tree
 - **THEN** the project opens and remains expanded
+
+### Requirement: The form context menu SHALL save the selected form
+The Project Explorer's Save and Save As commands SHALL call the same form-save service as the designer,
+with Save As requesting a new path. The service flushes open buffers and applies its existing save gates.
+These commands SHALL be available only for a selected form and SHALL NOT format its code on save.
+
+#### Scenario: Save a selected form
+- **WHEN** Save is chosen on a form in the Project Explorer
+- **THEN** that form is passed to the form-save service with Save As disabled
+
+#### Scenario: Save a selected form at a new path
+- **WHEN** Save As is chosen on a form in the Project Explorer
+- **THEN** that form is passed to the form-save service with Save As enabled

@@ -90,7 +90,7 @@
 | Item | Shortcut | Status | Notes |
 |---|---|---|---|
 | Add Form | — | Done | Creates Form2, Form3… with defaults and opens the designer. Like every new component it has no file until the project is saved, as in VB6 (#500) |
-| Add MDI Form | — | Missing | MDI is not COM-dependent; implementable cross-platform as an Avalonia container with floating child sub-windows |
+| Add MDI Form | — | Missing | Menu and toolbar entries are disabled (#902). MDI is not COM-dependent; implementable cross-platform as an Avalonia container with floating child sub-windows |
 | Add Module | — | Done | Creates Module1, Module2… with defaults; opens code editor; saves to project dir |
 | Add Class Module | — | Done | Creates Class1, Class2… with defaults; opens code editor; saves to project dir |
 | Add User Control | — | Done | Creates UserControl1, UserControl2… with empty designer surface; opens designer; saves .ctl to project dir. The designer draws it as VB6's does, a borderless surface with no title bar, and names it UserControl in its tab and the object box (#1544). Its Properties window lists only properties VB6's UserControl has (#1585); its own, CanGetFocus, ControlContainer, InvisibleAtRuntime, Public and the rest, are not modelled ([#1631](https://github.com/hexide-io/HexIDE/issues/1631)) |
@@ -297,8 +297,8 @@
 | Remove Form | Done | |
 | Project Properties (context menu) | Done | |
 | Toggle folders | Removed | VB6's button toggled the virtual type folders; both removed with the filesystem-hierarchy rendering (labelled commit, Classic-fork revertible) — [project-explorer](../openspec/specs/project-explorer/spec.md) Phase 1 |
-| Save *{file}* (context menu) | Stub | Menu item present; no Command binding |
-| Save *{file}* As… (context menu) | Stub | Menu item present; no Command binding |
+| Save *{file}* (context menu) | Done | Saves the selected form through the designer's save service; flushes open buffers, without format-on-save (#902). |
+| Save *{file}* As… (context menu) | Done | Saves the selected form at a new path through the same service (#902). |
 | Add Module / Class / UserControl (context menu) | Missing | Only "Add Form" in the Add submenu; Module/Class available via Project menu |
 | Drag-and-drop reorder | Missing | No drag support; drag-move-to-folder sketched in [project-explorer](../openspec/specs/project-explorer/spec.md) Phase 3 |
 | Print (context menu) | Stub | Bound to `DisabledCommand` |
