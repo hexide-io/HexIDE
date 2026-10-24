@@ -268,6 +268,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Light syntax colours meet the editor contrast bar** (#713). Metadata keywords use a darker magenta
+  that clears WCAG AA 4.5:1 on Classic’s white editor. Tests cover every named light colour and include
+  metadata keywords in both dark palettes, refusing missing or non-solid foregrounds.
+
 - **Snapshots leave room for menus above or left of the window** (#648). The window and its popups now share
   the same image origin. `take_snapshot` reports the window offset and explains how to map inspected bounds
   into the full-size or inline image.
