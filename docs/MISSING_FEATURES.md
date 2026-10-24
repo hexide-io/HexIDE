@@ -444,6 +444,9 @@
 
 ## Keyboard Shortcuts
 
+Keymap packs: Done — built-in Default/VB6 plus JSON files discovered at startup in the active user-data
+folder's `keymaps` directory (#414). Select in Options → Keymap; applying rebinds commands immediately.
+
 | Shortcut | Action | Status | Notes |
 |---|---|---|---|
 | Ctrl+N | New Project | Done | |

@@ -10,6 +10,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **User keymap packs** (#414). JSON files in the active user-data directory's `keymaps` folder appear in
+  Options → Keymap on startup and apply without a rebuild. Built-in Default and VB6 remain available.
+
 - **`Declare PtrSafe` parses** (#1548) in the interpreter and language server. VBA7 declarations using existing
   types now let a module load; external API calls remain deferred. `LongPtr`, `LongLong` and their conversions
   are follow-up work.
