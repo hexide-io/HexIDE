@@ -24,6 +24,12 @@ namespace HexIDE.Runtime;
 
 public class VBLoader
 {
+    /// <summary>
+    /// The icon a form with no Icon line runs with, where the host has one: the made program's runner gives its own. Null
+    /// leaves Avalonia's, the executable's icon on Windows (#1594).
+    /// </summary>
+    public static Avalonia.Controls.WindowIcon? DefaultFormIcon { get; set; }
+
     /// <param name="standardLibrary">
     /// The run's library, which shows a CommonDialog's dialogs (#1084). Without one a form holding a CommonDialog is
     /// refused, as a form holding any control HexIDE can't create is.

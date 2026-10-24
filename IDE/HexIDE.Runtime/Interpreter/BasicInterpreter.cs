@@ -1467,6 +1467,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     // ---- namespace qualifiers: Module.Member, VBA.X, VBA.Math.X ----
 
+    // #1637: an Enum wins over its hoisted member of the same name. A real variable
+    // still shadows a qualifier. Ask the environment first so project ambiguity is raised
+    // at the use, before selecting an Enum; no expression is bound ahead of execution.
+    internal bool EnumIsQualifier(string name, ExecutionEnvironment env, ModuleInfo? from)
+    {
+        var hasSlot = env.TryGetVariableLocation(name, out var slot);
+        return (!hasSlot || ExecutionContext.State.IsReadOnly(slot))
+            && TryResolveEnum(name, from, out _);
+    }
+
     public enum QualifierKind { Module, Library, Enum, Project, InBoxContainer }
 
     /// <param name="Name">For <see cref="QualifierKind.InBoxLibrary"/> and
@@ -1611,11 +1621,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 // Three cases, and VB6 distinguishes all three (measured — see the IsMissing section of
                 // docs/vb6-fidelity-oracle.md):
                 //   a default    → that value, and IsMissing is False
-                //   a declared type → that type's zero, and IsMissing is False; there is no Missing to hold
-                //   neither      → Missing, the only case where IsMissing is True
+                //   a non-Variant declared type → that type's zero, and IsMissing is False
+                //   an untyped or As Variant parameter → Missing (#866, native and in the IDE)
                 var value = p.Default != null
                     ? await new ExpressionExecutor(this, callee, owner, new Stack<Vb6Value>()).EvaluateValue(p.Default.valueStmt())
-                    : p.DeclaredType is { } declared ? new Vb6Value(declared)
+                    : p.DeclaredType is { } declared && declared != Vb6Value.ValueType.EmptyVariant ? new Vb6Value(declared)
                     : Vb6Value.Missing;
                 // A default converts into the parameter's type too (measured, #874: `Optional x As String = 5` is "5",
                 // `As Date = "1/2/2003"` that date, `As Boolean = 1` True, and `As Integer = 2.5` 2).
