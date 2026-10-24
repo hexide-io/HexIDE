@@ -272,6 +272,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Untouched modules reload silently after an external file change** (#730). Not-open `.bas` and `.cls`
+  files are compared in their source encoding, including a UTF-8 BOM; UserControls and PropertyPages
+  use the same render comparison as forms, so their designer blocks no longer cause false conflicts.
+
 - **Option lines no longer empty the language server’s procedure tree on a syntax error** (#939). A broken
   first procedure now retains its symbol and the same diagnostics as it does without the Option lines.
 
