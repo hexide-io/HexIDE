@@ -54,6 +54,28 @@ public class ModuleQualifiedStoreTests : BaseVBTestFixture
             : [new Vb6Value(false)]);
     }
 
+    // Inside a With, a module-qualified name with no leading dot behaves as it does outside: measured on SP6, inside
+    // `With col` (a Collection) and `With w` (a class), native and p-code alike (#1006's With comment).
+    [Fact]
+    public async Task Qualified_store_and_read_inside_a_With_block()
+    {
+        await RunModules(
+            "Public G As Integer\nDim col As New Collection\nModule2.Init\nWith col\nModule1.G = 8\nModule2.g(2) = 7\nx = Module2.g(1)\nEnd With\n"
+            + "Debug.Print G\nDebug.Print Module2.Peek(2)\nDebug.Print x\nDebug.Print TypeName(x)\n",
+            ("Module2", ArrayModule));
+        AssertDebugLog([new Vb6Value((short)8), new Vb6Value(7L), new Vb6Value(5L), new Vb6Value("Long")]);
+    }
+
+    [Fact]
+    public async Task Qualified_Set_inside_a_With_block()
+    {
+        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv,
+            "Dim col As New Collection\nWith col\nSet Module2.pq = New C1\nEnd With\nDebug.Print pq Is Nothing\n", "Module1",
+            [("Module2", "Public pq As C1\n")], [("C1", "")]);
+        await vb.Execute();
+        AssertDebugLog([new Vb6Value(false)]);
+    }
+
     [Fact]
     public async Task Qualified_Const_store_is_refused()
     {

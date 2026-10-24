@@ -1638,8 +1638,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private async Task<bool> TryStoreModuleMember(VB6Parser.ICS_S_MembersCallContext target, Vb6Value value,
         bool reference, Antlr4.Runtime.ParserRuleContext context)
     {
-        if (withTargets.Count != 0 // Qualified targets inside With are not measured by these issues.
-            || target.iCS_S_VariableOrProcedureCall() is not { } lead
+        // An enclosing With changes nothing here: only a leading-dot member reads the With object (measured, #1006).
+        if (target.iCS_S_VariableOrProcedureCall() is not { } lead
             || interpreter.ExecutionContext.TryInspectVariable(currentEnv, lead.GetText(), out _)
             || !interpreter.TryResolveQualifier(lead.GetText(), out var qualifier)
             || qualifier.Kind != BasicInterpreter.QualifierKind.Module

@@ -1630,7 +1630,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         {
             // #965: the argument list indexes the module's array, as on an unqualified read. Private foreign
             // reads and non-array calls are unmeasured here and retain their existing behaviour.
-            if (withTargets.Count == 0 && argsCtx != null && v.Value is VBArray
+            if (argsCtx != null && v.Value is VBArray
                 && module.PrePass.PublicVariables.Contains(memberName))
                 v = IndexResult(v, await EvaluateCallArgs(argsCtx), ctx);
             return await ThenTheRest(v);
