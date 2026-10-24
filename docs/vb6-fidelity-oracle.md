@@ -19628,3 +19628,11 @@ raising 13.
 - **Divergences kept:** the locks hold only within the program, not against another process; `Len` on a sequential
   file is not checked; a `Get` of a String in a Binary file reads as many bytes as the String has characters, which is
   the same in code page 1252 and not measured in a double-byte one.
+
+## Unknown library statement calls (#867)
+
+Provenance: hexide-io/HexIDE#867 reports that `VBA.Frobnicate 1` is a compile error in VB6.
+The issue supplies no diagnostic number or exact compiler wording; neither is pinned here. HexIDE translates
+this refusal to an untrappable error when the statement executes. Its unsupported `VBA.CallByName` statement
+likewise stops rather than allowing `On Error Resume Next` to skip the missing effect. That last refusal is
+HexIDE's unsupported-feature policy, not a measurement of CallByName's VB6 result.
