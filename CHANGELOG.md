@@ -255,6 +255,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`Val("1E+400")` raises Overflow (6)** instead of returning infinity, as measured on vb6.exe (#782).
+
 - **An omitted `Optional o As Variant` is Missing** (#866). `IsMissing`, `TypeName` and `VarType` now
   report True, Error and 10, as measured on vb6.exe, so an `IsMissing` defaulting guard runs. Explicit
   Empty and a declared default keep their values.
