@@ -10,6 +10,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Owner PID for launched pipe language servers** (#406). `{pid}` in `arguments` expands to HexIDE's
+  process ID, so a server that watches its owner can exit after a crash or forced IDE shutdown.
+
 - **CI keeps test-host crash logs** (#1309). Failed test jobs upload their `TestResults` directories
   as artifacts named for the job and operating system, retained for seven days.
 
