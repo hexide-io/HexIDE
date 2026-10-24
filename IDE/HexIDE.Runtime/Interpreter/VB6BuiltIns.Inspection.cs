@@ -27,7 +27,7 @@ public partial class VB6BuiltIns
         d["IsObject"]  = (_, a, _) => new Vb6Value(IsObjectValue(a[0]));
 
         // True only for an argument the caller left out, and only where there was nothing to put in its
-        // place — an Optional with a declared type or a default gets that instead and is NOT missing.
+        // place — an Optional Variant without a default, untyped or explicitly As Variant (#866).
         // Measured; see "IsMissing and the shape of an omitted argument" in docs/vb6-fidelity-oracle.md.
         d["IsMissing"] = (_, a, _) => new Vb6Value(a[0].IsMissing);
 

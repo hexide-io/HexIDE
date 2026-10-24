@@ -2177,14 +2177,29 @@ them separately.
 
 **Two guesses the measurements overturned**, both of which would have shipped wrong:
 
-- An `Optional` with a **declared type** is never missing. There is nowhere in an `Integer` to put a
+- An `Optional n As Integer` is never missing. There is nowhere in an `Integer` to put a
   `vbError` Variant, so an omitted `Optional n As Integer` simply gets `0`.
 - An `Optional` with a **default** is never missing either — the default supplies it, so `IsMissing` is
   False and the value is the default.
 
-So `IsMissing` is True in exactly one situation: an `Optional` with neither a declared type nor a default,
-left out by the caller (or left blank in the middle of the list — the last row ties this to #135, where a
-blank argument keeps its position).
+So `IsMissing` is True for an `Optional` Variant, untyped or explicitly `As Variant`, without a default,
+left out by the caller (or left blank in the middle of the list — the blank-argument row ties this to #135,
+where a blank argument keeps its position).
+
+**Correction from [#866](https://github.com/hexide-io/HexIDE/issues/866):** the original account generalised
+from `As Integer` to every declared type. The issue records these probes on vb6.exe, native and in the IDE;
+`F` returns `IsMissing(o) & "|" & TypeName(o) & "|" & VarType(o)`:
+
+| Declaration | Call | Result |
+|---|---|---|
+| `Optional o As Variant` | `F()` | `True\|Error\|10` |
+| `Optional o As Variant` | `F(Empty)` | `False\|Empty\|0` |
+| `Optional o` | `F()` | `True\|Error\|10` |
+| `Optional o As Variant = 5` | `F()` | `False\|Integer\|2` |
+| `Optional o As Integer` | `F()` | `False\|Integer\|2` |
+
+An explicit Variant can hold Missing; its `As Variant` clause does not supply Empty. A default still supplies
+its value instead.
 
 **Measured but not implemented:** using a missing value in a string concatenation raises **Error 13, Type
 mismatch**. Recorded so the next person does not have to re-derive it; HexIDE currently lets such a value
