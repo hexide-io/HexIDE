@@ -16,7 +16,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// <summary>How a modal dialog's note joins a tool's reply, and which calls are told of one (#681).</summary>
 public class OpenDialogNoteTests
 {
-    private const string Note = "'Add Procedure', a modal dialog over 'HexIDE', opened during this call and waits for an answer.";
+    private const string Note = "'Add Procedure', a modal dialog over 'HexIDE', opened during this call and waits for an answer;";
 
     private static string Text(CallToolResult result, int block = 0) => ((TextContentBlock)result.Content[block]).Text;
 

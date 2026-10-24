@@ -42,6 +42,10 @@ public partial class VB6BuiltIns
         ["Day"] = new(["Date"], 1),
         ["Environ"] = new(["Expression"], 1),
         ["EOF"] = new(["FileNumber"], 1),
+        // LOF, Loc and Seek take FileNumber by name; another name is "Named argument not found" (measured, #1645).
+        ["LOF"] = new(["FileNumber"], 1),
+        ["Loc"] = new(["FileNumber"], 1),
+        ["Seek"] = new(["FileNumber"], 1),
         // Error's one parameter is optional: Error with no number is the text of the error Err holds (measured, #1560).
         ["Error"] = new(["ErrorNumber"], 0),
         ["Exp"] = new(["Number"], 1),
@@ -112,8 +116,8 @@ public partial class VB6BuiltIns
     // Measured to take no names at all: a named argument to one is VB6's "Syntax error".
     private static readonly HashSet<string> TakesNoNamedArguments = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Abs", "CBool", "CByte", "CCur", "CDate", "CDbl", "CInt", "CLng", "CSng", "CStr", "CVar", "CVErr", "Fix", "InStr", "Int",
-        "LBound", "Len", "LenB", "Sgn", "StrComp", "UBound",
+        "Abs", "CBool", "CByte", "CCur", "CDate", "CDbl", "CInt", "CLng", "CSng", "CStr", "CVar", "CVErr", "Fix", "InStr", "Input",
+        "InputB", "Int", "LBound", "Len", "LenB", "Sgn", "StrComp", "UBound",
     };
 
     // The intrinsics with no parameters, which VB6 refuses a name in three ways (measured, #1475: `Now(X:=1)`).
@@ -154,6 +158,8 @@ public partial class VB6BuiltIns
             : TakesNoNamedArguments.Contains(name) ? name.ToUpperInvariant() switch
             {
                 "INSTR" => 4,
+                // Input with three is "Syntax error", not this check's message (measured, #1645): Input itself refuses it.
+                "INPUT" or "INPUTB" => int.MaxValue,
                 "STRCOMP" => 3,
                 "LBOUND" or "UBOUND" => 2,
                 _ => 1,
@@ -166,7 +172,9 @@ public partial class VB6BuiltIns
         if (TakesNoNamedArguments.Contains(name))
         {
             required = name.Equals("InStr", StringComparison.OrdinalIgnoreCase)
-                || name.Equals("StrComp", StringComparison.OrdinalIgnoreCase) ? 2 : 1;
+                || name.Equals("StrComp", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("Input", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("InputB", StringComparison.OrdinalIgnoreCase) ? 2 : 1;
             message = "Syntax error";
         }
         else if (NamedParameterTable.TryGetValue(name, out var parameters))
