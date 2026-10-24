@@ -249,6 +249,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A name declared twice is vb6.exe's compile error** (#1622, #1499). A module that declared one name twice ran,
+  keeping one declaration, and so did a procedure, so `Dim n As Long` then `Static n` gave an ordinary Long. At module
+  level it is now "Ambiguous name detected", and in a procedure "Duplicate declaration in current scope", parameters
+  included, as the module loads. A variable beside an Enum or Type of its name, and a Property's Get beside its Let,
+  still compile, as they do in vb6.exe.
+
 - **MCP `get_form_controls` reports absent properties as null** (#1635). A Line or Shape no longer claims to be enabled when its class has no Enabled property. The summary's `visible` and `enabled` now follow `caption` and `text`: null where the control's class has no such property.
 
 - **MCP replies distinguish dialogs sharing a title** (#1365). The modal note names a message box or run-time error dialog, its first line of text and its actual buttons; other dialogs include their buttons. The window parameter explains how to discover open windows through an unknown-name refusal.
