@@ -251,6 +251,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **MCP commands bound through another view model are reachable** (#1336). `inspect_element` lists a menu item’s or button’s resolved `Command` and its binding; `invoke_command` accepts `Command`, checks `CanExecute` with the control’s `CommandParameter`, and runs it. A wrong name explains the binding and how to invoke it, including on the designer’s Delete item.
 
+- **The code editor keeps its caret and view model in agreement** (#1608). An offset past the text now goes to its end,
+  and a negative offset goes to its start; the view model reads back the position the editor took.
+
 - **MCP keys, text and hover skip rows their list has released** (#1327). Addressing a list no longer sends input
   into a recycled row omitted from the control tree or reports the list’s path as confirmation.
 
