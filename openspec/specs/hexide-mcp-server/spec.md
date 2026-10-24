@@ -12,15 +12,6 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 > opens no port. Making it a supported opt-in feature for end users is a decided direction rather than
 > current behaviour, and the requirements below describe what ships today.
 
-> **Known divergence.** The requirements below state intended behaviour. One is only partly met: "A tool that
-> names a document SHALL name its project, and count lines from the top of the file" holds for every tool that
-> takes a document's name, and not yet for those that report or act on a document without taking one. The note a
-> run-control reply gives when a run pauses, the context the locals and watch tools report, the designer tools'
-> undo, redo and format replies, and the tab tools, which take and report a tab's title, still name a form or
-> module without its project, so with two projects each holding a `Form1` none of them can say which one it
-> means. Tracked in [#886](https://github.com/hexide-io/HexIDE/issues/886). The requirement is stated as intended
-> rather than narrowed to the tools that meet it, because the code is incomplete here, not the intent.
-
 ## Requirements
 
 ### Requirement: Server startup failure SHALL preserve forced-exit cleanup order
@@ -289,6 +280,19 @@ then each member whose Attribute lines are changed, added or removed, in the sam
 A caller that has never seen the IDE cannot know which of a document's several names a bare `uri` field holds,
 and a name that is only unique within a project is ambiguous the moment a group is open. A read whose result
 the matching write refuses breaks the most basic loop an automation client runs.
+
+Run-control pause notes SHALL qualify the module with the running project. Locals and watch replies SHALL
+identify the running project in which expressions are evaluated. Active-designer replies SHALL name the
+designer's document, including a UserControl's or PropertyPage's owning module. Tab listings SHALL report
+project and document for source editors and designers. Tab activation and closing SHALL accept a document
+name with an optional project through the document lookup, alongside title addressing for tool tabs. A match
+that names more than one tab SHALL be refused; a caller MAY select code or designer by tab type.
+
+#### Scenario: Choosing between code and designer tabs
+- **WHEN** both tabs for Second/Form1 are open and a caller addresses Form1 in Second without a tab type
+- **THEN** the call refuses the ambiguity and explains how to select code or designer
+- **WHEN** the caller also supplies the designer type
+- **THEN** only Second/Form1's designer is activated or closed, and the reply names Second and Form1
 
 #### Scenario: Setting a breakpoint by name in the wrong case
 - **WHEN** a client sets a breakpoint in `form1` of a project containing `Form1`
