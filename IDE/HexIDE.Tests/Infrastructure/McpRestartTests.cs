@@ -69,6 +69,9 @@ public class McpRestartTests
         [McpServerTool(Name = "flag"), Description("Returns its flag.")]
         public static string Flag(bool on, int count = 0) => $"{on} {count}";
 
+        [McpServerTool(Name = "seq"), Description("Returns its sequence and limit.")]
+        public static string Seq(long after, int limit = 0) => $"{after} {limit}";
+
         [McpServerTool(Name = "refuse"), Description("Throws an ArgumentException of its own.")]
         public static string Refuse(string text) => throw new ArgumentException("the text was not wanted", nameof(text));
 
@@ -329,7 +332,69 @@ public class McpRestartTests
     [Fact]
     public async Task An_argument_the_tool_does_not_take_is_ignored_as_the_SDK_does_when_nothing_else_is_wrong()
     {
-        TextOf(await CallWithAsync("flag", new() { ["on"] = true, ["extra"] = 1 })).Should().Be("True 0");
+        var result = await CallWithAsync("flag", new() { ["on"] = true, ["extra"] = 1 });
+        result.IsError.Should().NotBeTrue();
+        var blocks = result.Content.OfType<TextContentBlock>().ToArray();
+        blocks.Should().HaveCount(2);
+        blocks[0].Text.Should().Be("True 0");
+        blocks[1].Text.Should().Be("ignored 'extra': flag takes no such parameter");
+    }
+
+    [Theory]
+    [InlineData("interactive_only")]
+    [InlineData("interactive-only")]
+    [InlineData("INTERACTIVEONLY")]
+    public void Ignored_argument_suggestions_match_only_parameter_spelling(string spelling)
+    {
+        using var schema = System.Text.Json.JsonDocument.Parse(
+            """{"properties":{"interactiveOnly":{"type":"boolean"}}}""");
+        var (problems, ignored) = ArgumentCheck.Check(new Dictionary<string, System.Text.Json.JsonElement>()
+        {
+            [spelling] = System.Text.Json.JsonSerializer.SerializeToElement(false),
+        }, schema.RootElement, "dump_visual_tree");
+        problems.Should().BeEmpty();
+        ignored.Should().Equal($"ignored '{spelling}': dump_visual_tree takes no such parameter (did you mean 'interactiveOnly'?)");
+    }
+
+    [Fact]
+    public void An_unlocated_binding_failure_keeps_the_serializer_path()
+    {
+        const string message = "Cannot convert. Path: $[1] | LineNumber: 0 | BytePositionInLine: 3.";
+        ToolFailures.BindingProblems(new System.Text.Json.JsonException(message), null, "unknown")
+            .Should().Equal(message);
+    }
+
+    [Fact]
+    public async Task Ignored_arguments_are_named_in_a_JSON_object_reply()
+    {
+        var result = await CallWithAsync("describe", new() { ["text"] = "hello", ["extra"] = 1 });
+        result.IsError.Should().NotBeTrue();
+        using var json = System.Text.Json.JsonDocument.Parse(TextOf(result));
+        json.RootElement.GetProperty("detail").GetString().Should().Be("hello");
+        json.RootElement.GetProperty("ignoredArguments")[0].GetString().Should().Be(
+            "ignored 'extra': describe takes no such parameter");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Overflow_names_the_int_parameter_and_never_the_valid_long(bool numericString)
+    {
+        var result = await CallWithAsync("seq", new()
+        {
+            ["after"] = 5_000_000_000L,
+            ["limit"] = numericString ? (object)"3000000000" : 3_000_000_000L,
+        });
+        result.IsError.Should().BeTrue();
+        TextOf(result).Should().Contain("'limit'").And.NotContain("'after'");
+    }
+
+    [Fact]
+    public async Task Overflow_in_an_array_item_names_its_parameter()
+    {
+        var result = await CallWithAsync("marks", new() { ["name"] = "Form1", ["lines"] = new[] { 3_000_000_000L } });
+        result.IsError.Should().BeTrue();
+        TextOf(result).Should().Contain("'lines'").And.Contain("Path: $[0]");
     }
 
     [Fact]
@@ -338,8 +403,7 @@ public class McpRestartTests
         var result = await CallWithAsync("flag", new() { ["on"] = true, ["count"] = 3_000_000_000L });
 
         result.IsError.Should().BeTrue();
-        TextOf(result).Should().Be("'flag' refused its arguments, and nothing was done: 'count' is 3000000000, outside "
-            + "the range of a 32-bit integer. Its input schema names each parameter and its type.");
+        TextOf(result).Should().Contain("'count'").And.Contain("System.Int32");
     }
 
     [Fact]

@@ -55,14 +55,17 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // ceiling). A name not listed was not run and reads as it always has. CSng was measured with #234: two CSng results
     // whose sum is past a Single's ceiling raise Err 6, where two Variant Singles widen to Double.
     // AscW and ChrW, and Str (" 19" is read as 19 against `Case Is > 10`), were measured with #1134, and CVar with #1466.
+    // Val, CDate and Timer, and Space, DateSerial, Now, Date and Time, were measured with #1646 by what Put writes, which is
+    // the static type itself: a Variant's goes with its type first, a typed value bare (Val("2") is 8 bytes of Double, and
+    // Space(1) is 08 00 01 00 20).
     private static readonly HashSet<string> TypedIntrinsics = new(StringComparer.OrdinalIgnoreCase)
-        { "Sgn", "Asc", "AscW", "CInt", "CLng", "CByte", "CSng", "CStr", "UBound", "LBound", "Replace", "StrReverse" };
+        { "Sgn", "Asc", "AscW", "CInt", "CLng", "CByte", "CSng", "CStr", "UBound", "LBound", "Replace", "StrReverse", "Val", "CDate", "Timer" };
 
     private static readonly HashSet<string> VariantIntrinsics = new(StringComparer.OrdinalIgnoreCase)
     {
         "Hour", "Minute", "Second", "Day", "Month", "Year", "Weekday", "IIf", "Choose", "Switch",
         "Mid", "Left", "Right", "Trim", "LTrim", "LCase", "UCase", "Hex", "Oct", "String", "Format", "Chr", "ChrW",
-        "Str", "CVar",
+        "Str", "CVar", "Space", "DateSerial", "Now", "Date", "Time",
     };
 
     // Typed when given typed arguments, and a Variant's when given a Variant (measured: `Len(v)`, `InStr(v, "5")` and
@@ -352,6 +355,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     // One argument, with what a ByRef parameter needs to alias it. A call-site ByVal keyword (or a non-lvalue like a literal
     // or `(x)`) forces a copy.
+    /// <summary>An operand as a ByRef argument resolves it: its slot, the field or element it names, or just its value (#1646).</summary>
+    internal Task<CallArg> ResolveByRef(VB6Parser.ValueStmtContext valueStmt) => ResolveArg(valueStmt, byVal: false);
+
     private async Task<CallArg> ResolveArg(VB6Parser.ValueStmtContext valueStmt, bool byVal)
     {
         if (!byVal && await TryGetArgElement(valueStmt) is var (elementValue, element))
@@ -372,12 +378,50 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     {
         if (await NamedCallArgs(context) is { } args)
             return await VB6BuiltIns.ArrangeIntrinsicArguments(name, args);
-        var values = await EvaluateCallArgs(context);
         var slots = ArgSlots(context);
+        // Input(n, #f): the second argument may be a file number written with its #, `#f` being f's value (#1645).
+        if (name.Equals("Input", StringComparison.OrdinalIgnoreCase) && slots.Count == 2 && slots[0] is { } count
+            && slots[1]?.valueStmt() is { } file && file.GetText().StartsWith('#'))
+        {
+            var input = new VB6BuiltIns.IntrinsicArgumentValues(2);
+            input.AddArgument(await EvaluateValue(count.valueStmt()), false);
+            input.AddArgument(new Vb6Value(await FileNumber(file)), false);
+            return input;
+        }
+        var values = await EvaluateCallArgs(context);
         var result = new VB6BuiltIns.IntrinsicArgumentValues(values.Count);
         for (var i = 0; i < values.Count; i++)
             result.AddArgument(values[i], slots[i] is null);
         return result;
+    }
+
+    /// <summary>
+    /// A file number. <c>#f</c> is lexed as one token: the number, or the variable, after the <c>#</c>. Without the
+    /// <c>#</c> it is an ordinary expression, as in <c>Close 3</c>, which VB6 takes too (measured).
+    /// </summary>
+    internal async Task<int> FileNumber(VB6Parser.ValueStmtContext valueStmt)
+    {
+        var text = valueStmt.GetText();
+        Vb6Value value;
+        if (text.StartsWith('#'))
+        {
+            var name = text[1..];
+            if (int.TryParse(name, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var literal))
+                return literal;
+            if (!interpreter.TryReadNow(env, name, out var found, out value, out var need))
+                (found, value) = await interpreter.ReadVariableAfter(env, name, need!);
+            if (!found)
+            {
+                // An undeclared name is an Empty Variant, so number 0, where Option Explicit doesn't refuse it.
+                if (currentModule.PrePass.RequireVariableDefinitions)
+                    throw new VBVariableNotDefinedException(name);
+                value = new Vb6Value(0);
+            }
+        }
+        else
+            value = await EvaluateValue(valueStmt);
+        return Convert.ToInt32(VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Long, valueStmt).Value,
+            System.Globalization.CultureInfo.InvariantCulture);
     }
 
     /// <summary>
@@ -647,6 +691,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         }
         if (literal.HEXLITERAL() is { } hexliteral)
             return ClassifyRadixLiteral(hexliteral.GetText(), 16);   // VB6 &H is numeric, not a colour
+        // A file number written #n is the Input function's second argument (EvaluateIntrinsicArgs) and a statement's; as a
+        // value anywhere else it does not compile: LOF(#1), EOF(#1), Loc(#1) and Seek(#1) are "Syntax error" (measured, #1645).
+        if (literal.FILENUMBER() is { })
+            throw new VBCompileErrorException("Syntax error");
         throw new NotImplementedException($"{literal.GetChild(0)} literal is not supported");
     }
 
@@ -985,7 +1033,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// <summary>The library's functions that have a <c>$</c> form, every one measured to compile and answer a String.</summary>
     private static readonly HashSet<string> DollarForms = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Chr", "ChrB", "ChrW", "Command", "CurDir", "Dir", "Environ", "Error", "Format", "Hex", "LCase", "Left", "LeftB", "LTrim", "Mid",
+        "Chr", "ChrB", "ChrW", "Command", "CurDir", "Dir", "Environ", "Error", "Format", "Hex", "Input", "LCase", "Left", "LeftB", "LTrim", "Mid",
         "MidB", "Oct", "Right", "RightB", "RTrim", "Space", "Str", "String", "Trim", "UCase",
     };
 

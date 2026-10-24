@@ -219,8 +219,10 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
 
     private static object? GetDefaultValueFor(ValueType type)
     {
+        // A dynamic array before its ReDim knows its element type, as a Variant holding it shows: Put writes an Integer()
+        // with no bounds as 02 20 00 00 (measured, #1646).
         if (type.IsArray)
-            return new VBArray();
+            return VBArray.Unallocated(type.Type.Match(prim => new ValueType(prim, false), inner => new ValueType(inner, false)));
         return type.Type.Match<object?>(
             _ => throw new NotImplementedException(),
             prim => prim switch
@@ -452,6 +454,9 @@ public class VBArray
     {
         array = [];
     }
+
+    /// <summary>An array of <paramref name="elementType"/> with no bounds yet, as a dynamic array is before its ReDim.</summary>
+    internal static VBArray Unallocated(Vb6Value.ValueType elementType) => new() { elementType = elementType };
 
     public VBArray(Vb6Value.ValueType innerType, IReadOnlyList<(int lowerBound, int upperBound)> bounds)
     {

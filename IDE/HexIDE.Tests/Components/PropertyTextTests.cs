@@ -116,6 +116,21 @@ public class PropertyTextTests
         rows.Select(r => r.Name).Should().Contain(["Alignment", "AutoSize", "WordWrap", "BorderStyle", "UseMnemonic", "Font"]);
     }
 
+    // A position is shown as the caller says the Properties window shows it, with its unit, and stays settable: Core cannot
+    // tell a container's ScaleMode or a form's frame, so get_form_controls passes them (#1636).
+    [Fact]
+    public void A_position_s_row_is_what_the_caller_says_the_window_shows()
+    {
+        var label = new ComponentInstance(LabelComponentClass.Instance, "Label1");
+        label.SetUntypedProperty(VBProperties.LeftProperty, 8d);
+
+        var rows = PropertyText.Rows(label, (property, pixels) =>
+            property == VBProperties.LeftProperty ? (pixels * 15, "twips") : null).ToDictionary(r => r.Name);
+
+        rows["Left"].Should().Be(new PropertyRow("Left", "120", true, "in twips, as the Properties window shows it"));
+        rows["Top"].Note.Should().BeNull("the caller said nothing of Top");
+    }
+
     [Fact]
     public void A_value_is_shown_as_its_row_shows_it()
     {
