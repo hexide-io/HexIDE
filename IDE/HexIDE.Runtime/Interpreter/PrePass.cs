@@ -753,7 +753,10 @@ public class PrePass : VB6BaseVisitor<object?>
             if (asType.fieldLength() != null)
                 throw new NotImplementedException($"Fixed-length field '{fieldName}' inside Type '{name}' is not yet supported");
             if (asType.NEW() != null)
-                throw new NotImplementedException($"Field '{fieldName}' declared As New inside Type '{name}' is not implemented (#1488)");
+            {
+                fields.Add(new UdtField(fieldName, null, null, asType.type().GetText()));
+                continue;
+            }
             if (asType.type().complexType() is { } ct)
                 fields.Add(new UdtField(fieldName, null, ct.GetText()));   // nested UDT or Enum, resolved at NewUdt
             else

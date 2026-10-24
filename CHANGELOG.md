@@ -10,6 +10,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **A Type field declared `As New C1` makes its object on first use** (#1488), as measured in VB6. Declaring the Type and writing another field make nothing; copying it shares the object, which terminates when the procedure exits.
+
 - **Compiler exchange recording and replay tooling** (#1218): versioned JSON-lines captures, explicit run-value
   placeholders, redaction checks and an offline synthetic preparation exchange. Real beta recordings follow in #1689.
 

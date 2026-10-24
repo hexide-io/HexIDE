@@ -517,6 +517,36 @@ public class AsNewTests : BaseVBTestFixture
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_Type_field_makes_its_object_on_use_and_a_copy_shares_it(bool copy)
+    {
+        await RunClasses(Helper + """
+            Private Type T
+                m As New C1
+                n As Long
+            End Type
+            Sub Probe()
+                Dim t As T
+                Debug.Print Made
+                t.n = 1
+                Debug.Print Made
+                t.m.Go
+                Debug.Print t.m Is Nothing
+
+            """ + (copy ? "Dim u As T\nu = t\nDebug.Print u.m Is t.m\n" : "") + """
+            End Sub
+            Probe
+
+            """, ("C1", C1));
+
+        var expected = new List<Vb6Value> { new(0L), new(0L), new("  init 1"), new("  go 1"), new(false) };
+        if (copy) expected.Add(new Vb6Value(true));
+        expected.Add(new Vb6Value("  term 1"));
+        AssertDebugLog(expected);
+    }
+
+    [Theory]
     [InlineData("Dim a(1) As New Collection\na(0).Add 1")]
     [InlineData("Private a(1) As New C1\na(0).Go")]
     [InlineData("Sub S()\n    Dim a(1) As New Collection\nEnd Sub\nS")]

@@ -15132,7 +15132,10 @@ So a ByRef parameter reads the Nothing its caller's variable holds: the `As New`
     After `Erase a`, the next use makes a new one.
   - An object loop variable over an array does not compile: "For Each control variable on arrays must be Variant".
 - **A Type's field `m As New C1`** compiles. `t.m.Go` makes it, and `t.m Is Nothing` is False. `u = t` copies the
-  reference, so `u.m Is t.m` is True and one object terminates.
+  reference, so `u.m Is t.m` is True and one object terminates. The #1488 issue records the same
+  native/p-code probe from #435: `Dim t As T` and `t.n = 1` make nothing; `t.m.Go` initialises C1 before Go,
+  and the shared object terminates on leaving the procedure. `AsNewTests` now covers this with and without
+  the copy. Other field-specific edges were not measured there.
 - **`Static s As New C1`** in a Sub called twice makes one object, which terminates when the program ends.
 - **In a class method, `Static s As New Collection`** is per instance: on one instance it counts 1 then 2, and on a second
   instance 1.
@@ -15181,7 +15184,7 @@ When Sub Main returns, the objects still held terminate: the Static's first, the
 
 **Refused, by issue:**
 - an array `As New` (#1482);
-- a Type's field `As New` (#1488);
+- a Type's field `As New`, until #1488 made it run;
 - `Static`, until #1491 made it run;
 - `ReDim` of an undeclared name (#1495);
 - `As New` of a type HexIDE has no class for, such as a form, by #435's own message.
