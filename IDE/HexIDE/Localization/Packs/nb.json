@@ -336,6 +336,7 @@
     "Str.Designer.Context.AlignToGrid": "Juster etter rutenett",
     "Str.Designer.Context.Properties": "Egenskaper",
     "Str.CodeEditor.FileNotSaved.Banner": "Denne filen blir ikke lagret — HexIDE kan ennå ikke gjengi den nøyaktig, så den ville bli endret om den ble lagret. Koden er en del av filen, så skriving i dette vinduet avvises.",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "ville satt inn et linjeskift i deklarasjonen av {0} eller den avsluttende kommentaren og skilt ut Attribute-linjene. Sett inn nye linjer etter Attribute-linjene. Ingenting ble endret.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Navnet ble ikke endret, fordi det ville endre filens header eller et medlems Attribute-linjer, som IDE-et vedlikeholder.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Linje {0} hører til filens header eller et medlems Attribute-linjer, som aldri kjøres, så det kan ikke settes et bruddpunkt eller et bokmerke der.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Sett inn fil",

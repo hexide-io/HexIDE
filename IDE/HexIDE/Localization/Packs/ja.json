@@ -336,6 +336,7 @@
     "Str.Designer.Context.AlignToGrid": "グリッドに合わせる",
     "Str.Designer.Context.Properties": "プロパティ",
     "Str.CodeEditor.FileNotSaved.Banner": "このファイルは保存されません — HexIDE はまだこのファイルを忠実に再現できないため、保存するとファイルが変化してしまいます。コードもファイルの一部であるため、このウィンドウでの入力は拒否されます。",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "{0} の宣言または末尾のコメント内に改行を挿入すると、Attribute 行が宣言から離れます。新しい行は Attribute 行の後に挿入してください。何も変更されませんでした。",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "名前の変更は行われませんでした。このファイルのヘッダー、またはメンバーの Attribute 行が変更されるためです。これらは IDE が管理しています。",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "{0} 行目は、このファイルのヘッダーまたはメンバーの Attribute 行の一部です。これらの行は実行されないため、ブレークポイントやブックマークは設定できません。",
     "Str.CodeEditor.Dialog.InsertFileTitle": "ファイルの挿入",

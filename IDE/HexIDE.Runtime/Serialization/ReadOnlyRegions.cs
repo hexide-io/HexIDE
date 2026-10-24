@@ -358,6 +358,13 @@ public static class ReadOnlyRegions
     public static IReadOnlyList<DeclaredName> NamesDeclaredOn(string text, int start, int end) =>
         ReadDeclarations(text, start, end, out _);
 
+    /// <summary>The first comment's offset on a declaration, or <paramref name="end"/> when it has none.</summary>
+    public static int CommentStartOn(string text, int start, int end)
+    {
+        TokensOf(text, start, end, out var commentStart);
+        return commentStart;
+    }
+
     /// <summary>The names <paramref name="line"/> declares; see <see cref="NamesDeclaredOn(string, int, int)"/>.</summary>
     public static IReadOnlyList<DeclaredName> NamesDeclaredOn(string line) => NamesDeclaredOn(line, 0, line.Length);
 
@@ -835,7 +842,11 @@ public static class ReadOnlyRegions
     /// <see cref="TokenKind.Colon"/>.
     /// </summary>
     private static List<Token> TokensOf(string text, int start, int end)
+        => TokensOf(text, start, end, out _);
+
+    private static List<Token> TokensOf(string text, int start, int end, out int commentStart)
     {
+        commentStart = end;
         var tokens = new List<Token>();
         var i = start;
         while (i < end)
@@ -854,7 +865,10 @@ public static class ReadOnlyRegions
                 continue;
             }
             if (c == '\'')
+            {
+                commentStart = i;
                 break;
+            }
             if (c == '"')
             {
                 // A string, "" inside it being a quote: a ' or : or , in one is none of those.
@@ -892,7 +906,10 @@ public static class ReadOnlyRegions
                 // accepts, so on such code no verdict turns on it (equivalent under mutation).
                 if ((tokens.Count == 0 || tokens[^1].Kind == TokenKind.Colon)
                     && text.AsSpan(i, j - i).Equals("Rem", StringComparison.OrdinalIgnoreCase))
+                {
+                    commentStart = i;
                     break;
+                }
                 tokens.Add(new Token(TokenKind.Word, i, j - i));
                 i = j;
                 continue;

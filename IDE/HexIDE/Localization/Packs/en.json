@@ -297,6 +297,7 @@
     "Str.Designer.Context.AlignToGrid": "Align to Grid",
     "Str.Designer.Context.Properties": "Properties",
     "Str.CodeEditor.FileNotSaved.Banner": "This file will not be saved — HexIDE cannot yet reproduce it faithfully, so saving it would change it. Its code is part of the file, so typing in this window is refused.",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "would put a line break within the declaration of {0} or its trailing comment, separating its Attribute lines. Insert new lines after the Attribute lines instead. Nothing was changed.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "The rename was not made because it would change this file's header or a member's Attribute lines, which the IDE maintains.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Line {0} is part of this file's header or a member's Attribute lines, which never run, so no breakpoint or bookmark can be set there.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Insert File",

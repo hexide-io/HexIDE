@@ -336,6 +336,7 @@
     "Str.Designer.Context.AlignToGrid": "Căn theo lưới",
     "Str.Designer.Context.Properties": "Thuộc tính",
     "Str.CodeEditor.FileNotSaved.Banner": "Tệp này sẽ không được lưu — HexIDE chưa thể tái tạo nó một cách trung thực, nên việc lưu sẽ làm thay đổi nó. Mã của nó là một phần của tệp, vì vậy việc gõ trong cửa sổ này bị từ chối.",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "sẽ chèn ngắt dòng trong khai báo {0} hoặc chú thích cuối dòng, tách các dòng Attribute của nó. Hãy chèn dòng mới sau các dòng Attribute. Không có gì thay đổi.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Không đổi tên vì thao tác này sẽ thay đổi phần đầu tệp này hoặc các dòng Attribute của một thành viên, vốn do IDE quản lý.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Dòng {0} thuộc phần đầu tệp này hoặc các dòng Attribute của một thành viên, vốn không bao giờ được chạy, nên không thể đặt điểm dừng hay dấu trang tại đó.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Chèn tệp",

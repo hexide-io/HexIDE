@@ -1664,6 +1664,16 @@ public partial class CodeEditorView : UserControl
             Log.Debug("[auto-close] Line {LineNumber}: '{LineText}', caretOffset={Offset}, lineEnd={EndOffset}",
                 currentLineNumber, currentLineText, caretOffset, currentDocLine.EndOffset);
 
+            // A comment's remaining text follows the run, with ordinary mid-line indentation and no closer (#1037).
+            if (run is not null && caretOffset < run.Anchor
+                && ReadOnlyRegions.CommentStartOn(doc.Text, run.DescribedStart, run.Anchor) < run.Anchor
+                && vm?.InsertLineBreakPastRun(caretOffset, 0,
+                    "\n" + VbAutoCloseProvider.GetIndentation(currentLineText)) is { } commentSplit)
+            {
+                caret.Offset = commentSplit.End;
+                return true;
+            }
+
             // If caret is not at end of line content (ignoring trailing whitespace),
             // just do basic auto-indent — don't auto-close mid-line
             var textAfterCaret = doc.GetText(caretOffset, currentDocLine.EndOffset - caretOffset);

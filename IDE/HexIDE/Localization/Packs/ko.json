@@ -336,6 +336,7 @@
     "Str.Designer.Context.AlignToGrid": "눈금에 맞춤",
     "Str.Designer.Context.Properties": "속성",
     "Str.CodeEditor.FileNotSaved.Banner": "이 파일은 저장되지 않습니다 — HexIDE가 아직 이 파일을 충실하게 재현할 수 없어 저장하면 파일이 바뀝니다. 코드도 파일의 일부이므로 이 창에서의 입력은 거부됩니다.",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "{0}의 선언 또는 후행 주석 안에 줄 바꿈을 삽입하면 Attribute 줄이 분리됩니다. 새 줄은 Attribute 줄 뒤에 삽입하세요. 아무것도 변경되지 않았습니다.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "이 파일의 헤더나 멤버의 Attribute 줄이 바뀌게 되므로 이름 바꾸기를 적용하지 않았습니다. 이 부분은 IDE가 관리합니다.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "{0}번째 줄은 이 파일의 헤더나 멤버의 Attribute 줄에 속합니다. 이 줄들은 실행되지 않으므로 중단점이나 책갈피를 설정할 수 없습니다.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "파일 삽입",

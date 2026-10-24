@@ -336,6 +336,7 @@
     "Str.Designer.Context.AlignToGrid": "对齐到网格",
     "Str.Designer.Context.Properties": "属性",
     "Str.CodeEditor.FileNotSaved.Banner": "此文件不会被保存 — HexIDE 目前还无法忠实地重现它，保存会改变它。其代码是文件的一部分，因此在此窗口中的输入会被拒绝。",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "会在 {0} 的声明或其行尾注释中插入换行，将其 Attribute 行分离。请在 Attribute 行之后插入新行。未做任何更改。",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "未执行重命名，因为这会更改此文件的标头或某个成员的 Attribute 行，而这些内容由 IDE 维护。",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "第 {0} 行属于此文件的标头或某个成员的 Attribute 行，这些行永远不会执行，因此无法在此设置断点或书签。",
     "Str.CodeEditor.Dialog.InsertFileTitle": "插入文件",

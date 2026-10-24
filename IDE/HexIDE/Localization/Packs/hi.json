@@ -336,6 +336,7 @@
     "Str.Designer.Context.AlignToGrid": "ग्रिड से संरेखित करें",
     "Str.Designer.Context.Properties": "गुण",
     "Str.CodeEditor.FileNotSaved.Banner": "यह फ़ाइल सहेजी नहीं जाएगी — HexIDE अभी इसे हूबहू पुनः नहीं बना सकता, इसलिए इसे सहेजने पर यह बदल जाएगी। इसका कोड भी फ़ाइल का हिस्सा है, अतः इस विंडो में टाइप करना अस्वीकार किया जाता है।",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "{0} की घोषणा या उसकी अंतिम टिप्पणी में पंक्ति विराम डाल देगा, जिससे उसकी Attribute पंक्तियाँ अलग हो जाएँगी। नई पंक्तियाँ Attribute पंक्तियों के बाद डालें। कुछ भी नहीं बदला गया।",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "नाम नहीं बदला गया, क्योंकि इससे इस फ़ाइल का हेडर या किसी सदस्य की Attribute पंक्तियाँ बदल जातीं, जिन्हें IDE संभालता है।",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "पंक्ति {0} इस फ़ाइल के हेडर या किसी सदस्य की Attribute पंक्तियों का हिस्सा है, जो कभी नहीं चलतीं, इसलिए उस पर ब्रेकपॉइंट या बुकमार्क नहीं लगाया जा सकता।",
     "Str.CodeEditor.Dialog.InsertFileTitle": "फ़ाइल सम्मिलित करें",

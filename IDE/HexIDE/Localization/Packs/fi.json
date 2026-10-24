@@ -336,6 +336,7 @@
     "Str.Designer.Context.AlignToGrid": "Kohdista ruudukkoon",
     "Str.Designer.Context.Properties": "Ominaisuudet",
     "Str.CodeEditor.FileNotSaved.Banner": "Tätä tiedostoa ei tallenneta — HexIDE ei vielä pysty toistamaan sitä uskollisesti, joten tallentaminen muuttaisi sitä. Sen koodi on osa tiedostoa, joten tähän ikkunaan kirjoittaminen estetään.",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "lisäisi rivinvaihdon kohteen {0} esittelyyn tai sen loppukommenttiin ja erottaisi sen Attribute-rivit. Lisää uudet rivit Attribute-rivien jälkeen. Mitään ei muutettu.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Uudelleennimeämistä ei tehty, koska se muuttaisi tämän tiedoston otsaketta tai jäsenen Attribute-rivejä, joita IDE ylläpitää.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Rivi {0} kuuluu tämän tiedoston otsakkeeseen tai jäsenen Attribute-riveihin, joita ei koskaan suoriteta, joten siihen ei voi asettaa keskeytyskohtaa eikä kirjanmerkkiä.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Lisää tiedosto",

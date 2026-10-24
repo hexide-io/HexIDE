@@ -336,6 +336,7 @@
     "Str.Designer.Context.AlignToGrid": "Wyrównaj do siatki",
     "Str.Designer.Context.Properties": "Właściwości",
     "Str.CodeEditor.FileNotSaved.Banner": "Ten plik nie zostanie zapisany — HexIDE nie potrafi go jeszcze wiernie odtworzyć, więc zapisanie go wprowadziłoby w nim zmiany. Jego kod jest częścią pliku, dlatego pisanie w tym oknie jest odrzucane.",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "wstawiłaby podział wiersza w deklaracji {0} lub jej komentarzu końcowym, oddzielając wiersze Attribute. Nowe wiersze wstaw po wierszach Attribute. Nic nie zmieniono.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Nie zmieniono nazwy, ponieważ zmieniłoby to nagłówek tego pliku lub wiersze Attribute jednej ze składowych, którymi zarządza IDE.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Wiersz {0} należy do nagłówka tego pliku lub do wierszy Attribute jednej ze składowych, które nigdy nie są wykonywane, więc nie można w nim ustawić punktu przerwania ani zakładki.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Wstaw plik",

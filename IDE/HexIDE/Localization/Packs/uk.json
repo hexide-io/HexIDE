@@ -336,6 +336,7 @@
     "Str.Designer.Context.AlignToGrid": "Вирівняти за сіткою",
     "Str.Designer.Context.Properties": "Властивості",
     "Str.CodeEditor.FileNotSaved.Banner": "Цей файл не буде збережено — HexIDE поки що не може точно відтворити його, тому збереження змінило б його. Його код є частиною файлу, тож введення в цьому вікні відхиляється.",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "вставила б розрив рядка в оголошення {0} або його кінцевий коментар, відокремивши рядки Attribute. Вставляйте нові рядки після рядків Attribute. Нічого не змінено.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Перейменування не виконано, оскільки воно змінило б заголовок цього файлу або рядки Attribute одного з членів, якими керує IDE.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Рядок {0} належить до заголовка цього файлу або до рядків Attribute одного з членів, які ніколи не виконуються, тому на ньому не можна встановити точку зупину чи закладку.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Вставити файл",

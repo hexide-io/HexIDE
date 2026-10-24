@@ -336,6 +336,7 @@
     "Str.Designer.Context.AlignToGrid": "Выровнять по сетке",
     "Str.Designer.Context.Properties": "Свойства",
     "Str.CodeEditor.FileNotSaved.Banner": "Этот файл не будет сохранён — HexIDE пока не может воспроизвести его в точности, поэтому сохранение изменило бы его. Его код — часть файла, так что ввод в этом окне отклоняется.",
+    "Str.CodeEditor.Msg.LineBreakSeparatesAttributes": "вставила бы перенос строки в объявление {0} или его завершающий комментарий, отделив строки Attribute. Вставляйте новые строки после строк Attribute. Ничего не изменено.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Переименование не выполнено, так как оно изменило бы заголовок этого файла или строки Attribute одного из членов, которыми управляет IDE.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Строка {0} относится к заголовку этого файла или к строкам Attribute одного из членов, которые никогда не выполняются, поэтому на ней нельзя поставить точку останова или закладку.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Вставить файл",

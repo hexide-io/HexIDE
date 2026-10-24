@@ -42,6 +42,7 @@ namespace HexIDE.Integration.Tests.Views;
 public class MemberRunFollowsItsLineTests : IDisposable
 {
     private readonly List<Window> windows = [];
+    private readonly IWindowManager windowManager = Substitute.For<IWindowManager>();
     private readonly List<CodeEditorViewModel> made = [];
 
     public void Dispose()
@@ -76,6 +77,102 @@ public class MemberRunFollowsItsLineTests : IDisposable
         "Attribute Go.VB_Description = \"Goes\"\r\n" +
         "End Sub\r\n";
 
+    [AvaloniaTheory]
+    [InlineData("enter")]
+    [InlineData("shift")]
+    [InlineData("paste")]
+    [InlineData("type")]
+    public async Task ALineBreakBeforeATrailingCommentKeepsTheRunWithItsDeclaration(string writer)
+    {
+        var vm = Open(Procedure.Replace("Public Sub Go()", "Public Sub Go() ' does X"));
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        PutCaret(editor, before.IndexOf("' does X", StringComparison.Ordinal));
+        var inserted = writer is "paste" or "type" ? "A\r\nB" : "\r\n";
+        if (writer == "paste")
+        {
+            await SetClipboard(editor, "A\nB");
+            PressCommand(editor, HexIDE.ApplicationCommands.PasteCommand);
+            await UntilChanged(vm, before);
+        }
+        else if (writer == "type")
+            UiAutomationDriver.TypeText(editor, "A\nB").Success.Should().BeTrue();
+        else
+            Press(editor, Key.Enter, writer == "shift" ? KeyModifiers.Shift : KeyModifiers.None);
+
+        var head = inserted.StartsWith("A", StringComparison.Ordinal) ? "A" : "";
+        var tail = head.Length > 0 ? "B" : "";
+        vm.Document.Text.Should().Be(before.Replace("' does X", head)
+            .Replace("VB_UserMemId = 0\r\n", "VB_UserMemId = 0\r\n" + tail + "' does X\r\n"));
+        editor.CaretOffset.Should().Be(vm.Document.Text.IndexOf("' does X", StringComparison.Ordinal));
+        RunOf(vm, "Go").DescribesMember.Should().BeTrue();
+        RunFold(editor, "Public Sub Go()")!.IsFolded.Should().BeTrue();
+        editor.Undo();
+        Dispatcher.UIThread.RunJobs();
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("    public sub Go() ' does X", "X", "Go", "    ")]
+    [InlineData("Public Sub Go(Optional s As String = \"it's\") ' does X", "' does X", "Go", "")]
+    [InlineData("Public Count As Long ' how many", "' how many", "Count", "")]
+    [InlineData("Public Sub Go( _\r\n    ByVal x As Long) ' does X", "' does X", "Go", "    ")]
+    public void EnterSplitsACommentTailWithoutRecasingOrClosing(string declaration, string tail, string member, string indent)
+    {
+        var attribute = member == "Count" ? "VB_VarDescription" : "VB_Description";
+        var vm = Open($"Option Explicit\r\n{declaration}\r\nAttribute {member}.{attribute} = \"Goes\"\r\n");
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        PutCaret(editor, before.IndexOf(tail, StringComparison.Ordinal));
+
+        Press(editor, Key.Enter);
+
+        vm.Document.Text.Should().Be(before.Replace(tail, "")
+            .Replace("\"Goes\"\r\n", "\"Goes\"\r\n" + indent + tail + "\r\n"));
+        editor.CaretOffset.Should().Be(vm.Document.Text.IndexOf(tail, StringComparison.Ordinal));
+        RunOf(vm, member).DescribesMember.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public async Task InsertFileBeforeATrailingCommentLeavesTheFoldAndCaretBeforeTheMovedTail()
+    {
+        var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"hexide-insert-{Guid.NewGuid():N}.txt");
+        await System.IO.File.WriteAllTextAsync(path, "A\nB", TestContext.Current.CancellationToken);
+        try
+        {
+            windowManager.OpenFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerOpenOptions>())
+                .Returns(Task.FromResult<IReadOnlyList<string>?>([path]));
+            var vm = Open(Procedure.Replace("Public Sub Go()", "Public Sub Go() ' does X"));
+            var editor = Show(vm);
+
+            await vm.InsertFileAsync(vm.Document.Text.IndexOf("' does X", StringComparison.Ordinal), 0);
+            Dispatcher.UIThread.RunJobs();
+
+            vm.Document.Text.Should().Contain("Public Sub Go() A\r\nAttribute")
+                .And.Contain("VB_UserMemId = 0\r\nB' does X\r\n");
+            editor.CaretOffset.Should().Be(vm.Document.Text.IndexOf("' does X", StringComparison.Ordinal));
+            RunFold(editor, "Public Sub Go()")!.IsFolded.Should().BeTrue();
+        }
+        finally
+        {
+            System.IO.File.Delete(path);
+        }
+    }
+
+    [AvaloniaFact]
+    public void AnAddInsLineBreakBeforeATrailingCommentLeavesTheEditorUntouched()
+    {
+        var vm = Open(Procedure.Replace("Public Sub Go()", "Public Sub Go() ' does X"));
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+
+        vm.ApplyEdits([new TextChange(before.IndexOf("' does X", StringComparison.Ordinal), 0, "\n")])
+            .Should().NotBeNull();
+
+        vm.Document.Text.Should().Be(before);
+        RunFold(editor, "Public Sub Go()")!.IsFolded.Should().BeTrue();
+    }
+
     private CodeEditorViewModel Open(string code)
     {
         var eventBus = Substitute.For<IEventBus>();
@@ -90,9 +187,9 @@ public class MemberRunFollowsItsLineTests : IDisposable
         lsp.RequestDocumentSymbolsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<DocumentSymbol>());
 
         var vm = new CodeEditorViewModel(
-            Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
+            windowManager, Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
             eventBus, lsp, settings, Substitute.For<IStatusBarService>(), new BookmarkService(), new BreakpointService(),
-            Substitute.For<IDebugController>(), new RunScope(), Substitute.For<ILocalizationService>());
+            Substitute.For<IDebugController>(), new RunScope(), new LocalizationService());
         made.Add(vm);
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);

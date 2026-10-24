@@ -255,6 +255,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Splitting a described declaration's trailing comment keeps its attributes** (#1037). Enter, Shift+Enter,
+  paste, Insert File and `type_text` move the remaining comment after the attribute run, leaving the caret
+  before it. Add-in range edits that would separate the declaration from its attributes are refused.
+
 - **String function error precedence** (#959): Left, Mid, Replace, Split and InStr check the measured typed value argument before reading a class object, so its error 13 (or Left's 94 for a Null length) wins over the object's 438 or default-member refusal.
 
 - **MCP sets a non-editable dropdown by item text** (#1672). `interact set_value` uses the same case-insensitive selection as `select`, closes the dropdown and reports the selection. A miss names the available items, with a count when the list is capped. `inspect_element` reports `isReadOnly` for value providers, and other read-only values are refused with an explanation rather than a provider exception.
