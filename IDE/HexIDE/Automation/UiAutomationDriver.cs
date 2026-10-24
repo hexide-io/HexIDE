@@ -575,7 +575,8 @@ public static class UiAutomationDriver
                         if (openMenu.IsSubMenuOpen)
                             return Ok($"menu '{LabelOf(control, peer)}' was already open");
                         openMenu.Open();
-                        return Ok($"opened menu '{LabelOf(control, peer)}'");
+                        var opened = PopupVerified(() => openMenu.IsSubMenuOpen, true, "menu", LabelOf(control, peer));
+                        return opened.Success ? Ok($"opened menu '{LabelOf(control, peer)}'") : opened;
                     }
                     // A deterministic route to a context menu. press_key Apps also opens one -- watched
                     // on screen -- but it goes through ContextRequested and lands on whichever control the
@@ -589,11 +590,13 @@ public static class UiAutomationDriver
                     // trap as the transient tooltip, one layer up.
                     if (control.ContextMenu is { } contextMenu)
                     {
-                        if (contextMenu.IsOpen)
+                        if (IsOpenOn(contextMenu, control))
                             return Ok($"the context menu on '{LabelOf(control, peer)}' was already open");
                         Safe(() => control.Focus(), false);
+                        // Avalonia ignores Open on an already-open shared menu, even for a different owner.
+                        if (contextMenu.IsOpen) contextMenu.Close();
                         contextMenu.Open(control);
-                        return PopupVerified(() => contextMenu.IsOpen, true, "context menu", LabelOf(control, peer));
+                        return PopupVerified(() => IsOpenOn(contextMenu, control), true, "context menu", LabelOf(control, peer));
                     }
                     if (FlyoutsOf(control).FirstOrDefault() is { } flyout)
                     {
@@ -622,24 +625,28 @@ public static class UiAutomationDriver
                         // Each reply says what was open, so an already-closed menu is not reported as closed (#949).
                         var closing = LabelOf(control, peer);
                         var wasOpen = closeMenu.IsSubMenuOpen;
-                        if (closeMenu.Parent is Menu)
+                        if (closeMenu.Parent is Menu bar)
                         {
-                            if (!CloseMenuHolding(closeMenu))
+                            if (!MenuIsOpen(bar))
                                 return Ok($"menu '{closing}' was already closed, and the menu bar was not open; there "
                                           + "is nothing to close");
+                            CloseMenuHolding(closeMenu);
+                            var closed = PopupVerified(() => MenuIsOpen(bar), false, "menu", closing);
+                            if (!closed.Success) return closed;
                             return Ok(wasOpen
                                 ? $"closed menu '{closing}' and left the menu bar"
                                 : $"menu '{closing}' was not open, but the menu bar was; left the menu bar");
                         }
+                        if (!wasOpen)
+                            return Ok($"menu '{closing}' was already closed; there is nothing to close");
                         closeMenu.Close();
-                        return Ok(wasOpen
-                            ? $"closed menu '{closing}'"
-                            : $"menu '{closing}' was already closed; there is nothing to close");
+                        var submenuClosed = PopupVerified(() => closeMenu.IsSubMenuOpen, false, "menu", closing);
+                        return submenuClosed.Success ? Ok($"closed menu '{closing}'") : submenuClosed;
                     }
-                    if (control.ContextMenu is { IsOpen: true } openContextMenu)
+                    if (control.ContextMenu is { } openContextMenu && IsOpenOn(openContextMenu, control))
                     {
                         openContextMenu.Close();
-                        return PopupVerified(() => openContextMenu.IsOpen, false, "context menu", LabelOf(control, peer));
+                        return PopupVerified(() => IsOpenOn(openContextMenu, control), false, "context menu", LabelOf(control, peer));
                     }
                     if (FlyoutsOf(control).FirstOrDefault(f => IsOpenOn(f, control)) is { } openFlyout)
                     {
@@ -1332,7 +1339,7 @@ public static class UiAutomationDriver
 
     /// <summary>
     /// Closes the menu a header or an item is in, whole, as Avalonia's menu does after a click; false when it was not
-    /// open.
+    /// open, or when it stayed open.
     /// </summary>
     /// <remarks>
     /// Closing only the header's own submenu, as <c>collapse</c> once did, left the bar open: the header stayed lit and
@@ -1343,7 +1350,7 @@ public static class UiAutomationDriver
     {
         if (menu is null) return false;
         var items = menu.GetRealizedContainers().OfType<MenuItem>().ToList();
-        if (!menu.IsOpen && !items.Any(i => i.IsSubMenuOpen) && menu.FindLogicalAncestorOfType<Popup>() is not { IsOpen: true })
+        if (!MenuIsOpen(menu))
             return false;
         menu.Close();
         foreach (var header in items)
@@ -1351,8 +1358,12 @@ public static class UiAutomationDriver
             if (header.IsSubMenuOpen) header.Close();
             header.SetCurrentValue(SelectingItemsControl.IsSelectedProperty, false);
         }
-        return true;
+        return !MenuIsOpen(menu);
     }
+
+    private static bool MenuIsOpen(MenuBase menu) =>
+        menu.IsOpen || menu.GetRealizedContainers().OfType<MenuItem>().Any(i => i.IsSubMenuOpen)
+                    || menu.FindLogicalAncestorOfType<Popup>() is { IsOpen: true };
 
     /// <summary>Closes the menu a header belongs to, whole: <see cref="CloseMenu"/> on its <see cref="MenuHolding"/>.</summary>
     private static bool CloseMenuHolding(MenuItem header) => CloseMenu(MenuHolding(header));
@@ -3701,7 +3712,7 @@ public static class UiAutomationDriver
     // parameter info of the call being typed into, and reporting only the list left the signature unseen (#942 review).
     private static IReadOnlyList<Popup> AttachedPopupsOf(Control c)
     {
-        if (c.ContextMenu is { IsOpen: true } menu)
+        if (c.ContextMenu is { } menu && IsOpenOn(menu, c))
             return menu.GetLogicalParent() is Popup menuPopup ? [menuPopup] : [];
 
         // The code window's completion list and parameter info are the editor's own popups, held by its view.
@@ -3713,6 +3724,10 @@ public static class UiAutomationDriver
                 return [open.Popup];
         return [];
     }
+
+    // Dock shares one tab ContextMenu across tab bodies. The popup records the current owner.
+    private static bool IsOpenOn(ContextMenu menu, Control control) =>
+        menu.IsOpen && menu.GetLogicalParent() is Popup popup && ReferenceEquals(popup.Parent, control);
 
     // One flyout can serve many controls: the theme's TextBox ContextFlyout is a single shared resource, open on
     // whichever box opened it, so open is asked of this control (#949 review).
