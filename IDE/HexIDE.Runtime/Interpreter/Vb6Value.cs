@@ -324,9 +324,8 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
 
         public override string ToString()
         {
-            if (array)
-                return type + "()";
-            return type.ToString();
+            var name = type.Match(inner => inner.ToString(), primitive => primitive.ToString());
+            return array ? name + "()" : name;
         }
     }
 
