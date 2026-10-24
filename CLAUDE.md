@@ -927,9 +927,10 @@ widening visibility to `public` just for a test. When a new test project needs r
   `MissingMethodException` at test **discovery**: no build error, no restore warning. The package's own
   dependency is an open `>= 3.2.2`, so a routine bump resolves it happily. See the comment in
   `Directory.Packages.props`.
-- **`--filter` is silently ignored. All five projects are on MTP.** Passing VSTest's
-  `--filter "FullyQualifiedName~Foo"` does not error — it runs **every** test in the project, so a run you
-  believe was scoped to one class was actually the whole suite. Measured: 153 tests instead of 27.
+- **`--filter` is ignored with warning MTP0001. All five projects are on MTP.** Passing VSTest's
+  `--filter "FullyQualifiedName~Foo"` warns that VSTestTestCaseFilter is ignored and runs **every** test
+  in the project, so a run you believe was scoped to one class was actually the whole suite. Measured:
+  153 tests instead of 27.
   — Use `-- --filter-class "*Name"`, `-- --filter-method "*Name"`, or `-- --filter-query "/*/*/Class/*"`.
   The `--` matters: everything after it goes to the test executable rather than to `dotnet test`.
   — A filter matching **nothing** fails the run rather than passing vacuously, which is an improvement

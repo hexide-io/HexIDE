@@ -272,6 +272,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Debugger and language documentation corrected** (#478). Standard and class module breakpoints already
+  fire in a form's run; the spec now says so, with a regression test. The `VB_PredeclaredId` rows distinguish
+  an inert header from a missing default class instance, remaining VSTest filters use MTP syntax, and the
+  closed MCP gap no longer calls a form's attribute header invisible in HexIDE.
+
 - **Snapshots leave room for menus above or left of the window** (#648). The window and its popups now share
   the same image origin. `take_snapshot` reports the window offset and explains how to map inspected bounds
   into the full-size or inline image.
