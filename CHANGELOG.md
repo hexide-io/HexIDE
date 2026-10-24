@@ -272,6 +272,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Report unrecognised pipe roles** (#383). A misspelled `pipeRole` on a pipe language server now
+  produces a configuration warning while keeping the existing `connect` fallback.
+
 - **Automation replies identify documents by project** (#886). Paused locations, locals and watches identify
   the running project; designer undo, redo and format replies name their document. Tab and editor listings
   include project and document, and tabs can be activated or closed by document name and project, with a
