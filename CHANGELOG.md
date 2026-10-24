@@ -265,6 +265,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Foreground-window tests close their windows** (#1319). Dialogs close before their owners, so later
+  headless tests no longer inherit these tests' modal dialogs.
+
 - **Repaired three corrupted comment banners in `PropertyTextTests.cs`** (#1312). The tree-hygiene guard now
   rejects C1 control characters in text files, with a planted selftest case to catch encoding accidents.
 
