@@ -1,3 +1,4 @@
+using System;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using HexIDE.Runtime.Components;
@@ -7,6 +8,19 @@ namespace HexIDE.Runtime.BuiltinControls;
 
 internal static class RuntimeExtensions
 {
+    /// <summary>
+    /// An event raised as <see cref="ExecuteSub"/> raises it, behind whatever was raised before it, with
+    /// <paramref name="atItsTurn"/> asked when its turn comes: false runs nothing. Without a handler it is still asked.
+    /// </summary>
+    public static void ExecuteSubIf(this Control control, EventClass eventClass, Func<bool> atItsTurn)
+    {
+        if (VBProps.GetName(control) is { } name && control.FindLogicalAncestorOfType<IModuleExecutionRoot>() is { } executionRoot)
+            executionRoot.ExecuteSubIf($"{name}_{eventClass.Name}", VBProps.GetIndex(control) is { } index ? [new Vb6Value(index)] : null,
+                atItsTurn);
+        else
+            atItsTurn();
+    }
+
     public static void ExecuteSub(this Control control, EventClass eventClass)
     {
         // The LOGICAL tree, not the visual one: a window's content joins the visual tree only once the window is first

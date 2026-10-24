@@ -113,6 +113,12 @@ public abstract class ComponentBaseClass : IComponentClass
 
     protected abstract Control InstantiateInternal(ComponentInstance instance);
 
+    /// <summary>
+    /// The control the designer draws, where VB6's designer draws a control differently from the running one: a Dropdown
+    /// List shows its name in its box (#1604). Otherwise the running control.
+    /// </summary>
+    public virtual Control InstantiateForDesigner(ComponentInstance instance) => Instantiate(instance);
+
     public Control Instantiate(ComponentInstance instance)
     {
         var control = InstantiateInternal(instance);
