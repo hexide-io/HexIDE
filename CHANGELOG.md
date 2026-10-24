@@ -269,6 +269,13 @@ there isn't one yet. Anything may change between 0.x releases.
   the same image origin. `take_snapshot` reports the window offset and explains how to map inspected bounds
   into the full-size or inline image.
 
+- **The pull-diagnostics race test always exercises the race** (#812). The stub holds the fresh answer until
+  the stale publication starts, so a run cannot pass merely because the fresh answer arrived first.
+
+- **Unavailable tests report a skip** (#693). Windows-only path and file-lock checks, empty serialization
+  corpus selections, and the opt-in VB6 build oracle no longer report an unearned pass. The documented
+  oracle commands now use the MTP method filter.
+
 - **The design-record guard recognises renamed requirements** (#1050). It reads the CLI’s `FROM` and `TO`
   list items, so an archived rename retires the old name and requires the new name in the live spec.
 
