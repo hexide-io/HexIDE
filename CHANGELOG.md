@@ -252,6 +252,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Window-state automation waits for the window manager** (#946). `set_window_state` reads back confirmed
+  state and geometry, reports an unconfirmed request with a recovery note, and checks off-screen positions
+  before restoring.
+
 - **Procedure Consts and array bounds reject later local Consts** (#894), with VB6's measured error for
   Option Explicit on or off. Under Option Explicit, a later local Const shadowing a module Const already read by an earlier Const is
   "Duplicate declaration in current scope"; shadowing without that earlier read still works.

@@ -326,3 +326,18 @@ SHALL report none for an IDE started without one.
 #### Scenario: Readiness names the session
 - **WHEN** tooling polls the health check of an IDE started for a session
 - **THEN** the reply names that session beside the process ID
+
+
+### Requirement: Window mutations await platform confirmation
+`set_window_state` SHALL wait at most one second per phase for the requested state and for requested geometry
+notifications, return observed window values, and report an unconfirmed request with `success: false` and a
+note directing the caller to `get_window_state`. Geometry SHALL follow a confirmed restore, and off-screen
+validation SHALL precede any mutation. Omitted coordinates SHALL retain the restored position.
+
+#### Scenario: A window manager applies changes asynchronously
+- **WHEN** the platform confirms a state or geometry change after a dispatcher layout pass
+- **THEN** the reply waits for confirmation within the bound and reports observed values
+
+#### Scenario: No window manager applies the request
+- **WHEN** the requested state remains unconfirmed at the deadline
+- **THEN** the reply reports failure, the observed window, and how to re-read its state
