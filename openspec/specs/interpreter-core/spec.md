@@ -224,3 +224,26 @@ because nothing inside an uncreatable control is read.
   program loads it, under an error handler or not
 - **THEN** it is refused before any of its controls is placed, naming every control it cannot create, nested ones
   included
+
+### Requirement: Assignment targets with type characters
+
+The interpreter SHALL resolve an unqualified scalar assignment target with `$`, `%`, `&`, `!`, `#` or `@`
+by its bare name. It SHALL check the character against the slot's declared type, raising
+"Type-declaration character does not match declared data type" when they disagree, including a Variant.
+Without Option Explicit, a first assignment through a character SHALL create a variable of that type.
+These behaviours are measured in the oracle's 2026-10-11 assignment probes (#739).
+
+#### Scenario: A suffixed assignment reaches a declared variable
+
+- **WHEN** a String variable `s` is assigned through `s$ = "x"`
+- **THEN** a bare read of `s` returns `"x"`, at module level or locally, with or without Option Explicit
+
+#### Scenario: An implicit suffixed target has the character's type
+
+- **WHEN** an undeclared name is first assigned as `k% = 3` without Option Explicit
+- **THEN** a bare read of `k` returns Integer 3
+
+#### Scenario: A declared local Integer counter uses its bare slot
+
+- **WHEN** a local `Dim i As Integer` is followed by `For i% = 1 To 2: Next`
+- **THEN** a bare read of `i` returns Integer 3, with or without Option Explicit

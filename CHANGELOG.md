@@ -255,6 +255,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Assignments through type characters update the declared variable** (#739). All six characters check the
+  declared type and implicitly type an undeclared target. A local Integer `For i%` counter updates `i` too.
+
 - **Interpreter errors no longer print `Right(Control)` and other internal Either wrappers** (#935). Missing-member errors omit the receiver type; other type diagnostics retain the inner name and array suffix.
 
 - **A raised For Each collection under Resume Next uses more declarations** (#969). Parenthesised calls, array

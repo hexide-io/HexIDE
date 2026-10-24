@@ -1116,7 +1116,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitForNextStmt(VB6Parser.ForNextStmtContext context)
     {
-        var variable = context.iCS_S_VariableOrProcedureCall().GetText();
+        var counter = context.iCS_S_VariableOrProcedureCall();
+        var variable = counter.GetText();
+        // Only a declared local Integer counter was measured through a character (#739).
+        if (counter.typeHint()?.PERCENT() != null
+            && currentEnv.TryGetVariableLocation(counter.ambiguousIdentifier().GetText(), out var hintedCounter)
+            && ownedSlots?.Contains(hintedCounter) == true
+            && interpreter.ExecutionContext.State.DeclaredTypeOf(hintedCounter) == Vb6Value.ValueType.Integer)
+            variable = counter.ambiguousIdentifier().GetText();
         RefuseConstantTarget(variable, VariableRequired);
         if (context.typeHint().Length != 0)
             throw new NotImplementedException("TypeHints not implemented");
@@ -2020,7 +2027,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     ? bangItems.ItemAssigned(bangTarget, [new Vb6Value(ExpressionExecutor.BangKey(bang))], VbCollection.ItemAssignment.Member)
                     : new NotImplementedException($"`{varOrProcCall.GetText()} = …` is supported only on a Collection, which refuses it");
             }
-            var identifier = varOrProcCall.GetText() ?? throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Null variable name");
+            var identifier = varOrProcCall.ambiguousIdentifier().GetText();
             // A UDT is a value type: `b = a` stores an independent deep copy so mutating b never touches a.
             if (!interpreter.TryReadNow(currentEnv, identifier, out var letFound, out var oldLet, out var letFoundNeed))
                 (letFound, oldLet) = await interpreter.ReadVariableAfter(currentEnv, identifier, letFoundNeed!);
@@ -2041,9 +2048,19 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // used to raise Err 424 on it. (#171)
                 if (currentModule.PrePass.RequireVariableDefinitions)
                     throw new VBVariableNotDefinedException(identifier);
-                AllocImplicitVariant(identifier);
+                if (varOrProcCall.typeHint() is { } implicitHint)
+                {
+                    var type = BaseTypeMapper.Map(implicitHint);
+                    interpreter.ExecutionContext.AllocVariable(currentEnv, identifier, new Vb6Value(type), type);
+                }
+                else
+                    AllocImplicitVariant(identifier);
                 interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out oldLet);
             }
+            if (varOrProcCall.typeHint() is { } hint
+                && currentEnv.TryGetVariableLocation(identifier, out var hintedSlot)
+                && interpreter.ExecutionContext.State.DeclaredTypeOf(hintedSlot) != BaseTypeMapper.Map(hint))
+                throw new VBCompileErrorException("Type-declaration character does not match declared data type");
             // A Let into a variable declared As Collection assigns its default member, which needs an index: VB6's "Argument
             // not optional" (measured, #1471). Into any other object variable it is the held object's default member, and a
             // Variant simply takes the value (#1493).
