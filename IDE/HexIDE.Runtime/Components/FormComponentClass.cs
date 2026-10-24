@@ -19,7 +19,7 @@ public class FormComponentClass : ComponentBaseClass
     StartUpPositionProperty,
     KeyPreviewProperty,
     MaxButtonProperty,
-    MinButtonProperty], RootEvents)
+    MinButtonProperty], [.. RootEvents, new EventClass("Load"), new EventClass("Resize")])
     {
     }
 

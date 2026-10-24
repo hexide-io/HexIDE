@@ -1058,7 +1058,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         if (formDefinition is null) return;
         foreach (var component in formDefinition.Components)
         {
-            var name = component.GetPropertyOrDefault(VBProperties.NameProperty);
+            var name = ReferenceEquals(component, formDefinition.Components[0]) && RootEventPrefix is { } prefix
+                ? prefix
+                : component.GetPropertyOrDefault(VBProperties.NameProperty);
             if (name is { Length: > 0 })
                 ObjectNames.Add(name);
         }
@@ -1127,9 +1129,18 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         SelectedProcedure = (current is not null && ProcedureNames.IndexOf(current) >= 0) ? current : null;
     }
 
+    private string? RootEventPrefix => formDefinition?.RootVBTypeName switch
+    {
+        "VB.Form" => "Form",
+        "VB.UserControl" => "UserControl",
+        _ => null,
+    };
+
     private ComponentInstance? FindComponent(string name)
     {
         if (formDefinition is null) return null;
+        if (name == RootEventPrefix)
+            return formDefinition.Components[0];
         foreach (var c in formDefinition.Components)
             if (c.GetPropertyOrDefault(VBProperties.NameProperty) == name)
                 return c;
