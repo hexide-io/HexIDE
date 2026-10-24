@@ -265,6 +265,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Localisation test packs stay out of the shipped assembly** (#423). The synthetic `zz` and `zz-ZZ`
+  fixtures now belong to the test project; they were never offered in the language selector.
+
 - **Corpus and grammar reports stay with their test run** (#1018). All four reports are written beside
   the test assembly, so separate checkouts and build output directories no longer overwrite each other's
   reports or contend for a shared temp file.

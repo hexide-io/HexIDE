@@ -1,6 +1,7 @@
 using System.Globalization;
 using Avalonia;
 using Avalonia.Media;
+using Avalonia.Platform;
 using HexIDE.Localization;
 
 namespace HexIDE.Tests;
@@ -9,6 +10,17 @@ public class LocalizationServiceTests
 {
 
     private static LocalizationService CreateSut() => new();
+
+    [AvaloniaTheory]
+    [InlineData("zz")]
+    [InlineData("zz-ZZ")]
+    public void TestPack_IsNotEmbeddedInProduct(string id)
+    {
+        AssetLoader.Exists(new Uri($"avares://HexIDE/Localization/Packs/{id}.json"))
+            .Should().BeFalse();
+        AssetLoader.GetAssets(new Uri("avares://HexIDE/Localization/Packs/"), null)
+            .Should().NotContain(uri => uri.AbsolutePath.EndsWith($"/{id}.json", StringComparison.Ordinal));
+    }
 
     [AvaloniaFact]
     public void Apply_English_GetString_ReturnsEnglishValue()
@@ -157,9 +169,10 @@ public class LocalizationServiceTests
     [AvaloniaFact]
     public void Apply_RegionOverNeutralOverCanonical_ResolvesThreeTier()
     {
-        // zz / zz-ZZ are synthetic test packs (not in the manifest, so invisible in the dropdown):
+        // zz / zz-ZZ are synthetic packs loaded only within this test:
         // neutral zz sets File + Exit; region zz-ZZ overrides only File. Proves region > neutral > canonical.
-        var sut = CreateSut();
+        var sut = LocalizationService.CreateWithPackUris(id => new Uri(
+            $"avares://{(id is "zz" or "zz-ZZ" ? "HexIDE.Tests" : "HexIDE")}/Localization/Packs/{id}.json"));
         sut.Apply("zz-ZZ");
 
         sut.GetString("Str.Menu.File").Should().Be("zzZZ_FILE");                 // region overrides neutral

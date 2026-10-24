@@ -24,6 +24,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <AvaloniaResource Include="Localization\Packs\*.json" />
+    </ItemGroup>
+
+    <ItemGroup>
         <Using Include="AwesomeAssertions" />
         <Using Include="NSubstitute" />
         <Using Include="Xunit" />
