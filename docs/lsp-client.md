@@ -524,12 +524,12 @@ So **a member of the project** is offered only to an entry whose claim establish
 extension that matched already establishes VB6. It is deliberately about *VB6's* unambiguous extensions.
 Stated loosely as "an extension no other language uses", it would admit a Markdown server through `.md`.
 
-**A file the project carries is not a member**, is not known to be VB6, and is routed by its extension alone.
-A carried `.cls` reaches the LaTeX server; a class module of the project does not. The gate closes only that
-half of the collision. A carried `.cls` also reaches every VB6 entry that claims `.cls`, the bundled one
-included, so a LaTeX class the project carries is parsed as VB6 and marked with errors it does not have.
-That half is what #279 reports, and it is still open: telling the two kinds of file apart would take
-something that reads the file, such as its first line, and extensions cannot.
+**A file the project carries is not a member** and normally routes by extension. For a carried `.cls`,
+a VB6 entry (as established above) receives it only when its first non-blank line equals
+`VERSION 1.0 CLASS`, case-insensitively (#279). Other claimants still receive it by extension, or it
+opens without language support if none claim it. The registry records the content check at open/reload;
+edits do not change routing until the next open. Project members and other extensions keep their existing
+routing.
 
 **Membership is stated by whoever opens the document, not worked out by the router.** The code window opens
 members and says so; the carried-file editor opens carried files and says not. The registry remembers the

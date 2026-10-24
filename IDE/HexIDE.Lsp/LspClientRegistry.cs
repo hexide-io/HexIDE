@@ -64,7 +64,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// no client is up is still what the re-open sends. Routed-path-only bookkeeping would re-open the
     /// document with the text from before that change and silently undo it.
     /// </param>
-    private sealed record OpenDocument(bool IsProjectMember, string Text);
+    /// <param name="HasVb6ClassHeader">The content claim at open, retained through edits.</param>
+    private sealed record OpenDocument(bool IsProjectMember, string Text, bool HasVb6ClassHeader);
 
     /// <summary>
     /// Serialises workspace-move handling. Without it two opens can both pass the
@@ -233,7 +234,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         // And recorded before the restart below, not after it, so that a change made while the restart stops
         // the old servers has a record to land in. No connection can hold it then, and the open at the end
         // sends what this records (#719).
-        _open[uri] = new OpenDocument(isProjectMember, text);
+        _open[uri] = new OpenDocument(isProjectMember, text,
+            !isProjectMember && DocumentLanguage.ExtensionOf(uri) == ".cls" && HasVb6ClassHeader(text));
 
         // Before anything starts or is used: a server told about one project must not go on serving
         // another. This document is named so the replay inside can skip it — it is opened below either
@@ -550,6 +552,17 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     // ── Routing ─────────────────────────────────────────────────────────────────────────────────────
 
+    private static bool HasVb6ClassHeader(string text)
+    {
+        using var reader = new StringReader(text);
+        while (reader.ReadLine() is { } line)
+        {
+            if (!string.IsNullOrWhiteSpace(line))
+                return line.Equals("VERSION 1.0 CLASS", StringComparison.OrdinalIgnoreCase);
+        }
+        return false;
+    }
+
     /// <summary>
     /// Every server that claims this document. Keyed on the EXTENSION, not on a language name, so two
     /// servers claiming one extension are both offered it even when they disagree about what to call it.
@@ -568,6 +581,10 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
         return _entries
             .Where(e => e.Registration.Extensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+            // A carried class keeps its opening content claim through edits and server restarts (#279).
+            .Where(e => isProjectMember || extension != ".cls"
+                        || !DocumentLanguage.EstablishesVb6(e.Registration.Extensions, e.Registration.LanguageId)
+                        || uri is not null && _open.TryGetValue(uri, out var record) && record.HasVb6ClassHeader)
             .Where(e => !isProjectMember
                         || DocumentLanguage.EstablishesVb6(e.Registration.Extensions, e.Registration.LanguageId))
             .ToList();

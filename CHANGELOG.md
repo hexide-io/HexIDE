@@ -276,6 +276,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Carried `.cls` files reach VB6 only with a VB6 class header** (#279). The first non-blank line must
+  be `VERSION 1.0 CLASS` (case-insensitive); LaTeX classes keep their other extension claimants without
+  spurious VB6 diagnostics. Routing is recorded on open and retained through edits until reopened.
+
 - **Restart stops the previous run at its time-slice yield** (#761). End followed immediately by a new run can
   no longer let the old walk continue. Faults and `End` events from an old or unrelated interpreter cannot end
   the current run, for either startup forms or Sub Main.
