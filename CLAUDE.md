@@ -376,7 +376,8 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 - `--help` — print usage and exit without starting the IDE; also `-h`, `/?`, `-?`
 - `--server-port <port>` — enable the MCP server on the given port (the launch profiles hard-code 5123, `.mcp.json` defaults to it, and `scripts/dev-ide.ps1` passes `HEXIDE_MCP_PORT`)
 - `--session <name>` — serve tool calls only to the agent session of that name, as named in the client's `X-HexIDE-Session` header; DEBUG-only. `scripts/dev-ide.ps1` passes `HEXIDE_SESSION` (see *Parallel sessions*)
-- `--newproject` — skip the startup dialog and create a default Standard EXE project
+- `--newproject` — skip the startup dialog, create a default Standard EXE project and save it in a unique temporary directory
+- `--newproject-unsaved` — skip the startup dialog and create the same project without writing files; takes precedence over `--newproject`. Use it to verify pathless documents and `untitled:` language-server URIs
 - `--capture-lsp` — arm the protocol capture for every language-server connection **before any is made**, so a conversation is recorded in full from its first handshake. Arming is otherwise session-scoped and the documented rebuild cycle restarts the IDE every iteration, which is what this exists for. **Unlike `--server-port`, this is not DEBUG-only**: the capture ships and the automation server does not
 - `--user-data-dir <path>` — keep this session's settings, layout, recents and `lsp-servers.json` in that directory instead of the user's own. **Use it for any demo or automation run that needs its own configuration**, rather than editing the real one and relying on someone to change it back. Works in Release. A relative path is relative to where HexIDE was started
 - `--developer-mode` — session developer mode; DEBUG-only and inert in a distributed build
