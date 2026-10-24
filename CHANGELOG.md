@@ -259,6 +259,8 @@ there isn't one yet. Anything may change between 0.x releases.
   and Boolean. Strings and Variants keep their text lengths. Numeric literals and arithmetic expressions are refused
   with VB6’s measured “Variable required” compile error when executed.
 
+- **Interpreter errors no longer print `Right(Control)` and other internal Either wrappers** (#935). Missing-member errors omit the receiver type; other type diagnostics retain the inner name and array suffix.
+
 - **A raised For Each collection under Resume Next uses more declarations** (#969). Parenthesised calls, array
   elements, direct class methods and Property Gets, and module-qualified Functions now run the body once and raise
   92 at Next, preserving the element only for a declared array. Unavailable declarations still stop with an explanation.

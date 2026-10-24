@@ -14,6 +14,8 @@
 > [`MISSING_FEATURES.md`](MISSING_FEATURES.md).
 >
 > **Living document.** Update a row the moment its status changes.
+> Diagnostic wording below reflects #935: missing-member messages omit receiver types, and value text
+> prints inner type names without Either wrappers. This wording is HexIDE's, not a VB6 measurement.
 
 ## How to read this
 
@@ -368,17 +370,17 @@ most of the in-box object model.
 | `DataBindings` | **Dies** | Measured for `Dim d As DataBindings`: VBCompileErrorException: "User-defined type not defined: DataBindings" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `DataMembers` | **Dies** | Measured for `Dim d As DataMembers`: VBCompileErrorException: "User-defined type not defined: DataMembers" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `DataObject` | **Dies** | `DataObject` is not a grammar keyword, so it takes the complexType path and throws VBCompileErrorException: "User-defined type not defined: DataObject" — measured for `Dim d As DataObject`… | StatementExecutor.cs |
-| `DataObject.Clear` | **Dies** | Measured: VBRunTimeException: "Unknown method Clear on <Right(EmptyVariant)>()" (StatementExecutor.cs). No DataObject type exists to own it. | StatementExecutor.cs |
-| `DataObject.Files` | **Dies** | Measured: VBMethodOrDataMemberNotFoundException: "Method or data member not found (Files in Right(EmptyVariant))". | Exceptions.cs |
-| `DataObject.GetData` | **Dies** | Measured: VBMethodOrDataMemberNotFoundException: "Method or data member not found (GetData(1) in Right(EmptyVariant))". | Exceptions.cs |
-| `DataObject.GetFormat` | **Dies** | Measured: VBMethodOrDataMemberNotFoundException: "Method or data member not found (GetFormat(1) in Right(EmptyVariant))". | Exceptions.cs |
-| `DataObject.SetData` | **Dies** | Measured: VBRunTimeException: "Unknown method SetData on <Right(EmptyVariant)>()" (StatementExecutor.cs). | StatementExecutor.cs |
+| `DataObject.Clear` | **Dies** | Current diagnostic (#935): VBRunTimeException: "Unknown method Clear on <EmptyVariant>()" (StatementExecutor.cs). No DataObject type exists to own it. | StatementExecutor.cs |
+| `DataObject.Files` | **Dies** | Current diagnostic (#935): VBMethodOrDataMemberNotFoundException: "Method or data member not found (Files)". | Exceptions.cs |
+| `DataObject.GetData` | **Dies** | Current diagnostic (#935): VBMethodOrDataMemberNotFoundException: "Method or data member not found (GetData(1))". | Exceptions.cs |
+| `DataObject.GetFormat` | **Dies** | Current diagnostic (#935): VBMethodOrDataMemberNotFoundException: "Method or data member not found (GetFormat(1))". | Exceptions.cs |
+| `DataObject.SetData` | **Dies** | Current diagnostic (#935): VBRunTimeException: "Unknown method SetData on <EmptyVariant>()" (StatementExecutor.cs). | StatementExecutor.cs |
 | `DataObjectFiles` | **Dies** | Measured for `Dim f As DataObjectFiles`: VBCompileErrorException: "User-defined type not defined: DataObjectFiles" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `Date` | **Dies** | throws `"Date not implemented"` — The grammar has a dedicated rule `dateStmt : DATE WS? EQ WS? valueStmt` (VB6.g4), listed in the block alternatives at VB6.g4 ahead of letStmt so it… | StatementExecutor.cs |
 | `DDB` | **Dies** | Not registered in BuildRegistry (VB6BuiltIns.cs) or any RegisterXxx partial; the call resolves to no local array, no user procedure and no intrinsic, so ExpressionExecutor.cs throws… | VB6BuiltIns.cs |
 | `Err.HelpContext` | **Dies** | TryGetProperty (VbErr.cs) has cases only for number/description/source; the fall-through in ExpressionExecutor then requires a Control and otherwise throws… | ExpressionExecutor.cs |
-| `Err.HelpFile` | **Dies** | Measured: `Debug.Print Err.HelpFile` -> VBMethodOrDataMemberNotFoundException, "Method or data member not found (HelpFile in Right(CSharpProxyObject))". No case in… | VbErr.cs |
-| `Err.LastDllError` | **Dies** | Measured verbatim: "Method or data member not found (LastDllError in Right(CSharpProxyObject))". | VbErr.cs |
+| `Err.HelpFile` | **Dies** | Current diagnostic (#935): `Debug.Print Err.HelpFile` -> VBMethodOrDataMemberNotFoundException, "Method or data member not found (HelpFile)". No case in… | VbErr.cs |
+| `Err.LastDllError` | **Dies** | Current diagnostic (#935): "Method or data member not found (LastDllError)". | VbErr.cs |
 | `ErrObject` | **Dies** | as a complexType, throws at run time. BaseTypeMapper.Map has no ErrObject case and it is not a user class/UDT/Enum, so DeclareLocal falls to the final else. Measured verbatim:… | StatementExecutor.cs |
 | `EventInfo` | **Dies** | Measured for `Dim e As EventInfo`: VBCompileErrorException: "User-defined type not defined: EventInfo" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `EventParameter` | **Dies** | Measured for `Dim e As EventParameter`: VBCompileErrorException: "User-defined type not defined: EventParameter" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
@@ -422,7 +424,7 @@ most of the in-box object model.
 | `On...GoTo` | **Dies** | throws `"OnGoTo not implemented"` — (onGoToStmt, VB6.g4) and throws at run time. Verbatim: Measured: `On i GoTo L1, L2` -> NotImplementedException: OnGoTo not implemented. | StatementExecutor.cs |
 | `ParamArray` | **Dies** | throws `"ParamArray parameters are not yet supported"` — and DECLARES fine - the grammar's `arg` rule carries `(PARAMARRAY WS)?` and PrePass.ParseParams records `ParamArray: arg.PARAMARRAY() != null`. It… | BasicInterpreter.cs |
 | `ParentControls` | **Dies** | Measured for `Dim p As ParentControls`: VBCompileErrorException: "User-defined type not defined: ParentControls" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
-| `ParentControls.ParentControlsType` | **Dies** | Measured on a Variant holder: VBMethodOrDataMemberNotFoundException: "Method or data member not found (ParentControlsType in Right(EmptyVariant))". The owning ParentControls type does not… | Exceptions.cs |
+| `ParentControls.ParentControlsType` | **Dies** | On a Variant holder, current diagnostic (#935): VBMethodOrDataMemberNotFoundException: "Method or data member not found (ParentControlsType)". The owning ParentControls type does not… | Exceptions.cs |
 | `Partition` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. `Partition(n, lo, hi, size)` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (Partition)". Named in… | ExpressionExecutor.cs |
 | `Pmt` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (Pmt)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
 | `PPmt` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (PPmt)". Named in the deferral list at… | VB6BuiltIns.cs |
@@ -435,9 +437,9 @@ most of the in-box object model.
 | `Printer.PrintQuality` | **Dies** | because the Printer object it hangs off is never seeded. MEASURED for "Printer.Orientation = 2": "Run-time error '424': Object required Can't find variable Printer" (StatementExecutor.cs)… | BasicInterpreter.cs |
 | `Printers` | **Dies** | Not implemented. Unresolved bare and member reads are explicitly refused, untrappably, with or without Option Explicit (#871). Declared names still win. | ExpressionExecutor.cs |
 | `PropertyBag` | **Dies** | Measured for `Dim p As PropertyBag`: VBCompileErrorException: "User-defined type not defined: PropertyBag" (StatementExecutor.cs); same message for `Set p = New PropertyBag`… | StatementExecutor.cs |
-| `PropertyBag.Contents` | **Dies** | Measured: VBMethodOrDataMemberNotFoundException: "Method or data member not found (Contents in Right(EmptyVariant))". | Exceptions.cs |
-| `PropertyBag.ReadProperty` | **Dies** | Measured on a Variant holder: VBMethodOrDataMemberNotFoundException: "Method or data member not found (ReadProperty(\"A\", 0) in Right(EmptyVariant))". Measured on a real `PropBag As… | Exceptions.cs |
-| `PropertyBag.WriteProperty` | **Dies** | Measured: VBRunTimeException: "Unknown method WriteProperty on <Right(EmptyVariant)>()" (StatementExecutor.cs). | StatementExecutor.cs |
+| `PropertyBag.Contents` | **Dies** | Current diagnostic (#935): VBMethodOrDataMemberNotFoundException: "Method or data member not found (Contents)". | Exceptions.cs |
+| `PropertyBag.ReadProperty` | **Dies** | On a Variant holder, current diagnostic (#935): VBMethodOrDataMemberNotFoundException: "Method or data member not found (ReadProperty(\"A\", 0))". Measured on a real `PropBag As… | Exceptions.cs |
+| `PropertyBag.WriteProperty` | **Dies** | Current diagnostic (#935): VBRunTimeException: "Unknown method WriteProperty on <EmptyVariant>()" (StatementExecutor.cs). | StatementExecutor.cs |
 | `PropertyBag_VB5` | **Dies** | The name lexes as an ordinary IDENTIFIER (digits and `_` are both in LETTERORDIGIT, VB6.g4). Measured for `Dim p As PropertyBag_VB5` and for `Set p = New PropertyBag_VB5`:… | StatementExecutor.cs |
 | `PSet` | **Dies** | throws `"Only single element supported"` — fails at run time on the coordinate pair, exactly as Circle does. VB6.g4 has no PSET token and no psetStmt rule. `PSet (10, 20), vbRed` parses as a… | ExpressionExecutor.cs |
 | `PV` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (PV)". Named in the deferral list at docs/interpreter-gaps.md. | VB6BuiltIns.cs |
@@ -1044,16 +1046,16 @@ missing.
 | `DataBindings` | **Dies** | Measured for `Dim d As DataBindings`: VBCompileErrorException: "User-defined type not defined: DataBindings" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `DataMembers` | **Dies** | Measured for `Dim d As DataMembers`: VBCompileErrorException: "User-defined type not defined: DataMembers" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `DataObject` | **Dies** | `DataObject` is not a grammar keyword, so it takes the complexType path and throws VBCompileErrorException: "User-defined type not defined: DataObject" — measured for `Dim d As DataObject`… | StatementExecutor.cs |
-| `DataObject.Clear` | **Dies** | Measured: VBRunTimeException: "Unknown method Clear on <Right(EmptyVariant)>()" (StatementExecutor.cs). No DataObject type exists to own it. | StatementExecutor.cs |
-| `DataObject.Files` | **Dies** | Measured: VBMethodOrDataMemberNotFoundException: "Method or data member not found (Files in Right(EmptyVariant))". | Exceptions.cs |
-| `DataObject.GetData` | **Dies** | Measured: VBMethodOrDataMemberNotFoundException: "Method or data member not found (GetData(1) in Right(EmptyVariant))". | Exceptions.cs |
-| `DataObject.GetFormat` | **Dies** | Measured: VBMethodOrDataMemberNotFoundException: "Method or data member not found (GetFormat(1) in Right(EmptyVariant))". | Exceptions.cs |
-| `DataObject.SetData` | **Dies** | Measured: VBRunTimeException: "Unknown method SetData on <Right(EmptyVariant)>()" (StatementExecutor.cs). | StatementExecutor.cs |
+| `DataObject.Clear` | **Dies** | Current diagnostic (#935): VBRunTimeException: "Unknown method Clear on <EmptyVariant>()" (StatementExecutor.cs). No DataObject type exists to own it. | StatementExecutor.cs |
+| `DataObject.Files` | **Dies** | Current diagnostic (#935): VBMethodOrDataMemberNotFoundException: "Method or data member not found (Files)". | Exceptions.cs |
+| `DataObject.GetData` | **Dies** | Current diagnostic (#935): VBMethodOrDataMemberNotFoundException: "Method or data member not found (GetData(1))". | Exceptions.cs |
+| `DataObject.GetFormat` | **Dies** | Current diagnostic (#935): VBMethodOrDataMemberNotFoundException: "Method or data member not found (GetFormat(1))". | Exceptions.cs |
+| `DataObject.SetData` | **Dies** | Current diagnostic (#935): VBRunTimeException: "Unknown method SetData on <EmptyVariant>()" (StatementExecutor.cs). | StatementExecutor.cs |
 | `DataObjectFiles` | **Dies** | Measured for `Dim f As DataObjectFiles`: VBCompileErrorException: "User-defined type not defined: DataObjectFiles" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `Debug.Assert` | Partial | **[#1467](https://github.com/hexide-io/HexIDE/issues/1467):** under the debugger, a condition that does not hold enters break mode at the statement, as `Stop` does, and one that holds goes on. The condition is read as `If` reads it (Null, Empty, 0 and "False" break; "abc" is a trappable 13), and On Error Resume Next does not skip the break. Headless, as a compiled EXE, the statement is skipped and its argument not evaluated. All measured, the IDE with `vb6.exe /runexit`. `get_debug_state` reports the break as `Assertion`. **Partial:** `Call Debug.Assert(x)` is refused, naming the statement form. | StatementExecutor.cs, DebugController.cs |
 | `Err.HelpContext` | **Dies** | TryGetProperty (VbErr.cs) has cases only for number/description/source; the fall-through in ExpressionExecutor then requires a Control and otherwise throws… | ExpressionExecutor.cs |
-| `Err.HelpFile` | **Dies** | Measured: `Debug.Print Err.HelpFile` -> VBMethodOrDataMemberNotFoundException, "Method or data member not found (HelpFile in Right(CSharpProxyObject))". No case in… | VbErr.cs |
-| `Err.LastDllError` | **Dies** | Measured verbatim: "Method or data member not found (LastDllError in Right(CSharpProxyObject))". | VbErr.cs |
+| `Err.HelpFile` | **Dies** | Current diagnostic (#935): `Debug.Print Err.HelpFile` -> VBMethodOrDataMemberNotFoundException, "Method or data member not found (HelpFile)". No case in… | VbErr.cs |
+| `Err.LastDllError` | **Dies** | Current diagnostic (#935): "Method or data member not found (LastDllError)". | VbErr.cs |
 | `EventInfo` | **Dies** | Measured for `Dim e As EventInfo`: VBCompileErrorException: "User-defined type not defined: EventInfo" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `EventParameter` | **Dies** | Measured for `Dim e As EventParameter`: VBCompileErrorException: "User-defined type not defined: EventParameter" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
 | `EventParameters` | **Dies** | Measured for `Dim e As EventParameters`: VBCompileErrorException: "User-defined type not defined: EventParameters" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
@@ -1064,7 +1066,7 @@ missing.
 | `LicenseInfo` | **Dies** | Measured for `Dim l As LicenseInfo`: VBCompileErrorException: "User-defined type not defined: LicenseInfo" (StatementExecutor.cs). The name appears nowhere in the repository. | StatementExecutor.cs |
 | `Licenses` | **Dies** | Measured for `Debug.Print Licenses.Count`: VBVariableNotDefinedException: "Variable not defined (Licenses)" (ExpressionExecutor.cs) — the global object is not seeded; only Debug, Err and… | BasicInterpreter.cs |
 | `ParentControls` | **Dies** | Measured for `Dim p As ParentControls`: VBCompileErrorException: "User-defined type not defined: ParentControls" (StatementExecutor.cs). The name appears nowhere in the runtime. | StatementExecutor.cs |
-| `ParentControls.ParentControlsType` | **Dies** | Measured on a Variant holder: VBMethodOrDataMemberNotFoundException: "Method or data member not found (ParentControlsType in Right(EmptyVariant))". The owning ParentControls type does not… | Exceptions.cs |
+| `ParentControls.ParentControlsType` | **Dies** | On a Variant holder, current diagnostic (#935): VBMethodOrDataMemberNotFoundException: "Method or data member not found (ParentControlsType)". The owning ParentControls type does not… | Exceptions.cs |
 | `Printer` | **Dies** | Not implemented. Unresolved bare and member reads are explicitly refused, untrappably, with or without Option Explicit (#871). Declared names still win. | ExpressionExecutor.cs |
 | `Printer.ColorMode` | **Dies** | because the Printer object it hangs off is never seeded. MEASURED for "Printer.Orientation = 2": "Run-time error '424': Object required Can't find variable Printer" (StatementExecutor.cs)… | BasicInterpreter.cs |
 | `Printer.Duplex` | **Dies** | because the Printer object it hangs off is never seeded. MEASURED for "Printer.Orientation = 2": "Run-time error '424': Object required Can't find variable Printer" (StatementExecutor.cs)… | BasicInterpreter.cs |
@@ -1074,9 +1076,9 @@ missing.
 | `Printer.PrintQuality` | **Dies** | because the Printer object it hangs off is never seeded. MEASURED for "Printer.Orientation = 2": "Run-time error '424': Object required Can't find variable Printer" (StatementExecutor.cs)… | BasicInterpreter.cs |
 | `Printers` | **Dies** | Not implemented. Unresolved bare and member reads are explicitly refused, untrappably, with or without Option Explicit (#871). Declared names still win. | ExpressionExecutor.cs |
 | `PropertyBag` | **Dies** | Measured for `Dim p As PropertyBag`: VBCompileErrorException: "User-defined type not defined: PropertyBag" (StatementExecutor.cs); same message for `Set p = New PropertyBag`… | StatementExecutor.cs |
-| `PropertyBag.Contents` | **Dies** | Measured: VBMethodOrDataMemberNotFoundException: "Method or data member not found (Contents in Right(EmptyVariant))". | Exceptions.cs |
-| `PropertyBag.ReadProperty` | **Dies** | Measured on a Variant holder: VBMethodOrDataMemberNotFoundException: "Method or data member not found (ReadProperty(\"A\", 0) in Right(EmptyVariant))". Measured on a real `PropBag As… | Exceptions.cs |
-| `PropertyBag.WriteProperty` | **Dies** | Measured: VBRunTimeException: "Unknown method WriteProperty on <Right(EmptyVariant)>()" (StatementExecutor.cs). | StatementExecutor.cs |
+| `PropertyBag.Contents` | **Dies** | Current diagnostic (#935): VBMethodOrDataMemberNotFoundException: "Method or data member not found (Contents)". | Exceptions.cs |
+| `PropertyBag.ReadProperty` | **Dies** | On a Variant holder, current diagnostic (#935): VBMethodOrDataMemberNotFoundException: "Method or data member not found (ReadProperty(\"A\", 0))". Measured on a real `PropBag As… | Exceptions.cs |
+| `PropertyBag.WriteProperty` | **Dies** | Current diagnostic (#935): VBRunTimeException: "Unknown method WriteProperty on <EmptyVariant>()" (StatementExecutor.cs). | StatementExecutor.cs |
 | `PropertyBag_VB5` | **Dies** | The name lexes as an ordinary IDENTIFIER (digits and `_` are both in LETTERORDIGIT, VB6.g4). Measured for `Dim p As PropertyBag_VB5` and for `Set p = New PropertyBag_VB5`:… | StatementExecutor.cs |
 | `PSet` | **Dies** | throws `"Only single element supported"` — fails at run time on the coordinate pair, exactly as Circle does. VB6.g4 has no PSET token and no psetStmt rule. `PSet (10, 20), vbRed` parses as a… | ExpressionExecutor.cs |
 | `Scale` | **Dies** | throws `"Only single element supported"` — fails at run time. VB6.g4 has no SCALE token and no scaleStmt rule. `Scale (0, 0)-(100, 100)` parses as a bare procedure call with one argument - a… | ExpressionExecutor.cs |
