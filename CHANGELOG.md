@@ -10,6 +10,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Random and Binary files open, and Get and Put run** (#1646). They were refused at the `Open`, so no program that
+  keeps records or structs in a file got past it. Measured on vb6.exe first, in eight batches: the bytes of every
+  type, String, Variant, array and Type; records and `Len =`; EOF; a second handle and the `Lock` and `Access` clauses;
+  and how, after a read past the end, the next `Put` appends where the file stopped. Line Input, Input # and Input read
+  a Binary file too.
+
 - **LOF, Loc, Seek and the Input function run** (#1645). Each stopped the program, so `Input(LOF(f), f)`, the usual
   way to read a whole file, never ran. All four were measured on vb6.exe first, with the `Seek` statement, line breaks,
   a Ctrl+Z, the code page and Output and Append files, and run as measured. `Input$` is `Input`; `InputB` waits on byte
