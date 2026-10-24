@@ -97,4 +97,19 @@ public class DateFunctionsTests : BaseVBTestFixture
             "Debug.Print (Year(Now) = Year(Date))\n");
         AssertDebugLog(["Date", "Single", true]);
     }
+
+    // Measured with /make, native and p-code alike (#1633): Time is a Date with no date part, the day being 30/12/1899. The
+    // inventory rated Time Dies after it ran. Time$, an 8-character String there, is #742's, as every $ form is.
+    [Fact]
+    public async Task Time_is_a_Date_with_no_date_part()
+    {
+        await Run("""
+            Dim t As Variant
+            t = Time
+            Debug.Print TypeName(Time) & " " & VarType(t) & " " & TypeName(Time())
+            Debug.Print (Int(CDbl(t)) = 0) & " " & (CDbl(t) < 1)
+            Debug.Print Year(t) & " " & Month(t) & " " & Day(t)
+            """);
+        AssertDebugLog(["Date 7 Date", "True True", "1899 12 30"]);
+    }
 }

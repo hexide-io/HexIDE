@@ -43,7 +43,8 @@ public class MissingLanguageDocTests
     [InlineData("\r\n")]
     public void CountsRatingsAndStatusSectionsAgreeWithTheInventory(string lineEnding)
     {
-        var tables = Tables(File.ReadAllText(Path.Combine(RepoTree.Root(), "docs", "MISSING_LANGUAGE.md")).ReplaceLineEndings(lineEnding));
+        var text = File.ReadAllText(Path.Combine(RepoTree.Root(), "docs", "MISSING_LANGUAGE.md")).ReplaceLineEndings(lineEnding);
+        var tables = Tables(text);
         var legend = tables.Single(t => t.Columns[0] == "Status").Rows.Select(r => r[0]).ToArray();
         legend.Should().HaveCount(6, "How to read this defines the six ratings");
         var summary = tables.Single(t => t.Columns[0] == "Category");
@@ -51,7 +52,7 @@ public class MissingLanguageDocTests
         var rated = tables.Where(t => t.Columns.Length > 1 && t.Columns[1] == "Status").ToArray();
         rated.Should().NotBeEmpty("the inventory tables must be parsed");
         var inventory = rated.Where(t => summary.Rows.Any(r => t.Heading.StartsWith(r[0] + " —", StringComparison.Ordinal))
-                                     || t.Heading.StartsWith("Constants that do not resolve", StringComparison.Ordinal)).ToArray();
+                                     || t.Heading.StartsWith("Constants by name", StringComparison.Ordinal)).ToArray();
         inventory.Select(t => t.Heading).Distinct().Should().HaveCount(8, "all inventory categories must be read");
         var errors = new List<string>();
         foreach (var table in rated)
@@ -102,13 +103,50 @@ public class MissingLanguageDocTests
         var total = summary.Rows.Single(r => r[0] == "Total");
         for (var i = 0; i < legend.Length; i++) Check($"At a glance: Total / {legend[i]}", int.Parse(total[i + 1]), totals[i]);
         Check("At a glance: Total / Total", int.Parse(total[^1]), totals.Sum());
+        var intro = Regex.Matches(text.ReplaceLineEndings("\n").Split("\n\n")[1], @"\*\*(\d+) names\*\*");
+        intro.Should().ContainSingle("the opening blockquote declares the inventory size in bold");
+        Check("Intro names (At a glance Total)", int.Parse(intro[0].Groups[1].Value), int.Parse(total[^1]));
+
+        var wrongProse = Regex.Match(text, @"The (\w+) Silently wrong rows below");
+        wrongProse.Success.Should().BeTrue("the prose declares the Silently wrong count");
+        var numberWords = new[] { "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+            "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen" };
+        var wrongCount = wrongProse.Groups[1].Value;
+        Check("Silently wrong prose", int.TryParse(wrongCount, out var numeric) ? numeric : Array.IndexOf(numberWords, wrongCount), totals[0]);
+
+        // These prose summaries repeat category totals and absent counts outside the tables/headings.
+        foreach (var (category, pattern) in new[]
+        {
+            ("Operators", @"\*\*Operators are nearly complete\*\* — (\d+) absent of (\d+)"),
+            ("Statements", @"(\d+)% of VB6's statements \((\d+)\s+of (\d+)"),
+            ("In-box objects", @"(\d+)% of the\s+in-box surface \(.*?; (\d+) of (\d+)\)")
+        })
+        {
+            var prose = Regex.Match(text, pattern);
+            prose.Success.Should().BeTrue($"the damage summary declares {category} counts");
+            var rows = inventory.Where(t => t.Heading.StartsWith(category + " —", StringComparison.Ordinal)).SelectMany(t => t.Rows).ToArray();
+            var absent = rows.Count(r => r[1] is "Dies" or "Won't load");
+            Check($"Damage summary: {category} / absent", int.Parse(prose.Groups[^2].Value), absent);
+            Check($"Damage summary: {category} / Total", int.Parse(prose.Groups[^1].Value), rows.Length);
+            if (prose.Groups.Count == 4)
+                Check($"Damage summary: {category} / percent", int.Parse(prose.Groups[1].Value), (int)Math.Round(100.0 * absent / rows.Length));
+        }
+        var functionGroups = Regex.Matches(text, @"(?m)^\*\*([^*\r\n]+)\*\* \((\d+)\)\r?$");
+        functionGroups.Should().NotBeEmpty("intrinsic function groups declare their sizes in prose");
+        for (var i = 0; i < functionGroups.Count; i++)
+        {
+            var group = functionGroups[i];
+            var end = i + 1 < functionGroups.Count ? functionGroups[i + 1].Index : text.IndexOf("### Keywords and modifiers", group.Index, StringComparison.Ordinal);
+            var rows = Tables(text[group.Index..end]).SelectMany(t => t.Rows).Count();
+            Check($"Intrinsic function group {group.Groups[1].Value}", int.Parse(group.Groups[2].Value), rows);
+        }
         var familyHeading = Regex.Match(families.Heading, @"— (\d+) names in (\d+) families");
         familyHeading.Success.Should().BeTrue("the constants heading declares names and families");
         Check("Intrinsic constants names", int.Parse(familyHeading.Groups[1].Value), families.Rows.Sum(r => int.Parse(r[4])));
         Check("Intrinsic constants families", int.Parse(familyHeading.Groups[2].Value), families.Rows.Count);
         foreach (var family in families.Rows)
             Check($"Constant family {family[0]}", int.Parse(family[4]), family.Skip(1).Take(3).Sum(int.Parse));
-        Check("Absent constants", families.Rows.Sum(r => int.Parse(r[3])), inventory.Where(t => t.Heading.StartsWith("Constants that", StringComparison.Ordinal)).SelectMany(t => t.Rows).Count(r => r[1] == "Dies"));
+        Check("Absent constants", families.Rows.Sum(r => int.Parse(r[3])), inventory.Where(t => t.Heading.StartsWith("Constants by name", StringComparison.Ordinal)).SelectMany(t => t.Rows).Count(r => r[1] == "Dies"));
 
         foreach (var status in legend.Take(3))
         {
