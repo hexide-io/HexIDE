@@ -249,6 +249,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Compiler test sockets are disposed when peer creation fails** (#1333). Loopback test helpers now own
+  resources until creation succeeds, and each socket-using test checks for open handles at teardown so a leak
+  fails where it occurs. Production transport is unchanged.
+
 - **String functions honour the calling module’s `Option Compare`** (#1572). With no compare argument,
   `InStr`, `InStrRev`, `Replace`, `Split`, `Filter` and `StrComp` now use that module’s setting, including
   calls written in classes and forms. An explicit compare still wins. `InStr("ABC", "b")` in a Text module

@@ -46,3 +46,17 @@ The transport SHALL NOT launch a compiler, initialize a session, interpret contr
 #### Scenario: Live socket smoke test
 - **WHEN** a live compiler endpoint accepts a transport connection without session initialization
 - **THEN** evidence records connection success and leaves initialization compatibility unverified
+
+### Requirement: Test peer socket ownership
+The compiler test helpers SHALL dispose their listener and both clients on every path, including failed
+creation. Each socket-using test SHALL check a test-only socket tracker at teardown and fail if any registered
+socket handle remains open. This instrumentation SHALL remain in the test project (#1333).
+
+#### Scenario: Peer creation fails
+- **WHEN** a synthetic peer fails during connection, construction or initialization
+- **THEN** its acquired sockets are disposed
+- **AND** a partially constructed multi-channel harness disposes its completed peers too
+
+#### Scenario: A test leaks a socket
+- **WHEN** a registered socket remains open at test teardown
+- **THEN** that test fails rather than leaving the leak to affect a later test
