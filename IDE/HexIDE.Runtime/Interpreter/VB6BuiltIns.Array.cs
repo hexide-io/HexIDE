@@ -14,9 +14,9 @@ public partial class VB6BuiltIns
         d["LBound"] = (_, a, _) => Bound(a, upper: false);
         d["UBound"] = (_, a, _) => Bound(a, upper: true);
         d["Array"]  = (_, a, _) => MakeArray(Vb6Value.ValueType.EmptyVariant, a);   // 0-based Variant array
-        d["Split"]  = (_, a, _) => Split(a);
+        d["Split"]  = (_, a, text) => Split(a, text);
         d["Join"]   = (_, a, _) => Join(a);
-        d["Filter"] = (_, a, _) => Filter(a);
+        d["Filter"] = (_, a, text) => Filter(a, text);
     }
 
     private static Vb6Value Bound(IReadOnlyList<Vb6Value> a, bool upper)
@@ -67,13 +67,13 @@ public partial class VB6BuiltIns
     }
 
     // Split(expr, [delimiter=" "], [limit=-1], [compare]) -> a 0-based String array.
-    private static Vb6Value Split(IReadOnlyList<Vb6Value> a)
+    private static Vb6Value Split(IReadOnlyList<Vb6Value> a, bool compareText)
     {
         if (a.Count < 1) throw InvalidCall();
         string s = AsStr(a[0]);
         string delim = Supplied(a, 1) ? AsStr(a[1]) : " ";
         int limit = Supplied(a, 2) ? AsInt(a[2]) : -1;
-        var text = Supplied(a, 3) && AsInt(a[3]) == 1;
+        var text = Supplied(a, 3) ? AsInt(a[3]) == 1 : compareText;
 
         var parts = SplitVb(s, delim, limit, text);
         var items = new List<Vb6Value>(parts.Count);
@@ -143,10 +143,10 @@ public partial class VB6BuiltIns
     //   the compare's 5.
     // - The compare is checked only when a comparison is made, which an empty match or an empty element never needs
     //   (see IsTextCompare): `Filter(list, "", True, 2)` is the whole list.
-    private static Vb6Value Filter(IReadOnlyList<Vb6Value> a)
+    private static Vb6Value Filter(IReadOnlyList<Vb6Value> a, bool compareText)
     {
         if (a.Count < 2) throw InvalidCall();
-        long compare = Supplied(a, 3) ? CompareArgument(a[3]) : 0;
+        long compare = Supplied(a, 3) ? CompareArgument(a[3]) : (compareText ? 1 : 0);
         // Each conversion reads an object as it converts it: NarrowNum and CBool through RefuseNonScalar, after the Null
         // check, and ArgumentText through VbDisplay.ToText.
         bool include = !Supplied(a, 2) || CBool(RefuseNull(a[2])).Value is true;

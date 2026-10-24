@@ -62,7 +62,7 @@ internal static class ListMembers
         }
         if (control is VBComboBox combo && member.Equals("Text", StringComparison.OrdinalIgnoreCase))
         {
-            value = new Vb6Value(combo.IsDropdownList ? combo.ListText : combo.Text ?? "");
+            value = new Vb6Value(combo.VBText);
             return true;
         }
         if (control is VBListBox textList && member.Equals("Text", StringComparison.OrdinalIgnoreCase))
