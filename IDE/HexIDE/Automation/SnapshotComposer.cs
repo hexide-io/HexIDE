@@ -44,8 +44,11 @@ public static class SnapshotComposer
     /// Renders <paramref name="window"/> with every open popup drawn in its real position.
     /// Returns null when the window has no area to capture.
     /// </summary>
-    public static RenderTargetBitmap? Capture(Window window)
+    public static RenderTargetBitmap? Capture(Window window) => Capture(window, out _);
+
+    public static RenderTargetBitmap? Capture(Window window, out PixelPoint windowOffset)
     {
+        windowOffset = default;
         var scaling = window.DesktopScaling;
         var windowRect = ScreenRect(window, window.ClientSize, scaling);
         if (windowRect.Width <= 0 || windowRect.Height <= 0)
@@ -54,27 +57,38 @@ public static class SnapshotComposer
         var popups = new List<TopLevel>();
         CollectOpenPopupRoots(window, window, popups);
 
-        // Union first, so a menu hanging off the window's edge widens the canvas rather than being cut.
-        var canvas = windowRect;
         var placements = new List<(Visual Visual, PixelRect Rect)>();
         foreach (var popup in popups)
         {
             var rect = ScreenRect(popup, popup.ClientSize, scaling);
             if (rect.Width <= 0 || rect.Height <= 0) continue;
             placements.Add((popup, rect));
-            canvas = canvas.Union(rect);
         }
+
+        return Compose(window, windowRect, placements, scaling, out windowOffset);
+    }
+
+    // Explicit screen rectangles let headless tests exercise desktop composition without overlay popups.
+    internal static RenderTargetBitmap Compose(Visual window, PixelRect windowRect,
+        List<(Visual Visual, PixelRect Rect)> placements, double scaling, out PixelPoint windowOffset)
+    {
+        var canvas = windowRect;
+        foreach (var (_, rect) in placements)
+            canvas = canvas.Union(rect);
+        windowOffset = new PixelPoint(windowRect.X - canvas.X, windowRect.Y - canvas.Y);
 
         var bitmap = new RenderTargetBitmap(canvas.Size, new Vector(96 * scaling, 96 * scaling));
 
-        // The window goes down through Render, not through the drawing context. That path was already
-        // correct and stays pixel-for-pixel what a snapshot used to be; routing it through DrawImage
-        // instead came out `scaling` times too large on a 150% display, which reads as a rendering fault
-        // and is really a units one — the context works in device-independent pixels while every rect here
-        // is a device pixel.
-        bitmap.Render(window);
-        if (placements.Count == 0)
-            return bitmap;
+        // Keep the direct render when the window is at the canvas origin. Otherwise it needs the
+        // same pixel-source / DIP-destination composition as the popups, leaving room for the overhang.
+        if (windowOffset == default)
+        {
+            bitmap.Render(window);
+            if (placements.Count == 0)
+                return bitmap;
+        }
+        else
+            placements.Insert(0, (window, windowRect));
 
         using (var ctx = bitmap.CreateDrawingContext(false))
         {

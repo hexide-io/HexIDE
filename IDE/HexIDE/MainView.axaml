@@ -8,6 +8,7 @@
              xmlns:controls="clr-namespace:HexIDE.Controls"
              xmlns:input="clr-namespace:Avalonia.Labs.Input"
              xmlns:ide="clr-namespace:HexIDE.IDE;assembly=HexIDE.Core"
+             xmlns:dockSettings="clr-namespace:Dock.Settings;assembly=Dock.Settings"
              xmlns:projects="clr-namespace:HexIDE.Projects"
              mc:Ignorable="d" d:DesignWidth="1080" d:DesignHeight="551"
              x:DataType="vb:MainViewViewModel"
@@ -634,7 +635,7 @@
                         <ToggleButton Width="22" Height="22" Padding="3" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.LockControls}"
                                      AutomationProperties.AutomationId="FormEditor.LockControls"
                                      Command="{x:Static vb:ApplicationCommands.LockControlsCommand}"
-                                     IsChecked="{CompiledBinding FocusedProjectUtil.FocusedForm.LockControls, Mode=OneWay}">
+                                     IsChecked="{CompiledBinding FocusedProjectUtil.FocusedForm?.LockControls, Mode=OneWay, TargetNullValue={x:False}}">
                             <Path Data="{StaticResource Geo.Lockcontrols}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
                         </ToggleButton>
                     </StackPanel>
@@ -684,6 +685,14 @@
 
             <DockControl x:Name="DockControl" Layout="{Binding Layout}">
                 <DockControl.Styles>
+                    <!-- Dock's theme traverses Layout before it is bound at startup. -->
+                    <Style Selector="DockControl" x:DataType="DockControl">
+                        <Setter Property="AutomationProperties.AutomationId" Value="{CompiledBinding $self.Layout?.Id}" />
+                        <Setter Property="AutomationProperties.Name" Value="{CompiledBinding $self.Layout?.Title}" />
+                        <Setter Property="dockSettings:DockProperties.IsDragEnabled" Value="{CompiledBinding $self.Layout?.CanDrag, TargetNullValue={x:True}}" />
+                        <Setter Property="dockSettings:DockProperties.IsDropEnabled" Value="{CompiledBinding $self.Layout?.CanDrop, TargetNullValue={x:True}}" />
+                        <Setter Property="dockSettings:DockProperties.DockGroup" Value="{CompiledBinding $self.Layout?.DockGroup}" />
+                    </Style>
                     <Style Selector="ToolChromeControl /template/ Button#PART_MenuButton">
                         <Setter Property="IsVisible" Value="False" />
                     </Style>

@@ -92,6 +92,9 @@ public partial class VB6BuiltIns
     // what VB6 reads between them. A dot is not among them: under en-GB, "1.2.2003" is not a date at all (measured).
     private static readonly Regex LeadingDayAndMonth = new(@"^(\s*)(\d{1,2})([/\- ]+)(\d{1,2})(?!\d)", RegexOptions.CultureInvariant);
 
+    private static readonly Regex DayMonthWithTime = new(@"^\s*(\d{1,2}\s*[/\-]\s*\d{1,2})\s+(\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AP]M)?)\s*$",
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
     /// <summary>
     /// Text a program reads as a date, in its locale (#777). When the locale's order makes an impossible date, VB6
     /// reads the first two numbers the other way round, and so does this (#793).
@@ -133,6 +136,16 @@ public partial class VB6BuiltIns
                           + text[leading.Length..];
             if (DateTime.TryParse(swapped, culture, DateTimeStyles.NoCurrentDateDefault, out result))
                 return true;
+        }
+        // .NET refuses a yearless numeric date followed by a time (#1445). Read the date alone through
+        // this same reader so its locale order (and impossible-order fallback) stays the untimed one's.
+        var timedPair = DayMonthWithTime.Match(text);
+        if (timedPair.Success && TryReadDate(timedPair.Groups[1].Value, out var day)
+            && day.Year == DateTime.Now.Year
+            && DateTime.TryParse(timedPair.Groups[2].Value, culture, DateTimeStyles.NoCurrentDateDefault, out var time))
+        {
+            result = day.Date.Add(time.TimeOfDay);
+            return true;
         }
         return TryMonthAndYear(text, culture, out result);
     }

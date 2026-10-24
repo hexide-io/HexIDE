@@ -360,7 +360,7 @@ public static class VbDiagnosticsProvider
                 tokenStream.Seek(0);     // belt-and-suspenders (no re-lex — buffer already filled)
                 parser.RemoveParseListeners();                          // drop the SLL guard (its counter is now dirty)
                 parser.AddParseListener(new ParseDepthGuard(MaxParseDepth));
-                parser.ErrorHandler = new DefaultErrorStrategy();
+                parser.ErrorHandler = new StatementErrorStrategy();
                 parser.Interpreter.PredictionMode = PredictionMode.LL;
                 if (errorListener is not null)
                     parser.AddErrorListener(errorListener);
@@ -380,6 +380,22 @@ public static class VbDiagnosticsProvider
         }
     }
 
+    // Keep statement errors from consuming the rest of the module (#938). Sync stays ANTLR's own.
+    private sealed class StatementErrorStrategy : DefaultErrorStrategy
+    {
+        private int lastRecoveryIndex = -1;
+
+        public override void Recover(Parser recognizer, RecognitionException e)
+        {
+            var input = recognizer.TokenStream;
+            if (input.Index == lastRecoveryIndex && input.LA(1) != TokenConstants.EOF)
+                recognizer.Consume();
+            lastRecoveryIndex = input.Index;
+            while (input.LA(1) is not (VisualBasic6Lexer.NEWLINE or VisualBasic6Lexer.COLON or TokenConstants.EOF))
+                recognizer.Consume();
+        }
+    }
+
     /// <summary>
     /// Turns ANTLR's errors into diagnostics, leaving out any that start on a protected line.
     /// </summary>
@@ -393,6 +409,8 @@ public static class VbDiagnosticsProvider
     private sealed class DiagnosticErrorListener(List<LspDiagnostic> diagnostics, VbProtectedRegions? protectedRegions)
         : IAntlrErrorListener<IToken>, IAntlrErrorListener<int>
     {
+        private readonly HashSet<int> reportedTokens = [];
+
         /// <summary>True once an error on a protected line has been left out.</summary>
         public bool LeftOutAny { get; private set; }
 
@@ -404,6 +422,8 @@ public static class VbDiagnosticsProvider
                 LeftOutAny = true;
                 return;
             }
+            if (offendingSymbol is not null && !reportedTokens.Add(offendingSymbol.TokenIndex))
+                return;
             var tokenText = offendingSymbol?.Text;
             var tokenLen = tokenText is { } t && t != "<EOF>" ? t.Length : 1;
             diagnostics.Add(new LspDiagnostic(
@@ -442,11 +462,15 @@ public record LspDiagnostic(LspRange Range, string Message, int Severity);
 public enum LspCompletionItemKind
 {
     Text     = 1,
+    Method   = 2,
     Function = 3,
     Variable = 6,
     Property = 10,
+    Enum     = 13,
     Keyword  = 14,
+    EnumMember = 20,
     Constant = 21,
+    Struct   = 22,
 }
 
 public record LspCompletionItem(

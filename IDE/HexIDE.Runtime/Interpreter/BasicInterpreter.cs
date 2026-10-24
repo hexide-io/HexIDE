@@ -126,6 +126,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// </remarks>
     public bool Ending { get; private set; }
 
+    private bool unimplementedFault;
+
+    // A filter runs before this try's cleanup, even across async boundaries. Never handle the fault here.
+    internal bool MarkUnimplementedFault(Exception fault)
+    {
+        if (fault is NotImplementedException)
+            unimplementedFault = true;
+        return false;
+    }
+
     /// <summary>
     /// Raised when a program reaches <c>End</c>, so whoever owns the run ends it: closes its forms, and stops the walks
     /// of any other interpreter in the run. Static, as <see cref="VBWindowContext.Faulted"/> is, because a run's
@@ -239,8 +249,17 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         var fields = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
         var typedFields = new Dictionary<string, Vb6Value.ValueType>(StringComparer.OrdinalIgnoreCase);
         var variantFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var autoNewFields = new Dictionary<string, AutoNew>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in def.Fields)
         {
+            if (f.AutoNewClass is { } made)
+            {
+                if (!Modules.TryGet(made, out var classModule) || classModule.Kind != InterpreterModuleKind.Class)
+                    throw new NotImplementedException($"Field '{f.Name}' declared As New inside Type '{typeName}' is not implemented (#1488)");
+                fields[f.Name] = Vb6Value.Nothing;
+                autoNewFields[f.Name] = new AutoNew(made, f.Name);
+                continue;
+            }
             // An Enum field is a typed Long, as an Enum variable is (measured, #1005).
             if (f.ScalarType is { } declared && VbNumeric.IsDeclarableScalar(declared))
                 typedFields[f.Name] = declared;
@@ -257,7 +276,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             else
                 fields[f.Name] = Vb6Value.Variant;
         }
-        return new VbUdt(typeName, fields, typedFields, variantFields);
+        return new VbUdt(typeName, fields, typedFields, variantFields, autoNewFields);
     }
 
     /// <summary>
@@ -273,10 +292,24 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     private Vb6Value CopyForStore(Vb6Value v, int depth) => v.Value switch
     {
-        VbUdt udt => Vb6Value.NewUdt(udt.DeepClone()),
+        VbUdt udt => CopyUdt(udt),
         VBArray array => v.WithArray(array.CopyForLet(element => CopyElement(element, depth + 1))),
         _ => v,
     };
+
+    private Vb6Value CopyUdt(VbUdt udt)
+    {
+        var copy = udt.DeepClone();
+        HoldFields(copy);
+        return Vb6Value.NewUdt(copy);
+
+        void HoldFields(VbUdt bag)
+        {
+            foreach (var field in bag.EnumerateFields())
+                if (field.Value.Value is VbUdt nested) HoldFields(nested);
+                else AddRef(field.Value);
+        }
+    }
 
     // Arrays nested in arrays are copied recursively. A store into an element copies too, so no array can come to hold
     // itself; the bound refuses where the alternative would be a stack overflow taking the host down.
@@ -376,6 +409,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             if (o.RefCount <= 0)
                 await FireTerminate(o);
         }
+        else if (v.Value is VbUdt bag)
+        {
+            foreach (var field in bag.EnumerateFields())
+                await ReleaseRef(field.Value);
+        }
         else if (v.Value is VBArray array)
         {
             foreach (var element in array.EnumerateElements())
@@ -394,8 +432,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         // A debugger reset (Stop) unwinds the walk via StopExecutionSignal, which runs this refcount teardown in
         // RunProcedure's finally — but VB6 `End` fires NO Class_Terminate (oracle-verified), so suppress it while
-        // the debugger is aborting, and once the program itself has reached End.
-        if (o.Terminated || Ending || DebugController?.IsAborting == true)
+        // the debugger is aborting, once the program itself has reached End, or while an unimplemented fault unwinds (#767).
+        if (o.Terminated || Ending || unimplementedFault || DebugController?.IsAborting == true)
             return;
         o.Terminated = true;
         // A form's hook is its own Form_Terminate, raised once it has unloaded and is released (#973).
@@ -929,7 +967,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             ? new Vb6Value(NewCollection())
             : Vb6Value.NewObject(await NewObject(need.AutoNew.ClassName));
         AddRef(made);
-        if (ExecutionContext.State[need.Location] is { Value: null })
+        if (need.Field is { } field)
+            field.Write(made);
+        else if (ExecutionContext.State[need.Location] is { Value: null })
             ExecutionContext.State[need.Location] = made;
         else
             await ReleaseRef(made);   // Initialize filled the variable itself
@@ -1287,6 +1327,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     : returned;
             completed = true;
         }
+        catch (Exception ex) when (MarkUnimplementedFault(ex)) { throw; }
         finally
         {
             foreach (var slot in refSlots)
@@ -1437,6 +1478,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     // ---- namespace qualifiers: Module.Member, VBA.X, VBA.Math.X ----
 
+    // #1637: an Enum wins over its hoisted member of the same name. A real variable
+    // still shadows a qualifier. Ask the environment first so project ambiguity is raised
+    // at the use, before selecting an Enum; no expression is bound ahead of execution.
+    internal bool EnumIsQualifier(string name, ExecutionEnvironment env, ModuleInfo? from)
+    {
+        var hasSlot = env.TryGetVariableLocation(name, out var slot);
+        return (!hasSlot || ExecutionContext.State.IsReadOnly(slot))
+            && TryResolveEnum(name, from, out _);
+    }
+
     public enum QualifierKind { Module, Library, Enum, Project, InBoxContainer }
 
     /// <param name="Name">For <see cref="QualifierKind.InBoxLibrary"/> and
@@ -1581,11 +1632,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 // Three cases, and VB6 distinguishes all three (measured — see the IsMissing section of
                 // docs/vb6-fidelity-oracle.md):
                 //   a default    → that value, and IsMissing is False
-                //   a declared type → that type's zero, and IsMissing is False; there is no Missing to hold
-                //   neither      → Missing, the only case where IsMissing is True
+                //   a non-Variant declared type → that type's zero, and IsMissing is False
+                //   an untyped or As Variant parameter → Missing (#866, native and in the IDE)
                 var value = p.Default != null
                     ? await new ExpressionExecutor(this, callee, owner, new Stack<Vb6Value>()).EvaluateValue(p.Default.valueStmt())
-                    : p.DeclaredType is { } declared ? new Vb6Value(declared)
+                    : p.DeclaredType is { } declared && declared != Vb6Value.ValueType.EmptyVariant ? new Vb6Value(declared)
                     : Vb6Value.Missing;
                 // A default converts into the parameter's type too (measured, #874: `Optional x As String = 5` is "5",
                 // `As Date = "1/2/2003"` that date, `As Boolean = 1` True, and `As Integer = 2.5` 2).

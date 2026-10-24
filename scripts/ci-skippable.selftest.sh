@@ -22,7 +22,7 @@ echo "Prose — safe to skip the build:"
 check 'docs/issue-labels.md'                 skip  'a document'
 check 'docs/archive/labels-decided.md'       skip  'a nested document'
 check 'docs/img/diagram.png'                 skip  'a document image'
-check 'CLAUDE.md'                            skip  'root markdown'
+check 'CLAUDE.md'                            build 'McpToolTableDocumentationTests reads it'
 check 'CONTRIBUTING.md'                      skip  'root markdown'
 check '.github/ISSUE_TEMPLATE/bug.yml'       skip  'an issue form'
 check 'screenshots/designer.png'             skip  'a screenshot'

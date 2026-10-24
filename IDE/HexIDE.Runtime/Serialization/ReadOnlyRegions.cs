@@ -675,7 +675,8 @@ public static class ReadOnlyRegions
         while (i < lines.Count)
         {
             var last = i;
-            while (last + 1 < lines.Count && EndsWithContinuation(text, lines[last]))
+            while (last + 1 < lines.Count && EndsWithContinuation(
+                       text.AsSpan(lines[last].Start, lines[last].ContentEnd - lines[last].Start)))
                 last++;
             logical.Add(new LogicalLine(i, last));
             i = last + 1;
@@ -693,9 +694,9 @@ public static class ReadOnlyRegions
     /// deliberately not <c>VbAutoCloseProvider.IsContinuationLine</c>'s looser one, which also takes an identifier
     /// that ends in <c>_</c> for a continuation.
     /// </remarks>
-    private static bool EndsWithContinuation(string text, Line line)
+    public static bool EndsWithContinuation(ReadOnlySpan<char> line)
     {
-        var content = text.AsSpan(line.Start, line.ContentEnd - line.Start).TrimEnd();
+        var content = line.TrimEnd();
         return content.Length > 1 && content[^1] == '_' && char.IsWhiteSpace(content[^2]);
     }
 
