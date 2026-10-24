@@ -265,6 +265,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The tree-hygiene guard accepts Markdown link titles, angle-bracket destinations and percent-escaped
+  filenames** (#438). Existing files linked with these forms no longer produce false dangling-link failures;
+  the guard's selftest covers all three alongside a plain destination.
+
 - **Corpus and grammar reports stay with their test run** (#1018). All four reports are written beside
   the test assembly, so separate checkouts and build output directories no longer overwrite each other's
   reports or contend for a shared temp file.
