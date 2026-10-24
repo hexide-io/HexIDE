@@ -1768,13 +1768,20 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (intoArray && value.Type == Vb6Value.ValueType.Object)
             return value;   // ArrayStore refuses it
 
-        // A Let of an object stores its default member's value, into a Variant as readily as into a Long (measured): a
-        // class instance is refused or 438 (ObjectAsValue). `Nothing` stays 438. VB6 also empties a Variant target of
-        // `v = App` before it raises 438, which this does not do (#878): a typed parameter or return name has no declared
-        // type in its slot, so a Variant cannot be told from one here.
-        value = ObjectAsValue.Scalar(value, context);
-        if (value.Type == Vb6Value.ValueType.Object)
-            throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+        // #1485/#878: only the measured direct temporary / App forms clear a Variant on a failed
+        // default-value read. Keep the original exception, including its number and message.
+        try
+        {
+            value = ObjectAsValue.Scalar(value, context);
+            if (value.Type == Vb6Value.ValueType.Object)
+                throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+        }
+        catch (VBRunTimeException e) when (e.Error.ErrNo is 438 or 450 // the measured errors; 91 is not measured
+                                          && IsMeasuredTemporaryOrApp(context.valueStmt(), value))
+        {
+            await EmptyMeasuredLetTarget(context);
+            throw;
+        }
 
         // A control on the right of a Let stands for its default member in VB6: `s = Text1` reads Text1.Text,
         // `v = Command1` reads its Value, `n = Check1` its Value (all measured). HexIDE has no default members for
@@ -1788,6 +1795,68 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 $"`{context.implicitCallStmt_InStmt().GetText()} = {context.valueStmt().GetText()}` reads a default "
                 + "member, which is not implemented (#790). Name the property, or use Set to keep the reference.");
         return value;
+    }
+
+    private bool IsMeasuredTemporaryOrApp(VB6Parser.ValueStmtContext rhs, Vb6Value value)
+    {
+        if (rhs is VB6Parser.VsICSContext ics)
+        {
+            var call = ics.implicitCallStmt_InStmt();
+            if (call.iCS_S_VariableOrProcedureCall() is { } bare && bare.dictionaryCallStmt() is null
+                && bare.GetText().Equals("App", StringComparison.OrdinalIgnoreCase) && value.Value is VbApp)
+                return true;
+            // Exclude member/property reads, Collection items, Me and With reads even if their result
+            // happens to be held in the frame. A direct call must have no variable slot of its own.
+            var name = call.iCS_S_ProcedureOrArrayCall()?.ambiguousIdentifier()?.GetText()
+                ?? call.iCS_S_VariableOrProcedureCall()?.ambiguousIdentifier()?.GetText();
+            if (name is null || name.Equals("Me", StringComparison.OrdinalIgnoreCase)
+                || call.iCS_S_ProcedureOrArrayCall()?.dictionaryCallStmt() is not null
+                || call.iCS_S_VariableOrProcedureCall()?.dictionaryCallStmt() is not null
+                || currentEnv.TryGetVariableLocation(name, out _)
+                || call.iCS_S_MembersCall() is not null)
+                return false;
+        }
+        else if (rhs is not VB6Parser.VsNewContext)
+            return false;
+
+        if (stmtFrames.Count > 0)
+            foreach (var temp in stmtFrames.Peek())
+                if (value.Value is not null && ReferenceEquals(temp.Value, value.Value))
+                    return true;
+        return false;
+    }
+
+    private async Task EmptyMeasuredLetTarget(VB6Parser.LetStmtContext context)
+    {
+        var target = context.implicitCallStmt_InStmt();
+        if (target.iCS_S_VariableOrProcedureCall() is { } bare && bare.dictionaryCallStmt() is null)
+        {
+            var name = bare.GetText();
+            if (currentEnv.TryGetVariableLocation(name, out var slot)
+                && !currentEnv.Parameters.Contains(name)
+                && (declaredLocals.Contains(name) || currentModule.Kind == InterpreterModuleKind.Standard)
+                && interpreter.ExecutionContext.State.IsVariant(slot)
+                && interpreter.ExecutionContext.TryGetVariable(currentEnv, name, out var old))
+            {
+                interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, Vb6Value.Variant);
+                await interpreter.ReleaseRef(old);
+            }
+        }
+        else if (target.iCS_S_ProcedureOrArrayCall() is { } indexed
+                 && indexed.dictionaryCallStmt() is null && indexed.argsCall().Length == 1
+                 && !currentEnv.Parameters.Contains(indexed.ambiguousIdentifier().GetText())
+                 && (declaredLocals.Contains(indexed.ambiguousIdentifier().GetText())
+                     || currentModule.Kind == InterpreterModuleKind.Standard)
+                 && interpreter.ExecutionContext.TryGetVariable(currentEnv, indexed.ambiguousIdentifier().GetText(), out var array)
+                 && array.Value is VBArray elements
+                 && (elements.ElementType is null || elements.ElementType == Vb6Value.ValueType.EmptyVariant))
+        {
+            var indexes = Subscripts(await expressionExecutor.EvaluateCallArgs(indexed.argsCall(0)));
+            var old = elements.GetValue(indexes);
+            elements.SetValue(indexes, Vb6Value.Variant);
+            await interpreter.ReleaseRef(old);
+        }
+        // ByRef parameters, class/UDT fields and other destinations remain unmeasured (#1485).
     }
 
     // Resolve only the measured standard-module targets (#1006, #965), at the statement's point of use.
@@ -3560,6 +3629,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// </summary>
     internal async Task HoistDeclaredLocals(ProcedureInfo proc)
     {
+        foreach (var constant in proc.DeclaredConsts)
+            ModuleLevelBounds.CheckProcedure(currentModule, proc, constant.valueStmt(), constant.Start.TokenIndex, inConst: true);
+        foreach (var local in proc.DeclaredLocals)
+            if (local.subscripts() is { } bounds)
+                ModuleLevelBounds.CheckProcedure(currentModule, proc, bounds, local.Start.TokenIndex, inConst: false);
         // Consts first, in declaration order, because a Dim's bounds may name one (measured: `Const P = 2.5` then
         // `Dim a(P)` is a(0 To 2)).
         foreach (var constSub in proc.DeclaredConsts)
