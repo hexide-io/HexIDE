@@ -272,6 +272,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Make with VB6 maps errors around continued attributes to the right line** (#968). Attribute continuations
+  are hidden with their logical line; an `Attribute` line continuing code or a comment is counted.
+
 - **WithEvents applies to each variable in a comma list** (#1021). Both parsers accept it after a comma, and
   only variables marked WithEvents bind event handlers, as measured on vb6.exe.
 
