@@ -255,6 +255,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The reset prompt holds the IDE and running forms together** (#1366). Other desktop windows are disabled while
+  it waits, then regain their previous enabled state, including when the IDE is minimized.
+
 - **Arithmetic uses VB6's per-operator result tables** (#230). Long with Single computes as Double;
   Currency multiplied by Single or Double gives Double, while addition and subtraction convert to Currency
   first. Decimal division stays Decimal, and Byte integer division and Mod stay Byte.

@@ -41,14 +41,12 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **Which windows the prompt holds (measured, #1329):**
   - **VB6:** the running form owns it, and every top-level window of the process is disabled while it waits: the IDE
     and the program together. The program is paused in break mode anyway, and run mode offers no prompt.
-  - **HexIDE:** the code window's own window owns it (#1298), and only that window is disabled. With the code window
-    docked, that is the IDE's main window, while the running form keeps running and taking clicks. With the IDE
-    minimized, the fallback owner is the running form, and the IDE stays enabled. Linux, docked, agrees: the prompt is
-    over the IDE's main window and the running form takes clicks. Minimized was not reachable there under Xvfb with
-    no window manager, and macOS is unchecked.
-  - **The difference:** HexIDE can't hold the whole IDE and program together while it asks in run mode. A modal over
-    one window is all Avalonia offers, and the program isn't paused. Floating a code window, which would split the
-    IDE's windows further, currently hides it instead (#1361).
+  - **HexIDE (#1366):** the code window's own window owns it when visible and not minimized (#1298), with the
+    running form as the fallback. `WindowManager` now disables all desktop windows for the prompt's lifetime and
+    restores their enabled states afterwards. Headless tests cover both owners and Yes/No; native enabled-state
+    verification on the running IDE remains required.
+  - **Remaining differences:** ownership still differs from VB6, and the program isn't paused for the prompt in
+    run mode, so Timers keep firing. Floating a code window currently hides it instead (#1361).
 - **HexIDE:** the interpreter can apply *no* edit live, so **every** edit while running/paused pops that same
   prompt (Yes = reset + keep the edit; No = revert). So HexIDE over-prompts relative to VB6 (it resets even for a
   comment).

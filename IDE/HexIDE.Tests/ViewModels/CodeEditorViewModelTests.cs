@@ -56,7 +56,7 @@ public class CodeEditorViewModelTests : IDisposable
     [AvaloniaFact]
     public async Task ConfirmResetWhileRunningAsync_Yes_RequestsProjectEnd()
     {
-        _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>())
+        _windowManager.TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>())
             .Returns(MessageBoxResult.Yes);
 
         var reset = await CreateSut().ConfirmResetWhileRunningAsync();
@@ -68,7 +68,7 @@ public class CodeEditorViewModelTests : IDisposable
     [AvaloniaFact]
     public async Task ConfirmResetWhileRunningAsync_No_KeepsRunning()
     {
-        _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>())
+        _windowManager.TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>())
             .Returns(MessageBoxResult.No);
 
         var reset = await CreateSut().ConfirmResetWhileRunningAsync();

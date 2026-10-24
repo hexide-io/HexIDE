@@ -46,7 +46,7 @@ public class ResetPromptTests : IDisposable
         // A run is in progress, so an edit asks whether to reset it, and the answer waits until a test gives it:
         // the prompt stays open for as long as the test needs, as a modal dialog would.
         debugController.IsSessionActive.Returns(true);
-        windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>(), Arg.Any<Window?>())
+        windowManager.TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>(), Arg.Any<Window?>())
             .Returns(_ => answer.Task);
     }
 
@@ -142,7 +142,7 @@ public class ResetPromptTests : IDisposable
     }
 
     private int Prompts() =>
-        windowManager.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(IWindowManager.MessageBox));
+        windowManager.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(IWindowManager.TaskModalMessageBox));
 
     private static int InHeader(CodeEditorViewModel vm) =>
         vm.Document.Text.IndexOf("\"Orders\"", StringComparison.Ordinal);
@@ -168,7 +168,7 @@ public class ResetPromptTests : IDisposable
 
     // Asked over the editor's own window, which it holds. Over the active window, often the running form when a tool typed
     // the key, it left the code usable under it, and the next keys went in, to be reverted with the edit (#1290). VB6's
-    // prompt holds the IDE and the running program together (measured, #1329); a modal here holds one window.
+    // prompt holds the IDE and the running program together (measured, #1329), as the task-modal path now does (#1366).
     [AvaloniaFact]
     public void The_prompt_is_asked_over_the_editor_s_window()
     {
@@ -178,7 +178,7 @@ public class ResetPromptTests : IDisposable
 
         Type(editor, "x");
 
-        windowManager.Received(1).MessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.YesNo,
+        windowManager.Received(1).TaskModalMessageBox(Arg.Any<string>(), Arg.Any<string?>(), MessageBoxButtons.YesNo,
             Arg.Any<MessageBoxIcon>(), TopLevel.GetTopLevel(editor) as Window);
     }
 

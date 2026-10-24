@@ -123,13 +123,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// then stands); No → the edit is left cancelled and the run continues. Returns true if a reset was requested.
     /// The reset goes through the event bus (ProjectRunnerService handles EndProjectRequestedEvent) to avoid a
     /// direct dependency on the runner, which would cycle.</summary>
-    /// <param name="over">The window of the editor that asks, which the prompt holds. Shown over the active window, often the
-    /// running form, the prompt left the code window usable under it, and an automated key went in (#1290). VB6's prompt
-    /// holds the IDE and the running program together, its owner being the running form (measured, #1329); a modal here
-    /// holds one window, so it is the code window's.</param>
+    /// <param name="over">The visible editor window to show the prompt over. The prompt holds all desktop windows.</param>
     public async Task<bool> ConfirmResetWhileRunningAsync(Avalonia.Controls.Window? over = null)
     {
-        var result = await windowManager.MessageBox(
+        var result = await windowManager.TaskModalMessageBox(
             localization.GetString("Str.ProjectRunner.EditWhileRunningConfirm"),
             buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning, owner: over);
         if (result != MessageBoxResult.Yes)
