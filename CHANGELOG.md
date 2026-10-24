@@ -272,6 +272,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **WithEvents applies to each variable in a comma list** (#1021). Both parsers accept it after a comma, and
+  only variables marked WithEvents bind event handlers, as measured on vb6.exe.
+
 - **System default follows the OS display language** (#799). The UI culture is captured before the IDE
   pins its threads to invariant, so German and French systems get their language and British English
   systems get Colour Palette and Centre in Form instead of US English.

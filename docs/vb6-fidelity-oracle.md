@@ -912,10 +912,12 @@ and returns `"[" & Hits & "]"`.
 | N2 | `Public WithEvents B As Long` (control) | `Expected: identifier` | |
 
 So a `WithEvents` may stand before any declarator of a comma list, makes that declarator alone a sink, and is held
-to the same rule behind a comma as at the front (N1 against N2). The obvious reading, and HexIDE's, was that it
-qualifies the statement the way `Public` does: both grammars take it once, straight after `Dim`, `Static` or the
-visibility, so R1, R2, R3 and R5 are syntax errors here, and the interpreter, read from its code rather than run,
-makes every declarator of R4 a sink, which would print `[AB]` where VB6 prints `[A]`. Both compile errors report `Line 0`, which nothing here explains.
+to the same rule behind a comma as at the front (N1 against N2). HexIDE previously treated it as a statement
+modifier: both grammars took it once after the visibility or `Dim`,
+refusing R1–R3 and R5 and making both names in R4 sinks. Both grammars now take it per declarator, and the
+interpreter records and seeds only marked names as sinks (#1021). Both compile errors report `Line 0`, which nothing
+here explains. The non-object-type refusals (N1/N2) remain unimplemented; no new type validation is added here.
+Whether VB6 accepts a variable named `WithEvents` is unmeasured; HexIDE's existing parse is preserved.
 
 ## `End` fires no `Class_Terminate` (interpreter-debugger reset)
 
