@@ -154,8 +154,18 @@ that member's: VB6 gives a procedure's run to the procedure above it whatever it
 follow the member's rename as the requirement above has them do. A run added is not exempt for having been inert
 text before, because a replacement cannot tell an orphan it repairs from a run its caller wrote.
 
+An add-in's range edits SHALL also be compared as a complete resulting document and refused together if
+that result changes, adds or loses a described member run under the same comparison as a whole replacement.
+The refusal SHALL name the members. This includes promoting an orphan, extending a run at its end, mixing a
+run into an orphan and inserting a whole new described member. The existing region check SHALL run first;
+a range edit deleting a run with its declaration remains refused. Developer input and formatting are unchanged.
+
 A mark SHALL NOT be set on a line in a read-only region: such a line never executes, and a folded header is
 one visible line, so a mark set there would land on a line the developer cannot see.
+
+#### Scenario: An add-in extends a member's run
+- **WHEN** an add-in inserts an Attribute line at the start of the line following Total's described run
+- **THEN** the entire edit set is refused, naming Total, and the buffer is unchanged
 
 #### Scenario: Formatting a class
 - **WHEN** a class is formatted by a server whose answer replaces the whole document

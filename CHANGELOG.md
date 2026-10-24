@@ -255,6 +255,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Add-in range edits preserve member Attribute runs** (#1012). Edits that add a run, promote an orphan,
+  extend a run or turn it into an orphan are refused together, naming the affected members.
+
 - **Arithmetic uses VB6's per-operator result tables** (#230). Long with Single computes as Double;
   Currency multiplied by Single or Double gives Double, while addition and subtraction convert to Currency
   first. Decimal division stays Decimal, and Byte integer division and Mod stay Byte.
