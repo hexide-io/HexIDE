@@ -255,6 +255,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Numeric Strings accept a thousands separator after the decimal point** (#1446). `CDbl("1.5,2003")`
+  now gives 1.52003 under en-GB, as measured on vb6.exe SP6, native and p-code. Long, Currency,
+  IsNumeric and arithmetic read these Strings too; a leading separator is refused and Val still stops at it.
+
 - **Completion descriptions are readable through MCP, and double-click commits an item** (#1334).
   The dump reaches the description popup under the completion list; `double_click` uses the list's own
   insertion path. Snapshot composition now traverses the same description popup; its desktop rendering
