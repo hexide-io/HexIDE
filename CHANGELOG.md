@@ -249,6 +249,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Project saves and startup-project changes immediately move language servers to the new workspace root**
+  (#1051), reopening every held document with its latest text even when no editor opens a new file.
+
 - **String functions honour the calling module’s `Option Compare`** (#1572). With no compare argument,
   `InStr`, `InStrRev`, `Replace`, `Split`, `Filter` and `StrComp` now use that module’s setting, including
   calls written in classes and forms. An explicit compare still wins. `InStr("ABC", "b")` in a Text module

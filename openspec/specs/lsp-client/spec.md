@@ -376,8 +376,9 @@ without it points at the executable for a fault that has nothing to do with it.
 
 #### Scenario: The root moves while documents are open
 - **GIVEN** two documents open in editors
-- **WHEN** the project's directory changes and the running servers are restarted
-- **THEN** each restarted server is told both documents are open before it is sent a change to either
+- **WHEN** a project save or startup-project change moves the workspace root
+- **THEN** the running servers SHALL restart at the new root without waiting for another document to open
+- **AND** each restarted server is told both documents are open with their latest text before it is sent a change to either
 
 ### Requirement: A malformed entry SHALL fail alone, and visibly
 An entry that cannot be used SHALL NOT prevent other entries from being used, and SHALL NOT prevent the IDE

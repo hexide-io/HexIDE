@@ -550,14 +550,10 @@ claims it**, with its latest text, before any change to it is forwarded
 ([#469](https://github.com/hexide-io/HexIDE/issues/469)). Without that, a restarted connection holds nothing,
 and every document except the one whose opening noticed the move goes silently dark. The re-open is driven by
 the registry's own record of what is open rather than by the document that triggered it, because the
-teardown stops every server and the triggering document's claimants are a smaller set. A move is noticed
-when a document is next opened, not when the project changes. A save that gives a document its first file
-re-opens it under its new name, and that open notices the move. A save that writes no document to a new file
-notices nothing. Save Project As of a project already saved asks only where the project file goes, as does
-one of the project `--newproject` saved into a temporary folder: a document is asked for a path only when it
-has none (`ProjectService.DestinationOf`). The running servers
-then keep the old root until a document is next opened. That much is read from the code; neither save has
-been driven against a running server to watch it happen.
+teardown stops every server and the triggering document's claimants are a smaller set. The root is checked
+after a project save has assigned the `.vbp` its path and when the startup project changes, as well as when a document opens (#1051). Saving only the project file therefore restarts
+and reopens the held documents immediately; no new editor needs to open. An unchanged root does not restart
+anything, and failed entries remain failed.
 
 ### Transports
 
