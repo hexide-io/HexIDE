@@ -31,6 +31,13 @@ filtering once you know where you are looking.
 - **WHEN** the browser is opened
 - **THEN** types from the project, the runtime library, the built-in functions and referenced libraries are all reachable
 
+The runtime control library SHALL use the unqualified class name from each component's VB type name,
+rather than its default instance-name prefix, for listing, search, member headings and membership.
+
+#### Scenario: Browsing an intrinsic control class
+- **WHEN** the developer browses the VB library or searches for `CommandButton`
+- **THEN** the class is listed as `CommandButton`, rather than `Command`
+
 #### Scenario: Narrowing to one library
 - **WHEN** the developer selects a single library
 - **THEN** only that library's types are listed

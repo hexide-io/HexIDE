@@ -257,6 +257,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The Object Browser and Properties object box show control class names** (#905), such as TextBox and CommandButton, while new controls keep their existing default-name prefixes. Object Browser search also finds those class names.
+
 - **A server cancelling an outdated language request no longer warns that the feature is broken** (#723).
   ContentModified and RequestCancelled replies are logged at debug, leaving the method's warning available
   for a later genuine failure.
