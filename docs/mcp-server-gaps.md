@@ -701,26 +701,6 @@ was passed, a move or resize has arrived; on timeout, reply with what the window
 Check the frame against the screens before any state change, so a refusal never has to undo a restore.
 [#946](https://github.com/hexide-io/HexIDE/issues/946).
 
-## A whole replacement that changes the header and a member's `Attribute` lines is told only about the header
-
-**Symptom.** Read from the code, and recorded when #273 task 4.5b was built. `set_file_content` (and an add-in's
-`TrySetContent`) compares the header first and returns on the first difference:
-
-```
-set_file_content {"name":"Ledger","content":"<a class header with one line changed, and Total's run changed>"}
-→ refused: "The content would change the document's header (its designer block, class header or leading
-   Attribute lines), which only the IDE changes. ..."
-```
-
-A caller that restores the header and sends again is refused a second time, now for `Total`'s run, a reason the
-first reply did not give.
-
-**Workaround.** After a header refusal, compare the members' `Attribute` lines with `get_file_content`'s before
-sending again.
-
-**Suggested fix.** Compare the runs whatever the header does, and refuse once with every finding.
-[#1054](https://github.com/hexide-io/HexIDE/issues/1054).
-
 ## `press_key` refuses a Delete over a selection reaching protected lines, where the key deletes the editable part
 
 **Symptom.** Read from the code (#273 task 4.5a records it as already so). With a selection running from code into

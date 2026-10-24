@@ -249,6 +249,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Whole-file replacement refusals report every protected region changed** (#1054). When the header and a
+  member's Attribute lines differ, `set_file_content` and an add-in's `TrySetContent` now name both in one reply.
+
 - **String functions honour the calling module’s `Option Compare`** (#1572). With no compare argument,
   `InStr`, `InStrRev`, `Replace`, `Split`, `Filter` and `StrComp` now use that module’s setting, including
   calls written in classes and forms. An explicit compare still wins. `InStr("ABC", "b")` in a Text module
