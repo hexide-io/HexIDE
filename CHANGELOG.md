@@ -255,6 +255,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Reversed scroll bars run in the right direction** (#787). A bar loaded with Min greater than Max keeps
+  its Value, accepts values between either endpoint, and reverses the thumb-to-value mapping.
+
 - **An index on a class's Variant field runs** (#1435). `k.V(1)` reads the array element through a variable declared as
   the class, with error 9 past its bounds; through `As Object` the read raises 451. An in-bounds assignment leaves the
   field unchanged without error, as measured on VB6. These operations were refused as not implemented.

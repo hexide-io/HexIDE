@@ -351,12 +351,44 @@ public class PropertyAssignmentTests
         value.Should().Be(expected);
     }
 
-    [AvaloniaFact]
-    public async Task A_scroll_bar_whose_Min_exceeds_its_Max_is_refused_rather_than_clamped()
+    [AvaloniaTheory]
+    [InlineData("50", "50", 0)]
+    [InlineData("0", "0", 0)]
+    [InlineData("100", "100", 0)]
+    [InlineData("150", "100", 380)]
+    [InlineData("-1", "100", 380)]
+    [InlineData("\"50\"", "50", 0)]
+    [InlineData("\"abc\"", "100", 13)]
+    [InlineData("Empty", "0", 0)]
+    [InlineData("True", "100", 380)]
+    [InlineData("2.5", "2", 0)]
+    [InlineData("99.5", "100", 0)]
+    public async Task A_reversed_scroll_bar_converts_and_checks_Value(string expression, string expected, int expectedErr)
     {
-        // VB6 accepts 50 here and reads back 50 (measured). Avalonia has collapsed the bar to 100..100, so it would
-        // read back 100.
-        (await Refusal("HScroll2.Value = 50")).Should().Contain("#787");
+        var (value, err) = await Assign("HScroll2.Value = 100", $"HScroll2.Value = {expression}", "HScroll2.Value");
+
+        err.Should().Be(expectedErr);
+        value.Should().Be(expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("HScrollBar")]
+    [InlineData("VScrollBar")]
+    public void A_reversed_scroll_bar_loads_and_maps_thumb_positions(string controlType)
+    {
+        var (_, canvas, _, _) = ContainerRuntimeHarness.Spawn(Form.Replace("VB.HScrollBar", "VB." + controlType));
+        var bar = (HexIDE.Runtime.BuiltinControls.VBScrollBar)canvas.Children[0];
+
+        bar.VbMin.Should().Be(100);
+        bar.VbMax.Should().Be(0);
+        bar.Minimum.Should().Be(0);
+        bar.Maximum.Should().Be(100);
+        bar.Value.Should().Be(0);
+        AvaloniaInteroperability.TryGet(bar, VBProperties.ValueProperty, out var loaded).Should().BeTrue();
+        loaded.Value.Should().Be(100);
+        bar.Value = 100;
+        AvaloniaInteroperability.TryGet(bar, VBProperties.ValueProperty, out var moved).Should().BeTrue();
+        moved.Value.Should().Be(0);
     }
 
     private const string ThreeItems = "List1.AddItem \"a\"\r\nList1.AddItem \"b\"\r\nList1.AddItem \"c\"\r\n"

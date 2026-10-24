@@ -153,7 +153,7 @@ public static class AvaloniaInteroperability
             TextBoxMembers.TextSet(box);
         });
 
-        Register<VBScrollBar, int, double>(VBProperties.ValueProperty, RangeBase.ValueProperty, x => x, x => (int)x);
+        Register<VBScrollBar, int>(VBProperties.ValueProperty, bar => bar.VbValue, (bar, value) => bar.VbValue = value);
 
         Register<VBTimer, int>(VBProperties.IntervalProperty, VBTimer.IntervalProperty);
 
@@ -286,17 +286,10 @@ public static class AvaloniaInteroperability
         return false;
     }
 
-    /// <summary>
-    /// A scroll bar's Value outside its Min..Max is 380 in VB6, from a String too, where Avalonia would clamp it.
-    /// Measured: Min may exceed Max, and the range is checked either way round. HexIDE cannot hold such a bar,
-    /// because Avalonia raises Maximum to Minimum, so a Value set on one would read back clamped (#787).
-    /// </summary>
+    /// <summary>A scroll bar's Value outside either ordering of Min..Max is 380 in VB6, from a String too.</summary>
     private static void CheckScrollBarValue(VBScrollBar bar, int position)
     {
-        if (bar.VbMin > bar.VbMax)
-            throw new NotImplementedException(
-                $"A scroll bar whose Min ({bar.VbMin}) exceeds its Max ({bar.VbMax}) is not implemented (#787)");
-        if (position < bar.VbMin || position > bar.VbMax)
+        if (position < Math.Min(bar.VbMin, bar.VbMax) || position > Math.Max(bar.VbMin, bar.VbMax))
             throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
     }
 
