@@ -16,7 +16,7 @@ public partial class VB6BuiltIns
         d["Left"]       = (_, a, _) => NullOrStr(a[0], s => Left(s, AsInt(a[1])));
         d["Right"]      = (_, a, _) => NullOrStr(a[0], s => Right(s, AsInt(a[1])));
         d["Mid"]        = (_, a, _) => NullOrStr(a[0], s => Mid(s, AsInt(a[1]), Supplied(a, 2) ? AsInt(a[2]) : (int?)null));
-        d["Len"]        = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value((long)AsStr(a[0]).Length);   // Long — see InStr
+        d["Len"]        = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(a is IntrinsicArgumentValues { LenVariableSize: { } size } ? size : (long)AsStr(a[0]).Length);   // Long — see InStr
         d["InStr"]      = (_, a, text) => InStr(a, text);
         d["InStrRev"]   = (_, a, text) => InStrRev(a, text);
         d["Replace"]    = (_, a, text) => new Vb6Value(Replace(a, text));

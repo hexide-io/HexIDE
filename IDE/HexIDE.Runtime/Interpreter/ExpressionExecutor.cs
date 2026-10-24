@@ -392,6 +392,26 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var result = new VB6BuiltIns.IntrinsicArgumentValues(values.Count);
         for (var i = 0; i < values.Count; i++)
             result.AddArgument(values[i], slots[i] is null);
+        if (name.Equals("Len", StringComparison.OrdinalIgnoreCase) && values.Count == 1
+            && slots[0]?.valueStmt() is { } operand)
+        {
+            // Len sizes a declared scalar, but a Variant still sizes its text (#780, measured).
+            if (TryGetArgLocation(operand) is { } location)
+            {
+                var type = interpreter.ExecutionContext.State.DeclaredTypeOf(location);
+                result.LenVariableSize = type == Vb6Value.ValueType.Byte ? 1
+                    : type == Vb6Value.ValueType.Integer || type == Vb6Value.ValueType.Boolean ? 2
+                    : type == Vb6Value.ValueType.Long || type == Vb6Value.ValueType.Single ? 4
+                    : type == Vb6Value.ValueType.Double || type == Vb6Value.ValueType.Currency || type == Vb6Value.ValueType.Date ? 8
+                    : null;
+            }
+            else if (operand is not VB6Parser.VsStructContext
+                && Vb6Value.TryNumericToDouble(values[0], out _)
+                && (operand is not VB6Parser.VsICSContext ics
+                    || ics.implicitCallStmt_InStmt()?.iCS_S_VariableOrProcedureCall() is { } bare
+                        && bare.typeHint() is null))
+                throw new VBCompileErrorException("Variable required - can't assign to this expression");
+        }
         return result;
     }
 

@@ -255,6 +255,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Len returns a typed scalar variable’s byte size** (#780), including Integer, Long, Single, Double, Currency, Date
+  and Boolean. Strings and Variants keep their text lengths. Numeric literals and arithmetic expressions are refused
+  with VB6’s measured “Variable required” compile error when executed.
+
 - **Interpreter errors no longer print `Right(Control)` and other internal Either wrappers** (#935). Missing-member errors omit the receiver type; other type diagnostics retain the inner name and array suffix.
 
 - **A raised For Each collection under Resume Next uses more declarations** (#969). Parenthesised calls, array
