@@ -276,6 +276,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MousePointer reads back the value set** (#769), including the value loaded from a form. Reading it always returned 0 even when the displayed cursor had changed.
+
 - **Clipboard.SetText preserves other clipboard formats** (#1246). Replacing text no longer stops a run merely
   because other formats are present. A format that cannot be read is still refused before the clipboard is changed.
 

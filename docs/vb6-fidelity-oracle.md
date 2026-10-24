@@ -1638,7 +1638,7 @@ Property assignment goes through `VbNumeric.CoerceOnStore` and the measured rang
 `AvaloniaInteroperability.ConvertForAssignment` (and `CheckScrollBarValue` for a scroll bar's `Value`).
 `HexIDE.Integration.Tests` `PropertyAssignmentTests` covers, through real controls and the interpreter:
 - the String-property rows, the Single, Double, Currency and Decimal ones included, since #779;
-- the position, `Interval`, scroll bar `Value`, `Enabled`, `CheckBox.Value`, `MousePointer` (error only, #769) and
+- the position, `Interval`, scroll bar `Value`, `Enabled`, `CheckBox.Value`, `MousePointer` (read-back and errors, since #769) and
   `BackColor` rows, the colour checked as stored and as left unchanged;
 - copying a colour from one control to another, through a Variant, and into a caption;
 - Null into `Tag`, and the two `Tag` idioms below.
