@@ -19508,3 +19508,26 @@ raising 13.
 - **Divergences kept:** the locks hold only within the program, not against another process; `Len` on a sequential
   file is not checked; a `Get` of a String in a Binary file reads as many bytes as the String has characters, which is
   the same in code page 1252 and not measured in a double-byte one.
+
+## Len of declared scalars and numeric expressions (#780)
+
+Provenance: issue #780's body records module-level probes on vb6.exe; its later comment records a repeat during
+#987 with native and p-code agreeing. These are supplied measurements, not new runs for this fix.
+
+| Operand | Len |
+|---|---|
+| Byte variable holding 5 | 1 |
+| Integer variable holding 5 | 2 |
+| Long or Single variable holding 5 | 4 |
+| Double or Currency variable holding 5 | 8 |
+| Date variable holding #1/1/2000# | 8 |
+| Boolean variable holding True | 2 |
+| String variable holding "12345" | 5 |
+| Empty Variant | 0 |
+| Variant holding Integer 5; holding 12345 | 1; 5 |
+
+The body's zero-initialised Single, Double, Currency, Integer and Date variables returned 4, 8, 8, 2 and 8.
+`Len(12345)`, `Len(i + 0)`, `Len(1 / 3)` and `Len(CSng(1) / 3)` fail compilation with
+"Variable required - can't assign to this expression". HexIDE raises that compile error when the call executes.
+The comment also measured `LenB(i)` for Integer as 2 and `LenB(s)` for String "12345" as 10; LenB remains unimplemented.
+No inference about fields, array elements, qualified or parenthesised variables is made from these probes.
