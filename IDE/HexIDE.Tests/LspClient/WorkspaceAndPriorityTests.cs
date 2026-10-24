@@ -1,4 +1,9 @@
 using System.Text.Json;
+using HexIDE.Events;
+using HexIDE.IDE;
+using HexIDE.Projects;
+using HexIDE.Runtime.ProjectElements;
+using HexIDE.Sidecar;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using Microsoft.Extensions.Logging;
@@ -100,6 +105,17 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public Task<string?> RootUri => _rootUri.Task;
+        public System.Threading.Channels.Channel<JsonElement> Opens { get; } =
+            System.Threading.Channels.Channel.CreateUnbounded<JsonElement>();
+
+        [JsonRpcMethod("textDocument/didOpen", UseSingleObjectParameterDeserialization = true)]
+        public void DidOpen(JsonElement p) => Opens.Writer.TryWrite(p.Clone());
+
+        [JsonRpcMethod("shutdown")]
+        public object? Shutdown() => null;
+
+        [JsonRpcMethod("exit")]
+        public void Exit() { }
 
         /// <summary>The whole <c>initialize</c> params, cloned — the frame, not our idea of it.</summary>
         public Task<JsonElement> Frame => _frame.Task;
@@ -112,7 +128,7 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
                 p.TryGetProperty("rootUri", out var r) && r.ValueKind == JsonValueKind.String
                     ? r.GetString()
                     : null);
-            return JsonDocument.Parse("""{"capabilities":{}}""").RootElement.Clone();
+            return JsonDocument.Parse("""{"capabilities":{"textDocumentSync":{"openClose":true,"change":1}}}""").RootElement.Clone();
         }
 
         [JsonRpcMethod("initialized")]
@@ -136,6 +152,94 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
             transport, Substitute.For<ILogger<VBLspClient>>(), DocumentLanguage.Vb6, workspace);
         _disposables.Add(client);
         return client;
+    }
+
+    [Theory]
+    [InlineData("saveAs")]
+    [InlineData("firstSave")]
+    [InlineData("directory")]
+    [InlineData("startup")]
+    public async Task MovingTheRootWithoutOpeningADocumentReinitializesAndReopens(string move)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-root-move-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var oldDirectory = Path.Combine(directory, "old");
+            var newDirectory = Path.Combine(directory, "new");
+            Directory.CreateDirectory(oldDirectory);
+            Directory.CreateDirectory(newDirectory);
+            LspClientRegistry? registry = null;
+            var manager = new ProjectManager(Substitute.For<IEditorService>(), Substitute.For<IEventBus>());
+            var project = TestHelpers.CreateProject("P");
+            if (move != "firstSave") project.AbsolutePath = Path.Combine(oldDirectory, "P.vbp");
+            // Seed the manager before wiring the client, as a project can already be loaded at startup.
+            var model = Substitute.For<IProjectManager>();
+            model.StartupProject.Returns(_ => manager.StartupProject);
+            model.LoadedProjects.Returns(_ => manager.LoadedProjects);
+            manager.AddProject(project);
+            var workspace = new ProjectLspWorkspace(() => model);
+            var servers = new List<RootRecordingServer>();
+            registry = new LspClientRegistry(
+                [new LanguageServerRegistration("s", "s", [".bas"], "vb6", () =>
+                {
+                    var server = new RootRecordingServer();
+                    servers.Add(server);
+                    return ClientRootedAt(workspace, server);
+                })], Substitute.For<ILogger<LspClientRegistry>>(), workspace);
+            _disposables.Add(registry);
+            var token = TestContext.Current.CancellationToken;
+            const string one = "file:///held/One.bas";
+            const string two = "file:///held/Two.bas";
+            await registry.OpenDocumentAsync(one, "first", token);
+            await registry.OpenDocumentAsync(two, "latest", token);
+            var original = servers.Single();
+            await original.Opens.Reader.ReadAsync(token);
+            await original.Opens.Reader.ReadAsync(token);
+
+            if (move == "startup")
+            {
+                // The real manager's property notification must trigger the check without an editor open.
+                var changingManager = new ProjectManager(Substitute.For<IEditorService>(),
+                    Substitute.For<IEventBus>(), () => registry);
+                model.StartupProject.Returns(_ => changingManager.StartupProject);
+                var next = TestHelpers.CreateProject("Next");
+                next.AbsolutePath = Path.Combine(newDirectory, "Next.vbp");
+                changingManager.StartupProject = next;
+            }
+            else
+            {
+                var windows = Substitute.For<IWindowManager>();
+                windows.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+                    .Returns(Path.Combine(newDirectory, "P.vbp"));
+                var service = new ProjectService(() => throw new InvalidOperationException(), windows,
+                    Substitute.For<IEventBus>(), model, Substitute.For<IRecentProjectsService>(),
+                    Substitute.For<IReferenceLibraryService>(), Substitute.For<IUserSidecarService>(),
+                    new FileBaselineStore(), Substitute.For<HexIDE.Localization.ILocalizationService>(),
+                    Substitute.For<IHeaderRefresher>(), lspClient: () => registry);
+                if (move == "directory") await service.SaveProjectToDirectory(project, newDirectory);
+                else await service.SaveProject(project, move == "saveAs");
+            }
+
+            // Wait for the new wire handshake even for the synchronous startup-property setter.
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+            timeout.CancelAfter(TimeSpan.FromSeconds(10));
+            while (servers.Count < 2) await Task.Delay(10, timeout.Token);
+            var restarted = servers[1];
+            var root = await restarted.RootUri.WaitAsync(timeout.Token);
+            new Uri(root!).LocalPath.TrimEnd('/', '\\').Should().Be(newDirectory);
+            var opens = new[]
+            {
+                await restarted.Opens.Reader.ReadAsync(timeout.Token),
+                await restarted.Opens.Reader.ReadAsync(timeout.Token)
+            };
+            opens.Select(p => p.GetProperty("textDocument").GetProperty("uri").GetString())
+                .Should().BeEquivalentTo([one, two]);
+            opens.Select(p => p.GetProperty("textDocument").GetProperty("text").GetString())
+                .Should().BeEquivalentTo(["first", "latest"]);
+            servers.Should().HaveCount(2);
+        }
+        finally { Directory.Delete(directory, recursive: true); }
     }
 
     [Fact]

@@ -257,6 +257,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Project saves and startup-project changes immediately move language servers to the new workspace root**
+  (#1051), reopening every held document with its latest text even when no editor opens a new file.
+
 - **Document changes keep rising versions** (#720). A debounced change overtaken by a flush is dropped,
   so it cannot reach the language server afterwards or replace the newer text and version replayed on reconnect.
 
