@@ -474,36 +474,6 @@ it, as for any fold. An offset at the run's very end does not: the window moves 
 run's box to the end of the declaration, in front of the box (`CodeEditorView.KeepCaretOffFoldedRunsEnd`), and the
 run stays folded.
 
-## A refused edit's reply sends a Backspace back to the caret it was refused at, and does not say whose lines are in the way
-
-**Symptom.** Found in #273's live check (task 4.8) on 2026-10-14, with a class whose `Public Function Total()` has
-its run `Attribute Total.VB_UserMemId = 0` folded into the declaration's row, and the caret put at the start of the
-body line below it, offset 790:
-
-```
-interact {"target":".../Custom[Root]","action":"set_property","value":"CaretOffset=790"}
-press_key {"target":".../Custom[Root]/None[TextEditor]","key":"Back"}
-→ {"success":false,"error":"press_key refused: offset 789 is in the file's header or a member's Attribute lines,
-   which only the IDE changes (the designer, a save, a rename). Nothing was written. The nearest place that can be
-   edited starts at offset 790; put the caret there with interact set_property CaretOffset=790. ..."}
-```
-
-The refusal is right: Backspace there would join the body line to the run's last line. The advice is not. Offset
-790 is where the caret already was, so a caller that follows it presses the same key in the same place and is
-refused again, which a first-contact model can loop on. The reply also says "the file's header or a member's
-Attribute lines" although the IDE knows which, and since #273 task 4.5b names the member in an add-in's refusal
-(`GuardedContent.MemberNamedBy`). `type_text` gives the same wording: at offset 766, inside the run, it said
-"header or a member's Attribute lines" and pointed at 790.
-
-**Workaround.** Read the refused offset, not the advice. A backward deletion refused at the start of the line under a
-run has nowhere to go on that line; delete the declaration line whole instead (Ctrl+D, which takes the run with it).
-
-**Suggested fix.** Name the region: "the file's header" or "the Attribute lines describing Total" (`MemberNamedBy`).
-For a deleting key whose span ends at the caret, say that the text before the caret is the run's and that deleting
-the declaration line takes both, rather than pointing at the caret's own offset; keep the "nearest place" advice for
-an insertion or a forward deletion, where it moves the caller somewhere new.
-[#1042](https://github.com/hexide-io/HexIDE/issues/1042).
-
 ## `set_file_content`'s reply does not say when its save rewrote a member's attribute qualifier
 
 **Symptom.** `set_file_content` saves as the document's own Save does, and since #273 task 4.4 that save writes each
@@ -616,29 +586,6 @@ label fallback, but that is read in code and was not tried.
 it (`opened menu 'Tools' (ToolsMenuItem)`), and a description that says a segment may be addressed by either.
 [#948](https://github.com/hexide-io/HexIDE/issues/948).
 
-## `add_to_selection` names the new selection but not its reference, so a caller learns what Align measured against only afterwards
-
-**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
-
-```
-interact {"target":"Window/.../List[ControlsContainer]/ListItem[Command1]","action":"add_to_selection"}
-→ {"detail":"added 'Command1' to the selection; 2 items are selected now: Command0, Command1"}
-```
-
-Only the next `invoke_format_command` reply, "…, aligned to Command0", named the reference, the control every
-Align and Make Same command measures against. A snapshot between the two showed Command0 with the solid handles.
-The reply lists the selection in index order, as does `inspect_element`'s `selectionItems`, so no read names the
-reference before a command runs, which the form-designer spec requires of the designer. The same goes for
-`remove_from_selection`. Cross-platform by code reading.
-
-**Workaround.** Select the intended reference first and `add_to_selection` the rest: by code reading, the
-reference stays on the first item selected, and removing it moves it to the lowest-indexed item still selected.
-A snapshot shows the reference with the solid handles.
-
-**Suggested fix.** With two or more selected, the reply names the primary item, and when `remove_from_selection`
-removes it, names the new one. [#951](https://github.com/hexide-io/HexIDE/issues/951). Which control should be
-the reference is #928.
-
 ## `invoke_format_command`'s no-op reply states a selection rule the spec contradicts
 
 **Symptom.** With one control selected (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf,
@@ -720,27 +667,6 @@ sending again.
 
 **Suggested fix.** Compare the runs whatever the header does, and refuse once with every finding.
 [#1054](https://github.com/hexide-io/HexIDE/issues/1054).
-
-## `press_key` refuses a Delete over a selection reaching protected lines, where the key deletes the editable part
-
-**Symptom.** Read from the code (#273 task 4.5a records it as already so). With a selection running from code into
-the header or a member's `Attribute` lines, a person's Delete deletes the parts the code window's read-only sections
-allow. The tool deletes nothing:
-
-```
-press_key {"target":".../Custom[Root]/None[TextEditor]","key":"Delete"}
-→ {"success":false,"error":"press_key refused: offset N is in the file's header or a member's Attribute lines, ...
-   Nothing was written. ..."}
-```
-
-`UiAutomationDriver` asks `DeletionChangesARegion` about the whole span, where the key's provider deletes the
-deletable segments.
-
-**Workaround.** Narrow the selection to the editable part with `interact set_property` (`SelectionStart`,
-`SelectionLength`) before pressing the key.
-
-**Suggested fix.** Delete what the deletable segments allow, as the key does, and say what was left and why.
-[#1055](https://github.com/hexide-io/HexIDE/issues/1055).
 
 ## The code window's completion list: its description tooltip is out of reach, and `double_click` does not commit an item
 
@@ -847,20 +773,6 @@ with the list.
 windows on request, or say in the `window` description that an unknown name lists them.
 [#1365](https://github.com/hexide-io/HexIDE/issues/1365).
 
-## No call double-clicks a running form: `double_click` raises only `DoubleTapped`, and two `click`s are too far apart
-
-**Symptom (2026-10-22, #1031, Windows).** A running form's `DblClick` comes from a double click's second press, told by
-the press's click count. `interact {"target":"<a Label on a running form>","action":"double_click"}` raises Avalonia's
-`DoubleTapped` and selects the target, with no pointer press, and answers `success: true`; the program's `Label1_DblClick`
-never runs, and nothing in the reply says no press was sent. Two `interact {"action":"click"}` calls in a row each press
-with a click count of 1, and an MCP round trip puts them past the 500 ms double-click time anyway.
-
-**Workaround.** None through the surface. `MouseEventTests` drives a double click headlessly, with real pointer input.
-
-**Suggested fix.** Accept `double` in `click`'s value, as in `10,5 double`, raising press, release, press and release
-with the second press's click count 2. Have `double_click`'s reply say it raised `DoubleTapped` and no press.
-[#1389](https://github.com/hexide-io/HexIDE/issues/1389).
-
 ## No call presses on a control and releases elsewhere, so a drag on a running form can't be driven
 
 **Symptom (2026-10-22, #1373, Windows).** Whether dragging off a control cancels its Click is a drag: a press on the
@@ -874,21 +786,6 @@ and `MouseUp`.
 **Suggested fix.** Let `click` take a release point, as in `10,5 to 200,30`: press on the target, move with the button
 held, release at the second point to whatever holds the pointer.
 [#1402](https://github.com/hexide-io/HexIDE/issues/1402).
-
-## A control's path changes when it gains a provider, so a saved path stops resolving as text grows
-
-**Symptom (2026-10-22, #1386, Windows).** While paused, `dump_visual_tree {"window":"ide","root":"<Imm>","maxDepth":4,
-"interactiveOnly":false}`, with `<Imm>` the Immediate window's `.../TitleBar[Immediate]/Pane[Immediate]/Custom`, gave
-`<Imm>/Pane[PART_ScrollViewer]/None` for its text area, and `type_text` on that path worked for three lines. The fourth
-`type_text` on the same path answered `no child matching 'Pane[PART_ScrollViewer]' under '<Imm>'`. A fresh dump showed
-`<Imm>/None[Editor]`, the TextEditor, now with `providers: ["scroll"]`, holding the scroll viewer. The control view hides a
-`None` node with no provider and no focus, and the editor stopped qualifying once its text overflowed.
-
-**Workaround.** Dump again and use the new path; `<Imm>/None[Editor]` takes `type_text` and `press_key` from then on.
-
-**Suggested fix.** Decide whether a node is hidden on what its content can't change: leave `scroll` out of it, or never
-hide a node with an x:Name or AutomationId. And when a segment misses, say which node has appeared above it.
-[#1436](https://github.com/hexide-io/HexIDE/issues/1436).
 
 ## `press_key` with Alt and a letter never reaches a control's access key
 
@@ -922,7 +819,8 @@ no more plumbing than an AutomationId.
 for a running form's Frame, PictureBox, Label and Image.
 
 **Suggested fix.** Count an explicitly set `AutomationProperties.Name` as the AutomationId already counts, so a view's
-author is not left to discover the override. Folded into #1436.
+author is not left to discover the override. The path-stability part of #1436 is fixed; this explicit-name
+discovery gap remains open.
 
 ## No tool can see a running form's frame
 
@@ -937,9 +835,13 @@ it is a tool window.
 P/Invoke on the windows HexIDE's process owns, and a screen capture of their rectangles. Both bypass the surface a
 real caller uses.
 
-**Suggested fix.** Have `inspect_element` on a `Window` report `canResize`, `windowDecorations`, `canMinimize`,
-`canMaximize` and `showInTaskbar`, and on Windows the native style and extended style, which is what a VB6 program's
-own `GetWindowLong` reads. Give `take_snapshot` a way to capture a window with its frame, and say in the reply where
+**Part 1 completed (#1595).** `inspect_element` on a Window now includes `frame`: `canResize`,
+`windowDecorations`, `canMinimize`, `canMaximize`, `showInTaskbar` and `windowState`, read from Avalonia.
+There is no separate tool-window marker on the Avalonia Window. Native styles remain unreported, explicitly
+explained by `nativeStyleNote`; Windows interop was left out of this headless-verified change.
+This entry stays open for **part 2**, capturing a snapshot with its frame; `take_snapshot` is unchanged.
+
+**Remaining suggested fix (part 2).** Give `take_snapshot` a way to capture a window with its frame, and say in the reply where
 the host cannot. [#1595](https://github.com/hexide-io/HexIDE/issues/1595).
 
 ## No tool says which control has the focus, and `press_key` moves it there
@@ -959,3 +861,28 @@ and the program's log shows it as a GotFocus that no Tab caused.
 **Suggested fix.** Report `isFocused` from `inspect_element`, and the focused node in `dump_visual_tree`. Press on the
 focused control when the target is a container that holds the focus. Say in the reply when delivering the key moved the
 focus, and from where. [#1627](https://github.com/hexide-io/HexIDE/issues/1627).
+
+## `set_value` on a read-only ComboBox throws, though the combo lists the `value` provider
+
+**Symptom (2026-10-24, #1632, Windows).** In a UserControl's code window, `inspect_element` on the Object box,
+`ComboBox[ObjectCombo]`, listed providers `selection`, `value` and `expandCollapse`.
+`interact {"target":"…/ComboBox[ObjectCombo]","action":"set_value","value":"UserControl1"}` answered
+`{"success":false,"mechanism":"peer","error":"action 'setvalue' threw: Specified method is not supported."}`.
+- **Why it throws.** The combo isn't editable, so its value pattern is read-only, and setting it throws
+  `NotSupportedException`.
+- **Why the reply doesn't help.** It passes the exception's text through and doesn't say what does work. A caller who
+  was shown `value` among the providers has no reason to expect the refusal.
+
+**Workaround.** `expand` the combo, then `select` the item. In the PropertyPage's code window,
+`…/ComboBox[ObjectCombo]/Pane/ComboBoxItem[PropertyPage1]` answered `selected 'PropertyPage1' and closed the dropdown,
+as a click does`. Or use `set_property` on the code window's view model: `SelectedObject=UserControl1` answered `set
+CodeEditorViewModel.SelectedObject = UserControl1`.
+
+**Suggested fix.**
+- On a ComboBox that isn't editable, have `set_value` select the item whose text matches, as `select` does, and report
+  the selection.
+- Where no item matches, refuse, and name the items.
+- Either way, don't list `value` as settable on a read-only control without saying so: give `inspect_element` an
+  `isReadOnly` for the value pattern.
+
+[#1672](https://github.com/hexide-io/HexIDE/issues/1672).
