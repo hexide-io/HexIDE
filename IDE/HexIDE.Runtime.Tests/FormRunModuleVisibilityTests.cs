@@ -1,5 +1,6 @@
 using HexIDE.Runtime;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.ProjectElements;
 
 namespace HexIDE.Runtime.Tests;
@@ -142,6 +143,49 @@ public class FormRunModuleVisibilityTests
 
         context.Interpreter!.Modules.TryGet("Widget", out var widget).Should().BeTrue();
         widget.Kind.Should().Be(InterpreterModuleKind.Class);
+    }
+
+    [Fact]
+    public async Task AFormsRunBreaksInStandardAndClassModules()
+    {
+        var project = ProjectWith(("Helpers", ModuleKind.StandardModule), ("Widget", ModuleKind.ClassModule));
+        project.Modules[0].UpdateCode("Public Sub Go()\r\nDebug.Print 1\r\nEnd Sub\r\n");
+        project.Modules[1].UpdateCode("Public Sub Go()\r\nDebug.Print 2\r\nEnd Sub\r\n");
+        // No file header, so the statements are on line 2 of each whole file.
+        foreach (var module in project.Modules)
+            module.RecordOriginalHeader("");
+        var (standard, classes) = VBLoader.InterpreterModules(project);
+        var context = new VBWindowContext(new NullLib());
+        var dbg = new DebugController();
+        context.SetCode("Private Sub Form_Load()\r\nHelpers.Go\r\nDim w As New Widget\r\nw.Go\r\nEnd Sub\r\n",
+            "Form1", dbg, additionalModules: standard, classModules: classes);
+        dbg.SetBreakpoints("Helpers", [2]);
+        dbg.SetBreakpoints("Widget", [2]);
+
+        Task<StoppedInfo> NextStop()
+        {
+            var stopped = new TaskCompletionSource<StoppedInfo>(TaskCreationOptions.RunContinuationsAsynchronously);
+            void Handler(StoppedInfo info) { dbg.Stopped -= Handler; stopped.TrySetResult(info); }
+            dbg.Stopped += Handler;
+            return stopped.Task;
+        }
+
+        var stop = NextStop();
+        var run = context.StartAsync();
+        try
+        {
+            (await stop.Guarded()).Should().Be(new StoppedInfo(StopReason.Breakpoint, "Helpers", 2));
+            stop = NextStop();
+            dbg.Continue();
+            (await stop.Guarded()).Should().Be(new StoppedInfo(StopReason.Breakpoint, "Widget", 2));
+            dbg.Continue();
+            await run.Guarded();
+        }
+        finally
+        {
+            dbg.Stop();
+            await run.Guarded();
+        }
     }
 
     [Fact]
