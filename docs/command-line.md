@@ -69,7 +69,9 @@ HexIDE.Desktop --user-data-dir ./demo-profile
   are kept in the registry key VB6 itself uses, so a program run in HexIDE and the same program compiled by
   VB6 share them, and this flag does not move them. Elsewhere they are in `program-settings.json` in this
   directory.
-- **Logs are not per-user files** and stay in their usual place.
+- **Logs are not per-user files** and stay in their usual place. IDE log pruning keeps at least the seven
+  most recent sessions and deletes an older session only when all its parts were last modified more than
+  seven days ago. Frequent launches across profiles do not shorten that window.
 - **Add-ins still load.** They live beside the executable, not in this directory; only the record of which
   ones you allowed moves, so a fresh profile asks about each third-party add-in again.
 - **A malformed one refuses to start, as a malformed `--server-port` does.** Given with nothing after it —

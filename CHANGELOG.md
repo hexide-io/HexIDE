@@ -276,6 +276,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **IDE logs survive frequent relaunches** (#1307). Pruning deletes a session only when every part was last
+  modified more than seven days ago, and always keeps at least the seven most recent sessions. Logs remain
+  shared across profiles; a recently written part protects its whole session.
+
 - **AI Chat Apply preserves trailing whitespace and final line breaks** (#1068). Only the single line break
   before the closing code fence is removed; applying a whole file no longer strips its final blank lines.
 
