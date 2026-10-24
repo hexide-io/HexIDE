@@ -181,7 +181,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (target == Vb6Value.ValueType.Single)
             return new Vb6Value((float)AsDouble(v));
         if (target == Vb6Value.ValueType.Currency)
-            return Vb6Value.NewCurrency(AsDecimal(v));
+            return VbNumeric.Narrow(v, Vb6Value.ValueType.Currency, null);
         if (target == Vb6Value.ValueType.Decimal)
             return Vb6Value.NewDecimal(AsDecimal(v));
         if (target == Vb6Value.ValueType.Double)
@@ -893,6 +893,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
             if (!interpreter.TryReadNow(env, identifier, out var found, out var variable, out var foundNeed))
                 (found, variable) = await interpreter.ReadVariableAfter(env, identifier, foundNeed!);
+            if (interpreter.EnumIsQualifier(identifier, env, currentModule))
+                throw new VBCompileErrorException("Expected variable or procedure, not enum type");
             if (!found)
             {
                 // In a form's code, a member of the form: `Caption`, `Width`, `Left` (#995). After the procedure's locals and
@@ -961,7 +963,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // leading part as a value, but a same-named variable shadows it (VB6 precedence).
             if (membersCall.iCS_S_VariableOrProcedureCall() is { } leadPart
                 // Only whether there is one, as a statement's qualifier asks: it must not make a form's instance (#822).
-                && !interpreter.ExecutionContext.TryInspectVariable(env, leadPart.GetText(), out _)
+                && (interpreter.EnumIsQualifier(leadPart.GetText(), env, currentModule)
+                    || !interpreter.ExecutionContext.TryInspectVariable(env, leadPart.GetText(), out _))
                 && interpreter.TryResolveQualifier(leadPart.GetText(), out var qualifier))
             {
                 return await ResolveQualifiedMemberValue(qualifier, membersCall.iCS_S_MemberCall(), ctx);
@@ -1006,7 +1009,8 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     private async Task<Vb6Value> ResolveImplicitCallWithoutBang(VB6Parser.ImplicitCallStmt_InStmtContext ctx, VB6Parser.ICS_S_MembersCallContext membersCall)
     {
         if (membersCall.iCS_S_VariableOrProcedureCall() is { } leadPart
-            && !interpreter.ExecutionContext.TryInspectVariable(env, leadPart.GetText(), out _)
+            && (interpreter.EnumIsQualifier(leadPart.GetText(), env, currentModule)
+                    || !interpreter.ExecutionContext.TryInspectVariable(env, leadPart.GetText(), out _))
             && interpreter.TryResolveQualifier(leadPart.GetText(), out _))
             throw new NotImplementedException($"`{ctx.GetText()}` is supported only on a Collection");
         Vb6Value variable;
@@ -1652,15 +1656,15 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 return await ThenTheRest(result);
             throw new VBSubOrFunctionNotDefinedException(memberName);   // a Sub used where a value is required
         }
-        if (await interpreter.ReadVariable(module.ModuleEnv, memberName) is (true, var v))
-            return await ThenTheRest(v);
-
         // `Module1.MyEnum.Member` — the three-part form, measured legal. Unlike the library case this one
         // CAN be validated exactly, because the module's own enums are collected in its pre-pass: the
         // middle segment must name an enum this module declares, and the last must be one of its members.
         // `Module1.Member` already worked, because a member is hoisted as a module-level name.
-        if (idx + 1 < members.Length && module.PrePass.Enums.TryGetValue(memberName, out var enumTable))
+        if (module.PrePass.Enums.TryGetValue(memberName, out var enumTable)
+            && interpreter.EnumIsQualifier(memberName, module.ModuleEnv, module))
         {
+            if (idx + 1 == members.Length)
+                throw new VBCompileErrorException("Expected variable or procedure, not enum type");
             var innerName = MemberName(members[idx + 1]);
             if (!enumTable.TryGetValue(innerName, out var innerValue))
                 throw new VBMethodOrDataMemberNotFoundException(innerName, Vb6Value.ValueType.EmptyVariant);
@@ -1668,6 +1672,16 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return idx + 2 < members.Length
                 ? await ResolveMemberChain(innerResult, members, idx + 2, ctx)
                 : innerResult;
+        }
+
+        if (await interpreter.ReadVariable(module.ModuleEnv, memberName) is (true, var v))
+        {
+            // #965: the argument list indexes the module's array, as on an unqualified read. Private foreign
+            // reads and non-array calls are unmeasured here and retain their existing behaviour.
+            if (argsCtx != null && v.Value is VBArray
+                && module.PrePass.PublicVariables.Contains(memberName))
+                v = IndexResult(v, await EvaluateCallArgs(argsCtx), ctx);
+            return await ThenTheRest(v);
         }
 
         throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
@@ -1704,7 +1718,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // The identifier of a member-call segment (`.Foo` or `.Foo(args)`). A ProcedureOrArrayCall head can be a
     // baseType token (e.g. `.Currency`) rather than an ambiguousIdentifier, so the inner accessor needs its own
     // null-guard — otherwise it NREs instead of falling through to the clean "malformed" error.
-    private static string MemberName(VB6Parser.ICS_S_MemberCallContext m)
+    internal static string MemberName(VB6Parser.ICS_S_MemberCallContext m)
         => m.iCS_S_VariableOrProcedureCall()?.ambiguousIdentifier().GetText()
            ?? m.iCS_S_ProcedureOrArrayCall()?.ambiguousIdentifier()?.GetText()
            ?? throw new VBCompileErrorException("Malformed or unsupported qualified member call");

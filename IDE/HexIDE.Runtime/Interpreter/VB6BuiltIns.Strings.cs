@@ -369,6 +369,10 @@ public partial class VB6BuiltIns
             if (e < s.Length && (s[e] == '+' || s[e] == '-')) e++;
             if (e < s.Length && char.IsDigit(s[e])) { i = e; while (i < s.Length && char.IsDigit(s[i])) i++; }
         }
-        return double.TryParse(s.Substring(0, i), NumberStyles.Float, CultureInfo.InvariantCulture, out var d) ? d : 0;
+        if (!double.TryParse(s.Substring(0, i), NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
+            return 0;
+        if (!double.IsFinite(d))
+            throw new VBRunTimeException(VBStandardError.Overflow);
+        return d;
     }
 }

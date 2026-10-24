@@ -85,11 +85,11 @@ public interface IProjectService
     /// </param>
     /// <exception cref="HexIDE.IDE.SourceEncodingRefusal">The form's code page cannot hold its text. Nothing
     /// was written; a person has been shown the warning unless <paramref name="interactive"/> is false.</exception>
-    Task<bool> SaveForm(FormDefinition form, bool saveAs, bool interactive = true);
+    Task<bool> SaveForm(FormDefinition form, bool saveAs, bool interactive = true, SaveRewriteReport? rewrites = null);
 
     /// <summary>Saves one module, as <see cref="SaveForm"/> saves a form.</summary>
     /// <param name="interactive">As for <see cref="SaveForm"/>.</param>
-    Task<bool> SaveModule(ModuleDefinition module, bool saveAs, bool interactive = true);
+    Task<bool> SaveModule(ModuleDefinition module, bool saveAs, bool interactive = true, SaveRewriteReport? rewrites = null);
 
     /// <summary>
     /// Re-reads <paramref name="form"/>'s <c>.frm</c> (and companion <c>.frx</c>) from disk and updates the

@@ -66,6 +66,40 @@ public class UiAutomationDriverTests
                 yield return d;
     }
 
+    [AvaloniaTheory]
+    [InlineData("dump")]
+    [InlineData("inspect")]
+    [InlineData("search")]
+    [InlineData("reply")]
+    public void NamedMenu_ExposesVisibleLabel(string surface)
+    {
+        var tools = new MenuItem { Name = surface == "search" ? "StableMenu" : "ToolsMenuItem", Header = "_Tools" };
+        tools.Items.Add(new MenuItem { Header = "Child" });
+        var window = new Window { Content = new Menu { Items = { tools } } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var tree = UiAutomationDriver.Dump(window, "Window", 20, false);
+            var node = Flatten(tree).Single(n => n.Name == tools.Name);
+            node.Path.Should().EndWith($"MenuItem[{tools.Name}]");
+            UiAutomationDriver.Resolve(window, node.Path.Replace($"[{tools.Name}]", "[Tools]")).control
+                .Should().BeSameAs(tools);
+            if (surface == "dump")
+                node.Label.Should().Be("Tools");
+            else if (surface == "inspect")
+            {
+                var detail = UiAutomationDriver.Inspect(tools, node.Path);
+                detail.Label.Should().Be("Tools");
+            }
+            else if (surface == "search")
+                UiAutomationDriver.Find(tree, "Tools", 100).Matches.Should().Contain(n => n.Path == node.Path);
+            else
+                UiAutomationDriver.Interact(tools, "expand", null).Detail.Should().Contain("'Tools'");
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void Dump_FindsControls_WithExpectedProviders()
     {
@@ -705,7 +739,8 @@ public class UiAutomationDriverTests
         {
             tree.SelectedItem.Should().BeNull("nothing is selected before the gesture");
 
-            UiAutomationDriver.Interact(root, "double_click", null);
+            var outcome = UiAutomationDriver.Interact(root, "double_click", null);
+            outcome.Detail.Should().Contain("DoubleTapped").And.Contain("selected it first").And.Contain("no pointer press");
 
             // Without this a handler would act on whatever was selected before — the wrong document,
             // and silently, which is the failure mode the verb exists to avoid.
@@ -1228,6 +1263,118 @@ public class UiAutomationDriverTests
         {
             UiAutomationDriver.Interact(textbox, "set_value", "hello").Success.Should().BeTrue();
             textbox.Text.Should().Be("hello");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void ReadOnlyValue_ComboMatch_SelectsAndReports()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "Alpha", "Beta" }, SelectedIndex = 0 };
+        var window = Show(combo);
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(combo, "set_value", "beta");
+            outcome.Success.Should().BeTrue(outcome.Error);
+            combo.SelectedItem.Should().Be("Beta");
+            combo.IsDropDownOpen.Should().BeFalse();
+            outcome.Detail.Should().Be("selected 'Beta' and closed the dropdown, as a click does");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void ReadOnlyValue_ComboMiss_NamesItemsWithoutSelecting()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "Alpha", "Beta" }, SelectedIndex = 0 };
+        var window = Show(combo);
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(combo, "set_value", "missing");
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("no selectable item matching 'missing'").And.Contain("'Alpha', 'Beta'");
+            combo.SelectedItem.Should().Be("Alpha");
+            combo.IsDropDownOpen.Should().BeFalse();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void ReadOnlyValue_Inspection_ReportsComboTrueAndTextBoxFalse()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "Alpha", "Beta" } };
+        var text = new TextBox();
+        var window = Show(new StackPanel { Children = { combo, text } });
+        try
+        {
+            var options = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
+            var comboJson = System.Text.Json.JsonSerializer.SerializeToElement(UiAutomationDriver.Inspect(combo, "Window/ComboBox"), options);
+            var textJson = System.Text.Json.JsonSerializer.SerializeToElement(UiAutomationDriver.Inspect(text, "Window/TextBox"), options);
+            comboJson.TryGetProperty("isReadOnly", out var comboReadOnly).Should().BeTrue();
+            comboReadOnly.GetBoolean().Should().BeTrue();
+            textJson.GetProperty("isReadOnly").GetBoolean().Should().BeFalse();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void ReadOnlyValue_ComboMiss_CapsNamesAndCountsOmitted()
+    {
+        var combo = new ComboBox { ItemsSource = Enumerable.Range(0, 25).Select(i => $"Item{i}").ToArray() };
+        var window = Show(combo);
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(combo, "set_value", "missing");
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("'Item0'").And.Contain("'Item19'").And.Contain("5 more item(s) omitted")
+                .And.NotContain("'Item20'");
+            combo.SelectedIndex.Should().Be(-1);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void ReadOnlyValue_ComboMatch_SelectsAnOffscreenItem()
+    {
+        var combo = new ComboBox { ItemsSource = Enumerable.Range(0, 25).Select(i => $"Item{i}").ToArray() };
+        var window = Show(combo);
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(combo, "set_value", "Item24");
+            outcome.Success.Should().BeTrue(outcome.Error);
+            combo.SelectedItem.Should().Be("Item24");
+            outcome.Detail.Should().Be("selected 'Item24' and closed the dropdown, as a click does");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void ReadOnlyValue_ComboAmbiguity_RefusesWithoutSelecting()
+    {
+        var combo = new ComboBox { ItemsSource = new[] { "Dup", "dup" } };
+        var window = Show(combo);
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(combo, "set_value", "Dup");
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("ambiguous");
+            combo.SelectedIndex.Should().Be(-1);
+            combo.IsDropDownOpen.Should().BeFalse();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void ReadOnlyValue_TextBox_RefusesClearly()
+    {
+        var text = new TextBox { Text = "original", IsReadOnly = true };
+        var window = Show(text);
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(text, "set_value", "changed");
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("value is read-only").And.NotContain("threw");
+            text.Text.Should().Be("original");
         }
         finally { window.Close(); }
     }
