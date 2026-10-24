@@ -265,6 +265,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Repaired three corrupted comment banners in `PropertyTextTests.cs`** (#1312). The tree-hygiene guard now
+  rejects C1 control characters in text files, with a planted selftest case to catch encoding accidents.
+
 - **The Gregorian locale test follows the platform's calendar data** (#1045). It no longer assumes ar-SA's
   first month differs from January, which failed under WSL's ICU 78 even though the program's output was correct.
 
