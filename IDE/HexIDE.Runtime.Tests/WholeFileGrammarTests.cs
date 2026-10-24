@@ -41,8 +41,9 @@ public class WholeFileGrammarTests
     /// developer who points it at a VB6 install would silently stop covering the demos. Here the demos are
     /// the files hexide-io/HexIDE#273 re-composes, so they are never dropped.
     /// </summary>
-    private static IEnumerable<string> CorpusRoots()
+    private static IEnumerable<string> CorpusRoots(Func<string, string?>? findRoot = null)
     {
+        findRoot ??= FindUpwards;
         var env = Environment.GetEnvironmentVariable("HEXIDE_ROUNDTRIP_CORPUS");
         if (!string.IsNullOrWhiteSpace(env))
             foreach (var p in env.Split(';', StringSplitOptions.RemoveEmptyEntries))
@@ -52,13 +53,15 @@ public class WholeFileGrammarTests
                    ?? @"C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template";
         if (Directory.Exists(vb98)) yield return vb98;
 
-        var demo = FindUpwards("demo");
-        if (demo is not null) yield return demo;
+        var demo = findRoot("demo");
+        demo.Should().NotBeNull("demo/ ships with the repository");
+        yield return demo!;
 
         // The only .ctl and .pag this repository owns. Everything else with those extensions lives in a
         // VB6 install, which CI does not have — see corpus/designer/README.md.
-        var designer = FindUpwards(Path.Join("corpus", "designer"));
-        if (designer is not null) yield return designer;
+        var designer = findRoot(Path.Join("corpus", "designer"));
+        designer.Should().NotBeNull("corpus/designer ships with the repository");
+        yield return designer!;
 
         // The only files that carry members' attribute lines, as VB6's own IDE writes them, so the only ones that
         // hand the grammar an Attribute statement below the header (#273 task 4.6).
@@ -69,7 +72,7 @@ public class WholeFileGrammarTests
     /// <summary>
     /// <c>corpus/member-attributes</c>' round-trip half, and the output VB6 saved for each hand-written project of its
     /// evidence half: every file there that VB6 wrote. Not the hand-written inputs, one of which declares what VB6
-    /// itself rejects. Required, unlike the roots above that a machine may lack: the folder ships with the
+    /// itself rejects. Required, like the other repository roots: the folder ships with the
     /// repository, and a lane that lost it would pass on the rest without a word.
     /// </summary>
     private static IEnumerable<string> MemberAttributeCorpus()
@@ -82,6 +85,17 @@ public class WholeFileGrammarTests
         foreach (var saved in Directory.EnumerateDirectories(Path.Join(root!, "evidence"), "saved*", SearchOption.AllDirectories)
                      .Order(StringComparer.Ordinal))
             yield return saved;
+    }
+
+    [Theory]
+    [InlineData("demo")]
+    [InlineData("corpus/designer")]
+    public void MissingRepositoryRootFailsTheLane(string missing)
+    {
+        string? FindRoot(string relative) => relative.Replace('\\', '/') == missing ? null : FindUpwards(relative);
+        Action enumerate = () => CorpusRoots(FindRoot).ToList();
+
+        enumerate.Should().Throw<Exception>().WithMessage("*" + missing + "*ships with the repository*");
     }
 
     private static string? FindUpwards(string folderName)
@@ -133,7 +147,7 @@ public class WholeFileGrammarTests
         var unsplittable = new List<string>();
         var counts = new SortedDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var ownedRoots = new[] { FindUpwards("demo"), FindUpwards(Path.Join("corpus", "designer")) }
-            .Where(r => r is not null).Select(r => r!).Concat(MemberAttributeCorpus()).ToList();
+            .Select(r => r!).Concat(MemberAttributeCorpus()).ToList();
 
         foreach (var path in files)
         {

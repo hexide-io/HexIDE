@@ -249,6 +249,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Corpus lanes fail when repository roots are missing** (#1016). The round-trip, grammar, header and
+  region-parity checks now require `demo/` and `corpus/designer`, so losing either cannot silently reduce coverage.
+  An explicit round-trip corpus still replaces the default demo root.
+
 - **MCP Delete and Backspace delete the editable part of a selection reaching protected lines** (#1055).
   The key runs through the editor's own deletion path; the reply counts what was deleted and left, names
   the header or member's Attribute lines, and reports the caret and remaining selection. `type_text` also
