@@ -110,7 +110,12 @@ public class SnapshotComposerTests
                 pixel[3].Should().Be(0, "the window must leave room for the popup overhang");
                 bitmap.CopyPixels(new PixelRect(offsetX + 50, offsetY + 50, 1, 1),
                     handle.AddrOfPinnedObject(), 4, 4);
-                pixel.Should().Equal(new byte[] { 255, 0, 0, 255 }, "the shifted window must still be rendered");
+                // Blue, in the bitmap's own byte order: BGRA on Windows and Linux, RGBA on macOS. (Magenta, below,
+                // reads the same either way.)
+                var blue = bitmap.Format == Avalonia.Platform.PixelFormat.Rgba8888
+                    ? new byte[] { 0, 0, 255, 255 }
+                    : new byte[] { 255, 0, 0, 255 };
+                pixel.Should().Equal(blue, "the shifted window must still be rendered");
                 bitmap.CopyPixels(new PixelRect(popupX - 100 + offsetX + 5, popupY - 100 + offsetY + 5, 1, 1),
                     handle.AddrOfPinnedObject(), 4, 4);
                 pixel.Should().Equal(new byte[] { 255, 0, 255, 255 }, "the popup must retain its relative position");
