@@ -145,6 +145,9 @@ more statements), an error between procedures, or an Option line directly before
 still mask later errors and procedures. `Sync` retains ANTLR's default behaviour; overriding it introduced
 a false error in VB6's Tip of the Day template.
 
+`Declare PtrSafe` is accepted in active code too (#1548), with existing types. `LongPtr`, `LongLong` and
+their conversion functions remain follow-up work; this adds no external API execution.
+
 ### Conditional compilation
 
 **Code that `vb6.exe` never compiles is never parsed** (#1112). Before parsing, the server applies the module's

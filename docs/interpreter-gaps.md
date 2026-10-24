@@ -59,8 +59,8 @@ Platform: 4 · Partial: 12 · Other: 0.
 >   parse, so an inactive branch is never parsed; oracle-pinned).
 > - **→ Deferred:** Load/Unload · chained
 >   index groups (`Split(s)(0)`) · AddressOf · string-vs-number comparison (`5 < "10"`) · **Declare … Lib** (no longer
->   fails the module load — the declaration is skipped, so the module runs; an actual call raises the clean "Sub or
->   Function not defined") · selection/system/financial intrinsics (IIf/Choose/Switch are
+>   fails the module load — the declaration (including VBA7 `PtrSafe`, #1548) is skipped, so the module runs; an actual
+>   call raises the clean "Sub or Function not defined") · selection/system/financial intrinsics (IIf/Choose/Switch are
 >   cheap future adds; the financials/system set is a larger deferral).
 > - **→ Walled:** AppActivate / SendKeys (OS automation) · array-element/call-result lead in a member chain (rides the
 >   multi-dot / member-chain wall).

@@ -10,6 +10,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **`Declare PtrSafe` parses** (#1548) in the interpreter and language server. VBA7 declarations using existing
+  types now let a module load; external API calls remain deferred. `LongPtr`, `LongLong` and their conversions
+  are follow-up work.
+
 - **MCP tool table drift guard** (#1339). Tests check CLAUDE.md's curated signatures against the tools,
   including parameter order, optionality and every `interact` action. Corrected missing `project?`
   parameters on `open_file` and `view_designer`, and the optional `armed?` parameter on `arm_lsp_capture`.
