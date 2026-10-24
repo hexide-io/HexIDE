@@ -83,11 +83,12 @@ public class ComboBoxComponentClass : ComponentBaseClass
 
     /// <summary>
     /// Setting Style to Dropdown List resets the Text to the control's name, so a Text typed earlier is gone when Style goes
-    /// back (measured on VB6's designer, #926).
+    /// back (measured on VB6's designer, #926). A Dropdown List renamed takes its new name back with it: renamed
+    /// cboNewCombo1 and set to Style 0, VB6's designer wrote <c>Text = "cboNewCombo1"</c> (measured on SP6, #1604).
     /// </summary>
     public override IReadOnlyList<PropertyChange> ApplyDesignerConsequences(ComponentInstance instance, PropertyClass property)
     {
-        if (!ReferenceEquals(property, ComboStyleProperty) || !IsDropdownList(instance))
+        if (!(ReferenceEquals(property, ComboStyleProperty) || ReferenceEquals(property, NameProperty)) || !IsDropdownList(instance))
             return [];
         var before = instance.GetPropertyOrDefault(TextProperty);
         var name = instance.GetPropertyOrDefault(NameProperty) ?? "";

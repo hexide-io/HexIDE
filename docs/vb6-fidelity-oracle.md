@@ -1750,14 +1750,20 @@ file had held was dropped.
 - **A Text saved in the file is not drawn,** and the next save drops it, as "Drawn in the VB6 IDE's designer" found
   that a Dropdown List's Text is never written.
 
-**Not measured:** what Text a renamed Dropdown List takes when its Style goes back to 0. A second run meant to set the
-Style lost its keys to the (Name) row: it renamed the control `S` and then refused `0` as a name, with "Not a legal object
-name: '0'". Its box showed `S` at once, which agrees with the rename row above.
+**What Text a renamed Dropdown List takes when its Style goes back to 0** was not measured on the release build. A second
+run meant to set the Style lost its keys to the (Name) row: it renamed the control `S` and then refused `0` as a name,
+with "Not a legal object name: '0'". Its box showed `S` at once, which agrees with the rename row above.
+
+**SP6 answered it** (2026-10-24, VB6.EXE 6.00.9782, the same rig with the Project window clicked before its keys). The
+rename save was byte-identical to the release build's. Then Ctrl+Shift+S twice reached Style, and `0` and Enter set it.
+The save wrote `Begin VB.ComboBox cboNewCombo1` with `Text = "cboNewCombo1"`, and the box showed `cboNewCombo1`. So the
+Text a Dropdown List goes back with is the name it has then, not the one it was drawn with.
 
 ### In HexIDE (#1604)
 
 - **The designer draws a Dropdown List's box with the control's current name,** in its ForeColor, as an item would be
   drawn. A Text saved in the file isn't drawn. The running control still shows nothing there until an item is selected.
+- **A Dropdown List renamed takes its new name as its Text,** so Style 0 afterwards writes that name, as SP6 did.
 - **This is the designer's first control that draws differently from the running one.** `ComponentBaseClass` has
   `InstantiateForDesigner` for it, which the designer's renderer calls. Every other class returns its running control.
 

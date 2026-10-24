@@ -249,6 +249,7 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **The designer draws a Dropdown List's box with the control's name** (#1604). It drew the box empty, as the running
   control is. VB6's designer shows the name the control has now, after a rename too, and not a Text the file saved.
+  A Dropdown List renamed and then set back to Style 0 writes its new name as its Text, as VB6 SP6's designer did.
 
 - **MCP `hover` cleans up after a throwing pointer handler, reports a cover's tip over a disabled target, and refuses
   targets that are not showing** (#1328). Containers prefer a showing editor; the tool explains the real mouse's effect
