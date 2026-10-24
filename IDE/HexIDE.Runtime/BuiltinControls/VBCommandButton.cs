@@ -10,6 +10,8 @@ public class VBCommandButton : Button
     static VBCommandButton()
     {
         AttachedEvents.AttachFocusEvents<VBCommandButton>();
+        // An arrow moves the focus to the previous or next control in its container (measured, #1625).
+        ArrowNavigation.Attach<VBCommandButton>();
         AttachedEvents.AttachClick<VBCommandButton>();
         // MouseUp follows Click, which the Button raised in its own release handler (measured, #974).
         AttachedEvents.AttachMouse<VBCommandButton>();
