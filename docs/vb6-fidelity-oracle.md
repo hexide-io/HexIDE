@@ -7185,11 +7185,12 @@ The IDE's status bar counts the same way, 1-based where `Line N` is 0-based: C1'
 hidden run, read `Ln 7`, and V1's read `Ln 4` on the blank line under a described variable. A pasted attribute line,
 which the IDE holds as code until a reload, is counted (V4, below).
 
-HexIDE's `Vb6ToolchainService.IsHiddenFromVb6LineCount` tests each physical line for `Attribute `, which is (b):
-one line off below p11a, p11b and p07c, and on p07's own error. VB6 printed `Line 2` for p07's attribute line,
-which continues the declaration and so is counted; `EditorLineOf` skips that line as hidden and puts `Line 2` on
+Before #968, HexIDE's `Vb6ToolchainService.IsHiddenFromVb6LineCount` tested each physical line for `Attribute `, which is
+(b): one line off below p11a, p11b and p07c, and on p07's own error. VB6 printed `Line 2` for p07's attribute line,
+which continues the declaration and so is counted; `EditorLineOf` skipped that line as hidden and put `Line 2` on
 `ByVal b As Long)`, the line after it. All four are hand-made shapes, and VB6's dialog was not seen to write any of
-them. Filed as hexide-io/HexIDE#968.
+them. Fixed in hexide-io/HexIDE#968: the mapper inherits the first physical line's hidden verdict across
+continuations, using the same continuation rule as `ReadOnlyRegions`.
 
 ### What the IDE writes
 
@@ -7608,9 +7609,9 @@ not: VB6 attaches nothing across either (p01, p02) and drops the line at its nex
 The draft's rule, that such a run is an orphan, stands. Its "nothing the IDE does removes or moves it" stands too,
 as a recorded divergence from VB6, which removes or moves one at every save.
 
-**Ours, in the code.** `Vb6ToolchainService` counts physical lines starting `Attribute`, not logical ones (#968,
-above). Task 4.1 was first built judging whether a run describes its member by matching every qualifier against the
-line above, the first draft's rule, and was rebuilt to the revised rules before the rest of phase 4 (*HexIDE, after
+**Ours, in the code before #968.** `Vb6ToolchainService` counted physical lines starting `Attribute`, not logical ones
+(fixed as described above). Task 4.1 was first built judging whether a run describes its member by matching every
+qualifier against the line above, the first draft's rule, and was rebuilt to the revised rules before the rest of phase 4 (*HexIDE, after
 #273*, below).
 
 **The first IDE session's, by the second.**
