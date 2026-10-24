@@ -32,7 +32,7 @@ bare `WithEvents`, and a header holding the dotless `VB_Description` VB6 moved i
 
 ## Provenance, stated exactly
 
-**Written by the VB6 IDE, not only accepted by the compiler.** VB6 6.00.8176 (SP6) on the oracle VM (locale
+**Written by the VB6 IDE, not only accepted by the compiler.** VB6 6.00.8176 (the original release, #1524) on the oracle VM (locale
 en-GB), two sessions on 2026-10-13, driven in the guest's interactive console session by keystrokes and clicks,
 every step that mattered confirmed from a screenshot. That is what `corpus/designer/README.md` said the next
 question of this kind would need. The probes, the steps and every measurement are in

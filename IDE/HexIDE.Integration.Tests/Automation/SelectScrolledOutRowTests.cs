@@ -5,6 +5,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using AvaloniaEdit;
 using HexIDE.Automation;
 
 namespace HexIDE.Integration.Tests.Automation;
@@ -98,23 +99,32 @@ public class SelectScrolledOutRowTests
     }
 
     // Rows that are view models with their visibility bound, as the Properties window's are.
-    private static (Window Window, ListBox List, List<Row> Rows) ScrolledRows(params int[] hidden)
+    private static (Window Window, ListBox List, List<Row> Rows) ScrolledRows(params int[] hidden) => ScrolledRows(false, hidden);
+
+    private static (Window Window, ListBox List, List<Row> Rows) ScrolledRows(bool editable, params int[] hidden)
     {
         var rows = Enumerable.Range(0, 30).Select(i => new Row($"Row{i}", !hidden.Contains(i))).ToList();
         var list = new ListBox
         {
             Height = 40,
+            Focusable = !editable,
             ItemsSource = rows,
             ItemTemplate = new FuncDataTemplate<Row>((r, _) =>
             {
-                var text = new TextBlock { Text = r?.Name };
+                Control text = editable && r?.Name == "Row28"
+                    ? new TextBox { Text = "original" }
+                    : new TextBlock { Text = r?.Name };
                 Avalonia.Automation.AutomationProperties.SetAutomationId(text, $"txt_{r?.Name}");
                 return new Border { Height = 16, Child = text };
             }),
         };
         list.Styles.Add(new Style(x => x.OfType<ListBoxItem>())
         {
-            Setters = { new Setter(Avalonia.Visual.IsVisibleProperty, new Avalonia.Data.Binding(nameof(Row.Visible))) },
+            Setters =
+            {
+                new Setter(Avalonia.Visual.IsVisibleProperty, new Avalonia.Data.Binding(nameof(Row.Visible))),
+                new Setter(Avalonia.Input.InputElement.FocusableProperty, !editable),
+            },
         });
         var window = new Window { Content = list, Width = 300, Height = 200 };
         window.Show();
@@ -197,6 +207,85 @@ public class SelectScrolledOutRowTests
             UiAutomationDriver.Resolve(window, "Window/#txt_Row28").control.Should().BeNull("nor can an id");
         }
         finally { window.Close(); }
+    }
+
+    // Only Row28 has an input surface; panel order cannot decide which item receives input (#1327).
+    private static (Window Window, ListBox List, TextBox Box) ReleasedTextBox()
+    {
+        var (window, list, rows) = ScrolledRows(true, 28);
+        try
+        {
+            UiAutomationDriver.Interact(list, "select", "Row28").Success.Should().BeFalse();
+            rows[28].Visible = true;
+            Dispatcher.UIThread.RunJobs();
+            var box = list.GetVisualDescendants().OfType<TextBox>().Single();
+            Avalonia.Automation.AutomationProperties.GetAutomationId(box).Should().Be("txt_Row28");
+            var row = box.GetVisualAncestors().OfType<ListBoxItem>().Single();
+            list.IndexFromContainer(row).Should().BeNegative("the list must have released the row holding the box");
+            ItemsControl.ItemsControlFromItemContainer(row).Should().BeNull();
+            row.IsEffectivelyVisible.Should().BeTrue("the released row must show to exercise the receiver gap");
+            box.IsEffectivelyVisible.Should().BeTrue();
+            return (window, list, box);
+        }
+        catch { window.Close(); throw; }
+    }
+
+    [AvaloniaFact]
+    public void Press_key_does_not_reach_a_box_in_a_released_row()
+    {
+        var (window, list, box) = ReleasedTextBox();
+        try
+        {
+            var keyDown = false;
+            box.KeyDown += (_, _) => keyDown = true;
+
+            var outcome = UiAutomationDriver.PressKey(list, "A", null, "Window/ListBox");
+
+            keyDown.Should().BeFalse("a released row must receive no key");
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().NotBeNullOrEmpty();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Type_text_does_not_reach_a_box_in_a_released_row()
+    {
+        var (window, list, box) = ReleasedTextBox();
+        try
+        {
+            var before = box.Text;
+
+            var outcome = UiAutomationDriver.TypeText(list, "x", "Window/ListBox");
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("has no text surface");
+            box.Text.Should().Be(before);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Hover_does_not_choose_an_editor_in_a_released_row()
+    {
+        var (window, list, box) = ReleasedTextBox();
+        try
+        {
+            // Keep the released container and replace its content with the surface hover resolves.
+            var border = (Border)box.Parent!;
+            var editor = new TextEditor { Text = "original" };
+            border.Child = editor;
+            list.UpdateLayout();
+            var row = editor.GetVisualAncestors().OfType<ListBoxItem>().Single();
+            list.IndexFromContainer(row).Should().BeNegative();
+            editor.IsEffectivelyVisible.Should().BeTrue();
+
+            var outcome = UiAutomationDriver.Hover(list, null, null, "Window/ListBox", out _);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Detail.Should().NotContain("on TextEditor", "hover must use the list rather than its released editor");
+        }
+        finally { UiAutomationDriver.EndHover(list); window.Close(); }
     }
 
     // A container written into a template, or set as content, is no list's row, and no list let it go: it is listed, with

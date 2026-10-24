@@ -125,7 +125,7 @@ public class ConstTypeCharacterTests : BaseVBTestFixture
 
     // What vb6.exe refuses to build, one project each.
     // The probe also declared one name twice at module level, Const K = 1 and Const K% = 2, which vb6.exe refuses as
-    // "Ambiguous name detected: K" with or without a character, and HexIDE runs (#1622).
+    // "Ambiguous name detected: K" with or without a character. DeclaredTwiceTests pins those rows (#1622).
     [Theory]
     [InlineData("ce-overflow")]
     [InlineData("ce-mismatch")]
