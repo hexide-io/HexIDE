@@ -255,6 +255,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **IDE logs survive frequent relaunches** (#1307). Pruning deletes a session only when every part was last
+  modified more than seven days ago, and always keeps at least the seven most recent sessions. Logs remain
+  shared across profiles; a recently written part protects its whole session.
+
 - **For Each locks its array until the loop ends** (#1460). ReDim, ReDim Preserve and Erase inside the loop now raise 10 and leave the array unchanged. Every way out releases the lock, so a later ReDim can succeed.
 
 - **An Enum member named like its Enum reads qualified** (#1637): `E.E` now works in modules and classes, including across modules. Bare `E` as a value raises VB6's "Expected variable or procedure, not enum type" at use; assigning `E.E` raises "Assignment to constant not permitted".

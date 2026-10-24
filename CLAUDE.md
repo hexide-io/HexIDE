@@ -452,9 +452,9 @@ that set nothing. Say so, and ask to be restarted with a port of its own, rather
   That is reproducible, and it is what a first-time user sees. A session that needs a configuration seeds it on
   purpose, by copying the one file into its `HexIDE/sessions/<name>` directory before launching, such as an
   `lsp-servers.json` naming another language server. The IDE never copies the user's own profile into a session's.
-- **Logs are not separated.** Every IDE writes them under the shared `HexIDE/logs`, and a burst of relaunches
-  across sessions can prune a log minutes old
-  ([#1307](https://github.com/hexide-io/HexIDE/issues/1307)), so read a crash log promptly.
+- **Logs are not separated.** Every IDE writes them under the shared `HexIDE/logs`. IDE log pruning keeps
+  at least the seven most recent sessions and deletes an older session only when its newest part was last
+  modified more than seven days ago ([#1307](https://github.com/hexide-io/HexIDE/issues/1307)).
 - **An IDE started for a session refuses every other session's calls**
   ([#1306](https://github.com/hexide-io/HexIDE/issues/1306)). The script starts it with `--session <name>`, and
   `.mcp.json` names the caller in an `X-HexIDE-Session` header from the same variable. A tool call from a client
