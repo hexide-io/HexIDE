@@ -268,6 +268,17 @@ there isn't one yet. Anything may change between 0.x releases.
 - **A For loop honours changes its body makes to the counter** (#841). Next reads the variable back before adding
   the step: incrementing a Long or Variant counter inside `For i = 1 To 10` now gives five passes and leaves 11.
 
+- **Editing bundled-server tests no longer makes the server look stale** (#1017). The IDE test harness
+  checks C# and grammar files in the server project only, so test edits keep the parity checks running
+  and grammar edits require a rebuild.
+
+- **The pull-diagnostics race test always exercises the race** (#812). The stub holds the fresh answer until
+  the stale publication starts, so a run cannot pass merely because the fresh answer arrived first.
+
+- **Unavailable tests report a skip** (#693). Windows-only path and file-lock checks, empty serialization
+  corpus selections, and the opt-in VB6 build oracle no longer report an unearned pass. The documented
+  oracle commands now use the MTP method filter.
+
 - **The design-record guard recognises renamed requirements** (#1050). It reads the CLI’s `FROM` and `TO`
   list items, so an archived rename retires the old name and requires the new name in the live spec.
 
