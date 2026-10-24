@@ -1710,7 +1710,13 @@ public sealed class VBLspClient : ILspClient
             // shutdown preceded exit and 1 otherwise, so a server that refuses ours correctly reports
             // that we never shut it down, and any supervisor reads every clean exit as a crash.
             // See hexide-io/HexIDE#312.
-            try { await rpc.InvokeWithParameterObjectAsync<object?>("shutdown", null); } catch { }
+            // A live but wedged server must not hold IDE shutdown indefinitely (#392).
+            try
+            {
+                await rpc.InvokeWithParameterObjectAsync<object?>("shutdown", null)
+                    .WaitAsync(TimeSpan.FromSeconds(2));
+            }
+            catch { }
             try { await rpc.NotifyWithParameterObjectAsync("exit", null); } catch { }
         }
         DisposeRpc();

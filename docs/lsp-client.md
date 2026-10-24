@@ -45,6 +45,11 @@ stale bundled server fail rather than skip.
 | Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
+On stop, the client allows two seconds for the parameterless `shutdown` request to answer, then
+attempts the parameterless `exit` notification even if shutdown timed out or failed (#392).
+The stdio transport kills any remaining child and waits up to two seconds for termination before
+disposing its process handle.
+
 **Consumed from the server:** `textDocument/publishDiagnostics`, `$/logTrace`, plus `window/logMessage` and
 `window/showMessage` — the channel a server uses to talk about *itself* rather than about a document.
 The first goes to the log at the severity the server declared; the second goes there **and** to the

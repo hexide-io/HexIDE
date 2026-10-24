@@ -78,9 +78,12 @@ public class ShutdownWireShapeTests : IAsyncDisposable
         }
     }
 
-    private async Task<VBLspClient> ConnectedAsync()
+    private ILspTransport? _transport;
+
+    private async Task<VBLspClient> ConnectedAsync(bool answerShutdown = true)
     {
         var (clientSide, serverSide) = FullDuplexStream.CreatePair();
+        _disposables.Add(serverSide);
 
         // A minimal server, spoken by hand. It answers initialize and shutdown so the client's own
         // sequence completes, records everything, and interprets nothing.
@@ -105,6 +108,8 @@ public class ShutdownWireShapeTests : IAsyncDisposable
 
                     if (!doc.RootElement.TryGetProperty("id", out var id)) continue;   // notification
 
+                    if (m.GetString() == "shutdown" && !answerShutdown) continue;
+
                     // Built by concatenation rather than an interpolated raw literal: the initialize
                     // result ends in three consecutive closing braces, which no $$"""...""" form accepts.
                     var head = "{\"jsonrpc\":\"2.0\",\"id\":" + id.GetRawText() + ",\"result\":";
@@ -117,9 +122,10 @@ public class ShutdownWireShapeTests : IAsyncDisposable
             }
             catch (OperationCanceledException) { /* the test finished */ }
             catch (IOException) { /* the client hung up */ }
+            catch (ObjectDisposedException) { /* the test finished */ }
         }, _cts.Token);
 
-        var transport = Substitute.For<ILspTransport>();
+        var transport = _transport = Substitute.For<ILspTransport>();
         transport.IsAlive.Returns(true);
         transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
@@ -190,6 +196,21 @@ public class ShutdownWireShapeTests : IAsyncDisposable
         }
 
         methods.Should().Equal(["shutdown", "exit"]);
+    }
+
+    [Fact]
+    public async Task AnUnansweredShutdownStillSendsExitAndDisposesTheTransport()
+    {
+        var client = await ConnectedAsync(answerShutdown: false);
+
+        await client.StopAsync().WaitAsync(TimeSpan.FromSeconds(5), _cts.Token);
+        await ExitArrivedAsync();
+
+        FrameFor("shutdown").TryGetProperty("params", out _).Should().BeFalse();
+        var exit = FrameFor("exit");
+        exit.ValueKind.Should().NotBe(JsonValueKind.Undefined);
+        exit.TryGetProperty("params", out _).Should().BeFalse();
+        await _transport!.Received(1).DisposeAsync();
     }
 
     // ---- LSP framing, by hand ------------------------------------------------------------------

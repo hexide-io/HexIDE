@@ -267,6 +267,8 @@ public sealed class StdioProcessLspTransport : ILspTransport
         {
             _process.Exited -= OnProcessExited;
             try { _process.Kill(); } catch { /* already gone */ }
+            // Kill requests termination; wait for it before releasing the process handle (#392).
+            try { _process.WaitForExit(2000); } catch { /* already gone */ }
             _process.Dispose();
             _process = null;
         }

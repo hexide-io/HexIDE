@@ -276,6 +276,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A wedged language server no longer blocks IDE shutdown** (#392). The shutdown request has a two-second
+  deadline, `exit` is still attempted, and stdio disposal waits up to two seconds after killing the child.
+
 - **Quiet startup bindings** (#864): Lock Controls accepts no focused form as unchecked, and the dock theme
   accepts a layout that has not arrived without logging five null-path errors.
 
