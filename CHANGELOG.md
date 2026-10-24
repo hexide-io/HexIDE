@@ -10,6 +10,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Release download and run instructions** (#863): README now covers Linux asset selection, extraction
+  into a separate folder, launch and missing-`tar` alternatives, with the measured openSUSE GNOME result.
+  The next release's download notes link there, name the plain .NET 10 Runtime for smaller builds on
+  every platform, and include ICU among Linux's native dependencies.
+
 - **Compiler exchange recording and replay tooling** (#1218): versioned JSON-lines captures, explicit run-value
   placeholders, redaction checks and an offline synthetic preparation exchange. Real beta recordings follow in #1689.
 
