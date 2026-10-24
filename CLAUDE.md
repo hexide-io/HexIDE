@@ -355,8 +355,8 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 | `get_project_info` | Current project name, path, forms, modules, carried files |
 | `get_open_editors` | Open editor windows and active window |
 | `get_document_tabs` | Every tab in the document region with title, type (`code`/`designer`/`tool`) and active flag. `tool` is a document that is not an editor — the Object Browser, the connection list, the protocol inspector |
-| `activate_document_tab(title)` | Make a tab active by title |
-| `close_document_tab(title)` | Close a tab by title |
+| `activate_document_tab(title?, name?, project?, type?)` | Make a tab active, by its `title`, or by a document's `name` (with `project`, and `type` code or designer when both are open) |
+| `close_document_tab(title?, name?, project?, type?)` | Close a tab, addressed the same way |
 | `get_diagnostics` | LSP errors and warnings |
 | `open_file(name, project?, line?, column?)` | Open a form, module or carried file in the code editor (creates or activates tab). With `line` (and `column`), 1-based as the code window numbers them, put the caret there, opening any fold over it; a place off the text opens nothing; the note reads the caret back |
 | `view_designer(name, project?)` | Open a form or UserControl in the visual designer (creates or activates tab; use before `take_snapshot`) |

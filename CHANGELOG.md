@@ -272,6 +272,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Automation replies identify documents by project** (#886). Paused locations, locals and watches identify
+  the running project; designer undo, redo and format replies name their document. Tab and editor listings
+  include project and document, and tabs can be activated or closed by document name and project, with a
+  code/designer choice when both are open. Ambiguous tab titles are refused.
+
 - **Make with VB6 maps errors around continued attributes to the right line** (#968). Attribute continuations
   are hidden with their logical line; an `Attribute` line continuing code or a comment is counted.
 
