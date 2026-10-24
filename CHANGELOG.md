@@ -276,6 +276,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **AI Chat reloads its settings when reopened** (#57). Changes to `chat-settings.json` take effect without
+  restarting the IDE, while preserving the conversation. An in-progress response finishes with its original settings.
+
 - **Automation replies identify documents by project** (#886). Paused locations, locals and watches identify
   the running project; designer undo, redo and format replies name their document. Tab and editor listings
   include project and document, and tabs can be activated or closed by document name and project, with a
