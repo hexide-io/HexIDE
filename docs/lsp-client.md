@@ -193,8 +193,10 @@ cannot renumber older text. Before this, each window kept its own count, the ser
 whichever count was behind, and either window's close closed the document for both
 ([#721](https://github.com/hexide-io/HexIDE/issues/721)).
 
-One path can still send a version that does not rise, and it is filed: a debounced change crossing the flush
-that superseded it, with identical text ([#720](https://github.com/hexide-io/HexIDE/issues/720)).
+The client drops a change whose version is no later than the one it tracks, keeping the newer text and
+version for reconnect replay. Checking, tracking and sending changes are serialized, so a debounced change
+crossing the flush that superseded it cannot send a lower version after the flush
+([#720](https://github.com/hexide-io/HexIDE/issues/720)).
 
 **On reconnect, tracked documents are replayed** through the same code path as a first open, carrying the
 version this connection has been tracking rather than `1`. Resetting to `1` would put the client's count

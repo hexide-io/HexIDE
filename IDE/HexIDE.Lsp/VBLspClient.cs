@@ -14,6 +14,7 @@ public sealed class VBLspClient : ILspClient
     private readonly ILogger<VBLspClient> _logger;
     // Currently-open documents (uri -> latest version+text), so they can be replayed after a reconnect.
     private readonly ConcurrentDictionary<string, TrackedDocument> _openDocuments = new();
+    private readonly SemaphoreSlim _changeGate = new(1, 1);
     // What each source currently says about each document. This connection's server is one source; an
     // external compiler injecting through this client is another, and neither may erase the other.
     private readonly DiagnosticLedger _diagnostics = new();
@@ -810,26 +811,38 @@ public sealed class VBLspClient : ILspClient
 
     public async Task ChangeDocumentAsync(string uri, int version, string text, CancellationToken cancellationToken = default)
     {
-        _openDocuments.AddOrUpdate(uri,
-            _ => new TrackedDocument(version, text),
-            (_, tracked) => tracked with { Version = version, Text = text });
-        var rpc = _rpc;
-        if (rpc is null || !_initialized || !ServerCapabilities.AcceptsChanges(_capabilities?.Value)) return;
+        // Keep the version check, tracking and send ordered: a debounce can cross a newer flush (#720).
+        await _changeGate.WaitAsync();
+        try
+        {
+            while (true)
+            {
+                if (_openDocuments.TryGetValue(uri, out var tracked))
+                {
+                    if (version <= tracked.Version) return;
+                    if (_openDocuments.TryUpdate(uri, tracked with { Version = version, Text = text }, tracked)) break;
+                }
+                else if (_openDocuments.TryAdd(uri, new TrackedDocument(version, text))) break;
+            }
+            var rpc = _rpc;
+            if (rpc is null || !_initialized || !ServerCapabilities.AcceptsChanges(_capabilities?.Value)) return;
 
-        // Not until the server has been opened on it. A change to a document it has never heard of is not one a
-        // server can apply, and a foreign server measured here ignores it. The open still to come, from the replay
-        // or from the registry once its last claimant has started, carries this text instead, because it was
-        // tracked above (#719).
-        if (!IsOpenOnThisConnection(uri)) return;
-        var p = new DidChangeTextDocumentParams(
-            new VersionedTextDocumentIdentifier(uri, version),
-            [new TextDocumentContentChangeEvent(text)]);
-        try { await rpc.NotifyWithParameterObjectAsync("textDocument/didChange", p); }
-        catch (Exception ex) { WarnRequestFailedOnce("textDocument/didChange", ex, cancellationToken); }
+            // Not until the server has been opened on it. A change to a document it has never heard of is not one a
+            // server can apply, and a foreign server measured here ignores it. The open still to come, from the replay
+            // or from the registry once its last claimant has started, carries this text instead, because it was
+            // tracked above (#719).
+            if (!IsOpenOnThisConnection(uri)) return;
+            var p = new DidChangeTextDocumentParams(
+                new VersionedTextDocumentIdentifier(uri, version),
+                [new TextDocumentContentChangeEvent(text)]);
+            try { await rpc.NotifyWithParameterObjectAsync("textDocument/didChange", p); }
+            catch (Exception ex) { WarnRequestFailedOnce("textDocument/didChange", ex, cancellationToken); }
 
-        // After the notification rather than before it: the answer is supposed to describe the text the
-        // server has just been given, and asking first would describe the text before this edit.
-        PullDiagnosticsInBackground(uri);
+            // After the notification rather than before it: the answer is supposed to describe the text the
+            // server has just been given, and asking first would describe the text before this edit.
+            PullDiagnosticsInBackground(uri);
+        }
+        finally { _changeGate.Release(); }
     }
 
     public async Task CloseDocumentAsync(string uri, CancellationToken cancellationToken = default)
