@@ -86,16 +86,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// A built-in call. With a pump, a built-in that waits (MsgBox, InputBox) is a suspension the pump is told of, and
     /// <c>DoEvents</c> runs what is waiting, as VB6's does (#766). Without one, DoEvents does nothing, as before.
     /// </summary>
-    internal async Task<Vb6Value?> CallBuiltIn(string name, List<Vb6Value> args)
+    internal async Task<Vb6Value?> CallBuiltIn(string name, List<Vb6Value> args, bool compareText)
     {
         if (Events is not { } events)
-            return await BuiltIns.EvaluateBuiltInFunction(name, args);
+            return await BuiltIns.EvaluateBuiltInFunction(name, args, compareText);
         if (args.Count == 0 && string.Equals(name, "DoEvents", StringComparison.OrdinalIgnoreCase))
         {
             await events.DoEvents();
             return new Vb6Value(0);
         }
-        return await events.WhileSuspended(BuiltIns.EvaluateBuiltInFunction(name, args));
+        return await events.WhileSuspended(BuiltIns.EvaluateBuiltInFunction(name, args, compareText));
     }
 
     internal async Task<Vb6Value?> CallProxy(ICSharpProxy proxy, string name, List<Vb6Value> args)
@@ -1132,7 +1132,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         }
 
         var flat = await VB6BuiltIns.ArrangeIntrinsicArguments(name, args);
-        if (await CallBuiltIn(name, flat) is { } result)
+        if (await CallBuiltIn(name, flat, currentModule.PrePass.OptionCompareText) is { } result)
             return result;
         if (!ignoreMissing)
             throw new VBCompileErrorException("Sub or Function not defined (" + name + ')');

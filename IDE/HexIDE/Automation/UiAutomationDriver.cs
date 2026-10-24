@@ -24,9 +24,10 @@ namespace HexIDE.Automation;
 /// addressing and discovery logic is unit-testable headlessly.
 ///
 /// The tree is the UIA-style **control view**: structural layout wrappers (controls whose automation type
-/// is <c>None</c> with no interaction provider and no keyboard focus — Panels, Borders, ContentPresenters,
+/// is <c>None</c> with no non-scroll capability, no keyboard focus and no AutomationId — Panels, Borders, ContentPresenters,
 /// dock plumbing, …) are transparent. They never appear as nodes or in paths; the walk descends through
-/// them and re-parents their meaningful descendants. This keeps the tree shallow and paths short/stable.
+/// them and re-parents their meaningful descendants. x:Name alone does not keep a wrapper. Scrollability
+/// and usable range bounds do not change transparency, so growing content does not insert path segments.
 ///
 /// Addressing: a slash path whose first segment is the literal <c>Window</c>; each subsequent segment is
 /// <c>ControlType</c>, <c>ControlType[discriminator]</c>, <c>ControlType[#index]</c>, or <c>#AutomationId</c>
@@ -159,6 +160,13 @@ public static class UiAutomationDriver
             note = $"{omitted} member(s) declared by the Dock framework's base types (layout plumbing such as "
                  + "Proportion and CanFloat) are not listed; set_property still reaches them by name.";
 
+        if (ResolvedCommand(control) is { } bound)
+        {
+            members = [new VmMember("Command", "command", bound.Command.GetType().Name, false),
+                .. members.Where(m => m.Name != "Command")];
+            note = string.Join(" ", new[] { note, BoundCommandNote(bound) }.Where(n => n is not null));
+        }
+
         return new UiNodeDetail(
             path,
             ControlTypeOf(peer),
@@ -180,7 +188,10 @@ public static class UiAutomationDriver
             range,
             ownerPath,
             note,
-            control is SelectingItemsControl items and not (MenuItem or MenuBase) ? Safe<int?>(() => items.ItemCount, null) : null);
+            control is SelectingItemsControl items and not (MenuItem or MenuBase) ? Safe<int?>(() => items.ItemCount, null) : null,
+            control is Window window ? new WindowFrameState(window.CanResize, window.WindowDecorations.ToString(),
+                window.CanMinimize, window.CanMaximize, window.ShowInTaskbar, window.WindowState.ToString(),
+                "Native window styles are not reported; frame fields are Avalonia properties, not a read of Win32 GWL_STYLE/GWL_EXSTYLE.") : null);
     }
 
     /// <summary>
@@ -511,8 +522,17 @@ public static class UiAutomationDriver
                     var invoked = LabelOf(control, peer);
                     if (peer.GetProvider<IInvokeProvider>() is { } inv)
                     {
+#if DEBUG
+                        // Read only after visibility/peer guards, inside the same exception boundary as the invoke.
+                        var saveWatch = control is Button saveButton ? UiSaveFeedback.Watch(saveButton.Command) : null;
+#endif
                         inv.Invoke();
-                        return Ok($"invoked {ControlTypeOf(peer)} '{invoked}'");
+                        var outcome = Ok($"invoked {ControlTypeOf(peer)} '{invoked}'");
+#if DEBUG
+                        return UiSaveFeedback.After(saveWatch, outcome);
+#else
+                        return outcome;
+#endif
                     }
                     // MenuItemAutomationPeer exposes NO providers at all — not invoke, not
                     // expandCollapse — so every verb failed on a menu and none of it was reachable.
@@ -1270,7 +1290,8 @@ public static class UiAutomationDriver
             : treeRefusal.Contains(SelectionUnread, StringComparison.Ordinal) ? $" (whether it was selected first is not known: {treeRefusal})"
             : treeRefusal.Length > 0 ? $" (but it was not selected first: {treeRefusal})"
             : "";
-        return Ok($"double-clicked '{LabelOf(control, peer)}'{note}");
+        return Ok($"raised DoubleTapped on '{LabelOf(control, peer)}'{note}; no pointer press was sent; "
+                  + "use 'click' with 'double' in 'value' for a running form's DblClick");
     }
 
     /// <summary>
@@ -1371,8 +1392,8 @@ public static class UiAutomationDriver
     /// <summary>What <c>click</c>'s value may hold, quoted in its refusals and in the tool's description.</summary>
     public const string ClickValue =
         "a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, "
-        + "right or middle (left when omitted), and any of shift, ctrl and alt to hold, in any order and separated by "
-        + "spaces, as in '10,5 right shift'";
+        + "right or middle (left when omitted), any of shift, ctrl and alt to hold, and double for two clicks, in any order and separated by "
+        + "spaces, as in '10,5 right double' or 'double'";
 
     /// <summary>
     /// Press and release a pointer at a point on the target (#1033). PointerPressed then PointerReleased are raised on
@@ -1395,7 +1416,7 @@ public static class UiAutomationDriver
     {
         static InteractOutcome Fail(string error) => new(false, "pointer", null, error);
 
-        if (!TryParseClick(value, out var at, out var button, out var keys, out var problem))
+        if (!TryParseClick(value, out var at, out var button, out var keys, out var twice, out var problem))
             return Fail(problem);
         if (TopLevel.GetTopLevel(control) is not { } topLevel)
             return Fail("the control is not attached to a window, so it has no coordinates to click at");
@@ -1408,6 +1429,7 @@ public static class UiAutomationDriver
             return Fail($"{NothingTakesThePointer}{where}, so nothing was pressed: the point is outside the target, "
                         + "or on a part of it that is not hit-tested");
 
+        var watch = WatchProgram(topLevel as Window);
         var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
         var (held, pressKind, releaseKind, name) = button switch
         {
@@ -1421,6 +1443,11 @@ public static class UiAutomationDriver
         var rawKeys = (keys.HasFlag(KeyModifiers.Shift) ? RawInputModifiers.Shift : RawInputModifiers.None)
                       | (keys.HasFlag(KeyModifiers.Control) ? RawInputModifiers.Control : RawInputModifiers.None)
                       | (keys.HasFlag(KeyModifiers.Alt) ? RawInputModifiers.Alt : RawInputModifiers.None);
+#if DEBUG
+        var saveButton = (hit as Control)?.GetSelfAndVisualAncestors().OfType<Button>().FirstOrDefault();
+        var saveWatch = button == MouseButton.Left && saveButton is { IsEffectivelyEnabled: true }
+            ? UiSaveFeedback.Watch(saveButton.Command) : null;
+#endif
         hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
             new PointerPointProperties(held | rawKeys, pressKind), keys));
 
@@ -1435,7 +1462,7 @@ public static class UiAutomationDriver
             new[] { (KeyModifiers.Shift, "shift"), (KeyModifiers.Control, "ctrl"), (KeyModifiers.Alt, "alt") }
                 .Where(k => keys.HasFlag(k.Item1)).Select(k => k.Item2));
         var pressed = $"the {name} button{holding} at {where}{landing}";
-        return new InteractOutcome(true, "pointer", $"pressed {pressed}; the release is still to come", null, Release: () =>
+        InteractOutcome Release(bool second)
         {
             try
             {
@@ -1444,13 +1471,33 @@ public static class UiAutomationDriver
                 releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, inWindow,
                     (ulong)Environment.TickCount64, new PointerPointProperties(rawKeys, releaseKind), keys, button));
                 pointer.Capture(null);
-                return new InteractOutcome(true, "pointer", $"clicked {pressed}", null);
+                var outcome = new InteractOutcome(true, "pointer", $"{(second ? "double-clicked" : "clicked")} {pressed}", null,
+                    NextClick: twice && !second ? SecondPress : null, ClickWatch: watch);
+#if DEBUG
+                return UiSaveFeedback.After(saveWatch, outcome);
+#else
+                return outcome;
+#endif
             }
             catch (Exception ex)
             {
                 return new InteractOutcome(false, "pointer", null, $"pressed {pressed}, and the release threw: {ex.Message}");
             }
-        });
+        }
+
+        InteractOutcome SecondPress()
+        {
+            if (!control.IsEffectivelyVisible || !topLevel.IsVisible || TopLevel.GetTopLevel(control) != topLevel
+                || TopLevel.GetTopLevel(hit) != topLevel)
+                return Fail($"clicked {pressed}; the second click was not sent because the target is hidden or closed, or detached");
+            hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
+                new PointerPointProperties(held | rawKeys, pressKind), keys, clickCount: 2));
+            return new InteractOutcome(true, "pointer", $"pressed the second click of {pressed}; the release is still to come",
+                null, Release: () => Release(second: true));
+        }
+
+        return new InteractOutcome(true, "pointer", $"pressed {pressed}; the release is still to come", null,
+            Release: () => Release(second: false));
     }
 
     /// <summary>How long <c>click</c> waits for its window to draw its next frame before it hit-tests (#1065).</summary>
@@ -1513,7 +1560,15 @@ public static class UiAutomationDriver
         if (outcome.Release is not { } release)
             return outcome;
         await Task.Delay(ClickHoldMs);
-        return await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(release, Avalonia.Threading.DispatcherPriority.Input);
+        var released = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(release, Avalonia.Threading.DispatcherPriority.Input);
+        if (!released.Success || released.NextClick is not { } next)
+            return released;
+        // The first release can run Click, which may yield, unload or hide its form. Wait just as the tool does
+        // after a single click, before checking the target and sending the second press (#1389).
+        released = await WaitForProgramAsync(released.ClickWatch, released);
+        await Task.Delay(ClickHoldMs);
+        var second = await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(next, Avalonia.Threading.DispatcherPriority.Input);
+        return await FinishAsync(second);
     }
 
     /// <summary>How long a reply waits, by default, for a running program to finish what an action set off.</summary>
@@ -1715,16 +1770,22 @@ public static class UiAutomationDriver
         [.. OpenWindows().Where(w => w is HexIDE.Runtime.IModuleExecutionRoot && !watch.Before.Contains(w)).Select(w => w.Title ?? "")];
 
     // `click`'s value: an optional point, a button and the keys held, in any order (ClickValue).
-    private static bool TryParseClick(string? value, out Point? at, out MouseButton button, out KeyModifiers keys, out string problem)
+    private static bool TryParseClick(string? value, out Point? at, out MouseButton button, out KeyModifiers keys, out bool twice, out string problem)
     {
         at = null;
         button = MouseButton.Left;
         keys = KeyModifiers.None;
         problem = string.Empty;
+        twice = false;
         var buttonGiven = false;
         foreach (var token in (value ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             var word = token.ToLowerInvariant();
+            if (word == "double")
+            {
+                twice = true;
+                continue;
+            }
             if (word.Contains(','))
             {
                 var parts = word.Split(',');
@@ -1752,7 +1813,7 @@ public static class UiAutomationDriver
             KeyModifiers? key = word switch { "shift" => KeyModifiers.Shift, "ctrl" or "control" => KeyModifiers.Control, "alt" => KeyModifiers.Alt, _ => null };
             if (key is not { } held)
             {
-                problem = $"'{token}' is not a point, a button or a key; click takes {ClickValue}";
+                problem = $"'{token}' is not a point, a button, a key or double; click takes {ClickValue}";
                 return false;
             }
             keys |= held;
@@ -2184,18 +2245,66 @@ public static class UiAutomationDriver
         && (ItemsControl.ItemsControlFromItemContainer(c) ?? c.FindAncestorOfType<ItemsControl>()) is { } owner
         && owner.IndexFromContainer(c) < 0;
 
-    // value = the command name: a public ICommand property on the target's DataContext, or a public parameterless
+    private static bool InReleasedRow(Control c) =>
+        c.GetSelfAndVisualAncestors().OfType<Control>().Any(Released);
+
+    private sealed record ControlCommand(System.Windows.Input.ICommand Command, object? Parameter, string Binding);
+
+    // Read the effective value, including compiled bindings and bindings through a different DataContext.
+    // The binding description is diagnostic text, not a stable grammar from which to guess a member name.
+    private static ControlCommand? ResolvedCommand(Control control)
+    {
+        (System.Windows.Input.ICommand? Command, object? Parameter, AvaloniaProperty? Property) resolved = control switch
+        {
+            MenuItem item => (item.Command, item.CommandParameter, MenuItem.CommandProperty),
+            Button button => (button.Command, button.CommandParameter, Button.CommandProperty),
+            _ => (null, null, (AvaloniaProperty?)null),
+        };
+        var (command, parameter, property) = resolved;
+        if (command is null || property is null) return null;
+        var binding = Avalonia.Data.BindingOperations.GetBindingExpressionBase(control, property);
+        // Description is available at runtime but absent from Avalonia's reference assembly. Treat it as optional:
+        // diagnostic metadata must never stop the already resolved command from running.
+        var description = Safe(() => binding?.GetType().GetProperty("Description", BindingFlags.Public | BindingFlags.Instance)
+            ?.GetValue(binding) as string, null);
+        return new ControlCommand(command, parameter, description
+            ?? (binding is null ? "a directly assigned command" : "a binding whose source description is unavailable"));
+    }
+
+    private static string BoundCommandNote(ControlCommand bound) =>
+        $"The target's Command is bound to {bound.Binding}. "
+        + (bound.Binding.StartsWith("#", StringComparison.Ordinal) && bound.Binding.Contains("DataContext", StringComparison.Ordinal)
+            ? "It is bound through another element's DataContext. "
+            : "This is the resolved control command; its source need not be the target's own DataContext. ")
+        + "Use invoke_command with value 'Command' (with the target's CommandParameter), or invoke on this control to run it.";
+
+    // value = Command for the control’s resolved command, a public ICommand property on its DataContext, or a public parameterless
     // method, which is what a Command bound to a method calls (#836).
     private static InteractOutcome ReflectInvokeCommand(Control control, string? value)
     {
         try
         {
             if (NullIfEmpty(value) is not { } name) return ReflectErr("invoke_command requires 'value' = the command name");
-            if (control.DataContext is not { } dc) return ReflectErr("target has no DataContext");
+            var bound = ResolvedCommand(control);
+            if (name == "Command" && bound is not null)
+            {
+                if (!bound.Command.CanExecute(bound.Parameter))
+                    return ReflectErr("'Command'.CanExecute(CommandParameter) returned false");
+                bound.Command.Execute(bound.Parameter);
+                return new InteractOutcome(true, "reflection", "executed target's Command with its CommandParameter", null);
+            }
+            if (control.DataContext is not { } dc)
+                return ReflectErr("target has no DataContext" + (bound is null ? "" : ". " + BoundCommandNote(bound)));
             if (dc.GetType().GetProperty(name, BindingFlags.Public | BindingFlags.Instance) is not { } prop)
-                return ReflectInvokeMethod(dc, name);
+            {
+                var result = ReflectInvokeMethod(dc, name);
+                return !result.Success && bound is not null
+                    ? result with { Error = result.Error + ". " + BoundCommandNote(bound) }
+                    : result;
+            }
             if (prop.GetValue(dc) is not System.Windows.Input.ICommand cmd)
-                return ReflectErr($"'{name}' on {dc.GetType().Name} is not an ICommand");
+                return ReflectErr($"'{name}' on {dc.GetType().Name} is not an ICommand"
+                    + (bound is null ? "" : ". " + BoundCommandNote(bound)));
             if (!cmd.CanExecute(null))
                 return ReflectErr($"'{name}'.CanExecute(null) returned false");
             cmd.Execute(null);
@@ -2366,6 +2475,7 @@ public static class UiAutomationDriver
             // A standing selection is what the typing writes over, so it is the span judged, as press_key judges a key. A box
             // is judged where it is written, a line at a time, by the read-only sections, as a person's typing over one is.
             if (AreaOf(surface) is { } typedInto
+                && PartialSelection(typedInto, deletes: false) is null
                 && RefusedInReadOnlyRegion(typedInto, typedInto.Selection is not RectangleSelection && typedInto.Selection.SurroundingSegment is { Length: > 0 } over
                     ? new EditedSpan(over.Offset, over.Length, Deletes: false)
                     : new EditedSpan(typedInto.Caret.Offset, 0, Deletes: false), "type_text", TypedMechanism) is { } refused)
@@ -2375,6 +2485,19 @@ public static class UiAutomationDriver
                 return new InteractOutcome(false, TypedMechanism, null,
                     $"{surface.GetType().Name}{(ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface))} "
                     + $"{refusal}, so a person could not type there either; nothing was inserted");
+
+            // AvaloniaEdit replaces the last deletable segment and removes the others in one update.
+            // Keep that placement (including when the selection starts in the header), rather than
+            // taking the selection and inserting at its original, possibly protected, start.
+            if (AreaOf(surface) is { } replacementArea
+                && PartialSelection(replacementArea, deletes: false) is { } replacement)
+            {
+                surface.Focus();
+                replacementArea.Selection.ReplaceSelectionWithText(text);
+                return new InteractOutcome(true, TypedMechanism,
+                    $"typed {text.Length} char(s), replacing {replacement.Deletable} selected char(s); "
+                    + replacement.Left + SelectionState(replacementArea), null);
+            }
 
             surface.Focus();
 
@@ -2492,10 +2615,12 @@ public static class UiAutomationDriver
             {
                 if (AreaOf(at) is not { } area)
                     return null;
-                var (key, mods, _) = keys[i];
+                var (key, mods, typed) = keys[i];
                 var span = EditSpan(area, key, mods) ?? (area.Selection.IsEmpty
                     ? new EditedSpan(area.Caret.Offset, 0, Deletes: false)
                     : new EditedSpan(area.Selection.SurroundingSegment.Offset, area.Selection.SurroundingSegment.Length, Deletes: false));
+                if (typed is not null && PartialSelection(area, deletes: false) is not null)
+                    return null;
                 return RefusedInReadOnlyRegion(area, span, "type_text", KeyboardMechanism, i == 0 ? null
                     : $"Key {i + 1} of {keys.Count} wrote nothing, and the rest were not sent; the {i} before it went in.");
             }
@@ -2511,6 +2636,7 @@ public static class UiAutomationDriver
             if (TopLevel.GetTopLevel(start) is not { } top)
                 return new InteractOutcome(false, KeyboardMechanism, null, $"'{Describe(start)}' is not in a window; nothing was typed");
 
+            var replacedSelection = AreaOf(start) is { } initialArea ? PartialSelection(initialArea, deletes: false) : null;
             start.Focus();
             // Every window's dialogs, not the typing window's alone: a program's own MsgBox may open over its form as the keys
             // go in, and a person's next key would go to it, as to the reset prompt over this window, so the typing stops for
@@ -2560,8 +2686,10 @@ public static class UiAutomationDriver
             var slow = unanswered == 0 ? ""
                 : $"; the language server had not answered {unanswered} key(s)' completion or parameter-info request "
                   + $"within {PopupWait.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture)} ms, so a list may still open";
+            var selectionNote = replacedSelection is not null && AreaOf(start) is { } finalArea
+                ? "; " + replacedSelection.Left + SelectionState(finalArea) : "";
             return new InteractOutcome(true, KeyboardMechanism,
-                $"typed {keys.Count} key(s) into {surface.GetType().Name}{address} as a person types them{caret}{moved}{slow}", null);
+                $"typed {keys.Count} key(s) into {surface.GetType().Name}{address} as a person types them{caret}{moved}{slow}{selectionNote}", null);
         }
         catch (OperationCanceledException)
         {
@@ -2645,12 +2773,18 @@ public static class UiAutomationDriver
         if (!surface.IsEffectivelyEnabled) return "is disabled";
         return surface switch
         {
-            TextEditor editor when !editor.TextArea.ReadOnlySectionProvider.CanInsert(editor.CaretOffset) => "is read-only",
-            TextArea area when !area.ReadOnlySectionProvider.CanInsert(area.Caret.Offset) => "is read-only",
+            TextEditor editor when !CanTypeInto(editor.TextArea) => "is read-only",
+            TextArea area when !CanTypeInto(area) => "is read-only",
             TextBox { IsReadOnly: true } => "is read-only",
             _ => null,
         };
     }
+
+    // SimpleSelection replaces deletable segments without asking CanInsert at the caret. That
+    // caret may be in a protected run even though part of the standing selection is editable.
+    private static bool CanTypeInto(TextArea area) => area.Selection.IsEmpty || area.Selection is RectangleSelection
+        ? area.ReadOnlySectionProvider.CanInsert(area.Caret.Offset)
+        : area.Selection.Segments.Any(s => area.ReadOnlySectionProvider.GetDeletableSegments(s).Any());
 
     /// <summary>Presses a key (optionally with modifiers) through the window input path, with a routed
     /// KeyDown/KeyUp fallback — for navigation/commands (Enter, Tab, Backspace, Escape, Ctrl+S, …) that
@@ -2690,10 +2824,18 @@ public static class UiAutomationDriver
 
             if (KeysTakenBy(target, Describe(target), "pressed") is { } held)
                 return new InteractOutcome(false, "keyboard", null, held);
+            var deletionArea = AreaOf(target);
+            var selectionDelete = parsedKey is Key.Delete or Key.Back
+                && mods is KeyModifiers.None or KeyModifiers.Control;
+            var partial = selectionDelete && deletionArea is not null
+                ? PartialSelection(deletionArea, deletes: true) : null;
+            var lengthBefore = deletionArea?.Document.TextLength ?? 0;
             if (AreaOf(target) is { } pressedIn
                 && EditSpan(pressedIn, parsedKey, mods) is { } span
+                && partial is null
                 && RefusedInReadOnlyRegion(pressedIn, span, "press_key") is { } refused)
-                return refused;
+                return selectionDelete && !pressedIn.Selection.IsEmpty
+                    ? refused with { Error = refused.Error + SelectionState(pressedIn) } : refused;
 
             var beforePath = before is null ? "nothing"
                 : PathWithin(TopLevel.GetTopLevel(before) ?? before, "Window", before) ?? Describe(before);
@@ -2718,7 +2860,11 @@ public static class UiAutomationDriver
             var where = ReferenceEquals(target, control)
                 ? string.Empty
                 : $" on {Describe(target)}{AddressOf(control, controlPath, target)}";
-            return new InteractOutcome(true, mechanism, $"{focusMove}pressed {chord}{parsedKey}{where}", null);
+            var changed = partial is not null && deletionArea is not null
+                ? $"; deleted {lengthBefore - deletionArea.Document.TextLength} char(s) from the selection; "
+                  + partial.Left + SelectionState(deletionArea)
+                : string.Empty;
+            return new InteractOutcome(true, mechanism, $"{focusMove}pressed {chord}{parsedKey}{where}{changed}", null);
         }
         catch (Exception ex) { return new InteractOutcome(false, mechanism, null, $"press_key threw: {ex.Message}"); }
     }
@@ -2824,6 +2970,43 @@ public static class UiAutomationDriver
         };
     }
 
+    private sealed record PartialEdit(int Deletable, string Left);
+
+    // This only observes the provider's answer. The actual edit still goes through the key handler
+    // (including the code window's widening) or Selection.ReplaceSelectionWithText for typing.
+    private static PartialEdit? PartialSelection(TextArea area, bool deletes)
+    {
+        if (area.Selection is RectangleSelection || area.Selection.IsEmpty
+            || CodeWindowOf(area) is not { IsReadOnly: false } editor)
+            return null;
+        var selected = area.Selection.SurroundingSegment;
+        var (offset, length) = deletes
+            ? editor.ReadOnlySections.WidenDeletion(selected.Offset, selected.Length)
+            : (selected.Offset, selected.Length);
+        var segments = area.ReadOnlySectionProvider.GetDeletableSegments(
+            new AvaloniaEdit.Document.SimpleSegment(offset, length)).ToList();
+        var deletable = segments.Sum(s => s.Length);
+        if (deletable == 0)
+            return null;
+        if (deletable == length)
+            return !deletes && editor.IsReadOnlyRegion(offset, length)
+                ? new PartialEdit(deletable, "no protected text was left in the replaced span. ") : null;
+        var names = editor.ReadOnlyRegionsNow.Where(r =>
+        {
+            var from = Math.Max(offset, r.EditStart);
+            var to = Math.Min(offset + length, r.End);
+            return to > from && segments.Sum(s => Math.Max(0, Math.Min(to, s.EndOffset) - Math.Max(from, s.Offset))) < to - from;
+        }).Select(r => editor.MemberNamedBy(r) is { } name
+            ? "the Attribute lines describing " + name : "the file's header").Distinct();
+        return new PartialEdit(deletable,
+            $"left {length - deletable} char(s) from the original selection in {string.Join(" and ", names)}, which only the IDE changes (the designer, a save, a rename). ");
+    }
+
+    private static string SelectionState(TextArea area) =>
+        $" The caret is now at offset {area.Caret.Offset}; " + (area.Selection.IsEmpty
+            ? "no selection remains."
+            : $"selection remains from offset {area.Selection.SurroundingSegment.Offset} to {area.Selection.SurroundingSegment.EndOffset}.");
+
     /// <summary>What a key would change: <see cref="Length"/> characters at <see cref="Offset"/>, deleted or written over.</summary>
     private readonly record struct EditedSpan(int Offset, int Length, bool Deletes);
 
@@ -2875,21 +3058,33 @@ public static class UiAutomationDriver
         if (!changes)
             return null;
 
-        var past = editor.PastReadOnlyRegion(span.Offset);
-        // A selection that begins where code can be edited and reaches into a region: where it begins is no help, how far
-        // it reaches is the trouble (#1040 review).
-        if (span.Length > 0 && past == span.Offset)
+        var affected = editor.ReadOnlyRegionsNow.Where(r => r.Changes(span.Offset, span.Length)).ToList();
+        var names = affected.Select(r => editor.MemberNamedBy(r)).ToList();
+        var header = names.Any(n => n is null);
+        var region = header ? "the file's header" : "the Attribute lines describing " + string.Join(", ", names);
+        var unchanged = written ?? "Nothing was written.";
+        var prefix = $"{tool} refused: ";
+        var ownership = ", which only the IDE changes (the designer, a save, a rename). ";
+        const string offsets = " Offsets count from the start of the file, in the text get_file_content returns.";
+        if (span.Deletes && span.Length > 0 && span.Offset + span.Length == area.Caret.Offset)
             return new InteractOutcome(false, mechanism, null,
-                $"{tool} refused: the selection from offset {span.Offset} to {span.Offset + span.Length} reaches into the "
-              + "file's header or a member's Attribute lines, which only the IDE changes (the designer, a save, a "
-              + "rename), and it writes over the whole selection. " + (written ?? "Nothing was written.") + " Select less, or collapse the "
-              + "selection (press_key Left or Right) and write at the caret. Offsets count from the start of the file, "
-              + "in the text get_file_content returns.");
+                prefix + "the text before the caret belongs to " + region + ownership + unchanged
+              + (header
+                  ? " Edit the code after the header instead; the header is changed through the designer, a save or a rename."
+                  : " Deleting the member's whole declaration (all physical lines if continued) removes its Attribute lines too; "
+                    + "select the declaration's whole text and press_key Delete to remove both."));
+
+        var past = editor.PastReadOnlyRegion(span.Offset);
+        // A selection starting outside a region, or an offset already at the caret, offers no useful move.
+        if (past == span.Offset || past == area.Caret.Offset)
+            return new InteractOutcome(false, mechanism, null,
+                prefix + $"the selection from offset {span.Offset} to {span.Offset + span.Length} reaches into "
+              + region + ownership + unchanged + " Select less, or collapse the selection (press_key Left or Right) "
+              + "and write at the caret." + offsets);
         return new InteractOutcome(false, mechanism, null,
-            $"{tool} refused: offset {span.Offset} is in the file's header or a member's Attribute lines, which "
-          + "only the IDE changes (the designer, a save, a rename). " + (written ?? "Nothing was written.") + " The nearest place "
+            prefix + $"offset {span.Offset} is in " + region + ownership + unchanged + " The nearest place "
           + $"that can be edited starts at offset {past}; put the caret there with interact set_property "
-          + $"CaretOffset={past}. Offsets count from the start of the file, in the text get_file_content returns.");
+          + $"CaretOffset={past}." + offsets);
     }
 
     /// <summary>
@@ -3187,7 +3382,7 @@ public static class UiAutomationDriver
     private static Control FindHoverTarget(Control control)
     {
         if (control is TextEditor or TextArea) return control;
-        var editors = control.GetVisualDescendants().OfType<TextEditor>().ToList();
+        var editors = control.GetVisualDescendants().OfType<TextEditor>().Where(c => !InReleasedRow(c)).ToList();
         return editors.FirstOrDefault(c => Shows(c) is true) ?? editors.FirstOrDefault() ?? control;
     }
 
@@ -3243,7 +3438,7 @@ public static class UiAutomationDriver
         // Only what shows. A ComboBox that is not editable keeps a TextBox in its template, hidden, and choosing that
         // over the ComboBox had every key refused as aimed at a hidden control, once #1069 refused those; a person's
         // key goes to the ComboBox.
-        var descendants = control.GetVisualDescendants().OfType<Control>().Where(c => Hidden(c) is not true).ToList();
+        var descendants = control.GetVisualDescendants().OfType<Control>().Where(c => Hidden(c) is not true && !InReleasedRow(c)).ToList();
 
         // An AvaloniaEdit surface, innermost first: its TextArea is where key handling lives.
         if (descendants.FirstOrDefault(c => c is TextArea) is { } area) return area;
@@ -3286,7 +3481,7 @@ public static class UiAutomationDriver
     // control, where press_key passed it over (#1256).
     private static List<Control> TextSurfacesUnder(Control control) =>
         [.. control.GetVisualDescendants().OfType<Control>()
-            .Where(c => c is TextEditor or TextArea or TextBox && !HiddenByItsTemplate(c))];
+            .Where(c => c is TextEditor or TextArea or TextBox && !HiddenByItsTemplate(c) && !InReleasedRow(c))];
 
     // Hidden within its own control's template, whatever that control's own state: read on the chain from the part up to
     // the control, so a hidden pane holding a dropdown still has its dropdown's part left out (#1256 review).
@@ -3427,7 +3622,32 @@ public static class UiAutomationDriver
         for (var i = 1; i < segs.Length; i++)
         {
             var (next, err) = ResolveSegment(current, segs[i], traversed);
-            if (next is null) return (null, err);
+            if (next is null)
+            {
+                // Diagnose a saved path that omitted a wrapper. Do not silently retarget an action;
+                // only suggest complete paths whose remaining segments resolve unambiguously.
+                if (err?.StartsWith("ambiguous segment", StringComparison.Ordinal) == true) return (null, err);
+                var children = new List<MeaningfulChild>();
+                CollectMeaningfulChildren(current, children);
+                var corrections = new List<(string Wrapper, string Path)>();
+                foreach (var child in children)
+                {
+                    var wrapper = BestSegment(child, children);
+                    var corrected = traversed + "/" + wrapper;
+                    Control? candidate = child.Control;
+                    for (var j = i; j < segs.Length && candidate is not null; j++)
+                    {
+                        var resolved = ResolveSegment(candidate, segs[j], corrected);
+                        if (resolved.control is null) { candidate = null; break; }
+                        candidate = resolved.control;
+                        corrected += "/" + segs[j];
+                    }
+                    if (candidate is not null) corrections.Add((wrapper, corrected));
+                }
+                if (corrections.Count == 1)
+                    return (null, $"'{traversed}' now holds '{corrections[0].Wrapper}'; the path continues under it: '{corrections[0].Path}'");
+                return (null, err);
+            }
             current = next;
             traversed += "/" + segs[i];
         }
@@ -3843,11 +4063,14 @@ public static class UiAutomationDriver
         var autoId = NullIfEmpty(AutomationProperties.GetAutomationId(control));
         var focusable = peer is not null && Safe(() => peer.IsKeyboardFocusable(), false);
 
-        // A control is a transparent structural wrapper iff it has no semantic automation type, exposes no
-        // interaction provider, cannot take focus, and was not explicitly tagged with an AutomationId
-        // (Panel/Border/ContentPresenter/StackPanel/dock plumbing). An AutomationId-tagged control is
-        // intentional — keep it visible so it isn't addressable-via-#id yet invisible in the dump.
-        var structural = type == "None" && providers.Length == 0 && !focusable && autoId is null;
+        // Keep the common surfaces' existing collapsed paths, including named TextEditors. Scrolling is
+        // content-dependent (OwnScrollerFor starts succeeding on overflow), so it cannot establish a node.
+        // rangeValue is also advertised only for a usable range: use the peer's capability, not today's
+        // bounds/read-only state. An AutomationId remains an explicit request to expose a wrapper;
+        // x:Name alone remains transparent, consistently before and after overflow (#1436).
+        var hasCapability = providers.Any(p => p is not ("scroll" or "rangeValue" or "multiSelectItem"))
+                            || peer?.GetProvider<IRangeValueProvider>() is not null;
+        var structural = type == "None" && !hasCapability && !focusable && autoId is null;
 
         // A Separator matches every one of those conditions and is still not plumbing: it is a visible
         // element of a menu whose POSITION is the thing under test. Collapsing it away left a dump that
@@ -3968,7 +4191,13 @@ public record UiNodeDetail(
     // How many items a list, dropdown or tab control holds, whether or not their containers exist, hidden ones too:
     // SelectionItems is only what is selected, so a list lacking an item read the same as one not choosing it (#1263).
     // Absent for anything else: a menu or the dock's lists count separators and splitters a dump does not show.
-    int? ItemCount = null);
+    int? ItemCount = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    WindowFrameState? Frame = null);
+
+/// <summary>The inspected Window's current Avalonia frame properties; native styles are explicitly unreported.</summary>
+public record WindowFrameState(bool CanResize, string WindowDecorations, bool CanMinimize, bool CanMaximize,
+    bool ShowInTaskbar, string WindowState, string NativeStyleNote);
 
 /// <summary>A range control's state: a scroll bar's or slider's position, its bounds, and whether it can be set.</summary>
 public record RangeState(double Value, double Minimum, double Maximum, bool IsReadOnly);
@@ -3990,6 +4219,8 @@ public record VmMember(string Name, string Kind, string? TypeName, bool CanWrite
 /// The second part of an action that comes in two, still to be done: a <c>click</c>'s release, which
 /// <see cref="UiAutomationDriver.FinishAsync"/> raises and whose outcome is the reply. Not part of the reply.
 /// </param>
+/// <param name="NextClick">The second press of a double click, after the first release has settled. Not serialized.</param>
+/// <param name="ClickWatch">The program before the first press, waited for between clicks. Not serialized.</param>
 /// <param name="Settled">
 /// What the action left on a running form, read once the program has run what it set off: a clause for the detail, or
 /// null for none. <see cref="UiAutomationDriver.WaitForProgramAsync"/> reads it when it finds the program idle (#1280).
@@ -4001,6 +4232,8 @@ public record InteractOutcome(
     string? Error,
     [property: System.Text.Json.Serialization.JsonIgnore] bool Committed = false,
     [property: System.Text.Json.Serialization.JsonIgnore] Func<InteractOutcome>? Release = null,
-    [property: System.Text.Json.Serialization.JsonIgnore] Func<string?>? Settled = null);
+    [property: System.Text.Json.Serialization.JsonIgnore] Func<string?>? Settled = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] Func<InteractOutcome>? NextClick = null,
+    [property: System.Text.Json.Serialization.JsonIgnore] UiAutomationDriver.ProgramWatch? ClickWatch = null);
 
 public record KeyboardFocusReport(string? FocusedPath, string? FocusReason);
