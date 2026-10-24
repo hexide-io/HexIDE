@@ -249,6 +249,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`TypeName(Debug)` raises “Syntax error”** (#872), as measured with VB6, instead of returning the runtime proxy's class name. The error stops the executing statement even under `On Error Resume Next`.
+
 - **MCP paths survive growing editor text** (#1436). A collapsed layout wrapper no longer appears when its
   content begins to scroll, so the Immediate window's text-area path stays usable. Range capability keeps a
   node regardless of its current bounds. A refused path that skips a visible wrapper names it and gives the

@@ -384,4 +384,12 @@ public class ObjectAsValueTests : BaseVBTestFixture
 
         await run.Should().ThrowAsync<VBCompileErrorException>();
     }
+
+    [Fact]
+    public async Task TypeName_of_Debug_is_a_syntax_error()
+    {
+        var run = () => Run("On Error Resume Next\nDebug.Print TypeName(Debug)\n");
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Syntax error");
+    }
 }
