@@ -49,6 +49,11 @@ Being off by default protects a user who does nothing; being absent protects one
 something. It also keeps a web-server dependency out of shipped binaries, which is worth having for its own
 sake — the smallest attack surface is the code that is not there.
 
+#### Scenario: CI checks the distributed configuration
+- **WHEN** the build-ide job runs
+- **THEN** Desktop and Standalone compile in Release
+- **AND** the Desktop output is checked for server code, MCP dependencies and AspNetCore references
+
 #### Scenario: A released build asked to serve
 - **WHEN** a distributed build is launched with a port argument
 - **THEN** the argument has no effect and nothing listens

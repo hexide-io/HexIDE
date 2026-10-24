@@ -10,6 +10,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Release CI coverage** (#354). Both shipping projects compile in Release, and CI checks the Desktop
+  output for automation server code, MCP dependencies and AspNetCore framework references.
+
 - **`Declare PtrSafe` parses** (#1548) in the interpreter and language server. VBA7 declarations using existing
   types now let a module load; external API calls remain deferred. `LongPtr`, `LongLong` and their conversions
   are follow-up work.
