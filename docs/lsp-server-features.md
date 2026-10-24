@@ -125,6 +125,11 @@ published nothing at all for that form, with no reason given. So when an error l
 the file is parsed again with the protected lines emptied and their line breaks kept, and that parse
 answers. A header the grammar can read stays in the tree, and no file in the corpus pays for a second parse.
 
+Option lines directly before a malformed first procedure no longer make the module-level prediction
+fail with an empty procedure tree (#939). That procedure and its symbol survive, with the same syntax
+diagnostics as without the Option lines. Recovery inside the procedure can still hide later procedures
+and errors (#938).
+
 The grammar had to learn whole files first. When both grammars were first given every corpus file whole,
 30 of 46 failed inside the header, all for one reason: VB6 writes an enumerated property value with a
 comment after it (`MultiUse = -1  'True`), and the whitespace before that comment reached rules that went

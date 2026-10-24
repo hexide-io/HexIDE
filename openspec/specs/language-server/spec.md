@@ -107,6 +107,20 @@ producing symbols that do not match the diagnostics beside them.
 - **WHEN** a document changes and both diagnostics and symbols are produced
 - **THEN** both are derived from a single parse of that text
 
+### Requirement: Option prefixes preserve procedure parsing on syntax errors
+The server SHALL retain the same procedure tree and syntax diagnostics for a malformed procedure preceded
+by Option lines as for the same source without those lines, with diagnostic positions shifted accordingly.
+It SHALL continue to accept an options-only module with a trailing colon separator.
+
+#### Scenario: Option Explicit before a broken first procedure
+- **WHEN** Option Explicit directly precedes a Sub containing `x = = 1` and `List0.`
+- **THEN** that Sub remains in the parse tree and document symbols
+- **AND** diagnostics match those without the Option line, shifted down one line
+
+#### Scenario: Options only with a trailing separator
+- **WHEN** a module contains only `Option Explicit:` or `Option Explicit: Option Base 1:`
+- **THEN** no syntax diagnostics are produced
+
 ### Requirement: The server SHALL confine itself to syntactic analysis
 The server SHALL operate on the syntax tree only, and SHALL NOT build a bound semantic model, resolve names
 across documents, or perform project-wide analysis.
