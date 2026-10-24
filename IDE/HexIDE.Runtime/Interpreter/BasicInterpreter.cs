@@ -1437,6 +1437,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     // ---- namespace qualifiers: Module.Member, VBA.X, VBA.Math.X ----
 
+    // #1637: an Enum wins over its hoisted member of the same name. A real variable
+    // still shadows a qualifier. Ask the environment first so project ambiguity is raised
+    // at the use, before selecting an Enum; no expression is bound ahead of execution.
+    internal bool EnumIsQualifier(string name, ExecutionEnvironment env, ModuleInfo? from)
+    {
+        var hasSlot = env.TryGetVariableLocation(name, out var slot);
+        return (!hasSlot || ExecutionContext.State.IsReadOnly(slot))
+            && TryResolveEnum(name, from, out _);
+    }
+
     public enum QualifierKind { Module, Library, Enum, Project, InBoxContainer }
 
     /// <param name="Name">For <see cref="QualifierKind.InBoxLibrary"/> and
