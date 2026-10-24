@@ -1,12 +1,16 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Styling;
+using Avalonia.VisualTree;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
@@ -45,6 +49,7 @@ public class VBComboBox : ComboBox
     private bool textFromSelection;
     private bool textFromCode;
     private TextBox? editBox;
+    private Border? listBorder;
 
     static VBComboBox()
     {
@@ -61,6 +66,18 @@ public class VBComboBox : ComboBox
     {
         ComboStyle = comboStyle;
         IsEditable = !IsDropdownList;
+        if (IsSimpleCombo)
+        {
+            Template = SimpleTemplate;
+            // vb6.exe's rows are 13 pixels at its default font, a line of text and no more (measured, #1603).
+            Styles.Add(new Style(x => x.OfType<ComboBoxItem>())
+            {
+                Setters = { new Setter(PaddingProperty, new Thickness(2, 0)), new Setter(MinHeightProperty, 0d) },
+            });
+            // On the way down, so the press is the list's before an item takes it.
+            AddHandler(PointerPressedEvent, PressList, RoutingStrategies.Tunnel);
+            AddHandler(PointerReleasedEvent, ReleaseList, RoutingStrategies.Tunnel);
+        }
         // A Dropdown List shows its item in the combo's own padding, too deep for a combo's height: its text was cut off at
         // the bottom, as the edit box's was.
         Padding = new Thickness(2, 0);
@@ -76,6 +93,94 @@ public class VBComboBox : ComboBox
 
     public bool IsDropdownList => ComboStyle == VBComboStyle.DropdownList;
 
+    public bool IsSimpleCombo => ComboStyle == VBComboStyle.SimpleCombo;
+
+    // The edit box's height at VB6's default font, MS Sans Serif 8, where vb6.exe drew it 21 pixels high (measured, #1603).
+    private const double SimpleEditHeight = 21;
+
+    /// <summary>
+    /// A Simple Combo: its edit box, with its list under it, always shown, and no button (measured, #1603). The list
+    /// scrolls when its items don't fit. Avalonia's ComboBox requires a popup, which is there and never opens.
+    /// </summary>
+    private static readonly FuncControlTemplate<VBComboBox> SimpleTemplate = new((combo, scope) =>
+    {
+        var edit = new TextBox
+        {
+            Name = "PART_EditableTextBox",
+            Height = SimpleEditHeight,
+            [DockPanel.DockProperty] = Dock.Top,
+            [!!TextBox.TextProperty] = combo[!!TextProperty],
+            [!TextBox.BackgroundProperty] = combo[!BackgroundProperty],
+            [!TextBox.ForegroundProperty] = combo[!ForegroundProperty],
+        }.RegisterInNameScope(scope);
+        var items = new ItemsPresenter
+        {
+            Name = "PART_ItemsPresenter",
+            [!ItemsPresenter.ItemsPanelProperty] = combo[!ItemsPanelProperty],
+        }.RegisterInNameScope(scope);
+        var popup = new Popup { Name = "PART_Popup", [DockPanel.DockProperty] = Dock.Top }.RegisterInNameScope(scope);
+        var list = new Border
+        {
+            Name = "PART_List",
+            BorderThickness = new Thickness(1),
+            [!Border.BorderBrushProperty] = combo[!BorderBrushProperty],
+            [!Border.BackgroundProperty] = combo[!BackgroundProperty],
+            Child = new ScrollViewer
+            {
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                Content = items,
+            },
+        }.RegisterInNameScope(scope);
+        return new DockPanel { LastChildFill = true, Children = { edit, popup, list } };
+    });
+
+    // A press on a Simple Combo's list picks the item under it, or the last item when it is below them, the one already
+    // selected too, as vb6.exe's list does on the press: the selection has moved when GotFocus runs, and its Click follows.
+    // A double click's second press raises DblClick and picks nothing more. Measured, #1603.
+    private void PressList(object? sender, PointerPressedEventArgs e)
+    {
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed || e.Source is not Visual source || !IsInList(source)
+            || ItemCount == 0)
+            return;
+        e.Handled = true;
+        var item = ItemOf(source);
+        if (item is not null && e.ClickCount == 2)
+        {
+            this.ExecuteSub(ComponentBaseClass.DblClickEvent);
+            return;
+        }
+        var index = item is null ? ItemCount - 1 : IndexFromContainer(item);
+        // vb6.exe's list moves its selection with the press and its edit box takes the item's text after, so a GotFocus
+        // the press raises reads the new ListIndex and the Text from before (measured, #1603). That Text is held until the
+        // Click's turn, which comes after the GotFocus's however the run's queue schedules the two.
+        textBeforePick = editBox is { IsFocused: false } ? Text ?? "" : null;
+        SelectedIndex = index;
+        Picked();
+    }
+
+    // The Text a Simple Combo shows from a press on its list that moves the focus to it, until that press's Click.
+    private string? textBeforePick;
+
+    /// <summary>
+    /// Its Text as code reads it: a Dropdown List's selected item, or the edit box's, which is the Text from before a press
+    /// on a Simple Combo's list while that press is moving the focus to it.
+    /// </summary>
+    internal string VBText => textBeforePick ?? (IsDropdownList ? ListText : Text ?? "");
+
+    // Its release is the press's: the list's own release would pick the item a second time.
+    private void ReleaseList(object? sender, PointerReleasedEventArgs e)
+    {
+        if (e.Source is Visual source && IsInList(source))
+            e.Handled = true;
+    }
+
+    private bool IsInList(Visual source) =>
+        listBorder is { } list && (ReferenceEquals(source, list) || list.IsVisualAncestorOf(source));
+
+    private ComboBoxItem? ItemOf(Visual source) =>
+        source as ComboBoxItem ?? source.FindAncestorOfType<ComboBoxItem>();
+
     /// <summary>A Dropdown List's Text: its selected item's text, or "" with none selected (measured).</summary>
     internal string ListText => SelectedIndex >= 0 && SelectedIndex < ItemCount ? Items[SelectedIndex] as string ?? "" : "";
 
@@ -85,6 +190,7 @@ public class VBComboBox : ComboBox
     {
         base.OnApplyTemplate(e);
         editBox = e.NameScope.Find<TextBox>("PART_EditableTextBox");
+        listBorder = e.NameScope.Find<Border>("PART_List");
         if (editBox is not { } box)
             return;
         box.MinHeight = 0;
@@ -127,7 +233,13 @@ public class VBComboBox : ComboBox
         if (change.Property == TextProperty && IsEditable && !textFromSelection && !textFromCode)
             this.ExecuteSub(TextBoxComponentClass.ChangeEvent);
         else if (change.Property == IsDropDownOpenProperty && change.GetNewValue<bool>())
-            this.ExecuteSub(ComboBoxComponentClass.DropDownEvent);
+        {
+            // A Simple Combo's list is always shown: it has nothing to drop, and raises no DropDown (measured, #1603).
+            if (IsSimpleCombo)
+                SetCurrentValue(IsDropDownOpenProperty, false);
+            else
+                this.ExecuteSub(ComboBoxComponentClass.DropDownEvent);
+        }
     }
 
     // An item picked with the mouse is Click, even the one already selected (measured).
@@ -177,9 +289,19 @@ public class VBComboBox : ComboBox
     // A choice puts the item's text in the edit box selected, so a key typed next replaces it (measured with the mouse).
     private void Picked()
     {
+        // A Simple Combo's pick leaves the focus in its edit box, as vb6.exe's does: what is typed next goes there.
+        if (IsSimpleCombo && editBox is { IsFocused: false } box)
+            box.Focus(NavigationMethod.Pointer);
         if (IsEditable)
             editBox?.SelectAll();
-        this.ExecuteSub(ComponentBaseClass.ClickEvent);
+        if (textBeforePick is null)
+            this.ExecuteSub(ComponentBaseClass.ClickEvent);
+        else
+            this.ExecuteSubIf(ComponentBaseClass.ClickEvent, () =>
+            {
+                textBeforePick = null;
+                return true;
+            });
     }
 
     /// <summary><c>ListIndex = n</c> from code: Click when it moves the selection, and none when it doesn't (measured).</summary>

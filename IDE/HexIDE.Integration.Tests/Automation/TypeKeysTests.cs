@@ -88,6 +88,155 @@ public class TypeKeysTests : IDisposable
 
     private const string Body = "Option Explicit\r\n\r\nPrivate Sub Foo()\r\n    \r\nEnd Sub\r\n";
 
+    private const string WithRun = "Option Explicit\r\n\r\nPublic Function Total()\r\n"
+        + "Attribute Total.VB_UserMemId = 0\r\n    Total = 1\r\nEnd Function\r\n";
+
+    [AvaloniaFact]
+    public void Delete1055_Partial_run_selection_deletes_code_and_names_what_stays()
+    {
+        var editor = Show(WithRun);
+        var start = editor.Text.IndexOf("Total()", StringComparison.Ordinal);
+        var end = editor.Text.IndexOf("VB_UserMemId", StringComparison.Ordinal);
+        var before = editor.Text;
+        var removed = editor.Document.GetLineByOffset(start).EndOffset - start;
+        editor.Select(start, end - start);
+
+        var result = UiAutomationDriver.PressKey(editor, "Delete", null);
+
+        result.Success.Should().BeTrue(result.Error);
+        editor.Text.Should().Be(before.Remove(start, removed));
+        result.Detail.Should().Contain("deleted 7 char(s)")
+            .And.Contain("left").And.Contain("the Attribute lines describing Total")
+            .And.Contain("which only the IDE changes").And.Contain($"caret is now at offset {editor.CaretOffset}")
+            .And.Contain("no selection remains");
+        editor.SelectionLength.Should().Be(0);
+    }
+
+    [AvaloniaFact]
+    public void Delete1055_Backspace_selection_reaching_header_deletes_only_code()
+    {
+        var editor = Show(WithRun);
+        var end = editor.Text.IndexOf("Option Explicit", StringComparison.Ordinal) + "Option".Length;
+        var code = editor.Text.IndexOf("Option Explicit", StringComparison.Ordinal);
+        var before = editor.Text;
+        editor.Select(3, end - 3);
+
+        var result = UiAutomationDriver.PressKey(editor, "Back", null);
+
+        result.Success.Should().BeTrue(result.Error);
+        editor.Text.Should().Be(before.Remove(code, end - code));
+        result.Detail.Should().Contain("deleted 6 char(s)").And.Contain("the file's header")
+            .And.Contain("which only the IDE changes").And.Contain($"caret is now at offset {editor.CaretOffset}")
+            .And.Contain("no selection remains");
+        editor.SelectionLength.Should().Be(0);
+    }
+
+    [AvaloniaFact]
+    public void Delete1055_Selection_wholly_in_run_is_refused_and_reports_remaining_selection()
+    {
+        var editor = Show(WithRun);
+        var start = editor.Text.IndexOf("Attribute Total.", StringComparison.Ordinal) + 2;
+        editor.Select(start, 5);
+        var before = editor.Text;
+
+        var result = UiAutomationDriver.PressKey(editor, "Delete", null);
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Contain("the Attribute lines describing Total").And.Contain("Nothing was written.")
+            .And.Contain($"selection remains from offset {start} to {start + 5}");
+        editor.Text.Should().Be(before);
+        editor.SelectionLength.Should().Be(5);
+    }
+
+    [AvaloniaFact]
+    public async Task Delete1055_Typing_over_partial_selection_matches_real_text_input()
+    {
+        foreach (var header in new[] { false, true })
+        {
+            var editor = Show(WithRun);
+            var person = Show(WithRun);
+            var start = header ? 3 : editor.Text.IndexOf("Total()", StringComparison.Ordinal);
+            var end = header ? editor.Text.IndexOf("Option Explicit", StringComparison.Ordinal) + 6
+                : editor.Text.IndexOf("VB_UserMemId", StringComparison.Ordinal);
+            editor.Select(start, end - start);
+            person.Select(start, end - start);
+
+            var typed = UiAutomationDriver.TypeText(editor, "x");
+            person.TextArea.RaiseEvent(new TextInputEventArgs
+            {
+                RoutedEvent = InputElement.TextInputEvent, Text = "x",
+            });
+
+            typed.Success.Should().BeTrue(typed.Error);
+            editor.Text.Should().Be(person.Text);
+            editor.CaretOffset.Should().Be(person.CaretOffset);
+            editor.SelectionLength.Should().Be(person.SelectionLength).And.Be(0);
+            typed.Detail.Should().Contain(header ? "the file's header" : "the Attribute lines describing Total");
+
+            var keyboard = Show(WithRun);
+            keyboard.Select(start, end - start);
+            var keys = await UiAutomationDriver.TypeKeysAsync(keyboard, "x");
+            keys.Success.Should().BeTrue(keys.Error);
+            keyboard.Text.Should().Be(person.Text);
+        }
+    }
+
+    [AvaloniaFact]
+    public void Refusal1042_Backspace_names_the_member_without_sending_the_caret_back_to_itself()
+    {
+        var editor = Show(WithRun);
+        PutCaretAfter(editor, "Attribute Total.VB_UserMemId = 0\r\n");
+        var caret = editor.CaretOffset;
+        var before = editor.Text;
+
+        var refused = UiAutomationDriver.PressKey(editor, "Back", null);
+
+        refused.Success.Should().BeFalse();
+        refused.Error.Should().Contain("text before the caret belongs to the Attribute lines describing Total")
+            .And.Contain("Deleting the member's whole declaration")
+            .And.NotContain($"CaretOffset={caret}").And.NotContain("nearest place");
+        editor.Text.Should().Be(before);
+
+        var declaration = editor.Document.GetLineByOffset(editor.Text.IndexOf("Public Function", StringComparison.Ordinal));
+        editor.Select(declaration.Offset, declaration.Length);
+        UiAutomationDriver.PressKey(editor, "Delete", null).Success.Should().BeTrue();
+        editor.Text.Should().NotContain("Public Function Total").And.NotContain("Attribute Total.")
+            .And.Contain("    Total = 1");
+    }
+
+    [AvaloniaFact]
+    public void Refusal1042_Header_key_names_the_header_unambiguously()
+    {
+        var editor = Show(WithRun);
+        editor.CaretOffset = 3;
+        var before = editor.Text;
+
+        var refused = UiAutomationDriver.PressKey(editor, "Delete", null);
+
+        refused.Success.Should().BeFalse();
+        refused.Error.Should().Contain("is in the file's header, which only the IDE changes")
+            .And.NotContain("or a member");
+        editor.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public void Refusal1042_Insertion_in_a_run_names_it_and_gives_a_new_editable_offset()
+    {
+        var editor = Show(WithRun);
+        PutCaretAfter(editor, "Attribute Total.");
+        var caret = editor.CaretOffset;
+        var past = editor.Text.IndexOf("    Total = 1", StringComparison.Ordinal);
+        var before = editor.Text;
+
+        var refused = UiAutomationDriver.TypeText(editor, "x");
+
+        refused.Success.Should().BeFalse();
+        refused.Error.Should().Contain("is in the Attribute lines describing Total, which only the IDE changes")
+            .And.Contain($"nearest place that can be edited starts at offset {past}")
+            .And.Contain($"CaretOffset={past}").And.NotContain($"CaretOffset={caret}");
+        editor.Text.Should().Be(before);
+    }
+
     [AvaloniaFact]
     public async Task Letters_typed_as_keys_ask_for_completion_as_a_person_s_do()
     {
@@ -188,6 +337,38 @@ public class TypeKeysTests : IDisposable
         typed.Success.Should().BeTrue(typed.Error);
         typed.Detail.Should().NotContain("had not answered");
         OpenList(editor).Should().NotBeNull("the list the letter asked for is open when the reply comes");
+    }
+
+    [AvaloniaFact]
+    public async Task A_parenthesis_typed_as_a_key_asks_for_signature_help_after_it()
+    {
+        var editor = Show(Body);
+        PutCaretAfter(editor, "Foo()\r\n    ");
+
+        var typed = await UiAutomationDriver.TypeKeysAsync(editor, "MsgBox(");
+
+        typed.Success.Should().BeTrue(typed.Error);
+        await lsp.Received(1).RequestSignatureHelpAsync(Arg.Any<string>(), new Position(4, 11), Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaFact]
+    public async Task The_parameter_info_a_parenthesis_asks_for_is_open_before_the_reply()
+    {
+        lsp.RequestSignatureHelpAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(async _ =>
+        {
+            await Task.Delay(150);
+            return (SignatureHelp?)new SignatureHelp([new SignatureInformation("MsgBox(Prompt)", null,
+                [new ParameterInformation("Prompt")])], 0, 0);
+        });
+        var editor = Show(Body);
+        PutCaretAfter(editor, "Foo()\r\n    ");
+
+        var typed = await UiAutomationDriver.TypeKeysAsync(editor, "MsgBox(");
+
+        typed.Success.Should().BeTrue(typed.Error);
+        typed.Detail.Should().NotContain("had not answered");
+        CodeEditorView.OpenPopupsOf(editor).OfType<OverloadInsightWindow>().Should().NotBeEmpty(
+            "parameter info is open when the reply comes");
     }
 
     [AvaloniaFact]
