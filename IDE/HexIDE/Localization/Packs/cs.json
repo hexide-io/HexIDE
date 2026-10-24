@@ -182,7 +182,7 @@
     "Str.Menu.Run.Break": "Přeruši_t",
     "Str.Menu.Run.End": "_Ukončit",
     "Str.Menu.Run.Restart": "_Restartovat",
-    "Str.Menu.Run.StartWithVB6": "Spustit pomocí _VB6 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "Spustit pomocí _VB6",
     "Str.Menu.Tools": "Nás_troje",
     "Str.Menu.Tools.AddProcedure": "Přidat _proceduru...",
     "Str.Menu.Tools.ProcedureAttributes": "_Atributy procedury...",

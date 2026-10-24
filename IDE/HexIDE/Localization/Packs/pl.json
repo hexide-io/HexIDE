@@ -182,7 +182,7 @@
     "Str.Menu.Run.Break": "_Przerwij",
     "Str.Menu.Run.End": "_Zakończ",
     "Str.Menu.Run.Restart": "_Uruchom ponownie",
-    "Str.Menu.Run.StartWithVB6": "Start z _VB6 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "Start z _VB6",
     "Str.Menu.Tools": "_Narzędzia",
     "Str.Menu.Tools.AddProcedure": "Dodaj _procedurę...",
     "Str.Menu.Tools.ProcedureAttributes": "_Atrybuty procedury...",

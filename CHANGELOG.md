@@ -249,6 +249,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Start with VB6 shows its shortcut once** (#897). Removed the embedded Alt+F5 from the menu label in
+  English and all 29 translations; the gesture column continues to show the live keymap's shortcut.
+
 - **MCP commands bound through another view model are reachable** (#1336). `inspect_element` lists a menu item’s or button’s resolved `Command` and its binding; `invoke_command` accepts `Command`, checks `CanExecute` with the control’s `CommandParameter`, and runs it. A wrong name explains the binding and how to invoke it, including on the designer’s Delete item.
 
 - **The code editor keeps its caret and view model in agreement** (#1608). An offset past the text now goes to its end,

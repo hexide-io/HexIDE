@@ -182,7 +182,7 @@
     "Str.Menu.Run.Break": "रोकें",
     "Str.Menu.Run.End": "समाप्त करें",
     "Str.Menu.Run.Restart": "पुनः प्रारंभ करें",
-    "Str.Menu.Run.StartWithVB6": "VB6 के साथ प्रारंभ करें (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "VB6 के साथ प्रारंभ करें",
     "Str.Menu.Tools": "उपकरण",
     "Str.Menu.Tools.AddProcedure": "प्रक्रिया जोड़ें...",
     "Str.Menu.Tools.ProcedureAttributes": "प्रक्रिया विशेषताएँ...",

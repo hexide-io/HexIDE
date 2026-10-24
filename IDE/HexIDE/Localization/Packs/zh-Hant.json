@@ -182,7 +182,7 @@
     "Str.Menu.Run.Break": "中斷",
     "Str.Menu.Run.End": "結束",
     "Str.Menu.Run.Restart": "重新啟動",
-    "Str.Menu.Run.StartWithVB6": "使用 VB6 啟動 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "使用 VB6 啟動",
     "Str.Menu.Tools": "工具",
     "Str.Menu.Tools.AddProcedure": "新增程序...",
     "Str.Menu.Tools.ProcedureAttributes": "程序屬性...",

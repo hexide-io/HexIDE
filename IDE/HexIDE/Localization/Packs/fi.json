@@ -182,7 +182,7 @@
     "Str.Menu.Run.Break": "_Keskeytä",
     "Str.Menu.Run.End": "_Lopeta",
     "Str.Menu.Run.Restart": "_Käynnistä uudelleen",
-    "Str.Menu.Run.StartWithVB6": "Käynnistä _VB6:lla (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "Käynnistä _VB6:lla",
     "Str.Menu.Tools": "_Työkalut",
     "Str.Menu.Tools.AddProcedure": "Lisää _proseduuri...",
     "Str.Menu.Tools.ProcedureAttributes": "Proseduurin _määritteet...",

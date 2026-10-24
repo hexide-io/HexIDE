@@ -182,7 +182,7 @@
     "Str.Menu.Run.Break": "Brud_d",
     "Str.Menu.Run.End": "_Afslut",
     "Str.Menu.Run.Restart": "_Genstart",
-    "Str.Menu.Run.StartWithVB6": "Start med _VB6 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "Start med _VB6",
     "Str.Menu.Tools": "_Funktioner",
     "Str.Menu.Tools.AddProcedure": "Tilføj _procedure...",
     "Str.Menu.Tools.ProcedureAttributes": "Procedure_attributter...",

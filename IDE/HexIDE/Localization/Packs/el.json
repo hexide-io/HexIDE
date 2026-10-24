@@ -182,7 +182,7 @@
     "Str.Menu.Run.Break": "Διακοπή",
     "Str.Menu.Run.End": "Τερματισμός",
     "Str.Menu.Run.Restart": "Επανεκκίνηση",
-    "Str.Menu.Run.StartWithVB6": "Έναρξη με VB6 (Alt+F5)",
+    "Str.Menu.Run.StartWithVB6": "Έναρξη με VB6",
     "Str.Menu.Tools": "Εργαλεία",
     "Str.Menu.Tools.AddProcedure": "Προσθήκη διαδικασίας...",
     "Str.Menu.Tools.ProcedureAttributes": "Χαρακτηριστικά διαδικασίας...",
