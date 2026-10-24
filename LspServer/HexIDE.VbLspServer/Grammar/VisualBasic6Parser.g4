@@ -33,7 +33,7 @@ startRule
 
 module
     : WS? NEWLINE* (moduleHeader NEWLINE+)? moduleReferences? NEWLINE* controlProperties? NEWLINE* moduleConfig? NEWLINE* moduleAttributes? NEWLINE*
-        moduleOptions? NEWLINE* moduleBody? NEWLINE* WS?
+        (moduleOptions | moduleBody)? NEWLINE* WS?
     ;
 
 moduleReferences
