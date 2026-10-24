@@ -265,6 +265,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Control captions use grayscale antialiasing** (#917). Designer previews and running CheckBox and
+  OptionButton captions no longer render outline fonts with jagged edges and broken-looking spacing.
+
 - **The Gregorian locale test follows the platform's calendar data** (#1045). It no longer assumes ar-SA's
   first month differs from January, which failed under WSL's ICU 78 even though the program's output was correct.
 

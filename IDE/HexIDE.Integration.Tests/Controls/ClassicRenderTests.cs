@@ -1,5 +1,15 @@
 using System;
 using System.Linq;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using Avalonia.Media.Imaging;
+using HexIDE.Controls;
+using HexIDE.IDE;
+using HexIDE.Localization;
+using HexIDE.Runtime.Components;
+using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Serialization;
+using HexIDE.VisualDesigner;
 using Avalonia;
 using Avalonia.Controls;
 using Shapes = Avalonia.Controls.Shapes;
@@ -68,6 +78,75 @@ public class ClassicRenderTests
         var frame = window.CaptureRenderedFrame();
         window.Close();
         return frame;
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RuntimeCaption_HasAntialiasedPixels(bool option)
+    {
+        Control control = option
+            ? new VBOptionButton { Content = "Option0", FontFamily = new FontFamily("Liberation Sans"), FontSize = 11 }
+            : new VBCheckBox { Content = "Check0", FontFamily = new FontFamily("Liberation Sans"), FontSize = 11 };
+        control.Width = 160;
+        control.Height = 32;
+        control.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left;
+        control.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Top;
+        using var frame = RenderOnce(control);
+        frame.Should().NotBeNull();
+        CaptionColours(frame!, new PixelRect(25, 8, 120, 16)).Should().BeGreaterThan(2,
+            "caption pixels must include intermediate greys, excluding the bullet and border");
+    }
+
+    private sealed class NullSink : IDeserializeErrorSink { public void LogError(string _) { } }
+
+    [AvaloniaFact]
+    public void DesignerCommandCaption_HasAntialiasedPixels()
+    {
+        var form = new FormDeserializer().Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), """
+            VERSION 5.00
+            Begin VB.Form Form1
+               Begin VB.CommandButton Command0
+                  Caption = "Command0"
+                  Height = 480
+                  Width = 2400
+               End
+            End
+            Attribute VB_Name = "Form1"
+
+            """.ReplaceLineEndings("\r\n"), new NullSink())!;
+        var designer = new FormEditViewModel(null!, new EventBus(), null!, null!, null!, null!, Substitute.For<ILocalizationService>())
+            .Initialize(form);
+        var renderer = new ControlRenderer { Width = 160, Height = 32 };
+        var window = BuildHost(renderer);
+        try
+        {
+            window.Show();
+            renderer.Component = new ComponentInstanceViewModel(designer, form.Components.Single(c => c.GetPropertyOrDefault(VBProperties.NameProperty) == "Command0"));
+            Dispatcher.UIThread.RunJobs();
+            var bitmap = (Bitmap)((Image)renderer.Child!).Source!;
+            CaptionColours(bitmap, new PixelRect(10, 8, 140, 16)).Should().BeGreaterThan(2,
+                "the designer bitmap must antialias its caption, excluding the button border");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static int CaptionColours(Bitmap bitmap, PixelRect region)
+    {
+        var pixels = new int[region.Width * region.Height];
+        var handle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+        try
+        {
+            bitmap.CopyPixels(region, handle.AddrOfPinnedObject(), pixels.Length * 4, region.Width * 4);
+            return new HashSet<int>(pixels).Count;
+        }
+        finally
+        {
+            handle.Free();
+        }
     }
 
     // ── The crash ────────────────────────────────────────────────────────────────────────────────
