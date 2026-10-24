@@ -76,6 +76,10 @@ one panel that did not change rather than as an error.
 - **WHEN** new chrome is added
 - **THEN** its colours reference theme keys
 
+#### Scenario: Form Layout thumbnail follows the theme
+- **WHEN** the theme changes while Form Layout is open
+- **THEN** the thumbnail face uses `WindowBrushKey`, its label uses `WindowTextBrushKey`, and its title strip uses `ControlDarkBrushKey`
+
 #### Scenario: A colour that has no key
 - **WHEN** chrome needs a colour the theme does not define
 - **THEN** a key is added to the definition layer and every theme inherits a default for it

@@ -255,6 +255,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Form Layout thumbnail follows the theme** (#958): its face, label and title strip use theme brushes,
+  keeping the form name readable under Dark while preserving Classic colours.
+
 - **Yearless dates followed by a time** (#1445) now use the current year through `CDate`, a store into a Date and `IsDate`. Measured under en-GB with comma, slash and hyphen separators, seconds and PM; a full stop remains refused.
 
 - **Whole-file replacement refusals report every protected region changed** (#1054). When the header and a
