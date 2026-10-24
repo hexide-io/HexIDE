@@ -33,6 +33,16 @@ public class ReconnectReplayTests : IAsyncDisposable
     private sealed class OpenRecordingServer(string capabilitiesJson)
     {
         public ConcurrentQueue<(string Uri, string LanguageId, int Version, string Text)> Opens { get; } = new();
+        public ConcurrentQueue<(int Version, string Text)> Changes { get; } = new();
+        public TaskCompletionSource LatestChange { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        [JsonRpcMethod("textDocument/didChange", UseSingleObjectParameterDeserialization = true)]
+        public void DidChange(JsonElement p)
+        {
+            var version = p.GetProperty("textDocument").GetProperty("version").GetInt32();
+            Changes.Enqueue((version, p.GetProperty("contentChanges")[0].GetProperty("text").GetString()!));
+            if (version == 4) LatestChange.TrySetResult();
+        }
 
         [JsonRpcMethod("initialize", UseSingleObjectParameterDeserialization = true)]
         public JsonElement Initialize(JsonElement _) =>
@@ -178,6 +188,47 @@ public class ReconnectReplayTests : IAsyncDisposable
 
         (await WaitForOpensAsync(server, 2)).Should().BeTrue();
         server.Opens.Last().Text.Should().Be("# second");
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task AChangeNoLaterThanTheTrackedVersionDoesNotReachTheServer(int staleVersion)
+    {
+        var (client, server, _) = Connected(
+            "markdown", """{"textDocumentSync":{"openClose":true,"change":1}}""");
+        const string uri = "file:///c:/p/README.md";
+        await client.StartAsync(TestContext.Current.CancellationToken);
+        await client.OpenDocumentAsync(uri, "# first", TestContext.Current.CancellationToken);
+        (await WaitForOpensAsync(server, 1)).Should().BeTrue();
+
+        await client.ChangeDocumentAsync(uri, 3, "# newest", TestContext.Current.CancellationToken);
+        await client.ChangeDocumentAsync(uri, staleVersion, "# stale", TestContext.Current.CancellationToken);
+        await client.ChangeDocumentAsync(uri, 4, "# next", TestContext.Current.CancellationToken);
+        await server.LatestChange.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        server.Changes.Should().Equal((3, "# newest"), (4, "# next"));
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task AChangeNoLaterThanTheTrackedVersionDoesNotReplaceTheReplay(int staleVersion)
+    {
+        var (client, server, transport) = Connected(
+            "markdown", """{"textDocumentSync":{"openClose":true,"change":1}}""");
+        const string uri = "file:///c:/p/README.md";
+        await client.StartAsync(TestContext.Current.CancellationToken);
+        await client.OpenDocumentAsync(uri, "# first", TestContext.Current.CancellationToken);
+        (await WaitForOpensAsync(server, 1)).Should().BeTrue();
+        await client.ChangeDocumentAsync(uri, 3, "# newest", TestContext.Current.CancellationToken);
+        await client.ChangeDocumentAsync(uri, staleVersion, "# stale", TestContext.Current.CancellationToken);
+
+        transport.Drop();
+
+        (await WaitForOpensAsync(server, 2)).Should().BeTrue();
+        server.Opens.Last().Version.Should().Be(3);
+        server.Opens.Last().Text.Should().Be("# newest");
     }
 
     public async ValueTask DisposeAsync()

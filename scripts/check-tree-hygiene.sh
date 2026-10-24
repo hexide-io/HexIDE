@@ -12,8 +12,8 @@
 # editor backups in the tree, dangling relative links in Markdown, machine-specific absolute
 # paths, C# code that writes to a fixed absolute path, personal-identity references, a
 # third-party project named outside the places we agreed it may be, and unresolved
-# merge-conflict markers, and xUnit assertions in test sources. Warns (exit 0) on TWO things, both
-# expected and neither blocking: key material .gitignore already covers, and the
+# merge-conflict markers, xUnit assertions in test sources, and C1 control characters.
+# Warns (exit 0) on TWO things, both expected and neither blocking: key material .gitignore already covers, and the
 # upstream-attribution mention. Exits 2, having scanned nothing, when git cannot read the tree.
 #
 # EVERY SCAN SEES UNTRACKED FILES, and that is load-bearing rather than tidy. Git's own
@@ -274,6 +274,13 @@ done < <(git grep --untracked -nIE '^(<<<<<<<|>>>>>>>) ' -- . "${EXCLUDE[@]}")
 while IFS= read -r hit; do
   [ -n "$hit" ] && note "xUnit Assert API in test source (use AwesomeAssertions): $hit"
 done < <(git grep --untracked -nIE '(^|[^.[:alnum:]_])Assert\.[[:upper:]][[:alnum:]_]*' -- ':(glob)**/*.Tests/**/*.cs')
+
+# 10. C1 controls (U+0080–U+009F) in UTF-8 text indicate an encoding accident (#1312).
+# Scan even the scripts excluded above; tests needing a control must spell it as an escape.
+# Match UTF-8 bytes under C locale so the result does not depend on the host's locale.
+while IFS= read -r hit; do
+  [ -n "$hit" ] && note "C1 control character: $hit"
+done < <(LC_ALL=C git grep --untracked -nIP '\xC2[\x80-\x9F]' -- .)
 
 echo
 if [ "$fails" -eq 0 ]; then
