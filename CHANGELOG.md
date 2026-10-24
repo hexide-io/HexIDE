@@ -249,6 +249,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP guarded-edit refusals name the region** (#1042): the file's header or the Attribute lines describing a named member. Backward deletion explains how to remove a declaration with its Attribute lines instead of sending the caller back to the same caret offset; insertions still give a new editable offset.
+
 - **MCP replies distinguish dialogs sharing a title** (#1365). The modal note names a message box or run-time error dialog, its first line of text and its actual buttons; other dialogs include their buttons. The window parameter explains how to discover open windows through an unknown-name refusal.
 
 - **MCP replies name ignored arguments** (#1315). A misspelled optional parameter still lets the call run, but

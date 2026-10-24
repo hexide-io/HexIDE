@@ -2864,21 +2864,33 @@ public static class UiAutomationDriver
         if (!changes)
             return null;
 
-        var past = editor.PastReadOnlyRegion(span.Offset);
-        // A selection that begins where code can be edited and reaches into a region: where it begins is no help, how far
-        // it reaches is the trouble (#1040 review).
-        if (span.Length > 0 && past == span.Offset)
+        var affected = editor.ReadOnlyRegionsNow.Where(r => r.Changes(span.Offset, span.Length)).ToList();
+        var names = affected.Select(r => editor.MemberNamedBy(r)).ToList();
+        var header = names.Any(n => n is null);
+        var region = header ? "the file's header" : "the Attribute lines describing " + string.Join(", ", names);
+        var unchanged = written ?? "Nothing was written.";
+        var prefix = $"{tool} refused: ";
+        var ownership = ", which only the IDE changes (the designer, a save, a rename). ";
+        const string offsets = " Offsets count from the start of the file, in the text get_file_content returns.";
+        if (span.Deletes && span.Length > 0 && span.Offset + span.Length == area.Caret.Offset)
             return new InteractOutcome(false, mechanism, null,
-                $"{tool} refused: the selection from offset {span.Offset} to {span.Offset + span.Length} reaches into the "
-              + "file's header or a member's Attribute lines, which only the IDE changes (the designer, a save, a "
-              + "rename), and it writes over the whole selection. " + (written ?? "Nothing was written.") + " Select less, or collapse the "
-              + "selection (press_key Left or Right) and write at the caret. Offsets count from the start of the file, "
-              + "in the text get_file_content returns.");
+                prefix + "the text before the caret belongs to " + region + ownership + unchanged
+              + (header
+                  ? " Edit the code after the header instead; the header is changed through the designer, a save or a rename."
+                  : " Deleting the member's whole declaration (all physical lines if continued) removes its Attribute lines too; "
+                    + "select the declaration's whole text and press_key Delete to remove both."));
+
+        var past = editor.PastReadOnlyRegion(span.Offset);
+        // A selection starting outside a region, or an offset already at the caret, offers no useful move.
+        if (past == span.Offset || past == area.Caret.Offset)
+            return new InteractOutcome(false, mechanism, null,
+                prefix + $"the selection from offset {span.Offset} to {span.Offset + span.Length} reaches into "
+              + region + ownership + unchanged + " Select less, or collapse the selection (press_key Left or Right) "
+              + "and write at the caret." + offsets);
         return new InteractOutcome(false, mechanism, null,
-            $"{tool} refused: offset {span.Offset} is in the file's header or a member's Attribute lines, which "
-          + "only the IDE changes (the designer, a save, a rename). " + (written ?? "Nothing was written.") + " The nearest place "
+            prefix + $"offset {span.Offset} is in " + region + ownership + unchanged + " The nearest place "
           + $"that can be edited starts at offset {past}; put the caret there with interact set_property "
-          + $"CaretOffset={past}. Offsets count from the start of the file, in the text get_file_content returns.");
+          + $"CaretOffset={past}." + offsets);
     }
 
     /// <summary>
