@@ -315,21 +315,12 @@ public class CorpusConformanceTests
         ["separator-in-control-flow/rem-after-then-is-still-block"] = "REM-IS-TRIVIA-NOT-A-STATEMENT",
         ["separator-vs-label/rem-without-colon"] = "REM-IS-TRIVIA-NOT-A-STATEMENT",
 
-        // HIDDEN-CONTINUATION-FAKES-ADJACENCY (3)
-        //   A VB6 continuation is WHITESPACE-EQUIVALENT, not a character-level splice: the mandatory space
-        //   before the `_` survives the join, so `tot _` / `al` is two names and `x _` / `$` is a name with
-        //   whitespace before its type character. HexIDE swallows the whole run, leading whitespace
-        //   included, into one hidden token, so the parser sees the flanking tokens as DIRECTLY ADJACENT
-        //   and `ambiguousIdentifier : (IDENTIFIER | ambiguousKeyword)+` fuses them. Those rules are
-        //   already correct — the same probes with a plain space fail to parse — so this is purely the
-        //   invisibility of the token.
-        //
-        //   Lexer fix: emit the continuation as a visible WS-typed token that absorbs the next line's
-        //   indentation. WS-typed, never NEWLINE-typed: `label-after-continuation-midline` is currently
-        //   CORRECT precisely because the hidden continuation makes the physical/logical line distinction
-        //   unrepresentable, and a NEWLINE would turn a mid-line `Skip:` into a line-head label.
-        ["continuation-in-strings-comments/continuation-splitting-a-token"] = "HIDDEN-CONTINUATION-FAKES-ADJACENCY",
-        ["continuation-vs-identifier/continuation-splits-identifier"] = "HIDDEN-CONTINUATION-FAKES-ADJACENCY",
+        // The names are now separate (#224), but the grammar still accepts an implicit call to `tot`
+        // with `al = 5` as its argument. Retain that existing permissive acceptance.
+        ["continuation-vs-identifier/continuation-splits-identifier"] = "SPLIT-NAME-CALL-AS-STATEMENT",
+
+        // A continuation before a type character still has today's hidden-token handling; #224 only
+        // separates word fragments, and does not change this refusal gap.
         ["gap-fill/continuation-splits-identifier-from-type-character"] = "HIDDEN-CONTINUATION-FAKES-ADJACENCY",
 
         // COLON-ENDS-THE-THEN-LINE (2)

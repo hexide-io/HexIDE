@@ -272,6 +272,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A continuation separates identifier names** (#224). Splitting `val _` / `ue = 5` no longer assigns to
+  `value`; the measured probe prints Long 0. Both grammar copies keep the separator between word fragments
+  as whitespace, while continuations inside multi-word keywords remain legal.
+
 - **Untouched modules reload silently after an external file change** (#730). Not-open `.bas` and `.cls`
   files are compared in their source encoding, including a UTF-8 BOM; UserControls and PropertyPages
   use the same render comparison as forms, so their designer blocks no longer cause false conflicts.

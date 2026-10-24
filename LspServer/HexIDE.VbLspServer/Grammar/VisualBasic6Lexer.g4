@@ -523,6 +523,14 @@ IDENTIFIER: LETTER LETTERORDIGIT*;
 
 // whitespace, line breaks, comments, ...
 
+// A continuation between word fragments must separate names rather than concatenate them (#224).
+// Other continuations retain their existing handling, including KWSEP inside multi-word keywords.
+IDENTIFIER_CONTINUATION
+   : {char.IsLetterOrDigit((char)InputStream.LA(-1)) || InputStream.LA(-1) == '_'}?
+     [ \t]+ '_' [ \t]* '\r'? '\n' [ \t]*
+     {char.IsLetterOrDigit((char)InputStream.LA(1))}? -> type(WS)
+   ;
+
 // A whitespace RUN before the underscore, and any whitespace after it — mirrored from the interpreter's
 // grammar, where the conformance corpus showed the one-space form rejects a tab before the underscore and
 // the multi-space alignment real VB6 is full of. Kept identical on purpose: GrammarParityTests exists

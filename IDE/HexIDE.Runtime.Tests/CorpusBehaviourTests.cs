@@ -99,12 +99,6 @@ public class CorpusBehaviourTests
         ["select-case-matching/equality-operator-string-numerically-equal-textually-different"] =
             "EQ-OPERATOR-COERCION: raises Type mismatch, VB6 says True",
 
-        // SPLIT-IDENTIFIER-IS-TWO-NAMES. VB6 does not join an identifier across a line continuation — the
-        // halves are separate names, so the read is of an undeclared Variant and yields 0. HexIDE joins
-        // them and reads the real variable, answering 5. Accepting more than VB6 would be tolerable; this
-        // returns a DIFFERENT NUMBER, which is not.
-        ["continuation-illegal/split-identifier"] = "SPLIT-IDENTIFIER: prints Long 5, VB6 prints Long 0",
-
         // ---- REFUSES CODE VB6 RAN. A false rejection at run time rather than parse time — the parse ---
         // ---- gate is blind to these too, because the module parses and then dies executing. ----------
 
