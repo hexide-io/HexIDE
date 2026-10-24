@@ -261,6 +261,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Forced-exit cleanup order is regression-tested** (#563). A server startup failure disposes the add-in loader
+  before closing consent dialogs, exits even if cleanup throws, and closes the log after the windows close.
+
 - **A server cancelling an outdated language request no longer warns that the feature is broken** (#723).
   ContentModified and RequestCancelled replies are logged at debug, leaving the method's warning available
   for a later genuine failure.
