@@ -739,6 +739,11 @@ upward is worse than one that does not recognise the value at all.
 - **WHEN** a server reports a problem with its own setup
 - **THEN** that report reaches a surface the developer can read, rather than only a discarded log level
 
+#### Scenario: Running commentary reaches the default log
+- **WHEN** a server sends `window/logMessage` with type 4 (Log)
+- **THEN** the client SHALL write it at Information so the default log retains it
+- **AND** type 5 (Debug) SHALL remain at Trace
+
 #### Scenario: A severity this client does not know
 - **WHEN** a server sends a severity introduced after the version this client targets
 - **THEN** it is not ranked above severities the client does know

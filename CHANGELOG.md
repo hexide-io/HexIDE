@@ -276,6 +276,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Server running commentary reaches the default log** (#359). LSP type 4 now logs at Information;
+  type 5 stays at Trace. A sink-level regression and metamodel enum guard cover the logging seam
+  and future protocol values; existing completion display-kind omissions remain deferred.
+
 - **Options names its Tab width, grid Width and grid Height fields for accessibility** (#950). Each name follows
   its localized label without the access-key marker, so automation can address the field by that label.
 

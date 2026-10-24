@@ -47,9 +47,17 @@ stale bundled server fail rather than skip.
 
 **Consumed from the server:** `textDocument/publishDiagnostics`, `$/logTrace`, plus `window/logMessage` and
 `window/showMessage` — the channel a server uses to talk about *itself* rather than about a document.
-The first goes to the log at the severity the server declared; the second goes there **and** to the
+Both map Error to Error, Warning to Warning, Info and Log (types 3 and 4) to Information, and
+3.18 Debug (type 5) and unknown values to Trace. Type 4 therefore reaches the default log;
+type 5 needs `HEXIDE_LOG_LEVEL=Verbose`. The second goes there **and** to the
 status bar, because a message the user never sees was the bug and a message with no trace afterwards
 is the next one.
+
+The metamodel guard also checks the numeric values of the wire enums (`DiagnosticSeverity`,
+`MessageType`, `SymbolKind` and `CompletionItemKind`). Completion display kinds still declare only
+six of the 25 specification values; the guard explicitly defers the existing 19 omissions as a separate
+display-model follow-up, while detecting newly added values. `SaveNotification` describes local save
+negotiation state rather than a wire enum.
 
 **Server-initiated requests.** Four are handled: `client/registerCapability` and
 `client/unregisterCapability` (refused, with the refusal recorded rather than silent) and

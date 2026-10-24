@@ -46,7 +46,8 @@ public interface ILspClient : IAsyncDisposable
     /// a server that starts, connects and then serves nothing has only these to explain itself with.
     ///
     /// <para>
-    /// Still logged as well as raised. A message nobody sees is one bug and a message with no trace
+    /// Still logged as well as raised: Log maps to Information, Debug to Trace.
+    /// A message nobody sees is one bug and a message with no trace
     /// afterwards is the next one, which is the argument that already applies to its louder sibling.
     /// </para>
     /// </remarks>

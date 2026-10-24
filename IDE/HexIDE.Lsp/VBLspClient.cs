@@ -1854,7 +1854,7 @@ public sealed class VBLspClient : ILspClient
         }
 
         /// <summary>
-        /// The server's own log output, written through at the severity it declared.
+        /// The server's own log output. Log is retained at Information; Debug goes to Trace.
         ///
         /// <para>
         /// Logged and not surfaced: this channel is where servers put detail, and a server in a bad state
@@ -2019,9 +2019,8 @@ public sealed class VBLspClient : ILspClient
         /// Maps the protocol's message levels onto the logger's.
         /// </summary>
         /// <remarks>
-        /// <c>Log</c> becomes Debug rather than Information: it is the level a server uses for running
-        /// commentary, and promoting it would bury the two levels that mean something. <c>Debug</c>, added
-        /// in 3.18, is noisier still and goes to Trace.
+        /// <c>Log</c> becomes Information so running commentary reaches the default log.
+        /// <c>Debug</c>, added in 3.18, is noisier and goes to Trace.
         ///
         /// <para>
         /// <b>An unrecognised value goes to Trace, and the arm here previously had that exactly backwards.</b>
@@ -2039,7 +2038,7 @@ public sealed class VBLspClient : ILspClient
             LspMessageType.Error => LogLevel.Error,
             LspMessageType.Warning => LogLevel.Warning,
             LspMessageType.Info => LogLevel.Information,
-            LspMessageType.Log => LogLevel.Debug,
+            LspMessageType.Log => LogLevel.Information,
             LspMessageType.Debug => LogLevel.Trace,
             _ => LogLevel.Trace,
         };
