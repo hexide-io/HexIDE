@@ -161,6 +161,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Changed
 
+- **Full-text language-server sync is deliberate** (#282). Documented that servers declaring Incremental
+  receive full-document changes too, as LSP permits. Incremental sync is deferred until a server needs it
+  to justify the risk of desynchronizing document copies; client behavior is unchanged.
+
 - **The automation server’s loopback gate is exercised through real HTTP requests** (#773). The IDE and
   the Kestrel test server share its middleware wiring; foreign Host and Origin headers are refused on
   `/mcp`, and a foreign Host is refused on `/health`, while loopback clients are answered.

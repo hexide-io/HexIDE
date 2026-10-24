@@ -94,6 +94,11 @@ Full synchronization removes an entire class of desynchronization bug — a drop
 leaving the server's copy silently diverged from the editor's — at a cost that is negligible for source
 files of the size VB6 projects contain.
 
+This is deliberate for servers declaring either Full or Incremental synchronization: each change SHALL
+contain one event with the whole new text and no range. A server declaring None SHALL receive no changes.
+LSP permits full-document changes whatever sync kind the server advertises. Incremental sync is deferred
+until a server needs it to justify the desynchronization risk (hexide-io/HexIDE#282).
+
 The version is the server's only way to order what it receives, and a server may discard a change that is not
 later than what it holds. The open counts: a first change that repeated the open's version was lost to such a
 server (hexide-io/HexIDE#470).
