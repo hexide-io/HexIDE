@@ -38,13 +38,13 @@ internal sealed class DocumentStore
     public Dictionary<string, List<LspDiagnostic>> Diagnostics { get; } = new();
     public Dictionary<string, List<LspSymbol>> Symbols { get; } = new();
     public Dictionary<string, List<LspFoldingRange>> Foldings { get; } = new();
-    public Dictionary<string, IReadOnlyDictionary<string, string?>> DeclaredTypes { get; } = new();
+    public Dictionary<string, IReadOnlyDictionary<string, VbDeclaration>> DeclaredTypes { get; } = new();
 
     // Each document's project, read from its .vbp, for conditional compilation (#1112).
     private readonly VbProjectArguments projects = new();
 
-    private static readonly IReadOnlyDictionary<string, string?> EmptyTypes =
-        new Dictionary<string, string?>();
+    private static readonly IReadOnlyDictionary<string, VbDeclaration> EmptyTypes =
+        new Dictionary<string, VbDeclaration>();
 
     /// <summary>
     /// Parse the document ONCE (off-thread, under a wall-clock budget), refresh every cache, and return
