@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Avalonia.LogicalTree;
 using HexIDE.Automation;
 
 namespace HexIDE.Integration.Tests.Automation;
@@ -263,6 +264,50 @@ public class LogicallyParentedPopupTests
             Detail(UiAutomationDriver.Interact(a, "collapse", null)).Should().StartWith("closed flyout on '");
         }
         finally { window.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("collapse")]
+    [InlineData("dump")]
+    [InlineData("expand")]
+    public void A_shared_context_menu_is_open_only_on_its_current_control(string action)
+    {
+        var cut = new MenuItem { Header = "Cut" };
+        var menu = new ContextMenu { Items = { cut } };
+        var a = new Button { Content = "A", ContextMenu = menu };
+        var b = new Button { Content = "B", ContextMenu = menu };
+        var window = Show(new StackPanel { Children = { a, b } });
+        try
+        {
+            menu.Open(a);
+            Dispatcher.UIThread.RunJobs();
+
+            if (action == "collapse")
+            {
+                Detail(UiAutomationDriver.Interact(b, "collapse", null)).Should()
+                    .Be("the context menu on 'B' was not open; there is nothing to close");
+                menu.IsOpen.Should().BeTrue();
+                ((Popup)menu.GetLogicalParent()!).Parent.Should().BeSameAs(a);
+            }
+            else if (action == "dump")
+            {
+                var paths = UiAutomationDriver.Find(UiAutomationDriver.Dump(window, "Window", 20, false),
+                    "Cut", 50).Matches.Select(m => m.Path).ToList();
+                paths.Should().Contain(p => p.Contains("Button[A]/"));
+                paths.Should().NotContain(p => p.Contains("Button[B]/"));
+                var path = paths.Single(p => p.Contains("Button[A]/"));
+                UiAutomationDriver.Resolve(window, path).control.Should().BeSameAs(cut);
+                UiAutomationDriver.Resolve(window, path.Replace("Button[A]/", "Button[B]/"))
+                    .control.Should().BeNull();
+            }
+            else
+            {
+                Detail(UiAutomationDriver.Interact(b, "expand", null)).Should().Be("opened context menu on 'B'");
+                menu.IsOpen.Should().BeTrue();
+                ((Popup)menu.GetLogicalParent()!).Parent.Should().BeSameAs(b);
+            }
+        }
+        finally { menu.Close(); window.Close(); }
     }
 
     [AvaloniaFact]
