@@ -175,8 +175,9 @@ public class CodeEditorPopupTests : IDisposable
         outcome.Success.Should().BeTrue(outcome.Error);
         Pump();
 
-        // The current list starts its replacement segment at the caret: it appends to the typed M (#941).
-        editor.Document.Text.ReplaceLineEndings("\n").Should().Contain("\n    MMid\n");
+        // The item is committed. Whether it replaces the typed M or appends to it, as the list does today, is #941's,
+        // so this accepts either rather than pinning that defect.
+        editor.Document.Text.ReplaceLineEndings("\n").Should().MatchRegex(@"\n    M?Mid\n");
         CodeEditorView.OpenPopupsOf(editor).Should().BeEmpty();
     }
 
