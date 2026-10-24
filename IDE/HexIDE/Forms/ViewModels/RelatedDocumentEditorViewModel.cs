@@ -36,7 +36,7 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient)
     : BaseEditorWindowViewModel, ISearchableDocument
 {
     private RelatedDocumentDefinition? document;
-    private bool hadByteOrderMark;
+    private Vb6TextEncoding encoding = Vb6TextEncoding.Utf8;
     private string savedText = string.Empty;
 
     /// <summary>
@@ -103,9 +103,18 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient)
             try
             {
                 var bytes = File.ReadAllBytes(path);
-                hadByteOrderMark = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
-                savedText = new UTF8Encoding(false).GetString(
-                    hadByteOrderMark ? bytes.AsSpan(3) : bytes.AsSpan());
+                var marked = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
+                encoding = Vb6TextEncoding.Utf8 with { Utf8Bom = marked };
+                try
+                {
+                    savedText = Vb6TextFile.Decode(bytes, encoding);
+                }
+                catch (DecoderFallbackException)
+                {
+                    // Latin-1 maps each byte back to itself, including bytes UTF-8 cannot read.
+                    encoding = Vb6TextEncoding.Latin1 with { Utf8Bom = marked };
+                    savedText = Vb6TextFile.Decode(bytes, encoding);
+                }
             }
             catch (Exception ex)
             {
@@ -195,15 +204,15 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient)
         if (document?.AbsolutePath is not { } path || LoadError is not null) return;
 
         var text = Document.Text;
-        // Encoding is preserved rather than normalised: this file belongs to something else — a build
-        // script, a docs pipeline, another editor — and quietly adding or dropping a byte-order mark is
-        // the kind of diff that shows up in someone's review with no explanation.
-        var encoding = new UTF8Encoding(hadByteOrderMark);
+        if (string.Equals(text, savedText, StringComparison.Ordinal)) return;
+
+        // Encode before touching the file: an edit the original encoding cannot hold must not lose bytes.
+        var bytes = Vb6TextFile.Encode(text, encoding);
 
         // Written to a sibling temp file and moved into place, so an interrupted save cannot leave a
         // truncated document where the original was.
         var temporary = path + ".hexide-tmp";
-        await File.WriteAllTextAsync(temporary, text, encoding);
+        await File.WriteAllBytesAsync(temporary, bytes);
         File.Move(temporary, path, overwrite: true);
 
         savedText = text;
