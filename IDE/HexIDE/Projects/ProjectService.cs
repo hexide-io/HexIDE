@@ -1221,7 +1221,17 @@ public class ProjectService : IProjectService
             SerializeOnlyProjectToFile(projectDefinition, Path.Join(tempPath, Path.ChangeExtension(exeFileName, "vbp")));
 
             // This is not a .dll file, but it will look better :wink: :wink:
-            ZipFile.CreateFromDirectory(tempPath, Path.ChangeExtension(exePath, "dll")!);
+            var archivePath = Path.ChangeExtension(exePath, "dll")!;
+            var stagedArchivePath = archivePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                ZipFile.CreateFromDirectory(tempPath, stagedArchivePath);
+                File.Move(stagedArchivePath, archivePath, overwrite: true);
+            }
+            finally
+            {
+                try { File.Delete(stagedArchivePath); } catch { /* best effort — the staged archive is disposable */ }
+            }
         }
         finally
         {
