@@ -352,6 +352,8 @@
     "Str.CodeEditor.Context.InsertFile": "Indsæt _fil",
     "Str.CodeEditor.Context.ToggleBreakpoint": "Skift _pausepunkt",
     "Str.CodeEditor.Context.Bookmarks": "_Bogmærker",
+    "Str.Menu.Edit.ToggleFold": "_Skift foldning",
+    "Str.CodeEditor.Context.ToggleFold": "_Skift foldning",
     "Str.CodeEditor.Context.ToggleBookmark": "_Skift bogmærke",
     "Str.CodeEditor.Context.NextBookmark": "_Næste bogmærke",
     "Str.CodeEditor.Context.PreviousBookmark": "_Forrige bogmærke",

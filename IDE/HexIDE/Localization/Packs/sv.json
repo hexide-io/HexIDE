@@ -352,6 +352,8 @@
     "Str.CodeEditor.Context.InsertFile": "Infoga _fil",
     "Str.CodeEditor.Context.ToggleBreakpoint": "Växla _brytpunkt",
     "Str.CodeEditor.Context.Bookmarks": "_Bokmärken",
+    "Str.Menu.Edit.ToggleFold": "_Växla vikning",
+    "Str.CodeEditor.Context.ToggleFold": "_Växla vikning",
     "Str.CodeEditor.Context.ToggleBookmark": "_Växla bokmärke",
     "Str.CodeEditor.Context.NextBookmark": "_Nästa bokmärke",
     "Str.CodeEditor.Context.PreviousBookmark": "_Föregående bokmärke",
