@@ -71,7 +71,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
                + "does not list tool documents (the Object Browser, the connection list, the protocol inspector), "
                + "although they are tabs in the same strip, and 'activeWindow' is null while one of those is in "
                + "front, because no editor is then active. get_document_tabs answers the other question: every tab, "
-               + "with its type and which one is active. The 'note' says which case an empty or null answer is.")]
+               + "with its type and which one is active. The 'note' says which case an empty or null answer is. 'editors' and 'activeEditor' give title, type, project and document; openWindows and activeWindow retain display titles.")]
     public async Task<OpenEditorsResult> GetOpenEditorsAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -93,7 +93,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
                         ? $"No editor is active: the tab in front is '{front.Title}', which is not an editor. "
                           + "get_document_tabs lists it."
                         : "No editor is active, and no tab is in front.";
-            return new OpenEditorsResult(windows, active, note);
+            return new OpenEditorsResult(windows, active, note,
+                docs.Select(TabInfo).ToArray(),
+                ctx.DocumentDockService.ActiveDocument is { } editor ? TabInfo(editor) : null);
         });
     }
 
@@ -1118,7 +1120,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_undo_state")]
-    [Description("Returns the current undo/redo state of the active document: what kind it is, whether Undo and Redo are available, and, for a form designer, the step each would act on as the Edit menu names it. 'activeEditorKind' is FormDesigner, CodeEditor, Other (a document with no undo of its own, such as the Object Browser; canUndo and canRedo are then false) or None (no document is open). A code editor's steps have no names, so its descriptions are null; invoke_menu_item(\"Edit/Undo\") undoes there, and invoke_designer_undo is for a designer only.")]
+    [Description("The reply identifies an active source editor or designer by project and document. Returns the current undo/redo state of the active document: what kind it is, whether Undo and Redo are available, and, for a form designer, the step each would act on as the Edit menu names it. 'activeEditorKind' is FormDesigner, CodeEditor, Other (a document with no undo of its own, such as the Object Browser; canUndo and canRedo are then false) or None (no document is open). A code editor's steps have no names, so its descriptions are null; invoke_menu_item(\"Edit/Undo\") undoes there, and invoke_designer_undo is for a designer only.")]
     public async Task<UndoStateResult> GetUndoStateAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1132,13 +1134,15 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     designer.CanUndo,
                     designer.CanRedo,
                     designer.UndoStack.UndoDescription,
-                    designer.UndoStack.RedoDescription);
+                    designer.UndoStack.RedoDescription,
+                    designer.OpenDocument?.Project.Name, designer.OpenDocument?.Name);
 
             // A code editor has undo of its own, and this said it could never undo; the kind was also the
             // document's .NET type name, a set no description could list. (#672)
             if (active is CodeEditorViewModel code)
                 return new UndoStateResult(
-                    "CodeEditor", code.Document.UndoStack.CanUndo, code.Document.UndoStack.CanRedo, null, null);
+                    "CodeEditor", code.Document.UndoStack.CanUndo, code.Document.UndoStack.CanRedo, null, null,
+                    code.OpenDocument?.Project.Name, code.OpenDocument?.Name);
 
             return new UndoStateResult(active is null ? "None" : "Other", false, false, null, null);
         });
@@ -1153,7 +1157,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         + "; " + (designer.UndoStack.RedoDescription is { } redo ? $"next redo: '{redo}'." : "nothing to redo.");
 
     [McpServerTool(Name = "invoke_designer_undo")]
-    [Description("Invokes Undo on the active form designer. Returns an error if no form designer is active or nothing is on the undo stack. The reply's 'note' names the step undone and what Undo and Redo would do next.")]
+    [Description("Invokes Undo on the active form designer. The reply's project and document identify it. Returns an error if no form designer is active or nothing is on the undo stack. The reply's 'note' names the step undone and what Undo and Redo would do next.")]
     public async Task<MutateResult> InvokeDesignerUndoAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1161,15 +1165,15 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (ctx.DocumentDockService.ActiveDocument is not HexIDE.VisualDesigner.FormEditViewModel designer)
                 return new MutateResult(false, "Active window is not a form designer");
             if (!designer.CanUndo)
-                return new MutateResult(false, "Nothing to undo");
+                return Naming(new MutateResult(false, "Nothing to undo"), designer.OpenDocument);
             var undone = designer.UndoStack.UndoDescription;
             designer.UndoStack.Undo();
-            return new MutateResult(true, null, $"Undid '{undone}'. " + UndoStackNote(designer));
+            return Naming(new MutateResult(true, null, $"Undid '{undone}'. " + UndoStackNote(designer)), designer.OpenDocument);
         });
     }
 
     [McpServerTool(Name = "invoke_designer_redo")]
-    [Description("Invokes Redo on the active form designer. Returns an error if no form designer is active or nothing is on the redo stack. The reply's 'note' names the step redone and what Undo and Redo would do next.")]
+    [Description("Invokes Redo on the active form designer. The reply's project and document identify it. Returns an error if no form designer is active or nothing is on the redo stack. The reply's 'note' names the step redone and what Undo and Redo would do next.")]
     public async Task<MutateResult> InvokeDesignerRedoAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1177,10 +1181,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (ctx.DocumentDockService.ActiveDocument is not HexIDE.VisualDesigner.FormEditViewModel designer)
                 return new MutateResult(false, "Active window is not a form designer");
             if (!designer.CanRedo)
-                return new MutateResult(false, "Nothing to redo");
+                return Naming(new MutateResult(false, "Nothing to redo"), designer.OpenDocument);
             var redone = designer.UndoStack.RedoDescription;
             designer.UndoStack.Redo();
-            return new MutateResult(true, null, $"Redid '{redone}'. " + UndoStackNote(designer));
+            return Naming(new MutateResult(true, null, $"Redid '{redone}'. " + UndoStackNote(designer)), designer.OpenDocument);
         });
     }
 
@@ -1417,7 +1421,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             : ctx.ProjectManager.LoadedProjects.SelectMany(p => p.Modules).FirstOrDefault(m => m.FormPart == form);
 
     [McpServerTool(Name = "invoke_format_command")]
-    [Description("Invokes a Format menu command on the active form designer, which lands as one undo step. " +
+    [Description("Invokes a Format menu command on the active form designer, named by project and document in the reply, which lands as one undo step. " +
         "Commands: AlignLefts, AlignRights, AlignTops, AlignBottoms, AlignCentersH, AlignCentersV, " +
         "MakeSameWidth, MakeSameHeight, MakeSameSize, MakeHorizontalSpacingEqual, IncreaseHorizontalSpacing, " +
         "DecreaseHorizontalSpacing, RemoveHorizontalSpacing, MakeVerticalSpacingEqual, IncreaseVerticalSpacing, " +
@@ -1436,10 +1440,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
             {
                 var near = command.Length == 0 ? [] : FormatCommands
                     .Where(c => c.Name.StartsWith(command, StringComparison.OrdinalIgnoreCase)).Select(c => c.Name).ToList();
-                return new MutateResult(false,
+                return Naming(new MutateResult(false,
                     $"Unknown command '{command}'."
                     + (near.Count > 0 ? $" Did you mean {string.Join(" or ", near.Select(n => $"'{n}'"))}?" : "")
-                    + $" Commands: {string.Join(", ", FormatCommands.Select(c => c.Name))}.");
+                    + $" Commands: {string.Join(", ", FormatCommands.Select(c => c.Name))}."), designer.OpenDocument);
             }
 
             // A command with nothing to act on returns without a word, and so does one whose controls already
@@ -1457,11 +1461,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 ? "no control is selected"
                 : $"the selection is {string.Join(", ", selected)}"
                   + (designer.SelectedComponent is { } primary && selected.Count > 1 ? $", aligned to {primary.Name}" : "");
-            return new MutateResult(true, null, landed
+            return Naming(new MutateResult(true, null, landed
                 ? $"Applied '{designer.UndoStack.UndoDescription}' as one undo step; {selection}."
                 : $"Nothing changed, and no undo step was added: {selection}. The spacing commands need two or more "
                   + "selected controls, the others at least one, and a selection that already satisfies the command "
-                  + "is left as it is.");
+                  + "is left as it is."), designer.OpenDocument);
         });
     }
 
@@ -1665,7 +1669,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         }
     }
 
-    private static string PausedAt(StoppedInfo at) => $"Paused at {at.Module} line {at.Line} ({at.Reason}).";
+    private string PausedAt(StoppedInfo at) => $"Paused at {ctx.ProjectRunnerService.RunningProject?.Name}/{at.Module} line {at.Line} ({at.Reason}).";
 
     private static string RaisedNote(RunOutcome outcome) =>
         outcome.NewError is { } error ? $" It raised {error}; get_last_runtime_error has it." : "";
@@ -1800,7 +1804,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_locals")]
-    [Description("Returns the paused frame's Locals as a tree (Expression/Value/Type), depth-capped. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false. 'context' is the Module.Procedure header; each row has hasChildren and, down to `maxDepth`, nested children (arrays/UDTs/objects expand; a class instance's Me/fields appear under a Me/module root).")]
+    [Description("Returns the paused frame's Locals as a tree (Expression/Value/Type), depth-capped. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false. 'project' is the running project holding the context's module. 'context' is the Module.Procedure header; each row has hasChildren and, down to `maxDepth`, nested children (arrays/UDTs/objects expand; a class instance's Me/fields appear under a Me/module root).")]
     public async Task<LocalsResult> GetLocalsAsync(int maxDepth = 3, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1813,7 +1817,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             int cap = Math.Clamp(maxDepth, 1, 8);
             int[] budget = { MaxLocalsNodes };   // total-node budget across the whole eager projection
             var rows = scope.Locals.Select(n => MapLocalsNode(n, cap, 1, budget)).ToArray();
-            return new LocalsResult(true, null, scope.Context, rows);
+            return new LocalsResult(true, null, scope.Context, rows, ctx.ProjectRunnerService.RunningProject?.Name);
         });
     }
 
@@ -1861,7 +1865,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
     [McpServerTool(Name = "add_watch")]
     [DescribesEnum(typeof(HexIDE.Debugging.WatchType))]
-    [Description("Adds a watch expression to the Watches window. `watchType` is one of Expression (default; display the value), BreakWhenTrue (breaks at each statement while the expression is true), or BreakWhenChanged (breaks when its value changes); all three show their value while paused. Matched without regard to case. Any other value is refused and nothing is added, rather than quietly becoming an Expression watch. Returns the full watch list, after adding or not.")]
+    [Description("Adds a watch expression to the Watches window. `watchType` is one of Expression (default; display the value), BreakWhenTrue (breaks at each statement while the expression is true), or BreakWhenChanged (breaks when its value changes); all three show their value while paused. Matched without regard to case. Any other value is refused and nothing is added, rather than quietly becoming an Expression watch. Returns the full watch list, after adding or not. 'project' names the running project in which expressions are evaluated; context is the stored Module.Procedure header, or (All Procedures).")]
     public async Task<WatchesResult> AddWatchAsync(string expression, string? watchType = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(async () =>
@@ -1894,7 +1898,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
     [McpServerTool(Name = "get_watches")]
     [DescribesEnum(typeof(HexIDE.Debugging.WatchType))]
-    [Description("Returns every watch (expression, watch type, context) and its current value/type. Values are live only while paused (get_debug_state.state == Paused); otherwise value is '<Out of context>'. 'watchType' is Expression (display only), BreakWhenTrue or BreakWhenChanged, matching the three choices in the Add Watch dialog.")]
+    [Description("Returns every watch (expression, watch type, stored Module.Procedure context or (All Procedures)) and its current value/type. 'project' names the running project in which expressions are evaluated, absent when no project is running. Values are live only while paused (get_debug_state.state == Paused); otherwise value is '<Out of context>'. 'watchType' is Expression (display only), BreakWhenTrue or BreakWhenChanged, matching the three choices in the Add Watch dialog.")]
     public async Task<WatchesResult> GetWatchesAsync(CancellationToken ct = default)
         => await Dispatcher.UIThread.InvokeAsync(BuildWatchesResult);
 
@@ -1911,7 +1915,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 w.Expression, w.Type.ToString(), w.Context,
                 result?.Display ?? "<Out of context>", result?.TypeName ?? "", result?.Ok ?? false));
         }
-        return new WatchesResult(true, null, rows.ToArray());
+        return new WatchesResult(true, null, rows.ToArray(), ctx.ProjectRunnerService.RunningProject?.Name);
     }
 
     [McpServerTool(Name = "evaluate")]
@@ -2597,6 +2601,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
         _ => "tool",
     };
 
+    private DocumentTabInfo TabInfo(Dock.Model.Core.IDockable tab)
+    {
+        var document = (tab as BaseEditorWindowViewModel)?.OpenDocument;
+        return new DocumentTabInfo(tab.Title ?? "", TabType(tab),
+            ReferenceEquals(tab, ctx.DocumentDockService.ActiveTab), document?.Project.Name, document?.Name);
+    }
+
     /// <summary>
     /// The document region after a tool changed it: the active tab and how many are open. The tab tools replied
     /// {"success":true} and nothing else, so a caller had to call get_document_tabs to learn what was now in
@@ -2606,12 +2617,14 @@ internal sealed class HexIdeTools(IdeContext ctx)
     {
         var count = ctx.DocumentDockService.AllTabs.Count();
         return ctx.DocumentDockService.ActiveTab is { } active
-            ? $"Active tab: '{active.Title}' ({TabType(active)}); {count} open."
+            ? $"Active tab: '{active.Title}' ({TabType(active)})"
+              + ((active as BaseEditorWindowViewModel)?.OpenDocument is { } document ? $" [{document.Display}]" : "")
+              + $"; {count} open."
             : $"No tab is active; {count} open.";
     }
 
     [McpServerTool(Name = "get_document_tabs")]
-    [Description("Returns EVERY tab in the document region with its title, type and whether it is the active one. 'type' is 'designer' for a form or UserControl designer, 'code' for a source editor, and 'tool' for a document that is not an editor at all — the Object Browser, the language-server connection list, the protocol inspector. Those three are real tabs in the same strip and used to be missing from this answer, which made an automation client believe a tab it could see on screen did not exist. get_open_editors answers the narrower question: the editors only, and which of them is active.")]
+    [Description("Returns EVERY tab in the document region with its title, type, project, document and whether it is the active one. Project and document name the editor's source; tool tabs have neither. 'type' is 'designer' for a form or UserControl designer, 'code' for a source editor, and 'tool' for a document that is not an editor at all — the Object Browser, the language-server connection list, the protocol inspector. Those three are real tabs in the same strip and used to be missing from this answer, which made an automation client believe a tab it could see on screen did not exist. get_open_editors answers the narrower question: the editors only, and which of them is active.")]
     public async Task<DocumentTabsResult> GetDocumentTabsAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -2619,24 +2632,54 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // The DOCK's tabs, not the editor service's list. The service tracks the editors it was asked
             // to open; the shell adds other documents to the same dock directly, and reporting only the
             // first set answers a different question from the one asked.
-            var active = ctx.DocumentDockService.ActiveTab;
             var tabs = ctx.DocumentDockService.AllTabs
-                .Select(d => new DocumentTabInfo(d.Title ?? "", TabType(d), ReferenceEquals(d, active)))
+                .Select(TabInfo)
                 .ToArray();
             return new DocumentTabsResult(tabs);
         });
     }
 
     [McpServerTool(Name = "activate_document_tab")]
-    [Description("Brings the named document tab to the front, whatever kind it is. title must match a Title returned by get_document_tabs (case-insensitive). If nothing matches, the error names every tab that IS open, so a near-miss does not need a second call to diagnose. An editor or designer brought to the front gets keyboard focus, as clicking its tab does. The reply's 'note' names the tab now active and how many are open.")]
-    public async Task<MutateResult> ActivateDocumentTabAsync(string title, CancellationToken ct)
+    [Description("Brings a tab to the front, giving an editor keyboard focus. Pass `name` (the document's VB6 name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool); a duplicate title is refused. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
+    public async Task<MutateResult> ActivateDocumentTabAsync(string? title = null, string? name = null,
+        string? project = null, string? type = null, CancellationToken ct = default)
     {
         return await FocusingTheActiveTabAsync(await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var found = ctx.DocumentDockService.TryActivateAny(
-                d => string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase));
-            return found ? new MutateResult(true, null, TabStateNote()) : new MutateResult(false, NoSuchTab(title));
+            var lookup = name is null ? default : ResolveDocument(name, project);
+            var (tab, error) = FindTab(title, lookup, type, project);
+            if (tab is null)
+                return Naming(new MutateResult(false, error), lookup);
+            var found = ctx.DocumentDockService.TryActivateAny(d => ReferenceEquals(d, tab));
+            return Naming(new MutateResult(found, null, TabStateNote()),
+                (tab as BaseEditorWindowViewModel)?.OpenDocument);
         }));
+    }
+
+    private (Dock.Model.Core.IDockable? Tab, string? Error) FindTab(
+        string? title, NamedDocument lookup, string? type, string? project)
+    {
+        if (title is not null && (lookup.Document is not null || lookup.Error is not null || project is not null))
+            return (null, "Pass either `title` or `name` with optional `project`, not both.");
+        if (lookup.Error is not null)
+            return (null, lookup.Error);
+        if (title is null && lookup.Document is null)
+            return (null, "Pass `name` with optional `project` for a document, or `title` for a tool tab. get_document_tabs lists both.");
+        if (type is not null && type is not ("code" or "designer" or "tool"))
+            return (null, "Use `type`: code, designer or tool, as get_document_tabs reports it.");
+        var matches = ctx.DocumentDockService.AllTabs.Where(d =>
+            (lookup.Document is { } document
+                ? (d as BaseEditorWindowViewModel)?.OpenDocument == document
+                : string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase))
+            && (type is null || TabType(d) == type)).ToArray();
+        return matches.Length switch
+        {
+            1 => (matches[0], null),
+            0 => (null, lookup.Document is { } document
+                ? $"No open tab for {document.Display}" + (type is null ? "." : $" of type '{type}'.")
+                : NoSuchTab(title!)),
+            _ => (null, "More than one tab matches. Pass `name` and `project` to identify the document, and `type` (code or designer) to choose its tab. get_document_tabs lists them."),
+        };
     }
 
     /// <summary>Says which tabs there are, rather than only that this one is not among them.</summary>
@@ -2657,22 +2700,25 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "close_document_tab")]
-    [Description("Closes the named document tab, whatever kind it is. title must match a Title returned by get_document_tabs (case-insensitive). If nothing matches, the error names every tab that IS open. The reply's 'note' says whether the tab closed or is still waiting on an answer such as a save prompt, and names the tab now active.")]
-    public async Task<MutateResult> CloseDocumentTabAsync(string title, CancellationToken ct)
+    [Description("Closes a tab; a save prompt can leave it open, which the note reports. Pass `name` (the document's VB6 name) and optional `project`, matched without regard to case through the same lookup as open_file. An ambiguous document is refused with candidates. If both code and designer tabs are open, pass `type`: code or designer. Alternatively pass `title` from get_document_tabs, including for tool tabs (type tool); a duplicate title is refused. Pass either title or name, not both. The reply names the target's project and document when it has one, and its note identifies the active tab and count afterward.")]
+    public async Task<MutateResult> CloseDocumentTabAsync(string? title = null, string? name = null,
+        string? project = null, string? type = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var closed = ctx.DocumentDockService.TryCloseAny(
-                d => string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase));
+            var lookup = name is null ? default : ResolveDocument(name, project);
+            var (tab, error) = FindTab(title, lookup, type, project);
+            if (tab is null)
+                return Naming(new MutateResult(false, error), lookup);
+            var document = (tab as BaseEditorWindowViewModel)?.OpenDocument;
+            var closed = ctx.DocumentDockService.TryCloseAny(d => ReferenceEquals(d, tab));
             if (!closed)
-                return new MutateResult(false, NoSuchTab(title));
-            // A document with unsaved changes asks first, so the close may still be waiting on an answer.
-            var stillOpen = ctx.DocumentDockService.AllTabs.Any(
-                d => string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase));
-            return new MutateResult(true, null, stillOpen
-                ? $"'{title}' is still open: closing it is waiting on an answer, most likely a save prompt, which "
+                return Naming(new MutateResult(false, "The tab could not be closed. " + TabStateNote()), document);
+            var stillOpen = ctx.DocumentDockService.AllTabs.Any(d => ReferenceEquals(d, tab));
+            return Naming(new MutateResult(true, null, stillOpen
+                ? $"'{tab.Title}' is still open: closing it is waiting on an answer, most likely a save prompt, which "
                   + "dump_visual_tree shows. " + TabStateNote()
-                : $"Closed '{title}'. " + TabStateNote());
+                : $"Closed '{tab.Title}'. " + TabStateNote()), document);
         });
     }
 
@@ -3165,7 +3211,9 @@ internal record ProjectSummary(
 internal record OpenEditorsResult(
     string[] OpenWindows,
     string? ActiveWindow,
-    string? Note = null);
+    string? Note = null,
+    DocumentTabInfo[]? Editors = null,
+    DocumentTabInfo? ActiveEditor = null);
 
 internal record DiagnosticsResult(DiagnosticItem[] Diagnostics, string[] Analysed, string? Note);
 
@@ -3223,14 +3271,16 @@ internal record ToolWindowsResult(ToolWindowInfo[] Tools);
 
 internal record DocumentTabsResult(DocumentTabInfo[] Tabs);
 
-internal record DocumentTabInfo(string Title, string Type, bool IsActive);
+internal record DocumentTabInfo(string Title, string Type, bool IsActive, string? Project = null, string? Document = null);
 
 internal record UndoStateResult(
     string ActiveEditorKind,
     bool CanUndo,
     bool CanRedo,
     string? UndoDescription,
-    string? RedoDescription);
+    string? RedoDescription,
+    string? Project = null,
+    string? Document = null);
 
 /// <param name="Form">
 /// Carried between the spawn and the save and blanked before returning -- internal plumbing, never
@@ -3261,7 +3311,7 @@ internal record BreakpointsResult(string? Project, string? Document, string? Uri
 internal record DebugStateResult(
     bool Running, string State, string? StopReason, string? Module, int? Line, string? Project = null);
 
-internal record LocalsResult(bool Success, string? Error, string? Context, LocalsRow[]? Locals);
+internal record LocalsResult(bool Success, string? Error, string? Context, LocalsRow[]? Locals, string? Project = null);
 
 internal record LocalsRow(string Expression, string Value, string Type, bool HasChildren, LocalsRow[]? Children);
 
@@ -3274,7 +3324,7 @@ internal record CallStackResult(bool Success, string? Error, CallStackFrameRow[]
 
 internal record CallStackFrameRow(string Proc, string Module, int Line);
 
-internal record WatchesResult(bool Success, string? Error, WatchRow[] Watches);
+internal record WatchesResult(bool Success, string? Error, WatchRow[] Watches, string? Project = null);
 
 internal record WatchRow(string Expression, string WatchType, string Context, string Value, string Type, bool Ok);
 

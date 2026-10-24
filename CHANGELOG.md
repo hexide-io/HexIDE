@@ -252,6 +252,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Automation replies identify documents by project** (#886). Paused locations, locals and watches identify
+  the running project; designer undo, redo and format replies name their document. Tab and editor listings
+  include project and document, and tabs can be activated or closed by document name and project, with a
+  code/designer choice when both are open. Ambiguous tab titles are refused.
+
 - **An array used as text raises Type mismatch (13)** (#879): concatenation, CStr, a store into a String, Len,
   UCase and Print # no longer use its CLR type name. A String store leaves its target unchanged. The debugger's
   own array display is preserved; a typed Long array in concatenation is refused at runtime.
