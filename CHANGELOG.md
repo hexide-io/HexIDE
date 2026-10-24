@@ -10,6 +10,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Release download and run instructions** (#863): README now covers Linux asset selection, extraction
+  into a separate folder, launch and missing-`tar` alternatives, with the measured openSUSE GNOME result.
+  The next release's download notes link there, name the plain .NET 10 Runtime for smaller builds on
+  every platform, and include ICU among Linux's native dependencies.
+
 - **`Declare PtrSafe` parses** (#1548) in the interpreter and language server. VBA7 declarations using existing
   types now let a module load; external API calls remain deferred. `LongPtr`, `LongLong` and their conversions
   are follow-up work.
