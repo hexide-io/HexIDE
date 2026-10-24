@@ -370,7 +370,7 @@ public static class VbNumeric
 
     // A Currency operand of + or -: a Single or Double by its exact binary value, anything else as it stands.
     private static decimal CurrencyOperand(Vb6Value value, ParserRuleContext? ctx) =>
-        value.Type is VT.Single or VT.Double
+        value.Type == VT.Single || value.Type == VT.Double
             ? (decimal)CurrencyFromDouble(ToDouble(value), ctx).Value!
             : ToDecimal(value);
 
