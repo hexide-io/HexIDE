@@ -255,6 +255,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Quick info during an external run** (#1347): hovering requests language-server quick info while the external
+  program runs; a selected stopped frame still takes precedence for data tips. Headless regression tests cover
+  this routing and hovering a visible identifier after scrolling.
+
 - **Library-qualified calls to missing intrinsics stop the run** (#867). `VBA.CallByName` and unknown names such as `VBA.Frobnicate`, including explicit `Call` statements, can no longer be swallowed by `On Error Resume Next` as error 461.
 
 - **Len returns a typed scalar variable’s byte size** (#780), including Integer, Long, Single, Double, Currency, Date

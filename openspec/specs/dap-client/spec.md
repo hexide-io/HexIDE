@@ -338,7 +338,11 @@ and Immediate completion SHALL refresh values. External watch definitions SHALL 
 - **THEN** only expression watches are offered; interpreter break-condition watches remain unchanged
 
 ### Requirement: External hover data tips
-While an external session is active, the editor SHALL evaluate hovered identifiers only against the selected stopped external frame, using evaluate context hover, and only when the adapter advertises supportsEvaluateForHovers as true. It SHALL NOT evaluate these tips through the interpreter. An unsuccessful evaluation SHALL display no value tip.
+While an external session is active, the editor SHALL evaluate hovered identifiers only against the selected stopped external frame, using evaluate context hover, and only when the adapter advertises supportsEvaluateForHovers as true. It SHALL NOT evaluate these tips through the interpreter. An unsuccessful evaluation SHALL display no value tip. External data tips SHALL take precedence only while a stop and selected frame exist; otherwise the editor SHALL retain language-server quick info.
+
+#### Scenario: Running external session
+- **WHEN** the external program is running without a stop
+- **THEN** hovering an identifier requests language-server quick info
 
 #### Scenario: Selected caller value
 - **WHEN** the user selects a caller frame and dwells over an identifier with a hover-capable adapter
