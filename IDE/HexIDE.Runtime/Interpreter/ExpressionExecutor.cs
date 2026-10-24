@@ -1633,7 +1633,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             throw new VBSubOrFunctionNotDefinedException(memberName);   // a Sub used where a value is required
         }
         if (await interpreter.ReadVariable(module.ModuleEnv, memberName) is (true, var v))
+        {
+            // #965: the argument list indexes the module's array, as on an unqualified read. Private foreign
+            // reads and non-array calls are unmeasured here and retain their existing behaviour.
+            if (argsCtx != null && v.Value is VBArray
+                && module.PrePass.PublicVariables.Contains(memberName))
+                v = IndexResult(v, await EvaluateCallArgs(argsCtx), ctx);
             return await ThenTheRest(v);
+        }
 
         // `Module1.MyEnum.Member` — the three-part form, measured legal. Unlike the library case this one
         // CAN be validated exactly, because the module's own enums are collected in its pre-pass: the
