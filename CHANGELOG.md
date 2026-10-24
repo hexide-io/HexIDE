@@ -265,6 +265,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Event-handler navigation skips the file header** (#711). A designer caption naming the handler no longer takes the caret into the designer block or prevents a missing handler from being generated, from either a double-click or the Procedure box.
+
 - **A For loop honours changes its body makes to the counter** (#841). Next reads the variable back before adding
   the step: incrementing a Long or Variant counter inside `For i = 1 To 10` now gives five passes and leaves 11.
 

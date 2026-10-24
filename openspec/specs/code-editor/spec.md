@@ -244,3 +244,13 @@ see.
 #### Scenario: Searching for a control's name
 - **WHEN** the developer searches a form's code for the name of one of its controls
 - **THEN** only matches in the code are found
+
+### Requirement: Event-handler searches SHALL start after the header
+Both designer double-click navigation and the Object/Procedure boxes SHALL search for an event handler starting
+at the end of the file header. Text in designer properties SHALL NOT intercept navigation or prevent a missing
+handler from being generated.
+
+#### Scenario: A caption names an event handler
+- **GIVEN** a control whose caption contains `Sub Command1_Click`
+- **WHEN** its handler is requested by double-click or by selecting Click in the Procedure box
+- **THEN** the caret goes to the existing handler below the header, or a new handler is generated if absent

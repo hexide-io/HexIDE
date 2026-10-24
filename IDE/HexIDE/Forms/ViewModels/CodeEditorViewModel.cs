@@ -241,7 +241,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             {
                 Log.Debug("CodeEditorViewModel: Handling CreateOrNavigateToSubEvent({SubName}) in {FormName}",
                     e.Sub, formDefinition?.Name);
-                var sub = Document.IndexOf($"Sub {e.Sub}", 0, Document.TextLength, StringComparison.OrdinalIgnoreCase);
+                var headerEnd = ReadOnlyRegions.HeaderEnd(Document.Text, bufferPrefix.Length);
+                var sub = Document.IndexOf($"Sub {e.Sub}", headerEnd, Document.TextLength - headerEnd, StringComparison.OrdinalIgnoreCase);
                 if (sub != -1)
                 {
                     Log.Debug("CodeEditorViewModel: Found 'Sub {SubName}' at offset {Offset}, navigating", e.Sub, sub);
@@ -1879,7 +1880,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             // Event handler: find or generate Sub ObjectName_EventName(...)
             var handlerName = $"{SelectedObject}_{newValue}";
             var searchText  = $"Sub {handlerName}";
-            var idx = Document.IndexOf(searchText, 0, Document.TextLength, StringComparison.OrdinalIgnoreCase);
+            var headerEnd = ReadOnlyRegions.HeaderEnd(Document.Text, bufferPrefix.Length);
+            var idx = Document.IndexOf(searchText, headerEnd, Document.TextLength - headerEnd, StringComparison.OrdinalIgnoreCase);
             if (idx >= 0)
             {
                 var line = Document.GetLineByOffset(idx);
