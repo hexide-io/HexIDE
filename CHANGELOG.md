@@ -265,6 +265,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Command-line output redirected by a Windows batch file is preserved** (#528). Help and refusals
+  write to the inherited file or pipe before attempting to borrow a console, including when the
+  launching cmd has no console window.
+
 - **A For loop honours changes its body makes to the counter** (#841). Next reads the variable back before adding
   the step: incrementing a Long or Variant counter inside `For i = 1 To 10` now gives five passes and leaves 11.
 
