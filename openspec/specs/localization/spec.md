@@ -26,6 +26,10 @@ set of translatable strings is enumerable, which is what every other guarantee h
 - **WHEN** interface text is added
 - **THEN** it is added as a key with a canonical English value, not as a literal
 
+#### Scenario: Refusing an empty or duplicate component name
+- **WHEN** a control or form rename is refused because the name is empty or already used in the form
+- **THEN** the Properties window and `set_control_property` use the active language's naming refusal key
+
 ### Requirement: English SHALL be canonical and SHALL be the fallback for every key
 The English pack SHALL define every key, other packs SHALL only override keys they translate, and any key a
 pack does not carry SHALL resolve to its English value.

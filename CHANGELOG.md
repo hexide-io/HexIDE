@@ -265,6 +265,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Translated control rename refusals** (#629). Empty and duplicate names now use the active IDE language in the Properties window and `set_control_property`, with translations in all 29 shipped language packs.
+
 - **The pull-diagnostics race test always exercises the race** (#812). The stub holds the fresh answer until
   the stale publication starts, so a run cannot pass merely because the fresh answer arrived first.
 

@@ -781,6 +781,8 @@
     "Str.ProjectDocument.Section.Members": "メンバー",
     "Str.ProjectDocument.Section.References": "参照",
     "Str.ProjectDocument.Kind.RelatedDocument": "関連ドキュメント",
+    "Str.Naming.Msg.EmptyName": "名前を空にすることはできません",
+    "Str.Naming.Msg.NameNotUniqueInForm": "フォーム内で名前は一意である必要があります",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' は有効な名前ではありません。名前は文字で始まり、以降は文字、数字、アンダースコアを使用できます。",
     "Str.Naming.Msg.ReservedWord": "'{0}' は VB6 の予約語のため、名前として使用できません。",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' は、このプロジェクト内のフォーム、モジュール、またはクラスモジュールの名前として既に使用されています。VB6 ではこれらが 1 つの名前空間を共有するため、2 つが同じ名前を使用することはできません。",

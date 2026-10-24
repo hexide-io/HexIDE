@@ -781,6 +781,8 @@
     "Str.ProjectDocument.Section.Members": "الأعضاء",
     "Str.ProjectDocument.Section.References": "المراجع",
     "Str.ProjectDocument.Kind.RelatedDocument": "مستند مرتبط",
+    "Str.Naming.Msg.EmptyName": "لا يمكن أن يكون الاسم فارغًا",
+    "Str.Naming.Msg.NameNotUniqueInForm": "يجب أن يكون الاسم فريدًا في النموذج",
     "Str.Naming.Msg.NotAVb6Name": "الاسم '{0}' غير صالح. يبدأ الاسم بحرف، وتأتي بعده حروف وأرقام وشرطات سفلية.",
     "Str.Naming.Msg.ReservedWord": "لا يمكن أن يكون '{0}' اسمًا، لأن VB6 يحجز هذه الكلمة.",
     "Str.Naming.Msg.DocumentNameTaken": "الاسم '{0}' مستخدَم بالفعل لنموذج أو Module أو Class في هذا المشروع. يضع VB6 هذه العناصر كلها في مساحة اسم واحدة، لذا لا يمكن أن يحمل عنصران الاسم نفسه.",

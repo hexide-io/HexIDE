@@ -781,6 +781,8 @@
     "Str.ProjectDocument.Section.Members": "Medlemmer",
     "Str.ProjectDocument.Section.References": "Referencer",
     "Str.ProjectDocument.Kind.RelatedDocument": "Relateret dokument",
+    "Str.Naming.Msg.EmptyName": "Navnet må ikke være tomt",
+    "Str.Naming.Msg.NameNotUniqueInForm": "Navnet skal være entydigt i formularen",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' er ikke et gyldigt navn. Et navn begynder med et bogstav og fortsætter med bogstaver, cifre og understregningstegn.",
     "Str.Naming.Msg.ReservedWord": "'{0}' kan ikke være et navn, fordi VB6 reserverer ordet.",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' er allerede navnet på en formular, et modul eller en klasse i dette projekt. VB6 giver dem ét fælles navneområde, så to kan ikke have samme navn.",

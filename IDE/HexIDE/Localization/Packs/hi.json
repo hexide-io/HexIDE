@@ -781,6 +781,8 @@
     "Str.ProjectDocument.Section.Members": "सदस्य",
     "Str.ProjectDocument.Section.References": "संदर्भ",
     "Str.ProjectDocument.Kind.RelatedDocument": "संबंधित दस्तावेज़",
+    "Str.Naming.Msg.EmptyName": "नाम खाली नहीं हो सकता",
+    "Str.Naming.Msg.NameNotUniqueInForm": "फ़ॉर्म में नाम अद्वितीय होना चाहिए",
     "Str.Naming.Msg.NotAVb6Name": "'{0}' एक मान्य नाम नहीं है। नाम अक्षर से शुरू होता है और उसके बाद अक्षर, अंक और अंडरस्कोर आ सकते हैं।",
     "Str.Naming.Msg.ReservedWord": "'{0}' नाम नहीं हो सकता, क्योंकि VB6 में यह शब्द आरक्षित है।",
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' इस प्रोजेक्ट में पहले से ही किसी फ़ॉर्म, मॉड्यूल या क्लास का नाम है। VB6 इन सबको एक ही नेमस्पेस देता है, इसलिए दोनों का एक ही नाम नहीं हो सकता।",
