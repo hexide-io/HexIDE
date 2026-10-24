@@ -10,6 +10,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Keyboard parameter-info regression tests** (#1262). Headless tests cover typing `MsgBox(`, the signature-help
+  request position, and parameter info being open before the typing reply when the server answers after a delay.
+
 - **Random and Binary files open, and Get and Put run** (#1646). They were refused at the `Open`, so no program that
   keeps records or structs in a file got past it. Measured on vb6.exe first, in eight batches: the bytes of every
   type, String, Variant, array and Type; records and `Len =`; EOF; a second handle and the `Lock` and `Access` clauses;

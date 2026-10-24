@@ -191,6 +191,38 @@ public class TypeKeysTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task A_parenthesis_typed_as_a_key_asks_for_signature_help_after_it()
+    {
+        var editor = Show(Body);
+        PutCaretAfter(editor, "Foo()\r\n    ");
+
+        var typed = await UiAutomationDriver.TypeKeysAsync(editor, "MsgBox(");
+
+        typed.Success.Should().BeTrue(typed.Error);
+        await lsp.Received(1).RequestSignatureHelpAsync(Arg.Any<string>(), new Position(4, 11), Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaFact]
+    public async Task The_parameter_info_a_parenthesis_asks_for_is_open_before_the_reply()
+    {
+        lsp.RequestSignatureHelpAsync(Arg.Any<string>(), Arg.Any<Position>(), Arg.Any<CancellationToken>()).Returns(async _ =>
+        {
+            await Task.Delay(150);
+            return (SignatureHelp?)new SignatureHelp([new SignatureInformation("MsgBox(Prompt)", null,
+                [new ParameterInformation("Prompt")])], 0, 0);
+        });
+        var editor = Show(Body);
+        PutCaretAfter(editor, "Foo()\r\n    ");
+
+        var typed = await UiAutomationDriver.TypeKeysAsync(editor, "MsgBox(");
+
+        typed.Success.Should().BeTrue(typed.Error);
+        typed.Detail.Should().NotContain("had not answered");
+        CodeEditorView.OpenPopupsOf(editor).OfType<OverloadInsightWindow>().Should().NotBeEmpty(
+            "parameter info is open when the reply comes");
+    }
+
+    [AvaloniaFact]
     public async Task A_server_slower_than_the_wait_is_named_in_the_reply()
     {
         var gate = new TaskCompletionSource<CompletionItem[]>();
