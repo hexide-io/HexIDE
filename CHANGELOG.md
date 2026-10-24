@@ -265,6 +265,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The design-record guard recognises renamed requirements** (#1050). It reads the CLI’s `FROM` and `TO`
+  list items, so an archived rename retires the old name and requires the new name in the live spec.
+
 - **Foreground-window tests close their windows** (#1319). Dialogs close before their owners, so later
   headless tests no longer inherit these tests' modal dialogs.
 
