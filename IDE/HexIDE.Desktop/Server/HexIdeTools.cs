@@ -10,6 +10,7 @@ using HexIDE.Lsp;
 using HexIDE.Redaction;
 using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
+using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.ProjectElements;
@@ -458,7 +459,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_form_controls")]
-    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled, and a control array element's index, which name(index) takes); with 'controlName', that one control with every property it has, in the text set_control_property takes where it takes one. Position and size are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name the form, as the IDE spells them.")]
+    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled, and a control array element's index, which name(index) takes); with 'controlName', that one control with every property it has, in the text set_control_property takes where it takes one. Position and size in that summary are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. The 'properties' rows give Left, Top, Width and Height as the Properties window does instead, in twips or the container's ScaleMode, each naming its unit. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name the form, as the IDE spells them; visible, enabled, caption and text are left out where the control's class has no such property.")]
     public async Task<FormControlsResult> GetFormControlsAsync(
         string formName,
         string? project = null,
@@ -466,7 +467,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
                      + "name(index). The reply then lists that control alone, with 'properties' holding every property "
                      + "the Properties window shows for it, by the name there, with its value as text: an enum as "
                      + "\"1 - Opaque\", a colour as its literal, a number with '.', a font as \"Tahoma, 9.75 pt, bold\"; a "
-                     + "picture as a summary. 'settable' says whether set_control_property takes that text back; a "
+                     + "picture as a summary. Left, Top, Width and Height are as VB6's Properties window shows them, "
+                     + "not the summary's pixels: in the container's ScaleMode, twips on a form unless it says otherwise, "
+                     + "twips inside a Frame, and a form's own Width and Height with its frame; the row's 'note' names the "
+                     + "unit. 'settable' says whether set_control_property takes that text back; a "
                      + "picture and the like are set in the Properties window. Properties the file holds that HexIDE does not model, or "
                      + "could not read, are rows too, with the file's text, not settable, and a 'note' saying which. "
                      + "A control array named without an index is its first element, and the reply's 'note' says so.")]
@@ -495,8 +499,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 var top     = c.GetPropertyOrDefault(VBProperties.TopProperty);
                 var width   = c.GetPropertyOrDefault(VBProperties.WidthProperty);
                 var height  = c.GetPropertyOrDefault(VBProperties.HeightProperty);
-                var visible = c.GetPropertyOrDefault(VBProperties.VisibleProperty);
-                var enabled = c.GetPropertyOrDefault(VBProperties.EnabledProperty);
+                bool? visible = c.BaseClass.PropertiesByName.ContainsKey("Visible")
+                    ? c.GetPropertyOrDefault(VBProperties.VisibleProperty) : null;
+                bool? enabled = c.BaseClass.PropertiesByName.ContainsKey("Enabled")
+                    ? c.GetPropertyOrDefault(VBProperties.EnabledProperty) : null;
 
                 string? caption = c.BaseClass.PropertiesByName.ContainsKey("Caption")
                     ? c.GetPropertyOrDefault(VBProperties.CaptionProperty) : null;
@@ -539,7 +545,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
                       + $"{PropertyText.ArrayIndexOf(control)?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown"}. "
                       + $"Name one as {controlName}(n) for another.";
                 return new FormControlsResult(null, [Info(control)], document.Project.Name, document.Name,
-                    PropertyText.Rows(control), note);
+                    PropertyText.Rows(control, (property, pixels) => DesignPositions.IsPosition(property)
+                        ? (DesignPositions.Shown(form, control, property, pixels), DesignPositions.Unit(form, control, property))
+                        : null), note);
             }
             return new FormControlsResult(null, components.Select(Info).ToArray(), document.Project.Name, document.Name);
         });
@@ -560,7 +568,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
                      + "charset takes the one VB6 gives it, 2 for Wingdings, Webdings, Symbol and Marlett, 255 for "
                      + "Terminal, Modern, Roman and Script, otherwise 0. A face whose name ends in a number or a style "
                      + "word, such as 'Wingdings 2', is a face when the control has it or it is installed here. A refused "
-                     + "value's reply says why where it can, and lists what that property takes.")]
+                     + "value's reply says why where it can, and lists what that property takes. Left, Top, Width and "
+                     + "Height are in the unit the Properties window shows them in, which get_form_controls' row for "
+                     + "each names: twips, or the container's ScaleMode. Not the pixels of get_form_controls' summary "
+                     + "or of move_control.")]
         string value, string? project = null,
         CancellationToken ct = default)
     {
@@ -616,6 +627,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return (null, null, $"Cannot set '{propClass.Name}' to '{value}': {(why is null ? "it" : why + ". It")} "
                                     + $"takes {PropertyText.Accepted(propClass)}");
 
+            // A position is in the units its row shows: its container's ScaleMode, and a form's own size with its frame, in
+            // twips (#1636). The model holds pixels.
+            if (DesignPositions.IsPosition(propClass) && parsed is double shownPosition)
+                parsed = DesignPositions.ToPixels(form, control, propClass, shownPosition);
+
             // Refused BEFORE the property is set, for the same reason as set_file_content. (#538)
             if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(ownerModule is not null ? ownerModule.AbsolutePath : form.AbsolutePath))
                 return (null, null,
@@ -665,7 +681,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // as it stood a notification ago -- a rename in particular is only visible once the model has
             // raised it.
             stored = $"{PropertyText.AddressedName(control)}.{propClass.Name.Trim('(', ')')} is now "
-                     + PropertyText.Display(control.GetBoxedPropertyOrDefault(propClass)) + ", and the file is saved.";
+                     + (DesignPositions.IsPosition(propClass) && control.GetBoxedPropertyOrDefault(propClass) is double now
+                         ? PropertyText.Display(DesignPositions.Shown(form, control, propClass, now)) + " "
+                           + DesignPositions.Unit(form, control, propClass)
+                         : PropertyText.Display(control.GetBoxedPropertyOrDefault(propClass)))
+                     + ", and the file is saved.";
             foreach (var change in consequences)
                 stored += $" Its {change.Property.Name} is now {PropertyText.Display(change.After)}, was "
                           + $"{PropertyText.Display(change.Before)}, as VB6's designer changes it with {propClass.Name.Trim('(', ')')}.";
@@ -2159,7 +2179,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         + "the open windows listed, each form by its name and title: ask for an unknown name to discover them; the name is the stable handle.";
 
     [McpServerTool(Name = "dump_visual_tree")]
-    [Description("Walks the live control tree of the active window (any window over the IDE's own; see 'window') and returns a structured node tree for discovering and addressing controls. Uses the UIA 'control view': layout wrappers (Panels, Borders, ContentPresenters, dock plumbing) are left out, so paths are short. Each node carries its addressing 'path' (feed it back as a target), automation ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers, and enabled/offscreen flags. The provider tokens, and the interact action each one is driven with: invoke → invoke, selection and selectionItem → select, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. A token is reported only where the action would do something, so a list that fits its viewport does not report scroll and a progress bar does not report rangeValue. A name that would only be a .NET type, such as an icon button's 'Avalonia.Controls.Shapes.Path', is not reported as a name or used in a path; the node carries it as 'typeNameAsName' instead, which marks a control with no usable name. A node carries 'isHidden': true when it is in the tree but NOT on screen (an effectively-invisible control, e.g. a collapsed banner); the field is absent when the node is showing. Check isHidden before asserting visibility; isOffscreen instead reports clipping and scroll position. Top-level 'focusedPath' names the keyboard focus in the whole window, even with root/match filters; null with 'focusReason' when none is in this window. Scope a large dump with 'root', or find nodes with 'match'; see 'maxDepth' and 'interactiveOnly' for what it keeps and when a node is 'truncated'. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to walk the IDE.")]
+    [Description("Walks the live control tree of the active window (any window over the IDE's own; see 'window') and returns a structured node tree for discovering and addressing controls. Uses the UIA 'control view': None-type wrappers without focus, AutomationId or non-scroll capability are collapsed; x:Name alone keeps no wrapper. Overflow never inserts a path segment. Each node carries its addressing 'path' (feed it back as a target), automation ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers, and enabled/offscreen flags. Providers and their interact actions: invoke → invoke, selection and selectionItem → select, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. Only usable actions are reported: a list that fits has no scroll; a progress bar has no rangeValue. Range capability keeps a node even with unusable bounds. A .NET type used as a name is reported as 'typeNameAsName' instead; it cannot name a path. 'isHidden': true marks an effectively-invisible control, e.g. a collapsed banner; absent when showing. Check isHidden before asserting visibility; isOffscreen instead reports clipping and scroll position. Top-level 'focusedPath' names the keyboard focus in the whole window, even with root/match filters; null with 'focusReason' when none is in this window. Scope a large dump with 'root', or find nodes with 'match'; see 'maxDepth' and 'interactiveOnly' for what it keeps and when a node is 'truncated'. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to walk the IDE.")]
     public async Task<VisualTreeResult> DumpVisualTreeAsync(
         [Description("A path to dump only that subtree; omit for the whole window. For deeply nested or large areas, "
                      + "scope the dump this way.")]
@@ -2248,7 +2268,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "inspect_element")]
-    [Description("Returns a deep inspection of a single control addressed by 'target' (a path from dump_visual_tree): identity, providers, 'isFocused' (this control itself has keyboard focus), 'isKeyboardFocusable' (can take it), bounding rectangle ('boundingRect': x, y, width, height in the window's device-independent units from its top-left; multiply by take_snapshot's 'scale' to find it in a snapshot), current value and toggle state; 'selectionItems', what is selected, not the list's items, which for a dropdown are read by expanding it and dumping it; 'itemCount', how many items a list, dropdown or tab control holds, hidden ones too; for a scroll bar or slider its 'range' (value, minimum, maximum and isReadOnly, which is what set_range_value moves and refuses outside of); and the DataContext ViewModel's public command, Command-bound method and property members (the surface the reflection-based interact actions target), each property with its current value where it reads as text. Members are listed on the control that owns the DataContext: a control that inherits it from an ancestor lists none, and 'dataContextOwner' gives the owner's path to inspect instead ('dataContextNote' says so). Members the Dock framework's base types declare are left out and counted in 'dataContextNote'. An editor's 'Document' reads as a line count, because get_file_content returns that text: the whole file, which a code editor's CaretOffset, SelectionStart and SelectionLength count into; the Immediate window's reads as its text. A value over 4000 characters is cut and says its full length. Use before interact to check providers or discover VM members. 'window' picks the top-level window the path is resolved against; its own description lists the values. Reports 'isHidden': true when the control is in the tree but not on screen (effectively invisible, e.g. collapsed by a binding); absent when it is showing.")]
+    [Description("Returns a deep inspection of a single control addressed by 'target' (a path from dump_visual_tree): identity, providers, 'isFocused' (this control itself has keyboard focus), 'isKeyboardFocusable' (can take it), bounding rectangle ('boundingRect': x, y, width, height in the window's device-independent units from its top-left; multiply by take_snapshot's 'scale' to find it in a snapshot), current value and toggle state; 'selectionItems', what is selected, not the list's items, which for a dropdown are read by expanding it and dumping it; 'itemCount', how many items a list, dropdown or tab control holds, hidden ones too; for a scroll bar or slider its 'range' (value, minimum, maximum and isReadOnly, which is what set_range_value moves and refuses outside of); and the DataContext ViewModel's public command, Command-bound method and property members (the surface the reflection-based interact actions target), each property with its current value where it reads as text. Members are listed on the control that owns the DataContext: a control that inherits it lists only its own resolved Command, if any, with binding details in dataContextNote; and 'dataContextOwner' gives the owner's path to inspect instead ('dataContextNote' says so). Members the Dock framework's base types declare are left out and counted in 'dataContextNote'. An editor's 'Document' reads as a line count, because get_file_content returns that text: the whole file, which a code editor's CaretOffset, SelectionStart and SelectionLength count into; the Immediate window's reads as its text. A value over 4000 characters is cut and says its full length. Use before interact to check providers or discover VM members. 'window' picks the top-level window the path is resolved against; its own description lists the values. Reports 'isHidden': true when the control is in the tree but not on screen (effectively invisible, e.g. collapsed by a binding); absent when it is showing.")]
     public async Task<InspectResult> InspectElementAsync(
         string target, [Description(WindowParameter)] string? window = null, CancellationToken ct = default)
     {
@@ -2267,13 +2287,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "interact")]
-    [Description("Drives a live control addressed by 'target' (a path from dump_visual_tree) through its UI Automation provider — one verb, 'action', instead of a tool per interaction. The 'action' parameter lists every verb and what it does, and 'value' what each one takes. A provider action needs the provider dump_visual_tree reports for the target and fails with \"element does not support '<action>'\" without it — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, releasing 50 ms later as input of its own, as a person does, so what the press set off runs first; it waits up to a second for the window to draw its next frame first, since a press is hit-tested against what was drawn and a window opened a moment ago has drawn nothing; its reply names the button, the keys held, the point in the target's and the window's coordinates, and the control the press landed on when that is not the target; a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation (the server is DEBUG-only), but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two act on its view model. toggle, expand, collapse, set_value and set_property reply with the state read back. Use dump_visual_tree/inspect_element first to find the target and confirm what it supports. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
+    [Description("Drives a live control addressed by 'target' (a path from dump_visual_tree) through its UI Automation provider — one verb, 'action', instead of a tool per interaction. The 'action' parameter lists every verb and what it does, and 'value' what each one takes. A provider action needs the provider dump_visual_tree reports for the target and fails with \"element does not support '<action>'\" without it — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. click needs no provider: it raises pointer input at the point itself, on whatever a real press there would reach, releasing 50 ms later as input of its own, as a person does, so what the press set off runs first; it waits up to a second for the window to draw its next frame first, since a press is hit-tested against what was drawn and a window opened a moment ago has drawn nothing; its reply names the button, the keys held, the point in the target's and the window's coordinates, and the control the press landed on when that is not the target; a point where nothing takes the pointer is refused, and nothing is pressed. Actions are real, with no confirmation (the server is DEBUG-only), but every verb except invoke_command and set_property is refused on a control that is not showing (\"isHidden\": true in dump_visual_tree), as no person could reach it; those two reach its view model or its own Command. toggle, expand, collapse, set_value and set_property reply with the state read back. Use dump_visual_tree/inspect_element first to find the target and confirm what it supports. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to act on the IDE. " + ProgramWaitNote)]
     public async Task<InteractOutcome> InteractAsync(
         [Description("A path from dump_visual_tree.")]
         string target,
-        [Description("One of: invoke (click a Button or menu item); select (pick a ComboBox or ListBox item, a DataGrid row or a tree node, via its TreeView's SelectedItem; with 'value', a list row scrolled out of view is scrolled to first, while a dropdown's items do not exist until it opens, so expand it, dump_visual_tree(root=combo), then select, which closes it as a click does); add_to_selection / remove_from_selection (add the target to, or take it out of, the selection of a list that holds several at once, such as the controls on a designer canvas, which select would replace; the reply lists what is now selected); double_click (raise DoubleTapped, selecting the target first as a real double-click does; how the Project Explorer opens an item); click (press and release a pointer on the target as a real click does, so a running form raises MouseDown, Click and MouseUp; the only verb that presses; any control, a Label or a form's area included); set_value (set a TextBox's text; a box bound to a property is committed as Enter would, and the reply says whether the value held or was refused); toggle (flip a CheckBox); expand / collapse (a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns); set_range_value (set a Slider or ScrollBar, as dragging its thumb would; a read-only bar or a value outside its range is refused, not clamped); scroll (moves the target, the scroller or scroll bars inside its own template, so aiming at an editor or a DataGrid works, or else the nearest container that scrolls that way; the reply gives where it now is, or says it could not move); invoke_command and set_property (reflection, for a control with no provider: act on its DataContext, whose members inspect_element lists on the control that owns it; invoke_command checks CanExecute first, and set_property coerces to the property's type); close (the target's window, as its close box does; a Yes/No or Abort/Retry/Ignore MsgBox refuses, a form's QueryUnload may; reply says if still open; not the IDE's main window).")]
+        [Description("One of: invoke (click a Button or menu item); select (pick a ComboBox or ListBox item, a DataGrid row or a tree node, via its TreeView's SelectedItem; with 'value', a list row scrolled out of view is scrolled to first, while a dropdown's items do not exist until it opens, so expand it, dump_visual_tree(root=combo), then select, which closes it as a click does); add_to_selection / remove_from_selection (add the target to, or take it out of, the selection of a list that holds several at once, such as the controls on a designer canvas, which select would replace; the reply lists what is now selected); double_click (raise DoubleTapped, selecting the target first as a real double-click does; how the Project Explorer opens an item); click (press and release a pointer on the target as a real click does, so a running form raises MouseDown, Click and MouseUp; the only verb that presses; any control, a Label or a form's area included); set_value (set a TextBox's text; a box bound to a property is committed as Enter would, and the reply says whether the value held or was refused); toggle (flip a CheckBox); expand / collapse (a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns); set_range_value (set a Slider or ScrollBar, as dragging its thumb would; a read-only bar or a value outside its range is refused, not clamped); scroll (moves the target, the scroller or scroll bars inside its own template, so aiming at an editor or a DataGrid works, or else the nearest container that scrolls that way; the reply gives where it now is, or says it could not move); invoke_command and set_property (reflection: use the DataContext members inspect_element lists, or value Command for the target's resolved command; invoke_command checks CanExecute, and set_property coerces to the property's type); close (the target's window, as its close box does; a Yes/No or Abort/Retry/Ignore MsgBox refuses, a form's QueryUnload may; reply says if still open; not the IDE's main window).")]
         string action,
-        [Description("Required for set_value (the text), set_range_value (a number, '.' for decimals), scroll (up, down, left or right for a page; line_up, line_down, line_left or line_right for a line; home or end for the top or bottom) and the reflection actions (invoke_command: the name of an ICommand property, or of a method XAML binds as a Command with no CommandParameter, refused when its Can<name>(object) returns false; set_property: \"PropertyName=NewValue\"). For select, the item text to match; omit it when 'target' already points at the item. Optional for click: a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, right or middle (left when omitted), and any of shift, ctrl and alt to hold, in any order and separated by spaces, as in '10,5 right shift'.")]
+        [Description("Required for set_value (the text), set_range_value (a number, '.' for decimals), scroll (up, down, left or right for a page; line_up, line_down, line_left or line_right for a line; home or end for the top or bottom) and the reflection actions (invoke_command: Command runs the target’s resolved Command with its CommandParameter, checking CanExecute; otherwise the name of an ICommand property, or of a method XAML binds as a Command with no CommandParameter, refused when its Can<name>(object) returns false; set_property: \"PropertyName=NewValue\"). For select, the item text to match; omit it when 'target' already points at the item. Optional for click: a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, right or middle (left when omitted), any of shift, ctrl and alt to hold, and double for two clicks, in any order and separated by spaces, as in '10,5 right double' or 'double'.")]
         string? value = null,
         [Description(WindowParameter)]
         string? window = null,
@@ -2693,8 +2713,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return new MutateResult(false,
                     MenuCommandRefusal.Describe(found, path, () => FocusedElementName(window)));
 
-            command.Execute(found.CommandParameter);
-            return new MutateResult(true, null, $"Invoked '{found.Header ?? path}'.");
+            var note = UiSaveFeedback.Execute(command, found.CommandParameter, $"Invoked '{found.Header ?? path}'.");
+            return new MutateResult(true, null, note);
         });
     }
 
@@ -2904,7 +2924,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
 
     [McpServerTool(Name = "answer_next_file_dialog")]
-    [Description("Pre-answers the next file dialog the IDE opens, so a Save As / Open / Export flow can be driven end to end. A file picker is a NATIVE operating-system dialog: it is outside the control tree, dump_visual_tree cannot see it, interact cannot address it, and a modal one stops this server answering at all — so without this every feature ending in a file dialog needed a person to click.\n\nPass the absolute path the dialog should return as `path`. Omit `path` (or pass an empty one) to answer as CANCELLED, which is a distinct path through most of these flows and the one least likely to have been exercised by hand. The answer is consumed by ONE dialog and is not sticky: arm it immediately before the action that opens the picker, or it will be spent by whichever dialog opens first. set_file_content, set_control_property and add_control say in their reply when their save took no answer and one armed before the call is still pending; a save reached through a menu, by invoke_menu_item or interact, does not, so check with clear_file_dialog_answers.\n\nThis does not simulate the dialog. Everything downstream of the picker — the writing, the naming, the refusals — is the same code a real click reaches; only the part a person performs is skipped. Nothing is created: name a path in a directory that exists, or the flow under test will report the failure it would really report.")]
+    [Description("Pre-answers the next file dialog the IDE opens, so a Save As / Open / Export flow can be driven end to end. A file picker is a NATIVE operating-system dialog: it is outside the control tree, dump_visual_tree cannot see it, interact cannot address it, and a modal one stops this server answering at all — so without this every feature ending in a file dialog needed a person to click.\n\nPass the absolute path the dialog should return as `path`. Omit `path` (or pass an empty one) to answer as CANCELLED, which is a distinct path through most of these flows and the one least likely to have been exercised by hand. The answer is consumed by ONE dialog and is not sticky: arm it immediately before the action that opens the picker, or it will be spent by whichever dialog opens first. set_file_content, set_control_property and add_control say when their save took no answer and one armed before the call is still pending. So do invoke_menu_item for Save Project / Save Project As and interact on project-save toolbar buttons. A document save reached through invoke_menu_item, press_key or interact can still be waiting on formatting when they reply: check with clear_file_dialog_answers, but a pending count then can mean the picker has not opened yet.\n\nThis does not simulate the dialog. Everything downstream of the picker — the writing, the naming, the refusals — is the same code a real click reaches; only the part a person performs is skipped. Nothing is created: name a path in a directory that exists, or the flow under test will report the failure it would really report.")]
     public Task<FileDialogAnsweredResult> AnswerNextFileDialogAsync(
         string? path = null, CancellationToken ct = default)
     {
@@ -3102,8 +3122,8 @@ internal record ControlInfo(
     double Top,
     double Width,
     double Height,
-    bool Visible,
-    bool Enabled,
+    bool? Visible,
+    bool? Enabled,
     string? Caption,
     string? Text,
     // The control this one sits inside, or null when it is on the form itself. Left/Top are measured from

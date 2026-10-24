@@ -2,4 +2,4 @@
 - [x] Verify ownership, rejection, cancellation, budgets and cleanup with loopback peers.
 - [x] Verify production preparation and a read-only tree query against an isolated live compiler.
 - [x] Complete Windows/Linux tests and repository/specification checks.
-- [ ] Open the PR and pause for CI/review.
+- [x] Open the PR and pause for CI/review.

@@ -9,6 +9,80 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## No call double-clicks a running form — **CLOSED** (#1389, 2026-10-24)
+
+**Symptom (2026-10-22, #1031, Windows).** A running form's `DblClick` comes from a double click's second press, told by
+the press's click count. `interact {"target":"<a Label on a running form>","action":"double_click"}` raises Avalonia's
+`DoubleTapped` and selects the target, with no pointer press, and answers `success: true`; the program's `Label1_DblClick`
+never runs, and nothing in the reply says no press was sent. Two `interact {"action":"click"}` calls in a row each press
+with a click count of 1, and an MCP round trip puts them past the 500 ms double-click time anyway.
+
+**Workaround.** None through the surface. `MouseEventTests` drives a double click headlessly, with real pointer input.
+
+**Suggested fix.** Accept `double` in `click`'s value, as in `10,5 double`, raising press, release, press and release
+with the second press's click count 2. Have `double_click`'s reply say it raised `DoubleTapped` and no press.
+[#1389](https://github.com/hexide-io/HexIDE/issues/1389).
+
+**Fixed.** `interact {"target":"<a running form>","action":"click","value":"10,5 double"}` sends press,
+release, press and release, with the second press carrying ClickCount 2; `10,5 right double` uses the right button,
+and plain `double` uses the centre. Between clicks it waits for the first release's program work. If the target
+has hidden, closed or detached, the reply says the second click was not sent. The reply names the double click,
+button and coordinates. `double_click` keeps its selection and DoubleTapped behavior for the Project Explorer;
+its reply now names DoubleTapped, says no pointer press was sent, and points to `click` with `double` for DblClick.
+Running-form integration tests pin the vb6.exe event order already recorded in the oracle and #1031's tests.
+
+## A control's path changes when it gains a provider, so a saved path stops resolving as text grows — **CLOSED** (#1436, 2026-10-23)
+
+**Symptom (2026-10-22, #1386, Windows).** While paused, `dump_visual_tree {"window":"ide","root":"<Imm>","maxDepth":4,
+"interactiveOnly":false}`, with `<Imm>` the Immediate window's `.../TitleBar[Immediate]/Pane[Immediate]/Custom`, gave
+`<Imm>/Pane[PART_ScrollViewer]/None` for its text area, and `type_text` on that path worked for three lines. The fourth
+`type_text` on the same path answered `no child matching 'Pane[PART_ScrollViewer]' under '<Imm>'`. A fresh dump showed
+`<Imm>/None[Editor]`, the TextEditor, now with `providers: ["scroll"]`, holding the scroll viewer. The control view hides a
+`None` node with no provider and no focus, and the editor stopped qualifying once its text overflowed.
+
+**Workaround.** Dump again and use the new path; `<Imm>/None[Editor]` takes `type_text` and `press_key` from then on.
+
+**Suggested fix.** Decide whether a node is hidden on what its content can't change: leave `scroll` out of it, or never
+hide a node with an x:Name or AutomationId. And when a segment misses, say which node has appeared above it.
+[#1436](https://github.com/hexide-io/HexIDE/issues/1436).
+
+**Resolution.** Transparency ignores scrolling, including the synthetic scroll capability a TextEditor gains on
+content overflow. An x:Name alone still collapses; an AutomationId still keeps a wrapper. Range capability is
+read from the peer independently of current usable bounds, so `rangeValue` appearing cannot insert a segment.
+When a missed segment and its remaining path resolve under exactly one immediate control-view child, the refusal
+names that wrapper and the complete corrected path, without acting on it. The tool description states the rule.
+
+**Verification.** Headless production-view census: code editor, Immediate window, ListBox, a populated Properties
+grid with its production templates, and a running VB6 form. Before the change, named and unnamed TextEditor
+paths inserted a `None` segment on overflow, and the wrapper-miss refusal omitted the correction; those regression
+tests failed. The census moved only the overflowed Immediate editor: `None[Editor]` is collapsed, and its 16
+emitted descendants lose that segment, matching their paths before overflow. No paths moved on the other four
+surfaces; the code editor remains a node because its context menu advertises `expandCollapse`. The range regression
+also checks a `None` peer across an unusable-to-usable range. Integration suite: 2,063 passed. IDE unit suite:
+3,273 passed, 28 environment-dependent skips. ToolDescription tests: 31 passed. Debug desktop build: zero warnings.
+Tree hygiene passed. Live MCP verification was not run in this task, which prohibited MCP calls.
+
+## `invoke_command` on a designer context-menu item looks in the wrong view model — **CLOSED** (#1336, 2026-10-23)
+
+**Symptom.** Recorded when #836 closed (#1271), read in the code and not run. The designer's context flyout binds
+Delete, Bring to Front and Send to Back through the form's view model
+(`#Root.((visualDesigner:FormEditViewModel)DataContext).DeleteSelected` and the like, in `FormEditView.axaml`), while
+each item's own DataContext is the control the flyout opened on. `invoke_command` and `inspect_element` read the
+DataContext of the control addressed, so on one of these items they look in the control's view model, which has
+none of the three, and `inspect_element` does not list them. A command property bound the same way is missed the
+same way.
+
+**Workaround.** Open the flyout with `interact` `expand` on the control, then `invoke` the item, which runs the
+command it is bound to through its automation peer. That route was measured on the Project Explorer's flyout
+(#947), not on the designer's.
+
+**Suggested fix.** For an item whose `Command` is bound through another element's DataContext, have `invoke_command`
+and `inspect_element` look where the binding resolves, or have the refusal say that the command is bound elsewhere
+and that `invoke` on the item reaches it. [#1336](https://github.com/hexide-io/HexIDE/issues/1336).
+
+
+**Fixed.** The target’s resolved `Command` is listed and accepted as `invoke_command` value `Command`, with its binding description and a hint that `invoke` runs it. Execution uses the control’s `CommandParameter` and checks `CanExecute`. Headless regressions open a real designer control’s flyout, inspect Delete, invoke it and assert the selected control is removed, and check a wrong name’s refusal. All three fail against the previous driver.
+
 ## A lone surrogate in a call's arguments gets a bare `-32603` before any tool runs — **CLOSED** (#1337, 2026-10-23)
 
 **Original symptom.** Recorded in #1274's review through a raw request whose body was not kept. A string argument

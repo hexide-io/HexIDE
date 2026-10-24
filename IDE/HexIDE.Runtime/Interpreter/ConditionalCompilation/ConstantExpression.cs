@@ -160,7 +160,7 @@ internal static class ConstantExpression
                     : throw new NotImplementedException($"LenB of anything but a String, as in {call.GetText()}, is not implemented (#1112)");
         }
         return VB6BuiltIns.TryGetBuiltIn(name, out var function)
-            ? function(null!, [argument], call)
+            ? function(null!, [argument], false)
             : throw new NotImplementedException($"{name} in an #If or #Const is not implemented (#1112)");
     }
 

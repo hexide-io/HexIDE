@@ -43,13 +43,17 @@
         <ProjectReference Include="..\HexIDE.AddinPacker\HexIDE.AddinPacker.csproj" />
     </ItemGroup>
 
-    <!-- The automation server's transport, tested by restarting a real server under the SDK's own client
-         (McpRestartTests). No test project references HexIDE.Desktop, so the files that decide the transport
-         and how a failing tool is reported are compiled in here as well; the server and the test cannot then
-         disagree about them. -->
+    <!-- The automation server's tools and transport: direct tool calls (FormControlsSummaryTests)
+         and a real server restarted under the SDK's own client (McpRestartTests). No test project
+         references HexIDE.Desktop, so these production files are compiled in here as well; the server
+         and the test cannot then disagree about them. -->
     <ItemGroup>
         <FrameworkReference Include="Microsoft.AspNetCore.App" />
         <PackageReference Include="ModelContextProtocol.AspNetCore" />
+        <Compile Include="..\HexIDE.Desktop\Server\HexIdeTools.cs" Link="Infrastructure\HexIdeTools.cs" />
+        <Compile Include="..\HexIDE.Desktop\Server\IdeContext.cs" Link="Infrastructure\IdeContext.cs" />
+        <Compile Include="..\HexIDE.Desktop\Server\DiagnosticsCache.cs" Link="Infrastructure\DiagnosticsCache.cs" />
+        <Compile Include="..\HexIDE.Desktop\Server\DescribesEnumAttribute.cs" Link="Infrastructure\DescribesEnumAttribute.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\McpTransport.cs" Link="Infrastructure\McpTransport.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\ToolFailures.cs" Link="Infrastructure\ToolFailures.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\SessionGuard.cs" Link="Infrastructure\SessionGuard.cs" />
