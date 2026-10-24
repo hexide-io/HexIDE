@@ -2,6 +2,7 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Stop",
     "Str.Archive.ProjectFormat": "{0} (skrivebeskyttet arkiv)",
     "Str.Archive.Hidden": "Vis skjulte arkivposter",
     "Str.Archive.ReadOnly": "Skrivebeskyttet forhåndsvisning af arkivet. Redigering, bygning og kørsel er ikke tilgængelige.",

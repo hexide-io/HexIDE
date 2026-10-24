@@ -2,6 +2,7 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Зупинити",
     "Str.Archive.ProjectFormat": "{0} (архів лише для читання)",
     "Str.Archive.Hidden": "Показати приховані елементи архіву",
     "Str.Archive.ReadOnly": "Перегляд архіву лише для читання. Редагування, збирання та запуск недоступні.",

@@ -34,6 +34,8 @@ public partial class ChatView : UserControl
         }
     }
 
+    private void OnStopClicked(object? sender, RoutedEventArgs e) => _vm?.Stop();
+
     private void OnNewChatClicked(object? sender, RoutedEventArgs e) =>
         _vm?.NewChat();
 

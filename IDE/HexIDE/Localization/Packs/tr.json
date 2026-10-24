@@ -2,6 +2,7 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Durdur",
     "Str.Archive.ProjectFormat": "{0} (salt okunur arşiv)",
     "Str.Archive.Hidden": "Gizli arşiv girdilerini göster",
     "Str.Archive.ReadOnly": "Salt okunur arşiv önizlemesi. Düzenleme, derleme ve çalıştırma kullanılamaz.",

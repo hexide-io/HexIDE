@@ -2,6 +2,7 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Stop",
     "Str.Archive.ProjectFormat": "{0} (read-only archive)",
     "Str.Archive.Hidden": "Show hidden archive entries",
     "Str.Archive.ReadOnly": "Read-only archive preview. Editing, build and run are unavailable.",
