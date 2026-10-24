@@ -1230,6 +1230,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (ret != ControlFlow.Nothing)
                     return ret;
             }
+            // Next reads a Variant counter back as the body left it (measured, #841). Single, Double, Currency and Date
+            // counters, and a Variant the body left holding something that isn't a number, are unmeasured and keep the step.
+            if (variant && interpreter.ExecutionContext.TryGetVariable(currentEnv, variable, out var held)
+                && VbNumeric.IsCoreNumeric(held.Type))
+                counter = held;
             (counter, tested) = ForNextValue(counter, by, context);
         }
         interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variable, counter);
