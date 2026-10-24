@@ -10,6 +10,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Compiler exchange recording and replay tooling** (#1218): versioned JSON-lines captures, explicit run-value
+  placeholders, redaction checks and an offline synthetic preparation exchange. Real beta recordings follow in #1689.
+
+- **Keyboard parameter-info regression tests** (#1262). Headless tests cover typing `MsgBox(`, the signature-help
+  request position, and parameter info being open before the typing reply when the server answers after a delay.
+
 - **Random and Binary files open, and Get and Put run** (#1646). They were refused at the `Open`, so no program that
   keeps records or structs in a file got past it. Measured on vb6.exe first, in eight batches: the bytes of every
   type, String, Variant, array and Type; records and `Len =`; EOF; a second handle and the `Lock` and `Access` clauses;
@@ -253,6 +259,107 @@ there isn't one yet. Anything may change between 0.x releases.
   the class, with error 9 past its bounds; through `As Object` the read raises 451. An in-bounds assignment leaves the
   field unchanged without error, as measured on VB6. These operations were refused as not implemented.
 
+- **A bare `Reset` calls the module's own Sub named `Reset`** (#851), including a private sibling called from
+  `Class_Initialize`, as measured on vb6.exe. It previously stopped with "Reset not implemented".
+
+- **Library-qualified calls to missing intrinsics stop the run** (#867). `VBA.CallByName` and unknown names such as `VBA.Frobnicate`, including explicit `Call` statements, can no longer be swallowed by `On Error Resume Next` as error 461.
+
+- **Len returns a typed scalar variable’s byte size** (#780), including Integer, Long, Single, Double, Currency, Date
+  and Boolean. Strings and Variants keep their text lengths. Numeric literals and arithmetic expressions are refused
+  with VB6’s measured “Variable required” compile error when executed.
+
+- **Interpreter errors no longer print `Right(Control)` and other internal Either wrappers** (#935). Missing-member errors omit the receiver type; other type diagnostics retain the inner name and array suffix.
+
+- **A raised For Each collection under Resume Next uses more declarations** (#969). Parenthesised calls, array
+  elements, direct class methods and Property Gets, and module-qualified Functions now run the body once and raise
+  92 at Next, preserving the element only for a declared array. Unavailable declarations still stop with an explanation.
+
+- **`Val("1E+400")` raises Overflow (6)** instead of returning infinity, as measured on vb6.exe (#782).
+
+- **An omitted `Optional o As Variant` is Missing** (#866). `IsMissing`, `TypeName` and `VarType` now
+  report True, Error and 10, as measured on vb6.exe, so an `IsMissing` defaulting guard runs. Explicit
+  Empty and a declared default keep their values.
+
+- **`TypeName(Debug)` raises “Syntax error”** (#872), as measured with VB6, instead of returning the runtime proxy's class name. The error stops the executing statement even under `On Error Resume Next`.
+
+- **Join and Filter reject allocated arrays other than one-dimensional String or Variant arrays** (#875): Join raises
+  5 and Filter 13, as measured in VB6. Long arrays gave values, and 2-D String arrays raised 9. Unallocated arrays
+  still give an empty string or an unallocated String array.
+
+- **Arithmetic uses VB6's per-operator result tables** (#230). Long with Single computes as Double;
+  Currency multiplied by Single or Double gives Double, while addition and subtraction convert to Currency
+  first. Decimal division stays Decimal, and Byte integer division and Mod stay Byte.
+
+- **String function error precedence** (#959): Left, Mid, Replace, Split and InStr check the measured typed value argument before reading a class object, so its error 13 (or Left's 94 for a Null length) wins over the object's 438 or default-member refusal.
+
+- **MCP sets a non-editable dropdown by item text** (#1672). `interact set_value` uses the same case-insensitive selection as `select`, closes the dropdown and reports the selection. A miss names the available items, with a count when the list is capped. `inspect_element` reports `isReadOnly` for value providers, and other read-only values are refused with an explanation rather than a provider exception.
+
+- **Yearless dates followed by a time** (#1445) now use the current year through `CDate`, a store into a Date and `IsDate`. Measured under en-GB with comma, slash and hyphen separators, seconds and PM; a full stop remains refused.
+
+- **Whole-file replacement refusals report every protected region changed** (#1054). When the header and a
+  member's Attribute lines differ, `set_file_content` and an add-in's `TrySetContent` now name both in one reply.
+
+- **An empty one-line For Each over Nothing follows p-code** (#1486). Under On Error Resume Next it raises 424, keeps the loop variable and skips Next; a statement after Next on the line still runs. Other loop forms keep their measured behaviour.
+
+- **Compiler test sockets are disposed when peer creation fails** (#1333). Loopback test helpers now own
+  resources until creation succeeds, and each socket-using test checks for open handles at teardown so a leak
+  fails where it occurs. Production transport is unchanged.
+
+- **For Each locks its array until the loop ends** (#1460). ReDim, ReDim Preserve and Erase inside the loop now raise 10 and leave the array unchanged. Every way out releases the lock, so a later ReDim can succeed.
+
+- **An Enum member named like its Enum reads qualified** (#1637): `E.E` now works in modules and classes, including across modules. Bare `E` as a value raises VB6's "Expected variable or procedure, not enum type" at use; assigning `E.E` raises "Assignment to constant not permitted".
+
+- **Numeric Strings accept a thousands separator after the decimal point** (#1446). `CDbl("1.5,2003")`
+  now gives 1.52003 under en-GB, as measured on vb6.exe SP6, native and p-code. Long, Currency,
+  IsNumeric and arithmetic read these Strings too; a leading separator is refused and Val still stops at it.
+
+- **Completion descriptions are readable through MCP, and double-click commits an item** (#1334).
+  The dump reaches the description popup under the completion list; `double_click` uses the list's own
+  insertion path. Snapshot composition now traverses the same description popup; its desktop rendering
+  still needs a live check.
+
+- **Automation saves explain rewritten member Attribute qualifiers** (#1043). `set_file_content`,
+  `set_control_property` and `add_control` now name the old and new qualifiers in their successful reply,
+  explaining why a save can write text different from what the caller supplied.
+
+- **Named automation controls expose their visible labels** (#948). Dumps and inspection keep stable x:Name paths and add a distinct `label`; discovery searches and interaction replies use that text too.
+
+- **A failed Let from a temporary object or App empties a Variant** (#1485, #878), as measured on vb6.exe.
+  `New Collection`, an object returned by a Function, and a class with no default member used to leave the old value
+  after the error. A program variable still leaves it alone, and a String destination keeps its value.
+
+- **Procedure Consts and array bounds reject later local Consts** (#894), with VB6's measured error for
+  Option Explicit on or off. Under Option Explicit, a later local Const shadowing a module Const already read by an earlier Const is
+  "Duplicate declaration in current scope"; shadowing without that earlier read still works.
+
+- **An array used as text raises Type mismatch (13)** (#879): concatenation, CStr, a store into a String, Len,
+  UCase and Print # no longer use its CLR type name. A String store leaves its target unchanged. The debugger's
+  own array display is preserved; a typed Long array in concatenation is refused at runtime.
+
+- **Selection replies name the designer reference** (#951). `interact` lists the primary first when several
+  items are selected and explains that Align and Make Same measure against it, including the replacement
+  after removing it. Its action description explains how to choose it: select it first.
+
+- **MCP Delete and Backspace delete the editable part of a selection reaching protected lines** (#1055).
+  The key runs through the editor's own deletion path; the reply counts what was deleted and left, names
+  the header or member's Attribute lines, and reports the caret and remaining selection. `type_text` also
+  uses the editor's selection replacement for these spans. A wholly protected selection still refuses.
+
+- **MCP inspection reports a window's frame state** (#1595, part 1). `inspect_element` on a Window now reports
+  resizing, decorations, minimize/maximize buttons, taskbar visibility and window state from Avalonia, so a running
+  form's BorderStyle mapping can be checked. Native styles are explicitly unreported. Snapshot frame capture remains open.
+
+- **A For loop with a fractional start, limit or step runs** (#983). `For x = 0 To 1 Step 0.25` and its kind stopped
+  the run whenever the counter could hold a fraction: a Variant, Single, Double, Currency or Date. Measured on vb6.exe
+  first, in 80 cases: the step is added each time round in the counter's type, a Single sums in Double before it
+  is rounded, as p-code does, and a Variant counter counts in the type its start, limit and step make together.
+
+- **MCP guarded-edit refusals name the region** (#1042): the file's header or the Attribute lines describing a named member. Backward deletion explains how to remove a declaration with its Attribute lines instead of sending the caller back to the same caret offset; insertions still give a new editable offset.
+
+- **A Double rounds to Currency from its exact binary value** (#966). Storing `1.00005`, calling
+  `CCur(1.00005)` or declaring it as a Currency Const now gives 1.0001, and `CCur(0.00015)`
+  gives 0.0001, as measured on vb6.exe. In `+` and `-` beside a Currency, a Double becomes a Currency the same way before the sum, so `2@ + 0.00005` is 2.0001.
+
 - **MCP can double-click a running form** (#1389). `interact`'s `click` accepts `double` in its value, as in
   `10,5 double`, `10,5 right double` or plain `double`. It presses and releases twice, so the program's DblClick
   runs, waiting for the first click's work before the second; if the target hides or closes, it stops and says so.
@@ -284,6 +391,12 @@ there isn't one yet. Anything may change between 0.x releases.
 - **MCP keys, text and hover skip rows their list has released** (#1327). Addressing a list no longer sends input
   into a recycled row omitted from the control tree or reports the list’s path as confirmation.
 
+- **A running form's window carries the form's own Icon, or none for (None)** (#1594). Every window carried HexIDE's
+  icon, big and small, whatever the form's file said. So VB98's dialog templates, which save Icon = (None) to keep a
+  dialog's caption bare, showed HexIDE's mark, and a form's own icon never appeared. A form with no Icon line keeps
+  HexIDE's mark, as VB6 gives its default there. Measured on vb6.exe: the default is VB6's big icon only, (None) is no
+  icon at all, and a form's own is both its big and small icon.
+
 - **MCP shared context menus belong to the control that opened them** (#1323). A tab menu appears only under its current tab in the dump; expanding it on another tab moves it there, and collapsing it from another tab leaves it alone. Menu headers also read back opens and closes, refusing an action a handler cancelled.
 
 - **A name declared twice is vb6.exe's compile error** (#1622, #1499). A module that declared one name twice ran,
@@ -294,12 +407,23 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **MCP `get_form_controls` reports absent properties as null** (#1635). A Line or Shape no longer claims to be enabled when its class has no Enabled property. The summary's `visible` and `enabled` now follow `caption` and `text`: null where the control's class has no such property.
 
+- **A double-click on a UserControl's or PropertyPage's background writes its own event** (#1632). It wrote
+  `Form_Load`, an event neither root has. Now it writes `UserControl_Initialize` or `PropertyPage_SelectionChanged`,
+  as VB6's designer does. The code window offers each root VB6's own events, 35 and 24, with the arguments VB6's stubs
+  declare, where it offered a form's five. Measured on the release build and on SP6. HexIDE does not run a UserControl
+  yet, so none of these events is raised.
+
 - **MCP replies distinguish dialogs sharing a title** (#1365). The modal note names a message box or run-time error dialog, its first line of text and its actual buttons; other dialogs include their buttons. The window parameter explains how to discover open windows through an unknown-name refusal.
 
 - **MCP replies name ignored arguments** (#1315). A misspelled optional parameter still lets the call run, but
   now appears in `ignoredArguments` in a JSON-object reply, or in a separate text block, with a suggested spelling
   for case, snake_case or kebab-case mismatches. Binding refusals check each parameter's actual type, so an
   overflowing `int`, numeric string or array item is named without blaming a valid `long`; serializer paths stay.
+
+- **A Simple Combo shows its list under its edit box** (#1603). It was drawn and run as a Dropdown Combo, with a button
+  that dropped its list. Its list is now always shown, in the designer and at run time, and scrolls when its items
+  don't fit. A click on it picks an item as vb6.exe's does: the one already selected again, the last one from below
+  the items, and a double click as Click and then DblClick, with no Change or DropDown.
 
 - **MCP `interact set_property` reads back the value it set** (#1326), naming both sent and actual values when
   they differ. For an editor's `CaretOffset`, it reads the editor itself, so an offset the caret never took is no
