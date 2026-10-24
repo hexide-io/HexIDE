@@ -99,7 +99,11 @@ public static class AvaloniaInteroperability
         Register<Control, double>(VBProperties.LeftProperty, w => Canvas.GetLeft(w).OrZero(), Canvas.SetLeft);
         Register<Control, double>(VBProperties.TopProperty, w => Canvas.GetTop(w).OrZero(), Canvas.SetTop);
         Register<Control, double>(VBProperties.WidthProperty, Layoutable.WidthProperty);
-        Register<Control, VBCursorType, Cursor?>(VBProperties.MousePointerProperty, InputElement.CursorProperty, x => x.ToCursor(), x => VBCursorType.Default);
+        Register<Control, VBCursorType>(VBProperties.MousePointerProperty, AttachedProperties.GetMousePointer, (control, value) =>
+        {
+            control.Cursor = value.ToCursor();
+            AttachedProperties.SetMousePointer(control, value);
+        });
         Register<Control, bool, FlowDirection>(VBProperties.RightToLeftProperty, Visual.FlowDirectionProperty, x => x ? FlowDirection.RightToLeft : FlowDirection.LeftToRight, x => x == FlowDirection.RightToLeft);
         Register<Control, double>(VBProperties.HeightProperty, Layoutable.HeightProperty);
         // Not Visual.IsVisibleProperty: hiding a CONTAINER that way unrealises everything inside it, and an

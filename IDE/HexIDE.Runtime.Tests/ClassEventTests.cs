@@ -26,6 +26,27 @@ public class ClassEventTests : BaseVBTestFixture
         "Public Sub Detach()\nSet src = Nothing\nEnd Sub\n" +
         "Private Sub src_Tick(ByRef Cancel As Boolean)\nDebug.Print \"L\" & Id\nCancel = True\nEnd Sub\n";
 
+    [Theory]
+    [InlineData("Public WithEvents A As Class2, WithEvents B As Class2", "[AB]")]
+    [InlineData("Private WithEvents A As Class2, WithEvents B As Class2", "[AB]")]
+    [InlineData("Dim WithEvents A As Class2, WithEvents B As Class2", "[AB]")]
+    [InlineData("Public WithEvents A As Class2, B As Class2", "[A]")]
+    [InlineData("Public A As Class2, WithEvents B As Class2", "[B]")]
+    public async Task WithEvents_AppliesToEachDeclarator(string declaration, string expected)
+    {
+        await RunClasses(
+            "Dim o As Class1\nSet o = New Class1\nDebug.Print o.Test()\n",
+            ("Class2", "Public Event Ev()\nPublic Sub Fire()\nRaiseEvent Ev\nEnd Sub\n"),
+            ("Class1", declaration + "\n" +
+                "Public Hits As String\n" +
+                "Private Sub A_Ev()\nHits = Hits & \"A\"\nEnd Sub\n" +
+                "Private Sub B_Ev()\nHits = Hits & \"B\"\nEnd Sub\n" +
+                "Public Function Test() As String\n" +
+                "Set A = New Class2\nSet B = New Class2\nA.Fire\nB.Fire\n" +
+                "Test = \"[\" & Hits & \"]\"\nEnd Function\n"));
+        AssertDebugLog([expected]);
+    }
+
     [Fact]
     public async Task Handler_Runs_Synchronously_And_ByRefCancel_SeenByRaiser()
     {

@@ -8,6 +8,11 @@ namespace HexIDE.Runtime.BuiltinControls;
 
 public class AttachedProperties
 {
+    // Cursor loses the VB value: Default, Arrow, Icon and Custom can all draw the same pointer (#769).
+    public static readonly AttachedProperty<VBCursorType> MousePointerProperty = AvaloniaProperty.RegisterAttached<VBProps, Control, VBCursorType>("MousePointer", VBCursorType.Default);
+    public static VBCursorType GetMousePointer(AvaloniaObject element) => element.GetValue(MousePointerProperty);
+    public static void SetMousePointer(AvaloniaObject element, VBCursorType value) => element.SetValue(MousePointerProperty, value);
+
     public static readonly AttachedProperty<VBColor?> BackColorProperty = AvaloniaProperty.RegisterAttached<VBProps, TemplatedControl, VBColor?>("BackColor", null);
     public static VBColor? GetBackColor(AvaloniaObject element) => element.GetValue(BackColorProperty);
     public static void SetBackColor(AvaloniaObject element, VBColor? value) => element.SetValue(BackColorProperty, value);

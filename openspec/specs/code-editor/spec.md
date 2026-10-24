@@ -148,7 +148,8 @@ the developer told why.
 
 A replacement of a document's whole content SHALL be refused where it would change, add or remove a member's
 attribute run other than by moving the run with its member, renaming it with its member, or removing it together
-with the member's declaration, and the caller SHALL be told which member. A run carried with its member is still
+with the member's declaration, and the caller SHALL be told which member. If the header also differs, the
+refusal SHALL report the header first and then every member finding, in one reply. A run carried with its member is still
 that member's: VB6 gives a procedure's run to the procedure above it whatever its lines name, and the run's lines
 follow the member's rename as the requirement above has them do. A run added is not exempt for having been inert
 text before, because a replacement cannot tell an orphan it repairs from a run its caller wrote.
@@ -232,6 +233,11 @@ nowhere else.
 #### Scenario: A compile error from VB6
 - **WHEN** a build reports an error against one of the project's files
 - **THEN** it is shown on the line of that file the developer sees, not on the line the compiler counted
+
+#### Scenario: A compile error around a continued attribute
+- **WHEN** VB6 reports a compile error in code containing continued lines
+- **THEN** mapping SHALL exclude every physical line of a logical line starting with `Attribute`
+- **AND** it SHALL count a physical line starting with `Attribute` when it continues code or a comment
 
 ### Requirement: Find SHALL NOT match inside a read-only region
 Find, Find Next and Replace SHALL search only text outside read-only regions.
