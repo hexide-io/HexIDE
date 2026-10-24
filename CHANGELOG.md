@@ -259,6 +259,8 @@ there isn't one yet. Anything may change between 0.x releases.
   resources until creation succeeds, and each socket-using test checks for open handles at teardown so a leak
   fails where it occurs. Production transport is unchanged.
 
+- **An Enum member named like its Enum reads qualified** (#1637): `E.E` now works in modules and classes, including across modules. Bare `E` as a value raises VB6's "Expected variable or procedure, not enum type" at use; assigning `E.E` raises "Assignment to constant not permitted".
+
 - **Numeric Strings accept a thousands separator after the decimal point** (#1446). `CDbl("1.5,2003")`
   now gives 1.52003 under en-GB, as measured on vb6.exe SP6, native and p-code. Long, Currency,
   IsNumeric and arithmetic read these Strings too; a leading separator is refused and Val still stops at it.
