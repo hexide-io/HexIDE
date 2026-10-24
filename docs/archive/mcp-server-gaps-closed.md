@@ -921,8 +921,9 @@ damage reached a commit before it was spotted in `git diff`.
 
 **Not a defect in the tool.** `get_file_content` returns the attribute block too, so the pair is
 self-consistent and a **get → modify → set** round-trip preserves everything. The trap is that "the VB6
-source code of a form" *includes* the `Attribute` header, which is easy not to know: it is invisible in the
-IDE's editor, VB6 hides it, and nothing in the tool description mentions it. `VB_Name` is load-bearing.
+source code of a form" *includes* the `Attribute` header, which is easy to omit when replacing only the
+procedures. VB6 hides it, but HexIDE showed it even before #273 made it part of the folded, read-only
+header. The original entry incorrectly called it invisible in HexIDE's editor. `VB_Name` is load-bearing.
 
 **Workarounds.** (a) Always `get_file_content` first and edit the returned text. (b) For a throwaway probe,
 use a scratch project (`--newproject`) rather than a demo or a real one. (c) `git status` before committing

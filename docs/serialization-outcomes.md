@@ -170,7 +170,7 @@ the only gate that can fail for a reason we did not anticipate.
 Slow (one `vb6.exe` process per corpus form) and Windows-only, so it is opt-in:
 
 ```sh
-HEXIDE_ORACLE=1 dotnet test HexIDE.Runtime.Tests/ --filter "FullyQualifiedName~Vb6OracleRoundTrip"
+HEXIDE_ORACLE=1 dotnet test HexIDE.Runtime.Tests/ -- --filter-class "*Vb6OracleRoundTripTests"
 ```
 
 It is self-calibrating: each form is compiled **before** the round-trip as a control. A form VB6 cannot

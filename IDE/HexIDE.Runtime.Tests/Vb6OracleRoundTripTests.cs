@@ -22,7 +22,7 @@ namespace HexIDE.Runtime.Tests;
 /// Only "VB6 built the original but not our output" is a failure.
 ///
 /// Opt-in, because it spawns a vb6.exe per form and is Windows-only:
-///   HEXIDE_ORACLE=1 dotnet test HexIDE.Runtime.Tests/ --filter "FullyQualifiedName~Vb6OracleRoundTrip"
+///   HEXIDE_ORACLE=1 dotnet test HexIDE.Runtime.Tests/ -- --filter-class "*Vb6OracleRoundTripTests"
 /// </summary>
 public class Vb6OracleRoundTripTests : IDisposable
 {

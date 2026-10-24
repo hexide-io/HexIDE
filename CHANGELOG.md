@@ -252,6 +252,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Debugger and language documentation corrected** (#478). Standard and class module breakpoints already
+  fire in a form's run; the spec now says so, with a regression test. The `VB_PredeclaredId` rows distinguish
+  an inert header from a missing default class instance, remaining VSTest filters use MTP syntax, and the
+  closed MCP gap no longer calls a form's attribute header invisible in HexIDE.
+
 - **A failed Let from a temporary object or App empties a Variant** (#1485, #878), as measured on vb6.exe.
   `New Collection`, an object returned by a Function, and a class with no default member used to leave the old value
   after the error. A program variable still leaves it alone, and a String destination keeps its value.
