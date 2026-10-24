@@ -255,6 +255,21 @@ there isn't one yet. Anything may change between 0.x releases.
   `double_click` still raises DoubleTapped and selects for the Project Explorer, but its reply now says no pointer
   press was sent and points to `click` with `double` for a running form's DblClick.
 
+- **Module-qualified stores and array-element reads reach the module's variable** (#1006, #965).
+  `Module1.G = 8` and `Module2.g(2) = 7` raised Object required, and `Module2.g(1)` read the whole array.
+  Both stores now work and the read returns its element. `Set Module2.pq = New C1` holds the object,
+  and `Set Module2.pq = Nothing` releases it, as measured on vb6.exe.
+
+- **String functions honour the calling module’s `Option Compare`** (#1572). With no compare argument,
+  `InStr`, `InStrRev`, `Replace`, `Split`, `Filter` and `StrComp` now use that module’s setting, including
+  calls written in classes and forms. An explicit compare still wins. `InStr("ABC", "b")` in a Text module
+  now answers 2, as measured on vb6.exe, instead of silently answering 0.
+
+- **MCP paths survive growing editor text** (#1436). A collapsed layout wrapper no longer appears when its
+  content begins to scroll, so the Immediate window's text-area path stays usable. Range capability keeps a
+  node regardless of its current bounds. A refused path that skips a visible wrapper names it and gives the
+  complete corrected path when there is one unambiguous continuation.
+
 - **MCP project saves report unused file-dialog answers** (#1335). `invoke_menu_item` for Save Project / Save Project As and `interact` on their buttons now say when an answer armed before the call remains pending. A document save through a menu, key or click can still wait on formatting after the reply; `answer_next_file_dialog` explains that limit.
 
 - **MCP commands bound through another view model are reachable** (#1336). `inspect_element` lists a menu item’s or button’s resolved `Command` and its binding; `invoke_command` accepts `Command`, checks `CanExecute` with the control’s `CommandParameter`, and runs it. A wrong name explains the binding and how to invoke it, including on the designer’s Delete item.
@@ -290,6 +305,10 @@ there isn't one yet. Anything may change between 0.x releases.
   load, and the editor marked them. Both grammars now read them, as the literal with a digit after the point. A
   literal with a point and `%` or `&`, such as `2.5%`, is now vb6.exe's compile error "Syntax error", where HexIDE
   rounded it to an Integer or a Long.
+
+- **The designer draws a Dropdown List's box with the control's name** (#1604). It drew the box empty, as the running
+  control is. VB6's designer shows the name the control has now, after a rename too, and not a Text the file saved.
+  A Dropdown List renamed and then set back to Style 0 writes its new name as its Text, as VB6 SP6's designer did.
 
 - **MCP `hover` cleans up after a throwing pointer handler, reports a cover's tip over a disabled target, and refuses
   targets that are not showing** (#1328). Containers prefer a showing editor; the tool explains the real mouse's effect
