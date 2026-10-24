@@ -6,8 +6,24 @@ using System.Text;
 
 namespace HexIDE.TwinBasic.Tests;
 
-public sealed class CompilerWebSocketTransportTests
+public sealed class CompilerWebSocketTransportTests : SocketTrackingTest
 {
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task Failed_peer_creation_disposes_sockets(int acquisition)
+    {
+        var remaining = acquisition;
+        AfterAcquire = () =>
+        {
+            if (--remaining == 0) throw new IOException("Injected peer creation failure");
+        };
+        await FluentActions.Awaiting(async () => { using var peer = await Pair.Create(); })
+            .Should().ThrowExactlyAsync<IOException>().WithMessage("Injected peer creation failure");
+        AssertNoOpenSockets();
+    }
+
     [Theory]
     [InlineData(WebSocketMessageType.Binary)]
     [InlineData(WebSocketMessageType.Text)]
@@ -140,11 +156,11 @@ public sealed class CompilerWebSocketTransportTests
     [Fact]
     public async Task Failed_handshake_does_not_expose_authenticated_endpoint()
     {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        using var listener = SocketTrackingTest.Track(new TcpListener(IPAddress.Loopback, 0));
         listener.Start();
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
         var connect = CompilerWebSocketTransport.ConnectAsync(new($"ws://127.0.0.1:{port}/private-passkey/root"), cancellationToken: TestContext.Current.CancellationToken);
-        using var peer = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        using var peer = SocketTrackingTest.Track(await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken));
         await ReadRequest(peer);
         await peer.GetStream().WriteAsync("HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"u8.ToArray(),
             TestContext.Current.CancellationToken);
@@ -156,12 +172,12 @@ public sealed class CompilerWebSocketTransportTests
     [Fact]
     public async Task Connect_performs_real_upgrade_and_transfers_control_bytes()
     {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        using var listener = SocketTrackingTest.Track(new TcpListener(IPAddress.Loopback, 0));
         listener.Start();
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
         var connect = CompilerWebSocketTransport.ConnectAsync(new($"ws://127.0.0.1:{port}/test-key/root"),
             cancellationToken: TestContext.Current.CancellationToken);
-        using var peer = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        using var peer = SocketTrackingTest.Track(await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken));
         var request = await ReadRequest(peer);
         request.Should().StartWith("GET /test-key/root HTTP/1.1\r\n");
         var key = request.Split("\r\n").Single(line => line.StartsWith("Sec-WebSocket-Key:", StringComparison.OrdinalIgnoreCase))
@@ -185,15 +201,15 @@ public sealed class CompilerWebSocketTransportTests
     [Fact]
     public async Task Redirect_is_rejected_without_contacting_destination()
     {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
-        using var destination = new TcpListener(IPAddress.Loopback, 0);
+        using var listener = SocketTrackingTest.Track(new TcpListener(IPAddress.Loopback, 0));
+        using var destination = SocketTrackingTest.Track(new TcpListener(IPAddress.Loopback, 0));
         listener.Start();
         destination.Start();
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
         var otherPort = ((IPEndPoint)destination.LocalEndpoint).Port;
         var connect = CompilerWebSocketTransport.ConnectAsync(new($"ws://127.0.0.1:{port}/secret/root"),
             cancellationToken: TestContext.Current.CancellationToken);
-        using var peer = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        using var peer = SocketTrackingTest.Track(await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken));
         await ReadRequest(peer);
         await peer.GetStream().WriteAsync(Encoding.ASCII.GetBytes(
             $"HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:{otherPort}/secret/root\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"),
@@ -206,12 +222,12 @@ public sealed class CompilerWebSocketTransportTests
     [Fact]
     public async Task Connection_deadline_covers_unanswered_http_upgrade()
     {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        using var listener = SocketTrackingTest.Track(new TcpListener(IPAddress.Loopback, 0));
         listener.Start();
         var port = ((IPEndPoint)listener.LocalEndpoint).Port;
         var connect = CompilerWebSocketTransport.ConnectAsync(new($"ws://127.0.0.1:{port}/secret/root"),
             new(MessageTimeout: TimeSpan.FromMilliseconds(250)), TestContext.Current.CancellationToken);
-        using var peer = await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken);
+        using var peer = SocketTrackingTest.Track(await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken));
         await FluentActions.Awaiting(() => connect).Should().ThrowExactlyAsync<TimeoutException>();
     }
 
@@ -258,11 +274,15 @@ public sealed class CompilerWebSocketTransportTests
 
         public static async Task<Pair> Create(CompilerTransportLimits? limits = null)
         {
-            using var listener = new TcpListener(IPAddress.Loopback, 0);
+            using var resources = new TestSocketResources();
+            using var listener = SocketTrackingTest.Track(new TcpListener(IPAddress.Loopback, 0));
             listener.Start();
-            var client = new TcpClient();
+            var client = resources.Own(new TcpClient());
             await client.ConnectAsync((IPEndPoint)listener.LocalEndpoint, TestContext.Current.CancellationToken);
-            return new(client, await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken), limits);
+            var server = resources.Own(await listener.AcceptTcpClientAsync(TestContext.Current.CancellationToken));
+            var pair = resources.Own(new Pair(client, server, limits));
+            resources.Complete();
+            return pair;
         }
 
         public void Dispose()

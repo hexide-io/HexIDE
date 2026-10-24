@@ -76,6 +76,7 @@ something this project can offer outward rather than something it must ask for.
 | 10 | A lone CR as a line end (`x = 1` CR `x = x + 10`, `x = 1 + _` CR `10`) | lexer | `NEWLINE`, its continuation tail and `LINE_CONTINUATION`: `'\r'? '\n'` → `('\r'? '\n' | '\r')` |
 | 11 | `D`-exponent whole numbers (`1D3`, `1D3@`) | lexer | `INTEGERLITERAL` exponent `'E'` → `('E' | 'D')`, as fix 5 has it for `DOUBLELITERAL` |
 | 12 | A literal ending in its point (`5.`, `5.D1`, `5.#`) | lexer | `DOUBLELITERAL` `[0-9]* DOT [0-9]+` → `([0-9]+ DOT [0-9]* | DOT [0-9]+)` |
+| 13 | Option lines directly before a broken procedure (#939) | parser (server only) | `moduleOptions? NEWLINE* moduleBody?` → `(moduleOptions \| moduleBody)?` |
 
 Provenance: VB6 Language Reference ("Line numbers", "If…Then…Else", "Type Declaration Characters"), each
 verified against `vb6.exe`; deliberately divergent from the Rubberduck grammar.
@@ -111,6 +112,14 @@ Error recovery inside a `While` body now cascades as it does in `Do`, `For` and 
 a `While` body can drop the procedures after it from the document symbols, where `block*` happened to resynchronise
 sooner. That is the behaviour of every other block rule here, not a regression of this one; do not revert toward
 `block*` to soften it, because that brings back the wrong tree for every valid member call.
+
+**Fix 13 is also an ambiguity (#939), measured on the server's parser.** `moduleOption` is reachable
+through both `moduleOptions` and `moduleBody`, so the optional options prefix forced LL prediction through
+the first procedure. A syntax error there failed the whole module decision and left no procedures in the
+tree. Choosing between an options-only module and a body commits before the procedure's statements.
+The issue records identical diagnostics and procedure counts across 49 real VB6 files, and acceptance
+of options-only text with trailing colons. `moduleOptions` stays to preserve those trailing separators.
+The interpreter's copy is unchanged; statement recovery remains the separate #938 work.
 
 **Fix 9 is narrow on purpose (2026-10-22).** `argsCall` needs at least one argument, and widening it would have been
 the one-line fix. It would also have accepted `Foo ,` for an ordinary procedure, which `vb6.exe` refuses as "Syntax

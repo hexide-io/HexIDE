@@ -48,6 +48,16 @@ makes the feature invisible in the common case, which is what a good version of 
 - **WHEN** files change on disk and the IDE holds no unsaved edits for them
 - **THEN** they are reloaded silently and any open views show the new content
 
+#### Scenario: A not-open module with non-ASCII source or a byte-order mark
+- **WHEN** an untouched `.bas` or `.cls` changes on disk while no window is open for it
+- **THEN** its reconstructed model is compared to the recorded bytes in the module's retained source encoding,
+  including its byte-order mark, and it is reloaded silently
+
+#### Scenario: A not-open UserControl or PropertyPage
+- **WHEN** a `.ctl` or `.pag` changes on disk while no window is open for it
+- **THEN** the project service's render comparison decides whether it has unsaved edits, including its designer
+  and code, just as for a not-open form
+
 ### Requirement: A change conflicting with unsaved edits SHALL be resolved by the developer
 Where the IDE holds unsaved edits for a changed file, it SHALL NOT discard either version on its own; it
 SHALL present the conflict and let the developer choose to take the disk version or keep their edits.
