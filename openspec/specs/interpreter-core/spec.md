@@ -200,6 +200,8 @@ because nothing inside an uncreatable control is read.
 #### Scenario: Using a feature the engine does not implement
 - **WHEN** a program uses a language feature the engine does not implement
 - **THEN** it stops with an error identifying the unimplemented feature
+- **AND** when reached through a statement, the error text SHALL append `at <statement>`, naming the
+  innermost failing statement from its own source rather than its caller (#758)
 
 #### Scenario: Under an error handler
 - **WHEN** a program that has asked to continue at the next statement on error, or that has a handler active,

@@ -4346,7 +4346,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // Notes where an error passing out of stmt was raised (#955), and never catches: the first catch of each statement
     // loop, so the innermost statement notes it before a handler or a halt sees it. At the statement's line, where a
     // halt stops; a condition notes its own first (ConditionMet).
-    private bool Locate(Exception error, ParserRuleContext stmt) => ErrorLocation.Note(error, currentModule.Name, stmt.Start.Line);
+    private bool Locate(Exception error, ParserRuleContext stmt)
+    {
+        var statement = error is NotImplementedException && stmt is { Start: { InputStream: { } input } start, Stop: { } stop }
+            ? input.GetText(new Antlr4.Runtime.Misc.Interval(start.StartIndex, stop.StopIndex))
+            : null;
+        return ErrorLocation.Note(error, currentModule.Name, stmt.Start.Line, statement);
+    }
 
     // An error raised in a statement loop's own catch, which that loop's Locate cannot see: at the statement running.
     private T Raised<T>(T error) where T : Exception
