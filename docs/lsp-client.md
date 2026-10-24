@@ -63,6 +63,15 @@ the client asks again.
 
 ---
 
+## Request failure logging
+
+A failed request returns an empty or absent result and warns once per method per connection; further
+failures of that method are logged at debug. Local cancellation and server error replies `-32801`
+(ContentModified) or `-32800` (RequestCancelled) are logged at debug as superseded requests. They leave
+that method's warning available for a later genuine failure (#723).
+
+---
+
 ## Describing the workspace
 
 `initialize` carries **both** `workspaceFolders` — one per loaded project — and the deprecated `rootUri`,

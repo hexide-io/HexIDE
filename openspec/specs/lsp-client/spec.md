@@ -59,6 +59,11 @@ running.
 - **THEN** the caller receives the empty or absent result for that request
 - **AND** the connection remains usable for subsequent requests
 
+#### Scenario: The server cancels a superseded request
+- **WHEN** a language request receives error `-32801` (ContentModified) or `-32800` (RequestCancelled)
+- **THEN** the client SHALL log it at debug as superseded, without warning that the feature failed
+- **AND** a later genuine failure SHALL still receive the method's once-per-connection warning
+
 #### Scenario: The server exits unexpectedly
 - **WHEN** the language server process exits while the IDE is running
 - **THEN** the client reports itself as not running and language features go inert

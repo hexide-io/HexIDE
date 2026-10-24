@@ -257,6 +257,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A server cancelling an outdated language request no longer warns that the feature is broken** (#723).
+  ContentModified and RequestCancelled replies are logged at debug, leaving the method's warning available
+  for a later genuine failure.
+
 - **Project saves and startup-project changes immediately move language servers to the new workspace root**
   (#1051), reopening every held document with its latest text even when no editor opens a new file.
 
