@@ -2,6 +2,7 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "중지",
     "Str.Archive.ProjectFormat": "{0} (읽기 전용 아카이브)",
     "Str.Archive.Hidden": "숨겨진 아카이브 항목 표시",
     "Str.Archive.ReadOnly": "읽기 전용 아카이브 미리 보기입니다. 편집, 빌드 및 실행은 사용할 수 없습니다.",

@@ -166,3 +166,13 @@ the other side: the assistant carries on as though the edit landed, and the deve
 - **WHEN** the developer applies a code block whose header differs from the active file's
 - **THEN** nothing is written, the transcript says the block was not applied and why, and the assistant is told
   the same
+
+### Requirement: The developer SHALL be able to stop a response
+The panel SHALL offer Stop while responding and SHALL pass cancellation to provider streams, including
+history summarization. Stopping SHALL finish any partial bubble without showing a request error and SHALL
+allow another message. Pending tool approvals SHALL be rejected and remaining tool calls skipped.
+
+#### Scenario: Stopping a provider stream
+- **WHEN** the developer clicks Stop while a response is in flight
+- **THEN** the provider stream is cancelled and the panel accepts another message
+- **AND** any text already received remains visible

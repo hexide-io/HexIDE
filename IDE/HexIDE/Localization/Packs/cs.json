@@ -2,6 +2,7 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.AIChat.Stop": "Zastavit",
     "Str.Archive.ProjectFormat": "{0} (archiv jen pro čtení)",
     "Str.Archive.Hidden": "Zobrazit skryté položky archivu",
     "Str.Archive.ReadOnly": "Náhled archivu jen pro čtení. Úpravy, sestavení a spuštění nejsou dostupné.",
