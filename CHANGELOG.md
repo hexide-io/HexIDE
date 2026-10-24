@@ -265,6 +265,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A For loop honours changes its body makes to the counter** (#841). Next reads the variable back before adding
+  the step: incrementing a Long or Variant counter inside `For i = 1 To 10` now gives five passes and leaves 11.
+
 - **Editing bundled-server tests no longer makes the server look stale** (#1017). The IDE test harness
   checks C# and grammar files in the server project only, so test edits keep the parity checks running
   and grammar edits require a rebuild.

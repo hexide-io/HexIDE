@@ -8037,8 +8037,9 @@ was normal and the second raised. All three modes agreed:
 counter is left as it was, in all builds: `For vi = 1 To Boom()` with `vi` 7 gives one pass, then 7, and error 92.
 
 **Measured with it:** VB6's `Next` reads the counter back, so a body that changes the counter changes the loop. This
-matches the model above, and holds in both builds. HexIDE does not do this, which is #841:
+matches the model above, and holds in both builds. HexIDE reads an integral numeric counter back at `Next` since #841:
 - `For i = 1 To 10` with `i = i + 1` in the body runs 5 passes: 1 3 5 7 9, ending at 11.
+  This was measured for both a Long and a Variant counter (#839, fifth probe, counter rows M1–M3; also recorded in #841).
 - `If i = 3 Then i = 0` in `For i = 1 To 3` starts the loop again, for ever.
 
 **For Each.** In each case `x` started as `"pre"`, and the errors were logged in the order raised, under an
