@@ -2,6 +2,13 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Abbrechen",
+    "Str.Dialog.MessageBox.Button.Yes": "Ja",
+    "Str.Dialog.MessageBox.Button.No": "Nein",
+    "Str.Dialog.MessageBox.Button.Abort": "Abbrechen",
+    "Str.Dialog.MessageBox.Button.Retry": "Wiederholen",
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignorieren",
     "Str.Archive.ProjectFormat": "{0} (schreibgeschütztes Archiv)",
     "Str.Archive.Hidden": "Ausgeblendete Archiveinträge anzeigen",
     "Str.Archive.ReadOnly": "Schreibgeschützte Archivvorschau. Bearbeiten, Erstellen und Ausführen sind nicht verfügbar.",

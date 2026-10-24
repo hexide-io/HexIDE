@@ -2,6 +2,13 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Zrušit",
+    "Str.Dialog.MessageBox.Button.Yes": "Ano",
+    "Str.Dialog.MessageBox.Button.No": "Ne",
+    "Str.Dialog.MessageBox.Button.Abort": "Přerušit",
+    "Str.Dialog.MessageBox.Button.Retry": "Opakovat",
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignorovat",
     "Str.Archive.ProjectFormat": "{0} (archiv jen pro čtení)",
     "Str.Archive.Hidden": "Zobrazit skryté položky archivu",
     "Str.Archive.ReadOnly": "Náhled archivu jen pro čtení. Úpravy, sestavení a spuštění nejsou dostupné.",

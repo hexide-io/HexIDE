@@ -2,6 +2,13 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Peruuta",
+    "Str.Dialog.MessageBox.Button.Yes": "Kyllä",
+    "Str.Dialog.MessageBox.Button.No": "Ei",
+    "Str.Dialog.MessageBox.Button.Abort": "Keskeytä",
+    "Str.Dialog.MessageBox.Button.Retry": "Yritä uudelleen",
+    "Str.Dialog.MessageBox.Button.Ignore": "Ohita",
     "Str.Archive.ProjectFormat": "{0} (vain luku -arkisto)",
     "Str.Archive.Hidden": "Näytä arkiston piilotetut kohteet",
     "Str.Archive.ReadOnly": "Arkiston esikatselu on vain luku -tilassa. Muokkaus, kääntäminen ja suoritus eivät ole käytettävissä.",

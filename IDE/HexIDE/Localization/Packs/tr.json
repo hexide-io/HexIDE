@@ -2,6 +2,13 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "Tamam",
+    "Str.Dialog.MessageBox.Button.Cancel": "İptal",
+    "Str.Dialog.MessageBox.Button.Yes": "Evet",
+    "Str.Dialog.MessageBox.Button.No": "Hayır",
+    "Str.Dialog.MessageBox.Button.Abort": "Durdur",
+    "Str.Dialog.MessageBox.Button.Retry": "Yeniden Dene",
+    "Str.Dialog.MessageBox.Button.Ignore": "Yoksay",
     "Str.Archive.ProjectFormat": "{0} (salt okunur arşiv)",
     "Str.Archive.Hidden": "Gizli arşiv girdilerini göster",
     "Str.Archive.ReadOnly": "Salt okunur arşiv önizlemesi. Düzenleme, derleme ve çalıştırma kullanılamaz.",

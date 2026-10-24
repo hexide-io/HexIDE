@@ -2,6 +2,13 @@
   "name": "Urdu",
   "direction": "rtl",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "ٹھیک ہے",
+    "Str.Dialog.MessageBox.Button.Cancel": "منسوخ کریں",
+    "Str.Dialog.MessageBox.Button.Yes": "ہاں",
+    "Str.Dialog.MessageBox.Button.No": "نہیں",
+    "Str.Dialog.MessageBox.Button.Abort": "روکیں",
+    "Str.Dialog.MessageBox.Button.Retry": "دوبارہ کوشش کریں",
+    "Str.Dialog.MessageBox.Button.Ignore": "نظر انداز کریں",
     "Str.Archive.ProjectFormat": "{0} (صرف پڑھنے کے لیے آرکائیو)",
     "Str.Archive.Hidden": "آرکائیو کے پوشیدہ اندراجات دکھائیں",
     "Str.Archive.ReadOnly": "آرکائیو کا صرف پڑھنے کے لیے پیش منظر۔ ترمیم، بلڈ اور چلانے کی سہولت دستیاب نہیں ہے۔",

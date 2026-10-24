@@ -2,6 +2,13 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Annuleren",
+    "Str.Dialog.MessageBox.Button.Yes": "Ja",
+    "Str.Dialog.MessageBox.Button.No": "Nee",
+    "Str.Dialog.MessageBox.Button.Abort": "Afbreken",
+    "Str.Dialog.MessageBox.Button.Retry": "Opnieuw proberen",
+    "Str.Dialog.MessageBox.Button.Ignore": "Negeren",
     "Str.Archive.ProjectFormat": "{0} (alleen-lezenarchief)",
     "Str.Archive.Hidden": "Verborgen archiefitems tonen",
     "Str.Archive.ReadOnly": "Alleen-lezenvoorbeeld van het archief. Bewerken, bouwen en uitvoeren zijn niet beschikbaar.",

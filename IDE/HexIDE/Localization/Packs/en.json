@@ -2,6 +2,13 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Cancel",
+    "Str.Dialog.MessageBox.Button.Yes": "Yes",
+    "Str.Dialog.MessageBox.Button.No": "No",
+    "Str.Dialog.MessageBox.Button.Abort": "Abort",
+    "Str.Dialog.MessageBox.Button.Retry": "Retry",
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignore",
     "Str.Archive.ProjectFormat": "{0} (read-only archive)",
     "Str.Archive.Hidden": "Show hidden archive entries",
     "Str.Archive.ReadOnly": "Read-only archive preview. Editing, build and run are unavailable.",

@@ -2,6 +2,13 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Annuller",
+    "Str.Dialog.MessageBox.Button.Yes": "Ja",
+    "Str.Dialog.MessageBox.Button.No": "Nej",
+    "Str.Dialog.MessageBox.Button.Abort": "Afbryd",
+    "Str.Dialog.MessageBox.Button.Retry": "Prøv igen",
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignorer",
     "Str.Archive.ProjectFormat": "{0} (skrivebeskyttet arkiv)",
     "Str.Archive.Hidden": "Vis skjulte arkivposter",
     "Str.Archive.ReadOnly": "Skrivebeskyttet forhåndsvisning af arkivet. Redigering, bygning og kørsel er ikke tilgængelige.",

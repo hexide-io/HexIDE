@@ -2,6 +2,13 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Avbryt",
+    "Str.Dialog.MessageBox.Button.Yes": "Ja",
+    "Str.Dialog.MessageBox.Button.No": "Nei",
+    "Str.Dialog.MessageBox.Button.Abort": "Avbryt",
+    "Str.Dialog.MessageBox.Button.Retry": "Prøv igjen",
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignorer",
     "Str.Archive.ProjectFormat": "{0} (skrivebeskyttet arkiv)",
     "Str.Archive.Hidden": "Vis skjulte arkivoppføringer",
     "Str.Archive.ReadOnly": "Skrivebeskyttet forhåndsvisning av arkivet. Redigering, bygging og kjøring er ikke tilgjengelig.",

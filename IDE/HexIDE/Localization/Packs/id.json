@@ -2,6 +2,13 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Batal",
+    "Str.Dialog.MessageBox.Button.Yes": "Ya",
+    "Str.Dialog.MessageBox.Button.No": "Tidak",
+    "Str.Dialog.MessageBox.Button.Abort": "Batalkan",
+    "Str.Dialog.MessageBox.Button.Retry": "Coba Lagi",
+    "Str.Dialog.MessageBox.Button.Ignore": "Abaikan",
     "Str.Archive.ProjectFormat": "{0} (arsip hanya baca)",
     "Str.Archive.Hidden": "Tampilkan entri arsip tersembunyi",
     "Str.Archive.ReadOnly": "Pratinjau arsip hanya baca. Penyuntingan, kompilasi, dan eksekusi tidak tersedia.",

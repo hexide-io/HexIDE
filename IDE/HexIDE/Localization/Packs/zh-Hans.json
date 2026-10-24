@@ -2,6 +2,13 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "确定",
+    "Str.Dialog.MessageBox.Button.Cancel": "取消",
+    "Str.Dialog.MessageBox.Button.Yes": "是",
+    "Str.Dialog.MessageBox.Button.No": "否",
+    "Str.Dialog.MessageBox.Button.Abort": "中止",
+    "Str.Dialog.MessageBox.Button.Retry": "重试",
+    "Str.Dialog.MessageBox.Button.Ignore": "忽略",
     "Str.Archive.ProjectFormat": "{0}（只读归档）",
     "Str.Archive.Hidden": "显示隐藏的归档条目",
     "Str.Archive.ReadOnly": "只读归档预览。无法编辑、生成或运行。",

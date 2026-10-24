@@ -255,6 +255,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Program message box buttons follow the IDE language** (#828), with all seven captions translated in every
+  shipped language pack. The standalone runner keeps English.
+
 - **Automation saves explain rewritten member Attribute qualifiers** (#1043). `set_file_content`,
   `set_control_property` and `add_control` now name the old and new qualifiers in their successful reply,
   explaining why a save can write text different from what the caller supplied.

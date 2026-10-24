@@ -2,6 +2,13 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "אישור",
+    "Str.Dialog.MessageBox.Button.Cancel": "ביטול",
+    "Str.Dialog.MessageBox.Button.Yes": "כן",
+    "Str.Dialog.MessageBox.Button.No": "לא",
+    "Str.Dialog.MessageBox.Button.Abort": "בטל פעולה",
+    "Str.Dialog.MessageBox.Button.Retry": "נסה שוב",
+    "Str.Dialog.MessageBox.Button.Ignore": "התעלם",
     "Str.Archive.ProjectFormat": "{0} (ארכיון לקריאה בלבד)",
     "Str.Archive.Hidden": "הצגת פריטים מוסתרים בארכיון",
     "Str.Archive.ReadOnly": "תצוגה מקדימה של הארכיון לקריאה בלבד. עריכה, בנייה והרצה אינן זמינות.",

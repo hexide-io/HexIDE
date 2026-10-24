@@ -2,6 +2,13 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Cancelar",
+    "Str.Dialog.MessageBox.Button.Yes": "Sim",
+    "Str.Dialog.MessageBox.Button.No": "Não",
+    "Str.Dialog.MessageBox.Button.Abort": "Abortar",
+    "Str.Dialog.MessageBox.Button.Retry": "Tentar novamente",
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignorar",
     "Str.Archive.ProjectFormat": "{0} (arquivo só de leitura)",
     "Str.Archive.Hidden": "Mostrar entradas ocultas do arquivo",
     "Str.Archive.ReadOnly": "Visualização do arquivo só de leitura. Edição, compilação e execução não estão disponíveis.",

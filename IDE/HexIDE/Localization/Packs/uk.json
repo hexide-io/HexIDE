@@ -2,6 +2,13 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Скасувати",
+    "Str.Dialog.MessageBox.Button.Yes": "Так",
+    "Str.Dialog.MessageBox.Button.No": "Ні",
+    "Str.Dialog.MessageBox.Button.Abort": "Перервати",
+    "Str.Dialog.MessageBox.Button.Retry": "Повторити",
+    "Str.Dialog.MessageBox.Button.Ignore": "Пропустити",
     "Str.Archive.ProjectFormat": "{0} (архів лише для читання)",
     "Str.Archive.Hidden": "Показати приховані елементи архіву",
     "Str.Archive.ReadOnly": "Перегляд архіву лише для читання. Редагування, збирання та запуск недоступні.",

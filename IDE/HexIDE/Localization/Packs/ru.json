@@ -2,6 +2,13 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Отмена",
+    "Str.Dialog.MessageBox.Button.Yes": "Да",
+    "Str.Dialog.MessageBox.Button.No": "Нет",
+    "Str.Dialog.MessageBox.Button.Abort": "Прервать",
+    "Str.Dialog.MessageBox.Button.Retry": "Повторить",
+    "Str.Dialog.MessageBox.Button.Ignore": "Пропустить",
     "Str.Archive.ProjectFormat": "{0} (архив только для чтения)",
     "Str.Archive.Hidden": "Показать скрытые элементы архива",
     "Str.Archive.ReadOnly": "Просмотр архива только для чтения. Редактирование, сборка и запуск недоступны.",

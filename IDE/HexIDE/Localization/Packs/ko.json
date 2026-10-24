@@ -2,6 +2,13 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "확인",
+    "Str.Dialog.MessageBox.Button.Cancel": "취소",
+    "Str.Dialog.MessageBox.Button.Yes": "예",
+    "Str.Dialog.MessageBox.Button.No": "아니요",
+    "Str.Dialog.MessageBox.Button.Abort": "중단",
+    "Str.Dialog.MessageBox.Button.Retry": "다시 시도",
+    "Str.Dialog.MessageBox.Button.Ignore": "무시",
     "Str.Archive.ProjectFormat": "{0} (읽기 전용 아카이브)",
     "Str.Archive.Hidden": "숨겨진 아카이브 항목 표시",
     "Str.Archive.ReadOnly": "읽기 전용 아카이브 미리 보기입니다. 편집, 빌드 및 실행은 사용할 수 없습니다.",

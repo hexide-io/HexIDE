@@ -2,6 +2,13 @@
   "name": "Latina",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Cancella",
+    "Str.Dialog.MessageBox.Button.Yes": "Ita",
+    "Str.Dialog.MessageBox.Button.No": "Minime",
+    "Str.Dialog.MessageBox.Button.Abort": "Interrumpe",
+    "Str.Dialog.MessageBox.Button.Retry": "Retenta",
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignora",
     "Str.Archive.ProjectFormat": "{0} (archivum solum legendum)",
     "Str.Archive.Hidden": "Elementa archivi occulta ostendere",
     "Str.Archive.ReadOnly": "Praevisio archivi solum legendi. Editio, compilatio et exsecutio non praesto sunt.",

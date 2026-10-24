@@ -2,6 +2,13 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Άκυρο",
+    "Str.Dialog.MessageBox.Button.Yes": "Ναι",
+    "Str.Dialog.MessageBox.Button.No": "Όχι",
+    "Str.Dialog.MessageBox.Button.Abort": "Ματαίωση",
+    "Str.Dialog.MessageBox.Button.Retry": "Επανάληψη",
+    "Str.Dialog.MessageBox.Button.Ignore": "Παράβλεψη",
     "Str.Archive.ProjectFormat": "{0} (αρχειοθήκη μόνο για ανάγνωση)",
     "Str.Archive.Hidden": "Εμφάνιση κρυφών καταχωρίσεων αρχειοθήκης",
     "Str.Archive.ReadOnly": "Προεπισκόπηση αρχειοθήκης μόνο για ανάγνωση. Η επεξεργασία, η μεταγλώττιση και η εκτέλεση δεν είναι διαθέσιμες.",

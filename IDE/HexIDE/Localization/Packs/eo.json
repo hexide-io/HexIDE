@@ -2,6 +2,13 @@
   "name": "Esperanto",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "Bone",
+    "Str.Dialog.MessageBox.Button.Cancel": "Nuligi",
+    "Str.Dialog.MessageBox.Button.Yes": "Jes",
+    "Str.Dialog.MessageBox.Button.No": "Ne",
+    "Str.Dialog.MessageBox.Button.Abort": "Ĉesigi",
+    "Str.Dialog.MessageBox.Button.Retry": "Reprovi",
+    "Str.Dialog.MessageBox.Button.Ignore": "Ignori",
     "Str.Archive.ProjectFormat": "{0} (nurlega arkivo)",
     "Str.Archive.Hidden": "Montri kaŝitajn arkivajn erojn",
     "Str.Archive.ReadOnly": "Nurlega antaŭvido de arkivo. Redaktado, konstruado kaj rulado ne disponeblas.",

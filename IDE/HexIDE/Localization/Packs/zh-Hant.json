@@ -2,6 +2,13 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "確定",
+    "Str.Dialog.MessageBox.Button.Cancel": "取消",
+    "Str.Dialog.MessageBox.Button.Yes": "是",
+    "Str.Dialog.MessageBox.Button.No": "否",
+    "Str.Dialog.MessageBox.Button.Abort": "中止",
+    "Str.Dialog.MessageBox.Button.Retry": "重試",
+    "Str.Dialog.MessageBox.Button.Ignore": "忽略",
     "Str.Archive.ProjectFormat": "{0}（唯讀封存）",
     "Str.Archive.Hidden": "顯示隱藏的封存項目",
     "Str.Archive.ReadOnly": "唯讀封存預覽。無法編輯、建置或執行。",

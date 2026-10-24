@@ -2,6 +2,13 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "キャンセル",
+    "Str.Dialog.MessageBox.Button.Yes": "はい",
+    "Str.Dialog.MessageBox.Button.No": "いいえ",
+    "Str.Dialog.MessageBox.Button.Abort": "中止",
+    "Str.Dialog.MessageBox.Button.Retry": "再試行",
+    "Str.Dialog.MessageBox.Button.Ignore": "無視",
     "Str.Archive.ProjectFormat": "{0}（読み取り専用アーカイブ）",
     "Str.Archive.Hidden": "非表示のアーカイブ項目を表示",
     "Str.Archive.ReadOnly": "読み取り専用のアーカイブプレビューです。編集、ビルド、実行は利用できません。",

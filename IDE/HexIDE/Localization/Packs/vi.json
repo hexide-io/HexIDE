@@ -2,6 +2,13 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.MessageBox.Button.Ok": "OK",
+    "Str.Dialog.MessageBox.Button.Cancel": "Hủy",
+    "Str.Dialog.MessageBox.Button.Yes": "Có",
+    "Str.Dialog.MessageBox.Button.No": "Không",
+    "Str.Dialog.MessageBox.Button.Abort": "Hủy bỏ",
+    "Str.Dialog.MessageBox.Button.Retry": "Thử lại",
+    "Str.Dialog.MessageBox.Button.Ignore": "Bỏ qua",
     "Str.Archive.ProjectFormat": "{0} (kho lưu trữ chỉ đọc)",
     "Str.Archive.Hidden": "Hiện các mục ẩn trong kho lưu trữ",
     "Str.Archive.ReadOnly": "Bản xem trước kho lưu trữ chỉ đọc. Không thể chỉnh sửa, biên dịch hoặc chạy.",
