@@ -257,6 +257,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Disposing a debug adapter during a request write reports `IOException` consistently** (#1192), rather than
+  exposing a scheduling-dependent `ObjectDisposedException` from the disposed process pipe.
+
 - **Project saves and startup-project changes immediately move language servers to the new workspace root**
   (#1051), reopening every held document with its latest text even when no editor opens a new file.
 
