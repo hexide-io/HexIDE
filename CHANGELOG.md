@@ -255,6 +255,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Save Project keeps recognised `.vbp` lines in their read order** (#855), including renamed forms,
+  missing members and reclassified carried files. A form before a reference stays before it.
+
 - **A bare `Reset` calls the module's own Sub named `Reset`** (#851), including a private sibling called from
   `Class_Initialize`, as measured on vb6.exe. It previously stopped with "Reset not implemented".
 

@@ -772,6 +772,16 @@ public class SerializationCorpusTests
                 AbsolutePath = Path.GetFullPath(Path.Join(dir, relative.Replace('\\', Path.DirectorySeparatorChar)))
             });
 
+        for (var i = 0; i < serialized.RelativeRelatedDocPaths.Count; i++)
+        {
+            var (name, relative, line) = serialized.RelativeRelatedDocPaths[i];
+            project.AddRelatedDocument(new RelatedDocumentDefinition(project, name,
+                Path.GetFullPath(Path.Join(dir, SerializedProject.ToHostPath(relative))), line)
+            {
+                OriginalItemSlot = line is null ? null : serialized.RelatedDocumentLineSlots[i],
+            });
+        }
+
         // Mirror ProjectService: AddForm sets `StartupForm ??= form`, so the FIRST form added silently
         // becomes the startup form, and the loader then corrects it by matching the recorded name. Without
         // this the harness reports a defect the product does not have — Data Project.vbp came back with
@@ -779,7 +789,9 @@ public class SerializationCorpusTests
         project.StartupForm = project.Forms.FirstOrDefault(f => f.Name == serialized.StartupFormName);
 
         project.SetReferences(serialized.References);
-        project.PreservedItemLines.AddRange(serialized.PreservedItemLines);
+        project.KnownLineKeys.AddRange(serialized.KnownLineKeys);
+        for (var i = 0; i < serialized.PreservedItemLines.Count; i++)
+            project.PreserveItemLine(serialized.PreservedItemLines[i], serialized.PreservedItemLineSlots[i]);
         project.UnknownPreSectionLines.AddRange(serialized.UnknownPreSectionLines);
         project.ExtensionTail = serialized.ExtensionTail;
 
