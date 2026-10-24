@@ -36,7 +36,9 @@ internal static class DesktopStartup
             Vb6TextEncoding.SimulateHostCodePage(codePage);
 #endif
 
-        if (ServerOptions.NewProject)
+        if (ServerOptions.NewProjectUnsaved)
+            HexIDE.Static.StartupProjectHook = (ps, _) => ps.CreateNewProject(IProjectTemplate.StandardEXE);
+        else if (ServerOptions.NewProject)
             HexIDE.Static.StartupProjectHook = async (ps, pm) =>
             {
                 await ps.CreateNewProject(IProjectTemplate.StandardEXE);
@@ -105,23 +107,8 @@ internal static class DesktopStartup
                         // unconditional, because exit code 3 is what the rebuild cycle relies on (#53, #525).
                         // A launch that failed still writes to the profile it shares: hexide-io/HexIDE#557.
                         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                        {
-                            try
-                            {
-                                loader.Dispose();
-                                cts.Cancel();
-                                ctx.Dispose();
-                            }
-                            catch (Exception cleanup)
-                            {
-                                Serilog.Log.Warning(cleanup, "Cleanup before exiting with {ExitCode} failed; exiting anyway", exitCode);
-                            }
-                            finally
-                            {
-                                desktop.Shutdown(exitCode);
-                                HexIDE.Infrastructure.LoggingSetup.Shutdown();
-                            }
-                        });
+                            HexIDE.Infrastructure.ForcedExitCleanup.Run(loader, cts, ctx, exitCode,
+                                code => desktop.Shutdown(code), HexIDE.Infrastructure.LoggingSetup.Shutdown));
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {
