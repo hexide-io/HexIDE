@@ -758,23 +758,42 @@ fixed, Enter does not commit and Tab appends the item instead of replacing the w
 under the list and the snapshot composes it. Have `double_click` on a completion item commit it, or say in its reply
 that it did not. [#1334](https://github.com/hexide-io/HexIDE/issues/1334).
 
-## A save reached through a menu replies before it finishes, so an armed file-dialog answer it did not take goes unmentioned
+## A document save reached through a menu, key or click can reply before its picker opens
 
-**Symptom.** Recorded when #810 closed (#1250), and earlier in the archived #751 entry; read in the code, no call
-recorded. Since #810, `set_file_content`, `set_control_property` and `add_control` say when an answer armed before
-the call is still pending after their save. A save started as a UI command does not: `invoke_menu_item` calls the
-item's command and replies `Invoked '...'` once the call returns, before the save has finished, and `press_key` and
-`interact` do the same. So the reply cannot say whether the save took the answer, and a refusal the save raises is
-shown to a person as a dialog. `answer_next_file_dialog`'s description says so: "a save reached through a menu, by
-invoke_menu_item or interact, does not, so check with clear_file_dialog_answers."
+**Symptom.** Narrowed by headless measurements for [#1335](https://github.com/hexide-io/HexIDE/issues/1335),
+2026-10-23 (`UiSaveAnswerTimingTests`; no MCP calls were made). After arming a cancel with
+`ScriptedFileDialogs.AnswerNextWith(null)`, these tests read `ScriptedFileDialogs.Pending` immediately after the
+same action code the tools use returns:
 
-**Workaround.** After such a save, call `clear_file_dialog_answers`. A count above zero means the save had not taken
-the answer when you asked.
+- `invoke_menu_item(path: "File/Save Project As...")`: resolving the real MainView menu and executing its routed
+  command takes the answer before returning: **0 pending**.
+- `interact(target: "Window/#Standard.SaveProject", action: "click", window: "ide")`: the real toolbar button's
+  press and release take the answer before returning: **0 pending**. The count is read after `FinishAsync`, as in
+  the tool, not after the press alone.
+- `press_key`: the exact headless call is
+  `UiAutomationDriver.PressKey(editor, gesture.Key.ToString(), gesture.KeyModifiers.ToString())`, with the real
+  CodeEditorView's TextEditor and `gesture = ApplicationCommands.SaveCommand.Gestures.Single()`: **0 pending**
+  without Format on Save; **1 pending** while a formatting response is held, then **0** when the response completes.
+  The test reads the platform binding (Ctrl on Windows/Linux, Cmd on macOS), rather than hard-coding Ctrl.
 
-**Suggested fix.** First find out whether a save started this way has opened its picker by the time the command
-returns, with a headless test that arms an answer and saves through `invoke_menu_item`. If it has, add #810's
-sentence about pending answers to the reply. If it has not, the reply has to wait for the save, which a routed
-command does not expose. [#1335](https://github.com/hexide-io/HexIDE/issues/1335).
+Project-save menu and button replies now reuse #810's pending-answer sentence when no picker took an answer,
+with the reason "this save opened no picker" (a project command can save several documents). The tests also
+exercise an empty project set, where **1 remains pending**, and assert the reply, not just the count.
+
+The remaining gap is the focused document's save. `CodeEditorViewModel.SaveForm` / `SaveModule` discard the
+`SaveWithFormattingAsync` task through `ListenErrors`; `RoutedCommand.Execute`, the command binding, and key /
+pointer delivery expose no save task. Awaiting the action or draining the dispatcher cannot await an arbitrary
+language-server response. A pending count at that point does not justify saying the save opened no picker.
+The same document commands can be reached by a menu or `interact`; they are deliberately excluded from the
+project-command feedback.
+
+**Workaround.** `answer_next_file_dialog` warns about document-save timing. `clear_file_dialog_answers` reports
+and discards answers still pending, but if formatting is still running, clearing an answer can remove it before
+the eventual picker takes it. Prefer the tools that await their save and report the answer's state where applicable.
+
+**Suggested fix.** Expose the focused editor's save task through routed-command execution before adding
+pending-answer feedback to document saves. Waiting for dispatcher idle or adding a fixed delay would not establish
+completion. The remaining scope is [#1335](https://github.com/hexide-io/HexIDE/issues/1335).
 
 ## `take_snapshot`'s `inline` image has not been checked through an MCP client, over a tunnel or locally
 
@@ -788,24 +807,6 @@ image block, and a client on another machine receiving the image is what #957 wa
 
 **Suggested fix.** No code change is expected. Call `take_snapshot {"inline":true}` through the hexide tools, on the
 IDE's machine and from another one through a tunnel, and record what the client shows. [#1330](https://github.com/hexide-io/HexIDE/issues/1330).
-
-## `invoke_command` on a designer context-menu item looks in the wrong view model
-
-**Symptom.** Recorded when #836 closed (#1271), read in the code and not run. The designer's context flyout binds
-Delete, Bring to Front and Send to Back through the form's view model
-(`#Root.((visualDesigner:FormEditViewModel)DataContext).DeleteSelected` and the like, in `FormEditView.axaml`), while
-each item's own DataContext is the control the flyout opened on. `invoke_command` and `inspect_element` read the
-DataContext of the control addressed, so on one of these items they look in the control's view model, which has
-none of the three, and `inspect_element` does not list them. A command property bound the same way is missed the
-same way.
-
-**Workaround.** Open the flyout with `interact` `expand` on the control, then `invoke` the item, which runs the
-command it is bound to through its automation peer. That route was measured on the Project Explorer's flyout
-(#947), not on the designer's.
-
-**Suggested fix.** For an item whose `Command` is bound through another element's DataContext, have `invoke_command`
-and `inspect_element` look where the binding resolves, or have the refusal say that the command is bound elsewhere
-and that `invoke` on the item reaches it. [#1336](https://github.com/hexide-io/HexIDE/issues/1336).
 
 ## Two sessions that set neither variable reach the same IDE, and nothing in a reply says so (narrowed 2026-10-22)
 
@@ -874,21 +875,6 @@ and `MouseUp`.
 held, release at the second point to whatever holds the pointer.
 [#1402](https://github.com/hexide-io/HexIDE/issues/1402).
 
-## A control's path changes when it gains a provider, so a saved path stops resolving as text grows
-
-**Symptom (2026-10-22, #1386, Windows).** While paused, `dump_visual_tree {"window":"ide","root":"<Imm>","maxDepth":4,
-"interactiveOnly":false}`, with `<Imm>` the Immediate window's `.../TitleBar[Immediate]/Pane[Immediate]/Custom`, gave
-`<Imm>/Pane[PART_ScrollViewer]/None` for its text area, and `type_text` on that path worked for three lines. The fourth
-`type_text` on the same path answered `no child matching 'Pane[PART_ScrollViewer]' under '<Imm>'`. A fresh dump showed
-`<Imm>/None[Editor]`, the TextEditor, now with `providers: ["scroll"]`, holding the scroll viewer. The control view hides a
-`None` node with no provider and no focus, and the editor stopped qualifying once its text overflowed.
-
-**Workaround.** Dump again and use the new path; `<Imm>/None[Editor]` takes `type_text` and `press_key` from then on.
-
-**Suggested fix.** Decide whether a node is hidden on what its content can't change: leave `scroll` out of it, or never
-hide a node with an x:Name or AutomationId. And when a segment misses, say which node has appeared above it.
-[#1436](https://github.com/hexide-io/HexIDE/issues/1436).
-
 ## `press_key` with Alt and a letter never reaches a control's access key
 
 **Symptom (2026-10-23, #1390, Windows).** On a running form whose `cmdWide` is captioned `One &Wide`,
@@ -921,7 +907,8 @@ no more plumbing than an AutomationId.
 for a running form's Frame, PictureBox, Label and Image.
 
 **Suggested fix.** Count an explicitly set `AutomationProperties.Name` as the AutomationId already counts, so a view's
-author is not left to discover the override. Folded into #1436.
+author is not left to discover the override. The path-stability part of #1436 is fixed; this explicit-name
+discovery gap remains open.
 
 ## No tool can see a running form's frame
 
