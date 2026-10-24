@@ -181,6 +181,42 @@ public class ReadBackTests
         menu.Close();
     }
 
+    [AvaloniaTheory]
+    [InlineData(true, true)]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public void A_menu_action_reversed_by_its_handler_is_refused(bool expand, bool topLevel)
+    {
+        var file = new MenuItem { Header = "File", Items = { new MenuItem { Header = "Open" } } };
+        var root = topLevel ? file : new MenuItem { Header = "Root", Items = { file } };
+        var bar = Shown(new Menu { Items = { root } });
+        var window = (Window)Avalonia.Controls.TopLevel.GetTopLevel(bar)!;
+        try
+        {
+            if (!topLevel) root.Open();
+            if (expand)
+                file.SubmenuOpened += (_, _) => file.IsSubMenuOpen = false;
+            else
+            {
+                file.Open();
+                file.PropertyChanged += (_, e) =>
+                {
+                    if (e.Property == MenuItem.IsSubMenuOpenProperty && !file.IsSubMenuOpen)
+                        file.IsSubMenuOpen = true;
+                };
+            }
+
+            var outcome = UiAutomationDriver.Interact(file, expand ? "expand" : "collapse", null);
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().StartWith(expand
+                ? "the menu on 'File' did not open"
+                : "the menu on 'File' did not close");
+            file.IsSubMenuOpen.Should().Be(!expand);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void A_popup_whose_state_cannot_be_read_says_so()
     {

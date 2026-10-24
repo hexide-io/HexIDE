@@ -1373,7 +1373,8 @@ public class ProjectService : IProjectService
         WithSaveRefusals(() =>
         {
             // As VB6 makes one, designer half and Attribute lines alike (#1538).
-            var module = ModuleDefinition.NewDesigner(project, name, kind, FormComponentClass.Instance);
+            var module = ModuleDefinition.NewDesigner(project, name, kind,
+                FormComponentClass.ForRoot(kind == ModuleKind.UserControl ? "VB.UserControl" : "VB.PropertyPage"));
             module.TextEncoding = HostAnsi;
             return Task.FromResult(AddNewModuleToProject(project, module));
         }, interactive);

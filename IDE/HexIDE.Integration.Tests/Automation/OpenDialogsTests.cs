@@ -14,7 +14,7 @@ namespace HexIDE.Integration.Tests.Automation;
 /// </summary>
 public class OpenDialogsTests
 {
-    private const string Tail = " dump_visual_tree with 'window' set to its title shows it, and interact answers it.";
+    private const string Tail = "; dump_visual_tree with 'window' set to its title shows it, and interact answers it.";
 
     // A running form, as the note tells one from the IDE, with the event queue the wait for its program watches.
     private sealed class FormWindow : Window, IModuleExecutionRoot
@@ -39,6 +39,79 @@ public class OpenDialogsTests
     }
 
     [AvaloniaFact]
+    public void Same_title_dialogs_name_their_content_and_actual_buttons()
+    {
+        var ide = Shown(new Window(), "IDE");
+        var watch = OpenDialogs.Watch([ide], ide);
+        var message = new Window { Title = "HexIDE", Content = new HexIDE.Runtime.Dialogs.MessageBox
+        {
+            Text = "This action will reset your project…",
+            Buttons = HexIDE.IDE.MessageBoxButtons.YesNo
+        } };
+        var error = new HexIDE.IDE.DialogWindow { Title = "HexIDE", Content = new HexIDE.Forms.Views.RuntimeErrorView
+        {
+            DataContext = new HexIDE.Forms.ViewModels.RuntimeErrorViewModel("Run-time error '11': Division by zero")
+        } };
+        // The headless app has no language pack; supply the view's dynamic resources locally.
+        var errorView = (HexIDE.Forms.Views.RuntimeErrorView)error.Content!;
+        foreach (var caption in new[] { "Continue", "End", "Debug", "Help" })
+            errorView.Resources["Str.Dialog.RuntimeError.Button." + caption] = "_" + caption;
+        _ = message.ShowDialog(ide);
+        _ = error.ShowDialog(ide);
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var messageNote = OpenDialogs.Note(watch, [ide, message]);
+            var errorNote = OpenDialogs.Note(watch, [ide, error]);
+            using var assertions = new AwesomeAssertions.Execution.AssertionScope();
+            messageNote.Should().Contain("'HexIDE' (a message box: \"This action will reset your project…\", Yes/No)");
+            errorNote.Should().Contain("'HexIDE' (the run-time error dialog: \"Run-time error '11': Division by zero\", Continue/End/Debug/Help)");
+            messageNote.Should().NotBe(errorNote);
+        }
+        finally { error.Close(); message.Close(); ide.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Message_text_is_one_line_and_bounded(bool multiline)
+    {
+        var ide = Shown(new Window(), "IDE");
+        var watch = OpenDialogs.Watch([ide], ide);
+        var text = multiline ? "First line" + Environment.NewLine + "Second line" : new string('x', 140);
+        var dialog = new Window { Title = "HexIDE", Content = new HexIDE.Runtime.Dialogs.MessageBox
+        {
+            Text = text,
+            Icon = HexIDE.IDE.MessageBoxIcon.Question
+        } };
+        _ = dialog.ShowDialog(ide);
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var note = OpenDialogs.Note(watch, [ide, dialog]);
+            var excerpt = multiline ? "First line…" : new string('x', 99) + "…";
+            note.Should().Contain("a message box: \"" + excerpt + "\", OK");
+            note.Should().NotContain("Second line");
+        }
+        finally { dialog.Close(); ide.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Unknown_dialog_kind_falls_back_to_title_and_buttons()
+    {
+        var ide = Shown(new Window(), "IDE");
+        var watch = OpenDialogs.Watch([ide], ide);
+        var dialog = new Window { Title = "Unfamiliar", Content = new Button { Content = "_Proceed" } };
+        _ = dialog.ShowDialog(ide);
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            OpenDialogs.Note(watch, [ide, dialog]).Should().Contain("'Unfamiliar' (Proceed), a modal dialog");
+        }
+        finally { dialog.Close(); ide.Close(); }
+    }
+
+    [AvaloniaFact]
     public void A_dialog_the_call_opened_is_named_with_what_it_is_over()
     {
         var ide = Shown(new Window(), "HexIDE");
@@ -47,7 +120,7 @@ public class OpenDialogsTests
         try
         {
             OpenDialogs.Note(watch, [ide, box]).Should()
-                .Be("'Set Next Statement', a modal dialog over 'HexIDE', opened during this call and waits for an answer." + Tail);
+                .Be("'Set Next Statement', a modal dialog over 'HexIDE', opened during this call and waits for an answer" + Tail);
         }
         finally { box.Close(); ide.Close(); }
     }
@@ -63,7 +136,7 @@ public class OpenDialogsTests
 
             OpenDialogs.Note(watch, [ide, addProcedure]).Should().Be(
                 "'Add Procedure', a modal dialog over 'HexIDE', is still open and waits for an answer; this call reached past "
-                + "it, as a person could not." + Tail);
+                + "it, as a person could not" + Tail);
         }
         finally { addProcedure.Close(); ide.Close(); }
     }
@@ -96,7 +169,7 @@ public class OpenDialogsTests
             var watch = OpenDialogs.Watch([ide, form, box], ide);
 
             OpenDialogs.Note(watch, [ide, form, box]).Should().Be(
-                "'Question', a modal dialog over the running form 'Ask', is open and waits for an answer." + Tail);
+                "'Question', a modal dialog over the running form 'Ask', is open and waits for an answer" + Tail);
         }
         finally { box.Close(); form.Close(); ide.Close(); }
     }
@@ -119,7 +192,7 @@ public class OpenDialogsTests
                 OpenDialogs.NamedInReply(box);
 
                 OpenDialogs.Note(waited, [form, earlier, box]).Should().Be("'HexIDE', a modal dialog over the running form "
-                    + "'Ask', is still open and waits for an answer; this call reached past it, as a person could not." + Tail);
+                    + "'Ask', is still open and waits for an answer; this call reached past it, as a person could not" + Tail);
                 OpenDialogs.Note(other, [form, earlier, box]).Should().Contain("'Question'");
             }
             finally { box.Close(); }
@@ -145,7 +218,7 @@ public class OpenDialogsTests
             try
             {
                 OpenDialogs.Note(waited, [form, box]).Should().Be("'Sub or Function not defined', a modal dialog over the "
-                    + "running form 'Ask', opened during this call and waits for an answer." + Tail);
+                    + "running form 'Ask', opened during this call and waits for an answer" + Tail);
             }
             finally { box.Close(); }
         }
@@ -153,7 +226,7 @@ public class OpenDialogsTests
     }
 
     [AvaloniaFact]
-    public void Each_dialog_open_is_named_in_a_sentence_of_its_own()
+    public void Each_dialog_open_is_named_in_one_note()
     {
         var ide = Shown(new Window(), "HexIDE");
         var form = Shown(new FormWindow(), "Ask");
@@ -163,8 +236,8 @@ public class OpenDialogsTests
         try
         {
             OpenDialogs.Note(watch, [ide, form, addProcedure, box]).Should().Be(
-                "'Add Procedure', a modal dialog over 'HexIDE', opened during this call and waits for an answer. 'Question', "
-                + "a modal dialog over the running form 'Ask', opened during this call and waits for an answer." + Tail);
+                "'Add Procedure', a modal dialog over 'HexIDE', opened during this call and waits for an answer; 'Question', "
+                + "a modal dialog over the running form 'Ask', opened during this call and waits for an answer" + Tail);
         }
         finally { box.Close(); addProcedure.Close(); form.Close(); ide.Close(); }
     }

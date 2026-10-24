@@ -159,6 +159,13 @@ public static class UiAutomationDriver
             note = $"{omitted} member(s) declared by the Dock framework's base types (layout plumbing such as "
                  + "Proportion and CanFloat) are not listed; set_property still reaches them by name.";
 
+        if (ResolvedCommand(control) is { } bound)
+        {
+            members = [new VmMember("Command", "command", bound.Command.GetType().Name, false),
+                .. members.Where(m => m.Name != "Command")];
+            note = string.Join(" ", new[] { note, BoundCommandNote(bound) }.Where(n => n is not null));
+        }
+
         return new UiNodeDetail(
             path,
             ControlTypeOf(peer),
@@ -575,7 +582,8 @@ public static class UiAutomationDriver
                         if (openMenu.IsSubMenuOpen)
                             return Ok($"menu '{LabelOf(control, peer)}' was already open");
                         openMenu.Open();
-                        return Ok($"opened menu '{LabelOf(control, peer)}'");
+                        var opened = PopupVerified(() => openMenu.IsSubMenuOpen, true, "menu", LabelOf(control, peer));
+                        return opened.Success ? Ok($"opened menu '{LabelOf(control, peer)}'") : opened;
                     }
                     // A deterministic route to a context menu. press_key Apps also opens one -- watched
                     // on screen -- but it goes through ContextRequested and lands on whichever control the
@@ -589,11 +597,13 @@ public static class UiAutomationDriver
                     // trap as the transient tooltip, one layer up.
                     if (control.ContextMenu is { } contextMenu)
                     {
-                        if (contextMenu.IsOpen)
+                        if (IsOpenOn(contextMenu, control))
                             return Ok($"the context menu on '{LabelOf(control, peer)}' was already open");
                         Safe(() => control.Focus(), false);
+                        // Avalonia ignores Open on an already-open shared menu, even for a different owner.
+                        if (contextMenu.IsOpen) contextMenu.Close();
                         contextMenu.Open(control);
-                        return PopupVerified(() => contextMenu.IsOpen, true, "context menu", LabelOf(control, peer));
+                        return PopupVerified(() => IsOpenOn(contextMenu, control), true, "context menu", LabelOf(control, peer));
                     }
                     if (FlyoutsOf(control).FirstOrDefault() is { } flyout)
                     {
@@ -622,24 +632,28 @@ public static class UiAutomationDriver
                         // Each reply says what was open, so an already-closed menu is not reported as closed (#949).
                         var closing = LabelOf(control, peer);
                         var wasOpen = closeMenu.IsSubMenuOpen;
-                        if (closeMenu.Parent is Menu)
+                        if (closeMenu.Parent is Menu bar)
                         {
-                            if (!CloseMenuHolding(closeMenu))
+                            if (!MenuIsOpen(bar))
                                 return Ok($"menu '{closing}' was already closed, and the menu bar was not open; there "
                                           + "is nothing to close");
+                            CloseMenuHolding(closeMenu);
+                            var closed = PopupVerified(() => MenuIsOpen(bar), false, "menu", closing);
+                            if (!closed.Success) return closed;
                             return Ok(wasOpen
                                 ? $"closed menu '{closing}' and left the menu bar"
                                 : $"menu '{closing}' was not open, but the menu bar was; left the menu bar");
                         }
+                        if (!wasOpen)
+                            return Ok($"menu '{closing}' was already closed; there is nothing to close");
                         closeMenu.Close();
-                        return Ok(wasOpen
-                            ? $"closed menu '{closing}'"
-                            : $"menu '{closing}' was already closed; there is nothing to close");
+                        var submenuClosed = PopupVerified(() => closeMenu.IsSubMenuOpen, false, "menu", closing);
+                        return submenuClosed.Success ? Ok($"closed menu '{closing}'") : submenuClosed;
                     }
-                    if (control.ContextMenu is { IsOpen: true } openContextMenu)
+                    if (control.ContextMenu is { } openContextMenu && IsOpenOn(openContextMenu, control))
                     {
                         openContextMenu.Close();
-                        return PopupVerified(() => openContextMenu.IsOpen, false, "context menu", LabelOf(control, peer));
+                        return PopupVerified(() => IsOpenOn(openContextMenu, control), false, "context menu", LabelOf(control, peer));
                     }
                     if (FlyoutsOf(control).FirstOrDefault(f => IsOpenOn(f, control)) is { } openFlyout)
                     {
@@ -1332,7 +1346,7 @@ public static class UiAutomationDriver
 
     /// <summary>
     /// Closes the menu a header or an item is in, whole, as Avalonia's menu does after a click; false when it was not
-    /// open.
+    /// open, or when it stayed open.
     /// </summary>
     /// <remarks>
     /// Closing only the header's own submenu, as <c>collapse</c> once did, left the bar open: the header stayed lit and
@@ -1343,7 +1357,7 @@ public static class UiAutomationDriver
     {
         if (menu is null) return false;
         var items = menu.GetRealizedContainers().OfType<MenuItem>().ToList();
-        if (!menu.IsOpen && !items.Any(i => i.IsSubMenuOpen) && menu.FindLogicalAncestorOfType<Popup>() is not { IsOpen: true })
+        if (!MenuIsOpen(menu))
             return false;
         menu.Close();
         foreach (var header in items)
@@ -1351,8 +1365,12 @@ public static class UiAutomationDriver
             if (header.IsSubMenuOpen) header.Close();
             header.SetCurrentValue(SelectingItemsControl.IsSelectedProperty, false);
         }
-        return true;
+        return !MenuIsOpen(menu);
     }
+
+    private static bool MenuIsOpen(MenuBase menu) =>
+        menu.IsOpen || menu.GetRealizedContainers().OfType<MenuItem>().Any(i => i.IsSubMenuOpen)
+                    || menu.FindLogicalAncestorOfType<Popup>() is { IsOpen: true };
 
     /// <summary>Closes the menu a header belongs to, whole: <see cref="CloseMenu"/> on its <see cref="MenuHolding"/>.</summary>
     private static bool CloseMenuHolding(MenuItem header) => CloseMenu(MenuHolding(header));
@@ -2173,18 +2191,66 @@ public static class UiAutomationDriver
         && (ItemsControl.ItemsControlFromItemContainer(c) ?? c.FindAncestorOfType<ItemsControl>()) is { } owner
         && owner.IndexFromContainer(c) < 0;
 
-    // value = the command name: a public ICommand property on the target's DataContext, or a public parameterless
+    private static bool InReleasedRow(Control c) =>
+        c.GetSelfAndVisualAncestors().OfType<Control>().Any(Released);
+
+    private sealed record ControlCommand(System.Windows.Input.ICommand Command, object? Parameter, string Binding);
+
+    // Read the effective value, including compiled bindings and bindings through a different DataContext.
+    // The binding description is diagnostic text, not a stable grammar from which to guess a member name.
+    private static ControlCommand? ResolvedCommand(Control control)
+    {
+        (System.Windows.Input.ICommand? Command, object? Parameter, AvaloniaProperty? Property) resolved = control switch
+        {
+            MenuItem item => (item.Command, item.CommandParameter, MenuItem.CommandProperty),
+            Button button => (button.Command, button.CommandParameter, Button.CommandProperty),
+            _ => (null, null, (AvaloniaProperty?)null),
+        };
+        var (command, parameter, property) = resolved;
+        if (command is null || property is null) return null;
+        var binding = Avalonia.Data.BindingOperations.GetBindingExpressionBase(control, property);
+        // Description is available at runtime but absent from Avalonia's reference assembly. Treat it as optional:
+        // diagnostic metadata must never stop the already resolved command from running.
+        var description = Safe(() => binding?.GetType().GetProperty("Description", BindingFlags.Public | BindingFlags.Instance)
+            ?.GetValue(binding) as string, null);
+        return new ControlCommand(command, parameter, description
+            ?? (binding is null ? "a directly assigned command" : "a binding whose source description is unavailable"));
+    }
+
+    private static string BoundCommandNote(ControlCommand bound) =>
+        $"The target's Command is bound to {bound.Binding}. "
+        + (bound.Binding.StartsWith("#", StringComparison.Ordinal) && bound.Binding.Contains("DataContext", StringComparison.Ordinal)
+            ? "It is bound through another element's DataContext. "
+            : "This is the resolved control command; its source need not be the target's own DataContext. ")
+        + "Use invoke_command with value 'Command' (with the target's CommandParameter), or invoke on this control to run it.";
+
+    // value = Command for the control’s resolved command, a public ICommand property on its DataContext, or a public parameterless
     // method, which is what a Command bound to a method calls (#836).
     private static InteractOutcome ReflectInvokeCommand(Control control, string? value)
     {
         try
         {
             if (NullIfEmpty(value) is not { } name) return ReflectErr("invoke_command requires 'value' = the command name");
-            if (control.DataContext is not { } dc) return ReflectErr("target has no DataContext");
+            var bound = ResolvedCommand(control);
+            if (name == "Command" && bound is not null)
+            {
+                if (!bound.Command.CanExecute(bound.Parameter))
+                    return ReflectErr("'Command'.CanExecute(CommandParameter) returned false");
+                bound.Command.Execute(bound.Parameter);
+                return new InteractOutcome(true, "reflection", "executed target's Command with its CommandParameter", null);
+            }
+            if (control.DataContext is not { } dc)
+                return ReflectErr("target has no DataContext" + (bound is null ? "" : ". " + BoundCommandNote(bound)));
             if (dc.GetType().GetProperty(name, BindingFlags.Public | BindingFlags.Instance) is not { } prop)
-                return ReflectInvokeMethod(dc, name);
+            {
+                var result = ReflectInvokeMethod(dc, name);
+                return !result.Success && bound is not null
+                    ? result with { Error = result.Error + ". " + BoundCommandNote(bound) }
+                    : result;
+            }
             if (prop.GetValue(dc) is not System.Windows.Input.ICommand cmd)
-                return ReflectErr($"'{name}' on {dc.GetType().Name} is not an ICommand");
+                return ReflectErr($"'{name}' on {dc.GetType().Name} is not an ICommand"
+                    + (bound is null ? "" : ". " + BoundCommandNote(bound)));
             if (!cmd.CanExecute(null))
                 return ReflectErr($"'{name}'.CanExecute(null) returned false");
             cmd.Execute(null);
@@ -2290,9 +2356,28 @@ public static class UiAutomationDriver
             try { coerced = Coerce(raw, prop.PropertyType); }
             catch (Exception ex) { return ReflectErr($"cannot convert '{raw}' to {prop.PropertyType.Name} for '{name}': {ex.Message}"); }
             prop.SetValue(dc, coerced);
-            return new InteractOutcome(true, "reflection", $"set {dc.GetType().Name}.{name} = {raw}", null);
+            // The view can reject a caret offset without correcting its view model (#1326).
+            var now = name == "CaretOffset"
+                && dc is HexIDE.Forms.ViewModels.ISearchableDocument
+                ? FindTextSurface(control) switch
+                {
+                    TextEditor editor => editor.CaretOffset.ToString(CultureInfo.InvariantCulture),
+                    TextArea area => area.Caret.Offset.ToString(CultureInfo.InvariantCulture),
+                    _ => null,
+                }
+                : ReadValue(dc, prop);
+            var member = $"{dc.GetType().Name}.{name}";
+            if (now is null)
+                return new InteractOutcome(true, "reflection", $"set {member}; its value could not be read back", null);
+            return new InteractOutcome(true, "reflection", now == raw
+                ? $"set {member} = {now}"
+                : $"set {member}: sent {raw}, now {now}", null);
         }
-        catch (Exception ex) { return ReflectErr($"set_property '{value}' threw: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            var reason = ex is TargetInvocationException { InnerException: { } inner } ? inner : ex;
+            return ReflectErr($"set_property '{value}' was refused: {reason.Message}");
+        }
     }
 
     private static object? Coerce(string raw, Type target)
@@ -3157,7 +3242,7 @@ public static class UiAutomationDriver
     private static Control FindHoverTarget(Control control)
     {
         if (control is TextEditor or TextArea) return control;
-        var editors = control.GetVisualDescendants().OfType<TextEditor>().ToList();
+        var editors = control.GetVisualDescendants().OfType<TextEditor>().Where(c => !InReleasedRow(c)).ToList();
         return editors.FirstOrDefault(c => Shows(c) is true) ?? editors.FirstOrDefault() ?? control;
     }
 
@@ -3213,7 +3298,7 @@ public static class UiAutomationDriver
         // Only what shows. A ComboBox that is not editable keeps a TextBox in its template, hidden, and choosing that
         // over the ComboBox had every key refused as aimed at a hidden control, once #1069 refused those; a person's
         // key goes to the ComboBox.
-        var descendants = control.GetVisualDescendants().OfType<Control>().Where(c => Hidden(c) is not true).ToList();
+        var descendants = control.GetVisualDescendants().OfType<Control>().Where(c => Hidden(c) is not true && !InReleasedRow(c)).ToList();
 
         // An AvaloniaEdit surface, innermost first: its TextArea is where key handling lives.
         if (descendants.FirstOrDefault(c => c is TextArea) is { } area) return area;
@@ -3256,7 +3341,7 @@ public static class UiAutomationDriver
     // control, where press_key passed it over (#1256).
     private static List<Control> TextSurfacesUnder(Control control) =>
         [.. control.GetVisualDescendants().OfType<Control>()
-            .Where(c => c is TextEditor or TextArea or TextBox && !HiddenByItsTemplate(c))];
+            .Where(c => c is TextEditor or TextArea or TextBox && !HiddenByItsTemplate(c) && !InReleasedRow(c))];
 
     // Hidden within its own control's template, whatever that control's own state: read on the chain from the part up to
     // the control, so a hidden pane holding a dropdown still has its dropdown's part left out (#1256 review).
@@ -3682,7 +3767,7 @@ public static class UiAutomationDriver
     // parameter info of the call being typed into, and reporting only the list left the signature unseen (#942 review).
     private static IReadOnlyList<Popup> AttachedPopupsOf(Control c)
     {
-        if (c.ContextMenu is { IsOpen: true } menu)
+        if (c.ContextMenu is { } menu && IsOpenOn(menu, c))
             return menu.GetLogicalParent() is Popup menuPopup ? [menuPopup] : [];
 
         // The code window's completion list and parameter info are the editor's own popups, held by its view.
@@ -3694,6 +3779,10 @@ public static class UiAutomationDriver
                 return [open.Popup];
         return [];
     }
+
+    // Dock shares one tab ContextMenu across tab bodies. The popup records the current owner.
+    private static bool IsOpenOn(ContextMenu menu, Control control) =>
+        menu.IsOpen && menu.GetLogicalParent() is Popup popup && ReferenceEquals(popup.Parent, control);
 
     // One flyout can serve many controls: the theme's TextBox ContextFlyout is a single shared resource, open on
     // whichever box opened it, so open is asked of this control (#949 review).

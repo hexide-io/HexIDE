@@ -93,8 +93,8 @@
 | Add MDI Form | — | Missing | MDI is not COM-dependent; implementable cross-platform as an Avalonia container with floating child sub-windows |
 | Add Module | — | Done | Creates Module1, Module2… with defaults; opens code editor; saves to project dir |
 | Add Class Module | — | Done | Creates Class1, Class2… with defaults; opens code editor; saves to project dir |
-| Add User Control | — | Done | Creates UserControl1, UserControl2… with empty designer surface; opens designer; saves .ctl to project dir. The designer draws it as VB6's does, a borderless surface with no title bar, and names it UserControl in its tab and the object box (#1544). Its Properties window still lists a form's properties ([#1585](https://github.com/hexide-io/HexIDE/issues/1585)) |
-| Add Property Page | — | Done | Creates PropertyPage1, PropertyPage2… with empty designer surface; opens designer; saves .pag to project dir. Drawn and named as VB6 does, a borderless surface named PropertyPage (#1544); its property list is a form's ([#1585](https://github.com/hexide-io/HexIDE/issues/1585)) |
+| Add User Control | — | Done | Creates UserControl1, UserControl2… with empty designer surface; opens designer; saves .ctl to project dir. The designer draws it as VB6's does, a borderless surface with no title bar, and names it UserControl in its tab and the object box (#1544). Its Properties window lists only properties VB6's UserControl has (#1585); its own, CanGetFocus, ControlContainer, InvisibleAtRuntime, Public and the rest, are not modelled ([#1631](https://github.com/hexide-io/HexIDE/issues/1631)) |
+| Add Property Page | — | Done | Creates PropertyPage1, PropertyPage2… with empty designer surface; opens designer; saves .pag to project dir. Drawn and named as VB6 does, a borderless surface named PropertyPage (#1544); its Properties window lists only properties VB6's PropertyPage has (#1585), not yet HelpContextID or StandardSize ([#1631](https://github.com/hexide-io/HexIDE/issues/1631)) |
 | Add File… | — | Done | Adopts an existing file: classified by extension, VB6 source joins as a form/module, anything else as a related document. Multi-select; re-picking a carried file re-opens it instead of duplicating |
 | Remove *{file}* | — | Stub | MenuItem present, no Command binding; use project tree context menu |
 | References… | — | Done | Registry enumeration on Windows; Browse button; persisted to .vbp. Lists VB6's three fixed rows, then the project's references in order, OLE Automation among them; OK with nothing changed leaves them as they were (#1026, measured). The title and the Language line differ from VB6's ([#1468](https://github.com/hexide-io/HexIDE/issues/1468)) |
@@ -323,6 +323,7 @@
 | Property search / filter | Missing | |
 | Object dropdown (select component) | Done | ComboBox lists all components on the active form; selection synced bidirectionally with the designer |
 | Help description panel | Done | Description panel at bottom shows selected property name and description text |
+| Left, Top, Width and Height in VB6's units | Done | As VB6's window shows them (#1636): a control's in its container's ScaleMode (twips inside a Frame), a form's own size with its frame, three decimals at most; typed values in the same units, rounded to whole twips. A form with a menu shows Left and Top by the rule where VB6 read 105, 105, unexplained. The toolbar's readout is still pixels ([#1641](https://github.com/hexide-io/HexIDE/issues/1641)) |
 
 ---
 
