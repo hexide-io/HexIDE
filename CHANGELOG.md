@@ -249,6 +249,40 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP guarded-edit refusals name the region** (#1042): the file's header or the Attribute lines describing a named member. Backward deletion explains how to remove a declaration with its Attribute lines instead of sending the caller back to the same caret offset; insertions still give a new editable offset.
+
+- **A Double rounds to Currency from its exact binary value** (#966). Storing `1.00005`, calling
+  `CCur(1.00005)` or declaring it as a Currency Const now gives 1.0001, and `CCur(0.00015)`
+  gives 0.0001, as measured on vb6.exe. In `+` and `-` beside a Currency, a Double becomes a Currency the same way before the sum, so `2@ + 0.00005` is 2.0001.
+
+- **MCP can double-click a running form** (#1389). `interact`'s `click` accepts `double` in its value, as in
+  `10,5 double`, `10,5 right double` or plain `double`. It presses and releases twice, so the program's DblClick
+  runs, waiting for the first click's work before the second; if the target hides or closes, it stops and says so.
+  `double_click` still raises DoubleTapped and selects for the Project Explorer, but its reply now says no pointer
+  press was sent and points to `click` with `double` for a running form's DblClick.
+
+- **Module-qualified stores and array-element reads reach the module's variable** (#1006, #965).
+  `Module1.G = 8` and `Module2.g(2) = 7` raised Object required, and `Module2.g(1)` read the whole array.
+  Both stores now work and the read returns its element. `Set Module2.pq = New C1` holds the object,
+  and `Set Module2.pq = Nothing` releases it, as measured on vb6.exe.
+
+- **String functions honour the calling module’s `Option Compare`** (#1572). With no compare argument,
+  `InStr`, `InStrRev`, `Replace`, `Split`, `Filter` and `StrComp` now use that module’s setting, including
+  calls written in classes and forms. An explicit compare still wins. `InStr("ABC", "b")` in a Text module
+  now answers 2, as measured on vb6.exe, instead of silently answering 0.
+
+- **MCP paths survive growing editor text** (#1436). A collapsed layout wrapper no longer appears when its
+  content begins to scroll, so the Immediate window's text-area path stays usable. Range capability keeps a
+  node regardless of its current bounds. A refused path that skips a visible wrapper names it and gives the
+  complete corrected path when there is one unambiguous continuation.
+
+- **MCP project saves report unused file-dialog answers** (#1335). `invoke_menu_item` for Save Project / Save Project As and `interact` on their buttons now say when an answer armed before the call remains pending. A document save through a menu, key or click can still wait on formatting after the reply; `answer_next_file_dialog` explains that limit.
+
+- **MCP commands bound through another view model are reachable** (#1336). `inspect_element` lists a menu item’s or button’s resolved `Command` and its binding; `invoke_command` accepts `Command`, checks `CanExecute` with the control’s `CommandParameter`, and runs it. A wrong name explains the binding and how to invoke it, including on the designer’s Delete item.
+
+- **The code editor keeps its caret and view model in agreement** (#1608). An offset past the text now goes to its end,
+  and a negative offset goes to its start; the view model reads back the position the editor took.
+
 - **MCP keys, text and hover skip rows their list has released** (#1327). Addressing a list no longer sends input
   into a recycled row omitted from the control tree or reports the list’s path as confirmation.
 
@@ -275,6 +309,11 @@ there isn't one yet. Anything may change between 0.x releases.
   for case, snake_case or kebab-case mismatches. Binding refusals check each parameter's actual type, so an
   overflowing `int`, numeric string or array item is named without blaming a valid `long`; serializer paths stay.
 
+- **A Simple Combo shows its list under its edit box** (#1603). It was drawn and run as a Dropdown Combo, with a button
+  that dropped its list. Its list is now always shown, in the designer and at run time, and scrolls when its items
+  don't fit. A click on it picks an item as vb6.exe's does: the one already selected again, the last one from below
+  the items, and a double click as Click and then DblClick, with no Change or DropDown.
+
 - **MCP `interact set_property` reads back the value it set** (#1326), naming both sent and actual values when
   they differ. For an editor's `CaretOffset`, it reads the editor itself, so an offset the caret never took is no
   longer reported as set.
@@ -284,9 +323,18 @@ there isn't one yet. Anything may change between 0.x releases.
   literal with a point and `%` or `&`, such as `2.5%`, is now vb6.exe's compile error "Syntax error", where HexIDE
   rounded it to an Integer or a Long.
 
+- **The designer draws a Dropdown List's box with the control's name** (#1604). It drew the box empty, as the running
+  control is. VB6's designer shows the name the control has now, after a rename too, and not a Text the file saved.
+  A Dropdown List renamed and then set back to Style 0 writes its new name as its Text, as VB6 SP6's designer did.
+
 - **MCP `hover` cleans up after a throwing pointer handler, reports a cover's tip over a disabled target, and refuses
   targets that are not showing** (#1328). Containers prefer a showing editor; the tool explains the real mouse's effect
   on the tip, cursor and pointer-over.
+
+- **The arrow keys move between controls from an option button, a check box and a command button** (#1625). They did
+  nothing there. Up and Left now go to the previous control in the same container and Down and Right to the next, by
+  TabIndex and wrapping, as VB6's do, and an option button they land on is selected. As in VB6, a control whose
+  TabStop is False is reached, and one that can't take the focus, such as a Label or a Frame, is passed over.
 
 - **A Const declared with a type character runs, as vb6.exe's does** (#1614). `Const K% = 2.5` stopped the program as
   the module loaded, with "Const type hints not supported". The character is now the As clause it stands for: `K` is
