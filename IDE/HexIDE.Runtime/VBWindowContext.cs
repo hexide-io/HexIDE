@@ -118,6 +118,10 @@ public class VBWindowContext : IModuleExecutionRoot
     /// </summary>
     internal BasicInterpreter? Interpreter => interpreter;
 
+    /// <summary>Whether this context belongs to the named run, for hosts listening to static runtime events.</summary>
+    public bool IsInDebugSession(Debugging.IDebugController controller, int session)
+        => interpreter?.IsInDebugSession(controller, session) == true;
+
     /// <summary>The running form, an instance of the form module (#822), or null before <see cref="SetCode"/>.</summary>
     public VbObject? FormInstance => interpreter is null ? null : EnsureInstance();
 
