@@ -70,6 +70,8 @@ public class FormComponentClass : ComponentBaseClass
         var chrome = AvaloniaInterop.FormChrome.Read(instance, menuBar);
         AvaloniaInterop.FormFrame.Set(form, chrome, menuBar);
         chrome.Apply(form);
+        // And the icon it carries: its own, none, or the default (#1594).
+        AvaloniaInterop.FormIcon.Read(instance).Apply(form);
         // The state the form's file gives it, which it shows in: `WindowState = 2 'Maximized` (#1152, measured). It is kept
         // as the line it was read with, so the designer and the file are unchanged.
         if (VBLoader.RawNumber(instance, "WindowState") is { } state
