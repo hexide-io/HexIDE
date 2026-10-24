@@ -252,6 +252,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Procedure Consts and array bounds reject later local Consts** (#894), with VB6's measured error for
+  Option Explicit on or off. Under Option Explicit, a later local Const shadowing a module Const already read by an earlier Const is
+  "Duplicate declaration in current scope"; shadowing without that earlier read still works.
+
 - **An array used as text raises Type mismatch (13)** (#879): concatenation, CStr, a store into a String, Len,
   UCase and Print # no longer use its CLR type name. A String store leaves its target unchanged. The debugger's
   own array display is preserved; a typed Long array in concatenation is refused at runtime.

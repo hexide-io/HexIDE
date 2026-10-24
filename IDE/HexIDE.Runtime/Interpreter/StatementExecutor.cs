@@ -3560,6 +3560,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// </summary>
     internal async Task HoistDeclaredLocals(ProcedureInfo proc)
     {
+        foreach (var constant in proc.DeclaredConsts)
+            ModuleLevelBounds.CheckProcedure(currentModule, proc, constant.valueStmt(), constant.Start.TokenIndex, inConst: true);
+        foreach (var local in proc.DeclaredLocals)
+            if (local.subscripts() is { } bounds)
+                ModuleLevelBounds.CheckProcedure(currentModule, proc, bounds, local.Start.TokenIndex, inConst: false);
         // Consts first, in declaration order, because a Dim's bounds may name one (measured: `Const P = 2.5` then
         // `Dim a(P)` is a(0 To 2)).
         foreach (var constSub in proc.DeclaredConsts)
