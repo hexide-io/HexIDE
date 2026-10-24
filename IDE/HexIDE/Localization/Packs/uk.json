@@ -2,6 +2,11 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.MakeProject.NoStartup": "Стартовий проєкт не знайдено.",
+    "Str.MakeProject.Browser": "Створення програми недоступне в браузері. Використовуйте настільну версію HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "Створення програми не підтримується в цій операційній системі. Використовуйте HexIDE у Windows, macOS або Linux.",
+    "Str.MakeProject.MissingRuntime": "Щоб створити програму, спочатку зберіть автономне середовище виконання. Інструкції наведено в README.",
+    "Str.MakeProject.Failed": "Програму не створено. Сталася помилка:\n{0}",
     "Str.Archive.ProjectFormat": "{0} (архів лише для читання)",
     "Str.Archive.Hidden": "Показати приховані елементи архіву",
     "Str.Archive.ReadOnly": "Перегляд архіву лише для читання. Редагування, збирання та запуск недоступні.",

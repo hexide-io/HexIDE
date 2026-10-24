@@ -2,6 +2,11 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.MakeProject.NoStartup": "スタートアッププロジェクトが見つかりません。",
+    "Str.MakeProject.Browser": "ブラウザーではプログラムを作成できません。デスクトップ版の HexIDE を使用してください。",
+    "Str.MakeProject.UnsupportedPlatform": "このオペレーティングシステムではプログラムの作成はサポートされていません。Windows、macOS、Linux のいずれかで HexIDE を使用してください。",
+    "Str.MakeProject.MissingRuntime": "プログラムを作成するには、まずスタンドアロンランタイムをビルドしてください。手順については README を参照してください。",
+    "Str.MakeProject.Failed": "プログラムは作成されませんでした。エラーが発生しました:\n{0}",
     "Str.Archive.ProjectFormat": "{0}（読み取り専用アーカイブ）",
     "Str.Archive.Hidden": "非表示のアーカイブ項目を表示",
     "Str.Archive.ReadOnly": "読み取り専用のアーカイブプレビューです。編集、ビルド、実行は利用できません。",

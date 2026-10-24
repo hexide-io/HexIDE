@@ -2,6 +2,11 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.MakeProject.NoStartup": "No startup project found.",
+    "Str.MakeProject.Browser": "Making a program is unavailable in a browser. Use the desktop version of HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "Making a program is not supported on this operating system. Use HexIDE on Windows, macOS or Linux.",
+    "Str.MakeProject.MissingRuntime": "To make a program, build the standalone runtime first. See the README for instructions.",
+    "Str.MakeProject.Failed": "The program was not made. An error occurred:\n{0}",
     "Str.Archive.ProjectFormat": "{0} (read-only archive)",
     "Str.Archive.Hidden": "Show hidden archive entries",
     "Str.Archive.ReadOnly": "Read-only archive preview. Editing, build and run are unavailable.",

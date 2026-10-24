@@ -2,6 +2,11 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.MakeProject.NoStartup": "Intet startprojekt fundet.",
+    "Str.MakeProject.Browser": "Det er ikke muligt at bygge et program i en browser. Brug desktopversionen af HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "Det understøttes ikke at bygge et program på dette operativsystem. Brug HexIDE på Windows, macOS eller Linux.",
+    "Str.MakeProject.MissingRuntime": "For at bygge et program skal du først bygge det selvstændige kørselsmiljø. Se vejledningen i README.",
+    "Str.MakeProject.Failed": "Programmet blev ikke bygget. Der opstod en fejl:\n{0}",
     "Str.Archive.ProjectFormat": "{0} (skrivebeskyttet arkiv)",
     "Str.Archive.Hidden": "Vis skjulte arkivposter",
     "Str.Archive.ReadOnly": "Skrivebeskyttet forhåndsvisning af arkivet. Redigering, bygning og kørsel er ikke tilgængelige.",

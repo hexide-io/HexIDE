@@ -2,6 +2,11 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.MakeProject.NoStartup": "Geen opstartproject gevonden.",
+    "Str.MakeProject.Browser": "Een programma maken is niet beschikbaar in een browser. Gebruik de desktopversie van HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "Een programma maken wordt niet ondersteund op dit besturingssysteem. Gebruik HexIDE op Windows, macOS of Linux.",
+    "Str.MakeProject.MissingRuntime": "Bouw eerst de zelfstandige runtime om een programma te maken. Zie de README voor instructies.",
+    "Str.MakeProject.Failed": "Het programma is niet gemaakt. Er is een fout opgetreden:\n{0}",
     "Str.Archive.ProjectFormat": "{0} (alleen-lezenarchief)",
     "Str.Archive.Hidden": "Verborgen archiefitems tonen",
     "Str.Archive.ReadOnly": "Alleen-lezenvoorbeeld van het archief. Bewerken, bouwen en uitvoeren zijn niet beschikbaar.",

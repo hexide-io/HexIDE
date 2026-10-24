@@ -2,6 +2,11 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.MakeProject.NoStartup": "Fant ikke noe oppstartsprosjekt.",
+    "Str.MakeProject.Browser": "Det er ikke mulig å lage et program i en nettleser. Bruk skrivebordsversjonen av HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "Det er ikke støtte for å lage et program på dette operativsystemet. Bruk HexIDE på Windows, macOS eller Linux.",
+    "Str.MakeProject.MissingRuntime": "For å lage et program må du først bygge det frittstående kjøremiljøet. Se README for instruksjoner.",
+    "Str.MakeProject.Failed": "Programmet ble ikke laget. Det oppstod en feil:\n{0}",
     "Str.Archive.ProjectFormat": "{0} (skrivebeskyttet arkiv)",
     "Str.Archive.Hidden": "Vis skjulte arkivoppføringer",
     "Str.Archive.ReadOnly": "Skrivebeskyttet forhåndsvisning av arkivet. Redigering, bygging og kjøring er ikke tilgjengelig.",

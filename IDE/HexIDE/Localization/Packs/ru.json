@@ -2,6 +2,11 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.MakeProject.NoStartup": "Стартовый проект не найден.",
+    "Str.MakeProject.Browser": "Создание программы недоступно в браузере. Используйте настольную версию HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "Создание программы не поддерживается в этой операционной системе. Используйте HexIDE в Windows, macOS или Linux.",
+    "Str.MakeProject.MissingRuntime": "Чтобы создать программу, сначала соберите автономную среду выполнения. Инструкции приведены в README.",
+    "Str.MakeProject.Failed": "Программа не создана. Произошла ошибка:\n{0}",
     "Str.Archive.ProjectFormat": "{0} (архив только для чтения)",
     "Str.Archive.Hidden": "Показать скрытые элементы архива",
     "Str.Archive.ReadOnly": "Просмотр архива только для чтения. Редактирование, сборка и запуск недоступны.",

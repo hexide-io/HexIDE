@@ -2,6 +2,11 @@
   "name": "Urdu",
   "direction": "rtl",
   "strings": {
+    "Str.MakeProject.NoStartup": "آغاز کے لیے کوئی پروجیکٹ نہیں ملا۔",
+    "Str.MakeProject.Browser": "براؤزر میں پروگرام بنانا دستیاب نہیں ہے۔ HexIDE کا ڈیسک ٹاپ ورژن استعمال کریں۔",
+    "Str.MakeProject.UnsupportedPlatform": "اس آپریٹنگ سسٹم پر پروگرام بنانے کی سہولت موجود نہیں ہے۔ Windows، macOS یا Linux پر HexIDE استعمال کریں۔",
+    "Str.MakeProject.MissingRuntime": "پروگرام بنانے کے لیے پہلے خودمختار رن ٹائم بلڈ کریں۔ ہدایات کے لیے README دیکھیں۔",
+    "Str.MakeProject.Failed": "پروگرام نہیں بنایا گیا۔ ایک خرابی پیش آئی:\n{0}",
     "Str.Archive.ProjectFormat": "{0} (صرف پڑھنے کے لیے آرکائیو)",
     "Str.Archive.Hidden": "آرکائیو کے پوشیدہ اندراجات دکھائیں",
     "Str.Archive.ReadOnly": "آرکائیو کا صرف پڑھنے کے لیے پیش منظر۔ ترمیم، بلڈ اور چلانے کی سہولت دستیاب نہیں ہے۔",

@@ -1018,7 +1018,7 @@ public class ProjectService : IProjectService
         if (archives?.IsActive == true) return;
         if (projectManager.StartupProject == null)
         {
-            await windowManager.MessageBox("No startup project found.", icon: MessageBoxIcon.Information);
+            await windowManager.MessageBox(localization.GetString("Str.MakeProject.NoStartup"), icon: MessageBoxIcon.Information);
             return;
         }
 
@@ -1068,7 +1068,7 @@ public class ProjectService : IProjectService
         }
         catch (Exception e)
         {
-            await windowManager.MessageBox("Fatal error while making the project:\n" + e.Message, icon: MessageBoxIcon.Information);
+            await windowManager.MessageBox(string.Format(localization.GetString("Str.MakeProject.Failed"), e.Message), icon: MessageBoxIcon.Error);
             throw;
         }
     }
@@ -1077,7 +1077,7 @@ public class ProjectService : IProjectService
     {
         if (OperatingSystem.IsBrowser())
         {
-            await windowManager.MessageBox("Can't make project in a browser!", icon: MessageBoxIcon.Information);
+            await windowManager.MessageBox(localization.GetString("Str.MakeProject.Browser"), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
 
@@ -1154,13 +1154,13 @@ public class ProjectService : IProjectService
         }
         else
         {
-            await windowManager.MessageBox("Your OS is not supported yet, but it can be, search in the code for this message to find how to add support for this platform!", icon: MessageBoxIcon.Information);
+            await windowManager.MessageBox(localization.GetString("Str.MakeProject.UnsupportedPlatform"), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
 
         if (requiredNativeFiles.Any(files => files.All(f => !f.Exists)))
         {
-            await windowManager.MessageBox("To Make Project, you need to build standalone runtime first. See the readme for help.", icon: MessageBoxIcon.Information);
+            await windowManager.MessageBox(localization.GetString("Str.MakeProject.MissingRuntime"), icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
 

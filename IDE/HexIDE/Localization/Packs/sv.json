@@ -2,6 +2,11 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.MakeProject.NoStartup": "Inget startprojekt hittades.",
+    "Str.MakeProject.Browser": "Det går inte att skapa ett program i en webbläsare. Använd skrivbordsversionen av HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "Det går inte att skapa ett program på det här operativsystemet. Använd HexIDE på Windows, macOS eller Linux.",
+    "Str.MakeProject.MissingRuntime": "För att skapa ett program måste du först bygga den fristående körmiljön. Se README för instruktioner.",
+    "Str.MakeProject.Failed": "Programmet skapades inte. Ett fel uppstod:\n{0}",
     "Str.Archive.ProjectFormat": "{0} (skrivskyddat arkiv)",
     "Str.Archive.Hidden": "Visa dolda arkivposter",
     "Str.Archive.ReadOnly": "Skrivskyddad förhandsvisning av arkivet. Redigering, kompilering och körning är inte tillgängliga.",

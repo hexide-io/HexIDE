@@ -2,6 +2,11 @@
   "name": "Hindi",
   "direction": "ltr",
   "strings": {
+    "Str.MakeProject.NoStartup": "कोई स्टार्टअप प्रोजेक्ट नहीं मिला।",
+    "Str.MakeProject.Browser": "ब्राउज़र में प्रोग्राम बनाना उपलब्ध नहीं है। HexIDE के डेस्कटॉप संस्करण का उपयोग करें।",
+    "Str.MakeProject.UnsupportedPlatform": "इस ऑपरेटिंग सिस्टम पर प्रोग्राम बनाना समर्थित नहीं है। Windows, macOS या Linux पर HexIDE का उपयोग करें।",
+    "Str.MakeProject.MissingRuntime": "प्रोग्राम बनाने के लिए, पहले स्टैंडअलोन रनटाइम बिल्ड करें। निर्देशों के लिए README देखें।",
+    "Str.MakeProject.Failed": "प्रोग्राम नहीं बना। एक त्रुटि हुई:\n{0}",
     "Str.Archive.ProjectFormat": "{0} (केवल-पठन संग्रह)",
     "Str.Archive.Hidden": "संग्रह की छिपी प्रविष्टियाँ दिखाएँ",
     "Str.Archive.ReadOnly": "संग्रह का केवल-पठन पूर्वावलोकन। संपादन, बिल्ड और चलाना उपलब्ध नहीं हैं।",

@@ -2,6 +2,11 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.MakeProject.NoStartup": "Başlangıç projesi bulunamadı.",
+    "Str.MakeProject.Browser": "Tarayıcıda program oluşturulamaz. HexIDE uygulamasının masaüstü sürümünü kullanın.",
+    "Str.MakeProject.UnsupportedPlatform": "Bu işletim sisteminde program oluşturma desteklenmiyor. HexIDE uygulamasını Windows, macOS veya Linux üzerinde kullanın.",
+    "Str.MakeProject.MissingRuntime": "Program oluşturmak için önce bağımsız çalışma zamanını derleyin. Yönergeler için README dosyasına bakın.",
+    "Str.MakeProject.Failed": "Program oluşturulamadı. Bir hata oluştu:\n{0}",
     "Str.Archive.ProjectFormat": "{0} (salt okunur arşiv)",
     "Str.Archive.Hidden": "Gizli arşiv girdilerini göster",
     "Str.Archive.ReadOnly": "Salt okunur arşiv önizlemesi. Düzenleme, derleme ve çalıştırma kullanılamaz.",

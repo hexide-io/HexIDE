@@ -2,6 +2,11 @@
   "name": "es",
   "direction": "ltr",
   "strings": {
+    "Str.MakeProject.NoStartup": "No se encontró ningún proyecto de inicio.",
+    "Str.MakeProject.Browser": "La creación de programas no está disponible en un navegador. Use la versión de escritorio de HexIDE.",
+    "Str.MakeProject.UnsupportedPlatform": "La creación de programas no es compatible con este sistema operativo. Use HexIDE en Windows, macOS o Linux.",
+    "Str.MakeProject.MissingRuntime": "Para crear un programa, primero compile el entorno de ejecución independiente. Consulte las instrucciones en el archivo README.",
+    "Str.MakeProject.Failed": "No se creó el programa. Se produjo un error:\n{0}",
     "Str.Archive.ProjectFormat": "{0} (archivo de solo lectura)",
     "Str.Archive.Hidden": "Mostrar entradas ocultas del archivo",
     "Str.Archive.ReadOnly": "Vista previa del archivo de solo lectura. La edición, la compilación y la ejecución no están disponibles.",

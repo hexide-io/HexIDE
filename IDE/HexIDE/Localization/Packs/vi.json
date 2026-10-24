@@ -2,6 +2,11 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.MakeProject.NoStartup": "Không tìm thấy dự án khởi động.",
+    "Str.MakeProject.Browser": "Không thể tạo chương trình trong trình duyệt. Hãy dùng phiên bản HexIDE dành cho máy tính.",
+    "Str.MakeProject.UnsupportedPlatform": "Không hỗ trợ tạo chương trình trên hệ điều hành này. Hãy dùng HexIDE trên Windows, macOS hoặc Linux.",
+    "Str.MakeProject.MissingRuntime": "Để tạo chương trình, trước tiên hãy biên dịch môi trường thực thi độc lập. Xem hướng dẫn trong README.",
+    "Str.MakeProject.Failed": "Chương trình chưa được tạo. Đã xảy ra lỗi:\n{0}",
     "Str.Archive.ProjectFormat": "{0} (kho lưu trữ chỉ đọc)",
     "Str.Archive.Hidden": "Hiện các mục ẩn trong kho lưu trữ",
     "Str.Archive.ReadOnly": "Bản xem trước kho lưu trữ chỉ đọc. Không thể chỉnh sửa, biên dịch hoặc chạy.",

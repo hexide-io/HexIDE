@@ -26,6 +26,12 @@ set of translatable strings is enumerable, which is what every other guarantee h
 - **WHEN** interface text is added
 - **THEN** it is added as a key with a canonical English value, not as a literal
 
+#### Scenario: Make Project cannot make a program
+- **WHEN** Make Project finds no startup project, runs in a browser or on an unsupported system, lacks the standalone runtime, or encounters an unexpected error
+- **THEN** the message is resolved through the active language pack
+- **AND** the unsupported-system message names supported operating systems rather than asking for a source-code search
+- **AND** an unexpected error uses the Error icon and says the program was not made, followed by the exception detail
+
 ### Requirement: English SHALL be canonical and SHALL be the fallback for every key
 The English pack SHALL define every key, other packs SHALL only override keys they translate, and any key a
 pack does not carry SHALL resolve to its English value.

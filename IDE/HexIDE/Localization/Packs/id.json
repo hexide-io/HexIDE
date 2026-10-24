@@ -2,6 +2,11 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.MakeProject.NoStartup": "Proyek awal tidak ditemukan.",
+    "Str.MakeProject.Browser": "Pembuatan program tidak tersedia di peramban. Gunakan HexIDE versi desktop.",
+    "Str.MakeProject.UnsupportedPlatform": "Pembuatan program tidak didukung pada sistem operasi ini. Gunakan HexIDE di Windows, macOS, atau Linux.",
+    "Str.MakeProject.MissingRuntime": "Untuk membuat program, bangun runtime mandiri terlebih dahulu. Lihat README untuk petunjuknya.",
+    "Str.MakeProject.Failed": "Program tidak dibuat. Terjadi kesalahan:\n{0}",
     "Str.Archive.ProjectFormat": "{0} (arsip hanya baca)",
     "Str.Archive.Hidden": "Tampilkan entri arsip tersembunyi",
     "Str.Archive.ReadOnly": "Pratinjau arsip hanya baca. Penyuntingan, kompilasi, dan eksekusi tidak tersedia.",

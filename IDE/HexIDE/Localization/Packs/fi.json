@@ -2,6 +2,11 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.MakeProject.NoStartup": "Käynnistysprojektia ei löytynyt.",
+    "Str.MakeProject.Browser": "Ohjelman koostaminen ei ole käytettävissä selaimessa. Käytä HexIDEn työpöytäversiota.",
+    "Str.MakeProject.UnsupportedPlatform": "Ohjelman koostamista ei tueta tässä käyttöjärjestelmässä. Käytä HexIDEä Windowsissa, macOS:ssä tai Linuxissa.",
+    "Str.MakeProject.MissingRuntime": "Koosta ensin erillinen suoritusympäristö, jotta voit koostaa ohjelman. Katso ohjeet README-tiedostosta.",
+    "Str.MakeProject.Failed": "Ohjelmaa ei koostettu. Tapahtui virhe:\n{0}",
     "Str.Archive.ProjectFormat": "{0} (vain luku -arkisto)",
     "Str.Archive.Hidden": "Näytä arkiston piilotetut kohteet",
     "Str.Archive.ReadOnly": "Arkiston esikatselu on vain luku -tilassa. Muokkaus, kääntäminen ja suoritus eivät ole käytettävissä.",
