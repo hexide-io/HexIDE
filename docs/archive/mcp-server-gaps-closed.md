@@ -9,6 +9,56 @@ The live document holds only what is still open, so its length means something a
 
 ---
 
+## `add_to_selection` names the new selection but not its reference, so a caller learns what Align measured against only afterwards — **CLOSED** (#951, 2026-10-24)
+
+**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
+
+```
+interact {"target":"Window/.../List[ControlsContainer]/ListItem[Command1]","action":"add_to_selection"}
+→ {"detail":"added 'Command1' to the selection; 2 items are selected now: Command0, Command1"}
+```
+
+Only the next `invoke_format_command` reply, "…, aligned to Command0", named the reference, the control every
+Align and Make Same command measures against. A snapshot between the two showed Command0 with the solid handles.
+The reply lists the selection in index order, as does `inspect_element`'s `selectionItems`, so no read names the
+reference before a command runs, which the form-designer spec requires of the designer. The same goes for
+`remove_from_selection`. Cross-platform by code reading.
+
+**Workaround.** Select the intended reference first and `add_to_selection` the rest: by code reading, the
+reference stays on the first item selected, and removing it moves it to the lowest-indexed item still selected.
+A snapshot shows the reference with the solid handles.
+
+**Suggested fix.** With two or more selected, the reply names the primary item, and when `remove_from_selection`
+removes it, names the new one. [#951](https://github.com/hexide-io/HexIDE/issues/951). Which control should be
+the reference is #928.
+
+**Fixed.** Multi-item selection replies list the primary first and name it as the designer reference for Align
+and Make Same. Removing it reports the replacement. The action description says how to choose it: select it
+first. Headless regression tests cover both selection orders and removal; live designer verification remains
+for the supervising session. Selection semantics (#928) are unchanged.
+
+## No call double-clicks a running form — **CLOSED** (#1389, 2026-10-24)
+
+**Symptom (2026-10-22, #1031, Windows).** A running form's `DblClick` comes from a double click's second press, told by
+the press's click count. `interact {"target":"<a Label on a running form>","action":"double_click"}` raises Avalonia's
+`DoubleTapped` and selects the target, with no pointer press, and answers `success: true`; the program's `Label1_DblClick`
+never runs, and nothing in the reply says no press was sent. Two `interact {"action":"click"}` calls in a row each press
+with a click count of 1, and an MCP round trip puts them past the 500 ms double-click time anyway.
+
+**Workaround.** None through the surface. `MouseEventTests` drives a double click headlessly, with real pointer input.
+
+**Suggested fix.** Accept `double` in `click`'s value, as in `10,5 double`, raising press, release, press and release
+with the second press's click count 2. Have `double_click`'s reply say it raised `DoubleTapped` and no press.
+[#1389](https://github.com/hexide-io/HexIDE/issues/1389).
+
+**Fixed.** `interact {"target":"<a running form>","action":"click","value":"10,5 double"}` sends press,
+release, press and release, with the second press carrying ClickCount 2; `10,5 right double` uses the right button,
+and plain `double` uses the centre. Between clicks it waits for the first release's program work. If the target
+has hidden, closed or detached, the reply says the second click was not sent. The reply names the double click,
+button and coordinates. `double_click` keeps its selection and DoubleTapped behavior for the Project Explorer;
+its reply now names DoubleTapped, says no pointer press was sent, and points to `click` with `double` for DblClick.
+Running-form integration tests pin the vb6.exe event order already recorded in the oracle and #1031's tests.
+
 ## A control's path changes when it gains a provider, so a saved path stops resolving as text grows — **CLOSED** (#1436, 2026-10-23)
 
 **Symptom (2026-10-22, #1386, Windows).** While paused, `dump_visual_tree {"window":"ide","root":"<Imm>","maxDepth":4,
@@ -4472,3 +4522,64 @@ button, proving the product path worked.
 **Fix.** Keep target resolution and focus, then deliver raw KeyDown/KeyUp through the window input callback,
 with physical key and symbol metadata. Retain routed delivery when focus or platform input is unavailable,
 and name the path in the reply. No TextInput is sent; `type_text` remains the way to enter text.
+
+
+## A refused edit's reply sends a Backspace back to the caret it was refused at, and does not say whose lines are in the way
+
+**Symptom.** Found in #273's live check (task 4.8) on 2026-10-14, with a class whose `Public Function Total()` has
+its run `Attribute Total.VB_UserMemId = 0` folded into the declaration's row, and the caret put at the start of the
+body line below it, offset 790:
+
+```
+interact {"target":".../Custom[Root]","action":"set_property","value":"CaretOffset=790"}
+press_key {"target":".../Custom[Root]/None[TextEditor]","key":"Back"}
+→ {"success":false,"error":"press_key refused: offset 789 is in the file's header or a member's Attribute lines,
+   which only the IDE changes (the designer, a save, a rename). Nothing was written. The nearest place that can be
+   edited starts at offset 790; put the caret there with interact set_property CaretOffset=790. ..."}
+```
+
+The refusal is right: Backspace there would join the body line to the run's last line. The advice is not. Offset
+790 is where the caret already was, so a caller that follows it presses the same key in the same place and is
+refused again, which a first-contact model can loop on. The reply also says "the file's header or a member's
+Attribute lines" although the IDE knows which, and since #273 task 4.5b names the member in an add-in's refusal
+(`GuardedContent.MemberNamedBy`). `type_text` gives the same wording: at offset 766, inside the run, it said
+"header or a member's Attribute lines" and pointed at 790.
+
+**Workaround.** Read the refused offset, not the advice. A backward deletion refused at the start of the line under a
+run has nowhere to go on that line; delete the declaration line whole instead (Ctrl+D, which takes the run with it).
+
+**Suggested fix.** Name the region: "the file's header" or "the Attribute lines describing Total" (`MemberNamedBy`).
+For a deleting key whose span ends at the caret, say that the text before the caret is the run's and that deleting
+the declaration line takes both, rather than pointing at the caret's own offset; keep the "nearest place" advice for
+an insertion or a forward deletion, where it moves the caller somewhere new.
+[#1042](https://github.com/hexide-io/HexIDE/issues/1042).
+
+**Fixed (#1042).** Refusals now name the header or the member through the same name reader as add-in refusals. A deletion ending at the caret explains that the preceding text belongs to that region; for a member, deleting its whole logical declaration removes its Attribute lines too. Insertions and forward deletions retain a new editable offset. Headless editor regressions cover all three cases and fail against the previous wording.
+
+## `press_key` refuses a Delete over a selection reaching protected lines, where the key deletes the editable part
+
+**Symptom.** Read from the code (#273 task 4.5a records it as already so). With a selection running from code into
+the header or a member's `Attribute` lines, a person's Delete deletes the parts the code window's read-only sections
+allow. The tool deletes nothing:
+
+```
+press_key {"target":".../Custom[Root]/None[TextEditor]","key":"Delete"}
+→ {"success":false,"error":"press_key refused: offset N is in the file's header or a member's Attribute lines, ...
+   Nothing was written. ..."}
+```
+
+`UiAutomationDriver` asks `DeletionChangesARegion` about the whole span, where the key's provider deletes the
+deletable segments.
+
+**Workaround.** Narrow the selection to the editable part with `interact set_property` (`SelectionStart`,
+`SelectionLength`) before pressing the key.
+
+**Suggested fix.** Delete what the deletable segments allow, as the key does, and say what was left and why.
+[#1055](https://github.com/hexide-io/HexIDE/issues/1055).
+
+**Closed (#1055).** Delete and Backspace now reach the real key handler whenever the selection has
+editable segments. AvaloniaEdit's selection replacement asks the installed read-only section provider;
+no automation code computes the deletion. Replies name the protected remainder and report the caret
+and remaining selection. `type_text` uses that replacement API too, placing text in the last deletable
+segment as a person's typing does. Wholly protected spans still refuse with #1042's region wording.
+Verified by headless code-window integration tests, including unchanged protected text and post-edit selection.

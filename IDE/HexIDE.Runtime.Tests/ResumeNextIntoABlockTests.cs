@@ -747,23 +747,12 @@ public class ResumeNextIntoABlockTests : BaseVBTestFixture
         AssertLog(["body, member done|91"]);
     }
 
-    [Theory]
-    [InlineData("For i = 1 To 2 Step 0.5")]
-    [InlineData("For i = 1 To 2.5 Step Boom()")]   // the limit is kept, then the raised step sends it to Next
-    public async Task A_fractional_For_is_refused_rather_than_stepped_over(string header)
-    {
-        // A Double counter: an Integer or Long one rounds its bounds into its type, so they are no longer fractional.
-        var run = () => RunResumingNext($"Dim i As Double\n{header}\nNext\n");
-
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*fractional*");
-    }
-
     [Fact]
     public async Task A_refusal_inside_a_condition_is_not_stepped_over()
     {
         // Resume Next traps VB6's errors, not HexIDE's refusals: an untrappable refusal raised while a condition is
         // evaluated must still end the run.
-        var run = () => RunResumingNext("If Frac() Then c = \"Then\"\nFunction Frac()\n    Dim i\n    For i = 1 To 2 Step 0.5\n    Next\nEnd Function\n");
+        var run = () => RunResumingNext("If Refused() Then c = \"Then\"\nFunction Refused()\n    GoSub There\nThere:\nEnd Function\n");
 
         await run.Should().ThrowAsync<NotImplementedException>();
     }
