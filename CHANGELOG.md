@@ -276,6 +276,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Data-bound controls refuse to run** (#859). F5 and made programs name the control and its DataSource before placing any controls, instead of showing its design-time value as though it were the current record.
+
 - **MousePointer reads back the value set** (#769), including the value loaded from a form. Reading it always returned 0 even when the displayed cursor had changed.
 
 - **Clipboard.SetText preserves other clipboard formats** (#1246). Replacing text no longer stops a run merely
