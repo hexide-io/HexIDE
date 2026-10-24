@@ -6287,9 +6287,8 @@ replaces `BackColor` with that appearance's default. The border is redrawn to ma
   among them.
 - A Label's `BackStyle` can be set at run time, so both orders in the table above behave as measured, and
   `BackStyle = 2` is 380 (measured, below).
-- **Refused, as not implemented:** setting a Label's `Appearance`, because VB6 resets `BackColor` with it (#796).
-  It is refused untrappably: a trappable error swallowed by `On Error Resume Next` would leave the old `BackColor`,
-  a wrong value. Reading it works.
+- Since #796, setting a Label's `Appearance` at run time resets `BackColor` to the measured default above
+  and redraws the border. `LabelColourTests` checks both transitions, read-back and painted pixels.
 
 ### Measured with it: defaults, BackStyle 2, and a system colour past the palette (2026-10-12, #802)
 

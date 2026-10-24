@@ -276,6 +276,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A Label's Appearance can be set at run time** (#796). It resets BackColor to the button face for 3D or the
+  window colour for Flat and redraws the border, as measured on vb6.exe. The assignment was refused.
+
 - **Data-bound controls refuse to run** (#859). F5 and made programs name the control and its DataSource before placing any controls, instead of showing its design-time value as though it were the current record.
 
 - **MousePointer reads back the value set** (#769), including the value loaded from a form. Reading it always returned 0 even when the displayed cursor had changed.
