@@ -138,6 +138,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // that push, so the paused statement has no temp frame open here to clobber).
                 stmtFrames.Push(new List<Vb6Value>());
                 try { await Visit(assign); }
+                catch (Exception ex) when (interpreter.MarkUnimplementedFault(ex)) { throw; }
                 finally { await interpreter.FlushFrame(stmtFrames.Pop()); }
                 return string.Empty;
             }
@@ -334,6 +335,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var target = new TextTarget();
         stmtFrames.Push(new List<Vb6Value>());
         try { await PrintList(list, target, _ => { }); }
+        catch (Exception ex) when (interpreter.MarkUnimplementedFault(ex)) { throw; }
         finally { await interpreter.FlushFrame(stmtFrames.Pop()); }
         var text = target.Text;
         return (text.EndsWith("\r\n", StringComparison.Ordinal) ? text[..^2] : text).Replace("\r\n", "\n");
@@ -444,6 +446,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 {
                     ret = await Visit(stmt);
                 }
+                catch (Exception ex) when (interpreter.MarkUnimplementedFault(ex)) { throw; }
                 finally
                 {
                     await interpreter.FlushFrame(stmtFrames.Pop());
@@ -4336,6 +4339,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     }
                     pc++;
                 }
+                catch (Exception ex) when (interpreter.MarkUnimplementedFault(ex)) { throw; }
                 finally
                 {
                     await interpreter.FlushFrame(stmtFrames.Pop());

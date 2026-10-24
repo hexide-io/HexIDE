@@ -224,6 +224,10 @@ because nothing inside an uncreatable control is read.
   uses a language feature the engine does not implement
 - **THEN** it stops just the same, neither skipping the statement nor entering the handler
 
+#### Scenario: Reference cleanup during an unimplemented fault
+- **WHEN** an unimplemented feature fails while statement temporaries or procedure-owned references exist
+- **THEN** cleanup skips Class_Terminate, preserving the original failure even if that hook would raise a trappable error
+
 #### Scenario: In a running IDE
 - **WHEN** a program running in the IDE reaches an unimplemented feature, in an event procedure or in Sub Main
 - **THEN** the run ends and the developer is shown that the engine does not implement what the program reached
