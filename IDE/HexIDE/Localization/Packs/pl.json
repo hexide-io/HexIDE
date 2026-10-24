@@ -702,6 +702,8 @@
     "Str.FindReplace.Msg.ScopeCurrentModule": "Bieżący moduł",
     "Str.FindReplace.Msg.ScopeAllOpenDocuments": "Wszystkie otwarte dokumenty",
     "Str.FindReplace.Msg.NotFound": "Nie znaleziono szukanego tekstu „{0}”.",
+    "Str.FindReplace.Msg.ProtectedOnly": "Szukany tekst „{0}” występuje tylko w nagłówku pliku lub wierszach Attribute procedury. Wyszukiwanie pomija te obszary, ponieważ zmienia je tylko IDE.",
+    "Str.FindReplace.Msg.ReplacementsWithSkipped": "Wykonano {0} zamian; pominięto {1} dopasowań w nagłówku lub wierszach Attribute procedur, które zmienia tylko IDE.",
     "Str.FindReplace.Msg.ReplacementsMade": "Liczba dokonanych zamian: {0}.",
     "Str.FindReplace.Msg.InvalidRegex": "Nieprawidłowy wzorzec wyrażenia regularnego.",
     "Str.FindReplace.Msg.NothingToSearch": "Nie ma tu czego przeszukiwać. Znajdź działa w oknach kodu i w plikach tekstowych dołączonych do projektu.",

@@ -702,6 +702,8 @@
     "Str.FindReplace.Msg.ScopeCurrentModule": "Поточний модуль",
     "Str.FindReplace.Msg.ScopeAllOpenDocuments": "Усі відкриті документи",
     "Str.FindReplace.Msg.NotFound": "Шуканий текст '{0}' не знайдено.",
+    "Str.FindReplace.Msg.ProtectedOnly": "Текст '{0}' трапляється лише в заголовку файлу або рядках Attribute процедури. Пошук пропускає ці області, оскільки їх змінює лише IDE.",
+    "Str.FindReplace.Msg.ReplacementsWithSkipped": "Виконано замін: {0}; пропущено збігів у заголовку або рядках Attribute процедур: {1}. Ці області змінює лише IDE.",
     "Str.FindReplace.Msg.ReplacementsMade": "Виконано замін: {0}.",
     "Str.FindReplace.Msg.InvalidRegex": "Недійсний шаблон регулярного виразу.",
     "Str.FindReplace.Msg.NothingToSearch": "Тут немає чого шукати. «Знайти» працює у вікнах коду та в текстових файлах, що входять до проєкту.",

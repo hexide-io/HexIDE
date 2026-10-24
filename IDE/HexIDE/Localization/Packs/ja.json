@@ -702,6 +702,8 @@
     "Str.FindReplace.Msg.ScopeCurrentModule": "現在のモジュール",
     "Str.FindReplace.Msg.ScopeAllOpenDocuments": "開いているすべてのドキュメント",
     "Str.FindReplace.Msg.NotFound": "検索文字列 '{0}' が見つかりませんでした。",
+    "Str.FindReplace.Msg.ProtectedOnly": "検索文字列 '{0}' はファイルのヘッダーまたはプロシージャの Attribute 行にのみ存在します。これらは IDE のみが変更するため、検索では除外されます。",
+    "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} 件を置換しました。IDE のみが変更するヘッダーまたはプロシージャの Attribute 行の {1} 件を除外しました。",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} 件置換しました。",
     "Str.FindReplace.Msg.InvalidRegex": "正規表現パターンが無効です。",
     "Str.FindReplace.Msg.NothingToSearch": "ここには検索できるものがありません。検索はコード ウィンドウと、プロジェクトに含まれるテキスト ファイルで使用できます。",

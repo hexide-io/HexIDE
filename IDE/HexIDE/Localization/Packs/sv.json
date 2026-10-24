@@ -702,6 +702,8 @@
     "Str.FindReplace.Msg.ScopeCurrentModule": "Aktuell modul",
     "Str.FindReplace.Msg.ScopeAllOpenDocuments": "Alla öppna dokument",
     "Str.FindReplace.Msg.NotFound": "Söktexten '{0}' hittades inte.",
+    "Str.FindReplace.Msg.ProtectedOnly": "Söktexten '{0}' finns bara i filhuvudet eller i en procedurs Attribute-rader. Sök hoppar över dessa områden eftersom bara IDE:n ändrar dem.",
+    "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} ersättningar gjorda; {1} träffar överhoppade i filhuvudet eller procedurernas Attribute-rader, som bara IDE:n ändrar.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} ersättning(ar) gjorda.",
     "Str.FindReplace.Msg.InvalidRegex": "Ogiltigt mönster för reguljärt uttryck.",
     "Str.FindReplace.Msg.NothingToSearch": "Det finns inget att söka i här. Sök fungerar i kodfönster och i textfiler som projektet innehåller.",

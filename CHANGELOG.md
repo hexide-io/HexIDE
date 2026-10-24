@@ -276,6 +276,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Find explains protected matches** (#705). When text occurs only in a file's header or procedure
+  `Attribute` lines, Find says why it skips them. Replace All reports skipped matches beside replacements.
+
 - **A form resized from code raises Resize inside the assignment** (#1570), before the next statement,
   including while hidden in Load. The first Show still raises its own Resize; layout does not repeat the assignment's event.
 

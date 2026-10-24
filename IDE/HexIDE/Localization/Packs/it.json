@@ -702,6 +702,8 @@
     "Str.FindReplace.Msg.ScopeCurrentModule": "Modulo corrente",
     "Str.FindReplace.Msg.ScopeAllOpenDocuments": "Tutti i documenti aperti",
     "Str.FindReplace.Msg.NotFound": "Il testo cercato '{0}' non è stato trovato.",
+    "Str.FindReplace.Msg.ProtectedOnly": "Il testo '{0}' compare solo nell’intestazione del file o nelle righe Attribute di una procedura. La ricerca ignora queste aree perché solo l’IDE le modifica.",
+    "Str.FindReplace.Msg.ReplacementsWithSkipped": "{0} sostituzioni effettuate; {1} corrispondenze ignorate nell’intestazione o nelle righe Attribute delle procedure, che solo l’IDE modifica.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} sostituzione/i effettuata/e.",
     "Str.FindReplace.Msg.InvalidRegex": "Espressione regolare non valida.",
     "Str.FindReplace.Msg.NothingToSearch": "Qui non c'è nulla da cercare. Trova funziona nelle finestre di codice e nei file di testo inclusi nel progetto.",
