@@ -249,6 +249,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP inspection reports a window's frame state** (#1595, part 1). `inspect_element` on a Window now reports
+  resizing, decorations, minimize/maximize buttons, taskbar visibility and window state from Avalonia, so a running
+  form's BorderStyle mapping can be checked. Native styles are explicitly unreported. Snapshot frame capture remains open.
+
 - **A For loop with a fractional start, limit or step runs** (#983). `For x = 0 To 1 Step 0.25` and its kind stopped
   the run whenever the counter could hold a fraction: a Variant, Single, Double, Currency or Date. Measured on vb6.exe
   first, in 80 cases: the step is added each time round in the counter's type, a Single sums in Double before it

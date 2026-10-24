@@ -188,7 +188,10 @@ public static class UiAutomationDriver
             range,
             ownerPath,
             note,
-            control is SelectingItemsControl items and not (MenuItem or MenuBase) ? Safe<int?>(() => items.ItemCount, null) : null);
+            control is SelectingItemsControl items and not (MenuItem or MenuBase) ? Safe<int?>(() => items.ItemCount, null) : null,
+            control is Window window ? new WindowFrameState(window.CanResize, window.WindowDecorations.ToString(),
+                window.CanMinimize, window.CanMaximize, window.ShowInTaskbar, window.WindowState.ToString(),
+                "Native window styles are not reported; frame fields are Avalonia properties, not a read of Win32 GWL_STYLE/GWL_EXSTYLE.") : null);
     }
 
     /// <summary>
@@ -4114,7 +4117,13 @@ public record UiNodeDetail(
     // How many items a list, dropdown or tab control holds, whether or not their containers exist, hidden ones too:
     // SelectionItems is only what is selected, so a list lacking an item read the same as one not choosing it (#1263).
     // Absent for anything else: a menu or the dock's lists count separators and splitters a dump does not show.
-    int? ItemCount = null);
+    int? ItemCount = null,
+    [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    WindowFrameState? Frame = null);
+
+/// <summary>The inspected Window's current Avalonia frame properties; native styles are explicitly unreported.</summary>
+public record WindowFrameState(bool CanResize, string WindowDecorations, bool CanMinimize, bool CanMaximize,
+    bool ShowInTaskbar, string WindowState, string NativeStyleNote);
 
 /// <summary>A range control's state: a scroll bar's or slider's position, its bounds, and whether it can be set.</summary>
 public record RangeState(double Value, double Minimum, double Maximum, bool IsReadOnly);
