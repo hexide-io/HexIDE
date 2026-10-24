@@ -255,6 +255,8 @@ there isn't one yet. Anything may change between 0.x releases.
   included, as the module loads. A variable beside an Enum or Type of its name, and a Property's Get beside its Let,
   still compile, as they do in vb6.exe.
 
+- **MCP `get_form_controls` reports absent properties as null** (#1635). A Line or Shape no longer claims to be enabled when its class has no Enabled property. The summary's `visible` and `enabled` now follow `caption` and `text`: null where the control's class has no such property.
+
 - **MCP replies distinguish dialogs sharing a title** (#1365). The modal note names a message box or run-time error dialog, its first line of text and its actual buttons; other dialogs include their buttons. The window parameter explains how to discover open windows through an unknown-name refusal.
 
 - **MCP replies name ignored arguments** (#1315). A misspelled optional parameter still lets the call run, but
