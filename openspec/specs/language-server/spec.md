@@ -48,6 +48,14 @@ intention.
 - **WHEN** a different language backend is placed behind the seam
 - **THEN** it serves the IDE without any change to the IDE, provided it honours the contract below
 
+### Requirement: Syntax diagnostics SHALL name whitespace-only offending tokens
+The server SHALL describe a whitespace-only offending token as `end of line` in mismatched-input,
+extraneous-input and no-viable-alternative diagnostics.
+
+#### Scenario: An expression is unfinished at the end of a line
+- **WHEN** a newline is the offending token in an unfinished expression
+- **THEN** the diagnostic names `end of line` rather than displaying empty quotes
+
 ### Requirement: The server SHALL publish an empty diagnostic set when a document closes
 On being notified that a document closed, the server SHALL publish diagnostics for that document with an
 empty set, rather than publishing nothing.

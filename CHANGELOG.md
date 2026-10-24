@@ -265,6 +265,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **End-of-line syntax errors name the token** (#665). Whitespace-only offending tokens now read
+  `end of line` instead of empty quotes in unexpected-input and syntax-error-near messages.
+
 - **Foreground-window tests close their windows** (#1319). Dialogs close before their owners, so later
   headless tests no longer inherit these tests' modal dialogs.
 
