@@ -268,6 +268,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Bundled-server completion labels are unique and carry declaration kinds** (#940). `Date` appears once as a function; declared names take precedence over keywords and built-ins, and procedures, properties, constants, enums, enum members and types no longer appear as variables.
+
 - **Corpus and grammar reports stay with their test run** (#1018). All four reports are written beside
   the test assembly, so separate checkouts and build output directories no longer overwrite each other's
   reports or contend for a shared temp file.
