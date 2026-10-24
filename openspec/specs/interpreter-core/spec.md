@@ -141,6 +141,10 @@ by value will run such a program to completion while producing the wrong answer.
 - **WHEN** a parameter is declared by value and the procedure assigns to it
 - **THEN** the caller's variable is unchanged
 
+#### Scenario: An unspaced parenthesised member-call argument
+- **WHEN** a member call statement puts its parenthesised argument directly after the member name
+- **THEN** it runs as the spaced form does, with the parenthesised expression passed by value
+
 ### Requirement: Name resolution SHALL let user code shadow built-in functions
 A name SHALL be resolved as a local variable or array first, then as a procedure defined in the project, and
 only then as a built-in function.

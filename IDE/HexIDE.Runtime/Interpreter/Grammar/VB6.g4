@@ -777,8 +777,9 @@ iCS_B_ProcedureCall
    : certainIdentifier (WS argsCall)?
    ;
 
+// Without WS, only a parenthesised argument is admitted; keep the parentheses as an expression (#1064).
 iCS_B_MemberProcedureCall
-   : implicitCallStmt_InStmt? DOT ambiguousIdentifier typeHint? (WS argsCall)? dictionaryCallStmt?
+   : implicitCallStmt_InStmt? DOT ambiguousIdentifier typeHint? ((WS | {TokenStream.LA(1) == LPAREN}?) argsCall)? dictionaryCallStmt?
    // Print's output list may be separators alone, `Debug.Print ,`, where any other call's arguments may not: `Foo ,` is
    // VB6's "Syntax error" (measured, #1409).
    | implicitCallStmt_InStmt? DOT PRINT WS? (COMMA | SEMICOLON) (WS? (COMMA | SEMICOLON))*

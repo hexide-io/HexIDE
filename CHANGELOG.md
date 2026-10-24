@@ -255,6 +255,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Member call statements accept a parenthesised argument without a space** (#1064). `Form2.Show(0)` and
+  `Text1.Move(100)` now run as their spaced forms do, and the language server accepts them too.
+
 - **Automation saves explain rewritten member Attribute qualifiers** (#1043). `set_file_content`,
   `set_control_property` and `add_control` now name the old and new qualifiers in their successful reply,
   explaining why a save can write text different from what the caller supplied.
