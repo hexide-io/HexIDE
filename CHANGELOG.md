@@ -255,6 +255,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Made programs keep non-ASCII source text across machines** (#731). Make packages its source copies as UTF-8
+  with a BOM; source files keep their own encoding. Standalone `--check` now reads project and form files with
+  the IDE's source decoder.
+
 - **A raised For Each collection under Resume Next uses more declarations** (#969). Parenthesised calls, array
   elements, direct class methods and Property Gets, and module-qualified Functions now run the body once and raise
   92 at Next, preserving the element only for a declared array. Unavailable declarations still stop with an explanation.

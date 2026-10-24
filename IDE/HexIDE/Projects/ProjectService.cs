@@ -1220,6 +1220,8 @@ public class ProjectService : IProjectService
 
             SerializeOnlyProjectToFile(projectDefinition, Path.Join(tempPath, Path.ChangeExtension(exeFileName, "vbp")));
 
+            EncodePackageSources(projectDefinition);
+
             // This is not a .dll file, but it will look better :wink: :wink:
             ZipFile.CreateFromDirectory(tempPath, Path.ChangeExtension(exePath, "dll")!);
         }
@@ -1243,6 +1245,22 @@ public class ProjectService : IProjectService
             if (fileName.StartsWith("HexIDE.Standalone"))
                 fileName = Path.GetFileName(exePath);
             standaloneFile.CopyTo(Path.Join(exeDir, fileName), true);
+        }
+    }
+
+    // Only the disposable copies: a made program must read the same text on any host code page (#731).
+    internal static void EncodePackageSources(ProjectDefinition project)
+    {
+        foreach (var form in project.Forms)
+            Convert(form.AbsolutePath!, form.TextEncoding);
+        foreach (var module in project.Modules)
+            Convert(module.AbsolutePath!, module.TextEncoding);
+        Convert(project.AbsolutePath!, project.TextEncoding);
+
+        static void Convert(string path, Vb6TextEncoding encoding)
+        {
+            var text = Vb6TextFile.Decode(File.ReadAllBytes(path), encoding);
+            File.WriteAllBytes(path, Vb6TextFile.Encode(text, Vb6TextEncoding.Utf8WithBom));
         }
     }
 
