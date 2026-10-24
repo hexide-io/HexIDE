@@ -249,6 +249,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Foreground-window tests close their windows** (#1319). Dialogs close before their owners, so later
+  headless tests no longer inherit these tests' modal dialogs.
+
 - **MCP guarded-edit refusals name the region** (#1042): the file's header or the Attribute lines describing a named member. Backward deletion explains how to remove a declaration with its Attribute lines instead of sending the caller back to the same caret offset; insertions still give a new editable offset.
 
 - **A Double rounds to Currency from its exact binary value** (#966). Storing `1.00005`, calling
