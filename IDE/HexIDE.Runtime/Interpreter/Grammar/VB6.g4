@@ -320,7 +320,7 @@ dateStmt
 // Measured, not reasoned: vb6.exe accepts both the continuation and the wholly unseparated `Lib"kernel32"`.
 // See the note on selectCaseStmt for why this pair needed measuring where the keyword pairs did not.
 declareStmt
-   : (visibility WS)? DECLARE WS (FUNCTION typeHint? | SUB) WS ambiguousIdentifier typeHint? WS LIB WS? STRINGLITERAL (WS ALIAS WS? STRINGLITERAL)? (WS? argList)? (WS asTypeClause)?
+   : (visibility WS)? DECLARE WS (PTRSAFE WS)? (FUNCTION typeHint? | SUB) WS ambiguousIdentifier typeHint? WS LIB WS? STRINGLITERAL (WS ALIAS WS? STRINGLITERAL)? (WS? argList)? (WS asTypeClause)?
    ;
 
 deftypeStmt
@@ -721,7 +721,7 @@ valueStmt
    ;
 
 variableStmt
-   : (DIM | STATIC | visibility) WS (WITHEVENTS WS)? variableListStmt
+   : (DIM | STATIC | visibility) WS variableListStmt
    ;
 
 variableListStmt
@@ -729,7 +729,7 @@ variableListStmt
    ;
 
 variableSubStmt
-   : ambiguousIdentifier typeHint? (WS? LPAREN WS? (subscripts WS?)? RPAREN WS?)? (WS asTypeClause)?
+   : (WITHEVENTS WS)? ambiguousIdentifier typeHint? (WS? LPAREN WS? (subscripts WS?)? RPAREN WS?)? (WS asTypeClause)?
    ;
 
 whileWendStmt
@@ -882,6 +882,7 @@ baseType
 certainIdentifier
    : IDENTIFIER (ambiguousKeyword | IDENTIFIER)*
    | ambiguousKeyword (ambiguousKeyword | IDENTIFIER) +
+   | PTRSAFE
    ;
 
 comparisonOperator
@@ -1035,6 +1036,7 @@ ambiguousKeyword
    | CONST
    | DATE
    | DECLARE
+   | PTRSAFE
    | DEFBOOL
    | DEFBYTE
    | DEFCUR
@@ -1334,6 +1336,10 @@ DATE
 
 DECLARE
    : D E C L A R E
+   ;
+
+PTRSAFE
+   : P T R S A F E
    ;
 
 

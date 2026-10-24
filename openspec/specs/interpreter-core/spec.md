@@ -102,6 +102,11 @@ checks first. This does not extend to reproducing VB6's *defects*, which is a se
 - **WHEN** a hexadecimal literal fills the width of an integer
 - **THEN** it is interpreted as a two's-complement bit pattern rather than a large positive number
 
+#### Scenario: A For body changes its integral numeric counter
+- **WHEN** a Long or Variant counter in `For i = 1 To 10` is incremented by the body
+- **THEN** Next reads the variable back and adds the step, giving passes 1, 3, 5, 7, 9 and leaving 11
+- **AND** resetting the counter to 0 at 3 in `For i = 1 To 3` repeats 1, 2, 3 until execution exits
+
 ### Requirement: The value model SHALL implement VB6's scalar types with their real ranges
 The runtime SHALL provide VB6's distinct numeric types with their documented ranges and a working date type,
 SHALL type literals as VB6 types them, and SHALL raise a trappable overflow when a result or a store falls
@@ -157,6 +162,10 @@ program that compiles and runs.
 - **WHEN** a project defines a procedure whose name matches a built-in function
 - **THEN** calls resolve to the project's procedure
 
+#### Scenario: A private sibling Sub named Reset
+- **WHEN** `Class_Initialize` makes a bare `Reset` call and its class defines a private Sub named `Reset`
+- **THEN** the interpreter SHALL call that Sub on the current instance
+
 ### Requirement: Runtime errors SHALL be trappable and SHALL carry VB6's error numbers
 Runtime failures SHALL be raised as trappable VB6 errors carrying the standard error number and description,
 and the engine SHALL support VB6's error-handling statements, including continuing at the next statement,
@@ -177,6 +186,11 @@ program that never fails.
 #### Scenario: An arithmetic failure
 - **WHEN** an arithmetic operation overflows or divides by zero
 - **THEN** it raises a trappable error with VB6's number for that condition
+
+#### Scenario: Diagnostic type names
+- **WHEN** an interpreter diagnostic formats a value's type
+- **THEN** it SHALL print the inner type name and array suffixes without an internal `Left` or `Right` wrapper
+- **AND** missing-member diagnostics SHALL omit the receiver type, retaining the member and, for assignment, variable name
 
 ### Requirement: Unimplemented language surface SHALL fail clearly
 Where the engine does not implement part of the language, it SHALL fail in a way that identifies what is
