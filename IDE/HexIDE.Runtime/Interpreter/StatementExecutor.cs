@@ -2151,7 +2151,29 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (variable.Value is not VbObject vobj)
                     throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
                 if (MemberHasArgs(members[0]))
+                {
+                    var indexedName = UdtFieldName(members[0]);
+                    if (string.Equals(variable.DeclaredAs, vobj.ClassName, StringComparison.OrdinalIgnoreCase)
+                        && members[0].iCS_S_ProcedureOrArrayCall() is { } indexed && indexed.argsCall().Length == 1
+                        && await interpreter.ReadVariable(vobj.InstanceEnv, indexedName) is (true, var field)
+                        && expressionExecutor.IsVariantArrayField(vobj, indexedName, field))
+                    {
+                        var indices = await expressionExecutor.EvaluateCallArgs(indexed.argsCall(0));
+                        // VB6 writes into a copy of the field's array, leaving the field unchanged (#1435).
+                        // Only an in-bounds store is measured; keep other stores refused.
+                        if (field.Value is VBArray array && indices.Count == array.Rank)
+                        {
+                            try
+                            {
+                                array.GetValue(Subscripts(indices));
+                                return default;
+                            }
+                            catch (IndexOutOfRangeException) { }
+                            catch (VBRunTimeException) { }
+                        }
+                    }
                     throw new NotImplementedException("Parameterized/indexed object member assignment is not supported");
+                }
                 var fieldName = VbInterface.ResolveMember(variable, vobj, UdtFieldName(members[0]))
                     ?? throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound,
                         UdtFieldName(members[0]));
@@ -3611,8 +3633,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     // `Dim o As Object`, `Dim c As Collection`: an object slot, Nothing until Set (#822 review). A Collection's
                     // records its type, so it refuses a class instance (13, measured, #1471).
                     value = Vb6Value.Nothing;
-                    if (objectType.COLLECTION() != null)
-                        declaredClass = "Collection";
+                    declaredClass = objectType.COLLECTION() != null ? "Collection" : isArray ? null : "Object";
                 }
                 else
                 {

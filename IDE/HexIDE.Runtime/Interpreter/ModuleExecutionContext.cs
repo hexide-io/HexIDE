@@ -116,9 +116,9 @@ public class ModuleExecutionContext
                 : state.IsVariant(loc) ? value.AsVariant()
                 : state.IsConstant(loc) || state.IsReadOnly(loc) ? value.AsFixedType()
                 : value.AsVariantSubtype();
-            // And the NAME the slot was declared with, for a class-typed slot — set and cleared by the same
+            // And the NAME the slot was declared with, for a class-typed or Object slot — set and cleared by the same
             // rule and for the same reason. This is what an `As IFoo` read carries into member dispatch.
-            value = value.ViewedAs(state.DeclaredClassOf(loc));
+            value = value.ViewedAs(state.DeclaredViewOf(loc));
             return true;
         }
         value = default;

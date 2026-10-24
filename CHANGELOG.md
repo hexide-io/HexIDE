@@ -255,6 +255,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **An index on a class's Variant field runs** (#1435). `k.V(1)` reads the array element through a variable declared as
+  the class, with error 9 past its bounds; through `As Object` the read raises 451. An in-bounds assignment leaves the
+  field unchanged without error, as measured on VB6. These operations were refused as not implemented.
+
 - **A bare `Reset` calls the module's own Sub named `Reset`** (#851), including a private sibling called from
   `Class_Initialize`, as measured on vb6.exe. It previously stopped with "Reset not implemented".
 

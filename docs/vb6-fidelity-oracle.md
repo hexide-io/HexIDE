@@ -13515,8 +13515,7 @@ Variant`. Made native and p-code, and run in the guest's session 0. The two logs
 - **340's message names the index** it was given, read, written or unloaded. "Control arrays" above recorded the number
   alone.
 - **A class's Variant field holding an array is indexed only early-bound.** Through an Object, the index goes to the
-  property itself, which takes none: 451. Assigning an element writes into a copy, and nothing says so. HexIDE can't tell
-  the two bindings apart, so it refuses the index (#1435) rather than give one answer for both.
+  property itself, which takes none: 451. Assigning an element writes into a copy, and nothing says so.
 
 ### A `?` line in the VB6 IDE's Immediate window
 
@@ -13562,7 +13561,9 @@ MDI area gave the IDE the keyboard.
 - **A `?` line prints as Print does,** single items and lists. A bare expression, with no `?`, still answers the value
   alone, as it did. That's HexIDE's own, since VB6's Immediate window has no bare expression.
 - **A `?` line ending in `;` prints its items,** and the next line still starts a line of its own (debugger divergence D28).
-- **`k.V(1)` is refused as not implemented** (#1435). It used to read the whole array.
+- **`k.V(1)` reads the element through its declared class** (#1435), with 9 past the bounds; through `As Object` it
+  raises 451. An in-bounds indexed assignment leaves the field unchanged without error. Other bindings, other fields
+  and out-of-bounds writes remain refused: these probes did not measure them. It used to read the whole array.
 
 ## Another module's Enum members, bare (2026-10-22, #889)
 
