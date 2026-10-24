@@ -265,6 +265,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The Toolbox starts on the left and remembers being reopened** (#895). Removed a dependency cycle
+  that could hand the dock factory a null tool; real composition tests and constructor guards catch it.
+
 - **Unavailable tests report a skip** (#693). Windows-only path and file-lock checks, empty serialization
   corpus selections, and the opt-in VB6 build oracle no longer report an unearned pass. The documented
   oracle commands now use the MTP method filter.

@@ -86,7 +86,7 @@ public class MainViewViewModelTests
             immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
             languageServers,
             protocolInspector,
-            windowStateService);
+            windowStateService, new DockFactoryReference());
 
         return new MainViewViewModel(
             _windowManager,

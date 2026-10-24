@@ -76,7 +76,7 @@
 | Properties Window | F4 | Done | |
 | Form Layout Window | — | Done | Monitor illustration with correct aspect ratio and live form thumbnail (StartUpPosition, Left, Top, Width, Height) |
 | Property Pages | — | Windows-only | `IPropertyPage`/`IPropertyPageSite` COM runtime display; Windows-only |
-| Toolbox | — | Done | |
+| Toolbox | — | Done | Default and Reset place it on the left; reopening retains its home and is captured for restart (#895) |
 | Color Palette | — | Done | |
 | Toolbars > Standard | — | Done | Toggle persisted; right-click context menu on toolbar band |
 | Toolbars > Edit | — | Done | 12 buttons: IntelliSense, indent/outdent, breakpoint, bookmarks |
