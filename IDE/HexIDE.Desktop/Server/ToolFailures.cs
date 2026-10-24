@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -94,11 +95,13 @@ internal static class ToolFailures
         async (request, ct) =>
         {
             var tool = request.Params?.Name ?? "(unnamed)";
-            if (ArgumentCheck.Problems(request.Params?.Arguments, SchemaOf(request)) is { Count: > 0 } problems)
+            var (problems, ignored) = ArgumentCheck.Check(request.Params?.Arguments, SchemaOf(request), tool);
+            if (problems.Count > 0)
                 return Refused(tool, problems);
             try
             {
-                return await next(request, ct);
+                var result = await next(request, ct);
+                return ignored.Count == 0 ? result : WithIgnored(result, ignored);
             }
             catch (Exception ex) when (ex is not McpException
                                        && !(ex is OperationCanceledException && ct.IsCancellationRequested))
@@ -107,7 +110,7 @@ internal static class ToolFailures
                     ? single.InnerExceptions[0]
                     : ex;
                 if (IsArgumentBinding(reported))
-                    return Refused(tool, BindingProblems(reported, request.Params?.Arguments));
+                    return Refused(tool, BindingProblems(reported, request.Params?.Arguments, tool));
 
                 Log.Error(ex, "MCP tool {Tool} failed with an unhandled {ExceptionType}", tool, reported.GetType().Name);
                 return new CallToolResult
@@ -145,23 +148,58 @@ internal static class ToolFailures
         + "Its input schema names each parameter and its type.";
 
     /// <summary>The problem a binding failure names, which never leaves the refusal saying nothing.</summary>
-    internal static List<string> BindingProblems(Exception ex, IDictionary<string, System.Text.Json.JsonElement>? arguments)
+    internal static List<string> BindingProblems(Exception ex, IDictionary<string, JsonElement>? arguments,
+        string tool)
     {
         if (ex is ArgumentException argument)
             return [argument.Message.Replace(" (Parameter 'arguments')", "", StringComparison.Ordinal)];
 
-        // The serializer's message names neither the parameter nor anything useful past its type ("Path: $ |
-        // LineNumber: 0"). Every integer parameter is an int, so one out of its range is the likely cause.
-        var tooBig = (arguments ?? new Dictionary<string, System.Text.Json.JsonElement>())
-            .Where(a => a.Value.ValueKind == System.Text.Json.JsonValueKind.Number
-                        && a.Value.TryGetInt64(out var n) && n is > int.MaxValue or < int.MinValue)
-            .Select(a => $"'{a.Key}' is {a.Value.GetRawText()}, outside the range of a 32-bit integer")
-            .ToList();
-        if (tooBig.Count > 0)
-            return tooBig;
-        var message = ex.Message;
-        var cut = message.IndexOf(" Path: ", StringComparison.Ordinal);
-        return [WithoutProfile(cut > 0 ? message[..cut] : message)];
+        // The schema calls both int and long "integer". Reproduce the SDK's binding against the actual
+        // method parameter, including numeric strings and array items, rather than guessing from JSON values.
+        var problems = new List<string>();
+        if (ParameterTypes.TryGetValue(tool, out var parameters) && arguments is not null)
+            foreach (var (name, value) in arguments)
+                if (parameters.TryGetValue(name, out var type))
+                    try { _ = value.Deserialize(type, ReplyJson.Options); }
+                    catch (JsonException binding)
+                    {
+                        problems.Add($"'{name}': {WithoutProfile(binding.Message)}");
+                    }
+        return problems.Count > 0 ? problems : [WithoutProfile(ex.Message)];
+    }
+
+    // Tools are declared in this assembly (the test host links this file beside its own attributed tools).
+    private static readonly Dictionary<string, Dictionary<string, Type>> ParameterTypes = typeof(ToolFailures).Assembly
+        .GetTypes().Where(t => t.GetCustomAttribute<McpServerToolTypeAttribute>() is not null)
+        .SelectMany(t => t.GetMethods())
+        .Where(m => m.GetCustomAttribute<McpServerToolAttribute>()?.Name is not null)
+        .GroupBy(m => m.GetCustomAttribute<McpServerToolAttribute>()!.Name!)
+        .ToDictionary(g => g.Key, g => g.SelectMany(m => m.GetParameters()).Where(p => p.Name is not null)
+            .GroupBy(p => p.Name!).Where(p => p.Select(x => x.ParameterType).Distinct().Count() == 1)
+            .ToDictionary(p => p.Key, p => p.First().ParameterType));
+
+    private static CallToolResult WithIgnored(CallToolResult result, List<string> ignored)
+    {
+        var content = result.Content.ToList();
+        var index = content.FindIndex(c => c is TextContentBlock);
+        JsonObject? reply = null;
+        if (index >= 0)
+            try { reply = JsonNode.Parse(((TextContentBlock)content[index]).Text) as JsonObject; }
+            catch (JsonException) { }
+        if (reply is not null)
+        {
+            reply["ignoredArguments"] = JsonSerializer.SerializeToNode(ignored, ReplyJson.Options);
+            content[index] = new TextContentBlock { Text = reply.ToJsonString(ReplyJson.Options) };
+        }
+        else
+            content.Add(new TextContentBlock { Text = string.Join("; ", ignored) });
+        return new CallToolResult
+        {
+            Content = content,
+            IsError = result.IsError,
+            StructuredContent = result.StructuredContent,
+            Meta = result.Meta,
+        };
     }
 
     private static System.Text.Json.JsonElement? SchemaOf(RequestContext<CallToolRequestParams> request) =>
