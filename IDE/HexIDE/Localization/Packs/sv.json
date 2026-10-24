@@ -786,6 +786,15 @@
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' är redan namnet på ett formulär, en modul eller en klass i det här projektet. I VB6 delar de ett och samma namnområde, så två av dem kan inte ha samma namn.",
     "Str.Naming.Msg.ProjectNameTaken": "Ett projekt med namnet '{0}' är redan inläst. Två projekt i samma projektgrupp kan inte ha samma namn.",
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' lades inte till. Den heter '{0}', vilket redan är namnet på ett formulär, en modul eller en klass i det här projektet.",
-    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' lades inte till. Den heter '{0}', vilket inte är ett giltigt namn: ett namn börjar med en bokstav och fortsätter med bokstäver, siffror och understreck."
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' lades inte till. Den heter '{0}', vilket inte är ett giltigt namn: ett namn börjar med en bokstav och fortsätter med bokstäver, siffror och understreck.",
+    "Str.ProjectLoad.ParseFailed": "Kunde inte tolka formulärfilen: {0}",
+    "Str.ProjectLoad.InvalidForm": "Detta är inte en giltig formulärfil",
+    "Str.ProjectLoad.UnknownControl": "Klassen {0} för kontrollen {1} är inte en kontrollklass som stöds — bevaras som okänd.",
+    "Str.ProjectLoad.InvalidValue": "Egenskapen {0} i {1} hade ett ogiltigt värde.",
+    "Str.ProjectLoad.MissingOffset": "Egenskapen {0} i {1}: positionen i .frx hittades inte.",
+    "Str.ProjectLoad.MissingRecord": "Egenskapen '{0}' i '{1}' hänvisar till en post som saknas i den tillhörande filen, så formuläret kan inte sparas.",
+    "Str.ProjectLoad.Heading": "Kunde inte deserialisera projektet korrekt:",
+    "Str.ProjectLoad.MoreWarnings": "...och ytterligare {0} varningar (se loggen för hela listan).",
+    "Str.ProjectLoad.ActiveXDocuments": "Det här projektet innehåller ActiveX-dokumentfiler (.dob) som inte stöds i HexIDE och har hoppats över:\n\n{0}\n\nActiveX-dokument krävde Internet Explorer eller Office-samlingsmappar som värd, och båda är i praktiken avvecklade. Den här projekttypen ligger utanför HexIDEs omfattning."
   }
 }

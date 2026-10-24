@@ -786,6 +786,15 @@
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' è già il nome di un form, di un modulo o di una classe in questo progetto. VB6 li raccoglie in un unico spazio dei nomi, quindi due non possono avere lo stesso nome.",
     "Str.Naming.Msg.ProjectNameTaken": "Un progetto di nome '{0}' è già caricato. Due progetti nello stesso gruppo non possono avere lo stesso nome.",
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' non è stato aggiunto. Si chiama '{0}', che è già il nome di un form, di un modulo o di una classe in questo progetto.",
-    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' non è stato aggiunto. Si chiama '{0}', che non è un nome valido: un nome inizia con una lettera e prosegue con lettere, cifre e caratteri di sottolineatura."
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' non è stato aggiunto. Si chiama '{0}', che non è un nome valido: un nome inizia con una lettera e prosegue con lettere, cifre e caratteri di sottolineatura.",
+    "Str.ProjectLoad.ParseFailed": "Impossibile analizzare il file del form: {0}",
+    "Str.ProjectLoad.InvalidForm": "Questo non è un file di form valido",
+    "Str.ProjectLoad.UnknownControl": "La classe {0} del controllo {1} non è una classe di controllo supportata — conservata come sconosciuta.",
+    "Str.ProjectLoad.InvalidValue": "La proprietà {0} in {1} aveva un valore non valido.",
+    "Str.ProjectLoad.MissingOffset": "Proprietà {0} in {1}: offset .frx non trovato.",
+    "Str.ProjectLoad.MissingRecord": "La proprietà '{0}' in '{1}' fa riferimento a un record assente nel file associato, quindi il form non può essere salvato.",
+    "Str.ProjectLoad.Heading": "Impossibile deserializzare correttamente il progetto:",
+    "Str.ProjectLoad.MoreWarnings": "...e altri {0} avvisi (vedere il registro per l’elenco completo).",
+    "Str.ProjectLoad.ActiveXDocuments": "Questo progetto contiene file ActiveX Document (.dob) non supportati da HexIDE, che sono stati ignorati:\n\n{0}\n\nGli ActiveX Document richiedevano Internet Explorer o i raccoglitori di Office come host, entrambi ormai sostanzialmente in disuso. Questo tipo di progetto non rientra nell’ambito di HexIDE."
   }
 }

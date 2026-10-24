@@ -257,6 +257,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Project-load warnings follow the IDE language** (#698), including form diagnostics, the warning heading and
+  overflow count, and skipped ActiveX Documents. Runtime hosts without localization retain English diagnostics.
+
 - **An index on a class's Variant field runs** (#1435). `k.V(1)` reads the array element through a variable declared as
   the class, with error 9 past its bounds; through `As Object` the read raises 451. An in-bounds assignment leaves the
   field unchanged without error, as measured on VB6. These operations were refused as not implemented.

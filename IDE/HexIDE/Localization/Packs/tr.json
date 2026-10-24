@@ -786,6 +786,15 @@
     "Str.Naming.Msg.DocumentNameTaken": "'{0}' zaten bu projedeki bir formun, modülün veya sınıfın adı. VB6 bunları tek bir ad alanında tutar, bu yüzden ikisi aynı adı paylaşamaz.",
     "Str.Naming.Msg.ProjectNameTaken": "'{0}' adlı bir proje zaten yüklü. Bir proje grubundaki iki proje aynı adı paylaşamaz.",
     "Str.Naming.Msg.AdoptedNameTaken": "'{1}' eklenmedi. Adı '{0}'; bu ise zaten bu projedeki bir formun, modülün veya sınıfın adı.",
-    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' eklenmedi. Adı '{0}'; bu ise geçerli bir ad değil: ad bir harfle başlar, ardından harf, rakam ve alt çizgiyle devam eder."
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' eklenmedi. Adı '{0}'; bu ise geçerli bir ad değil: ad bir harfle başlar, ardından harf, rakam ve alt çizgiyle devam eder.",
+    "Str.ProjectLoad.ParseFailed": "Form dosyası ayrıştırılamadı: {0}",
+    "Str.ProjectLoad.InvalidForm": "Bu, geçerli bir form dosyası değil",
+    "Str.ProjectLoad.UnknownControl": "{1} denetiminin {0} sınıfı desteklenen bir denetim sınıfı değil — bilinmeyen olarak korundu.",
+    "Str.ProjectLoad.InvalidValue": "{1} içindeki {0} özelliğinin değeri geçersizdi.",
+    "Str.ProjectLoad.MissingOffset": "{1} içindeki {0} özelliği: .frx uzaklığı bulunamadı.",
+    "Str.ProjectLoad.MissingRecord": "'{1}' içindeki '{0}' özelliği, eşlik eden dosyada bulunmayan bir kayda başvurduğundan form kaydedilemiyor.",
+    "Str.ProjectLoad.Heading": "Projenin seri durumdan çıkarılması düzgün şekilde tamamlanamadı:",
+    "Str.ProjectLoad.MoreWarnings": "...ve {0} uyarı daha (tam liste için günlüğe bakın).",
+    "Str.ProjectLoad.ActiveXDocuments": "Bu proje, HexIDE tarafından desteklenmeyen ve atlanan ActiveX Belgesi dosyaları (.dob) içeriyor:\n\n{0}\n\nActiveX Belgeleri, barındırıcı olarak Internet Explorer veya Office Ciltçisi gerektiriyordu; her ikisi de artık fiilen kullanım dışıdır. Bu proje türü HexIDE kapsamı dışındadır."
   }
 }
