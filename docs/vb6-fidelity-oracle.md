@@ -9663,8 +9663,9 @@ None raised; Err.Number was unchanged after each.
 | `Left(k, 1)` | 438 |
 | `Left(w, 1)` | "4" |
 
-So VB6 converts a typed value argument before it reads an object in a Variant or String slot. HexIDE reads every
-object first, so each of the first rows is 438, or the refusal naming #174 for `w` (#959).
+So VB6 converts a typed value argument before it reads an object in a Variant or String slot. HexIDE now checks
+the measured numeric value slots before reading the class object (#959); those rows previously raised 438 or
+refused `w` under #174. A valid `Left(w, 1)` still requires default-member execution (#174).
 
 **HexIDE, after round seven.**
 - Filter converts every element first, and checks the compare only when it compares: an empty search returns the
@@ -9673,7 +9674,8 @@ object first, so each of the first rows is 438, or the refusal naming #174 for `
   object first: `Filter(d1, k, "x")` is 13, where it was 438.
 - A Nothing compare is 91, where it read as 0, a binary compare.
 - Err as the compare or the switch is its Number, where it reached the conversion as an object.
-- The other built-ins still read every object first (#959).
+- #959 checks the numeric value slots in the five calls above before reading the class object. Other object/value
+  combinations retain their existing order pending measurements.
 
 **A default member on a typed variable, round five.** With `w` declared `As Widget`, whose default member is a
 Function returning 42, both modes: `Not w` is -43, a Long, and `CDate(w)` is 10/02/1900 (an en-GB guest). Through a

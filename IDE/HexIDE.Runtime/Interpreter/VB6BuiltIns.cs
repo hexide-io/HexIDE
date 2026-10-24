@@ -64,6 +64,7 @@ public partial class VB6BuiltIns
         if (!isAsync && !Builtins.TryGetValue(name, out fn))
             return null;
 
+        CheckValueBeforeObject(name, args);
         for (var i = 0; i < args.Count; i++)
             args[i] = ArgumentAsUsed(name, i, args[i]);
 
@@ -73,6 +74,26 @@ public partial class VB6BuiltIns
         if (string.Equals(name, "inputbox", StringComparison.OrdinalIgnoreCase))
             return await InputBox(args);
         return fn!(this, args, null);
+    }
+
+    // Measured (#959, p41): these typed value arguments convert before a class in the text slot is read.
+    // Keep the existing order for object numeric arguments and other combinations, which were not measured.
+    private static void CheckValueBeforeObject(string name, IReadOnlyList<Vb6Value> args)
+    {
+        var (text, number) = name.ToUpperInvariant() switch
+        {
+            "LEFT" or "MID" => (0, 1),
+            "REPLACE" => (0, 3),
+            "SPLIT" => (0, 2),
+            "INSTR" => (1, 3),
+            _ => (-1, -1)
+        };
+        if (number >= 0 && Supplied(args, number) && args[text].Value is VbObject
+            && args[number].Type == Vb6Value.ValueType.String)
+            _ = AsInt(args[number]);
+        if (string.Equals(name, "Left", StringComparison.OrdinalIgnoreCase)
+            && args[0].Value is VbObject && args[1].IsNull)
+            throw InvalidUseOfNull();
     }
 
     /// <summary>
