@@ -95,7 +95,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             await events.DoEvents();
             return new Vb6Value(0);
         }
-        return await events.WhileSuspended(BuiltIns.EvaluateBuiltInFunction(name, args, compareText));
+        return await events.WhileWaitingOnWindow(BuiltIns.EvaluateBuiltInFunction(name, args, compareText));
     }
 
     internal async Task<Vb6Value?> CallProxy(ICSharpProxy proxy, string name, List<Vb6Value> args)

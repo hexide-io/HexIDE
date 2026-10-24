@@ -261,6 +261,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Running-form replies wait for loops resumed after a dialog, even after an earlier DoEvents** (#1318). A watch
+  taken during a busy loop also stops attributing an unrelated dialog left open earlier to the action.
+
 - **A server cancelling an outdated language request no longer warns that the feature is broken** (#723).
   ContentModified and RequestCancelled replies are logged at debug, leaving the method's warning available
   for a later genuine failure.

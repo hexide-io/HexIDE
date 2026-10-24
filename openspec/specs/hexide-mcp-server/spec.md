@@ -355,3 +355,21 @@ replies SHALL use the meaningful label when available.
 - **THEN** its node and inspection report `name: "ToolsMenuItem"` and `label: "Tools"`
 - **AND** its emitted path ends in `MenuItem[ToolsMenuItem]`, while `MenuItem[Tools]` also resolves
 - **AND** expanding it names `Tools` in the reply
+
+### Requirement: Attribute window waits when settling running-form actions
+
+An automation reply for a running form SHALL distinguish a handler waiting on a window from one suspended at a
+time slice, breakpoint or asynchronous control call. Starting a window wait SHALL clear that handler's earlier
+DoEvents loop mark, so a loop resumed by answering the window is waited for as work the action sets going.
+A window already open before the action SHALL be considered by the program wait only when the program was
+waiting on a window before the action.
+
+#### Scenario: Answer a window after an earlier DoEvents
+- **WHEN** a handler calls DoEvents, waits at a MsgBox or modal form, then runs a finite DoEvents loop
+- **AND** an automation action answers or closes that window
+- **THEN** the reply waits for the loop to finish, up to the usual program wait limit
+
+#### Scenario: An unrelated old dialog during a busy loop
+- **WHEN** a watch finds the program between two DoEvents, with an unrelated dialog already open
+- **AND** the action queues a handler that opens no window
+- **THEN** the old dialog does not end the program wait or get named as holding the handler

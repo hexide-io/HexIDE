@@ -85,6 +85,7 @@ public sealed class EventPump
     private int topLevel;
     // Walks held by a suspension WhileSuspended brackets: a time slice, a breakpoint, an awaited built-in (#1232).
     private int held;
+    private int waitingOnWindow;
     // Walks parked at DoEvents. The program counts as waiting for input there, but a reply waits for a walk its action
     // started all the same, as for one with no DoEvents (#1254).
     private readonly HashSet<Walk> atDoEvents = [];
@@ -117,6 +118,9 @@ public sealed class EventPump
     public bool IsIdle => closed
         || Current is null && queue.Count == 0 && held == 0 && (topLevel > 0 || whenIdle.Count == 0);
 
+    /// <summary>Whether a walk is waiting for a window to be answered or closed, rather than a slice or control call.</summary>
+    public bool IsWaitingOnWindow => !closed && waitingOnWindow > 0;
+
     /// <summary>
     /// The walks parked at <c>DoEvents</c> now, other than a Timer's, as tokens to compare with <see cref="Loops"/>: a reply
     /// records the loops before its action, and counts the program idle only while every walk parked here was one of them
@@ -129,7 +133,7 @@ public sealed class EventPump
     /// <summary>
     /// The walks not finished that have parked at <c>DoEvents</c>, as tokens: loops. A loop caught between two DoEvents is one,
     /// where recording only the walks parked then read it as started by the action. A walk waiting at a MsgBox, or under a
-    /// modal form, that has not looped is not one, so a loop it starts once the action answers the box is the action's work
+    /// modal form, has its earlier loop mark cleared, so a loop it starts once the action answers the box is the action's work
     /// (#1254 review).
     /// </summary>
     public IReadOnlyCollection<object> Loops => [.. live.Where(w => w.Looped)];
@@ -271,6 +275,27 @@ public sealed class EventPump
     public Task<T> WhileSuspended<T>(Task<T> pending) =>
         pending.IsCompleted ? pending : HeldFor(Current, pending);
 
+    /// <summary>
+    /// An awaited window, such as MsgBox or the runtime-error halt. A loop after its answer belongs to the action that
+    /// answered it, even if this walk called DoEvents before opening the window (#1318).
+    /// </summary>
+    public async Task<T> WhileWaitingOnWindow<T>(Task<T> pending)
+    {
+        if (pending.IsCompleted)
+            return await pending;
+        if (Current is { } walk)
+            walk.Looped = false;
+        waitingOnWindow++;
+        try
+        {
+            return await HeldFor(Current, pending);
+        }
+        finally
+        {
+            waitingOnWindow--;
+        }
+    }
+
     // A suspension the walk did not choose as a place to wait for input: what IsIdle counts as the program still busy.
     private async Task Held(Walk? walk, Task pending)
     {
@@ -337,28 +362,38 @@ public sealed class EventPump
     public async Task WhileModal(Func<bool> shown)
     {
         var walk = Current;
-        while (!closed && shown())
+        if (walk is not null)
+            walk.Looped = false;
+        waitingOnWindow++;
+        try
         {
-            if (Dequeue() is { } next)
+            while (!closed && shown())
             {
-                var started = Start(next.Name, next.Work, next.Coalescing == EventCoalescing.Timer);
-                if (!started.IsCompleted)
-                    await Suspended(walk, started);
-                await started;
-                continue;
+                if (Dequeue() is { } next)
+                {
+                    var started = Start(next.Name, next.Work, next.Coalescing == EventCoalescing.Timer);
+                    if (!started.IsCompleted)
+                        await Suspended(walk, started);
+                    await started;
+                    continue;
+                }
+                // Nothing waits, so give the thread up until an event comes or the run ends, suspended as any wait is. The walk
+                // that raised this one waits for it at its next statement, so no walk runs meanwhile, and an event that comes is
+                // top-level and waits in the queue for this loop, as VB6's modal loop takes it from the message queue.
+                var arrived = arrival = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                try
+                {
+                    await Suspended(walk, arrived.Task);
+                }
+                finally
+                {
+                    arrival = null;
+                }
             }
-            // Nothing waits, so give the thread up until an event comes or the run ends, suspended as any wait is. The walk
-            // that raised this one waits for it at its next statement, so no walk runs meanwhile, and an event that comes is
-            // top-level and waits in the queue for this loop, as VB6's modal loop takes it from the message queue.
-            var arrived = arrival = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            try
-            {
-                await Suspended(walk, arrived.Task);
-            }
-            finally
-            {
-                arrival = null;
-            }
+        }
+        finally
+        {
+            waitingOnWindow--;
         }
     }
 

@@ -4422,7 +4422,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         currentLine = line;
         ErrorLocation.Note(error, currentModule.Name, line);
         var halt = interpreter.DebugController!.HaltAsync(error, line, currentModule.Name, this).AsTask();
-        return interpreter.Events is { } events ? await events.WhileSuspended(halt) : await halt;
+        return interpreter.Events is { } events ? await events.WhileWaitingOnWindow(halt) : await halt;
     }
 
     // Notes where an error passing out of stmt was raised (#955), and never catches: the first catch of each statement
