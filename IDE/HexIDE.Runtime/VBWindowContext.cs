@@ -220,11 +220,12 @@ public class VBWindowContext : IModuleExecutionRoot
     /// The window's size or state may have changed (#994): Resize, once the window has been shown since the form loaded,
     /// when its client size or state is not what it was when Resize was last raised. The window system reports a size more
     /// often than it changes one: showing a window reported it two or three times, each a Resize, where VB6 raises one.
+    /// A size setter also reports while hidden (#1570), inside the assignment; Show still raises its own Resize.
     /// And a Move to the size the form has raises none in VB6 (measured).
     /// </summary>
-    public void WindowResized()
+    public void WindowResized(bool sizeSet = false)
     {
-        if (!shownSinceLoad || Window is not IFormView view)
+        if ((!shownSinceLoad && !sizeSet) || instance is not { FormLoaded: true } || Window is not IFormView view)
             return;
         var now = view.Extent;
         if (now == resizedAt)

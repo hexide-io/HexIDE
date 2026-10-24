@@ -276,6 +276,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A form resized from code raises Resize inside the assignment** (#1570), before the next statement,
+  including while hidden in Load. The first Show still raises its own Resize; layout does not repeat the assignment's event.
+
 - **Restart stops the previous run at its time-slice yield** (#761). End followed immediately by a new run can
   no longer let the old walk continue. Faults and `End` events from an old or unrelated interpreter cannot end
   the current run, for either startup forms or Sub Main.

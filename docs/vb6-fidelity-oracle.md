@@ -17804,8 +17804,12 @@ What these show:
 ### In HexIDE (#994)
 
 **Resize.** A form's context raises it when its window first becomes visible since the form loaded, and after that
-only when the window reports a size or state that differs from the one Resize was last raised for. The window system
-reports a size more often than it changes one: at 150% scaling a desktop startup form raised three Resizes, and
+only when a size setter or the window reports a size or state that differs from the one Resize was last raised for.
+Since #1570, Width and Height setters report the requested extent immediately, even during Load while hidden;
+the subsequent layout report finds the same extent and raises nothing. WindowState changes on a shown form
+use the same comparison. Before #1570, hidden assignments raised nothing, and the headless probe
+`Debug.Print "wider": Me.Width = Me.Width + 450: Debug.Print "after"` printed `wider`, `after`, then Resize.
+The window system reports a size more often than it changes one: at 150% scaling a desktop startup form raised three Resizes, and
 headless two. The size is compared in whole device pixels: a form 4000 twips wide is 266.67 units, which the window
 laid out again at 267 on a later show. Until the window system has sized a window, its size is the `Width` and `Height`
 it is being shown at. Before that, `ClientSize` is still the platform's default, 1024 by 768 headless.
@@ -17825,13 +17829,6 @@ the handler either way, so no headless test can tell.
 - Form2's own Unload button: `f2 unload`, `f1 activate`;
 - Wider: one `f1 resize 5700x4200 ws0`;
 - the same width set again: nothing.
-
-**Not followed** (both #1570, and the layout after them is the same, so a missing or late event, not a wrong value):
-- **A size set while the form is hidden.** Form3's two Resizes from its own Load aren't raised. The window
-  doesn't report a size before it is shown, so the show's one Resize is the only one.
-- **A size set from code after the show** raises its Resize when the window reports the size, after the statement:
-  headless, `Debug.Print "wider": Me.Width = Me.Width + 450: Debug.Print "after"` printed `wider`, `after`, then the
-  Resize. VB6 raises it inside the statement.
 
 **A form's `Move`** stops the program, refused as not implemented: #1569.
 
