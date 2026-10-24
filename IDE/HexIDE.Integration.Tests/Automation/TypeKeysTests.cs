@@ -88,6 +88,65 @@ public class TypeKeysTests : IDisposable
 
     private const string Body = "Option Explicit\r\n\r\nPrivate Sub Foo()\r\n    \r\nEnd Sub\r\n";
 
+    private const string WithRun = "Option Explicit\r\n\r\nPublic Function Total()\r\n"
+        + "Attribute Total.VB_UserMemId = 0\r\n    Total = 1\r\nEnd Function\r\n";
+
+    [AvaloniaFact]
+    public void Refusal1042_Backspace_names_the_member_without_sending_the_caret_back_to_itself()
+    {
+        var editor = Show(WithRun);
+        PutCaretAfter(editor, "Attribute Total.VB_UserMemId = 0\r\n");
+        var caret = editor.CaretOffset;
+        var before = editor.Text;
+
+        var refused = UiAutomationDriver.PressKey(editor, "Back", null);
+
+        refused.Success.Should().BeFalse();
+        refused.Error.Should().Contain("text before the caret belongs to the Attribute lines describing Total")
+            .And.Contain("Deleting the member's whole declaration")
+            .And.NotContain($"CaretOffset={caret}").And.NotContain("nearest place");
+        editor.Text.Should().Be(before);
+
+        var declaration = editor.Document.GetLineByOffset(editor.Text.IndexOf("Public Function", StringComparison.Ordinal));
+        editor.Select(declaration.Offset, declaration.Length);
+        UiAutomationDriver.PressKey(editor, "Delete", null).Success.Should().BeTrue();
+        editor.Text.Should().NotContain("Public Function Total").And.NotContain("Attribute Total.")
+            .And.Contain("    Total = 1");
+    }
+
+    [AvaloniaFact]
+    public void Refusal1042_Header_key_names_the_header_unambiguously()
+    {
+        var editor = Show(WithRun);
+        editor.CaretOffset = 3;
+        var before = editor.Text;
+
+        var refused = UiAutomationDriver.PressKey(editor, "Delete", null);
+
+        refused.Success.Should().BeFalse();
+        refused.Error.Should().Contain("is in the file's header, which only the IDE changes")
+            .And.NotContain("or a member");
+        editor.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public void Refusal1042_Insertion_in_a_run_names_it_and_gives_a_new_editable_offset()
+    {
+        var editor = Show(WithRun);
+        PutCaretAfter(editor, "Attribute Total.");
+        var caret = editor.CaretOffset;
+        var past = editor.Text.IndexOf("    Total = 1", StringComparison.Ordinal);
+        var before = editor.Text;
+
+        var refused = UiAutomationDriver.TypeText(editor, "x");
+
+        refused.Success.Should().BeFalse();
+        refused.Error.Should().Contain("is in the Attribute lines describing Total, which only the IDE changes")
+            .And.Contain($"nearest place that can be edited starts at offset {past}")
+            .And.Contain($"CaretOffset={past}").And.NotContain($"CaretOffset={caret}");
+        editor.Text.Should().Be(before);
+    }
+
     [AvaloniaFact]
     public async Task Letters_typed_as_keys_ask_for_completion_as_a_person_s_do()
     {

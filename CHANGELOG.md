@@ -249,6 +249,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP guarded-edit refusals name the region** (#1042): the file's header or the Attribute lines describing a named member. Backward deletion explains how to remove a declaration with its Attribute lines instead of sending the caller back to the same caret offset; insertions still give a new editable offset.
+
 - **A Double rounds to Currency from its exact binary value** (#966). Storing `1.00005`, calling
   `CCur(1.00005)` or declaring it as a Currency Const now gives 1.0001, and `CCur(0.00015)`
   gives 0.0001, as measured on vb6.exe. In `+` and `-` beside a Currency, a Double becomes a Currency the same way before the sum, so `2@ + 0.00005` is 2.0001.
