@@ -249,6 +249,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Selection replies name the designer reference** (#951). `interact` lists the primary first when several
+  items are selected and explains that Align and Make Same measure against it, including the replacement
+  after removing it. Its action description explains how to choose it: select it first.
+
 - **MCP Delete and Backspace delete the editable part of a selection reaching protected lines** (#1055).
   The key runs through the editor's own deletion path; the reply counts what was deleted and left, names
   the header or member's Attribute lines, and reports the caret and remaining selection. `type_text` also
