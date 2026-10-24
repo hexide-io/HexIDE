@@ -51,6 +51,9 @@ public class VBOptionButton : RadioButton
             option.IsChecked = true;
         }, handledEventsToo: true);
         AttachedEvents.AttachFocusEvents<VBOptionButton>();
+        // An arrow moves the focus to the previous or next control in its container, which selects an option it lands on
+        // through the handler above (measured, #1625).
+        ArrowNavigation.Attach<VBOptionButton>();
         GotFocusEvent.AddClassHandler<VBOptionButton>((option, _) =>
         {
             if (!option.clickAfterFocus)
