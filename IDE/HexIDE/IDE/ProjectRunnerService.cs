@@ -661,9 +661,15 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 e.Handled = true;
                 heldBy.ActivateForm();
             }, RoutingStrategies.Tunnel);
-            // The context raises Resize as the window is shown, and then only for a change of size or state (#994). The
-            // subscriptions report each value from the first, which the context ignores until the form is shown.
-            this.GetObservable(BoundsProperty).Subscribe(new ActionObserver<Rect>(_ => windowContext.WindowResized()));
+            // Report layout and setters through the same extent comparison (#994, #1570). A size setter reports
+            // immediately, even during Load; the later layout finds nothing new.
+            this.GetObservable(BoundsProperty).Subscribe(new ActionObserver<Rect>(_ =>
+            {
+                sizePending = false;
+                windowContext.WindowResized();
+            }));
+            this.GetObservable(WidthProperty).Subscribe(new ActionObserver<double>(_ => SizeSet()));
+            this.GetObservable(HeightProperty).Subscribe(new ActionObserver<double>(_ => SizeSet()));
             this.GetObservable(MDIHostPanel.WindowStateProperty).Subscribe(new ActionObserver<WindowState>(_ => windowContext.WindowResized()));
             this.GetObservable(IsVisibleProperty).Subscribe(new ActionObserver<bool>(visible =>
             {
@@ -679,6 +685,14 @@ public partial class ProjectRunnerService : IProjectRunnerService
             }));
         }
 
+        private bool sizePending;
+
+        private void SizeSet()
+        {
+            sizePending = true;
+            windowContext.WindowResized(sizeSet: true);
+        }
+
         /// <inheritdoc/>
         public (Size Size, WindowState State) Extent
         {
@@ -687,8 +701,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 var state = MDIHostPanel.GetWindowState(this);
                 if (state == WindowState.Minimized)
                     return (default, state);
-                // Until the host has arranged it, the window is the size it was made.
-                var size = Bounds.Size == default ? new Size(Width, Height) : Bounds.Size;
+                // Until the host has arranged a size assignment, use the requested size.
+                var size = sizePending || Bounds.Size == default ? new Size(Width, Height) : Bounds.Size;
                 var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
                 return (new Size(Math.Round(size.Width * scaling), Math.Round(size.Height * scaling)), state);
             }

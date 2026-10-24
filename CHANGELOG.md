@@ -255,6 +255,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A form resized from code raises Resize inside the assignment** (#1570), before the next statement,
+  including while hidden in Load. The first Show still raises its own Resize; layout does not repeat the assignment's event.
+
 - **Whole-file replacement refusals report every protected region changed** (#1054). When the header and a
   member's Attribute lines differ, `set_file_content` and an add-in's `TrySetContent` now name both in one reply.
 
