@@ -46,6 +46,22 @@ public class UnimplementedIsNotTrappableTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value("before")]);
     }
 
+    [Theory]
+    [InlineData("Take New Bomb, Fail()", "")]
+    [InlineData("If True Then\nTake New Bomb, Fail()\nEnd If", "")]
+    [InlineData("Fail", "Dim local As Bomb\nSet local = New Bomb\n")]
+    public async Task Terminate_cannot_replace_an_unimplemented_fault(string statement, string locals)
+    {
+        var act = async () => await RunClasses(
+            "Sub Probe()\nOn Error Resume Next\n" + statement + "\nDebug.Print \"after\"\nEnd Sub\n" +
+            "Sub Take(ByVal obj As Bomb, ByVal value)\nEnd Sub\n" +
+            "Function Fail()\n" + locals + "AppActivate \"Notepad\"\nEnd Function\nProbe\n",
+            ("Bomb", "Private Sub Class_Terminate()\nDebug.Print \"terminate\"\nError 5\nEnd Sub\n"));
+
+        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Contain("AppActivate");
+        AssertDebugLog([]);
+    }
+
     [Fact]
     public async Task On_Error_GoTo_does_not_divert_an_unimplemented_statement_to_its_handler()
     {
