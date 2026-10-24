@@ -265,6 +265,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **IDE timer failures reach the log** (#652). The dock-layout save, language revert countdown, minimap
+  redraw and designer code-navigation follow-up log exceptions with their purpose and stack. They remain
+  nonfatal; VB6 Timer events keep the interpreter's existing runtime-error handling.
+
 - **The design-record guard recognises renamed requirements** (#1050). It reads the CLI’s `FROM` and `TO`
   list items, so an archived rename retires the old name and requires the new name in the live spec.
 
