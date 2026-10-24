@@ -9469,8 +9469,9 @@ while `Class_Initialize` runs, and hands it back at whatever count `Initialize` 
 
 **Two by-products.**
 - **A Sub can be named `Reset`.** The probe's private sibling is called `Reset`, which is also a VB6 statement.
-  vb6.exe compiled it and called the Sub. HexIDE parses the call as the `Reset` statement, which it does not
-  implement (#851).
+  vb6.exe compiled it and called the Sub, measured native and in the IDE in the #850 probe (also recorded in
+  #851). HexIDE still parses the bare call as a `Reset` statement, but now dispatches it to the module's own
+  Sub when one exists (#851). With no such Sub, the file-closing statement remains unimplemented.
 - **`mE` is `Me`.** The constant-bound probe first declared `Private mE(N - 1)`, and vb6.exe refused it: "Expected:
   identifier". Identifiers are matched without regard to case (#811), and so are reserved words, so `mE` is the
   reserved word `Me`. The row was renamed `mH`.

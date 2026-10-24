@@ -255,6 +255,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A bare `Reset` calls the module's own Sub named `Reset`** (#851), including a private sibling called from
+  `Class_Initialize`, as measured on vb6.exe. It previously stopped with "Reset not implemented".
+
 - **Library-qualified calls to missing intrinsics stop the run** (#867). `VBA.CallByName` and unknown names such as `VBA.Frobnicate`, including explicit `Call` statements, can no longer be swallowed by `On Error Resume Next` as error 461.
 
 - **Len returns a typed scalar variable’s byte size** (#780), including Integer, Long, Single, Double, Currency, Date
