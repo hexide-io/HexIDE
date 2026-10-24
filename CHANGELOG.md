@@ -10,6 +10,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Keyboard parameter-info regression tests** (#1262). Headless tests cover typing `MsgBox(`, the signature-help
+  request position, and parameter info being open before the typing reply when the server answers after a delay.
+
 - **Random and Binary files open, and Get and Put run** (#1646). They were refused at the `Open`, so no program that
   keeps records or structs in a file got past it. Measured on vb6.exe first, in eight batches: the bytes of every
   type, String, Variant, array and Type; records and `Len =`; EOF; a second handle and the `Lock` and `Access` clauses;
@@ -252,6 +255,18 @@ there isn't one yet. Anything may change between 0.x releases.
 - **A failed Let from a temporary object or App empties a Variant** (#1485, #878), as measured on vb6.exe.
   `New Collection`, an object returned by a Function, and a class with no default member used to leave the old value
   after the error. A program variable still leaves it alone, and a String destination keeps its value.
+
+- **Procedure Consts and array bounds reject later local Consts** (#894), with VB6's measured error for
+  Option Explicit on or off. Under Option Explicit, a later local Const shadowing a module Const already read by an earlier Const is
+  "Duplicate declaration in current scope"; shadowing without that earlier read still works.
+
+- **An array used as text raises Type mismatch (13)** (#879): concatenation, CStr, a store into a String, Len,
+  UCase and Print # no longer use its CLR type name. A String store leaves its target unchanged. The debugger's
+  own array display is preserved; a typed Long array in concatenation is refused at runtime.
+
+- **Selection replies name the designer reference** (#951). `interact` lists the primary first when several
+  items are selected and explains that Align and Make Same measure against it, including the replacement
+  after removing it. Its action description explains how to choose it: select it first.
 
 - **MCP Delete and Backspace delete the editable part of a selection reaching protected lines** (#1055).
   The key runs through the editor's own deletion path; the reply counts what was deleted and left, names
