@@ -300,6 +300,12 @@ there isn't one yet. Anything may change between 0.x releases.
 - **MCP keys, text and hover skip rows their list has released** (#1327). Addressing a list no longer sends input
   into a recycled row omitted from the control tree or reports the list’s path as confirmation.
 
+- **A running form's window carries the form's own Icon, or none for (None)** (#1594). Every window carried HexIDE's
+  icon, big and small, whatever the form's file said. So VB98's dialog templates, which save Icon = (None) to keep a
+  dialog's caption bare, showed HexIDE's mark, and a form's own icon never appeared. A form with no Icon line keeps
+  HexIDE's mark, as VB6 gives its default there. Measured on vb6.exe: the default is VB6's big icon only, (None) is no
+  icon at all, and a form's own is both its big and small icon.
+
 - **MCP shared context menus belong to the control that opened them** (#1323). A tab menu appears only under its current tab in the dump; expanding it on another tab moves it there, and collapsing it from another tab leaves it alone. Menu headers also read back opens and closes, refusing an action a handler cancelled.
 
 - **A name declared twice is vb6.exe's compile error** (#1622, #1499). A module that declared one name twice ran,
