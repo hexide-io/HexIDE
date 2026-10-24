@@ -56,8 +56,9 @@ measured from 2026-10-24 on names the SP6 builds.
 
 #### Measured again on SP6 (2026-10-24, #1663)
 
-**Nothing measured again on SP6 has changed.** Every row below gave the release build's answer, compile errors and the
-IDE included. There were four kinds of run.
+**One property changed, and nothing else.** A new Data control's `Connect` is `"Access 2000;"` on SP6, where the
+release build wrote `"Access"` (*The size of a control added from the toolbox*, #1473). Every other row below gave the
+release build's answer, compile errors, the IDE and the designer included. There were five kinds of run.
 
 **Every probe project kept from the sections below, rebuilt with `/make` on SP6: 2,572 projects**, native and p-code.
 - Each printed what it printed on the release build, line for line, and each compile error was the same message at the
@@ -78,7 +79,7 @@ IDE included. There were four kinds of run.
 | Named arguments (#1465) | 686 |
 | Conditional compilation (#1112) | 360 |
 | Collection (#1471), with *An empty Collection, and assigning an item* (#1492) | 220 |
-| A name declared twice (#1622), in review as #1639 | 178 |
+| A name declared twice (#1622, #1499) | 178 |
 | The intrinsics signature help had no entry for (#1475) | 144 |
 | DefType: default typing by first letter (#169) | 102 |
 | Too few arguments to an intrinsic (#1512) | 100 |
@@ -134,15 +135,36 @@ were rebuilt too.
     handler catches it when compiled.
 - **Measured for the first time:** a p-code build drops `Debug.Print k` as native code does, so it raises nothing there.
 
-**The Immediate window** (#1386), on the console:
-- every row the same;
-- three rows measured for the first time, which that section now carries.
+**The console: the Immediate window, the reset prompt and Save Project As.**
+- *A `?` line in the VB6 IDE's Immediate window* (#1386): every row the same. Three rows were measured for the first
+  time, and that section now carries them.
+- *The reset prompt* (#1329): the three scripts behind its tables, run again. Each step logged the same windows, owners,
+  texts, buttons and enabled states, and the same mode and Timer behaviour, as on the release build.
+- *What Save Project As does to the paths in a project file* (#1406) and *Where and how VB6 writes a project's
+  description* (#42): every project file VB6 saved is byte-identical to the release build's.
+
+**The designer and the IDE's saves,** run again on the console with each section's own rig. Where a section had been
+driven by hand, its steps were replayed from the console agent's log.
+
+| Section | SP6 |
+|---|---|
+| *What VB6's Properties window lists for a UserControl and a PropertyPage* (#1585) | the same: 51 and 33 rows, every capture byte-identical |
+| *What VB6's Add Form saves* (#1532) | the same: every saved file byte-identical |
+| *A control VB6 knows and HexIDE carries stacks with the rest* (#1498) | the same saves, byte-identical; that section records what SP6's IDE does on opening VB6's Web Browser template |
+| *The size of a control added from the toolbox* (#1473) | every size and position the same; a new Data control's `Connect` is `"Access 2000;"`, not `"Access"` |
+| *The name VB6's designer gives a new control* (#540) | the same, every row |
+| *Make Project Group* (#746) | the same |
+| *The TabIndex a new or pasted control takes* (#925) | the same: the save is byte-identical |
+| *Where VB6's designer puts a control's block* (#1481) | the same: every control block |
+| *Drawn in the VB6 IDE's designer* (#926) | the same, every row |
 
 **Not measured again:**
-- the designer and the IDE's saves, which #1663 tracks separately;
-- *The reset prompt* (#1329);
+- *The reset prompt*'s rows with *Notify Before State Loss* changed, since setting that option changes the IDE for
+  everyone using the guest;
 - the IDE rows of sections whose probes were not kept, beyond the spot check above, *Several forms* (#822) and
-  *Unload Me* (#973) among them.
+  *Unload Me* (#973) among them, and what the IDE writes for member attributes (#273).
+
+Both are #1675.
 
 ### Reaching the VB6 *IDE*, not just the compiler (2026-09-20)
 
