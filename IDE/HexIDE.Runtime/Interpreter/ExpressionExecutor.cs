@@ -47,7 +47,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     public async Task<Vb6Value?> EvaluateFunction(string name, List<Vb6Value> args)
     {
-        return await interpreter.CallBuiltIn(name, args) is { } result ? IntrinsicAsRead(name, args, result) : (Vb6Value?)null;
+        return await interpreter.CallBuiltIn(name, args, currentModule.PrePass.OptionCompareText) is { } result ? IntrinsicAsRead(name, args, result) : (Vb6Value?)null;
     }
 
     // Which intrinsics VB6 types and which return a Variant, measured one by one (#987, native and p-code: a Select Case
@@ -181,7 +181,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (target == Vb6Value.ValueType.Single)
             return new Vb6Value((float)AsDouble(v));
         if (target == Vb6Value.ValueType.Currency)
-            return Vb6Value.NewCurrency(AsDecimal(v));
+            return VbNumeric.Narrow(v, Vb6Value.ValueType.Currency, null);
         if (target == Vb6Value.ValueType.Decimal)
             return Vb6Value.NewDecimal(AsDecimal(v));
         if (target == Vb6Value.ValueType.Double)
@@ -1655,7 +1655,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         }
 
         if (await interpreter.ReadVariable(module.ModuleEnv, memberName) is (true, var v))
+        {
+            // #965: the argument list indexes the module's array, as on an unqualified read. Private foreign
+            // reads and non-array calls are unmeasured here and retain their existing behaviour.
+            if (argsCtx != null && v.Value is VBArray
+                && module.PrePass.PublicVariables.Contains(memberName))
+                v = IndexResult(v, await EvaluateCallArgs(argsCtx), ctx);
             return await ThenTheRest(v);
+        }
 
         throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
     }
