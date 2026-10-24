@@ -249,6 +249,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Completion descriptions are readable through MCP, and double-click commits an item** (#1334).
+  The dump reaches the description popup under the completion list; `double_click` uses the list's own
+  insertion path. Snapshot composition now traverses the same description popup; its desktop rendering
+  still needs a live check.
+
 - **A name declared twice is vb6.exe's compile error** (#1622, #1499). A module that declared one name twice ran,
   keeping one declaration, and so did a procedure, so `Dim n As Long` then `Static n` gave an ordinary Long. At module
   level it is now "Ambiguous name detected", and in a procedure "Duplicate declaration in current scope", parameters
