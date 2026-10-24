@@ -12,16 +12,19 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 > opens no port. Making it a supported opt-in feature for end users is a decided direction rather than
 > current behaviour, and the requirements below describe what ships today.
 
-> **Known divergence.** The requirements below state intended behaviour. One is only partly met: "A tool that
-> names a document SHALL name its project, and count lines from the top of the file" holds for every tool that
-> takes a document's name, and not yet for those that report or act on a document without taking one. The note a
-> run-control reply gives when a run pauses, the context the locals and watch tools report, the designer tools'
-> undo, redo and format replies, and the tab tools, which take and report a tab's title, still name a form or
-> module without its project, so with two projects each holding a `Form1` none of them can say which one it
-> means. Tracked in [#886](https://github.com/hexide-io/HexIDE/issues/886). The requirement is stated as intended
-> rather than narrowed to the tools that meet it, because the code is incomplete here, not the intent.
-
 ## Requirements
+
+### Requirement: Server startup failure SHALL preserve forced-exit cleanup order
+On server startup failure, the IDE SHALL dispose the add-in loader before forcing desktop shutdown,
+so closing an unanswered consent dialog cannot persist a decision. It SHALL attempt shutdown with the
+reported exit code even if cleanup throws, and SHALL close the log after shutdown returns so window
+closing messages can still reach the file.
+
+#### Scenario: The requested port is already taken
+- **WHEN** the server cannot bind the requested port
+- **THEN** the add-in loader is disposed before desktop shutdown runs with exit code 3
+- **AND** a cleanup exception does not prevent that shutdown
+- **AND** the log closes after desktop shutdown returns
 
 ### Requirement: The server SHALL be inactive unless explicitly requested
 The IDE SHALL start no server, open no port and create no listener unless a port is supplied at launch.
@@ -126,6 +129,9 @@ web page and sends none. Refusing it would turn a security control into an outag
 
 This addresses the browser vector only. Anything that can already open a socket to the port may put whatever
 it likes in a header, and the control against that is authentication, which this requirement does not claim.
+
+The IDE and the real-HTTP test server SHALL install the same loopback middleware. Tests SHALL exercise
+foreign `Host` and `Origin` headers on `/mcp`, a foreign `Host` on `/health`, and a permitted loopback request.
 
 #### Scenario: A request naming this machine
 - **WHEN** a request arrives whose `Host` is a loopback address on the bound port
@@ -268,11 +274,25 @@ a language server knows the document by, it SHALL say so. Every line number a to
 counted from the top of the file, header included. Reading a document's content SHALL return its whole file
 whether or not it is open. Writing content SHALL NOT be refused for being in the shape reading returned — the
 whole file with its header unchanged, or the code alone — which leaves the existing refusal of a document the
-IDE will not save in force for its own reason.
+IDE will not save in force for its own reason. A refused whole replacement SHALL report a changed header first,
+then each member whose Attribute lines are changed, added or removed, in the same reply.
 
 A caller that has never seen the IDE cannot know which of a document's several names a bare `uri` field holds,
 and a name that is only unique within a project is ambiguous the moment a group is open. A read whose result
 the matching write refuses breaks the most basic loop an automation client runs.
+
+Run-control pause notes SHALL qualify the module with the running project. Locals and watch replies SHALL
+identify the running project in which expressions are evaluated. Active-designer replies SHALL name the
+designer's document, including a UserControl's or PropertyPage's owning module. Tab listings SHALL report
+project and document for source editors and designers. Tab activation and closing SHALL accept a document
+name with an optional project through the document lookup, alongside title addressing for tool tabs. A match
+that names more than one tab SHALL be refused; a caller MAY select code or designer by tab type.
+
+#### Scenario: Choosing between code and designer tabs
+- **WHEN** both tabs for Second/Form1 are open and a caller addresses Form1 in Second without a tab type
+- **THEN** the call refuses the ambiguity and explains how to select code or designer
+- **WHEN** the caller also supplies the designer type
+- **THEN** only Second/Form1's designer is activated or closed, and the reply names Second and Form1
 
 #### Scenario: Setting a breakpoint by name in the wrong case
 - **WHEN** a client sets a breakpoint in `form1` of a project containing `Form1`
@@ -282,6 +302,10 @@ the matching write refuses breaks the most basic loop an automation client runs.
 - **WHEN** a client reads the content of a form the IDE will save, and writes the same text back
 - **THEN** the write succeeds and the form is unchanged, but for a member's attribute line naming another name than
   its member's, which the save writes with its member's name, as the form's own Save does
+
+#### Scenario: A replacement changes both the header and a member's Attribute lines
+- **WHEN** a client submits a whole file with both its header and a member's Attribute lines changed
+- **THEN** the write is refused without changing the document, and the one reply names the header first and the member next
 
 ### Requirement: Automation saves explain rewritten member qualifiers
 The successful replies from `set_file_content`, `set_control_property` and `add_control` SHALL report in their
@@ -335,6 +359,32 @@ SHALL report none for an IDE started without one.
 #### Scenario: Readiness names the session
 - **WHEN** tooling polls the health check of an IDE started for a session
 - **THEN** the reply names that session beside the process ID
+
+### Requirement: Snapshot coordinates include popup overhang
+
+A snapshot SHALL include the window and its open native popups at their relative screen positions,
+including popups extending left of or above the window. The reply SHALL report the window origin in
+full-image pixels as `windowOffsetX` and `windowOffsetY`, zero when no left or top overhang exists.
+Tool descriptions SHALL explain how to map inspected window-relative bounds into both returned images.
+
+#### Scenario: A menu extends left of the window
+
+- **WHEN** an open native popup extends left of the captured window
+- **THEN** the window is shifted right in the image to leave room for the overhang
+- **AND** the reply reports that shift as `windowOffsetX`
+- **AND** a window-relative x coordinate maps to `x * scale + windowOffsetX` in the full image
+- **AND** in the inline copy it maps to `(x + windowOffsetX / scale) * inlineScale`
+
+### Requirement: Automation SHALL be able to start with a pathless project
+The `--newproject-unsaved` launch flag SHALL create a Standard EXE and skip the startup dialog without saving
+its project or component files. It SHALL take precedence over `--newproject` and a positional project path.
+The existing `--newproject` flag SHALL continue saving to a unique temporary directory. `add_file` SHALL
+leave new documents pathless and explain the null path and how to save them in its reply.
+
+#### Scenario: Exercising an untitled document from launch
+- **WHEN** the IDE starts with `--newproject-unsaved`
+- **THEN** its initial form and project have no file paths
+- **AND** opening the form's code uses its `untitled:` URI until it is saved
 
 ### Requirement: Named controls SHALL expose their visible labels
 The control tree and single-control inspection SHALL retain x:Name as `name` when present and report the
