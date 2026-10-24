@@ -14,6 +14,7 @@ which is why VB6 gave it a dedicated key.
 > the member's definition, and Escape does not close the window. Tracked in
 > [#24](https://github.com/hexide-io/HexIDE/issues/24). They are stated as requirements rather than written
 > down to match the code, because the code is wrong here, not the intent.
+> The stale project class list reported in [#904](https://github.com/hexide-io/HexIDE/issues/904) is fixed: membership and names now follow project changes.
 
 ## Requirements
 
@@ -34,6 +35,11 @@ filtering once you know where you are looking.
 #### Scenario: Narrowing to one library
 - **WHEN** the developer selects a single library
 - **THEN** only that library's types are listed
+
+#### Scenario: Project membership or names change
+- **WHEN** a form or module is added, removed or renamed, or its project is renamed
+- **THEN** the browser SHALL update the project library and its sorted class list, respecting the current filter
+- **AND** removed classes SHALL no longer be reachable through navigation history
 
 ### Requirement: Selecting a type SHALL show its members, and selecting a member SHALL describe it
 Selecting a type SHALL list its members; selecting a member SHALL show its signature and what it belongs to,

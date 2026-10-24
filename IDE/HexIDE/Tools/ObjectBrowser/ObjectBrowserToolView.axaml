@@ -50,7 +50,13 @@
             <ComboBox DockPanel.Dock="Left"
                       Width="160"
                       ItemsSource="{CompiledBinding Libraries}"
-                      SelectedItem="{CompiledBinding SelectedLibrary}" />
+                      SelectedItem="{CompiledBinding SelectedLibrary}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="ob:OBLibraryViewModel">
+                        <TextBlock Text="{CompiledBinding Name}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
             <!-- Right-docked buttons: declared right-to-left, rendered left-to-right -->
             <Button DockPanel.Dock="Right" Width="22" Height="22" Padding="2"
                     ToolTip.Tip="{DynamicResource Str.Tool.ObjectBrowser.Toolbar.GoToDefinition}"
