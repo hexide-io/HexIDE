@@ -283,6 +283,15 @@ the matching write refuses breaks the most basic loop an automation client runs.
 - **THEN** the write succeeds and the form is unchanged, but for a member's attribute line naming another name than
   its member's, which the save writes with its member's name, as the form's own Save does
 
+### Requirement: Automation saves explain rewritten member qualifiers
+The successful replies from `set_file_content`, `set_control_property` and `add_control` SHALL report in their
+`note` any member Attribute qualifiers their save rewrote, naming the old and new names and explaining that
+VB6's own Save writes the member's name.
+
+#### Scenario: A save rewrites a stale qualifier
+- **WHEN** any of those tools saves a document with `Attribute Gone.VB_Description` under `Public Function Total()`
+- **THEN** its successful reply explains that the save wrote Total's Attribute lines with its name, where they said Gone
+
 ### Requirement: An IDE started for an agent session SHALL run tool calls from that session only
 When the IDE is started with the name of an agent session, the server SHALL run a tool call only when the client names
 that same session. It SHALL answer any other tool call, from a client naming another session or none, with an error
@@ -326,3 +335,15 @@ SHALL report none for an IDE started without one.
 #### Scenario: Readiness names the session
 - **WHEN** tooling polls the health check of an IDE started for a session
 - **THEN** the reply names that session beside the process ID
+
+### Requirement: Named controls SHALL expose their visible labels
+The control tree and single-control inspection SHALL retain x:Name as `name` when present and report the
+peer's meaningful label as `label` when it differs. Paths SHALL retain their existing stable discriminators
+and accept a label as an alternative discriminator. Discovery searches SHALL include the label, and interaction
+replies SHALL use the meaningful label when available.
+
+#### Scenario: Discovering a named menu
+- **WHEN** a menu item has x:Name `ToolsMenuItem` and visible header `_Tools`
+- **THEN** its node and inspection report `name: "ToolsMenuItem"` and `label: "Tools"`
+- **AND** its emitted path ends in `MenuItem[ToolsMenuItem]`, while `MenuItem[Tools]` also resolves
+- **AND** expanding it names `Tools` in the reply

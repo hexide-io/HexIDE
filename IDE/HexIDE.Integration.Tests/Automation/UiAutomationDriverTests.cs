@@ -66,6 +66,40 @@ public class UiAutomationDriverTests
                 yield return d;
     }
 
+    [AvaloniaTheory]
+    [InlineData("dump")]
+    [InlineData("inspect")]
+    [InlineData("search")]
+    [InlineData("reply")]
+    public void NamedMenu_ExposesVisibleLabel(string surface)
+    {
+        var tools = new MenuItem { Name = surface == "search" ? "StableMenu" : "ToolsMenuItem", Header = "_Tools" };
+        tools.Items.Add(new MenuItem { Header = "Child" });
+        var window = new Window { Content = new Menu { Items = { tools } } };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var tree = UiAutomationDriver.Dump(window, "Window", 20, false);
+            var node = Flatten(tree).Single(n => n.Name == tools.Name);
+            node.Path.Should().EndWith($"MenuItem[{tools.Name}]");
+            UiAutomationDriver.Resolve(window, node.Path.Replace($"[{tools.Name}]", "[Tools]")).control
+                .Should().BeSameAs(tools);
+            if (surface == "dump")
+                node.Label.Should().Be("Tools");
+            else if (surface == "inspect")
+            {
+                var detail = UiAutomationDriver.Inspect(tools, node.Path);
+                detail.Label.Should().Be("Tools");
+            }
+            else if (surface == "search")
+                UiAutomationDriver.Find(tree, "Tools", 100).Matches.Should().Contain(n => n.Path == node.Path);
+            else
+                UiAutomationDriver.Interact(tools, "expand", null).Detail.Should().Contain("'Tools'");
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void Dump_FindsControls_WithExpectedProviders()
     {

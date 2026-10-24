@@ -9008,9 +9008,9 @@ The review asked what VB6 allows in a module-level bound beyond literals and sam
 | `Dim d(vbKeyA)` | 0 To 65 |
 
 In a procedure, `Dim a(N)` before `Const N = 3` is a compile error too, "Variable not defined" (`p21f`, under
-`Option Explicit`). **HexIDE runs it,** because a procedure's Consts are declared at its entry, ahead of its Dims
-(#760, below): a missing compile error, recorded. A procedure's Consts are #894, where a forward reference without
-`Option Explicit` also gives a wrong value (`A` is 1).
+`Option Explicit`). HexIDE used to run it because a procedure's Consts are declared at entry ahead of its Dims
+(#760, below). #894 now checks these forward reads before hoisting; a Const forward reference without
+`Option Explicit` used to give a wrong value (`A` was 1).
 
 **VB6 refuses a forward reference between module Consts.** `Const A = B + 1` above `Const B = 2` does not compile.
 That is narrower than CLAUDE.md's pre-pass paragraph implies: it reasons from order-independent Const evaluation, as
@@ -9105,7 +9105,7 @@ Empty and sized 0 To 0, and `Dim d(Int(Rnd() * 10))` sized at random.
 variable. Each module-level Const is checked as it runs, before it is evaluated, and the bound at the Dim, both by
 the rules above. The Consts above ran first, so a Const a bound or another Const names has been checked already, and
 the check is one level deep. So `Const A = B + 1` above `Const B` is refused with no array in sight, as VB6 refuses it.
-A procedure's Consts are not checked yet. What is refused:
+Procedure forward-local-Const reads are now checked by #894; other procedure rules remain unchanged. At module level, what is refused:
 - a Const below, the Const itself, a variable, a user function, a function call inside a Const, a built-in VB6
   refuses, and another module's Public variable are VB6's compile error;
 - a name the module cannot see is "Variable not defined" under `Option Explicit`, and "Constant expression
@@ -10012,8 +10012,9 @@ emptied all four of these.
 | `s = Array(1)`, `s` a String | 13, `s` unchanged |
 | `c = "v=" & a`, with `Dim a(1) As Long` | does not compile: "Type mismatch" |
 
-HexIDE's text conversion has no arm for an array, so the code gives its CLR type name for these, except where #840
-raises 13 for an element of Join or Filter. That HexIDE side is read from the code, not run (#879).
+HexIDE now raises 13 in its shared text conversion (#879), where these routes gave the CLR type name
+(except Join and Filter elements, already refused by #840). The typed Long array is refused when executed
+rather than at compile time. The debugger's own array display remains separate.
 
 **The in-box objects:**
 
@@ -19933,6 +19934,22 @@ raising 13.
 - **Divergences kept:** the locks hold only within the program, not against another process; `Len` on a sequential
   file is not checked; a `Get` of a String in a Binary file reads as many bytes as the String has characters, which is
   the same in code page 1252 and not measured in a double-byte one.
+
+### Procedure declarations reading a later Const (#894)
+
+Provenance: hexide-io/HexIDE#894 records two independent vb6.exe SP6 `/make` measurements with identical
+results. In `Sub Main`, `Const A = B + 1` before `Const B = 2` fails at A: "Variable not defined" with
+Option Explicit, "Constant expression required" without it. `Dim a(N) As Long` before `Const N = 3`
+fails at the Dim with the same respective messages.
+
+With module `Const B = 10`, Option Explicit and procedure `Const A = B + 1` before `Const B = 2`,
+VB6 instead reports "Duplicate declaration in current scope" at the local B. A local `Const B = 2`
+with no earlier use builds and reads 2. These are compile refusals; HexIDE checks the expressions at
+procedure entry. Other procedure expression rules are unchanged by #894.
+
+Unmeasured combinations left unchanged: a later local shadowing a module Const without Option Explicit,
+and a Dim bound reading a module Const before the local shadow. Qualified reads and other procedure
+constant-expression restrictions are outside these measurements.
 
 ## A For loop with a fraction (2026-10-24, #983)
 

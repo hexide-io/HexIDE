@@ -313,14 +313,15 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // EventBus logs that and carries on, so the flush silently does nothing and the PREVIOUS text
             // is serialized -- a file with a fresh timestamp, stale contents, and a success returned to a
             // caller who cannot see the log. Awaiting the save here left this method on a pool thread.
+            var rewrites = new HexIDE.Projects.SaveRewriteReport();
             var (written, refused) = await SaveQuietlyAsync(() => form is not null
-                ? ctx.ProjectService.SaveForm(form, false, interactive: false)
-                : module is not null ? ctx.ProjectService.SaveModule(module, false, interactive: false) : Task.FromResult(false));
+                ? ctx.ProjectService.SaveForm(form, false, interactive: false, rewrites: rewrites)
+                : module is not null ? ctx.ProjectService.SaveModule(module, false, interactive: false, rewrites: rewrites) : Task.FromResult(false));
             if (refused is not null)
                 // Not "the new code was refused": the character can be anywhere in the file. The message quotes its line.
                 return Naming(new MutateResult(false, cancel.After($"The new code is in the IDE, but the file was not written. {refused.Message}")), target);
             return Naming(written
-                ? new MutateResult(true, null, cancel.After(await Dispatcher.UIThread.InvokeAsync(() => WrittenNote(target!))
+                ? new MutateResult(true, null, cancel.After(await Dispatcher.UIThread.InvokeAsync(() => WrittenNote(target!)) + rewrites.Note
                     + (restoredHeader
                         ? " Kept the form's Attribute header, which the content omitted. VB_Name is the form's "
                           + "identity; without this the write would have destroyed it. Call get_file_content "
@@ -709,14 +710,15 @@ internal sealed class HexIdeTools(IdeContext ctx)
         try
         {
             // Same UI-thread requirement as the other write tool, and for the same reason. (#334)
+            var rewrites = new HexIDE.Projects.SaveRewriteReport();
             var (written, refused) = await SaveQuietlyAsync(() => ownerModule is not null
-                ? ctx.ProjectService.SaveModule(ownerModule, false, interactive: false)
-                : ctx.ProjectService.SaveForm(form!, false, interactive: false));
+                ? ctx.ProjectService.SaveModule(ownerModule, false, interactive: false, rewrites: rewrites)
+                : ctx.ProjectService.SaveForm(form!, false, interactive: false, rewrites: rewrites));
             if (refused is not null)
                 return Naming(new MutateResult(false, cancel.After($"'{property}' is set in the IDE, but the file was not written. {refused.Message}")), target);
             // See the note on the other write tool: a refusal must not come back as success. (#147)
             return Naming(written
-                ? new MutateResult(true, null, cancel.After(stored))
+                ? new MutateResult(true, null, cancel.After(stored + rewrites.Note))
                 : new MutateResult(false, cancel.After("HexIDE cannot reproduce this file faithfully, so it was not "
                                         + "written and the copy on disk is unchanged.")), target);
         }
@@ -1343,10 +1345,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
         try
         {
             // Through the owning module for a UserControl or PropertyPage, as set_control_property does. (#539)
+            var rewrites = new HexIDE.Projects.SaveRewriteReport();
             var (written, refused) = await SaveQuietlyAsync(() =>
                 OwnerModuleOf(spawned.Form) is { } owner
-                    ? ctx.ProjectService.SaveModule(owner, false, interactive: false)
-                    : ctx.ProjectService.SaveForm(spawned.Form, false, interactive: false));
+                    ? ctx.ProjectService.SaveModule(owner, false, interactive: false, rewrites: rewrites)
+                    : ctx.ProjectService.SaveForm(spawned.Form, false, interactive: false, rewrites: rewrites));
             // The character is in text written earlier and never saved, since a new control brings none of its
             // own: the message quotes the line that holds it, which no read tool might otherwise show.
             if (refused is not null)
@@ -1362,7 +1365,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // saying otherwise would be its own wrong answer -- but the file on disk does not have it, and
             // a caller who is told "saved" will not find out until something else reads that file.
             return written
-                ? spawned with { Form = null, Note = cancel.After(spawned.Note) }
+                ? spawned with { Form = null, Note = cancel.After(spawned.Note + rewrites.Note) }
                 : spawned with
                 {
                     Success = false, Form = null, Note = null,
@@ -2182,7 +2185,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     [Description("Walks the live control tree of the active window (any window over the IDE's own; see 'window') and returns a structured node tree for discovering and addressing controls. Uses the UIA 'control view': None-type wrappers without focus, AutomationId or non-scroll capability are collapsed; x:Name alone keeps no wrapper. Overflow never inserts a path segment. Each node carries its addressing 'path' (feed it back as a target), automation ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers, and enabled/offscreen flags. Providers and their interact actions: invoke → invoke, selection and selectionItem → select, multiSelectItem → add_to_selection and remove_from_selection, value → set_value, toggle → toggle, expandCollapse → expand/collapse (also a context menu or flyout the control owns), rangeValue → set_range_value, scroll → scroll. Only usable actions are reported: a list that fits has no scroll; a progress bar has no rangeValue. Range capability keeps a node even with unusable bounds. A .NET type used as a name is reported as 'typeNameAsName' instead; it cannot name a path. 'isHidden': true marks an effectively-invisible control, e.g. a collapsed banner; absent when showing. Check isHidden before asserting visibility; isOffscreen instead reports clipping and scroll position. Top-level 'focusedPath' names the keyboard focus in the whole window, even with root/match filters; null with 'focusReason' when none is in this window. Scope a large dump with 'root', or find nodes with 'match'; see 'maxDepth' and 'interactiveOnly' for what it keeps and when a node is 'truncated'. While a VB6 program runs or is paused 'auto' usually picks its form: pass 'window' \"ide\" to walk the IDE.")]
     public async Task<VisualTreeResult> DumpVisualTreeAsync(
         [Description("A path to dump only that subtree; omit for the whole window. For deeply nested or large areas, "
-                     + "scope the dump this way.")]
+                     + "scope the dump this way. name is x:Name when set; label is the peer text when different. A segment accepts either.")]
         string? root = null,
         [Description("How many levels to walk, counted in control-view levels rather than raw visuals; at least 1. "
                      + "Default 20. A node whose children lie below the cut-off carries \"truncated\": true and an "
@@ -2200,7 +2203,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         bool interactiveOnly = true,
         [Description(WindowParameter)]
         string? window = null,
-        [Description("Text to find instead of the tree: returns, as 'matches', the nodes whose Name, AutomationId, ClassName, "
+        [Description("Text to find instead of the tree: returns, as 'matches', the nodes whose Name, label, AutomationId, ClassName, "
                      + "ControlType or typeNameAsName contains it, ignoring case, or whose DataContext type does where "
                      + "that context starts (not on every node below that inherits it); each with its path and without "
                      + "its subtree, up to 50. Use it to find a path to start from: 'TextEditor' finds the text editors "
@@ -2293,7 +2296,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     public async Task<InteractOutcome> InteractAsync(
         [Description("A path from dump_visual_tree.")]
         string target,
-        [Description("One of: invoke (click a Button or menu item); select (pick a ComboBox or ListBox item, a DataGrid row or a tree node, via its TreeView's SelectedItem; with 'value', a list row scrolled out of view is scrolled to first, while a dropdown's items do not exist until it opens, so expand it, dump_visual_tree(root=combo), then select, which closes it as a click does); add_to_selection / remove_from_selection (add the target to, or take it out of, the selection of a list that holds several at once, such as the controls on a designer canvas, which select would replace; the reply lists what is now selected); double_click (raise DoubleTapped, selecting the target first as a real double-click does; how the Project Explorer opens an item); click (press and release a pointer on the target as a real click does, so a running form raises MouseDown, Click and MouseUp; the only verb that presses; any control, a Label or a form's area included); set_value (set a TextBox's text; a box bound to a property is committed as Enter would, and the reply says whether the value held or was refused); toggle (flip a CheckBox); expand / collapse (a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns); set_range_value (set a Slider or ScrollBar, as dragging its thumb would; a read-only bar or a value outside its range is refused, not clamped); scroll (moves the target, the scroller or scroll bars inside its own template, so aiming at an editor or a DataGrid works, or else the nearest container that scrolls that way; the reply gives where it now is, or says it could not move); invoke_command and set_property (reflection: use the DataContext members inspect_element lists, or value Command for the target's resolved command; invoke_command checks CanExecute, and set_property coerces to the property's type); close (the target's window, as its close box does; a Yes/No or Abort/Retry/Ignore MsgBox refuses, a form's QueryUnload may; reply says if still open; not the IDE's main window).")]
+        [Description("One of: invoke (click a Button or menu item); select (pick a ComboBox or ListBox item, a DataGrid row or a tree node, via its TreeView's SelectedItem; with 'value', a row out of view is scrolled to first; a dropdown's items exist only while it is open, so expand it, dump_visual_tree(root=combo), then select, which closes it as a click does); add_to_selection / remove_from_selection (add/remove a list item without replacing the selection; multi-select lists, including designer controls, only; reply lists the selection and names the primary when several remain. To choose the primary, select it first); double_click (raise DoubleTapped, selecting the target first as a real double-click does, or commit a completion item; how the Project Explorer opens an item); click (press and release a pointer on the target as a real click does, so a running form raises MouseDown, Click and MouseUp; the only verb that presses; any control, a Label or a form's area included); set_value (set a TextBox's text; a box bound to a property is committed as Enter would, and the reply says whether it held or was refused); toggle (flip a CheckBox); expand / collapse (a dropdown, tree node, expander or menu, or else the context menu or flyout the control owns); set_range_value (set a Slider or ScrollBar, as dragging its thumb would; a read-only bar or a value outside its range is refused, not clamped); scroll (moves the target's own scroller or bars, so an editor or a DataGrid works, else the nearest container that scrolls that way; the reply gives where it now is, or says it could not move); invoke_command and set_property (reflection: use the DataContext members inspect_element lists, or value Command for the target's resolved command; invoke_command checks CanExecute, and set_property coerces to the property's type); close (the target's window, as its close box does; a Yes/No or Abort/Retry/Ignore MsgBox refuses, a form's QueryUnload may; reply says if still open; not the IDE's main window).")]
         string action,
         [Description("Required for set_value (the text), set_range_value (a number, '.' for decimals), scroll (up, down, left or right for a page; line_up, line_down, line_left or line_right for a line; home or end for the top or bottom) and the reflection actions (invoke_command: Command runs the target’s resolved Command with its CommandParameter, checking CanExecute; otherwise the name of an ICommand property, or of a method XAML binds as a Command with no CommandParameter, refused when its Can<name>(object) returns false; set_property: \"PropertyName=NewValue\"). For select, the item text to match; omit it when 'target' already points at the item. Optional for click: a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, right or middle (left when omitted), any of shift, ctrl and alt to hold, and double for two clicks, in any order and separated by spaces, as in '10,5 right double' or 'double'.")]
         string? value = null,
