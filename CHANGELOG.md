@@ -255,6 +255,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **String function error precedence** (#959): Left, Mid, Replace, Split and InStr check the measured typed value argument before reading a class object, so its error 13 (or Left's 94 for a Null length) wins over the object's 438 or default-member refusal.
+
 - **MCP sets a non-editable dropdown by item text** (#1672). `interact set_value` uses the same case-insensitive selection as `select`, closes the dropdown and reports the selection. A miss names the available items, with a count when the list is capped. `inspect_element` reports `isReadOnly` for value providers, and other read-only values are refused with an explanation rather than a provider exception.
 
 - **Yearless dates followed by a time** (#1445) now use the current year through `CDate`, a store into a Date and `IsDate`. Measured under en-GB with comma, slash and hyphen separators, seconds and PM; a full stop remains refused.
