@@ -107,6 +107,20 @@ producing symbols that do not match the diagnostics beside them.
 - **WHEN** a document changes and both diagnostics and symbols are produced
 - **THEN** both are derived from a single parse of that text
 
+### Requirement: Option prefixes preserve procedure parsing on syntax errors
+The server SHALL retain the same procedure tree and syntax diagnostics for a malformed procedure preceded
+by Option lines as for the same source without those lines, with diagnostic positions shifted accordingly.
+It SHALL continue to accept an options-only module with a trailing colon separator.
+
+#### Scenario: Option Explicit before a broken first procedure
+- **WHEN** Option Explicit directly precedes a Sub containing `x = = 1` and `List0.`
+- **THEN** that Sub remains in the parse tree and document symbols
+- **AND** diagnostics match those without the Option line, shifted down one line
+
+#### Scenario: Options only with a trailing separator
+- **WHEN** a module contains only `Option Explicit:` or `Option Explicit: Option Base 1:`
+- **THEN** no syntax diagnostics are produced
+
 ### Requirement: The server SHALL confine itself to syntactic analysis
 The server SHALL operate on the syntax tree only, and SHALL NOT build a bound semantic model, resolve names
 across documents, or perform project-wide analysis.
@@ -308,3 +322,22 @@ whole file, the code's real errors included, and give no reason why.
 - **WHEN** a rename is asked for with a new name that does not start with a letter, holds a character other than
   a letter, a digit or an underscore, or is `Rem`, `Empty`, `New`, `Nothing`, `Me` or `Attribute` in any case
 - **THEN** there is no answer
+
+### Requirement: Completion SHALL preserve declaration kinds and unique labels
+The server SHALL return completion labels unique under ordinal case-insensitive comparison, preferring a
+name declared in the document over a static keyword or built-in. The static `Date` entry SHALL be a
+Function. Declared names SHALL carry their syntactic completion kind: Sub as Method, Function as Function,
+Property as Property, Const as Constant, Enum as Enum, enum member as EnumMember, Type as Struct, and
+variables and parameters as Variable.
+
+#### Scenario: Completing a procedure and a variable
+- **WHEN** completion is requested for a document declaring a Sub and a variable
+- **THEN** the Sub has completion kind Method (2) and the variable has kind Variable (6)
+
+#### Scenario: A declaration shadows a static entry
+- **WHEN** a declared name matches a static entry ignoring case
+- **THEN** one item is returned with the declaration's spelling and kind
+
+#### Scenario: Completing Date without a declaration
+- **WHEN** completion is requested for a document without a Date declaration
+- **THEN** Date appears once, with completion kind Function (3)

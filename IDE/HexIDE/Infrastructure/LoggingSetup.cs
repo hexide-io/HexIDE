@@ -19,16 +19,16 @@ public static class LoggingSetup
     private const string OutputTemplate =
         "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}";
 
-    // Three limits, multiplied, are the whole disk budget — state them together so the total is
-    // deliberate rather than emergent:
-    //     10 MB per part x 5 parts per session x 7 sessions = 350 MB per log directory.
+    // Bound each session to 10 MB per part x 5 parts = 50 MB. Cross-session retention keeps
+    // at least seven sessions and every session modified within seven days (#1307).
     // A part fills, the sink rolls to the next one, and Serilog drops the session's OLDEST part.
     // Without rolling a full part simply stops accepting events for the life of the process —
     // silently, with nothing in the file and nothing on Serilog's SelfLog — so the tail of the
     // session is lost, which is the end a post-mortem reader opens the file at (#357).
     private const long PartSizeLimitBytes = 10 * 1024 * 1024; // 10 MB
     private const int RetainedPartsPerSession = 5;            // => 50 MB per session
-    private const int RetainedSessionCount = 7;               // => 350 MB per directory
+    private const int RetainedSessionCount = 7;               // minimum session count
+    private const int RetainedSessionDays = 7;
 
     /// <summary>File name prefix shared by every IDE session log, including its rolled parts.</summary>
     private const string LogFilePrefix = "ide-";
@@ -60,7 +60,7 @@ public static class LoggingSetup
         // Create the MEL ILoggerFactory so Pure.DI can produce ILogger<T> instances
         LoggerFactory = new SerilogLoggerFactory(serilogLogger);
 
-        // Prune old sessions (keep the most recent N, each with all of its rolled parts)
+        // Prune stale sessions beyond the floor, each with all of its rolled parts
         PruneOldLogs(logDir, LogFilePrefix, RetainedSessionCount);
     }
 
@@ -182,7 +182,7 @@ public static class LoggingSetup
     /// <summary>
     /// Deletes old log files in the directory, keeping the most recent
     /// <paramref name="keepSessions"/> <em>sessions</em> — every rolled part of a retained session
-    /// is kept, and every part of a pruned one is deleted.
+    /// is kept. A session is deleted only when its newest part is older than seven days.
     /// </summary>
     /// <remarks>
     /// Counting files here rather than sessions is what makes rolling and retention collide: one
@@ -194,11 +194,13 @@ public static class LoggingSetup
     {
         try
         {
+            var cutoff = DateTime.UtcNow.AddDays(-RetainedSessionDays);
             var staleSessions = new DirectoryInfo(directory)
                 .GetFiles(prefix + "*.log")
                 .GroupBy(f => SessionKeyOf(f.Name, prefix), StringComparer.OrdinalIgnoreCase)
                 .OrderByDescending(g => g.Key, StringComparer.OrdinalIgnoreCase)
-                .Skip(keepSessions);
+                .Skip(keepSessions)
+                .Where(g => g.All(f => f.LastWriteTimeUtc < cutoff));
 
             foreach (var session in staleSessions)
             {
