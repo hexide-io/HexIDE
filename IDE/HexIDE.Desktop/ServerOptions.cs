@@ -36,6 +36,7 @@ internal static class ServerOptions
 {
     public static int? Port { get; private set; }
     public static bool NewProject { get; private set; }
+    public static bool NewProjectUnsaved { get; private set; }
     public static string? ProjectPath { get; private set; }
     public static string? Personality { get; private set; }
 
@@ -146,8 +147,12 @@ internal static class ServerOptions
             Aliases: ["-h", "/?", "-?"]),
 
         new("newproject", null,
-            "Create a Standard EXE and skip the startup dialog.",
+            "Create a Standard EXE and save it in a temporary directory.",
             _ => { NewProject = true; return false; }),
+
+        new("newproject-unsaved", null,
+            "Create a Standard EXE without saving; skip the startup dialog.",
+            _ => { NewProjectUnsaved = true; return false; }),
 
         // "from its first handshake" is the whole flag, not decoration. Envelopes are recorded for every
         // connection already and bodies can be armed at any time from the inspector; arming BEFORE the
