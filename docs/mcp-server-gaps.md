@@ -354,30 +354,9 @@ by re-reading prose that had just been written. That half is the first-contact e
 
 ---
 
-## Every automation route to a new document saves it, so the pathless state cannot be reached
+## A newly created pathless form initially reads without its header (#885)
 
-**Symptom.** `add_file` says, in its own description, "Adds a new form or module to the startup project, or to
-the loaded project `project` names …, **saves the new file to disk**, and returns its path." (Reworded by #596 and
-by #273, which added `project`; this entry first quoted "saves it to disk", and the point is the same.)
-`--newproject` — the flag the documented dev loop uses on every launch — goes further and saves the whole project
-into `%TEMP%` before the first tool call
-(`DesktopStartup.cs`, the `--newproject` hook's `SaveProjectToDirectory` call). So a caller driving HexIDE through automation never sees a document that has no
-file.
-
-**Why that matters more than it sounds.** #489 measured that in real VB6 a document with no file is the
-*ordinary* state: nothing is written until the project is saved. #273 names such a document
-`untitled:<Project>/<Name>.<ext>` on the wire, and that branch was measured against five foreign language
-servers precisely because a branch nothing exercises is a branch that rots. A model asked to verify it
-through this surface will call `add_file`, see a `file:` URI, and reasonably conclude the `untitled:`
-spelling is dead code.
-
-**Workaround, and it is not obvious.** Drive the real menu: `dump_visual_tree` to find
-`MenuItem[Project]`, `interact` with `expand`, `dump_visual_tree` again scoped to it, then `interact` with
-`invoke` on `MenuItem[Add Module]`. That reaches `ProjectService.AddNewModule` — which, as of today, also
-writes (hexide-io/HexIDE#500). The only genuinely pathless document reachable at all is the initial `Form1`
-of a project created through `File > New Project` **in the UI**, which `--newproject` skips.
-
-**Such a form also reads without its header, since #273 task 3.18.** Read in code, not run. `get_file_content`
+**Symptom, since #273 task 3.18.** Read in code, not run. `get_file_content`
 returns a form's whole file, except a form created in this session and not yet saved or changed in the designer,
 which has no header yet, so its text is its code alone; the tool's description says so. Its first committed designer
 change or save gives it one (`HeaderRefresher.ApplyHeader`), its marks move down by the header's height, and from then
@@ -385,12 +364,6 @@ its lines count from the top of that header. So a line number read before then i
 it. **Workaround:** read the content again after any designer change or save before using a line number from it.
 Where a created form's first header should come from, so that it holds one from the start, is
 [#885](https://github.com/hexide-io/HexIDE/issues/885).
-
-**Suggested fix.** Two parts, and the first is cheap. (1) `add_file` should say which of the two states it
-leaves the document in, and gain a way to ask for the other — a caller cannot currently express "add it the
-way the user's own menu does". (2) A launch flag that creates a project without saving it, so the dev loop
-can reach the state the product will normally be in once #500 lands. Until then, any verification of
-`untitled:` naming through this surface is verifying something the surface itself prevents.
 
 ## Three tools accept a negative control size and report success
 
@@ -474,27 +447,6 @@ it, as for any fold. An offset at the run's very end does not: the window moves 
 run's box to the end of the declaration, in front of the box (`CodeEditorView.KeepCaretOffFoldedRunsEnd`), and the
 run stays folded.
 
-## `set_file_content`'s reply does not say when its save rewrote a member's attribute qualifier
-
-**Symptom.** `set_file_content` saves as the document's own Save does, and since #273 task 4.4 that save writes each
-member's attribute run with its member's name, as VB6's own Save does whatever the module's state. Content holding
-`Attribute Gone.VB_Description` under `Public Function Total()` is therefore written as `Attribute
-Total.VB_Description`, and a no-op write-back of what `get_file_content` returned can change the file in that one
-place. The reply says the file was written and nothing more, so a caller comparing the file with what it sent finds
-a change it did not make, with no reason given.
-
-**`set_control_property` and `add_control` save the same way, and say no more.** Read in code, not run: both save
-through `ProjectService.SaveForm` or `SaveModule`, as `set_file_content` does, and both reach `SaveFiles` with
-`ownCommand: true`, `SaveModule` through `SaveModuleCore`. So a property set on a form or UserControl, or a control
-added to it, also writes a stale qualifier in its code with its member's name, and neither reply says so. #1043
-names `set_file_content` alone.
-
-**Workaround.** Read the file back with `get_file_content` after the write, and expect a stale qualifier to have been
-re-qualified.
-
-**Suggested fix.** Have the save report what it rewrote and say it in the reply's `note`, not the description, which
-is within about 60 characters of its cap. [#1043](https://github.com/hexide-io/HexIDE/issues/1043).
-
 ## `set_file_content` puts its content into a file the IDE will not save, and its refusal says only that the file was not written
 
 **Symptom.** Read in code, not run, at ec9bfc4. On a form HexIDE holds read-only as a whole because it cannot save it
@@ -562,53 +514,6 @@ Until then the hexide-mcp-server requirement #273 added, that "a tool that accep
 SHALL identify it by its project and its name", is only partly met.
 [#886](https://github.com/hexide-io/HexIDE/issues/886).
 
-## A control with an x:Name is reported by that name alone, so the Tools menu reads `ToolsMenuItem`
-
-**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
-
-```
-dump_visual_tree {"root":"Window/Custom[MainView]/None[#0]","maxDepth":4}
-→ … MenuItem[File], MenuItem[Edit], MenuItem[View], … MenuItem[ToolsMenuItem], MenuItem[AddInsMenuItem] …
-interact {"target":"Window/Custom[MainView]/None[#0]/Menu[MenuBar]/MenuItem[ToolsMenuItem]","action":"expand"}
-→ opened menu 'ToolsMenuItem'
-```
-
-An x:Name wins over the label a person sees, in the node's `name`, in its path and in reply text, and no field
-carries "Tools". A caller searching the dump for the text in a snapshot finds nothing. Four menu items have an
-x:Name: `ToolsMenuItem`, `LanguageServersMenuItem`, `ProtocolInspectorMenuItem` and `AddInsMenuItem`. x:Name first
-is deliberate, because it does not change with the IDE language, so the fix adds rather than swaps.
-Cross-platform by code reading.
-
-**Workaround.** Address the item by the x:Name the dump shows. `MenuItem[Tools]` should also resolve, through the
-label fallback, but that is read in code and was not tried.
-
-**Suggested fix.** A `label` field on a node whenever the peer's label differs from `name`, reply text that uses
-it (`opened menu 'Tools' (ToolsMenuItem)`), and a description that says a segment may be addressed by either.
-[#948](https://github.com/hexide-io/HexIDE/issues/948).
-
-## `add_to_selection` names the new selection but not its reference, so a caller learns what Align measured against only afterwards
-
-**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
-
-```
-interact {"target":"Window/.../List[ControlsContainer]/ListItem[Command1]","action":"add_to_selection"}
-→ {"detail":"added 'Command1' to the selection; 2 items are selected now: Command0, Command1"}
-```
-
-Only the next `invoke_format_command` reply, "…, aligned to Command0", named the reference, the control every
-Align and Make Same command measures against. A snapshot between the two showed Command0 with the solid handles.
-The reply lists the selection in index order, as does `inspect_element`'s `selectionItems`, so no read names the
-reference before a command runs, which the form-designer spec requires of the designer. The same goes for
-`remove_from_selection`. Cross-platform by code reading.
-
-**Workaround.** Select the intended reference first and `add_to_selection` the rest: by code reading, the
-reference stays on the first item selected, and removing it moves it to the lowest-indexed item still selected.
-A snapshot shows the reference with the solid handles.
-
-**Suggested fix.** With two or more selected, the reply names the primary item, and when `remove_from_selection`
-removes it, names the new one. [#951](https://github.com/hexide-io/HexIDE/issues/951). Which control should be
-the reference is #928.
-
 ## `invoke_format_command`'s no-op reply states a selection rule the spec contradicts
 
 **Symptom.** With one control selected (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf,
@@ -671,41 +576,29 @@ was passed, a move or resize has arrived; on timeout, reply with what the window
 Check the frame against the screens before any state change, so a refusal never has to undo a restore.
 [#946](https://github.com/hexide-io/HexIDE/issues/946).
 
-## A whole replacement that changes the header and a member's `Attribute` lines is told only about the header
+## The code window's completion description: desktop snapshot composition still needs a live check
 
-**Symptom.** Read from the code, and recorded when #273 task 4.5b was built. `set_file_content` (and an add-in's
-`TrySetContent`) compares the header first and returns on the first difference:
+**Original symptom.** Recorded when #942 closed (#1247), from the code and headless tests; no call was recorded.
+The description tooltip beside a completion item was absent from `dump_visual_tree` and `take_snapshot`, and
+`interact` `double_click` selected an item without committing it.
+[#1334](https://github.com/hexide-io/HexIDE/issues/1334).
 
-```
-set_file_content {"name":"Ledger","content":"<a class header with one line changed, and Total's run changed>"}
-→ refused: "The content would change the document's header (its designer block, class header or leading
-   Attribute lines), which only the IDE changes. ..."
-```
+**Fixed in code, with headless regression tests.** The dump now reaches the open description popup through
+`AttachedPopupsOf`, under the completion list, with its text readable and its path resolvable. `double_click`
+selects the target and requests insertion through the completion list's own commit path. The current list
+appends to the typed prefix rather than replacing it (#941); the test checks the resulting document text.
 
-A caller that restores the header and sends again is refused a second time, now for `Total`'s run, a reason the
-first reply did not give.
+**Still open.** The snapshot composer uses that same attached-popup route to discover the description's
+top-level root and compose it after the list. This has not been checked live. Headless popups render in the
+window's own overlay, so headless rendering cannot prove the desktop composition works. A running IDE
+`take_snapshot(window: "ide")` with a described completion selected remains required.
 
-**Workaround.** After a header refusal, compare the members' `Attribute` lines with `get_file_content`'s before
-sending again.
+**Workaround.** Read the description with `dump_visual_tree(window: "ide", interactiveOnly: false)`.
+For snapshot visibility, no verified workaround.
 
-**Suggested fix.** Compare the runs whatever the header does, and refuse once with every finding.
-[#1054](https://github.com/hexide-io/HexIDE/issues/1054).
-
-## The code window's completion list: its description tooltip is out of reach, and `double_click` does not commit an item
-
-**Symptom.** Recorded when #942 closed (#1247), from the code and the headless tests; no call was recorded. Since #942,
-`dump_visual_tree` lists an open completion list and its items under the `TextEditor` that opened it, and
-`take_snapshot` composes the list into the image. The description tooltip the list shows beside an item is reached by
-neither, so a caller cannot read an item's description or tell that one is showing. Committing an item with
-`interact` `double_click` does not work either: the list takes a commit on the press, which `double_click` does not
-send.
-
-**Workaround.** For the description, none. To commit an item, `select` it and then `press_key` Tab. Until #941 is
-fixed, Enter does not commit and Tab appends the item instead of replacing the word being typed.
-
-**Suggested fix.** Reach the description tooltip by the route that reaches the list itself, so the dump lists it
-under the list and the snapshot composes it. Have `double_click` on a completion item commit it, or say in its reply
-that it did not. [#1334](https://github.com/hexide-io/HexIDE/issues/1334).
+**Suggested check.** In a running IDE select a completion with a description, then call
+`take_snapshot(window: "ide")` and confirm the tooltip's text, position and unclipped extent. Keep this
+entry open until that check passes.
 
 ## A document save reached through a menu, key or click can reply before its picker opens
 
