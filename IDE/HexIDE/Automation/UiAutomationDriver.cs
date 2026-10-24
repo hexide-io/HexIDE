@@ -70,7 +70,7 @@ public static class UiAutomationDriver
     private static bool Answers(UiNode node, string match) =>
         new[]
             {
-                node.Name, node.AutomationId, node.ClassName, node.ControlType, node.TypeNameAsName,
+                node.Name, node.Label, node.AutomationId, node.ClassName, node.ControlType, node.TypeNameAsName,
                 node.InheritsDataContext ? null : node.DataContextType,
             }
             .Any(f => f?.Contains(match, StringComparison.OrdinalIgnoreCase) == true);
@@ -189,6 +189,7 @@ public static class UiAutomationDriver
             ownerPath,
             note,
             control is SelectingItemsControl items and not (MenuItem or MenuBase) ? Safe<int?>(() => items.ItemCount, null) : null,
+            DistinctLabelOf(NameOf(control, peer), peer),
             control is Window window ? new WindowFrameState(window.CanResize, window.WindowDecorations.ToString(),
                 window.CanMinimize, window.CanMaximize, window.ShowInTaskbar, window.WindowState.ToString(),
                 "Native window styles are not reported; frame fields are Avalonia properties, not a read of Win32 GWL_STYLE/GWL_EXSTYLE.") : null);
@@ -3535,7 +3536,7 @@ public static class UiAutomationDriver
         return true;
     }
 
-    private static string LabelOf(Control control, AutomationPeer peer) => NameOf(control, peer) ?? ControlTypeOf(peer);
+    private static string LabelOf(Control control, AutomationPeer peer) => MeaningfulLabelOf(peer) ?? NameOf(control, peer) ?? ControlTypeOf(peer);
 
     private static string LabelOf(Control control) => LabelOf(control, ControlAutomationPeer.CreatePeerForElement(control));
 
@@ -3803,7 +3804,8 @@ public static class UiAutomationDriver
             children,
             TypeNameAsNameOf(info.Peer),
             truncated ? true : null,
-            node.Control.DataContext is { } context && ReferenceEquals(context, parentContext));
+            node.Control.DataContext is { } context && ReferenceEquals(context, parentContext),
+            DistinctLabelOf(info.Name, info.Peer));
     }
 
 
@@ -4094,6 +4096,9 @@ public static class UiAutomationDriver
     private static string ControlTypeOf(AutomationPeer peer)
         => Safe(() => peer.GetAutomationControlType().ToString(), "Control");
 
+    private static string? DistinctLabelOf(string? name, AutomationPeer? peer) =>
+        MeaningfulLabelOf(peer) is { } label && label != name ? label : null;
+
     private static string? NameOf(Control control, AutomationPeer peer)
         => NullIfEmpty(control.Name) ?? MeaningfulLabelOf(peer);
 
@@ -4165,7 +4170,8 @@ public record UiNode(
     bool? Truncated = null,
     // True when the node's DataContext is the same object as its parent's in the tree, so a search by its type finds
     // where a context starts, as a nested tree item's own of the same type does (#699). Not part of the reply.
-    [property: System.Text.Json.Serialization.JsonIgnore] bool InheritsDataContext = false);
+    [property: System.Text.Json.Serialization.JsonIgnore] bool InheritsDataContext = false,
+    string? Label = null);
 
 /// <summary>Deep single-node inspection from <see cref="UiAutomationDriver.Inspect"/>.</summary>
 public record UiNodeDetail(
@@ -4193,6 +4199,7 @@ public record UiNodeDetail(
     // SelectionItems is only what is selected, so a list lacking an item read the same as one not choosing it (#1263).
     // Absent for anything else: a menu or the dock's lists count separators and splitters a dump does not show.
     int? ItemCount = null,
+    string? Label = null,
     [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     WindowFrameState? Frame = null);
 

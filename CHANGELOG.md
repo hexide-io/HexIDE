@@ -255,6 +255,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Named automation controls expose their visible labels** (#948). Dumps and inspection keep stable x:Name paths and add a distinct `label`; discovery searches and interaction replies use that text too.
+
 - **A failed Let from a temporary object or App empties a Variant** (#1485, #878), as measured on vb6.exe.
   `New Collection`, an object returned by a Function, and a class with no default member used to leave the old value
   after the error. A program variable still leaves it alone, and a String destination keeps its value.
