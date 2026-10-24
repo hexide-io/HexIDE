@@ -57,6 +57,7 @@
         <Compile Include="..\HexIDE.Desktop\Server\IdeContext.cs" Link="Infrastructure\IdeContext.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\DiagnosticsCache.cs" Link="Infrastructure\DiagnosticsCache.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\DescribesEnumAttribute.cs" Link="Infrastructure\DescribesEnumAttribute.cs" />
+        <Compile Include="..\HexIDE.Desktop\Server\LoopbackMiddleware.cs" Link="Infrastructure\LoopbackMiddleware.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\McpTransport.cs" Link="Infrastructure\McpTransport.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\ToolFailures.cs" Link="Infrastructure\ToolFailures.cs" />
         <Compile Include="..\HexIDE.Desktop\Server\SessionGuard.cs" Link="Infrastructure\SessionGuard.cs" />

@@ -40,9 +40,9 @@ public partial class App : Application
                 desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
                 try
                 {
-                    run = VBLoader.RunMadeProgram(Program.Project, default, out var window);
-                    if (window is not null)
-                        window.Icon = new WindowIcon(AssetLoader.Open(new Uri("avares://HexIDE.Standalone/form.ico")));
+                    // Every form with no Icon line runs with the runner's icon; a form's own Icon, or (None), is its own (#1594).
+                    VBLoader.DefaultFormIcon = new WindowIcon(AssetLoader.Open(new Uri("avares://HexIDE.Standalone/form.ico")));
+                    run = VBLoader.RunMadeProgram(Program.Project, default, out _);
                     run.ContinueWith(_ => Dispatcher.UIThread.Post(() => desktop.Shutdown(0)));
                 }
                 catch (Exception e)

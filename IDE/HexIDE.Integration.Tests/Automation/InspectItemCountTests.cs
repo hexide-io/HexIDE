@@ -98,6 +98,23 @@ public class InspectItemCountTests
             (c, _) => new TextBlock { Text = c?.Name }),
     };
 
+    [AvaloniaFact]
+    public void ReadOnlyValue_TemplatedDropdown_MatchesTheDumpName()
+    {
+        var combo = TemplatedDropdown(0);
+        var window = new Window { Width = 300, Height = 200, Content = combo };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(combo, "set_value", "Command1");
+            outcome.Success.Should().BeTrue(outcome.Error);
+            UiAutomationDriver.Inspect(combo, "Window/ComboBox", window).SelectionItems.Should().Equal("Command1");
+            outcome.Detail.Should().Be("selected 'Command1' and closed the dropdown, as a click does");
+        }
+        finally { window.Close(); }
+    }
+
     // A dropdown whose items are view models shown through a template: the peer names the selection, and gives its value,
     // by the item's ToString, its type name. Read as the dropdown shows it instead, closed and open (#1288).
     [AvaloniaFact]
