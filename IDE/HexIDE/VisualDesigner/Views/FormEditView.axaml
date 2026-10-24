@@ -237,7 +237,6 @@
                                 <Panel>
                                     <controls:ControlsContainer
                                         x:Name="ControlsContainer"
-                                        SelectionChanged="OnControlsContainerSelectionChanged"
                                         ItemsSource="{CompiledBinding Components}">
                                         <controls:ControlsContainer.Template>
                                             <ControlTemplate TargetType="controls:ControlsContainer">

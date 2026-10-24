@@ -261,6 +261,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The last control added to the designer selection is the reference** (#928). Its primary handles and Properties follow the selection, and Align and Make Same Size use it, including after reselection.
+
 - **A server cancelling an outdated language request no longer warns that the feature is broken** (#723).
   ContentModified and RequestCancelled replies are logged at debug, leaving the method's warning available
   for a later genuine failure.
