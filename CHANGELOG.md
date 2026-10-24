@@ -255,6 +255,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A Label's Appearance can be set at run time** (#796). It resets BackColor to the button face for 3D or the
+  window colour for Flat and redraws the border, as measured on vb6.exe. The assignment was refused.
+
 - **An Enum member named like its Enum reads qualified** (#1637): `E.E` now works in modules and classes, including across modules. Bare `E` as a value raises VB6's "Expected variable or procedure, not enum type" at use; assigning `E.E` raises "Assignment to constant not permitted".
 
 - **Numeric Strings accept a thousands separator after the decimal point** (#1446). `CDbl("1.5,2003")`
