@@ -3197,6 +3197,39 @@ and neither announces itself. HexIDE shipped exactly that for two hours; it was 
 token covers `/` and `\` and the runtime tells them apart by the token's text, which the constant folder
 did not.
 
+### An Enum and its member may share a name (2026-10-24, #1637)
+
+Provenance: #1637's comment "Measured: the rows this issue owed", vb6.exe SP6
+(VB6.EXE 6.00.9782), `/make`, en-GB guest; native and p-code agreed. Each compile
+error used a separate project. Unless stated otherwise, `Enum E` contains `E` and `F = 5`.
+
+| Probe | Measured result |
+|---|---|
+| `E.E`, `E.F` | Long 0, Long 5 |
+| bare `E` in an expression | Compile error: "Expected variable or procedure, not enum type" |
+| `Dim x As E`, read before storing | Long 0 |
+| `x As E`: store `E.E`, then `E.F + 1` | Long 0, then Long 6 |
+| `x As E`: `x = E` | "Expected variable or procedure, not enum type" |
+| `Twice(E.F)`, with `Function Twice(ByVal v As E) As Long` doubling v | 10 |
+| Class with `Private Enum E`: read `E.E`, `E.F`, then x As E given `E.F` | 0, 5, 5 |
+| Same class, bare `E` | "Expected variable or procedure, not enum type" |
+| Module2's Public Enum, read from Module1: `E.E`, `Module2.E.E`, x As E given `E.F` | Long 0, Long 0, Long 5 |
+| Same project: bare `E` or `Module2.E` as a value | "Expected variable or procedure, not enum type" |
+| Control: Enum G contains `E = 7`; bare `E`, `G.E` | Long 7, Long 7 |
+| `E.E = 1` in an uncalled Sub | "Assignment to constant not permitted" |
+| Module2 exports Enum E with E = 3; Module3 exports Enum G with E = 4; Module1 reads bare E | "Ambiguous name detected: E" |
+
+The issue body's earlier probe also measured `E.E` as 0 with VB6.EXE 6.00.8176
+and MSVBVM60 6.00.9848, native and p-code. **The SP6 comment overturned the issue's
+own guess that bare E would select the member:** the Enum wins that shared name;
+qualification reaches its member. A differently named Enum's member remains readable bare.
+
+`EnumOwnNameTests` pins these rows. HexIDE looks up names as the walk reaches them
+and raises `VBCompileErrorException` with the compile diagnostic's text. This existing
+exception has no error number; these are compile diagnostics, not numbered runtime errors.
+VB6 rejects the constant assignment even if its Sub is never called; HexIDE only sees
+executed statements, so the test calls that Sub (the CST boundary's second-order consequence).
+
 ### Addressing: `[[Lib.][Enum.]]Value`, both qualifiers independently optional
 
 | probe | verdict |
@@ -19003,8 +19036,8 @@ So only the active branch declares anything, as an inactive branch is never comp
     name outside the procedure, which is relating a use to declarations, not collecting them;
   - `Dim K%` and `Dim K` at module level: a module-level Dim with a type character is refused as not implemented first
     (#742);
-  - `ReDim n(3)` twice with no Dim is "Unknown variable" (#1495), and `E.E` for a member named like its Enum is "Method
-    or data member not found" (#1637). Both predate this, and both fail on main.
+  - `ReDim n(3)` twice with no Dim is "Unknown variable" (#1495). The `E.E` failure recorded here was fixed by
+    #1637; the measured shared-name rows are beside the Enum entries above.
 - **Across modules nothing changed.** A name two modules export is refused where it is read unqualified, as before; that
   is resolution at the use, not a duplicate declaration.
 
