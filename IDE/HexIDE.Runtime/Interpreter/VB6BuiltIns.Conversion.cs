@@ -47,7 +47,7 @@ public partial class VB6BuiltIns
             // Other accepted forms (hex, octal, exponents) retain the Double reader.
             try
             {
-                var number = decimal.TryParse(AsStr(v).Trim(), NumberStyle & ~NumberStyles.AllowExponent,
+                var number = decimal.TryParse(WithoutThousandsAfterDigit(AsStr(v).Trim()), NumberStyle & ~NumberStyles.AllowExponent,
                     VbLocale.Current, out var parsed)
                     ? Vb6Value.NewDecimal(parsed)
                     : new Vb6Value(ToNum(v));
@@ -134,6 +134,7 @@ public partial class VB6BuiltIns
             //   en-GB, and "1,000" is 1 and "6.5" is 65 under de-DE;
             // - a trailing sign and parentheses make a negative: "6-" and "(6)" are both -6;
             // - D marks an exponent as E does: "1D3" is 1000.
+            s = WithoutThousandsAfterDigit(s);
             if (!double.TryParse(s, NumberStyle, VbLocale.Current, out var sd)
                 && !(s.AsSpan().IndexOfAny('d', 'D') >= 0
                      && double.TryParse(s.Replace('d', 'e').Replace('D', 'E'), NumberStyle, VbLocale.Current, out sd)))
@@ -142,6 +143,18 @@ public partial class VB6BuiltIns
         }
         if (Vb6Value.TryNumericToDouble(v, out var d)) return d;   // numeric + Date (via OA serial)
         throw new VBRunTimeException(VBStandardError.TypeMismatch);
+    }
+
+    // SP6 en-GB, native and p-code (#1446): separators after a digit disappear even after the point.
+    // Keep any separator before the first digit so the parser still refuses a leading one.
+    // Shared by the decimal-exact reader and IsNumeric, never by Val's invariant prefix scanner.
+    private static string WithoutThousandsAfterDigit(string text)
+    {
+        var separator = VbLocale.Current.NumberFormat.NumberGroupSeparator;
+        if (separator.Length == 0) return text;
+        var firstDigit = text.AsSpan().IndexOfAnyInRange('0', '9');
+        if (firstDigit < 0) return text;
+        return text[..(firstDigit + 1)] + text[(firstDigit + 1)..].Replace(separator, "", StringComparison.Ordinal);
     }
 
     private const NumberStyles NumberStyle = NumberStyles.Float | NumberStyles.AllowThousands
