@@ -260,3 +260,21 @@ Unseen, it is edited around blindly. VB6's box is an empty PictureBox; labelling
 #### Scenario: Pressing on the box
 - **WHEN** the developer presses on the box
 - **THEN** nothing is selected and no region drag begins
+
+
+### Requirement: Export a picture property's payload
+The Properties window SHALL offer Export picture on modeled Picture, Icon, MouseIcon and DragIcon properties
+holding a nonempty, length-consistent VB6-framed StdPicture record. Export SHALL write only the image payload
+chosen by a save picker, without changing the property, designer history, form or companion file. It SHALL NOT
+export opaque OCX property bags, unframed bytes or malformed records. Cancellation SHALL write nothing, and a
+write failure SHALL be reported to the user.
+
+#### Scenario: Export a form's icon
+- **GIVEN** a form's Icon holds a VB6-framed StdPicture record
+- **WHEN** Export picture is chosen from its property row's context menu and a destination is selected
+- **THEN** the destination contains the original image bytes without either framing layer
+- **AND** the property record remains unchanged
+
+#### Scenario: A picture belongs to an OCX property bag
+- **GIVEN** an opaque OCX block contains an image
+- **THEN** the Properties window offers no export for that property bag

@@ -10,6 +10,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Export picture properties** (#159). Right-click a framed picture property in the Properties window to save
+  its image payload without changing the form or its companion. PictureBox now peels the same framing before decoding (#156).
+
 - **`Declare PtrSafe` parses** (#1548) in the interpreter and language server. VBA7 declarations using existing
   types now let a module load; external API calls remain deferred. `LongPtr`, `LongLong` and their conversions
   are follow-up work.

@@ -2,6 +2,7 @@
   "name": "Latina",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.ExportPicture": "Imaginem exportare...",
     "Str.Archive.ProjectFormat": "{0} (archivum solum legendum)",
     "Str.Archive.Hidden": "Elementa archivi occulta ostendere",
     "Str.Archive.ReadOnly": "Praevisio archivi solum legendi. Editio, compilatio et exsecutio non praesto sunt.",

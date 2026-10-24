@@ -2,6 +2,7 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.ExportPicture": "Eksportuj obraz...",
     "Str.Archive.ProjectFormat": "{0} (archiwum tylko do odczytu)",
     "Str.Archive.Hidden": "Pokaż ukryte elementy archiwum",
     "Str.Archive.ReadOnly": "Podgląd archiwum tylko do odczytu. Edycja, kompilacja i uruchamianie są niedostępne.",

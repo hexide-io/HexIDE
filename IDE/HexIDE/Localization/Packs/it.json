@@ -2,6 +2,7 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.ExportPicture": "Esporta immagine...",
     "Str.Archive.ProjectFormat": "{0} (archivio di sola lettura)",
     "Str.Archive.Hidden": "Mostra le voci nascoste dell’archivio",
     "Str.Archive.ReadOnly": "Anteprima dell’archivio di sola lettura. Modifica, compilazione ed esecuzione non sono disponibili.",

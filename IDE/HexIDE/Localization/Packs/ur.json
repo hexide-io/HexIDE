@@ -2,6 +2,7 @@
   "name": "Urdu",
   "direction": "rtl",
   "strings": {
+    "Str.Tool.Properties.ExportPicture": "تصویر برآمد کریں...",
     "Str.Archive.ProjectFormat": "{0} (صرف پڑھنے کے لیے آرکائیو)",
     "Str.Archive.Hidden": "آرکائیو کے پوشیدہ اندراجات دکھائیں",
     "Str.Archive.ReadOnly": "آرکائیو کا صرف پڑھنے کے لیے پیش منظر۔ ترمیم، بلڈ اور چلانے کی سہولت دستیاب نہیں ہے۔",

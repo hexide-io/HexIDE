@@ -2,6 +2,7 @@
   "name": "es",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.ExportPicture": "Exportar imagen...",
     "Str.Archive.ProjectFormat": "{0} (archivo de solo lectura)",
     "Str.Archive.Hidden": "Mostrar entradas ocultas del archivo",
     "Str.Archive.ReadOnly": "Vista previa del archivo de solo lectura. La edición, la compilación y la ejecución no están disponibles.",

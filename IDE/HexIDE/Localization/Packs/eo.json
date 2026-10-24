@@ -2,6 +2,7 @@
   "name": "Esperanto",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.ExportPicture": "Eksporti bildon...",
     "Str.Archive.ProjectFormat": "{0} (nurlega arkivo)",
     "Str.Archive.Hidden": "Montri kaŝitajn arkivajn erojn",
     "Str.Archive.ReadOnly": "Nurlega antaŭvido de arkivo. Redaktado, konstruado kaj rulado ne disponeblas.",

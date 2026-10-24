@@ -2,6 +2,7 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.Tool.Properties.ExportPicture": "تصدير الصورة...",
     "Str.Archive.ProjectFormat": "{0} (أرشيف للقراءة فقط)",
     "Str.Archive.Hidden": "إظهار عناصر الأرشيف المخفية",
     "Str.Archive.ReadOnly": "معاينة الأرشيف للقراءة فقط. التحرير والبناء والتشغيل غير متاحة.",

@@ -2,6 +2,7 @@
   "name": "Persian",
   "direction": "rtl",
   "strings": {
+    "Str.Tool.Properties.ExportPicture": "صدور تصویر...",
     "Str.Archive.ProjectFormat": "{0} (بایگانی فقط‌خواندنی)",
     "Str.Archive.Hidden": "نمایش موارد پنهان بایگانی",
     "Str.Archive.ReadOnly": "پیش‌نمایش بایگانی فقط‌خواندنی است. ویرایش، ساخت و اجرا در دسترس نیستند.",

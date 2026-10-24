@@ -2,6 +2,7 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Tool.Properties.ExportPicture": "Exportera bild...",
     "Str.Archive.ProjectFormat": "{0} (skrivskyddat arkiv)",
     "Str.Archive.Hidden": "Visa dolda arkivposter",
     "Str.Archive.ReadOnly": "Skrivskyddad förhandsvisning av arkivet. Redigering, kompilering och körning är inte tillgängliga.",

@@ -317,6 +317,7 @@
 | String, numeric, boolean editors | Done | |
 | Colour picker editor | Done | |
 | Font picker editor | Done | |
+| Export picture property | Done | Right-click Picture, Icon, MouseIcon or DragIcon to export a VB6-framed StdPicture payload (#159). Read-only; no import or OCX property-bag export |
 | Enum / dropdown editor | Done | |
 | Property value validation | Done | |
 | Real-time sync with designer | Done | Bidirectional |
@@ -350,7 +351,7 @@
 | Line | Partial | A form holding one loads, runs and saves byte for byte, VB6's About Dialog included. It draws pixel for pixel as VB6 does, and its members read and write from code (oracle, "The Line control"). The designer draws it and moves it by the rectangle it covers. Not yet in the toolbox, and its endpoints can't be dragged on their own ([#163](https://github.com/hexide-io/HexIDE/issues/163)) |
 | Image | Done | `ImageComponentClass` + `VBImage`; decodes an .frx picture record by peeling both the record framing and the StdPicture preamble. Raises Click and the mouse events, hit-tested across its whole rectangle with or without a picture (#974); and DblClick, in place of a double click's second MouseDown (#1031) |
 | OLE | Windows-only | OLE Container control; in-process COM hosting; Windows only |
-| PictureBox | Done | Takes the focus, whether or not it holds controls, raising GotFocus and LostFocus (#1101). |
+| PictureBox | Done | Peels the .frx framing and StdPicture preamble before decoding its picture (#156, #159). Takes the focus, whether or not it holds controls, raising GotFocus and LostFocus (#1101). |
 | CommonDialog | Partial | ShowOpen, ShowSave and ShowFont run, through the IDE's own pickers and font dialog, which an automation client answers with `answer_next_file_dialog`. Cancel, CancelError, FileName, FileTitle, Filter, DefaultExt, the Font properties and the control's 102 constants are as vb6.exe measured (oracle, "The CommonDialog control"). It lives only at run time: the designer shows the block the form was read with and saves it byte for byte. ShowColor, ShowPrinter and ShowHelp are not implemented ([#1084](https://github.com/hexide-io/HexIDE/issues/1084)) |
 | Common controls (MSCOMCTL et al.) | Missing | ListView, TreeView, ImageList, ProgressBar and the rest of the ActiveX controls VB6 shipped in the box, re-implemented cross-platform under VB6's own type names, members and `.frm`/`.frx` shape, with nothing hosted through COM. The epic is [#1081](https://github.com/hexide-io/HexIDE/issues/1081), its foundation [#1082](https://github.com/hexide-io/HexIDE/issues/1082), and the controls #1083 to #1100 |
 | Custom tab / component groups | Missing | Single flat list; no tab support |

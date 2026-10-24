@@ -2,6 +2,7 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Tool.Properties.ExportPicture": "ייצוא תמונה...",
     "Str.Archive.ProjectFormat": "{0} (ארכיון לקריאה בלבד)",
     "Str.Archive.Hidden": "הצגת פריטים מוסתרים בארכיון",
     "Str.Archive.ReadOnly": "תצוגה מקדימה של הארכיון לקריאה בלבד. עריכה, בנייה והרצה אינן זמינות.",
