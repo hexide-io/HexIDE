@@ -100,6 +100,56 @@ public class MemberRunFollowsItsLineTests : IDisposable
         return vm.Initialize(module);
     }
 
+    [AvaloniaTheory]
+    [InlineData("Option Explicit\r\n", "Option Explicit", "\r\n")]
+    [InlineData("Option Explicit\n", "Option Explicit", "\n")]
+    [InlineData("Option Explicit", "Option Explicit", "\r\n")]
+    [InlineData("    Debug.Print 1\r\n", "    Debug.", "\r\n    ")]
+    [InlineData("    x = _\r\n", "    x = _", "\r\n    ")]
+    [InlineData("Public Sub Test()\r\n", "Public Sub Test()", "\r\n    \r\nEnd Sub")]
+    public void Enter_uses_the_document_newline(string text, string beforeCaret, string inserted)
+    {
+        var vm = Open(text);
+        var editor = Show(vm);
+        // Include a header-free, single-line buffer to exercise the CRLF fallback.
+        editor.Document.Text = text;
+        editor.CaretOffset = beforeCaret.Length;
+        Press(editor, Key.Enter);
+        editor.Document.Text.Should().Be(text.Insert(beforeCaret.Length, inserted));
+        editor.CaretOffset.Should().Be(beforeCaret.Length + (inserted.Contains("End Sub", StringComparison.Ordinal)
+            ? "\r\n    ".Length : inserted.Length));
+    }
+
+    [AvaloniaTheory]
+    [InlineData("\r\n", "\n")]
+    [InlineData("\n", "\r\n")]
+    public void Automation_typing_uses_the_document_newline(string newline, string incomingNewline)
+    {
+        var vm = Open("Option Explicit" + newline);
+        var editor = Show(vm);
+        editor.Document.Text = editor.Document.Text.ReplaceLineEndings(newline);
+        editor.CaretOffset = editor.Document.TextLength;
+        var before = editor.Document.Text;
+        UiAutomationDriver.TypeText(editor, "' first" + incomingNewline + "' second" + incomingNewline)
+            .Success.Should().BeTrue();
+        editor.Document.Text.Should().Be(before + "' first" + newline + "' second" + newline);
+        editor.CaretOffset.Should().Be(editor.Document.TextLength);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("\r\n")]
+    [InlineData("\n")]
+    public void Enter_over_the_whole_buffer_keeps_its_line_ending(string newline)
+    {
+        var vm = Open("Option Explicit" + newline);
+        var editor = Show(vm);
+        editor.Document.Text = "Option Explicit" + newline;
+        editor.SelectAll();
+        Press(editor, Key.Enter);
+        editor.Document.Text.Should().Be(newline);
+        editor.CaretOffset.Should().Be(newline.Length);
+    }
+
     private TextEditor Show(CodeEditorViewModel vm)
     {
         var window = new Window { Width = 1200, Height = 800 };
