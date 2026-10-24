@@ -9,12 +9,6 @@ out what exists. That makes it more central than the equivalent in a modern IDE,
 are answered by go-to-definition and completion — here it is often the only way to discover a member at all,
 which is why VB6 gave it a dedicated key.
 
-> **Known divergences.** The requirements below state intended behaviour. Three are not currently met — the
-> member list is cached and does not reflect later edits, double-click opens the containing file rather than
-> the member's definition, and Escape does not close the window. Tracked in
-> [#24](https://github.com/hexide-io/HexIDE/issues/24). They are stated as requirements rather than written
-> down to match the code, because the code is wrong here, not the intent.
-
 ## Requirements
 
 ### Requirement: The browser SHALL show everything visible to the project

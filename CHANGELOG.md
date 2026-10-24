@@ -272,6 +272,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Object Browser refresh and navigation** (#24). Selecting a project type reloads its members after edits;
+  double-clicking a member opens its declaration, and Escape closes the browser.
+
 - **WithEvents applies to each variable in a comma list** (#1021). Both parsers accept it after a comma, and
   only variables marked WithEvents bind event handlers, as measured on vb6.exe.
 
