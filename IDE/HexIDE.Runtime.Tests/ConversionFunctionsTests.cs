@@ -106,6 +106,16 @@ public class ConversionFunctionsTests : BaseVBTestFixture
         (await act.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(6);
     }
 
+    [Theory]
+    [InlineData("CDbl", "1E+400")]
+    [InlineData("Val", "1E+400")]
+    [InlineData("CSng", "1E+39")]
+    public async Task Floating_point_string_overflow_raises_error_6(string conversion, string input)
+    {
+        Func<Task> act = () => Run($"Debug.Print {conversion}(\"{input}\")\n");
+        (await act.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(6);
+    }
+
     [Fact]
     public async Task CBool_reads_a_hex_string_as_the_number_it_is()
     {
