@@ -265,6 +265,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **VB6 keywords are highlighted regardless of case** (#716). `Begin`, `begin` and a standalone `End`
+  now receive their keyword colour, as do keywords typed with different casing from the syntax definition.
+
 - **The pull-diagnostics race test always exercises the race** (#812). The stub holds the fresh answer until
   the stale publication starts, so a run cannot pass merely because the fresh answer arrived first.
 

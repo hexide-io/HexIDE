@@ -21,6 +21,13 @@ that the developer could not see them was a limitation of its code window, and t
 
 ## Requirements
 
+### Requirement: Syntax keywords match regardless of case
+The editor SHALL apply the VB6 syntax definition's keyword colours regardless of keyword casing.
+
+#### Scenario: Keywords differ from the definition's casing
+- **WHEN** the editor highlights `Begin`, `begin`, a standalone `End`, `end`, `private` or `SUB`
+- **THEN** each word receives its named keyword colour from the syntax definition
+
 ### Requirement: The code window SHALL hold the whole file
 The code window for a form, module, class, UserControl or PropertyPage SHALL hold the file's complete text.
 It SHALL be the text of the file as it stands, and after a save it SHALL be the text that save wrote.
