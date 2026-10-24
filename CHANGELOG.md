@@ -265,6 +265,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Docked panes keep their full opacity after switching tabs or reopening tools** (#900). Disable Dock's
+  reveal animation, which could leave the designer and tool contents dimmed at 85% or 72.25% opacity.
+
 - **The Gregorian locale test follows the platform's calendar data** (#1045). It no longer assumes ar-SA's
   first month differs from January, which failed under WSL's ICU 78 even though the program's output was correct.
 
