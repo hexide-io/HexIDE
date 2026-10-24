@@ -2425,6 +2425,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitResetStmt(VB6Parser.ResetStmtContext context)
     {
+        // A bare Reset can call the module's own Sub, including a private class sibling (#851).
+        if (currentModule.PrePass.Procedures.TryGetValue("Reset", out var proc) && !proc.IsFunction)
+        {
+            await interpreter.CallProcedure("Reset", [], currentModule, callerEnv: currentEnv, callerFrames: stmtFrames);
+            return ControlFlow.Nothing;
+        }
         throw new NotImplementedException("Reset not implemented");
     }
 

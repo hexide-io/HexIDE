@@ -153,6 +153,10 @@ program that compiles and runs.
 - **WHEN** a project defines a procedure whose name matches a built-in function
 - **THEN** calls resolve to the project's procedure
 
+#### Scenario: A private sibling Sub named Reset
+- **WHEN** `Class_Initialize` makes a bare `Reset` call and its class defines a private Sub named `Reset`
+- **THEN** the interpreter SHALL call that Sub on the current instance
+
 ### Requirement: Runtime errors SHALL be trappable and SHALL carry VB6's error numbers
 Runtime failures SHALL be raised as trappable VB6 errors carrying the standard error number and description,
 and the engine SHALL support VB6's error-handling statements, including continuing at the next statement,
