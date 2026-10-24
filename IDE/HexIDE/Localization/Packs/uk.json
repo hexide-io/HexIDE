@@ -2,6 +2,10 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-розрядна",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-розрядна",
+    "Str.CodeEditor.ViewAs.Tooltip": "Показати умовну компіляцію для",
     "Str.Archive.ProjectFormat": "{0} (архів лише для читання)",
     "Str.Archive.Hidden": "Показати приховані елементи архіву",
     "Str.Archive.ReadOnly": "Перегляд архіву лише для читання. Редагування, збирання та запуск недоступні.",

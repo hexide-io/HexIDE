@@ -2,6 +2,10 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bit",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bit",
+    "Str.CodeEditor.ViewAs.Tooltip": "Vis betinget kompilering som",
     "Str.Archive.ProjectFormat": "{0} (skrivebeskyttet arkiv)",
     "Str.Archive.Hidden": "Vis skjulte arkivposter",
     "Str.Archive.ReadOnly": "Skrivebeskyttet forhåndsvisning af arkivet. Redigering, bygning og kørsel er ikke tilgængelige.",

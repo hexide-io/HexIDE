@@ -20,6 +20,7 @@
     "Desktop":                  "#000000",
     "GrayText":                 "#808080",
     "ReadOnlyText":             "#929292",
+    "InactiveCodeText":             "#929292",
     "InactiveCaption":          "#3C3C3C",
     "InactiveCaptionText":      "#A0A0A0",
     "ActiveTitleBar":           "#007ACC",

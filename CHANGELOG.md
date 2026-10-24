@@ -10,6 +10,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Inactive conditional branches are greyed in the code window** (#1113). A selector after the Procedure box
+  previews VB6, VBA 32-bit or VBA 64-bit constants. It appears only in modules with `#If`, defaults to VB6,
+  and stays in that window for the session. It changes neither F5 nor language-server diagnostics.
+
 - **Random and Binary files open, and Get and Put run** (#1646). They were refused at the `Open`, so no program that
   keeps records or structs in a file got past it. Measured on vb6.exe first, in eight batches: the bytes of every
   type, String, Variant, array and Type; records and `Len =`; EOF; a second handle and the `Lock` and `Access` clauses;

@@ -2,6 +2,10 @@
   "name": "Greek",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
+    "Str.CodeEditor.ViewAs.Tooltip": "Προβολή μεταγλώττισης υπό συνθήκη ως",
     "Str.Archive.ProjectFormat": "{0} (αρχειοθήκη μόνο για ανάγνωση)",
     "Str.Archive.Hidden": "Εμφάνιση κρυφών καταχωρίσεων αρχειοθήκης",
     "Str.Archive.ReadOnly": "Προεπισκόπηση αρχειοθήκης μόνο για ανάγνωση. Η επεξεργασία, η μεταγλώττιση και η εκτέλεση δεν είναι διαθέσιμες.",

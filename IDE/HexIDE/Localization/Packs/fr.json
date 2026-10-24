@@ -2,6 +2,10 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bits",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bits",
+    "Str.CodeEditor.ViewAs.Tooltip": "Afficher la compilation conditionnelle pour",
     "Str.Archive.ProjectFormat": "{0} (archive en lecture seule)",
     "Str.Archive.Hidden": "Afficher les entrées masquées de l’archive",
     "Str.Archive.ReadOnly": "Aperçu de l’archive en lecture seule. La modification, la compilation et l’exécution ne sont pas disponibles.",

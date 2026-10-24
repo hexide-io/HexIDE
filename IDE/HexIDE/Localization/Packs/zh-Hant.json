@@ -2,6 +2,10 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 位元",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 位元",
+    "Str.CodeEditor.ViewAs.Tooltip": "條件式編譯檢視目標",
     "Str.Archive.ProjectFormat": "{0}（唯讀封存）",
     "Str.Archive.Hidden": "顯示隱藏的封存項目",
     "Str.Archive.ReadOnly": "唯讀封存預覽。無法編輯、建置或執行。",

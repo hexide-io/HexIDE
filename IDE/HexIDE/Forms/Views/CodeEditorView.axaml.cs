@@ -307,6 +307,8 @@ public partial class CodeEditorView : UserControl
             // while a member's run turns into an orphan or out of one by an edit to the line above it (task 4.1).
             _readOnlyRedraw = new ReadOnlyRegionRedraw(vm.Document, TextEditor.TextArea.TextView, () => vm.ReadOnlyRegionsNow);
 
+            InstallConditionalCompilation();
+
             _colorizer = new LspDiagnosticsColorizer(TextEditor.TextArea.TextView);
             TextEditor.TextArea.TextView.LineTransformers.Add(_colorizer);
             vm.MarkersChanged += OnMarkersChanged;
@@ -523,6 +525,8 @@ public partial class CodeEditorView : UserControl
             TextEditor.TextArea.TextView.LineTransformers.Remove(_colorizer);
             _colorizer = null;
         }
+
+        RemoveConditionalCompilation();
 
         _readOnlyTextSub?.Dispose();
         _readOnlyTextSub = null;

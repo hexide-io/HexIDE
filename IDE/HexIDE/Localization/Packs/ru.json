@@ -2,6 +2,10 @@
   "name": "Russian",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-разрядная",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-разрядная",
+    "Str.CodeEditor.ViewAs.Tooltip": "Показать условную компиляцию для",
     "Str.Archive.ProjectFormat": "{0} (архив только для чтения)",
     "Str.Archive.Hidden": "Показать скрытые элементы архива",
     "Str.Archive.ReadOnly": "Просмотр архива только для чтения. Редактирование, сборка и запуск недоступны.",

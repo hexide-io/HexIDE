@@ -2,6 +2,10 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bit",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bit",
+    "Str.CodeEditor.ViewAs.Tooltip": "Lihat kompilasi bersyarat sebagai",
     "Str.Archive.ProjectFormat": "{0} (arsip hanya baca)",
     "Str.Archive.Hidden": "Tampilkan entri arsip tersembunyi",
     "Str.Archive.ReadOnly": "Pratinjau arsip hanya baca. Penyuntingan, kompilasi, dan eksekusi tidak tersedia.",

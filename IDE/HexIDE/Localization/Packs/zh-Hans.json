@@ -2,6 +2,10 @@
   "name": "Chinese (Simplified)",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 位",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 位",
+    "Str.CodeEditor.ViewAs.Tooltip": "条件编译查看目标",
     "Str.Archive.ProjectFormat": "{0}（只读归档）",
     "Str.Archive.Hidden": "显示隐藏的归档条目",
     "Str.Archive.ReadOnly": "只读归档预览。无法编辑、生成或运行。",

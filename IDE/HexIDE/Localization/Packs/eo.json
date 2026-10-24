@@ -2,6 +2,10 @@
   "name": "Esperanto",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bita",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bita",
+    "Str.CodeEditor.ViewAs.Tooltip": "Montri kondiĉan kompiladon kiel",
     "Str.Archive.ProjectFormat": "{0} (nurlega arkivo)",
     "Str.Archive.Hidden": "Montri kaŝitajn arkivajn erojn",
     "Str.Archive.ReadOnly": "Nurlega antaŭvido de arkivo. Redaktado, konstruado kaj rulado ne disponeblas.",

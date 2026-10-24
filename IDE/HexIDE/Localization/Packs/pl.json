@@ -2,6 +2,10 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bitowy",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bitowy",
+    "Str.CodeEditor.ViewAs.Tooltip": "Pokaż kompilację warunkową jako",
     "Str.Archive.ProjectFormat": "{0} (archiwum tylko do odczytu)",
     "Str.Archive.Hidden": "Pokaż ukryte elementy archiwum",
     "Str.Archive.ReadOnly": "Podgląd archiwum tylko do odczytu. Edycja, kompilacja i uruchamianie są niedostępne.",

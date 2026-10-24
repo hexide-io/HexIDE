@@ -2,6 +2,10 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
+    "Str.CodeEditor.ViewAs.Tooltip": "Xem biên dịch có điều kiện theo",
     "Str.Archive.ProjectFormat": "{0} (kho lưu trữ chỉ đọc)",
     "Str.Archive.Hidden": "Hiện các mục ẩn trong kho lưu trữ",
     "Str.Archive.ReadOnly": "Bản xem trước kho lưu trữ chỉ đọc. Không thể chỉnh sửa, biên dịch hoặc chạy.",

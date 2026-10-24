@@ -2,6 +2,10 @@
   "name": "Urdu",
   "direction": "rtl",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 بٹ",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 بٹ",
+    "Str.CodeEditor.ViewAs.Tooltip": "مشروط تالیف اس کے مطابق دکھائیں",
     "Str.Archive.ProjectFormat": "{0} (صرف پڑھنے کے لیے آرکائیو)",
     "Str.Archive.Hidden": "آرکائیو کے پوشیدہ اندراجات دکھائیں",
     "Str.Archive.ReadOnly": "آرکائیو کا صرف پڑھنے کے لیے پیش منظر۔ ترمیم، بلڈ اور چلانے کی سہولت دستیاب نہیں ہے۔",

@@ -243,3 +243,23 @@ see.
 #### Scenario: Searching for a control's name
 - **WHEN** the developer searches a form's code for the name of one of its controls
 - **THEN** only matches in the code are found
+
+### Requirement: Inactive conditional branches SHALL be greyed for the selected view target
+The code window SHALL grey only the interpreter preprocessor's determined inactive lines in the theme's
+`InactiveCodeTextBrush`. It SHALL recompute after text edits with a debounce, and SHALL grey nothing when
+conditional compilation fails. Undetermined lines SHALL remain ungreyed.
+
+A ComboBox after the Procedure box SHALL appear only while the module has an `#If` line. It SHALL offer
+VB6, VBA 32-bit and VBA 64-bit, defaulting to VB6, the constants currently used by F5 for every personality.
+The selection SHALL belong to the window and SHALL NOT be persisted or affect execution or LSP diagnostics.
+VBA preview constants are Microsoft's documented values, not measurements from a VBA oracle.
+
+#### Scenario: Previewing a VBA branch
+- **WHEN** a module contains `#If VBA7 Then` with an `#Else` branch
+- **THEN** the default VB6 view greys the VBA7 branch
+- **AND WHEN** the developer chooses VBA 32-bit or VBA 64-bit
+- **THEN** the view greys the Else branch instead, without changing what F5 runs
+
+#### Scenario: Editing an incomplete directive
+- **WHEN** an edit leaves an unterminated `#If` block
+- **THEN** the code window removes its inactive greying until preprocessing succeeds again

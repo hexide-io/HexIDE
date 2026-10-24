@@ -2,6 +2,10 @@
   "name": "Hindi",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-बिट",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-बिट",
+    "Str.CodeEditor.ViewAs.Tooltip": "सशर्त संकलन इस रूप में देखें",
     "Str.Archive.ProjectFormat": "{0} (केवल-पठन संग्रह)",
     "Str.Archive.Hidden": "संग्रह की छिपी प्रविष्टियाँ दिखाएँ",
     "Str.Archive.ReadOnly": "संग्रह का केवल-पठन पूर्वावलोकन। संपादन, बिल्ड और चलाना उपलब्ध नहीं हैं।",

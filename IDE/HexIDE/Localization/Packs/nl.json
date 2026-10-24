@@ -2,6 +2,10 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32-bits",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64-bits",
+    "Str.CodeEditor.ViewAs.Tooltip": "Voorwaardelijke compilatie weergeven als",
     "Str.Archive.ProjectFormat": "{0} (alleen-lezenarchief)",
     "Str.Archive.Hidden": "Verborgen archiefitems tonen",
     "Str.Archive.ReadOnly": "Alleen-lezenvoorbeeld van het archief. Bewerken, bouwen en uitvoeren zijn niet beschikbaar.",

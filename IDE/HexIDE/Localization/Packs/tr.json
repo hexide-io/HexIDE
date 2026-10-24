@@ -2,6 +2,10 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA 32 bit",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA 64 bit",
+    "Str.CodeEditor.ViewAs.Tooltip": "Koşullu derlemeyi şu hedef için göster",
     "Str.Archive.ProjectFormat": "{0} (salt okunur arşiv)",
     "Str.Archive.Hidden": "Gizli arşiv girdilerini göster",
     "Str.Archive.ReadOnly": "Salt okunur arşiv önizlemesi. Düzenleme, derleme ve çalıştırma kullanılamaz.",

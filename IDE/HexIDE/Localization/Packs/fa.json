@@ -2,6 +2,10 @@
   "name": "Persian",
   "direction": "rtl",
   "strings": {
+    "Str.CodeEditor.ViewAs.Vb6": "VB6",
+    "Str.CodeEditor.ViewAs.Vba32": "VBA ۳۲ بیتی",
+    "Str.CodeEditor.ViewAs.Vba64": "VBA ۶۴ بیتی",
+    "Str.CodeEditor.ViewAs.Tooltip": "نمایش کامپایل شرطی به صورت",
     "Str.Archive.ProjectFormat": "{0} (بایگانی فقط‌خواندنی)",
     "Str.Archive.Hidden": "نمایش موارد پنهان بایگانی",
     "Str.Archive.ReadOnly": "پیش‌نمایش بایگانی فقط‌خواندنی است. ویرایش، ساخت و اجرا در دسترس نیستند.",
