@@ -10,6 +10,17 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Random and Binary files open, and Get and Put run** (#1646). They were refused at the `Open`, so no program that
+  keeps records or structs in a file got past it. Measured on vb6.exe first, in eight batches: the bytes of every
+  type, String, Variant, array and Type; records and `Len =`; EOF; a second handle and the `Lock` and `Access` clauses;
+  and how, after a read past the end, the next `Put` appends where the file stopped. Line Input, Input # and Input read
+  a Binary file too.
+
+- **LOF, Loc, Seek and the Input function run** (#1645). Each stopped the program, so `Input(LOF(f), f)`, the usual
+  way to read a whole file, never ran. All four were measured on vb6.exe first, with the `Seek` statement, line breaks,
+  a Ctrl+Z, the code page and Output and Append files, and run as measured. `Input$` is `Input`; `InputB` waits on byte
+  strings (#1510).
+
 - **GetSetting, SaveSetting, DeleteSetting and GetAllSettings run** (#1562). A program that remembered anything between runs used to stop, often in `Form_Load`, before its first form appeared. All four were measured on vb6.exe first. On Windows they use the registry key VB6 itself uses, so a program run in HexIDE and the same program compiled by VB6 share their settings. On Linux and macOS they are kept in `program-settings.json` in HexIDE's user-data directory, which `--user-data-dir` moves.
 
 - **`Like` runs** (#1547). Any program that used it stopped there. It now matches as vb6.exe does: `?`, `*`, `#`, `[list]` and `[!list]`, under the module's `Option Compare`, with error 93 for a pattern it cannot read. That behaviour was measured over about 190 rows, native and p-code. One known difference remains. Under `Option Compare Text`, vb6.exe takes a ligature or a sharp s for the letters it stands for, so `"ß" Like "ss"` is True there and False here (#1479).
@@ -241,6 +252,26 @@ there isn't one yet. Anything may change between 0.x releases.
 - **The code editor keeps its caret and view model in agreement** (#1608). An offset past the text now goes to its end,
   and a negative offset goes to its start; the view model reads back the position the editor took.
 
+- **MCP keys, text and hover skip rows their list has released** (#1327). Addressing a list no longer sends input
+  into a recycled row omitted from the control tree or reports the list’s path as confirmation.
+
+- **MCP shared context menus belong to the control that opened them** (#1323). A tab menu appears only under its current tab in the dump; expanding it on another tab moves it there, and collapsing it from another tab leaves it alone. Menu headers also read back opens and closes, refusing an action a handler cancelled.
+
+- **A name declared twice is vb6.exe's compile error** (#1622, #1499). A module that declared one name twice ran,
+  keeping one declaration, and so did a procedure, so `Dim n As Long` then `Static n` gave an ordinary Long. At module
+  level it is now "Ambiguous name detected", and in a procedure "Duplicate declaration in current scope", parameters
+  included, as the module loads. A variable beside an Enum or Type of its name, and a Property's Get beside its Let,
+  still compile, as they do in vb6.exe.
+
+- **MCP `get_form_controls` reports absent properties as null** (#1635). A Line or Shape no longer claims to be enabled when its class has no Enabled property. The summary's `visible` and `enabled` now follow `caption` and `text`: null where the control's class has no such property.
+
+- **MCP replies distinguish dialogs sharing a title** (#1365). The modal note names a message box or run-time error dialog, its first line of text and its actual buttons; other dialogs include their buttons. The window parameter explains how to discover open windows through an unknown-name refusal.
+
+- **MCP replies name ignored arguments** (#1315). A misspelled optional parameter still lets the call run, but
+  now appears in `ignoredArguments` in a JSON-object reply, or in a separate text block, with a suggested spelling
+  for case, snake_case or kebab-case mismatches. Binding refusals check each parameter's actual type, so an
+  overflowing `int`, numeric string or array item is named without blaming a valid `long`; serializer paths stay.
+
 - **MCP `interact set_property` reads back the value it set** (#1326), naming both sent and actual values when
   they differ. For an editor's `CaretOffset`, it reads the editor itself, so an offset the caret never took is no
   longer reported as set.
@@ -267,6 +298,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **A refused MCP call names a blocking dialog once** (#1325). Closing a form under a MsgBox, or typing or pressing a key under stacked dialogs, no longer repeats the dialog in the reply’s note. A refusal never claims the call reached past a dialog; calls that acted behind one still say so.
 
+- **The Properties window shows Left, Top, Width and Height in VB6's units** (#1636). It showed the pixels HexIDE
+  keeps them in, so a new form read 312 by 206 where VB6's reads 4920 by 3675. A control's position is now in its
+  container's ScaleMode, twips by default and twips inside a Frame, and a form's own size is twips with its frame, as
+  VB6's window shows them. A value typed in is in the same units. `get_form_controls`' rows and `set_control_property`
+  follow the window, each row naming its unit; the summary and `move_control` stay in pixels.
+
 - **A CommandButton, TextBox, ComboBox, ListBox and Frame have ToolTipText** (#1403). Only five controls declared it,
   so on these the Properties window did not list it, a running form showed no tip, and code could not read or set
   it. Measured on vb6.exe across every intrinsic control: these five have it, and the scroll bars, Shape, Line, Timer
@@ -282,6 +319,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **MCP command guards follow the compiled XAML binding** (#1324). `invoke_command` now finds private guards
   on base types and ignores guards below the bound method's type, so its refusal agrees with the menu.
+
+- **A UserControl's and a PropertyPage's Properties windows list their own kind's properties** (#1585). Both listed
+  a form's, Caption, Icon, Left, Top, Visible and the window's buttons among them. Each now lists only properties
+  VB6's Properties window gives it: a UserControl has no Caption, and a PropertyPage has no Enabled. A line a
+  loaded file holds that its root doesn't list is kept as the file's own text.
 
 - **A Let into an array variable takes only what vb6.exe's does** (#998, #1588). It stored whatever it was given:
   `a = Array(1, 2)` left an `Integer()` a Variant array, Empty left a `String()` Empty, and `b = "ab"` left a `Byte()`

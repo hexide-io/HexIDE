@@ -347,7 +347,7 @@ public class ModuleLevelArrayBoundTests : BaseVBTestFixture
     [InlineData("Const N1 = 12345\nDim d(Len(N1)) As Long")]
     [InlineData("Const N As Long = 5\nDim d(Len(N)) As Long")]
     [InlineData("Const F = 2.5\nDim d(Len(F)) As Long")]
-    [InlineData("Const D = #1/2/2003#\nDim d(Len(D)) As Long")]
+    [InlineData("Const DT = #1/2/2003#\nDim d(Len(DT)) As Long")]          // not D: `Const D` beside `Dim d` is one name twice (#1622)
     [InlineData("Dim d(Len(\"ab\" + 1)) As Long")]                        // a String added to a number is not a String
     public async Task Len_of_a_constant_that_is_not_a_String_is_VB6s_Variable_required(string declarations)
     {

@@ -124,6 +124,65 @@ public class InBoxConstantTests : BaseVBTestFixture
                         new Vb6Value(11), new Vb6Value(0L), new Vb6Value(2L)]);
     }
 
+    // Every member of the module, in each form a program writes it, under Option Explicit and in a module-level Const:
+    // its type, then each character code or its value. Seven of them stayed rated Dies in MISSING_LANGUAGE.md long
+    // after this resolved them (#1633).
+    [Theory]
+    [InlineData("vbBack", "String 8")]
+    [InlineData("vbCr", "String 13")]
+    [InlineData("vbCrLf", "String 13 10")]
+    [InlineData("vbFormFeed", "String 12")]
+    [InlineData("vbLf", "String 10")]
+    [InlineData("vbNewLine", "String 13 10")]
+    [InlineData("vbNullChar", "String 0")]
+    [InlineData("vbNullString", "String")]
+    [InlineData("vbObjectError", "Long -2147221504")]
+    [InlineData("vbTab", "String 9")]
+    [InlineData("vbVerticalTab", "String 11")]
+    public async Task EveryMemberOfTheConstantsModuleResolvesInEveryForm(string name, string expected)
+    {
+        await Run($"""
+            Option Explicit
+            Const K = {name}
+
+            Function Shape(v As Variant) As String
+                Dim s As String, i As Long
+                s = TypeName(v)
+                If VarType(v) = vbString Then
+                    For i = 1 To Len(v)
+                        s = s & " " & AscW(Mid$(v, i, 1))
+                    Next
+                Else
+                    s = s & " " & CStr(v)
+                End If
+                Shape = s
+            End Function
+
+            Sub Main()
+                Debug.Print Shape({name})
+                Debug.Print Shape(VBA.{name})
+                Debug.Print Shape(Constants.{name})
+                Debug.Print Shape(VBA.Constants.{name})
+                Debug.Print Shape(K)
+            End Sub
+
+            Main
+            """);
+        AssertDebugLog([.. Enumerable.Repeat(new Vb6Value(expected), 5)]);
+    }
+
+    // Documented widely and declared nowhere: vb6.exe refuses it qualified, and reads the bare name as an undeclared
+    // Variant (the oracle's "vbUseCompareOption does not exist"). Its inventory row called the refusal a gap (#1633).
+    [Fact]
+    public async Task VbUseCompareOptionIsRefusedAsVb6RefusesIt()
+    {
+        var qualified = () => Run("Debug.Print VbCompareMethod.vbUseCompareOption\n");
+        await qualified.Should().ThrowAsync<VBMethodOrDataMemberNotFoundException>();
+
+        await Run("Debug.Print IsEmpty(vbUseCompareOption)\n");
+        AssertDebugLog([new Vb6Value(true)]);
+    }
+
     // ---- type position -----------------------------------------------------------------------------
 
     [Fact]

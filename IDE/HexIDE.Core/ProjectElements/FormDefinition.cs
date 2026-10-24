@@ -187,9 +187,10 @@ public partial class FormDefinition : INotifyPropertyChanged
     {
         get
         {
+            // The root, whichever of the three it is: a placed UserControl's class is named for its project, never VB's.
             foreach (var c in components)
             {
-                if (c.BaseClass.VBTypeName == "VB.Form")
+                if (c.BaseClass.VBTypeName is "VB.Form" or "VB.UserControl" or "VB.PropertyPage")
                     return c.GetPropertyOrDefault(VBProperties.NameProperty) ?? throw new Exception("Form without a name!");
             }
             throw new Exception("FormDefinition has no form component!");
@@ -342,6 +343,10 @@ public partial class FormDefinition : INotifyPropertyChanged
     /// lets a resize in the designer move both together without HexIDE having to compute a frame size —
     /// which it could not do honestly anyway, since the frame belongs to whichever machine opens the
     /// form, not to the machine that saved it.
+    ///
+    /// A frame IS computed elsewhere, from the form's BorderStyle, caption bar and menu: the one a running form
+    /// has on the themed desktop (FormFrame, measured, #1072), which VB6's Properties window adds to the client
+    /// rectangle at design time too (#1636). That frame is VB6's own, not the file's, so it does not replace this.
     /// </summary>
     public RootOuterRect? OuterRect { get; set; }
 

@@ -19,9 +19,21 @@ public class FormComponentClass : ComponentBaseClass
     StartUpPositionProperty,
     KeyPreviewProperty,
     MaxButtonProperty,
-    MinButtonProperty], [ClickEvent, DblClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
+    MinButtonProperty], RootEvents)
     {
     }
+
+    /// <summary>
+    /// The root of a designer that is not a form's: a UserControl's or a PropertyPage's. Its list is the given properties,
+    /// with (Name) and Tag. VB6's Properties window gives neither Left, Top nor Visible (measured, #1585), so they aren't
+    /// in it; the root's geometry is the file's ClientLeft, ClientTop, ClientWidth and ClientHeight, as a form's is.
+    /// </summary>
+    protected FormComponentClass(IReadOnlyList<PropertyClass> properties)
+        : base(properties, RootEvents, hasBounds: false, hasVisible: false)
+    {
+    }
+
+    private static readonly EventClass[] RootEvents = [ClickEvent, DblClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent];
 
     public override string Name => "Form";
     public override string VBTypeName => "VB.Form";
@@ -67,4 +79,12 @@ public class FormComponentClass : ComponentBaseClass
     }
 
     public static FormComponentClass Instance { get; } = new();
+
+    /// <summary>The class of the root a designer file names: VB.Form, VB.UserControl or VB.PropertyPage.</summary>
+    public static FormComponentClass ForRoot(string rootTypeName) => rootTypeName switch
+    {
+        "VB.UserControl" => UserControlRootClass.Instance,
+        "VB.PropertyPage" => PropertyPageRootClass.Instance,
+        _ => Instance,
+    };
 }
