@@ -255,6 +255,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Join and Filter reject allocated arrays other than one-dimensional String or Variant arrays** (#875): Join raises
+  5 and Filter 13, as measured in VB6. Long arrays gave values, and 2-D String arrays raised 9. Unallocated arrays
+  still give an empty string or an unallocated String array.
+
 - **Arithmetic uses VB6's per-operator result tables** (#230). Long with Single computes as Double;
   Currency multiplied by Single or Double gives Double, while addition and subtraction convert to Currency
   first. Decimal division stays Decimal, and Byte integer division and Mod stay Byte.

@@ -9801,8 +9801,8 @@ HexIDE returned the unallocated result before reading the match and the switch, 
 no error for `ds`. Its `Filter(d1, Null)` gave no error either, and its result was a Variant array whenever the input
 was allocated. All three now answer as above.
 
-An allocated array that is not a 1-D String or Variant array. HexIDE still joins and filters the Long array `al` as
-if it held strings, and raises a trappable 9, Subscript out of range, for the 2-D array `m` (#875):
+An allocated array that is not a 1-D String or Variant array. HexIDE previously joined and filtered the Long array `al` as
+if it held strings, and raised a trappable 9, Subscript out of range, for the 2-D array `m`; #875 now raises the measured errors below:
 
 | Call | VB6 |
 |---|---|
