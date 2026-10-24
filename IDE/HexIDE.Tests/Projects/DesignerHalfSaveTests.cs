@@ -74,6 +74,20 @@ public class DesignerHalfSaveTests : IDisposable
             ? svc.AddNewUserControl(project, "UserControl1", interactive: false)
             : svc.AddNewPropertyPage(project, "PropertyPage1", interactive: false);
 
+    // A new UserControl's or PropertyPage's root is its kind's class, whose Properties window lists VB6's properties for
+    // it, not a form's (#1585).
+    [Theory]
+    [InlineData("UserControl", "VB.UserControl")]
+    [InlineData("PropertyPage", "VB.PropertyPage")]
+    public async Task A_new_designer_halfs_root_is_its_kinds(string kind, string typeName)
+    {
+        var module = await AddNew(MakeService(), SavedProject(), kind);
+
+        var root = module.FormPart!.Components.Single(c => c.BaseClass is HexIDE.Runtime.Components.FormComponentClass);
+        root.BaseClass.VBTypeName.Should().Be(typeName);
+        root.BaseClass.PropertiesByName.Should().NotContainKeys("Icon", "Left", "Top", "Visible");
+    }
+
     [Theory]
     [InlineData("UserControl", "UserControl1.ctl", "Begin VB.UserControl UserControl1 ")]
     [InlineData("PropertyPage", "PropertyPage1.pag", "Begin VB.PropertyPage PropertyPage1 ")]

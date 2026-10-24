@@ -580,34 +580,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return ControlFlow.Nothing;
     }
 
-    /// <summary>
-    /// A file number. <c>#f</c> is lexed as one token: the number, or the variable, after the <c>#</c>. Without the
-    /// <c>#</c> it is an ordinary expression, as in <c>Close 3</c>, which VB6 takes too (measured).
-    /// </summary>
-    private async Task<int> FileNumber(VB6Parser.ValueStmtContext valueStmt)
-    {
-        var text = valueStmt.GetText();
-        Vb6Value value;
-        if (text.StartsWith('#'))
-        {
-            var name = text[1..];
-            if (int.TryParse(name, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var literal))
-                return literal;
-            if (!interpreter.TryReadNow(currentEnv, name, out var found, out value, out var need))
-                (found, value) = await interpreter.ReadVariableAfter(currentEnv, name, need!);
-            if (!found)
-            {
-                // An undeclared name is an Empty Variant, so number 0, where Option Explicit doesn't refuse it.
-                if (currentModule.PrePass.RequireVariableDefinitions)
-                    throw new VBVariableNotDefinedException(name);
-                value = new Vb6Value(0);
-            }
-        }
-        else
-            value = await expressionExecutor.EvaluateValue(valueStmt);
-        return Convert.ToInt32(VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Long, valueStmt).Value,
-            System.Globalization.CultureInfo.InvariantCulture);
-    }
+    /// <summary>A file number, <c>#f</c> or an expression, as <see cref="ExpressionExecutor.FileNumber"/> reads it.</summary>
+    private Task<int> FileNumber(VB6Parser.ValueStmtContext valueStmt) => expressionExecutor.FileNumber(valueStmt);
 
     /// <summary>A variable a statement stores into, as a Let stores into it: created where Option Explicit allows.</summary>
     private async Task StoreVariable(string name, Vb6Value value)
@@ -1320,11 +1294,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // promotion of an out-of-Long-range loop to a Double counter.
     private static Vb6Value ForCounterValue(long v)
         => v is >= int.MinValue and <= int.MaxValue ? new Vb6Value((int)v) : new Vb6Value((double)v);
-
-    public override async Task<ControlFlow> VisitGetStmt(VB6Parser.GetStmtContext context)
-    {
-        throw new NotImplementedException("Get not implemented");
-    }
 
     public override async Task<ControlFlow> VisitGoSubStmt(VB6Parser.GoSubStmtContext context)
     {
@@ -2165,13 +2134,39 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var mode = context.INPUT() != null ? VbFileMode.Input
             : context.OUTPUT() != null ? VbFileMode.Output
             : context.APPEND() != null ? VbFileMode.Append
-            : throw new NotImplementedException(
-                $"Open For {(context.RANDOM() != null ? "Random" : "Binary")} is not implemented: Input, Output and Append are (#1145)");
+            : context.BINARY() != null ? VbFileMode.Binary
+            : VbFileMode.Random;
         var path = (string)VbNumeric.CoerceOnStore(await expressionExecutor.EvaluateValue(context.valueStmt(0)),
             Vb6Value.ValueType.String, context.valueStmt(0)).Value!;
         var locked = context.LOCK_READ() != null || context.LOCK_WRITE() != null || context.LOCK_READ_WRITE() != null;
-        interpreter.BuiltIns.Files.Open(path, mode, locked, await FileNumber(context.valueStmt(1)));
+        var number = await FileNumber(context.valueStmt(1));
+        var recordLength = 128;
+        if (context.LEN() != null && mode is VbFileMode.Binary or VbFileMode.Random)
+            recordLength = RecordLength(await expressionExecutor.EvaluateValue(context.valueStmt(2)), context.valueStmt(2));
+        // The Access clause, and what a Lock clause lets another handle on the file do: Lock Read lets it write, Lock Write
+        // lets it read, and none or Shared lets it do both (#1646).
+        VbAccess? access = context.READ_WRITE() != null ? VbAccess.ReadWrite
+            : context.READ() != null ? VbAccess.Read
+            : context.WRITE() != null ? VbAccess.Write
+            : null;
+        var share = context.LOCK_READ_WRITE() != null ? VbAccess.None
+            : context.LOCK_READ() != null ? VbAccess.Write
+            : context.LOCK_WRITE() != null ? VbAccess.Read
+            : VbAccess.ReadWrite;
+        interpreter.BuiltIns.Files.Open(path, mode, locked, number, access, share, recordLength);
         return ControlFlow.Nothing;
+    }
+
+    // `Len =` on a Binary or Random file, an Integer: 32768 and more is 6, and below 1 is 5, except -1, which is the 128 a
+    // Random file has with no Len (measured; 1.5 and 2.5 are both 2, and "8" is 8). A Binary file checks it and does nothing
+    // with it (measured: 3 opens, 0 is 5 and 40000 is 6). On a sequential file it is not measured and is ignored, as before.
+    private static int RecordLength(Vb6Value value, VB6Parser.ValueStmtContext context)
+    {
+        var length = Convert.ToInt32(VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Integer, context).Value,
+            System.Globalization.CultureInfo.InvariantCulture);
+        if (length == -1)
+            return 128;
+        return length >= 1 ? length : throw new VBRunTimeException(context, VBStandardError.InvalidProcedureCall);
     }
 
     /// <summary>
@@ -2301,11 +2296,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw new NotImplementedException($"{statement} without a # file number is not implemented");
     }
 
-    public override async Task<ControlFlow> VisitPutStmt(VB6Parser.PutStmtContext context)
-    {
-        throw new NotImplementedException("Put not implemented");
-    }
-
     public override async Task<ControlFlow> VisitRaiseEventStmt(VB6Parser.RaiseEventStmtContext context)
     {
         var eventName = context.ambiguousIdentifier().GetText();
@@ -2401,9 +2391,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return ControlFlow.Nothing;
     }
 
+    // `Seek #n, position`, or with no #, on a sequential file (#1645): VbFiles.Seek says what it does.
     public override async Task<ControlFlow> VisitSeekStmt(VB6Parser.SeekStmtContext context)
     {
-        throw new NotImplementedException("Seek not implemented");
+        var number = await FileNumber(context.valueStmt(0));
+        var position = await expressionExecutor.EvaluateValue(context.valueStmt(1));
+        interpreter.BuiltIns.Files.Seek(number, Convert.ToInt64(
+            VbNumeric.CoerceOnStore(position, Vb6Value.ValueType.Long, context.valueStmt(1)).Value, System.Globalization.CultureInfo.InvariantCulture));
+        return ControlFlow.Nothing;
     }
 
     public override async Task<ControlFlow> VisitSelectCaseStmt(VB6Parser.SelectCaseStmtContext context)

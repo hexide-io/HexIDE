@@ -17,7 +17,9 @@ unstated arguments cannot be checked by the next reader, and it can be wrong wit
 entry here concluded that a document tab's content was "neither drivable nor readable" from a
 `dump_visual_tree` run with its default `interactiveOnly: true`, which filters out plain text. With
 `interactiveOnly: false` every field was there (#362). Write `dump_visual_tree(root: …, interactiveOnly: false,
-maxDepth: 14)`, not "`dump_visual_tree` returns only the tab chrome".
+maxDepth: 14)`, not "`dump_visual_tree` returns only the tab chrome". Misspelled arguments such as
+`dump_visual_tree {"interactive_only": false}` now run with an explicit ignored-argument note and a suggestion
+of `interactiveOnly` (#1315); an omitted argument still uses its declared default.
 
 ---
 
@@ -805,24 +807,6 @@ image block, and a client on another machine receiving the image is what #957 wa
 
 **Suggested fix.** No code change is expected. Call `take_snapshot {"inline":true}` through the hexide tools, on the
 IDE's machine and from another one through a tunnel, and record what the client shows. [#1330](https://github.com/hexide-io/HexIDE/issues/1330).
-
-## `invoke_command` on a designer context-menu item looks in the wrong view model
-
-**Symptom.** Recorded when #836 closed (#1271), read in the code and not run. The designer's context flyout binds
-Delete, Bring to Front and Send to Back through the form's view model
-(`#Root.((visualDesigner:FormEditViewModel)DataContext).DeleteSelected` and the like, in `FormEditView.axaml`), while
-each item's own DataContext is the control the flyout opened on. `invoke_command` and `inspect_element` read the
-DataContext of the control addressed, so on one of these items they look in the control's view model, which has
-none of the three, and `inspect_element` does not list them. A command property bound the same way is missed the
-same way.
-
-**Workaround.** Open the flyout with `interact` `expand` on the control, then `invoke` the item, which runs the
-command it is bound to through its automation peer. That route was measured on the Project Explorer's flyout
-(#947), not on the designer's.
-
-**Suggested fix.** For an item whose `Command` is bound through another element's DataContext, have `invoke_command`
-and `inspect_element` look where the binding resolves, or have the refusal say that the command is bound elsewhere
-and that `invoke` on the item reaches it. [#1336](https://github.com/hexide-io/HexIDE/issues/1336).
 
 ## Two sessions that set neither variable reach the same IDE, and nothing in a reply says so (narrowed 2026-10-22)
 
