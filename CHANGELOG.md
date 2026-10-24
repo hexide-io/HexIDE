@@ -272,6 +272,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Form Layout previews the form it represents** (#576). The thumbnail shows the form name, follows
+  renames, and disappears when the form is removed or there is no form to preview.
+
 - **Debugger and language documentation corrected** (#478). Standard and class module breakpoints already
   fire in a form's run; the spec now says so, with a regression test. The `VB_PredeclaredId` rows distinguish
   an inert header from a missing default class instance, remaining VSTest filters use MTP syntax, and the
