@@ -17,7 +17,8 @@ most people will type today.
 | Option | Argument | What it does |
 |---|---|---|
 | `--help` | — | Prints usage and exits without starting the IDE. Also `-h`, `/?` and `-?`. |
-| `--newproject` | — | Creates a Standard EXE and skips the startup dialog. |
+| `--newproject` | — | Creates a Standard EXE, saves it in a unique temporary directory and skips the startup dialog. |
+| `--newproject-unsaved` | — | Creates a Standard EXE without writing project or component files and skips the startup dialog. Save Project asks where to put them. |
 | `--capture-lsp` | — | Arms the [protocol capture](lsp-client.md#reading-the-conversation) for every language-server connection before the first one is made. |
 | `--user-data-dir` | a directory | Keeps this session's settings and other per-user files there instead of the usual place. See below. |
 | `--personality` | `vb6`, `vbaode`, `vba` | Selects the IDE personality for the session. |
@@ -78,8 +79,8 @@ HexIDE.Desktop --user-data-dir ./demo-profile
   arguments are skipped when HexIDE cannot use them, but starting normally here would put the session on
   exactly the settings you asked it to stay away from.
 
-**`--newproject` wins.** If you pass both `--newproject` and a project path, the new project is created and
-the path is ignored.
+**New-project flags win.** `--newproject-unsaved` takes precedence over `--newproject`, regardless of their
+order. With either flag and a project path, the new project is created and the path is ignored.
 
 **`--server-port` needs its value as the next argument**, and that value must be a port number from 1 to
 65535. `--server-port 5123` works; `--server-port=5123` does not. In a Debug build, anything else stops
@@ -170,7 +171,7 @@ that the rendered row stays inside 94 columns, so the mark still fits beside it 
 HexIDE.Desktop C:\src\Battleship\Battleship.vbp
 
 # Straight into an empty Standard EXE
-HexIDE.Desktop --newproject
+HexIDE.Desktop --newproject-unsaved
 
 # Record every language-server conversation from its first handshake
 HexIDE.Desktop --capture-lsp C:\src\Battleship\Battleship.vbp

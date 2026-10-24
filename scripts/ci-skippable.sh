@@ -30,6 +30,7 @@ cd "$(dirname "$0")/.."
 #   docs/lsp-server-features.md  listed in HexIDE.slnx
 #   docs/mcp-first-contact.md    IDE/HexIDE.Tests/Infrastructure/FirstContactTranscriptTests.cs
 #   docs/ROADMAP.md              listed in HexIDE.slnx
+#   CLAUDE.md                    IDE/HexIDE.Tests/Infrastructure/McpToolTableDocumentationTests.cs
 # --check-tree derives this set from the tree rather than trusting the list, because a hand-kept
 # list rots silently — into builds that were skipped and should not have been.
 DOC_BUILD_INPUTS="docs/ROADMAP.md
@@ -37,7 +38,8 @@ docs/command-line.md
 docs/lsp-client.md
 docs/lsp-server-features.md
 docs/mcp-first-contact.md
-docs/MISSING_LANGUAGE.md"
+docs/MISSING_LANGUAGE.md
+CLAUDE.md"
 
 classify() {
   if printf '%s\n' "$DOC_BUILD_INPUTS" | grep -qxF "$1"; then return 1; fi

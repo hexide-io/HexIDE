@@ -156,24 +156,18 @@ public class ProjectTreeBuilderTests
         result.Should().ContainSingle().Which.Should().BeAssignableTo<IProjectFileNode>();
     }
 
-    [Fact]
+    [WindowsOnlyFact]
     public void CrossDriveMember_RendersAtRoot()
     {
-        if (!OperatingSystem.IsWindows())
-            return; // no drive letters elsewhere
-
         var result = ProjectTreeBuilder.BuildChildren(
             [new FakeFileNode("Registry", @"D:\Lib\Registry.bas")], @"C:\proj\App");
 
         result.Should().ContainSingle().Which.Should().BeAssignableTo<IProjectFileNode>();
     }
 
-    [Fact]
+    [WindowsOnlyFact]
     public void ForwardSlashPath_NormalizesAndNests()
     {
-        if (!OperatingSystem.IsWindows())
-            return; // '/' is the canonical separator elsewhere
-
         var anchor = @"C:\proj\App";
         var result = ProjectTreeBuilder.BuildChildren(
             [new FakeFileNode("Main", "C:/proj/App/Forms/Main.frm")], anchor);
@@ -260,14 +254,12 @@ public class ProjectTreeBuilderTests
             "a relative form exists, so that is what the .vbp carries and what the caption shows");
     }
 
-    [Fact]
+    [WindowsOnlyFact]
     public void AMemberWithNoRelativeForm_CaptionsItsAbsoluteLocation()
     {
         // Measured against vb6.exe: where no relative form exists the .vbp carries an absolute path,
         // so the caption does too. Windows-only because a second drive root is the only shape that
         // makes GetRelativePath return the input unchanged.
-        if (!OperatingSystem.IsWindows()) return;
-
         var node = new FakeFileNode("Lib", @"D:\Shared\Lib.bas");
 
         ProjectTreeBuilder.BuildChildren([node], Anchor);
