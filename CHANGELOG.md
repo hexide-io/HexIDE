@@ -272,6 +272,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **System default follows the OS display language** (#799). The UI culture is captured before the IDE
+  pins its threads to invariant, so German and French systems get their language and British English
+  systems get Colour Palette and Centre in Form instead of US English.
+
 - **Untouched modules reload silently after an external file change** (#730). Not-open `.bas` and `.cls`
   files are compared in their source encoding, including a UTF-8 BOM; UserControls and PropertyPages
   use the same render comparison as forms, so their designer blocks no longer cause false conflicts.
