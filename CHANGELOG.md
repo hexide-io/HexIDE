@@ -265,6 +265,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Snapshots leave room for menus above or left of the window** (#648). The window and its popups now share
+  the same image origin. `take_snapshot` reports the window offset and explains how to map inspected bounds
+  into the full-size or inline image.
+
 - **The pull-diagnostics race test always exercises the race** (#812). The stub holds the fresh answer until
   the stale publication starts, so a run cannot pass merely because the fresh answer arrived first.
 
