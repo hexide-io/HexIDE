@@ -235,6 +235,31 @@ public class DocumentContentTests : IDisposable
             "the form is unchanged but for the qualifier, which names its member as the form's own Save writes it");
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SavingReportsTheMemberQualifierItRewrote(bool moduleFile)
+    {
+        var service = MakeService();
+        var report = new SaveRewriteReport();
+        const string code = "Public Function Total() As Long\r\nAttribute Gone.VB_Description = \"Names nothing.\"\r\nEnd Function\r\n";
+        if (moduleFile)
+        {
+            var module = NewModule(ModuleKind.StandardModule);
+            module.AbsolutePath = Path.Join(dir, "Module1.bas");
+            module.UpdateCode(code);
+            (await service.SaveModule(module, false, interactive: false, rewrites: report)).Should().BeTrue();
+        }
+        else
+        {
+            var form = NewForm();
+            form.AbsolutePath = Path.Join(dir, "Form1.frm");
+            form.UpdateCode(code);
+            (await service.SaveForm(form, false, interactive: false, rewrites: report)).Should().BeTrue();
+        }
+        report.Note.Should().Be(" The save wrote Total's Attribute lines with its name (they said Gone), as VB6's own Save does.");
+    }
+
     [AvaloniaFact]
     public void ReadingAndWritingBackAFormWithItsCodeWindowOpen()
     {

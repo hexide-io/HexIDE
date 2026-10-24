@@ -474,57 +474,6 @@ it, as for any fold. An offset at the run's very end does not: the window moves 
 run's box to the end of the declaration, in front of the box (`CodeEditorView.KeepCaretOffFoldedRunsEnd`), and the
 run stays folded.
 
-## A refused edit's reply sends a Backspace back to the caret it was refused at, and does not say whose lines are in the way
-
-**Symptom.** Found in #273's live check (task 4.8) on 2026-10-14, with a class whose `Public Function Total()` has
-its run `Attribute Total.VB_UserMemId = 0` folded into the declaration's row, and the caret put at the start of the
-body line below it, offset 790:
-
-```
-interact {"target":".../Custom[Root]","action":"set_property","value":"CaretOffset=790"}
-press_key {"target":".../Custom[Root]/None[TextEditor]","key":"Back"}
-→ {"success":false,"error":"press_key refused: offset 789 is in the file's header or a member's Attribute lines,
-   which only the IDE changes (the designer, a save, a rename). Nothing was written. The nearest place that can be
-   edited starts at offset 790; put the caret there with interact set_property CaretOffset=790. ..."}
-```
-
-The refusal is right: Backspace there would join the body line to the run's last line. The advice is not. Offset
-790 is where the caret already was, so a caller that follows it presses the same key in the same place and is
-refused again, which a first-contact model can loop on. The reply also says "the file's header or a member's
-Attribute lines" although the IDE knows which, and since #273 task 4.5b names the member in an add-in's refusal
-(`GuardedContent.MemberNamedBy`). `type_text` gives the same wording: at offset 766, inside the run, it said
-"header or a member's Attribute lines" and pointed at 790.
-
-**Workaround.** Read the refused offset, not the advice. A backward deletion refused at the start of the line under a
-run has nowhere to go on that line; delete the declaration line whole instead (Ctrl+D, which takes the run with it).
-
-**Suggested fix.** Name the region: "the file's header" or "the Attribute lines describing Total" (`MemberNamedBy`).
-For a deleting key whose span ends at the caret, say that the text before the caret is the run's and that deleting
-the declaration line takes both, rather than pointing at the caret's own offset; keep the "nearest place" advice for
-an insertion or a forward deletion, where it moves the caller somewhere new.
-[#1042](https://github.com/hexide-io/HexIDE/issues/1042).
-
-## `set_file_content`'s reply does not say when its save rewrote a member's attribute qualifier
-
-**Symptom.** `set_file_content` saves as the document's own Save does, and since #273 task 4.4 that save writes each
-member's attribute run with its member's name, as VB6's own Save does whatever the module's state. Content holding
-`Attribute Gone.VB_Description` under `Public Function Total()` is therefore written as `Attribute
-Total.VB_Description`, and a no-op write-back of what `get_file_content` returned can change the file in that one
-place. The reply says the file was written and nothing more, so a caller comparing the file with what it sent finds
-a change it did not make, with no reason given.
-
-**`set_control_property` and `add_control` save the same way, and say no more.** Read in code, not run: both save
-through `ProjectService.SaveForm` or `SaveModule`, as `set_file_content` does, and both reach `SaveFiles` with
-`ownCommand: true`, `SaveModule` through `SaveModuleCore`. So a property set on a form or UserControl, or a control
-added to it, also writes a stale qualifier in its code with its member's name, and neither reply says so. #1043
-names `set_file_content` alone.
-
-**Workaround.** Read the file back with `get_file_content` after the write, and expect a stale qualifier to have been
-re-qualified.
-
-**Suggested fix.** Have the save report what it rewrote and say it in the reply's `note`, not the description, which
-is within about 60 characters of its cap. [#1043](https://github.com/hexide-io/HexIDE/issues/1043).
-
 ## `set_file_content` puts its content into a file the IDE will not save, and its refusal says only that the file was not written
 
 **Symptom.** Read in code, not run, at ec9bfc4. On a form HexIDE holds read-only as a whole because it cannot save it
@@ -591,53 +540,6 @@ tools' replies; and the tab tools reporting `project` and `document`, and accept
 Until then the hexide-mcp-server requirement #273 added, that "a tool that accepts or reports a form, module or class
 SHALL identify it by its project and its name", is only partly met.
 [#886](https://github.com/hexide-io/HexIDE/issues/886).
-
-## A control with an x:Name is reported by that name alone, so the Tools menu reads `ToolsMenuItem`
-
-**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
-
-```
-dump_visual_tree {"root":"Window/Custom[MainView]/None[#0]","maxDepth":4}
-→ … MenuItem[File], MenuItem[Edit], MenuItem[View], … MenuItem[ToolsMenuItem], MenuItem[AddInsMenuItem] …
-interact {"target":"Window/Custom[MainView]/None[#0]/Menu[MenuBar]/MenuItem[ToolsMenuItem]","action":"expand"}
-→ opened menu 'ToolsMenuItem'
-```
-
-An x:Name wins over the label a person sees, in the node's `name`, in its path and in reply text, and no field
-carries "Tools". A caller searching the dump for the text in a snapshot finds nothing. Four menu items have an
-x:Name: `ToolsMenuItem`, `LanguageServersMenuItem`, `ProtocolInspectorMenuItem` and `AddInsMenuItem`. x:Name first
-is deliberate, because it does not change with the IDE language, so the fix adds rather than swaps.
-Cross-platform by code reading.
-
-**Workaround.** Address the item by the x:Name the dump shows. `MenuItem[Tools]` should also resolve, through the
-label fallback, but that is read in code and was not tried.
-
-**Suggested fix.** A `label` field on a node whenever the peer's label differs from `name`, reply text that uses
-it (`opened menu 'Tools' (ToolsMenuItem)`), and a description that says a segment may be addressed by either.
-[#948](https://github.com/hexide-io/HexIDE/issues/948).
-
-## `add_to_selection` names the new selection but not its reference, so a caller learns what Align measured against only afterwards
-
-**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
-
-```
-interact {"target":"Window/.../List[ControlsContainer]/ListItem[Command1]","action":"add_to_selection"}
-→ {"detail":"added 'Command1' to the selection; 2 items are selected now: Command0, Command1"}
-```
-
-Only the next `invoke_format_command` reply, "…, aligned to Command0", named the reference, the control every
-Align and Make Same command measures against. A snapshot between the two showed Command0 with the solid handles.
-The reply lists the selection in index order, as does `inspect_element`'s `selectionItems`, so no read names the
-reference before a command runs, which the form-designer spec requires of the designer. The same goes for
-`remove_from_selection`. Cross-platform by code reading.
-
-**Workaround.** Select the intended reference first and `add_to_selection` the rest: by code reading, the
-reference stays on the first item selected, and removing it moves it to the lowest-indexed item still selected.
-A snapshot shows the reference with the solid handles.
-
-**Suggested fix.** With two or more selected, the reply names the primary item, and when `remove_from_selection`
-removes it, names the new one. [#951](https://github.com/hexide-io/HexIDE/issues/951). Which control should be
-the reference is #928.
 
 ## `invoke_format_command`'s no-op reply states a selection rule the spec contradicts
 
@@ -721,42 +623,29 @@ sending again.
 **Suggested fix.** Compare the runs whatever the header does, and refuse once with every finding.
 [#1054](https://github.com/hexide-io/HexIDE/issues/1054).
 
-## `press_key` refuses a Delete over a selection reaching protected lines, where the key deletes the editable part
+## The code window's completion description: desktop snapshot composition still needs a live check
 
-**Symptom.** Read from the code (#273 task 4.5a records it as already so). With a selection running from code into
-the header or a member's `Attribute` lines, a person's Delete deletes the parts the code window's read-only sections
-allow. The tool deletes nothing:
+**Original symptom.** Recorded when #942 closed (#1247), from the code and headless tests; no call was recorded.
+The description tooltip beside a completion item was absent from `dump_visual_tree` and `take_snapshot`, and
+`interact` `double_click` selected an item without committing it.
+[#1334](https://github.com/hexide-io/HexIDE/issues/1334).
 
-```
-press_key {"target":".../Custom[Root]/None[TextEditor]","key":"Delete"}
-→ {"success":false,"error":"press_key refused: offset N is in the file's header or a member's Attribute lines, ...
-   Nothing was written. ..."}
-```
+**Fixed in code, with headless regression tests.** The dump now reaches the open description popup through
+`AttachedPopupsOf`, under the completion list, with its text readable and its path resolvable. `double_click`
+selects the target and requests insertion through the completion list's own commit path. The current list
+appends to the typed prefix rather than replacing it (#941); the test checks the resulting document text.
 
-`UiAutomationDriver` asks `DeletionChangesARegion` about the whole span, where the key's provider deletes the
-deletable segments.
+**Still open.** The snapshot composer uses that same attached-popup route to discover the description's
+top-level root and compose it after the list. This has not been checked live. Headless popups render in the
+window's own overlay, so headless rendering cannot prove the desktop composition works. A running IDE
+`take_snapshot(window: "ide")` with a described completion selected remains required.
 
-**Workaround.** Narrow the selection to the editable part with `interact set_property` (`SelectionStart`,
-`SelectionLength`) before pressing the key.
+**Workaround.** Read the description with `dump_visual_tree(window: "ide", interactiveOnly: false)`.
+For snapshot visibility, no verified workaround.
 
-**Suggested fix.** Delete what the deletable segments allow, as the key does, and say what was left and why.
-[#1055](https://github.com/hexide-io/HexIDE/issues/1055).
-
-## The code window's completion list: its description tooltip is out of reach, and `double_click` does not commit an item
-
-**Symptom.** Recorded when #942 closed (#1247), from the code and the headless tests; no call was recorded. Since #942,
-`dump_visual_tree` lists an open completion list and its items under the `TextEditor` that opened it, and
-`take_snapshot` composes the list into the image. The description tooltip the list shows beside an item is reached by
-neither, so a caller cannot read an item's description or tell that one is showing. Committing an item with
-`interact` `double_click` does not work either: the list takes a commit on the press, which `double_click` does not
-send.
-
-**Workaround.** For the description, none. To commit an item, `select` it and then `press_key` Tab. Until #941 is
-fixed, Enter does not commit and Tab appends the item instead of replacing the word being typed.
-
-**Suggested fix.** Reach the description tooltip by the route that reaches the list itself, so the dump lists it
-under the list and the snapshot composes it. Have `double_click` on a completion item commit it, or say in its reply
-that it did not. [#1334](https://github.com/hexide-io/HexIDE/issues/1334).
+**Suggested check.** In a running IDE select a completion with a description, then call
+`take_snapshot(window: "ide")` and confirm the tooltip's text, position and unclipped extent. Keep this
+entry open until that check passes.
 
 ## A document save reached through a menu, key or click can reply before its picker opens
 
@@ -847,20 +736,6 @@ with the list.
 windows on request, or say in the `window` description that an unknown name lists them.
 [#1365](https://github.com/hexide-io/HexIDE/issues/1365).
 
-## No call double-clicks a running form: `double_click` raises only `DoubleTapped`, and two `click`s are too far apart
-
-**Symptom (2026-10-22, #1031, Windows).** A running form's `DblClick` comes from a double click's second press, told by
-the press's click count. `interact {"target":"<a Label on a running form>","action":"double_click"}` raises Avalonia's
-`DoubleTapped` and selects the target, with no pointer press, and answers `success: true`; the program's `Label1_DblClick`
-never runs, and nothing in the reply says no press was sent. Two `interact {"action":"click"}` calls in a row each press
-with a click count of 1, and an MCP round trip puts them past the 500 ms double-click time anyway.
-
-**Workaround.** None through the surface. `MouseEventTests` drives a double click headlessly, with real pointer input.
-
-**Suggested fix.** Accept `double` in `click`'s value, as in `10,5 double`, raising press, release, press and release
-with the second press's click count 2. Have `double_click`'s reply say it raised `DoubleTapped` and no press.
-[#1389](https://github.com/hexide-io/HexIDE/issues/1389).
-
 ## No call presses on a control and releases elsewhere, so a drag on a running form can't be driven
 
 **Symptom (2026-10-22, #1373, Windows).** Whether dragging off a control cancels its Click is a drag: a press on the
@@ -923,9 +798,13 @@ it is a tool window.
 P/Invoke on the windows HexIDE's process owns, and a screen capture of their rectangles. Both bypass the surface a
 real caller uses.
 
-**Suggested fix.** Have `inspect_element` on a `Window` report `canResize`, `windowDecorations`, `canMinimize`,
-`canMaximize` and `showInTaskbar`, and on Windows the native style and extended style, which is what a VB6 program's
-own `GetWindowLong` reads. Give `take_snapshot` a way to capture a window with its frame, and say in the reply where
+**Part 1 completed (#1595).** `inspect_element` on a Window now includes `frame`: `canResize`,
+`windowDecorations`, `canMinimize`, `canMaximize`, `showInTaskbar` and `windowState`, read from Avalonia.
+There is no separate tool-window marker on the Avalonia Window. Native styles remain unreported, explicitly
+explained by `nativeStyleNote`; Windows interop was left out of this headless-verified change.
+This entry stays open for **part 2**, capturing a snapshot with its frame; `take_snapshot` is unchanged.
+
+**Remaining suggested fix (part 2).** Give `take_snapshot` a way to capture a window with its frame, and say in the reply where
 the host cannot. [#1595](https://github.com/hexide-io/HexIDE/issues/1595).
 
 ## No tool says which control has the focus, and `press_key` moves it there
@@ -945,3 +824,28 @@ and the program's log shows it as a GotFocus that no Tab caused.
 **Suggested fix.** Report `isFocused` from `inspect_element`, and the focused node in `dump_visual_tree`. Press on the
 focused control when the target is a container that holds the focus. Say in the reply when delivering the key moved the
 focus, and from where. [#1627](https://github.com/hexide-io/HexIDE/issues/1627).
+
+## `set_value` on a read-only ComboBox throws, though the combo lists the `value` provider
+
+**Symptom (2026-10-24, #1632, Windows).** In a UserControl's code window, `inspect_element` on the Object box,
+`ComboBox[ObjectCombo]`, listed providers `selection`, `value` and `expandCollapse`.
+`interact {"target":"…/ComboBox[ObjectCombo]","action":"set_value","value":"UserControl1"}` answered
+`{"success":false,"mechanism":"peer","error":"action 'setvalue' threw: Specified method is not supported."}`.
+- **Why it throws.** The combo isn't editable, so its value pattern is read-only, and setting it throws
+  `NotSupportedException`.
+- **Why the reply doesn't help.** It passes the exception's text through and doesn't say what does work. A caller who
+  was shown `value` among the providers has no reason to expect the refusal.
+
+**Workaround.** `expand` the combo, then `select` the item. In the PropertyPage's code window,
+`…/ComboBox[ObjectCombo]/Pane/ComboBoxItem[PropertyPage1]` answered `selected 'PropertyPage1' and closed the dropdown,
+as a click does`. Or use `set_property` on the code window's view model: `SelectedObject=UserControl1` answered `set
+CodeEditorViewModel.SelectedObject = UserControl1`.
+
+**Suggested fix.**
+- On a ComboBox that isn't editable, have `set_value` select the item whose text matches, as `select` does, and report
+  the selection.
+- Where no item matches, refuse, and name the items.
+- Either way, don't list `value` as settable on a read-only control without saying so: give `inspect_element` an
+  `isReadOnly` for the value pattern.
+
+[#1672](https://github.com/hexide-io/HexIDE/issues/1672).
