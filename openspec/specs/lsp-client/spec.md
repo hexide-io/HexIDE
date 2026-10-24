@@ -10,11 +10,6 @@ contract rather than direct calls into a parser is that the backend is expected 
 own syntactic server today, and the seam exists so an external backend with deeper analysis can take over
 later without the editor noticing.
 
-> **Known divergences.** The requirements below state intended behaviour. One is not always met: full
-> synchronization requires a document's versions to rise from its open, and one path can still send one that
-> does not: a debounced change crossing the flush that superseded it. Tracked in
-> [#720](https://github.com/hexide-io/HexIDE/issues/720).
-
 ## Requirements
 
 ### Requirement: The IDE SHALL depend only on the language-service contract
@@ -127,6 +122,11 @@ document for both (hexide-io/HexIDE#721).
 - **THEN** the server has been opened on the document once, and every change carries a later version than the one
   before, whichever editor it came from
 - **AND** closing one editor leaves the document open for the other, and closing the last closes it
+
+#### Scenario: A debounced change overtaken by a flush
+- **WHEN** a change arrives with a version no later than the one the client already tracks
+- **THEN** it is not sent to the server
+- **AND** the newer tracked text and version are kept for reconnect replay
 
 #### Scenario: Closing a document
 - **WHEN** a document is closed

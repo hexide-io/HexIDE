@@ -1,0 +1,16 @@
+{"FormatVersion":1,"Beta":"synthetic","Edition":"Community","Scenario":"preparation"}
+{"Sequence":1,"Channel":"root","Direction":"send","Type":"Binary","Payload":"FgAAAABgAAAAMCwxLDEwMDAwLDAs"}
+{"Sequence":2,"Channel":"root","Direction":"receive","Type":"Binary","Payload":"AAAAAAAAAAB7cGlkfQ=="}
+{"Sequence":3,"Channel":"root","Direction":"send","Type":"Binary","Payload":"AAEAAAAAAAAAAAAAAAAAAAB7Imxhbmd1YWdlIjoidGVzdCJ9"}
+{"Sequence":4,"Channel":"root","Direction":"receive","Type":"Binary","Payload":"AQAAAAAAAAB7cG9ydDpmc317cG9ydDpkZWJ1Z2dlcn17cG9ydDpsYW5ndWFnZX17cG9ydDpmb3JtSW1hZ2V9e3BvcnQ6bGl2ZUJhY2t1cH17aW5zdGFuY2V9"}
+{"Sequence":5,"Channel":"root","Direction":"send","Type":"Binary","Payload":"AQIAAAB7c3RhZ2V9L3NvdXJjZS50d2lucHJvag=="}
+{"Sequence":6,"Channel":"root","Direction":"receive","Type":"Binary","Payload":"//////MAAAAAAAAAeyJ1bmtub3duIjp0cnVlfQ=="}
+{"Sequence":7,"Channel":"root","Direction":"send","Type":"Binary","Payload":"GAMAAAAAAAAA"}
+{"Sequence":8,"Channel":"root","Direction":"receive","Type":"Binary","Payload":"//////8AAADljIUvb3BhcXVlLWlk"}
+{"Sequence":9,"Channel":"root","Direction":"send","Type":"Binary","Payload":"BAQAAAANAAAA5YyFL29wYXF1ZS1pZEFQK0FLZz09"}
+{"Sequence":10,"Channel":"root","Direction":"receive","Type":"Binary","Payload":"/////3sAAAAJ"}
+{"Sequence":11,"Channel":"root","Direction":"receive","Type":"Binary","Payload":"AgAAAAAAAAAK"}
+{"Sequence":12,"Channel":"root","Direction":"receive","Type":"Binary","Payload":"BAAAAAAAAAA="}
+{"Sequence":13,"Channel":"root","Direction":"receive","Type":"Binary","Payload":"AwAAAAAAAAA="}
+{"Sequence":14,"Channel":"root","Direction":"send","Type":"Binary","Payload":"AwUAAAA="}
+{"Sequence":15,"Channel":"root","Direction":"receive","Type":"Binary","Payload":"BQAAAAAAAAAL"}

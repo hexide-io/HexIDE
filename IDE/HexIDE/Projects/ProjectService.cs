@@ -472,14 +472,14 @@ public class ProjectService : IProjectService
     /// names the character. A dialog would hold the caller's reply until a person dismissed it. The picker
     /// is not suppressed; see <see cref="ScriptedFileDialogs.WouldShowPicker"/>.
     /// </param>
-    public async Task<bool> SaveForm(FormDefinition form, bool saveAs, bool interactive = true)
+    public async Task<bool> SaveForm(FormDefinition form, bool saveAs, bool interactive = true, SaveRewriteReport? rewrites = null)
     {
         try
         {
             // Returned so a non-interactive caller can tell a refusal from a save. The MCP write tools reported
             // success unconditionally, which told an agent a file had been written when it had not — and an
             // agent, unlike a developer, has no dialog to read and will build on the answer.
-            return (await WithSaveRefusals(() => SaveFiles([(form, saveAs)], ownCommand: true), interactive)).Count > 0;
+            return (await WithSaveRefusals(() => SaveFiles([(form, saveAs)], ownCommand: true, rewrites: rewrites), interactive)).Count > 0;
         }
         finally
         {
@@ -577,7 +577,7 @@ public class ProjectService : IProjectService
     /// If one stops holding, each writer's own encode still refuses, but files written before it stay written.
     /// </remarks>
     private async Task<IReadOnlyList<Destination>> SaveFiles(
-        IReadOnlyList<(object Document, bool SaveAs)> files, bool announceSave = true, bool ownCommand = false)
+        IReadOnlyList<(object Document, bool SaveAs)> files, bool announceSave = true, bool ownCommand = false, SaveRewriteReport? rewrites = null)
     {
         // A UserControl's or PropertyPage's designer half is one file with its module, and the file the project names is
         // the module's. Saved as a form, a new one has no path (#500) and asked for a .frm, and wrote the edit there
@@ -603,7 +603,7 @@ public class ProjectService : IProjectService
         EnsureEncodable(destinations);
         var written = new List<Destination>();
         foreach (var destination in destinations)
-            if (Write(destination, announceSave, ownCommand))
+            if (Write(destination, announceSave, ownCommand, rewrites))
                 written.Add(destination);
 
         foreach (var destination in written)
@@ -877,20 +877,20 @@ public class ProjectService : IProjectService
     /// own gate refused it, which <see cref="SaveFiles"/> rules out by deciding just before.
     /// </summary>
     /// <param name="ownCommand">As <see cref="SaveFiles"/>'s.</param>
-    private bool Write(Destination destination, bool announceSave, bool ownCommand = false)
+    private bool Write(Destination destination, bool announceSave, bool ownCommand = false, SaveRewriteReport? rewrites = null)
     {
         switch (destination.Document)
         {
             case FormDefinition form:
                 // On success only. A refusal is the opposite of a save, and telling a server a document was
                 // written when it was not would have it re-read a file that still holds the previous content.
-                if (!SerializeFormToFile(form, destination.Path, adoptHeader: announceSave, ownCommand))
+                if (!SerializeFormToFile(form, destination.Path, adoptHeader: announceSave, ownCommand, rewrites))
                     return false;
                 if (announceSave)
                     eventBus.Publish(new DocumentSavedEvent(form, null));
                 return true;
             case ModuleDefinition module:
-                WriteModule(module, destination.Path, adoptHeader: announceSave, ownCommand);
+                WriteModule(module, destination.Path, adoptHeader: announceSave, ownCommand, rewrites);
                 if (announceSave)
                     eventBus.Publish(new DocumentSavedEvent(module.FormPart, module));
                 return true;
@@ -1698,7 +1698,7 @@ public class ProjectService : IProjectService
     /// <param name="ownCommand">As <see cref="SaveFiles"/>'s: the form is written by its own Save or Save As.</param>
     // internal rather than private so the adoptHeader contract can be asserted directly; the Make
     // path that depends on it cannot be driven from a test (it needs the published standalone runtime).
-    internal bool SerializeFormToFile(FormDefinition form, string formPath, bool adoptHeader = true, bool ownCommand = false)
+    internal bool SerializeFormToFile(FormDefinition form, string formPath, bool adoptHeader = true, bool ownCommand = false, SaveRewriteReport? rewrites = null)
     {
         // ONE ruler, asked ONCE, before either half is written. (#148)
         //
@@ -1726,7 +1726,7 @@ public class ProjectService : IProjectService
         // model alone, as it leaves the header. Before the repointing below, too, which is what lets the rewrite
         // tell a write to the form's own file from a write somewhere else.
         if (adoptHeader
-            && RewrittenQualifiers(form, formPath, ownCommand, FormCodeText.Prefix(form), form.Code) is { } requalified)
+            && RewrittenQualifiers(form, formPath, ownCommand, FormCodeText.Prefix(form), form.Code, rewrites) is { } requalified)
             form.UpdateCode(requalified);
 
         var (frmText, frxContent) = RenderForm(form, formPath);
@@ -1792,7 +1792,7 @@ public class ProjectService : IProjectService
     /// already declares, so it adds no character the file did not hold, and what encoded before still encodes.
     /// </para>
     /// </remarks>
-    private string? RewrittenQualifiers(object document, string path, bool ownCommand, string prefix, string code)
+    private string? RewrittenQualifiers(object document, string path, bool ownCommand, string prefix, string code, SaveRewriteReport? rewrites)
     {
         var rewritten = MemberAttributeQualifiers.Rewrite(prefix, code);
         if (ReferenceEquals(rewritten, code))
@@ -1803,6 +1803,8 @@ public class ProjectService : IProjectService
             ModuleDefinition module => ownCommand || !IsItsOwnFile(module.AbsolutePath, path) || IsDirty(module),
             _ => throw new ArgumentException($"HexIDE does not rewrite a {document.GetType().Name}.", nameof(document)),
         };
+        if (written)
+            rewrites?.Record(prefix, code);
         return written ? rewritten : null;
     }
 
@@ -1957,11 +1959,11 @@ public class ProjectService : IProjectService
     /// that batch. Returns false when the module was refused and nothing was written.
     /// </summary>
     /// <inheritdoc cref="SaveForm" path="/param[@name='interactive']"/>
-    public async Task<bool> SaveModule(ModuleDefinition module, bool saveAs, bool interactive = true)
+    public async Task<bool> SaveModule(ModuleDefinition module, bool saveAs, bool interactive = true, SaveRewriteReport? rewrites = null)
     {
         try
         {
-            return await WithSaveRefusals(() => SaveModuleCore(module, saveAs), interactive);
+            return await WithSaveRefusals(() => SaveModuleCore(module, saveAs, rewrites: rewrites), interactive);
         }
         finally
         {
@@ -1986,16 +1988,16 @@ public class ProjectService : IProjectService
     /// way, because a write that adopts no header rewrites no qualifier.
     /// </para>
     /// </remarks>
-    internal async Task<bool> SaveModuleCore(ModuleDefinition module, bool saveAs, bool announceSave = true) =>
-        (await SaveFiles([(module, saveAs)], announceSave, ownCommand: true)).Count > 0;
+    internal async Task<bool> SaveModuleCore(ModuleDefinition module, bool saveAs, bool announceSave = true, SaveRewriteReport? rewrites = null) =>
+        (await SaveFiles([(module, saveAs)], announceSave, ownCommand: true, rewrites: rewrites)).Count > 0;
 
     /// <summary>Writes a module the caller has decided HexIDE can reproduce, and repoints it there.</summary>
     /// <param name="ownCommand">As <see cref="SaveFiles"/>'s: the module is written by its own Save or Save As.</param>
-    private void WriteModule(ModuleDefinition module, string modulePath, bool adoptHeader, bool ownCommand)
+    private void WriteModule(ModuleDefinition module, string modulePath, bool adoptHeader, bool ownCommand, SaveRewriteReport? rewrites = null)
     {
         // As SerializeFormToFile: before the render and the repointing, and not for a copy (#273 task 4.4).
         if (adoptHeader
-            && RewrittenQualifiers(module, modulePath, ownCommand, FormCodeText.Prefix(module), module.Code) is { } requalified)
+            && RewrittenQualifiers(module, modulePath, ownCommand, FormCodeText.Prefix(module), module.Code, rewrites) is { } requalified)
             module.UpdateCode(requalified);
 
         var (text, companion) = RenderModule(module, modulePath);
