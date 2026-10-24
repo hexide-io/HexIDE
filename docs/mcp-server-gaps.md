@@ -474,27 +474,6 @@ it, as for any fold. An offset at the run's very end does not: the window moves 
 run's box to the end of the declaration, in front of the box (`CodeEditorView.KeepCaretOffFoldedRunsEnd`), and the
 run stays folded.
 
-## `set_file_content`'s reply does not say when its save rewrote a member's attribute qualifier
-
-**Symptom.** `set_file_content` saves as the document's own Save does, and since #273 task 4.4 that save writes each
-member's attribute run with its member's name, as VB6's own Save does whatever the module's state. Content holding
-`Attribute Gone.VB_Description` under `Public Function Total()` is therefore written as `Attribute
-Total.VB_Description`, and a no-op write-back of what `get_file_content` returned can change the file in that one
-place. The reply says the file was written and nothing more, so a caller comparing the file with what it sent finds
-a change it did not make, with no reason given.
-
-**`set_control_property` and `add_control` save the same way, and say no more.** Read in code, not run: both save
-through `ProjectService.SaveForm` or `SaveModule`, as `set_file_content` does, and both reach `SaveFiles` with
-`ownCommand: true`, `SaveModule` through `SaveModuleCore`. So a property set on a form or UserControl, or a control
-added to it, also writes a stale qualifier in its code with its member's name, and neither reply says so. #1043
-names `set_file_content` alone.
-
-**Workaround.** Read the file back with `get_file_content` after the write, and expect a stale qualifier to have been
-re-qualified.
-
-**Suggested fix.** Have the save report what it rewrote and say it in the reply's `note`, not the description, which
-is within about 60 characters of its cap. [#1043](https://github.com/hexide-io/HexIDE/issues/1043).
-
 ## `set_file_content` puts its content into a file the IDE will not save, and its refusal says only that the file was not written
 
 **Symptom.** Read in code, not run, at ec9bfc4. On a form HexIDE holds read-only as a whole because it cannot save it
@@ -561,30 +540,6 @@ tools' replies; and the tab tools reporting `project` and `document`, and accept
 Until then the hexide-mcp-server requirement #273 added, that "a tool that accepts or reports a form, module or class
 SHALL identify it by its project and its name", is only partly met.
 [#886](https://github.com/hexide-io/HexIDE/issues/886).
-
-## A control with an x:Name is reported by that name alone, so the Tools menu reads `ToolsMenuItem`
-
-**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
-
-```
-dump_visual_tree {"root":"Window/Custom[MainView]/None[#0]","maxDepth":4}
-→ … MenuItem[File], MenuItem[Edit], MenuItem[View], … MenuItem[ToolsMenuItem], MenuItem[AddInsMenuItem] …
-interact {"target":"Window/Custom[MainView]/None[#0]/Menu[MenuBar]/MenuItem[ToolsMenuItem]","action":"expand"}
-→ opened menu 'ToolsMenuItem'
-```
-
-An x:Name wins over the label a person sees, in the node's `name`, in its path and in reply text, and no field
-carries "Tools". A caller searching the dump for the text in a snapshot finds nothing. Four menu items have an
-x:Name: `ToolsMenuItem`, `LanguageServersMenuItem`, `ProtocolInspectorMenuItem` and `AddInsMenuItem`. x:Name first
-is deliberate, because it does not change with the IDE language, so the fix adds rather than swaps.
-Cross-platform by code reading.
-
-**Workaround.** Address the item by the x:Name the dump shows. `MenuItem[Tools]` should also resolve, through the
-label fallback, but that is read in code and was not tried.
-
-**Suggested fix.** A `label` field on a node whenever the peer's label differs from `name`, reply text that uses
-it (`opened menu 'Tools' (ToolsMenuItem)`), and a description that says a segment may be addressed by either.
-[#948](https://github.com/hexide-io/HexIDE/issues/948).
 
 ## `invoke_format_command`'s no-op reply states a selection rule the spec contradicts
 
