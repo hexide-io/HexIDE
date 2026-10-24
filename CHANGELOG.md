@@ -257,6 +257,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The minimap follows code folding** (#1131): hidden lines take no space, the viewport marker spans the visible rows, and clicks target visible lines. Folding and unfolding redraw the map.
+
 - **Project saves and startup-project changes immediately move language servers to the new workspace root**
   (#1051), reopening every held document with its latest text even when no editor opens a new file.
 
