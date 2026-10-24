@@ -313,3 +313,12 @@ class's error is a recorded decision (hexide-io/HexIDE#1011, divergence D27).
 - **WHEN** a procedure with no handler of its own, in a standard module or a class, raises an error, and a caller with an
   active handler called it from the same event
 - **THEN** the caller's handler runs and the program does not halt
+
+### Requirement: Run state in the IDE chrome
+The IDE SHALL show localized design, run and break title tags, with break selected while the interpreter debugger is paused. The no-project title SHALL be localized. Title and OS window title SHALL refresh on debugger stop, continue and language changes. The running status message SHALL be cleared while paused and restored on continuing a running program.
+
+#### Scenario: Pausing and continuing
+- **WHEN** a running program pauses at a breakpoint, a Stop statement, a step or a requested break
+- **THEN** the title shows the break tag and the running status message is cleared
+- **WHEN** execution continues
+- **THEN** the title shows the run tag and the running status message returns

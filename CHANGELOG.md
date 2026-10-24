@@ -249,6 +249,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Break mode shows in the IDE title** (#837). Paused programs show a localized `[break]` tag and clear the running status message. Design and run tags and the no-project title are localized too, and refresh when the language changes.
+
 - **Module-qualified stores and array-element reads reach the module's variable** (#1006, #965).
   `Module1.G = 8` and `Module2.g(2) = 7` raised Object required, and `Module2.g(1)` read the whole array.
   Both stores now work and the read returns its element. `Set Module2.pq = New C1` holds the object,
