@@ -255,6 +255,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Cross-module Const initialisation** (#893). Module-level Consts and array bounds initialise a referenced
+  module's declarations on demand, in either startup order. Module cycles raise "Circular dependencies between
+  modules"; a class created by the test harness's top-level code sees the startup module's completed Consts.
+
 - **Library-qualified calls to missing intrinsics stop the run** (#867). `VBA.CallByName` and unknown names such as `VBA.Frobnicate`, including explicit `Call` statements, can no longer be swallowed by `On Error Resume Next` as error 461.
 
 - **Len returns a typed scalar variable’s byte size** (#780), including Integer, Long, Single, Double, Currency, Date

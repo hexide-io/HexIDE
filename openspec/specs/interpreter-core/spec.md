@@ -62,6 +62,21 @@ analysing code without running it is not.
 - **THEN** it is reported with the same error number, at run time rather than before it
 - **AND** the difference in timing is recorded rather than treated as a defect
 
+### Requirement: Cross-module constants SHALL initialise their module on demand
+A module-level Const or array bound reading another standard module's Public Const SHALL run that module's
+declarations first, once, regardless of project list order or startup entry point. Re-entering a module still
+running its declarations SHALL raise "Circular dependencies between modules" as a compile error during execution.
+The dependency check SHALL operate per module, including array bounds, and SHALL NOT treat procedure bodies as
+module declaration dependencies. Within one module, constant expressions SHALL retain source order.
+
+#### Scenario: A declaration reads a later module's constant
+- **WHEN** Module1 declares `Public Const A = Module2.B + 1` and Module2 declares `Public Const B = 2`
+- **THEN** A is 3 in either module list order
+
+#### Scenario: A module cycle without a constant cycle
+- **WHEN** Module1 declares `Public Const A = 1` and `Public Const C = B + 1`, and Module2 declares `Public Const B = A + 1`
+- **THEN** execution refuses the declarations with "Circular dependencies between modules"
+
 ### Requirement: Behaviour SHALL be verified against the real product before it is pinned
 Where the correct behaviour of a language rule is uncertain, it SHALL be established by running the original
 VB6 and observing what it does, and SHALL NOT be settled from documentation or recollection. The verified

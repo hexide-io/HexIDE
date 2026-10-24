@@ -614,7 +614,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
             var name = sub.ambiguousIdentifier().GetText();
             // What the value reads is checked against VB6's rules for a constant expression first (measured).
-            ModuleLevelBounds.CheckConst(interpreter, currentModule, currentEnv, sub);
+            await ModuleLevelBounds.CheckConst(interpreter, currentModule, currentEnv, sub);
             var value = AsDeclared(sub, await expressionExecutor.EvaluateValue(sub.valueStmt()));
             // At module level the name was hoisted by the pre-pass, so this fills that slot.
             if (!interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, value, fillingConstant: true))
@@ -3535,7 +3535,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 {
                     isArray = true;
                     if (ownedSlots == null && subStmt.subscripts() is { } bounds)
-                        ModuleLevelBounds.Check(interpreter, currentModule, currentEnv, bounds, subStmt);
+                        await ModuleLevelBounds.Check(interpreter, currentModule, currentEnv, bounds, subStmt);
                     dimensions = await ExtractDimensions(subStmt.subscripts());
                     // A dimension whose upper bound is below its lower is "Range has no values", at module and procedure
                     // level, from a literal or a Const (measured: `Dim d(-1)`, `Dim d(1 To N)` with N 0, `Dim d(5, 2 To 1)`).
@@ -4130,9 +4130,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitImplicitCallStmt_InBlock(VB6Parser.ImplicitCallStmt_InBlockContext context) => await base.VisitImplicitCallStmt_InBlock(context);
 
-    public async Task Execute(VB6Parser.BlockContext block)
+    public async Task Execute(VB6Parser.BlockContext block, bool? moduleDeclarations = null)
     {
-        await ExecuteProcedureBody(block);
+        await ExecuteProcedureBody(block, moduleDeclarations);
     }
 
     // Runs a procedure body's TOP-LEVEL statements with an explicit program counter so On Error GoTo <label>,
@@ -4250,7 +4250,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
     }
 
-    private async Task ExecuteProcedureBody(VB6Parser.BlockContext block)
+    private async Task ExecuteProcedureBody(VB6Parser.BlockContext block, bool? moduleDeclarations = null)
     {
         var stmts = block.blockStmt();
         _bodyStmts = stmts;   // Set Next Statement targets this top-level list
@@ -4267,6 +4267,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         while (pc < stmts.Length)
         {
+            // Execute's harness body runs after its declarations, through the same statement/error/debugger loop.
+            if (moduleDeclarations is { } declarations && BasicInterpreter.IsModuleDeclaration(stmts[pc]) != declarations)
+            {
+                pc++;
+                continue;
+            }
             // Debugger pause-gate (before the temp-frame push). Sees every top-level statement; a StopExecutionSignal
             // it raises falls through all four catches below (none match) and unwinds via RunProcedure's finally.
             currentLine = stmts[pc].Start.Line;   // track for the Call Stack
