@@ -10,6 +10,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Language-server argument arrays and environment overrides** (#385). Stdio and launched pipe servers
+  accept an argv array alongside the existing command-line string, and an environment map layered over
+  inherited variables. Pipe placeholders expand within each argument.
+
 - **`Declare PtrSafe` parses** (#1548) in the interpreter and language server. VBA7 declarations using existing
   types now let a module load; external API calls remain deferred. `LongPtr`, `LongLong` and their conversions
   are follow-up work.

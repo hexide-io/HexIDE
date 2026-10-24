@@ -168,7 +168,10 @@ public sealed class LanguageServerEntry
     [JsonPropertyName("command")]
     public string? Command { get; set; }
     [JsonPropertyName("arguments")]
-    public string? Arguments { get; set; }
+    public ServerArguments? Arguments { get; set; }
+
+    [JsonPropertyName("environment")]
+    public Dictionary<string, string>? Environment { get; set; }
 
     /// <summary>Where to run it. Defaults to the project's own directory when absent.</summary>
     [JsonPropertyName("workingDirectory")]
@@ -317,5 +320,7 @@ public enum LanguageServerConfigProblemKind
 // Names are pinned per property rather than left to the naming policy. This is a file people have
 // written and keep; a C# rename must not quietly change what their file has to say.
 [JsonSerializable(typeof(LanguageServerConfigFile))]
+[JsonSerializable(typeof(LanguageServerEntry))]
+[JsonSerializable(typeof(string[]))]
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 public partial class LanguageServerConfigJsonContext : JsonSerializerContext { }
