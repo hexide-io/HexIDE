@@ -249,6 +249,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP keys, text and hover skip rows their list has released** (#1327). Addressing a list no longer sends input
+  into a recycled row omitted from the control tree or reports the list’s path as confirmation.
+
 - **MCP shared context menus belong to the control that opened them** (#1323). A tab menu appears only under its current tab in the dump; expanding it on another tab moves it there, and collapsing it from another tab leaves it alone. Menu headers also read back opens and closes, refusing an action a handler cancelled.
 
 - **A name declared twice is vb6.exe's compile error** (#1622, #1499). A module that declared one name twice ran,
