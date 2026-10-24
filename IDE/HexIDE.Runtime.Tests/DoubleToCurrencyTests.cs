@@ -68,4 +68,42 @@ public class DoubleToCurrencyTests : BaseVBTestFixture
         await Run($"Debug.Print {expression}\n");
         AssertDebugLog([Vb6Value.NewCurrency(decimal.Parse(expected, System.Globalization.CultureInfo.InvariantCulture))]);
     }
+
+    // A Currency times a Double is a Double and is not rounded; only a store into a Currency rounds it, by the
+    // Double's binary value (measured on SP6 with /make, native and p-code, #966's arithmetic comment; #230's table).
+    [Theory]
+    [InlineData("1.00005", "1.0001")]
+    [InlineData("2.00005", "2")]
+    [InlineData("0.00015", "0.0001")]
+    [InlineData("0.00025", "0.0003")]
+    [InlineData("1.00015", "1.0002")]
+    [InlineData("3.00005", "3")]
+    public async Task Times_a_Double_is_an_unrounded_Double(string d, string stored)
+    {
+        await Run($"Dim d As Double, c As Currency\nd = {d}\nDebug.Print TypeName(CCur(1) * d)\nDebug.Print CCur(1) * d\n"
+            + "Debug.Print TypeName(d * CCur(1))\nc = CCur(1) * d\nDebug.Print c\n");
+        debug[0].Value.Should().Be("Double");
+        debug[1].Value.Should().Be(double.Parse(d, System.Globalization.CultureInfo.InvariantCulture));
+        debug[2].Value.Should().Be("Double");
+        debug[3].Should().Be(Vb6Value.NewCurrency(decimal.Parse(stored, System.Globalization.CultureInfo.InvariantCulture)));
+    }
+
+    [Fact]
+    public async Task Times_a_Single_is_a_Double_of_the_Singles_value()
+    {
+        await Run("Dim c As Currency\nDebug.Print TypeName(1@ * 1.00005!)\nDebug.Print 1@ * 1.00005!\nc = CCur(1) * CSng(1.00005)\nDebug.Print c\n");
+        debug[0].Value.Should().Be("Double");
+        debug[1].Value.Should().Be((double)1.00005f);
+        debug[2].Should().Be(Vb6Value.NewCurrency(1m));
+    }
+
+    [Fact]
+    public async Task Times_a_Decimal_is_a_Decimal()
+    {
+        await Run("Dim c As Currency\nDebug.Print TypeName(CCur(1) * CDec(1.00005))\nDebug.Print CCur(1) * CDec(1.00005)\n"
+            + "c = CCur(1) * CDec(1.00005)\nDebug.Print c\n");
+        debug[0].Value.Should().Be("Decimal");
+        debug[1].Value.Should().Be(1.00005m);
+        debug[2].Should().Be(Vb6Value.NewCurrency(1m));
+    }
 }

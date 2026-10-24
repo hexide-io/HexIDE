@@ -24,6 +24,23 @@ public class SequentialFileTests : BaseVBTestFixture, IDisposable
     private List<string?> Printed() => debug.Select(v => v.Value as string).ToList();
 
     [Fact]
+    public async Task Print_of_an_array_raises_13()
+    {
+        // #879: measured on vb6.exe, native and in the IDE.
+        await Run($$"""
+            Dim f As Integer
+            f = FreeFile
+            Open "{{PathOf("array.txt")}}" For Output As #f
+            On Error Resume Next
+            Print #f, Array(1)
+            Debug.Print Err.Number
+            Close #f
+            """);
+
+        AssertDebugLog([new Vb6Value(13L)]);
+    }
+
+    [Fact]
     public async Task Multiple_file_numbers_on_one_line_copy_and_close_both_files()
     {
         File.WriteAllText(PathOf("source.txt"), "alpha\r\nbeta\r\n");
