@@ -1148,18 +1148,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // oracle (0 To 10 Step 3 → 12; empty 1 To 3 → 4; 1 To 50000 → 50001|Long). An empty body still counts.
         var block = context.block();
         long i = fromL;
-        for (; stepL >= 0 ? i <= toL : i >= toL; i += stepL)
-        {
-            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variable, ForCounterValue(i));
-            if (block == null)
-                continue;
-            var ret = await Visit(block);
-            if (ret == ControlFlow.ExitFor)
-                return ControlFlow.Nothing;
-            if (ret != ControlFlow.Nothing)
-                return ret;
-        }
         interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variable, ForCounterValue(i));
+        while (stepL >= 0 ? i <= toL : i >= toL)
+        {
+            if (await RunLoopBodyOnce(block) is { } left)
+                return left;
+            i = AdvanceForCounter(context, variable, stepL, i);
+        }
         return default;
     }
 
@@ -1232,15 +1227,28 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (await RunLoopBodyOnce(block) is { } left)
                 return left;
 
-            // Next: the counter as the body left it, plus the step.
-            interpreter.ExecutionContext.TryGetVariable(currentEnv, counter, out var current);
-            if (!expressionExecutor.TryUnpack(current, out double c) || c != Math.Truncate(c))
-                throw FractionalForRefused();
-            var next = (long)c + (long)step;
-            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, counter, ForCounterValue(next), context);
+            var next = AdvanceForCounter(context, counter, (long)step);
             if (!(step >= 0 ? next <= limit : next >= limit))
                 return ControlFlow.Nothing;
         }
+    }
+
+    // Next reads the counter as the body left it (#841). Unmeasured non-integral/nonnumeric body stores
+    // keep the normal loop's previous advancement; a raised-header loop keeps its existing refusal.
+    private long AdvanceForCounter(VB6Parser.ForNextStmtContext context, string counter, long step, long? previous = null)
+    {
+        interpreter.ExecutionContext.TryGetVariable(currentEnv, counter, out var current);
+        long value;
+        if ((previous is null || VbNumeric.IsCoreNumeric(current.Type)) && expressionExecutor.TryUnpack(current, out double c)
+            && c == Math.Truncate(c))
+            value = (long)c;
+        else if (previous is { } fallback)
+            value = fallback;
+        else
+            throw FractionalForRefused();
+        var next = value + step;
+        interpreter.ExecutionContext.TryUpdateVariable(currentEnv, counter, ForCounterValue(next), context);
+        return next;
     }
 
     /// <summary>
@@ -1257,7 +1265,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         throw new VBRunTimeException(context, VBStandardError.ForLoopNotInitialized);
     }
 
-    /// <summary>Run a loop body once, for a header that raised under Resume Next. Null when it reaches its <c>Next</c>; otherwise
+    /// <summary>Run a loop body once. Null when it reaches its <c>Next</c>; otherwise
     /// the flow that left it, with an <c>Exit For</c> spent here.</summary>
     private async Task<ControlFlow?> RunLoopBodyOnce(VB6Parser.BlockContext? block)
     {

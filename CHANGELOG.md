@@ -249,6 +249,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A For loop honours changes its body makes to the counter** (#841). Next reads the variable back before adding
+  the step: incrementing a Long or Variant counter inside `For i = 1 To 10` now gives five passes and leaves 11.
+
 - **String functions honour the calling module’s `Option Compare`** (#1572). With no compare argument,
   `InStr`, `InStrRev`, `Replace`, `Split`, `Filter` and `StrComp` now use that module’s setting, including
   calls written in classes and forms. An explicit compare still wins. `InStr("ABC", "b")` in a Text module

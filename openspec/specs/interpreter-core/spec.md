@@ -102,6 +102,11 @@ checks first. This does not extend to reproducing VB6's *defects*, which is a se
 - **WHEN** a hexadecimal literal fills the width of an integer
 - **THEN** it is interpreted as a two's-complement bit pattern rather than a large positive number
 
+#### Scenario: A For body changes its integral numeric counter
+- **WHEN** a Long or Variant counter in `For i = 1 To 10` is incremented by the body
+- **THEN** Next reads the variable back and adds the step, giving passes 1, 3, 5, 7, 9 and leaving 11
+- **AND** resetting the counter to 0 at 3 in `For i = 1 To 3` repeats 1, 2, 3 until execution exits
+
 ### Requirement: The value model SHALL implement VB6's scalar types with their real ranges
 The runtime SHALL provide VB6's distinct numeric types with their documented ranges and a working date type,
 SHALL type literals as VB6 types them, and SHALL raise a trappable overflow when a result or a store falls
