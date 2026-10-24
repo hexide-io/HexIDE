@@ -72,6 +72,19 @@ Break mode is entered from a breakpoint, a step, an explicit pause, or a `Stop` 
 - **THEN** the suspended execution is unwound and the project is reset
 - **AND** no `Class_Terminate` handlers run, matching VB6's `End`
 
+### Requirement: A fresh run SHALL be isolated from prior execution
+A walk suspended at a time-slice yield SHALL abort before executing its statement if the run ended or the debug
+session changed. The runner SHALL accept static fault and `End` notifications only from interpreters tagged with
+its controller and session when attached to the run.
+
+#### Scenario: Restart while a running walk has yielded
+- **WHEN** End and a fresh run's Reset happen before the old time-slice continuation resumes
+- **THEN** the old walk unwinds without executing its parked statement
+
+#### Scenario: An old or unrelated interpreter reports a fault or End
+- **WHEN** a startup-form or Sub Main run is active and another run's interpreter reports a fault or `End`
+- **THEN** the current run stays active and reports no error from that interpreter
+
 ### Requirement: A `Stop` statement SHALL enter break mode under the debugger
 A `Stop` statement SHALL enter break mode when the debugger is attached, and SHALL terminate the program when it is not.
 

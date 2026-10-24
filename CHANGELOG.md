@@ -276,6 +276,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Restart stops the previous run at its time-slice yield** (#761). End followed immediately by a new run can
+  no longer let the old walk continue. Faults and `End` events from an old or unrelated interpreter cannot end
+  the current run, for either startup forms or Sub Main.
+
 - **A Label's Appearance can be set at run time** (#796). It resets BackColor to the button face for 3D or the
   window colour for Flat and redraws the border, as measured on vb6.exe. The assignment was refused.
 
