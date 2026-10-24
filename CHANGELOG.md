@@ -265,8 +265,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
-- **Short TextBoxes keep their text visible** (#914). Reduced the padding inherited from SimpleTheme so
-  single-line boxes at 285 and 315 twips have room for their text in the designer and running forms.
+- **Short TextBoxes keep their text visible** (#914). Their vertical padding now follows the measured
+  font line height, so single-line boxes at 285 and 315 twips also hold the taller default Windows font
+  in the designer and running forms.
 
 - **Foreground-window tests close their windows** (#1319). Dialogs close before their owners, so later
   headless tests no longer inherit these tests' modal dialogs.

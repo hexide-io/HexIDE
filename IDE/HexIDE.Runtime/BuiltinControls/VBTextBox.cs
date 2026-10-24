@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Presenters;
 using Avalonia.Media;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
@@ -30,6 +31,32 @@ public class VBTextBox : TextBox
     {
         Padding = new Thickness(1);
         ApplyLayout(false, 0);
+    }
+
+    private TextPresenter? textPresenter;
+
+    protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
+    {
+        base.OnApplyTemplate(e);
+        textPresenter = e.NameScope.Find<TextPresenter>("PART_TextPresenter");
+    }
+
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        var desired = base.MeasureOverride(availableSize);
+        if (!MultiLine && textPresenter is not null)
+        {
+            // The default Windows font needs more than the 15 px a fixed inset left at 285 twips (#914).
+            var inset = Math.Clamp(Math.Floor((availableSize.Height - BorderThickness.Top - BorderThickness.Bottom
+                - textPresenter.TextLayout.Height) / 2), 0, 1);
+            var padding = new Thickness(1, inset);
+            if (Padding != padding)
+            {
+                Padding = padding;
+                desired = base.MeasureOverride(availableSize);
+            }
+        }
+        return desired;
     }
 
     /// <summary>Whether the box holds several lines: read-only at run time, as in VB6 (#1340).</summary>
