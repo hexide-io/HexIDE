@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using HexIDE.Events;
+using HexIDE.Lsp;
+using Serilog;
 using HexIDE.Addins;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
@@ -24,10 +26,17 @@ public partial class ProjectManager : IProjectManager
     [Notify] private ProjectGroupDefinition? currentGroup;
 
     public ProjectManager(IEditorService editorService,
-        IEventBus eventBus)
+        IEventBus eventBus,
+        Func<ILspClient>? lspClient = null)
     {
         this.editorService = editorService;
         this.eventBus = eventBus;
+        PropertyChanged += async (_, args) =>
+        {
+            if (args.PropertyName != nameof(StartupProject) || lspClient is null) return;
+            try { await lspClient().WorkspaceChangedAsync(); }
+            catch (Exception ex) { Log.Warning(ex, "Could not move the language-server workspace"); }
+        };
     }
 
     public void AddProject(ProjectDefinition proj)

@@ -1,4 +1,3 @@
-using HexIDE.Net;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -45,24 +44,7 @@ internal static class IdeServer
 
         var app = builder.Build();
 
-        // Ahead of every endpoint, health included: that endpoint reports the open project's name and
-        // whether language services are up, which is not something to hand to whoever asks.
-        app.Use(async (context, next) =>
-        {
-            if (!LoopbackOnly.Allows(
-                    context.Request.Host.Host,
-                    context.Request.Host.Port,
-                    port,
-                    context.Request.Headers.Origin.ToString()))
-            {
-                // Refused, and saying so. A 404 would be quieter but would leave a developer whose client
-                // is genuinely misconfigured unable to tell "wrong address" from "turned me away".
-                context.Response.StatusCode = StatusCodes.Status403Forbidden;
-                return;
-            }
-
-            await next(context);
-        });
+        app.UseLoopbackOnly(port);
 
         app.MapGet("/health", (IdeContext ctx) => Results.Ok(new HealthResponse(
             Status: "ok",

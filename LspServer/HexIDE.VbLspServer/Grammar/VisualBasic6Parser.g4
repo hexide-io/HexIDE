@@ -33,7 +33,7 @@ startRule
 
 module
     : WS? NEWLINE* (moduleHeader NEWLINE+)? moduleReferences? NEWLINE* controlProperties? NEWLINE* moduleConfig? NEWLINE* moduleAttributes? NEWLINE*
-        moduleOptions? NEWLINE* moduleBody? NEWLINE* WS?
+        (moduleOptions | moduleBody)? NEWLINE* WS?
     ;
 
 moduleReferences
@@ -718,7 +718,7 @@ valueStmt
     ;
 
 variableStmt
-    : (DIM | STATIC | visibility) WS (WITHEVENTS WS)? variableListStmt
+    : (DIM | STATIC | visibility) WS variableListStmt
     ;
 
 variableListStmt
@@ -726,7 +726,7 @@ variableListStmt
     ;
 
 variableSubStmt
-    : ambiguousIdentifier typeHint? (WS? LPAREN WS? (subscripts WS?)? RPAREN WS?)? (
+    : (WITHEVENTS WS)? ambiguousIdentifier typeHint? (WS? LPAREN WS? (subscripts WS?)? RPAREN WS?)? (
         WS asTypeClause
     )?
     ;
