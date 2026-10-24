@@ -252,6 +252,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A broken assignment no longer hides later syntax errors and procedures** (#938). The bundled language
+  server recovers at the next statement separator and reports each offending token once. Recovery from
+  extraneous tokens and errors between procedures remains partial.
+
 - **Procedure Consts and array bounds reject later local Consts** (#894), with VB6's measured error for
   Option Explicit on or off. Under Option Explicit, a later local Const shadowing a module Const already read by an earlier Const is
   "Duplicate declaration in current scope"; shadowing without that earlier read still works.
