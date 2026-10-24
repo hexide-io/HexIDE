@@ -4068,12 +4068,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (qualifier.Kind == BasicInterpreter.QualifierKind.Library)
         {
             // A library-qualified intrinsic invoked as a statement — evaluate and discard the result. An unknown
-            // member errors (mirroring the expression path), rather than silently no-op'ing; a known constant
+            // member stops the run even under Resume Next (#867); a known constant
             // used as a bare statement is a harmless no-op.
             var args = await expressionExecutor.EvaluateIntrinsicArgs(memberName, argsCall);
             if (await expressionExecutor.EvaluateFunction(memberName, args) is null
                 && !(args.Count == 0 && interpreter.BuiltIns.TryGetBuiltInConstant(memberName, out _)))
-                throw new VBRunTimeException((Antlr4.Runtime.ParserRuleContext?)null, VBStandardError.MethodOrDataMemberNotFound, memberName);
+                throw new VBSubOrFunctionNotDefinedException(memberName);
             return true;
         }
 

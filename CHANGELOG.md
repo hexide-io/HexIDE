@@ -255,6 +255,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Library-qualified calls to missing intrinsics stop the run** (#867). `VBA.CallByName` and unknown names such as `VBA.Frobnicate`, including explicit `Call` statements, can no longer be swallowed by `On Error Resume Next` as error 461.
+
 - **Len returns a typed scalar variable’s byte size** (#780), including Integer, Long, Single, Double, Currency, Date
   and Boolean. Strings and Variants keep their text lengths. Numeric literals and arithmetic expressions are refused
   with VB6’s measured “Variable required” compile error when executed.
