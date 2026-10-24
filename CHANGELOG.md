@@ -249,6 +249,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **For Each locks its array until the loop ends** (#1460). ReDim, ReDim Preserve and Erase inside the loop now raise 10 and leave the array unchanged. Every way out releases the lock, so a later ReDim can succeed.
+
 - **The code editor keeps its caret and view model in agreement** (#1608). An offset past the text now goes to its end,
   and a negative offset goes to its start; the view model reads back the position the editor took.
 
