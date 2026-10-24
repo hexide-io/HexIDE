@@ -3407,26 +3407,19 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitVariableStmt(VB6Parser.VariableStmtContext context)
     {
-        if (context.WITHEVENTS() != null)
-        {
-            // `[Private] WithEvents src As Clock` re-run per-instance at New (a class field): seed each slot to
-            // Nothing (a class-typed object ref). The sink NAME was recorded in the class's PrePass; the sink is
-            // registered when the var is Set. Not added to ownedSlots — fields aren't scope-released.
-            foreach (var sub in context.variableListStmt().variableSubStmt())
-                interpreter.ExecutionContext.AllocVariable(currentEnv, sub.ambiguousIdentifier().GetText(), Vb6Value.Nothing);
-            return default;
-        }
-
         // `Dim`, `Private`, and `Public` module/local declarations all allocate the same way (visibility isn't
         // tracked). Class fields are usually declared `Private`/`Public`. A procedure's `Static` was declared at entry
         // with the rest; outside a procedure it does not compile (measured, #1491).
-        if (context.DIM() != null || context.visibility() != null || Statics is not null)
+        foreach (var subStmt in context.variableListStmt().variableSubStmt())
         {
-            foreach (var subStmt in context.variableListStmt().variableSubStmt())
+            if (subStmt.WITHEVENTS() != null)
+                // Re-seed the field per instance; Set registers the sink recorded by PrePass.
+                interpreter.ExecutionContext.AllocVariable(currentEnv, subStmt.ambiguousIdentifier().GetText(), Vb6Value.Nothing);
+            else if (context.DIM() != null || context.visibility() != null || Statics is not null)
                 await DeclareLocal(subStmt);
+            else
+                throw new VBCompileErrorException("Invalid outside procedure");
         }
-        else
-            throw new VBCompileErrorException("Invalid outside procedure");
 
         return default;
     }

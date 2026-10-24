@@ -252,20 +252,18 @@ public class PrePass : VB6BaseVisitor<object?>
 
     public override object? VisitVariableStmt(VB6Parser.VariableStmtContext context)
     {
-        if (context.WITHEVENTS() != null)
+        foreach (var subStmt in context.variableListStmt().variableSubStmt())
         {
-            // `[Private|Public] WithEvents src As Clock` (class/form-only) — hoist each as an object slot
-            // initialised to Nothing and record the name as an event sink. The declared class (`As Clock`) is not
-            // needed for dispatch (handlers resolve by name), so it's not validated.
-            foreach (var sub in context.variableListStmt().variableSubStmt())
-            {
-                var name = sub.ambiguousIdentifier().GetText();
-                DeclareModuleName(name);
-                WithEventsNames.Add(name);
-                rootEnv.DefineVariable(name, state.Alloc(Vb6Value.Nothing));
-            }
-            return default;
+            if (subStmt.WITHEVENTS() == null)
+                continue;
+            // Only this declarator is an event sink; the declared class is not validated here.
+            var name = subStmt.ambiguousIdentifier().GetText();
+            DeclareModuleName(name);
+            WithEventsNames.Add(name);
+            rootEnv.DefineVariable(name, state.Alloc(Vb6Value.Nothing));
         }
+        if (context.variableListStmt().variableSubStmt().All(sub => sub.WITHEVENTS() != null))
+            return default;
 
         // Module-level `Dim`, `Private`, and `Public` declarations all hoist the same way (visibility is not
         // tracked for variables — an over-permissive simplification). Class fields are usually `Private`/`Public`.
@@ -276,6 +274,8 @@ public class PrePass : VB6BaseVisitor<object?>
         {
             foreach (var subStmt in context.variableListStmt().variableSubStmt())
             {
+                if (subStmt.WITHEVENTS() != null)
+                    continue;
                 DeclareModuleName(subStmt.ambiguousIdentifier().GetText());
                 if (subStmt.typeHint() != null)
                     throw new NotImplementedException("DIM type hints not implemented");
