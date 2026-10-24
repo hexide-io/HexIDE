@@ -243,6 +243,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Module-qualified stores and array-element reads reach the module's variable** (#1006, #965).
+  `Module1.G = 8` and `Module2.g(2) = 7` raised Object required, and `Module2.g(1)` read the whole array.
+  Both stores now work and the read returns its element. `Set Module2.pq = New C1` holds the object,
+  and `Set Module2.pq = Nothing` releases it, as measured on vb6.exe.
+
 - **MCP replies distinguish dialogs sharing a title** (#1365). The modal note names a message box or run-time error dialog, its first line of text and its actual buttons; other dialogs include their buttons. The window parameter explains how to discover open windows through an unknown-name refusal.
 
 - **MCP replies name ignored arguments** (#1315). A misspelled optional parameter still lets the call run, but
