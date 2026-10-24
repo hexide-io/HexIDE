@@ -73,8 +73,9 @@ The lesson generalises past the one bug: **an assertion that a request did not t
 assertion that the server accepted it**, and teardown is where this suite is weakest. When adding a
 protocol test, prefer asserting the wire frame or an observable server-side consequence over asserting
 that our own call returned. `ShutdownWireShapeTests` is the worked example — it reads the bytes,
-because a `[JsonRpcMethod]` handler cannot tell you whether `params` arrived as `[]`, `{}`, or not at
-all, and those three are not interchangeable to a real server.
+because a `[JsonRpcMethod]` handler cannot tell you whether `params` arrived as `[]`, `{}`, `null`, or not at
+all, and those four are not interchangeable to a real server. Measured against rumdl 0.2.64,
+`"params":null` is refused with `-32602`, `Unexpected params: null` (#368).
 
 Five servers. Four are chosen for **framework** diversity rather than language diversity — interop bugs
 come from the server's LSP library, not from the language being analysed — and the fifth for a delivery
