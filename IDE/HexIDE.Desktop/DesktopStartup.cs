@@ -36,7 +36,9 @@ internal static class DesktopStartup
             Vb6TextEncoding.SimulateHostCodePage(codePage);
 #endif
 
-        if (ServerOptions.NewProject)
+        if (ServerOptions.NewProjectUnsaved)
+            HexIDE.Static.StartupProjectHook = (ps, _) => ps.CreateNewProject(IProjectTemplate.StandardEXE);
+        else if (ServerOptions.NewProject)
             HexIDE.Static.StartupProjectHook = async (ps, pm) =>
             {
                 await ps.CreateNewProject(IProjectTemplate.StandardEXE);

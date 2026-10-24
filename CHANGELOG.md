@@ -10,6 +10,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **Start automation with an unsaved project** (#502). `--newproject-unsaved` skips the startup dialog without
+  writing project or component files, so `untitled:` language-server URIs can be exercised from launch.
+  `--newproject` still saves to a temporary directory; `add_file` already leaves new documents pathless (#500).
+
 - **Random and Binary files open, and Get and Put run** (#1646). They were refused at the `Open`, so no program that
   keeps records or structs in a file got past it. Measured on vb6.exe first, in eight batches: the bytes of every
   type, String, Variant, array and Type; records and `Len =`; EOF; a second handle and the `Lock` and `Access` clauses;

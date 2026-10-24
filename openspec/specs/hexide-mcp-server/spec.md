@@ -326,3 +326,14 @@ SHALL report none for an IDE started without one.
 #### Scenario: Readiness names the session
 - **WHEN** tooling polls the health check of an IDE started for a session
 - **THEN** the reply names that session beside the process ID
+
+### Requirement: Automation SHALL be able to start with a pathless project
+The `--newproject-unsaved` launch flag SHALL create a Standard EXE and skip the startup dialog without saving
+its project or component files. It SHALL take precedence over `--newproject` and a positional project path.
+The existing `--newproject` flag SHALL continue saving to a unique temporary directory. `add_file` SHALL
+leave new documents pathless and explain the null path and how to save them in its reply.
+
+#### Scenario: Exercising an untitled document from launch
+- **WHEN** the IDE starts with `--newproject-unsaved`
+- **THEN** its initial form and project have no file paths
+- **AND** opening the form's code uses its `untitled:` URI until it is saved
