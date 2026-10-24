@@ -257,6 +257,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The bundled language server counts lone CR line endings** (#1052). Diagnostics, folds, rename, highlight
+  and formatting now use the editor's line numbers in files with CR, LF or CRLF, and keep off the same protected lines.
+
 - **Document changes keep rising versions** (#720). A debounced change overtaken by a flush is dropped,
   so it cannot reach the language server afterwards or replace the newer text and version replayed on reconnect.
 
