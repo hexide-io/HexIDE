@@ -254,6 +254,65 @@ there isn't one yet. Anything may change between 0.x releases.
   insertion path. Snapshot composition now traverses the same description popup; its desktop rendering
   still needs a live check.
 
+- **MCP Delete and Backspace delete the editable part of a selection reaching protected lines** (#1055).
+  The key runs through the editor's own deletion path; the reply counts what was deleted and left, names
+  the header or member's Attribute lines, and reports the caret and remaining selection. `type_text` also
+  uses the editor's selection replacement for these spans. A wholly protected selection still refuses.
+
+- **MCP inspection reports a window's frame state** (#1595, part 1). `inspect_element` on a Window now reports
+  resizing, decorations, minimize/maximize buttons, taskbar visibility and window state from Avalonia, so a running
+  form's BorderStyle mapping can be checked. Native styles are explicitly unreported. Snapshot frame capture remains open.
+
+- **A For loop with a fractional start, limit or step runs** (#983). `For x = 0 To 1 Step 0.25` and its kind stopped
+  the run whenever the counter could hold a fraction: a Variant, Single, Double, Currency or Date. Measured on vb6.exe
+  first, in 80 cases: the step is added each time round in the counter's type, a Single sums in Double before it
+  is rounded, as p-code does, and a Variant counter counts in the type its start, limit and step make together.
+
+- **MCP guarded-edit refusals name the region** (#1042): the file's header or the Attribute lines describing a named member. Backward deletion explains how to remove a declaration with its Attribute lines instead of sending the caller back to the same caret offset; insertions still give a new editable offset.
+
+- **A Double rounds to Currency from its exact binary value** (#966). Storing `1.00005`, calling
+  `CCur(1.00005)` or declaring it as a Currency Const now gives 1.0001, and `CCur(0.00015)`
+  gives 0.0001, as measured on vb6.exe. In `+` and `-` beside a Currency, a Double becomes a Currency the same way before the sum, so `2@ + 0.00005` is 2.0001.
+
+- **MCP can double-click a running form** (#1389). `interact`'s `click` accepts `double` in its value, as in
+  `10,5 double`, `10,5 right double` or plain `double`. It presses and releases twice, so the program's DblClick
+  runs, waiting for the first click's work before the second; if the target hides or closes, it stops and says so.
+  `double_click` still raises DoubleTapped and selects for the Project Explorer, but its reply now says no pointer
+  press was sent and points to `click` with `double` for a running form's DblClick.
+
+- **Module-qualified stores and array-element reads reach the module's variable** (#1006, #965).
+  `Module1.G = 8` and `Module2.g(2) = 7` raised Object required, and `Module2.g(1)` read the whole array.
+  Both stores now work and the read returns its element. `Set Module2.pq = New C1` holds the object,
+  and `Set Module2.pq = Nothing` releases it, as measured on vb6.exe.
+
+- **String functions honour the calling module’s `Option Compare`** (#1572). With no compare argument,
+  `InStr`, `InStrRev`, `Replace`, `Split`, `Filter` and `StrComp` now use that module’s setting, including
+  calls written in classes and forms. An explicit compare still wins. `InStr("ABC", "b")` in a Text module
+  now answers 2, as measured on vb6.exe, instead of silently answering 0.
+
+- **MCP paths survive growing editor text** (#1436). A collapsed layout wrapper no longer appears when its
+  content begins to scroll, so the Immediate window's text-area path stays usable. Range capability keeps a
+  node regardless of its current bounds. A refused path that skips a visible wrapper names it and gives the
+  complete corrected path when there is one unambiguous continuation.
+
+- **MCP project saves report unused file-dialog answers** (#1335). `invoke_menu_item` for Save Project / Save Project As and `interact` on their buttons now say when an answer armed before the call remains pending. A document save through a menu, key or click can still wait on formatting after the reply; `answer_next_file_dialog` explains that limit.
+
+- **MCP commands bound through another view model are reachable** (#1336). `inspect_element` lists a menu item’s or button’s resolved `Command` and its binding; `invoke_command` accepts `Command`, checks `CanExecute` with the control’s `CommandParameter`, and runs it. A wrong name explains the binding and how to invoke it, including on the designer’s Delete item.
+
+- **The code editor keeps its caret and view model in agreement** (#1608). An offset past the text now goes to its end,
+  and a negative offset goes to its start; the view model reads back the position the editor took.
+
+- **MCP keys, text and hover skip rows their list has released** (#1327). Addressing a list no longer sends input
+  into a recycled row omitted from the control tree or reports the list’s path as confirmation.
+
+- **A running form's window carries the form's own Icon, or none for (None)** (#1594). Every window carried HexIDE's
+  icon, big and small, whatever the form's file said. So VB98's dialog templates, which save Icon = (None) to keep a
+  dialog's caption bare, showed HexIDE's mark, and a form's own icon never appeared. A form with no Icon line keeps
+  HexIDE's mark, as VB6 gives its default there. Measured on vb6.exe: the default is VB6's big icon only, (None) is no
+  icon at all, and a form's own is both its big and small icon.
+
+- **MCP shared context menus belong to the control that opened them** (#1323). A tab menu appears only under its current tab in the dump; expanding it on another tab moves it there, and collapsing it from another tab leaves it alone. Menu headers also read back opens and closes, refusing an action a handler cancelled.
+
 - **A name declared twice is vb6.exe's compile error** (#1622, #1499). A module that declared one name twice ran,
   keeping one declaration, and so did a procedure, so `Dim n As Long` then `Static n` gave an ordinary Long. At module
   level it is now "Ambiguous name detected", and in a procedure "Duplicate declaration in current scope", parameters
@@ -262,12 +321,23 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **MCP `get_form_controls` reports absent properties as null** (#1635). A Line or Shape no longer claims to be enabled when its class has no Enabled property. The summary's `visible` and `enabled` now follow `caption` and `text`: null where the control's class has no such property.
 
+- **A double-click on a UserControl's or PropertyPage's background writes its own event** (#1632). It wrote
+  `Form_Load`, an event neither root has. Now it writes `UserControl_Initialize` or `PropertyPage_SelectionChanged`,
+  as VB6's designer does. The code window offers each root VB6's own events, 35 and 24, with the arguments VB6's stubs
+  declare, where it offered a form's five. Measured on the release build and on SP6. HexIDE does not run a UserControl
+  yet, so none of these events is raised.
+
 - **MCP replies distinguish dialogs sharing a title** (#1365). The modal note names a message box or run-time error dialog, its first line of text and its actual buttons; other dialogs include their buttons. The window parameter explains how to discover open windows through an unknown-name refusal.
 
 - **MCP replies name ignored arguments** (#1315). A misspelled optional parameter still lets the call run, but
   now appears in `ignoredArguments` in a JSON-object reply, or in a separate text block, with a suggested spelling
   for case, snake_case or kebab-case mismatches. Binding refusals check each parameter's actual type, so an
   overflowing `int`, numeric string or array item is named without blaming a valid `long`; serializer paths stay.
+
+- **A Simple Combo shows its list under its edit box** (#1603). It was drawn and run as a Dropdown Combo, with a button
+  that dropped its list. Its list is now always shown, in the designer and at run time, and scrolls when its items
+  don't fit. A click on it picks an item as vb6.exe's does: the one already selected again, the last one from below
+  the items, and a double click as Click and then DblClick, with no Change or DropDown.
 
 - **MCP `interact set_property` reads back the value it set** (#1326), naming both sent and actual values when
   they differ. For an editor's `CaretOffset`, it reads the editor itself, so an offset the caret never took is no
@@ -278,9 +348,18 @@ there isn't one yet. Anything may change between 0.x releases.
   literal with a point and `%` or `&`, such as `2.5%`, is now vb6.exe's compile error "Syntax error", where HexIDE
   rounded it to an Integer or a Long.
 
+- **The designer draws a Dropdown List's box with the control's name** (#1604). It drew the box empty, as the running
+  control is. VB6's designer shows the name the control has now, after a rename too, and not a Text the file saved.
+  A Dropdown List renamed and then set back to Style 0 writes its new name as its Text, as VB6 SP6's designer did.
+
 - **MCP `hover` cleans up after a throwing pointer handler, reports a cover's tip over a disabled target, and refuses
   targets that are not showing** (#1328). Containers prefer a showing editor; the tool explains the real mouse's effect
   on the tip, cursor and pointer-over.
+
+- **The arrow keys move between controls from an option button, a check box and a command button** (#1625). They did
+  nothing there. Up and Left now go to the previous control in the same container and Down and Right to the next, by
+  TabIndex and wrapping, as VB6's do, and an option button they land on is selected. As in VB6, a control whose
+  TabStop is False is reached, and one that can't take the focus, such as a Label or a Frame, is passed over.
 
 - **A Const declared with a type character runs, as vb6.exe's does** (#1614). `Const K% = 2.5` stopped the program as
   the module loaded, with "Const type hints not supported". The character is now the As clause it stands for: `K` is
@@ -294,6 +373,12 @@ there isn't one yet. Anything may change between 0.x releases.
   Long or a Currency beyond Currency's range, or stopped with a .NET error.
 
 - **A refused MCP call names a blocking dialog once** (#1325). Closing a form under a MsgBox, or typing or pressing a key under stacked dialogs, no longer repeats the dialog in the reply’s note. A refusal never claims the call reached past a dialog; calls that acted behind one still say so.
+
+- **The Properties window shows Left, Top, Width and Height in VB6's units** (#1636). It showed the pixels HexIDE
+  keeps them in, so a new form read 312 by 206 where VB6's reads 4920 by 3675. A control's position is now in its
+  container's ScaleMode, twips by default and twips inside a Frame, and a form's own size is twips with its frame, as
+  VB6's window shows them. A value typed in is in the same units. `get_form_controls`' rows and `set_control_property`
+  follow the window, each row naming its unit; the summary and `move_control` stay in pixels.
 
 - **A CommandButton, TextBox, ComboBox, ListBox and Frame have ToolTipText** (#1403). Only five controls declared it,
   so on these the Properties window did not list it, a running form showed no tip, and code could not read or set

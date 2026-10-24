@@ -102,8 +102,19 @@ public static class ScriptedFileDialogs
             return new CancelWatch(absolutePath is null, _cancelsTaken, _taken, _armed);
     }
 
+    /// <summary>
+    /// A project save reached through the UI asks for its destinations before its first incomplete await (#1335).
+    /// It can save several documents, so no single document's existing path explains an unused answer.
+    /// </summary>
+    public static CancelWatch WatchForUiProjectSave()
+    {
+        lock (Lock)
+            return new CancelWatch(true, _cancelsTaken, _taken, _armed, "this save opened no picker");
+    }
+
     /// <summary>Whether a save was answered by the armed cancel that was next when it began.</summary>
-    public readonly struct CancelWatch(bool armed, long takenBefore, long anyTakenBefore, long armedBefore)
+    public readonly struct CancelWatch(bool armed, long takenBefore, long anyTakenBefore, long armedBefore,
+        string? pendingReason = null)
     {
         /// <summary>
         /// True when the document had no file and a picker has taken an armed cancel since
@@ -145,9 +156,9 @@ public static class ScriptedFileDialogs
                 }
 
                 if (left == 0) return "";
-                var why = armed
+                var why = pendingReason ?? (armed
                     ? "this save stopped before its picker opened"
-                    : "this save opened no picker, because the document already has a file";
+                    : "this save opened no picker, because the document already has a file");
                 return left == 1
                     ? $" 1 file-dialog answer armed before this call is still pending: {why}. The next file dialog to "
                       + "open will take it, whatever it is for; if it was armed for this save, clear_file_dialog_answers "

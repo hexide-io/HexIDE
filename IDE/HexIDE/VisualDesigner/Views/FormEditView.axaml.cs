@@ -310,7 +310,7 @@ public partial class FormEditView : UserControl
         if (DataContext is not FormEditViewModel rootVm)
             return;
 
-        rootVm.RequestCode($"Form_Load");
+        rootVm.RequestCode(rootVm.RootDoubleClickProcedure);
         e.Handled = true;
     }
 
