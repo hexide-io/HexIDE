@@ -276,6 +276,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Unimplemented faults survive reference cleanup** (#767). A raising `Class_Terminate` no longer replaces an
+  engine-limit failure with a VB6 error that `On Error` can trap; termination hooks are skipped during its unwind.
+
 - **Quiet startup bindings** (#864): Lock Controls accepts no focused form as unchecked, and the dock theme
   accepts a layout that has not arrived without logging five null-path errors.
 

@@ -126,6 +126,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// </remarks>
     public bool Ending { get; private set; }
 
+    private bool unimplementedFault;
+
+    // A filter runs before this try's cleanup, even across async boundaries. Never handle the fault here.
+    internal bool MarkUnimplementedFault(Exception fault)
+    {
+        if (fault is NotImplementedException)
+            unimplementedFault = true;
+        return false;
+    }
+
     /// <summary>
     /// Raised when a program reaches <c>End</c>, so whoever owns the run ends it: closes its forms, and stops the walks
     /// of any other interpreter in the run. Static, as <see cref="VBWindowContext.Faulted"/> is, because a run's
@@ -422,8 +432,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         // A debugger reset (Stop) unwinds the walk via StopExecutionSignal, which runs this refcount teardown in
         // RunProcedure's finally — but VB6 `End` fires NO Class_Terminate (oracle-verified), so suppress it while
-        // the debugger is aborting, and once the program itself has reached End.
-        if (o.Terminated || Ending || DebugController?.IsAborting == true)
+        // the debugger is aborting, once the program itself has reached End, or while an unimplemented fault unwinds (#767).
+        if (o.Terminated || Ending || unimplementedFault || DebugController?.IsAborting == true)
             return;
         o.Terminated = true;
         // A form's hook is its own Form_Terminate, raised once it has unloaded and is released (#973).
@@ -1317,6 +1327,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     : returned;
             completed = true;
         }
+        catch (Exception ex) when (MarkUnimplementedFault(ex)) { throw; }
         finally
         {
             foreach (var slot in refSlots)
