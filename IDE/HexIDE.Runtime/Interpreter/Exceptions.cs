@@ -64,7 +64,7 @@ public class VBVariableNotDefinedException : VBCompileErrorException
 
 public class VBMethodOrDataMemberNotFoundException : VBCompileErrorException
 {
-    public VBMethodOrDataMemberNotFoundException(string ident, HexIDE.Runtime.Interpreter.Vb6Value.ValueType type) : base($"Method or data member not found ({ident} in {type})") {}
+    public VBMethodOrDataMemberNotFoundException(string ident, HexIDE.Runtime.Interpreter.Vb6Value.ValueType type) : base($"Method or data member not found ({ident})") {}
 }
 
 public struct VBStandardError

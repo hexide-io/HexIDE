@@ -24,8 +24,8 @@ internal static class LspRequestHandlers
         if (source is not null && declaredTypes is not null)
         {
             var word = VbTextHelpers.GetWordAtPosition(source, line, ch);
-            if (word is not null && declaredTypes.TryGetValue(word, out var typeAnnotation))
-                parts.Add(typeAnnotation is not null ? $"{word} As {typeAnnotation}" : word);
+            if (word is not null && declaredTypes.TryGetValue(word, out var declaration))
+                parts.Add(declaration.TypeText is { } typeAnnotation ? $"{word} As {typeAnnotation}" : word);
         }
 
         if (diags is not null)
@@ -101,9 +101,12 @@ internal static class LspRequestHandlers
         if (TryUri(p, out var uri) && store.DeclaredTypes.TryGetValue(uri, out var declaredTypes))
         {
             items = new List<LspCompletionItem>(VbKeywords.All.Length + declaredTypes.Count);
-            items.AddRange(VbKeywords.All);
-            foreach (var name in declaredTypes.Keys)              // cached — no reparse (parse-once)
-                items.Add(new LspCompletionItem(name, LspCompletionItemKind.Variable));
+            var labels = new HashSet<string>(declaredTypes.Keys, StringComparer.OrdinalIgnoreCase);
+            foreach (var item in VbKeywords.All)
+                if (labels.Add(item.Label))
+                    items.Add(item);
+            foreach (var (name, declaration) in declaredTypes)     // cached — no reparse (parse-once)
+                items.Add(new LspCompletionItem(name, declaration.Kind));
         }
         else
         {
