@@ -397,3 +397,15 @@ replies SHALL use the meaningful label when available.
 - **THEN** its node and inspection report `name: "ToolsMenuItem"` and `label: "Tools"`
 - **AND** its emitted path ends in `MenuItem[ToolsMenuItem]`, while `MenuItem[Tools]` also resolves
 - **AND** expanding it names `Tools` in the reply
+
+### Requirement: Discovery and legacy clients share a stateless transport
+The automation server SHALL support discovery for the 2026-07-28 protocol revision and SHALL keep both discovery
+and legacy initialize clients stateless, without issuing an MCP session ID or offering a standalone GET stream.
+
+#### Scenario: Discovery without initialization
+- **WHEN** a client sends `server/discover` without first sending `initialize`
+- **THEN** the server advertises `2026-07-28` among its supported versions and issues no MCP session ID
+
+#### Scenario: Rebuild with an attached client
+- **WHEN** the server restarts on the same endpoint after a client has connected
+- **THEN** that client's next tool call is answered without a stale transport session

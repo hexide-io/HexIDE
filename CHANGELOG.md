@@ -161,6 +161,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Changed
 
+- **MCP SDK 2.2.0** (#764). The automation server supports discovery and the sessionless 2026-07-28
+  protocol, while keeping legacy clients stateless across IDE rebuilds.
+
 - **The automation server’s loopback gate is exercised through real HTTP requests** (#773). The IDE and
   the Kestrel test server share its middleware wiring; foreign Host and Origin headers are refused on
   `/mcp`, and a foreign Host is refused on `/health`, while loopback clients are answered.
