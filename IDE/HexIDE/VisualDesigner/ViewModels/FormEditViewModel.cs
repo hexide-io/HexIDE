@@ -181,6 +181,14 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     public ComponentInstanceViewModel Form { get; private set; }
 
     /// <summary>
+    /// The procedure a double click on the designer's background writes: the root's own event, a form's Form_Load, a
+    /// UserControl's UserControl_Initialize and a PropertyPage's PropertyPage_SelectionChanged (measured, #1632).
+    /// </summary>
+    public string RootDoubleClickProcedure => Form.Instance.BaseClass is FormComponentClass root
+        ? $"{root.Name}_{root.DesignerDoubleClickEvent}"
+        : "Form_Load";
+
+    /// <summary>
     /// The strings this designer and its component view models show. Internal because a component view
     /// model has no services of its own and needs one to phrase a refusal.
     /// </summary>

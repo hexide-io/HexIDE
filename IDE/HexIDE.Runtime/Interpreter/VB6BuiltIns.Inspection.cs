@@ -160,7 +160,7 @@ public partial class VB6BuiltIns
         const NumberStyles styles = NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint
             | NumberStyles.AllowThousands | NumberStyles.AllowExponent
             | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite;
-        return double.TryParse(s, styles, VbLocale.Current, out _);   // the locale CDbl reads in (#777)
+        return double.TryParse(WithoutThousandsAfterDigit(s), styles, VbLocale.Current, out _);   // the locale CDbl reads in (#777)
     }
 
     private static bool AllChars(string s, int from, Func<char, bool> pred)

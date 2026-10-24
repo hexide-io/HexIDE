@@ -353,6 +353,22 @@ public class ObjectAsValueTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(error)]);
     }
 
+    [Theory]
+    [InlineData("Left(v, \"x\")", "Plain", 13L)]
+    [InlineData("Left(v, Null)", "Plain", 94L)]
+    [InlineData("Mid(v, \"x\")", "Plain", 13L)]
+    [InlineData("Replace(v, \"a\", \"b\", \"x\")", "Plain", 13L)]
+    [InlineData("Split(v, \",\", \"x\")", "Plain", 13L)]
+    [InlineData("InStr(1, v, \"a\", \"x\")", "Plain", 13L)]
+    [InlineData("Left(v, \"x\")", "Widget", 13L)]
+    public async Task A_typed_value_argument_is_converted_before_an_object_is_read(string call, string cls, long error)
+    {
+        // Measured in #840's p41, native and in the IDE (#959).
+        await RunThroughAVariant(cls, "c = " + call);
+
+        AssertDebugLog([new Vb6Value(error), new Vb6Value(true)]);
+    }
+
     [Fact]
     public async Task Filter_reads_an_object_switch_before_an_object_match()
     {
