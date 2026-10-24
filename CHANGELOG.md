@@ -276,6 +276,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Options names its Tab width, grid Width and grid Height fields for accessibility** (#950). Each name follows
+  its localized label without the access-key marker, so automation can address the field by that label.
+
 - **IDE logs survive frequent relaunches** (#1307). Pruning deletes a session only when every part was last
   modified more than seven days ago, and always keeps at least the seven most recent sessions. Logs remain
   shared across profiles; a recently written part protects its whole session.
