@@ -61,3 +61,15 @@ deliberately.
 #### Scenario: Arranging the workspace
 - **WHEN** the developer docks or resizes a tool window
 - **THEN** it behaves as a tool window and does not join the document tabs
+
+### Requirement: Editor tabs indicate unsaved changes
+Designer, code and carried-file editors SHALL forward their existing dirty-state signals to Dock's
+modified marker. Designer checks SHALL include pending component membership and the owning module's
+serialized state for a UserControl or PropertyPage. Code typing SHALL compare only the buffer body with
+the model; the serialized model check SHALL run on flush and matching save events, not per keystroke.
+
+#### Scenario: Editing and saving
+- **WHEN** a developer deletes a control, commits a designer property edit or edits an editor's text
+- **THEN** the affected tab shows the modified marker
+- **WHEN** the document is saved and its dirty-state checks are clear
+- **THEN** its marker clears without clearing another document's marker
