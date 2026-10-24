@@ -10,6 +10,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **CI keeps test-host crash logs** (#1309). Failed test jobs upload their `TestResults` directories
+  as artifacts named for the job and operating system, retained for seven days.
+
 - **Keyboard parameter-info regression tests** (#1262). Headless tests cover typing `MsgBox(`, the signature-help
   request position, and parameter info being open before the typing reply when the server answers after a delay.
 

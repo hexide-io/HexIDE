@@ -42,6 +42,10 @@ cd LspServer && dotnet build HexIDE.VbLspServer/
 
 CI runs two parallel jobs in `.github/workflows/build.yml`: `build-ide` (working dir `IDE/`) and `build-lsp-server` (working dir `LspServer/`), alongside two guard jobs.
 
+Failed test jobs upload their `TestResults` directories as `test-results-<job>-<OS>` artifacts, retained for
+seven days (#1309). This includes both `build-ide-desktop` matrix runners. If a test host crashes and
+`dotnet test` prints only a log path, download that job's artifact to read the reason.
+
 **Run `bash scripts/check-tree-hygiene.sh` before pushing anything that touches docs or config.** It takes
 seconds locally and a full CI cycle otherwise, and it fails on things that look entirely innocuous while
 you are writing them: an illustrative Windows user path in a troubleshooting example is, to a scanner,
