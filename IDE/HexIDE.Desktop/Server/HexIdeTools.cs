@@ -10,6 +10,7 @@ using HexIDE.Lsp;
 using HexIDE.Redaction;
 using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
+using HexIDE.Runtime.AvaloniaInterop;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.ProjectElements;
@@ -458,7 +459,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_form_controls")]
-    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled, and a control array element's index, which name(index) takes); with 'controlName', that one control with every property it has, in the text set_control_property takes where it takes one. Position and size are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name the form, as the IDE spells them; visible, enabled, caption and text are left out where the control's class has no such property.")]
+    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled, and a control array element's index, which name(index) takes); with 'controlName', that one control with every property it has, in the text set_control_property takes where it takes one. Position and size in that summary are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. The 'properties' rows give Left, Top, Width and Height as the Properties window does instead, in twips or the container's ScaleMode, each naming its unit. Searches every loaded project, without regard to case; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'project' and 'document' name the form, as the IDE spells them; visible, enabled, caption and text are left out where the control's class has no such property.")]
     public async Task<FormControlsResult> GetFormControlsAsync(
         string formName,
         string? project = null,
@@ -466,7 +467,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
                      + "name(index). The reply then lists that control alone, with 'properties' holding every property "
                      + "the Properties window shows for it, by the name there, with its value as text: an enum as "
                      + "\"1 - Opaque\", a colour as its literal, a number with '.', a font as \"Tahoma, 9.75 pt, bold\"; a "
-                     + "picture as a summary. 'settable' says whether set_control_property takes that text back; a "
+                     + "picture as a summary. Left, Top, Width and Height are as VB6's Properties window shows them, "
+                     + "not the summary's pixels: in the container's ScaleMode, twips on a form unless it says otherwise, "
+                     + "twips inside a Frame, and a form's own Width and Height with its frame; the row's 'note' names the "
+                     + "unit. 'settable' says whether set_control_property takes that text back; a "
                      + "picture and the like are set in the Properties window. Properties the file holds that HexIDE does not model, or "
                      + "could not read, are rows too, with the file's text, not settable, and a 'note' saying which. "
                      + "A control array named without an index is its first element, and the reply's 'note' says so.")]
@@ -541,7 +545,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
                       + $"{PropertyText.ArrayIndexOf(control)?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "unknown"}. "
                       + $"Name one as {controlName}(n) for another.";
                 return new FormControlsResult(null, [Info(control)], document.Project.Name, document.Name,
-                    PropertyText.Rows(control), note);
+                    PropertyText.Rows(control, (property, pixels) => DesignPositions.IsPosition(property)
+                        ? (DesignPositions.Shown(form, control, property, pixels), DesignPositions.Unit(form, control, property))
+                        : null), note);
             }
             return new FormControlsResult(null, components.Select(Info).ToArray(), document.Project.Name, document.Name);
         });
@@ -562,7 +568,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
                      + "charset takes the one VB6 gives it, 2 for Wingdings, Webdings, Symbol and Marlett, 255 for "
                      + "Terminal, Modern, Roman and Script, otherwise 0. A face whose name ends in a number or a style "
                      + "word, such as 'Wingdings 2', is a face when the control has it or it is installed here. A refused "
-                     + "value's reply says why where it can, and lists what that property takes.")]
+                     + "value's reply says why where it can, and lists what that property takes. Left, Top, Width and "
+                     + "Height are in the unit the Properties window shows them in, which get_form_controls' row for "
+                     + "each names: twips, or the container's ScaleMode. Not the pixels of get_form_controls' summary "
+                     + "or of move_control.")]
         string value, string? project = null,
         CancellationToken ct = default)
     {
@@ -618,6 +627,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return (null, null, $"Cannot set '{propClass.Name}' to '{value}': {(why is null ? "it" : why + ". It")} "
                                     + $"takes {PropertyText.Accepted(propClass)}");
 
+            // A position is in the units its row shows: its container's ScaleMode, and a form's own size with its frame, in
+            // twips (#1636). The model holds pixels.
+            if (DesignPositions.IsPosition(propClass) && parsed is double shownPosition)
+                parsed = DesignPositions.ToPixels(form, control, propClass, shownPosition);
+
             // Refused BEFORE the property is set, for the same reason as set_file_content. (#538)
             if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(ownerModule is not null ? ownerModule.AbsolutePath : form.AbsolutePath))
                 return (null, null,
@@ -667,7 +681,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // as it stood a notification ago -- a rename in particular is only visible once the model has
             // raised it.
             stored = $"{PropertyText.AddressedName(control)}.{propClass.Name.Trim('(', ')')} is now "
-                     + PropertyText.Display(control.GetBoxedPropertyOrDefault(propClass)) + ", and the file is saved.";
+                     + (DesignPositions.IsPosition(propClass) && control.GetBoxedPropertyOrDefault(propClass) is double now
+                         ? PropertyText.Display(DesignPositions.Shown(form, control, propClass, now)) + " "
+                           + DesignPositions.Unit(form, control, propClass)
+                         : PropertyText.Display(control.GetBoxedPropertyOrDefault(propClass)))
+                     + ", and the file is saved.";
             foreach (var change in consequences)
                 stored += $" Its {change.Property.Name} is now {PropertyText.Display(change.After)}, was "
                           + $"{PropertyText.Display(change.Before)}, as VB6's designer changes it with {propClass.Name.Trim('(', ')')}.";

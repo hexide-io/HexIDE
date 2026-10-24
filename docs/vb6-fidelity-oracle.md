@@ -14969,7 +14969,8 @@ a class, and two names on one line.
 
 **Known divergences:**
 - #1490: a standard module's Static, like a module variable, keeps its object past the end of the program.
-- A duplicate `Dim` or `Static` in one procedure is not refused (#1499). The first declaration wins.
+- A duplicate `Dim` or `Static` in one procedure was not refused (#1499), and the first declaration won. It is refused
+  as the module loads since #1499: see "A name declared twice".
 - `New Form2` is #822, so the form test leaves out the second instance.
 
 **What pins it:**
@@ -15605,6 +15606,107 @@ the rows of VB6's above that HexIDE models:
 The root's `ClientLeft` and `ClientTop` still bind to its geometry, though neither lists Left or Top. A line a file
 holds that its root doesn't list is kept as the file's own text. That includes the Caption a UserControl HexIDE made
 before #1538 carried. The rest of each list is #1631.
+
+## What VB6's Properties window shows a position in (2026-10-23, #1636, design-time, IDE)
+
+**The question.** HexIDE's Properties window showed every Left, Top, Width and Height as the model's pixels: a new
+PropertyPage read Height 240 and Width 320 where VB6's read 3600 and 4800. What unit does VB6's window use? The run time
+reads a position in its container's ScaleMode (#933). Does the window do the same, and what does it show for a form's own
+size, which at run time includes its frame (#1072)?
+
+**The probes.** VB6.EXE 6.00.8176, the IDE, in the guest's console session through the agent, the same rig as #1585's.
+Each project was opened in the IDE; each form's designer was opened from the Project window (Ctrl+R, Home, Down, then
+Right twice, which reaches the first form whether or not the Forms folder is expanded, and Down for the next); then F4.
+For each object in the Properties window's object box, the object was selected as a user's choice there selects it:
+`CB_SETCURSEL` to its index, then `WM_COMMAND` with `CBN_SELCHANGE` to the box's parent. The list was then captured as
+#1585's was, scrolled with `LB_SETTOPINDEX`, eight rows at a time, on its Alphabetic tab. Every form had the same client
+rectangle in its file: `ClientLeft = 60`, `ClientTop = 450`, `ClientWidth = 4680` and `ClientHeight = 3090`.
+
+**A control's position, in its container's ScaleMode.** Two forms. Form1's ScaleMode is twips, and it holds Text1 and a
+PictureBox whose ScaleMode is 3, pixels, holding Text3. Form2's ScaleMode is pixels, and it holds Text5, and a Frame
+holding Text6. The file's values are twips in every case:
+
+| Object | In | File's Left, Top, Width, Height | Properties window |
+|---|---|---|---|
+| Text1 | a twips form | 120, 120, 1215, 495 | 120, 120, 1215, 495 |
+| Picture1 | a twips form | 120, 840, 2400, 1500 | 120, 840, 2400, 1500 |
+| Text3 | a pixel PictureBox | 150, 75, 1215, 285 | **10, 5, 81, 19** |
+| Text5 | a pixel form | 120, 120, 1215, 495 | **8, 8, 81, 33** |
+| Frame2 | a pixel form | 2640, 840, 1800, 1500 | **176, 56, 120, 100** |
+| Text6 | a Frame on a pixel form | 240, 360, 1215, 285 | 240, 360, 1215, 285 |
+
+**The other scales.** Each form below holds Text1 at 1200, 600, 1215, 495 in twips. The User form's ScaleLeft is 100,
+ScaleTop 50, ScaleWidth 1000 and ScaleHeight 500. The PictureBox is 2400 by 1500 twips, has a User scale of ScaleLeft 10,
+ScaleTop 5, ScaleWidth 1000 and ScaleHeight 500, and holds Text1 at 300, 150, 1215, 285. The About Dialog row is VB6's own
+`About Dialog.frm` from its Template tree: a User scale of 5380.766 by 2453.724 over a 5730 by 3555 client, with
+`cmdOK` at 4245, 2625, 1260, 345.
+
+| Container | Properties window |
+|---|---|
+| a User-scale form | 356.41, 147.087, 259.615, 80.097 |
+| a centimetre form | 2.117, 1.058, 2.143, 0.873 |
+| a millimetre form | 21.167, 10.583, 21.431, 8.731 |
+| VB6's About Dialog, `cmdOK` | 3986.274, 1811.822, 1183.205, 238.125 |
+| a User-scale PictureBox, the default 3D Fixed Single border | 138.205, 57.083, 519.231, 98.958 |
+| the same with `BorderStyle = 0` | 135, 55, 506.25, 95 |
+
+**A form's own position.** One form for each BorderStyle, one Fixed Single with no control box and no caption, and one
+with a menu:
+
+| Form | Left, Top | Width, Height |
+|---|---|---|
+| 2 Sizable (both forms above, whatever their ScaleMode) | -60, -15 | 4920, 3675 |
+| 0 None | 60, 450 | 4680, 3090 |
+| 1 Fixed Single | 15, 60 | 4770, 3525 |
+| 3 Fixed Dialog | 15, 60 | 4770, 3525 |
+| 4 Fixed ToolWindow | 15, 60 | 4770, 3525 |
+| 5 Sizable ToolWindow | -60, -15 | 4920, 3675 |
+| 1 Fixed Single, `ControlBox = 0`, `Caption = ""` | 45, 435 | 4710, 3120 |
+| 2 Sizable, with a menu | **105, 105** | 4920, 3975 |
+
+**What it shows:**
+- **A control's position is in its container's ScaleMode**, the rule a running program reads it by (#933). It is the
+  form's for a control on the form, a PictureBox's inside it, and twips inside a Frame, which has no ScaleMode, even on a
+  pixel form. A Frame's own position is in its form's ScaleMode.
+- **A User scale maps the container's client area onto ScaleLeft, ScaleTop, ScaleWidth and ScaleHeight.** Text1's 1200
+  twips is 100 + 1200 × 1000 / 4680 = 356.41, and its width 1215 × 1000 / 4680 = 259.615. A PictureBox's client area is
+  inside its border. The default border takes 60 twips off each way: 300 twips is 10 + 300 × 1000 / 2340 = 138.205.
+  BorderStyle 0 takes nothing: 10 + 300 × 1000 / 2400 = 135.
+- **Centimetres and millimetres are 1440 / 2.54 and 1440 / 25.4 twips to the unit** at the window's precision. The run
+  time's centimetre reading, 0.2116669 for 120 twips where that factor gives 0.2116667 (#933), differs below it.
+- **A value that isn't whole shows three decimals at most**: 356.41, 147.087, 3986.274. Not seven significant digits, as
+  a Single prints.
+- **A form's own Width and Height are twips whatever its ScaleMode, and are its client size plus its frame.** That frame
+  is the one a running form has on the themed desktop (`FormFrame`, #1072): 240 across and 585 down for a Sizable form or
+  a Sizable ToolWindow; 90 and 435 for the fixed styles; 30 and 30 for a Fixed Single with no caption bar; none for
+  None; and 300 more down for a menu. "Me.Width and Me.Height" earlier in this file read 4800 and 3495 for this client
+  area, 120 and 405 more. That is not a contradiction: that row is a session-0 EXE, which is unthemed, as `FormFrame`
+  records.
+- **A form's Left and Top are its client's less the frame's left and top edges**: ClientLeft less half the border across,
+  and ClientTop less the rest of the frame down. For a Sizable form that is 60 − 120 = −60 and 450 − 465 = −15. Nine of the
+  ten forms fit.
+- **Measured and not explained: the form with a menu read Left 105 and Top 105**, where that rule gives −60 and −315. Its
+  Width and Height fit the frame. One guess is that VB6 places the designer window itself when the form's own Top would
+  put its menu above the designer's area. It was not measured.
+- A UserControl's Width and Height, in #1585's capture, are its client area, 4800 and 3600, since it has no frame.
+
+**Not measured:** whether a value typed into the window is rounded to whole twips, as an assignment at run time is.
+
+### In HexIDE (#1636)
+
+- **The Properties window shows each position as VB6's does**, through `DesignPositions`:
+  - a control's in its container's ScaleMode, User, centimetres and millimetres included;
+  - a form's own size with the frame `FormFrame` gives a running form;
+  - a UserControl's and PropertyPage's with none;
+  - three decimals at most.
+
+  A value typed in is in the same units, and is rounded to whole twips, half to even, as the run time rounds an
+  assignment.
+- **`get_form_controls`' rows and `set_control_property` follow the window**, as #923 has them, and each row's note
+  names its unit. The summary's `left`, `top`, `width` and `height`, `add_control` and `move_control` stay in pixels, and
+  say so.
+- **Not followed: the menu form's Left and Top.** HexIDE shows the rule's −60 and −315.
+- **Not followed: the toolbar's position and size readout**, which still shows pixels. VB6's wasn't measured (#1641).
 
 ## Write # and Input # (2026-10-23, #1521)
 
@@ -18526,7 +18628,8 @@ without a character, and the same with a plain `Const K = 1` twice.
 - **Divergences kept, each filed:**
   - a name read with a type character, `KS!`, is refused as not implemented (#742), so the program's two such rows are
     left out of the test, and so is reading `K&` for a `K%`;
-  - a second declaration of a name at module level runs, where vb6.exe refuses it (#1622). In a procedure it is #1499.
+  - a second declaration of a name at module level ran, where vb6.exe refuses it (#1622), and in a procedure (#1499).
+    Both are refused since #1622; `DeclaredTwiceTests` pins these probes' duplicate rows.
 
 ## A D exponent in a source literal (2026-10-23, #1611)
 
@@ -18797,6 +18900,113 @@ The four run as registered intrinsics. The two statements, and `Call` and `VBA.`
   - A program and section that name no key at all, `"\"` and `"\"`, are 5 here.
   - A program whose second section cannot be deleted loses none of its sections here.
 - **Refused in other words:** `SaveSetting` with three arguments, and `SaveSetting(...)` in parentheses, are refused as the program loads, by the grammar, in the parser's words. vb6.exe says "Argument not optional" and "Syntax error".
+
+## A name declared twice (2026-10-23, #1622, #1499)
+
+**The question.** HexIDE ran a module that declared one name twice, keeping one declaration, and a procedure that did,
+the first declaration winning: `Dim n As Long` then `Static n` gave an ordinary Long. #1614 found the module-level case
+("Ambiguous name detected") and #1491 the procedure one ("Duplicate declaration in current scope"). Which declarations
+clash with which, and does a type character, a visibility or a namespace keep two apart?
+
+**The probe.** 83 one-module projects, a class or a second and third module where the case needs one, each built native
+and p-code with vb6.exe 6.00.8176 (the release build) and run on the MSVBVM60 6.00.9848 (SP6) runtime, en-GB. A project
+that builds logs "ran", or what it reads; one that does not gives its compile error. Native and p-code agreed on every
+case. The cases are in four batches, generated by a script, so the table names each by what it declares.
+
+**At module level, "Ambiguous name detected", naming the second declaration:**
+
+| Declarations | vb6.exe |
+|---|---|
+| `Dim K` twice; `Dim K, K`; `Dim K As Long` and `Dim K As String`; `Dim K` and `Dim k`; `Dim K%` and `Dim K` | Ambiguous name detected (`k` for the pair that differs in case) |
+| `Private K` and `Public K`; `Public Const K` and `Private K`; `Const K = 1` twice | Ambiguous name detected: K |
+| `Dim K` with `Sub K` or `Function K`; `Sub K` twice; `Sub K` and `Function K`; `Dim L` where `L` is a Sub; `Dim Main` | Ambiguous name detected |
+| `Declare Function K` with `Dim K`, with another `Declare Function K`, or with `Sub K` | Ambiguous name detected: K |
+| `Const K` and an Enum member `K`; `Dim A` and a member `A`; a member `A` and `Sub A`; a member `A` twice in one Enum | Ambiguous name detected |
+| `Enum E` twice; `Type T` twice; `Enum E` and `Type E` | Ambiguous name detected |
+| in a class: `Dim K` twice; `Dim K` and `Sub K`; `Dim K` and `Property Get K`; `Property Get K` twice, or `Property Let K` twice; `Property Get K` and `Sub K` | Ambiguous name detected: K |
+
+**At module level, these compile:**
+
+| Declarations | vb6.exe |
+|---|---|
+| `Dim E` and `Enum E`; `Dim T` and `Type T`; `Const E` and `Enum E`; `Enum E` and `Sub E`; `Type T` and `Sub T` | ran |
+| a Type's member `X` and `Dim X` | ran |
+| `Enum E` with a member `E`, read as `E.E` | 0 |
+| two Enums each with a member `A`, `A` unread | ran; read bare, `A` is "Ambiguous name detected: A" there |
+| in a class: `Property Get K` and `Property Let K`; `Property Let K` and `Property Set K` | ran |
+| in a class: `Event K` and `Dim K`; `Event K` and `Sub K` | ran |
+
+So a module has three namespaces. Variables, Consts, Declares, Subs, Functions, Properties and Enum members share one, in
+any case and whatever their visibility or type character; Enum and Type names share a second; Events have a third. Within
+the first, a Property's Get, Let and Set share their name, each once, and two Enums' members may share one, which is
+ambiguous only where it is read.
+
+**Across modules:**
+
+| Declarations | vb6.exe |
+|---|---|
+| `Public K` in Module2 and in Module3, unread; two modules' `Public Const K`, unread; `Public K` and another module's `Public Sub K` | ran |
+| `Public K` in Module1 and Module2, Module1 writing `K = 4` | `K` 4, `Module2.K` 0: the module's own wins |
+| Module1 reads `K` that Module2 and Module3 each declare `Public` | Ambiguous name detected: K, where it is read |
+| Module1 calls `K` that Module2 and Module3 each declare as `Public Sub` | Ambiguous name detected: K, at the call |
+| Module1's `Private Sub K` and Module2's `Public Sub K`, called from Module1 | Module1's runs |
+
+**In one procedure, "Duplicate declaration in current scope":**
+
+| Declarations | vb6.exe |
+|---|---|
+| `Dim n` twice, with one type or two, `n` and `N`, `n%` and `n`; `Dim n, n` | Duplicate declaration in current scope |
+| `Dim` and `Static`; `Static` twice; `Static` and `Const`; `Dim` and `Const` either way round | Duplicate declaration in current scope |
+| a parameter and a `Dim`, `Static` or `Const` of its name; `Sub S(n, n)` | Duplicate declaration in current scope |
+| `Dim F` or `Const F` in `Function F`; `Function F(F)`; `Dim K` in a class's `Property Get K`; `Dim v` in `Property Let K(v)` | Duplicate declaration in current scope |
+| `Dim n As Long` in an If branch and `Dim n As String` in its Else | Duplicate declaration in current scope |
+| `n = 1`, no Dim, then `Dim n`; `ReDim n(3)`, no Dim, then `Dim n() As Long` | Duplicate declaration in current scope |
+
+**In one procedure, these compile:** `Dim S` in `Sub S`; `Dim Main` in `Sub Main`; `Dim S` where `S` is another Sub; `Dim n`
+and a label `n:`; `ReDim n(3)` twice (UBound 5); `Dim n()` then `ReDim n(3)` (UBound 3); and a local `Dim n As Long` beside
+a module's `Dim n As String`, the local reading Long 5. `Dim n As Long` then `ReDim n(3)` is "Expected array".
+
+So a procedure's parameters, Dims, Statics and Consts share one scope, a Dim inside a block included, with the
+procedure's own name in it when that name holds a return value. A name the procedure has used without declaring is
+declared by that use.
+
+**A test that asked for the wrong error.** `ModuleLevelArrayBoundTests` refused `Const D = #1/2/2003#` beside
+`Dim d(Len(D)) As Long` with "Variable required - can't assign to this expression". vb6.exe refuses that pair as
+"Ambiguous name detected: d", because `D` and `d` are one name, and gives "Variable required" for `Const DT` with
+`Dim d(Len(DT))` (both measured, native and p-code). The test now uses `DT`.
+
+**Under conditional compilation** (a fifth batch, native and p-code identical):
+
+| Declarations | vb6.exe |
+|---|---|
+| `Sub K` in both branches of `#If False Then` / `#Else`, each logging which | `second K` |
+| `Const K` and `Dim V` at module level in both branches of `#If 1 Then` / `#Else`, one `As Long`, one `As String` | `K` 1, `V` a Long |
+| `Dim n As Long` and `Dim n As String` in a procedure, one in each branch of `#If False Then` / `#Else` | `n` a String |
+| `Dim n` in `#If True Then`, and `Dim n` again after `#End If` | Duplicate declaration in current scope |
+
+So only the active branch declares anything, as an inactive branch is never compiled.
+
+### In HexIDE (#1622, #1499)
+
+- **`PrePass`** collects each module-level name into the namespace it belongs to and refuses the second, "Ambiguous name
+  detected" with the second declaration's spelling, as the module loads. Each procedure's parameters, Consts, Dims and
+  Statics, with its own name in a Function or Property Get, are collected as it is, and a second is "Duplicate
+  declaration in current scope". vb6.exe refuses the whole build; HexIDE refuses as it loads the module, before anything
+  runs.
+- **An inactive branch declares nothing,** because the pre-pass reads the module after conditional compilation has
+  removed it (#1112). The four rows above pin that: a pre-pass reading the raw text would refuse three valid programs.
+- **`DeclaredTwiceTests`** runs 80 of the probe programs, the conditional-compilation four among them, and the five
+  duplicate rows #1614's probes measured (`Const K = 1` beside `Const K% = 2`, and the like): each one vb6.exe builds must print its lines, and each one it
+  refuses must be refused with its message.
+- **Left out of the test, each recorded:**
+  - an undeclared use before a Dim, `n = 1` or `ReDim n(3)`, still runs. Whether that use declares `n` depends on every
+    name outside the procedure, which is relating a use to declarations, not collecting them;
+  - `Dim K%` and `Dim K` at module level: a module-level Dim with a type character is refused as not implemented first
+    (#742);
+  - `ReDim n(3)` twice with no Dim is "Unknown variable" (#1495), and `E.E` for a member named like its Enum is "Method
+    or data member not found" (#1637). Both predate this, and both fail on main.
+- **Across modules nothing changed.** A name two modules export is refused where it is read unqualified, as before; that
+  is resolution at the use, not a duplicate declaration.
 
 ## LOF, Loc, Seek and the Input function (2026-10-23, #1645)
 

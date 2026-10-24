@@ -298,21 +298,40 @@ public class CaretPlacementTests : IDisposable
     }
 
     [AvaloniaFact]
-    public void Set_property_reads_the_code_editor_caret_even_when_the_model_keeps_the_sent_offset()
+    public void Set_property_reads_the_code_editor_caret_after_the_view_clamps_it()
     {
         var vm = Model();
         // Replace the generated header too: the buffer has exactly ten characters on either checkout's line endings.
         vm.Document.Text = "0123456789";
         var editor = Show(vm);
-        var before = editor.CaretOffset;
 
         var outcome = UiAutomationDriver.Interact(editor, "set_property", "CaretOffset=99999");
 
-        vm.CaretOffset.Should().Be(99999);
-        editor.CaretOffset.Should().Be(before);
+        vm.CaretOffset.Should().Be(10);
+        editor.CaretOffset.Should().Be(10);
         outcome.Success.Should().BeTrue(outcome.Error);
-        outcome.Detail.Should().Be("set CodeEditorViewModel.CaretOffset: sent 99999, now "
-            + before.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        outcome.Detail.Should().Be("set CodeEditorViewModel.CaretOffset: sent 99999, now 10");
+    }
+
+    [AvaloniaTheory]
+    [InlineData(99999, 10)]
+    [InlineData(-1, 0)]
+    [InlineData(5, 5)]
+    public void The_code_editor_and_model_agree_on_a_clamped_caret(int requested, int expected)
+    {
+        var vm = Model();
+        vm.Document.Text = "0123456789";
+        var editor = Show(vm);
+        // Exercise both a moved caret and a clamp onto its existing position (which raises no caret event).
+        foreach (var initial in new[] { 0, 7, expected })
+        {
+            vm.CaretOffset = initial;
+            vm.CaretOffset = requested;
+            Dispatcher.UIThread.RunJobs();
+
+            editor.CaretOffset.Should().Be(expected);
+            vm.CaretOffset.Should().Be(expected);
+        }
     }
 
     [AvaloniaFact]

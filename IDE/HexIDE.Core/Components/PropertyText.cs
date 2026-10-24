@@ -167,7 +167,11 @@ public static partial class PropertyText
     /// a value set there was gone on reload. They are marked not settable.</item>
     /// </list>
     /// </remarks>
-    public static PropertyRow[] Rows(ComponentInstance component)
+    /// <param name="position">
+    /// A position's value and unit as the Properties window shows it, from the model's pixels: in its container's ScaleMode,
+    /// and a form's own size with its frame (#1636). Null where the caller cannot say, as this assembly cannot.
+    /// </param>
+    public static PropertyRow[] Rows(ComponentInstance component, Func<PropertyClass, double, (double Value, string Unit)?>? position = null)
     {
         var type = component.BaseClass;
         var modelled = InWindowOrder(type).Select(p =>
@@ -180,6 +184,8 @@ public static partial class PropertyText
             var shown = Shown(p, held);
             if (!type.IsVisual && (p == VBProperties.WidthProperty || p == VBProperties.HeightProperty || p == VBProperties.VisibleProperty))
                 return new PropertyRow(p.Name, shown, false, $"a {type.VBTypeName} has no {p.Name} in VB6, so the file does not keep it");
+            if (held is double pixels && position?.Invoke(p, pixels) is { } at)
+                return new PropertyRow(p.Name, Shown(p, at.Value), true, $"in {at.Unit}, as the Properties window shows it");
             // Settable when the text sets back the value it shows, not merely parses: a font whose face reads as a size or a
             // style word parsed to another font (#952 review). A string or Tag never set reads as "" and sets "".
             return new PropertyRow(p.Name, shown, TryParse(p, shown, out var back, held)

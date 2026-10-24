@@ -254,6 +254,20 @@ there isn't one yet. Anything may change between 0.x releases.
   first, in 80 cases: the step is added each time round in the counter's type, a Single sums in Double before it
   is rounded, as p-code does, and a Variant counter counts in the type its start, limit and step make together.
 
+- **The code editor keeps its caret and view model in agreement** (#1608). An offset past the text now goes to its end,
+  and a negative offset goes to its start; the view model reads back the position the editor took.
+
+- **MCP keys, text and hover skip rows their list has released** (#1327). Addressing a list no longer sends input
+  into a recycled row omitted from the control tree or reports the list’s path as confirmation.
+
+- **MCP shared context menus belong to the control that opened them** (#1323). A tab menu appears only under its current tab in the dump; expanding it on another tab moves it there, and collapsing it from another tab leaves it alone. Menu headers also read back opens and closes, refusing an action a handler cancelled.
+
+- **A name declared twice is vb6.exe's compile error** (#1622, #1499). A module that declared one name twice ran,
+  keeping one declaration, and so did a procedure, so `Dim n As Long` then `Static n` gave an ordinary Long. At module
+  level it is now "Ambiguous name detected", and in a procedure "Duplicate declaration in current scope", parameters
+  included, as the module loads. A variable beside an Enum or Type of its name, and a Property's Get beside its Let,
+  still compile, as they do in vb6.exe.
+
 - **MCP `get_form_controls` reports absent properties as null** (#1635). A Line or Shape no longer claims to be enabled when its class has no Enabled property. The summary's `visible` and `enabled` now follow `caption` and `text`: null where the control's class has no such property.
 
 - **MCP replies distinguish dialogs sharing a title** (#1365). The modal note names a message box or run-time error dialog, its first line of text and its actual buttons; other dialogs include their buttons. The window parameter explains how to discover open windows through an unknown-name refusal.
@@ -288,6 +302,12 @@ there isn't one yet. Anything may change between 0.x releases.
   Long or a Currency beyond Currency's range, or stopped with a .NET error.
 
 - **A refused MCP call names a blocking dialog once** (#1325). Closing a form under a MsgBox, or typing or pressing a key under stacked dialogs, no longer repeats the dialog in the reply’s note. A refusal never claims the call reached past a dialog; calls that acted behind one still say so.
+
+- **The Properties window shows Left, Top, Width and Height in VB6's units** (#1636). It showed the pixels HexIDE
+  keeps them in, so a new form read 312 by 206 where VB6's reads 4920 by 3675. A control's position is now in its
+  container's ScaleMode, twips by default and twips inside a Frame, and a form's own size is twips with its frame, as
+  VB6's window shows them. A value typed in is in the same units. `get_form_controls`' rows and `set_control_property`
+  follow the window, each row naming its unit; the summary and `move_control` stay in pixels.
 
 - **A CommandButton, TextBox, ComboBox, ListBox and Frame have ToolTipText** (#1403). Only five controls declared it,
   so on these the Properties window did not list it, a running form showed no tip, and code could not read or set
