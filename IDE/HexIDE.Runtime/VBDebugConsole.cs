@@ -63,5 +63,7 @@ public static class VBDebugConsole
     // The text CStr and '&' make of the value (VbDisplay): VB6's digits, E notation and date halves, in the current
     // culture. Not Print's own spacing (VbPrint). Public so the Immediate window's `?expr` result has a formatter; what
     // VB6's `?` writes is not measured.
-    public static string Format(Vb6Value value) => VbDisplay.ToText(value);
+    public static string Format(Vb6Value value) => value.Value is VBArray array
+        ? array.ToString() ?? ""   // debugger display, not the program's String conversion (#879)
+        : VbDisplay.ToText(value);
 }
