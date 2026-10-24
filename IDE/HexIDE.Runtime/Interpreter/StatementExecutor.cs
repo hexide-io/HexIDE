@@ -953,6 +953,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (!ResumesNext)
                 throw refusal;
             interpreter.Err.Capture(refusal);
+            // P-code and the IDE skip Next with a failed For Each over Nothing when it directly follows
+            // on the same line (#1486). The grammar gives this form no block; token lines distinguish
+            // it from an empty multi-line loop. Returning consumes the loop, leaving any following
+            // statement in the enclosing block to run, without touching the variable.
+            if (collection.Type == Vb6Value.ValueType.Object && collection.Value is null
+                && context.block() is null && context.FOR().Symbol.Line == context.NEXT().Symbol.Line)
+                return ControlFlow.Nothing;
             return await RunUninitialisedForEach(context, varName, emptiesElement: collection.Value is not VBArray);
         }
 
