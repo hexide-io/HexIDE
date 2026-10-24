@@ -46,7 +46,8 @@ public class MainViewViewModelTests
     /// where F5 does and end at what the user is shown.
     /// </summary>
     private MainViewViewModel Build(IProjectRunnerService runner, IDocumentDockService? dock = null,
-        HexIDE.Debugging.IBreakpointService? breakpoints = null)
+        HexIDE.Debugging.IBreakpointService? breakpoints = null,
+        HexIDE.Runtime.Debugging.IDebugController? debug = null)
     {
         var mockDocDock = dock ?? Substitute.For<IDocumentDockService>();
         var loc = Substitute.For<ILocalizationService>();
@@ -129,7 +130,113 @@ public class MainViewViewModelTests
             new AddinToolWindowService(),
             windowStateService,
             breakpoints ?? Substitute.For<HexIDE.Debugging.IBreakpointService>(),
-            Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
+            debug ?? Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
+    }
+
+    private sealed class RequeryProbe : IDisposable
+    {
+        private int count;
+        public RequeryProbe()
+        {
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            Avalonia.Labs.Input.CommandManager.RequerySuggested += OnRequery;
+        }
+        private void OnRequery(object? sender, EventArgs e) => count++;
+        public void ShouldHaveRefreshed()
+        {
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            count.Should().BeGreaterThan(0, "routed menus and toolbar buttons need an explicit requery");
+            count = 0;
+        }
+        public void Dispose() => Avalonia.Labs.Input.CommandManager.RequerySuggested -= OnRequery;
+    }
+
+    private static System.Windows.Input.ICommand DebugCommand(MainViewViewModel sut, string name)
+    {
+        var directory = new System.IO.DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !System.IO.File.Exists(System.IO.Path.Combine(directory.FullName, "IDE", "HexIDE", "MainView.axaml")))
+            directory = directory.Parent;
+        directory.Should().NotBeNull();
+        var view = System.Xml.Linq.XDocument.Load(System.IO.Path.Combine(directory!.FullName, "IDE", "HexIDE", "MainView.axaml"));
+        view.Descendants().Single(e => e.Name.LocalName == "CommandBinding"
+                && (string?)e.Attribute("Command") == "{x:Static vb:ApplicationCommands." + name + "Command}")
+            .Attribute("ExecutingCommand")!.Value.Should().Be("{CompiledBinding " + name + "Command}");
+        var property = typeof(MainViewViewModel).GetProperty(name + "Command");
+        property.Should().NotBeNull("the routed binding needs a command with a predicate");
+        return (System.Windows.Input.ICommand)property!.GetValue(sut)!;
+    }
+
+    [AvaloniaTheory]
+    [InlineData("ToggleBreakpoint")]
+    [InlineData("RunToCursor")]
+    [InlineData("SetNextStatement")]
+    public void Code_debug_commands_follow_the_active_document(string name)
+    {
+        var dock = Substitute.For<IDocumentDockService>();
+        var sut = Build(_runnerService, dock);
+        var command = DebugCommand(sut, name);
+        command.CanExecute(null).Should().BeFalse();
+        using var code = CodeWindow(new ProjectDefinition(VBProjectType.EXE, "P"), "Module1",
+            new HexIDE.Debugging.BreakpointService());
+        using var requery = new RequeryProbe();
+        var changes = 0;
+        command.CanExecuteChanged += (_, _) => changes++;
+        dock.ActiveDocument.Returns(code);
+        dock.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(dock, new PropertyChangedEventArgs(nameof(dock.ActiveDocument)));
+        command.CanExecute(null).Should().BeTrue();
+        changes.Should().BeGreaterThan(0);
+        requery.ShouldHaveRefreshed();
+        changes = 0;
+        var otherDocument = Substitute.For<HexIDE.Forms.ViewModels.BaseEditorWindowViewModel>();
+        dock.ActiveDocument.Returns(otherDocument);
+        dock.PropertyChanged += Raise.Event<PropertyChangedEventHandler>(dock, new PropertyChangedEventArgs(nameof(dock.ActiveDocument)));
+        command.CanExecute(null).Should().BeFalse();
+        changes.Should().BeGreaterThan(0);
+        requery.ShouldHaveRefreshed();
+    }
+
+    [AvaloniaFact]
+    public void Show_next_statement_follows_stop_and_continue_notifications()
+    {
+        var debug = Substitute.For<HexIDE.Runtime.Debugging.IDebugController>();
+        var sut = Build(_runnerService, debug: debug);
+        var command = DebugCommand(sut, "ShowNextStatement");
+        command.CanExecute(null).Should().BeFalse();
+        using var requery = new RequeryProbe();
+        var changes = 0;
+        command.CanExecuteChanged += (_, _) => changes++;
+        var stop = new HexIDE.Runtime.Debugging.StoppedInfo(HexIDE.Runtime.Debugging.StopReason.Breakpoint, "Module1", 5);
+        debug.CurrentStop.Returns(stop);
+        debug.Stopped += Raise.Event<Action<HexIDE.Runtime.Debugging.StoppedInfo>>(stop);
+        command.CanExecute(null).Should().BeTrue();
+        changes.Should().BeGreaterThan(0);
+        requery.ShouldHaveRefreshed();
+        changes = 0;
+        debug.CurrentStop.Returns((HexIDE.Runtime.Debugging.StoppedInfo?)null);
+        debug.Continued += Raise.Event<Action>();
+        command.CanExecute(null).Should().BeFalse();
+        changes.Should().BeGreaterThan(0);
+        requery.ShouldHaveRefreshed();
+    }
+
+    [AvaloniaFact]
+    public void Edit_watch_follows_selection_and_row_rebuild_without_focus_changes()
+    {
+        var command = DebugCommand(_sut, "EditWatch");
+        command.CanExecute(null).Should().BeFalse();
+        _sut.Watches.Service.Add(new HexIDE.Debugging.WatchExpression("x", HexIDE.Debugging.WatchType.Expression, "Module1.Main"));
+        using var requery = new RequeryProbe();
+        var changes = 0;
+        command.CanExecuteChanged += (_, _) => changes++;
+        _sut.Watches.SelectedRow = _sut.Watches.Rows[0];
+        command.CanExecute(null).Should().BeTrue();
+        changes.Should().BeGreaterThan(0);
+        requery.ShouldHaveRefreshed();
+        changes = 0;
+        _sut.Watches.Service.Remove(_sut.Watches.Rows[0].Watch);
+        command.CanExecute(null).Should().BeFalse();
+        changes.Should().BeGreaterThan(0);
+        requery.ShouldHaveRefreshed();
     }
 
     // --- Add File: a file that joined read byte for byte ---

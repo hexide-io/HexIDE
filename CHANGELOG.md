@@ -249,6 +249,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Debug commands grey out when their handlers cannot act** (#733). Toggle Breakpoint and Run To Cursor require an active code window, and Edit Watch requires a selected watch. With the interpreter, Set Next Statement requires a code window and Show Next Statement a paused statement. Enablement refreshes on tab, debugger and watch-selection changes; external-debugger command paths keep their existing enablement.
+
 - **MCP guarded-edit refusals name the region** (#1042): the file's header or the Attribute lines describing a named member. Backward deletion explains how to remove a declaration with its Attribute lines instead of sending the caller back to the same caret offset; insertions still give a new editable offset.
 
 - **A Double rounds to Currency from its exact binary value** (#966). Storing `1.00005`, calling
