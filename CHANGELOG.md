@@ -249,6 +249,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **MCP Delete and Backspace delete the editable part of a selection reaching protected lines** (#1055).
+  The key runs through the editor's own deletion path; the reply counts what was deleted and left, names
+  the header or member's Attribute lines, and reports the caret and remaining selection. `type_text` also
+  uses the editor's selection replacement for these spans. A wholly protected selection still refuses.
+
 - **MCP guarded-edit refusals name the region** (#1042): the file's header or the Attribute lines describing a named member. Backward deletion explains how to remove a declaration with its Attribute lines instead of sending the caller back to the same caret offset; insertions still give a new editable offset.
 
 - **MCP replies distinguish dialogs sharing a title** (#1365). The modal note names a message box or run-time error dialog, its first line of text and its actual buttons; other dialogs include their buttons. The window parameter explains how to discover open windows through an unknown-name refusal.

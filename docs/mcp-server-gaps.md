@@ -691,27 +691,6 @@ sending again.
 **Suggested fix.** Compare the runs whatever the header does, and refuse once with every finding.
 [#1054](https://github.com/hexide-io/HexIDE/issues/1054).
 
-## `press_key` refuses a Delete over a selection reaching protected lines, where the key deletes the editable part
-
-**Symptom.** Read from the code (#273 task 4.5a records it as already so). With a selection running from code into
-the header or a member's `Attribute` lines, a person's Delete deletes the parts the code window's read-only sections
-allow. The tool deletes nothing:
-
-```
-press_key {"target":".../Custom[Root]/None[TextEditor]","key":"Delete"}
-→ {"success":false,"error":"press_key refused: offset N is in the file's header or a member's Attribute lines, ...
-   Nothing was written. ..."}
-```
-
-`UiAutomationDriver` asks `DeletionChangesARegion` about the whole span, where the key's provider deletes the
-deletable segments.
-
-**Workaround.** Narrow the selection to the editable part with `interact set_property` (`SelectionStart`,
-`SelectionLength`) before pressing the key.
-
-**Suggested fix.** Delete what the deletable segments allow, as the key does, and say what was left and why.
-[#1055](https://github.com/hexide-io/HexIDE/issues/1055).
-
 ## The code window's completion list: its description tooltip is out of reach, and `double_click` does not commit an item
 
 **Symptom.** Recorded when #942 closed (#1247), from the code and the headless tests; no call was recorded. Since #942,
