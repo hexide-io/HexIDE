@@ -272,6 +272,14 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Snapshots leave room for menus above or left of the window** (#648). The window and its popups now share
+  the same image origin. `take_snapshot` reports the window offset and explains how to map inspected bounds
+  into the full-size or inline image.
+
+- **A broken assignment no longer hides later syntax errors and procedures** (#938). The bundled language
+  server recovers at the next statement separator and reports each offending token once. Recovery from
+  extraneous tokens and errors between procedures remains partial.
+
 - **Bundled-server completion labels are unique and carry declaration kinds** (#940). `Date` appears once as a function; declared names take precedence over keywords and built-ins, and procedures, properties, constants, enums, enum members and types no longer appear as variables.
 
 - **Corpus and grammar reports stay with their test run** (#1018). All four reports are written beside
