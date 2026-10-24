@@ -15154,6 +15154,15 @@ box has, or over the container itself where there is none.
 windowed block first. A windowed control sent to back stays over such a block, and a Label sent to back goes under it.
 No corpus file has a carried block after a windowless one.
 
+**On SP6** (2026-10-24, VB6.EXE 6.00.9782, #1663). All three saves were byte-identical to the release build's, from the
+unchanged template. At first, though, the template would not load:
+- **The first load after the control caches changed** raised the same "Error accessing the system registry". On SP6,
+  "Continue Loading Project?" followed it, and with Enter alone nothing loaded. On the release build the project loaded
+  after that one Enter.
+- **That load left a virtualised `MSCOMCTL.oca`** in the console user's VirtualStore, under `VB98`. Every load after it
+  was clean, with no dialog. The release run left a virtualised `ieframe.oca` in the same way.
+- **Not settled:** whether the second dialog belongs to SP6, or only to the cache it hit.
+
 ## Static (2026-10-23, #1491)
 
 **The question.** `Static n As Long` stopped the program: "non dim variables not supported". The `Static` keyword on a
@@ -15421,6 +15430,11 @@ Every control went onto the form, none into another. The values are VB6's file.
 - A grid other than 120 twips.
 - A double-click while a container is selected, measured only as "after a click inside a Frame" ("Where VB6's designer
   puts a control's block").
+
+**On SP6** (2026-10-24, VB6.EXE 6.00.9782, #1663). The same 19 double-clicks wrote the same file except for one line: the
+Data control's `Connect` is `"Access 2000;"`, where the release build wrote `"Access"`. The Properties window shows
+`Access 2000;` too. Every size and position agrees. HexIDE has no Data control yet. When it gains one, it takes SP6's
+value, since SP6 is the build nearly every VB6 developer used.
 
 ## An undeclared variable passed ByRef (2026-10-23, #1505)
 
