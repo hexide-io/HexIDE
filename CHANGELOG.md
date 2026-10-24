@@ -265,6 +265,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Corpus lanes fail when repository roots are missing** (#1016). The round-trip, grammar, header and
+  region-parity checks now require `demo/` and `corpus/designer`, so losing either cannot silently reduce coverage.
+  An explicit round-trip corpus still replaces the default demo root.
+
 - **A For loop honours changes its body makes to the counter** (#841). Next reads the variable back before adding
   the step: incrementing a Long or Variant counter inside `For i = 1 To 10` now gives five passes and leaves 11.
 

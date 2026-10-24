@@ -18,12 +18,12 @@ namespace HexIDE.Runtime.Tests;
 /// did not author is a violation of the round-trip guarantee ("open any VB6 project, save it, lose nothing")
 /// by definition — no oracle round-trip is needed to call it a defect, because VB6 wrote the input.
 ///
-/// Corpus roots, in order of preference:
+/// corpus/designer and corpus/member-attributes are always required. Additional roots:
 ///   1. HEXIDE_ROUNDTRIP_CORPUS — ';'-separated absolute paths.
 ///   2. The VB6 install's Template tree (Windows dev machines only) — genuinely Microsoft-authored.
-///   3. demo/ in this repo — always present, so the harness is never vacuous on CI.
+///   3. demo/ in this repo — required unless HEXIDE_ROUNDTRIP_CORPUS replaces the defaults.
 ///
-/// CI is Linux and has no VB6 install, so absent roots are skipped rather than failed.
+/// An absent VB6 Template tree is skipped; missing repository roots fail the lane.
 /// </summary>
 public class SerializationCorpusTests
 {
@@ -39,22 +39,24 @@ public class SerializationCorpusTests
     /// below is case-insensitive by virtue of running on Windows, so anything that re-implements it
     /// elsewhere — a script, a CI step, a doc's claim — has to be checked against that.
     /// </summary>
-    private static IEnumerable<string> CorpusRoots()
+    private static IEnumerable<string> CorpusRoots(Func<string, string?>? findRoot = null)
     {
+        findRoot ??= FindUpwards;
         // Always, ahead of the priority order below rather than inside it. This is the only project in the
         // corpus with a UserControl and a PropertyPage in it, and it is how hexide-io/HexIDE#483 was found:
         // the .vbp item-line shape for those two keys was wrong, and no project that used them had ever
         // round-tripped. An explicit HEXIDE_ROUNDTRIP_CORPUS means a developer is pointing at more VB6
         // files; it is not an instruction to stop checking the repository's own.
-        var designer = FindUpwards(Path.Join("corpus", "designer"));
-        if (designer is not null) yield return designer;
+        var designer = findRoot(Path.Join("corpus", "designer"));
+        designer.Should().NotBeNull("corpus/designer ships with the repository");
+        yield return designer!;
 
         // Always too, for the same reason: the only files anywhere that carry members' attribute lines, every one
         // written by VB6's own IDE (#273 task 4.6). The round-trip half, which its dialog wrote, and the output VB6
         // saved for each hand-written project of the evidence half; not those inputs, which are not VB6's bytes.
         // Required, not skipped when absent: the folder ships with the repository, and losing it would leave this
         // lane passing on the rest without a word.
-        var memberAttributes = FindUpwards(Path.Join("corpus", "member-attributes"));
+        var memberAttributes = findRoot(Path.Join("corpus", "member-attributes"));
         memberAttributes.Should().NotBeNull("corpus/member-attributes ships with the repository");
         var roundTrip = Path.Join(memberAttributes!, "round-trip");
         Directory.Exists(roundTrip).Should().BeTrue("its round-trip half is this lane's proof for members' attribute lines");
@@ -75,8 +77,20 @@ public class SerializationCorpusTests
                    ?? @"C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template";
         if (Directory.Exists(vb98)) yield return vb98;
 
-        var repoDemo = FindUpwards("demo");
-        if (repoDemo is not null) yield return repoDemo;
+        var repoDemo = findRoot("demo");
+        repoDemo.Should().NotBeNull("demo/ ships with the repository");
+        yield return repoDemo!;
+    }
+
+    [Theory]
+    [InlineData("demo")]
+    [InlineData("corpus/designer")]
+    public void MissingRepositoryRootFailsTheLane(string missing)
+    {
+        string? FindRoot(string relative) => relative.Replace('\\', '/') == missing ? null : FindUpwards(relative);
+        Action enumerate = () => CorpusRoots(FindRoot).ToList();
+
+        enumerate.Should().Throw<Exception>().WithMessage("*" + missing + "*ships with the repository*");
     }
 
     private static string? FindUpwards(string folderName)
