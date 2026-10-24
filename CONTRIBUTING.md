@@ -214,17 +214,17 @@ at a local copy.
 **When it matters:** you touch code that reads or writes `.vbp`/`.vbg`/`.frm` files, or a test that works
 on your machine fails on CI. CI builds and tests on Ubuntu, and one kind of bug can only show up there.
 VB6 files always use backslash paths, and on Linux `System.IO.Path` treats a backslash as an ordinary
-character. Run the same suites under WSL, against the same working copy:
+character. Run the same suites under WSL, from the root of your working copy:
 
 ```sh
-wsl -e bash -lc 'sudo apt-get update && sudo apt-get install -y dotnet-sdk-10.0'
-wsl -e bash -lc 'cd /mnt/c/path/to/HexIDE/IDE && \
-  dotnet test HexIDE.Runtime.Tests/ --artifacts-path /mnt/c/path/to/HexIDE/artifacts/linux'
+wsl -e bash -lc 'sudo apt-get update && sudo apt-get install -y dotnet-sdk-10.0 rsync'
+wsl -e bash scripts/test-linux.sh IDE/HexIDE.Runtime.Tests/
 ```
 
-`--artifacts-path` is required, and it must point to a folder inside the repository. Without it the Linux
-build overwrites your Windows `bin/`/`obj/`. With a folder outside the repository, a test that locates the
-repository root fails. Keep `apt-get update` in the first command. The SDK packages change most months,
+The script copies your working copy, uncommitted changes included, to WSL's own filesystem and runs the
+suite there, so the Linux build never touches your Windows `bin/`/`obj/`. Building on the `/mnt/c` drive
+directly works too, but now and then fails with "Read-only file system" while writing a DLL, which looks
+like a flaky test and isn't. Keep `apt-get update` in the first command. The SDK packages change most months,
 and an out-of-date package list asks for files that have been removed, which fails with a wall of 404s.
 
 WSL runs a newer Ubuntu than CI does. If CI fails and WSL does not, try CI's exact version (24.04) in a

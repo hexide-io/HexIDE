@@ -29,7 +29,7 @@ public class OptionTabStopTests
         public void LogError(string _) { }
     }
 
-    private const string Form = """
+    internal const string Form = """
         VERSION 5.00
         Begin VB.Form Form1
            Caption         =   "TabProbe"
@@ -135,10 +135,12 @@ public class OptionTabStopTests
         Public Sub Focus_Text3(): Text3.SetFocus: End Sub
         Public Sub Focus_Option3(): Option3.SetFocus: End Sub
         Public Sub Focus_Option5(): Option5.SetFocus: End Sub
+        Public Sub Focus_Option1(): Option1.SetFocus: End Sub
+        Public Sub Focus_Option2(): Option2.SetFocus: End Sub
 
         """;
 
-    private sealed class Run : IDisposable
+    internal sealed class Run : IDisposable
     {
         public required CancellationTokenSource Cancel { get; init; }
         public required List<string> Printed { get; init; }
@@ -158,6 +160,18 @@ public class OptionTabStopTests
             Pump();
         }
 
+        public void Press(PhysicalKey key)
+        {
+            Window.KeyPressQwerty(key, RawInputModifiers.None);
+            Pump();
+        }
+
+        public void Call(string sub)
+        {
+            ((VBFormRuntime)Window).ExecuteSub(sub);
+            Pump();
+        }
+
         public void Dispose()
         {
             Cancel.Cancel();
@@ -167,10 +181,10 @@ public class OptionTabStopTests
         }
     }
 
-    private static Run Start()
+    internal static Run Start(string source = Form)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
-        var form = new FormDeserializer().Deserialize(project, Form.ReplaceLineEndings("\r\n"), new NullSink())!;
+        var form = new FormDeserializer().Deserialize(project, source.ReplaceLineEndings("\r\n"), new NullSink())!;
         project.AddForm(form);
         var printed = new List<string>();
         var errors = new List<Exception>();
@@ -195,14 +209,14 @@ public class OptionTabStopTests
         };
     }
 
-    private static void Pump()
+    internal static void Pump()
     {
         for (var i = 0; i < 20; i++)
             Dispatcher.UIThread.RunJobs();
     }
 
     /// <summary>Each step, and the lines vb6.exe logged after it.</summary>
-    private static void Replay(Run run, params (Action Step, string[] Logged)[] steps)
+    internal static void Replay(Run run, params (Action Step, string[] Logged)[] steps)
     {
         foreach (var (step, logged) in steps)
         {
