@@ -2202,7 +2202,8 @@ public sealed class VBLspClient : ILspClient
     /// Completion, signature help, highlighting and folding are each driven by a
     /// <see cref="CancellationTokenSource"/> that is replaced on the next keystroke, so a superseded request
     /// throwing <see cref="OperationCanceledException"/> is the design working. Warning on those would emit
-    /// a line per keypress and bury exactly what this exists to surface.
+    /// a line per keypress and bury exactly what this exists to surface. Server replies ContentModified
+    /// (-32801) and RequestCancelled (-32800) are superseded requests too, and keep the warning unspent.
     /// </para>
     ///
     /// <para>
@@ -2214,7 +2215,8 @@ public sealed class VBLspClient : ILspClient
     /// </remarks>
     private void WarnRequestFailedOnce(string method, Exception ex, CancellationToken cancellationToken)
     {
-        if (ex is OperationCanceledException || cancellationToken.IsCancellationRequested)
+        if (ex is OperationCanceledException || cancellationToken.IsCancellationRequested
+            || ex is RemoteInvocationException { ErrorCode: -32801 or -32800 })
         {
             _logger.LogDebug(ex, "{Method} was superseded before it completed", method);
             return;

@@ -249,6 +249,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A server cancelling an outdated language request no longer warns that the feature is broken** (#723).
+  ContentModified and RequestCancelled replies are logged at debug, leaving the method's warning available
+  for a later genuine failure.
+
 - **MCP can double-click a running form** (#1389). `interact`'s `click` accepts `double` in its value, as in
   `10,5 double`, `10,5 right double` or plain `double`. It presses and releases twice, so the program's DblClick
   runs, waiting for the first click's work before the second; if the target hides or closes, it stops and says so.
