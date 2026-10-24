@@ -276,6 +276,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Failed add-in initialization leaves no partial registrations** (#309). Tool-window factories remain
+  eager; a throwing factory records the add-in's error, removes its earlier contributions and event
+  subscriptions, and lets the IDE and other add-ins continue. Cleanup failures do not replace the original
+  error or stop the remaining cleanup.
+
 - **MousePointer reads back the value set** (#769), including the value loaded from a form. Reading it always returned 0 even when the displayed cursor had changed.
 
 - **Clipboard.SetText preserves other clipboard formats** (#1246). Replacing text no longer stops a run merely
