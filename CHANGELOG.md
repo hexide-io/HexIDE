@@ -255,6 +255,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Unsaved projects give language servers no invented workspace root** (#1382). Servers requiring a
+  workspace launch argument wait with a reason and can start on the next open after the first save.
+
 - **A bare `Reset` calls the module's own Sub named `Reset`** (#851), including a private sibling called from
   `Class_Initialize`, as measured on vb6.exe. It previously stopped with "Reset not implemented".
 

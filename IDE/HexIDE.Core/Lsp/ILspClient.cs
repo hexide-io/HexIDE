@@ -4,6 +4,9 @@ namespace HexIDE.Lsp;
 
 public interface ILspClient : IAsyncDisposable
 {
+    /// <summary>The last launch was refused solely because no workspace directory was chosen yet.</summary>
+    bool WaitingForWorkspace => false;
+
     /// <summary>Fired when the server sends textDocument/publishDiagnostics.</summary>
     event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
 

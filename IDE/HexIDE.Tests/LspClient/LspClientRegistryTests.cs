@@ -52,6 +52,45 @@ public class LspClientRegistryTests
     private static LspRange Span(int line) => new(new Position(line, 0), new Position(line, 1));
 
     [Fact]
+    public async Task ALaunchWaitingForAWorkspaceCanStartOnTheNextOpen()
+    {
+        var waiting = FakeServer(running: false);
+        waiting.WaitingForWorkspace.Returns(true);
+        var failure = new LanguageConnectionAttempt(LanguageConnectionStage.Connecting,
+            [new LanguageConnectionStep(LanguageConnectionStage.Connecting,
+                LanguageConnectionStepOutcome.StoppedHere, null, "project has not been saved yet")],
+            DateTimeOffset.UtcNow);
+        waiting.LastAttempt.Returns(failure);
+        var ready = FakeServer();
+        var attempts = 0;
+        var workspace = Substitute.For<ILspWorkspace>();
+        string? directory = null;
+        workspace.Directory.Returns(_ => directory);
+        var logger = Substitute.For<ILogger<LspClientRegistry>>();
+        var sut = new LspClientRegistry([new LanguageServerRegistration("vb6", "vb6",
+            DocumentLanguage.Vb6Extensions, DocumentLanguage.Vb6,
+            () =>
+            {
+                attempts++;
+                return directory is null ? waiting : ready;
+            })], logger, workspace);
+
+        await sut.OpenDocumentAsync(Vb6Doc, "first", TestContext.Current.CancellationToken);
+        sut.Connections.Single().State.Should().Be(LanguageConnectionState.NotStarted);
+        sut.Connections.Single().Attempt.Should().Be(failure);
+        await sut.OpenDocumentAsync("untitled:Project1/Module2.bas", "second", TestContext.Current.CancellationToken);
+        sut.Connections.Single().State.Should().Be(LanguageConnectionState.NotStarted);
+        directory = Path.Combine(Path.GetTempPath(), "hexide-saved-project");
+        await sut.OpenDocumentAsync("untitled:Project1/Module3.bas", "third", TestContext.Current.CancellationToken);
+
+        sut.Connections.Single().State.Should().Be(LanguageConnectionState.Running);
+        await ready.Received(1).OpenDocumentAsync("untitled:Project1/Module3.bas", "third", Arg.Any<CancellationToken>());
+        attempts.Should().Be(3);
+        logger.ReceivedCalls().Count(c => c.GetMethodInfo().Name == "Log"
+            && c.GetArguments()[0] is LogLevel.Warning).Should().Be(1);
+    }
+
+    [Fact]
     public async Task OnlyServersClaimingTheDocumentsLanguageAreStarted()
     {
         // The whole point of lazy start: a project with no Markdown must not pay for a Markdown server.

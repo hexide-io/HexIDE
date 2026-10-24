@@ -342,9 +342,7 @@ directory, so this is the ordinary path rather than a corner.
 **Where that directory does not exist, the server SHALL still be started**, inheriting the IDE's own working
 directory, and SHALL still be told the project's directory as its workspace root. The two are separate
 questions — *where the process runs* and *which tree it analyses* — and they only coincide by accident. A
-project that has not been saved yet has a directory that is real as an answer to the second and not yet real
-as an answer to the first: it is where the project's files will be written the moment the user adds a
-module. A form or module with no file yet is outside it, and so is a document adopted from somewhere else.
+chosen directory may name a folder that does not exist yet.
 Starting a process there instead fails outright, which costs the whole connection and every language feature with it.
 
 The IDE SHALL NOT create the directory in order to launch there. Nothing reaps these directories, so one
@@ -360,15 +358,25 @@ Where a server cannot be started, the reported reason SHALL name the working dir
 in. The operating system's own message for an unusable working directory does not name it, so a report
 without it points at the executable for a fault that has nothing to do with it.
 
+Where a project has neither a project file nor a chosen folder, the workspace query SHALL return no root
+and SHALL NOT allocate a scratch folder. That project SHALL contribute no workspace folder. A launch
+refused solely because a workspace placeholder cannot be filled SHALL leave the registry entry
+`NotStarted`, retain its last failure, and log the warning only once per entry. A later document open
+SHALL retry it, allowing the first save to remove the refusal. The reason SHALL explain that no project
+is open or the project has not been saved yet. Other startup failures SHALL remain terminal.
+
 #### Scenario: A server that reads its own configuration from the workspace
 - **WHEN** a server is started for a project
 - **THEN** its working directory and workspace root are the project's working directory
 
 #### Scenario: A project that has not been saved yet
-- **WHEN** a server is started for a project whose directory does not exist
-- **THEN** the server starts, inheriting the IDE's working directory
-- **AND** it is still told the project's directory as its workspace root
-- **AND** the directory is not created
+- **WHEN** the workspace is queried for a project with neither a project file nor a chosen folder
+- **THEN** no root or workspace folder is returned and no folder is chosen
+
+#### Scenario: A placeholder server waits for the first save
+- **WHEN** a launch requires a workspace and the project has no chosen folder
+- **THEN** the connection remains NotStarted with the refusal reason retained
+- **AND** the next document open after a folder is chosen can start the server
 
 #### Scenario: An entry naming a working directory that is not there
 - **WHEN** a server's own entry names a working directory that does not exist

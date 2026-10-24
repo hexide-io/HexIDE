@@ -76,6 +76,7 @@ public sealed class VBLspClient : ILspClient
 
     /// <summary>The chain of the last connect attempt, and where it stopped.</summary>
     public LanguageConnectionAttempt? LastAttempt => _attempt;
+    public bool WaitingForWorkspace => _transport.WaitingForWorkspace;
 
     /// <summary>
     /// How many documents this client currently has open on the server.

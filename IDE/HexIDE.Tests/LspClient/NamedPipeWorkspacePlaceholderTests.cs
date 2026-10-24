@@ -182,7 +182,10 @@ public class NamedPipeWorkspacePlaceholderTests
             new SystemTextJsonFormatter(), TestContext.Current.CancellationToken);
 
         handler.Should().BeNull();
-        transport.LastFailure.Should().Contain("no project is open",
+        transport.WaitingForWorkspace.Should().BeTrue();
+        var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), DocumentLanguage.Vb6);
+        client.WaitingForWorkspace.Should().BeTrue();
+        transport.LastFailure.Should().Contain("no project is open or the project has not been saved yet",
             "the refusal names the actual cause rather than reporting a connect timeout thirty "
             + "seconds later, which would describe the wrong problem");
     }

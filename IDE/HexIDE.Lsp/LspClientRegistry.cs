@@ -760,6 +760,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             e.StateSince = DateTimeOffset.UtcNow;
             ConnectionsChanged?.Invoke(this, EventArgs.Empty);
 
+            e.LastAttempt = null;
             var client = e.Registration.CreateClient();
             client.DiagnosticsPublished += OnInnerDiagnostics;
             client.MessageShown += OnInnerMessage;
@@ -769,6 +770,27 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             e.Client = client;
 
             await client.StartAsync(cancellationToken);
+            if (!client.IsRunning && client.WaitingForWorkspace)
+            {
+                e.LastAttempt = client.LastAttempt;
+                client.DiagnosticsPublished -= OnInnerDiagnostics;
+                client.MessageShown -= OnInnerMessage;
+                client.MessageLogged -= OnInnerLogMessage;
+                client.TraceReceived -= OnInnerTrace;
+                client.StateChanged -= OnInnerStateChanged;
+                await client.DisposeAsync();
+                e.Client = null;
+                e.State = LanguageConnectionState.NotStarted;
+                e.StateSince = DateTimeOffset.UtcNow;
+                if (!e.WarnedWaitingForWorkspace)
+                {
+                    _logger.LogWarning("Language server '{Id}' is waiting for a workspace: {Reason}",
+                        e.Registration.Id, e.LastAttempt?.Steps.LastOrDefault()?.Detail);
+                    e.WarnedWaitingForWorkspace = true;
+                }
+                return;
+            }
+
             e.State = client.IsRunning ? LanguageConnectionState.Running : LanguageConnectionState.Failed;
             e.StateSince = DateTimeOffset.UtcNow;
 
@@ -858,14 +880,15 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     {
         public LanguageServerRegistration Registration { get; } = registration;
         public ILspClient? Client;
+        public bool WarnedWaitingForWorkspace;
         public LanguageConnectionState State = LanguageConnectionState.NotStarted;
 
         /// <summary>When <see cref="State"/> was last written. Null until something happens, which is
         /// itself the honest answer for a registration nothing has started yet.</summary>
         public DateTimeOffset? StateSince;
 
-        /// <summary>Set when the attempt failed before a client existed to hold it — a throw inside
-        /// CreateClient, for instance. The client's own record wins whenever there is one.</summary>
+        /// <summary>A failure before a client existed, or a workspace refusal whose client was released.
+        /// The client's own record wins whenever there is one.</summary>
         public LanguageConnectionAttempt? LastAttempt;
 
         public readonly SemaphoreSlim Gate = new(1, 1);

@@ -11,33 +11,8 @@ namespace HexIDE.Projects;
 /// startup one.
 ///
 /// <para>
-/// Deliberately thin, and deliberately here rather than in the language layer. Reusing
-/// <see cref="ProjectService.ProjectFilesDirectory"/> is the whole point: that is already the rule
-/// deciding where a project's files live, including the fallback for a project that has never been saved,
-/// and a second answer to the same question would drift from it.
-/// </para>
-///
-/// <para>
-/// <b>An unsaved project's directory is a private temp path that may never exist.</b> It used to be
-/// shared — keyed on the project's NAME, so every new "Project1" resolved to the same place, and a server
-/// could be rooted among another project's leavings. hexide-io/HexIDE#260 fixed that by appending a GUID,
-/// which means the path is now unique per project and, in exchange, <b>does not exist until something is
-/// written into it</b>: <c>ProjectFilesDirectory</c> mints and memoises the string and creates nothing. Since
-/// hexide-io/HexIDE#500 the Add commands write nothing, as VB6's do, so for a project the developer saves
-/// themselves nothing ever does: its first save puts every file where the save's pickers say, and the root
-/// moves there. Only <c>--newproject</c> writes into the folder, saving its project file there.
-/// </para>
-///
-/// <para>
-/// Answering with it anyway is what this type does, and it is a choice between two costs rather than the
-/// right answer. A server configured with a <c>{workspaceUri}</c> or <c>{workspaceDir}</c> placeholder is
-/// refused a launch when there is no workspace, and the registry holds that refusal as <c>Failed</c> for the
-/// rest of the session, so with no root it would not start even once the first save gave it one. Told a root
-/// that does not exist yet, it starts, and the first save restarts it at the real one. What a server does
-/// with a root naming nothing has not been measured. Making the refusal wait for a workspace instead, so an
-/// unsaved project can have no root, is hexide-io/HexIDE#1382. What must NOT be done with the path is
-/// launch a process there — that throws, and cost the whole connection until hexide-io/HexIDE#278; see
-/// <c>LspLaunchDirectory</c>, which separates the two questions.
+/// An unsaved project has no root until a folder is chosen. Querying the workspace must not mint a
+/// scratch path: its documents remain untitled until saved (hexide-io/HexIDE#1382).
 /// </para>
 ///
 /// <para>
@@ -68,10 +43,10 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : 
 {
     public string? Directory =>
         projectManager() is { StartupProject: { } project }
-            ? ProjectService.ProjectFilesDirectory(project)
+            ? ProjectService.ChosenFilesDirectory(project)
             : null;
 
-    /// <summary>One folder per loaded project, named as the user sees the project named.</summary>
+    /// <summary>One folder per loaded project with a chosen directory, named as the user sees it.</summary>
     /// <remarks>
     /// <para>
     /// Deduplicated by full path, and <b>ordinally</b>. Two projects genuinely sharing a directory produce
@@ -97,7 +72,7 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : 
             var folders = new List<LspWorkspaceFolder>();
             foreach (var project in projects)
             {
-                var directory = ProjectService.ProjectFilesDirectory(project);
+                var directory = ProjectService.ChosenFilesDirectory(project);
                 if (string.IsNullOrWhiteSpace(directory)) continue;
 
                 var full = TryFullPath(directory);

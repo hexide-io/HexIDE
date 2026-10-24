@@ -187,9 +187,10 @@ on one machine — and a `.vbg` group or a second checkout would silently point 
 matters more than it sounds: a server told one directory on its command line and a different one at
 initialize does not fail — it loads one workspace and answers questions about the other.
 
-**With no project open, an entry using either workspace placeholder is not launched**, and the reason says
-so. Substituting nothing would hand the server a flag with no value and let it fail in its own vocabulary,
-which the reader then has to translate back into "no project was open".
+**With no project open, or a project not yet saved and no folder chosen, an entry using either workspace
+placeholder waits without launching.** The Language Servers window keeps it `NotStarted` and shows why.
+A later document open retries it; the first save supplies the root it needs. The warning is logged once
+per entry. Substituting nothing would hand the server a flag with no value.
 
 ### `workingDirectory` is a different question
 
@@ -202,12 +203,12 @@ Leave `workingDirectory` out and the server runs in the open project's directory
 it when the server needs to be somewhere specific — some servers resolve their own configuration relative
 to where they were started, and that is part of whether they work at all.
 
-**One exception, and it is the common case for a new project.** A project you have not saved yet has a
-directory that does not exist on disk — it is created the moment something is written into it. A server
-cannot be launched in a directory that is not there, so HexIDE starts it in HexIDE's own directory instead
-and says so in the log. It is still told your project's directory as the workspace to analyse, so
-`{workspaceUri}` and `rootUri` are unaffected. Once you save, the server is restarted at the saved project's
-directory the next time a document is opened; a save that gives a document its first file is such an open.
+**An unsaved project has no workspace root until a folder is chosen.** Servers that need no workspace
+argument can start, inheriting HexIDE's working directory. Once you save, running servers are restarted
+at the saved project's directory the next time a document is opened; a save that gives a document its first
+file is such an open. Servers waiting for a workspace argument can start then too. If a chosen project
+directory does not exist, HexIDE also inherits its own working directory without creating the folder;
+the chosen workspace root is still sent to the server.
 
 A `workingDirectory` **you** set is never second-guessed this way. If it does not exist the server does not
 start, and the reason names the directory — because you meant that directory, and quietly running somewhere

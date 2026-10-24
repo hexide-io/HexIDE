@@ -1575,7 +1575,7 @@ public class ProjectService : IProjectService
     /// The folder <see cref="ProjectFilesDirectory"/> answers once one is chosen: the project file's, or the scratch
     /// folder it was given. Null for a project with neither, rather than choosing one.
     /// </summary>
-    private static string? ChosenFilesDirectory(ProjectDefinition project) =>
+    internal static string? ChosenFilesDirectory(ProjectDefinition project) =>
         project.AbsolutePath is { } p ? Path.GetDirectoryName(p)!
         : project.WorkingDirectory is { Length: > 0 } existing ? existing
         : null;

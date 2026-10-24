@@ -26,7 +26,7 @@ namespace HexIDE.Lsp;
 public interface ILspWorkspace
 {
     /// <summary>
-    /// The current workspace directory, or null when there is no project open.
+    /// The current workspace directory, or null when no project has a chosen folder.
     ///
     /// <para>
     /// Null is a real answer and callers must handle it. A server rooted at nothing is worse than one
@@ -36,7 +36,7 @@ public interface ILspWorkspace
     string? Directory { get; }
 
     /// <summary>
-    /// Every folder in the workspace, one per loaded project — empty when there is no project open.
+    /// Every folder in the workspace, one per loaded project with a chosen folder — empty when none has one.
     /// </summary>
     /// <remarks>
     /// <para>

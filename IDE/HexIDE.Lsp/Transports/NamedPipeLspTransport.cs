@@ -147,6 +147,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
     // not auto-respawn. A pre-existing endpoint we merely dialled can be re-dialled.
     /// <summary>Why the last connect attempt failed, in this transport's words. See ILspTransport.</summary>
     public string? LastFailure { get; private set; }
+    public bool WaitingForWorkspace { get; private set; }
 
     /// <summary>
     /// Nothing when HexIDE launched the server behind this pipe and can see it, and the process half when
@@ -207,6 +208,8 @@ public sealed class NamedPipeLspTransport : ILspTransport
         // Resolved before the pipe exists and before anything is started, because a placeholder that
         // cannot be filled is a knowable precondition rather than a connect failure — and reporting it as
         // a timeout thirty seconds later would describe the wrong problem.
+        WaitingForWorkspace = false;
+        LastFailure = null;
         string? arguments = null;
         if (_launch is not null && (arguments = ResolveArguments()) is null)
             return null;
@@ -312,10 +315,10 @@ public sealed class NamedPipeLspTransport : ILspTransport
         var directory = WorkspaceDirectory();
         if (string.IsNullOrWhiteSpace(directory))
         {
+            WaitingForWorkspace = true;
             LastFailure =
-                $"'{_launch.FileName}' is configured with a workspace placeholder and no project is open, "
-                + "so there is no workspace to give it";
-            _logger.LogWarning("{Failure}.", LastFailure);
+                $"'{_launch.FileName}' is configured with a workspace placeholder and "
+                + "no project is open or the project has not been saved yet, so there is no workspace to give it";
             return null;
         }
 

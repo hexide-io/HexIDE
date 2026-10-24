@@ -88,6 +88,19 @@ public class LspWorkspaceWiringTests
         return new ProjectLspWorkspace(() => manager);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AnUnsavedProjectHasNoRootAndQueryingDoesNotChooseAFolder(bool folders)
+    {
+        var project = TestHelpers.CreateProject("Project1");
+        var workspace = WorkspaceOver(project);
+
+        if (folders) workspace.Folders.Should().BeEmpty();
+        else workspace.Directory.Should().BeNull();
+        project.WorkingDirectory.Should().BeNullOrEmpty();
+    }
+
     [Fact]
     public void EachLoadedProjectContributesItsOwnFolder()
     {
