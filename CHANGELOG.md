@@ -249,6 +249,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Bundled-server completion labels are unique and carry declaration kinds** (#940). `Date` appears once as a function; declared names take precedence over keywords and built-ins, and procedures, properties, constants, enums, enum members and types no longer appear as variables.
+
 - **MCP guarded-edit refusals name the region** (#1042): the file's header or the Attribute lines describing a named member. Backward deletion explains how to remove a declaration with its Attribute lines instead of sending the caller back to the same caret offset; insertions still give a new editable offset.
 
 - **A Double rounds to Currency from its exact binary value** (#966). Storing `1.00005`, calling
