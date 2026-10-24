@@ -276,6 +276,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Hygiene selftest pins scan scope** (#442). Probes now catch broadened documentation allow-lists
+  and script exclusions, ignored build output re-entering scans, and root-level Markdown links being
+  skipped. Probes outside the scratch directory refuse to overwrite existing files and are cleaned up.
+
+
 - **AI Chat Apply preserves trailing whitespace and final line breaks** (#1068). Only the single line break
   before the closing code fence is removed; applying a whole file no longer strips its final blank lines.
 
