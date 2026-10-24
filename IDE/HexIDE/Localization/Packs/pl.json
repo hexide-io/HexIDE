@@ -339,6 +339,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Nie zmieniono nazwy, ponieważ zmieniłoby to nagłówek tego pliku lub wiersze Attribute jednej ze składowych, którymi zarządza IDE.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Wiersz {0} należy do nagłówka tego pliku lub do wierszy Attribute jednej ze składowych, które nigdy nie są wykonywane, więc nie można w nim ustawić punktu przerwania ani zakładki.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Wstaw plik",
+    "Str.CodeEditor.Dialog.RenamePrompt": "Nowa nazwa:",
+    "Str.CodeEditor.Dialog.RenameTitle": "Zmień nazwę",
     "Str.CodeEditor.Context.Cut": "Wy_tnij",
     "Str.CodeEditor.Context.Copy": "_Kopiuj",
     "Str.CodeEditor.Context.Paste": "Wk_lej",

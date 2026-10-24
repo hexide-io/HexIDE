@@ -339,6 +339,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Přejmenování nebylo provedeno, protože by změnilo záhlaví tohoto souboru nebo řádky Attribute některého člena, které spravuje IDE.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Řádek {0} patří do záhlaví tohoto souboru nebo k řádkům Attribute některého člena, které se nikdy nespouštějí, takže na něj nelze umístit zarážku ani záložku.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Vložit soubor",
+    "Str.CodeEditor.Dialog.RenamePrompt": "Nový název:",
+    "Str.CodeEditor.Dialog.RenameTitle": "Přejmenovat",
     "Str.CodeEditor.Context.Cut": "_Vyjmout",
     "Str.CodeEditor.Context.Copy": "_Kopírovat",
     "Str.CodeEditor.Context.Paste": "V_ložit",

@@ -2309,7 +2309,7 @@ public partial class CodeEditorView : UserControl
     {
         try
         {
-            var newName = await vm.ShowInputBoxAsync("New name:", "Rename", oldName);
+            var newName = await vm.ShowRenameInputBoxAsync(oldName);
             if (newName is null || newName == oldName) return;
             // Before the request, so no server is asked to write a name VB6 would refuse (#273 task 4.4). An empty
             // answer is refused with the rest rather than taken for Cancel, which answers null.

@@ -339,6 +339,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "O nome não foi mudado, porque isso alteraria o cabeçalho deste ficheiro ou as linhas Attribute de um membro, que são geridos pelo IDE.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "A linha {0} faz parte do cabeçalho deste ficheiro ou das linhas Attribute de um membro, que nunca são executadas, pelo que não pode receber um ponto de interrupção nem um marcador.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Inserir Ficheiro",
+    "Str.CodeEditor.Dialog.RenamePrompt": "Novo nome:",
+    "Str.CodeEditor.Dialog.RenameTitle": "Renomear",
     "Str.CodeEditor.Context.Cut": "Cor_tar",
     "Str.CodeEditor.Context.Copy": "_Copiar",
     "Str.CodeEditor.Context.Paste": "Co_lar",

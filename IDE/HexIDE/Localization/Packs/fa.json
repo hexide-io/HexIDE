@@ -339,6 +339,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "تغییر نام انجام نشد، زیرا سرآیند این فایل یا خطوط Attribute یکی از اعضا را تغییر می‌داد که IDE آن‌ها را نگهداری می‌کند.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "خط {0} بخشی از سرآیند این فایل یا خطوط Attribute یکی از اعضاست که هرگز اجرا نمی‌شوند، بنابراین نمی‌توان روی آن نقطه توقف یا نشانک گذاشت.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "درج فایل",
+    "Str.CodeEditor.Dialog.RenamePrompt": "نام جدید:",
+    "Str.CodeEditor.Dialog.RenameTitle": "تغییر نام",
     "Str.CodeEditor.Context.Cut": "برش",
     "Str.CodeEditor.Context.Copy": "کپی",
     "Str.CodeEditor.Context.Paste": "چسباندن",

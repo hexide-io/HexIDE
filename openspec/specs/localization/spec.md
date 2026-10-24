@@ -26,6 +26,10 @@ set of translatable strings is enumerable, which is what every other guarantee h
 - **WHEN** interface text is added
 - **THEN** it is added as a key with a canonical English value, not as a literal
 
+#### Scenario: Renaming a symbol in the code window
+- **WHEN** the code window opens the Rename input dialog
+- **THEN** its prompt and title resolve `Str.CodeEditor.Dialog.RenamePrompt` and `Str.CodeEditor.Dialog.RenameTitle` through the active localization service
+
 ### Requirement: English SHALL be canonical and SHALL be the fallback for every key
 The English pack SHALL define every key, other packs SHALL only override keys they translate, and any key a
 pack does not carry SHALL resolve to its English value.

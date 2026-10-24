@@ -339,6 +339,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Omdøbningen blev ikke udført, fordi den ville ændre filens header eller et medlems Attribute-linjer, som IDE'et vedligeholder.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Linje {0} hører til filens header eller et medlems Attribute-linjer, som aldrig udføres, så der kan ikke sættes et pausepunkt eller et bogmærke på den.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Indsæt fil",
+    "Str.CodeEditor.Dialog.RenamePrompt": "Nyt navn:",
+    "Str.CodeEditor.Dialog.RenameTitle": "Omdøb",
     "Str.CodeEditor.Context.Cut": "K_lip",
     "Str.CodeEditor.Context.Copy": "_Kopiér",
     "Str.CodeEditor.Context.Paste": "_Sæt ind",

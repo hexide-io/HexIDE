@@ -339,6 +339,8 @@
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "नाम नहीं बदला गया, क्योंकि इससे इस फ़ाइल का हेडर या किसी सदस्य की Attribute पंक्तियाँ बदल जातीं, जिन्हें IDE संभालता है।",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "पंक्ति {0} इस फ़ाइल के हेडर या किसी सदस्य की Attribute पंक्तियों का हिस्सा है, जो कभी नहीं चलतीं, इसलिए उस पर ब्रेकपॉइंट या बुकमार्क नहीं लगाया जा सकता।",
     "Str.CodeEditor.Dialog.InsertFileTitle": "फ़ाइल सम्मिलित करें",
+    "Str.CodeEditor.Dialog.RenamePrompt": "नया नाम:",
+    "Str.CodeEditor.Dialog.RenameTitle": "नाम बदलें",
     "Str.CodeEditor.Context.Cut": "काटें",
     "Str.CodeEditor.Context.Copy": "कॉपी करें",
     "Str.CodeEditor.Context.Paste": "पेस्ट करें",

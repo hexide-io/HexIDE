@@ -265,6 +265,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Localized the code window’s Rename prompt** (#537): its title and new-name label now follow the IDE language in every shipped pack. Shared dialog buttons remain tracked by #828.
+
 - **Editing bundled-server tests no longer makes the server look stale** (#1017). The IDE test harness
   checks C# and grammar files in the server project only, so test edits keep the parity checks running
   and grammar edits require a rebuild.
