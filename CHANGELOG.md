@@ -252,6 +252,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Untouched modules reload silently after an external file change** (#730). Not-open `.bas` and `.cls`
+  files are compared in their source encoding, including a UTF-8 BOM; UserControls and PropertyPages
+  use the same render comparison as forms, so their designer blocks no longer cause false conflicts.
+
 - **A failed Let from a temporary object or App empties a Variant** (#1485, #878), as measured on vb6.exe.
   `New Collection`, an object returned by a Function, and a class with no default member used to leave the old value
   after the error. A program variable still leaves it alone, and a String destination keeps its value.
