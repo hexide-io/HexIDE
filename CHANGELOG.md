@@ -255,6 +255,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **An omitted `Optional o As Variant` is Missing** (#866). `IsMissing`, `TypeName` and `VarType` now
+  report True, Error and 10, as measured on vb6.exe, so an `IsMissing` defaulting guard runs. Explicit
+  Empty and a declared default keep their values.
+
 - **`TypeName(Debug)` raises “Syntax error”** (#872), as measured with VB6, instead of returning the runtime proxy's class name. The error stops the executing statement even under `On Error Resume Next`.
 
 - **Join and Filter reject allocated arrays other than one-dimensional String or Variant arrays** (#875): Join raises
