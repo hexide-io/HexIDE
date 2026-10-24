@@ -47,7 +47,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     public async Task<Vb6Value?> EvaluateFunction(string name, List<Vb6Value> args)
     {
-        return await interpreter.CallBuiltIn(name, args) is { } result ? IntrinsicAsRead(name, args, result) : (Vb6Value?)null;
+        return await interpreter.CallBuiltIn(name, args, currentModule.PrePass.OptionCompareText) is { } result ? IntrinsicAsRead(name, args, result) : (Vb6Value?)null;
     }
 
     // Which intrinsics VB6 types and which return a Variant, measured one by one (#987, native and p-code: a Select Case
