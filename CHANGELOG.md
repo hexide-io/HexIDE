@@ -252,6 +252,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Align and Make Same Size require two selected controls** (#930). The designer rechecks menu and toolbar
+  commands when selection changes. `invoke_format_command` refuses selections below each command's minimum and
+  explains how to select more controls.
+
 - **Selection replies name the designer reference** (#951). `interact` lists the primary first when several
   items are selected and explains that Align and Make Same measure against it, including the replacement
   after removing it. Its action description explains how to choose it: select it first.
