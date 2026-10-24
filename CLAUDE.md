@@ -166,8 +166,9 @@ incrementally. It needs no `--artifacts-path`: its build output can't stomp the 
 still holds `IDE/` and `LspServer/` for `GrammarParityTests.RepoRoot()` to find. Delete the folder to start
 clean.
 
-Expect the result to match Windows, except for `VbLocaleTests`' ar-SA row, which fails under WSL's newer ICU
-([#1045](https://github.com/hexide-io/HexIDE/issues/1045)). Measured 2026-10-24: `HexIDE.Runtime.Tests`
+Expect the result to match Windows. Before #1045's test correction, `VbLocaleTests`' ar-SA row failed under
+WSL's newer ICU because its default calendar is already Gregorian. Measured 2026-10-24 before the correction:
+`HexIDE.Runtime.Tests`
 4887 passed, 12 skipped, that one failed, in 6 minutes the first time and 4½ the second. To confirm the setup
 still has teeth, run the script from a `git worktree` at a commit predating a known cross-platform fix and
 check it fails there.
@@ -215,9 +216,9 @@ podman run --rm \
 
 **Measured on first setup (2026-09-06): no divergence.** `HexIDE.Tests` 961/965 and
 `HexIDE.Runtime.Tests` 1432/1432 in the container, matching CI exactly, against 965 and 1432 under WSL. So
-the ICU gap is real but **not currently live** — which is a statement about the tests that exist, not a
-guarantee. Nothing here probes collation or culture-sensitive formatting directly, so absence of a
-divergence is weak evidence of absence. Reach for the container when a CI failure will not reproduce under
+the ICU gap was real but **not live in that run** — a statement about the tests that existed, not a
+guarantee. #1045 later exposed an ar-SA calendar assumption that fails on ICU 78; the test now follows
+the platform's data. Reach for the container when a CI failure will not reproduce under
 WSL; that is the case it was set up for.
 
 **The 282-failure run is a thread-affinity race in the test harness, not a build problem.** Every so often
