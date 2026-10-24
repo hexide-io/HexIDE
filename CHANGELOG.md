@@ -249,6 +249,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Pasting a declaration with its attribute run at another described declaration's end keeps both runs separate** (#1041). The pasted declaration now starts after the existing run, so saving cannot give both members' descriptions or dispatch ids to one member.
+
 - **MCP commands bound through another view model are reachable** (#1336). `inspect_element` lists a menu item’s or button’s resolved `Command` and its binding; `invoke_command` accepts `Command`, checks `CanExecute` with the control’s `CommandParameter`, and runs it. A wrong name explains the binding and how to invoke it, including on the designer’s Delete item.
 
 - **The code editor keeps its caret and view model in agreement** (#1608). An offset past the text now goes to its end,

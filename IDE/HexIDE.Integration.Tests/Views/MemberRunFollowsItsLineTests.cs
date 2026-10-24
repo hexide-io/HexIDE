@@ -308,6 +308,27 @@ public class MemberRunFollowsItsLineTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task CuttingADescribedEventAndPastingAtAnotherEventsAnchorKeepsBothRuns()
+    {
+        const string opened = "Public Event Opened()\r\nAttribute Opened.VB_Description = \"Opens\"\r\n";
+        const string closed = "Public Event Closed()\r\nAttribute Closed.VB_Description = \"Closes\"\r\n";
+        var vm = Open("Option Explicit\r\n" + opened + closed);
+        var editor = Show(vm);
+        PutCaret(editor, LineWith(editor, "Public Event Opened()").Offset + 2);
+
+        PressCommand(editor, HexIDE.ApplicationCommands.CutCommand);
+        var afterCut = vm.Document.Text;
+        PutCaret(editor, LineWith(editor, "Public Event Closed()").EndOffset);
+        PressCommand(editor, HexIDE.ApplicationCommands.PasteCommand);
+        await UntilChanged(vm, afterCut);
+
+        vm.Document.Text.Should().EndWith("Option Explicit\r\n" + closed + opened);
+        vm.MemberRunsNow.Select(r => r.Member?.Name).Should().Equal("Closed", "Opened");
+        editor.Undo();
+        vm.Document.Text.Should().Be(afterCut);
+    }
+
+    [AvaloniaFact]
     public async Task CuttingASelectedDescribedDeclarationTakesItsRunToo()
     {
         var vm = Open(Procedure);
