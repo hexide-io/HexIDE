@@ -225,6 +225,11 @@ Watches persist an expression across breaks, so the developer does not re-type i
 - **WHEN** an expression watch exists and the program breaks
 - **THEN** its current value is displayed, expandable in the same way as Locals
 
+#### Scenario: Selecting an expanded watch child
+- **WHEN** the developer selects a child of an expanded watch after selecting another watch
+- **THEN** Edit Watch and Delete SHALL do nothing, including the context menu and Delete key
+- **AND** rebuilding the watch rows SHALL clear selection
+
 #### Scenario: Breaking when a watch condition is met
 - **WHEN** a watch is configured to break when its expression becomes true, or when its value changes
 - **THEN** the program breaks at the statement where that occurs
