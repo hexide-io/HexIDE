@@ -661,7 +661,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new VBCompileErrorException("Syntax error");
             args.Add(new CallArg(await expressionExecutor.EvaluateValue(argument), null));
         }
-        await interpreter.BuiltIns.EvaluateBuiltInFunction(name, await VB6BuiltIns.ArrangeIntrinsicArguments(name, args));
+        await interpreter.BuiltIns.EvaluateBuiltInFunction(name, await VB6BuiltIns.ArrangeIntrinsicArguments(name, args), currentModule.PrePass.OptionCompareText);
     }
 
     // The pre-pass collected the module's DefType statements (#169); running one does nothing. Inside a procedure it does not
@@ -1294,11 +1294,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // promotion of an out-of-Long-range loop to a Double counter.
     private static Vb6Value ForCounterValue(long v)
         => v is >= int.MinValue and <= int.MaxValue ? new Vb6Value((int)v) : new Vb6Value((double)v);
-
-    public override async Task<ControlFlow> VisitGetStmt(VB6Parser.GetStmtContext context)
-    {
-        throw new NotImplementedException("Get not implemented");
-    }
 
     public override async Task<ControlFlow> VisitGoSubStmt(VB6Parser.GoSubStmtContext context)
     {
@@ -2219,13 +2214,39 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var mode = context.INPUT() != null ? VbFileMode.Input
             : context.OUTPUT() != null ? VbFileMode.Output
             : context.APPEND() != null ? VbFileMode.Append
-            : throw new NotImplementedException(
-                $"Open For {(context.RANDOM() != null ? "Random" : "Binary")} is not implemented: Input, Output and Append are (#1145)");
+            : context.BINARY() != null ? VbFileMode.Binary
+            : VbFileMode.Random;
         var path = (string)VbNumeric.CoerceOnStore(await expressionExecutor.EvaluateValue(context.valueStmt(0)),
             Vb6Value.ValueType.String, context.valueStmt(0)).Value!;
         var locked = context.LOCK_READ() != null || context.LOCK_WRITE() != null || context.LOCK_READ_WRITE() != null;
-        interpreter.BuiltIns.Files.Open(path, mode, locked, await FileNumber(context.valueStmt(1)));
+        var number = await FileNumber(context.valueStmt(1));
+        var recordLength = 128;
+        if (context.LEN() != null && mode is VbFileMode.Binary or VbFileMode.Random)
+            recordLength = RecordLength(await expressionExecutor.EvaluateValue(context.valueStmt(2)), context.valueStmt(2));
+        // The Access clause, and what a Lock clause lets another handle on the file do: Lock Read lets it write, Lock Write
+        // lets it read, and none or Shared lets it do both (#1646).
+        VbAccess? access = context.READ_WRITE() != null ? VbAccess.ReadWrite
+            : context.READ() != null ? VbAccess.Read
+            : context.WRITE() != null ? VbAccess.Write
+            : null;
+        var share = context.LOCK_READ_WRITE() != null ? VbAccess.None
+            : context.LOCK_READ() != null ? VbAccess.Write
+            : context.LOCK_WRITE() != null ? VbAccess.Read
+            : VbAccess.ReadWrite;
+        interpreter.BuiltIns.Files.Open(path, mode, locked, number, access, share, recordLength);
         return ControlFlow.Nothing;
+    }
+
+    // `Len =` on a Binary or Random file, an Integer: 32768 and more is 6, and below 1 is 5, except -1, which is the 128 a
+    // Random file has with no Len (measured; 1.5 and 2.5 are both 2, and "8" is 8). A Binary file checks it and does nothing
+    // with it (measured: 3 opens, 0 is 5 and 40000 is 6). On a sequential file it is not measured and is ignored, as before.
+    private static int RecordLength(Vb6Value value, VB6Parser.ValueStmtContext context)
+    {
+        var length = Convert.ToInt32(VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.Integer, context).Value,
+            System.Globalization.CultureInfo.InvariantCulture);
+        if (length == -1)
+            return 128;
+        return length >= 1 ? length : throw new VBRunTimeException(context, VBStandardError.InvalidProcedureCall);
     }
 
     /// <summary>
@@ -2353,11 +2374,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     {
         if (!number.GetText().StartsWith('#'))
             throw new NotImplementedException($"{statement} without a # file number is not implemented");
-    }
-
-    public override async Task<ControlFlow> VisitPutStmt(VB6Parser.PutStmtContext context)
-    {
-        throw new NotImplementedException("Put not implemented");
     }
 
     public override async Task<ControlFlow> VisitRaiseEventStmt(VB6Parser.RaiseEventStmtContext context)

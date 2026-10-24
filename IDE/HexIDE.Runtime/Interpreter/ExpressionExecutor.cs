@@ -47,7 +47,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     public async Task<Vb6Value?> EvaluateFunction(string name, List<Vb6Value> args)
     {
-        return await interpreter.CallBuiltIn(name, args) is { } result ? IntrinsicAsRead(name, args, result) : (Vb6Value?)null;
+        return await interpreter.CallBuiltIn(name, args, currentModule.PrePass.OptionCompareText) is { } result ? IntrinsicAsRead(name, args, result) : (Vb6Value?)null;
     }
 
     // Which intrinsics VB6 types and which return a Variant, measured one by one (#987, native and p-code: a Select Case
@@ -55,14 +55,17 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // ceiling). A name not listed was not run and reads as it always has. CSng was measured with #234: two CSng results
     // whose sum is past a Single's ceiling raise Err 6, where two Variant Singles widen to Double.
     // AscW and ChrW, and Str (" 19" is read as 19 against `Case Is > 10`), were measured with #1134, and CVar with #1466.
+    // Val, CDate and Timer, and Space, DateSerial, Now, Date and Time, were measured with #1646 by what Put writes, which is
+    // the static type itself: a Variant's goes with its type first, a typed value bare (Val("2") is 8 bytes of Double, and
+    // Space(1) is 08 00 01 00 20).
     private static readonly HashSet<string> TypedIntrinsics = new(StringComparer.OrdinalIgnoreCase)
-        { "Sgn", "Asc", "AscW", "CInt", "CLng", "CByte", "CSng", "CStr", "UBound", "LBound", "Replace", "StrReverse" };
+        { "Sgn", "Asc", "AscW", "CInt", "CLng", "CByte", "CSng", "CStr", "UBound", "LBound", "Replace", "StrReverse", "Val", "CDate", "Timer" };
 
     private static readonly HashSet<string> VariantIntrinsics = new(StringComparer.OrdinalIgnoreCase)
     {
         "Hour", "Minute", "Second", "Day", "Month", "Year", "Weekday", "IIf", "Choose", "Switch",
         "Mid", "Left", "Right", "Trim", "LTrim", "LCase", "UCase", "Hex", "Oct", "String", "Format", "Chr", "ChrW",
-        "Str", "CVar",
+        "Str", "CVar", "Space", "DateSerial", "Now", "Date", "Time",
     };
 
     // Typed when given typed arguments, and a Variant's when given a Variant (measured: `Len(v)`, `InStr(v, "5")` and
@@ -352,6 +355,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     // One argument, with what a ByRef parameter needs to alias it. A call-site ByVal keyword (or a non-lvalue like a literal
     // or `(x)`) forces a copy.
+    /// <summary>An operand as a ByRef argument resolves it: its slot, the field or element it names, or just its value (#1646).</summary>
+    internal Task<CallArg> ResolveByRef(VB6Parser.ValueStmtContext valueStmt) => ResolveArg(valueStmt, byVal: false);
+
     private async Task<CallArg> ResolveArg(VB6Parser.ValueStmtContext valueStmt, bool byVal)
     {
         if (!byVal && await TryGetArgElement(valueStmt) is var (elementValue, element))

@@ -71,7 +71,7 @@ public class ControlRenderer : Decorator
         {
             RenderTargetBitmap target = new RenderTargetBitmap(new PixelSize((int)Bounds.Width, (int)Bounds.Height),
                 new Vector(96, 96));
-            var visual = ((ComponentBaseClass)Component.Instance.BaseClass).Instantiate(Component.Instance);
+            var visual = ((ComponentBaseClass)Component.Instance.BaseClass).InstantiateForDesigner(Component.Instance);
             // A Line draws itself from its endpoints in its container's scale, which only the form knows (#163).
             if (visual is VBLine line)
                 line.Resolve(Component.LineTwipsPerUnit);
