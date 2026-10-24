@@ -276,6 +276,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Clipboard.SetText preserves other clipboard formats** (#1246). Replacing text no longer stops a run merely
+  because other formats are present. A format that cannot be read is still refused before the clipboard is changed.
+
 - **Member call statements accept a parenthesised argument without a space** (#1064). `Form2.Show(0)` and
   `Text1.Move(100)` now run as their spaced forms do, and the language server accepts them too.
 
