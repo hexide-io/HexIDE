@@ -5913,6 +5913,10 @@ agree with writing. `VbLocale.ForProgram` gives the program the user's culture w
   ar-SA's Gregorian date pattern also ends in an era that ICU writes as U+0645, which is also its PM designator. So
   a written date read back as noon until the era was dropped from the patterns. This is ICU's data, not VB6's, and
   nothing here measured VB6 under a non-Gregorian locale.
+  **Platform-data correction (#1045):** the issue records ar-SA's first month as January (`يناير`) on WSL,
+  Ubuntu 26.04 with ICU 78, observed 2026-10-14 and reproduced 2026-10-24. Its default calendar there is
+  Gregorian, so the locale test now compares the platform's own and Gregorian month names before asserting
+  they differ. This corrects a test premise, not a VB6 measurement or runtime behaviour.
 - **A sign is always ASCII.** ICU puts a bidi mark before the minus sign for 43 cultures, so `IsNumeric("-5")` was
   False there. Windows' locale data, which VB6 reads, has no such mark.
 

@@ -265,6 +265,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **The Gregorian locale test follows the platform's calendar data** (#1045). It no longer assumes ar-SA's
+  first month differs from January, which failed under WSL's ICU 78 even though the program's output was correct.
+
 - **Forced-exit cleanup order is regression-tested** (#563). A server startup failure disposes the add-in loader
   before closing consent dialogs, exits even if cleanup throws, and closes the log after the windows close.
 
