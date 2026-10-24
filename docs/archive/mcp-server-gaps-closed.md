@@ -1334,8 +1334,11 @@ and replies with the watch list as if the call had done what was asked.
 >
 > **The entry's premise was partly wrong.** Avalonia's forced `Shutdown` still closes every window, so the
 > main window's `Closing` handler runs and saves window state and layout; it only loses its veto. A failed
-> launch therefore still writes the profile it shares, which is part of #557. No test pins the order in
-> `DesktopStartup` itself; that is #563.
+> launch therefore still writes the profile it shares, which is part of #557.
+>
+> **Regression coverage (#563).** `DesktopStartup` now delegates its posted cleanup to the internal
+> `ForcedExitCleanup` helper. `ForcedExitCleanupTests` pins loader disposal before exit, exit code 3
+> despite cleanup failures, and log closure after exit; deleting or reordering those steps fails the tests.
 
 **Symptom.** From reading `DesktopStartup.cs`: exit code 3 (#525) goes through Avalonia's forced
 `desktop.Shutdown(exitCode)`, which does not raise `ShutdownRequested`. The add-in loader is never disposed,

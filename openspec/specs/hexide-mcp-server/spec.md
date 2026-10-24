@@ -23,6 +23,18 @@ agent that wrote the code can open the IDE, drive it, and look at the result.
 
 ## Requirements
 
+### Requirement: Server startup failure SHALL preserve forced-exit cleanup order
+On server startup failure, the IDE SHALL dispose the add-in loader before forcing desktop shutdown,
+so closing an unanswered consent dialog cannot persist a decision. It SHALL attempt shutdown with the
+reported exit code even if cleanup throws, and SHALL close the log after shutdown returns so window
+closing messages can still reach the file.
+
+#### Scenario: The requested port is already taken
+- **WHEN** the server cannot bind the requested port
+- **THEN** the add-in loader is disposed before desktop shutdown runs with exit code 3
+- **AND** a cleanup exception does not prevent that shutdown
+- **AND** the log closes after desktop shutdown returns
+
 ### Requirement: The server SHALL be inactive unless explicitly requested
 The IDE SHALL start no server, open no port and create no listener unless a port is supplied at launch.
 
