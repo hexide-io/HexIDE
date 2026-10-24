@@ -60,9 +60,9 @@ checks=0
 # The two failure totals differ by exactly two, and that difference IS the point of run D: staging
 # `planted.key` and `planted.pfx` moves them from the warn branch to the fail branch, because git has
 # stopped standing between them and a push.
-EXPECTED_CHECKS=73
-FAILURES_UNTRACKED=19
-FAILURES_STAGED=21
+EXPECTED_CHECKS=75
+FAILURES_UNTRACKED=20
+FAILURES_STAGED=22
 
 # Built rather than written, so the comparison is against the same bytes the guard emits and this file
 # needs no particular encoding to survive.
@@ -185,6 +185,8 @@ plant() {
   printf 'A note about %s.\n' "$NEIGHBOUR_C"                > "$PROBE/neighbour3.md"
   printf '%s\nours\n%s\ntheirs\n%s\n' "$MARK_OURS" "$MARK_SPLIT" "$MARK_THEIRS" > "$PROBE/conflict.md" # 8
 
+  printf '\xC2\x80\xC2\x94\xC2\x9F\n'                    > "$PROBE/c1.txt"       # 10, both ends and a mojibake control
+
   # The three converted scans again, under a name git C-quotes. Each was blind to this until `-z`.
   printf 'not a real key\n'                                 > "$PROBE/$ACCENTED.pem"
   printf 'MZ not a real binary\n'                           > "$PROBE/$ACCENTED.exe"
@@ -229,6 +231,8 @@ assert_every_scan_reported() {
   seen "1a. ...and sees an accented filename"        "$FAILMARK private key file: $PROBE/$ACCENTED.pem"
   seen "2.  ...and sees an accented filename"        "$FAILMARK build artefact / backup in the tree: $PROBE/$ACCENTED.exe"
   seen "5.  ...and sees an accented filename"        "$FAILMARK dangling relative link: $PROBE/$ACCENTED.md->./no-such-file.md"
+
+  seen "10. C1 control characters FAIL"             "$FAILMARK C1 control character: $PROBE/c1.txt:1:"
 
   # The count is what catches a `note` lost to a subshell: the line is still printed, the increment is not.
   seen "the summary counts every failure"            "check-tree-hygiene: FAILED"

@@ -34,9 +34,8 @@ public class ConstStoreTests : BaseVBTestFixture
     [InlineData(Enum, "Erase eOne", ExpectedArray)]
     public async Task A_store_into_a_constant_is_refused_as_VB6_refuses_it(string declarations, string statement, string message)
     {
-        // Not here: `Module1.MK = 2`, measured as "Assignment to constant not permitted", because a module-qualified store
-        // raises 424 whatever it names (#1006); and LSet and Line Input into a Const, measured as "Variable required",
-        // which HexIDE does not implement.
+        // `Module1.MK = 2` is covered by ModuleQualifiedStoreTests (#1006). LSet and Line Input into a Const,
+        // measured as "Variable required", are not implemented.
         //
         // Under On Error Resume Next, as each probe was: a compile error is not trappable, so nothing steps over it.
         var act = async () => await Run($"{declarations}Main\nSub Main()\n    On Error Resume Next\n    {statement}\n    Debug.Print \"ran on\"\nEnd Sub\n");

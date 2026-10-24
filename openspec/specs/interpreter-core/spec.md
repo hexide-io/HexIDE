@@ -158,6 +158,10 @@ program that compiles and runs.
 - **WHEN** a project defines a procedure whose name matches a built-in function
 - **THEN** calls resolve to the project's procedure
 
+#### Scenario: A private sibling Sub named Reset
+- **WHEN** `Class_Initialize` makes a bare `Reset` call and its class defines a private Sub named `Reset`
+- **THEN** the interpreter SHALL call that Sub on the current instance
+
 ### Requirement: Runtime errors SHALL be trappable and SHALL carry VB6's error numbers
 Runtime failures SHALL be raised as trappable VB6 errors carrying the standard error number and description,
 and the engine SHALL support VB6's error-handling statements, including continuing at the next statement,
@@ -178,6 +182,11 @@ program that never fails.
 #### Scenario: An arithmetic failure
 - **WHEN** an arithmetic operation overflows or divides by zero
 - **THEN** it raises a trappable error with VB6's number for that condition
+
+#### Scenario: Diagnostic type names
+- **WHEN** an interpreter diagnostic formats a value's type
+- **THEN** it SHALL print the inner type name and array suffixes without an internal `Left` or `Right` wrapper
+- **AND** missing-member diagnostics SHALL omit the receiver type, retaining the member and, for assignment, variable name
 
 ### Requirement: Unimplemented language surface SHALL fail clearly
 Where the engine does not implement part of the language, it SHALL fail in a way that identifies what is
