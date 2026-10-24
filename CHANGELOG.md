@@ -249,6 +249,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Automation saves explain rewritten member Attribute qualifiers** (#1043). `set_file_content`,
+  `set_control_property` and `add_control` now name the old and new qualifiers in their successful reply,
+  explaining why a save can write text different from what the caller supplied.
+
 - **MCP paths survive growing editor text** (#1436). A collapsed layout wrapper no longer appears when its
   content begins to scroll, so the Immediate window's text-area path stays usable. Range capability keeps a
   node regardless of its current bounds. A refused path that skips a visible wrapper names it and gives the

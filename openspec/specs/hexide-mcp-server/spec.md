@@ -283,6 +283,15 @@ the matching write refuses breaks the most basic loop an automation client runs.
 - **THEN** the write succeeds and the form is unchanged, but for a member's attribute line naming another name than
   its member's, which the save writes with its member's name, as the form's own Save does
 
+### Requirement: Automation saves explain rewritten member qualifiers
+The successful replies from `set_file_content`, `set_control_property` and `add_control` SHALL report in their
+`note` any member Attribute qualifiers their save rewrote, naming the old and new names and explaining that
+VB6's own Save writes the member's name.
+
+#### Scenario: A save rewrites a stale qualifier
+- **WHEN** any of those tools saves a document with `Attribute Gone.VB_Description` under `Public Function Total()`
+- **THEN** its successful reply explains that the save wrote Total's Attribute lines with its name, where they said Gone
+
 ### Requirement: An IDE started for an agent session SHALL run tool calls from that session only
 When the IDE is started with the name of an agent session, the server SHALL run a tool call only when the client names
 that same session. It SHALL answer any other tool call, from a client naming another session or none, with an error

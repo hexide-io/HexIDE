@@ -313,14 +313,15 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // EventBus logs that and carries on, so the flush silently does nothing and the PREVIOUS text
             // is serialized -- a file with a fresh timestamp, stale contents, and a success returned to a
             // caller who cannot see the log. Awaiting the save here left this method on a pool thread.
+            var rewrites = new HexIDE.Projects.SaveRewriteReport();
             var (written, refused) = await SaveQuietlyAsync(() => form is not null
-                ? ctx.ProjectService.SaveForm(form, false, interactive: false)
-                : module is not null ? ctx.ProjectService.SaveModule(module, false, interactive: false) : Task.FromResult(false));
+                ? ctx.ProjectService.SaveForm(form, false, interactive: false, rewrites: rewrites)
+                : module is not null ? ctx.ProjectService.SaveModule(module, false, interactive: false, rewrites: rewrites) : Task.FromResult(false));
             if (refused is not null)
                 // Not "the new code was refused": the character can be anywhere in the file. The message quotes its line.
                 return Naming(new MutateResult(false, cancel.After($"The new code is in the IDE, but the file was not written. {refused.Message}")), target);
             return Naming(written
-                ? new MutateResult(true, null, cancel.After(await Dispatcher.UIThread.InvokeAsync(() => WrittenNote(target!))
+                ? new MutateResult(true, null, cancel.After(await Dispatcher.UIThread.InvokeAsync(() => WrittenNote(target!)) + rewrites.Note
                     + (restoredHeader
                         ? " Kept the form's Attribute header, which the content omitted. VB_Name is the form's "
                           + "identity; without this the write would have destroyed it. Call get_file_content "
@@ -709,14 +710,15 @@ internal sealed class HexIdeTools(IdeContext ctx)
         try
         {
             // Same UI-thread requirement as the other write tool, and for the same reason. (#334)
+            var rewrites = new HexIDE.Projects.SaveRewriteReport();
             var (written, refused) = await SaveQuietlyAsync(() => ownerModule is not null
-                ? ctx.ProjectService.SaveModule(ownerModule, false, interactive: false)
-                : ctx.ProjectService.SaveForm(form!, false, interactive: false));
+                ? ctx.ProjectService.SaveModule(ownerModule, false, interactive: false, rewrites: rewrites)
+                : ctx.ProjectService.SaveForm(form!, false, interactive: false, rewrites: rewrites));
             if (refused is not null)
                 return Naming(new MutateResult(false, cancel.After($"'{property}' is set in the IDE, but the file was not written. {refused.Message}")), target);
             // See the note on the other write tool: a refusal must not come back as success. (#147)
             return Naming(written
-                ? new MutateResult(true, null, cancel.After(stored))
+                ? new MutateResult(true, null, cancel.After(stored + rewrites.Note))
                 : new MutateResult(false, cancel.After("HexIDE cannot reproduce this file faithfully, so it was not "
                                         + "written and the copy on disk is unchanged.")), target);
         }
@@ -1343,10 +1345,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
         try
         {
             // Through the owning module for a UserControl or PropertyPage, as set_control_property does. (#539)
+            var rewrites = new HexIDE.Projects.SaveRewriteReport();
             var (written, refused) = await SaveQuietlyAsync(() =>
                 OwnerModuleOf(spawned.Form) is { } owner
-                    ? ctx.ProjectService.SaveModule(owner, false, interactive: false)
-                    : ctx.ProjectService.SaveForm(spawned.Form, false, interactive: false));
+                    ? ctx.ProjectService.SaveModule(owner, false, interactive: false, rewrites: rewrites)
+                    : ctx.ProjectService.SaveForm(spawned.Form, false, interactive: false, rewrites: rewrites));
             // The character is in text written earlier and never saved, since a new control brings none of its
             // own: the message quotes the line that holds it, which no read tool might otherwise show.
             if (refused is not null)
@@ -1362,7 +1365,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // saying otherwise would be its own wrong answer -- but the file on disk does not have it, and
             // a caller who is told "saved" will not find out until something else reads that file.
             return written
-                ? spawned with { Form = null, Note = cancel.After(spawned.Note) }
+                ? spawned with { Form = null, Note = cancel.After(spawned.Note + rewrites.Note) }
                 : spawned with
                 {
                     Success = false, Form = null, Note = null,
