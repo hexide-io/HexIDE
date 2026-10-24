@@ -276,6 +276,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Protocol inspector pending count appears as traffic arrives** (#401). The visible inspector polls a
+  cheap capture counter while keeping the grid still until Refresh; filters and ring eviction no longer
+  distort the count of new entries.
+
 - **Member call statements accept a parenthesised argument without a space** (#1064). `Form2.Show(0)` and
   `Text1.Move(100)` now run as their spaced forms do, and the language server accepts them too.
 
