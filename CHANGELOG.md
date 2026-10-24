@@ -255,6 +255,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **System default follows the OS display language** (#799). The UI culture is captured before the IDE
+  pins its threads to invariant, so German and French systems get their language and British English
+  systems get Colour Palette and Centre in Form instead of US English.
+
 - **Completion descriptions are readable through MCP, and double-click commits an item** (#1334).
   The dump reaches the description popup under the completion list; `double_click` uses the list's own
   insertion path. Snapshot composition now traverses the same description popup; its desktop rendering
